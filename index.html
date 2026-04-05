@@ -1216,12 +1216,29 @@ function demoSaveUsers(u) { localStorage.setItem(DEMO_USERS_KEY, JSON.stringify(
 function demoGetApps() { return JSON.parse(localStorage.getItem(DEMO_APPS_KEY)||'[]'); }
 function demoSaveApps(a) { localStorage.setItem(DEMO_APPS_KEY, JSON.stringify(a)); }
 function demoGetCampaigns() {
-  const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+  const mem = window._memCamps || [];
+  const custom = [...JSON.parse(localStorage.getItem('kemo_campaigns')||'[]'), ...mem];
   return [...DEMO_CAMPAIGNS, ...custom];
 }
-function demoSaveCampaign(c) {
-  const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-  custom.push(c); localStorage.setItem('kemo_campaigns', JSON.stringify(custom));
+function demoSaveCampaign(camp) {
+  try {
+    const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+    // save images separately to avoid quota exceeded
+    const imgs = {img1:camp.img1,img2:camp.img2,img3:camp.img3,img4:camp.img4,
+                  img5:camp.img5,img6:camp.img6,img7:camp.img7,img8:camp.img8};
+    const campLight = {...camp, img1:'',img2:'',img3:'',img4:'',img5:'',img6:'',img7:'',img8:''};
+    // image_url은 첫 번째 이미지 (용량 큰 경우 thumbnail로 대체)
+    try { localStorage.setItem('kemo_img_'+camp.id, JSON.stringify(imgs)); } catch(e) {
+      campLight.image_url = '';
+    }
+    custom.push(campLight);
+    localStorage.setItem('kemo_campaigns', JSON.stringify(custom));
+  } catch(e) {
+    // localStorage full, keep in memory
+    console.warn('localStorage full, keeping in memory only');
+    if (!window._memCamps) window._memCamps = [];
+    window._memCamps.push(camp);
+  }
 }
 
 async function handleSignup(e) {
@@ -1981,8 +1998,33 @@ async function loadAdminData() {
   }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">応募なし</td></tr>';
 }
 
+let adminCampTypeFilter = 'all';
+
+function switchAdminCampTab(type, btn) {
+  adminCampTypeFilter = type;
+  document.querySelectorAll('[id^="adminCampTab-"]').forEach(b=>{
+    b.style.color='var(--muted)'; b.style.borderBottomColor='transparent'; b.style.fontWeight='600';
+  });
+  btn.style.color='var(--pink)'; btn.style.borderBottomColor='var(--pink)'; btn.style.fontWeight='700';
+  const titleEl = $('adminCampTableTitle');
+  if (titleEl) titleEl.textContent = type==='all'?'キャンペーン一覧':type==='monitor'?'モニター一覧':'ギフティング一覧';
+  loadAdminCampaigns();
+}
+
 async function loadAdminCampaigns() {
-  let camps = DEMO_MODE ? demoGetCampaigns() : ((await db?.from('campaigns').select('*'))||{data:[]}).data || demoGetCampaigns();
+  let camps = demoGetCampaigns(); // always start with localStorage
+  if (!DEMO_MODE && db) {
+    try {
+      const {data} = await db?.from('campaigns').select('*') || {};
+      if (data && data.length > 0) {
+        const localIds = new Set(camps.map(c=>c.id));
+        camps = [...camps, ...data.filter(d=>!localIds.has(d.id))];
+      }
+    } catch(e) {}
+  }
+  // 탭 필터
+  if (adminCampTypeFilter === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
+  else if (adminCampTypeFilter === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
   camps = camps.slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
@@ -2341,6 +2383,7 @@ async function updateAppStatus(appId, status) {
 }
 
 async function addCampaign() {
+  try {
   const title = $('newCampTitle').value.trim();
   const brand = $('newCampBrand').value.trim();
   const product = $('newCampProduct').value.trim();
@@ -2393,11 +2436,15 @@ async function addCampaign() {
   toast('キャンペーンが登録されました 🎉','success');
   campImgData.length = 0;
   renderCampImgPreview();
-  // 전체 캠페인 목록 갱신 (관리자 + 인플루언서 홈 둘 다)
   allCampaigns = demoGetCampaigns();
   await loadCampaigns();
-  switchAdminPane('campaigns', document.querySelectorAll('.admin-si')[2]);
+  const campSi = document.querySelector('.admin-si[onclick*=\'campaigns\']');
+  switchAdminPane('campaigns', campSi);
   loadAdminCampaigns();
+  } catch(err) {
+    console.error('addCampaign error:', err);
+    toast('登録中にエラーが発生しました: ' + err.message, 'error');
+  }
 }
 
 
@@ -2707,14 +2754,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
         <!-- CAMPAIGNS PANE -->
         <div id="adminPane-campaigns" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
             <div style="font-size:16px;font-weight:700;color:var(--ink)">キャンペーン管理</div>
             <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 新規キャンペーン</button>
           </div>
+          <!-- 카테고리별 탭 -->
+          <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:14px">
+            <button id="adminCampTab-all" onclick="switchAdminCampTab('all',this)" style="padding:7px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">すべて</button>
+            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">モニター</button>
+            <button id="adminCampTab-gifting" onclick="switchAdminCampTab('gifting',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">ギフティング</button>
+          </div>
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">キャンペーン一覧</span><span style="font-size:11px;color:var(--muted)">↑↓ で表示順を変更できます</span></div>
+            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">キャンペーン一覧</span><span style="font-size:11px;color:var(--muted)">↑↓ で表示順変更 · クリックで状態変更</span></div>
             <table class="data-table">
-              <thead><tr><th>順序</th><th>キャンペーン名</th><th>ステータス</th><th>タイプ</th><th>ブランド</th><th>応募数 / 募集</th><th></th></tr></thead>
+              <thead><tr><th>順序</th><th>キャンペーン名</th><th>ステータス</th><th>タイプ</th><th>ブランド</th><th>応募 / 募集</th><th></th></tr></thead>
               <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
             </table>
           </div>
