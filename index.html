@@ -419,12 +419,6 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div><div class="section-title">開催中キャンペーン <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub">今すぐ応募できる体験団</div></div>
         <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0">すべて見る →</button>
       </div>
-      <!-- 모집 유형 탭 -->
-      <div class="filter-row" id="filterTypeRow" style="margin-bottom:8px">
-        <button class="chip on" id="typeChip-all" onclick="filterCampType('all',this)">すべて</button>
-        <button class="chip" id="typeChip-monitor" onclick="filterCampType('monitor',this)">モニター</button>
-        <button class="chip" id="typeChip-gifting" onclick="filterCampType('gifting',this)">ギフティング</button>
-      </div>
       <!-- 채널 필터 -->
       <div class="filter-row" id="filterRow" style="margin-bottom:14px">
         <button class="chip on" onclick="filterCamps('all',this)">すべて</button>
@@ -482,9 +476,37 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
   </div>
-  <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 24px)">
+  <div class="container" style="padding-top:16px;padding-bottom:0">
     <div class="camp-grid" id="campListGrid"></div>
   </div>
+  <!-- SNS 배너 -->
+  <section style="background:#fff;padding:20px 0 calc(var(--tab-h) + 20px);border-top:8px solid var(--bg)">
+    <div class="container">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igB" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igB)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px">@reverb_jp をフォロー →</div>
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@586mnjoc','_blank')">
+          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;overflow:hidden;padding:3px">
+            <img src="https://qr-official.line.me/sid/M/586mnjoc.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
+          </div>
+          <div style="flex:1">
+            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@586mnjoc」</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録は必須です ✓</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
 <!-- ══════════════════════════════════
@@ -947,7 +969,8 @@ let currentFilter = 'all';
 
 // ── Demo Data ──
 const DEMO_CAMPAIGNS = [
-  {id:'demo-1',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',
+  {id:'demo-1',
+   recruit_type:'monitor',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',
    image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',
    img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',
    product_price:3200,reward:0,slots:25,applied_count:18,deadline:'2026-05-30',post_days:7,
@@ -957,7 +980,8 @@ const DEMO_CAMPAIGNS = [
    appeal:'グリーンティ由来の保湿成分が肌深部まで浸透。',
    guide:'明るい自然光で撮影してください。商品のテクスチャーがわかるようにアップで撮影。',
    ng:'競合ブランド商品との比較投稿はNG。ネガティブ表現はNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-2',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',
+  {id:'demo-2',
+   recruit_type:'monitor',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',
    image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',
    img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',
    product_price:4500,reward:0,slots:20,applied_count:12,deadline:'2026-05-25',post_days:10,
@@ -967,7 +991,8 @@ const DEMO_CAMPAIGNS = [
    appeal:'白樺水配合で肌を優しく整えるトナー。乾燥肌・敏感肌の方に特におすすめ。',
    guide:'清潔感のある明るい背景で撮影。使用前後の肌の変化を表現してください。',
    ng:'他ブランドとの比較NG。フィルター過剰使用NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-3',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',
+  {id:'demo-3',
+   recruit_type:'monitor',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',
    image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',
    img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',
    product_price:3800,reward:1000,slots:15,applied_count:9,deadline:'2026-06-01',post_days:14,
@@ -977,7 +1002,8 @@ const DEMO_CAMPAIGNS = [
    appeal:'赤みをカバーしながら素肌感を演出。SPF50+PA+++で紫外線対策も。',
    guide:'使用前後のビフォーアフターが伝わる投稿。明るい自然光での撮影推奨。',
    ng:'過度なフィルター加工NG。競合製品との比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-4',title:'MEDIHEAL マスクパック体験団',brand:'MEDIHEAL · メディヒール',product:'TEAトゥリーケアマスクパック 10枚',type:'nano',channel:'instagram',category:'beauty',emoji:'🩺',
+  {id:'demo-4',
+   recruit_type:'gifting',title:'MEDIHEAL マスクパック体験団',brand:'MEDIHEAL · メディヒール',product:'TEAトゥリーケアマスクパック 10枚',type:'nano',channel:'instagram',category:'beauty',emoji:'🩺',
    image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',
    img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',
    product_price:2000,reward:0,slots:30,applied_count:22,deadline:'2026-05-20',post_days:7,
@@ -987,7 +1013,8 @@ const DEMO_CAMPAIGNS = [
    appeal:'ティーツリー成分が肌トラブルをケア。毛穴引き締め効果も。',
    guide:'着用中・着用後の自然な表情を撮影。朝・夜のスキンケアシーンに合わせてください。',
    ng:'加工しすぎた写真NG。マスク着用以外の用途での撮影NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-5',title:'PERIPERA リップ体験団',brand:'PERIPERA · ペリペラ',product:'インクムードグロウティント',type:'nano',channel:'instagram',category:'beauty',emoji:'💋',
+  {id:'demo-5',
+   recruit_type:'gifting',title:'PERIPERA リップ体験団',brand:'PERIPERA · ペリペラ',product:'インクムードグロウティント',type:'nano',channel:'instagram',category:'beauty',emoji:'💋',
    image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',
    img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',
    product_price:1500,reward:500,slots:20,applied_count:15,deadline:'2026-05-31',post_days:7,
@@ -997,7 +1024,8 @@ const DEMO_CAMPAIGNS = [
    appeal:'ウォータリーなテクスチャーで唇に密着。鮮やかな発色が長時間持続。',
    guide:'リップスウォッチや着用シーンを撮影。明るい照明で発色が伝わるように。',
    ng:'口元以外の過度なフィルターNG。競合リップとの比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-6',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',
+  {id:'demo-6',
+   recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',
    image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',
    img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',
    product_price:1200,reward:2000,slots:10,applied_count:7,deadline:'2026-06-15',post_days:10,
@@ -1250,9 +1278,9 @@ async function handleSignup(e) {
   // Also save to Supabase in background if connected
   if (!DEMO_MODE && db) {
     try {
-      const {data,error} = await db.auth.signUp({email,password:pw});
+      const {data,error} = await (db?.auth.signUp({email,password:pw}) || {data:null,error:true});
       if (!error && data.user?.id) {
-        await db.from('influencers').upsert({id:data.user.id,...userData});
+        await db?.from('influencers').upsert({id:data.user.id,...userData});
       }
     } catch(e) { /* Supabase failure OK, local save done */ }
   }
@@ -1289,25 +1317,48 @@ async function handleLogin(e) {
     currentUser={id:user.id,email}; currentUserProfile=user;
     toast('ログインしました 👋','success'); updateGnb(); navigate('home');
   } else {
-    const {data,error} = await db.auth.signInWithPassword({email,password:pw});
-    if (error) { errEl.textContent='メールアドレスまたはパスワードをご確認ください'; errEl.style.display='block'; btn.disabled=false; btn.textContent='ログイン'; return; }
-    currentUser = data.user;
-    if (currentUser.email === ADMIN_EMAIL) {
-      currentUserProfile = {name:'管理者',email:ADMIN_EMAIL};
-      toast('管理者としてログインしました','success'); updateGnb();
-      setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-    } else {
-      const {data:profile} = await db.from('influencers').select('*').eq('id',currentUser.id).single();
-      currentUserProfile = profile;
-      toast('ログインしました 👋','success'); updateGnb(); navigate('home');
+    // localStorage 먼저 확인 (항상 동작 보장)
+    const localUsers = demoGetUsers();
+    const localUser = localUsers.find(u=>u.email===email && u.pw===pw);
+    if (localUser) {
+      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:localUser.id,email}));
+      currentUser={id:localUser.id,email}; currentUserProfile=localUser;
+      if (email===ADMIN_EMAIL) {
+        toast('管理者としてログインしました','success'); updateGnb();
+        setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
+      } else {
+        toast('ログインしました 👋','success'); updateGnb(); navigate('home');
+      }
+      btn.disabled=false; btn.textContent='ログイン'; return;
     }
+    // Supabase 시도
+    if (db) {
+      try {
+        const {data,error} = await db.auth.signInWithPassword({email,password:pw});
+        if (!error && data.user) {
+          currentUser = data.user;
+          localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:data.user.id,email}));
+          if (email===ADMIN_EMAIL) {
+            currentUserProfile={name:'管理者',email:ADMIN_EMAIL};
+            toast('管理者としてログインしました','success'); updateGnb();
+            setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
+          } else {
+            const {data:profile} = await db?.from('influencers').select('*').eq('id',data.user.id).single();
+            currentUserProfile = profile;
+            toast('ログインしました 👋','success'); updateGnb(); navigate('home');
+          }
+          btn.disabled=false; btn.textContent='ログイン'; return;
+        }
+      } catch(e) {}
+    }
+    errEl.textContent='メールアドレスまたはパスワードをご確認ください'; errEl.style.display='block';
   }
   btn.disabled=false; btn.textContent='ログイン';
 }
 
 async function handleLogout() {
   if (DEMO_MODE) { localStorage.removeItem(DEMO_SESSION_KEY); }
-  else { await db.auth.signOut(); }
+  else if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
   toast('ログアウトしました'); updateGnb(); navigate('home');
 }
@@ -1324,7 +1375,7 @@ async function loadCampaigns() {
     const localCamps = demoGetCampaigns();
     if (db) {
       try {
-        const {data} = await db.from('campaigns').select('*').order('created_at',{ascending:false});
+        const {data} = await db?.from('campaigns').select('*').order('created_at',{ascending:false});
         // Supabase 데이터 + localStorage 전용 캠페인 병합 (중복 id 제거)
         const dbIds = new Set((data||[]).map(c=>c.id));
         const localOnly = localCamps.filter(c=>!dbIds.has(c.id));
@@ -1354,7 +1405,8 @@ function updateStats(camps) {
 // ── 캠페인 목록 페이지 ──
 let campPageTypeFilter = 'all';
 
-function loadCampaignsPage() {
+async function loadCampaignsPage() {
+  if (!allCampaigns || allCampaigns.length === 0) await loadCampaigns();
   campPageTypeFilter = 'all';
   // 탭 초기화
   ['all','monitor','gifting'].forEach(t => {
@@ -1383,7 +1435,7 @@ function setCampPageType(type, el) {
 function renderCampaignGrid() {
   const grid = $('campListGrid');
   if (!grid) return;
-  let camps = allCampaigns.filter(c => c.status !== 'closed');
+  let camps = allCampaigns.filter(c => c.status === 'active');
   // 모집 유형 필터
   if (campPageTypeFilter === 'monitor') camps = camps.filter(c => c.recruit_type === 'monitor');
   else if (campPageTypeFilter === 'gifting') camps = camps.filter(c => c.recruit_type === 'gifting');
@@ -1403,8 +1455,10 @@ function renderCampaignGrid() {
 let currentTypeFilter = 'all';
 function filterCampType(type, el) {
   currentTypeFilter = type;
-  document.querySelectorAll('#filterTypeRow .chip').forEach(c=>c.classList.remove('on'));
-  el.classList.add('on');
+  if (el) {
+    document.querySelectorAll('#filterTypeRow .chip').forEach(c=>c.classList.remove('on'));
+    el.classList.add('on');
+  }
   applyHomeFilter();
 }
 
@@ -1416,7 +1470,7 @@ function filterCamps(filter, el) {
 }
 
 function applyHomeFilter() {
-  let camps = allCampaigns.filter(c=>c.status!=='closed');
+  let camps = allCampaigns.filter(c=>c.status==='active');
   // 최신순
   camps = camps.sort((a,b) => {
     if (a.order_index != null && b.order_index != null) return a.order_index - b.order_index;
@@ -1439,18 +1493,16 @@ function buildCampCards(camps) {
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad}">
         ${c.image_url?`<img src="${c.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.style.display='none'">`:''}
         <div class="camp-img-overlay"></div>
-        <div class="camp-badges" style="z-index:3">
+        <div class="camp-badges" style="z-index:3;position:absolute;top:8px;left:8px;display:flex;gap:4px;flex-wrap:wrap">
           ${isNew&&!isFull?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
           ${isFull?'<span style="background:rgba(0,0,0,.5);color:rgba(255,255,255,.8);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">終了</span>':''}
-          ${typeLabel?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
-        <div class="camp-img-product" style="z-index:3">${c.content_types||getChannelLabel(c.channel)}</div>
         <div class="camp-ch-badge" style="z-index:3">${c.brand}</div>
       </div>
       <div class="camp-body">
         <div class="camp-brand">${c.brand}</div>
         <div class="camp-title">${c.title}</div>
-        <div class="camp-tags">${(c.hashtags||'').split(',').slice(0,2).map(t=>`<span class="camp-tag">${t.trim()}</span>`).join('')}</div>
+        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${t.trim()}</span>`).join('')}</div>` : ''}
       </div>
       <div class="camp-footer">
         <div class="camp-reward">🎁 ${reward}</div>
@@ -1465,7 +1517,7 @@ function buildCampCards(camps) {
 function renderCampaigns(camps) {
   const grid = $('campGrid');
   if (!grid) return;
-  const active = camps.filter(c=>c.status!=='closed')
+  const active = camps.filter(c=>c.status==='active')
     .sort((a,b)=>{
       if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
       return new Date(b.created_at)-new Date(a.created_at);
@@ -1504,7 +1556,7 @@ async function openCampaign(id) {
       const apps = demoGetApps();
       alreadyApplied = apps.some(a=>a.user_id===currentUser.id && a.campaign_id===id);
     } else {
-      const {data} = await db.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).single();
+      const {data} = await db?.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).single();
       alreadyApplied = !!data;
     }
   }
@@ -1586,7 +1638,7 @@ async function openCampaign(id) {
         </div>
       </div>
 
-      <div style="background:#fff;padding:16px;margin-bottom:80px">
+      <div style="background:#fff;padding:16px;">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">注意事項</div>
         <ul style="font-size:12px;color:var(--muted);line-height:1.8;padding-left:14px;display:flex;flex-direction:column;gap:2px">
           <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
@@ -1597,6 +1649,29 @@ async function openCampaign(id) {
           <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
           <li>ご不明点は <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">LINE(@586mnjoc)</a> まで。</li>
         </ul>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;padding:0 0 calc(var(--tab-h) + 70px)">
+        <div style="background:linear-gradient(135deg,#E8789A 0%,#C84B8C 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://instagram.com/reverb_jp','_blank')">
+          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><defs><radialGradient id="igC" cx="30%" cy="107%"><stop offset="0%" stop-color="#ffd676"/><stop offset="50%" stop-color="#f56040"/><stop offset="100%" stop-color="#833ab4"/></radialGradient></defs><rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igC)"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px">@reverb_jp をフォロー →</div>
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@586mnjoc','_blank')">
+          <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;overflow:hidden;padding:3px">
+            <img src="https://qr-official.line.me/sid/M/586mnjoc.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
+          </div>
+          <div style="flex:1">
+            <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@586mnjoc」</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録は必須です ✓</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="detail-sidebar" style="display:none"></div>`;
@@ -1670,19 +1745,25 @@ async function submitApplication() {
       toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
     }
     apps.push(app); demoSaveApps(apps);
-    // increment count
-    const camps = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-    const ci = camps.findIndex(c=>c.id===currentCampaignId);
-    if (ci>=0) { camps[ci].applied_count=(camps[ci].applied_count||0)+1; localStorage.setItem('kemo_campaigns',JSON.stringify(camps)); }
-    const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===currentCampaignId);
-    if (di>=0) DEMO_CAMPAIGNS[di].applied_count=(DEMO_CAMPAIGNS[di].applied_count||0)+1;
   } else {
-    const {error} = await db.from('applications').insert({
-      user_id:currentUser.id, campaign_id:currentCampaignId,
-      message:msg, address:addr, status:'pending'
-    });
-    if (error) { toast('応募中にエラーが発生しました','error'); return; }
+    // 중복 체크
+    const apps = demoGetApps();
+    if (apps.some(a=>a.user_id===currentUser.id && a.campaign_id===currentCampaignId)) {
+      toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
+    }
+    apps.push(app); demoSaveApps(apps);
+    if (db) {
+      try { await db?.from('applications').insert({user_id:currentUser.id,campaign_id:currentCampaignId,message:msg,address:addr,status:'pending'}); } catch(e){}
+    }
   }
+  // applied_count 항상 갱신 (localStorage + 메모리)
+  const camps = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+  const ci = camps.findIndex(c=>c.id===currentCampaignId);
+  if (ci>=0) { camps[ci].applied_count=(camps[ci].applied_count||0)+1; localStorage.setItem('kemo_campaigns',JSON.stringify(camps)); }
+  const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===currentCampaignId);
+  if (di>=0) DEMO_CAMPAIGNS[di].applied_count=(DEMO_CAMPAIGNS[di].applied_count||0)+1;
+  const ai = allCampaigns.findIndex(c=>c.id===currentCampaignId);
+  if (ai>=0) allCampaigns[ai].applied_count=(allCampaigns[ai].applied_count||0)+1;
 
   closeModal('applyModal');
   toast('応募完了！結果はメールでお知らせします ✉️','success');
@@ -1736,7 +1817,7 @@ async function loadMyApplications() {
   if (DEMO_MODE) {
     apps = demoGetApps().filter(a=>a.user_id===currentUser.id);
   } else {
-    const {data} = await db.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id',currentUser.id).order('created_at',{ascending:false});
+    const {data} = await db?.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id',currentUser.id).order('created_at',{ascending:false});
     apps = data||[];
   }
   const container = $('myApplicationsList');
@@ -1785,7 +1866,7 @@ async function saveProfile() {
     const idx = users.findIndex(u=>u.id===currentUser.id);
     if (idx>=0) { Object.assign(users[idx], updated); demoSaveUsers(users); currentUserProfile = users[idx]; }
   } else {
-    await db.from('influencers').update(updated).eq('id',currentUser.id);
+    await db?.from('influencers').update(updated).eq('id',currentUser.id);
   }
   toast('保存しました','success'); loadMyPage();
 }
@@ -1803,7 +1884,7 @@ async function saveBankInfo() {
     const idx = users.findIndex(u=>u.id===currentUser.id);
     if (idx>=0) { Object.assign(users[idx], bankData); demoSaveUsers(users); currentUserProfile = users[idx]; }
   } else {
-    await db.from('influencers').update(bankData).eq('id',currentUser.id);
+    await db?.from('influencers').update(bankData).eq('id',currentUser.id);
   }
   toast('口座情報を保存しました','success');
 }
@@ -1845,9 +1926,9 @@ function switchAdminPane(pane, el) {
 }
 
 async function loadAdminData() {
-  const camps = DEMO_MODE ? demoGetCampaigns() : ((await db.from('campaigns').select('*'))||{data:[]}).data;
-  const users = DEMO_MODE ? demoGetUsers() : ((await db.from('influencers').select('*'))||{data:[]}).data;
-  const apps = DEMO_MODE ? demoGetApps() : ((await db.from('applications').select('*'))||{data:[]}).data;
+  const camps = DEMO_MODE ? demoGetCampaigns() : ((await db?.from('campaigns').select('*'))||{data:[]}).data || demoGetCampaigns();
+  const users = DEMO_MODE ? demoGetUsers() : ((await db?.from('influencers').select('*'))||{data:[]}).data || demoGetUsers();
+  const apps = DEMO_MODE ? demoGetApps() : ((await db?.from('applications').select('*'))||{data:[]}).data || demoGetApps();
   const approved = apps.filter(a=>a.status==='approved');
   const pending = apps.filter(a=>a.status==='pending');
 
@@ -1855,6 +1936,8 @@ async function loadAdminData() {
   $('kpiInfluencers').textContent = users.length;
   $('kpiApplications').textContent = apps.length;
   $('kpiApproved').textContent = approved.length;
+  loadAdminCampaigns();
+  loadAdminInfluencers();
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `📋 応募管理${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
 
   // Recent apps
@@ -1875,41 +1958,62 @@ async function loadAdminData() {
 
 async function loadAdminCampaigns() {
   let camps = DEMO_MODE ? demoGetCampaigns() : ((await db?.from('campaigns').select('*'))||{data:[]}).data || demoGetCampaigns();
-  // order_index 기준 정렬
   camps = camps.slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
   });
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">モニター</span>':t==='gifting'?'<span class="badge badge-gold">ギフティング</span>':'<span class="badge badge-gray">—</span>';
+  const statusBadge = s => {
+    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">開催中</span>`;
+    if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">一時停止</span>`;
+    return `<span class="badge badge-gray" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">終了</span>`;
+  };
   $('adminCampsBody').innerHTML = camps.map((c,i)=>{
     const cnt = DEMO_MODE ? demoGetApps().filter(a=>a.campaign_id===c.id).length : (c.applied_count||0);
-    const pct = Math.round(cnt/c.slots*100);
+    const pct = c.slots > 0 ? Math.round(cnt/c.slots*100) : 0;
     const barColor = pct>=100?'var(--red)':pct>=60?'var(--gold)':'var(--green)';
-    return `<tr>
+    return `<tr data-camp-id="${c.id}">
       <td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
           <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
           <button class="btn btn-ghost btn-xs" ${i===camps.length-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>
-      <td><strong>${c.title}</strong></td>
+      <td style="max-width:200px"><strong>${c.title}</strong><div style="font-size:11px;color:var(--muted);margin-top:2px">${c.brand}</div></td>
+      <td>${statusBadge(c.status)}</td>
       <td>${typeLabel(c.recruit_type)}</td>
       <td style="color:var(--muted);font-size:12px">${c.brand}</td>
-      <td style="color:var(--muted)">${c.slots}名</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" onclick="openCampApplicants('${c.id}','${c.title.replace(/'/g,'')}')">
-            ${cnt}/${c.slots}名
+            ${cnt} / ${c.slots}名
           </button>
           <div style="width:48px;height:5px;background:var(--line);border-radius:3px;overflow:hidden">
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:3px"></div>
           </div>
         </div>
       </td>
-      <td>${c.status==='active'?'<span class="badge badge-green">開催中</span>':'<span class="badge badge-gray">終了</span>'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">詳細</button></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">キャンペーンなし</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">キャンペーンなし</td></tr>';
+}
+
+// 상태 순환: 開催中 → 一時停止 → 終了 → 開催中
+function cycleCampStatus(el, currentStatus) {
+  const tr = el.closest('tr');
+  const campId = tr?.dataset.campId;
+  if (!campId) return;
+  const cycle = {active:'paused', paused:'closed', closed:'active'};
+  const next = cycle[currentStatus] || 'active';
+  // localStorage 업데이트
+  const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+  const ci = custom.findIndex(c=>c.id===campId);
+  if (ci>=0) { custom[ci].status = next; localStorage.setItem('kemo_campaigns',JSON.stringify(custom)); }
+  const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===campId);
+  if (di>=0) DEMO_CAMPAIGNS[di].status = next;
+  allCampaigns = demoGetCampaigns();
+  loadAdminCampaigns();
+  renderCampaigns(allCampaigns);
 }
 
 function moveCampOrder(campId, dir) {
@@ -1953,7 +2057,7 @@ async function openCampApplicants(campId, campTitle) {
 
 async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
-  let apps = DEMO_MODE ? demoGetApps() : ((await db.from('applications').select('*'))||{data:[]}).data;
+  let apps = DEMO_MODE ? demoGetApps() : ((await db?.from('applications').select('*'))||{data:[]}).data;
   apps = apps.filter(a=>a.campaign_id===currentCampApplicantId);
   if (filter) apps = apps.filter(a=>a.status===filter);
   apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
@@ -1992,52 +2096,209 @@ async function loadCampApplicants() {
   </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">まだ応募がありません</td></tr>';
 }
 
+// ── 인플루언서 목록 (채널탭) ──
+let currentInfTab = 'all';
+
 async function loadAdminInfluencers() {
-  const users = DEMO_MODE ? demoGetUsers() : ((await db.from('influencers').select('*'))||{data:[]}).data;
-  $('adminInfluencersBody').innerHTML = users.length ? users.map(u=>{
-    const igId = u.ig||u.ig_url||'';
-    const igLink = igId ? `<a href="https://instagram.com/${igId.replace('@','')}" target="_blank" style="color:var(--pink);font-weight:600">@${igId.replace('@','')}</a>` : '—';
-    const igF = (u.ig_followers||u.followers||0).toLocaleString();
-    const xF = u.x_followers ? `+${u.x_followers.toLocaleString()}` : '';
-    const tiktokF = u.tiktok_followers ? `+${u.tiktok_followers.toLocaleString()}` : '';
-    const totalF = (u.ig_followers||u.followers||0) + (u.x_followers||0) + (u.tiktok_followers||0) + (u.youtube_followers||0);
-    const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-    const hasBankInfo = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">登録済</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">未登録</span>`;
-    return `<tr>
-      <td>
-        <div style="font-weight:600">${u.name_kanji||u.name||'—'}</div>
-        <div style="font-size:11px;color:var(--muted)">${u.name_kana||''} · ${u.email}</div>
-      </td>
-      <td>${igLink}<div style="font-size:11px;color:var(--muted);margin-top:2px">IG: ${igF}${xF?' / X: '+u.x_followers?.toLocaleString():''}${tiktokF?' / TT: '+u.tiktok_followers?.toLocaleString():''}</div></td>
-      <td style="font-weight:700">${totalF.toLocaleString()}</td>
-      <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
-      <td style="font-size:12px;color:var(--muted)">${addr}</td>
-      <td>${hasBankInfo}</td>
-      <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">インフルエンサーなし</td></tr>';
+  const users = DEMO_MODE ? demoGetUsers() : ((await db?.from('influencers').select('*'))||{data:[]}).data || [];
+  // 탭 카운트 업데이트
+  const cnt = ch => users.filter(u => ch==='instagram'?u.ig_followers>0:ch==='x'?u.x_followers>0:ch==='tiktok'?u.tiktok_followers>0:u.youtube_followers>0).length;
+  ['instagram','x','tiktok','youtube'].forEach(ch => {
+    const el = $('infCnt-'+ch);
+    if (el) el.textContent = cnt(ch);
+  });
+  const totalEl = $('infTotalCount');
+  if (totalEl) totalEl.textContent = `${users.length}名登録`;
+  renderInfTable(users, currentInfTab);
 }
 
+function switchInfTab(ch, btn) {
+  currentInfTab = ch;
+  document.querySelectorAll('[id^="infTab-"]').forEach(b => {
+    b.style.color = 'var(--muted)';
+    b.style.borderBottomColor = 'transparent';
+    b.style.fontWeight = '600';
+  });
+  btn.style.color = 'var(--pink)';
+  btn.style.borderBottomColor = 'var(--pink)';
+  btn.style.fontWeight = '700';
+  const users = DEMO_MODE ? demoGetUsers() : [];
+  renderInfTable(users, ch);
+}
+
+function renderInfTable(users, ch) {
+  const titleEl = $('infTableTitle');
+  const headEl = $('infTableHead');
+  const bodyEl = $('adminInfluencersBody');
+  if (!bodyEl) return;
+
+  let filtered = users;
+  let colCount = 10;
+
+  if (ch === 'all') {
+    if (titleEl) titleEl.textContent = 'インフルエンサー全体';
+    if (headEl) headEl.innerHTML = '<tr><th>氏名</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>合計</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>';
+    colCount = 10;
+    bodyEl.innerHTML = filtered.length ? filtered.map(u => {
+      const igF = (u.ig_followers||0).toLocaleString();
+      const xF = (u.x_followers||0).toLocaleString();
+      const ttF = (u.tiktok_followers||0).toLocaleString();
+      const ytF = (u.youtube_followers||0).toLocaleString();
+      const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
+      const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
+      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">登録済</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">未登録</span>`;
+      return `<tr>
+        <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
+        <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}名</div></td>
+        <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}名</div></td>
+        <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}名</div></td>
+        <td>${u.youtube?`@${u.youtube.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}名</div></td>
+        <td style="font-weight:700;color:var(--pink)">${total}</td>
+        <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${addr}</td>
+        <td>${bank}</td>
+        <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr>`;
+  } else {
+    const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
+    const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
+    const idKey = {instagram:'ig',x:'x',tiktok:'tiktok',youtube:'youtube'}[ch];
+    if (titleEl) titleEl.textContent = `${chLabel} 登録者`;
+    filtered = users.filter(u => u[fKey] > 0);
+    if (headEl) headEl.innerHTML = `<tr><th>氏名</th><th>${chLabel} ID</th><th>フォロワー</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>`;
+    colCount = 7;
+    bodyEl.innerHTML = filtered.length ? filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0)).map(u => {
+      const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
+      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">登録済</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">未登録</span>`;
+      return `<tr>
+        <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
+        <td>${u[idKey]?`@${u[idKey].replace('@','')}`:'—'}</td>
+        <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}名</td>
+        <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${addr}</td>
+        <td>${bank}</td>
+        <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr>`;
+  }
+}
+
+// ── 응모 관리 (캠페인별) ──
+let currentAppTypeTab = 'all';
+let currentAppCampId = null;
+
 async function loadApplications() {
-  const filter = $('appFilterStatus')?.value || '';
-  let apps = DEMO_MODE ? demoGetApps() : ((await db.from('applications').select('*'))||{data:[]}).data;
+  currentAppCampId = null;
+  const listEl = $('appCampList');
+  const detailEl = $('appCampDetail');
+  if (listEl) listEl.style.display = '';
+  if (detailEl) detailEl.style.display = 'none';
+  renderAppCampList();
+}
+
+function switchAppTypeTab(type, btn) {
+  currentAppTypeTab = type;
+  document.querySelectorAll('[id^="appTypeTab-"]').forEach(b => {
+    b.style.color = 'var(--muted)';
+    b.style.borderBottomColor = 'transparent';
+    b.style.fontWeight = '600';
+  });
+  btn.style.color = 'var(--pink)';
+  btn.style.borderBottomColor = 'var(--pink)';
+  btn.style.fontWeight = '700';
+  renderAppCampList();
+}
+
+function renderAppCampList() {
+  const listEl = $('appCampList');
+  if (!listEl) return;
+  let camps = demoGetCampaigns();
+  if (currentAppTypeTab === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
+  else if (currentAppTypeTab === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
+  const apps = demoGetApps();
+  if (!camps.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">キャンペーンなし</div>'; return; }
+  listEl.innerHTML = camps.map(camp => {
+    const campApps = apps.filter(a=>a.campaign_id===camp.id);
+    const pending = campApps.filter(a=>a.status==='pending').length;
+    const approved = campApps.filter(a=>a.status==='approved').length;
+    const rejected = campApps.filter(a=>a.status==='rejected').length;
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">モニター</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">ギフティング</span>':'';
+    return `<div class="admin-card" style="margin-bottom:12px;cursor:pointer;transition:.15s" onclick="openAppCampDetail('${camp.id}')" onmouseenter="this.style.borderColor='var(--pink)'" onmouseleave="this.style.borderColor='var(--line)'">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            ${typeLabel}
+            <span style="font-size:15px;font-weight:700;color:var(--ink)">${camp.title}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">${camp.brand} · 締切 ${formatDate(camp.deadline)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--ink)">${campApps.length}</div>
+            <div style="font-size:10px;color:var(--muted)">総応募</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--gold)">${pending}</div>
+            <div style="font-size:10px;color:var(--muted)">審査中</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--green)">${approved}</div>
+            <div style="font-size:10px;color:var(--muted)">承認</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:18px;font-weight:800;color:var(--muted)">${rejected}</div>
+            <div style="font-size:10px;color:var(--muted)">非承認</div>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--ink)">${camp.applied_count||campApps.length} / ${camp.slots}名 →</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAppCampDetail(campId) {
+  currentAppCampId = campId;
+  const camp = demoGetCampaigns().find(c=>c.id===campId);
+  if (!camp) return;
+  $('appCampList').style.display = 'none';
+  $('appCampDetail').style.display = '';
+  $('appDetailCampName').textContent = camp.title;
+  if ($('appDetailFilter')) $('appDetailFilter').value = '';
+  renderAppDetail();
+}
+
+function renderAppDetail() {
+  const bodyEl = $('appDetailBody');
+  const statsEl = $('appDetailStats');
+  if (!bodyEl||!currentAppCampId) return;
+  let apps = demoGetApps().filter(a=>a.campaign_id===currentAppCampId);
+  const filter = $('appDetailFilter')?.value||'';
+  const users = DEMO_MODE ? demoGetUsers() : [];
+  if (statsEl) statsEl.textContent = `総 ${apps.length}名 / 承認 ${apps.filter(a=>a.status==='approved').length}名`;
   if (filter) apps = apps.filter(a=>a.status===filter);
   apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const camps = DEMO_MODE ? demoGetCampaigns() : allCampaigns;
-  $('adminAppsBody').innerHTML = apps.length ? apps.map(a=>{
-    const camp = camps.find(c=>c.id===a.campaign_id)||{};
+  bodyEl.innerHTML = apps.length ? apps.map(a => {
+    const u = users.find(u=>u.email===a.user_email)||{};
+    const igF = (u.ig_followers||a.user_followers||0).toLocaleString();
+    const xF = u.x_followers ? `X: ${u.x_followers.toLocaleString()}` : '';
+    const ttF = u.tiktok_followers ? `TT: ${u.tiktok_followers.toLocaleString()}` : '';
+    const ytF = u.youtube_followers ? `YT: ${u.youtube_followers.toLocaleString()}` : '';
+    const others = [xF,ttF,ytF].filter(Boolean).join(' / ');
+    const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)||a.user_followers||0).toLocaleString();
     return `<tr>
-      <td><strong>${a.user_name||'—'}</strong><br><small style="color:var(--muted)">${a.user_email||''}</small></td>
-      <td>${camp.emoji||'📦'} ${camp.title||a.campaign_id}</td>
-      <td>${(a.user_followers||0).toLocaleString()}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.message||'—'}</td>
-      <td>${formatDate(a.created_at)}</td>
+      <td><strong>${a.user_name||'—'}</strong><div style="font-size:11px;color:var(--muted)">${a.user_email||''} · ${u.line_id?`LINE: ${u.line_id}`:''}</div></td>
+      <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">IG: ${igF}名</div></td>
+      <td style="font-size:11px;color:var(--muted)">${others||'—'}</td>
+      <td style="font-weight:700;color:var(--pink)">${total}名</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${a.message||'—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
       <td><div style="display:flex;gap:5px">
         ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">承認</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">非承認</button>`:'—'}
       </div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">応募なし</td></tr>';
+  }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">応募なし</td></tr>';
 }
 
 async function updateAppStatus(appId, status) {
@@ -2046,10 +2307,12 @@ async function updateAppStatus(appId, status) {
     const idx = apps.findIndex(a=>a.id===appId);
     if (idx>=0) { apps[idx].status=status; demoSaveApps(apps); }
   } else {
-    await db.from('applications').update({status}).eq('id',appId);
+    await db?.from('applications').update({status}).eq('id',appId);
   }
   toast(status==='approved'?'✓ 承認しました':'非承認にしました', status==='approved'?'success':'');
-  loadAdminData(); loadApplications();
+  if (currentAppCampId) renderAppDetail();
+  else loadApplications();
+  loadAdminData();
 }
 
 async function addCampaign() {
@@ -2099,7 +2362,7 @@ async function addCampaign() {
   demoSaveCampaign(camp);
   // Supabase 연결 시 백그라운드 저장 시도
   if (!DEMO_MODE && db) {
-    try { await db.from('campaigns').insert(camp); } catch(e) { /* localStorage save done */ }
+    try { await db?.from('campaigns').insert(camp); } catch(e) { /* localStorage save done */ }
   }
 
   toast('キャンペーンが登録されました 🎉','success');
@@ -2295,6 +2558,8 @@ function goStep(step) {
   });
   // Scroll to top of form
   var _shell = $('appShell'); if(_shell) _shell.scrollTo({top:0,behavior:'smooth'}); else window.scrollTo(0,0);
+
+  var _sh=$('appShell');if(_sh)_sh.scrollTop=0;else window.scrollTo(0,0);
 }
 
 // ══════════════════════════════════════
@@ -2319,10 +2584,10 @@ async function init() {
       }
     }
   } else {
-    const {data:{session}} = await db.auth.getSession();
+    const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
     if (session) {
       currentUser = session.user;
-      const {data:profile} = await db.from('influencers').select('*').eq('id',currentUser.id).single();
+      const {data:profile} = await db?.from('influencers').select('*').eq('id',currentUser.id).single();
       currentUserProfile = profile;
     }
   }
@@ -2341,6 +2606,8 @@ document.addEventListener('DOMContentLoaded', function() {
   renderCampaigns(active);
   updateStats(allCampaigns);
   init();
+  // scroll to top
+  var _sh=$('appShell');if(_sh)_sh.scrollTop=0;else window.scrollTo(0,0);
 });
 </script>
 </div><!-- /appShell -->
@@ -2405,8 +2672,8 @@ document.addEventListener('DOMContentLoaded', function() {
           <div class="admin-card">
             <div class="admin-card-header"><span class="admin-card-title">キャンペーン一覧</span><span style="font-size:11px;color:var(--muted)">↑↓ で表示順を変更できます</span></div>
             <table class="data-table">
-              <thead><tr><th>順序</th><th>キャンペーン名</th><th>タイプ</th><th>ブランド</th><th>募集</th><th>応募数</th><th>ステータス</th><th></th></tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+              <thead><tr><th>順序</th><th>キャンペーン名</th><th>ステータス</th><th>タイプ</th><th>ブランド</th><th>応募数 / 募集</th><th></th></tr></thead>
+              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2430,7 +2697,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <!-- 2행: 제품명 / 상품URL / 모집인원 -->
-            <div class="form-row" style="grid-template-columns:1fr 1fr 140px">
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">製品名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
                 <input type="text" id="newCampProduct" class="form-input" placeholder="グリーンティーセラム 80ml">
@@ -2439,22 +2706,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 <label class="form-label">商品ページURL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
                 <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
               </div>
+            </div>
+
+            <!-- 모집 유형 + 모집인원 좌우 2열 -->
+            <div class="form-row" style="grid-template-columns:1fr 160px;align-items:start">
+              <div class="form-group">
+                <label class="form-label">募集タイプ <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <div style="display:flex;gap:10px;margin-top:6px">
+                  <label style="display:flex;align-items:center;gap:8px;padding:10px 20px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s" id="rt-monitor">
+                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> モニター
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;padding:10px 20px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s" id="rt-gifting">
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"> ギフティング
+                  </label>
+                </div>
+              </div>
               <div class="form-group">
                 <label class="form-label">募集人数 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
                 <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1">
-              </div>
-            </div>
-
-            <!-- 모집 유형 (모집인원 다음) -->
-            <div class="form-group">
-              <label class="form-label">募集タイプ <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
-              <div style="display:flex;gap:10px;margin-top:6px">
-                <label style="display:flex;align-items:center;gap:8px;padding:10px 20px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s" id="rt-monitor">
-                  <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> モニター
-                </label>
-                <label style="display:flex;align-items:center;gap:8px;padding:10px 20px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s" id="rt-gifting">
-                  <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"> ギフティング
-                </label>
               </div>
             </div>
 
@@ -2537,9 +2806,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   <input type="file" accept="image/*" multiple style="display:none" onchange="handleCampImgSelect(this)">
                 </label>
               </div>
-              <div class="form-hint">JPG / PNG / WebP · 1枚あたり最大5MB · 1枚目がキャンペーンカードのメイン画像になります</div>
+              <div class="form-hint" style="margin-top:6px">
+                JPG / PNG / WebP · 1枚あたり最大5MB<br>
+                <span style="color:var(--pink);font-weight:600">※ 画像は必ず <strong>1:1 の正方形サイズ</strong>（例: 1080×1080px）でアップロードしてください。</span><br>
+                1枚目がキャンペーンカード・詳細ページのメイン画像になります。
+              </div>
             </div>
-
 
             <div class="form-group"><label class="form-label">キャンペーン説明</label><textarea id="newCampDesc" class="form-input" placeholder="インフルエンサーに見せるキャンペーン紹介を入力してください"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -2557,6 +2829,20 @@ document.addEventListener('DOMContentLoaded', function() {
 ・商品を直接使用しないで発色投稿だけすることはNG</textarea></div>
             </div>
 
+            <!-- 고정 注意事項 -->
+            <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
+              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">注意事項 <span style="font-size:11px;font-weight:400;color:var(--muted)">(登録後、インフルエンサーに表示されます)</span></div>
+              <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
+                <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
+                <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
+                <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
+                <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
+                <li>投稿は6ヶ月以上の掲載が必須です。</li>
+                <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
+                <li>ご不明点は <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">LINE(@586mnjoc)</a> まで。</li>
+              </ul>
+            </div>
+
             <div style="display:flex;gap:10px;margin-top:16px">
               <button class="btn btn-primary" onclick="addCampaign()">キャンペーン登録</button>
               <button class="btn btn-ghost" onclick="switchAdminPane('campaigns',document.querySelector('.admin-si:nth-child(3)'))">キャンセル</button>
@@ -2566,11 +2852,24 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- INFLUENCERS PANE -->
         <div id="adminPane-influencers" class="admin-pane">
           <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">インフルエンサー一覧</div>
+          <!-- 채널별 탭 -->
+          <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
+            <button id="infTab-all" onclick="switchInfTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">全体</button>
+            <button id="infTab-instagram" onclick="switchInfTab('instagram',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">Instagram <span id="infCnt-instagram" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+            <button id="infTab-x" onclick="switchInfTab('x',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">X(Twitter) <span id="infCnt-x" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+            <button id="infTab-tiktok" onclick="switchInfTab('tiktok',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">TikTok <span id="infCnt-tiktok" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+            <button id="infTab-youtube" onclick="switchInfTab('youtube',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">YouTube <span id="infCnt-youtube" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+          </div>
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">インフルエンサー一覧</span></div>
-            <table class="data-table">
-              <thead><tr><th>氏名</th><th>Instagram</th><th>フォロワー</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr></thead>
-              <tbody id="adminInfluencersBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+            <div class="admin-card-header">
+              <span class="admin-card-title" id="infTableTitle">インフルエンサー一覧</span>
+              <span id="infTotalCount" style="font-size:12px;color:var(--muted)">0名登録</span>
+            </div>
+            <table class="data-table" id="infTable">
+              <thead id="infTableHead">
+                <tr><th>氏名</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>合計</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>
+              </thead>
+              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2606,22 +2905,38 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- APPLICATIONS PANE -->
         <div id="adminPane-applications" class="admin-pane">
           <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">応募管理</div>
-          <div class="admin-card">
-            <div class="admin-card-header">
-              <span class="admin-card-title">応募管理</span>
-              <div style="display:flex;gap:6px">
-                <select id="appFilterStatus" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px" onchange="loadApplications()">
-                  <option value="">すべて</option>
-                  <option value="pending">審査中</option>
-                  <option value="approved">承認</option>
-                  <option value="rejected">非承認</option>
-                </select>
-              </div>
+          <!-- 모니터/기프팅 탭 -->
+          <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
+            <button id="appTypeTab-all" onclick="switchAppTypeTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">全体</button>
+            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">モニター</button>
+            <button id="appTypeTab-gifting" onclick="switchAppTypeTab('gifting',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">ギフティング</button>
+          </div>
+          <!-- 캠페인별 카드 리스트 -->
+          <div id="appCampList"></div>
+          <!-- 캠페인별 응모자 상세 (클릭 시 표시) -->
+          <div id="appCampDetail" style="display:none">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <button class="btn btn-ghost btn-sm" onclick="$('appCampList').style.display='';$('appCampDetail').style.display='none'">← 応募管理へ</button>
+              <div id="appDetailCampName" style="font-size:15px;font-weight:700"></div>
             </div>
-            <table class="data-table">
-              <thead><tr><th>インフルエンサー</th><th>キャンペーン</th><th>フォロワー</th><th>応募メッセージ</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
-              <tbody id="adminAppsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
-            </table>
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">応募者リスト</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <span id="appDetailStats" style="font-size:12px;color:var(--muted)"></span>
+                  <select id="appDetailFilter" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderAppDetail()">
+                    <option value="">すべて</option>
+                    <option value="pending">審査中</option>
+                    <option value="approved">承認</option>
+                    <option value="rejected">非承認</option>
+                  </select>
+                </div>
+              </div>
+              <table class="data-table">
+                <thead><tr><th>インフルエンサー</th><th>Instagram</th><th>X / TikTok / YouTube</th><th>合計フォロワー</th><th>応募理由</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
+                <tbody id="appDetailBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
