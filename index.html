@@ -699,8 +699,8 @@ const ADMIN_EMAIL = 'admin@kemo.jp'; // 관리자 이메일 (직접 변경)
 // Demo mode: Supabase 미연결 시 로컬 데이터로 동작
 const DEMO_MODE = false;
 
-let supabase = null;
-try { if (!DEMO_MODE && window.supabase) supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) { console.warn('Supabase unavailable'); }
+let db = null;
+try { if (!DEMO_MODE && window.supabase) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) { console.warn('Supabase unavailable'); }
 
 // ══════════════════════════════════════
 // STATE
@@ -839,9 +839,9 @@ async function handleSignup(e) {
     toast('등록 완료! 환영합니다 🎉','success');
     updateGnb(); navigate('home');
   } else {
-    const {data,error} = await supabase.auth.signUp({email,password:pw});
+    const {data,error} = await db.auth.signUp({email,password:pw});
     if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='등록 완료'; return; }
-    await supabase.from('influencers').insert({id:data.user.id,email,name,ig_url:ig,x_url:xUrl,followers,category,address,bio});
+    await db.from('influencers').insert({id:data.user.id,email,name,ig_url:ig,x_url:xUrl,followers,category,address,bio});
     toast('이메일 확인 후 로그인해주세요','success');
     navigate('login');
   }
@@ -873,10 +873,10 @@ async function handleLogin(e) {
     currentUser={id:user.id,email}; currentUserProfile=user;
     toast('로그인되었습니다 👋','success'); updateGnb(); navigate('home');
   } else {
-    const {data,error} = await supabase.auth.signInWithPassword({email,password:pw});
+    const {data,error} = await db.auth.signInWithPassword({email,password:pw});
     if (error) { errEl.textContent='이메일 또는 비밀번호를 확인하세요'; errEl.style.display='block'; btn.disabled=false; btn.textContent='로그인'; return; }
     currentUser = data.user;
-    const {data:profile} = await supabase.from('influencers').select('*').eq('id',currentUser.id).single();
+    const {data:profile} = await db.from('influencers').select('*').eq('id',currentUser.id).single();
     currentUserProfile = profile;
     toast('로그인되었습니다 👋','success'); updateGnb();
     navigate(currentUser.email===ADMIN_EMAIL ? 'admin' : 'home');
@@ -886,7 +886,7 @@ async function handleLogin(e) {
 
 async function handleLogout() {
   if (DEMO_MODE) { localStorage.removeItem(DEMO_SESSION_KEY); }
-  else { await supabase.auth.signOut(); }
+  else { await db.auth.signOut(); }
   currentUser=null; currentUserProfile=null;
   toast('로그아웃되었습니다'); updateGnb(); navigate('home');
 }
@@ -899,7 +899,7 @@ async function loadCampaigns() {
   if (DEMO_MODE) {
     camps = demoGetCampaigns();
   } else {
-    const {data} = await supabase.from('campaigns').select('*').order('created_at',{ascending:false});
+    const {data} = await db.from('campaigns').select('*').order('created_at',{ascending:false});
     camps = data||[];
   }
   allCampaigns = camps;
@@ -980,7 +980,7 @@ async function openCampaign(id) {
       const apps = demoGetApps();
       alreadyApplied = apps.some(a=>a.user_id===currentUser.id && a.campaign_id===id);
     } else {
-      const {data} = await supabase.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).single();
+      const {data} = await db.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).single();
       alreadyApplied = !!data;
     }
   }
@@ -1110,7 +1110,7 @@ async function submitApplication() {
     const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===currentCampaignId);
     if (di>=0) DEMO_CAMPAIGNS[di].applied_count=(DEMO_CAMPAIGNS[di].applied_count||0)+1;
   } else {
-    const {error} = await supabase.from('applications').insert({
+    const {error} = await db.from('applications').insert({
       user_id:currentUser.id, campaign_id:currentCampaignId,
       message:msg, address:addr, status:'pending'
     });
@@ -1149,7 +1149,7 @@ async function loadMyApplications() {
   if (DEMO_MODE) {
     apps = demoGetApps().filter(a=>a.user_id===currentUser.id);
   } else {
-    const {data} = await supabase.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id',currentUser.id).order('created_at',{ascending:false});
+    const {data} = await db.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id',currentUser.id).order('created_at',{ascending:false});
     apps = data||[];
   }
   const container = $('myApplicationsList');
@@ -1186,7 +1186,7 @@ async function saveProfile() {
     }
     toast('저장되었습니다','success'); loadMyPage(); return;
   }
-  await supabase.from('influencers').update({
+  await db.from('influencers').update({
     name:$('profileName').value, ig_url:$('profileIg').value,
     x_url:$('profileX').value, followers:parseInt($('profileFollowers').value)||0,
     address:$('profileAddress').value, bio:$('profileBio').value
@@ -1216,9 +1216,9 @@ function switchAdminPane(pane, el) {
 }
 
 async function loadAdminData() {
-  const camps = DEMO_MODE ? demoGetCampaigns() : ((await supabase.from('campaigns').select('*'))||{data:[]}).data;
-  const users = DEMO_MODE ? demoGetUsers() : ((await supabase.from('influencers').select('*'))||{data:[]}).data;
-  const apps = DEMO_MODE ? demoGetApps() : ((await supabase.from('applications').select('*'))||{data:[]}).data;
+  const camps = DEMO_MODE ? demoGetCampaigns() : ((await db.from('campaigns').select('*'))||{data:[]}).data;
+  const users = DEMO_MODE ? demoGetUsers() : ((await db.from('influencers').select('*'))||{data:[]}).data;
+  const apps = DEMO_MODE ? demoGetApps() : ((await db.from('applications').select('*'))||{data:[]}).data;
   const approved = apps.filter(a=>a.status==='approved');
   const pending = apps.filter(a=>a.status==='pending');
 
@@ -1245,7 +1245,7 @@ async function loadAdminData() {
 }
 
 async function loadAdminCampaigns() {
-  const camps = DEMO_MODE ? demoGetCampaigns() : ((await supabase.from('campaigns').select('*'))||{data:[]}).data;
+  const camps = DEMO_MODE ? demoGetCampaigns() : ((await db.from('campaigns').select('*'))||{data:[]}).data;
   const apps = DEMO_MODE ? demoGetApps() : [];
   $('adminCampsBody').innerHTML = camps.map(c=>{
     const cnt = DEMO_MODE ? demoGetApps().filter(a=>a.campaign_id===c.id).length : (c.applied_count||0);
@@ -1262,7 +1262,7 @@ async function loadAdminCampaigns() {
 }
 
 async function loadAdminInfluencers() {
-  const users = DEMO_MODE ? demoGetUsers() : ((await supabase.from('influencers').select('*'))||{data:[]}).data;
+  const users = DEMO_MODE ? demoGetUsers() : ((await db.from('influencers').select('*'))||{data:[]}).data;
   $('adminInfluencersBody').innerHTML = users.length ? users.map(u=>`<tr>
     <td><strong>${u.name||'—'}</strong><br><small style="color:var(--muted)">${u.email}</small></td>
     <td>${u.ig_url||u.ig?`<a href="${u.ig_url||u.ig}" target="_blank" style="color:var(--blue)">보기</a>`:'—'}</td>
@@ -1275,7 +1275,7 @@ async function loadAdminInfluencers() {
 
 async function loadApplications() {
   const filter = $('appFilterStatus')?.value || '';
-  let apps = DEMO_MODE ? demoGetApps() : ((await supabase.from('applications').select('*'))||{data:[]}).data;
+  let apps = DEMO_MODE ? demoGetApps() : ((await db.from('applications').select('*'))||{data:[]}).data;
   if (filter) apps = apps.filter(a=>a.status===filter);
   apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const camps = DEMO_MODE ? demoGetCampaigns() : allCampaigns;
@@ -1301,7 +1301,7 @@ async function updateAppStatus(appId, status) {
     const idx = apps.findIndex(a=>a.id===appId);
     if (idx>=0) { apps[idx].status=status; demoSaveApps(apps); }
   } else {
-    await supabase.from('applications').update({status}).eq('id',appId);
+    await db.from('applications').update({status}).eq('id',appId);
   }
   toast(status==='approved'?'✓ 승인되었습니다':'거절 처리되었습니다', status==='approved'?'success':'');
   loadAdminData(); loadApplications();
@@ -1326,7 +1326,7 @@ async function addCampaign() {
     status:'active', created_at:new Date().toISOString()
   };
   if (DEMO_MODE) { demoSaveCampaign(camp); }
-  else { await supabase.from('campaigns').insert(camp); }
+  else { await db.from('campaigns').insert(camp); }
   toast('캠페인이 등록되었습니다 🎉','success');
   allCampaigns = demoGetCampaigns();
   switchAdminPane('campaigns', document.querySelectorAll('.admin-si')[2]);
@@ -1355,10 +1355,10 @@ async function init() {
       }
     }
   } else {
-    const {data:{session}} = await supabase.auth.getSession();
+    const {data:{session}} = await db.auth.getSession();
     if (session) {
       currentUser = session.user;
-      const {data:profile} = await supabase.from('influencers').select('*').eq('id',currentUser.id).single();
+      const {data:profile} = await db.from('influencers').select('*').eq('id',currentUser.id).single();
       currentUserProfile = profile;
     }
   }
