@@ -337,12 +337,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <button class="chip" onclick="filterCamps('beauty',this)">ビューティー</button>
         <button class="chip" onclick="filterCamps('food',this)">フード</button>
       </div>
-      <div class="camp-grid" id="campGrid">
-        <div class="empty-state" style="grid-column:1/-1">
-          <div class="empty-icon">📋</div>
-          <div class="empty-text">캠페인 불러오는 중...</div>
-        </div>
-      </div>
+      <div class="camp-grid" id="campGrid"></div>
     </div>
   </section>
 </div>
@@ -935,6 +930,7 @@ function filterCamps(filter, el) {
 
 function renderCampaigns(camps) {
   const grid = $('campGrid');
+  if (!grid) return;
   const active = camps.filter(c=>c.status!=='closed');
   if (!active.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📋</div><div class="empty-text">현재 진행중인 캠페인이 없습니다</div><div class="empty-sub">곧 새로운 K브랜드 체험단이 등록됩니다</div></div>`;
@@ -1375,7 +1371,13 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', function() {
+  allCampaigns = DEMO_CAMPAIGNS.slice();
+  var active = allCampaigns.filter(function(c){ return c.status !== 'closed'; });
+  renderCampaigns(active);
+  updateStats(allCampaigns);
+  init();
+});
 </script>
 </body>
 </html>
