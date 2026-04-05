@@ -767,10 +767,12 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
   </div>
   <div class="container mypage-wrap" style="padding-top:0">
-    <div class="mypage-tabs">
-      <div class="mypage-tab on" onclick="switchMyTab('applications',this)">応募履歴</div>
-      <div class="mypage-tab" onclick="switchMyTab('profile',this)">プロフィール設定</div>
-      <div class="mypage-tab" onclick="switchMyTab('account',this)">アカウント設定</div>
+    <div class="mypage-tabs" style="overflow-x:auto;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+      <div class="mypage-tab on" onclick="switchMyTab('applications',this)" style="display:inline-block">応募履歴</div>
+      <div class="mypage-tab" onclick="switchMyTab('profile-basic',this)" style="display:inline-block">基本情報</div>
+      <div class="mypage-tab" onclick="switchMyTab('profile-sns',this)" style="display:inline-block">SNSアカウント</div>
+      <div class="mypage-tab" onclick="switchMyTab('profile-address',this)" style="display:inline-block">配送先</div>
+      <div class="mypage-tab" onclick="switchMyTab('bank',this)" style="display:inline-block">振込口座</div>
     </div>
 
     <!-- 応募履歴 -->
@@ -778,84 +780,81 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="myApplicationsList"></div>
     </div>
 
-    <!-- プロフィール設定 -->
-    <div id="tab-profile" class="mypage-tab-pane">
-      <div class="card card-pad" style="max-width:580px">
-        <div style="font-size:15px;font-weight:700;margin-bottom:4px">プロフィール編集</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:20px">登録情報を更新してください</div>
-
-        <div style="font-size:11px;font-weight:700;color:var(--pink);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">基本情報</div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
-          <div class="form-group"><label class="form-label">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
+    <!-- 基本情報 탭 -->
+    <div id="tab-profile-basic" class="mypage-tab-pane">
+      <div class="card card-pad">
+        <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">基本情報</div>
+        <div class="form-group"><label class="form-label">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
+        <div class="form-group"><label class="form-label">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
+        <div class="form-group"><label class="form-label">カテゴリー</label>
+          <select id="profileCategory" class="form-input">
+            <option value="">選択してください</option>
+            <option value="beauty">ビューティー/コスメ</option>
+            <option value="food">フード/グルメ</option>
+            <option value="fashion">ファッション/ライフ</option>
+            <option value="health">ヘルス/ウェルネス</option>
+            <option value="other">その他</option>
+          </select>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">カテゴリー</label>
-            <select id="profileCategory" class="form-input">
-              <option value="">選択してください</option>
-              <option value="beauty">ビューティー/コスメ</option>
-              <option value="food">フード/グルメ</option>
-              <option value="fashion">ファッション/ライフ</option>
-              <option value="health">ヘルス/ウェルネス</option>
-              <option value="other">その他</option>
-            </select>
-          </div>
-          <div class="form-group"><label class="form-label">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@586mnjocを追加後、IDを入力"></div>
-        </div>
+        <div class="form-group"><label class="form-label">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@586mnjocを追加後、IDを入力"></div>
         <div class="form-group"><label class="form-label">一言自己紹介</label><input type="text" id="profileBio" class="form-input"></div>
-
-        <div style="font-size:11px;font-weight:700;color:var(--pink);letter-spacing:.06em;text-transform:uppercase;margin:18px 0 10px">SNSアカウント</div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Instagram ID</label>
-            <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-            <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
-          </div>
-          <div class="form-group"><label class="form-label">Instagramフォロワー数</label><input type="number" id="profileIgFollowers" class="form-input"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">X(Twitter) ID</label>
-            <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-            <input type="text" id="profileX" class="form-input" style="padding-left:26px"></div>
-          </div>
-          <div class="form-group"><label class="form-label">X フォロワー数</label><input type="number" id="profileXFollowers" class="form-input"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">TikTok ID</label>
-            <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-            <input type="text" id="profileTiktok" class="form-input" style="padding-left:26px"></div>
-          </div>
-          <div class="form-group"><label class="form-label">TikTok フォロワー数</label><input type="number" id="profileTiktokFollowers" class="form-input"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">YouTube ID</label>
-            <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-            <input type="text" id="profileYoutube" class="form-input" style="padding-left:26px"></div>
-          </div>
-          <div class="form-group"><label class="form-label">YouTube 登録者数</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
-        </div>
-
-        <div style="font-size:11px;font-weight:700;color:var(--pink);letter-spacing:.06em;text-transform:uppercase;margin:18px 0 10px">配送先住所</div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">郵便番号</label><input type="text" id="profileZip" class="form-input" placeholder="123-4567"></div>
-          <div class="form-group"><label class="form-label">都道府県</label>
-            <select id="profilePrefecture" class="form-input">
-              <option value="">選択してください</option>
-              <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option><option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
-            </select>
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">市区町村・番地</label><input type="text" id="profileCity" class="form-input" placeholder="渋谷区渋谷1-2-3"></div>
-          <div class="form-group"><label class="form-label">建物名・部屋番号</label><input type="text" id="profileBuilding" class="form-input"></div>
-        </div>
-        <div class="form-group"><label class="form-label">電話番号</label><input type="tel" id="profilePhone" class="form-input" placeholder="090-1234-5678"></div>
-
-        <button class="btn btn-primary" onclick="saveProfile()" style="margin-top:8px">保存する</button>
+        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
       </div>
     </div>
 
-    <!-- アカウント設定 -->
-    <div id="tab-account" class="mypage-tab-pane">
+    <!-- SNSアカウント 탭 -->
+    <div id="tab-profile-sns" class="mypage-tab-pane">
+      <div class="card card-pad">
+        <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">SNSアカウント</div>
+        <div class="form-group"><label class="form-label">Instagram ID</label>
+          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
+          <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Instagramフォロワー数</label><input type="number" id="profileIgFollowers" class="form-input"></div>
+        <div class="form-group" style="margin-top:12px"><label class="form-label">X(Twitter) ID</label>
+          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
+          <input type="text" id="profileX" class="form-input" style="padding-left:26px"></div>
+        </div>
+        <div class="form-group"><label class="form-label">X フォロワー数</label><input type="number" id="profileXFollowers" class="form-input"></div>
+        <div class="form-group" style="margin-top:12px"><label class="form-label">TikTok ID</label>
+          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
+          <input type="text" id="profileTiktok" class="form-input" style="padding-left:26px"></div>
+        </div>
+        <div class="form-group"><label class="form-label">TikTok フォロワー数</label><input type="number" id="profileTiktokFollowers" class="form-input"></div>
+        <div class="form-group" style="margin-top:12px"><label class="form-label">YouTube ID</label>
+          <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
+          <input type="text" id="profileYoutube" class="form-input" style="padding-left:26px"></div>
+        </div>
+        <div class="form-group"><label class="form-label">YouTube 登録者数</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
+        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
+      </div>
+    </div>
+
+    <!-- 配送先 탭 -->
+    <div id="tab-profile-address" class="mypage-tab-pane">
+      <div class="card card-pad">
+        <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">配送先住所</div>
+        <div class="form-group"><label class="form-label">郵便番号</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="profileZip" class="form-input" placeholder="123-4567" style="flex:1">
+            <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:12px">住所検索</button>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">都道府県</label>
+          <select id="profilePrefecture" class="form-input">
+            <option value="">選択してください</option>
+            <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option><option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">市区町村・番地</label><input type="text" id="profileCity" class="form-input" placeholder="渋谷区渋谷1-2-3"></div>
+        <div class="form-group"><label class="form-label">建物名・部屋番号</label><input type="text" id="profileBuilding" class="form-input"></div>
+        <div class="form-group"><label class="form-label">電話番号</label><input type="tel" id="profilePhone" class="form-input" placeholder="090-1234-5678"></div>
+        <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
+      </div>
+    </div>
+
+    <!-- 振込口座 탭 -->
+    <div id="tab-bank" class="mypage-tab-pane">
       <div style="max-width:580px;display:flex;flex-direction:column;gap:16px">
 
         <!-- bank info -->
@@ -1490,13 +1489,15 @@ function buildCampCards(camps) {
     const bgGrad = getCampGrad(c.category);
     const typeLabel = c.recruit_type==='monitor'?'モニター':c.recruit_type==='gifting'?'ギフティング':'';
     return `<div class="camp-card" onclick="openCampaign('${c.id}')">
-      <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad}">
-        ${c.image_url?`<img src="${c.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.style.display='none'">`:''}
+      <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
+        ${c.image_url?`<img src="${c.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${isFull?'filter:brightness(.4)':''}" onerror="this.style.display='none'">`:''}
         <div class="camp-img-overlay"></div>
-        <div class="camp-badges" style="z-index:3;position:absolute;top:8px;left:8px;display:flex;gap:4px;flex-wrap:wrap">
+        ${isFull?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集終了</span></div>`:''}
+        <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;display:flex;gap:4px">
           ${isNew&&!isFull?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
-          ${isFull?'<span style="background:rgba(0,0,0,.5);color:rgba(255,255,255,.8);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">終了</span>':''}
+          ${typeLabel&&!isFull?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
+        ${!isFull?`<div class="camp-img-product" style="z-index:3">${c.content_types||getChannelLabel(c.channel)}</div>`:''}
         <div class="camp-ch-badge" style="z-index:3">${c.brand}</div>
       </div>
       <div class="camp-body">
@@ -1506,7 +1507,7 @@ function buildCampCards(camps) {
       </div>
       <div class="camp-footer">
         <div class="camp-reward">🎁 ${reward}</div>
-        <div class="camp-slots">${isFull?'募集終了':remaining<=5&&remaining>0?`残り${remaining}名`:`${c.applied_count||0}/${c.slots}名`}</div>
+
       </div>
     </div>`;
   }).join('');
@@ -1602,21 +1603,45 @@ async function openCampaign(id) {
             <div style="padding:10px 13px;flex:1;font-size:12px">${camp.product||'—'}</div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集期間</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${formatDate(new Date())} 〜 ${formatDate(camp.deadline)}</div>
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集タイプ</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">
+              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">モニター</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">ギフティング</span>':'—'}
+            </div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">当選発表</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">選考後、LINEにてご連絡</div>
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">チャンネル</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${getChannelLabel(camp.channel)}</div>
+          </div>
+          ${camp.content_types?`
+          <div style="display:flex;border-top:1px solid #faf5f9">
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">コンテンツ</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px;display:flex;gap:4px;flex-wrap:wrap">
+              ${camp.content_types.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${t.trim()}</span>`).join('')}
+            </div>
+          </div>`:''}
+          <div style="display:flex;border-top:1px solid #faf5f9">
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集期間</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${formatDate(new Date())} 〜 ${formatDate(camp.deadline)}</div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集人数</div>
             <div style="padding:10px 13px;flex:1;font-size:12px">${camp.slots}名</div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">投稿締切日</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${camp.post_deadline ? formatDate(camp.post_deadline) : `受取後 ${camp.post_days}日以内`}</div>
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">当選発表</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">選考後、LINEにてご連絡</div>
           </div>
+          <div style="display:flex;border-top:1px solid #faf5f9">
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">投稿締切日</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px;font-weight:600;color:var(--ink)">${camp.post_deadline ? formatDate(camp.post_deadline) : camp.post_days ? `受取後 ${camp.post_days}日以内` : '—'}</div>
+          </div>
+          ${(camp.product_price>0||camp.reward>0)?`
+          <div style="display:flex;border-top:1px solid #faf5f9">
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">リワード</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px;color:var(--pink);font-weight:600">
+              ${camp.product_price>0?`製品 ¥${camp.product_price.toLocaleString()}円相当`:'製品無償提供'}${camp.reward>0?` + 現金 ¥${camp.reward.toLocaleString()}`:''}
+            </div>
+          </div>`:''}
         </div>
       </div>
 
@@ -2326,7 +2351,7 @@ async function addCampaign() {
   const contentTypes = Array.from(document.querySelectorAll('input[name="contentType"]:checked')).map(c=>c.value).join(',');
   const recruitTypeEl = document.querySelector('input[name="recruitType"]:checked');
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
-  if (!title||!brand||!product||!productUrl||!slots||!deadline) { toast('必須項目をすべて入力してください','error'); return; }
+  if (!title||!brand||!product||!slots||!deadline) { toast('必須項目をすべて入力してください','error'); return; }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = $('newCampChannel').value;
@@ -2391,6 +2416,23 @@ function togglePw(inputId, btn) {
     input.type = 'password';
     btn.textContent = '👁';
   }
+}
+
+async function lookupZipProfile() {
+  const zip = $('profileZip')?.value.replace(/[^0-9]/g,'');
+  if (!zip || zip.length < 7) { toast('郵便番号を7桁で入力してください', 'error'); return; }
+  try {
+    const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zip}`);
+    const data = await res.json();
+    if (data.results && data.results.length > 0) {
+      const r = data.results[0];
+      const pref = $('profilePrefecture');
+      if (pref) { const opts = Array.from(pref.options); const match = opts.find(o=>o.text===r.address1); if(match) pref.value=match.value||match.text; }
+      const city = $('profileCity');
+      if (city) city.value = (r.address2||'') + (r.address3||'');
+      toast('住所を自動入力しました', 'success');
+    } else { toast('該当する住所が見つかりませんでした', 'error'); }
+  } catch(e) { toast('住所検索に失敗しました', 'error'); }
 }
 
 async function lookupZip() {
