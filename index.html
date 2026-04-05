@@ -2393,14 +2393,14 @@ async function addCampaign() {
   const brand = $('newCampBrand').value.trim();
   const product = $('newCampProduct').value.trim();
   const productUrl = $('newCampProductUrl')?.value.trim()||'';
-  const slots = parseInt($('newCampSlots').value)||0;
+  const slots = parseInt($('newCampSlots').value) || parseInt($('newCampSlots').placeholder) || 20;
   const deadline = $('newCampDeadline').value;
   const img1 = campImgData[0]?.data || '';
   const contentTypes = Array.from(document.querySelectorAll('input[name="contentType"]:checked')).map(c=>c.value).join(',');
   const recruitTypeEl = document.querySelector('input[name="recruitType"]:checked');
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
   console.log('values:', {title, brand, product, slots, deadline});
-  if (!title||!brand||!product||!slots||!deadline) {
+  if (!title||!brand||!product||!deadline) {
     toast('必須項目をすべて入力してください','error');
     console.log('VALIDATION FAILED');
     return;
@@ -2849,7 +2849,7 @@ document.addEventListener('DOMContentLoaded', function() {
               </div>
               <div class="form-group">
                 <label class="form-label">募集人数 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
-                <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1">
+                <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1" value="20">
               </div>
             </div>
 
