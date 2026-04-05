@@ -2,6 +2,10 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- v1775406015 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>REVERB</title>
 <script>
@@ -1221,9 +1225,9 @@ function demoGetCampaigns() {
   return [...DEMO_CAMPAIGNS, ...custom];
 }
 function demoSaveCampaign(camp) {
+  console.log('demoSaveCampaign called, id:', camp.id);
   try {
     const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-    // save images separately to avoid quota exceeded
     const imgs = {img1:camp.img1,img2:camp.img2,img3:camp.img3,img4:camp.img4,
                   img5:camp.img5,img6:camp.img6,img7:camp.img7,img8:camp.img8};
     const campLight = {...camp, img1:'',img2:'',img3:'',img4:'',img5:'',img6:'',img7:'',img8:''};
@@ -2384,6 +2388,7 @@ async function updateAppStatus(appId, status) {
 
 async function addCampaign() {
   try {
+  console.log('addCampaign START');
   const title = $('newCampTitle').value.trim();
   const brand = $('newCampBrand').value.trim();
   const product = $('newCampProduct').value.trim();
@@ -2394,7 +2399,13 @@ async function addCampaign() {
   const contentTypes = Array.from(document.querySelectorAll('input[name="contentType"]:checked')).map(c=>c.value).join(',');
   const recruitTypeEl = document.querySelector('input[name="recruitType"]:checked');
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
-  if (!title||!brand||!product||!slots||!deadline) { toast('必須項目をすべて入力してください','error'); return; }
+  console.log('values:', {title, brand, product, slots, deadline});
+  if (!title||!brand||!product||!slots||!deadline) {
+    toast('必須項目をすべて入力してください','error');
+    console.log('VALIDATION FAILED');
+    return;
+  }
+  console.log('VALIDATION PASSED');
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = $('newCampChannel').value;
@@ -2427,12 +2438,15 @@ async function addCampaign() {
   };
 
   // 항상 localStorage에 저장 (DEMO_MODE 무관)
+  console.log('demoSaveCampaign START', camp.title);
   demoSaveCampaign(camp);
+  console.log('demoSaveCampaign DONE');
   // Supabase 연결 시 백그라운드 저장 시도
   if (!DEMO_MODE && db) {
     try { await db?.from('campaigns').insert(camp); } catch(e) { /* localStorage save done */ }
   }
 
+  console.log('SAVE DONE, showing toast');
   toast('キャンペーンが登録されました 🎉','success');
   campImgData.length = 0;
   renderCampImgPreview();
@@ -2956,8 +2970,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px">
-              <button class="btn btn-primary" onclick="addCampaign()">キャンペーン登録</button>
-              <button class="btn btn-ghost" onclick="switchAdminPane('campaigns',document.querySelector('.admin-si:nth-child(3)'))">キャンセル</button>
+              <button type="button" class="btn btn-primary" onclick="addCampaign()">キャンペーン登録</button>
+              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })())">キャンセル</button>
             </div></div>
         </div>
 
