@@ -30,7 +30,7 @@ button,input,select,textarea{font-family:inherit;outline:none}
 button{cursor:pointer;border:none;background:none}
 img{display:block;max-width:100%}
 /* Mobile app shell */
-#appShell{width:100%;max-width:480px;min-height:100vh;background:#fff;position:relative;box-shadow:0 0 40px rgba(0,0,0,.18);overflow-x:hidden;}
+#appShell{width:100%;max-width:480px;min-height:100vh;background:#fff;position:relative;box-shadow:0 0 40px rgba(0,0,0,.18);overflow-x:hidden;overflow-y:auto;}
 
 /* ── LAYOUT ── */
 .page{display:none}.page.active{display:block}
@@ -43,9 +43,9 @@ img{display:block;max-width:100%}
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:26px;height:26px;background:var(--pink);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:12px;color:#fff}
-.gnb-logo-name{font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;letter-spacing:.04em}
+.gnb-logo-name{font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:#fff;letter-spacing:.04em}
 .gnb-right{display:flex;align-items:center;gap:8px}
-.gnb-btn{padding:7px 16px;border-radius:var(--r8);font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.gnb-btn{padding:5px 12px;border-radius:var(--r8);font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
 .gnb-btn-ghost{color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15);background:transparent}
 .gnb-btn-ghost:hover{color:#fff;border-color:rgba(255,255,255,.35)}
 .gnb-btn-red{background:var(--pink);color:#fff;border:none}
@@ -89,7 +89,7 @@ img{display:block;max-width:100%}
 select.form-input{cursor:pointer}
 textarea.form-input{resize:vertical;min-height:80px}
 .form-error{font-size:12px;color:var(--red);margin-top:3px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row{display:grid;grid-template-columns:1fr;gap:10px}
 
 /* ── DIVIDER ── */
 .divider{border:none;border-top:1px solid var(--line);margin:20px 0}
@@ -103,9 +103,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 #toast.error{background:var(--red-d)}
 
 /* ── MODAL ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;align-items:center;justify-content:center;padding:20px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;align-items:flex-end;justify-content:center;padding:0}
 .modal-overlay.open{display:flex}
-.modal{background:#fff;border-radius:var(--r24);width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 -4px 30px rgba(0,0,0,.15)}
 .modal-header{padding:22px 24px 0;display:flex;align-items:flex-start;justify-content:space-between}
 .modal-title{font-size:18px;font-weight:800}
 .modal-close{width:30px;height:30px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;color:var(--muted);flex-shrink:0;transition:.15s}
@@ -123,46 +123,48 @@ textarea.form-input{resize:vertical;min-height:80px}
 ══════════════════════════════ */
 .hero{background:linear-gradient(135deg,#2D1F2B 0%,#56475D 100%);padding:32px 0 0;overflow:hidden;position:relative}
 .hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 75% 50%,rgba(200,120,163,.2) 0,transparent 55%);pointer-events:none}
-.hero-inner{position:relative;z-index:1;padding-bottom:0;padding-left:20px;padding-right:20px}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(200,120,163,.18);border:1px solid rgba(200,120,163,.28);color:#E0B8CA;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
-.hero-h1{font-size:40px;font-weight:900;color:#fff;line-height:1.1;letter-spacing:-.02em;margin-bottom:12px}
+.hero-inner{position:relative;z-index:1;padding-bottom:0}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;background:rgba(200,120,163,.18);border:1px solid rgba(200,120,163,.28);color:#E0B8CA;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:16px}
+.hero-h1{font-size:24px;font-weight:900;color:#fff;line-height:1.2;letter-spacing:-.01em;margin-bottom:10px}
 .hero-h1 span{color:var(--baby-pink)}
 .hero-jp{font-family:'Noto Sans JP',sans-serif;font-weight:400;font-size:18px;color:rgba(255,255,255,.4);display:block;margin-top:6px}
-.hero-sub{font-size:15px;color:rgba(255,255,255,.5);line-height:1.7;margin-bottom:28px;max-width:500px}
-.hero-cta{display:flex;gap:10px;margin-bottom:48px;flex-wrap:wrap}
-.hero-btn-p{padding:12px 26px;background:var(--pink);color:#fff;border-radius:var(--r8);font-size:14px;font-weight:700;border:none;cursor:pointer;transition:.15s}
-.hero-btn-p:hover{background:var(--dark-pink);transform:translateY(-1px)}
-.hero-btn-g{padding:11px 22px;background:transparent;color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.18);border-radius:var(--r8);font-size:14px;cursor:pointer;transition:.15s}
+.hero-sub{font-size:13px;color:rgba(255,255,255,.5);line-height:1.65;margin-bottom:20px;max-width:100%}
+.hero-cta{display:flex;gap:8px;margin-bottom:28px;flex-direction:column}
+.hero-btn-p{padding:12px 20px;background:var(--pink);color:#fff;border-radius:var(--r8);font-size:14px;font-weight:700;border:none;cursor:pointer;transition:.15s;text-align:center}
+.hero-btn-p:hover{background:var(--dark-pink)}
+.hero-btn-g{padding:11px 18px;background:transparent;color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.18);border-radius:var(--r8);font-size:14px;cursor:pointer;transition:.15s;text-align:center}
 .hero-btn-g:hover{border-color:rgba(255,255,255,.4);color:#fff}
-.hero-stats{display:flex;gap:32px;padding:20px 0;border-top:1px solid rgba(255,255,255,.08)}
-.hero-stat-v{font-size:22px;font-weight:800;color:#fff}
+.hero-stats{display:flex;gap:20px;padding:16px 0;border-top:1px solid rgba(255,255,255,.08)}
+.hero-stats{display:flex;gap:20px;padding:16px 0;border-top:1px solid rgba(255,255,255,.08)}
+.hero-stat-v{font-size:18px;font-weight:800;color:#fff}
 .hero-stat-l{font-size:11px;color:rgba(255,255,255,.35);margin-top:2px}
 
 /* campaign grid */
-.campaigns-section{padding:40px 0 60px}
-.section-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
-.section-title{font-size:20px;font-weight:800;color:var(--ink)}
+.campaigns-section{padding:16px 0 calc(var(--tab-h) + 24px)}
+.section-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:12px}
+.section-title{font-size:17px;font-weight:800;color:var(--ink)}
 .section-sub{font-size:13px;color:var(--muted);margin-top:2px}
-.filter-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:22px}
-.chip{padding:7px 18px;border-radius:20px;font-size:13px;cursor:pointer;border:1.5px solid var(--line);color:var(--muted);background:#fff;transition:.2s;font-weight:500;letter-spacing:.02em}
+.filter-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.filter-row::-webkit-scrollbar{display:none}
+.chip{padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1.5px solid var(--line);color:var(--muted);background:#fff;transition:.2s;font-weight:500;white-space:nowrap;flex-shrink:0}
 .chip:hover,.chip.on{border-color:var(--pink);color:var(--pink);background:var(--red-l)}
 .camp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.camp-card{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;cursor:pointer;transition:all .25s cubic-bezier(.34,1.2,.64,1);box-shadow:var(--sh)}
-.camp-card:hover{border-color:var(--pink);transform:translateY(-4px);box-shadow:var(--sh-hover)}
-.camp-img{height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:44px;position:relative;overflow:hidden}
+.camp-card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:all .2s;box-shadow:var(--sh)}
+.camp-card:active{transform:scale(.97)}
+.camp-img{height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:36px;position:relative;overflow:hidden}
 .camp-img-overlay{position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.08) 0,rgba(0,0,0,.12) 100%)}
 .camp-img-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.15}
 .camp-badges{position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:2}
 .camp-ch-badge{position:absolute;top:12px;right:12px;background:rgba(15,15,18,.65);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(6px);z-index:2;letter-spacing:.04em}
 .camp-img-product{font-size:11px;color:rgba(255,255,255,.85);font-weight:600;margin-top:6px;z-index:2;letter-spacing:.03em;background:rgba(0,0,0,.25);padding:3px 10px;border-radius:20px;backdrop-filter:blur(4px)}
-.camp-body{padding:16px 18px 12px}
-.camp-brand{font-size:10px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:4px;text-transform:uppercase}
-.camp-title{font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4;color:var(--ink)}
-.camp-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:0}
-.camp-tag{font-size:10px;padding:2px 8px;border-radius:20px;background:var(--light-pink);color:var(--pink);font-weight:500}
-.camp-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 18px 14px}
-.camp-reward{font-size:12px;color:var(--muted)}.camp-reward strong{color:var(--pink);font-size:14px;font-weight:700}
-.camp-slots{font-size:11px;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:20px;border:1px solid var(--line)}
+.camp-body{padding:10px 12px 8px}
+.camp-brand{font-size:9px;color:var(--pink);font-weight:700;letter-spacing:.05em;margin-bottom:3px;text-transform:uppercase}
+.camp-title{font-size:12px;font-weight:700;margin-bottom:5px;line-height:1.35;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.camp-tags{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:0}
+.camp-tag{font-size:9px;padding:1px 6px;border-radius:20px;background:var(--light-pink);color:var(--pink);font-weight:500}
+.camp-footer{display:flex;align-items:center;justify-content:space-between;padding:7px 12px 10px}
+.camp-reward{font-size:11px;color:var(--muted)}.camp-reward strong{color:var(--pink);font-size:12px;font-weight:700}
+.camp-slots{font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:20px;border:1px solid var(--line)}
 .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty-icon{font-size:48px;margin-bottom:12px}
 .empty-text{font-size:15px;font-weight:600;margin-bottom:6px;color:var(--ink)}
@@ -207,11 +209,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* ══════════════════════════
    AUTH PAGES
 ══════════════════════════ */
-.auth-wrap{min-height:calc(100vh - 54px);display:flex;align-items:center;justify-content:center;padding:40px 20px}
-.auth-card{background:#fff;border:1px solid var(--line);border-radius:var(--r24);padding:36px;width:100%;max-width:540px;box-shadow:0 8px 40px rgba(200,120,163,.1),0 2px 8px rgba(0,0,0,.04)}
+.auth-wrap{min-height:calc(100vh - 50px);display:flex;align-items:flex-start;justify-content:center;padding:20px 16px}
+.auth-card{background:#fff;border:1px solid var(--line);border-radius:var(--r16);padding:24px 18px;width:100%;max-width:100%;box-shadow:0 4px 20px rgba(200,120,163,.08)}
 .auth-logo{text-align:center;margin-bottom:24px}
 .auth-logo-mark{width:44px;height:44px;background:var(--red);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:20px;color:#fff;margin-bottom:10px}
-.auth-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.auth-title{font-size:18px;font-weight:800;margin-bottom:4px}
 .auth-sub{font-size:13px;color:var(--muted)}
 .auth-switch{text-align:center;font-size:13px;color:var(--muted);margin-top:16px}
 .auth-switch a{color:var(--red);font-weight:600;cursor:pointer}
@@ -220,14 +222,14 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* ══════════════════════════
    MY PAGE
 ══════════════════════════ */
-.mypage-wrap{padding:32px 0 60px}
-.mypage-header{background:#fff;border-bottom:1px solid var(--line);padding:24px 0;margin-bottom:28px}
-.mypage-profile{display:flex;align-items:center;gap:16px}
-.mypage-av{width:56px;height:56px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0}
-.mypage-name{font-size:20px;font-weight:800;margin-bottom:3px}
-.mypage-handle{font-size:13px;color:var(--muted)}
-.mypage-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:24px}
-.mypage-tab{padding:10px 18px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+.mypage-wrap{padding:16px 0 calc(var(--tab-h) + 16px)}
+.mypage-header{background:#fff;border-bottom:1px solid var(--line);padding:16px 0;margin-bottom:16px}
+.mypage-profile{display:flex;align-items:center;gap:12px}
+.mypage-av{width:44px;height:44px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff;flex-shrink:0}
+.mypage-name{font-size:16px;font-weight:800;margin-bottom:2px}
+.mypage-handle{font-size:12px;color:var(--muted)}
+.mypage-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:16px}
+.mypage-tab{padding:9px 14px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
 .mypage-tab.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
 .mypage-tab-pane{display:none}.mypage-tab-pane.on{display:block}
 .apply-item{background:#fff;border:1px solid var(--line);border-radius:var(--r12);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;transition:.15s}
@@ -271,8 +273,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 .product-form-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
 
 /* ── RESPONSIVE ── */
-/* Admin page: PC layout */
-#page-admin{overflow-x:auto}
+/* Admin page: PC full width, outside appShell */
+#page-admin{overflow-x:auto;width:100%;background:#F8F5F8;min-height:100vh;position:fixed;inset:0;display:none;z-index:200;overflow-y:auto}
+#page-admin .admin-layout{min-width:900px}
+#page-admin .gnb{max-width:100%;width:100%}
+#page-admin .gnb-inner{max-width:1200px;padding:0 24px}
 #page-admin .admin-layout{min-width:900px}
 @media(max-width:540px){
   .form-row{grid-template-columns:1fr}
@@ -372,7 +377,6 @@ textarea.form-input{resize:vertical;min-height:80px}
       <p class="hero-sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
         <button class="hero-btn-p" onclick="navigate('signup')">無料で体験団に参加する →</button>
-        <button class="hero-btn-g" onclick="scrollTo({top:document.querySelector('.campaigns-section').offsetTop-60,behavior:'smooth'})">キャンペーン一覧</button>
       </div>
       <div class="hero-stats">
         <div><div class="hero-stat-v">無償</div><div class="hero-stat-l">製品は全額無料</div></div>
@@ -457,8 +461,8 @@ textarea.form-input{resize:vertical;min-height:80px}
      PAGE: CAMPAIGN DETAIL
 ══════════════════════════════════ -->
 <div id="page-detail" class="page">
-  <div class="container" style="padding-top:28px;padding-bottom:60px">
-    <div class="detail-back" onclick="navigate('home')">← キャンペーン一覧へ</div>
+  <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
+    <div class="detail-back" onclick="navigate('home')" style="font-size:13px;margin-bottom:12px">← キャンペーン一覧へ</div>
     <div class="detail-layout" id="detailContent"></div>
   </div>
 </div>
@@ -746,7 +750,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
           <div class="form-group"><label class="form-label">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@586mnjocを追加後、IDを入力"></div>
         </div>
-        <div class="form-group"><label class="form-label">ひとこと自己紹介</label><input type="text" id="profileBio" class="form-input"></div>
+        <div class="form-group"><label class="form-label">一言自己紹介</label><input type="text" id="profileBio" class="form-input"></div>
 
         <div style="font-size:11px;font-weight:700;color:var(--pink);letter-spacing:.06em;text-transform:uppercase;margin:18px 0 10px">SNSアカウント</div>
         <div class="form-row">
@@ -852,238 +856,6 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
   </div>
 </div>
-<div id="page-admin" class="page">
-  <div class="admin-layout">
-    <aside class="admin-side">
-      <div class="admin-si-lbl">ダッシュボード</div>
-      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)">◉ 全体状況</div>
-      <div class="admin-si-lbl">キャンペーン</div>
-      <div class="admin-si" onclick="switchAdminPane('campaigns',this)">📣 キャンペーン管理</div>
-      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)">＋ 新規登録</div>
-      <div class="admin-si-lbl">会員管理</div>
-      <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ インフルエンサー一覧</div>
-      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 応募管理</div>
-    </aside>
-    <main class="admin-main">
-
-      <div class="admin-body">
-
-        <!-- DASHBOARD PANE -->
-        <div id="adminPane-dashboard" class="admin-pane on">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">全体状況</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">更新</button>
-          </div>
-          <div class="kpi-row">
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns">0</div><div class="kpi-lbl">全キャンペーン</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers">0</div><div class="kpi-lbl">登録インフルエンサー</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications">0</div><div class="kpi-lbl">総応募数</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved">0</div><div class="kpi-lbl">承認済み</div></div>
-          </div>
-          <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">最新応募</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',document.querySelector('.admin-si:nth-child(7)'))">すべて見る</button></div>
-            <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>インフルエンサー</th><th>キャンペーン</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- CAMPAIGNS PANE -->
-        <div id="adminPane-campaigns" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">キャンペーン管理</div>
-            <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 新規キャンペーン</button>
-          </div>
-          <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">キャンペーン一覧</span><button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',document.querySelector('.admin-si:nth-child(4)'))">+ 新規キャンペーン</button></div>
-            <table class="data-table">
-              <thead><tr><th>キャンペーン名</th><th>ブランド</th><th>チャンネル</th><th>募集</th><th>応募数</th><th>ステータス</th><th></th></tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- ADD CAMPAIGN PANE -->
-        <div id="adminPane-add-campaign" class="admin-pane">
-          <div class="product-form">
-            <div class="product-form-title">新規キャンペーン登録</div>
-            <div class="product-form-sub">登録後すぐにインフルエンサーに公開されます</div>
-
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">キャンペーン名 *</label><input type="text" id="newCampTitle" class="form-input" placeholder="グリーンティーセラム 体験団"></div>
-              <div class="form-group"><label class="form-label">ブランド名 *</label><input type="text" id="newCampBrand" class="form-input" placeholder="イニスフリー"></div>
-            </div>
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">製品名 *</label><input type="text" id="newCampProduct" class="form-input" placeholder="グリーンティーセラム 80ml"></div>
-              <div class="form-group"><label class="form-label">募集人数 *</label><input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1"></div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">コンテンツ種類 * <span style="font-size:11px;font-weight:400;color:var(--muted)">（複数選択可）</span></label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-feed">
-                  <input type="checkbox" name="contentType" value="FEED" onchange="toggleCT(this)" style="display:none"> 📷 FEED
-                </label>
-                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-reels">
-                  <input type="checkbox" name="contentType" value="REELS" onchange="toggleCT(this)" style="display:none"> 🎬 REELS
-                </label>
-                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-story">
-                  <input type="checkbox" name="contentType" value="STORY" onchange="toggleCT(this)" style="display:none"> 📖 STORY
-                </label>
-                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-x">
-                  <input type="checkbox" name="contentType" value="X投稿" onchange="toggleCT(this)" style="display:none"> 𝕏 X投稿
-                </label>
-                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-tiktok">
-                  <input type="checkbox" name="contentType" value="TikTok" onchange="toggleCT(this)" style="display:none"> 🎵 TikTok
-                </label>
-                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-youtube">
-                  <input type="checkbox" name="contentType" value="YouTube" onchange="toggleCT(this)" style="display:none"> ▶ YouTube
-                </label>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">チャンネル</label>
-                <select id="newCampChannel" class="form-input">
-                  <option value="instagram">Instagram</option>
-                  <option value="x">X(Twitter)</option>
-                  <option value="qoo10">Qoo10</option>
-                  <option value="instagram,x">Instagram + X</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="youtube">YouTube</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">カテゴリー</label>
-                <select id="newCampCategory" class="form-input">
-                  <option value="beauty">ビューティー/コスメ</option>
-                  <option value="food">フード/グルメ</option>
-                  <option value="fashion">ファッション/ライフ</option>
-                  <option value="health">ヘルス/ウェルネス</option>
-                  <option value="other">その他</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">リワード金額（¥）</label>
-                <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
-                <div class="form-hint">0円 = 製品無償提供のみ / 金額入力時は製品＋現金</div>
-              </div>
-              <div class="form-group"><label class="form-label">絵文字（キャンペーンアイコン）</label>
-                <input type="text" id="newCampEmoji" class="form-input" placeholder="📦" maxlength="2" style="width:80px">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">募集締切日 *</label><input type="date" id="newCampDeadline" class="form-input"></div>
-              <div class="form-group"><label class="form-label">投稿期限（受取後の日数）</label><input type="number" id="newCampPostDays" class="form-input" value="7" min="3" max="30"></div>
-            </div>
-
-            <div class="form-group"><label class="form-label">キャンペーン説明</label><textarea id="newCampDesc" class="form-input" placeholder="インフルエンサーに見せるキャンペーン紹介を入力してください"></textarea></div>
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">必須ハッシュタグ（#）</label><input type="text" id="newCampHashtags" class="form-input" placeholder="#ブランド名 #商品名（カンマ区切り）"></div>
-              <div class="form-group"><label class="form-label">必須メンション（@）</label><input type="text" id="newCampMentions" class="form-input" placeholder="@公式アカウント（カンマ区切り）"></div>
-            </div>
-            <div class="form-group"><label class="form-label">ブランドアピールポイント</label><textarea id="newCampAppeal" class="form-input" placeholder="インフルエンサーがコンテンツに盛り込むべきメッセージを入力してください"></textarea></div>
-            <div class="form-group"><label class="form-label">撮影ガイド</label><textarea id="newCampGuide" class="form-input" placeholder="撮影方向、アングル、背景、雰囲気のガイド"></textarea></div>
-            <div class="form-group"><label class="form-label">NGワード・NG事項</label><textarea id="newCampNg" class="form-input">・競合他社企業名、商品名、商品の露出はNG
-・暗いところで撮影して、商品がよく見えないことはNG
-・ロゴが反対側になることはNG
-・ブランド名、商品名、パッケージ、商品の発色がよく見えないことはNG
-・本商品、サービスに関するイメージがマイナス、ネガティブになる表現はNG
-・商品を直接使用しないで発色投稿だけすることはNG</textarea></div>
-
-            <div class="form-group">
-              <label class="form-label">製品メイン画像URL <span style="font-size:11px;font-weight:400;color:var(--muted)">（キャンペーンカードに表示されます）</span></label>
-              <input type="url" id="newCampImageUrl" class="form-input" placeholder="https://example.com/product-image.jpg">
-              <div class="form-hint">Qoo10 商品ページの画像URL、またはブランド提供の画像URLを入力してください</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">参考資料ファイル <span style="font-size:11px;font-weight:400;color:var(--muted)">（ガイドライン・参考画像 / JPG・PNG・PDF）</span></label>
-              <div style="border:2px dashed var(--line);border-radius:var(--r12);padding:20px;text-align:center;cursor:pointer;transition:.15s;background:var(--bg)" onclick="$('newCampFiles').click()" id="fileDropZone">
-                <div style="font-size:24px;margin-bottom:8px">📎</div>
-                <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">ファイルをここにドロップ またはクリックして選択</div>
-                <div style="font-size:11px;color:var(--muted)">JPG / PNG / PDF · 最大5MB × 5ファイル</div>
-                <input type="file" id="newCampFiles" multiple accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleFileSelect(this)">
-              </div>
-              <div id="filePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
-            </div>
-
-            <div style="display:flex;gap:10px;margin-top:4px">
-              <button class="btn btn-primary" onclick="addCampaign()">キャンペーン登録</button>
-              <button class="btn btn-ghost" onclick="switchAdminPane('campaigns',document.querySelector('.admin-si:nth-child(3)'))">キャンセル</button>
-            </div></div>
-        </div>
-
-        <!-- INFLUENCERS PANE -->
-        <div id="adminPane-influencers" class="admin-pane">
-          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">インフルエンサー一覧</div>
-          <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">インフルエンサー一覧</span></div>
-            <table class="data-table">
-              <thead><tr><th>氏名</th><th>Instagram</th><th>フォロワー</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr></thead>
-              <tbody id="adminInfluencersBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- CAMPAIGN APPLICANTS PANE -->
-        <div id="adminPane-camp-applicants" class="admin-pane">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',document.querySelectorAll('.admin-si')[2])">← キャンペーン一覧へ</button>
-            <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
-          </div>
-          <div class="admin-card">
-            <div class="admin-card-header">
-              <div>
-                <span class="admin-card-title" id="campApplicantsSubtitle">応募者一覧</span>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center">
-                <span id="campApplicantsStats" style="font-size:13px;color:var(--muted)"></span>
-                <select id="campAppFilterStatus" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
-                  <option value="">すべて</option>
-                  <option value="pending">審査中</option>
-                  <option value="approved">承認</option>
-                  <option value="rejected">非承認</option>
-                </select>
-              </div>
-            </div>
-            <table class="data-table">
-              <thead><tr><th>名前</th><th>Instagram</th><th>フォロワー</th><th>応募理由</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
-              <tbody id="campApplicantsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- APPLICATIONS PANE -->
-        <div id="adminPane-applications" class="admin-pane">
-          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">応募管理</div>
-          <div class="admin-card">
-            <div class="admin-card-header">
-              <span class="admin-card-title">応募管理</span>
-              <div style="display:flex;gap:6px">
-                <select id="appFilterStatus" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px" onchange="loadApplications()">
-                  <option value="">すべて</option>
-                  <option value="pending">審査中</option>
-                  <option value="approved">承認</option>
-                  <option value="rejected">非承認</option>
-                </select>
-              </div>
-            </div>
-            <table class="data-table">
-              <thead><tr><th>インフルエンサー</th><th>キャンペーン</th><th>フォロワー</th><th>応募メッセージ</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
-              <tbody id="adminAppsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    </main>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════
      MODAL: APPLY
 ══════════════════════════════════ -->
@@ -1145,12 +917,66 @@ let currentFilter = 'all';
 
 // ── Demo Data ──
 const DEMO_CAMPAIGNS = [
-  {id:'demo-1',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',reward:0,slots:25,applied_count:18,deadline:'2026-04-30',post_days:7,description:'イニスフリーの人気スキンケアアイテム、グリーンティセラムを体験していただける方を募集します。',hashtags:'#innisfree #イニスフリー #グリーンティセラム #スキンケア',mentions:'@innisfree_official_jp',appeal:'グリーンティ由来の保湿成分が肌深部まで浸透することを自然に表現。毎日のスキンケアルーティンに取り入れやすい点を強調。',guide:'自然光でのカット推奨。顔または手の甲にセラムを垂らしたテクスチャーカット。',ng:'他ブランドの露出・比較表現禁止。暗い場所での撮影禁止。ネガティブな表現禁止。',status:'active',created_at:'2026-04-01'},
-  {id:'demo-2',title:'Qoo10 独島トナー レビュアー募集',brand:'ROUND LAB',product:'独島トナー 200ml',type:'qoo10',channel:'qoo10',category:'beauty',emoji:'💧',reward:2000,slots:20,applied_count:12,deadline:'2026-04-28',post_days:7,description:'Qoo10で購入できる独島トナーのレビュアーを募集。フォロワー条件なし、誰でも応募可能です。',hashtags:'#roundlab #ラウンドラボ #独島トナー',mentions:'@roundlab_jp',appeal:'実際の使用感・テクスチャー・保湿力を具体的にお伝えください。敏感肌でも使いやすい点を強調。',guide:'実際に使用中の写真または使用前後の肌状態の写真。',ng:'虚偽の効果・効能の表現禁止。',status:'active',created_at:'2026-04-02'},
-  {id:'demo-3',title:'ブライトニングクリーム X ナノモニター',brand:'DR.G',product:'ブライトニングクリーム 50ml',type:'nano',channel:'x',category:'beauty',emoji:'✨',reward:0,slots:15,applied_count:8,deadline:'2026-05-05',post_days:7,description:'X(Twitter)でのレビューを募集。韓国で人気のブランドが日本初上陸！',hashtags:'#DRG #ブライトニング',mentions:'@drg_japan',appeal:'明るい肌への変化、テクスチャーの軽さをアピール。',guide:'肌に馴染ませた写真、朝のスキンケアシーンなど自然な投稿。',ng:'医薬的効果の表現禁止。',status:'active',created_at:'2026-04-03'},
-  {id:'demo-4',title:'マスクパック5種 フィード体験団',brand:'MEDIHEAL',product:'マスクパック5種セット',type:'nano',channel:'instagram',category:'beauty',emoji:'🎭',reward:0,slots:30,applied_count:30,deadline:'2026-04-20',post_days:7,description:'大人気マスクパック5種のセットをプレゼント！Instagramフィードまたはリールで投稿してください。',hashtags:'#mediheal #メディヒール #マスクパック #スキンケア',mentions:'@mediheal_japan',appeal:'毎週のスキンケアルーティンとして使いやすい点を表現。',guide:'パック中のくつろぎシーン、使用後のしっとり感。',ng:'バスルームの暗い写真禁止。',status:'closed',created_at:'2026-04-01'},
-  {id:'demo-5',title:'インクティント新色 X ナノ体験',brand:'PERIPERA',product:'インクティント 新色4本',type:'nano',channel:'x',category:'beauty',emoji:'💋',reward:1500,slots:10,applied_count:3,deadline:'2026-05-10',post_days:7,description:'PERIPERAの新色4種を体験するXインフルエンサーを募集！リワード¥1,500支給。',hashtags:'#peripera #ペリペラ #インクティント #リップ',mentions:'@peripera_japan',appeal:'新色の発色、テクスチャー、持続力を実際に使ってみた感想を。',guide:'リップアップの写真、スウォッチ写真推奨。',ng:'競合ブランドとの比較禁止。',status:'active',created_at:'2026-04-04'},
-  {id:'demo-6',title:'餃子新商品 グルメインフルエンサー募集',brand:'BIBIGO',product:'ビビゴ餃子 新商品',type:'nano',channel:'instagram',category:'food',emoji:'🥟',reward:0,slots:30,applied_count:12,deadline:'2026-05-15',post_days:7,description:'ビビゴの新商品餃子を体験してもらえるグルメ系インフルエンサーを募集します。',hashtags:'#bibigo #ビビゴ #餃子 #Kフード',mentions:'@bibigo_japan',appeal:'本格的な韓国の味、家庭で手軽に作れる点をアピール。',guide:'調理シーン、盛り付けシーン、実食シーンの3パターン推奨。',ng:'不潔に見える調理環境禁止。',status:'active',created_at:'2026-04-05'}
+  {id:'demo-1',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',
+   image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',
+   img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',
+   product_price:3200,reward:0,slots:25,applied_count:18,deadline:'2026-05-30',post_days:7,
+   content_types:'インスタ/フィード,インスタ/リール',
+   description:'イニスフリーの人気スキンケアアイテム、グリーンティセラムを体験していただける方を募集します。',
+   hashtags:'#innisfree #イニスフリー #グリーンティセラム #スキンケア',mentions:'@innisfree_official_jp',
+   appeal:'グリーンティ由来の保湿成分が肌深部まで浸透。',
+   guide:'明るい自然光で撮影してください。商品のテクスチャーがわかるようにアップで撮影。',
+   ng:'競合ブランド商品との比較投稿はNG。ネガティブ表現はNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-2',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',
+   image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',
+   img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',
+   product_price:4500,reward:0,slots:20,applied_count:12,deadline:'2026-05-25',post_days:10,
+   content_types:'インスタ/フィード',
+   description:'ROUND LABの大人気バーチュラトナーを体験していただける方を募集します。',
+   hashtags:'#roundlab #ラウンドラボ #バーチュラトナー #韓国コスメ',mentions:'@roundlab_jp',
+   appeal:'白樺水配合で肌を優しく整えるトナー。乾燥肌・敏感肌の方に特におすすめ。',
+   guide:'清潔感のある明るい背景で撮影。使用前後の肌の変化を表現してください。',
+   ng:'他ブランドとの比較NG。フィルター過剰使用NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-3',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',
+   image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',
+   img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',
+   product_price:3800,reward:1000,slots:15,applied_count:9,deadline:'2026-06-01',post_days:14,
+   content_types:'インスタ/フィード,インスタ/リール,インスタ/ストーリー',
+   description:'DR.Gの人気クッションファンデーションを体験していただける方を募集！リワード¥1,000付き。',
+   hashtags:'#drg #ドクタージー #クッションファンデ #韓国コスメ',mentions:'@drg_japan',
+   appeal:'赤みをカバーしながら素肌感を演出。SPF50+PA+++で紫外線対策も。',
+   guide:'使用前後のビフォーアフターが伝わる投稿。明るい自然光での撮影推奨。',
+   ng:'過度なフィルター加工NG。競合製品との比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-4',title:'MEDIHEAL マスクパック体験団',brand:'MEDIHEAL · メディヒール',product:'TEAトゥリーケアマスクパック 10枚',type:'nano',channel:'instagram',category:'beauty',emoji:'🩺',
+   image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',
+   img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',
+   product_price:2000,reward:0,slots:30,applied_count:22,deadline:'2026-05-20',post_days:7,
+   content_types:'インスタ/フィード,TikTok',
+   description:'MEDIHEALのTEAトゥリーマスクパックを体験していただける方を募集します。',
+   hashtags:'#mediheal #メディヒール #マスクパック #スキンケア',mentions:'@mediheal_japan',
+   appeal:'ティーツリー成分が肌トラブルをケア。毛穴引き締め効果も。',
+   guide:'着用中・着用後の自然な表情を撮影。朝・夜のスキンケアシーンに合わせてください。',
+   ng:'加工しすぎた写真NG。マスク着用以外の用途での撮影NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-5',title:'PERIPERA リップ体験団',brand:'PERIPERA · ペリペラ',product:'インクムードグロウティント',type:'nano',channel:'instagram',category:'beauty',emoji:'💋',
+   image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',
+   img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',
+   product_price:1500,reward:500,slots:20,applied_count:15,deadline:'2026-05-31',post_days:7,
+   content_types:'インスタ/リール,TikTok',
+   description:'PERIPERAの人気リップを体験！リワード¥500付き。カラー発色が美しいグロウティントです。',
+   hashtags:'#peripera #ペリペラ #リップ #韓国コスメ #Kビューティ',mentions:'@peripera_japan',
+   appeal:'ウォータリーなテクスチャーで唇に密着。鮮やかな発色が長時間持続。',
+   guide:'リップスウォッチや着用シーンを撮影。明るい照明で発色が伝わるように。',
+   ng:'口元以外の過度なフィルターNG。競合リップとの比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-6',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',
+   image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',
+   img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',
+   product_price:1200,reward:2000,slots:10,applied_count:7,deadline:'2026-06-15',post_days:10,
+   content_types:'インスタ/フィード,X投稿',
+   description:'BIBIGOの人気王餃子をQoo10でレビュー！リワード¥2,000付き。',
+   hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',
+   appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',
+   guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',
+   ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
 ];
 const DEMO_USERS_KEY = 'kemo_users';
 const DEMO_SESSION_KEY = 'kemo_session';
@@ -1184,19 +1010,36 @@ function getChannelBadge(ch) {
 // NAVIGATION
 // ══════════════════════════════════════
 function navigate(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  // 관리자 페이지는 appShell 밖 — 별도 처리
+  const appShell = $('appShell');
+  const adminPage = $('page-admin');
+
+  if (page === 'admin') {
+    if (appShell) appShell.style.display = 'none';
+    if (adminPage) { adminPage.classList.add('active'); adminPage.style.display = 'block'; }
+    document.body.style.background = '#F8F5F8';
+    loadAdminData();
+    return;
+  }
+
+  // 인플루언서 페이지: appShell 보이기, admin 숨기기
+  if (appShell) appShell.style.display = '';
+  if (adminPage) { adminPage.classList.remove('active'); adminPage.style.display = 'none'; }
+  document.body.style.background = '#E8E0EC';
+
+  document.querySelectorAll('#appShell .page').forEach(p => p.classList.remove('active'));
   const el = $('page-'+page);
   if (el) el.classList.add('active');
-  window.scrollTo(0, 0);
+  var _sh = $('appShell'); if(_sh) _sh.scrollTo(0,0); else window.scrollTo(0,0);
 
   // 플로팅 바: detail 벗어나면 숨기기
   const fb = $('detailFloatBar');
   if (fb && page !== 'detail') fb.style.display = 'none';
 
-  // 바텀 탭바: admin/login/signup 숨기기
+  // 바텀 탭바: login/signup 숨기기
   const tabBar = $('bottomTabBar');
   if (tabBar) {
-    tabBar.style.display = ['admin','login','signup'].includes(page) ? 'none' : 'flex';
+    tabBar.style.display = ['login','signup'].includes(page) ? 'none' : 'flex';
   }
   updateTabBar(page);
 
@@ -1205,7 +1048,6 @@ function navigate(page) {
     if (!currentUser) { navigate('login'); return; }
     loadMyPage();
   }
-  if (page === 'admin') loadAdminData();
 }
 
 function navigateTab(page, el) {
@@ -2216,7 +2058,7 @@ function goStep(step) {
     }
   });
   // Scroll to top of form
-  window.scrollTo({top: 0, behavior: 'smooth'});
+  var _shell = $('appShell'); if(_shell) _shell.scrollTo({top:0,behavior:'smooth'}); else window.scrollTo(0,0);
 }
 
 // ══════════════════════════════════════
@@ -2266,5 +2108,253 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 </div><!-- /appShell -->
+
+<div id="page-admin" class="page">
+  <!-- 관리자 전용 상단 헤더 -->
+  <div style="background:#2D1F2B;height:54px;display:flex;align-items:center;position:sticky;top:0;z-index:100;width:100%">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 24px">
+      <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:#fff;cursor:pointer" onclick="navigate('home')">Reverb</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="adminGnbInfo" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.7);font-size:13px">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">A</div>
+          <span>管理者</span>
+        </div>
+        <button class="gnb-btn gnb-btn-ghost" onclick="navigate('home')" style="font-size:12px;padding:5px 12px">インフルエンサー画面</button>
+        <span style="color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:.15s" onclick="handleLogout()">ログアウト</span>
+      </div>
+    </div>
+  </div>
+  <div class="admin-layout">
+    <aside class="admin-side">
+      <div class="admin-si-lbl">ダッシュボード</div>
+      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)">◉ 全体状況</div>
+      <div class="admin-si-lbl">キャンペーン</div>
+      <div class="admin-si" onclick="switchAdminPane('campaigns',this)">📣 キャンペーン管理</div>
+      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)">＋ 新規登録</div>
+      <div class="admin-si-lbl">会員管理</div>
+      <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ インフルエンサー一覧</div>
+      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 応募管理</div>
+    </aside>
+    <main class="admin-main">
+
+      <div class="admin-body">
+
+        <!-- DASHBOARD PANE -->
+        <div id="adminPane-dashboard" class="admin-pane on">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">全体状況</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">更新</button>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns">0</div><div class="kpi-lbl">全キャンペーン</div></div>
+            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers">0</div><div class="kpi-lbl">登録インフルエンサー</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications">0</div><div class="kpi-lbl">総応募数</div></div>
+            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved">0</div><div class="kpi-lbl">承認済み</div></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header"><span class="admin-card-title">最新応募</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',document.querySelector('.admin-si:nth-child(7)'))">すべて見る</button></div>
+            <table class="data-table" id="recentAppsTable">
+              <thead><tr><th>インフルエンサー</th><th>キャンペーン</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
+              <tbody id="recentAppsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- CAMPAIGNS PANE -->
+        <div id="adminPane-campaigns" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">キャンペーン管理</div>
+            <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 新規キャンペーン</button>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header"><span class="admin-card-title">キャンペーン一覧</span><button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',document.querySelector('.admin-si:nth-child(4)'))">+ 新規キャンペーン</button></div>
+            <table class="data-table">
+              <thead><tr><th>キャンペーン名</th><th>ブランド</th><th>チャンネル</th><th>募集</th><th>応募数</th><th>ステータス</th><th></th></tr></thead>
+              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ADD CAMPAIGN PANE -->
+        <div id="adminPane-add-campaign" class="admin-pane">
+          <div class="product-form">
+            <div class="product-form-title">新規キャンペーン登録</div>
+            <div class="product-form-sub">登録後すぐにインフルエンサーに公開されます</div>
+
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">キャンペーン名 *</label><input type="text" id="newCampTitle" class="form-input" placeholder="グリーンティーセラム 体験団"></div>
+              <div class="form-group"><label class="form-label">ブランド名 *</label><input type="text" id="newCampBrand" class="form-input" placeholder="イニスフリー"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">製品名 *</label><input type="text" id="newCampProduct" class="form-input" placeholder="グリーンティーセラム 80ml"></div>
+              <div class="form-group"><label class="form-label">募集人数 *</label><input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1"></div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">コンテンツ種類 * <span style="font-size:11px;font-weight:400;color:var(--muted)">（複数選択可）</span></label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-feed">
+                  <input type="checkbox" name="contentType" value="FEED" onchange="toggleCT(this)" style="display:none"> 📷 FEED
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-reels">
+                  <input type="checkbox" name="contentType" value="REELS" onchange="toggleCT(this)" style="display:none"> 🎬 REELS
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-story">
+                  <input type="checkbox" name="contentType" value="STORY" onchange="toggleCT(this)" style="display:none"> 📖 STORY
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-x">
+                  <input type="checkbox" name="contentType" value="X投稿" onchange="toggleCT(this)" style="display:none"> 𝕏 X投稿
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-tiktok">
+                  <input type="checkbox" name="contentType" value="TikTok" onchange="toggleCT(this)" style="display:none"> 🎵 TikTok
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-youtube">
+                  <input type="checkbox" name="contentType" value="YouTube" onchange="toggleCT(this)" style="display:none"> ▶ YouTube
+                </label>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">チャンネル</label>
+                <select id="newCampChannel" class="form-input">
+                  <option value="instagram">Instagram</option>
+                  <option value="x">X(Twitter)</option>
+                  <option value="qoo10">Qoo10</option>
+                  <option value="instagram,x">Instagram + X</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">カテゴリー</label>
+                <select id="newCampCategory" class="form-input">
+                  <option value="beauty">ビューティー/コスメ</option>
+                  <option value="food">フード/グルメ</option>
+                  <option value="fashion">ファッション/ライフ</option>
+                  <option value="health">ヘルス/ウェルネス</option>
+                  <option value="other">その他</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">リワード金額（¥）</label>
+                <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
+                <div class="form-hint">0円 = 製品無償提供のみ / 金額入力時は製品＋現金</div>
+              </div>
+              <div class="form-group"><label class="form-label">絵文字（キャンペーンアイコン）</label>
+                <input type="text" id="newCampEmoji" class="form-input" placeholder="📦" maxlength="2" style="width:80px">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">募集締切日 *</label><input type="date" id="newCampDeadline" class="form-input"></div>
+              <div class="form-group"><label class="form-label">投稿期限（受取後の日数）</label><input type="number" id="newCampPostDays" class="form-input" value="7" min="3" max="30"></div>
+            </div>
+
+            <div class="form-group"><label class="form-label">キャンペーン説明</label><textarea id="newCampDesc" class="form-input" placeholder="インフルエンサーに見せるキャンペーン紹介を入力してください"></textarea></div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">必須ハッシュタグ（#）</label><input type="text" id="newCampHashtags" class="form-input" placeholder="#ブランド名 #商品名（カンマ区切り）"></div>
+              <div class="form-group"><label class="form-label">必須メンション（@）</label><input type="text" id="newCampMentions" class="form-input" placeholder="@公式アカウント（カンマ区切り）"></div>
+            </div>
+            <div class="form-group"><label class="form-label">ブランドアピールポイント</label><textarea id="newCampAppeal" class="form-input" placeholder="インフルエンサーがコンテンツに盛り込むべきメッセージを入力してください"></textarea></div>
+            <div class="form-group"><label class="form-label">撮影ガイド</label><textarea id="newCampGuide" class="form-input" placeholder="撮影方向、アングル、背景、雰囲気のガイド"></textarea></div>
+            <div class="form-group"><label class="form-label">NGワード・NG事項</label><textarea id="newCampNg" class="form-input">・競合他社企業名、商品名、商品の露出はNG
+・暗いところで撮影して、商品がよく見えないことはNG
+・ロゴが反対側になることはNG
+・ブランド名、商品名、パッケージ、商品の発色がよく見えないことはNG
+・本商品、サービスに関するイメージがマイナス、ネガティブになる表現はNG
+・商品を直接使用しないで発色投稿だけすることはNG</textarea></div>
+
+            <div class="form-group">
+              <label class="form-label">製品メイン画像URL <span style="font-size:11px;font-weight:400;color:var(--muted)">（キャンペーンカードに表示されます）</span></label>
+              <input type="url" id="newCampImageUrl" class="form-input" placeholder="https://example.com/product-image.jpg">
+              <div class="form-hint">Qoo10 商品ページの画像URL、またはブランド提供の画像URLを入力してください</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">参考資料ファイル <span style="font-size:11px;font-weight:400;color:var(--muted)">（ガイドライン・参考画像 / JPG・PNG・PDF）</span></label>
+              <div style="border:2px dashed var(--line);border-radius:var(--r12);padding:20px;text-align:center;cursor:pointer;transition:.15s;background:var(--bg)" onclick="$('newCampFiles').click()" id="fileDropZone">
+                <div style="font-size:24px;margin-bottom:8px">📎</div>
+                <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">ファイルをここにドロップ またはクリックして選択</div>
+                <div style="font-size:11px;color:var(--muted)">JPG / PNG / PDF · 最大5MB × 5ファイル</div>
+                <input type="file" id="newCampFiles" multiple accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleFileSelect(this)">
+              </div>
+              <div id="filePreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:4px">
+              <button class="btn btn-primary" onclick="addCampaign()">キャンペーン登録</button>
+              <button class="btn btn-ghost" onclick="switchAdminPane('campaigns',document.querySelector('.admin-si:nth-child(3)'))">キャンセル</button>
+            </div></div>
+        </div>
+
+        <!-- INFLUENCERS PANE -->
+        <div id="adminPane-influencers" class="admin-pane">
+          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">インフルエンサー一覧</div>
+          <div class="admin-card">
+            <div class="admin-card-header"><span class="admin-card-title">インフルエンサー一覧</span></div>
+            <table class="data-table">
+              <thead><tr><th>氏名</th><th>Instagram</th><th>フォロワー</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr></thead>
+              <tbody id="adminInfluencersBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- CAMPAIGN APPLICANTS PANE -->
+        <div id="adminPane-camp-applicants" class="admin-pane">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',document.querySelectorAll('.admin-si')[2])">← キャンペーン一覧へ</button>
+            <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div>
+                <span class="admin-card-title" id="campApplicantsSubtitle">応募者一覧</span>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span id="campApplicantsStats" style="font-size:13px;color:var(--muted)"></span>
+                <select id="campAppFilterStatus" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
+                  <option value="">すべて</option>
+                  <option value="pending">審査中</option>
+                  <option value="approved">承認</option>
+                  <option value="rejected">非承認</option>
+                </select>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>名前</th><th>Instagram</th><th>フォロワー</th><th>応募理由</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
+              <tbody id="campApplicantsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- APPLICATIONS PANE -->
+        <div id="adminPane-applications" class="admin-pane">
+          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">応募管理</div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">応募管理</span>
+              <div style="display:flex;gap:6px">
+                <select id="appFilterStatus" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px" onchange="loadApplications()">
+                  <option value="">すべて</option>
+                  <option value="pending">審査中</option>
+                  <option value="approved">承認</option>
+                  <option value="rejected">非承認</option>
+                </select>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>インフルエンサー</th><th>キャンペーン</th><th>フォロワー</th><th>応募メッセージ</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
+              <tbody id="adminAppsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+
 </body>
 </html>
