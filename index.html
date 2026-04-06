@@ -1225,7 +1225,6 @@ function demoGetCampaigns() {
   return [...DEMO_CAMPAIGNS, ...custom];
 }
 function demoSaveCampaign(camp) {
-  console.log('demoSaveCampaign called, id:', camp.id);
   try {
     const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
     const imgs = {img1:camp.img1,img2:camp.img2,img3:camp.img3,img4:camp.img4,
@@ -1363,7 +1362,7 @@ async function handleLogin(e) {
             toast('管理者としてログインしました','success'); updateGnb();
             setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
           } else {
-            const {data:profile} = await db?.from('influencers').select('*').eq('id',data.user.id).single();
+            const {data:profile} = await db?.from('influencers').select('*').eq('id',data.user.id).maybeSingle();
             currentUserProfile = profile;
             toast('ログインしました 👋','success'); updateGnb(); navigate('home');
           }
@@ -1504,7 +1503,11 @@ function applyHomeFilter() {
 function buildCampCards(camps) {
   return camps.map(c => {
     const isFull = (c.applied_count||0) >= c.slots;
-    const reward = c.reward > 0 ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>` : '<strong>無償提供</strong>';
+    const reward = c.reward > 0
+    ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>`
+    : c.product_price > 0
+      ? `<strong>製品無償提供</strong>`
+      : '<strong>無償提供</strong>';
     const isNew = (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const remaining = c.slots - (c.applied_count||0);
     const bgGrad = getCampGrad(c.category);
@@ -1519,7 +1522,7 @@ function buildCampCards(camps) {
           ${typeLabel&&!isFull?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
         ${!isFull?`<div style="position:absolute;bottom:8px;left:8px;display:flex;gap:3px;flex-wrap:wrap;z-index:3;max-width:calc(100% - 16px)">${(c.content_types||getChannelLabel(c.channel)).split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;backdrop-filter:blur(4px);white-space:nowrap">${t.trim()}</span>`).join('')}</div>`:''}
-        <div class="camp-ch-badge" style="z-index:3">${c.brand}</div>
+        <div class="camp-ch-badge" style="z-index:3">${getChannelLabel(c.channel)}</div>
       </div>
       <div class="camp-body">
         <div class="camp-brand">${c.brand}</div>
@@ -1578,7 +1581,7 @@ async function openCampaign(id) {
       const apps = demoGetApps();
       alreadyApplied = apps.some(a=>a.user_id===currentUser.id && a.campaign_id===id);
     } else {
-      const {data} = await db?.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).single();
+      const {data} = await db?.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).maybeSingle();
       alreadyApplied = !!data;
     }
   }
@@ -1683,6 +1686,39 @@ async function openCampaign(id) {
           </div>
         </div>
       </div>
+
+      ${camp.description ? `
+      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">キャンペーン説明</div>
+        <div style="font-size:13px;color:var(--ink);line-height:1.7;white-space:pre-wrap">${camp.description}</div>
+      </div>` : ''}
+
+      ${(camp.hashtags||camp.mentions||camp.appeal) ? `
+      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+        <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">投稿ガイドライン</div>
+        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">ブランドアピールポイント</div><div style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px;white-space:pre-wrap">${camp.appeal}</div></div>` : ''}
+        ${camp.hashtags ? `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須ハッシュタグ</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.hashtags.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${t.trim()}</span>`).join('')}</div></div>` : ''}
+        ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須メンション</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${t.trim()}</span>`).join('')}</div></div>` : ''}
+      </div>` : ''}
+
+      ${camp.guide ? `
+      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">撮影ガイド</div>
+        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:8px">${camp.guide}</div>
+      </div>` : ''}
+
+      ${camp.ng ? `
+      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">NG事項</div>
+        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${camp.ng}</div>
+      </div>` : ''}
+
+      ${camp.product_url ? `
+      <div style="background:#fff;padding:12px 16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+        <a href="${camp.product_url}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
+          <span style="font-size:16px">🛍</span> 商品ページを見る →
+        </a>
+      </div>` : ''}
 
       <div style="background:#fff;padding:16px;">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">注意事項</div>
@@ -2064,9 +2100,119 @@ async function loadAdminCampaigns() {
           </div>
         </div>
       </td>
-      <td><button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">詳細</button></td>
+      <td style="white-space:nowrap;display:flex;gap:4px">
+        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">編集</button>
+        <button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">詳細</button>
+      </td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">キャンペーンなし</td></tr>';
+}
+
+// ── 캠페인 편집 ──
+function openEditCampaign(campId) {
+  const camp = demoGetCampaigns().find(c=>c.id===campId);
+  if (!camp) { toast('キャンペーンが見つかりません','error'); return; }
+
+  const sv = (id, val) => { const el=$(id); if(el) el.value = val||''; };
+  $('editCampId').value = campId;
+  sv('editCampTitle', camp.title);
+  sv('editCampBrand', camp.brand);
+  sv('editCampProduct', camp.product);
+  sv('editCampProductUrl', camp.product_url||'');
+  sv('editCampSlots', camp.slots);
+  sv('editCampProductPrice', camp.product_price||0);
+  sv('editCampReward', camp.reward||0);
+  sv('editCampDeadline', camp.deadline||'');
+  sv('editCampPostDeadline', camp.post_deadline||'');
+  sv('editCampDesc', camp.description||'');
+  sv('editCampHashtags', camp.hashtags||'');
+  sv('editCampMentions', camp.mentions||'');
+  sv('editCampAppeal', camp.appeal||'');
+  sv('editCampGuide', camp.guide||'');
+  sv('editCampNg', camp.ng||'');
+  if ($('editCampChannel')) $('editCampChannel').value = camp.channel||'instagram';
+  if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
+  if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
+
+  // 모집타입 선택
+  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
+  const rtEl = $('edit-rt-'+(camp.recruit_type||'monitor'));
+  if (rtEl) { rtEl.style.borderColor='var(--pink)';rtEl.style.background='var(--light-pink)';rtEl.style.color='var(--pink)';rtEl.style.fontWeight='700'; }
+  document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===(camp.recruit_type||'monitor'));});
+
+  // 콘텐츠 유형 체크
+  const ctMap = {'フィード':'feed','リール':'reels','ストーリー':'story','ショート動画':'short','動画':'video','画像':'image'};
+  const selected = (camp.content_types||'').split(',').map(t=>t.trim());
+  document.querySelectorAll('input[name="editContentType"]').forEach(cb=>{
+    cb.checked = selected.includes(cb.value);
+    toggleEditCT(cb);
+  });
+
+  switchAdminPane('edit-campaign', null);
+}
+
+function toggleEditRT(rb) {
+  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
+  const label=rb.closest('label');
+  label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';label.style.fontWeight='700';
+}
+
+function toggleEditCT(cb) {
+  const label=cb.closest('label');
+  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
+  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
+}
+
+function saveCampaignEdit() {
+  try {
+    const campId = $('editCampId').value;
+    if (!campId) { toast('IDが見つかりません','error'); return; }
+    const gv = id => $(id)?.value||'';
+    const title = gv('editCampTitle').trim();
+    const brand = gv('editCampBrand').trim();
+    if (!title||!brand) { toast('キャンペーン名とブランド名は必須です','error'); return; }
+
+    const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
+    const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
+
+    const updates = {
+      title, brand,
+      product: gv('editCampProduct'),
+      product_url: gv('editCampProductUrl'),
+      slots: parseInt(gv('editCampSlots'))||20,
+      recruit_type: recruitTypeEl?.value||'monitor',
+      channel: gv('editCampChannel'),
+      category: gv('editCampCategory'),
+      content_types: contentTypes,
+      product_price: parseInt(gv('editCampProductPrice'))||0,
+      reward: parseInt(gv('editCampReward'))||0,
+      deadline: gv('editCampDeadline'),
+      post_deadline: gv('editCampPostDeadline'),
+      description: gv('editCampDesc'),
+      hashtags: gv('editCampHashtags'),
+      mentions: gv('editCampMentions'),
+      appeal: gv('editCampAppeal'),
+      guide: gv('editCampGuide'),
+      ng: gv('editCampNg'),
+      status: gv('editCampStatus'),
+    };
+
+    // localStorage 업데이트
+    const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+    const ci = custom.findIndex(c=>c.id===campId);
+    if (ci>=0) { Object.assign(custom[ci], updates); localStorage.setItem('kemo_campaigns',JSON.stringify(custom)); }
+    // DEMO_CAMPAIGNS 업데이트
+    const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===campId);
+    if (di>=0) Object.assign(DEMO_CAMPAIGNS[di], updates);
+
+    allCampaigns = demoGetCampaigns();
+    toast('変更を保存しました ✓','success');
+    const campSi = (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })();
+    switchAdminPane('campaigns', campSi);
+    loadAdminCampaigns();
+  } catch(err) {
+    toast('保存エラー: '+err.message,'error');
+  }
 }
 
 // 상태 순환: 開催中 → 一時停止 → 終了 → 開催中
@@ -2388,7 +2534,6 @@ async function updateAppStatus(appId, status) {
 
 async function addCampaign() {
   try {
-  console.log('addCampaign START');
   const title = $('newCampTitle').value.trim();
   const brand = $('newCampBrand').value.trim();
   const product = $('newCampProduct').value.trim();
@@ -2399,13 +2544,10 @@ async function addCampaign() {
   const contentTypes = Array.from(document.querySelectorAll('input[name="contentType"]:checked')).map(c=>c.value).join(',');
   const recruitTypeEl = document.querySelector('input[name="recruitType"]:checked');
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
-  console.log('values:', {title, brand, product, slots, deadline});
   if (!title||!brand||!product||!deadline) {
     toast('必須項目をすべて入力してください','error');
-    console.log('VALIDATION FAILED');
     return;
   }
-  console.log('VALIDATION PASSED');
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = $('newCampChannel').value;
@@ -2438,15 +2580,11 @@ async function addCampaign() {
   };
 
   // 항상 localStorage에 저장 (DEMO_MODE 무관)
-  console.log('demoSaveCampaign START', camp.title);
   demoSaveCampaign(camp);
-  console.log('demoSaveCampaign DONE');
   // Supabase 연결 시 백그라운드 저장 시도
   if (!DEMO_MODE && db) {
     try { await db?.from('campaigns').insert(camp); } catch(e) { /* localStorage save done */ }
   }
-
-  console.log('SAVE DONE, showing toast');
   toast('キャンペーンが登録されました 🎉','success');
   campImgData.length = 0;
   renderCampImgPreview();
@@ -2707,7 +2845,7 @@ async function init() {
     const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
     if (session) {
       currentUser = session.user;
-      const {data:profile} = await db?.from('influencers').select('*').eq('id',currentUser.id).single();
+      const {data:profile} = await db?.from('influencers').select('*').eq('id',currentUser.id).maybeSingle();
       currentUserProfile = profile;
     }
   }
@@ -2801,6 +2939,91 @@ document.addEventListener('DOMContentLoaded', function() {
               <thead><tr><th>順序</th><th>キャンペーン名</th><th>ステータス</th><th>タイプ</th><th>ブランド</th><th>応募 / 募集</th><th></th></tr></thead>
               <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- EDIT CAMPAIGN PANE -->
+        <div id="adminPane-edit-campaign" class="admin-pane">
+          <div class="product-form">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })())">← 一覧へ戻る</button>
+              <div class="product-form-title" style="margin:0">キャンペーン編集</div>
+            </div>
+            <input type="hidden" id="editCampId">
+
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">キャンペーン名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="text" id="editCampTitle" class="form-input"></div>
+              <div class="form-group"><label class="form-label">ブランド名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="text" id="editCampBrand" class="form-input"></div>
+            </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">製品名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="text" id="editCampProduct" class="form-input"></div>
+              <div class="form-group"><label class="form-label">商品ページURL</label><input type="url" id="editCampProductUrl" class="form-input"></div>
+            </div>
+
+            <div class="form-row" style="grid-template-columns:1fr 120px;align-items:start">
+              <div class="form-group">
+                <label class="form-label">募集タイプ <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> モニター</label>
+                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"> ギフティング</label>
+                </div>
+              </div>
+              <div class="form-group"><label class="form-label">募集人数 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="number" id="editCampSlots" class="form-input" min="1"></div>
+            </div>
+
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">チャンネル</label>
+                <select id="editCampChannel" class="form-input">
+                  <option value="instagram">Instagram</option><option value="x">X(Twitter)</option><option value="qoo10">Qoo10</option><option value="instagram,x">Instagram + X</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">カテゴリー</label>
+                <select id="editCampCategory" class="form-input">
+                  <option value="beauty">ビューティー/コスメ</option><option value="food">フード/グルメ</option><option value="fashion">ファッション/ライフ</option><option value="health">ヘルス/ウェルネス</option><option value="other">その他</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">コンテンツ種類 <span style="font-size:11px;font-weight:400;color:var(--muted)">（複数選択可）</span></label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-feed"><input type="checkbox" name="editContentType" value="フィード" onchange="toggleEditCT(this)" style="display:none">フィード</label>
+                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-reels"><input type="checkbox" name="editContentType" value="リール" onchange="toggleEditCT(this)" style="display:none">リール</label>
+                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-story"><input type="checkbox" name="editContentType" value="ストーリー" onchange="toggleEditCT(this)" style="display:none">ストーリー</label>
+                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-short"><input type="checkbox" name="editContentType" value="ショート動画" onchange="toggleEditCT(this)" style="display:none">ショート動画</label>
+                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-video"><input type="checkbox" name="editContentType" value="動画" onchange="toggleEditCT(this)" style="display:none">動画</label>
+                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-image"><input type="checkbox" name="editContentType" value="画像" onchange="toggleEditCT(this)" style="display:none">画像</label>
+              </div>
+            </div>
+
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">製品金額（¥）</label><input type="number" id="editCampProductPrice" class="form-input" min="0"></div>
+              <div class="form-group"><label class="form-label">リワード金額（¥）</label><input type="number" id="editCampReward" class="form-input" min="0"><div class="form-hint">0円 = 製品提供のみ</div></div>
+            </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">募集締切日 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="date" id="editCampDeadline" class="form-input"></div>
+              <div class="form-group"><label class="form-label">投稿締切日</label><input type="date" id="editCampPostDeadline" class="form-input"></div>
+            </div>
+            <div class="form-group"><label class="form-label">キャンペーン説明</label><textarea id="editCampDesc" class="form-input"></textarea></div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">必須ハッシュタグ（#）</label><input type="text" id="editCampHashtags" class="form-input"></div>
+              <div class="form-group"><label class="form-label">必須メンション（@）</label><input type="text" id="editCampMentions" class="form-input"></div>
+            </div>
+            <div class="form-group"><label class="form-label">ブランドアピールポイント</label><textarea id="editCampAppeal" class="form-input"></textarea></div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">撮影ガイド</label><textarea id="editCampGuide" class="form-input" style="min-height:100px"></textarea></div>
+              <div class="form-group"><label class="form-label">NG事項</label><textarea id="editCampNg" class="form-input" style="min-height:100px"></textarea></div>
+            </div>
+            <div class="form-group"><label class="form-label">ステータス</label>
+              <select id="editCampStatus" class="form-input">
+                <option value="active">開催中</option><option value="paused">一時停止</option><option value="closed">終了</option>
+              </select>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px">
+              <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">変更を保存</button>
+              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })())">キャンセル</button>
+            </div>
           </div>
         </div>
 
