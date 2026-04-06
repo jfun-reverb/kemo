@@ -25,7 +25,7 @@ async function loadAdminData() {
   $('kpiApproved').textContent = approved.length;
   loadAdminCampaigns();
   loadAdminInfluencers();
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `📋 応募管理${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `📋 신청 관리${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
 
   // Recent apps
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -37,10 +37,10 @@ async function loadAdminData() {
       <td>${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
       <td><div style="display:flex;gap:5px">
-        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">承認</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">非承認</button>`:'—'}
+        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
       </div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">応募なし</td></tr>';
+  }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
 }
 
 let adminCampTypeFilter = 'all';
@@ -52,7 +52,7 @@ function switchAdminCampTab(type, btn) {
   });
   btn.style.color='var(--pink)'; btn.style.borderBottomColor='var(--pink)'; btn.style.fontWeight='700';
   const titleEl = $('adminCampTableTitle');
-  if (titleEl) titleEl.textContent = type==='all'?'キャンペーン一覧':type==='monitor'?'モニター一覧':'ギフティング一覧';
+  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'모니터 목록':'기프팅 목록';
   loadAdminCampaigns();
 }
 
@@ -74,11 +74,11 @@ async function loadAdminCampaigns() {
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
   });
-  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">モニター</span>':t==='gifting'?'<span class="badge badge-gold">ギフティング</span>':'<span class="badge badge-gray">—</span>';
+  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">모니터</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusBadge = s => {
-    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">開催中</span>`;
-    if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">一時停止</span>`;
-    return `<span class="badge badge-gray" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">終了</span>`;
+    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">진행중</span>`;
+    if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">일시정지</span>`;
+    return `<span class="badge badge-gray" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">종료</span>`;
   };
   $('adminCampsBody').innerHTML = camps.map((c,i)=>{
     const cnt = DEMO_MODE ? demoGetApps().filter(a=>a.campaign_id===c.id).length : (c.applied_count||0);
@@ -106,17 +106,17 @@ async function loadAdminCampaigns() {
         </div>
       </td>
       <td style="white-space:nowrap;display:flex;gap:4px">
-        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">編集</button>
-        <button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">詳細</button>
+        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
+        <button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">상세</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">キャンペーンなし</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
 }
 
 // ── キャンペーン編集 ──
 function openEditCampaign(campId) {
   const camp = demoGetCampaigns().find(c=>c.id===campId);
-  if (!camp) { toast('キャンペーンが見つかりません','error'); return; }
+  if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
 
   const sv = (id, val) => { const el=$(id); if(el) el.value = val||''; };
   $('editCampId').value = campId;
@@ -171,11 +171,11 @@ function toggleEditCT(cb) {
 function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
-    if (!campId) { toast('IDが見つかりません','error'); return; }
+    if (!campId) { toast('ID를 찾을 수 없습니다','error'); return; }
     const gv = id => $(id)?.value||'';
     const title = gv('editCampTitle').trim();
     const brand = gv('editCampBrand').trim();
-    if (!title||!brand) { toast('キャンペーン名とブランド名は必須です','error'); return; }
+    if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
@@ -211,12 +211,12 @@ function saveCampaignEdit() {
     if (di>=0) Object.assign(DEMO_CAMPAIGNS[di], updates);
 
     allCampaigns = demoGetCampaigns();
-    toast('変更を保存しました ✓','success');
-    const campSi = (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })();
+    toast('변경 사항을 저장했습니다 ✓','success');
+    const campSi = (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })();
     switchAdminPane('campaigns', campSi);
     loadAdminCampaigns();
   } catch(err) {
-    toast('保存エラー: '+err.message,'error');
+    toast('저장 오류: '+err.message,'error');
   }
 }
 
@@ -290,13 +290,13 @@ async function loadCampApplicants() {
 
   // キャンペーン情報取得
   const camp = (DEMO_MODE?demoGetCampaigns():[]).find(c=>c.id===currentCampApplicantId)||{};
-  $('campApplicantsSubtitle').textContent = `応募者一覧`;
+  $('campApplicantsSubtitle').textContent = `신청자 목록`;
   $('campApplicantsStats').innerHTML = `
-    <span style="color:var(--ink);font-weight:600">${total}名応募</span>
+    <span style="color:var(--ink);font-weight:600">${total}명 신청</span>
     <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--green)">承認 ${approved}名</span>
+    <span style="color:var(--green)">승인 ${approved}명</span>
     <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--gold)">審査中 ${pending}名</span>
+    <span style="color:var(--gold)">심사중 ${pending}명</span>
   `;
 
   $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>`<tr>
@@ -311,11 +311,11 @@ async function loadCampApplicants() {
     <td>${getStatusBadge(a.status)}</td>
     <td><div style="display:flex;gap:5px">
       ${a.status==='pending'?`
-        <button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved');loadCampApplicants()">承認</button>
+        <button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved');loadCampApplicants()">승인</button>
         <button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected');loadCampApplicants()">✕</button>
       `:'—'}
     </div></td>
-  </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">まだ応募がありません</td></tr>';
+  </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
 }
 
 // ── インフルエンサー一覧 (チャンネルタブ) ──
@@ -330,7 +330,7 @@ async function loadAdminInfluencers() {
     if (el) el.textContent = cnt(ch);
   });
   const totalEl = $('infTotalCount');
-  if (totalEl) totalEl.textContent = `${users.length}名登録`;
+  if (totalEl) totalEl.textContent = `${users.length}명 등록`;
   renderInfTable(users, currentInfTab);
 }
 
@@ -358,8 +358,8 @@ function renderInfTable(users, ch) {
   let colCount = 10;
 
   if (ch === 'all') {
-    if (titleEl) titleEl.textContent = 'インフルエンサー全体';
-    if (headEl) headEl.innerHTML = '<tr><th>氏名</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>合計</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>';
+    if (titleEl) titleEl.textContent = '인플루언서 전체';
+    if (headEl) headEl.innerHTML = '<tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>';
     colCount = 10;
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const igF = (u.ig_followers||0).toLocaleString();
@@ -368,7 +368,7 @@ function renderInfTable(users, ch) {
       const ytF = (u.youtube_followers||0).toLocaleString();
       const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">登録済</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">未登録</span>`;
+      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
         <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}名</div></td>
@@ -381,18 +381,18 @@ function renderInfTable(users, ch) {
         <td>${bank}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr>`;
+    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
   } else {
     const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
     const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
     const idKey = {instagram:'ig',x:'x',tiktok:'tiktok',youtube:'youtube'}[ch];
-    if (titleEl) titleEl.textContent = `${chLabel} 登録者`;
+    if (titleEl) titleEl.textContent = `${chLabel} 등록자`;
     filtered = users.filter(u => u[fKey] > 0);
-    if (headEl) headEl.innerHTML = `<tr><th>氏名</th><th>${chLabel} ID</th><th>フォロワー</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>`;
+    if (headEl) headEl.innerHTML = `<tr><th>이름</th><th>${chLabel} ID</th><th>팔로워</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>`;
     colCount = 7;
     bodyEl.innerHTML = filtered.length ? filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0)).map(u => {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">登録済</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">未登録</span>`;
+      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
         <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u[idKey]?`@${u[idKey].replace('@','')}`:'—'}</td>
@@ -402,7 +402,7 @@ function renderInfTable(users, ch) {
         <td>${bank}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr>`;
+    }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
   }
 }
 
@@ -439,13 +439,13 @@ function renderAppCampList() {
   if (currentAppTypeTab === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
   else if (currentAppTypeTab === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
   const apps = demoGetApps();
-  if (!camps.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">キャンペーンなし</div>'; return; }
+  if (!camps.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">캠페인 없음</div>'; return; }
   listEl.innerHTML = camps.map(camp => {
     const campApps = apps.filter(a=>a.campaign_id===camp.id);
     const pending = campApps.filter(a=>a.status==='pending').length;
     const approved = campApps.filter(a=>a.status==='approved').length;
     const rejected = campApps.filter(a=>a.status==='rejected').length;
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">モニター</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">ギフティング</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">모니터</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">기프팅</span>':'';
     return `<div class="admin-card" style="margin-bottom:12px;cursor:pointer;transition:.15s" onclick="openAppCampDetail('${camp.id}')" onmouseenter="this.style.borderColor='var(--pink)'" onmouseleave="this.style.borderColor='var(--line)'">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px">
         <div style="flex:1;min-width:0">
@@ -453,24 +453,24 @@ function renderAppCampList() {
             ${typeLabel}
             <span style="font-size:15px;font-weight:700;color:var(--ink)">${camp.title}</span>
           </div>
-          <div style="font-size:12px;color:var(--muted)">${camp.brand} · 締切 ${formatDate(camp.deadline)}</div>
+          <div style="font-size:12px;color:var(--muted)">${camp.brand} · 마감 ${formatDate(camp.deadline)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--ink)">${campApps.length}</div>
-            <div style="font-size:10px;color:var(--muted)">総応募</div>
+            <div style="font-size:10px;color:var(--muted)">총 신청</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--gold)">${pending}</div>
-            <div style="font-size:10px;color:var(--muted)">審査中</div>
+            <div style="font-size:10px;color:var(--muted)">심사중</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--green)">${approved}</div>
-            <div style="font-size:10px;color:var(--muted)">承認</div>
+            <div style="font-size:10px;color:var(--muted)">승인</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--muted)">${rejected}</div>
-            <div style="font-size:10px;color:var(--muted)">非承認</div>
+            <div style="font-size:10px;color:var(--muted)">미승인</div>
           </div>
           <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--ink)">${camp.applied_count||campApps.length} / ${camp.slots}名 →</div>
         </div>
@@ -497,7 +497,7 @@ function renderAppDetail() {
   let apps = demoGetApps().filter(a=>a.campaign_id===currentAppCampId);
   const filter = $('appDetailFilter')?.value||'';
   const users = DEMO_MODE ? demoGetUsers() : [];
-  if (statsEl) statsEl.textContent = `総 ${apps.length}名 / 承認 ${apps.filter(a=>a.status==='approved').length}名`;
+  if (statsEl) statsEl.textContent = `총 ${apps.length}명 / 승인 ${apps.filter(a=>a.status==='approved').length}명`;
   if (filter) apps = apps.filter(a=>a.status===filter);
   apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   bodyEl.innerHTML = apps.length ? apps.map(a => {
@@ -517,10 +517,10 @@ function renderAppDetail() {
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
       <td><div style="display:flex;gap:5px">
-        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">承認</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">非承認</button>`:'—'}
+        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
       </div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">応募なし</td></tr>';
+  }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
 }
 
 async function updateAppStatus(appId, status) {
@@ -531,7 +531,7 @@ async function updateAppStatus(appId, status) {
   } else {
     await db?.from('applications').update({status}).eq('id',appId);
   }
-  toast(status==='approved'?'✓ 承認しました':'非承認にしました', status==='approved'?'success':'');
+  toast(status==='approved'?'✓ 승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
   if (currentAppCampId) renderAppDetail();
   else loadApplications();
   loadAdminData();
@@ -550,7 +550,7 @@ async function addCampaign() {
   const recruitTypeEl = document.querySelector('input[name="recruitType"]:checked');
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
   if (!title||!brand||!product||!deadline) {
-    toast('必須項目をすべて入力してください','error');
+    toast('필수 항목을 모두 입력해주세요','error');
     return;
   }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
@@ -590,7 +590,7 @@ async function addCampaign() {
   if (!DEMO_MODE && db) {
     try { await db?.from('campaigns').insert(camp); } catch(e) { /* localStorage save done */ }
   }
-  toast('キャンペーンが登録されました 🎉','success');
+  toast('캠페인이 등록되었습니다 🎉','success');
   campImgData.length = 0;
   renderCampImgPreview();
 
@@ -611,11 +611,11 @@ async function addCampaign() {
   // 管理者キャンペーン一覧へ移動
   const allSi = document.querySelectorAll('.admin-si');
   let campSi = null;
-  allSi.forEach(el => { if(el.textContent.includes('キャンペーン管理')) campSi = el; });
+  allSi.forEach(el => { if(el.textContent.includes('캠페인 관리')) campSi = el; });
   if (campSi) switchAdminPane('campaigns', campSi);
   else switchAdminPane('campaigns', null);
   loadAdminCampaigns();
   } catch(err) {
-    toast('エラー: ' + (err.message||String(err)), 'error');
+    toast('오류: ' + (err.message||String(err)), 'error');
   }
 }

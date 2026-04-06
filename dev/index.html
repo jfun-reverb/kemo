@@ -45,7 +45,7 @@ window._supabaseLoaded = false;
     <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)">ログイン・情報登録が必要です</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7">キャンペーンに参加するにはログインが必要です。</div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()">キャンセル</button>
+      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()">취소</button>
       <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')">ログイン</button>
     </div>
     <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">アカウントをお持ちでない方は <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer">無料登録</a></div>
@@ -332,11 +332,11 @@ window._supabaseLoaded = false;
               <label class="form-label">メインカテゴリー</label>
               <select id="signupCategory" class="form-input">
                 <option value="">選択してください</option>
-                <option value="beauty">ビューティー/コスメ</option>
-                <option value="food">フード/グルメ</option>
-                <option value="fashion">ファッション/ライフ</option>
-                <option value="health">ヘルス/ウェルネス</option>
-                <option value="other">その他</option>
+                <option value="beauty">뷰티/코스메</option>
+                <option value="food">푸드/그르메</option>
+                <option value="fashion">패션/라이프</option>
+                <option value="health">헬스/웰니스</option>
+                <option value="other">기타</option>
               </select>
             </div>
             <div class="form-group">
@@ -499,14 +499,14 @@ window._supabaseLoaded = false;
         <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">基本情報</div>
         <div class="form-group"><label class="form-label">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
         <div class="form-group"><label class="form-label">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
-        <div class="form-group"><label class="form-label">カテゴリー</label>
+        <div class="form-group"><label class="form-label">카테고리</label>
           <select id="profileCategory" class="form-input">
             <option value="">選択してください</option>
-            <option value="beauty">ビューティー/コスメ</option>
-            <option value="food">フード/グルメ</option>
-            <option value="fashion">ファッション/ライフ</option>
-            <option value="health">ヘルス/ウェルネス</option>
-            <option value="other">その他</option>
+            <option value="beauty">뷰티/코스메</option>
+            <option value="food">푸드/그르메</option>
+            <option value="fashion">패션/라이프</option>
+            <option value="health">헬스/웰니스</option>
+            <option value="other">기타</option>
           </select>
         </div>
         <div class="form-group"><label class="form-label">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@586mnjocを追加後、IDを入力"></div>
@@ -609,7 +609,7 @@ window._supabaseLoaded = false;
 
         <!-- logout -->
         <div class="card card-pad">
-          <div style="font-size:15px;font-weight:700;margin-bottom:16px">その他</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:16px">기타</div>
           <div style="display:flex;flex-direction:column;gap:10px">
             <button class="btn btn-ghost btn-block" onclick="handleLogout()">ログアウト</button>
             <button class="btn btn-ghost btn-block" style="color:var(--muted);font-size:12px" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</button>
@@ -664,23 +664,23 @@ window._supabaseLoaded = false;
       <div style="display:flex;align-items:center;gap:10px">
         <div id="adminGnbInfo" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.7);font-size:13px">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">A</div>
-          <span>管理者</span>
+          <span>관리자</span>
         </div>
-        <button class="gnb-btn gnb-btn-ghost" onclick="navigate('home')" style="font-size:12px;padding:5px 12px">インフルエンサー画面</button>
-        <span style="color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:.15s" onclick="handleLogout()">ログアウト</span>
+        <button class="gnb-btn gnb-btn-ghost" onclick="navigate('home')" style="font-size:12px;padding:5px 12px">인플루언서 화면</button>
+        <span style="color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:.15s" onclick="handleLogout()">로그아웃</span>
       </div>
     </div>
   </div>
   <div class="admin-layout">
     <aside class="admin-side">
-      <div class="admin-si-lbl">ダッシュボード</div>
-      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)">◉ 全体状況</div>
-      <div class="admin-si-lbl">キャンペーン</div>
-      <div class="admin-si" onclick="switchAdminPane('campaigns',this)">📣 キャンペーン管理</div>
-      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)">＋ 新規登録</div>
-      <div class="admin-si-lbl">会員管理</div>
-      <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ インフルエンサー一覧</div>
-      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 応募管理</div>
+      <div class="admin-si-lbl">대시보드</div>
+      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)">◉ 전체 현황</div>
+      <div class="admin-si-lbl">캠페인</div>
+      <div class="admin-si" onclick="switchAdminPane('campaigns',this)">📣 캠페인 관리</div>
+      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)">＋ 신규 등록</div>
+      <div class="admin-si-lbl">회원 관리</div>
+      <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ 인플루언서 목록</div>
+      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 신청 관리</div>
     </aside>
     <main class="admin-main">
 
@@ -689,20 +689,20 @@ window._supabaseLoaded = false;
         <!-- DASHBOARD PANE -->
         <div id="adminPane-dashboard" class="admin-pane on">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">全体状況</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">更新</button>
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">전체 현황</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">새로고침</button>
           </div>
           <div class="kpi-row">
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns">0</div><div class="kpi-lbl">全キャンペーン</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers">0</div><div class="kpi-lbl">登録インフルエンサー</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications">0</div><div class="kpi-lbl">総応募数</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved">0</div><div class="kpi-lbl">承認済み</div></div>
+            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns">0</div><div class="kpi-lbl">전체 캠페인</div></div>
+            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers">0</div><div class="kpi-lbl">등록 인플루언서</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications">0</div><div class="kpi-lbl">총 신청수</div></div>
+            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved">0</div><div class="kpi-lbl">승인 완료</div></div>
           </div>
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">最新応募</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',document.querySelector('.admin-si:nth-child(7)'))">すべて見る</button></div>
+            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',document.querySelector('.admin-si:nth-child(7)'))">전체 보기</button></div>
             <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>インフルエンサー</th><th>キャンペーン</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+              <thead><tr><th>인플루언서</th><th>캠페인</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <tbody id="recentAppsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -710,20 +710,20 @@ window._supabaseLoaded = false;
         <!-- CAMPAIGNS PANE -->
         <div id="adminPane-campaigns" class="admin-pane">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">キャンペーン管理</div>
-            <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 新規キャンペーン</button>
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
+            <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
           </div>
           <!-- 카테고리별 탭 -->
           <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:14px">
-            <button id="adminCampTab-all" onclick="switchAdminCampTab('all',this)" style="padding:7px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">すべて</button>
-            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">モニター</button>
-            <button id="adminCampTab-gifting" onclick="switchAdminCampTab('gifting',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">ギフティング</button>
+            <button id="adminCampTab-all" onclick="switchAdminCampTab('all',this)" style="padding:7px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
+            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">모니터</button>
+            <button id="adminCampTab-gifting" onclick="switchAdminCampTab('gifting',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
           </div>
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">キャンペーン一覧</span><span style="font-size:11px;color:var(--muted)">↑↓ で表示順変更 · クリックで状態変更</span></div>
+            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span><span style="font-size:11px;color:var(--muted)">↑↓ 순서 변경 · 클릭으로 상태 변경</span></div>
             <table class="data-table">
-              <thead><tr><th>順序</th><th>キャンペーン名</th><th>ステータス</th><th>タイプ</th><th>ブランド</th><th>応募 / 募集</th><th></th></tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+              <thead><tr><th>순서</th><th>캠페인명</th><th>상태</th><th>타입</th><th>브랜드</th><th>신청 / 모집</th><th></th></tr></thead>
+              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -732,46 +732,46 @@ window._supabaseLoaded = false;
         <div id="adminPane-edit-campaign" class="admin-pane">
           <div class="product-form">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-              <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })())">← 一覧へ戻る</button>
-              <div class="product-form-title" style="margin:0">キャンペーン編集</div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
+              <div class="product-form-title" style="margin:0">캠페인 편집</div>
             </div>
             <input type="hidden" id="editCampId">
 
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">キャンペーン名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="text" id="editCampTitle" class="form-input"></div>
-              <div class="form-group"><label class="form-label">ブランド名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="text" id="editCampBrand" class="form-input"></div>
+              <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
+              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input"></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">製品名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="text" id="editCampProduct" class="form-input"></div>
-              <div class="form-group"><label class="form-label">商品ページURL</label><input type="url" id="editCampProductUrl" class="form-input"></div>
+              <div class="form-group"><label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampProduct" class="form-input"></div>
+              <div class="form-group"><label class="form-label">상품 페이지 URL</label><input type="url" id="editCampProductUrl" class="form-input"></div>
             </div>
 
             <div class="form-row" style="grid-template-columns:1fr 120px;align-items:start">
               <div class="form-group">
-                <label class="form-label">募集タイプ <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> モニター</label>
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"> ギフティング</label>
+                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> 모니터</label>
+                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"> 기프팅</label>
                 </div>
               </div>
-              <div class="form-group"><label class="form-label">募集人数 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="number" id="editCampSlots" class="form-input" min="1"></div>
+              <div class="form-group"><label class="form-label">모집 인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="number" id="editCampSlots" class="form-input" min="1"></div>
             </div>
 
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">チャンネル</label>
+              <div class="form-group"><label class="form-label">채널</label>
                 <select id="editCampChannel" class="form-input">
                   <option value="instagram">Instagram</option><option value="x">X(Twitter)</option><option value="qoo10">Qoo10</option><option value="instagram,x">Instagram + X</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option>
                 </select>
               </div>
-              <div class="form-group"><label class="form-label">カテゴリー</label>
+              <div class="form-group"><label class="form-label">카테고리</label>
                 <select id="editCampCategory" class="form-input">
-                  <option value="beauty">ビューティー/コスメ</option><option value="food">フード/グルメ</option><option value="fashion">ファッション/ライフ</option><option value="health">ヘルス/ウェルネス</option><option value="other">その他</option>
+                  <option value="beauty">뷰티/코스메</option><option value="food">푸드/그르메</option><option value="fashion">패션/라이프</option><option value="health">헬스/웰니스</option><option value="other">기타</option>
                 </select>
               </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label">コンテンツ種類 <span style="font-size:11px;font-weight:400;color:var(--muted)">（複数選択可）</span></label>
+              <label class="form-label">콘텐츠 종류 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
                 <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-feed"><input type="checkbox" name="editContentType" value="フィード" onchange="toggleEditCT(this)" style="display:none">フィード</label>
                 <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-reels"><input type="checkbox" name="editContentType" value="リール" onchange="toggleEditCT(this)" style="display:none">リール</label>
@@ -783,32 +783,32 @@ window._supabaseLoaded = false;
             </div>
 
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">製品金額（¥）</label><input type="number" id="editCampProductPrice" class="form-input" min="0"></div>
-              <div class="form-group"><label class="form-label">リワード金額（¥）</label><input type="number" id="editCampReward" class="form-input" min="0"><div class="form-hint">0円 = 製品提供のみ</div></div>
+              <div class="form-group"><label class="form-label">제품 금액 (¥)</label><input type="number" id="editCampProductPrice" class="form-input" min="0"></div>
+              <div class="form-group"><label class="form-label">리워드 금액 (¥)</label><input type="number" id="editCampReward" class="form-input" min="0"><div class="form-hint">0엔 = 제품 제공만</div></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">募集締切日 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label><input type="date" id="editCampDeadline" class="form-input"></div>
-              <div class="form-group"><label class="form-label">投稿締切日</label><input type="date" id="editCampPostDeadline" class="form-input"></div>
+              <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input"></div>
+              <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input"></div>
             </div>
-            <div class="form-group"><label class="form-label">キャンペーン説明</label><textarea id="editCampDesc" class="form-input"></textarea></div>
+            <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="editCampDesc" class="form-input"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">必須ハッシュタグ（#）</label><input type="text" id="editCampHashtags" class="form-input"></div>
-              <div class="form-group"><label class="form-label">必須メンション（@）</label><input type="text" id="editCampMentions" class="form-input"></div>
+              <div class="form-group"><label class="form-label">필수 해시태그 (#)</label><input type="text" id="editCampHashtags" class="form-input"></div>
+              <div class="form-group"><label class="form-label">필수 멘션 (@)</label><input type="text" id="editCampMentions" class="form-input"></div>
             </div>
-            <div class="form-group"><label class="form-label">ブランドアピールポイント</label><textarea id="editCampAppeal" class="form-input"></textarea></div>
+            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><textarea id="editCampAppeal" class="form-input"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">撮影ガイド</label><textarea id="editCampGuide" class="form-input" style="min-height:100px"></textarea></div>
-              <div class="form-group"><label class="form-label">NG事項</label><textarea id="editCampNg" class="form-input" style="min-height:100px"></textarea></div>
+              <div class="form-group"><label class="form-label">촬영 가이드</label><textarea id="editCampGuide" class="form-input" style="min-height:100px"></textarea></div>
+              <div class="form-group"><label class="form-label">NG 사항</label><textarea id="editCampNg" class="form-input" style="min-height:100px"></textarea></div>
             </div>
-            <div class="form-group"><label class="form-label">ステータス</label>
+            <div class="form-group"><label class="form-label">상태</label>
               <select id="editCampStatus" class="form-input">
-                <option value="active">開催中</option><option value="paused">一時停止</option><option value="closed">終了</option>
+                <option value="active">진행중</option><option value="paused">일시정지</option><option value="closed">종료</option>
               </select>
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px">
-              <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">変更を保存</button>
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })())">キャンセル</button>
+              <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
+              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
             </div>
           </div>
         </div>
@@ -816,29 +816,29 @@ window._supabaseLoaded = false;
         <!-- ADD CAMPAIGN PANE -->
         <div id="adminPane-add-campaign" class="admin-pane">
           <div class="product-form">
-            <div class="product-form-title">新規キャンペーン登録</div>
-            <div class="product-form-sub">登録後すぐにインフルエンサーに公開されます</div>
+            <div class="product-form-title">신규 캠페인 등록</div>
+            <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
             <!-- 1행: 캠페인명 / 브랜드명 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">キャンペーン名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
-                <input type="text" id="newCampTitle" class="form-input" placeholder="グリーンティーセラム 体験団">
+                <label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <input type="text" id="newCampTitle" class="form-input" placeholder="그린티 세럼 체험단">
               </div>
               <div class="form-group">
-                <label class="form-label">ブランド名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
-                <input type="text" id="newCampBrand" class="form-input" placeholder="イニスフリー">
+                <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <input type="text" id="newCampBrand" class="form-input" placeholder="이니스프리">
               </div>
             </div>
 
             <!-- 2행: 제품명 / 상품URL / 모집인원 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">製品名 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
-                <input type="text" id="newCampProduct" class="form-input" placeholder="グリーンティーセラム 80ml">
+                <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <input type="text" id="newCampProduct" class="form-input" placeholder="그린티 세럼 80ml">
               </div>
               <div class="form-group">
-                <label class="form-label">商品ページURL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
                 <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
               </div>
             </div>
@@ -846,18 +846,18 @@ window._supabaseLoaded = false;
             <!-- 모집 유형 + 모집인원 좌우 2열 -->
             <div class="form-row" style="grid-template-columns:1fr 120px;align-items:start">
               <div class="form-group">
-                <label class="form-label">募集タイプ <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
-                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> モニター
+                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> 모니터
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
-                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"> ギフティング
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"> 기프팅
                   </label>
                 </div>
               </div>
               <div class="form-group">
-                <label class="form-label">募集人数 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <label class="form-label">모집 인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1" value="20">
               </div>
             </div>
@@ -865,7 +865,7 @@ window._supabaseLoaded = false;
             <!-- 채널 / 카테고리 (콘텐츠 유형 위로) -->
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">チャンネル</label>
+                <label class="form-label">채널</label>
                 <select id="newCampChannel" class="form-input">
                   <option value="instagram">Instagram</option>
                   <option value="x">X(Twitter)</option>
@@ -876,20 +876,20 @@ window._supabaseLoaded = false;
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label">カテゴリー</label>
+                <label class="form-label">카테고리</label>
                 <select id="newCampCategory" class="form-input">
-                  <option value="beauty">ビューティー/コスメ</option>
-                  <option value="food">フード/グルメ</option>
-                  <option value="fashion">ファッション/ライフ</option>
-                  <option value="health">ヘルス/ウェルネス</option>
-                  <option value="other">その他</option>
+                  <option value="beauty">뷰티/코스메</option>
+                  <option value="food">푸드/그르메</option>
+                  <option value="fashion">패션/라이프</option>
+                  <option value="health">헬스/웰니스</option>
+                  <option value="other">기타</option>
                 </select>
               </div>
             </div>
 
             <!-- 콘텐츠 유형 (피드/릴스/스토리/숏폼/영상/이미지) -->
             <div class="form-group">
-              <label class="form-label">コンテンツ種類 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">（複数選択可）</span></label>
+              <label class="form-label">콘텐츠 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
                 <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-feed"><input type="checkbox" name="contentType" value="フィード" onchange="toggleCT(this)" style="display:none">フィード</label>
                 <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-reels"><input type="checkbox" name="contentType" value="リール" onchange="toggleCT(this)" style="display:none">リール</label>
@@ -903,70 +903,70 @@ window._supabaseLoaded = false;
             <!-- 제품금액 / 리워드 금액 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">製品金額（¥）</label>
+                <label class="form-label">제품 금액 (¥)</label>
                 <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
-                <div class="form-hint">入力すると「¥〇〇,〇〇〇円相当の製品を無償提供」と表示されます</div>
+                <div class="form-hint">입력하면 「¥〇〇,〇〇〇엔 상당의 제품을 무상 제공」으로 표시됩니다</div>
               </div>
               <div class="form-group">
-                <label class="form-label">リワード金額（¥）</label>
+                <label class="form-label">리워드 금액 (¥)</label>
                 <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
-                <div class="form-hint">0円 = 製品提供のみ / 入力時は現金リワード追加</div>
+                <div class="form-hint">0엔 = 제품 제공만 / 입력 시 현금 리워드 추가</div>
               </div>
             </div>
 
             <!-- 모집 마감일 / 투고 마감일 -->
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">募集締切日 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="date" id="newCampDeadline" class="form-input">
               </div>
               <div class="form-group">
-                <label class="form-label">投稿締切日 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <label class="form-label">게시 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="date" id="newCampPostDeadline" class="form-input">
-                <div class="form-hint">製品受取後、この日までに投稿してください</div>
+                <div class="form-hint">제품 수령 후 이 날짜까지 게시해주세요</div>
               </div>
             </div>
 
             <!-- 제품 이미지 첨부 (최대 8장) -->
             <div class="form-group">
               <label class="form-label" style="display:flex;align-items:center;gap:8px">
-                製品画像
-                <span style="font-size:11px;font-weight:400;color:var(--muted)">最大8枚 · 1枚目がメイン表示</span>
+                제품 이미지
+                <span style="font-size:11px;font-weight:400;color:var(--muted)">최대 8장 · 첫 번째가 메인 표시</span>
                 <span id="campImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
               </label>
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:flex-start" id="campImgPreviewWrap">
                 <label style="width:80px;height:80px;flex-shrink:0;border:2px dashed var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:var(--bg)">
                   <span style="font-size:22px;color:var(--muted)">+</span>
-                  <span style="font-size:10px;color:var(--muted)">追加</span>
+                  <span style="font-size:10px;color:var(--muted)">추가</span>
                   <input type="file" accept="image/*" multiple style="display:none" onchange="handleCampImgSelect(this)">
                 </label>
               </div>
               <div class="form-hint" style="margin-top:6px">
-                JPG / PNG / WebP · 1枚あたり最大5MB<br>
-                <span style="color:var(--pink);font-weight:600">※ 画像は必ず <strong>1:1 の正方形サイズ</strong>（例: 1080×1080px）でアップロードしてください。</span><br>
-                1枚目がキャンペーンカード・詳細ページのメイン画像になります。
+                JPG / PNG / WebP · 장당 최대 5MB<br>
+                <span style="color:var(--pink);font-weight:600">※ 이미지는 반드시 <strong>1:1 정사각형</strong> (예: 1080×1080px)으로 업로드해주세요.</span><br>
+                첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지가 됩니다.
               </div>
             </div>
 
-            <div class="form-group"><label class="form-label">キャンペーン説明</label><textarea id="newCampDesc" class="form-input" placeholder="インフルエンサーに見せるキャンペーン紹介を入力してください"></textarea></div>
+            <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="newCampDesc" class="form-input" placeholder="인플루언서에게 보여줄 캠페인 소개를 입력하세요"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">必須ハッシュタグ（#）</label><input type="text" id="newCampHashtags" class="form-input" placeholder="#ブランド名 #商品名（カンマ区切り）"></div>
-              <div class="form-group"><label class="form-label">必須メンション（@）</label><input type="text" id="newCampMentions" class="form-input" placeholder="@公式アカウント（カンマ区切り）"></div>
+              <div class="form-group"><label class="form-label">필수 해시태그 (#)</label><input type="text" id="newCampHashtags" class="form-input" placeholder="#브랜드명 #상품명 (쉼표 구분)"></div>
+              <div class="form-group"><label class="form-label">필수 멘션 (@)</label><input type="text" id="newCampMentions" class="form-input" placeholder="@공식계정 (쉼표 구분)"></div>
             </div>
-            <div class="form-group"><label class="form-label">ブランドアピールポイント</label><textarea id="newCampAppeal" class="form-input" placeholder="インフルエンサーがコンテンツに盛り込むべきメッセージを入力してください"></textarea></div>
+            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><textarea id="newCampAppeal" class="form-input" placeholder="인플루언서가 콘텐츠에 담아야 할 메시지를 입력하세요"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">撮影ガイド</label><textarea id="newCampGuide" class="form-input" placeholder="撮影方向、アングル、背景、雰囲気のガイド" style="min-height:120px"></textarea></div>
-              <div class="form-group"><label class="form-label">NGワード・NG事項</label><textarea id="newCampNg" class="form-input" style="min-height:120px">・競合他社企業名、商品名、商品の露出はNG
-・暗いところで撮影して、商品がよく見えないことはNG
-・ロゴが反対側になることはNG
-・ブランド名、商品名、パッケージ、商品の発色がよく見えないことはNG
-・本商品、サービスに関するイメージがマイナス、ネガティブになる表現はNG
-・商品を直接使用しないで発色投稿だけすることはNG</textarea></div>
+              <div class="form-group"><label class="form-label">촬영 가이드</label><textarea id="newCampGuide" class="form-input" placeholder="촬영 방향, 앵글, 배경, 분위기 가이드" style="min-height:120px"></textarea></div>
+              <div class="form-group"><label class="form-label">NG 워드/사항</label><textarea id="newCampNg" class="form-input" style="min-height:120px">・경쟁사 기업명, 상품명, 상품 노출 NG
+・어두운 곳에서 촬영하여 상품이 잘 안 보이는 것 NG
+・로고가 반대쪽으로 향하는 것 NG
+・브랜드명, 상품명, 패키지, 상품 발색이 잘 안 보이는 것 NG
+・본 상품/서비스에 대한 이미지가 부정적인 표현 NG
+・상품을 직접 사용하지 않고 발색 포스팅만 하는 것 NG</textarea></div>
             </div>
 
             <!-- 고정 注意事項 -->
             <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
-              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">注意事項 <span style="font-size:11px;font-weight:400;color:var(--muted)">(登録後、インフルエンサーに表示されます)</span></div>
+              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(등록 후 인플루언서에게 표시됩니다)</span></div>
               <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
                 <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
                 <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
@@ -979,17 +979,17 @@ window._supabaseLoaded = false;
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px">
-              <button type="button" class="btn btn-primary" onclick="addCampaign()">キャンペーン登録</button>
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })())">キャンセル</button>
+              <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
+              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
             </div></div>
         </div>
 
         <!-- INFLUENCERS PANE -->
         <div id="adminPane-influencers" class="admin-pane">
-          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">インフルエンサー一覧</div>
+          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
           <!-- 채널별 탭 -->
           <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
-            <button id="infTab-all" onclick="switchInfTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">全体</button>
+            <button id="infTab-all" onclick="switchInfTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
             <button id="infTab-instagram" onclick="switchInfTab('instagram',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">Instagram <span id="infCnt-instagram" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
             <button id="infTab-x" onclick="switchInfTab('x',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">X(Twitter) <span id="infCnt-x" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
             <button id="infTab-tiktok" onclick="switchInfTab('tiktok',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">TikTok <span id="infCnt-tiktok" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
@@ -997,14 +997,14 @@ window._supabaseLoaded = false;
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
-              <span class="admin-card-title" id="infTableTitle">インフルエンサー一覧</span>
+              <span class="admin-card-title" id="infTableTitle">인플루언서 목록</span>
               <span id="infTotalCount" style="font-size:12px;color:var(--muted)">0名登録</span>
             </div>
             <table class="data-table" id="infTable">
               <thead id="infTableHead">
-                <tr><th>氏名</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>合計</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>
+                <tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>
               </thead>
-              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1012,64 +1012,64 @@ window._supabaseLoaded = false;
         <!-- CAMPAIGN APPLICANTS PANE -->
         <div id="adminPane-camp-applicants" class="admin-pane">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',document.querySelectorAll('.admin-si')[2])">← キャンペーン一覧へ</button>
+            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',document.querySelectorAll('.admin-si')[2])">← 캠페인 목록으로</button>
             <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
               <div>
-                <span class="admin-card-title" id="campApplicantsSubtitle">応募者一覧</span>
+                <span class="admin-card-title" id="campApplicantsSubtitle">신청자 목록</span>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
                 <span id="campApplicantsStats" style="font-size:13px;color:var(--muted)"></span>
                 <select id="campAppFilterStatus" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
-                  <option value="">すべて</option>
-                  <option value="pending">審査中</option>
-                  <option value="approved">承認</option>
-                  <option value="rejected">非承認</option>
+                  <option value="">전체</option>
+                  <option value="pending">심사중</option>
+                  <option value="approved">승인</option>
+                  <option value="rejected">미승인</option>
                 </select>
               </div>
             </div>
             <table class="data-table">
-              <thead><tr><th>名前</th><th>Instagram</th><th>フォロワー</th><th>応募理由</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
-              <tbody id="campApplicantsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+              <thead><tr><th>이름</th><th>Instagram</th><th>팔로워</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <tbody id="campApplicantsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>
         </div>
 
         <!-- APPLICATIONS PANE -->
         <div id="adminPane-applications" class="admin-pane">
-          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">応募管理</div>
+          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
           <!-- 모니터/기프팅 탭 -->
           <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
-            <button id="appTypeTab-all" onclick="switchAppTypeTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">全体</button>
-            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">モニター</button>
-            <button id="appTypeTab-gifting" onclick="switchAppTypeTab('gifting',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">ギフティング</button>
+            <button id="appTypeTab-all" onclick="switchAppTypeTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
+            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">모니터</button>
+            <button id="appTypeTab-gifting" onclick="switchAppTypeTab('gifting',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
           </div>
           <!-- 캠페인별 카드 리스트 -->
           <div id="appCampList"></div>
           <!-- 캠페인별 응모자 상세 (클릭 시 표시) -->
           <div id="appCampDetail" style="display:none">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <button class="btn btn-ghost btn-sm" onclick="$('appCampList').style.display='';$('appCampDetail').style.display='none'">← 応募管理へ</button>
+              <button class="btn btn-ghost btn-sm" onclick="$('appCampList').style.display='';$('appCampDetail').style.display='none'">← 신청 관리로</button>
               <div id="appDetailCampName" style="font-size:15px;font-weight:700"></div>
             </div>
             <div class="admin-card">
               <div class="admin-card-header">
-                <span class="admin-card-title">応募者リスト</span>
+                <span class="admin-card-title">신청자 리스트</span>
                 <div style="display:flex;gap:6px;align-items:center">
                   <span id="appDetailStats" style="font-size:12px;color:var(--muted)"></span>
                   <select id="appDetailFilter" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderAppDetail()">
-                    <option value="">すべて</option>
-                    <option value="pending">審査中</option>
-                    <option value="approved">承認</option>
-                    <option value="rejected">非承認</option>
+                    <option value="">전체</option>
+                    <option value="pending">심사중</option>
+                    <option value="approved">승인</option>
+                    <option value="rejected">미승인</option>
                   </select>
                 </div>
               </div>
               <table class="data-table">
-                <thead><tr><th>インフルエンサー</th><th>Instagram</th><th>X / TikTok / YouTube</th><th>合計フォロワー</th><th>応募理由</th><th>応募日</th><th>ステータス</th><th>処理</th></tr></thead>
-                <tbody id="appDetailBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr></tbody>
+                <thead><tr><th>인플루언서</th><th>Instagram</th><th>X / TikTok / YouTube</th><th>총 팔로워</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+                <tbody id="appDetailBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
               </table>
             </div>
           </div>
