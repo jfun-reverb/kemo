@@ -278,6 +278,19 @@ function handleFloatApply() {
     if (o) { o.style.display='flex'; }
     return;
   }
+  // 필수 정보 체크: SNS 계정 + 배송지
+  const p = currentUserProfile || {};
+  const missing = [];
+  if (!p.ig) missing.push('Instagram ID');
+  if (!p.address && !p.zip) missing.push('Shipping Address');
+  if (!p.phone) missing.push('Phone');
+  if (missing.length > 0) {
+    const msg = `Please complete your profile to apply:\n\n• ${missing.join('\n• ')}\n\nGo to My Page to update?`;
+    if (confirm(msg)) {
+      navigate('mypage');
+    }
+    return;
+  }
   openApplyModal(currentCampaignId);
 }
 function openProductPage() {

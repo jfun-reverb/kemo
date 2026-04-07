@@ -31,38 +31,18 @@ async function handleSignup(e) {
   const email = $('signupEmail').value.trim();
   const pw = $('signupPw').value;
   const pw2 = $('signupPw2').value;
-  const ig = $('signupIg').value.trim();
-  const xUrl = $('signupX').value.trim();
-  const igFollowers = parseInt($('signupIgFollowers').value)||0;
-  const xFollowers = parseInt($('signupXFollowers').value)||0;
-  const tiktok = $('signupTiktok').value.trim();
-  const tiktokFollowers = parseInt($('signupTiktokFollowers').value)||0;
-  const youtube = $('signupYoutube').value.trim();
-  const youtubeFollowers = parseInt($('signupYoutubeFollowers').value)||0;
-  const lineId = $('signupLine').value.trim();
-  const category = $('signupCategory').value;
-  const bio = $('signupBio').value.trim();
-  const zip = $('signupZip').value.trim();
-  const prefecture = $('signupPrefecture').value;
-  const city = $('signupCity').value.trim();
-  const building = $('signupBuilding').value.trim();
-  const phone = $('signupPhone').value.trim();
-  const address = `〒${zip} ${prefecture}${city}${building?' '+building:''}`;
   const errEl = $('signupError');
   const btn = $('signupBtn');
 
   errEl.style.display='none';
+  if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
-  if (!zip || !prefecture || !city) { errEl.textContent='Please enter shipping address'; errEl.style.display='block'; return; }
+  if (pw.length < 8) { errEl.textContent='Password must be 8+ characters'; errEl.style.display='block'; return; }
 
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
   const userData = {
     email, name, name_kanji: name, name_kana: nameKana,
-    ig, x: xUrl, ig_followers: igFollowers, x_followers: xFollowers,
-    tiktok, tiktok_followers: tiktokFollowers, youtube, youtube_followers: youtubeFollowers,
-    line_id: lineId, followers: igFollowers + xFollowers + tiktokFollowers + youtubeFollowers,
-    category, address, zip, prefecture, city, building, phone, bio,
     created_at: new Date().toISOString()
   };
 

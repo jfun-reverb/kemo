@@ -273,196 +273,40 @@ window._supabaseLoaded = false;
         <div class="auth-sub">Join REVERB and experience K-Brand campaigns</div>
       </div>
 
-      <!-- 단계 표시 -->
-      <div id="stepIndicator" style="display:flex;align-items:center;gap:0;margin-bottom:24px">
-        <div class="step-dot active" data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">1</div>
-          <div style="font-size:10px;color:var(--pink);font-weight:600;white-space:nowrap">Basic Info</div>
-        </div>
-        <div style="flex:1;height:2px;background:var(--line);margin-bottom:16px"></div>
-        <div class="step-dot" data-step="2" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-          <div id="step2circle" style="width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">2</div>
-          <div id="step2label" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap">SNS Info</div>
-        </div>
-        <div style="flex:1;height:2px;background:var(--line);margin-bottom:16px"></div>
-        <div class="step-dot" data-step="3" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
-          <div id="step3circle" style="width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">3</div>
-          <div id="step3label" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap">Address</div>
-        </div>
-      </div>
-
       <form id="signupForm" onsubmit="handleSignup(event)">
-
-        <!-- ═══ STEP 1: 기본 정보 ═══ -->
-        <div id="signupStep1" class="signup-step">
-          <div class="divider-text" style="margin-top:0">STEP 1 · Basic Info</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Name (Kanji) <span style="color:var(--red)">*</span></label>
-              <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Name (Kana) <span style="color:var(--red)">*</span></label>
-              <input type="text" id="signupNameKana" class="form-input" placeholder="やまだはなこ" required>
-            </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Name (Kanji) <span style="color:var(--red)">*</span></label>
+            <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Email <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">(Required)</span></label>
-              <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Password <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">(Required · 8+ chars)</span></label>
-              <div style="position:relative">
-                <input type="password" id="signupPw" class="form-input" placeholder="8+ characters" required minlength="8" style="padding-right:42px">
-                <button type="button" onclick="togglePw('signupPw',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
-              </div>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Confirm Password <span style="color:var(--red)">*</span></label>
-              <div style="position:relative">
-                <input type="password" id="signupPw2" class="form-input" placeholder="Re-enter password" required style="padding-right:42px">
-                <button type="button" onclick="togglePw('signupPw2',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
-              </div>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Main Category</label>
-              <select id="signupCategory" class="form-input">
-                <option value="">Select</option>
-                <option value="beauty">뷰티/코스메</option>
-                <option value="food">푸드/그르메</option>
-                <option value="fashion">패션/라이프</option>
-                <option value="health">헬스/웰니스</option>
-                <option value="other">기타</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">LINE ID</label>
-              <input type="text" id="signupLine" class="form-input" placeholder="Add @586mnjoc first, then enter ID">
-              <div class="form-hint">First add <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">@586mnjoc</a> as friend</div>
-            </div>
-          </div>
-          <div id="step1Error" class="form-error" style="margin-bottom:10px;display:none"></div>
-          <button type="button" class="btn btn-primary btn-block" onclick="goStep(2)">Next → SNS Info</button>
-        </div>
-
-        <!-- ═══ STEP 2: SNS 정보 ═══ -->
-        <div id="signupStep2" class="signup-step" style="display:none">
-          <div class="divider-text" style="margin-top:0">STEP 2 · SNS Account Info</div>
-          <div style="background:var(--light-pink);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--dark-pink);line-height:1.6">
-            📋 Accurate info helps your selection. Enter ID only, not URL.
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Instagram ID <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
-              <div style="position:relative">
-                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-                <input type="text" id="signupIg" class="form-input" placeholder="yourhandle" required style="padding-left:26px">
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Instagram Followers <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
-              <input type="number" id="signupIgFollowers" class="form-input" placeholder="5200" min="0" required>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">X(Twitter) ID</label>
-              <div style="position:relative">
-                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-                <input type="text" id="signupX" class="form-input" placeholder="yourhandle" style="padding-left:26px">
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">X Followers</label>
-              <input type="number" id="signupXFollowers" class="form-input" placeholder="1200" min="0">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">TikTok ID</label>
-              <div style="position:relative">
-                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-                <input type="text" id="signupTiktok" class="form-input" placeholder="yourhandle" style="padding-left:26px">
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">TikTok Followers</label>
-              <input type="number" id="signupTiktokFollowers" class="form-input" placeholder="3000" min="0">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">YouTube ID</label>
-              <div style="position:relative">
-                <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
-                <input type="text" id="signupYoutube" class="form-input" placeholder="yourhandle" style="padding-left:26px">
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">YouTube Subscribers</label>
-              <input type="number" id="signupYoutubeFollowers" class="form-input" placeholder="800" min="0">
-            </div>
-          </div>
-          <div id="step2Error" class="form-error" style="margin-bottom:10px;display:none"></div>
-          <div style="display:flex;gap:10px">
-            <button type="button" class="btn btn-ghost" onclick="goStep(1)" style="flex:1">← Back</button>
-            <button type="button" class="btn btn-primary" onclick="goStep(3)" style="flex:2">Next → Address</button>
+          <div class="form-group">
+            <label class="form-label">Name (Kana) <span style="color:var(--red)">*</span></label>
+            <input type="text" id="signupNameKana" class="form-input" placeholder="やまだはなこ" required>
           </div>
         </div>
-
-        <!-- ═══ STEP 3: 배송지 + 완료 ═══ -->
-        <div id="signupStep3" class="signup-step" style="display:none">
-          <div class="divider-text" style="margin-top:0">STEP 3 · Shipping Address (Japan)</div>
-          <div class="form-hint" style="margin-bottom:14px">Required for product delivery — Your info is kept secure</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Zip Code <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
-              <div style="display:flex;gap:7px">
-                <input type="text" id="signupZip" class="form-input" placeholder="123-4567" required style="flex:1">
-                <button type="button" onclick="lookupZip()" class="btn btn-ghost btn-sm" style="white-space:nowrap;flex-shrink:0;font-size:12px">Lookup</button>
-              </div>
-              <div class="form-hint">Enter zip code and click Lookup to auto-fill address</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Prefecture <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
-              <select id="signupPrefecture" class="form-input" required>
-                <option value="">Select</option>
-                <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option><option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
-              </select>
+        <div class="form-group">
+          <label class="form-label">Email <span style="color:var(--red)">*</span></label>
+          <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Password <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">(8+ chars)</span></label>
+            <div style="position:relative">
+              <input type="password" id="signupPw" class="form-input" placeholder="8+ characters" required minlength="8" style="padding-right:42px">
+              <button type="button" onclick="togglePw('signupPw',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">City / Address <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
-              <input type="text" id="signupCity" class="form-input" placeholder="渋谷区渋谷1-2-3" required>
+          <div class="form-group">
+            <label class="form-label">Confirm Password <span style="color:var(--red)">*</span></label>
+            <div style="position:relative">
+              <input type="password" id="signupPw2" class="form-input" placeholder="Re-enter password" required style="padding-right:42px">
+              <button type="button" onclick="togglePw('signupPw2',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
             </div>
-            <div class="form-group">
-              <label class="form-label">Building / Room</label>
-              <input type="text" id="signupBuilding" class="form-input" placeholder="〇〇マンション 101号室">
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Phone <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
-              <input type="tel" id="signupPhone" class="form-input" placeholder="090-1234-5678" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Bio</label>
-              <input type="text" id="signupBio" class="form-input" placeholder="K-Beauty influencer 🌸">
-            </div>
-          </div>
-          <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
-          <div style="display:flex;gap:10px">
-            <button type="button" class="btn btn-ghost" onclick="goStep(2)" style="flex:1">← Back</button>
-            <button type="submit" class="btn btn-primary" id="signupBtn" style="flex:2">Sign Up ✓</button>
           </div>
         </div>
-
+        <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up ✓</button>
+        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS info and shipping address can be added later from My Page</div>
       </form>
       <div class="auth-switch">Already have an account? <a onclick="navigate('login')">Log In</a></div>
     </div>
