@@ -407,7 +407,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
             <div class="form-group"><label class="form-label">상태</label>
               <select id="editCampStatus" class="form-input">
-                <option value="active">모집중</option><option value="scheduled">모집예정</option><option value="paused">일시정지</option><option value="closed">종료</option>
+                <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
               </select>
             </div>
 
@@ -1505,8 +1505,9 @@ async function loadAdminCampaigns() {
   const allApps = await fetchApplications();
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusBadge = s => {
-    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">모집중</span>`;
+    if (s==='draft') return `<span class="badge badge-gray" style="cursor:pointer;border:1.5px dashed var(--muted)" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">준비</span>`;
     if (s==='scheduled') return `<span class="badge badge-blue" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">모집예정</span>`;
+    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">모집중</span>`;
     if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">일시정지</span>`;
     return `<span class="badge badge-gray" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">종료</span>`;
   };
@@ -1537,6 +1538,7 @@ async function loadAdminCampaigns() {
       </td>
       <td style="white-space:nowrap"><div style="display:flex;gap:4px">
         <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
+        <button class="btn btn-ghost btn-xs" onclick="duplicateCampaign('${c.id}')">복제</button>
         <button class="btn btn-ghost btn-xs" onclick="window.open('/#detail','_blank')">상세</button>
         <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteCampaign('${c.id}','${c.title.replace(/'/g,'')}')">삭제</button>
       </div></td>
@@ -1671,6 +1673,38 @@ async function saveCampaignEdit() {
   }
 }
 
+// 캠페인 복제
+async function duplicateCampaign(campId) {
+  try {
+    const camps = await fetchCampaigns();
+    const src = camps.find(c=>c.id===campId);
+    if (!src) { toast('캠페인을 찾을 수 없습니다','error'); return; }
+    const copy = {
+      title: '[복사] ' + src.title,
+      brand: src.brand, product: src.product, product_url: src.product_url,
+      type: src.type, channel: src.channel, category: src.category,
+      recruit_type: src.recruit_type, content_types: src.content_types,
+      emoji: src.emoji, description: src.description,
+      hashtags: src.hashtags, mentions: src.mentions,
+      appeal: src.appeal, guide: src.guide, ng: src.ng,
+      product_price: src.product_price, reward: src.reward,
+      slots: src.slots, applied_count: 0,
+      deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
+      image_url: src.image_url,
+      img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
+      img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
+      order_index: src.order_index,
+      status: 'draft'
+    };
+    await insertCampaign(copy);
+    allCampaigns = await fetchCampaigns();
+    loadAdminCampaigns();
+    toast('캠페인이 복제되었습니다 (준비 상태)','success');
+  } catch(e) {
+    toast('복제 오류: ' + e.message,'error');
+  }
+}
+
 // 캠페인 삭제 — 캠페인 관리자(campaign_admin) 이상만 가능
 function deleteCampaign(campId, campTitle) {
   // 권한 체크: campaign_admin 또는 super_admin만 삭제 가능
@@ -1728,12 +1762,12 @@ async function executeDeleteCampaign() {
   }
 }
 
-// 상태 순환: 모집중 → 모집예정 → 일시정지 → 종료 → 모집중
+// 상태 순환: 준비 → 모집예정 → 모집중 → 일시정지 → 종료 → 준비
 async function cycleCampStatus(el, currentStatus) {
   const tr = el.closest('tr');
   const campId = tr?.dataset.campId;
   if (!campId) return;
-  const cycle = {active:'scheduled', scheduled:'paused', paused:'closed', closed:'active'};
+  const cycle = {draft:'scheduled', scheduled:'active', active:'paused', paused:'closed', closed:'draft'};
   const next = cycle[currentStatus] || 'active';
   try {
     await updateCampaign(campId, {status: next});
@@ -2138,7 +2172,7 @@ async function addCampaign() {
     description:$('newCampDesc').value,
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal:$('newCampAppeal')?.value||'', guide:$('newCampGuide').value, ng:$('newCampNg').value,
-    status:'active'
+    status:'draft'
   };
 
   await insertCampaign(camp);
