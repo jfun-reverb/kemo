@@ -229,9 +229,11 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
 
 // 이미지 버튼 이벤트 위임 (크롭, 다운로드, 삭제)
 document.addEventListener('click', function(e) {
-  // data-action 버튼 또는 그 자식(span 등) 클릭 처리
+  console.log('[IMG-BTN] click target:', e.target.tagName, e.target.className, 'data-action:', e.target.getAttribute('data-action'));
   var btn = e.target.closest('button[data-action]');
+  console.log('[IMG-BTN] closest button:', btn);
   if (!btn) return;
+  console.log('[IMG-BTN] action:', btn.getAttribute('data-action'), 'idx:', btn.getAttribute('data-i'));
   e.preventDefault();
   e.stopPropagation();
   var action = btn.getAttribute('data-action');
