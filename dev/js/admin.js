@@ -150,7 +150,7 @@ async function openEditCampaign(campId) {
   editCampImgData = [];
   [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8]
     .filter(Boolean).forEach(url => editCampImgData.push({data: url}));
-  renderEditCampImgPreview();
+  renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
 
   switchAdminPane('edit-campaign', null);
 }
@@ -159,47 +159,13 @@ async function openEditCampaign(campId) {
 let editCampImgData = [];
 
 function handleEditCampImgSelect(input) {
-  const files = Array.from(input.files);
-  const remaining = 8 - editCampImgData.length;
-  if (remaining <= 0) { toast('최대 8장까지 추가할 수 있습니다','error'); return; }
-  const toAdd = files.slice(0, remaining);
-  let loaded = 0;
-  toAdd.forEach(file => {
-    if (!file.type.startsWith('image/')) { toast('이미지 파일만 추가할 수 있습니다','error'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast(`${file.name} 용량 초과 (최대 5MB)`,'error'); return; }
-    const reader = new FileReader();
-    reader.onload = e => {
-      editCampImgData.push({data: e.target.result});
-      loaded++;
-      if (loaded === toAdd.length) renderEditCampImgPreview();
-    };
-    reader.readAsDataURL(file);
-  });
+  addImagesToList(Array.from(input.files), editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
   input.value = '';
 }
 
 function removeEditCampImg(idx) {
   editCampImgData.splice(idx, 1);
-  renderEditCampImgPreview();
-}
-
-function renderEditCampImgPreview() {
-  const wrap = $('editCampImgPreviewWrap');
-  const counter = $('editCampImgCounter');
-  if (!wrap) return;
-  if (counter) counter.textContent = `${editCampImgData.length}/8`;
-  wrap.innerHTML = editCampImgData.map((img,i) => `
-    <div style="position:relative;width:80px;height:80px;flex-shrink:0">
-      <img src="${img.data}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:2px solid ${i===0?'var(--pink)':'var(--line)'}" onerror="this.style.background='var(--bg)';this.style.objectFit='contain'">
-      ${i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 6px 6px;padding:1px">MAIN</div>':''}
-      <button onclick="removeEditCampImg(${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#333;color:#fff;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;line-height:1">×</button>
-    </div>`).join('') +
-    (editCampImgData.length < 8 ? `
-    <label style="width:80px;height:80px;flex-shrink:0;border:2px dashed var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:var(--bg)">
-      <span style="font-size:22px;color:var(--muted)">+</span>
-      <span style="font-size:10px;color:var(--muted)">추가</span>
-      <input type="file" accept="image/*" multiple style="display:none" onchange="handleEditCampImgSelect(this)">
-    </label>` : '');
+  renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
 }
 
 function toggleEditRT(rb) {

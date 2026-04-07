@@ -14,6 +14,8 @@ window._supabaseLoaded = false;
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/campaign.css">
@@ -49,6 +51,23 @@ window._supabaseLoaded = false;
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px">Cancel</button>
       <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px">My Page</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 이미지 크롭 모달 ── -->
+<div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:24px;width:calc(100% - 32px);max-width:500px;max-height:90vh;overflow:hidden">
+    <div style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700">1:1 이미지 크롭</div>
+      <div onclick="closeCropModal()" style="width:32px;height:32px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--muted)">✕</div>
+    </div>
+    <div style="padding:16px;background:#000">
+      <img id="cropImage" style="max-width:100%;display:block">
+    </div>
+    <div style="padding:16px 24px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeCropModal()">취소</button>
+      <button class="btn btn-primary" onclick="applyCrop()">적용</button>
     </div>
   </div>
 </div>
@@ -663,11 +682,17 @@ window._supabaseLoaded = false;
                 <span style="font-size:11px;font-weight:400;color:var(--muted)">최대 8장 · 첫 번째가 메인 표시</span>
                 <span id="editCampImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
               </label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:flex-start" id="editCampImgPreviewWrap"></div>
+              <!-- 드래그앤드롭 업로드 영역 -->
+              <div id="editCampImgDropZone" style="border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;margin-top:8px;transition:all .2s;cursor:pointer;background:var(--bg)" onclick="$('editCampImgFileInput').click()">
+                <input type="file" accept="image/*" multiple style="display:none" id="editCampImgFileInput" onchange="handleEditCampImgSelect(this)">
+                <span class="material-icons-round" style="font-size:36px;color:var(--muted);display:block;margin-bottom:8px">cloud_upload</span>
+                <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">이미지를 드래그하거나 클릭하여 업로드</div>
+                <div style="font-size:11px;color:var(--muted)">JPG / PNG / WebP · 장당 최대 5MB · 최대 8장</div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:flex-start;min-height:0" id="editCampImgPreviewWrap"></div>
               <div class="form-hint" style="margin-top:6px">
-                JPG / PNG / WebP · 장당 최대 5MB<br>
-                <span style="color:var(--pink);font-weight:600">※ 이미지는 반드시 <strong>1:1 정사각형</strong> (예: 1080×1080px)으로 업로드해주세요.</span><br>
-                첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지가 됩니다.
+                <span style="color:var(--pink);font-weight:600">※ 이미지는 <strong>1:1 정사각형</strong> 권장. 수정 버튼으로 크롭 가능.</span><br>
+                첫 번째 이미지가 메인 이미지. 드래그로 순서 변경 가능.
               </div>
             </div>
 
@@ -805,17 +830,18 @@ window._supabaseLoaded = false;
                 <span style="font-size:11px;font-weight:400;color:var(--muted)">최대 8장 · 첫 번째가 메인 표시</span>
                 <span id="campImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
               </label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:flex-start" id="campImgPreviewWrap">
-                <label style="width:80px;height:80px;flex-shrink:0;border:2px dashed var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:var(--bg)">
-                  <span style="font-size:22px;color:var(--muted)">+</span>
-                  <span style="font-size:10px;color:var(--muted)">추가</span>
-                  <input type="file" accept="image/*" multiple style="display:none" onchange="handleCampImgSelect(this)">
-                </label>
+              <!-- 드래그앤드롭 업로드 영역 -->
+              <div id="campImgDropZone" style="border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;margin-top:8px;transition:all .2s;cursor:pointer;background:var(--bg)" onclick="$('campImgFileInput').click()">
+                <input type="file" accept="image/*" multiple style="display:none" id="campImgFileInput" onchange="handleCampImgSelect(this)">
+                <span class="material-icons-round" style="font-size:36px;color:var(--muted);display:block;margin-bottom:8px">cloud_upload</span>
+                <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">이미지를 드래그하거나 클릭하여 업로드</div>
+                <div style="font-size:11px;color:var(--muted)">JPG / PNG / WebP · 장당 최대 5MB · 최대 8장</div>
               </div>
+              <!-- 이미지 미리보기 (드래그로 순서 변경) -->
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:flex-start;min-height:0" id="campImgPreviewWrap"></div>
               <div class="form-hint" style="margin-top:6px">
-                JPG / PNG / WebP · 장당 최대 5MB<br>
-                <span style="color:var(--pink);font-weight:600">※ 이미지는 반드시 <strong>1:1 정사각형</strong> (예: 1080×1080px)으로 업로드해주세요.</span><br>
-                첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지가 됩니다.
+                <span style="color:var(--pink);font-weight:600">※ 이미지는 <strong>1:1 정사각형</strong> 권장. 수정 버튼으로 크롭 가능.</span><br>
+                첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지가 됩니다. 드래그로 순서 변경 가능.
               </div>
             </div>
 
