@@ -13,6 +13,7 @@ window._supabaseLoaded = false;
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/campaign.css">
@@ -55,16 +56,16 @@ window._supabaseLoaded = false;
 <!-- ── BOTTOM TAB BAR ── -->
 <nav class="bottom-tab" id="bottomTabBar">
   <button class="tab-item on" id="tab-home" onclick="navigateTab('home',this)">
-    <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
-    <span class="tab-lbl">ホーム</span>
+    <span class="material-icons-round">home</span>
+    <span class="tab-lbl">Home</span>
   </button>
   <button class="tab-item" id="tab-camp" onclick="navigateTab('campaigns',this)">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h8M8 16h5"/></svg>
-    <span class="tab-lbl">キャンペーン</span>
+    <span class="material-icons-round">campaign</span>
+    <span class="tab-lbl">Campaigns</span>
   </button>
   <button class="tab-item" id="tab-mypage" onclick="navigateTab('mypage',this)">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-    <span class="tab-lbl">マイページ</span>
+    <span class="material-icons-round">person</span>
+    <span class="tab-lbl">My Page</span>
   </button>
 </nav>
 
