@@ -2596,10 +2596,10 @@ async function loadAdminCampaigns() {
           </div>
         </div>
       </td>
-      <td style="white-space:nowrap;display:flex;gap:4px">
+      <td style="white-space:nowrap"><div style="display:flex;gap:4px">
         <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
         <button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">상세</button>
-      </td>
+      </div></td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
 }
