@@ -1508,6 +1508,7 @@ async function loadAdminCampaigns() {
       <td style="white-space:nowrap"><div style="display:flex;gap:4px">
         <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
         <button class="btn btn-ghost btn-xs" onclick="window.open('/#detail','_blank')">상세</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteCampaign('${c.id}','${c.title.replace(/'/g,'')}')">삭제</button>
       </div></td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
@@ -1637,6 +1638,25 @@ async function saveCampaignEdit() {
     switchAdminPane('campaigns', campSi);
   } catch(err) {
     toast('저장 오류: '+err.message,'error');
+  }
+}
+
+// 캠페인 삭제
+async function deleteCampaign(campId, campTitle) {
+  if (!confirm(`"${campTitle}" 캠페인을 삭제하시겠습니까?\n\n삭제하면 해당 캠페인의 신청 데이터도 함께 삭제됩니다.`)) return;
+  try {
+    // 신청 데이터 먼저 삭제
+    if (db) await db.from('applications').delete().eq('campaign_id', campId);
+    // 캠페인 삭제
+    if (db) {
+      const {error} = await db.from('campaigns').delete().eq('id', campId);
+      if (error) throw error;
+    }
+    allCampaigns = await fetchCampaigns();
+    loadAdminCampaigns();
+    toast('캠페인이 삭제되었습니다','success');
+  } catch(e) {
+    toast('삭제 오류: ' + e.message,'error');
   }
 }
 
