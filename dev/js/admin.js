@@ -396,7 +396,7 @@ function renderInfTable(users, ch) {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
-        <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
+        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
         <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
         <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
@@ -419,7 +419,7 @@ function renderInfTable(users, ch) {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
-        <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
+        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u[idKey]?`@${u[idKey].replace('@','')}`:'—'}</td>
         <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
         <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
@@ -429,6 +429,77 @@ function renderInfTable(users, ch) {
       </tr>`;
     }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
   }
+}
+
+// ── 인플루언서 상세 ──
+async function openInfluencerDetail(userId) {
+  const users = await fetchInfluencers();
+  const u = users.find(x => x.id === userId);
+  if (!u) { toast('인플루언서를 찾을 수 없습니다','error'); return; }
+
+  $('infDetailTitle').textContent = u.name_kanji || u.name || u.email;
+
+  // 기본 정보
+  const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${val||'—'}</div></div>`;
+
+  $('infDetailBasic').innerHTML =
+    row('이름 (한자)', u.name_kanji || u.name) +
+    row('이름 (카나)', u.name_kana) +
+    row('이메일', u.email) +
+    row('카테고리', u.category) +
+    row('자기소개', u.bio) +
+    row('가입일', formatDate(u.created_at));
+
+  // SNS
+  const snsRow = (icon, id, followers) => `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:12px">
+    <div style="font-size:12px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0">${icon}</div>
+    <div style="flex:1;font-size:13px">${id ? `@${id.replace('@','')}` : '—'}</div>
+    <div style="font-size:13px;font-weight:700;color:var(--pink)">${(followers||0).toLocaleString()}명</div>
+  </div>`;
+  const totalF = (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0);
+  $('infDetailSns').innerHTML =
+    snsRow('Instagram', u.ig, u.ig_followers) +
+    snsRow('X (Twitter)', u.x, u.x_followers) +
+    snsRow('TikTok', u.tiktok, u.tiktok_followers) +
+    snsRow('YouTube', u.youtube, u.youtube_followers) +
+    `<div style="display:flex;align-items:center;padding:12px 0;gap:12px"><div style="font-size:12px;font-weight:700;color:var(--ink);width:80px">총 팔로워</div><div style="font-size:18px;font-weight:800;color:var(--pink)">${totalF.toLocaleString()}명</div></div>`;
+
+  // 연락처
+  $('infDetailContact').innerHTML =
+    row('LINE ID', u.line_id) +
+    row('전화번호', u.phone);
+
+  // 배송지
+  const fullAddr = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : u.address;
+  $('infDetailAddress').innerHTML =
+    row('우편번호', u.zip) +
+    row('도도부현', u.prefecture) +
+    row('시구정촌', u.city) +
+    row('건물명', u.building) +
+    row('전체 주소', fullAddr);
+
+  // 계좌
+  const bankType = {'普通':'보통예금','当座':'당좌예금'}[u.bank_type] || u.bank_type;
+  $('infDetailBank').innerHTML = u.bank_name
+    ? row('은행명', u.bank_name) + row('지점명', u.bank_branch) + row('계좌 종류', bankType) + row('계좌번호', u.bank_number) + row('예금주', u.bank_holder)
+    : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">계좌 미등록</div>';
+
+  // 신청 이력
+  const apps = await fetchApplications({user_id: userId});
+  const camps = await fetchCampaigns();
+  $('infDetailAppCount').textContent = `${apps.length}건`;
+  $('infDetailAppsBody').innerHTML = apps.length ? apps.map(a => {
+    const camp = camps.find(c=>c.id===a.campaign_id) || {};
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':'<span class="badge badge-gold">기프팅</span>';
+    return `<tr>
+      <td style="font-weight:600">${camp.title||a.campaign_id}</td>
+      <td>${typeLabel}</td>
+      <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
+      <td>${getStatusBadge(a.status)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
+
+  switchAdminPane('influencer-detail', null);
 }
 
 // ── 신청 관리 (캠페인별) ──
