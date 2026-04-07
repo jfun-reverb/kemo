@@ -137,56 +137,144 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
-// ── 이미지 업로드 ──
+// ── 이미지 업로드 (드래그앤드롭 + 순서변경 + 크롭 + 다운로드) ──
 const campImgData = [];
+let _dragSrcIdx = null;
+let _cropTarget = null;
+let _cropperInstance = null;
+
+// 드래그앤드롭 업로드 초기화
+function initImgDropZone(zoneId, fileInputId) {
+  const zone = $(zoneId);
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor='var(--pink)'; zone.style.background='var(--light-pink)'; });
+  zone.addEventListener('dragleave', e => { e.preventDefault(); zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)'; });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)';
+    const files = Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/'));
+    if (files.length) addImagesToList(files, campImgData, 'campImgPreviewWrap', 'campImgCounter');
+  });
+}
+
 function handleCampImgSelect(input) {
   const files = Array.from(input.files);
-  const remaining = 8 - campImgData.length;
-  if (remaining <= 0) { toast('最大8枚まで追加できます', 'error'); return; }
+  addImagesToList(files, campImgData, 'campImgPreviewWrap', 'campImgCounter');
+  input.value = '';
+}
+
+function addImagesToList(files, imgList, wrapId, counterId) {
+  const remaining = 8 - imgList.length;
+  if (remaining <= 0) { toast('最大8枚まで追加できます','error'); return; }
   const toAdd = files.slice(0, remaining);
   let loaded = 0;
   toAdd.forEach(file => {
-    if (!file.type.startsWith('image/')) { toast('画像ファイルのみ追加できます', 'error'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast(`${file.name} はサイズが大きすぎます（最大5MB）`, 'error'); return; }
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5*1024*1024) { toast(`${file.name} 5MB 초과`,'error'); return; }
     const reader = new FileReader();
     reader.onload = e => {
-      campImgData.push({data: e.target.result, name: file.name, type: file.type});
+      imgList.push({data:e.target.result, name:file.name});
       loaded++;
-      if (loaded === toAdd.length) renderCampImgPreview();
+      if (loaded === toAdd.length) renderImgPreview(imgList, wrapId, counterId);
     };
     reader.readAsDataURL(file);
   });
-  input.value = '';
 }
-function removeCampImg(idx) { campImgData.splice(idx, 1); renderCampImgPreview(); }
-function renderCampImgPreview() {
-  const wrap = $('campImgPreviewWrap');
-  const counter = $('campImgCounter');
+
+function removeCampImg(idx) { campImgData.splice(idx,1); renderImgPreview(campImgData,'campImgPreviewWrap','campImgCounter'); }
+
+function renderImgPreview(imgList, wrapId, counterId) {
+  const wrap = $(wrapId);
+  const counter = $(counterId);
   if (!wrap) return;
-  if (counter) counter.textContent = `${campImgData.length}/8`;
-  wrap.innerHTML = campImgData.map((img,i) => `
-    <div style="position:relative;width:80px;height:80px;flex-shrink:0">
-      <img src="${img.data}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:2px solid ${i===0?'var(--pink)':'var(--line)'}">
-      ${i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 6px 6px;padding:1px">MAIN</div>':''}
-      <button onclick="removeCampImg(${i})" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#333;color:#fff;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;line-height:1">×</button>
-    </div>`).join('') +
-    (campImgData.length < 8 ? `
-    <label style="width:80px;height:80px;flex-shrink:0;border:2px dashed var(--line);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:4px;background:var(--bg)">
-      <span style="font-size:22px;color:var(--muted)">+</span>
-      <span style="font-size:10px;color:var(--muted)">追加</span>
-      <input type="file" accept="image/*" multiple style="display:none" onchange="handleCampImgSelect(this)">
-    </label>` : '');
+  if (counter) counter.textContent = `${imgList.length}/8`;
+  const listName = imgList === campImgData ? 'campImgData' : 'editCampImgData';
+  const removeFn = imgList === campImgData ? 'removeCampImg' : 'removeEditCampImg';
+
+  wrap.innerHTML = imgList.map((img,i) => `
+    <div class="img-thumb" draggable="true" data-idx="${i}"
+      ondragstart="imgDragStart(event,${i},'${listName}','${wrapId}','${counterId}')"
+      ondragover="event.preventDefault();this.style.outline='2px solid var(--pink)'"
+      ondragleave="this.style.outline='none'"
+      ondrop="imgDrop(event,${i},'${listName}','${wrapId}','${counterId}')"
+      style="position:relative;width:88px;height:88px;flex-shrink:0;cursor:grab">
+      <img src="${img.data}" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid ${i===0?'var(--pink)':'var(--line)'}" onerror="this.style.background='var(--bg)'">
+      ${i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':''}
+      <div style="position:absolute;top:-4px;right:-4px;display:flex;gap:2px">
+        <button onclick="event.stopPropagation();${removeFn}(${i})" style="width:20px;height:20px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="삭제">×</button>
+      </div>
+      <div style="position:absolute;bottom:${i===0?'18px':'2px'};right:2px;display:flex;gap:2px">
+        <button onclick="event.stopPropagation();openCropModal(${i},'${listName}','${wrapId}','${counterId}')" style="width:22px;height:22px;background:rgba(0,0,0,.6);color:#fff;border-radius:4px;font-size:13px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:14px">crop</span></button>
+        <button onclick="event.stopPropagation();downloadImg(${i},'${listName}')" style="width:22px;height:22px;background:rgba(0,0,0,.6);color:#fff;border-radius:4px;font-size:13px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:14px">download</span></button>
+      </div>
+    </div>`).join('');
 }
-function handleFileSelect(input) {
-  const preview = $('filePreview');
-  if (!preview) return;
-  preview.innerHTML = '';
-  Array.from(input.files).slice(0,5).forEach(f => {
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--ink)';
-    item.innerHTML = `🖼 ${f.name} <span style="color:var(--muted)">(${(f.size/1024).toFixed(0)}KB)</span>`;
-    preview.appendChild(item);
-  });
+
+// 드래그앤드롭 순서 변경
+function imgDragStart(e, idx, listName) {
+  _dragSrcIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function imgDrop(e, targetIdx, listName, wrapId, counterId) {
+  e.preventDefault();
+  e.currentTarget.style.outline = 'none';
+  if (_dragSrcIdx === null || _dragSrcIdx === targetIdx) return;
+  const list = window[listName];
+  const item = list.splice(_dragSrcIdx, 1)[0];
+  list.splice(targetIdx, 0, item);
+  _dragSrcIdx = null;
+  renderImgPreview(list, wrapId, counterId);
+}
+
+// 이미지 다운로드
+function downloadImg(idx, listName) {
+  const img = window[listName][idx];
+  if (!img) return;
+  const a = document.createElement('a');
+  a.href = img.data;
+  a.download = img.name || `image-${idx+1}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// 1:1 크롭 모달
+function openCropModal(idx, listName, wrapId, counterId) {
+  _cropTarget = {idx, listName, wrapId, counterId};
+  const img = window[listName][idx];
+  if (!img) return;
+  const cropImg = $('cropImage');
+  cropImg.src = img.data;
+  $('cropModal').style.display = 'flex';
+  setTimeout(() => {
+    if (_cropperInstance) _cropperInstance.destroy();
+    _cropperInstance = new Cropper(cropImg, {
+      aspectRatio: 1,
+      viewMode: 1,
+      dragMode: 'move',
+      autoCropArea: 1,
+      responsive: true,
+      background: false,
+    });
+  }, 100);
+}
+
+function closeCropModal() {
+  $('cropModal').style.display = 'none';
+  if (_cropperInstance) { _cropperInstance.destroy(); _cropperInstance = null; }
+  _cropTarget = null;
+}
+
+function applyCrop() {
+  if (!_cropperInstance || !_cropTarget) return;
+  const canvas = _cropperInstance.getCroppedCanvas({width:1080, height:1080, imageSmoothingQuality:'high'});
+  const croppedData = canvas.toDataURL('image/jpeg', 0.92);
+  const list = window[_cropTarget.listName];
+  list[_cropTarget.idx].data = croppedData;
+  renderImgPreview(list, _cropTarget.wrapId, _cropTarget.counterId);
+  closeCropModal();
+  toast('크롭 완료 ✓','success');
 }
 
 // ── 로그인 안내 팝업 ──
