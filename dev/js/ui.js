@@ -218,8 +218,10 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
       ' style="position:relative;width:88px;height:88px;flex-shrink:0">' +
       '<img src="'+img.data+'" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+'">' +
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
+      (img.original?'<div style="position:absolute;top:2px;left:2px;background:var(--pink);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;z-index:2">CROP</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제">×</button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
+        (img.original?'<button data-action="restore" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="원본 복원"><span class="material-icons-round" style="font-size:16px">undo</span></button>':'') +
         '<button data-action="crop" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:16px">crop</span></button>' +
         '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
       '</div>' +
@@ -239,6 +241,8 @@ document.addEventListener('click', function(e) {
 
   if (action === 'crop') {
     openCropModal(idx, listName, btn.getAttribute('data-wrap'), btn.getAttribute('data-counter'));
+  } else if (action === 'restore') {
+    restoreOriginal(idx, listName, btn.getAttribute('data-wrap'), btn.getAttribute('data-counter'));
   } else if (action === 'download') {
     downloadImg(idx, listName);
   } else if (action === 'remove') {
@@ -266,17 +270,27 @@ function imgDrop(e, targetIdx, listName, wrapId, counterId) {
   renderImgPreview(list, wrapId, counterId, listName);
 }
 
-// 이미지 다운로드
+// 이미지 다운로드 (원본이 있으면 원본 다운로드)
 function downloadImg(idx, listName) {
   var list = getImgList(listName);
   if (!list || !list[idx]) return;
   var img = list[idx];
   var a = document.createElement('a');
-  a.href = img.data;
+  a.href = img.original || img.data;
   a.download = img.name || 'image-'+(idx+1)+'.jpg';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+
+// 원본 복원
+function restoreOriginal(idx, listName, wrapId, counterId) {
+  var list = getImgList(listName);
+  if (!list || !list[idx] || !list[idx].original) return;
+  list[idx].data = list[idx].original;
+  delete list[idx].original;
+  renderImgPreview(list, wrapId, counterId, listName);
+  toast('원본으로 복원됨','success');
 }
 
 // 1:1 크롭 모달
@@ -284,7 +298,8 @@ function openCropModal(idx, listName, wrapId, counterId) {
   var list = getImgList(listName);
   if (!list || !list[idx]) return;
   _cropTarget = {idx:idx, listName:listName, wrapId:wrapId, counterId:counterId};
-  var imgData = list[idx].data;
+  // 원본이 있으면 원본에서 다시 크롭, 없으면 현재 이미지 사용
+  var imgData = list[idx].original || list[idx].data;
   var cropImg = $('cropImage');
 
   // 외부 URL이면 먼저 canvas로 변환
@@ -345,11 +360,14 @@ function applyCrop() {
   var croppedData = canvas.toDataURL('image/jpeg', 0.92);
   var list = getImgList(_cropTarget.listName);
   if (list) {
-    list[_cropTarget.idx].data = croppedData;
+    var item = list[_cropTarget.idx];
+    // 원본 보존 — 처음 크롭할 때만 원본 저장
+    if (!item.original) item.original = item.data;
+    item.data = croppedData;
     renderImgPreview(list, _cropTarget.wrapId, _cropTarget.counterId, _cropTarget.listName);
   }
   closeCropModal();
-  toast('크롭 완료 ✓','success');
+  toast('크롭 완료 ✓ (원본 유지됨)','success');
 }
 
 // ── 로그인 안내 팝업 ──
