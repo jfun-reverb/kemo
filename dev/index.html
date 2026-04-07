@@ -1028,6 +1028,50 @@ window._supabaseLoaded = false;
           </div>
         </div>
 
+        <!-- INFLUENCER DETAIL PANE -->
+        <div id="adminPane-influencer-detail" class="admin-pane">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('influencers',document.querySelectorAll('.admin-si')[4])">← 목록으로</button>
+            <div style="font-size:16px;font-weight:700" id="infDetailTitle">인플루언서 상세</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <!-- 좌측: 기본정보 + SNS -->
+            <div>
+              <div class="admin-card" style="margin-bottom:16px">
+                <div class="admin-card-header"><span class="admin-card-title">기본 정보</span></div>
+                <div style="padding:16px" id="infDetailBasic"></div>
+              </div>
+              <div class="admin-card" style="margin-bottom:16px">
+                <div class="admin-card-header"><span class="admin-card-title">SNS 계정</span></div>
+                <div style="padding:16px" id="infDetailSns"></div>
+              </div>
+            </div>
+            <!-- 우측: 연락처 + 배송지 + 계좌 -->
+            <div>
+              <div class="admin-card" style="margin-bottom:16px">
+                <div class="admin-card-header"><span class="admin-card-title">연락처</span></div>
+                <div style="padding:16px" id="infDetailContact"></div>
+              </div>
+              <div class="admin-card" style="margin-bottom:16px">
+                <div class="admin-card-header"><span class="admin-card-title">배송지</span></div>
+                <div style="padding:16px" id="infDetailAddress"></div>
+              </div>
+              <div class="admin-card" style="margin-bottom:16px">
+                <div class="admin-card-header"><span class="admin-card-title">계좌 정보</span></div>
+                <div style="padding:16px" id="infDetailBank"></div>
+              </div>
+            </div>
+          </div>
+          <!-- 신청 이력 -->
+          <div class="admin-card">
+            <div class="admin-card-header"><span class="admin-card-title">신청 이력</span><span id="infDetailAppCount" style="font-size:12px;color:var(--muted)"></span></div>
+            <table class="data-table">
+              <thead><tr><th>캠페인</th><th>타입</th><th>신청일</th><th>상태</th></tr></thead>
+              <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- CAMPAIGN APPLICANTS PANE -->
         <div id="adminPane-camp-applicants" class="admin-pane">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
