@@ -1394,7 +1394,18 @@ function switchAdminPane(pane, el) {
   if (pane==='my-account') loadMyAdminInfo();
 }
 
+// 관리자 이메일 목록 (배지 표시용)
+var _adminEmails = [];
+async function loadAdminEmails() {
+  if (!db) return;
+  const {data} = await db.from('admins').select('email');
+  _adminEmails = (data||[]).map(a=>a.email);
+}
+function isAdminEmail(email) { return _adminEmails.includes(email); }
+function adminBadge(email) { return isAdminEmail(email) ? ' <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px">관리자</span>' : ''; }
+
 async function loadAdminData() {
+  await loadAdminEmails();
   const camps = await fetchCampaigns();
   const users = await fetchInfluencers();
   const apps = await fetchApplications();
@@ -1414,7 +1425,7 @@ async function loadAdminData() {
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
     return `<tr>
-      <td><strong>${a.user_name||a.user_email}</strong><br><small style="color:var(--muted)">${a.user_email}</small></td>
+      <td><strong>${a.user_name||a.user_email}</strong>${adminBadge(a.user_email)}<br><small style="color:var(--muted)">${a.user_email}</small></td>
       <td>${camp.emoji||'📦'} ${camp.title||a.campaign_id}</td>
       <td>${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
@@ -1683,7 +1694,7 @@ async function loadCampApplicants() {
 
   $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>`<tr>
     <td>
-      <div style="font-weight:600">${a.user_name||'—'}</div>
+      <div style="font-weight:600">${a.user_name||'—'}${adminBadge(a.user_email)}</div>
       <div style="font-size:11px;color:var(--muted)">${a.user_email||''}</div>
     </td>
     <td>${a.ig_id?`<a href="https://instagram.com/${a.ig_id}" target="_blank" style="color:var(--pink);font-weight:600">@${a.ig_id}</a>`:a.user_ig||'—'}</td>
@@ -1744,7 +1755,7 @@ function renderInfTable(users, ch) {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
-        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
+        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
         <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
         <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
@@ -1767,7 +1778,7 @@ function renderInfTable(users, ch) {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
-        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
+        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u[idKey]?`@${u[idKey].replace('@','')}`:'—'}</td>
         <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
         <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
@@ -1785,7 +1796,7 @@ async function openInfluencerDetail(userId) {
   const u = users.find(x => x.id === userId);
   if (!u) { toast('인플루언서를 찾을 수 없습니다','error'); return; }
 
-  $('infDetailTitle').textContent = u.name_kanji || u.name || u.email;
+  $('infDetailTitle').innerHTML = (u.name_kanji || u.name || u.email) + adminBadge(u.email);
 
   // 기본 정보
   const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${val||'—'}</div></div>`;
@@ -1950,7 +1961,7 @@ async function renderAppDetail() {
     const others = [xF,ttF,ytF].filter(Boolean).join(' / ');
     const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)||a.user_followers||0).toLocaleString();
     return `<tr>
-      <td><strong>${a.user_name||'—'}</strong><div style="font-size:11px;color:var(--muted)">${a.user_email||''} · ${u.line_id?`LINE: ${u.line_id}`:''}</div></td>
+      <td><strong>${a.user_name||'—'}</strong>${adminBadge(a.user_email)}<div style="font-size:11px;color:var(--muted)">${a.user_email||''} · ${u.line_id?`LINE: ${u.line_id}`:''}</div></td>
       <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">IG: ${igF}명</div></td>
       <td style="font-size:11px;color:var(--muted)">${others||'—'}</td>
       <td style="font-weight:700;color:var(--pink)">${total}명</td>
