@@ -1,7 +1,7 @@
 // ══════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════
-function switchAdminPane(pane, el) {
+function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
@@ -12,7 +12,22 @@ function switchAdminPane(pane, el) {
   if (pane==='influencers') loadAdminInfluencers();
   if (pane==='admin-accounts') loadAdminAccounts();
   if (pane==='my-account') loadMyAdminInfo();
+  // 브라우저 히스토리 기록 (뒤로가기 지원)
+  if (pushHistory !== false) {
+    history.pushState({pane: pane}, '', '#' + pane);
+  }
 }
+
+// 브라우저 뒤로가기/앞으로가기 처리
+window.addEventListener('popstate', function(e) {
+  var pane = (e.state && e.state.pane) || location.hash.replace('#','') || 'dashboard';
+  // 해당 사이드바 아이템 찾기
+  var sideItem = null;
+  document.querySelectorAll('.admin-si').forEach(function(si) {
+    if (si.getAttribute('onclick') && si.getAttribute('onclick').indexOf("'" + pane + "'") > -1) sideItem = si;
+  });
+  switchAdminPane(pane, sideItem, false);
+});
 
 // 관리자 이메일 목록 (배지 표시용)
 var _adminEmails = [];

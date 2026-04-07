@@ -53,6 +53,14 @@ async function init() {
   // 캠페인 + 대시보드 로드
   allCampaigns = await fetchCampaigns();
   loadAdminData();
+
+  // URL 해시가 있으면 해당 패널로 이동
+  var hash = location.hash.replace('#','');
+  if (hash && hash !== 'dashboard') {
+    switchAdminPane(hash, null, false);
+  } else {
+    history.replaceState({pane:'dashboard'}, '', '#dashboard');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
