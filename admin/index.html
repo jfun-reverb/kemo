@@ -241,7 +241,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- 관리자 전용 상단 헤더 -->
   <div style="background:#2D1F2B;height:54px;display:flex;align-items:center;position:sticky;top:0;z-index:100;width:100%">
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 24px">
-      <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:#fff;cursor:pointer" onclick="window.open('/', '_blank')">Reverb</span>
+      <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:#fff;cursor:pointer" onclick="switchAdminPane('dashboard',document.querySelector('.admin-si'))">Reverb</span>
       <div style="display:flex;align-items:center;gap:10px">
         <div id="adminGnbInfo" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.7);font-size:13px">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">A</div>
@@ -1381,7 +1381,7 @@ function closeLoginPrompt(e) {
 // ══════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════
-function switchAdminPane(pane, el) {
+function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
@@ -1392,7 +1392,22 @@ function switchAdminPane(pane, el) {
   if (pane==='influencers') loadAdminInfluencers();
   if (pane==='admin-accounts') loadAdminAccounts();
   if (pane==='my-account') loadMyAdminInfo();
+  // 브라우저 히스토리 기록 (뒤로가기 지원)
+  if (pushHistory !== false) {
+    history.pushState({pane: pane}, '', '#' + pane);
+  }
 }
+
+// 브라우저 뒤로가기/앞으로가기 처리
+window.addEventListener('popstate', function(e) {
+  var pane = (e.state && e.state.pane) || location.hash.replace('#','') || 'dashboard';
+  // 해당 사이드바 아이템 찾기
+  var sideItem = null;
+  document.querySelectorAll('.admin-si').forEach(function(si) {
+    if (si.getAttribute('onclick') && si.getAttribute('onclick').indexOf("'" + pane + "'") > -1) sideItem = si;
+  });
+  switchAdminPane(pane, sideItem, false);
+});
 
 // 관리자 이메일 목록 (배지 표시용)
 var _adminEmails = [];
@@ -2305,6 +2320,14 @@ async function init() {
   // 캠페인 + 대시보드 로드
   allCampaigns = await fetchCampaigns();
   loadAdminData();
+
+  // URL 해시가 있으면 해당 패널로 이동
+  var hash = location.hash.replace('#','');
+  if (hash && hash !== 'dashboard') {
+    switchAdminPane(hash, null, false);
+  } else {
+    history.replaceState({pane:'dashboard'}, '', '#dashboard');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
