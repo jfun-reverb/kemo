@@ -71,8 +71,11 @@ async function init() {
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
   if (session) {
     currentUser = session.user;
-    if (currentUser.email === ADMIN_EMAIL) {
-      currentUserProfile = {name:'Admin', email: ADMIN_EMAIL};
+    // 관리자 테이블에서 확인
+    const {data:adminData} = await db?.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
+    if (adminData) {
+      currentUser._isAdmin = true;
+      currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
     } else {
       const {data:profile} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
       currentUserProfile = profile;

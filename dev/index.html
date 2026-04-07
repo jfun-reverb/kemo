@@ -682,6 +682,9 @@ window._supabaseLoaded = false;
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ 인플루언서 목록</div>
       <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 신청 관리</div>
+      <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
+      <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)">🔑 관리자 계정</div>
+      <div class="admin-si" onclick="switchAdminPane('my-account',this)">👤 내 정보</div>
     </aside>
     <main class="admin-main">
 
@@ -1091,11 +1094,130 @@ window._supabaseLoaded = false;
           </div>
         </div>
 
+        <!-- ADMIN ACCOUNTS PANE -->
+        <div id="adminPane-admin-accounts" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자 계정</div>
+            <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">관리자 목록</span>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th>등록일</th><th>처리</th></tr></thead>
+              <tbody id="adminAccountsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MY ACCOUNT PANE -->
+        <div id="adminPane-my-account" class="admin-pane">
+          <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:16px">내 정보</div>
+          <div class="product-form" style="max-width:480px">
+            <div class="form-group">
+              <label class="form-label">이메일</label>
+              <input type="text" id="myAdminEmail" class="form-input" disabled style="background:var(--bg)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">이름</label>
+              <input type="text" id="myAdminName" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">권한</label>
+              <input type="text" id="myAdminRole" class="form-input" disabled style="background:var(--bg)">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveMyAdminInfo()">정보 저장</button>
+
+            <hr style="margin:24px 0;border:none;border-top:1px solid var(--line)">
+
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px">비밀번호 변경</div>
+            <div class="form-group">
+              <label class="form-label">현재 비밀번호</label>
+              <input type="password" id="myAdminCurrentPw" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">새 비밀번호 (8자 이상)</label>
+              <input type="password" id="myAdminNewPw" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">새 비밀번호 확인</label>
+              <input type="password" id="myAdminNewPw2" class="form-input">
+            </div>
+            <div id="myPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
+            <button class="btn btn-primary btn-sm" onclick="changeMyAdminPassword()">비밀번호 변경</button>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
 </div>
 
+<!-- 관리자 추가 모달 -->
+<div class="modal-overlay" id="addAdminModal">
+  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title" id="addAdminModalTitle">관리자 추가</div>
+      <div class="modal-close" onclick="closeModal('addAdminModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editAdminId">
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input type="email" id="adminFormEmail" class="form-input" placeholder="admin@example.com">
+      </div>
+      <div class="form-group" id="adminFormPwGroup">
+        <label class="form-label">비밀번호 (8자 이상)</label>
+        <input type="password" id="adminFormPw" class="form-input" placeholder="비밀번호 입력">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이름</label>
+        <input type="text" id="adminFormName" class="form-input" placeholder="홍길동">
+      </div>
+      <div class="form-group">
+        <label class="form-label">권한</label>
+        <select id="adminFormRole" class="form-input">
+          <option value="campaign_admin">캠페인 관리자</option>
+          <option value="super_admin">슈퍼관리자</option>
+        </select>
+      </div>
+      <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal('addAdminModal')" style="flex:1">취소</button>
+        <button class="btn btn-primary" onclick="saveAdmin()" style="flex:1" id="adminFormBtn">추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 비밀번호 초기화 모달 -->
+<div class="modal-overlay" id="resetPwModal">
+  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title">비밀번호 초기화</div>
+      <div class="modal-close" onclick="closeModal('resetPwModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="resetPwTargetId">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        <strong id="resetPwTargetEmail"></strong>의 비밀번호를 초기화합니다.
+      </div>
+      <div class="form-group">
+        <label class="form-label">새 비밀번호 (8자 이상)</label>
+        <input type="password" id="resetPwNew" class="form-input">
+      </div>
+      <div id="resetPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal('resetPwModal')" style="flex:1">취소</button>
+        <button class="btn btn-primary" onclick="executeResetPw()" style="flex:1">초기화</button>
+      </div>
+      <div style="margin-top:12px;text-align:center">
+        <button class="btn btn-ghost btn-xs" onclick="sendResetEmail()" style="font-size:11px;color:var(--muted)">📧 이메일로 재설정 링크 보내기</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="lib/supabase.js"></script>
 <script src="lib/storage.js"></script>

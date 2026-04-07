@@ -6,7 +6,7 @@ function updateGnb() {
   const gnbRight = $('gnbRight');
   if (currentUser) {
     const initial = (currentUserProfile?.name || currentUser.email || 'U')[0].toUpperCase();
-    const isAdmin = currentUser.email === ADMIN_EMAIL;
+    const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
     gnbRight.innerHTML = `
       <div class="gnb-user">
         <div class="gnb-user-av">${initial}</div>
@@ -114,8 +114,11 @@ async function handleLogin(e) {
       btn.disabled=false; btn.textContent='Log In'; return;
     }
     currentUser = data.user;
-    if (email === ADMIN_EMAIL) {
-      currentUserProfile = {name:'Admin', email: ADMIN_EMAIL};
+    // 관리자 테이블에서 확인
+    const {data:adminData} = await db.from('admins').select('*').eq('auth_id', data.user.id).maybeSingle();
+    if (adminData) {
+      currentUser._isAdmin = true;
+      currentUserProfile = {name: adminData.name || 'Admin', email};
       toast('Logged in as Admin','success'); updateGnb();
       setTimeout(() => { navigate('admin'); loadAdminData(); }, 100);
     } else {
