@@ -52,7 +52,7 @@ function switchAdminCampTab(type, btn) {
   });
   btn.style.color='var(--pink)'; btn.style.borderBottomColor='var(--pink)'; btn.style.fontWeight='700';
   const titleEl = $('adminCampTableTitle');
-  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'모니터 목록':'기프팅 목록';
+  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'리뷰어 목록':'기프팅 목록';
   loadAdminCampaigns();
 }
 
@@ -65,7 +65,7 @@ async function loadAdminCampaigns() {
     return new Date(b.created_at)-new Date(a.created_at);
   });
   const allApps = await fetchApplications();
-  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">모니터</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
+  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusBadge = s => {
     if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">진행중</span>`;
     if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">일시정지</span>`;
@@ -402,7 +402,7 @@ async function renderAppCampList() {
     const pending = campApps.filter(a=>a.status==='pending').length;
     const approved = campApps.filter(a=>a.status==='approved').length;
     const rejected = campApps.filter(a=>a.status==='rejected').length;
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">모니터</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">기프팅</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">기프팅</span>':'';
     return `<div class="admin-card" style="margin-bottom:12px;cursor:pointer;transition:.15s" onclick="openAppCampDetail('${camp.id}')" onmouseenter="this.style.borderColor='var(--pink)'" onmouseleave="this.style.borderColor='var(--line)'">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px">
         <div style="flex:1;min-width:0">

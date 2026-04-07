@@ -117,7 +117,7 @@ function buildCampCards(camps) {
     const reward = c.reward > 0 ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>` : c.product_price > 0 ? `<strong>製品無償提供</strong>` : '<strong>無償提供</strong>';
     const isNew = (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
-    const typeLabel = c.recruit_type==='monitor'?'モニター':c.recruit_type==='gifting'?'ギフティング':'';
+    const typeLabel = c.recruit_type==='monitor'?'Reviewer':c.recruit_type==='gifting'?'Gifting':'';
     return `<div class="camp-card" onclick="openCampaign('${c.id}')">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<img src="${c.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${isFull?'filter:brightness(.4)':''}" onerror="this.style.display='none'">`:''}

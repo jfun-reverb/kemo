@@ -55,7 +55,7 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集タイプ</div>
             <div style="padding:10px 13px;flex:1;font-size:12px">
-              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">モニター</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">ギフティング</span>':'—'}
+              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Reviewer</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Gifting</span>':'—'}
             </div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">

@@ -474,10 +474,10 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
       <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px">キャンペーン一覧</div>
-      <!-- 모집 유형 탭 (모니터/기프팅) -->
+      <!-- 모집 유형 탭 (리뷰어/기프팅) -->
       <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
         <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)">すべて</button>
-        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">モニター</button>
+        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">Reviewer</button>
         <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">ギフティング</button>
       </div>
     </div>
@@ -1009,7 +1009,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <!-- 카테고리별 탭 -->
           <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:14px">
             <button id="adminCampTab-all" onclick="switchAdminCampTab('all',this)" style="padding:7px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">모니터</button>
+            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">리뷰어</button>
             <button id="adminCampTab-gifting" onclick="switchAdminCampTab('gifting',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
           </div>
           <div class="admin-card">
@@ -1043,7 +1043,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group">
                 <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> 모니터</label>
+                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"> 기프팅</label>
                 </div>
               </div>
@@ -1142,7 +1142,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
-                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> 모니터
+                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> 리뷰어
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
                     <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"> 기프팅
@@ -1333,10 +1333,10 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- APPLICATIONS PANE -->
         <div id="adminPane-applications" class="admin-pane">
           <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
-          <!-- 모니터/기프팅 탭 -->
+          <!-- 리뷰어/기프팅 탭 -->
           <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
             <button id="appTypeTab-all" onclick="switchAppTypeTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">모니터</button>
+            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">리뷰어</button>
             <button id="appTypeTab-gifting" onclick="switchAppTypeTab('gifting',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
           </div>
           <!-- 캠페인별 카드 리스트 -->
@@ -1789,7 +1789,7 @@ function buildCampCards(camps) {
     const reward = c.reward > 0 ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>` : c.product_price > 0 ? `<strong>製品無償提供</strong>` : '<strong>無償提供</strong>';
     const isNew = (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
-    const typeLabel = c.recruit_type==='monitor'?'モニター':c.recruit_type==='gifting'?'ギフティング':'';
+    const typeLabel = c.recruit_type==='monitor'?'Reviewer':c.recruit_type==='gifting'?'Gifting':'';
     return `<div class="camp-card" onclick="openCampaign('${c.id}')">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<img src="${c.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${isFull?'filter:brightness(.4)':''}" onerror="this.style.display='none'">`:''}
@@ -2051,7 +2051,7 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集タイプ</div>
             <div style="padding:10px 13px;flex:1;font-size:12px">
-              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">モニター</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">ギフティング</span>':'—'}
+              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Reviewer</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Gifting</span>':'—'}
             </div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
@@ -2468,7 +2468,7 @@ function switchAdminCampTab(type, btn) {
   });
   btn.style.color='var(--pink)'; btn.style.borderBottomColor='var(--pink)'; btn.style.fontWeight='700';
   const titleEl = $('adminCampTableTitle');
-  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'모니터 목록':'기프팅 목록';
+  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'리뷰어 목록':'기프팅 목록';
   loadAdminCampaigns();
 }
 
@@ -2481,7 +2481,7 @@ async function loadAdminCampaigns() {
     return new Date(b.created_at)-new Date(a.created_at);
   });
   const allApps = await fetchApplications();
-  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">모니터</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
+  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusBadge = s => {
     if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">진행중</span>`;
     if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">일시정지</span>`;
@@ -2818,7 +2818,7 @@ async function renderAppCampList() {
     const pending = campApps.filter(a=>a.status==='pending').length;
     const approved = campApps.filter(a=>a.status==='approved').length;
     const rejected = campApps.filter(a=>a.status==='rejected').length;
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">모니터</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">기프팅</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">기프팅</span>':'';
     return `<div class="admin-card" style="margin-bottom:12px;cursor:pointer;transition:.15s" onclick="openAppCampDetail('${camp.id}')" onmouseenter="this.style.borderColor='var(--pink)'" onmouseleave="this.style.borderColor='var(--line)'">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px">
         <div style="flex:1;min-width:0">
