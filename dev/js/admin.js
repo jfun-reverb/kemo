@@ -213,16 +213,16 @@ async function saveCampaignEdit() {
       guide: gv('editCampGuide'),
       ng: gv('editCampNg'),
       status: gv('editCampStatus'),
-      image_url: editCampImgData[0]?.data||'',
-      img1: editCampImgData[0]?.data||'',
-      img2: editCampImgData[1]?.data||'',
-      img3: editCampImgData[2]?.data||'',
-      img4: editCampImgData[3]?.data||'',
-      img5: editCampImgData[4]?.data||'',
-      img6: editCampImgData[5]?.data||'',
-      img7: editCampImgData[6]?.data||'',
-      img8: editCampImgData[7]?.data||'',
     };
+
+    // 이미지를 Storage에 업로드
+    toast('이미지 업로드 중...','');
+    const imgUrls = await uploadCampImages(editCampImgData);
+    updates.image_url = imgUrls[0];
+    updates.img1 = imgUrls[0]; updates.img2 = imgUrls[1];
+    updates.img3 = imgUrls[2]; updates.img4 = imgUrls[3];
+    updates.img5 = imgUrls[4]; updates.img6 = imgUrls[5];
+    updates.img7 = imgUrls[6]; updates.img8 = imgUrls[7];
 
     await updateCampaign(campId, updates);
     allCampaigns = await fetchCampaigns();
@@ -617,17 +617,21 @@ async function addCampaign() {
   const ch = $('newCampChannel').value;
   const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
+  // 이미지를 Storage에 업로드
+  toast('이미지 업로드 중...','');
+  const imgUrls = await uploadCampImages(campImgData);
+
   const camp = {
     title, brand, product,
     type: ch==='qoo10'?'qoo10':'nano', channel:ch, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
-    image_url: img1,
-    img1: campImgData[0]?.data||'', img2: campImgData[1]?.data||'',
-    img3: campImgData[2]?.data||'', img4: campImgData[3]?.data||'',
-    img5: campImgData[4]?.data||'', img6: campImgData[5]?.data||'',
-    img7: campImgData[6]?.data||'', img8: campImgData[7]?.data||'',
+    image_url: imgUrls[0],
+    img1: imgUrls[0], img2: imgUrls[1],
+    img3: imgUrls[2], img4: imgUrls[3],
+    img5: imgUrls[4], img6: imgUrls[5],
+    img7: imgUrls[6], img8: imgUrls[7],
     product_url: productUrl,
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
