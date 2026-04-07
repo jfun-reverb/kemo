@@ -278,10 +278,19 @@ function handleFloatApply() {
     if (o) { o.style.display='flex'; }
     return;
   }
-  // 필수 정보 체크: SNS 계정 + 배송지
+  // 필수 정보 체크: 캠페인 채널에 맞는 SNS 계정 + 배송지
   const p = currentUserProfile || {};
+  const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
+  const ch = (camp.channel || '').toLowerCase();
   const missing = [];
-  if (!p.ig) missing.push('Instagram ID');
+  // 캠페인 채널에 맞는 SNS 계정 체크
+  if (ch.includes('instagram') && !p.ig) missing.push('Instagram ID');
+  if (ch.includes('x') && !p.x) missing.push('X(Twitter) ID');
+  if (ch.includes('tiktok') && !p.tiktok) missing.push('TikTok ID');
+  if (ch.includes('youtube') && !p.youtube) missing.push('YouTube ID');
+  if (ch.includes('qoo10') && !p.ig) missing.push('Instagram ID');
+  // SNS 계정이 하나도 없으면 기본적으로 Instagram 체크
+  if (!ch && !p.ig) missing.push('Instagram ID');
   if (!p.address && !p.zip) missing.push('配送先住所');
   if (!p.phone) missing.push('電話番号');
   if (!p.bank_name) missing.push('振込口座');
