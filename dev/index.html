@@ -143,16 +143,11 @@ window._supabaseLoaded = false;
   <section class="campaigns-section">
     <div class="container">
       <div class="section-header">
-        <div><div class="section-title">開催中キャンペーン <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub">今すぐ応募できる体験団</div></div>
+        <div><div class="section-title">キャンペーン <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub">今すぐ応募できる体験団</div></div>
         <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0">すべて見る →</button>
       </div>
       <!-- 채널 필터 -->
-      <div class="filter-row" id="filterRow" style="margin-bottom:14px">
-        <button class="chip on" onclick="filterCamps('all',this)">すべて</button>
-        <button class="chip" onclick="filterCamps('instagram',this)">Instagram</button>
-        <button class="chip" onclick="filterCamps('x',this)">X(Twitter)</button>
-        <button class="chip" onclick="filterCamps('qoo10',this)">Qoo10</button>
-      </div>
+      <div class="filter-row" id="filterRow" style="margin-bottom:14px"></div>
       <div class="camp-grid" id="campGrid"></div>
     </div>
   </section>
@@ -678,7 +673,7 @@ window._supabaseLoaded = false;
 
             <div class="form-group"><label class="form-label">상태</label>
               <select id="editCampStatus" class="form-input">
-                <option value="active">진행중</option><option value="paused">일시정지</option><option value="closed">종료</option>
+                <option value="active">모집중</option><option value="scheduled">모집예정</option><option value="paused">일시정지</option><option value="closed">종료</option>
               </select>
             </div>
 

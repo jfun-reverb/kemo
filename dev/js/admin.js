@@ -69,7 +69,8 @@ async function loadAdminCampaigns() {
   const allApps = await fetchApplications();
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusBadge = s => {
-    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">진행중</span>`;
+    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">모집중</span>`;
+    if (s==='scheduled') return `<span class="badge badge-blue" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">모집예정</span>`;
     if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">일시정지</span>`;
     return `<span class="badge badge-gray" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">종료</span>`;
   };
@@ -266,12 +267,12 @@ async function saveCampaignEdit() {
   }
 }
 
-// 상태 순환: 진행중 → 일시정지 → 종료 → 진행중
+// 상태 순환: 모집중 → 모집예정 → 일시정지 → 종료 → 모집중
 async function cycleCampStatus(el, currentStatus) {
   const tr = el.closest('tr');
   const campId = tr?.dataset.campId;
   if (!campId) return;
-  const cycle = {active:'paused', paused:'closed', closed:'active'};
+  const cycle = {active:'scheduled', scheduled:'paused', paused:'closed', closed:'active'};
   const next = cycle[currentStatus] || 'active';
   try {
     await updateCampaign(campId, {status: next});
