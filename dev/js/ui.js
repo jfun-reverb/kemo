@@ -214,23 +214,37 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
   var removeFn = listName === 'campImgData' ? 'removeCampImg' : 'removeEditCampImg';
 
   wrap.innerHTML = imgList.map(function(img,i) {
-    return '<div data-idx="'+i+'"' +
-      ' draggable="true"' +
-      ' ondragstart="imgDragStart(event,'+i+')"' +
-      ' ondragover="event.preventDefault();this.style.outline=\'2px solid var(--pink)\'"' +
-      ' ondragleave="this.style.outline=\'none\'"' +
-      ' ondrop="imgDrop(event,'+i+',\''+listName+'\',\''+wrapId+'\',\''+counterId+'\')"' +
-      ' style="position:relative;width:88px;height:88px;flex-shrink:0;cursor:grab">' +
-      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';pointer-events:none">' +
-      (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px;pointer-events:none">MAIN</div>':'') +
-      '<button onmousedown="event.stopPropagation()" onclick="'+removeFn+'('+i+')" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제">×</button>' +
+    return '<div data-idx="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'"' +
+      ' style="position:relative;width:88px;height:88px;flex-shrink:0">' +
+      '<img src="'+img.data+'" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+'">' +
+      (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
+      '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제">×</button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
-        '<button onmousedown="event.stopPropagation()" onclick="openCropModal('+i+',\''+listName+'\',\''+wrapId+'\',\''+counterId+'\')" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:16px">crop</span></button>' +
-        '<button onmousedown="event.stopPropagation()" onclick="downloadImg('+i+',\''+listName+'\')" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
+        '<button data-action="crop" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:16px">crop</span></button>' +
+        '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
       '</div>' +
     '</div>';
   }).join('');
 }
+
+// 이미지 버튼 이벤트 위임 (크롭, 다운로드, 삭제)
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  var idx = parseInt(btn.dataset.i);
+  var listName = btn.dataset.list;
+
+  if (action === 'crop') {
+    openCropModal(idx, listName, btn.dataset.wrap, btn.dataset.counter);
+  } else if (action === 'download') {
+    downloadImg(idx, listName);
+  } else if (action === 'remove') {
+    var fn = btn.dataset.removeFn;
+    if (fn === 'removeCampImg') removeCampImg(idx);
+    else if (fn === 'removeEditCampImg') removeEditCampImg(idx);
+  }
+});
 
 // 드래그앤드롭 순서 변경
 function imgDragStart(e, idx) {
