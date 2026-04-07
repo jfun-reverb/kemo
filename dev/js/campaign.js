@@ -2,16 +2,13 @@
 // CAMPAIGNS — 목록, 상세, 필터
 // ══════════════════════════════════════
 
-let currentUser = null;
-let currentUserProfile = null;
-let currentCampaignId = null;
-let allCampaigns = [];
-let currentFilter = 'all';
+// currentUser, currentUserProfile, currentCampaignId, allCampaigns 는 shared.js에서 선언
+var currentFilter = 'all';
 let campPageTypeFilter = 'all';
 let currentTypeFilter = 'all';
 
 // ── 기본 캠페인 데이터 (DB가 비어있을 때 표시됨) ──
-const DEMO_CAMPAIGNS = [
+DEMO_CAMPAIGNS = [
   {id:'demo-1',recruit_type:'monitor',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',product_price:3200,reward:0,slots:25,applied_count:18,deadline:'2026-05-30',post_days:7,content_types:'インスタ/フィード,インスタ/リール',description:'イニスフリーの人気スキンケアアイテム、グリーンティセラムを体験していただける方を募集します。',hashtags:'#innisfree #イニスフリー #グリーンティセラム #スキンケア',mentions:'@innisfree_official_jp',appeal:'グリーンティ由来の保湿成分が肌深部まで浸透。',guide:'明るい自然光で撮影してください。商品のテクスチャーがわかるようにアップで撮影。',ng:'競合ブランド商品との比較投稿はNG。ネガティブ表現はNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
   {id:'demo-2',recruit_type:'monitor',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',product_price:4500,reward:0,slots:20,applied_count:12,deadline:'2026-05-25',post_days:10,content_types:'インスタ/フィード',description:'ROUND LABの大人気バーチュラトナーを体験していただける方を募集します。',hashtags:'#roundlab #ラウンドラボ #バーチュラトナー #韓国コスメ',mentions:'@roundlab_jp',appeal:'白樺水配合で肌を優しく整えるトナー。乾燥肌・敏感肌の方に特におすすめ。',guide:'清潔感のある明るい背景で撮影。使用前後の肌の変化を表現してください。',ng:'他ブランドとの比較NG。フィルター過剰使用NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
   {id:'demo-3',recruit_type:'monitor',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',product_price:3800,reward:1000,slots:15,applied_count:9,deadline:'2026-06-01',post_days:14,content_types:'インスタ/フィード,インスタ/リール,インスタ/ストーリー',description:'DR.Gの人気クッションファンデーションを体験していただける方を募集！リワード¥1,000付き。',hashtags:'#drg #ドクタージー #クッションファンデ #韓国コスメ',mentions:'@drg_japan',appeal:'赤みをカバーしながら素肌感を演出。SPF50+PA+++で紫外線対策も。',guide:'使用前後のビフォーアフターが伝わる投稿。明るい自然光での撮影推奨。',ng:'過度なフィルター加工NG。競合製品との比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},

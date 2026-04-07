@@ -101,7 +101,7 @@ async function loadAdminCampaigns() {
       </td>
       <td style="white-space:nowrap"><div style="display:flex;gap:4px">
         <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
-        <button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">상세</button>
+        <button class="btn btn-ghost btn-xs" onclick="window.open('/#detail','_blank')">상세</button>
       </div></td>
     </tr>`;
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
@@ -245,7 +245,7 @@ async function cycleCampStatus(el, currentStatus) {
     await updateCampaign(campId, {status: next});
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
-    renderCampaigns(allCampaigns);
+    if (typeof renderCampaigns === 'function') renderCampaigns(allCampaigns);
   } catch(e) {
     toast('상태 변경 오류','error');
   }
@@ -269,7 +269,7 @@ async function moveCampOrder(campId, dir) {
     await updateCampaign(camps[swapIdx].id, {order_index: camps[swapIdx].order_index});
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
-    renderCampaigns(allCampaigns);
+    if (typeof renderCampaigns === 'function') renderCampaigns(allCampaigns);
   } catch(e) {
     toast('순서 변경 오류','error');
   }
