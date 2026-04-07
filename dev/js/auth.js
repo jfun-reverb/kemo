@@ -75,12 +75,16 @@ async function handleSignup(e) {
     const {data, error} = await db.auth.signUp({email, password: pw});
     if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up ✓'; return; }
     if (data.user?.id) {
-      await upsertInfluencer({id: data.user.id, ...userData});
+      try {
+        await upsertInfluencer({id: data.user.id, ...userData});
+      } catch(dbErr) {
+        // DB 저장 실패해도 Auth 계정은 생성됨 — 로그인 후 프로필 저장 가능
+      }
       currentUser = {id: data.user.id, email};
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
-    errEl.textContent='Sign up error occurred'; errEl.style.display='block';
+    errEl.textContent='Sign up error: ' + (e.message || String(e)); errEl.style.display='block';
     btn.disabled=false; btn.textContent='Sign Up ✓'; return;
   }
 
@@ -117,6 +121,13 @@ async function handleLogin(e) {
     } else {
       const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
       currentUserProfile = profile;
+      // 프로필이 없으면 기본 프로필 생성 (회원가입 시 RLS로 실패한 경우)
+      if (!profile) {
+        try {
+          await upsertInfluencer({id: data.user.id, email, created_at: new Date().toISOString()});
+          currentUserProfile = {id: data.user.id, email};
+        } catch(e) {}
+      }
       toast('Welcome back 👋','success'); updateGnb(); navigate('home');
     }
   } catch(e) {
