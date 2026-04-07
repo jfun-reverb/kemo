@@ -12,7 +12,7 @@ function updateGnb() {
         <div class="gnb-user-av">${initial}</div>
         <span>${currentUserProfile?.name || currentUser.email}</span>
       </div>
-      ${isAdmin ? `<button class="gnb-btn gnb-btn-ghost" onclick="navigate('admin')">Admin</button>` : ''}
+      ${isAdmin ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.open('/admin/','_blank')">Admin</button>` : ''}
       <button class="gnb-btn gnb-btn-ghost" onclick="navigate('mypage')">My Page</button>
       <span class="gnb-logout" onclick="handleLogout()">Log Out</span>
     `;
@@ -100,7 +100,7 @@ async function handleLogin(e) {
       currentUser._isAdmin = true;
       currentUserProfile = {name: adminData.name || 'Admin', email};
       toast('Logged in as Admin','success'); updateGnb();
-      setTimeout(() => { navigate('admin'); loadAdminData(); }, 100);
+      setTimeout(() => { window.open('/admin/', '_blank'); }, 500);
     } else {
       const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
       currentUserProfile = profile;

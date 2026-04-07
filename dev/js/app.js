@@ -4,7 +4,6 @@
 
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
-  const adminPage = $('page-admin');
 
   // 브라우저 히스토리에 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -12,15 +11,11 @@ function navigate(page, pushHistory) {
   }
 
   if (page === 'admin') {
-    if (appShell) appShell.style.display = 'none';
-    if (adminPage) { adminPage.classList.add('active'); adminPage.style.display = 'block'; }
-    document.body.style.background = '#F8F5F8';
-    loadAdminData();
+    window.open('/admin/', '_blank');
     return;
   }
 
   if (appShell) appShell.style.display = '';
-  if (adminPage) { adminPage.classList.remove('active'); adminPage.style.display = 'none'; }
   document.body.style.background = '#E8E0EC';
 
   document.querySelectorAll('#appShell .page').forEach(p => p.classList.remove('active'));
