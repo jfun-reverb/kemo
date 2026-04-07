@@ -88,9 +88,10 @@ async function init() {
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
 
-  // 이미지 드래그앤드롭 영역 초기화
-  initImgDropZone('campImgDropZone', 'campImgFileInput');
-  initImgDropZone('editCampImgDropZone', 'editCampImgFileInput');
+  // 이미지 리스트 등록 + 드래그앤드롭 영역 초기화
+  registerImgList('campImgData', campImgData);
+  initImgDropZone('campImgDropZone', 'campImgFileInput', 'campImgData');
+  initImgDropZone('editCampImgDropZone', 'editCampImgFileInput', 'editCampImgData');
 
   // URL 해시가 있으면 해당 페이지로 이동
   const hash = location.hash.replace('#','');

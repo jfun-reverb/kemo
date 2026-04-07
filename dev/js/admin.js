@@ -150,23 +150,23 @@ async function openEditCampaign(campId) {
   editCampImgData.length = 0;
   [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8]
     .filter(Boolean).forEach(url => editCampImgData.push({data: url}));
-  renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
+  renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
 
   switchAdminPane('edit-campaign', null);
 }
 
 // ── 편집용 이미지 관리 ──
 var editCampImgData = [];
-window.editCampImgData = editCampImgData;
+registerImgList('editCampImgData', editCampImgData);
 
 function handleEditCampImgSelect(input) {
-  addImagesToList(Array.from(input.files), editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
+  addImagesToList(Array.from(input.files), editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
   input.value = '';
 }
 
 function removeEditCampImg(idx) {
   editCampImgData.splice(idx, 1);
-  renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
+  renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
 }
 
 function toggleEditRT(rb) {
