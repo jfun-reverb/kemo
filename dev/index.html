@@ -181,10 +181,10 @@ window._supabaseLoaded = false;
   <div style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
       <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px">キャンペーン一覧</div>
-      <!-- 모집 유형 탭 (모니터/기프팅) -->
+      <!-- 모집 유형 탭 (리뷰어/기프팅) -->
       <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
         <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)">すべて</button>
-        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">モニター</button>
+        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">Reviewer</button>
         <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">ギフティング</button>
       </div>
     </div>
@@ -716,7 +716,7 @@ window._supabaseLoaded = false;
           <!-- 카테고리별 탭 -->
           <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:14px">
             <button id="adminCampTab-all" onclick="switchAdminCampTab('all',this)" style="padding:7px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">모니터</button>
+            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">리뷰어</button>
             <button id="adminCampTab-gifting" onclick="switchAdminCampTab('gifting',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
           </div>
           <div class="admin-card">
@@ -750,7 +750,7 @@ window._supabaseLoaded = false;
               <div class="form-group">
                 <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> 모니터</label>
+                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"> 기프팅</label>
                 </div>
               </div>
@@ -849,7 +849,7 @@ window._supabaseLoaded = false;
                 <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
-                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> 모니터
+                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> 리뷰어
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
                     <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"> 기프팅
@@ -1040,10 +1040,10 @@ window._supabaseLoaded = false;
         <!-- APPLICATIONS PANE -->
         <div id="adminPane-applications" class="admin-pane">
           <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
-          <!-- 모니터/기프팅 탭 -->
+          <!-- 리뷰어/기프팅 탭 -->
           <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
             <button id="appTypeTab-all" onclick="switchAppTypeTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">모니터</button>
+            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">리뷰어</button>
             <button id="appTypeTab-gifting" onclick="switchAppTypeTab('gifting',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
           </div>
           <!-- 캠페인별 카드 리스트 -->
