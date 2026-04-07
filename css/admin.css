@@ -1,5 +1,5 @@
 /* ══════════════════════════════════
-   ADMIN — 관리자 대시보드
+   ADMIN — 管理者ダッシュボード
 ══════════════════════════════════ */
 .admin-layout{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 54px)}
 .admin-side{background:#1A0F18;padding:8px 0 20px;position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;flex-shrink:0;border-right:1px solid rgba(200,120,163,.15)}

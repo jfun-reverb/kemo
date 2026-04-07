@@ -1,5 +1,5 @@
 /* ══════════════════════════════════
-   MY PAGE — 마이페이지
+   MY PAGE — マイページ
 ══════════════════════════════════ */
 .mypage-wrap{padding:16px 0 calc(var(--tab-h) + 16px)}
 .mypage-header{background:#fff;border-bottom:1px solid var(--line);padding:16px 0;margin-bottom:16px}

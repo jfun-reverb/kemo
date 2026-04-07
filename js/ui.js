@@ -1,5 +1,5 @@
 // ══════════════════════════════════════
-// UI — 알림 팝업, 로딩, 모달, 슬라이더
+// UI — トースト・ローディング・モーダル・スライダー
 // ══════════════════════════════════════
 
 function toast(msg, type='') {
@@ -26,7 +26,7 @@ function closeModal(id) {
   $(id).classList.remove('open');
 }
 
-// ── 이미지 슬라이더 ──
+// ── IMAGE SLIDER ──
 let _slideIdx = 0;
 function slideMove(dir) {
   const slides = $('campSlides');
@@ -49,7 +49,7 @@ function slideTo(idx) {
   });
 }
 
-// ── 슬라이드 이미지 미리보기 (관리자용) ──
+// ── SLIDE IMG PREVIEW (admin) ──
 function previewSlideImgs() {
   const preview = $('slideImgPreview');
   if (!preview) return;
@@ -60,7 +60,7 @@ function previewSlideImgs() {
     </div>`).join('');
 }
 
-// ── 선택 항목 열기/닫기 ──
+// ── OPTIONAL SECTION TOGGLE ──
 function toggleOptional() {
   const sec = $('optionalSection');
   const arrow = $('optionalArrow');
@@ -70,7 +70,7 @@ function toggleOptional() {
   if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
-// ── 비밀번호 보기/숨기기 ──
+// ── PASSWORD TOGGLE ──
 function togglePw(inputId, btn) {
   const input = $(inputId);
   if (!input) return;
@@ -78,7 +78,7 @@ function togglePw(inputId, btn) {
   else { input.type = 'password'; btn.textContent = '👁'; }
 }
 
-// ── 우편번호로 주소 자동입력 ──
+// ── ZIP CODE LOOKUP ──
 async function lookupZipProfile() {
   const zip = $('profileZip')?.value.replace(/[^0-9]/g,'');
   if (!zip || zip.length < 7) { toast('郵便番号を7桁で入力してください', 'error'); return; }
@@ -113,7 +113,7 @@ async function lookupZip() {
   } catch(e) { toast('住所検索に失敗しました。手動で入力してください', 'error'); }
 }
 
-// ── 콘텐츠 타입 / 모집 타입 선택 토글 ──
+// ── CONTENT TYPE / RECRUIT TYPE TOGGLE ──
 function toggleCT(cb) {
   const label = cb.closest('label');
   if (cb.checked) { label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)'; }
@@ -137,7 +137,7 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
-// ── 이미지 업로드 ──
+// ── IMAGE UPLOAD ──
 const campImgData = [];
 function handleCampImgSelect(input) {
   const files = Array.from(input.files);
@@ -189,7 +189,7 @@ function handleFileSelect(input) {
   });
 }
 
-// ── 로그인 안내 팝업 ──
+// ── LOGIN PROMPT ──
 function closeLoginPrompt(e) {
   if (e && e.target !== $('loginPromptOverlay')) return;
   const o = $('loginPromptOverlay');

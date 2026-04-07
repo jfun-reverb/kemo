@@ -13,9 +13,9 @@ function switchAdminPane(pane, el) {
 }
 
 async function loadAdminData() {
-  const camps = await fetchCampaigns();
-  const users = await fetchInfluencers();
-  const apps = await fetchApplications();
+  const camps = DEMO_MODE ? demoGetCampaigns() : ((await db?.from('campaigns').select('*'))||{data:[]}).data || demoGetCampaigns();
+  const users = DEMO_MODE ? demoGetUsers() : ((await db?.from('influencers').select('*'))||{data:[]}).data || demoGetUsers();
+  const apps = DEMO_MODE ? demoGetApps() : ((await db?.from('applications').select('*'))||{data:[]}).data || demoGetApps();
   const approved = apps.filter(a=>a.status==='approved');
   const pending = apps.filter(a=>a.status==='pending');
 
@@ -25,22 +25,22 @@ async function loadAdminData() {
   $('kpiApproved').textContent = approved.length;
   loadAdminCampaigns();
   loadAdminInfluencers();
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `📋 신청 관리${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `📋 応募管理${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
 
   // Recent apps
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
-    const camp = camps.find(c=>c.id===a.campaign_id)||{};
+    const camp = (DEMO_MODE?demoGetCampaigns():camps).find(c=>c.id===a.campaign_id)||{};
     return `<tr>
       <td><strong>${a.user_name||a.user_email}</strong><br><small style="color:var(--muted)">${a.user_email}</small></td>
       <td>${camp.emoji||'📦'} ${camp.title||a.campaign_id}</td>
       <td>${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
       <td><div style="display:flex;gap:5px">
-        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
+        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">承認</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">非承認</button>`:'—'}
       </div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
+  }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">応募なし</td></tr>';
 }
 
 let adminCampTypeFilter = 'all';
@@ -52,27 +52,36 @@ function switchAdminCampTab(type, btn) {
   });
   btn.style.color='var(--pink)'; btn.style.borderBottomColor='var(--pink)'; btn.style.fontWeight='700';
   const titleEl = $('adminCampTableTitle');
-  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'모니터 목록':'기프팅 목록';
+  if (titleEl) titleEl.textContent = type==='all'?'キャンペーン一覧':type==='monitor'?'モニター一覧':'ギフティング一覧';
   loadAdminCampaigns();
 }
 
 async function loadAdminCampaigns() {
-  let camps = await fetchCampaigns();
+  let camps = demoGetCampaigns(); // always start with localStorage
+  if (!DEMO_MODE && db) {
+    try {
+      const {data} = await db?.from('campaigns').select('*') || {};
+      if (data && data.length > 0) {
+        const localIds = new Set(camps.map(c=>c.id));
+        camps = [...camps, ...data.filter(d=>!localIds.has(d.id))];
+      }
+    } catch(e) {}
+  }
+  // タブフィルター
   if (adminCampTypeFilter === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
   else if (adminCampTypeFilter === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
   camps = camps.slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
   });
-  const allApps = await fetchApplications();
-  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">모니터</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
+  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">モニター</span>':t==='gifting'?'<span class="badge badge-gold">ギフティング</span>':'<span class="badge badge-gray">—</span>';
   const statusBadge = s => {
-    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">진행중</span>`;
-    if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">일시정지</span>`;
-    return `<span class="badge badge-gray" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">종료</span>`;
+    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">開催中</span>`;
+    if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">一時停止</span>`;
+    return `<span class="badge badge-gray" style="cursor:pointer" title="クリックで変更" onclick="cycleCampStatus(this,'${s}')">終了</span>`;
   };
   $('adminCampsBody').innerHTML = camps.map((c,i)=>{
-    const cnt = allApps.filter(a=>a.campaign_id===c.id).length;
+    const cnt = DEMO_MODE ? demoGetApps().filter(a=>a.campaign_id===c.id).length : (c.applied_count||0);
     const pct = c.slots > 0 ? Math.round(cnt/c.slots*100) : 0;
     const barColor = pct>=100?'var(--red)':pct>=60?'var(--gold)':'var(--green)';
     return `<tr data-camp-id="${c.id}">
@@ -89,7 +98,7 @@ async function loadAdminCampaigns() {
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" onclick="openCampApplicants('${c.id}','${c.title.replace(/'/g,'')}')">
-            ${cnt} / ${c.slots}명
+            ${cnt} / ${c.slots}名
           </button>
           <div style="width:48px;height:5px;background:var(--line);border-radius:3px;overflow:hidden">
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:3px"></div>
@@ -97,18 +106,17 @@ async function loadAdminCampaigns() {
         </div>
       </td>
       <td style="white-space:nowrap;display:flex;gap:4px">
-        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
-        <button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">상세</button>
+        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">編集</button>
+        <button class="btn btn-ghost btn-xs" onclick="openCampaign('${c.id}');navigate('detail')">詳細</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">キャンペーンなし</td></tr>';
 }
 
-// ── 캠페인 편집 ──
-async function openEditCampaign(campId) {
-  const camps = await fetchCampaigns();
-  const camp = camps.find(c=>c.id===campId);
-  if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
+// ── キャンペーン編集 ──
+function openEditCampaign(campId) {
+  const camp = demoGetCampaigns().find(c=>c.id===campId);
+  if (!camp) { toast('キャンペーンが見つかりません','error'); return; }
 
   const sv = (id, val) => { const el=$(id); if(el) el.value = val||''; };
   $('editCampId').value = campId;
@@ -131,11 +139,13 @@ async function openEditCampaign(campId) {
   if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
+  // 募集タイプ選択
   document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
   const rtEl = $('edit-rt-'+(camp.recruit_type||'monitor'));
   if (rtEl) { rtEl.style.borderColor='var(--pink)';rtEl.style.background='var(--light-pink)';rtEl.style.color='var(--pink)';rtEl.style.fontWeight='700'; }
   document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===(camp.recruit_type||'monitor'));});
 
+  // コンテンツタイプチェック
   const ctMap = {'フィード':'feed','リール':'reels','ストーリー':'story','ショート動画':'short','動画':'video','画像':'image'};
   const selected = (camp.content_types||'').split(',').map(t=>t.trim());
   document.querySelectorAll('input[name="editContentType"]').forEach(cb=>{
@@ -158,14 +168,14 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
-async function saveCampaignEdit() {
+function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
-    if (!campId) { toast('ID를 찾을 수 없습니다','error'); return; }
+    if (!campId) { toast('IDが見つかりません','error'); return; }
     const gv = id => $(id)?.value||'';
     const title = gv('editCampTitle').trim();
     const brand = gv('editCampBrand').trim();
-    if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
+    if (!title||!brand) { toast('キャンペーン名とブランド名は必須です','error'); return; }
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
@@ -181,8 +191,8 @@ async function saveCampaignEdit() {
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
-      deadline: gv('editCampDeadline')||null,
-      post_deadline: gv('editCampPostDeadline')||null,
+      deadline: gv('editCampDeadline'),
+      post_deadline: gv('editCampPostDeadline'),
       description: gv('editCampDesc'),
       hashtags: gv('editCampHashtags'),
       mentions: gv('editCampMentions'),
@@ -192,81 +202,101 @@ async function saveCampaignEdit() {
       status: gv('editCampStatus'),
     };
 
-    await updateCampaign(campId, updates);
-    allCampaigns = await fetchCampaigns();
-    toast('변경 사항을 저장했습니다 ✓','success');
-    const campSi = (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })();
+    // localStorage 更新
+    const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+    const ci = custom.findIndex(c=>c.id===campId);
+    if (ci>=0) { Object.assign(custom[ci], updates); localStorage.setItem('kemo_campaigns',JSON.stringify(custom)); }
+    // DEMO_CAMPAIGNS 更新
+    const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===campId);
+    if (di>=0) Object.assign(DEMO_CAMPAIGNS[di], updates);
+
+    allCampaigns = demoGetCampaigns();
+    toast('変更を保存しました ✓','success');
+    const campSi = (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('キャンペーン管理'))r=e;}); return r; })();
     switchAdminPane('campaigns', campSi);
+    loadAdminCampaigns();
   } catch(err) {
-    toast('저장 오류: '+err.message,'error');
+    toast('保存エラー: '+err.message,'error');
   }
 }
 
-// 상태 순환: 진행중 → 일시정지 → 종료 → 진행중
-async function cycleCampStatus(el, currentStatus) {
+// ステータス循環: 開催中 → 一時停止 → 終了 → 開催中
+function cycleCampStatus(el, currentStatus) {
   const tr = el.closest('tr');
   const campId = tr?.dataset.campId;
   if (!campId) return;
   const cycle = {active:'paused', paused:'closed', closed:'active'};
   const next = cycle[currentStatus] || 'active';
-  try {
-    await updateCampaign(campId, {status: next});
-    allCampaigns = await fetchCampaigns();
-    loadAdminCampaigns();
-    renderCampaigns(allCampaigns);
-  } catch(e) {
-    toast('상태 변경 오류','error');
-  }
+  // localStorage 更新
+  const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+  const ci = custom.findIndex(c=>c.id===campId);
+  if (ci>=0) { custom[ci].status = next; localStorage.setItem('kemo_campaigns',JSON.stringify(custom)); }
+  const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===campId);
+  if (di>=0) DEMO_CAMPAIGNS[di].status = next;
+  allCampaigns = demoGetCampaigns();
+  loadAdminCampaigns();
+  renderCampaigns(allCampaigns);
 }
 
-async function moveCampOrder(campId, dir) {
-  const camps = (await fetchCampaigns()).slice().sort((a,b)=>{
+function moveCampOrder(campId, dir) {
+  const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
+  const all = demoGetCampaigns().slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
   });
-  camps.forEach((c,i) => { if (c.order_index==null) c.order_index = i; });
-  const idx = camps.findIndex(c=>c.id===campId);
+  // order_index 再割り当て (未設定はインデックスで初期化)
+  all.forEach((c,i) => { if (c.order_index==null) c.order_index = i; });
+  const idx = all.findIndex(c=>c.id===campId);
   if (idx<0) return;
   const swapIdx = idx+dir;
-  if (swapIdx<0||swapIdx>=camps.length) return;
-  const tmpOrder = camps[idx].order_index;
-  camps[idx].order_index = camps[swapIdx].order_index;
-  camps[swapIdx].order_index = tmpOrder;
-  try {
-    await updateCampaign(camps[idx].id, {order_index: camps[idx].order_index});
-    await updateCampaign(camps[swapIdx].id, {order_index: camps[swapIdx].order_index});
-    allCampaigns = await fetchCampaigns();
-    loadAdminCampaigns();
-    renderCampaigns(allCampaigns);
-  } catch(e) {
-    toast('순서 변경 오류','error');
-  }
+  if (swapIdx<0||swapIdx>=all.length) return;
+  const tmpOrder = all[idx].order_index;
+  all[idx].order_index = all[swapIdx].order_index;
+  all[swapIdx].order_index = tmpOrder;
+  // localStorageのキャンペーン更新
+  all.forEach(c => {
+    const ci = custom.findIndex(x=>x.id===c.id);
+    if (ci>=0) custom[ci].order_index = c.order_index;
+    // DEMO_CAMPAIGNSも更新
+    const di = DEMO_CAMPAIGNS.findIndex(x=>x.id===c.id);
+    if (di>=0) DEMO_CAMPAIGNS[di].order_index = c.order_index;
+  });
+  localStorage.setItem('kemo_campaigns', JSON.stringify(custom));
+  allCampaigns = demoGetCampaigns();
+  loadAdminCampaigns();
+  renderCampaigns(allCampaigns);
 }
 
-// 캠페인별 신청자 표시
+// キャンペーン別申請者表示
 let currentCampApplicantId = null;
 async function openCampApplicants(campId, campTitle) {
   currentCampApplicantId = campId;
   $('campApplicantsTitle').textContent = campTitle;
   switchAdminPane('camp-applicants', null);
+
   loadCampApplicants();
 }
 
 async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
-  let apps = await fetchApplications({campaign_id: currentCampApplicantId});
-  const total = apps.length;
+  let apps = DEMO_MODE ? demoGetApps() : ((await db?.from('applications').select('*'))||{data:[]}).data;
+  apps = apps.filter(a=>a.campaign_id===currentCampApplicantId);
   if (filter) apps = apps.filter(a=>a.status===filter);
+  apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  const total = DEMO_MODE ? demoGetApps().filter(a=>a.campaign_id===currentCampApplicantId).length : apps.length;
   const approved = apps.filter(a=>a.status==='approved').length;
   const pending = apps.filter(a=>a.status==='pending').length;
 
-  $('campApplicantsSubtitle').textContent = `신청자 목록`;
+  // キャンペーン情報取得
+  const camp = (DEMO_MODE?demoGetCampaigns():[]).find(c=>c.id===currentCampApplicantId)||{};
+  $('campApplicantsSubtitle').textContent = `応募者一覧`;
   $('campApplicantsStats').innerHTML = `
-    <span style="color:var(--ink);font-weight:600">${total}명 신청</span>
+    <span style="color:var(--ink);font-weight:600">${total}名応募</span>
     <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--green)">승인 ${approved}명</span>
+    <span style="color:var(--green)">承認 ${approved}名</span>
     <span style="margin:0 6px;color:var(--line)">|</span>
-    <span style="color:var(--gold)">심사중 ${pending}명</span>
+    <span style="color:var(--gold)">審査中 ${pending}名</span>
   `;
 
   $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>`<tr>
@@ -281,35 +311,41 @@ async function loadCampApplicants() {
     <td>${getStatusBadge(a.status)}</td>
     <td><div style="display:flex;gap:5px">
       ${a.status==='pending'?`
-        <button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved');loadCampApplicants()">승인</button>
+        <button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved');loadCampApplicants()">承認</button>
         <button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected');loadCampApplicants()">✕</button>
       `:'—'}
     </div></td>
-  </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+  </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">まだ応募がありません</td></tr>';
 }
 
-// ── 인플루언서 목록 ──
+// ── インフルエンサー一覧 (チャンネルタブ) ──
 let currentInfTab = 'all';
 
 async function loadAdminInfluencers() {
-  const users = await fetchInfluencers();
+  const users = DEMO_MODE ? demoGetUsers() : ((await db?.from('influencers').select('*'))||{data:[]}).data || [];
+  // タブカウント更新
   const cnt = ch => users.filter(u => ch==='instagram'?u.ig_followers>0:ch==='x'?u.x_followers>0:ch==='tiktok'?u.tiktok_followers>0:u.youtube_followers>0).length;
   ['instagram','x','tiktok','youtube'].forEach(ch => {
     const el = $('infCnt-'+ch);
     if (el) el.textContent = cnt(ch);
   });
   const totalEl = $('infTotalCount');
-  if (totalEl) totalEl.textContent = `${users.length}명 등록`;
+  if (totalEl) totalEl.textContent = `${users.length}名登録`;
   renderInfTable(users, currentInfTab);
 }
 
 function switchInfTab(ch, btn) {
   currentInfTab = ch;
   document.querySelectorAll('[id^="infTab-"]').forEach(b => {
-    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
+    b.style.color = 'var(--muted)';
+    b.style.borderBottomColor = 'transparent';
+    b.style.fontWeight = '600';
   });
-  btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
-  loadAdminInfluencers();
+  btn.style.color = 'var(--pink)';
+  btn.style.borderBottomColor = 'var(--pink)';
+  btn.style.fontWeight = '700';
+  const users = DEMO_MODE ? demoGetUsers() : [];
+  renderInfTable(users, ch);
 }
 
 function renderInfTable(users, ch) {
@@ -319,10 +355,12 @@ function renderInfTable(users, ch) {
   if (!bodyEl) return;
 
   let filtered = users;
+  let colCount = 10;
 
   if (ch === 'all') {
-    if (titleEl) titleEl.textContent = '인플루언서 전체';
-    if (headEl) headEl.innerHTML = '<tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>';
+    if (titleEl) titleEl.textContent = 'インフルエンサー全体';
+    if (headEl) headEl.innerHTML = '<tr><th>氏名</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>合計</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>';
+    colCount = 10;
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const igF = (u.ig_followers||0).toLocaleString();
       const xF = (u.x_followers||0).toLocaleString();
@@ -330,44 +368,45 @@ function renderInfTable(users, ch) {
       const ytF = (u.youtube_followers||0).toLocaleString();
       const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">登録済</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">未登録</span>`;
       return `<tr>
         <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
-        <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-        <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-        <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-        <td>${u.youtube?`@${u.youtube.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+        <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}名</div></td>
+        <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}名</div></td>
+        <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}名</div></td>
+        <td>${u.youtube?`@${u.youtube.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}名</div></td>
         <td style="font-weight:700;color:var(--pink)">${total}</td>
         <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
         <td style="font-size:12px;color:var(--muted)">${addr}</td>
         <td>${bank}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
+    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr>`;
   } else {
     const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
     const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
     const idKey = {instagram:'ig',x:'x',tiktok:'tiktok',youtube:'youtube'}[ch];
-    if (titleEl) titleEl.textContent = `${chLabel} 등록자`;
+    if (titleEl) titleEl.textContent = `${chLabel} 登録者`;
     filtered = users.filter(u => u[fKey] > 0);
-    if (headEl) headEl.innerHTML = `<tr><th>이름</th><th>${chLabel} ID</th><th>팔로워</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>`;
+    if (headEl) headEl.innerHTML = `<tr><th>氏名</th><th>${chLabel} ID</th><th>フォロワー</th><th>LINE</th><th>配送先</th><th>口座</th><th>登録日</th></tr>`;
+    colCount = 7;
     bodyEl.innerHTML = filtered.length ? filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0)).map(u => {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">登録済</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">未登録</span>`;
       return `<tr>
         <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u[idKey]?`@${u[idKey].replace('@','')}`:'—'}</td>
-        <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
+        <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}名</td>
         <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
         <td style="font-size:12px;color:var(--muted)">${addr}</td>
         <td>${bank}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
+    }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">データなし</td></tr>`;
   }
 }
 
-// ── 신청 관리 (캠페인별) ──
+// ── 応募管理 (キャンペーン別) ──
 let currentAppTypeTab = 'all';
 let currentAppCampId = null;
 
@@ -383,26 +422,30 @@ async function loadApplications() {
 function switchAppTypeTab(type, btn) {
   currentAppTypeTab = type;
   document.querySelectorAll('[id^="appTypeTab-"]').forEach(b => {
-    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
+    b.style.color = 'var(--muted)';
+    b.style.borderBottomColor = 'transparent';
+    b.style.fontWeight = '600';
   });
-  btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
+  btn.style.color = 'var(--pink)';
+  btn.style.borderBottomColor = 'var(--pink)';
+  btn.style.fontWeight = '700';
   renderAppCampList();
 }
 
-async function renderAppCampList() {
+function renderAppCampList() {
   const listEl = $('appCampList');
   if (!listEl) return;
-  let camps = await fetchCampaigns();
+  let camps = demoGetCampaigns();
   if (currentAppTypeTab === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
   else if (currentAppTypeTab === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
-  const apps = await fetchApplications();
-  if (!camps.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">캠페인 없음</div>'; return; }
+  const apps = demoGetApps();
+  if (!camps.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">キャンペーンなし</div>'; return; }
   listEl.innerHTML = camps.map(camp => {
     const campApps = apps.filter(a=>a.campaign_id===camp.id);
     const pending = campApps.filter(a=>a.status==='pending').length;
     const approved = campApps.filter(a=>a.status==='approved').length;
     const rejected = campApps.filter(a=>a.status==='rejected').length;
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">모니터</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">기프팅</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">モニター</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">ギフティング</span>':'';
     return `<div class="admin-card" style="margin-bottom:12px;cursor:pointer;transition:.15s" onclick="openAppCampDetail('${camp.id}')" onmouseenter="this.style.borderColor='var(--pink)'" onmouseleave="this.style.borderColor='var(--line)'">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px">
         <div style="flex:1;min-width:0">
@@ -410,36 +453,35 @@ async function renderAppCampList() {
             ${typeLabel}
             <span style="font-size:15px;font-weight:700;color:var(--ink)">${camp.title}</span>
           </div>
-          <div style="font-size:12px;color:var(--muted)">${camp.brand} · 마감 ${formatDate(camp.deadline)}</div>
+          <div style="font-size:12px;color:var(--muted)">${camp.brand} · 締切 ${formatDate(camp.deadline)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--ink)">${campApps.length}</div>
-            <div style="font-size:10px;color:var(--muted)">총 신청</div>
+            <div style="font-size:10px;color:var(--muted)">総応募</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--gold)">${pending}</div>
-            <div style="font-size:10px;color:var(--muted)">심사중</div>
+            <div style="font-size:10px;color:var(--muted)">審査中</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--green)">${approved}</div>
-            <div style="font-size:10px;color:var(--muted)">승인</div>
+            <div style="font-size:10px;color:var(--muted)">承認</div>
           </div>
           <div style="text-align:center">
             <div style="font-size:18px;font-weight:800;color:var(--muted)">${rejected}</div>
-            <div style="font-size:10px;color:var(--muted)">미승인</div>
+            <div style="font-size:10px;color:var(--muted)">非承認</div>
           </div>
-          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--ink)">${campApps.length} / ${camp.slots}명 →</div>
+          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--ink)">${camp.applied_count||campApps.length} / ${camp.slots}名 →</div>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-async function openAppCampDetail(campId) {
+function openAppCampDetail(campId) {
   currentAppCampId = campId;
-  const camps = await fetchCampaigns();
-  const camp = camps.find(c=>c.id===campId);
+  const camp = demoGetCampaigns().find(c=>c.id===campId);
   if (!camp) return;
   $('appCampList').style.display = 'none';
   $('appCampDetail').style.display = '';
@@ -448,14 +490,14 @@ async function openAppCampDetail(campId) {
   renderAppDetail();
 }
 
-async function renderAppDetail() {
+function renderAppDetail() {
   const bodyEl = $('appDetailBody');
   const statsEl = $('appDetailStats');
   if (!bodyEl||!currentAppCampId) return;
-  let apps = await fetchApplications({campaign_id: currentAppCampId});
+  let apps = demoGetApps().filter(a=>a.campaign_id===currentAppCampId);
   const filter = $('appDetailFilter')?.value||'';
-  const users = await fetchInfluencers();
-  if (statsEl) statsEl.textContent = `총 ${apps.length}명 / 승인 ${apps.filter(a=>a.status==='approved').length}명`;
+  const users = DEMO_MODE ? demoGetUsers() : [];
+  if (statsEl) statsEl.textContent = `総 ${apps.length}名 / 承認 ${apps.filter(a=>a.status==='approved').length}名`;
   if (filter) apps = apps.filter(a=>a.status===filter);
   apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   bodyEl.innerHTML = apps.length ? apps.map(a => {
@@ -468,29 +510,31 @@ async function renderAppDetail() {
     const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)||a.user_followers||0).toLocaleString();
     return `<tr>
       <td><strong>${a.user_name||'—'}</strong><div style="font-size:11px;color:var(--muted)">${a.user_email||''} · ${u.line_id?`LINE: ${u.line_id}`:''}</div></td>
-      <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">IG: ${igF}명</div></td>
+      <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">IG: ${igF}名</div></td>
       <td style="font-size:11px;color:var(--muted)">${others||'—'}</td>
-      <td style="font-weight:700;color:var(--pink)">${total}명</td>
+      <td style="font-weight:700;color:var(--pink)">${total}名</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${a.message||'—'}</td>
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
       <td><div style="display:flex;gap:5px">
-        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
+        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">承認</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">非承認</button>`:'—'}
       </div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
+  }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">応募なし</td></tr>';
 }
 
 async function updateAppStatus(appId, status) {
-  try {
-    await updateApplication(appId, {status});
-    toast(status==='approved'?'✓ 승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
-    if (currentAppCampId) renderAppDetail();
-    else loadApplications();
-    loadAdminData();
-  } catch(e) {
-    toast('상태 변경 오류: '+e.message,'error');
+  if (DEMO_MODE) {
+    const apps = demoGetApps();
+    const idx = apps.findIndex(a=>a.id===appId);
+    if (idx>=0) { apps[idx].status=status; demoSaveApps(apps); }
+  } else {
+    await db?.from('applications').update({status}).eq('id',appId);
   }
+  toast(status==='approved'?'✓ 承認しました':'非承認にしました', status==='approved'?'success':'');
+  if (currentAppCampId) renderAppDetail();
+  else loadApplications();
+  loadAdminData();
 }
 
 async function addCampaign() {
@@ -506,16 +550,17 @@ async function addCampaign() {
   const recruitTypeEl = document.querySelector('input[name="recruitType"]:checked');
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
   if (!title||!brand||!product||!deadline) {
-    toast('필수 항목을 모두 입력해주세요','error');
+    toast('必須項目をすべて入力してください','error');
     return;
   }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = $('newCampChannel').value;
-  const existing = await fetchCampaigns();
+  // 現在のキャンペーン数ベースのorder_index (新規は一番上)
+  const existing = demoGetCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   const camp = {
-    title, brand, product,
+    id:'camp-'+Date.now(), title, brand, product,
     type: ch==='qoo10'?'qoo10':'nano', channel:ch, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
@@ -529,22 +574,27 @@ async function addCampaign() {
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
     slots, applied_count:0,
-    deadline: deadline||null,
-    post_deadline: $('newCampPostDeadline')?.value||null,
+    deadline, post_deadline:$('newCampPostDeadline')?.value||'',
     post_days: $('newCampPostDeadline')?.value
       ? Math.ceil((new Date($('newCampPostDeadline').value) - new Date()) / (1000*60*60*24))
       : 14,
     description:$('newCampDesc').value,
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal:$('newCampAppeal')?.value||'', guide:$('newCampGuide').value, ng:$('newCampNg').value,
-    status:'active'
+    status:'active', created_at:new Date().toISOString()
   };
 
-  await insertCampaign(camp);
-  toast('캠페인이 등록되었습니다 🎉','success');
+  // localStorageに保存 (DEMO_MODE無関係)
+  demoSaveCampaign(camp);
+  // Supabase接続時バックグラウンド保存試行
+  if (!DEMO_MODE && db) {
+    try { await db?.from('campaigns').insert(camp); } catch(e) { /* localStorage save done */ }
+  }
+  toast('キャンペーンが登録されました 🎉','success');
   campImgData.length = 0;
   renderCampImgPreview();
 
+  // フォームリセット
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
    'newCampSlots','newCampDeadline','newCampPostDeadline','newCampDesc',
    'newCampHashtags','newCampMentions','newCampAppeal','newCampGuide',
@@ -555,14 +605,17 @@ async function addCampaign() {
   });
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
 
-  allCampaigns = await fetchCampaigns();
+  // allCampaigns 更新
+  allCampaigns = demoGetCampaigns();
 
+  // 管理者キャンペーン一覧へ移動
   const allSi = document.querySelectorAll('.admin-si');
   let campSi = null;
-  allSi.forEach(el => { if(el.textContent.includes('캠페인 관리')) campSi = el; });
+  allSi.forEach(el => { if(el.textContent.includes('キャンペーン管理')) campSi = el; });
   if (campSi) switchAdminPane('campaigns', campSi);
   else switchAdminPane('campaigns', null);
+  loadAdminCampaigns();
   } catch(err) {
-    toast('오류: ' + (err.message||String(err)), 'error');
+    toast('エラー: ' + (err.message||String(err)), 'error');
   }
 }
