@@ -72,7 +72,7 @@ async function init() {
   if (session) {
     currentUser = session.user;
     if (currentUser.email === ADMIN_EMAIL) {
-      currentUserProfile = {name:'管理者', email: ADMIN_EMAIL};
+      currentUserProfile = {name:'Admin', email: ADMIN_EMAIL};
     } else {
       const {data:profile} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
       currentUserProfile = profile;

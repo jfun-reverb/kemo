@@ -42,13 +42,13 @@ window._supabaseLoaded = false;
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)">ログイン・情報登録が必要です</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7">キャンペーンに参加するにはログインが必要です。</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)">Login Required</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7">Please log in to join the campaign.</div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()">취소</button>
-      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')">ログイン</button>
+      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')">Log In</button>
     </div>
-    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">アカウントをお持ちでない方は <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer">無料登録</a></div>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">Don't have an account? <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer">Sign Up Free</a></div>
   </div>
 </div>
 
@@ -75,8 +75,8 @@ window._supabaseLoaded = false;
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
     <div class="gnb-right" id="gnbRight">
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">ログイン</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">無料登録</button>
+      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>
+      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">Sign Up</button>
     </div>
   </div>
 </nav>
@@ -166,7 +166,7 @@ window._supabaseLoaded = false;
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">LINE</span></div>
             <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
             <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px">友だち検索「@586mnjoc」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px">Reverbチャンネル登録は必須です ✓</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px">Reverbチャンネル登録はRequiredです ✓</div>
           </div>
         </div>
       </div>
@@ -214,7 +214,7 @@ window._supabaseLoaded = false;
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
             <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
             <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@586mnjoc」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録は必須です ✓</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録はRequiredです ✓</div>
           </div>
         </div>
       </div>
@@ -240,22 +240,22 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title">ログイン</div>
-        <div class="auth-sub">REVERBインフルエンサーアカウントでログインしてください</div>
+        <div class="auth-title">Log In</div>
+        <div class="auth-sub">Sign in with your REVERB influencer account</div>
       </div>
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group">
-          <label class="form-label">メールアドレス</label>
+          <label class="form-label">Email</label>
           <input type="email" id="loginEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-group">
-          <label class="form-label">パスワード</label>
-          <input type="password" id="loginPw" class="form-input" placeholder="パスワードを入力" required>
+          <label class="form-label">Password</label>
+          <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
         </div>
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">ログイン</button>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Log In</button>
       </form>
-      <div class="auth-switch">アカウントをお持ちでない方は <a onclick="navigate('signup')">インフルエンサー登録</a></div>
+      <div class="auth-switch">Don't have an account? <a onclick="navigate('signup')">Sign Up</a></div>
     </div>
   </div>
 </div>
@@ -268,25 +268,25 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up" style="max-width:560px">
       <div class="auth-logo" style="margin-bottom:16px">
         <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
-        <div class="auth-title" style="font-size:18px">インフルエンサー登録</div>
-        <div class="auth-sub">REVERBでKブランド体験団に参加しましょう</div>
+        <div class="auth-title" style="font-size:18px">Sign Up</div>
+        <div class="auth-sub">Join REVERB and experience K-Brand campaigns</div>
       </div>
 
       <!-- 단계 표시 -->
       <div id="stepIndicator" style="display:flex;align-items:center;gap:0;margin-bottom:24px">
         <div class="step-dot active" data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">1</div>
-          <div style="font-size:10px;color:var(--pink);font-weight:600;white-space:nowrap">基本情報</div>
+          <div style="font-size:10px;color:var(--pink);font-weight:600;white-space:nowrap">Basic Info</div>
         </div>
         <div style="flex:1;height:2px;background:var(--line);margin-bottom:16px"></div>
         <div class="step-dot" data-step="2" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
           <div id="step2circle" style="width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">2</div>
-          <div id="step2label" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap">SNS情報</div>
+          <div id="step2label" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap">SNS Info</div>
         </div>
         <div style="flex:1;height:2px;background:var(--line);margin-bottom:16px"></div>
         <div class="step-dot" data-step="3" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
           <div id="step3circle" style="width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">3</div>
-          <div id="step3label" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap">配送先・完了</div>
+          <div id="step3label" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap">Address</div>
         </div>
       </div>
 
@@ -294,44 +294,44 @@ window._supabaseLoaded = false;
 
         <!-- ═══ STEP 1: 기본 정보 ═══ -->
         <div id="signupStep1" class="signup-step">
-          <div class="divider-text" style="margin-top:0">STEP 1 · 基本情報</div>
+          <div class="divider-text" style="margin-top:0">STEP 1 · Basic Info</div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">氏名（漢字） <span style="color:var(--red)">*</span></label>
+              <label class="form-label">Name (Kanji) <span style="color:var(--red)">*</span></label>
               <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
             </div>
             <div class="form-group">
-              <label class="form-label">氏名（ふりがな） <span style="color:var(--red)">*</span></label>
+              <label class="form-label">Name (Kana) <span style="color:var(--red)">*</span></label>
               <input type="text" id="signupNameKana" class="form-input" placeholder="やまだはなこ" required>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">メールアドレス <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">（必須）</span></label>
+              <label class="form-label">Email <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">(Required)</span></label>
               <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
             </div>
             <div class="form-group">
-              <label class="form-label">パスワード <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">（必須 · 8文字以上）</span></label>
+              <label class="form-label">Password <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">(Required · 8+ chars)</span></label>
               <div style="position:relative">
-                <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" required minlength="8" style="padding-right:42px">
+                <input type="password" id="signupPw" class="form-input" placeholder="8+ characters" required minlength="8" style="padding-right:42px">
                 <button type="button" onclick="togglePw('signupPw',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
               </div>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">パスワード確認 <span style="color:var(--red)">*</span></label>
+              <label class="form-label">Confirm Password <span style="color:var(--red)">*</span></label>
               <div style="position:relative">
-                <input type="password" id="signupPw2" class="form-input" placeholder="パスワードを再入力" required style="padding-right:42px">
+                <input type="password" id="signupPw2" class="form-input" placeholder="Re-enter password" required style="padding-right:42px">
                 <button type="button" onclick="togglePw('signupPw2',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
               </div>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">メインカテゴリー</label>
+              <label class="form-label">Main Category</label>
               <select id="signupCategory" class="form-input">
-                <option value="">選択してください</option>
+                <option value="">Select</option>
                 <option value="beauty">뷰티/코스메</option>
                 <option value="food">푸드/그르메</option>
                 <option value="fashion">패션/라이프</option>
@@ -341,30 +341,30 @@ window._supabaseLoaded = false;
             </div>
             <div class="form-group">
               <label class="form-label">LINE ID</label>
-              <input type="text" id="signupLine" class="form-input" placeholder="@586mnjocを追加後、IDを入力">
-              <div class="form-hint">まず <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">@586mnjoc</a> を友だち追加してください</div>
+              <input type="text" id="signupLine" class="form-input" placeholder="Add @586mnjoc first, then enter ID">
+              <div class="form-hint">First add <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">@586mnjoc</a> as friend</div>
             </div>
           </div>
           <div id="step1Error" class="form-error" style="margin-bottom:10px;display:none"></div>
-          <button type="button" class="btn btn-primary btn-block" onclick="goStep(2)">次へ → SNS情報</button>
+          <button type="button" class="btn btn-primary btn-block" onclick="goStep(2)">Next → SNS Info</button>
         </div>
 
         <!-- ═══ STEP 2: SNS 정보 ═══ -->
         <div id="signupStep2" class="signup-step" style="display:none">
-          <div class="divider-text" style="margin-top:0">STEP 2 · SNSアカウント情報</div>
+          <div class="divider-text" style="margin-top:0">STEP 2 · SNS Account Info</div>
           <div style="background:var(--light-pink);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--dark-pink);line-height:1.6">
-            📋 正確に入力することで体験選考の対象になります。URLではなくIDのみ入力してください。
+            📋 Accurate info helps your selection. Enter ID only, not URL.
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Instagram ID <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">必須</span></label>
+              <label class="form-label">Instagram ID <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
               <div style="position:relative">
                 <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">@</span>
                 <input type="text" id="signupIg" class="form-input" placeholder="yourhandle" required style="padding-left:26px">
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Instagramフォロワー数 <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">必須</span></label>
+              <label class="form-label">Instagram Followers <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
               <input type="number" id="signupIgFollowers" class="form-input" placeholder="5200" min="0" required>
             </div>
           </div>
@@ -377,7 +377,7 @@ window._supabaseLoaded = false;
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">X フォロワー数</label>
+              <label class="form-label">X Followers</label>
               <input type="number" id="signupXFollowers" class="form-input" placeholder="1200" min="0">
             </div>
           </div>
@@ -390,7 +390,7 @@ window._supabaseLoaded = false;
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">TikTok フォロワー数</label>
+              <label class="form-label">TikTok Followers</label>
               <input type="number" id="signupTiktokFollowers" class="form-input" placeholder="3000" min="0">
             </div>
           </div>
@@ -403,67 +403,67 @@ window._supabaseLoaded = false;
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">YouTube 登録者数</label>
+              <label class="form-label">YouTube Subscribers</label>
               <input type="number" id="signupYoutubeFollowers" class="form-input" placeholder="800" min="0">
             </div>
           </div>
           <div id="step2Error" class="form-error" style="margin-bottom:10px;display:none"></div>
           <div style="display:flex;gap:10px">
-            <button type="button" class="btn btn-ghost" onclick="goStep(1)" style="flex:1">← 戻る</button>
-            <button type="button" class="btn btn-primary" onclick="goStep(3)" style="flex:2">次へ → 配送先</button>
+            <button type="button" class="btn btn-ghost" onclick="goStep(1)" style="flex:1">← Back</button>
+            <button type="button" class="btn btn-primary" onclick="goStep(3)" style="flex:2">Next → Address</button>
           </div>
         </div>
 
         <!-- ═══ STEP 3: 배송지 + 완료 ═══ -->
         <div id="signupStep3" class="signup-step" style="display:none">
-          <div class="divider-text" style="margin-top:0">STEP 3 · 配送先住所（日本国内）</div>
-          <div class="form-hint" style="margin-bottom:14px">製品発送のために必要です — 個人情報は安全に管理されます</div>
+          <div class="divider-text" style="margin-top:0">STEP 3 · Shipping Address (Japan)</div>
+          <div class="form-hint" style="margin-bottom:14px">Required for product delivery — Your info is kept secure</div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">郵便番号 <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">必須</span></label>
+              <label class="form-label">Zip Code <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
               <div style="display:flex;gap:7px">
                 <input type="text" id="signupZip" class="form-input" placeholder="123-4567" required style="flex:1">
-                <button type="button" onclick="lookupZip()" class="btn btn-ghost btn-sm" style="white-space:nowrap;flex-shrink:0;font-size:12px">住所検索</button>
+                <button type="button" onclick="lookupZip()" class="btn btn-ghost btn-sm" style="white-space:nowrap;flex-shrink:0;font-size:12px">Lookup</button>
               </div>
-              <div class="form-hint">郵便番号入力後「住所検索」で都道府県・市区町村が自動入力されます</div>
+              <div class="form-hint">Enter zip code and click Lookup to auto-fill address</div>
             </div>
             <div class="form-group">
-              <label class="form-label">都道府県 <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">必須</span></label>
+              <label class="form-label">Prefecture <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
               <select id="signupPrefecture" class="form-input" required>
-                <option value="">選択してください</option>
+                <option value="">Select</option>
                 <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option><option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
               </select>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">市区町村・番地 <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">必須</span></label>
+              <label class="form-label">City / Address <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
               <input type="text" id="signupCity" class="form-input" placeholder="渋谷区渋谷1-2-3" required>
             </div>
             <div class="form-group">
-              <label class="form-label">建物名・部屋番号</label>
+              <label class="form-label">Building / Room</label>
               <input type="text" id="signupBuilding" class="form-input" placeholder="〇〇マンション 101号室">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">電話番号 <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">必須</span></label>
+              <label class="form-label">Phone <span style="color:var(--red)">*</span> <span style="font-size:10px;background:var(--red);color:#fff;border-radius:4px;padding:1px 5px;font-weight:700">Required</span></label>
               <input type="tel" id="signupPhone" class="form-input" placeholder="090-1234-5678" required>
             </div>
             <div class="form-group">
-              <label class="form-label">一言自己紹介</label>
-              <input type="text" id="signupBio" class="form-input" placeholder="K美容専門のインフルエンサーです 🌸">
+              <label class="form-label">Bio</label>
+              <input type="text" id="signupBio" class="form-input" placeholder="K-Beauty influencer 🌸">
             </div>
           </div>
           <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
           <div style="display:flex;gap:10px">
-            <button type="button" class="btn btn-ghost" onclick="goStep(2)" style="flex:1">← 戻る</button>
-            <button type="submit" class="btn btn-primary" id="signupBtn" style="flex:2">登録完了 ✓</button>
+            <button type="button" class="btn btn-ghost" onclick="goStep(2)" style="flex:1">← Back</button>
+            <button type="submit" class="btn btn-primary" id="signupBtn" style="flex:2">Sign Up ✓</button>
           </div>
         </div>
 
       </form>
-      <div class="auth-switch">すでにアカウントをお持ちですか？ <a onclick="navigate('login')">ログイン</a></div>
+      <div class="auth-switch">Already have an account? <a onclick="navigate('login')">Log In</a></div>
     </div>
   </div>
 </div>
@@ -523,22 +523,22 @@ window._supabaseLoaded = false;
           <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
           <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
         </div>
-        <div class="form-group"><label class="form-label">Instagramフォロワー数</label><input type="number" id="profileIgFollowers" class="form-input"></div>
+        <div class="form-group"><label class="form-label">Instagram Followers</label><input type="number" id="profileIgFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">X(Twitter) ID</label>
           <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
           <input type="text" id="profileX" class="form-input" style="padding-left:26px"></div>
         </div>
-        <div class="form-group"><label class="form-label">X フォロワー数</label><input type="number" id="profileXFollowers" class="form-input"></div>
+        <div class="form-group"><label class="form-label">X Followers</label><input type="number" id="profileXFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">TikTok ID</label>
           <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
           <input type="text" id="profileTiktok" class="form-input" style="padding-left:26px"></div>
         </div>
-        <div class="form-group"><label class="form-label">TikTok フォロワー数</label><input type="number" id="profileTiktokFollowers" class="form-input"></div>
+        <div class="form-group"><label class="form-label">TikTok Followers</label><input type="number" id="profileTiktokFollowers" class="form-input"></div>
         <div class="form-group" style="margin-top:12px"><label class="form-label">YouTube ID</label>
           <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
           <input type="text" id="profileYoutube" class="form-input" style="padding-left:26px"></div>
         </div>
-        <div class="form-group"><label class="form-label">YouTube 登録者数</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
+        <div class="form-group"><label class="form-label">YouTube Subscribers</label><input type="number" id="profileYoutubeFollowers" class="form-input"></div>
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
       </div>
     </div>
@@ -611,7 +611,7 @@ window._supabaseLoaded = false;
         <div class="card card-pad">
           <div style="font-size:15px;font-weight:700;margin-bottom:16px">기타</div>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="btn btn-ghost btn-block" onclick="handleLogout()">ログアウト</button>
+            <button class="btn btn-ghost btn-block" onclick="handleLogout()">Log Out</button>
             <button class="btn btn-ghost btn-block" style="color:var(--muted);font-size:12px" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</button>
           </div>
         </div>
@@ -838,7 +838,7 @@ window._supabaseLoaded = false;
                 <input type="text" id="newCampProduct" class="form-input" placeholder="그린티 세럼 80ml">
               </div>
               <div class="form-group">
-                <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">必須</span></label>
+                <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">Required</span></label>
                 <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
               </div>
             </div>
@@ -972,7 +972,7 @@ window._supabaseLoaded = false;
                 <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
                 <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
                 <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
-                <li>投稿は6ヶ月以上の掲載が必須です。</li>
+                <li>投稿は6ヶ月以上の掲載がRequiredです。</li>
                 <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
                 <li>ご不明点は <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">LINE(@586mnjoc)</a> まで。</li>
               </ul>
