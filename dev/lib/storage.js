@@ -1,32 +1,88 @@
 // ══════════════════════════════════════
-// STORAGE — localStorage ラッパー
+// STORAGE — Supabase API ラッパー
+// localStorage はセッションキャッシュのみ使用
 // ══════════════════════════════════════
-const DEMO_USERS_KEY = 'kemo_users';
 const DEMO_SESSION_KEY = 'kemo_session';
-const DEMO_APPS_KEY = 'kemo_applications';
 
-function demoGetUsers() { return JSON.parse(localStorage.getItem(DEMO_USERS_KEY)||'[]'); }
-function demoSaveUsers(u) { localStorage.setItem(DEMO_USERS_KEY, JSON.stringify(u)); }
-function demoGetApps() { return JSON.parse(localStorage.getItem(DEMO_APPS_KEY)||'[]'); }
-function demoSaveApps(a) { localStorage.setItem(DEMO_APPS_KEY, JSON.stringify(a)); }
-function demoGetCampaigns() {
-  const mem = window._memCamps || [];
-  const custom = [...JSON.parse(localStorage.getItem('kemo_campaigns')||'[]'), ...mem];
-  return [...DEMO_CAMPAIGNS, ...custom];
-}
-function demoSaveCampaign(camp) {
+// ── Campaigns ──
+async function fetchCampaigns() {
+  if (!db) return DEMO_CAMPAIGNS.slice();
   try {
-    const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-    const imgs = {img1:camp.img1,img2:camp.img2,img3:camp.img3,img4:camp.img4,
-                  img5:camp.img5,img6:camp.img6,img7:camp.img7,img8:camp.img8};
-    const campLight = {...camp, img1:'',img2:'',img3:'',img4:'',img5:'',img6:'',img7:'',img8:''};
-    try { localStorage.setItem('kemo_img_'+camp.id, JSON.stringify(imgs)); } catch(e) {
-      campLight.image_url = '';
-    }
-    custom.push(campLight);
-    localStorage.setItem('kemo_campaigns', JSON.stringify(custom));
+    const {data, error} = await db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false});
+    if (error) throw error;
+    return (data && data.length > 0) ? data : DEMO_CAMPAIGNS.slice();
   } catch(e) {
-    if (!window._memCamps) window._memCamps = [];
-    window._memCamps.push(camp);
+    return DEMO_CAMPAIGNS.slice();
   }
+}
+
+async function insertCampaign(camp) {
+  if (!db) return;
+  const {error} = await db.from('campaigns').insert(camp);
+  if (error) throw error;
+}
+
+async function updateCampaign(campId, updates) {
+  if (!db) return;
+  const {error} = await db.from('campaigns').update(updates).eq('id', campId);
+  if (error) throw error;
+}
+
+// ── Influencers ──
+async function fetchInfluencers() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('influencers').select('*');
+    if (error) throw error;
+    return data || [];
+  } catch(e) {
+    return [];
+  }
+}
+
+async function upsertInfluencer(profile) {
+  if (!db) return;
+  const {error} = await db.from('influencers').upsert(profile);
+  if (error) throw error;
+}
+
+async function updateInfluencer(userId, updates) {
+  if (!db) return;
+  const {error} = await db.from('influencers').update(updates).eq('id', userId);
+  if (error) throw error;
+}
+
+// ── Applications ──
+async function fetchApplications(filters) {
+  if (!db) return [];
+  try {
+    let query = db.from('applications').select('*');
+    if (filters?.campaign_id) query = query.eq('campaign_id', filters.campaign_id);
+    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+    if (filters?.status) query = query.eq('status', filters.status);
+    query = query.order('created_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) {
+    return [];
+  }
+}
+
+async function insertApplication(app) {
+  if (!db) return;
+  const {error} = await db.from('applications').insert(app);
+  if (error) throw error;
+}
+
+async function updateApplication(appId, updates) {
+  if (!db) return;
+  const {error} = await db.from('applications').update(updates).eq('id', appId);
+  if (error) throw error;
+}
+
+async function checkDuplicateApplication(userId, campaignId) {
+  if (!db) return false;
+  const {data} = await db.from('applications').select('id').eq('user_id', userId).eq('campaign_id', campaignId).maybeSingle();
+  return !!data;
 }

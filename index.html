@@ -1382,41 +1382,96 @@ textarea.form-input{resize:vertical;min-height:80px}
 const SUPABASE_URL = 'https://twofagomeizrtkwlhsuv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3KgWYIf5w5J727Q2g3Cl7Q_ETD1Swps';
 const ADMIN_EMAIL = 'admin@kemo.jp';
-const DEMO_MODE = false;
 
 let db = null;
-try { if (!DEMO_MODE && window.supabase) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
+try { if (window.supabase) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
 // ══════════════════════════════════════
-// STORAGE — localStorage ラッパー
+// STORAGE — Supabase API ラッパー
+// localStorage はセッションキャッシュのみ使用
 // ══════════════════════════════════════
-const DEMO_USERS_KEY = 'kemo_users';
 const DEMO_SESSION_KEY = 'kemo_session';
-const DEMO_APPS_KEY = 'kemo_applications';
 
-function demoGetUsers() { return JSON.parse(localStorage.getItem(DEMO_USERS_KEY)||'[]'); }
-function demoSaveUsers(u) { localStorage.setItem(DEMO_USERS_KEY, JSON.stringify(u)); }
-function demoGetApps() { return JSON.parse(localStorage.getItem(DEMO_APPS_KEY)||'[]'); }
-function demoSaveApps(a) { localStorage.setItem(DEMO_APPS_KEY, JSON.stringify(a)); }
-function demoGetCampaigns() {
-  const mem = window._memCamps || [];
-  const custom = [...JSON.parse(localStorage.getItem('kemo_campaigns')||'[]'), ...mem];
-  return [...DEMO_CAMPAIGNS, ...custom];
-}
-function demoSaveCampaign(camp) {
+// ── Campaigns ──
+async function fetchCampaigns() {
+  if (!db) return DEMO_CAMPAIGNS.slice();
   try {
-    const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-    const imgs = {img1:camp.img1,img2:camp.img2,img3:camp.img3,img4:camp.img4,
-                  img5:camp.img5,img6:camp.img6,img7:camp.img7,img8:camp.img8};
-    const campLight = {...camp, img1:'',img2:'',img3:'',img4:'',img5:'',img6:'',img7:'',img8:''};
-    try { localStorage.setItem('kemo_img_'+camp.id, JSON.stringify(imgs)); } catch(e) {
-      campLight.image_url = '';
-    }
-    custom.push(campLight);
-    localStorage.setItem('kemo_campaigns', JSON.stringify(custom));
+    const {data, error} = await db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false});
+    if (error) throw error;
+    return (data && data.length > 0) ? data : DEMO_CAMPAIGNS.slice();
   } catch(e) {
-    if (!window._memCamps) window._memCamps = [];
-    window._memCamps.push(camp);
+    return DEMO_CAMPAIGNS.slice();
   }
+}
+
+async function insertCampaign(camp) {
+  if (!db) return;
+  const {error} = await db.from('campaigns').insert(camp);
+  if (error) throw error;
+}
+
+async function updateCampaign(campId, updates) {
+  if (!db) return;
+  const {error} = await db.from('campaigns').update(updates).eq('id', campId);
+  if (error) throw error;
+}
+
+// ── Influencers ──
+async function fetchInfluencers() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('influencers').select('*');
+    if (error) throw error;
+    return data || [];
+  } catch(e) {
+    return [];
+  }
+}
+
+async function upsertInfluencer(profile) {
+  if (!db) return;
+  const {error} = await db.from('influencers').upsert(profile);
+  if (error) throw error;
+}
+
+async function updateInfluencer(userId, updates) {
+  if (!db) return;
+  const {error} = await db.from('influencers').update(updates).eq('id', userId);
+  if (error) throw error;
+}
+
+// ── Applications ──
+async function fetchApplications(filters) {
+  if (!db) return [];
+  try {
+    let query = db.from('applications').select('*');
+    if (filters?.campaign_id) query = query.eq('campaign_id', filters.campaign_id);
+    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+    if (filters?.status) query = query.eq('status', filters.status);
+    query = query.order('created_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) {
+    return [];
+  }
+}
+
+async function insertApplication(app) {
+  if (!db) return;
+  const {error} = await db.from('applications').insert(app);
+  if (error) throw error;
+}
+
+async function updateApplication(appId, updates) {
+  if (!db) return;
+  const {error} = await db.from('applications').update(updates).eq('id', appId);
+  if (error) throw error;
+}
+
+async function checkDuplicateApplication(userId, campaignId) {
+  if (!db) return false;
+  const {data} = await db.from('applications').select('id').eq('user_id', userId).eq('campaign_id', campaignId).maybeSingle();
+  return !!data;
 }
 // ══════════════════════════════════════
 // UI — トースト・ローディング・モーダル・スライダー
@@ -1638,33 +1693,16 @@ const DEMO_CAMPAIGNS = [
 ];
 
 async function loadCampaigns() {
-  let camps = [];
-  if (DEMO_MODE) {
-    camps = demoGetCampaigns();
-  } else {
-    const localCamps = demoGetCampaigns();
-    if (db) {
-      try {
-        const {data} = await db?.from('campaigns').select('*').order('created_at',{ascending:false});
-        const dbIds = new Set((data||[]).map(c=>c.id));
-        const localOnly = localCamps.filter(c=>!dbIds.has(c.id));
-        camps = [...(data||[]), ...localOnly];
-      } catch(e) { camps = localCamps; }
-    } else { camps = localCamps; }
-  }
-  allCampaigns = camps;
-  renderCampaigns(camps);
-  updateStats(camps);
+  allCampaigns = await fetchCampaigns();
+  renderCampaigns(allCampaigns);
+  updateStats(allCampaigns);
 }
 
 function updateStats(camps) {
   const active = camps.filter(c=>c.status==='active');
   $('statCampaigns').textContent = active.length;
   $('campCount').textContent = active.length;
-  if (DEMO_MODE) {
-    $('statInfluencers').textContent = demoGetUsers().length || '—';
-    $('statBrands').textContent = [...new Set(camps.map(c=>c.brand))].length;
-  }
+  $('statBrands').textContent = [...new Set(camps.map(c=>c.brand))].length;
 }
 
 async function loadCampaignsPage() {
@@ -1846,29 +1884,31 @@ async function handleSignup(e) {
 
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
-  const userData = {email,pw,name,ig,x:xUrl,ig_followers:igFollowers,x_followers:xFollowers,
-    tiktok,tiktok_followers:tiktokFollowers,youtube,youtube_followers:youtubeFollowers,
-    line_id:lineId,followers:igFollowers+xFollowers+tiktokFollowers+youtubeFollowers,
-    category,address,zip,prefecture,city,building,phone,bio,created_at:new Date().toISOString()};
+  const userData = {
+    email, name, name_kanji: name, name_kana: nameKana,
+    ig, x: xUrl, ig_followers: igFollowers, x_followers: xFollowers,
+    tiktok, tiktok_followers: tiktokFollowers, youtube, youtube_followers: youtubeFollowers,
+    line_id: lineId, followers: igFollowers + xFollowers + tiktokFollowers + youtubeFollowers,
+    category, address, zip, prefecture, city, building, phone, bio,
+    created_at: new Date().toISOString()
+  };
 
-  await new Promise(r=>setTimeout(r,500));
-  const users = demoGetUsers();
-  if (users.find(u=>u.email===email)) {
-    errEl.textContent='このメールアドレスはすでに使用されています'; errEl.style.display='block';
+  if (!db) {
+    errEl.textContent='サーバーに接続できません'; errEl.style.display='block';
     btn.disabled=false; btn.textContent='登録完了 ✓'; return;
   }
-  const user = {id:'user-'+Date.now(),...userData};
-  users.push(user); demoSaveUsers(users);
-  localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({id:user.id,email}));
-  currentUser = {id:user.id,email}; currentUserProfile = user;
 
-  if (!DEMO_MODE && db) {
-    try {
-      const {data,error} = await (db?.auth.signUp({email,password:pw}) || {data:null,error:true});
-      if (!error && data.user?.id) {
-        await db?.from('influencers').upsert({id:data.user.id,...userData});
-      }
-    } catch(e) {}
+  try {
+    const {data, error} = await db.auth.signUp({email, password: pw});
+    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='登録完了 ✓'; return; }
+    if (data.user?.id) {
+      await upsertInfluencer({id: data.user.id, ...userData});
+      currentUser = {id: data.user.id, email};
+      currentUserProfile = {id: data.user.id, ...userData};
+    }
+  } catch(e) {
+    errEl.textContent='登録エラーが発生しました'; errEl.style.display='block';
+    btn.disabled=false; btn.textContent='登録完了 ✓'; return;
   }
 
   toast('登録完了！ようこそ 🎉','success');
@@ -1885,63 +1925,35 @@ async function handleLogin(e) {
   const btn = $('loginBtn');
   errEl.style.display='none'; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
-  if (DEMO_MODE) {
-    await new Promise(r=>setTimeout(r,600));
-    if (email===ADMIN_EMAIL && pw==='admin1234') {
-      currentUser={id:'admin',email:ADMIN_EMAIL};
-      currentUserProfile={name:'管理者',email:ADMIN_EMAIL};
-      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:'admin',email:ADMIN_EMAIL}));
+  if (!db) {
+    errEl.textContent='サーバーに接続できません'; errEl.style.display='block';
+    btn.disabled=false; btn.textContent='ログイン'; return;
+  }
+
+  try {
+    const {data, error} = await db.auth.signInWithPassword({email, password: pw});
+    if (error) {
+      errEl.textContent='メールアドレスまたはパスワードをご確認ください'; errEl.style.display='block';
+      btn.disabled=false; btn.textContent='ログイン'; return;
+    }
+    currentUser = data.user;
+    if (email === ADMIN_EMAIL) {
+      currentUserProfile = {name:'管理者', email: ADMIN_EMAIL};
       toast('管理者としてログインしました','success'); updateGnb();
-      setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-      btn.disabled=false; btn.textContent='ログイン'; return;
+      setTimeout(() => { navigate('admin'); loadAdminData(); }, 100);
+    } else {
+      const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
+      currentUserProfile = profile;
+      toast('ログインしました 👋','success'); updateGnb(); navigate('home');
     }
-    const users = demoGetUsers();
-    const user = users.find(u=>u.email===email && u.pw===pw);
-    if (!user) { errEl.textContent='メールアドレスまたはパスワードが正しくありません'; errEl.style.display='block'; btn.disabled=false; btn.textContent='ログイン'; return; }
-    localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:user.id,email}));
-    currentUser={id:user.id,email}; currentUserProfile=user;
-    toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-  } else {
-    const localUsers = demoGetUsers();
-    const localUser = localUsers.find(u=>u.email===email && u.pw===pw);
-    if (localUser) {
-      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:localUser.id,email}));
-      currentUser={id:localUser.id,email}; currentUserProfile=localUser;
-      if (email===ADMIN_EMAIL) {
-        toast('管理者としてログインしました','success'); updateGnb();
-        setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-      } else {
-        toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-      }
-      btn.disabled=false; btn.textContent='ログイン'; return;
-    }
-    if (db) {
-      try {
-        const {data,error} = await db.auth.signInWithPassword({email,password:pw});
-        if (!error && data.user) {
-          currentUser = data.user;
-          localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:data.user.id,email}));
-          if (email===ADMIN_EMAIL) {
-            currentUserProfile={name:'管理者',email:ADMIN_EMAIL};
-            toast('管理者としてログインしました','success'); updateGnb();
-            setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-          } else {
-            const {data:profile} = await db?.from('influencers').select('*').eq('id',data.user.id).maybeSingle();
-            currentUserProfile = profile;
-            toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-          }
-          btn.disabled=false; btn.textContent='ログイン'; return;
-        }
-      } catch(e) {}
-    }
-    errEl.textContent='メールアドレスまたはパスワードをご確認ください'; errEl.style.display='block';
+  } catch(e) {
+    errEl.textContent='ログインエラーが発生しました'; errEl.style.display='block';
   }
   btn.disabled=false; btn.textContent='ログイン';
 }
 
 async function handleLogout() {
-  if (DEMO_MODE) { localStorage.removeItem(DEMO_SESSION_KEY); }
-  else if (db) { try { await db.auth.signOut(); } catch(e){} }
+  if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
   toast('ログアウトしました'); updateGnb(); navigate('home');
 }
@@ -1991,16 +2003,9 @@ async function openCampaign(id) {
   if (!camp) return;
   currentCampaignId = id;
 
-  // Check if already applied
   let alreadyApplied = false;
   if (currentUser) {
-    if (DEMO_MODE) {
-      const apps = demoGetApps();
-      alreadyApplied = apps.some(a=>a.user_id===currentUser.id && a.campaign_id===id);
-    } else {
-      const {data} = await db?.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).maybeSingle();
-      alreadyApplied = !!data;
-    }
+    alreadyApplied = await checkDuplicateApplication(currentUser.id, id);
   }
 
   const isFull = (camp.applied_count||0) >= camp.slots;
@@ -2234,31 +2239,28 @@ async function submitApplication() {
     created_at: new Date().toISOString()
   };
 
-  if (DEMO_MODE) {
-    const apps = demoGetApps();
-    if (apps.some(a=>a.user_id===currentUser.id && a.campaign_id===currentCampaignId)) {
-      toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
-    }
-    apps.push(app); demoSaveApps(apps);
-  } else {
-    // 重複チェック
-    const apps = demoGetApps();
-    if (apps.some(a=>a.user_id===currentUser.id && a.campaign_id===currentCampaignId)) {
-      toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
-    }
-    apps.push(app); demoSaveApps(apps);
-    if (db) {
-      try { await db?.from('applications').insert({user_id:currentUser.id,campaign_id:currentCampaignId,message:msg,address:addr,status:'pending'}); } catch(e){}
-    }
+  const isDuplicate = await checkDuplicateApplication(currentUser.id, currentCampaignId);
+  if (isDuplicate) {
+    toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
   }
-  // applied_count 更新 (localStorage + メモリ)
-  const camps = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-  const ci = camps.findIndex(c=>c.id===currentCampaignId);
-  if (ci>=0) { camps[ci].applied_count=(camps[ci].applied_count||0)+1; localStorage.setItem('kemo_campaigns',JSON.stringify(camps)); }
-  const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===currentCampaignId);
-  if (di>=0) DEMO_CAMPAIGNS[di].applied_count=(DEMO_CAMPAIGNS[di].applied_count||0)+1;
-  const ai = allCampaigns.findIndex(c=>c.id===currentCampaignId);
-  if (ai>=0) allCampaigns[ai].applied_count=(allCampaigns[ai].applied_count||0)+1;
+
+  try {
+    await insertApplication({
+      user_id: currentUser.id, user_email: currentUser.email,
+      user_name: currentUserProfile?.name || currentUser.email,
+      user_followers: currentUserProfile?.followers || 0,
+      user_ig: currentUserProfile?.ig || '',
+      campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
+    });
+    // applied_count 更新
+    const camp = allCampaigns.find(c=>c.id===currentCampaignId);
+    if (camp) {
+      camp.applied_count = (camp.applied_count||0) + 1;
+      await updateCampaign(currentCampaignId, {applied_count: camp.applied_count}).catch(()=>{});
+    }
+  } catch(e) {
+    toast('応募エラー: '+e.message,'error'); closeModal('applyModal'); return;
+  }
 
   closeModal('applyModal');
   toast('応募完了！結果はメールでお知らせします ✉️','success');
@@ -2287,18 +2289,17 @@ function loadMyPage() {
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
   $('mypageName').textContent = displayName;
-  $('mypageHandle').textContent = p.ig ? `@${p.ig}` : p.ig_url || currentUser.email;
+  $('mypageHandle').textContent = p.ig ? `@${p.ig}` : currentUser.email;
 
-  // プロフィールフィールド設定
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
   setVal('profileNameKana', p.name_kana);
   setVal('profileCategory', p.category);
   setVal('profileLine', p.line_id);
   setVal('profileBio', p.bio);
-  setVal('profileIg', p.ig||p.ig_url);
+  setVal('profileIg', p.ig);
   setVal('profileIgFollowers', p.ig_followers||p.followers);
-  setVal('profileX', p.x||p.x_url);
+  setVal('profileX', p.x);
   setVal('profileXFollowers', p.x_followers);
   setVal('profileTiktok', p.tiktok);
   setVal('profileTiktokFollowers', p.tiktok_followers);
@@ -2309,7 +2310,6 @@ function loadMyPage() {
   setVal('profileCity', p.city);
   setVal('profileBuilding', p.building);
   setVal('profilePhone', p.phone);
-  // 口座
   setVal('bankName', p.bank_name);
   setVal('bankBranch', p.bank_branch);
   if(p.bank_type && $('bankType')) $('bankType').value = p.bank_type;
@@ -2322,11 +2322,9 @@ function loadMyPage() {
 async function loadMyApplications() {
   if (!currentUser) return;
   let apps = [];
-  if (DEMO_MODE) {
-    apps = demoGetApps().filter(a=>a.user_id===currentUser.id);
-  } else {
-    const {data} = await db?.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id',currentUser.id).order('created_at',{ascending:false});
-    apps = data||[];
+  if (db) {
+    const {data} = await db.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id', currentUser.id).order('created_at', {ascending:false});
+    apps = data || [];
   }
   const container = $('myApplicationsList');
   if (!apps.length) {
@@ -2334,7 +2332,7 @@ async function loadMyApplications() {
     return;
   }
   container.innerHTML = apps.map(a => {
-    const camp = allCampaigns.find(c=>c.id===a.campaign_id) || DEMO_CAMPAIGNS.find(c=>c.id===a.campaign_id) || {};
+    const camp = a.campaigns || allCampaigns.find(c=>c.id===a.campaign_id) || {};
     return `<div class="apply-item">
       <div class="apply-thumb">${camp.emoji||'📦'}</div>
       <div class="apply-item-info">
@@ -2367,16 +2365,15 @@ async function saveProfile() {
     youtube: getVal('profileYoutube'), youtube_followers: parseInt(getVal('profileYoutubeFollowers'))||0,
     zip, prefecture: pref, city, building, address,
     phone: getVal('profilePhone'),
-    followers: (parseInt(getVal('profileIgFollowers'))||0)+(parseInt(getVal('profileXFollowers'))||0)
+    followers: (parseInt(getVal('profileIgFollowers'))||0)+(parseInt(getVal('profileXFollowers'))||0)+(parseInt(getVal('profileTiktokFollowers'))||0)+(parseInt(getVal('profileYoutubeFollowers'))||0)
   };
-  if (DEMO_MODE) {
-    const users = demoGetUsers();
-    const idx = users.findIndex(u=>u.id===currentUser.id);
-    if (idx>=0) { Object.assign(users[idx], updated); demoSaveUsers(users); currentUserProfile = users[idx]; }
-  } else {
-    await db?.from('influencers').update(updated).eq('id',currentUser.id);
+  try {
+    await updateInfluencer(currentUser.id, updated);
+    Object.assign(currentUserProfile, updated);
+    toast('保存しました','success'); loadMyPage();
+  } catch(e) {
+    toast('保存エラー: '+e.message,'error');
   }
-  toast('保存しました','success'); loadMyPage();
 }
 
 async function saveBankInfo() {
@@ -2387,14 +2384,13 @@ async function saveBankInfo() {
     bank_type: getVal('bankType'), bank_number: getVal('bankNumber'),
     bank_holder: getVal('bankHolder')
   };
-  if (DEMO_MODE) {
-    const users = demoGetUsers();
-    const idx = users.findIndex(u=>u.id===currentUser.id);
-    if (idx>=0) { Object.assign(users[idx], bankData); demoSaveUsers(users); currentUserProfile = users[idx]; }
-  } else {
-    await db?.from('influencers').update(bankData).eq('id',currentUser.id);
+  try {
+    await updateInfluencer(currentUser.id, bankData);
+    Object.assign(currentUserProfile, bankData);
+    toast('口座情報を保存しました','success');
+  } catch(e) {
+    toast('保存エラー: '+e.message,'error');
   }
-  toast('口座情報を保存しました','success');
 }
 
 async function changePassword() {
@@ -2406,7 +2402,7 @@ async function changePassword() {
   if (!cur || !nw) { err.textContent='すべての項目を入力してください'; err.style.display='block'; return; }
   if (nw.length < 8) { err.textContent='新しいパスワードは8文字以上にしてください'; err.style.display='block'; return; }
   if (nw !== nw2) { err.textContent='パスワードが一致しません'; err.style.display='block'; return; }
-  if (DEMO_MODE) { toast('パスワードを変更しました','success'); $('currentPw').value=''; $('newPw').value=''; $('newPw2').value=''; return; }
+  if (!db) { err.textContent='サーバーに接続できません'; err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
   if (error) { err.textContent=error.message; err.style.display='block'; return; }
   toast('パスワードを変更しました','success');
@@ -2433,9 +2429,9 @@ function switchAdminPane(pane, el) {
 }
 
 async function loadAdminData() {
-  const camps = DEMO_MODE ? demoGetCampaigns() : ((await db?.from('campaigns').select('*'))||{data:[]}).data || demoGetCampaigns();
-  const users = DEMO_MODE ? demoGetUsers() : ((await db?.from('influencers').select('*'))||{data:[]}).data || demoGetUsers();
-  const apps = DEMO_MODE ? demoGetApps() : ((await db?.from('applications').select('*'))||{data:[]}).data || demoGetApps();
+  const camps = await fetchCampaigns();
+  const users = await fetchInfluencers();
+  const apps = await fetchApplications();
   const approved = apps.filter(a=>a.status==='approved');
   const pending = apps.filter(a=>a.status==='pending');
 
@@ -2450,7 +2446,7 @@ async function loadAdminData() {
   // Recent apps
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
-    const camp = (DEMO_MODE?demoGetCampaigns():camps).find(c=>c.id===a.campaign_id)||{};
+    const camp = camps.find(c=>c.id===a.campaign_id)||{};
     return `<tr>
       <td><strong>${a.user_name||a.user_email}</strong><br><small style="color:var(--muted)">${a.user_email}</small></td>
       <td>${camp.emoji||'📦'} ${camp.title||a.campaign_id}</td>
@@ -2477,23 +2473,14 @@ function switchAdminCampTab(type, btn) {
 }
 
 async function loadAdminCampaigns() {
-  let camps = demoGetCampaigns(); // always start with localStorage
-  if (!DEMO_MODE && db) {
-    try {
-      const {data} = await db?.from('campaigns').select('*') || {};
-      if (data && data.length > 0) {
-        const localIds = new Set(camps.map(c=>c.id));
-        camps = [...camps, ...data.filter(d=>!localIds.has(d.id))];
-      }
-    } catch(e) {}
-  }
-  // タブフィルター
+  let camps = await fetchCampaigns();
   if (adminCampTypeFilter === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
   else if (adminCampTypeFilter === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
   camps = camps.slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
   });
+  const allApps = await fetchApplications();
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">모니터</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusBadge = s => {
     if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">진행중</span>`;
@@ -2501,7 +2488,7 @@ async function loadAdminCampaigns() {
     return `<span class="badge badge-gray" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">종료</span>`;
   };
   $('adminCampsBody').innerHTML = camps.map((c,i)=>{
-    const cnt = DEMO_MODE ? demoGetApps().filter(a=>a.campaign_id===c.id).length : (c.applied_count||0);
+    const cnt = allApps.filter(a=>a.campaign_id===c.id).length;
     const pct = c.slots > 0 ? Math.round(cnt/c.slots*100) : 0;
     const barColor = pct>=100?'var(--red)':pct>=60?'var(--gold)':'var(--green)';
     return `<tr data-camp-id="${c.id}">
@@ -2518,7 +2505,7 @@ async function loadAdminCampaigns() {
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" onclick="openCampApplicants('${c.id}','${c.title.replace(/'/g,'')}')">
-            ${cnt} / ${c.slots}名
+            ${cnt} / ${c.slots}명
           </button>
           <div style="width:48px;height:5px;background:var(--line);border-radius:3px;overflow:hidden">
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:3px"></div>
@@ -2534,8 +2521,9 @@ async function loadAdminCampaigns() {
 }
 
 // ── キャンペーン編集 ──
-function openEditCampaign(campId) {
-  const camp = demoGetCampaigns().find(c=>c.id===campId);
+async function openEditCampaign(campId) {
+  const camps = await fetchCampaigns();
+  const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
 
   const sv = (id, val) => { const el=$(id); if(el) el.value = val||''; };
@@ -2559,13 +2547,11 @@ function openEditCampaign(campId) {
   if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
-  // 募集タイプ選択
   document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
   const rtEl = $('edit-rt-'+(camp.recruit_type||'monitor'));
   if (rtEl) { rtEl.style.borderColor='var(--pink)';rtEl.style.background='var(--light-pink)';rtEl.style.color='var(--pink)';rtEl.style.fontWeight='700'; }
   document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===(camp.recruit_type||'monitor'));});
 
-  // コンテンツタイプチェック
   const ctMap = {'フィード':'feed','リール':'reels','ストーリー':'story','ショート動画':'short','動画':'video','画像':'image'};
   const selected = (camp.content_types||'').split(',').map(t=>t.trim());
   document.querySelectorAll('input[name="editContentType"]').forEach(cb=>{
@@ -2588,7 +2574,7 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
-function saveCampaignEdit() {
+async function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
     if (!campId) { toast('ID를 찾을 수 없습니다','error'); return; }
@@ -2611,8 +2597,8 @@ function saveCampaignEdit() {
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
-      deadline: gv('editCampDeadline'),
-      post_deadline: gv('editCampPostDeadline'),
+      deadline: gv('editCampDeadline')||null,
+      post_deadline: gv('editCampPostDeadline')||null,
       description: gv('editCampDesc'),
       hashtags: gv('editCampHashtags'),
       mentions: gv('editCampMentions'),
@@ -2622,69 +2608,55 @@ function saveCampaignEdit() {
       status: gv('editCampStatus'),
     };
 
-    // localStorage 更新
-    const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-    const ci = custom.findIndex(c=>c.id===campId);
-    if (ci>=0) { Object.assign(custom[ci], updates); localStorage.setItem('kemo_campaigns',JSON.stringify(custom)); }
-    // DEMO_CAMPAIGNS 更新
-    const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===campId);
-    if (di>=0) Object.assign(DEMO_CAMPAIGNS[di], updates);
-
-    allCampaigns = demoGetCampaigns();
+    await updateCampaign(campId, updates);
+    allCampaigns = await fetchCampaigns();
     toast('변경 사항을 저장했습니다 ✓','success');
     const campSi = (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })();
     switchAdminPane('campaigns', campSi);
-    loadAdminCampaigns();
   } catch(err) {
     toast('저장 오류: '+err.message,'error');
   }
 }
 
-// ステータス循環: 開催中 → 一時停止 → 終了 → 開催中
-function cycleCampStatus(el, currentStatus) {
+// ステータス循環: 進行中 → 一時停止 → 終了 → 進行中
+async function cycleCampStatus(el, currentStatus) {
   const tr = el.closest('tr');
   const campId = tr?.dataset.campId;
   if (!campId) return;
   const cycle = {active:'paused', paused:'closed', closed:'active'};
   const next = cycle[currentStatus] || 'active';
-  // localStorage 更新
-  const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-  const ci = custom.findIndex(c=>c.id===campId);
-  if (ci>=0) { custom[ci].status = next; localStorage.setItem('kemo_campaigns',JSON.stringify(custom)); }
-  const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===campId);
-  if (di>=0) DEMO_CAMPAIGNS[di].status = next;
-  allCampaigns = demoGetCampaigns();
-  loadAdminCampaigns();
-  renderCampaigns(allCampaigns);
+  try {
+    await updateCampaign(campId, {status: next});
+    allCampaigns = await fetchCampaigns();
+    loadAdminCampaigns();
+    renderCampaigns(allCampaigns);
+  } catch(e) {
+    toast('상태 변경 오류','error');
+  }
 }
 
-function moveCampOrder(campId, dir) {
-  const custom = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-  const all = demoGetCampaigns().slice().sort((a,b)=>{
+async function moveCampOrder(campId, dir) {
+  const camps = (await fetchCampaigns()).slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
   });
-  // order_index 再割り当て (未設定はインデックスで初期化)
-  all.forEach((c,i) => { if (c.order_index==null) c.order_index = i; });
-  const idx = all.findIndex(c=>c.id===campId);
+  camps.forEach((c,i) => { if (c.order_index==null) c.order_index = i; });
+  const idx = camps.findIndex(c=>c.id===campId);
   if (idx<0) return;
   const swapIdx = idx+dir;
-  if (swapIdx<0||swapIdx>=all.length) return;
-  const tmpOrder = all[idx].order_index;
-  all[idx].order_index = all[swapIdx].order_index;
-  all[swapIdx].order_index = tmpOrder;
-  // localStorageのキャンペーン更新
-  all.forEach(c => {
-    const ci = custom.findIndex(x=>x.id===c.id);
-    if (ci>=0) custom[ci].order_index = c.order_index;
-    // DEMO_CAMPAIGNSも更新
-    const di = DEMO_CAMPAIGNS.findIndex(x=>x.id===c.id);
-    if (di>=0) DEMO_CAMPAIGNS[di].order_index = c.order_index;
-  });
-  localStorage.setItem('kemo_campaigns', JSON.stringify(custom));
-  allCampaigns = demoGetCampaigns();
-  loadAdminCampaigns();
-  renderCampaigns(allCampaigns);
+  if (swapIdx<0||swapIdx>=camps.length) return;
+  const tmpOrder = camps[idx].order_index;
+  camps[idx].order_index = camps[swapIdx].order_index;
+  camps[swapIdx].order_index = tmpOrder;
+  try {
+    await updateCampaign(camps[idx].id, {order_index: camps[idx].order_index});
+    await updateCampaign(camps[swapIdx].id, {order_index: camps[swapIdx].order_index});
+    allCampaigns = await fetchCampaigns();
+    loadAdminCampaigns();
+    renderCampaigns(allCampaigns);
+  } catch(e) {
+    toast('순서 변경 오류','error');
+  }
 }
 
 // キャンペーン別申請者表示
@@ -2693,23 +2665,17 @@ async function openCampApplicants(campId, campTitle) {
   currentCampApplicantId = campId;
   $('campApplicantsTitle').textContent = campTitle;
   switchAdminPane('camp-applicants', null);
-
   loadCampApplicants();
 }
 
 async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
-  let apps = DEMO_MODE ? demoGetApps() : ((await db?.from('applications').select('*'))||{data:[]}).data;
-  apps = apps.filter(a=>a.campaign_id===currentCampApplicantId);
+  let apps = await fetchApplications({campaign_id: currentCampApplicantId});
+  const total = apps.length;
   if (filter) apps = apps.filter(a=>a.status===filter);
-  apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-
-  const total = DEMO_MODE ? demoGetApps().filter(a=>a.campaign_id===currentCampApplicantId).length : apps.length;
   const approved = apps.filter(a=>a.status==='approved').length;
   const pending = apps.filter(a=>a.status==='pending').length;
 
-  // キャンペーン情報取得
-  const camp = (DEMO_MODE?demoGetCampaigns():[]).find(c=>c.id===currentCampApplicantId)||{};
   $('campApplicantsSubtitle').textContent = `신청자 목록`;
   $('campApplicantsStats').innerHTML = `
     <span style="color:var(--ink);font-weight:600">${total}명 신청</span>
@@ -2738,12 +2704,11 @@ async function loadCampApplicants() {
   </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
 }
 
-// ── インフルエンサー一覧 (チャンネルタブ) ──
+// ── インフルエンサー一覧 ──
 let currentInfTab = 'all';
 
 async function loadAdminInfluencers() {
-  const users = DEMO_MODE ? demoGetUsers() : ((await db?.from('influencers').select('*'))||{data:[]}).data || [];
-  // タブカウント更新
+  const users = await fetchInfluencers();
   const cnt = ch => users.filter(u => ch==='instagram'?u.ig_followers>0:ch==='x'?u.x_followers>0:ch==='tiktok'?u.tiktok_followers>0:u.youtube_followers>0).length;
   ['instagram','x','tiktok','youtube'].forEach(ch => {
     const el = $('infCnt-'+ch);
@@ -2757,15 +2722,10 @@ async function loadAdminInfluencers() {
 function switchInfTab(ch, btn) {
   currentInfTab = ch;
   document.querySelectorAll('[id^="infTab-"]').forEach(b => {
-    b.style.color = 'var(--muted)';
-    b.style.borderBottomColor = 'transparent';
-    b.style.fontWeight = '600';
+    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
   });
-  btn.style.color = 'var(--pink)';
-  btn.style.borderBottomColor = 'var(--pink)';
-  btn.style.fontWeight = '700';
-  const users = DEMO_MODE ? demoGetUsers() : [];
-  renderInfTable(users, ch);
+  btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
+  loadAdminInfluencers();
 }
 
 function renderInfTable(users, ch) {
@@ -2775,12 +2735,10 @@ function renderInfTable(users, ch) {
   if (!bodyEl) return;
 
   let filtered = users;
-  let colCount = 10;
 
   if (ch === 'all') {
     if (titleEl) titleEl.textContent = '인플루언서 전체';
     if (headEl) headEl.innerHTML = '<tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>';
-    colCount = 10;
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const igF = (u.ig_followers||0).toLocaleString();
       const xF = (u.x_followers||0).toLocaleString();
@@ -2791,10 +2749,10 @@ function renderInfTable(users, ch) {
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
         <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
-        <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}名</div></td>
-        <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}名</div></td>
-        <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}名</div></td>
-        <td>${u.youtube?`@${u.youtube.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}名</div></td>
+        <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
+        <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
+        <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
+        <td>${u.youtube?`@${u.youtube.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
         <td style="font-weight:700;color:var(--pink)">${total}</td>
         <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
         <td style="font-size:12px;color:var(--muted)">${addr}</td>
@@ -2809,14 +2767,13 @@ function renderInfTable(users, ch) {
     if (titleEl) titleEl.textContent = `${chLabel} 등록자`;
     filtered = users.filter(u => u[fKey] > 0);
     if (headEl) headEl.innerHTML = `<tr><th>이름</th><th>${chLabel} ID</th><th>팔로워</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>`;
-    colCount = 7;
     bodyEl.innerHTML = filtered.length ? filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0)).map(u => {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
         <td><div style="font-weight:600">${u.name_kanji||u.name||'—'}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
         <td>${u[idKey]?`@${u[idKey].replace('@','')}`:'—'}</td>
-        <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}名</td>
+        <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
         <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
         <td style="font-size:12px;color:var(--muted)">${addr}</td>
         <td>${bank}</td>
@@ -2842,23 +2799,19 @@ async function loadApplications() {
 function switchAppTypeTab(type, btn) {
   currentAppTypeTab = type;
   document.querySelectorAll('[id^="appTypeTab-"]').forEach(b => {
-    b.style.color = 'var(--muted)';
-    b.style.borderBottomColor = 'transparent';
-    b.style.fontWeight = '600';
+    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
   });
-  btn.style.color = 'var(--pink)';
-  btn.style.borderBottomColor = 'var(--pink)';
-  btn.style.fontWeight = '700';
+  btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
   renderAppCampList();
 }
 
-function renderAppCampList() {
+async function renderAppCampList() {
   const listEl = $('appCampList');
   if (!listEl) return;
-  let camps = demoGetCampaigns();
+  let camps = await fetchCampaigns();
   if (currentAppTypeTab === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
   else if (currentAppTypeTab === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
-  const apps = demoGetApps();
+  const apps = await fetchApplications();
   if (!camps.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">캠페인 없음</div>'; return; }
   listEl.innerHTML = camps.map(camp => {
     const campApps = apps.filter(a=>a.campaign_id===camp.id);
@@ -2892,16 +2845,17 @@ function renderAppCampList() {
             <div style="font-size:18px;font-weight:800;color:var(--muted)">${rejected}</div>
             <div style="font-size:10px;color:var(--muted)">미승인</div>
           </div>
-          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--ink)">${camp.applied_count||campApps.length} / ${camp.slots}名 →</div>
+          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--ink)">${campApps.length} / ${camp.slots}명 →</div>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-function openAppCampDetail(campId) {
+async function openAppCampDetail(campId) {
   currentAppCampId = campId;
-  const camp = demoGetCampaigns().find(c=>c.id===campId);
+  const camps = await fetchCampaigns();
+  const camp = camps.find(c=>c.id===campId);
   if (!camp) return;
   $('appCampList').style.display = 'none';
   $('appCampDetail').style.display = '';
@@ -2910,13 +2864,13 @@ function openAppCampDetail(campId) {
   renderAppDetail();
 }
 
-function renderAppDetail() {
+async function renderAppDetail() {
   const bodyEl = $('appDetailBody');
   const statsEl = $('appDetailStats');
   if (!bodyEl||!currentAppCampId) return;
-  let apps = demoGetApps().filter(a=>a.campaign_id===currentAppCampId);
+  let apps = await fetchApplications({campaign_id: currentAppCampId});
   const filter = $('appDetailFilter')?.value||'';
-  const users = DEMO_MODE ? demoGetUsers() : [];
+  const users = await fetchInfluencers();
   if (statsEl) statsEl.textContent = `총 ${apps.length}명 / 승인 ${apps.filter(a=>a.status==='approved').length}명`;
   if (filter) apps = apps.filter(a=>a.status===filter);
   apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
@@ -2930,9 +2884,9 @@ function renderAppDetail() {
     const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)||a.user_followers||0).toLocaleString();
     return `<tr>
       <td><strong>${a.user_name||'—'}</strong><div style="font-size:11px;color:var(--muted)">${a.user_email||''} · ${u.line_id?`LINE: ${u.line_id}`:''}</div></td>
-      <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">IG: ${igF}名</div></td>
+      <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">IG: ${igF}명</div></td>
       <td style="font-size:11px;color:var(--muted)">${others||'—'}</td>
-      <td style="font-weight:700;color:var(--pink)">${total}名</td>
+      <td style="font-weight:700;color:var(--pink)">${total}명</td>
       <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${a.message||'—'}</td>
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
@@ -2944,17 +2898,15 @@ function renderAppDetail() {
 }
 
 async function updateAppStatus(appId, status) {
-  if (DEMO_MODE) {
-    const apps = demoGetApps();
-    const idx = apps.findIndex(a=>a.id===appId);
-    if (idx>=0) { apps[idx].status=status; demoSaveApps(apps); }
-  } else {
-    await db?.from('applications').update({status}).eq('id',appId);
+  try {
+    await updateApplication(appId, {status});
+    toast(status==='approved'?'✓ 승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
+    if (currentAppCampId) renderAppDetail();
+    else loadApplications();
+    loadAdminData();
+  } catch(e) {
+    toast('상태 변경 오류: '+e.message,'error');
   }
-  toast(status==='approved'?'✓ 승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
-  if (currentAppCampId) renderAppDetail();
-  else loadApplications();
-  loadAdminData();
 }
 
 async function addCampaign() {
@@ -2976,11 +2928,10 @@ async function addCampaign() {
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = $('newCampChannel').value;
-  // 現在のキャンペーン数ベースのorder_index (新規は一番上)
-  const existing = demoGetCampaigns();
+  const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   const camp = {
-    id:'camp-'+Date.now(), title, brand, product,
+    title, brand, product,
     type: ch==='qoo10'?'qoo10':'nano', channel:ch, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
@@ -2994,27 +2945,22 @@ async function addCampaign() {
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
     slots, applied_count:0,
-    deadline, post_deadline:$('newCampPostDeadline')?.value||'',
+    deadline: deadline||null,
+    post_deadline: $('newCampPostDeadline')?.value||null,
     post_days: $('newCampPostDeadline')?.value
       ? Math.ceil((new Date($('newCampPostDeadline').value) - new Date()) / (1000*60*60*24))
       : 14,
     description:$('newCampDesc').value,
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal:$('newCampAppeal')?.value||'', guide:$('newCampGuide').value, ng:$('newCampNg').value,
-    status:'active', created_at:new Date().toISOString()
+    status:'active'
   };
 
-  // localStorageに保存 (DEMO_MODE無関係)
-  demoSaveCampaign(camp);
-  // Supabase接続時バックグラウンド保存試行
-  if (!DEMO_MODE && db) {
-    try { await db?.from('campaigns').insert(camp); } catch(e) { /* localStorage save done */ }
-  }
+  await insertCampaign(camp);
   toast('캠페인이 등록되었습니다 🎉','success');
   campImgData.length = 0;
   renderCampImgPreview();
 
-  // フォームリセット
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
    'newCampSlots','newCampDeadline','newCampPostDeadline','newCampDesc',
    'newCampHashtags','newCampMentions','newCampAppeal','newCampGuide',
@@ -3025,16 +2971,13 @@ async function addCampaign() {
   });
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
 
-  // allCampaigns 更新
-  allCampaigns = demoGetCampaigns();
+  allCampaigns = await fetchCampaigns();
 
-  // 管理者キャンペーン一覧へ移動
   const allSi = document.querySelectorAll('.admin-si');
   let campSi = null;
   allSi.forEach(el => { if(el.textContent.includes('캠페인 관리')) campSi = el; });
   if (campSi) switchAdminPane('campaigns', campSi);
   else switchAdminPane('campaigns', null);
-  loadAdminCampaigns();
   } catch(err) {
     toast('오류: ' + (err.message||String(err)), 'error');
   }
@@ -3044,7 +2987,6 @@ async function addCampaign() {
 // ══════════════════════════════════════
 
 function navigate(page) {
-  // 管理者ページはappShell外 — 別処理
   const appShell = $('appShell');
   const adminPage = $('page-admin');
 
@@ -3056,7 +2998,6 @@ function navigate(page) {
     return;
   }
 
-  // インフルエンサーページ: appShell表示、admin非表示
   if (appShell) appShell.style.display = '';
   if (adminPage) { adminPage.classList.remove('active'); adminPage.style.display = 'none'; }
   document.body.style.background = '#E8E0EC';
@@ -3066,11 +3007,9 @@ function navigate(page) {
   if (el) el.classList.add('active');
   var _sh = $('appShell'); if(_sh) _sh.scrollTo(0,0); else window.scrollTo(0,0);
 
-  // フロートバー: detail以外では非表示
   const fb = $('detailFloatBar');
   if (fb && page !== 'detail') fb.style.display = 'none';
 
-  // ボトムタブバー: login/signupでは非表示
   const tabBar = $('bottomTabBar');
   if (tabBar) {
     tabBar.style.display = ['login','signup'].includes(page) ? 'none' : 'flex';
@@ -3101,42 +3040,30 @@ function updateTabBar(page) {
 // INIT
 // ══════════════════════════════════════
 async function init() {
-  // キャンペーン先にロード (demo data)
-  allCampaigns = demoGetCampaigns();
-  renderCampaigns(allCampaigns);
-  updateStats(allCampaigns);
-  // Restore session
-  if (DEMO_MODE) {
-    const sess = localStorage.getItem(DEMO_SESSION_KEY);
-    if (sess) {
-      const {id,email} = JSON.parse(sess);
-      currentUser = {id,email};
-      if (email===ADMIN_EMAIL) {
-        currentUserProfile = {name:'管理者',email};
-      } else {
-        const users = demoGetUsers();
-        currentUserProfile = users.find(u=>u.id===id)||null;
-      }
-    }
-  } else {
-    const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
-    if (session) {
-      currentUser = session.user;
-      const {data:profile} = await db?.from('influencers').select('*').eq('id',currentUser.id).maybeSingle();
+  // セッション復元
+  const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
+  if (session) {
+    currentUser = session.user;
+    if (currentUser.email === ADMIN_EMAIL) {
+      currentUserProfile = {name:'管理者', email: ADMIN_EMAIL};
+    } else {
+      const {data:profile} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
       currentUserProfile = profile;
     }
   }
   updateGnb();
-  await loadCampaigns();
+
+  // キャンペーンロード
+  allCampaigns = await fetchCampaigns();
+  renderCampaigns(allCampaigns);
+  updateStats(allCampaigns);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   allCampaigns = DEMO_CAMPAIGNS.slice();
-  var active = allCampaigns.filter(function(c){ return c.status !== 'closed'; });
-  renderCampaigns(active);
+  renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
   updateStats(allCampaigns);
   init();
-  // scroll to top
   var _sh=$('appShell');if(_sh)_sh.scrollTop=0;else window.scrollTo(0,0);
 });
 </script>

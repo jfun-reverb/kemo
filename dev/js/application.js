@@ -7,16 +7,9 @@ async function openCampaign(id) {
   if (!camp) return;
   currentCampaignId = id;
 
-  // Check if already applied
   let alreadyApplied = false;
   if (currentUser) {
-    if (DEMO_MODE) {
-      const apps = demoGetApps();
-      alreadyApplied = apps.some(a=>a.user_id===currentUser.id && a.campaign_id===id);
-    } else {
-      const {data} = await db?.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).maybeSingle();
-      alreadyApplied = !!data;
-    }
+    alreadyApplied = await checkDuplicateApplication(currentUser.id, id);
   }
 
   const isFull = (camp.applied_count||0) >= camp.slots;
@@ -250,31 +243,28 @@ async function submitApplication() {
     created_at: new Date().toISOString()
   };
 
-  if (DEMO_MODE) {
-    const apps = demoGetApps();
-    if (apps.some(a=>a.user_id===currentUser.id && a.campaign_id===currentCampaignId)) {
-      toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
-    }
-    apps.push(app); demoSaveApps(apps);
-  } else {
-    // 重複チェック
-    const apps = demoGetApps();
-    if (apps.some(a=>a.user_id===currentUser.id && a.campaign_id===currentCampaignId)) {
-      toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
-    }
-    apps.push(app); demoSaveApps(apps);
-    if (db) {
-      try { await db?.from('applications').insert({user_id:currentUser.id,campaign_id:currentCampaignId,message:msg,address:addr,status:'pending'}); } catch(e){}
-    }
+  const isDuplicate = await checkDuplicateApplication(currentUser.id, currentCampaignId);
+  if (isDuplicate) {
+    toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
   }
-  // applied_count 更新 (localStorage + メモリ)
-  const camps = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-  const ci = camps.findIndex(c=>c.id===currentCampaignId);
-  if (ci>=0) { camps[ci].applied_count=(camps[ci].applied_count||0)+1; localStorage.setItem('kemo_campaigns',JSON.stringify(camps)); }
-  const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===currentCampaignId);
-  if (di>=0) DEMO_CAMPAIGNS[di].applied_count=(DEMO_CAMPAIGNS[di].applied_count||0)+1;
-  const ai = allCampaigns.findIndex(c=>c.id===currentCampaignId);
-  if (ai>=0) allCampaigns[ai].applied_count=(allCampaigns[ai].applied_count||0)+1;
+
+  try {
+    await insertApplication({
+      user_id: currentUser.id, user_email: currentUser.email,
+      user_name: currentUserProfile?.name || currentUser.email,
+      user_followers: currentUserProfile?.followers || 0,
+      user_ig: currentUserProfile?.ig || '',
+      campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
+    });
+    // applied_count 更新
+    const camp = allCampaigns.find(c=>c.id===currentCampaignId);
+    if (camp) {
+      camp.applied_count = (camp.applied_count||0) + 1;
+      await updateCampaign(currentCampaignId, {applied_count: camp.applied_count}).catch(()=>{});
+    }
+  } catch(e) {
+    toast('応募エラー: '+e.message,'error'); closeModal('applyModal'); return;
+  }
 
   closeModal('applyModal');
   toast('応募完了！結果はメールでお知らせします ✉️','success');

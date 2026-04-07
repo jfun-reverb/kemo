@@ -21,33 +21,16 @@ const DEMO_CAMPAIGNS = [
 ];
 
 async function loadCampaigns() {
-  let camps = [];
-  if (DEMO_MODE) {
-    camps = demoGetCampaigns();
-  } else {
-    const localCamps = demoGetCampaigns();
-    if (db) {
-      try {
-        const {data} = await db?.from('campaigns').select('*').order('created_at',{ascending:false});
-        const dbIds = new Set((data||[]).map(c=>c.id));
-        const localOnly = localCamps.filter(c=>!dbIds.has(c.id));
-        camps = [...(data||[]), ...localOnly];
-      } catch(e) { camps = localCamps; }
-    } else { camps = localCamps; }
-  }
-  allCampaigns = camps;
-  renderCampaigns(camps);
-  updateStats(camps);
+  allCampaigns = await fetchCampaigns();
+  renderCampaigns(allCampaigns);
+  updateStats(allCampaigns);
 }
 
 function updateStats(camps) {
   const active = camps.filter(c=>c.status==='active');
   $('statCampaigns').textContent = active.length;
   $('campCount').textContent = active.length;
-  if (DEMO_MODE) {
-    $('statInfluencers').textContent = demoGetUsers().length || '—';
-    $('statBrands').textContent = [...new Set(camps.map(c=>c.brand))].length;
-  }
+  $('statBrands').textContent = [...new Set(camps.map(c=>c.brand))].length;
 }
 
 async function loadCampaignsPage() {

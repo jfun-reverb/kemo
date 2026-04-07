@@ -57,29 +57,31 @@ async function handleSignup(e) {
 
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
-  const userData = {email,pw,name,ig,x:xUrl,ig_followers:igFollowers,x_followers:xFollowers,
-    tiktok,tiktok_followers:tiktokFollowers,youtube,youtube_followers:youtubeFollowers,
-    line_id:lineId,followers:igFollowers+xFollowers+tiktokFollowers+youtubeFollowers,
-    category,address,zip,prefecture,city,building,phone,bio,created_at:new Date().toISOString()};
+  const userData = {
+    email, name, name_kanji: name, name_kana: nameKana,
+    ig, x: xUrl, ig_followers: igFollowers, x_followers: xFollowers,
+    tiktok, tiktok_followers: tiktokFollowers, youtube, youtube_followers: youtubeFollowers,
+    line_id: lineId, followers: igFollowers + xFollowers + tiktokFollowers + youtubeFollowers,
+    category, address, zip, prefecture, city, building, phone, bio,
+    created_at: new Date().toISOString()
+  };
 
-  await new Promise(r=>setTimeout(r,500));
-  const users = demoGetUsers();
-  if (users.find(u=>u.email===email)) {
-    errEl.textContent='このメールアドレスはすでに使用されています'; errEl.style.display='block';
+  if (!db) {
+    errEl.textContent='サーバーに接続できません'; errEl.style.display='block';
     btn.disabled=false; btn.textContent='登録完了 ✓'; return;
   }
-  const user = {id:'user-'+Date.now(),...userData};
-  users.push(user); demoSaveUsers(users);
-  localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({id:user.id,email}));
-  currentUser = {id:user.id,email}; currentUserProfile = user;
 
-  if (!DEMO_MODE && db) {
-    try {
-      const {data,error} = await (db?.auth.signUp({email,password:pw}) || {data:null,error:true});
-      if (!error && data.user?.id) {
-        await db?.from('influencers').upsert({id:data.user.id,...userData});
-      }
-    } catch(e) {}
+  try {
+    const {data, error} = await db.auth.signUp({email, password: pw});
+    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='登録完了 ✓'; return; }
+    if (data.user?.id) {
+      await upsertInfluencer({id: data.user.id, ...userData});
+      currentUser = {id: data.user.id, email};
+      currentUserProfile = {id: data.user.id, ...userData};
+    }
+  } catch(e) {
+    errEl.textContent='登録エラーが発生しました'; errEl.style.display='block';
+    btn.disabled=false; btn.textContent='登録完了 ✓'; return;
   }
 
   toast('登録完了！ようこそ 🎉','success');
@@ -96,63 +98,35 @@ async function handleLogin(e) {
   const btn = $('loginBtn');
   errEl.style.display='none'; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
-  if (DEMO_MODE) {
-    await new Promise(r=>setTimeout(r,600));
-    if (email===ADMIN_EMAIL && pw==='admin1234') {
-      currentUser={id:'admin',email:ADMIN_EMAIL};
-      currentUserProfile={name:'管理者',email:ADMIN_EMAIL};
-      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:'admin',email:ADMIN_EMAIL}));
+  if (!db) {
+    errEl.textContent='サーバーに接続できません'; errEl.style.display='block';
+    btn.disabled=false; btn.textContent='ログイン'; return;
+  }
+
+  try {
+    const {data, error} = await db.auth.signInWithPassword({email, password: pw});
+    if (error) {
+      errEl.textContent='メールアドレスまたはパスワードをご確認ください'; errEl.style.display='block';
+      btn.disabled=false; btn.textContent='ログイン'; return;
+    }
+    currentUser = data.user;
+    if (email === ADMIN_EMAIL) {
+      currentUserProfile = {name:'管理者', email: ADMIN_EMAIL};
       toast('管理者としてログインしました','success'); updateGnb();
-      setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-      btn.disabled=false; btn.textContent='ログイン'; return;
+      setTimeout(() => { navigate('admin'); loadAdminData(); }, 100);
+    } else {
+      const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
+      currentUserProfile = profile;
+      toast('ログインしました 👋','success'); updateGnb(); navigate('home');
     }
-    const users = demoGetUsers();
-    const user = users.find(u=>u.email===email && u.pw===pw);
-    if (!user) { errEl.textContent='メールアドレスまたはパスワードが正しくありません'; errEl.style.display='block'; btn.disabled=false; btn.textContent='ログイン'; return; }
-    localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:user.id,email}));
-    currentUser={id:user.id,email}; currentUserProfile=user;
-    toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-  } else {
-    const localUsers = demoGetUsers();
-    const localUser = localUsers.find(u=>u.email===email && u.pw===pw);
-    if (localUser) {
-      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:localUser.id,email}));
-      currentUser={id:localUser.id,email}; currentUserProfile=localUser;
-      if (email===ADMIN_EMAIL) {
-        toast('管理者としてログインしました','success'); updateGnb();
-        setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-      } else {
-        toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-      }
-      btn.disabled=false; btn.textContent='ログイン'; return;
-    }
-    if (db) {
-      try {
-        const {data,error} = await db.auth.signInWithPassword({email,password:pw});
-        if (!error && data.user) {
-          currentUser = data.user;
-          localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:data.user.id,email}));
-          if (email===ADMIN_EMAIL) {
-            currentUserProfile={name:'管理者',email:ADMIN_EMAIL};
-            toast('管理者としてログインしました','success'); updateGnb();
-            setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-          } else {
-            const {data:profile} = await db?.from('influencers').select('*').eq('id',data.user.id).maybeSingle();
-            currentUserProfile = profile;
-            toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-          }
-          btn.disabled=false; btn.textContent='ログイン'; return;
-        }
-      } catch(e) {}
-    }
-    errEl.textContent='メールアドレスまたはパスワードをご確認ください'; errEl.style.display='block';
+  } catch(e) {
+    errEl.textContent='ログインエラーが発生しました'; errEl.style.display='block';
   }
   btn.disabled=false; btn.textContent='ログイン';
 }
 
 async function handleLogout() {
-  if (DEMO_MODE) { localStorage.removeItem(DEMO_SESSION_KEY); }
-  else if (db) { try { await db.auth.signOut(); } catch(e){} }
+  if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
   toast('ログアウトしました'); updateGnb(); navigate('home');
 }
