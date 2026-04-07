@@ -1,12 +1,12 @@
 /* ══════════════════════════════════
-   AUTH — 로그인, 회원가입
+   AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
-.auth-wrap{min-height:calc(100vh - 50px);display:flex;align-items:flex-start;justify-content:center;padding:20px 16px}
-.auth-card{background:#fff;border:1px solid var(--line);border-radius:var(--r16);padding:24px 18px;width:100%;max-width:100%;box-shadow:0 4px 20px rgba(200,120,163,.08)}
-.auth-logo{text-align:center;margin-bottom:24px}
-.auth-logo-mark{width:44px;height:44px;background:var(--red);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:20px;color:#fff;margin-bottom:10px}
-.auth-title{font-size:18px;font-weight:800;margin-bottom:4px}
-.auth-sub{font-size:13px;color:var(--muted)}
-.auth-switch{text-align:center;font-size:13px;color:var(--muted);margin-top:16px}
-.auth-switch a{color:var(--red);font-weight:600;cursor:pointer}
+.auth-wrap{min-height:calc(100vh - 56px);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px}
+.auth-card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r24);padding:28px 20px;width:100%;max-width:100%;box-shadow:var(--elevation-2)}
+.auth-logo{text-align:center;margin-bottom:28px}
+.auth-logo-mark{width:48px;height:48px;background:var(--primary);border-radius:var(--r12);display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:22px;color:#fff;margin-bottom:12px}
+.auth-title{font-size:20px;font-weight:700;margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--on-surface-variant);line-height:1.5}
+.auth-switch{text-align:center;font-size:13px;color:var(--on-surface-variant);margin-top:20px}
+.auth-switch a{color:var(--primary);font-weight:600;cursor:pointer}
 .auth-switch a:hover{text-decoration:underline}
