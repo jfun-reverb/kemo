@@ -284,16 +284,21 @@ function downloadImg(idx, listName) {
 
 // 1:1 크롭 모달
 function openCropModal(idx, listName, wrapId, counterId) {
+  console.log('[CROP] openCropModal called, idx:', idx, 'listName:', listName);
   var list = getImgList(listName);
-  if (!list || !list[idx]) return;
+  console.log('[CROP] list:', list ? list.length + ' items' : 'NULL');
+  if (!list || !list[idx]) { console.log('[CROP] ABORT: no list or no item at idx'); return; }
   _cropTarget = {idx:idx, listName:listName, wrapId:wrapId, counterId:counterId};
   var imgData = list[idx].data;
+  console.log('[CROP] imgData type:', imgData ? (imgData.startsWith('data:') ? 'base64' : 'URL: ' + imgData.substring(0, 50)) : 'EMPTY');
   var cropImg = $('cropImage');
 
   // 외부 URL이면 먼저 canvas로 변환
   function initCropper(src) {
+    console.log('[CROP] initCropper called, src length:', src.length);
     cropImg.src = src;
     $('cropModal').style.display = 'flex';
+    console.log('[CROP] modal display set to flex');
     setTimeout(function() {
       if (_cropperInstance) _cropperInstance.destroy();
       _cropperInstance = new Cropper(cropImg, {
