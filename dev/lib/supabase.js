@@ -1,5 +1,5 @@
 // ══════════════════════════════════════
-// CONFIG — Supabase 接続設定
+// CONFIG — Supabase 연결 설정
 // ══════════════════════════════════════
 const SUPABASE_URL = 'https://twofagomeizrtkwlhsuv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3KgWYIf5w5J727Q2g3Cl7Q_ETD1Swps';

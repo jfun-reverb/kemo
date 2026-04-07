@@ -1,5 +1,5 @@
 /* ══════════════════════════════════
-   AUTH — ログイン・会員登録
+   AUTH — 로그인, 회원가입
 ══════════════════════════════════ */
 .auth-wrap{min-height:calc(100vh - 50px);display:flex;align-items:flex-start;justify-content:center;padding:20px 16px}
 .auth-card{background:#fff;border:1px solid var(--line);border-radius:var(--r16);padding:24px 18px;width:100%;max-width:100%;box-shadow:0 4px 20px rgba(200,120,163,.08)}

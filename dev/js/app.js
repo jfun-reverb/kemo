@@ -56,7 +56,7 @@ function updateTabBar(page) {
 // INIT
 // ══════════════════════════════════════
 async function init() {
-  // セッション復元
+  // 로그인 세션 복원
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
   if (session) {
     currentUser = session.user;
@@ -69,7 +69,7 @@ async function init() {
   }
   updateGnb();
 
-  // キャンペーンロード
+  // 캠페인 불러오기
   allCampaigns = await fetchCampaigns();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);

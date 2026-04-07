@@ -15,7 +15,7 @@ async function openCampaign(id) {
   const isFull = (camp.applied_count||0) >= camp.slots;
   _slideIdx = 0;
 
-  // スライドイメージ
+  // 슬라이드 이미지
   const slideImgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url]
     .filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
 
@@ -184,7 +184,7 @@ async function openCampaign(id) {
     </div>
     <div class="detail-sidebar" style="display:none"></div>`;
 
-  // フロートバー設定
+  // 하단 고정 바 설정
   const fb = $('detailFloatBar');
   const floatName = $('floatProductName');
   const floatReward = $('floatProductReward');
@@ -256,7 +256,7 @@ async function submitApplication() {
       user_ig: currentUserProfile?.ig || '',
       campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
     });
-    // applied_count 更新
+    // 신청수 업데이트
     const camp = allCampaigns.find(c=>c.id===currentCampaignId);
     if (camp) {
       camp.applied_count = (camp.applied_count||0) + 1;

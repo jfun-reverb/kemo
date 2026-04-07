@@ -272,7 +272,7 @@ window._supabaseLoaded = false;
         <div class="auth-sub">REVERBでKブランド体験団に参加しましょう</div>
       </div>
 
-      <!-- ステップ インジケーター -->
+      <!-- 단계 표시 -->
       <div id="stepIndicator" style="display:flex;align-items:center;gap:0;margin-bottom:24px">
         <div class="step-dot active" data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">1</div>
@@ -292,7 +292,7 @@ window._supabaseLoaded = false;
 
       <form id="signupForm" onsubmit="handleSignup(event)">
 
-        <!-- ═══ STEP 1: 基本情報 ═══ -->
+        <!-- ═══ STEP 1: 기본 정보 ═══ -->
         <div id="signupStep1" class="signup-step">
           <div class="divider-text" style="margin-top:0">STEP 1 · 基本情報</div>
           <div class="form-row">
@@ -349,7 +349,7 @@ window._supabaseLoaded = false;
           <button type="button" class="btn btn-primary btn-block" onclick="goStep(2)">次へ → SNS情報</button>
         </div>
 
-        <!-- ═══ STEP 2: SNS情報 ═══ -->
+        <!-- ═══ STEP 2: SNS 정보 ═══ -->
         <div id="signupStep2" class="signup-step" style="display:none">
           <div class="divider-text" style="margin-top:0">STEP 2 · SNSアカウント情報</div>
           <div style="background:var(--light-pink);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--dark-pink);line-height:1.6">
@@ -414,7 +414,7 @@ window._supabaseLoaded = false;
           </div>
         </div>
 
-        <!-- ═══ STEP 3: 配送先 + 完了 ═══ -->
+        <!-- ═══ STEP 3: 배송지 + 완료 ═══ -->
         <div id="signupStep3" class="signup-step" style="display:none">
           <div class="divider-text" style="margin-top:0">STEP 3 · 配送先住所（日本国内）</div>
           <div class="form-hint" style="margin-bottom:14px">製品発送のために必要です — 個人情報は安全に管理されます</div>
@@ -488,12 +488,12 @@ window._supabaseLoaded = false;
       <div class="mypage-tab" onclick="switchMyTab('bank',this)" style="display:inline-block">振込口座</div>
     </div>
 
-    <!-- 応募履歴 -->
+    <!-- 신청 이력 -->
     <div id="tab-applications" class="mypage-tab-pane on">
       <div id="myApplicationsList"></div>
     </div>
 
-    <!-- 基本情報 탭 -->
+    <!-- 기본 정보 탭 -->
     <div id="tab-profile-basic" class="mypage-tab-pane">
       <div class="card card-pad">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">基本情報</div>
@@ -515,7 +515,7 @@ window._supabaseLoaded = false;
       </div>
     </div>
 
-    <!-- SNSアカウント 탭 -->
+    <!-- SNS 계정 탭 -->
     <div id="tab-profile-sns" class="mypage-tab-pane">
       <div class="card card-pad">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">SNSアカウント</div>
@@ -543,7 +543,7 @@ window._supabaseLoaded = false;
       </div>
     </div>
 
-    <!-- 配送先 탭 -->
+    <!-- 배송지 탭 -->
     <div id="tab-profile-address" class="mypage-tab-pane">
       <div class="card card-pad">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">配送先住所</div>
@@ -566,7 +566,7 @@ window._supabaseLoaded = false;
       </div>
     </div>
 
-    <!-- 振込口座 탭 -->
+    <!-- 계좌 정보 탭 -->
     <div id="tab-bank" class="mypage-tab-pane">
       <div style="max-width:580px;display:flex;flex-direction:column;gap:16px">
 
@@ -964,7 +964,7 @@ window._supabaseLoaded = false;
 ・상품을 직접 사용하지 않고 발색 포스팅만 하는 것 NG</textarea></div>
             </div>
 
-            <!-- 고정 注意事項 -->
+            <!-- 고정 주의사항 -->
             <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
               <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(등록 후 인플루언서에게 표시됩니다)</span></div>
               <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
@@ -1048,7 +1048,7 @@ window._supabaseLoaded = false;
           </div>
           <!-- 캠페인별 카드 리스트 -->
           <div id="appCampList"></div>
-          <!-- 캠페인별 응모자 상세 (클릭 시 표시) -->
+          <!-- 캠페인별 신청자 상세 (클릭 시 표시) -->
           <div id="appCampDetail" style="display:none">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
               <button class="btn btn-ghost btn-sm" onclick="$('appCampList').style.display='';$('appCampDetail').style.display='none'">← 신청 관리로</button>

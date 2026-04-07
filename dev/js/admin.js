@@ -104,7 +104,7 @@ async function loadAdminCampaigns() {
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
 }
 
-// ── キャンペーン編集 ──
+// ── 캠페인 편집 ──
 async function openEditCampaign(campId) {
   const camps = await fetchCampaigns();
   const camp = camps.find(c=>c.id===campId);
@@ -202,7 +202,7 @@ async function saveCampaignEdit() {
   }
 }
 
-// ステータス循環: 進行中 → 一時停止 → 終了 → 進行中
+// 상태 순환: 진행중 → 일시정지 → 종료 → 진행중
 async function cycleCampStatus(el, currentStatus) {
   const tr = el.closest('tr');
   const campId = tr?.dataset.campId;
@@ -243,7 +243,7 @@ async function moveCampOrder(campId, dir) {
   }
 }
 
-// キャンペーン別申請者表示
+// 캠페인별 신청자 표시
 let currentCampApplicantId = null;
 async function openCampApplicants(campId, campTitle) {
   currentCampApplicantId = campId;
@@ -288,7 +288,7 @@ async function loadCampApplicants() {
   </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
 }
 
-// ── インフルエンサー一覧 ──
+// ── 인플루언서 목록 ──
 let currentInfTab = 'all';
 
 async function loadAdminInfluencers() {
@@ -367,7 +367,7 @@ function renderInfTable(users, ch) {
   }
 }
 
-// ── 応募管理 (キャンペーン別) ──
+// ── 신청 관리 (캠페인별) ──
 let currentAppTypeTab = 'all';
 let currentAppCampId = null;
 

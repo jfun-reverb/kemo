@@ -15,7 +15,7 @@ window._supabaseLoaded = false;
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
 /* ══════════════════════════════════
-   BASE — リセット・変数・レイアウト
+   BASE — 초기화, 변수, 레이아웃
 ══════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -46,7 +46,7 @@ img{display:block;max-width:100%}
 .container-sm{max-width:480px;margin:0 auto;padding:0 16px}
 .container-md{max-width:480px;margin:0 auto;padding:0 16px}
 /* ══════════════════════════════════
-   COMPONENTS — GNB・ボタン・カード・バッジ・フォーム
+   COMPONENTS — 상단바, 버튼, 카드, 배지, 폼
 ══════════════════════════════════ */
 
 /* ── GNB ── */
@@ -146,7 +146,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .fade-up{animation:fadeUp .3s ease forwards}
 /* ══════════════════════════════════
-   CAMPAIGN — ランディング・一覧・詳細
+   CAMPAIGN — 랜딩, 목록, 상세
 ══════════════════════════════════ */
 
 /* Hero */
@@ -233,7 +233,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-stat-l{font-size:11px;color:var(--muted);margin-top:2px}
 .apply-already{background:var(--green-l);border:1px solid rgba(14,126,74,.2);border-radius:var(--r8);padding:12px;text-align:center;font-size:13px;color:var(--green);font-weight:600}
 /* ══════════════════════════════════
-   AUTH — ログイン・会員登録
+   AUTH — 로그인, 회원가입
 ══════════════════════════════════ */
 .auth-wrap{min-height:calc(100vh - 50px);display:flex;align-items:flex-start;justify-content:center;padding:20px 16px}
 .auth-card{background:#fff;border:1px solid var(--line);border-radius:var(--r16);padding:24px 18px;width:100%;max-width:100%;box-shadow:0 4px 20px rgba(200,120,163,.08)}
@@ -245,7 +245,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .auth-switch a{color:var(--red);font-weight:600;cursor:pointer}
 .auth-switch a:hover{text-decoration:underline}
 /* ══════════════════════════════════
-   MY PAGE — マイページ
+   MY PAGE — 마이페이지
 ══════════════════════════════════ */
 .mypage-wrap{padding:16px 0 calc(var(--tab-h) + 16px)}
 .mypage-header{background:#fff;border-bottom:1px solid var(--line);padding:16px 0;margin-bottom:16px}
@@ -265,7 +265,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-item-meta{font-size:12px;color:var(--muted)}
 .apply-item-status{flex-shrink:0}
 /* ══════════════════════════════════
-   ADMIN — 管理者ダッシュボード
+   ADMIN — 관리자 대시보드
 ══════════════════════════════════ */
 .admin-layout{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 54px)}
 .admin-side{background:#1A0F18;padding:8px 0 20px;position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto;flex-shrink:0;border-right:1px solid rgba(200,120,163,.15)}
@@ -565,7 +565,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="auth-sub">REVERBでKブランド体験団に参加しましょう</div>
       </div>
 
-      <!-- ステップ インジケーター -->
+      <!-- 단계 표시 -->
       <div id="stepIndicator" style="display:flex;align-items:center;gap:0;margin-bottom:24px">
         <div class="step-dot active" data-step="1" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
           <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">1</div>
@@ -585,7 +585,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
       <form id="signupForm" onsubmit="handleSignup(event)">
 
-        <!-- ═══ STEP 1: 基本情報 ═══ -->
+        <!-- ═══ STEP 1: 기본 정보 ═══ -->
         <div id="signupStep1" class="signup-step">
           <div class="divider-text" style="margin-top:0">STEP 1 · 基本情報</div>
           <div class="form-row">
@@ -642,7 +642,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <button type="button" class="btn btn-primary btn-block" onclick="goStep(2)">次へ → SNS情報</button>
         </div>
 
-        <!-- ═══ STEP 2: SNS情報 ═══ -->
+        <!-- ═══ STEP 2: SNS 정보 ═══ -->
         <div id="signupStep2" class="signup-step" style="display:none">
           <div class="divider-text" style="margin-top:0">STEP 2 · SNSアカウント情報</div>
           <div style="background:var(--light-pink);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--dark-pink);line-height:1.6">
@@ -707,7 +707,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
         </div>
 
-        <!-- ═══ STEP 3: 配送先 + 完了 ═══ -->
+        <!-- ═══ STEP 3: 배송지 + 완료 ═══ -->
         <div id="signupStep3" class="signup-step" style="display:none">
           <div class="divider-text" style="margin-top:0">STEP 3 · 配送先住所（日本国内）</div>
           <div class="form-hint" style="margin-bottom:14px">製品発送のために必要です — 個人情報は安全に管理されます</div>
@@ -781,12 +781,12 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="mypage-tab" onclick="switchMyTab('bank',this)" style="display:inline-block">振込口座</div>
     </div>
 
-    <!-- 応募履歴 -->
+    <!-- 신청 이력 -->
     <div id="tab-applications" class="mypage-tab-pane on">
       <div id="myApplicationsList"></div>
     </div>
 
-    <!-- 基本情報 탭 -->
+    <!-- 기본 정보 탭 -->
     <div id="tab-profile-basic" class="mypage-tab-pane">
       <div class="card card-pad">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">基本情報</div>
@@ -808,7 +808,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
 
-    <!-- SNSアカウント 탭 -->
+    <!-- SNS 계정 탭 -->
     <div id="tab-profile-sns" class="mypage-tab-pane">
       <div class="card card-pad">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">SNSアカウント</div>
@@ -836,7 +836,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
 
-    <!-- 配送先 탭 -->
+    <!-- 배송지 탭 -->
     <div id="tab-profile-address" class="mypage-tab-pane">
       <div class="card card-pad">
         <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">配送先住所</div>
@@ -859,7 +859,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
 
-    <!-- 振込口座 탭 -->
+    <!-- 계좌 정보 탭 -->
     <div id="tab-bank" class="mypage-tab-pane">
       <div style="max-width:580px;display:flex;flex-direction:column;gap:16px">
 
@@ -1257,7 +1257,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 ・상품을 직접 사용하지 않고 발색 포스팅만 하는 것 NG</textarea></div>
             </div>
 
-            <!-- 고정 注意事項 -->
+            <!-- 고정 주의사항 -->
             <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
               <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(등록 후 인플루언서에게 표시됩니다)</span></div>
               <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
@@ -1341,7 +1341,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
           <!-- 캠페인별 카드 리스트 -->
           <div id="appCampList"></div>
-          <!-- 캠페인별 응모자 상세 (클릭 시 표시) -->
+          <!-- 캠페인별 신청자 상세 (클릭 시 표시) -->
           <div id="appCampDetail" style="display:none">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
               <button class="btn btn-ghost btn-sm" onclick="$('appCampList').style.display='';$('appCampDetail').style.display='none'">← 신청 관리로</button>
@@ -1377,7 +1377,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 <script>
 // ══════════════════════════════════════
-// CONFIG — Supabase 接続設定
+// CONFIG — Supabase 연결 설정
 // ══════════════════════════════════════
 const SUPABASE_URL = 'https://twofagomeizrtkwlhsuv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_3KgWYIf5w5J727Q2g3Cl7Q_ETD1Swps';
@@ -1386,8 +1386,8 @@ const ADMIN_EMAIL = 'admin@kemo.jp';
 let db = null;
 try { if (window.supabase) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
 // ══════════════════════════════════════
-// STORAGE — Supabase API ラッパー
-// localStorage はセッションキャッシュのみ使用
+// STORAGE — Supabase API 호출 함수 모음
+// localStorage는 세션 캐시에만 사용
 // ══════════════════════════════════════
 const DEMO_SESSION_KEY = 'kemo_session';
 
@@ -1474,7 +1474,7 @@ async function checkDuplicateApplication(userId, campaignId) {
   return !!data;
 }
 // ══════════════════════════════════════
-// UI — トースト・ローディング・モーダル・スライダー
+// UI — 알림 팝업, 로딩, 모달, 슬라이더
 // ══════════════════════════════════════
 
 function toast(msg, type='') {
@@ -1501,7 +1501,7 @@ function closeModal(id) {
   $(id).classList.remove('open');
 }
 
-// ── IMAGE SLIDER ──
+// ── 이미지 슬라이더 ──
 let _slideIdx = 0;
 function slideMove(dir) {
   const slides = $('campSlides');
@@ -1524,7 +1524,7 @@ function slideTo(idx) {
   });
 }
 
-// ── SLIDE IMG PREVIEW (admin) ──
+// ── 슬라이드 이미지 미리보기 (관리자용) ──
 function previewSlideImgs() {
   const preview = $('slideImgPreview');
   if (!preview) return;
@@ -1535,7 +1535,7 @@ function previewSlideImgs() {
     </div>`).join('');
 }
 
-// ── OPTIONAL SECTION TOGGLE ──
+// ── 선택 항목 열기/닫기 ──
 function toggleOptional() {
   const sec = $('optionalSection');
   const arrow = $('optionalArrow');
@@ -1545,7 +1545,7 @@ function toggleOptional() {
   if (arrow) arrow.textContent = isOpen ? '▶' : '▼';
 }
 
-// ── PASSWORD TOGGLE ──
+// ── 비밀번호 보기/숨기기 ──
 function togglePw(inputId, btn) {
   const input = $(inputId);
   if (!input) return;
@@ -1553,7 +1553,7 @@ function togglePw(inputId, btn) {
   else { input.type = 'password'; btn.textContent = '👁'; }
 }
 
-// ── ZIP CODE LOOKUP ──
+// ── 우편번호로 주소 자동입력 ──
 async function lookupZipProfile() {
   const zip = $('profileZip')?.value.replace(/[^0-9]/g,'');
   if (!zip || zip.length < 7) { toast('郵便番号を7桁で入力してください', 'error'); return; }
@@ -1588,7 +1588,7 @@ async function lookupZip() {
   } catch(e) { toast('住所検索に失敗しました。手動で入力してください', 'error'); }
 }
 
-// ── CONTENT TYPE / RECRUIT TYPE TOGGLE ──
+// ── 콘텐츠 타입 / 모집 타입 선택 토글 ──
 function toggleCT(cb) {
   const label = cb.closest('label');
   if (cb.checked) { label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)'; }
@@ -1612,7 +1612,7 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
-// ── IMAGE UPLOAD ──
+// ── 이미지 업로드 ──
 const campImgData = [];
 function handleCampImgSelect(input) {
   const files = Array.from(input.files);
@@ -1664,14 +1664,14 @@ function handleFileSelect(input) {
   });
 }
 
-// ── LOGIN PROMPT ──
+// ── 로그인 안내 팝업 ──
 function closeLoginPrompt(e) {
   if (e && e.target !== $('loginPromptOverlay')) return;
   const o = $('loginPromptOverlay');
   if (o) o.style.display='none';
 }
 // ══════════════════════════════════════
-// CAMPAIGNS — 一覧・詳細・フィルター
+// CAMPAIGNS — 목록, 상세, 필터
 // ══════════════════════════════════════
 
 let currentUser = null;
@@ -1682,7 +1682,7 @@ let currentFilter = 'all';
 let campPageTypeFilter = 'all';
 let currentTypeFilter = 'all';
 
-// ── Demo Data ──
+// ── 기본 캠페인 데이터 (DB가 비어있을 때 표시됨) ──
 const DEMO_CAMPAIGNS = [
   {id:'demo-1',recruit_type:'monitor',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',product_price:3200,reward:0,slots:25,applied_count:18,deadline:'2026-05-30',post_days:7,content_types:'インスタ/フィード,インスタ/リール',description:'イニスフリーの人気スキンケアアイテム、グリーンティセラムを体験していただける方を募集します。',hashtags:'#innisfree #イニスフリー #グリーンティセラム #スキンケア',mentions:'@innisfree_official_jp',appeal:'グリーンティ由来の保湿成分が肌深部まで浸透。',guide:'明るい自然光で撮影してください。商品のテクスチャーがわかるようにアップで撮影。',ng:'競合ブランド商品との比較投稿はNG。ネガティブ表現はNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
   {id:'demo-2',recruit_type:'monitor',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',product_price:4500,reward:0,slots:20,applied_count:12,deadline:'2026-05-25',post_days:10,content_types:'インスタ/フィード',description:'ROUND LABの大人気バーチュラトナーを体験していただける方を募集します。',hashtags:'#roundlab #ラウンドラボ #バーチュラトナー #韓国コスメ',mentions:'@roundlab_jp',appeal:'白樺水配合で肌を優しく整えるトナー。乾燥肌・敏感肌の方に特におすすめ。',guide:'清潔感のある明るい背景で撮影。使用前後の肌の変化を表現してください。',ng:'他ブランドとの比較NG。フィルター過剰使用NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
@@ -1826,7 +1826,7 @@ function renderCampaigns(camps) {
   grid.innerHTML = buildCampCards(active);
 }
 // ══════════════════════════════════════
-// AUTH — ログイン・会員登録・ログアウト
+// AUTH — 로그인, 회원가입, 로그아웃
 // ══════════════════════════════════════
 
 function updateGnb() {
@@ -2011,7 +2011,7 @@ async function openCampaign(id) {
   const isFull = (camp.applied_count||0) >= camp.slots;
   _slideIdx = 0;
 
-  // スライドイメージ
+  // 슬라이드 이미지
   const slideImgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url]
     .filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
 
@@ -2180,7 +2180,7 @@ async function openCampaign(id) {
     </div>
     <div class="detail-sidebar" style="display:none"></div>`;
 
-  // フロートバー設定
+  // 하단 고정 바 설정
   const fb = $('detailFloatBar');
   const floatName = $('floatProductName');
   const floatReward = $('floatProductReward');
@@ -2252,7 +2252,7 @@ async function submitApplication() {
       user_ig: currentUserProfile?.ig || '',
       campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
     });
-    // applied_count 更新
+    // 신청수 업데이트
     const camp = allCampaigns.find(c=>c.id===currentCampaignId);
     if (camp) {
       camp.applied_count = (camp.applied_count||0) + 1;
@@ -2520,7 +2520,7 @@ async function loadAdminCampaigns() {
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
 }
 
-// ── キャンペーン編集 ──
+// ── 캠페인 편집 ──
 async function openEditCampaign(campId) {
   const camps = await fetchCampaigns();
   const camp = camps.find(c=>c.id===campId);
@@ -2618,7 +2618,7 @@ async function saveCampaignEdit() {
   }
 }
 
-// ステータス循環: 進行中 → 一時停止 → 終了 → 進行中
+// 상태 순환: 진행중 → 일시정지 → 종료 → 진행중
 async function cycleCampStatus(el, currentStatus) {
   const tr = el.closest('tr');
   const campId = tr?.dataset.campId;
@@ -2659,7 +2659,7 @@ async function moveCampOrder(campId, dir) {
   }
 }
 
-// キャンペーン別申請者表示
+// 캠페인별 신청자 표시
 let currentCampApplicantId = null;
 async function openCampApplicants(campId, campTitle) {
   currentCampApplicantId = campId;
@@ -2704,7 +2704,7 @@ async function loadCampApplicants() {
   </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
 }
 
-// ── インフルエンサー一覧 ──
+// ── 인플루언서 목록 ──
 let currentInfTab = 'all';
 
 async function loadAdminInfluencers() {
@@ -2783,7 +2783,7 @@ function renderInfTable(users, ch) {
   }
 }
 
-// ── 応募管理 (キャンペーン別) ──
+// ── 신청 관리 (캠페인별) ──
 let currentAppTypeTab = 'all';
 let currentAppCampId = null;
 
@@ -3040,7 +3040,7 @@ function updateTabBar(page) {
 // INIT
 // ══════════════════════════════════════
 async function init() {
-  // セッション復元
+  // 로그인 세션 복원
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
   if (session) {
     currentUser = session.user;
@@ -3053,7 +3053,7 @@ async function init() {
   }
   updateGnb();
 
-  // キャンペーンロード
+  // 캠페인 불러오기
   allCampaigns = await fetchCampaigns();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);

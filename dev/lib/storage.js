@@ -1,6 +1,6 @@
 // ══════════════════════════════════════
-// STORAGE — Supabase API ラッパー
-// localStorage はセッションキャッシュのみ使用
+// STORAGE — Supabase API 호출 함수 모음
+// localStorage는 세션 캐시에만 사용
 // ══════════════════════════════════════
 const DEMO_SESSION_KEY = 'kemo_session';
 
