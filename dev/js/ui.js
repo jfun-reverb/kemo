@@ -138,7 +138,8 @@ function toggleEditCT(cb) {
 }
 
 // ── 이미지 업로드 (드래그앤드롭 + 순서변경 + 크롭 + 다운로드) ──
-const campImgData = [];
+var campImgData = [];
+window.campImgData = campImgData;
 let _dragSrcIdx = null;
 let _cropTarget = null;
 let _cropperInstance = null;
@@ -183,13 +184,19 @@ function addImagesToList(files, imgList, wrapId, counterId) {
 
 function removeCampImg(idx) { campImgData.splice(idx,1); renderImgPreview(campImgData,'campImgPreviewWrap','campImgCounter'); }
 
+function _getImgListName(imgList) {
+  if (imgList === window.campImgData) return 'campImgData';
+  if (imgList === window.editCampImgData) return 'editCampImgData';
+  return 'campImgData';
+}
+
 function renderImgPreview(imgList, wrapId, counterId) {
   const wrap = $(wrapId);
   const counter = $(counterId);
   if (!wrap) return;
   if (counter) counter.textContent = `${imgList.length}/8`;
-  const listName = imgList === campImgData ? 'campImgData' : 'editCampImgData';
-  const removeFn = imgList === campImgData ? 'removeCampImg' : 'removeEditCampImg';
+  const listName = _getImgListName(imgList);
+  const removeFn = listName === 'campImgData' ? 'removeCampImg' : 'removeEditCampImg';
 
   wrap.innerHTML = imgList.map((img,i) => `
     <div class="img-thumb" draggable="true" data-idx="${i}"

@@ -1697,7 +1697,8 @@ function toggleEditCT(cb) {
 }
 
 // ── 이미지 업로드 (드래그앤드롭 + 순서변경 + 크롭 + 다운로드) ──
-const campImgData = [];
+var campImgData = [];
+window.campImgData = campImgData;
 let _dragSrcIdx = null;
 let _cropTarget = null;
 let _cropperInstance = null;
@@ -1742,13 +1743,19 @@ function addImagesToList(files, imgList, wrapId, counterId) {
 
 function removeCampImg(idx) { campImgData.splice(idx,1); renderImgPreview(campImgData,'campImgPreviewWrap','campImgCounter'); }
 
+function _getImgListName(imgList) {
+  if (imgList === window.campImgData) return 'campImgData';
+  if (imgList === window.editCampImgData) return 'editCampImgData';
+  return 'campImgData';
+}
+
 function renderImgPreview(imgList, wrapId, counterId) {
   const wrap = $(wrapId);
   const counter = $(counterId);
   if (!wrap) return;
   if (counter) counter.textContent = `${imgList.length}/8`;
-  const listName = imgList === campImgData ? 'campImgData' : 'editCampImgData';
-  const removeFn = imgList === campImgData ? 'removeCampImg' : 'removeEditCampImg';
+  const listName = _getImgListName(imgList);
+  const removeFn = listName === 'campImgData' ? 'removeCampImg' : 'removeEditCampImg';
 
   wrap.innerHTML = imgList.map((img,i) => `
     <div class="img-thumb" draggable="true" data-idx="${i}"
@@ -2772,7 +2779,7 @@ async function openEditCampaign(campId) {
   });
 
   // 기존 이미지 로드
-  editCampImgData = [];
+  editCampImgData.length = 0;
   [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8]
     .filter(Boolean).forEach(url => editCampImgData.push({data: url}));
   renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
@@ -2781,7 +2788,8 @@ async function openEditCampaign(campId) {
 }
 
 // ── 편집용 이미지 관리 ──
-let editCampImgData = [];
+var editCampImgData = [];
+window.editCampImgData = editCampImgData;
 
 function handleEditCampImgSelect(input) {
   addImagesToList(Array.from(input.files), editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
