@@ -284,6 +284,7 @@ function handleFloatApply() {
   if (!p.ig) missing.push('Instagram ID');
   if (!p.address && !p.zip) missing.push('配送先住所');
   if (!p.phone) missing.push('電話番号');
+  if (!p.bank_name) missing.push('振込口座');
   if (missing.length > 0) {
     $('profileAlertMissing').innerHTML = missing.map(m =>
       `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
