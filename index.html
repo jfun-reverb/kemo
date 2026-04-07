@@ -1788,22 +1788,25 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
 
 // 이미지 버튼 이벤트 위임 (크롭, 다운로드, 삭제)
 document.addEventListener('click', function(e) {
-  var btn = e.target.closest('[data-action]');
+  // data-action 버튼 또는 그 자식(span 등) 클릭 처리
+  var btn = e.target.closest('button[data-action]');
   if (!btn) return;
-  var action = btn.dataset.action;
-  var idx = parseInt(btn.dataset.i);
-  var listName = btn.dataset.list;
+  e.preventDefault();
+  e.stopPropagation();
+  var action = btn.getAttribute('data-action');
+  var idx = parseInt(btn.getAttribute('data-i'));
+  var listName = btn.getAttribute('data-list');
 
   if (action === 'crop') {
-    openCropModal(idx, listName, btn.dataset.wrap, btn.dataset.counter);
+    openCropModal(idx, listName, btn.getAttribute('data-wrap'), btn.getAttribute('data-counter'));
   } else if (action === 'download') {
     downloadImg(idx, listName);
   } else if (action === 'remove') {
-    var fn = btn.dataset.removeFn;
+    var fn = btn.getAttribute('data-remove-fn');
     if (fn === 'removeCampImg') removeCampImg(idx);
     else if (fn === 'removeEditCampImg') removeEditCampImg(idx);
   }
-});
+}, true);
 
 // 드래그앤드롭 순서 변경
 function imgDragStart(e, idx) {
