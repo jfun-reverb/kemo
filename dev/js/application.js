@@ -282,13 +282,15 @@ function handleFloatApply() {
   const p = currentUserProfile || {};
   const missing = [];
   if (!p.ig) missing.push('Instagram ID');
-  if (!p.address && !p.zip) missing.push('Shipping Address');
-  if (!p.phone) missing.push('Phone');
+  if (!p.address && !p.zip) missing.push('配送先住所');
+  if (!p.phone) missing.push('電話番号');
   if (missing.length > 0) {
-    const msg = `Please complete your profile to apply:\n\n• ${missing.join('\n• ')}\n\nGo to My Page to update?`;
-    if (confirm(msg)) {
-      navigate('mypage');
-    }
+    $('profileAlertMissing').innerHTML = missing.map(m =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
+        <span class="material-icons-round" style="font-size:18px;color:var(--pink)">warning</span>${m}
+      </div>`
+    ).join('');
+    $('profileAlertOverlay').style.display = 'flex';
     return;
   }
   openApplyModal(currentCampaignId);
