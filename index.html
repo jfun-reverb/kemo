@@ -999,6 +999,9 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ 인플루언서 목록</div>
       <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 신청 관리</div>
+      <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
+      <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)">🔑 관리자 계정</div>
+      <div class="admin-si" onclick="switchAdminPane('my-account',this)">👤 내 정보</div>
     </aside>
     <main class="admin-main">
 
@@ -1408,11 +1411,130 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
         </div>
 
+        <!-- ADMIN ACCOUNTS PANE -->
+        <div id="adminPane-admin-accounts" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자 계정</div>
+            <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">관리자 목록</span>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th>등록일</th><th>처리</th></tr></thead>
+              <tbody id="adminAccountsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MY ACCOUNT PANE -->
+        <div id="adminPane-my-account" class="admin-pane">
+          <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:16px">내 정보</div>
+          <div class="product-form" style="max-width:480px">
+            <div class="form-group">
+              <label class="form-label">이메일</label>
+              <input type="text" id="myAdminEmail" class="form-input" disabled style="background:var(--bg)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">이름</label>
+              <input type="text" id="myAdminName" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">권한</label>
+              <input type="text" id="myAdminRole" class="form-input" disabled style="background:var(--bg)">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveMyAdminInfo()">정보 저장</button>
+
+            <hr style="margin:24px 0;border:none;border-top:1px solid var(--line)">
+
+            <div style="font-size:14px;font-weight:700;margin-bottom:12px">비밀번호 변경</div>
+            <div class="form-group">
+              <label class="form-label">현재 비밀번호</label>
+              <input type="password" id="myAdminCurrentPw" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">새 비밀번호 (8자 이상)</label>
+              <input type="password" id="myAdminNewPw" class="form-input">
+            </div>
+            <div class="form-group">
+              <label class="form-label">새 비밀번호 확인</label>
+              <input type="password" id="myAdminNewPw2" class="form-input">
+            </div>
+            <div id="myPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
+            <button class="btn btn-primary btn-sm" onclick="changeMyAdminPassword()">비밀번호 변경</button>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
 </div>
 
+<!-- 관리자 추가 모달 -->
+<div class="modal-overlay" id="addAdminModal">
+  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title" id="addAdminModalTitle">관리자 추가</div>
+      <div class="modal-close" onclick="closeModal('addAdminModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editAdminId">
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input type="email" id="adminFormEmail" class="form-input" placeholder="admin@example.com">
+      </div>
+      <div class="form-group" id="adminFormPwGroup">
+        <label class="form-label">비밀번호 (8자 이상)</label>
+        <input type="password" id="adminFormPw" class="form-input" placeholder="비밀번호 입력">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이름</label>
+        <input type="text" id="adminFormName" class="form-input" placeholder="홍길동">
+      </div>
+      <div class="form-group">
+        <label class="form-label">권한</label>
+        <select id="adminFormRole" class="form-input">
+          <option value="campaign_admin">캠페인 관리자</option>
+          <option value="super_admin">슈퍼관리자</option>
+        </select>
+      </div>
+      <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal('addAdminModal')" style="flex:1">취소</button>
+        <button class="btn btn-primary" onclick="saveAdmin()" style="flex:1" id="adminFormBtn">추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 비밀번호 초기화 모달 -->
+<div class="modal-overlay" id="resetPwModal">
+  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title">비밀번호 초기화</div>
+      <div class="modal-close" onclick="closeModal('resetPwModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="resetPwTargetId">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        <strong id="resetPwTargetEmail"></strong>의 비밀번호를 초기화합니다.
+      </div>
+      <div class="form-group">
+        <label class="form-label">새 비밀번호 (8자 이상)</label>
+        <input type="password" id="resetPwNew" class="form-input">
+      </div>
+      <div id="resetPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal('resetPwModal')" style="flex:1">취소</button>
+        <button class="btn btn-primary" onclick="executeResetPw()" style="flex:1">초기화</button>
+      </div>
+      <div style="margin-top:12px;text-align:center">
+        <button class="btn btn-ghost btn-xs" onclick="sendResetEmail()" style="font-size:11px;color:var(--muted)">📧 이메일로 재설정 링크 보내기</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <script>
@@ -1873,7 +1995,7 @@ function updateGnb() {
   const gnbRight = $('gnbRight');
   if (currentUser) {
     const initial = (currentUserProfile?.name || currentUser.email || 'U')[0].toUpperCase();
-    const isAdmin = currentUser.email === ADMIN_EMAIL;
+    const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
     gnbRight.innerHTML = `
       <div class="gnb-user">
         <div class="gnb-user-av">${initial}</div>
@@ -1981,8 +2103,11 @@ async function handleLogin(e) {
       btn.disabled=false; btn.textContent='Log In'; return;
     }
     currentUser = data.user;
-    if (email === ADMIN_EMAIL) {
-      currentUserProfile = {name:'Admin', email: ADMIN_EMAIL};
+    // 관리자 테이블에서 확인
+    const {data:adminData} = await db.from('admins').select('*').eq('auth_id', data.user.id).maybeSingle();
+    if (adminData) {
+      currentUser._isAdmin = true;
+      currentUserProfile = {name: adminData.name || 'Admin', email};
       toast('Logged in as Admin','success'); updateGnb();
       setTimeout(() => { navigate('admin'); loadAdminData(); }, 100);
     } else {
@@ -2477,6 +2602,8 @@ function switchAdminPane(pane, el) {
   if (pane==='applications') loadApplications();
   if (pane==='campaigns') loadAdminCampaigns();
   if (pane==='influencers') loadAdminInfluencers();
+  if (pane==='admin-accounts') loadAdminAccounts();
+  if (pane==='my-account') loadMyAdminInfo();
 }
 
 async function loadAdminData() {
@@ -3095,6 +3222,192 @@ async function addCampaign() {
     toast('오류: ' + (err.message||String(err)), 'error');
   }
 }
+
+// ══════════════════════════════════════
+// 관리자 계정 관리
+// ══════════════════════════════════════
+let currentAdminInfo = null;
+
+async function loadAdminAccounts() {
+  if (!db) return;
+  const {data} = await db.from('admins').select('*').order('created_at');
+  const admins = data || [];
+  const roleLabel = r => r === 'super_admin'
+    ? '<span class="badge badge-red">슈퍼관리자</span>'
+    : '<span class="badge badge-blue">캠페인관리자</span>';
+
+  $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>
+    <td style="font-weight:600">${a.name||'—'}</td>
+    <td>${a.email}</td>
+    <td>${roleLabel(a.role)}</td>
+    <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
+    <td><div style="display:flex;gap:5px">
+      <button class="btn btn-ghost btn-xs" onclick="openEditAdmin('${a.id}','${a.email}','${a.name||''}','${a.role}')">수정</button>
+      <button class="btn btn-ghost btn-xs" onclick="openResetPwModal('${a.auth_id}','${a.email}')">비밀번호</button>
+      ${a.role !== 'super_admin' ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteAdmin('${a.id}','${a.email}')">삭제</button>` : ''}
+    </div></td>
+  </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
+
+  // 현재 로그인한 관리자 정보 로드
+  currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
+}
+
+async function loadMyAdminInfo() {
+  if (!currentAdminInfo && db) {
+    const {data} = await db.from('admins').select('*').eq('auth_id', currentUser?.id).maybeSingle();
+    currentAdminInfo = data;
+  }
+  if (!currentAdminInfo) return;
+  if ($('myAdminEmail')) $('myAdminEmail').value = currentAdminInfo.email;
+  if ($('myAdminName')) $('myAdminName').value = currentAdminInfo.name || '';
+  if ($('myAdminRole')) $('myAdminRole').value = currentAdminInfo.role === 'super_admin' ? '슈퍼관리자' : '캠페인관리자';
+}
+
+async function saveMyAdminInfo() {
+  if (!currentAdminInfo || !db) return;
+  const name = $('myAdminName')?.value.trim();
+  try {
+    await db.from('admins').update({name}).eq('id', currentAdminInfo.id);
+    currentAdminInfo.name = name;
+    toast('정보가 저장되었습니다 ✓','success');
+  } catch(e) {
+    toast('저장 오류: ' + e.message,'error');
+  }
+}
+
+async function changeMyAdminPassword() {
+  const cur = $('myAdminCurrentPw')?.value;
+  const nw = $('myAdminNewPw')?.value;
+  const nw2 = $('myAdminNewPw2')?.value;
+  const err = $('myPwError');
+  err.style.display = 'none';
+  if (!cur || !nw) { err.textContent='모든 항목을 입력해주세요'; err.style.display='block'; return; }
+  if (nw.length < 8) { err.textContent='새 비밀번호는 8자 이상이어야 합니다'; err.style.display='block'; return; }
+  if (nw !== nw2) { err.textContent='비밀번호가 일치하지 않습니다'; err.style.display='block'; return; }
+  try {
+    const {error} = await db.auth.updateUser({password: nw});
+    if (error) { err.textContent = error.message; err.style.display='block'; return; }
+    toast('비밀번호가 변경되었습니다 ✓','success');
+    $('myAdminCurrentPw').value = '';
+    $('myAdminNewPw').value = '';
+    $('myAdminNewPw2').value = '';
+  } catch(e) {
+    err.textContent = '변경 오류: ' + e.message; err.style.display='block';
+  }
+}
+
+function openAddAdminModal() {
+  $('addAdminModalTitle').textContent = '관리자 추가';
+  $('editAdminId').value = '';
+  $('adminFormEmail').value = '';
+  $('adminFormEmail').disabled = false;
+  $('adminFormPw').value = '';
+  $('adminFormPwGroup').style.display = '';
+  $('adminFormName').value = '';
+  $('adminFormRole').value = 'campaign_admin';
+  $('adminFormBtn').textContent = '추가';
+  $('adminFormError').style.display = 'none';
+  $('addAdminModal').classList.add('open');
+}
+
+function openEditAdmin(id, email, name, role) {
+  $('addAdminModalTitle').textContent = '관리자 수정';
+  $('editAdminId').value = id;
+  $('adminFormEmail').value = email;
+  $('adminFormEmail').disabled = true;
+  $('adminFormPwGroup').style.display = 'none';
+  $('adminFormName').value = name;
+  $('adminFormRole').value = role;
+  $('adminFormBtn').textContent = '저장';
+  $('adminFormError').style.display = 'none';
+  $('addAdminModal').classList.add('open');
+}
+
+async function saveAdmin() {
+  const err = $('adminFormError');
+  err.style.display = 'none';
+  const editId = $('editAdminId').value;
+
+  if (editId) {
+    // 수정 모드
+    const name = $('adminFormName').value.trim();
+    const role = $('adminFormRole').value;
+    try {
+      await db.from('admins').update({name, role}).eq('id', editId);
+      toast('관리자 정보가 수정되었습니다 ✓','success');
+      closeModal('addAdminModal');
+      loadAdminAccounts();
+    } catch(e) {
+      err.textContent = '수정 오류: ' + e.message; err.style.display = 'block';
+    }
+  } else {
+    // 추가 모드
+    const email = $('adminFormEmail').value.trim();
+    const pw = $('adminFormPw').value;
+    const name = $('adminFormName').value.trim();
+    const role = $('adminFormRole').value;
+    if (!email || !pw || !name) { err.textContent = '모든 항목을 입력해주세요'; err.style.display = 'block'; return; }
+    if (pw.length < 8) { err.textContent = '비밀번호는 8자 이상이어야 합니다'; err.style.display = 'block'; return; }
+    try {
+      const {data, error} = await db.rpc('create_admin', {
+        admin_email: email, admin_password: pw, admin_name: name, admin_role: role
+      });
+      if (error) throw error;
+      toast('관리자가 추가되었습니다 ✓','success');
+      closeModal('addAdminModal');
+      loadAdminAccounts();
+    } catch(e) {
+      err.textContent = '추가 오류: ' + e.message; err.style.display = 'block';
+    }
+  }
+}
+
+async function deleteAdmin(id, email) {
+  if (!confirm(`${email} 관리자를 삭제하시겠습니까?`)) return;
+  try {
+    await db.from('admins').delete().eq('id', id);
+    toast('관리자가 삭제되었습니다','success');
+    loadAdminAccounts();
+  } catch(e) {
+    toast('삭제 오류: ' + e.message,'error');
+  }
+}
+
+function openResetPwModal(authId, email) {
+  $('resetPwTargetId').value = authId;
+  $('resetPwTargetEmail').textContent = email;
+  $('resetPwNew').value = '';
+  $('resetPwError').style.display = 'none';
+  $('resetPwModal').classList.add('open');
+}
+
+async function executeResetPw() {
+  const authId = $('resetPwTargetId').value;
+  const newPw = $('resetPwNew').value;
+  const err = $('resetPwError');
+  err.style.display = 'none';
+  if (!newPw || newPw.length < 8) { err.textContent = '비밀번호는 8자 이상이어야 합니다'; err.style.display = 'block'; return; }
+  try {
+    const {error} = await db.rpc('reset_admin_password', {target_auth_id: authId, new_password: newPw});
+    if (error) throw error;
+    toast('비밀번호가 초기화되었습니다 ✓','success');
+    closeModal('resetPwModal');
+  } catch(e) {
+    err.textContent = '초기화 오류: ' + e.message; err.style.display = 'block';
+  }
+}
+
+async function sendResetEmail() {
+  const email = $('resetPwTargetEmail').textContent;
+  try {
+    const {error} = await db.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+    toast(`${email}로 재설정 링크를 보냈습니다 📧`,'success');
+    closeModal('resetPwModal');
+  } catch(e) {
+    toast('이메일 발송 오류: ' + e.message,'error');
+  }
+}
 // ══════════════════════════════════════
 // NAVIGATION + INIT
 // ══════════════════════════════════════
@@ -3168,8 +3481,11 @@ async function init() {
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
   if (session) {
     currentUser = session.user;
-    if (currentUser.email === ADMIN_EMAIL) {
-      currentUserProfile = {name:'Admin', email: ADMIN_EMAIL};
+    // 관리자 테이블에서 확인
+    const {data:adminData} = await db?.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
+    if (adminData) {
+      currentUser._isAdmin = true;
+      currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
     } else {
       const {data:profile} = await db?.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
       currentUserProfile = profile;
