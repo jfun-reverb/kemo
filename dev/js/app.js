@@ -2,9 +2,14 @@
 // NAVIGATION + INIT
 // ══════════════════════════════════════
 
-function navigate(page) {
+function navigate(page, pushHistory) {
   const appShell = $('appShell');
   const adminPage = $('page-admin');
+
+  // 브라우저 히스토리에 기록 (뒤로가기 지원)
+  if (pushHistory !== false) {
+    history.pushState({page}, '', '#' + page);
+  }
 
   if (page === 'admin') {
     if (appShell) appShell.style.display = 'none';
@@ -40,6 +45,12 @@ function navigate(page) {
   }
 }
 
+// 브라우저 뒤로가기/앞으로가기 버튼 처리
+window.addEventListener('popstate', function(e) {
+  const page = e.state?.page || location.hash.replace('#','') || 'home';
+  navigate(page, false);
+});
+
 function navigateTab(page, el) {
   if (page === 'mypage' && !currentUser) { navigate('login'); return; }
   navigate(page);
@@ -73,6 +84,14 @@ async function init() {
   allCampaigns = await fetchCampaigns();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
+
+  // URL 해시가 있으면 해당 페이지로 이동
+  const hash = location.hash.replace('#','');
+  if (hash && hash !== 'home') {
+    navigate(hash, false);
+  } else {
+    history.replaceState({page:'home'}, '', '#home');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
