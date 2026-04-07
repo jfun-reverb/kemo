@@ -1557,6 +1557,48 @@ async function checkDuplicateApplication(userId, campaignId) {
   const {data} = await db.from('applications').select('id').eq('user_id', userId).eq('campaign_id', campaignId).maybeSingle();
   return !!data;
 }
+
+// ── Image Storage ──
+// base64를 Supabase Storage에 업로드하고 공개 URL 반환
+async function uploadImage(base64Data, fileName) {
+  if (!db) return base64Data;
+  // base64 → Blob 변환
+  var parts = base64Data.split(',');
+  var mime = parts[0].match(/:(.*?);/)[1];
+  var binary = atob(parts[1]);
+  var arr = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  var blob = new Blob([arr], {type: mime});
+  // 파일 경로: campaigns/타임스탬프_파일명
+  var ext = mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1];
+  var path = 'campaigns/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+  var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false});
+  if (error) throw error;
+  // 공개 URL 반환
+  var {data} = db.storage.from('campaign-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
+async function uploadCampImages(imgList) {
+  var urls = [];
+  for (var i = 0; i < Math.min(imgList.length, 8); i++) {
+    var img = imgList[i];
+    if (!img || !img.data) { urls.push(''); continue; }
+    // 이미 URL이면 그대로 사용
+    if (img.data.startsWith('http')) { urls.push(img.data); continue; }
+    // base64면 업로드
+    try {
+      var url = await uploadImage(img.data, img.name || 'img' + i);
+      urls.push(url);
+    } catch(e) {
+      urls.push('');
+    }
+  }
+  // 8개 슬롯 채우기
+  while (urls.length < 8) urls.push('');
+  return urls;
+}
 // ══════════════════════════════════════
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
 // ══════════════════════════════════════
@@ -2931,16 +2973,16 @@ async function saveCampaignEdit() {
       guide: gv('editCampGuide'),
       ng: gv('editCampNg'),
       status: gv('editCampStatus'),
-      image_url: editCampImgData[0]?.data||'',
-      img1: editCampImgData[0]?.data||'',
-      img2: editCampImgData[1]?.data||'',
-      img3: editCampImgData[2]?.data||'',
-      img4: editCampImgData[3]?.data||'',
-      img5: editCampImgData[4]?.data||'',
-      img6: editCampImgData[5]?.data||'',
-      img7: editCampImgData[6]?.data||'',
-      img8: editCampImgData[7]?.data||'',
     };
+
+    // 이미지를 Storage에 업로드
+    toast('이미지 업로드 중...','');
+    const imgUrls = await uploadCampImages(editCampImgData);
+    updates.image_url = imgUrls[0];
+    updates.img1 = imgUrls[0]; updates.img2 = imgUrls[1];
+    updates.img3 = imgUrls[2]; updates.img4 = imgUrls[3];
+    updates.img5 = imgUrls[4]; updates.img6 = imgUrls[5];
+    updates.img7 = imgUrls[6]; updates.img8 = imgUrls[7];
 
     await updateCampaign(campId, updates);
     allCampaigns = await fetchCampaigns();
@@ -3335,17 +3377,21 @@ async function addCampaign() {
   const ch = $('newCampChannel').value;
   const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
+  // 이미지를 Storage에 업로드
+  toast('이미지 업로드 중...','');
+  const imgUrls = await uploadCampImages(campImgData);
+
   const camp = {
     title, brand, product,
     type: ch==='qoo10'?'qoo10':'nano', channel:ch, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
-    image_url: img1,
-    img1: campImgData[0]?.data||'', img2: campImgData[1]?.data||'',
-    img3: campImgData[2]?.data||'', img4: campImgData[3]?.data||'',
-    img5: campImgData[4]?.data||'', img6: campImgData[5]?.data||'',
-    img7: campImgData[6]?.data||'', img8: campImgData[7]?.data||'',
+    image_url: imgUrls[0],
+    img1: imgUrls[0], img2: imgUrls[1],
+    img3: imgUrls[2], img4: imgUrls[3],
+    img5: imgUrls[4], img6: imgUrls[5],
+    img7: imgUrls[6], img8: imgUrls[7],
     product_url: productUrl,
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,

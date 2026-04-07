@@ -86,3 +86,45 @@ async function checkDuplicateApplication(userId, campaignId) {
   const {data} = await db.from('applications').select('id').eq('user_id', userId).eq('campaign_id', campaignId).maybeSingle();
   return !!data;
 }
+
+// ── Image Storage ──
+// base64를 Supabase Storage에 업로드하고 공개 URL 반환
+async function uploadImage(base64Data, fileName) {
+  if (!db) return base64Data;
+  // base64 → Blob 변환
+  var parts = base64Data.split(',');
+  var mime = parts[0].match(/:(.*?);/)[1];
+  var binary = atob(parts[1]);
+  var arr = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  var blob = new Blob([arr], {type: mime});
+  // 파일 경로: campaigns/타임스탬프_파일명
+  var ext = mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1];
+  var path = 'campaigns/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+  var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false});
+  if (error) throw error;
+  // 공개 URL 반환
+  var {data} = db.storage.from('campaign-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
+async function uploadCampImages(imgList) {
+  var urls = [];
+  for (var i = 0; i < Math.min(imgList.length, 8); i++) {
+    var img = imgList[i];
+    if (!img || !img.data) { urls.push(''); continue; }
+    // 이미 URL이면 그대로 사용
+    if (img.data.startsWith('http')) { urls.push(img.data); continue; }
+    // base64면 업로드
+    try {
+      var url = await uploadImage(img.data, img.name || 'img' + i);
+      urls.push(url);
+    } catch(e) {
+      urls.push('');
+    }
+  }
+  // 8개 슬롯 채우기
+  while (urls.length < 8) urls.push('');
+  return urls;
+}
