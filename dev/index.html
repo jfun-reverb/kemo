@@ -800,6 +800,21 @@ window._supabaseLoaded = false;
               <div class="form-group"><label class="form-label">촬영 가이드</label><textarea id="editCampGuide" class="form-input" style="min-height:100px"></textarea></div>
               <div class="form-group"><label class="form-label">NG 사항</label><textarea id="editCampNg" class="form-input" style="min-height:100px"></textarea></div>
             </div>
+            <!-- 제품 이미지 편집 (최대 8장) -->
+            <div class="form-group">
+              <label class="form-label" style="display:flex;align-items:center;gap:8px">
+                제품 이미지
+                <span style="font-size:11px;font-weight:400;color:var(--muted)">최대 8장 · 첫 번째가 메인 표시</span>
+                <span id="editCampImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
+              </label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:flex-start" id="editCampImgPreviewWrap"></div>
+              <div class="form-hint" style="margin-top:6px">
+                JPG / PNG / WebP · 장당 최대 5MB<br>
+                <span style="color:var(--pink);font-weight:600">※ 이미지는 반드시 <strong>1:1 정사각형</strong> (예: 1080×1080px)으로 업로드해주세요.</span><br>
+                첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지가 됩니다.
+              </div>
+            </div>
+
             <div class="form-group"><label class="form-label">상태</label>
               <select id="editCampStatus" class="form-input">
                 <option value="active">진행중</option><option value="paused">일시정지</option><option value="closed">종료</option>
