@@ -229,11 +229,8 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
 
 // 이미지 버튼 이벤트 위임 (크롭, 다운로드, 삭제)
 document.addEventListener('click', function(e) {
-  console.log('[IMG-BTN] click target:', e.target.tagName, e.target.className, 'data-action:', e.target.getAttribute('data-action'));
   var btn = e.target.closest('button[data-action]');
-  console.log('[IMG-BTN] closest button:', btn);
   if (!btn) return;
-  console.log('[IMG-BTN] action:', btn.getAttribute('data-action'), 'idx:', btn.getAttribute('data-i'));
   e.preventDefault();
   e.stopPropagation();
   var action = btn.getAttribute('data-action');
@@ -284,21 +281,19 @@ function downloadImg(idx, listName) {
 
 // 1:1 크롭 모달
 function openCropModal(idx, listName, wrapId, counterId) {
-  console.log('[CROP] openCropModal called, idx:', idx, 'listName:', listName);
   var list = getImgList(listName);
-  console.log('[CROP] list:', list ? list.length + ' items' : 'NULL');
-  if (!list || !list[idx]) { console.log('[CROP] ABORT: no list or no item at idx'); return; }
+  if (!list || !list[idx]) return;
   _cropTarget = {idx:idx, listName:listName, wrapId:wrapId, counterId:counterId};
   var imgData = list[idx].data;
-  console.log('[CROP] imgData type:', imgData ? (imgData.startsWith('data:') ? 'base64' : 'URL: ' + imgData.substring(0, 50)) : 'EMPTY');
   var cropImg = $('cropImage');
 
   // 외부 URL이면 먼저 canvas로 변환
   function initCropper(src) {
-    console.log('[CROP] initCropper called, src length:', src.length);
     cropImg.src = src;
-    $('cropModal').style.display = 'flex';
-    console.log('[CROP] modal display set to flex');
+    var modal = $('cropModal');
+    // 관리자 페이지(z-index:200, position:fixed) 위에 표시하기 위해 body 끝으로 이동
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
     setTimeout(function() {
       if (_cropperInstance) _cropperInstance.destroy();
       _cropperInstance = new Cropper(cropImg, {
