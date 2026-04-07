@@ -15,7 +15,7 @@ window._supabaseLoaded = false;
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <style>
 /* ══════════════════════════════════
    BASE — 초기화, 변수, 레이아웃 (Material Design 3)
@@ -1000,7 +1000,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <span id="editCampImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
               </label>
               <!-- 드래그앤드롭 업로드 영역 -->
-              <div id="editCampImgDropZone" style="border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;margin-top:8px;transition:all .2s;cursor:pointer;background:var(--bg)" onclick="$('editCampImgFileInput').click()">
+              <div id="editCampImgDropZone" data-img-dropzone="editCampImgData" style="border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;margin-top:8px;transition:all .2s;cursor:pointer;background:var(--bg)" onclick="$('editCampImgFileInput').click()">
                 <input type="file" accept="image/*" multiple style="display:none" id="editCampImgFileInput" onchange="handleEditCampImgSelect(this)">
                 <span class="material-icons-round" style="font-size:36px;color:var(--muted);display:block;margin-bottom:8px">cloud_upload</span>
                 <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">이미지를 드래그하거나 클릭하여 업로드</div>
@@ -1148,7 +1148,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <span id="campImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
               </label>
               <!-- 드래그앤드롭 업로드 영역 -->
-              <div id="campImgDropZone" style="border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;margin-top:8px;transition:all .2s;cursor:pointer;background:var(--bg)" onclick="$('campImgFileInput').click()">
+              <div id="campImgDropZone" data-img-dropzone="campImgData" style="border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;margin-top:8px;transition:all .2s;cursor:pointer;background:var(--bg)" onclick="$('campImgFileInput').click()">
                 <input type="file" accept="image/*" multiple style="display:none" id="campImgFileInput" onchange="handleCampImgSelect(this)">
                 <span class="material-icons-round" style="font-size:36px;color:var(--muted);display:block;margin-bottom:8px">cloud_upload</span>
                 <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">이미지를 드래그하거나 클릭하여 업로드</div>
@@ -1709,24 +1709,33 @@ var _imgLists = {};
 function registerImgList(name, arr) { _imgLists[name] = arr; }
 function getImgList(name) { return _imgLists[name]; }
 
-// 드래그앤드롭 업로드 초기화
-function initImgDropZone(zoneId, fileInputId, listName) {
-  const zone = $(zoneId);
+// 드래그앤드롭 업로드 — 이벤트 위임 방식
+document.addEventListener('dragover', function(e) {
+  var zone = e.target.closest('[data-img-dropzone]');
   if (!zone) return;
-  zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.style.borderColor='var(--pink)'; zone.style.background='var(--light-pink)'; });
-  zone.addEventListener('dragleave', function(e) { e.preventDefault(); zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)'; });
-  zone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)';
-    var files = Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');});
-    if (files.length) {
-      var list = getImgList(listName);
-      var wrapId = listName === 'campImgData' ? 'campImgPreviewWrap' : 'editCampImgPreviewWrap';
-      var counterId = listName === 'campImgData' ? 'campImgCounter' : 'editCampImgCounter';
-      addImagesToList(files, list, wrapId, counterId, listName);
-    }
-  });
-}
+  e.preventDefault();
+  zone.style.borderColor='var(--pink)'; zone.style.background='var(--light-pink)';
+});
+document.addEventListener('dragleave', function(e) {
+  var zone = e.target.closest('[data-img-dropzone]');
+  if (!zone) return;
+  zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)';
+});
+document.addEventListener('drop', function(e) {
+  var zone = e.target.closest('[data-img-dropzone]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)';
+  var listName = zone.dataset.imgDropzone;
+  var list = getImgList(listName);
+  if (!list) return;
+  var files = Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');});
+  if (files.length) {
+    var wrapId = listName === 'campImgData' ? 'campImgPreviewWrap' : 'editCampImgPreviewWrap';
+    var counterId = listName === 'campImgData' ? 'campImgCounter' : 'editCampImgCounter';
+    addImagesToList(files, list, wrapId, counterId, listName);
+  }
+});
 
 function handleCampImgSelect(input) {
   addImagesToList(Array.from(input.files), campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
@@ -3588,10 +3597,8 @@ async function init() {
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
 
-  // 이미지 리스트 등록 + 드래그앤드롭 영역 초기화
+  // 이미지 리스트 등록
   registerImgList('campImgData', campImgData);
-  initImgDropZone('campImgDropZone', 'campImgFileInput', 'campImgData');
-  initImgDropZone('editCampImgDropZone', 'editCampImgFileInput', 'editCampImgData');
 
   // URL 해시가 있으면 해당 페이지로 이동
   const hash = location.hash.replace('#','');

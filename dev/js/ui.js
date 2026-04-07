@@ -150,24 +150,33 @@ var _imgLists = {};
 function registerImgList(name, arr) { _imgLists[name] = arr; }
 function getImgList(name) { return _imgLists[name]; }
 
-// 드래그앤드롭 업로드 초기화
-function initImgDropZone(zoneId, fileInputId, listName) {
-  const zone = $(zoneId);
+// 드래그앤드롭 업로드 — 이벤트 위임 방식
+document.addEventListener('dragover', function(e) {
+  var zone = e.target.closest('[data-img-dropzone]');
   if (!zone) return;
-  zone.addEventListener('dragover', function(e) { e.preventDefault(); zone.style.borderColor='var(--pink)'; zone.style.background='var(--light-pink)'; });
-  zone.addEventListener('dragleave', function(e) { e.preventDefault(); zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)'; });
-  zone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)';
-    var files = Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');});
-    if (files.length) {
-      var list = getImgList(listName);
-      var wrapId = listName === 'campImgData' ? 'campImgPreviewWrap' : 'editCampImgPreviewWrap';
-      var counterId = listName === 'campImgData' ? 'campImgCounter' : 'editCampImgCounter';
-      addImagesToList(files, list, wrapId, counterId, listName);
-    }
-  });
-}
+  e.preventDefault();
+  zone.style.borderColor='var(--pink)'; zone.style.background='var(--light-pink)';
+});
+document.addEventListener('dragleave', function(e) {
+  var zone = e.target.closest('[data-img-dropzone]');
+  if (!zone) return;
+  zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)';
+});
+document.addEventListener('drop', function(e) {
+  var zone = e.target.closest('[data-img-dropzone]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.style.borderColor='var(--line)'; zone.style.background='var(--bg)';
+  var listName = zone.dataset.imgDropzone;
+  var list = getImgList(listName);
+  if (!list) return;
+  var files = Array.from(e.dataTransfer.files).filter(function(f){return f.type.startsWith('image/');});
+  if (files.length) {
+    var wrapId = listName === 'campImgData' ? 'campImgPreviewWrap' : 'editCampImgPreviewWrap';
+    var counterId = listName === 'campImgData' ? 'campImgCounter' : 'editCampImgCounter';
+    addImagesToList(files, list, wrapId, counterId, listName);
+  }
+});
 
 function handleCampImgSelect(input) {
   addImagesToList(Array.from(input.files), campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
