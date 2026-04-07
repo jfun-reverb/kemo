@@ -1828,20 +1828,50 @@ function openCropModal(idx, listName, wrapId, counterId) {
   var list = getImgList(listName);
   if (!list || !list[idx]) return;
   _cropTarget = {idx:idx, listName:listName, wrapId:wrapId, counterId:counterId};
+  var imgData = list[idx].data;
   var cropImg = $('cropImage');
-  cropImg.src = list[idx].data;
-  $('cropModal').style.display = 'flex';
-  setTimeout(function() {
-    if (_cropperInstance) _cropperInstance.destroy();
-    _cropperInstance = new Cropper(cropImg, {
-      aspectRatio: 1,
-      viewMode: 1,
-      dragMode: 'move',
-      autoCropArea: 1,
-      responsive: true,
-      background: false,
-    });
-  }, 100);
+
+  // 외부 URL이면 먼저 canvas로 변환
+  function initCropper(src) {
+    cropImg.src = src;
+    $('cropModal').style.display = 'flex';
+    setTimeout(function() {
+      if (_cropperInstance) _cropperInstance.destroy();
+      _cropperInstance = new Cropper(cropImg, {
+        aspectRatio: 1,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 1,
+        responsive: true,
+        background: false,
+      });
+    }, 200);
+  }
+
+  if (imgData.startsWith('data:')) {
+    initCropper(imgData);
+  } else {
+    // 외부 URL → base64 변환 후 크롭
+    var tempImg = new Image();
+    tempImg.crossOrigin = 'anonymous';
+    tempImg.onload = function() {
+      var canvas = document.createElement('canvas');
+      canvas.width = tempImg.naturalWidth;
+      canvas.height = tempImg.naturalHeight;
+      canvas.getContext('2d').drawImage(tempImg, 0, 0);
+      try {
+        var b64 = canvas.toDataURL('image/jpeg', 0.95);
+        list[idx].data = b64;
+        initCropper(b64);
+      } catch(e) {
+        toast('이미지를 로드할 수 없습니다. 다시 업로드해주세요.','error');
+      }
+    };
+    tempImg.onerror = function() {
+      toast('이미지를 로드할 수 없습니다. 다시 업로드해주세요.','error');
+    };
+    tempImg.src = imgData;
+  }
 }
 
 function closeCropModal() {
