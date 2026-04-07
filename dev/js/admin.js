@@ -261,22 +261,60 @@ async function saveCampaignEdit() {
   }
 }
 
-// 캠페인 삭제
-async function deleteCampaign(campId, campTitle) {
-  if (!confirm(`"${campTitle}" 캠페인을 삭제하시겠습니까?\n\n삭제하면 해당 캠페인의 신청 데이터도 함께 삭제됩니다.`)) return;
+// 캠페인 삭제 — 캠페인 관리자(campaign_admin) 이상만 가능
+function deleteCampaign(campId, campTitle) {
+  // 권한 체크: campaign_admin 또는 super_admin만 삭제 가능
+  var adminInfo = currentAdminInfo;
+  if (!adminInfo || adminInfo.role === 'campaign_manager') {
+    toast('삭제 권한이 없습니다. 캠페인 관리자 이상만 삭제할 수 있습니다.','error');
+    return;
+  }
+  $('deleteCampId').value = campId;
+  $('deleteCampTitle').value = campTitle;
+  $('deleteCampName').textContent = campTitle;
+  $('deleteCampConfirmInput').value = '';
+  $('deleteCampError').style.display = 'none';
+  $('deleteCampBtn').disabled = true;
+  $('deleteCampBtn').style.opacity = '.4';
+  $('deleteCampBtn').style.cursor = 'not-allowed';
+  var modal = $('deleteCampModal');
+  document.body.appendChild(modal);
+  modal.style.display = 'flex';
+}
+
+function checkDeleteConfirm() {
+  var input = $('deleteCampConfirmInput').value.trim();
+  var title = $('deleteCampTitle').value;
+  var btn = $('deleteCampBtn');
+  if (input === title) {
+    btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true; btn.style.opacity = '.4'; btn.style.cursor = 'not-allowed';
+  }
+}
+
+function closeDeleteCampModal() {
+  $('deleteCampModal').style.display = 'none';
+}
+
+async function executeDeleteCampaign() {
+  var campId = $('deleteCampId').value;
+  var input = $('deleteCampConfirmInput').value.trim();
+  var title = $('deleteCampTitle').value;
+  var err = $('deleteCampError');
+  if (input !== title) { err.textContent = '캠페인명이 일치하지 않습니다'; err.style.display = 'block'; return; }
   try {
-    // 신청 데이터 먼저 삭제
     if (db) await db.from('applications').delete().eq('campaign_id', campId);
-    // 캠페인 삭제
     if (db) {
-      const {error} = await db.from('campaigns').delete().eq('id', campId);
-      if (error) throw error;
+      var result = await db.from('campaigns').delete().eq('id', campId);
+      if (result.error) throw result.error;
     }
+    closeDeleteCampModal();
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
     toast('캠페인이 삭제되었습니다','success');
   } catch(e) {
-    toast('삭제 오류: ' + e.message,'error');
+    err.textContent = '삭제 오류: ' + e.message; err.style.display = 'block';
   }
 }
 
@@ -731,7 +769,9 @@ async function loadAdminAccounts() {
   const admins = data || [];
   const roleLabel = r => r === 'super_admin'
     ? '<span class="badge badge-red">슈퍼관리자</span>'
-    : '<span class="badge badge-blue">캠페인관리자</span>';
+    : r === 'campaign_admin'
+    ? '<span class="badge badge-blue">캠페인관리자</span>'
+    : '<span class="badge badge-gray">캠페인매니저</span>';
 
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>
     <td style="font-weight:600">${a.name||'—'}</td>
@@ -757,7 +797,7 @@ async function loadMyAdminInfo() {
   if (!currentAdminInfo) return;
   if ($('myAdminEmail')) $('myAdminEmail').value = currentAdminInfo.email;
   if ($('myAdminName')) $('myAdminName').value = currentAdminInfo.name || '';
-  if ($('myAdminRole')) $('myAdminRole').value = currentAdminInfo.role === 'super_admin' ? '슈퍼관리자' : '캠페인관리자';
+  if ($('myAdminRole')) $('myAdminRole').value = currentAdminInfo.role === 'super_admin' ? '슈퍼관리자' : currentAdminInfo.role === 'campaign_admin' ? '캠페인관리자' : '캠페인매니저';
 }
 
 async function saveMyAdminInfo() {

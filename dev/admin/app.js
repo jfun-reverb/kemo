@@ -39,6 +39,7 @@ async function init() {
 
   currentUser._isAdmin = true;
   currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
+  currentAdminInfo = adminResult.data;
 
   // GNB에 관리자 이름 표시
   var gnbInfo = document.getElementById('adminGnbInfo');
