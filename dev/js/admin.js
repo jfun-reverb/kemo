@@ -147,7 +147,7 @@ async function openEditCampaign(campId) {
   });
 
   // 기존 이미지 로드
-  editCampImgData = [];
+  editCampImgData.length = 0;
   [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8]
     .filter(Boolean).forEach(url => editCampImgData.push({data: url}));
   renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
@@ -156,7 +156,8 @@ async function openEditCampaign(campId) {
 }
 
 // ── 편집용 이미지 관리 ──
-let editCampImgData = [];
+var editCampImgData = [];
+window.editCampImgData = editCampImgData;
 
 function handleEditCampImgSelect(input) {
   addImagesToList(Array.from(input.files), editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter');
