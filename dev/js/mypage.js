@@ -87,10 +87,10 @@ async function saveProfile() {
   };
   try {
     await updateInfluencer(currentUser.id, updated);
-    Object.assign(currentUserProfile, updated);
-    toast('保存しました','success'); loadMyPage();
+    currentUserProfile = Object.assign(currentUserProfile || {}, updated);
+    toast('저장했습니다','success'); loadMyPage();
   } catch(e) {
-    toast('保存エラー: '+e.message,'error');
+    toast('저장 오류: '+e.message,'error');
   }
 }
 
@@ -104,10 +104,10 @@ async function saveBankInfo() {
   };
   try {
     await updateInfluencer(currentUser.id, bankData);
-    Object.assign(currentUserProfile, bankData);
-    toast('口座情報を保存しました','success');
+    currentUserProfile = Object.assign(currentUserProfile || {}, bankData);
+    toast('계좌 정보를 저장했습니다','success');
   } catch(e) {
-    toast('保存エラー: '+e.message,'error');
+    toast('저장 오류: '+e.message,'error');
   }
 }
 
