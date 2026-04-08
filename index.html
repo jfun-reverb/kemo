@@ -381,7 +381,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- ══════════════════════════════════
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
-<div id="page-home" class="page active">
+<div id="page-home" class="page">
   <section class="hero">
     <div class="container hero-inner">
       <div class="hero-eyebrow">🇰🇷 K-Brand × Japan Only</div>
@@ -2018,7 +2018,7 @@ async function openCampaign(id) {
   }
   if (fb) fb.style.display='block';
 
-  navigate('detail');
+  navigate('detail-' + id);
 }
 
 // ══════════════════════════════════════
@@ -2263,6 +2263,12 @@ function switchMyTab(tab, el) {
 function navigate(page, pushHistory) {
   const appShell = $('appShell');
 
+  // detail-{id} 형식 처리
+  let pageName = page;
+  if (page.startsWith('detail-')) {
+    pageName = 'detail';
+  }
+
   // 브라우저 히스토리에 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
     history.pushState({page}, '', '#' + page);
@@ -2277,22 +2283,22 @@ function navigate(page, pushHistory) {
   document.body.style.background = '#E8E0EC';
 
   document.querySelectorAll('#appShell .page').forEach(p => p.classList.remove('active'));
-  const el = $('page-'+page);
+  const el = $('page-'+pageName);
   if (el) el.classList.add('active');
   var _sh = $('appShell'); if(_sh) _sh.scrollTo(0,0); else window.scrollTo(0,0);
 
   const fb = $('detailFloatBar');
-  if (fb && page !== 'detail') fb.style.display = 'none';
+  if (fb && pageName !== 'detail') fb.style.display = 'none';
 
   const tabBar = $('bottomTabBar');
   if (tabBar) {
-    tabBar.style.display = ['login','signup','forgot','reset-pw'].includes(page) ? 'none' : 'flex';
+    tabBar.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : 'flex';
   }
-  updateTabBar(page);
+  updateTabBar(pageName);
 
-  if (page === 'home') loadCampaigns();
-  if (page === 'campaigns') loadCampaignsPage();
-  if (page === 'mypage') {
+  if (pageName === 'home') loadCampaigns();
+  if (pageName === 'campaigns') loadCampaignsPage();
+  if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
     loadMyPage();
   }
@@ -2301,7 +2307,11 @@ function navigate(page, pushHistory) {
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
   const page = e.state?.page || location.hash.replace('#','') || 'home';
-  navigate(page, false);
+  if (page.startsWith('detail-')) {
+    openCampaign(page.replace('detail-',''));
+  } else {
+    navigate(page, false);
+  }
 });
 
 function navigateTab(page, el) {
@@ -2355,7 +2365,10 @@ async function init() {
 
   // URL 해시가 있으면 해당 페이지로 이동
   const hash = location.hash.replace('#','');
-  if (hash && hash !== 'home') {
+  if (hash && hash.startsWith('detail-')) {
+    const campId = hash.replace('detail-','');
+    openCampaign(campId);
+  } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
     history.replaceState({page:'home'}, '', '#home');
@@ -2363,11 +2376,19 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  // 해시에 맞는 페이지를 즉시 활성화 (깜빡임 방지)
+  const initHash = location.hash.replace('#','') || 'home';
+  const initPage = initHash.startsWith('detail-') ? 'detail' : initHash;
+  const initEl = $('page-' + initPage);
+  if (initEl) initEl.classList.add('active');
+  else $('page-home')?.classList.add('active');
+
   allCampaigns = DEMO_CAMPAIGNS.slice();
-  renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
-  updateStats(allCampaigns);
+  if (initPage === 'home') {
+    renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
+    updateStats(allCampaigns);
+  }
   init();
-  var _sh=$('appShell');if(_sh)_sh.scrollTop=0;else window.scrollTo(0,0);
 });
 </script>
 </body>
