@@ -79,26 +79,100 @@ async function loadAdminData() {
 
 let adminCampTypeFilter = 'all';
 
-function switchAdminCampTab(type, btn) {
-  adminCampTypeFilter = type;
-  document.querySelectorAll('[id^="adminCampTab-"]').forEach(b=>{
-    b.style.color='var(--muted)'; b.style.borderBottomColor='transparent'; b.style.fontWeight='600';
+var adminCampSortKey = '';
+var adminCampSortDir = '';
+
+function filterAdminCampaigns() { loadAdminCampaigns(true); }
+
+function toggleCampSort(key) {
+  if (adminCampSortKey === key) {
+    adminCampSortDir = adminCampSortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    adminCampSortKey = key;
+    adminCampSortDir = 'desc';
+  }
+  updateSortArrows();
+  filterAdminCampaigns();
+}
+
+function updateSortArrows() {
+  document.querySelectorAll('.sort-arrows').forEach(el => {
+    el.classList.remove('asc','desc');
+    el.textContent = '▲▼';
+    if (el.dataset.sort === adminCampSortKey) {
+      el.classList.add(adminCampSortDir);
+      el.textContent = adminCampSortDir === 'asc' ? '▲' : '▼';
+    }
   });
-  btn.style.color='var(--pink)'; btn.style.borderBottomColor='var(--pink)'; btn.style.fontWeight='700';
-  const titleEl = $('adminCampTableTitle');
-  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'리뷰어 목록':'기프팅 목록';
-  loadAdminCampaigns();
+}
+
+var adminReorderMode = false;
+
+function resetCampFilters() {
+  adminCampSortKey = '';
+  adminCampSortDir = '';
+  const search = $('adminCampSearch'); if (search) search.value = '';
+  const status = $('adminCampStatusFilter'); if (status) status.value = 'all';
+  const type = $('adminCampTypeFilter'); if (type) type.value = 'all';
+  updateSortArrows();
+}
+
+function enterReorderMode() {
+  resetCampFilters();
+  adminReorderMode = true;
+  filterAdminCampaigns();
+  const btn = $('btnReorderMode');
+  if (btn) { btn.textContent = '순서 변경 완료'; btn.onclick = exitReorderMode; btn.classList.add('btn-primary'); btn.classList.remove('btn-ghost'); }
+}
+
+function exitReorderMode() {
+  adminReorderMode = false;
+  filterAdminCampaigns();
+  const btn = $('btnReorderMode');
+  if (btn) { btn.textContent = '순서 변경'; btn.onclick = enterReorderMode; btn.classList.remove('btn-primary'); btn.classList.add('btn-ghost'); }
 }
 
 async function loadAdminCampaigns(useCache) {
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
-  if (adminCampTypeFilter === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
-  else if (adminCampTypeFilter === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
-  camps = camps.slice().sort((a,b)=>{
-    if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
-    return new Date(b.created_at)-new Date(a.created_at);
-  });
+  if (!useCache) allCampaigns = camps.slice();
+  // タイプフィルタ
+  const typeFilter = $('adminCampTypeFilter')?.value || 'all';
+  if (typeFilter !== 'all') camps = camps.filter(c => c.recruit_type === typeFilter);
+
+  // ステータスフィルタ
+  const statusFilter = $('adminCampStatusFilter')?.value || 'all';
+  if (statusFilter !== 'all') camps = camps.filter(c => c.status === statusFilter);
+
+  // 検索フィルタ
+  const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
+  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal));
+
   const allApps = await fetchApplications();
+
+  // ソート
+  const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
+  if (adminReorderMode) {
+    camps.sort((a,b) => {
+      if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
+      return new Date(b.created_at)-new Date(a.created_at);
+    });
+  } else if (adminCampSortKey) {
+    const dir = adminCampSortDir === 'asc' ? 1 : -1;
+    const getVal = {
+      created: c => new Date(c.created_at).getTime(),
+      updated: c => new Date(c.updated_at||c.created_at).getTime(),
+      views: c => c.view_count||0,
+      apps: c => appCount(c.id)
+    };
+    const fn = getVal[adminCampSortKey];
+    if (fn) camps.sort((a,b) => (fn(a)-fn(b))*dir);
+  } else {
+    camps.sort((a,b) => new Date(b.created_at)-new Date(a.created_at));
+  }
+
+  // フィルタ・検索・ソート中は順序変更を無効化
+  const isFiltered = searchVal || typeFilter !== 'all' || statusFilter !== 'all' || !!adminCampSortKey;
+
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
   const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',paused:'badge-gold',closed:'badge-gray'};
@@ -119,8 +193,8 @@ async function loadAdminCampaigns(useCache) {
     return `<tr data-camp-id="${c.id}">
       <td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
-          <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
-          <button class="btn btn-ghost btn-xs" ${i===camps.length-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
+          <button class="btn btn-ghost btn-xs" ${i===0||!adminReorderMode?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
+          <button class="btn btn-ghost btn-xs" ${i===camps.length-1||!adminReorderMode?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>
       <td>
@@ -132,6 +206,7 @@ async function loadAdminCampaigns(useCache) {
           <div style="min-width:0">
             <strong style="display:block">${c.title}</strong>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.brand}</div>
+            ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
@@ -147,6 +222,7 @@ async function loadAdminCampaigns(useCache) {
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:3px"></div>
           </div>
         </div>
+        ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
       </td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>

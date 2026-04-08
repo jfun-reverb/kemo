@@ -127,16 +127,40 @@
             <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
             <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
           </div>
-          <!-- 카테고리별 탭 -->
-          <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:14px">
-            <button id="adminCampTab-all" onclick="switchAdminCampTab('all',this)" style="padding:7px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">리뷰어</button>
-            <button id="adminCampTab-gifting" onclick="switchAdminCampTab('gifting',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
+          <!-- 필터 + 검색 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <select id="adminCampTypeFilter" onchange="filterAdminCampaigns()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+              <option value="all">전체 타입</option>
+              <option value="monitor">리뷰어</option>
+              <option value="gifting">기프팅</option>
+            </select>
+            <select id="adminCampStatusFilter" onchange="filterAdminCampaigns()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+              <option value="all">전체 상태</option>
+              <option value="draft">준비</option>
+              <option value="scheduled">모집예정</option>
+              <option value="active">모집중</option>
+              <option value="paused">일시정지</option>
+              <option value="closed">종료</option>
+            </select>
+            <div style="position:relative;width:360px">
+              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+              <input type="text" id="adminCampSearch" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
+            </div>
           </div>
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span><span style="font-size:11px;color:var(--muted)">↑↓ 순서 변경 · 클릭으로 상태 변경</span></div>
+            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span><button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button></div>
             <table class="data-table">
-              <thead><tr><th>순서</th><th>캠페인</th><th>상태</th><th>타입</th><th>조회</th><th>신청 / 모집</th><th>등록일</th><th>수정일</th><th></th></tr></thead>
+              <thead><tr>
+  <th>순서</th>
+  <th>캠페인</th>
+  <th>상태</th>
+  <th>타입</th>
+  <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
+  <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">▲▼</span></th>
+  <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">▲▼</span></th>
+  <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
+  <th></th>
+</tr></thead>
               <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>

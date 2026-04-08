@@ -200,6 +200,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 .signup-period-btn.on{background:var(--primary)!important;color:#fff!important}
 .btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:#B3261E;color:#B3261E}
 .btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
+.sort-arrows{cursor:pointer;font-size:9px;color:var(--muted);margin-left:2px;user-select:none;letter-spacing:-1px}
+.sort-arrows:hover{color:var(--primary)}
+.sort-arrows.asc{color:var(--primary)}
+.sort-arrows.asc::after{content:'▲';font-size:9px}
+.sort-arrows.desc{color:var(--primary)}
+.sort-arrows.desc::after{content:'▼';font-size:9px}
+.sort-arrows.asc,.sort-arrows.desc{letter-spacing:0}
 .status-dropdown{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:50;min-width:110px}
 .status-dropdown-item{padding:6px 10px;border-radius:6px;cursor:pointer;transition:background .12s}
 .status-dropdown-item:hover{background:var(--surface-dim)}
@@ -343,16 +350,40 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
             <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
           </div>
-          <!-- 카테고리별 탭 -->
-          <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:14px">
-            <button id="adminCampTab-all" onclick="switchAdminCampTab('all',this)" style="padding:7px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="adminCampTab-monitor" onclick="switchAdminCampTab('monitor',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">리뷰어</button>
-            <button id="adminCampTab-gifting" onclick="switchAdminCampTab('gifting',this)" style="padding:7px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
+          <!-- 필터 + 검색 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <select id="adminCampTypeFilter" onchange="filterAdminCampaigns()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+              <option value="all">전체 타입</option>
+              <option value="monitor">리뷰어</option>
+              <option value="gifting">기프팅</option>
+            </select>
+            <select id="adminCampStatusFilter" onchange="filterAdminCampaigns()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+              <option value="all">전체 상태</option>
+              <option value="draft">준비</option>
+              <option value="scheduled">모집예정</option>
+              <option value="active">모집중</option>
+              <option value="paused">일시정지</option>
+              <option value="closed">종료</option>
+            </select>
+            <div style="position:relative;width:360px">
+              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+              <input type="text" id="adminCampSearch" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
+            </div>
           </div>
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span><span style="font-size:11px;color:var(--muted)">↑↓ 순서 변경 · 클릭으로 상태 변경</span></div>
+            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span><button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button></div>
             <table class="data-table">
-              <thead><tr><th>순서</th><th>캠페인</th><th>상태</th><th>타입</th><th>조회</th><th>신청 / 모집</th><th>등록일</th><th>수정일</th><th></th></tr></thead>
+              <thead><tr>
+  <th>순서</th>
+  <th>캠페인</th>
+  <th>상태</th>
+  <th>타입</th>
+  <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
+  <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">▲▼</span></th>
+  <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">▲▼</span></th>
+  <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
+  <th></th>
+</tr></thead>
               <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>
@@ -1096,6 +1127,13 @@ function loading(v) { document.getElementById('loadingOverlay').classList.toggle
 function $(id) { return document.getElementById(id); }
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('ja-JP') : ''; }
 function formatDateTime(d) { if(!d) return ''; const dt=new Date(d); return dt.toLocaleDateString('ja-JP')+' '+dt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
+function dDayLabel(d) {
+  if (!d) return '';
+  const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
+  const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
+  const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
+  return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+}
 function getChannelLabel(ch) {
   const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10','instagram,x':'Instagram + X'};
   return m[ch] || ch;
@@ -1545,26 +1583,100 @@ async function loadAdminData() {
 
 let adminCampTypeFilter = 'all';
 
-function switchAdminCampTab(type, btn) {
-  adminCampTypeFilter = type;
-  document.querySelectorAll('[id^="adminCampTab-"]').forEach(b=>{
-    b.style.color='var(--muted)'; b.style.borderBottomColor='transparent'; b.style.fontWeight='600';
+var adminCampSortKey = '';
+var adminCampSortDir = '';
+
+function filterAdminCampaigns() { loadAdminCampaigns(true); }
+
+function toggleCampSort(key) {
+  if (adminCampSortKey === key) {
+    adminCampSortDir = adminCampSortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    adminCampSortKey = key;
+    adminCampSortDir = 'desc';
+  }
+  updateSortArrows();
+  filterAdminCampaigns();
+}
+
+function updateSortArrows() {
+  document.querySelectorAll('.sort-arrows').forEach(el => {
+    el.classList.remove('asc','desc');
+    el.textContent = '▲▼';
+    if (el.dataset.sort === adminCampSortKey) {
+      el.classList.add(adminCampSortDir);
+      el.textContent = adminCampSortDir === 'asc' ? '▲' : '▼';
+    }
   });
-  btn.style.color='var(--pink)'; btn.style.borderBottomColor='var(--pink)'; btn.style.fontWeight='700';
-  const titleEl = $('adminCampTableTitle');
-  if (titleEl) titleEl.textContent = type==='all'?'캠페인 목록':type==='monitor'?'리뷰어 목록':'기프팅 목록';
-  loadAdminCampaigns();
+}
+
+var adminReorderMode = false;
+
+function resetCampFilters() {
+  adminCampSortKey = '';
+  adminCampSortDir = '';
+  const search = $('adminCampSearch'); if (search) search.value = '';
+  const status = $('adminCampStatusFilter'); if (status) status.value = 'all';
+  const type = $('adminCampTypeFilter'); if (type) type.value = 'all';
+  updateSortArrows();
+}
+
+function enterReorderMode() {
+  resetCampFilters();
+  adminReorderMode = true;
+  filterAdminCampaigns();
+  const btn = $('btnReorderMode');
+  if (btn) { btn.textContent = '순서 변경 완료'; btn.onclick = exitReorderMode; btn.classList.add('btn-primary'); btn.classList.remove('btn-ghost'); }
+}
+
+function exitReorderMode() {
+  adminReorderMode = false;
+  filterAdminCampaigns();
+  const btn = $('btnReorderMode');
+  if (btn) { btn.textContent = '순서 변경'; btn.onclick = enterReorderMode; btn.classList.remove('btn-primary'); btn.classList.add('btn-ghost'); }
 }
 
 async function loadAdminCampaigns(useCache) {
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
-  if (adminCampTypeFilter === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
-  else if (adminCampTypeFilter === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
-  camps = camps.slice().sort((a,b)=>{
-    if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
-    return new Date(b.created_at)-new Date(a.created_at);
-  });
+  if (!useCache) allCampaigns = camps.slice();
+  // タイプフィルタ
+  const typeFilter = $('adminCampTypeFilter')?.value || 'all';
+  if (typeFilter !== 'all') camps = camps.filter(c => c.recruit_type === typeFilter);
+
+  // ステータスフィルタ
+  const statusFilter = $('adminCampStatusFilter')?.value || 'all';
+  if (statusFilter !== 'all') camps = camps.filter(c => c.status === statusFilter);
+
+  // 検索フィルタ
+  const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
+  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal));
+
   const allApps = await fetchApplications();
+
+  // ソート
+  const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
+  if (adminReorderMode) {
+    camps.sort((a,b) => {
+      if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
+      return new Date(b.created_at)-new Date(a.created_at);
+    });
+  } else if (adminCampSortKey) {
+    const dir = adminCampSortDir === 'asc' ? 1 : -1;
+    const getVal = {
+      created: c => new Date(c.created_at).getTime(),
+      updated: c => new Date(c.updated_at||c.created_at).getTime(),
+      views: c => c.view_count||0,
+      apps: c => appCount(c.id)
+    };
+    const fn = getVal[adminCampSortKey];
+    if (fn) camps.sort((a,b) => (fn(a)-fn(b))*dir);
+  } else {
+    camps.sort((a,b) => new Date(b.created_at)-new Date(a.created_at));
+  }
+
+  // フィルタ・検索・ソート中は順序変更を無効化
+  const isFiltered = searchVal || typeFilter !== 'all' || statusFilter !== 'all' || !!adminCampSortKey;
+
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
   const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
   const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',paused:'badge-gold',closed:'badge-gray'};
@@ -1585,8 +1697,8 @@ async function loadAdminCampaigns(useCache) {
     return `<tr data-camp-id="${c.id}">
       <td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
-          <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
-          <button class="btn btn-ghost btn-xs" ${i===camps.length-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
+          <button class="btn btn-ghost btn-xs" ${i===0||!adminReorderMode?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
+          <button class="btn btn-ghost btn-xs" ${i===camps.length-1||!adminReorderMode?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>
       <td>
@@ -1598,6 +1710,7 @@ async function loadAdminCampaigns(useCache) {
           <div style="min-width:0">
             <strong style="display:block">${c.title}</strong>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.brand}</div>
+            ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
@@ -1613,6 +1726,7 @@ async function loadAdminCampaigns(useCache) {
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:3px"></div>
           </div>
         </div>
+        ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
       </td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
