@@ -377,45 +377,88 @@ window._supabaseLoaded = false;
   </div>
 </div>
 <div id="page-mypage" class="page">
-  <div class="mypage-header">
-    <div class="container">
-      <div class="mypage-profile">
-        <div class="mypage-av" id="mypageAv">U</div>
-        <div>
-          <div class="mypage-name" id="mypageName">—</div>
-          <div class="mypage-handle" id="mypageHandle">—</div>
+  <!-- リスト画面 -->
+  <div id="mypage-list" class="mypage-view active">
+    <div class="mypage-header">
+      <div class="container">
+        <div class="mypage-profile">
+          <div class="mypage-av" id="mypageAv">U</div>
+          <div>
+            <div class="mypage-name" id="mypageName">—</div>
+            <div class="mypage-handle" id="mypageHandle">—</div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-  <div class="container mypage-wrap" style="padding-top:0">
-    <div class="mypage-tabs" style="overflow-x:auto;white-space:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch">
-      <div class="mypage-tab on" onclick="switchMyTab('applications',this)" style="display:inline-block">応募履歴</div>
-      <div class="mypage-tab" onclick="switchMyTab('profile-basic',this)" style="display:inline-block">基本情報</div>
-      <div class="mypage-tab" onclick="switchMyTab('profile-sns',this)" style="display:inline-block">SNSアカウント</div>
-      <div class="mypage-tab" onclick="switchMyTab('profile-address',this)" style="display:inline-block">配送先</div>
-      <div class="mypage-tab" onclick="switchMyTab('bank',this)" style="display:inline-block">振込口座</div>
+    <div class="container mypage-wrap" style="padding-top:0">
+      <div class="mypage-menu">
+        <div class="mypage-menu-item" onclick="openMypageSub('applications')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
+          <span class="mypage-menu-label">応募履歴</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <div class="mypage-menu-item" onclick="openMypageSub('profile-basic')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">person</span>
+          <span class="mypage-menu-label">基本情報</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
+          <span class="mypage-menu-label">SNSアカウント</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
+          <span class="mypage-menu-label">配送先</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <div class="mypage-menu-item" onclick="openMypageSub('bank')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance</span>
+          <span class="mypage-menu-label">振込口座</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <div class="mypage-menu-item" onclick="openMypageSub('password')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
+          <span class="mypage-menu-label">パスワード変更</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+      </div>
+      <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-ghost btn-block" onclick="handleLogout()" style="color:var(--on-surface-variant)">ログアウト</button>
+        <button class="btn btn-ghost btn-block" style="color:var(--muted);font-size:12px" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</button>
+      </div>
     </div>
+  </div>
 
-    <!-- 신청 이력 -->
-    <div id="tab-applications" class="mypage-tab-pane on">
+  <!-- 応募履歴 -->
+  <div id="mypage-sub-applications" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title">応募履歴</span>
+    </div>
+    <div class="container mypage-wrap">
       <div id="myApplicationsList"></div>
     </div>
+  </div>
 
-    <!-- 기본 정보 탭 -->
-    <div id="tab-profile-basic" class="mypage-tab-pane">
+  <!-- 基本情報 -->
+  <div id="mypage-sub-profile-basic" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title">基本情報</span>
+    </div>
+    <div class="container mypage-wrap">
       <div class="card card-pad">
-        <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">基本情報</div>
         <div class="form-group"><label class="form-label">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
         <div class="form-group"><label class="form-label">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
-        <div class="form-group"><label class="form-label">카테고리</label>
+        <div class="form-group"><label class="form-label">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="">選択してください</option>
-            <option value="beauty">뷰티/코스메</option>
-            <option value="food">푸드/그르메</option>
-            <option value="fashion">패션/라이프</option>
-            <option value="health">헬스/웰니스</option>
-            <option value="other">기타</option>
+            <option value="beauty">ビューティー・コスメ</option>
+            <option value="food">フード・グルメ</option>
+            <option value="fashion">ファッション・ライフ</option>
+            <option value="health">ヘルス・ウェルネス</option>
+            <option value="other">その他</option>
           </select>
         </div>
         <div class="form-group"><label class="form-label">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@586mnjocを追加後、IDを入力"></div>
@@ -423,11 +466,16 @@ window._supabaseLoaded = false;
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
       </div>
     </div>
+  </div>
 
-    <!-- SNS 계정 탭 -->
-    <div id="tab-profile-sns" class="mypage-tab-pane">
+  <!-- SNSアカウント -->
+  <div id="mypage-sub-profile-sns" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title">SNSアカウント</span>
+    </div>
+    <div class="container mypage-wrap">
       <div class="card card-pad">
-        <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">SNSアカウント</div>
         <div class="form-group"><label class="form-label">Instagram ID</label>
           <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
           <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
@@ -451,11 +499,16 @@ window._supabaseLoaded = false;
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
       </div>
     </div>
+  </div>
 
-    <!-- 배송지 탭 -->
-    <div id="tab-profile-address" class="mypage-tab-pane">
+  <!-- 配送先 -->
+  <div id="mypage-sub-profile-address" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title">配送先</span>
+    </div>
+    <div class="container mypage-wrap">
       <div class="card card-pad">
-        <div style="font-size:14px;font-weight:700;margin-bottom:16px;color:var(--ink)">配送先住所</div>
         <div class="form-group"><label class="form-label">郵便番号</label>
           <div style="display:flex;gap:8px">
             <input type="text" id="profileZip" class="form-input" placeholder="123-4567" style="flex:1">
@@ -474,57 +527,55 @@ window._supabaseLoaded = false;
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
       </div>
     </div>
+  </div>
 
-    <!-- 계좌 정보 탭 -->
-    <div id="tab-bank" class="mypage-tab-pane">
-      <div style="max-width:580px;display:flex;flex-direction:column;gap:16px">
-
-        <!-- bank info -->
-        <div class="card card-pad">
-          <div style="font-size:15px;font-weight:700;margin-bottom:4px">振込口座の登録</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:18px">リワード（現金）受け取り用の口座情報を登録してください</div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">銀行名</label><input type="text" id="bankName" class="form-input" placeholder="〇〇銀行"></div>
-            <div class="form-group"><label class="form-label">支店名</label><input type="text" id="bankBranch" class="form-input" placeholder="渋谷支店"></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">口座種別</label>
-              <select id="bankType" class="form-input">
-                <option value="普通">普通</option>
-                <option value="当座">当座</option>
-              </select>
-            </div>
-            <div class="form-group"><label class="form-label">口座番号</label><input type="text" id="bankNumber" class="form-input" placeholder="1234567"></div>
-          </div>
-          <div class="form-group"><label class="form-label">口座名義（カタカナ）</label><input type="text" id="bankHolder" class="form-input" placeholder="ヤマダ ハナコ"></div>
-          <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-            ⚠️ 口座情報は安全に暗号化して保管されます。リワード付きキャンペーンに当選した場合のみ使用されます。
-          </div>
-          <button class="btn btn-primary" onclick="saveBankInfo()">口座情報を保存</button>
+  <!-- 振込口座 -->
+  <div id="mypage-sub-bank" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title">振込口座</span>
+    </div>
+    <div class="container mypage-wrap">
+      <div class="card card-pad">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:18px">リワード（現金）受け取り用の口座情報を登録してください</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">銀行名</label><input type="text" id="bankName" class="form-input" placeholder="〇〇銀行"></div>
+          <div class="form-group"><label class="form-label">支店名</label><input type="text" id="bankBranch" class="form-input" placeholder="渋谷支店"></div>
         </div>
-
-        <!-- password change -->
-        <div class="card card-pad">
-          <div style="font-size:15px;font-weight:700;margin-bottom:4px">パスワード変更</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:18px">定期的なパスワード変更をお勧めします</div>
-          <div class="form-group"><label class="form-label">現在のパスワード</label><input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード"></div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">新しいパスワード</label><input type="password" id="newPw" class="form-input" placeholder="8文字以上"></div>
-            <div class="form-group"><label class="form-label">新しいパスワード（確認）</label><input type="password" id="newPw2" class="form-input" placeholder="再入力"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">口座種別</label>
+            <select id="bankType" class="form-input">
+              <option value="普通">普通</option>
+              <option value="当座">当座</option>
+            </select>
           </div>
-          <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
-          <button class="btn btn-primary" onclick="changePassword()">パスワードを変更</button>
+          <div class="form-group"><label class="form-label">口座番号</label><input type="text" id="bankNumber" class="form-input" placeholder="1234567"></div>
         </div>
-
-        <!-- logout -->
-        <div class="card card-pad">
-          <div style="font-size:15px;font-weight:700;margin-bottom:16px">기타</div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="btn btn-ghost btn-block" onclick="handleLogout()">Log Out</button>
-            <button class="btn btn-ghost btn-block" style="color:var(--muted);font-size:12px" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</button>
-          </div>
+        <div class="form-group"><label class="form-label">口座名義（カタカナ）</label><input type="text" id="bankHolder" class="form-input" placeholder="ヤマダ ハナコ"></div>
+        <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
+          ⚠️ 口座情報は安全に暗号化して保管されます。リワード付きキャンペーンに当選した場合のみ使用されます。
         </div>
+        <button class="btn btn-primary btn-block" onclick="saveBankInfo()">口座情報を保存</button>
+      </div>
+    </div>
+  </div>
 
+  <!-- パスワード変更 -->
+  <div id="mypage-sub-password" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title">パスワード変更</span>
+    </div>
+    <div class="container mypage-wrap">
+      <div class="card card-pad">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:18px">定期的なパスワード変更をお勧めします</div>
+        <div class="form-group"><label class="form-label">現在のパスワード</label><input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード"></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">新しいパスワード</label><input type="password" id="newPw" class="form-input" placeholder="8文字以上"></div>
+          <div class="form-group"><label class="form-label">新しいパスワード（確認）</label><input type="password" id="newPw2" class="form-input" placeholder="再入力"></div>
+        </div>
+        <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <button class="btn btn-primary btn-block" onclick="changePassword()">パスワードを変更</button>
       </div>
     </div>
   </div>
