@@ -31,16 +31,22 @@
 - 회원가입: 1단계 폼 (이름 한자/가나 + 이메일 + 비밀번호), 추가정보는 마이페이지에서 입력
 - 로그인/로그아웃: 이메일+비밀번호, 세션 복원, 관리자 로그인 시 admin 페이지 자동 오픈
 - 비밀번호 재설정: 이메일 입력 → Supabase 재설정 메일 발송 → 앱 내 새 비밀번호 설정 (#page-forgot, #page-reset-pw)
+- GNB: 비로그인 시 Log In/Sign Up 버튼, 로그인 시 버튼 없음 (Admin만 관리자용), 마이페이지/로그아웃은 바텀탭에서 접근
 - 캠페인 목록: 채널필터(동적 생성), 모집유형 필터(모니터/기프팅)
-- 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA
+- 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트
 - 캠페인 신청: 필수정보 사전체크(채널별 SNS/주소/전화/은행) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지
-- 마이페이지: 프로필 편집(기본/SNS/주소/전화/은행), 신청내역 확인, 비밀번호 변경
+- 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/振込口座/パスワード変更/ログアウト
 - 바텀탭: 홈 / キャンペーン / マイページ
 
 ## Features — 관리자 (PC)
-- 대시보드: KPI 카드(캠페인수/인플루언서수/신청수/승인수), 최근 신청 테이블
-- 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경(order_index)
-- 캠페인 상태: draft(準備) → scheduled(近日公開) → active(募集中) → paused(一時停止) → closed(마감)
+- 사이드바: Material Icons, 접기/펼치기 토글 (햄버거 버튼)
+- 대시보드: KPI 카드(캠페인수/인플루언서수/신청수/승인수), 회원가입 추이 차트(Chart.js, 7일/30일/전체 필터), 오늘/이번주 가입 KPI, 프로필 완성률(SNS별/배송지/계좌), 최근 신청 테이블
+- 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경 모드(버튼 토글)
+- 캠페인 목록: 썸네일+이미지수 표시, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨(게시마감/모집마감)
+- 캠페인 상태: draft(준비) → scheduled(모집예정) → active(모집중) → paused(일시정지) → closed(종료), 드롭다운으로 변경
+- 캠페인 자동 종료: deadline 경과 시 active → closed 자동 변경 (클라이언트 체크)
+- 마감일 검증: post_deadline >= deadline 필수, 인라인 경고 + 저장 차단
+- 조회수: campaigns.view_count 컬럼, 캠페인 상세 열 때 +1, 관리자 목록에 표시
 - 이미지 관리: 드래그앤드롭 업로드, 크롭, 미리보기, Supabase Storage 저장
 - 신청 관리: 캠페인별 신청자 목록, 승인/거절 처리
 - 인플루언서 관리: 채널별 필터, 상세 프로필 조회
@@ -48,7 +54,7 @@
 - 내 계정: 이름/비밀번호 변경
 
 ## Database Schema (Supabase)
-- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, status, img1~img8 등)
+- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, status, view_count, img1~img8 등)
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보 등)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status)
 - `admins` — 관리자 계정 (auth_id, email, name, role)
