@@ -205,7 +205,7 @@ async function openCampaign(id) {
   }
   if (fb) fb.style.display='block';
 
-  navigate('detail');
+  navigate('detail-' + id);
 }
 
 // ══════════════════════════════════════
