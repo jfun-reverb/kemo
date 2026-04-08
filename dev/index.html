@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>REVERB</title>
+<title>REVERB Seeding</title>
 <script>
 // Supabase stub — replaced by real CDN below if available
 window._supabaseLoaded = false;
@@ -282,7 +282,60 @@ window._supabaseLoaded = false;
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Log In</button>
       </form>
+      <div class="auth-forgot"><a onclick="navigate('forgot')">パスワードをお忘れですか？</a></div>
       <div class="auth-switch">Don't have an account? <a onclick="navigate('signup')">Sign Up</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: FORGOT PASSWORD
+══════════════════════════════════ -->
+<div id="page-forgot" class="page">
+  <div class="auth-wrap">
+    <div class="auth-card fade-up">
+      <div class="auth-logo">
+        <div class="auth-logo-mark">R</div>
+        <div class="auth-title">パスワード再設定</div>
+        <div class="auth-sub">登録したメールアドレスを入力してください。<br>パスワード再設定用のメールをお送りします。</div>
+      </div>
+      <form id="forgotForm" onsubmit="handleForgotPassword(event)">
+        <div class="form-group">
+          <label class="form-label">メールアドレス</label>
+          <input type="email" id="forgotEmail" class="form-input" placeholder="your@email.com" required>
+        </div>
+        <div id="forgotError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <div id="forgotSuccess" class="form-success" style="margin-bottom:10px;display:none"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="forgotBtn">リセットメールを送信</button>
+      </form>
+      <div class="auth-switch"><a onclick="navigate('login')">ログインに戻る</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: RESET PASSWORD
+══════════════════════════════════ -->
+<div id="page-reset-pw" class="page">
+  <div class="auth-wrap">
+    <div class="auth-card fade-up">
+      <div class="auth-logo">
+        <div class="auth-logo-mark">R</div>
+        <div class="auth-title">新しいパスワード</div>
+        <div class="auth-sub">新しいパスワードを入力してください。</div>
+      </div>
+      <form id="resetPwForm" onsubmit="handleResetPassword(event)">
+        <div class="form-group">
+          <label class="form-label">新しいパスワード（8文字以上）</label>
+          <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">パスワード確認</label>
+          <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
+        </div>
+        <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn">パスワードを変更</button>
+      </form>
     </div>
   </div>
 </div>

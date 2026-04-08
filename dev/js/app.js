@@ -28,7 +28,7 @@ function navigate(page, pushHistory) {
 
   const tabBar = $('bottomTabBar');
   if (tabBar) {
-    tabBar.style.display = ['login','signup'].includes(page) ? 'none' : 'flex';
+    tabBar.style.display = ['login','signup','forgot','reset-pw'].includes(page) ? 'none' : 'flex';
   }
   updateTabBar(page);
 
@@ -77,6 +77,15 @@ async function init() {
     }
   }
   updateGnb();
+
+  // パスワードリカバリーイベント検知
+  if (db) {
+    db.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('reset-pw');
+      }
+    });
+  }
 
   // 캠페인 불러오기
   allCampaigns = await fetchCampaigns();

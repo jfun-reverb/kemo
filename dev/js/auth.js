@@ -125,6 +125,93 @@ async function handleLogout() {
   toast('Logged out'); updateGnb(); navigate('home');
 }
 
+// ── パスワード再設定 ──
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  const email = $('forgotEmail').value.trim();
+  const errEl = $('forgotError');
+  const successEl = $('forgotSuccess');
+  const btn = $('forgotBtn');
+
+  errEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  if (!db) {
+    errEl.textContent = 'サーバーに接続できません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const redirectUrl = location.origin + '/#reset-pw';
+    const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+    } else {
+      successEl.textContent = 'メールを送信しました。メールボックスをご確認ください。';
+      successEl.style.display = 'block';
+      $('forgotForm').reset();
+    }
+  } catch (err) {
+    errEl.textContent = 'エラーが発生しました';
+    errEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'リセットメールを送信';
+}
+
+async function handleResetPassword(e) {
+  e.preventDefault();
+  const pw = $('resetPwNew').value;
+  const pw2 = $('resetPwConfirm').value;
+  const errEl = $('resetPwError');
+  const btn = $('resetPwBtn');
+
+  errEl.style.display = 'none';
+
+  if (pw.length < 8) {
+    errEl.textContent = 'パスワードは8文字以上で入力してください';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (pw !== pw2) {
+    errEl.textContent = 'パスワードが一致しません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!db) {
+    errEl.textContent = 'サーバーに接続できません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const {error} = await db.auth.updateUser({password: pw});
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+    } else {
+      toast('パスワードが変更されました ✓', 'success');
+      navigate('login');
+    }
+  } catch (err) {
+    errEl.textContent = 'エラーが発生しました';
+    errEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'パスワードを変更';
+}
+
 // ── SIGNUP STEP NAVIGATION ──
 function goStep(step) {
   if (step === 2) {

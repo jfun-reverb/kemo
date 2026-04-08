@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>REVERB</title>
+<title>REVERB Seeding</title>
 <script>
 // Supabase stub — replaced by real CDN below if available
 window._supabaseLoaded = false;
@@ -271,6 +271,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 .auth-switch{text-align:center;font-size:13px;color:var(--on-surface-variant);margin-top:20px}
 .auth-switch a{color:var(--primary);font-weight:600;cursor:pointer}
 .auth-switch a:hover{text-decoration:underline}
+.auth-forgot{text-align:right;margin-top:-4px;margin-bottom:12px}
+.auth-forgot a{font-size:12px;color:var(--on-surface-variant);cursor:pointer}
+.auth-forgot a:hover{color:var(--primary);text-decoration:underline}
+.form-success{background:#e8f5e9;color:#2e7d32;padding:10px 12px;border-radius:var(--r8);font-size:13px;line-height:1.5}
 /* ══════════════════════════════════
    MY PAGE — 마이페이지 (Material Design 3)
 ══════════════════════════════════ */
@@ -553,7 +557,60 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Log In</button>
       </form>
+      <div class="auth-forgot"><a onclick="navigate('forgot')">パスワードをお忘れですか？</a></div>
       <div class="auth-switch">Don't have an account? <a onclick="navigate('signup')">Sign Up</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: FORGOT PASSWORD
+══════════════════════════════════ -->
+<div id="page-forgot" class="page">
+  <div class="auth-wrap">
+    <div class="auth-card fade-up">
+      <div class="auth-logo">
+        <div class="auth-logo-mark">R</div>
+        <div class="auth-title">パスワード再設定</div>
+        <div class="auth-sub">登録したメールアドレスを入力してください。<br>パスワード再設定用のメールをお送りします。</div>
+      </div>
+      <form id="forgotForm" onsubmit="handleForgotPassword(event)">
+        <div class="form-group">
+          <label class="form-label">メールアドレス</label>
+          <input type="email" id="forgotEmail" class="form-input" placeholder="your@email.com" required>
+        </div>
+        <div id="forgotError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <div id="forgotSuccess" class="form-success" style="margin-bottom:10px;display:none"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="forgotBtn">リセットメールを送信</button>
+      </form>
+      <div class="auth-switch"><a onclick="navigate('login')">ログインに戻る</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: RESET PASSWORD
+══════════════════════════════════ -->
+<div id="page-reset-pw" class="page">
+  <div class="auth-wrap">
+    <div class="auth-card fade-up">
+      <div class="auth-logo">
+        <div class="auth-logo-mark">R</div>
+        <div class="auth-title">新しいパスワード</div>
+        <div class="auth-sub">新しいパスワードを入力してください。</div>
+      </div>
+      <form id="resetPwForm" onsubmit="handleResetPassword(event)">
+        <div class="form-group">
+          <label class="form-label">新しいパスワード（8文字以上）</label>
+          <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">パスワード確認</label>
+          <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
+        </div>
+        <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn">パスワードを変更</button>
+      </form>
     </div>
   </div>
 </div>
@@ -1624,6 +1681,93 @@ async function handleLogout() {
   toast('Logged out'); updateGnb(); navigate('home');
 }
 
+// ── パスワード再設定 ──
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  const email = $('forgotEmail').value.trim();
+  const errEl = $('forgotError');
+  const successEl = $('forgotSuccess');
+  const btn = $('forgotBtn');
+
+  errEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  if (!db) {
+    errEl.textContent = 'サーバーに接続できません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const redirectUrl = location.origin + '/#reset-pw';
+    const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+    } else {
+      successEl.textContent = 'メールを送信しました。メールボックスをご確認ください。';
+      successEl.style.display = 'block';
+      $('forgotForm').reset();
+    }
+  } catch (err) {
+    errEl.textContent = 'エラーが発生しました';
+    errEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'リセットメールを送信';
+}
+
+async function handleResetPassword(e) {
+  e.preventDefault();
+  const pw = $('resetPwNew').value;
+  const pw2 = $('resetPwConfirm').value;
+  const errEl = $('resetPwError');
+  const btn = $('resetPwBtn');
+
+  errEl.style.display = 'none';
+
+  if (pw.length < 8) {
+    errEl.textContent = 'パスワードは8文字以上で入力してください';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (pw !== pw2) {
+    errEl.textContent = 'パスワードが一致しません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!db) {
+    errEl.textContent = 'サーバーに接続できません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const {error} = await db.auth.updateUser({password: pw});
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+    } else {
+      toast('パスワードが変更されました ✓', 'success');
+      navigate('login');
+    }
+  } catch (err) {
+    errEl.textContent = 'エラーが発生しました';
+    errEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'パスワードを変更';
+}
+
 // ── SIGNUP STEP NAVIGATION ──
 function goStep(step) {
   if (step === 2) {
@@ -2135,7 +2279,7 @@ function navigate(page, pushHistory) {
 
   const tabBar = $('bottomTabBar');
   if (tabBar) {
-    tabBar.style.display = ['login','signup'].includes(page) ? 'none' : 'flex';
+    tabBar.style.display = ['login','signup','forgot','reset-pw'].includes(page) ? 'none' : 'flex';
   }
   updateTabBar(page);
 
@@ -2184,6 +2328,15 @@ async function init() {
     }
   }
   updateGnb();
+
+  // パスワードリカバリーイベント検知
+  if (db) {
+    db.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('reset-pw');
+      }
+    });
+  }
 
   // 캠페인 불러오기
   allCampaigns = await fetchCampaigns();
