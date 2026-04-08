@@ -29,7 +29,8 @@
 }
 
 /* Material Design 타이포그래피 */
-body{font-family:'Noto Sans JP','Noto Sans KR',sans-serif;background:#E8E0EC;color:var(--on-surface);font-size:14px;line-height:1.6;min-height:100vh;display:flex;justify-content:center;-webkit-font-smoothing:antialiased}
+body{font-family:'Noto Sans JP','Noto Sans KR',sans-serif;background:#fff;color:var(--on-surface);font-size:14px;line-height:1.6;min-height:100vh;display:flex;justify-content:center;-webkit-font-smoothing:antialiased}
+@media(min-width:481px){body{background:#E8E0EC}}
 a{text-decoration:none;color:inherit}
 button,input,select,textarea{font-family:inherit;outline:none}
 button{cursor:pointer;border:none;background:none}
