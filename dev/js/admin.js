@@ -135,6 +135,8 @@ async function loadAdminCampaigns() {
           </div>
         </div>
       </td>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
       <td style="white-space:nowrap"><div style="display:flex;gap:4px">
         <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
         <button class="btn btn-ghost btn-xs" onclick="duplicateCampaign('${c.id}')">복제</button>
@@ -142,7 +144,7 @@ async function loadAdminCampaigns() {
         <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteCampaign('${c.id}','${c.title.replace(/'/g,'')}')">삭제</button>
       </div></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
 }
 
 // ── 캠페인 편집 ──
