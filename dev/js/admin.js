@@ -781,7 +781,7 @@ async function addCampaign() {
   await insertCampaign(camp);
   toast('캠페인이 등록되었습니다 🎉','success');
   campImgData.length = 0;
-  renderCampImgPreview();
+  renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
    'newCampSlots','newCampDeadline','newCampPostDeadline','newCampDesc',
