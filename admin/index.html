@@ -468,8 +468,8 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group"><label class="form-label">리워드 금액 (¥)</label><input type="number" id="editCampReward" class="form-input" min="0"><div class="form-hint">0엔 = 제품 제공만</div></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input"></div>
-              <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input"></div>
+              <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"></div>
+              <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div></div>
             </div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="editCampDesc" class="form-input"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -620,11 +620,12 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="date" id="newCampDeadline" class="form-input">
+                <input type="date" id="newCampDeadline" class="form-input" onchange="validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn')">
               </div>
               <div class="form-group">
                 <label class="form-label">게시 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="date" id="newCampPostDeadline" class="form-input">
+                <input type="date" id="newCampPostDeadline" class="form-input" onchange="validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn')">
+                <div id="newPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div>
                 <div class="form-hint">제품 수령 후 이 날짜까지 게시해주세요</div>
               </div>
             </div>
@@ -1009,10 +1010,29 @@ async function fetchCampaigns() {
   try {
     const {data, error} = await db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false});
     if (error) throw error;
-    return (data && data.length > 0) ? data : DEMO_CAMPAIGNS.slice();
+    if (data && data.length > 0) { await autoCloseCampaigns(data); return data; }
+    return DEMO_CAMPAIGNS.slice();
   } catch(e) {
     return DEMO_CAMPAIGNS.slice();
   }
+}
+
+// 마감일 경과 캠페인 자동 상태 변경
+async function autoCloseCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  for (const c of camps) {
+    if (c.status === 'active' && c.deadline) {
+      const dl = new Date(c.deadline);
+      dl.setHours(23, 59, 59, 999);
+      if (now > dl) {
+        c.status = 'closed';
+        await db.from('campaigns').update({ status: 'closed' }).eq('id', c.id).then(() => {});
+      }
+    }
+  }
+  return camps;
 }
 
 async function insertCampaign(camp) {
@@ -1837,6 +1857,19 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
+function validateDeadlines(deadlineId, postDeadlineId, warnId) {
+  const dl = $(deadlineId)?.value;
+  const pdl = $(postDeadlineId)?.value;
+  const warn = $(warnId);
+  if (!warn) return;
+  if (dl && pdl && new Date(pdl) < new Date(dl)) {
+    warn.textContent = '게시 마감일은 모집 마감일 이후여야 합니다';
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
 async function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
@@ -1845,6 +1878,13 @@ async function saveCampaignEdit() {
     const title = gv('editCampTitle').trim();
     const brand = gv('editCampBrand').trim();
     if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
+
+    const editDeadline = gv('editCampDeadline');
+    const editPostDeadline = gv('editCampPostDeadline');
+    if (editPostDeadline && editDeadline && new Date(editPostDeadline) < new Date(editDeadline)) {
+      toast('게시 마감일은 모집 마감일 이후여야 합니다','error');
+      return;
+    }
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
@@ -2409,6 +2449,11 @@ async function addCampaign() {
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
   if (!title||!brand||!product||!deadline) {
     toast('필수 항목을 모두 입력해주세요','error');
+    return;
+  }
+  const postDeadline = $('newCampPostDeadline')?.value;
+  if (postDeadline && deadline && new Date(postDeadline) < new Date(deadline)) {
+    toast('게시 마감일은 모집 마감일 이후여야 합니다','error');
     return;
   }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};

@@ -231,8 +231,8 @@
               <div class="form-group"><label class="form-label">리워드 금액 (¥)</label><input type="number" id="editCampReward" class="form-input" min="0"><div class="form-hint">0엔 = 제품 제공만</div></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input"></div>
-              <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input"></div>
+              <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"></div>
+              <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div></div>
             </div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="editCampDesc" class="form-input"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -383,11 +383,12 @@
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="date" id="newCampDeadline" class="form-input">
+                <input type="date" id="newCampDeadline" class="form-input" onchange="validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn')">
               </div>
               <div class="form-group">
                 <label class="form-label">게시 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="date" id="newCampPostDeadline" class="form-input">
+                <input type="date" id="newCampPostDeadline" class="form-input" onchange="validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn')">
+                <div id="newPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div>
                 <div class="form-hint">제품 수령 후 이 날짜까지 게시해주세요</div>
               </div>
             </div>
