@@ -7,22 +7,18 @@ async function openCampaign(id) {
   if (!camp) return;
   currentCampaignId = id;
 
-  // Check if already applied
+  // 조회수 증가 (非同期、UIブロックしない)
+  incrementViewCount(id).catch(()=>{});
+
   let alreadyApplied = false;
   if (currentUser) {
-    if (DEMO_MODE) {
-      const apps = demoGetApps();
-      alreadyApplied = apps.some(a=>a.user_id===currentUser.id && a.campaign_id===id);
-    } else {
-      const {data} = await db?.from('applications').select('id').eq('user_id',currentUser.id).eq('campaign_id',id).maybeSingle();
-      alreadyApplied = !!data;
-    }
+    alreadyApplied = await checkDuplicateApplication(currentUser.id, id);
   }
 
   const isFull = (camp.applied_count||0) >= camp.slots;
   _slideIdx = 0;
 
-  // スライドイメージ
+  // 슬라이드 이미지
   const slideImgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url]
     .filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
 
@@ -32,8 +28,8 @@ async function openCampaign(id) {
         ${slideImgs.map(url=>`<div style="min-width:100%;height:100%;flex-shrink:0"><img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.style.background='${getCampGrad(camp.category)}'"></div>`).join('')}
       </div>
       ${slideImgs.length>1?`
-        <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)">‹</button>
-        <button onclick="slideMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)">›</button>
+        <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round" style="font-size:20px;color:#333">chevron_left</span></button>
+        <button onclick="slideMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round" style="font-size:20px;color:#333">chevron_right</span></button>
         <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
           ${slideImgs.map((_,i)=>`<div onclick="slideTo(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
@@ -62,7 +58,7 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集タイプ</div>
             <div style="padding:10px 13px;flex:1;font-size:12px">
-              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">モニター</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">ギフティング</span>':'—'}
+              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Reviewer</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Gifting</span>':'—'}
             </div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
@@ -191,7 +187,7 @@ async function openCampaign(id) {
     </div>
     <div class="detail-sidebar" style="display:none"></div>`;
 
-  // フロートバー設定
+  // 하단 고정 바 설정
   const fb = $('detailFloatBar');
   const floatName = $('floatProductName');
   const floatReward = $('floatProductReward');
@@ -212,7 +208,7 @@ async function openCampaign(id) {
   }
   if (fb) fb.style.display='block';
 
-  navigate('detail');
+  navigate('detail-' + id);
 }
 
 // ══════════════════════════════════════
@@ -250,31 +246,28 @@ async function submitApplication() {
     created_at: new Date().toISOString()
   };
 
-  if (DEMO_MODE) {
-    const apps = demoGetApps();
-    if (apps.some(a=>a.user_id===currentUser.id && a.campaign_id===currentCampaignId)) {
-      toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
-    }
-    apps.push(app); demoSaveApps(apps);
-  } else {
-    // 重複チェック
-    const apps = demoGetApps();
-    if (apps.some(a=>a.user_id===currentUser.id && a.campaign_id===currentCampaignId)) {
-      toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
-    }
-    apps.push(app); demoSaveApps(apps);
-    if (db) {
-      try { await db?.from('applications').insert({user_id:currentUser.id,campaign_id:currentCampaignId,message:msg,address:addr,status:'pending'}); } catch(e){}
-    }
+  const isDuplicate = await checkDuplicateApplication(currentUser.id, currentCampaignId);
+  if (isDuplicate) {
+    toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
   }
-  // applied_count 更新 (localStorage + メモリ)
-  const camps = JSON.parse(localStorage.getItem('kemo_campaigns')||'[]');
-  const ci = camps.findIndex(c=>c.id===currentCampaignId);
-  if (ci>=0) { camps[ci].applied_count=(camps[ci].applied_count||0)+1; localStorage.setItem('kemo_campaigns',JSON.stringify(camps)); }
-  const di = DEMO_CAMPAIGNS.findIndex(c=>c.id===currentCampaignId);
-  if (di>=0) DEMO_CAMPAIGNS[di].applied_count=(DEMO_CAMPAIGNS[di].applied_count||0)+1;
-  const ai = allCampaigns.findIndex(c=>c.id===currentCampaignId);
-  if (ai>=0) allCampaigns[ai].applied_count=(allCampaigns[ai].applied_count||0)+1;
+
+  try {
+    await insertApplication({
+      user_id: currentUser.id, user_email: currentUser.email,
+      user_name: currentUserProfile?.name || currentUser.email,
+      user_followers: currentUserProfile?.followers || 0,
+      user_ig: currentUserProfile?.ig || '',
+      campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
+    });
+    // 신청수 업데이트
+    const camp = allCampaigns.find(c=>c.id===currentCampaignId);
+    if (camp) {
+      camp.applied_count = (camp.applied_count||0) + 1;
+      await updateCampaign(currentCampaignId, {applied_count: camp.applied_count}).catch(()=>{});
+    }
+  } catch(e) {
+    toast('応募エラー: '+e.message,'error'); closeModal('applyModal'); return;
+  }
 
   closeModal('applyModal');
   toast('応募完了！結果はメールでお知らせします ✉️','success');
@@ -286,6 +279,31 @@ function handleFloatApply() {
   if (!currentUser) {
     const o = $('loginPromptOverlay');
     if (o) { o.style.display='flex'; }
+    return;
+  }
+  // 필수 정보 체크: 캠페인 채널에 맞는 SNS 계정 + 배송지
+  const p = currentUserProfile || {};
+  const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
+  const ch = (camp.channel || '').toLowerCase();
+  const missing = [];
+  // 캠페인 채널에 맞는 SNS 계정 체크
+  if (ch.includes('instagram') && !p.ig) missing.push('Instagram ID');
+  if (ch.includes('x') && !p.x) missing.push('X(Twitter) ID');
+  if (ch.includes('tiktok') && !p.tiktok) missing.push('TikTok ID');
+  if (ch.includes('youtube') && !p.youtube) missing.push('YouTube ID');
+  if (ch.includes('qoo10') && !p.ig) missing.push('Instagram ID');
+  // SNS 계정이 하나도 없으면 기본적으로 Instagram 체크
+  if (!ch && !p.ig) missing.push('Instagram ID');
+  if (!p.address && !p.zip) missing.push('配送先住所');
+  if (!p.phone) missing.push('電話番号');
+  if (!p.bank_name) missing.push('振込口座');
+  if (missing.length > 0) {
+    $('profileAlertMissing').innerHTML = missing.map(m =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
+        <span class="material-icons-round" style="font-size:18px;color:var(--pink)">warning</span>${m}
+      </div>`
+    ).join('');
+    $('profileAlertOverlay').style.display = 'flex';
     return;
   }
   openApplyModal(currentCampaignId);

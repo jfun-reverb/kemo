@@ -1,31 +1,50 @@
 /* ══════════════════════════════════
-   BASE — リセット・変数・レイアウト
+   BASE — 초기화, 변수, 레이아웃 (Material Design 3)
 ══════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --red:#C878A3;--red-d:#56475D;--red-l:#FDF0F7;
+  /* Material Design 색상 */
+  --primary:#C878A3;--primary-dark:#7D4A6A;--primary-light:#FDF0F7;--primary-container:#FDF0F7;
+  --on-primary:#fff;--on-primary-container:#7D4A6A;
+  --surface:#fff;--surface-dim:#F5F0F5;--surface-container:#FDFBFD;--surface-container-low:#F8F5F8;
+  --on-surface:#1E1320;--on-surface-variant:#7A6B78;--outline:#EDE6ED;--outline-variant:#E0D8E0;
   --ink:#1E1320;--muted:#7A6B78;--line:#EDE6ED;--bg:#FDFBFD;
   --green:#0E7E4A;--green-l:#F0FBF5;--gold:#9B6E3A;--gold-l:#FFF5E8;
   --blue:#56475D;--blue-l:#F0EBF5;--white:#fff;
+  --red:#C878A3;--red-d:#56475D;--red-l:#FDF0F7;
   --pink:#C878A3;--baby-pink:#E0B8CA;--dark-pink:#7D4A6A;--light-pink:#FDF0F7;--ink2:#2D1F2B;
-  --r8:8px;--r12:12px;--r16:16px;--r24:24px;
-  --sh:0 2px 16px rgba(200,120,163,.08),0 1px 4px rgba(0,0,0,.03);
-  --sh-hover:0 8px 32px rgba(200,120,163,.18),0 2px 8px rgba(0,0,0,.06);
-  --tab-h:60px;
+
+  /* Material Design radius */
+  --r8:8px;--r12:12px;--r16:16px;--r24:24px;--r-full:9999px;
+
+  /* Material Design elevation */
+  --elevation-1:0 1px 3px 1px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --elevation-2:0 2px 6px 2px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --elevation-3:0 4px 8px 3px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.06);
+  --elevation-4:0 6px 10px 4px rgba(0,0,0,.08),0 2px 3px rgba(0,0,0,.06);
+
+  --sh:var(--elevation-1);
+  --sh-hover:var(--elevation-3);
+  --tab-h:64px;
 }
 
-/* Mobile app background */
-body{font-family:'Noto Sans JP','Noto Sans KR',sans-serif;background:#E8E0EC;color:var(--ink);font-size:14px;line-height:1.6;min-height:100vh;display:flex;justify-content:center}
+/* Material Design 타이포그래피 */
+html,body{height:100%;overflow:hidden}
+body{font-family:'Noto Sans JP','Noto Sans KR',sans-serif;background:#fff;color:var(--on-surface);font-size:14px;line-height:1.6;display:flex;justify-content:center;-webkit-font-smoothing:antialiased;margin:0;padding:0}
+@media(min-width:481px){body{background:#E8E0EC}}
 a{text-decoration:none;color:inherit}
 button,input,select,textarea{font-family:inherit;outline:none}
 button{cursor:pointer;border:none;background:none}
 img{display:block;max-width:100%}
 
+/* Material Icons 크기 */
+.material-icons-round{font-size:24px;vertical-align:middle}
+
 /* Mobile app shell */
-#appShell{width:100%;max-width:480px;min-height:100vh;background:#fff;position:relative;box-shadow:0 0 40px rgba(0,0,0,.18);overflow-x:hidden;overflow-y:auto;}
+#appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
 
 /* ── LAYOUT ── */
-.page{display:none}.page.active{display:block}
+.page{display:none}.page.active{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .container{max-width:480px;width:100%;margin:0 auto;padding:0 16px}
 .container-sm{max-width:480px;margin:0 auto;padding:0 16px}
 .container-md{max-width:480px;margin:0 auto;padding:0 16px}

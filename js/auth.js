@@ -1,25 +1,18 @@
 // ══════════════════════════════════════
-// AUTH — ログイン・会員登録・ログアウト
+// AUTH — 로그인, 회원가입, 로그아웃
 // ══════════════════════════════════════
 
 function updateGnb() {
   const gnbRight = $('gnbRight');
   if (currentUser) {
-    const initial = (currentUserProfile?.name || currentUser.email || 'U')[0].toUpperCase();
-    const isAdmin = currentUser.email === ADMIN_EMAIL;
-    gnbRight.innerHTML = `
-      <div class="gnb-user">
-        <div class="gnb-user-av">${initial}</div>
-        <span>${currentUserProfile?.name || currentUser.email}</span>
-      </div>
-      ${isAdmin ? `<button class="gnb-btn gnb-btn-ghost" onclick="navigate('admin')">管理者</button>` : ''}
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('mypage')">マイページ</button>
-      <span class="gnb-logout" onclick="handleLogout()">ログアウト</span>
-    `;
+    const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
+    gnbRight.innerHTML = isAdmin
+      ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.open('/admin/','_blank')">Admin</button>`
+      : '';
   } else {
     gnbRight.innerHTML = `
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">ログイン</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">無料登録</button>
+      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>
+      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">Sign Up</button>
     `;
   }
 }
@@ -31,60 +24,46 @@ async function handleSignup(e) {
   const email = $('signupEmail').value.trim();
   const pw = $('signupPw').value;
   const pw2 = $('signupPw2').value;
-  const ig = $('signupIg').value.trim();
-  const xUrl = $('signupX').value.trim();
-  const igFollowers = parseInt($('signupIgFollowers').value)||0;
-  const xFollowers = parseInt($('signupXFollowers').value)||0;
-  const tiktok = $('signupTiktok').value.trim();
-  const tiktokFollowers = parseInt($('signupTiktokFollowers').value)||0;
-  const youtube = $('signupYoutube').value.trim();
-  const youtubeFollowers = parseInt($('signupYoutubeFollowers').value)||0;
-  const lineId = $('signupLine').value.trim();
-  const category = $('signupCategory').value;
-  const bio = $('signupBio').value.trim();
-  const zip = $('signupZip').value.trim();
-  const prefecture = $('signupPrefecture').value;
-  const city = $('signupCity').value.trim();
-  const building = $('signupBuilding').value.trim();
-  const phone = $('signupPhone').value.trim();
-  const address = `〒${zip} ${prefecture}${city}${building?' '+building:''}`;
   const errEl = $('signupError');
   const btn = $('signupBtn');
 
   errEl.style.display='none';
-  if (pw !== pw2) { errEl.textContent='パスワードが一致しません'; errEl.style.display='block'; return; }
-  if (!zip || !prefecture || !city) { errEl.textContent='配送先住所を入力してください'; errEl.style.display='block'; return; }
+  if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
+  if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
+  if (pw.length < 8) { errEl.textContent='Password must be 8+ characters'; errEl.style.display='block'; return; }
 
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
-  const userData = {email,pw,name,ig,x:xUrl,ig_followers:igFollowers,x_followers:xFollowers,
-    tiktok,tiktok_followers:tiktokFollowers,youtube,youtube_followers:youtubeFollowers,
-    line_id:lineId,followers:igFollowers+xFollowers+tiktokFollowers+youtubeFollowers,
-    category,address,zip,prefecture,city,building,phone,bio,created_at:new Date().toISOString()};
+  const userData = {
+    email, name, name_kanji: name, name_kana: nameKana,
+    created_at: new Date().toISOString()
+  };
 
-  await new Promise(r=>setTimeout(r,500));
-  const users = demoGetUsers();
-  if (users.find(u=>u.email===email)) {
-    errEl.textContent='このメールアドレスはすでに使用されています'; errEl.style.display='block';
-    btn.disabled=false; btn.textContent='登録完了 ✓'; return;
+  if (!db) {
+    errEl.textContent='Cannot connect to server'; errEl.style.display='block';
+    btn.disabled=false; btn.textContent='Sign Up ✓'; return;
   }
-  const user = {id:'user-'+Date.now(),...userData};
-  users.push(user); demoSaveUsers(users);
-  localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({id:user.id,email}));
-  currentUser = {id:user.id,email}; currentUserProfile = user;
 
-  if (!DEMO_MODE && db) {
-    try {
-      const {data,error} = await (db?.auth.signUp({email,password:pw}) || {data:null,error:true});
-      if (!error && data.user?.id) {
-        await db?.from('influencers').upsert({id:data.user.id,...userData});
+  try {
+    const {data, error} = await db.auth.signUp({email, password: pw});
+    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up ✓'; return; }
+    if (data.user?.id) {
+      try {
+        await upsertInfluencer({id: data.user.id, ...userData});
+      } catch(dbErr) {
+        // DB 저장 실패해도 Auth 계정은 생성됨 — 로그인 후 프로필 저장 가능
       }
-    } catch(e) {}
+      currentUser = {id: data.user.id, email};
+      currentUserProfile = {id: data.user.id, ...userData};
+    }
+  } catch(e) {
+    errEl.textContent='Sign up error: ' + (e.message || String(e)); errEl.style.display='block';
+    btn.disabled=false; btn.textContent='Sign Up ✓'; return;
   }
 
-  toast('登録完了！ようこそ 🎉','success');
+  toast('Welcome to REVERB! 🎉','success');
   updateGnb();
-  btn.disabled=false; btn.textContent='登録完了 ✓';
+  btn.disabled=false; btn.textContent='Sign Up ✓';
   navigate('home');
 }
 
@@ -96,65 +75,134 @@ async function handleLogin(e) {
   const btn = $('loginBtn');
   errEl.style.display='none'; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
-  if (DEMO_MODE) {
-    await new Promise(r=>setTimeout(r,600));
-    if (email===ADMIN_EMAIL && pw==='admin1234') {
-      currentUser={id:'admin',email:ADMIN_EMAIL};
-      currentUserProfile={name:'管理者',email:ADMIN_EMAIL};
-      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:'admin',email:ADMIN_EMAIL}));
-      toast('管理者としてログインしました','success'); updateGnb();
-      setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-      btn.disabled=false; btn.textContent='ログイン'; return;
-    }
-    const users = demoGetUsers();
-    const user = users.find(u=>u.email===email && u.pw===pw);
-    if (!user) { errEl.textContent='メールアドレスまたはパスワードが正しくありません'; errEl.style.display='block'; btn.disabled=false; btn.textContent='ログイン'; return; }
-    localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:user.id,email}));
-    currentUser={id:user.id,email}; currentUserProfile=user;
-    toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-  } else {
-    const localUsers = demoGetUsers();
-    const localUser = localUsers.find(u=>u.email===email && u.pw===pw);
-    if (localUser) {
-      localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:localUser.id,email}));
-      currentUser={id:localUser.id,email}; currentUserProfile=localUser;
-      if (email===ADMIN_EMAIL) {
-        toast('管理者としてログインしました','success'); updateGnb();
-        setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-      } else {
-        toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-      }
-      btn.disabled=false; btn.textContent='ログイン'; return;
-    }
-    if (db) {
-      try {
-        const {data,error} = await db.auth.signInWithPassword({email,password:pw});
-        if (!error && data.user) {
-          currentUser = data.user;
-          localStorage.setItem(DEMO_SESSION_KEY,JSON.stringify({id:data.user.id,email}));
-          if (email===ADMIN_EMAIL) {
-            currentUserProfile={name:'管理者',email:ADMIN_EMAIL};
-            toast('管理者としてログインしました','success'); updateGnb();
-            setTimeout(()=>{ navigate('admin'); loadAdminData(); }, 100);
-          } else {
-            const {data:profile} = await db?.from('influencers').select('*').eq('id',data.user.id).maybeSingle();
-            currentUserProfile = profile;
-            toast('ログインしました 👋','success'); updateGnb(); navigate('home');
-          }
-          btn.disabled=false; btn.textContent='ログイン'; return;
-        }
-      } catch(e) {}
-    }
-    errEl.textContent='メールアドレスまたはパスワードをご確認ください'; errEl.style.display='block';
+  if (!db) {
+    errEl.textContent='Cannot connect to server'; errEl.style.display='block';
+    btn.disabled=false; btn.textContent='Log In'; return;
   }
-  btn.disabled=false; btn.textContent='ログイン';
+
+  try {
+    const {data, error} = await db.auth.signInWithPassword({email, password: pw});
+    if (error) {
+      errEl.textContent='Please check your email or password'; errEl.style.display='block';
+      btn.disabled=false; btn.textContent='Log In'; return;
+    }
+    currentUser = data.user;
+    // 관리자 테이블에서 확인
+    const {data:adminData} = await db.from('admins').select('*').eq('auth_id', data.user.id).maybeSingle();
+    if (adminData) {
+      currentUser._isAdmin = true;
+      currentUserProfile = {name: adminData.name || 'Admin', email};
+      toast('Logged in as Admin','success'); updateGnb();
+      setTimeout(() => { window.open('/admin/', '_blank'); }, 500);
+    } else {
+      const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
+      currentUserProfile = profile;
+      // 프로필이 없으면 기본 프로필 생성 (회원가입 시 RLS로 실패한 경우)
+      if (!profile) {
+        try {
+          await upsertInfluencer({id: data.user.id, email, created_at: new Date().toISOString()});
+          currentUserProfile = {id: data.user.id, email};
+        } catch(e) {}
+      }
+      toast('Welcome back 👋','success'); updateGnb(); navigate('home');
+    }
+  } catch(e) {
+    errEl.textContent='Login error occurred'; errEl.style.display='block';
+  }
+  btn.disabled=false; btn.textContent='Log In';
 }
 
 async function handleLogout() {
-  if (DEMO_MODE) { localStorage.removeItem(DEMO_SESSION_KEY); }
-  else if (db) { try { await db.auth.signOut(); } catch(e){} }
+  if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
-  toast('ログアウトしました'); updateGnb(); navigate('home');
+  toast('Logged out'); updateGnb(); navigate('home');
+}
+
+// ── パスワード再設定 ──
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  const email = $('forgotEmail').value.trim();
+  const errEl = $('forgotError');
+  const successEl = $('forgotSuccess');
+  const btn = $('forgotBtn');
+
+  errEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  if (!db) {
+    errEl.textContent = 'サーバーに接続できません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const redirectUrl = location.origin + '/#reset-pw';
+    const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+    } else {
+      successEl.textContent = 'メールを送信しました。メールボックスをご確認ください。';
+      successEl.style.display = 'block';
+      $('forgotForm').reset();
+    }
+  } catch (err) {
+    errEl.textContent = 'エラーが発生しました';
+    errEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'リセットメールを送信';
+}
+
+async function handleResetPassword(e) {
+  e.preventDefault();
+  const pw = $('resetPwNew').value;
+  const pw2 = $('resetPwConfirm').value;
+  const errEl = $('resetPwError');
+  const btn = $('resetPwBtn');
+
+  errEl.style.display = 'none';
+
+  if (pw.length < 8) {
+    errEl.textContent = 'パスワードは8文字以上で入力してください';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (pw !== pw2) {
+    errEl.textContent = 'パスワードが一致しません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!db) {
+    errEl.textContent = 'サーバーに接続できません';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  try {
+    const {error} = await db.auth.updateUser({password: pw});
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = 'block';
+    } else {
+      toast('パスワードが変更されました ✓', 'success');
+      navigate('login');
+    }
+  } catch (err) {
+    errEl.textContent = 'エラーが発生しました';
+    errEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'パスワードを変更';
 }
 
 // ── SIGNUP STEP NAVIGATION ──
@@ -166,18 +214,18 @@ function goStep(step) {
     const pw = $('signupPw')?.value;
     const pw2 = $('signupPw2')?.value;
     const err = $('step1Error');
-    if (!kanji || !kana) { err.textContent='お名前を入力してください'; err.style.display='block'; return; }
-    if (!email) { err.textContent='メールアドレスを入力してください'; err.style.display='block'; return; }
-    if (!pw || pw.length < 8) { err.textContent='パスワードは8文字以上で入力してください'; err.style.display='block'; return; }
-    if (pw !== pw2) { err.textContent='パスワードが一致しません'; err.style.display='block'; return; }
+    if (!kanji || !kana) { err.textContent='Please enter your name'; err.style.display='block'; return; }
+    if (!email) { err.textContent='Please enter your email'; err.style.display='block'; return; }
+    if (!pw || pw.length < 8) { err.textContent='Password must be 8+ characters'; err.style.display='block'; return; }
+    if (pw !== pw2) { err.textContent='Passwords do not match'; err.style.display='block'; return; }
     err.style.display='none';
   }
   if (step === 3) {
     const ig = $('signupIg')?.value.trim();
     const igF = $('signupIgFollowers')?.value;
     const err = $('step2Error');
-    if (!ig) { err.textContent='Instagram IDを入力してください（必須）'; err.style.display='block'; return; }
-    if (!igF) { err.textContent='Instagramフォロワー数を入力してください（必須）'; err.style.display='block'; return; }
+    if (!ig) { err.textContent='Please enter Instagram ID (required)'; err.style.display='block'; return; }
+    if (!igF) { err.textContent='Please enter Instagram followers (required)'; err.style.display='block'; return; }
     err.style.display='none';
   }
   [1,2,3].forEach(s => {
