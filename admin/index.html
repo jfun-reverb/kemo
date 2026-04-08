@@ -2678,6 +2678,14 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  // 해시에 맞는 패널을 즉시 활성화 (깜빡임 방지)
+  var initHash = location.hash.replace('#','') || 'dashboard';
+  if (initHash !== 'dashboard') {
+    document.querySelectorAll('.admin-pane').forEach(function(p) { p.classList.remove('on'); });
+    var initPane = document.getElementById('adminPane-' + initHash);
+    if (initPane) initPane.classList.add('on');
+  }
+
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();
 });
