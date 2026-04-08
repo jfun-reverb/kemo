@@ -55,17 +55,23 @@
   </div>
   <div class="admin-layout">
     <aside class="admin-side">
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" onclick="toggleAdminSidebar()" id="sidebarToggleBtn" title="메뉴 접기/펼치기">
+          <span class="material-icons-round" style="font-size:20px">menu</span>
+        </button>
+        <span class="sidebar-toggle-label">MENU</span>
+      </div>
       <div class="admin-si-lbl">대시보드</div>
-      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)">◉ 전체 현황</div>
+      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
       <div class="admin-si-lbl">캠페인</div>
-      <div class="admin-si" onclick="switchAdminPane('campaigns',this)">📣 캠페인 관리</div>
-      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)">＋ 신규 등록</div>
+      <div class="admin-si" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
+      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)"><span class="si-icon material-icons-round">add_circle</span><span class="si-text">신규 등록</span></div>
       <div class="admin-si-lbl">회원 관리</div>
-      <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ 인플루언서 목록</div>
-      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 신청 관리</div>
+      <div class="admin-si" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
-      <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)">🔑 관리자 계정</div>
-      <div class="admin-si" onclick="switchAdminPane('my-account',this)">👤 내 정보</div>
+      <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+      <div class="admin-si" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
     </aside>
     <main class="admin-main">
 

@@ -179,13 +179,27 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* ══════════════════════════════════
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
-.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px)}
-.admin-side{background:#1A0F18;padding:12px 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;flex-shrink:0}
-.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent}
+.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);transition:grid-template-columns .25s ease}
+.admin-layout.collapsed{grid-template-columns:56px 1fr}
+.admin-side{background:#1A0F18;padding:12px 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
+.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
 .admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
-.admin-si-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.25);padding:20px 20px 6px;text-transform:uppercase}
+.admin-si-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.25);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;overflow:hidden}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
+.sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:0 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0}
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:rgba(255,255,255,.6);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
+.sidebar-toggle:hover{background:rgba(255,255,255,.12);color:#fff}
+.sidebar-toggle:active{background:rgba(255,255,255,.18)}
+.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.35);transition:opacity .2s}
+.admin-layout.collapsed .sidebar-toggle-wrap{justify-content:center;padding:4px 0;margin:0 0 8px}
+.admin-layout.collapsed .sidebar-toggle-label{opacity:0;width:0;overflow:hidden}
+.si-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center}
+.si-text{transition:opacity .2s}
+.admin-layout.collapsed .admin-si{padding:12px 0;justify-content:center;margin-right:0;border-radius:0;border-left:none}
+.admin-layout.collapsed .si-text{opacity:0;width:0;overflow:hidden}
+.admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
+.admin-layout.collapsed .admin-si-badge{display:none}
 .admin-main{background:var(--surface-container-low);overflow-y:auto}
 
 .admin-body{padding:24px}
@@ -278,17 +292,23 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
   <div class="admin-layout">
     <aside class="admin-side">
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" onclick="toggleAdminSidebar()" id="sidebarToggleBtn" title="메뉴 접기/펼치기">
+          <span class="material-icons-round" style="font-size:20px">menu</span>
+        </button>
+        <span class="sidebar-toggle-label">MENU</span>
+      </div>
       <div class="admin-si-lbl">대시보드</div>
-      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)">◉ 전체 현황</div>
+      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
       <div class="admin-si-lbl">캠페인</div>
-      <div class="admin-si" onclick="switchAdminPane('campaigns',this)">📣 캠페인 관리</div>
-      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)">＋ 신규 등록</div>
+      <div class="admin-si" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
+      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)"><span class="si-icon material-icons-round">add_circle</span><span class="si-text">신규 등록</span></div>
       <div class="admin-si-lbl">회원 관리</div>
-      <div class="admin-si" onclick="switchAdminPane('influencers',this)">✦ 인플루언서 목록</div>
-      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)">📋 신청 관리</div>
+      <div class="admin-si" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
-      <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)">🔑 관리자 계정</div>
-      <div class="admin-si" onclick="switchAdminPane('my-account',this)">👤 내 정보</div>
+      <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+      <div class="admin-si" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
     </aside>
     <main class="admin-main">
 
@@ -1563,7 +1583,7 @@ async function loadAdminData() {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `📋 신청 관리${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
 
   // Recent apps
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -2764,6 +2784,14 @@ function renderProfileCompletion(users) {
 // ══════════════════════════════════════
 // ADMIN APP — 관리자 페이지 초기화
 // ══════════════════════════════════════
+
+// サイドバー折りたたみ
+function toggleAdminSidebar() {
+  const layout = document.querySelector('.admin-layout');
+  layout.classList.toggle('collapsed');
+  const icon = $('sidebarToggleBtn').querySelector('.material-icons-round');
+  icon.textContent = layout.classList.contains('collapsed') ? 'menu_open' : 'menu';
+}
 
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)
 function navigate(page) {
