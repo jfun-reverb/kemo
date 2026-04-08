@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REVERB JP — Service Flow</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Noto Sans KR','Noto Sans JP',sans-serif; background:#f5f3f7; color:#1a0f18; }
+
+  .header {
+    background:linear-gradient(135deg,#2D1F2B 0%,#3d2a3b 100%);
+    color:#fff; padding:32px 40px;
+    border-bottom:3px solid #C878A3;
+  }
+  .header h1 { font-size:22px; font-weight:800; letter-spacing:-.02em; }
+  .header p { font-size:13px; color:rgba(255,255,255,.55); margin-top:6px; }
+
+  .toc {
+    max-width:1200px; margin:24px auto; padding:0 24px;
+    display:flex; flex-wrap:wrap; gap:8px;
+  }
+  .toc a {
+    display:inline-block; padding:6px 14px; border-radius:20px;
+    background:#fff; color:#2D1F2B; font-size:12px; font-weight:600;
+    text-decoration:none; border:1px solid #e8e0ec;
+    transition:all .2s;
+  }
+  .toc a:hover { background:#C878A3; color:#fff; border-color:#C878A3; }
+
+  .section { max-width:1200px; margin:32px auto; padding:0 24px; }
+  .section h2 {
+    font-size:15px; font-weight:700; margin-bottom:14px;
+    padding:10px 16px; border-radius:8px;
+    background:linear-gradient(90deg,#2D1F2B,#3d2a3b);
+    color:#fff; display:flex; align-items:center; gap:8px;
+  }
+  .section h2 .num {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%; background:#C878A3;
+    font-size:11px; font-weight:800; color:#fff;
+  }
+  .chart-wrap {
+    background:#fff; border-radius:12px; padding:28px;
+    box-shadow:0 2px 12px rgba(45,31,43,.06);
+    margin-bottom:24px; overflow-x:auto;
+    border:1px solid #ebe6ef;
+  }
+  .chart-desc {
+    font-size:12px; color:#8B7A8E; margin-bottom:16px;
+    padding:8px 12px; background:#faf8fb; border-radius:6px;
+    border-left:3px solid #C878A3;
+  }
+
+  .legend {
+    display:flex; gap:20px; flex-wrap:wrap; margin:20px auto;
+    max-width:1200px; padding:0 24px;
+  }
+  .legend-item { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:500; }
+  .legend-dot { width:14px; height:14px; border-radius:4px; }
+
+  .footer {
+    text-align:center; padding:40px 24px 32px; color:#b8a8be; font-size:11px;
+    border-top:1px solid #ebe6ef; margin-top:16px;
+  }
+
+  /* ── 호버 인터랙션 ── */
+  /* Mermaid 10: 엣지 = path.flowchart-link (g.edgePaths 안), 노드 = g.node, 라벨 = g.edgeLabel */
+  .chart-wrap svg .node,
+  .chart-wrap svg .flowchart-link,
+  .chart-wrap svg .edgeLabel,
+  .chart-wrap svg .cluster {
+    transition: opacity .25s ease, filter .25s ease;
+  }
+  .chart-wrap.dimmed svg .node,
+  .chart-wrap.dimmed svg .flowchart-link,
+  .chart-wrap.dimmed svg .edgeLabel,
+  .chart-wrap.dimmed svg .cluster {
+    opacity: .12;
+    filter: grayscale(.7);
+  }
+  .chart-wrap.dimmed svg .node.highlight,
+  .chart-wrap.dimmed svg .flowchart-link.highlight,
+  .chart-wrap.dimmed svg .edgeLabel.highlight {
+    opacity: 1;
+    filter: none;
+  }
+  .chart-wrap.dimmed svg .flowchart-link.highlight {
+    stroke-width: 3.5px !important;
+    stroke: #C878A3 !important;
+  }
+  .chart-wrap.dimmed svg .node.highlight rect,
+  .chart-wrap.dimmed svg .node.highlight polygon,
+  .chart-wrap.dimmed svg .node.highlight circle,
+  .chart-wrap.dimmed svg .node.highlight .label-container {
+    filter: drop-shadow(0 0 8px rgba(200,120,163,.55));
+  }
+  /* 커서 + 히트 영역 */
+  .chart-wrap svg .node { cursor: pointer; }
+  .chart-wrap svg .flowchart-link {
+    cursor: pointer;
+    pointer-events: stroke;
+    stroke-width: 2px;
+  }
+  .chart-wrap svg .flowchart-link:hover {
+    stroke-width: 5px;
+    stroke: #C878A3;
+  }
+
+  /* 툴팁 */
+  .flow-tooltip {
+    position: fixed; pointer-events: none; z-index: 9999;
+    background: #2D1F2B; color: #fff; padding: 6px 12px;
+    border-radius: 6px; font-size: 11px; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    opacity: 0; transition: opacity .15s;
+    max-width: 240px; white-space: nowrap;
+  }
+  .flow-tooltip.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>REVERB JP — Service Flow Chart</h1>
+  <p>인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-04-08</p>
+</div>
+
+<div class="toc">
+  <a href="#sec1">1. 전체 서비스 플로우</a>
+  <a href="#sec2">2. 인플루언서 사용자 플로우</a>
+  <a href="#sec3">3. 캠페인 상태 라이프사이클</a>
+  <a href="#sec4">4. 캠페인 신청 플로우</a>
+  <a href="#sec5">5. 관리자 워크플로우</a>
+  <a href="#sec6">6. 회원가입 / 인증 플로우</a>
+  <a href="#sec7">7. 신청 심사 플로우</a>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#C878A3"></div>인플루언서 액션</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#5B7CFF"></div>관리자 액션</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#28C76F"></div>시스템 자동 / 완료</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#FF9F43"></div>상태 / 조건</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#B3261E"></div>차단 / 에러</div>
+</div>
+
+<!-- 1. 전체 서비스 플로우 -->
+<div class="section" id="sec1">
+  <h2><span class="num">1</span>전체 서비스 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">브랜드(관리자)가 캠페인을 등록하고, 인플루언서가 신청 → 심사 → 상품발송 → SNS게시까지의 전체 흐름</div>
+    <pre class="mermaid">
+flowchart TB
+  subgraph ADMIN["🔧 관리자 (PC)"]
+    A1[관리자 로그인] --> A2[캠페인 등록<br/>25+ 필드 입력]
+    A2 --> A2V{마감일 검증}
+    A2V -->|post_deadline < deadline| A2E[경고 + 저장 차단]
+    A2V -->|OK| A3{상태 설정}
+    A3 -->|draft| A4[準備中 — 비공개]
+    A3 -->|scheduled| A5[近日公開 — 목록 노출]
+    A3 -->|active| A6[募集中 — 신청 가능]
+    A4 --> A3
+    A5 --> A3
+    A6 --> A7{deadline 경과?}
+    A7 -->|Yes| A8[자동 closed]
+    A7 -->|No| A6
+    A8 --> A9{post_deadline 남음?}
+    A9 -->|Yes| A10[募集締切 — 목록 노출 유지]
+    A9 -->|No| A11[완전 비노출]
+  end
+
+  subgraph USER["📱 인플루언서 (모바일 480px)"]
+    U1[앱 접속] --> U2[홈 — 캠페인 목록]
+    U2 --> U2F[채널 필터 · 모집유형 필터]
+    U2F --> U3[캠페인 상세<br/>조회수 +1]
+    U3 --> U4{신청 조건 체크}
+    U4 -->|비로그인| U5[로그인 오버레이]
+    U5 --> U6[로그인/회원가입]
+    U6 --> U3
+    U4 -->|프로필 부족| U7[필수정보 안내 오버레이<br/>SNS·주소·전화·계좌]
+    U7 --> U8[마이페이지에서 입력]
+    U8 --> U3
+    U4 -->|모집마감| U9[募集締切 표시]
+    U4 -->|OK| U10[신청 모달<br/>동기 + 배송지 + PR동의]
+    U10 --> U11[신청 완료 ✓]
+  end
+
+  subgraph REVIEW["📋 신청 심사"]
+    R1[관리자 — 신청 목록] --> R2{심사}
+    R2 -->|承認| R3[상품 발송]
+    R2 -->|非承認| R4[미승인 통보]
+    R3 --> R5[인플루언서 — 상품 수령]
+    R5 --> R6[SNS 게시<br/>post_deadline까지]
+    R6 --> R7[LINE 게시 링크 전송]
+    R7 --> R8[캠페인 완료 ✓]
+  end
+
+  A6 --> U2
+  A10 --> U2
+  U11 --> R1
+
+  style ADMIN fill:#F0F4FF,stroke:#5B7CFF,stroke-width:2px
+  style USER fill:#FFF0F6,stroke:#C878A3,stroke-width:2px
+  style REVIEW fill:#F0FFF4,stroke:#28C76F,stroke-width:2px
+  style A2E fill:#B3261E,color:#fff
+    </pre>
+  </div>
+</div>
+
+<!-- 2. 인플루언서 사용자 플로우 -->
+<div class="section" id="sec2">
+  <h2><span class="num">2</span>인플루언서 사용자 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">모바일 앱(480px)에서 인플루언서가 수행하는 모든 사용자 플로우 — 캠페인 탐색, 신청, 마이페이지</div>
+    <pre class="mermaid">
+flowchart LR
+  START([앱 접속]) --> HOME[홈 화면<br/>캠페인수 · 브랜드수]
+
+  HOME --> CAMPS[캠페인 탐색]
+  CAMPS --> FILTER{필터}
+  FILTER -->|채널 탭<br/>IG·X·TikTok·YT·Qoo10| CAMPS
+  FILTER -->|모집유형<br/>모니터·기프팅| CAMPS
+  CAMPS --> DETAIL[캠페인 상세<br/>조회수 +1]
+
+  DETAIL --> CAROUSEL[이미지 캐러셀<br/>최대 9장]
+  DETAIL --> INFO[상품정보 · 모집조건<br/>참가방법 · 가이드라인]
+  DETAIL --> CTA[LINE · Instagram CTA]
+
+  DETAIL --> CHECK{신청 조건}
+  CHECK -->|비로그인| LOGIN[로그인 오버레이]
+  LOGIN --> DETAIL
+  CHECK -->|프로필 부족| MYPAGE_FILL[필수정보 입력 안내]
+  MYPAGE_FILL --> DETAIL
+  CHECK -->|모집마감| BLOCKED[募集締切]
+  CHECK -->|정원초과| FULL[募集終了]
+  CHECK -->|응모済| APPLIED[応募済み]
+  CHECK -->|OK| APPLY[신청 모달]
+  APPLY --> DONE([신청 완료])
+
+  HOME --> MY[マイページ]
+  MY --> MY_LIST[메뉴 리스트]
+  MY_LIST --> MY_APP[応募履歴<br/>審査中·承認·非承認]
+  MY_LIST --> MY_BASIC[基本情報<br/>이름·카테고리·LINE·자기소개]
+  MY_LIST --> MY_SNS[SNSアカウント<br/>IG·X·TikTok·YT]
+  MY_LIST --> MY_ADDR[配送先<br/>우편번호·주소·전화]
+  MY_LIST --> MY_BANK[振込口座<br/>은행·지점·계좌]
+  MY_LIST --> MY_PW[パスワード変更]
+  MY_LIST --> MY_DEL[退会]
+  MY_LIST --> LOGOUT[ログアウト]
+
+  style START fill:#C878A3,color:#fff
+  style DONE fill:#28C76F,color:#fff
+  style BLOCKED fill:#B3261E,color:#fff
+  style FULL fill:#FF9F43,color:#fff
+  style APPLIED fill:#8B7A8E,color:#fff
+    </pre>
+  </div>
+</div>
+
+<!-- 3. 캠페인 상태 라이프사이클 -->
+<div class="section" id="sec3">
+  <h2><span class="num">3</span>캠페인 상태 라이프사이클</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">캠페인의 5가지 상태(draft→scheduled→active→paused→closed)와 전환 조건, 노출 규칙</div>
+    <pre class="mermaid">
+stateDiagram-v2
+  [*] --> draft: 캠페인 등록
+
+  draft --> scheduled: 관리자 상태 변경
+  draft --> active: 관리자 상태 변경 (deadline 유효시)
+
+  scheduled --> active: 관리자 상태 변경
+  scheduled --> draft: 관리자 상태 변경
+
+  active --> paused: 관리자 일시정지
+  active --> closed: 관리자 수동 종료
+  active --> closed: deadline 경과 (자동)
+
+  paused --> active: 관리자 재개 (deadline 미경과시만)
+  paused --> closed: 관리자 종료
+
+  closed --> draft: 관리자 재등록
+
+  note right of draft
+    準備中 — 비공개
+    목록 미노출
+  end note
+  note right of scheduled
+    近日公開 — 목록 노출
+    신청 불가
+  end note
+  note right of active
+    募集中 — 목록 노출
+    신청 가능
+    deadline 경과 시 자동 closed
+  end note
+  note right of paused
+    一時停止 — 목록 미노출
+    deadline 경과시 active 전환 차단
+  end note
+  note right of closed
+    모집마감
+    post_deadline 남으면 → 募集締切로 목록 유지
+    post_deadline 경과 → 완전 비노출
+  end note
+    </pre>
+  </div>
+</div>
+
+<!-- 4. 캠페인 신청 플로우 -->
+<div class="section" id="sec4">
+  <h2><span class="num">4</span>캠페인 신청 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">인플루언서가 캠페인에 신청하기까지의 상세 체크 과정 — 인증, 프로필 완성도, 중복 체크</div>
+    <pre class="mermaid">
+flowchart TB
+  START([신청 버튼 클릭]) --> AUTH{로그인 상태?}
+  AUTH -->|No| OVERLAY[로그인 오버레이<br/>로그인·회원가입 버튼]
+  OVERLAY --> LOGIN[로그인 처리]
+  LOGIN --> AUTH
+  AUTH -->|Yes| STATUS{캠페인 상태?}
+
+  STATUS -->|closed| CLOSED_END[募集締切<br/>버튼 비활성]
+  STATUS -->|active| DUP{중복 신청?}
+  DUP -->|Yes| DUP_END[応募済み<br/>재신청 불가]
+  DUP -->|No| PROFILE{프로필 체크}
+
+  PROFILE --> CH_CHECK{채널별 SNS ID?}
+  PROFILE --> ADDR_CHECK{배송지?}
+  PROFILE --> PHONE_CHECK{전화번호?}
+  PROFILE --> BANK_CHECK{계좌정보?}
+
+  CH_CHECK -->|미입력| MISSING
+  ADDR_CHECK -->|미입력| MISSING
+  PHONE_CHECK -->|미입력| MISSING
+  BANK_CHECK -->|미입력| MISSING
+
+  MISSING[필수정보 부족 안내<br/>부족 항목 리스트 표시] --> MYPAGE[마이페이지 이동]
+  MYPAGE --> START
+
+  CH_CHECK -->|OK| PASS
+  ADDR_CHECK -->|OK| PASS
+  PHONE_CHECK -->|OK| PASS
+  BANK_CHECK -->|OK| PASS
+
+  PASS{모든 조건 충족} --> MODAL[신청 모달 오픈]
+  MODAL --> MSG[동기 메시지 입력]
+  MSG --> ADDR_CONFIRM[배송지 확인<br/>프로필에서 자동입력]
+  ADDR_CONFIRM --> PR[#PR태그 동의 ✓]
+  PR --> SUBMIT[신청 전송]
+  SUBMIT --> DB_INSERT[applications INSERT<br/>applied_count +1]
+  DB_INSERT --> DONE([신청 완료<br/>応募済み 표시])
+
+  style START fill:#C878A3,color:#fff
+  style DONE fill:#28C76F,color:#fff
+  style CLOSED_END fill:#B3261E,color:#fff
+  style DUP_END fill:#8B7A8E,color:#fff
+  style MISSING fill:#FF9F43,color:#fff
+    </pre>
+  </div>
+</div>
+
+<!-- 5. 관리자 워크플로우 -->
+<div class="section" id="sec5">
+  <h2><span class="num">5</span>관리자 워크플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">PC 관리자 앱의 전체 메뉴 구조와 주요 기능 — 대시보드, 캠페인 CRUD, 신청 심사, 인플루언서 관리</div>
+    <pre class="mermaid">
+flowchart TB
+  LOGIN([관리자 로그인<br/>admins 테이블 확인]) --> SIDEBAR{사이드바 메뉴}
+
+  SIDEBAR --> DASH[대시보드]
+  DASH --> KPI[KPI 카드<br/>캠페인·인플루언서·신청·승인]
+  DASH --> CHART[회원가입 추이 차트<br/>7일·30일·전체]
+  DASH --> TODAY_KPI[오늘·이번주 가입 KPI]
+  DASH --> PROFILE_RATE[프로필 완성률<br/>SNS별·배송지·계좌]
+  DASH --> RECENT[최근 신청 테이블<br/>인라인 승인·거절]
+
+  SIDEBAR --> CAMP_MGR[캠페인 관리]
+  CAMP_MGR --> CAMP_LIST[목록<br/>썸네일·이미지수·D-day]
+  CAMP_LIST --> CAMP_FILTER[필터: 상태·타입·검색]
+  CAMP_LIST --> CAMP_SORT[정렬: 조회·신청·등록일·수정일 ▲▼]
+  CAMP_LIST --> CAMP_ORDER[순서 변경 모드<br/>↑↓ 버튼]
+  CAMP_MGR --> CAMP_NEW[신규 등록<br/>25+ 필드]
+  CAMP_NEW --> VALIDATE{마감일 검증<br/>post_deadline ≥ deadline}
+  VALIDATE -->|위반| ERROR[인라인 경고 + 저장 차단]
+  VALIDATE -->|OK| SAVE[저장]
+  CAMP_MGR --> CAMP_EDIT[편집]
+  CAMP_MGR --> CAMP_DUP[복제]
+  CAMP_MGR --> CAMP_DEL[삭제<br/>이름 확인 모달<br/>applications 연쇄삭제]
+  CAMP_MGR --> STATUS_DD[상태 드롭다운]
+  STATUS_DD --> ACTIVE_CHECK{deadline 경과<br/>+ active 선택?}
+  ACTIVE_CHECK -->|Yes| BLOCK[변경 차단]
+  ACTIVE_CHECK -->|No| UPDATE[상태 업데이트]
+
+  SIDEBAR --> APP_MGR[신청 관리]
+  APP_MGR --> APP_TYPE[타입 필터<br/>전체·모니터·기프팅]
+  APP_TYPE --> APP_CARD[캠페인별 카드<br/>신청수·대기·승인]
+  APP_CARD --> APP_DETAIL[신청자 상세<br/>이름·이메일·SNS·메시지]
+  APP_DETAIL --> APPROVE[承認]
+  APP_DETAIL --> REJECT[非承認]
+
+  SIDEBAR --> INF_MGR[인플루언서 관리]
+  INF_MGR --> INF_TAB[채널 탭<br/>All·IG·X·TikTok·YT]
+  INF_TAB --> INF_LIST[팔로워순 정렬 목록]
+  INF_LIST --> INF_MODAL[상세 모달<br/>프로필·SNS·주소·계좌·응모이력]
+
+  SIDEBAR --> ADMIN_SET[관리자 설정<br/>super_admin 전용]
+  ADMIN_SET --> ADMIN_CRUD[관리자 CRUD<br/>3단계 권한]
+  ADMIN_SET --> MY_ACC[내 계정<br/>이름·비밀번호 변경]
+
+  style LOGIN fill:#5B7CFF,color:#fff
+  style ERROR fill:#B3261E,color:#fff
+  style BLOCK fill:#B3261E,color:#fff
+  style SAVE fill:#28C76F,color:#fff
+    </pre>
+  </div>
+</div>
+
+<!-- 6. 회원가입 / 인증 플로우 -->
+<div class="section" id="sec6">
+  <h2><span class="num">6</span>회원가입 / 인증 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">회원가입(1단계 폼), 로그인, 비밀번호 재설정, 관리자 자동 감지까지의 인증 흐름</div>
+    <pre class="mermaid">
+flowchart LR
+  subgraph SIGNUP["회원가입"]
+    S1([회원가입 시작]) --> S2[1단계 폼<br/>이름한자·가나·이메일·비밀번호]
+    S2 --> S3[Supabase Auth 생성]
+    S3 --> S4[DB 트리거<br/>influencers 자동 생성]
+    S4 --> S5([로그인 완료 → 홈])
+  end
+
+  subgraph LOGIN_FLOW["로그인"]
+    L1([로그인 시작]) --> L2[이메일 + 비밀번호]
+    L2 --> L3[세션 생성]
+    L3 --> L4{admins 테이블 확인}
+    L4 -->|관리자| L5[admin 페이지<br/>새 탭 오픈]
+    L4 -->|인플루언서| L6{influencer 레코드?}
+    L6 -->|없음| L7[자동 생성]
+    L7 --> L8([홈으로 이동])
+    L6 -->|있음| L8
+  end
+
+  subgraph RESET["비밀번호 재설정"]
+    R1([비밀번호 찾기]) --> R2[이메일 입력]
+    R2 --> R3[Supabase 재설정 메일 발송]
+    R3 --> R4[메일 링크 클릭]
+    R4 --> R5[앱 내 새 비밀번호 설정]
+    R5 --> R6([로그인 완료])
+  end
+
+  subgraph SESSION["세션 관리"]
+    SE1[앱 접속] --> SE2{기존 세션?}
+    SE2 -->|Yes| SE3[세션 복원<br/>자동 로그인]
+    SE2 -->|No| SE4[비로그인 상태<br/>목록 조회만 가능]
+  end
+
+  style S1 fill:#C878A3,color:#fff
+  style S5 fill:#28C76F,color:#fff
+  style L1 fill:#C878A3,color:#fff
+  style L5 fill:#5B7CFF,color:#fff
+  style L8 fill:#28C76F,color:#fff
+  style R1 fill:#FF9F43,color:#fff
+  style R6 fill:#28C76F,color:#fff
+    </pre>
+  </div>
+</div>
+
+<!-- 7. 신청 심사 플로우 -->
+<div class="section" id="sec7">
+  <h2><span class="num">7</span>신청 심사 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">관리자가 신청을 심사하고, 승인된 인플루언서가 상품을 수령 → SNS 게시 → 완료까지</div>
+    <pre class="mermaid">
+flowchart LR
+  subgraph ADMIN_SIDE["관리자"]
+    A1[신청 목록 확인<br/>캠페인별 카드뷰] --> A2[신청자 상세 확인<br/>이름·SNS·팔로워·메시지]
+    A2 --> A3{심사 결정}
+    A3 -->|承認| A4[승인 처리]
+    A3 -->|非承認| A5[미승인 처리]
+    A4 --> A6[상품 발송 준비<br/>배송지 확인]
+  end
+
+  subgraph INF_SIDE["인플루언서"]
+    I1[마이페이지<br/>応募履歴 확인] --> I2{상태 확인}
+    I2 -->|審査中| I3[대기]
+    I2 -->|承認| I4[상품 수령]
+    I2 -->|非承認| I5[미승인]
+    I4 --> I6[상품 리뷰 촬영]
+    I6 --> I7[SNS 게시<br/>해시태그·멘션 포함]
+    I7 --> I8[게시 링크<br/>LINE 전송]
+    I8 --> I9([캠페인 완료 ✓])
+  end
+
+  A6 --> I4
+  A5 --> I5
+
+  style A4 fill:#28C76F,color:#fff
+  style A5 fill:#B3261E,color:#fff
+  style I9 fill:#28C76F,color:#fff
+  style I3 fill:#FF9F43,color:#fff
+    </pre>
+  </div>
+</div>
+
+<div class="footer">
+  REVERB JP Service Flow Chart — Generated 2026-04-08<br/>
+  Tech: Supabase + Vanilla JS + Vercel | Mobile 480px + PC Full-Width
+</div>
+
+<div class="flow-tooltip" id="flowTooltip"></div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'neutral',
+  flowchart: { curve: 'basis', padding: 16, nodeSpacing: 30, rankSpacing: 40 },
+  themeVariables: {
+    primaryColor: '#C878A3',
+    primaryTextColor: '#1a0f18',
+    primaryBorderColor: '#C878A3',
+    lineColor: '#8B7A8E',
+    secondaryColor: '#F0F4FF',
+    tertiaryColor: '#FFF0F6',
+    fontSize: '13px'
+  }
+});
+
+// ── 호버 인터랙션 ──
+// Mermaid 10 실제 SVG 구조:
+//   엣지 = path.flowchart-link (g.edgePaths 안에 직접 path)
+//         클래스: "... flowchart-link LS-{src} LE-{tgt}", id: "L-{src}-{tgt}-0"
+//   노드 = g.node, data-id="{nodeId}", id="flowchart-{nodeId}-{n}"
+//   라벨 = g.edgeLabel (g.edgeLabels 안)
+
+document.addEventListener('DOMContentLoaded', () => {
+  const wait = setInterval(() => {
+    if (document.querySelectorAll('.chart-wrap svg').length >= 7) {
+      clearInterval(wait); initHover();
+    }
+  }, 200);
+  setTimeout(() => { clearInterval(wait); initHover(); }, 4000);
+});
+
+function initHover() {
+  const tip = document.getElementById('flowTooltip');
+
+  document.querySelectorAll('.chart-wrap').forEach(wrap => {
+    const svg = wrap.querySelector('svg');
+    if (!svg) return;
+
+    // ── 노드 맵: data-id → DOM ──
+    const nodeMap = new Map();
+    svg.querySelectorAll('.node').forEach(n => {
+      const did = n.getAttribute('data-id');
+      if (did) nodeMap.set(did, n);
+    });
+
+    // ── 엣지 = path.flowchart-link, 라벨 = g.edgeLabels > g.edgeLabel (같은 순서) ──
+    const edgePathsGroup = svg.querySelector('g.edgePaths');
+    const edgeLabelsGroup = svg.querySelector('g.edgeLabels');
+    if (!edgePathsGroup) return; // flowchart가 아니면 스킵
+
+    const linkEls = Array.from(edgePathsGroup.children);
+    const labelEls = Array.from(edgeLabelsGroup ? edgeLabelsGroup.children : []);
+
+    const edgeInfos = [];
+    linkEls.forEach((link, i) => {
+      const cls = link.getAttribute('class') || '';
+      if (!cls.includes('flowchart-link')) return;
+      const lsM = cls.match(/LS-(\S+)/);
+      const leM = cls.match(/LE-(\S+)/);
+      const srcId = lsM ? lsM[1] : '';
+      const tgtId = leM ? leM[1] : '';
+      const srcNode = nodeMap.get(srcId) || null;
+      const tgtNode = nodeMap.get(tgtId) || null;
+      const label = labelEls[i] || null;
+      edgeInfos.push({ link, srcId, tgtId, srcNode, tgtNode, label });
+    });
+
+    // ── 노드 → 연결된 엣지 ──
+    const nodeEdges = new Map();
+    edgeInfos.forEach(info => {
+      [info.srcNode, info.tgtNode].forEach(n => {
+        if (!n) return;
+        if (!nodeEdges.has(n)) nodeEdges.set(n, []);
+        nodeEdges.get(n).push(info);
+      });
+    });
+
+    // ── 엣지(화살표) 호버 ──
+    edgeInfos.forEach(info => {
+      info.link.addEventListener('mouseenter', e => {
+        dim(wrap);
+        hi(info.link); hi(info.srcNode); hi(info.tgtNode); hi(info.label);
+        const s = txt(info.srcNode) || info.srcId;
+        const t = txt(info.tgtNode) || info.tgtId;
+        const l = info.label?.textContent?.trim() || '';
+        show(e, s + (l ? '  —['+l+']→  ' : '  →  ') + t);
+      });
+      info.link.addEventListener('mousemove', e => move(e));
+      info.link.addEventListener('mouseleave', () => undim(wrap, svg));
+    });
+
+    // ── 노드 호버 ──
+    svg.querySelectorAll('.node').forEach(node => {
+      node.addEventListener('mouseenter', e => {
+        const linked = nodeEdges.get(node);
+        if (!linked || !linked.length) return;
+        dim(wrap);
+        hi(node);
+        linked.forEach(info => {
+          hi(info.link); hi(info.label); hi(info.srcNode); hi(info.tgtNode);
+        });
+        show(e, txt(node) + ' — ' + linked.length + '개 연결');
+      });
+      node.addEventListener('mousemove', e => move(e));
+      node.addEventListener('mouseleave', () => undim(wrap, svg));
+    });
+  });
+
+  function hi(el) { if (el) el.classList.add('highlight'); }
+  function dim(wrap) { wrap.classList.add('dimmed'); }
+  function undim(wrap, svg) {
+    wrap.classList.remove('dimmed');
+    svg.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
+    tip.classList.remove('visible');
+  }
+  function txt(node) {
+    if (!node) return '';
+    const l = node.querySelector('.nodeLabel');
+    return l ? l.textContent.replace(/\n/g,' ').trim() : '';
+  }
+  function show(e, text) { tip.textContent = text; tip.classList.add('visible'); move(e); }
+  function move(e) { tip.style.left = (e.clientX+14)+'px'; tip.style.top = (e.clientY-32)+'px'; }
+}
+</script>
+</body>
+</html>
