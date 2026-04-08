@@ -90,8 +90,8 @@ function switchAdminCampTab(type, btn) {
   loadAdminCampaigns();
 }
 
-async function loadAdminCampaigns() {
-  let camps = await fetchCampaigns();
+async function loadAdminCampaigns(useCache) {
+  let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (adminCampTypeFilter === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
   else if (adminCampTypeFilter === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
   camps = camps.slice().sort((a,b)=>{
@@ -113,6 +113,9 @@ async function loadAdminCampaigns() {
     const cnt = allApps.filter(a=>a.campaign_id===c.id).length;
     const pct = c.slots > 0 ? Math.round(cnt/c.slots*100) : 0;
     const barColor = pct>=100?'var(--red)':pct>=60?'var(--gold)':'var(--green)';
+    const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,idx,a)=>a.indexOf(v)===idx);
+    const thumbUrl = imgs[0] || '';
+    const imgCount = imgs.length;
     return `<tr data-camp-id="${c.id}">
       <td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
@@ -120,10 +123,20 @@ async function loadAdminCampaigns() {
           <button class="btn btn-ghost btn-xs" ${i===camps.length-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>
-      <td style="max-width:200px"><strong>${c.title}</strong><div style="font-size:11px;color:var(--muted);margin-top:2px">${c.brand}</div></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
+            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${c.emoji||'📦'}</span>`}
+            ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
+          </div>
+          <div style="min-width:0">
+            <strong style="display:block">${c.title}</strong>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.brand}</div>
+          </div>
+        </div>
+      </td>
       <td>${statusBadge(c.status)}</td>
       <td>${typeLabel(c.recruit_type)}</td>
-      <td style="color:var(--muted);font-size:12px">${c.brand}</td>
       <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
@@ -137,14 +150,13 @@ async function loadAdminCampaigns() {
       </td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
-      <td style="white-space:nowrap"><div style="display:flex;gap:4px">
-        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')">편집</button>
-        <button class="btn btn-ghost btn-xs" onclick="duplicateCampaign('${c.id}')">복제</button>
-        <button class="btn btn-ghost btn-xs" onclick="window.open('/#detail','_blank')">상세</button>
+      <td style="white-space:nowrap"><div style="display:flex;gap:2px">
+        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')" title="편집">편집</button>
+        <button class="btn btn-ghost btn-xs" onclick="duplicateCampaign('${c.id}')" title="복제">복제</button>
         <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteCampaign('${c.id}','${c.title.replace(/'/g,'')}')">삭제</button>
       </div></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
+  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
 }
 
 // ── 캠페인 편집 ──
@@ -420,7 +432,8 @@ async function changeCampStatus(campId, newStatus) {
 }
 
 async function moveCampOrder(campId, dir) {
-  const camps = (await fetchCampaigns()).slice().sort((a,b)=>{
+  // ローカルキャッシュで即時UI更新
+  const camps = allCampaigns.slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
   });
@@ -432,14 +445,32 @@ async function moveCampOrder(campId, dir) {
   const tmpOrder = camps[idx].order_index;
   camps[idx].order_index = camps[swapIdx].order_index;
   camps[swapIdx].order_index = tmpOrder;
+
+  // allCampaignsも即時反映
+  const a = allCampaigns.find(c=>c.id===camps[idx].id);
+  const b = allCampaigns.find(c=>c.id===camps[swapIdx].id);
+  if (a) a.order_index = camps[idx].order_index;
+  if (b) b.order_index = camps[swapIdx].order_index;
+
+  // 即座にUI更新（キャッシュ使用）
+  loadAdminCampaigns(true);
+  const movedRow = document.querySelector(`tr[data-camp-id="${campId}"]`);
+  if (movedRow) {
+    movedRow.style.transition = 'background .3s';
+    movedRow.style.background = 'rgba(200,120,163,.12)';
+    setTimeout(() => { movedRow.style.background = ''; }, 600);
+  }
+
+  // DBはバックグラウンドで保存
   try {
-    await updateCampaign(camps[idx].id, {order_index: camps[idx].order_index});
-    await updateCampaign(camps[swapIdx].id, {order_index: camps[swapIdx].order_index});
+    await Promise.all([
+      updateCampaign(camps[idx].id, {order_index: camps[idx].order_index}),
+      updateCampaign(camps[swapIdx].id, {order_index: camps[swapIdx].order_index})
+    ]);
+  } catch(e) {
+    toast('순서 저장 오류','error');
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
-    if (typeof renderCampaigns === 'function') renderCampaigns(allCampaigns);
-  } catch(e) {
-    toast('순서 변경 오류','error');
   }
 }
 
