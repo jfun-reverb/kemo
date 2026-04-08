@@ -268,7 +268,7 @@ window._supabaseLoaded = false;
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
         <div class="auth-title">Log In</div>
-        <div class="auth-sub">Sign in with your REVERB influencer account</div>
+        <div class="auth-sub">REVERBインフルエンサーアカウントでログイン</div>
       </div>
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group">
@@ -283,7 +283,7 @@ window._supabaseLoaded = false;
         <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Log In</button>
       </form>
       <div class="auth-forgot"><a onclick="navigate('forgot')">パスワードをお忘れですか？</a></div>
-      <div class="auth-switch">Don't have an account? <a onclick="navigate('signup')">Sign Up</a></div>
+      <div class="auth-switch">アカウントをお持ちでないですか？ <a onclick="navigate('signup')">新規登録</a></div>
     </div>
   </div>
 </div>
@@ -349,7 +349,7 @@ window._supabaseLoaded = false;
       <div class="auth-logo" style="margin-bottom:16px">
         <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
         <div class="auth-title" style="font-size:18px">Sign Up</div>
-        <div class="auth-sub">Join REVERB and experience K-Brand campaigns</div>
+        <div class="auth-sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
       <form id="signupForm" onsubmit="handleSignup(event)">
@@ -370,24 +370,24 @@ window._supabaseLoaded = false;
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Password <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">(8+ chars)</span></label>
-            <div style="position:relative">
-              <input type="password" id="signupPw" class="form-input" placeholder="8+ characters" required minlength="8" style="padding-right:42px">
-              <button type="button" onclick="togglePw('signupPw',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
+            <div class="pw-wrap">
+              <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" required minlength="8">
+              <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
           <div class="form-group">
             <label class="form-label">Confirm Password <span style="color:var(--red)">*</span></label>
-            <div style="position:relative">
-              <input type="password" id="signupPw2" class="form-input" placeholder="Re-enter password" required style="padding-right:42px">
-              <button type="button" onclick="togglePw('signupPw2',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0;line-height:1">👁</button>
+            <div class="pw-wrap">
+              <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" required>
+              <button type="button" class="pw-toggle" onclick="togglePw('signupPw2',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
         </div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up ✓</button>
-        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS info and shipping address can be added later from My Page</div>
+        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
-      <div class="auth-switch">Already have an account? <a onclick="navigate('login')">Log In</a></div>
+      <div class="auth-switch">すでにアカウントをお持ちですか？ <a onclick="navigate('login')">Log In</a></div>
     </div>
   </div>
 </div>
