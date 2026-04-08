@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="../css/base.css">
 <link rel="stylesheet" href="../css/components.css">
 <link rel="stylesheet" href="../css/admin.css">
@@ -82,6 +83,35 @@
             <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications">0</div><div class="kpi-lbl">총 신청수</div></div>
             <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved">0</div><div class="kpi-lbl">승인 완료</div></div>
           </div>
+          <!-- 회원가입 현황 -->
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+            <div class="admin-card">
+              <div class="admin-card-header">
+                <span class="admin-card-title">회원가입 추이</span>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-ghost btn-xs signup-period-btn" data-period="7" onclick="switchSignupPeriod(7,this)">7일</button>
+                  <button class="btn btn-ghost btn-xs signup-period-btn on" data-period="30" onclick="switchSignupPeriod(30,this)">30일</button>
+                  <button class="btn btn-ghost btn-xs signup-period-btn" data-period="0" onclick="switchSignupPeriod(0,this)">전체</button>
+                </div>
+              </div>
+              <div style="padding:16px;height:240px"><canvas id="signupChart"></canvas></div>
+              <div style="display:flex;gap:12px;padding:0 16px 16px">
+                <div style="flex:1;background:#FFF0F6;border-radius:10px;padding:12px 14px">
+                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday">0</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px">오늘 가입</div>
+                </div>
+                <div style="flex:1;background:#F0F4FF;border-radius:10px;padding:12px 14px">
+                  <div style="font-size:22px;font-weight:800;color:#5B7CFF" id="kpiSignupWeek">0</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px">이번주 가입 (<span id="kpiWeekRange"></span>)</div>
+                </div>
+              </div>
+            </div>
+            <div class="admin-card" style="padding:16px">
+              <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">프로필 완성률</div>
+              <div id="profileCompletionBars"></div>
+            </div>
+          </div>
+
           <div class="admin-card">
             <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',document.querySelector('.admin-si:nth-child(7)'))">전체 보기</button></div>
             <table class="data-table" id="recentAppsTable">
@@ -106,7 +136,7 @@
           <div class="admin-card">
             <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span><span style="font-size:11px;color:var(--muted)">↑↓ 순서 변경 · 클릭으로 상태 변경</span></div>
             <table class="data-table">
-              <thead><tr><th>순서</th><th>캠페인명</th><th>상태</th><th>타입</th><th>브랜드</th><th>신청 / 모집</th><th></th></tr></thead>
+              <thead><tr><th>순서</th><th>캠페인명</th><th>상태</th><th>타입</th><th>브랜드</th><th>조회</th><th>신청 / 모집</th><th></th></tr></thead>
               <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>

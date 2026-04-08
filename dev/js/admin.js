@@ -53,6 +53,12 @@ async function loadAdminData() {
   $('kpiApproved').textContent = approved.length;
   loadAdminCampaigns();
   loadAdminInfluencers();
+
+  // 회원가입 차트 + KPI
+  _allUsers = users;
+  renderSignupKPIs(users);
+  renderSignupChart(users, 30);
+  renderProfileCompletion(users);
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `📋 신청 관리${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
 
   // Recent apps
@@ -116,6 +122,7 @@ async function loadAdminCampaigns() {
       <td>${statusBadge(c.status)}</td>
       <td>${typeLabel(c.recruit_type)}</td>
       <td style="color:var(--muted);font-size:12px">${c.brand}</td>
+      <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" onclick="openCampApplicants('${c.id}','${c.title.replace(/'/g,'')}')">
@@ -133,7 +140,7 @@ async function loadAdminCampaigns() {
         <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteCampaign('${c.id}','${c.title.replace(/'/g,'')}')">삭제</button>
       </div></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
 }
 
 // ── 캠페인 편집 ──
@@ -984,4 +991,125 @@ async function sendResetEmail() {
   } catch(e) {
     toast('이메일 발송 오류: ' + e.message,'error');
   }
+}
+
+// ══════════════════════════════════════
+// 회원가입 차트 / KPI / 프로필 완성률
+// ══════════════════════════════════════
+var _allUsers = [];
+var _signupChart = null;
+
+function renderSignupKPIs(users) {
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const today = users.filter(u => (u.created_at || '').slice(0, 10) === todayStr).length;
+  const week = users.filter(u => new Date(u.created_at) >= weekAgo).length;
+
+  $('kpiSignupToday').textContent = today;
+  $('kpiSignupWeek').textContent = week;
+
+  const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+  $('kpiWeekRange').textContent = `${fmt(weekAgo)} ~ ${fmt(now)}`;
+}
+
+function renderSignupChart(users, days) {
+  const now = new Date();
+  const labels = [];
+  const counts = [];
+
+  if (days === 0) {
+    // 전체: 월별 집계
+    const monthMap = {};
+    users.forEach(u => {
+      const m = (u.created_at || '').slice(0, 7);
+      if (m) monthMap[m] = (monthMap[m] || 0) + 1;
+    });
+    const months = Object.keys(monthMap).sort();
+    months.forEach(m => {
+      labels.push(m);
+      counts.push(monthMap[m]);
+    });
+  } else {
+    // 일별 집계
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const label = `${d.getMonth() + 1}/${d.getDate()}`;
+      const count = users.filter(u => (u.created_at || '').slice(0, 10) === dateStr).length;
+      labels.push(label);
+      counts.push(count);
+    }
+  }
+
+  const canvas = $('signupChart');
+  if (!canvas) return;
+  if (_signupChart) _signupChart.destroy();
+
+  _signupChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '신규 가입',
+        data: counts,
+        backgroundColor: 'rgba(200,120,163,.6)',
+        borderColor: 'rgba(200,120,163,1)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,.05)' } },
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function switchSignupPeriod(days, btn) {
+  document.querySelectorAll('.signup-period-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderSignupChart(_allUsers, days);
+}
+
+function renderProfileCompletion(users) {
+  if (!users.length) { $('profileCompletionBars').innerHTML = '<div style="font-size:11px;color:var(--muted)">데이터 없음</div>'; return; }
+  const total = users.length;
+  const hasSns = users.filter(u => u.ig || u.x || u.tiktok || u.youtube).length;
+  const hasIg = users.filter(u => u.ig).length;
+  const hasX = users.filter(u => u.x).length;
+  const hasTiktok = users.filter(u => u.tiktok).length;
+  const hasYt = users.filter(u => u.youtube).length;
+  const hasAddr = users.filter(u => u.zip || u.address).length;
+  const hasBank = users.filter(u => u.bank_name).length;
+
+  const pct = v => Math.round(v / total * 100);
+  const bar = (label, val, color, sub) => `
+    <div style="margin-bottom:${sub ? 4 : 8}px;${sub ? 'padding-left:12px' : ''}">
+      <div style="display:flex;justify-content:space-between;font-size:${sub ? 10 : 11}px;margin-bottom:3px">
+        <span style="color:${sub ? 'var(--muted)' : 'var(--ink)'}">${label}</span><span style="color:var(--muted);font-weight:600">${val}%</span>
+      </div>
+      <div style="height:${sub ? 4 : 6}px;background:var(--bg);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${val}%;background:${color};border-radius:3px;transition:width .4s;opacity:${sub ? '.6' : '1'}"></div>
+      </div>
+    </div>`;
+
+  $('profileCompletionBars').innerHTML =
+    bar('SNS', pct(hasSns), '#5B7CFF', false) +
+    bar('Instagram', pct(hasIg), '#5B7CFF', true) +
+    bar('X (Twitter)', pct(hasX), '#5B7CFF', true) +
+    bar('TikTok', pct(hasTiktok), '#5B7CFF', true) +
+    bar('YouTube', pct(hasYt), '#5B7CFF', true) +
+    '<div style="margin-top:4px"></div>' +
+    bar('배송지', pct(hasAddr), '#FF9F43', false) +
+    bar('계좌', pct(hasBank), '#28C76F', false);
 }

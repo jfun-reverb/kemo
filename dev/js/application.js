@@ -7,6 +7,9 @@ async function openCampaign(id) {
   if (!camp) return;
   currentCampaignId = id;
 
+  // 조회수 증가 (非同期、UIブロックしない)
+  incrementViewCount(id).catch(()=>{});
+
   let alreadyApplied = false;
   if (currentUser) {
     alreadyApplied = await checkDuplicateApplication(currentUser.id, id);

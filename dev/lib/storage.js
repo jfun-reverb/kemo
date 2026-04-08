@@ -28,6 +28,13 @@ async function updateCampaign(campId, updates) {
   if (error) throw error;
 }
 
+async function incrementViewCount(campId) {
+  if (!db) return;
+  const {data} = await db.from('campaigns').select('view_count').eq('id', campId).maybeSingle();
+  const current = (data?.view_count) || 0;
+  await db.from('campaigns').update({ view_count: current + 1 }).eq('id', campId);
+}
+
 // ── Influencers ──
 async function fetchInfluencers() {
   if (!db) return [];
