@@ -297,10 +297,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .mypage-view.active{display:block}
 
 /* メニューリスト */
-.mypage-menu{background:var(--surface);border-radius:var(--r16);border:1px solid var(--outline);overflow:hidden}
-.mypage-menu-item{display:flex;align-items:center;gap:14px;padding:16px 16px;cursor:pointer;transition:background .15s}
-.mypage-menu-item:hover{background:var(--surface-dim)}
-.mypage-menu-item:not(:last-child){border-bottom:1px solid var(--outline)}
+.mypage-menu{display:flex;flex-direction:column;gap:0}
+.mypage-menu-item{display:flex;align-items:center;gap:14px;padding:14px 4px 14px 14px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--outline)}
+.mypage-menu-item:hover{background:var(--surface-dim);border-radius:var(--r8)}
 .mypage-menu-label{flex:1;font-size:14px;font-weight:500;color:var(--ink)}
 .mypage-menu-arrow{font-size:20px;color:var(--on-surface-variant)}
 
@@ -719,10 +718,13 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span class="mypage-menu-label">パスワード変更</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
+        <div class="mypage-menu-item" onclick="handleLogout()">
+          <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
+          <span class="mypage-menu-label" style="color:var(--on-surface-variant)">ログアウト</span>
+        </div>
       </div>
-      <div style="margin-top:24px;display:flex;flex-direction:column;gap:10px">
-        <button class="btn btn-ghost btn-block" onclick="handleLogout()" style="color:var(--on-surface-variant)">ログアウト</button>
-        <button class="btn btn-ghost btn-block" style="color:var(--muted);font-size:12px" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</button>
+      <div style="margin-top:20px;padding-left:14px">
+        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</span>
       </div>
     </div>
   </div>
