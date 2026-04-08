@@ -100,12 +100,14 @@ async function loadAdminCampaigns() {
   });
   const allApps = await fetchApplications();
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
+  const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
+  const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',paused:'badge-gold',closed:'badge-gray'};
   const statusBadge = s => {
-    if (s==='draft') return `<span class="badge badge-gray" style="cursor:pointer;border:1.5px dashed var(--muted)" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">준비</span>`;
-    if (s==='scheduled') return `<span class="badge badge-blue" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">모집예정</span>`;
-    if (s==='active') return `<span class="badge badge-green" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">모집중</span>`;
-    if (s==='paused') return `<span class="badge badge-gold" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">일시정지</span>`;
-    return `<span class="badge badge-gray" style="cursor:pointer" title="클릭으로 변경" onclick="cycleCampStatus(this,'${s}')">종료</span>`;
+    const cls = statusBadgeClass[s]||'badge-gray';
+    const dashed = s==='draft' ? 'border:1.5px dashed var(--muted);' : '';
+    return `<div style="position:relative;display:inline-block">
+      <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
+    </div>`;
   };
   $('adminCampsBody').innerHTML = camps.map((c,i)=>{
     const cnt = allApps.filter(a=>a.campaign_id===c.id).length;
@@ -366,14 +368,47 @@ async function executeDeleteCampaign() {
 }
 
 // 상태 순환: 준비 → 모집예정 → 모집중 → 일시정지 → 종료 → 준비
-async function cycleCampStatus(el, currentStatus) {
-  const tr = el.closest('tr');
+function toggleStatusDropdown(badgeEl) {
+  // 既存ドロップダウンを閉じる
+  document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
+
+  const wrapper = badgeEl.parentElement;
+  const tr = badgeEl.closest('tr');
   const campId = tr?.dataset.campId;
   if (!campId) return;
-  const cycle = {draft:'scheduled', scheduled:'active', active:'paused', paused:'closed', closed:'draft'};
-  const next = cycle[currentStatus] || 'active';
+
+  const items = [
+    {val:'draft', label:'준비', cls:'badge-gray'},
+    {val:'scheduled', label:'모집예정', cls:'badge-blue'},
+    {val:'active', label:'모집중', cls:'badge-green'},
+    {val:'paused', label:'일시정지', cls:'badge-gold'},
+    {val:'closed', label:'종료', cls:'badge-gray'}
+  ];
+
+  const dd = document.createElement('div');
+  dd.className = 'status-dropdown';
+  dd.innerHTML = items.map(it =>
+    `<div class="status-dropdown-item" onclick="changeCampStatus('${campId}','${it.val}')">
+      <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
+    </div>`
+  ).join('');
+  wrapper.appendChild(dd);
+
+  // 外部クリックで閉じる
+  setTimeout(() => {
+    document.addEventListener('click', function _close(e) {
+      if (!dd.contains(e.target) && e.target !== badgeEl) {
+        dd.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 0);
+}
+
+async function changeCampStatus(campId, newStatus) {
+  document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
   try {
-    await updateCampaign(campId, {status: next});
+    await updateCampaign(campId, {status: newStatus});
     allCampaigns = await fetchCampaigns();
     loadAdminCampaigns();
     if (typeof renderCampaigns === 'function') renderCampaigns(allCampaigns);
