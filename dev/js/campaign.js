@@ -142,7 +142,6 @@ function buildCampCards(camps) {
           ${isNew&&!isFull?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
           ${typeLabel&&!isFull?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
-        ${!isFull?`<div style="position:absolute;bottom:8px;left:8px;display:flex;gap:3px;flex-wrap:wrap;z-index:3;max-width:calc(100% - 16px)">${(c.content_types||getChannelLabel(c.channel)).split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;backdrop-filter:blur(4px);white-space:nowrap">${t.trim()}</span>`).join('')}</div>`:''}
         <div class="camp-ch-badge" style="z-index:3">${getChannelLabel(c.channel)}</div>
       </div>
       <div class="camp-body">
