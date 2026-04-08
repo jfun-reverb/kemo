@@ -80,3 +80,13 @@
 - 캠페인 삭제 시 관련 applications도 함께 삭제 (cascading)
 - 이미지 업로드는 Supabase Storage (campaign-images 버킷) 사용
 - 비밀번호 재설정 시 Supabase Redirect URL 설정 필수: Authentication → URL Configuration → Redirect URLs에 https://kemo-liart.vercel.app 등록
+
+## Mobile Layout Rules
+- #appShell은 position:fixed + top:0/bottom:0 (body 스크롤 차단, 뷰포트 고정)
+- html,body에 height:100% + overflow:hidden 유지
+- 페이지 콘텐츠 스크롤은 .page.active 내부에서만 (flex:1 + overflow-y:auto)
+- GNB/바텀탭은 flex-shrink:0으로 고정, 페이지가 나머지 공간 차지
+- 모바일 키보드 대응: visualViewport API로 appShell 높이 동적 조절
+- input/textarea/select의 font-size는 반드시 16px 이상 (모바일 자동 확대 방지)
+- 100vh/100dvh 대신 position:fixed + top:0/bottom:0 사용 (키보드 열림/닫힘 안정성)
+- 캠페인 상세 URL은 #detail-{id} 형식 (새로고침 시 복원 가능)

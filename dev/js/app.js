@@ -131,4 +131,17 @@ document.addEventListener('DOMContentLoaded', function() {
     updateStats(allCampaigns);
   }
   init();
+
+  // モバイルキーボード対応: visualViewportでappShell高さを動的調整
+  if (window.visualViewport) {
+    var appShell = $('appShell');
+    function adjustHeight() {
+      var vh = window.visualViewport.height;
+      var offsetTop = window.visualViewport.offsetTop;
+      appShell.style.height = vh + 'px';
+      appShell.style.top = offsetTop + 'px';
+    }
+    window.visualViewport.addEventListener('resize', adjustHeight);
+    window.visualViewport.addEventListener('scroll', adjustHeight);
+  }
 });
