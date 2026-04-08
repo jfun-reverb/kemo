@@ -1100,6 +1100,7 @@ function toast(msg, type='') {
 function loading(v) { document.getElementById('loadingOverlay').classList.toggle('show', v); }
 function $(id) { return document.getElementById(id); }
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('ja-JP') : ''; }
+function formatDateTime(d) { if(!d) return ''; const dt=new Date(d); return dt.toLocaleDateString('ja-JP')+' '+dt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
 function getChannelLabel(ch) {
   const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10','instagram,x':'Instagram + X'};
   return m[ch] || ch;
