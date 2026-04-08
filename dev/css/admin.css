@@ -1,13 +1,27 @@
 /* ══════════════════════════════════
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
-.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px)}
-.admin-side{background:#1A0F18;padding:12px 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;flex-shrink:0}
-.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent}
+.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);transition:grid-template-columns .25s ease}
+.admin-layout.collapsed{grid-template-columns:56px 1fr}
+.admin-side{background:#1A0F18;padding:12px 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
+.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
 .admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
-.admin-si-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.25);padding:20px 20px 6px;text-transform:uppercase}
+.admin-si-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.25);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;overflow:hidden}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
+.sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:0 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0}
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:rgba(255,255,255,.6);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
+.sidebar-toggle:hover{background:rgba(255,255,255,.12);color:#fff}
+.sidebar-toggle:active{background:rgba(255,255,255,.18)}
+.sidebar-toggle-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:rgba(255,255,255,.35);transition:opacity .2s}
+.admin-layout.collapsed .sidebar-toggle-wrap{justify-content:center;padding:4px 0;margin:0 0 8px}
+.admin-layout.collapsed .sidebar-toggle-label{opacity:0;width:0;overflow:hidden}
+.si-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center}
+.si-text{transition:opacity .2s}
+.admin-layout.collapsed .admin-si{padding:12px 0;justify-content:center;margin-right:0;border-radius:0;border-left:none}
+.admin-layout.collapsed .si-text{opacity:0;width:0;overflow:hidden}
+.admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
+.admin-layout.collapsed .admin-si-badge{display:none}
 .admin-main{background:var(--surface-container-low);overflow-y:auto}
 
 .admin-body{padding:24px}

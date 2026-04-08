@@ -2,6 +2,14 @@
 // ADMIN APP — 관리자 페이지 초기화
 // ══════════════════════════════════════
 
+// サイドバー折りたたみ
+function toggleAdminSidebar() {
+  const layout = document.querySelector('.admin-layout');
+  layout.classList.toggle('collapsed');
+  const icon = $('sidebarToggleBtn').querySelector('.material-icons-round');
+  icon.textContent = layout.classList.contains('collapsed') ? 'menu_open' : 'menu';
+}
+
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)
 function navigate(page) {
   // admin 페이지 내에서는 사이드바 패널만 전환
