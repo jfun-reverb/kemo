@@ -39,10 +39,10 @@ img{display:block;max-width:100%}
 .material-icons-round{font-size:24px;vertical-align:middle}
 
 /* Mobile app shell */
-#appShell{width:100%;max-width:480px;min-height:100vh;min-height:100dvh;background:var(--surface);position:relative;box-shadow:var(--elevation-4);overflow-x:hidden}
+#appShell{width:100%;max-width:480px;height:100vh;height:100dvh;background:var(--surface);position:relative;box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}
 
 /* ── LAYOUT ── */
-.page{display:none}.page.active{display:block}
+.page{display:none}.page.active{display:block;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .container{max-width:480px;width:100%;margin:0 auto;padding:0 16px}
 .container-sm{max-width:480px;margin:0 auto;padding:0 16px}
 .container-md{max-width:480px;margin:0 auto;padding:0 16px}
