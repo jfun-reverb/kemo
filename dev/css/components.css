@@ -56,6 +56,10 @@
 .form-input::placeholder{color:var(--on-surface-variant)}
 select.form-input{cursor:pointer}
 textarea.form-input{resize:vertical;min-height:80px}
+.pw-wrap{position:relative;display:block}
+.pw-wrap .form-input{width:100%;padding-right:44px;box-sizing:border-box}
+.pw-toggle{position:absolute;right:0;top:0;bottom:0;width:44px;background:transparent;border:none;cursor:pointer;color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;transition:color .2s}
+.pw-toggle:hover{color:var(--on-surface)}
 .form-error{font-size:12px;color:#B3261E;margin-top:4px}
 .form-row{display:grid;grid-template-columns:1fr;gap:12px}
 /* Admin form: 2-col layout */
