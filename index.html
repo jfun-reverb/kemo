@@ -1104,6 +1104,13 @@ function loading(v) { document.getElementById('loadingOverlay').classList.toggle
 function $(id) { return document.getElementById(id); }
 function formatDate(d) { return d ? new Date(d).toLocaleDateString('ja-JP') : ''; }
 function formatDateTime(d) { if(!d) return ''; const dt=new Date(d); return dt.toLocaleDateString('ja-JP')+' '+dt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); }
+function dDayLabel(d) {
+  if (!d) return '';
+  const diff = Math.ceil((new Date(d).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / (1000*60*60*24));
+  const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
+  const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
+  return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+}
 function getChannelLabel(ch) {
   const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10','instagram,x':'Instagram + X'};
   return m[ch] || ch;
