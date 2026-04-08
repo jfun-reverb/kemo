@@ -1523,9 +1523,17 @@ async function loadCampaigns() {
   updateStats(allCampaigns);
 }
 
-// 인플루언서에게 보이는 캠페인: 모집중 + 모집예정
+// 인플루언서에게 보이는 캠페인: 모집중 + 모집예정 + 모집마감(게시기한 남음)
 function visibleCamps(camps) {
-  return camps.filter(c => c.status === 'active' || c.status === 'scheduled');
+  const now = new Date(); now.setHours(0,0,0,0);
+  return camps.filter(c => {
+    if (c.status === 'active' || c.status === 'scheduled') return true;
+    if (c.status === 'closed' && c.post_deadline) {
+      const pd = new Date(c.post_deadline); pd.setHours(23,59,59,999);
+      return now <= pd;
+    }
+    return false;
+  });
 }
 
 function updateStats(camps) {
@@ -1628,20 +1636,24 @@ function buildCampCards(camps) {
   return camps.map(c => {
     const isFull = (c.applied_count||0) >= c.slots;
     const isScheduled = c.status === 'scheduled';
+    const isClosed = c.status === 'closed';
+    const isClickable = !isScheduled;
     const reward = c.reward > 0 ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>` : c.product_price > 0 ? `<strong>製品無償提供</strong>` : '<strong>無償提供</strong>';
-    const isNew = !isScheduled && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
+    const isNew = !isScheduled && !isClosed && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
     const typeLabel = c.recruit_type==='monitor'?'Reviewer':c.recruit_type==='gifting'?'Gifting':'';
-    return `<div class="camp-card" onclick="${isScheduled?'':'openCampaign(\''+c.id+'\')'}" style="${isScheduled?'opacity:.85;cursor:default':''}">
+    const dimImage = isFull || isScheduled || isClosed;
+    return `<div class="camp-card" onclick="${isClickable?'openCampaign(\''+c.id+'\')':''}" style="${!isClickable?'opacity:.85;cursor:default':''}">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
-        ${c.image_url?`<img src="${c.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${(isFull||isScheduled)?'filter:brightness(.5)':''}" onerror="this.style.display='none'">`:''}
+        ${c.image_url?`<img src="${c.image_url}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}" onerror="this.style.display='none'">`:''}
         <div class="camp-img-overlay"></div>
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">近日公開</span></div>`:''}
-        ${isFull&&!isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集終了</span></div>`:''}
+        ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集締切</span></div>`:''}
+        ${isFull&&!isScheduled&&!isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集終了</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;display:flex;gap:4px">
-          ${isNew&&!isFull&&!isScheduled?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
-          ${!isFull&&!isScheduled?'<span style="background:rgba(14,126,74,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>':''}
-          ${typeLabel&&!isFull?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
+          ${isNew&&!isFull?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
+          ${!isFull&&!isScheduled&&!isClosed?'<span style="background:rgba(14,126,74,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>':''}
+          ${typeLabel&&!isFull&&!isClosed?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
         <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${getChannelLabel(c.channel)}</div>
       </div>
@@ -2116,6 +2128,7 @@ async function openCampaign(id) {
   }
   if (floatApplyBtn) {
     if (alreadyApplied) { floatApplyBtn.textContent='✓ 応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
+    else if (camp.status==='closed') { floatApplyBtn.textContent='募集締切'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
     else if (isFull) { floatApplyBtn.textContent='募集終了'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
     else { floatApplyBtn.textContent='申請'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; }
   }
