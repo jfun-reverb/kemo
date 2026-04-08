@@ -313,6 +313,19 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
+function validateDeadlines(deadlineId, postDeadlineId, warnId) {
+  const dl = $(deadlineId)?.value;
+  const pdl = $(postDeadlineId)?.value;
+  const warn = $(warnId);
+  if (!warn) return;
+  if (dl && pdl && new Date(pdl) < new Date(dl)) {
+    warn.textContent = '게시 마감일은 모집 마감일 이후여야 합니다';
+    warn.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
 async function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
@@ -321,6 +334,13 @@ async function saveCampaignEdit() {
     const title = gv('editCampTitle').trim();
     const brand = gv('editCampBrand').trim();
     if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
+
+    const editDeadline = gv('editCampDeadline');
+    const editPostDeadline = gv('editCampPostDeadline');
+    if (editPostDeadline && editDeadline && new Date(editPostDeadline) < new Date(editDeadline)) {
+      toast('게시 마감일은 모집 마감일 이후여야 합니다','error');
+      return;
+    }
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
@@ -885,6 +905,11 @@ async function addCampaign() {
   const recruitType = recruitTypeEl ? recruitTypeEl.value : 'monitor';
   if (!title||!brand||!product||!deadline) {
     toast('필수 항목을 모두 입력해주세요','error');
+    return;
+  }
+  const postDeadline = $('newCampPostDeadline')?.value;
+  if (postDeadline && deadline && new Date(postDeadline) < new Date(deadline)) {
+    toast('게시 마감일은 모집 마감일 이후여야 합니다','error');
     return;
   }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
