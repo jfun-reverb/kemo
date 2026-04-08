@@ -127,8 +127,13 @@ async function changePassword() {
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
 }
 
-function switchMyTab(tab, el) {
-  document.querySelectorAll('.mypage-tab').forEach(t=>t.classList.remove('on'));
-  document.querySelectorAll('.mypage-tab-pane').forEach(t=>t.classList.remove('on'));
-  el.classList.add('on'); $('tab-'+tab).classList.add('on');
+function openMypageSub(sub) {
+  document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
+  const target = $('mypage-sub-' + sub);
+  if (target) target.classList.add('active');
+}
+
+function closeMypageSub() {
+  document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
+  $('mypage-list').classList.add('active');
 }

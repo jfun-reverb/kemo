@@ -5,17 +5,10 @@
 function updateGnb() {
   const gnbRight = $('gnbRight');
   if (currentUser) {
-    const initial = (currentUserProfile?.name || currentUser.email || 'U')[0].toUpperCase();
     const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
-    gnbRight.innerHTML = `
-      <div class="gnb-user">
-        <div class="gnb-user-av">${initial}</div>
-        <span>${currentUserProfile?.name || currentUser.email}</span>
-      </div>
-      ${isAdmin ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.open('/admin/','_blank')">Admin</button>` : ''}
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('mypage')">My Page</button>
-      <span class="gnb-logout" onclick="handleLogout()">Log Out</span>
-    `;
+    gnbRight.innerHTML = isAdmin
+      ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.open('/admin/','_blank')">Admin</button>`
+      : '';
   } else {
     gnbRight.innerHTML = `
       <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>

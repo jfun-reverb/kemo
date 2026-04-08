@@ -42,6 +42,7 @@ function navigate(page, pushHistory) {
   if (pageName === 'campaigns') loadCampaignsPage();
   if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
+    closeMypageSub();
     loadMyPage();
   }
 }
