@@ -139,10 +139,11 @@ function buildCampCards(camps) {
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">近日公開</span></div>`:''}
         ${isFull&&!isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集終了</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;display:flex;gap:4px">
-          ${isNew&&!isFull?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
+          ${isNew&&!isFull&&!isScheduled?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
+          ${!isFull&&!isScheduled?'<span style="background:rgba(14,126,74,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>':''}
           ${typeLabel&&!isFull?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
-        <div class="camp-ch-badge" style="z-index:3">${getChannelLabel(c.channel)}</div>
+        <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${getChannelLabel(c.channel)}</div>
       </div>
       <div class="camp-body">
         <div class="camp-brand">${c.brand}</div>

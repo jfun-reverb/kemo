@@ -176,6 +176,7 @@ async function openEditCampaign(campId) {
   });
 
   // 기존 이미지 로드
+  editCampImgChanged = false;
   editCampImgData.length = 0;
   [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8]
     .filter(Boolean).forEach(url => editCampImgData.push({data: url}));
@@ -186,14 +187,17 @@ async function openEditCampaign(campId) {
 
 // ── 편집용 이미지 관리 ──
 var editCampImgData = [];
+var editCampImgChanged = false;
 registerImgList('editCampImgData', editCampImgData);
 
 function handleEditCampImgSelect(input) {
+  editCampImgChanged = true;
   addImagesToList(Array.from(input.files), editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
   input.value = '';
 }
 
 function removeEditCampImg(idx) {
+  editCampImgChanged = true;
   editCampImgData.splice(idx, 1);
   renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
 }
@@ -244,14 +248,16 @@ async function saveCampaignEdit() {
       status: gv('editCampStatus'),
     };
 
-    // 이미지를 Storage에 업로드
-    toast('이미지 업로드 중...','');
-    const imgUrls = await uploadCampImages(editCampImgData);
-    updates.image_url = imgUrls[0];
-    updates.img1 = imgUrls[0]; updates.img2 = imgUrls[1];
-    updates.img3 = imgUrls[2]; updates.img4 = imgUrls[3];
-    updates.img5 = imgUrls[4]; updates.img6 = imgUrls[5];
-    updates.img7 = imgUrls[6]; updates.img8 = imgUrls[7];
+    // 이미지가 변경된 경우에만 업로드
+    if (editCampImgChanged) {
+      toast('이미지 업로드 중...','');
+      const imgUrls = await uploadCampImages(editCampImgData);
+      updates.image_url = imgUrls[0];
+      updates.img1 = imgUrls[0]; updates.img2 = imgUrls[1];
+      updates.img3 = imgUrls[2]; updates.img4 = imgUrls[3];
+      updates.img5 = imgUrls[4]; updates.img6 = imgUrls[5];
+      updates.img7 = imgUrls[6]; updates.img8 = imgUrls[7];
+    }
 
     await updateCampaign(campId, updates);
     allCampaigns = await fetchCampaigns();
