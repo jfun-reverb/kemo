@@ -1885,6 +1885,14 @@ async function saveCampaignEdit() {
       toast('게시 마감일은 모집 마감일 이후여야 합니다','error');
       return;
     }
+    const editStatus = gv('editCampStatus');
+    if (editDeadline && editStatus === 'active') {
+      const dl = new Date(editDeadline); dl.setHours(23,59,59,999);
+      if (new Date() > dl) {
+        toast('모집 마감일이 지났으므로 「모집중」 상태로 저장할 수 없습니다','error');
+        return;
+      }
+    }
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
@@ -2061,6 +2069,16 @@ function toggleStatusDropdown(badgeEl) {
 
 async function changeCampStatus(campId, newStatus) {
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
+  if (newStatus === 'active') {
+    const camp = allCampaigns.find(c => c.id === campId);
+    if (camp?.deadline) {
+      const dl = new Date(camp.deadline); dl.setHours(23,59,59,999);
+      if (new Date() > dl) {
+        toast('모집 마감일이 지났으므로 「모집중」으로 변경할 수 없습니다','error');
+        return;
+      }
+    }
+  }
   try {
     await updateCampaign(campId, {status: newStatus});
     allCampaigns = await fetchCampaigns();
