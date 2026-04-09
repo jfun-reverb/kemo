@@ -50,15 +50,18 @@
 - 마감일 경과 active 차단: deadline 지난 캠페인은 모집중 상태로 저장/변경 불가 (편집, 드롭다운 모두)
 - 조회수: campaigns.view_count 컬럼, 캠페인 상세 열 때 +1, 관리자 목록에 표시
 - 이미지 관리: 드래그앤드롭 업로드, 크롭, 미리보기, Supabase Storage 저장
-- 신청 관리: 캠페인별 신청자 목록, 승인/거절 처리
+- 신청 관리: 테이블 UI (캠페인 썸네일, 타입/상태/검색 필터, 상태 정렬), 인플루언서 상세 모달
+- 신청 처리: reviewed_by, reviewed_at 기록, 되돌리기(pending 복귀) 기능
+- 에러 처리: friendlyError() 한국어 에러 메시지 + 에러 코드 표시
+- 상태 뱃지: getStatusBadgeKo() 한국어 상태 표시
 - 인플루언서 관리: 채널별 필터, 상세 프로필 조회
-- 관리자 계정: 3단계 권한 (super_admin > campaign_admin > campaign_manager)
+- 관리자 계정: 3단계 권한 (super_admin > campaign_admin > campaign_manager), create_admin으로 기존 인플루언서 계정도 관리자 추가 가능
 - 내 계정: 이름/비밀번호 변경
 
 ## Database Schema (Supabase)
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, status, view_count, img1~img8 등)
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보 등)
-- `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status)
+- `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
 - `admins` — 관리자 계정 (auth_id, email, name, role)
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
 - 트리거: auth.users 생성 시 influencers 레코드 자동 생성
@@ -88,6 +91,8 @@
 - 캠페인 삭제 시 관련 applications도 함께 삭제 (cascading)
 - 이미지 업로드는 Supabase Storage (campaign-images 버킷) 사용
 - 비밀번호 재설정 시 Supabase Redirect URL 설정 필수: Authentication → URL Configuration → Redirect URLs에 https://kemo-liart.vercel.app 등록
+- 아이콘은 Material Icons 사용 (이모지 사용 금지), translate="no" 속성 필수
+- 하드코딩 DOM 인덱스 금지 (querySelector 등에서 :nth-child 인덱스 직접 사용 금지)
 
 ## Mobile Layout Rules
 - #appShell은 position:fixed + top:0/bottom:0 (body 스크롤 차단, 뷰포트 고정)
