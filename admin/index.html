@@ -12,6 +12,7 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style id="admin-cloak">body{visibility:hidden!important}</style>
 <style>
 /* ══════════════════════════════════
    BASE — 초기화, 변수, 레이아웃 (Material Design 3)
@@ -157,7 +158,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* ── LOADING ── */
 .spinner{width:20px;height:20px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-overlay{display:none;position:fixed;inset:0;background:rgba(255,255,255,.85);z-index:9998;align-items:center;justify-content:center}
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.08);z-index:9998;align-items:center;justify-content:center}
 .loading-overlay.show{display:flex}
 
 /* ── BOTTOM TAB BAR (Material Navigation Bar) ── */
@@ -196,7 +197,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .admin-layout.collapsed .sidebar-toggle-label{opacity:0;width:0;overflow:hidden}
 .si-icon{font-size:20px;flex-shrink:0;width:24px;text-align:center}
 .si-text{transition:opacity .2s}
-.admin-layout.collapsed .admin-si{padding:12px 0;justify-content:center;margin-right:0;border-radius:0;border-left:none}
+.admin-layout.collapsed .admin-si{padding:12px 0;justify-content:center;margin-right:0;border-radius:0;border-left:none;gap:0}
 .admin-layout.collapsed .si-text{opacity:0;width:0;overflow:hidden}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
@@ -306,23 +307,23 @@ textarea.form-input{resize:vertical;min-height:80px}
         <span class="sidebar-toggle-label">MENU</span>
       </div>
       <div class="admin-si-lbl">대시보드</div>
-      <div class="admin-si on" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
+      <div class="admin-si" data-pane="dashboard" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
       <div class="admin-si-lbl">캠페인</div>
-      <div class="admin-si" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
-      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
-      <div class="admin-si" onclick="switchAdminPane('add-campaign',this)"><span class="si-icon material-icons-round">add_circle</span><span class="si-text">신규 등록</span></div>
+      <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
+      <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
+      <div class="admin-si" data-pane="add-campaign" onclick="switchAdminPane('add-campaign',this)"><span class="si-icon material-icons-round">add_circle</span><span class="si-text">신규 등록</span></div>
       <div class="admin-si-lbl">회원 관리</div>
-      <div class="admin-si" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+      <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
-      <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
-      <div class="admin-si" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
+      <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+      <div class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
     </aside>
     <main class="admin-main">
 
       <div class="admin-body">
 
         <!-- DASHBOARD PANE -->
-        <div id="adminPane-dashboard" class="admin-pane on">
+        <div id="adminPane-dashboard" class="admin-pane">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <div style="font-size:16px;font-weight:700;color:var(--ink)">전체 현황</div>
             <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">새로고침</button>
@@ -366,7 +367,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
             <table class="data-table" id="recentAppsTable">
               <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -415,7 +416,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -722,7 +723,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               <thead id="infTableHead">
                 <tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>
               </thead>
-              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+              <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -794,7 +795,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
             <table class="data-table">
               <thead><tr><th>이름</th><th>Instagram</th><th>팔로워</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="campApplicantsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+              <tbody id="campApplicantsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -834,7 +835,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
               <table class="data-table">
                 <thead id="appTableHead"><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
-                <tbody id="appTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+                <tbody id="appTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -852,7 +853,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
             <table class="data-table">
               <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th>등록일</th><th>처리</th></tr></thead>
-              <tbody id="adminAccountsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+              <tbody id="adminAccountsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -991,6 +992,22 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div style="display:flex;gap:10px;margin-top:8px">
       <button class="btn btn-ghost" onclick="closeDeleteCampModal()" style="flex:1;border-radius:12px;padding:14px">취소</button>
       <button class="btn" id="deleteCampBtn" disabled onclick="executeDeleteCampaign()" style="flex:1;border-radius:12px;padding:14px;background:#B3261E;color:#fff;opacity:.4;cursor:not-allowed">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 캠페인 미리보기 모달 (모바일 크기) -->
+<div class="modal-overlay" id="campPreviewModal" style="z-index:500">
+  <div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:20px">
+    <div style="position:relative;width:400px;height:90vh;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.25);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0">
+        <span style="font-size:14px;font-weight:700;color:var(--ink)">캠페인 미리보기</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-primary btn-xs" id="campPreviewEditBtn" onclick="">편집</button>
+          <span class="material-icons-round notranslate" translate="no" style="font-size:20px;cursor:pointer;color:var(--muted)" onclick="closeModal('campPreviewModal')">close</span>
+        </div>
+      </div>
+      <iframe id="campPreviewFrame" style="flex:1;border:none;width:100%"></iframe>
     </div>
   </div>
 </div>
@@ -1642,22 +1659,23 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
   if (paneEl) paneEl.classList.add('on');
-  // サイドバーのアクティブ状態をpane名で自動検索
+  // サイドバーのアクティブ状態をdata-pane属性で検索
   if (!el) {
-    const parentPane = {
-      'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns','influencer-detail':'influencers'
-    }[pane] || pane;
-    document.querySelectorAll('.admin-si').forEach(s => {
-      if (s.getAttribute('onclick') && s.getAttribute('onclick').includes("'" + parentPane + "'")) el = s;
-    });
+    const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
+      'camp-applicants':'campaigns','influencer-detail':'influencers'}[pane] || pane;
+    el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
-  if (pane==='applications') loadApplications();
-  if (pane==='campaigns') loadAdminCampaigns();
-  if (pane==='influencers') loadAdminInfluencers();
-  if (pane==='admin-accounts') loadAdminAccounts();
-  if (pane==='my-account') loadMyAdminInfo();
+  const loaders = {
+    applications: loadApplications,
+    campaigns: loadAdminCampaigns,
+    influencers: loadAdminInfluencers,
+    'admin-accounts': loadAdminAccounts,
+    'my-account': loadMyAdminInfo
+  };
+  if (loaders[pane]) {
+    return Promise.resolve(loaders[pane]());
+  }
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
     history.pushState({pane: pane}, '', '#' + pane);
@@ -1705,7 +1723,7 @@ async function loadAdminData() {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>99?'99+':pending.length}</span>`:''}`;
 
   // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -1713,7 +1731,7 @@ async function loadAdminData() {
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px">기프팅</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -1721,7 +1739,7 @@ async function loadAdminData() {
             ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
+            <div style="display:flex;align-items:center;gap:5px">${typeLabel}<strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong></div>
             <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
           </div>
         </div>
@@ -1903,7 +1921,7 @@ async function loadAdminCampaigns(useCache) {
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:5px">${typeLabel(c.recruit_type)}<strong>${esc(c.title)}</strong></div>
+            <div style="display:flex;align-items:center;gap:5px">${typeLabel(c.recruit_type)}<strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
@@ -2181,6 +2199,15 @@ async function executeDeleteCampaign() {
 }
 
 // 상태 순환: 준비 → 모집예정 → 모집중 → 일시정지 → 종료 → 준비
+function openCampPreviewModal(campId) {
+  const frame = $('campPreviewFrame');
+  const editBtn = $('campPreviewEditBtn');
+  if (!frame) return;
+  frame.src = '/#detail-' + campId;
+  editBtn.onclick = function() { closeModal('campPreviewModal'); openEditCampaign(campId); };
+  openModal('campPreviewModal');
+}
+
 function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   e.stopPropagation();
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
@@ -2709,7 +2736,7 @@ async function renderAppCampList() {
     const u = users.find(u => u.email === a.user_email) || {};
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px">기프팅</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -2717,7 +2744,7 @@ async function renderAppCampList() {
             ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
+            <div style="display:flex;align-items:center;gap:5px">${typeLabel}<strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong></div>
             <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
           </div>
         </div>
@@ -3203,27 +3230,37 @@ async function init() {
   // 이미지 리스트 등록
   registerImgList('campImgData', campImgData);
 
-  // 캠페인 + 대시보드 로드
   allCampaigns = await fetchCampaigns();
-  loadAdminData();
 
   // URL 해시가 있으면 해당 패널로 이동
   var hash = location.hash.replace('#','');
   if (hash && hash !== 'dashboard') {
-    switchAdminPane(hash, null, false);
+    await Promise.resolve(switchAdminPane(hash, null, false));
   } else {
     history.replaceState({pane:'dashboard'}, '', '#dashboard');
+    await loadAdminData();
   }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // 해시에 맞는 패널을 즉시 활성화 (깜빡임 방지)
+  // データコンテキストが必要な下位パネルは親パネルへリダイレクト
   var initHash = location.hash.replace('#','') || 'dashboard';
-  if (initHash !== 'dashboard') {
-    document.querySelectorAll('.admin-pane').forEach(function(p) { p.classList.remove('on'); });
-    var initPane = document.getElementById('adminPane-' + initHash);
-    if (initPane) initPane.classList.add('on');
+  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers'};
+  if (subToParent[initHash]) {
+    initHash = subToParent[initHash];
+    history.replaceState({pane: initHash}, '', '#' + initHash);
   }
+  var sidePane = {'add-campaign':'campaigns'}[initHash] || initHash;
+  document.querySelectorAll('.admin-pane').forEach(function(p) { p.classList.remove('on'); });
+  document.querySelectorAll('.admin-si').forEach(function(s) { s.classList.remove('on'); });
+  var initPane = document.getElementById('adminPane-' + initHash) || document.getElementById('adminPane-dashboard');
+  if (initPane) initPane.classList.add('on');
+  document.querySelectorAll('.admin-si').forEach(function(s) {
+    if (s.dataset.pane === sidePane) s.classList.add('on');
+  });
+  // パネル設定完了後にbodyを表示
+  var cloak = document.getElementById('admin-cloak');
+  if (cloak) cloak.remove();
 
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();
