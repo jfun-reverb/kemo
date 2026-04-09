@@ -2,6 +2,12 @@
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
 // ══════════════════════════════════════
 
+// HTML エスケープ（XSS防止）
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function toast(msg, type='') {
   const el = document.getElementById('toast');
   el.textContent = msg; el.className = 'show' + (type ? ' '+type : '');
@@ -28,7 +34,10 @@ function getStatusBadge(s) {
 }
 function getChannelBadge(ch) {
   const m = {instagram:'<span class="badge badge-blue">Instagram</span>',x:'<span class="badge badge-gray">X</span>',qoo10:'<span class="badge badge-gold">Qoo10</span>'};
-  return m[ch] || `<span class="badge badge-gray">${ch}</span>`;
+  return m[ch] || `<span class="badge badge-gray">${esc(ch)}</span>`;
+}
+function openModal(id) {
+  $(id).classList.add('open');
 }
 function closeModal(id) {
   $(id).classList.remove('open');

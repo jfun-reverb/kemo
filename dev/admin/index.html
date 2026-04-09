@@ -40,7 +40,7 @@
 
 <div id="page-admin" style="display:block;min-height:100vh">
   <!-- 관리자 전용 상단 헤더 -->
-  <div style="background:#2D1F2B;height:54px;display:flex;align-items:center;position:sticky;top:0;z-index:100;width:100%">
+  <div style="background:#2D1F2B;height:56px;display:flex;align-items:center;position:sticky;top:0;z-index:100;width:100%">
     <div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 24px">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:#fff;cursor:pointer" onclick="switchAdminPane('dashboard',document.querySelector('.admin-si'))">Reverb</span>
       <div style="display:flex;align-items:center;gap:10px">
@@ -65,10 +65,10 @@
       <div class="admin-si on" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
       <div class="admin-si-lbl">캠페인</div>
       <div class="admin-si" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
+      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
       <div class="admin-si" onclick="switchAdminPane('add-campaign',this)"><span class="si-icon material-icons-round">add_circle</span><span class="si-text">신규 등록</span></div>
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
-      <div class="admin-si" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
       <div class="admin-si" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
       <div class="admin-si" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
@@ -119,10 +119,10 @@
           </div>
 
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',document.querySelector('.admin-si:nth-child(7)'))">전체 보기</button></div>
+            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
             <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>인플루언서</th><th>캠페인</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+              <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -154,13 +154,17 @@
             </div>
           </div>
           <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span><button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button></div>
+            <div class="admin-card-header">
+              <span class="admin-card-title" id="adminCampTableTitle">캠페인 목록</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <button class="btn btn-ghost btn-xs" id="btnCampSortReset" onclick="resetCampSort()" style="display:none">정렬 초기화</button>
+                <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
+              </div>
+            </div>
             <table class="data-table">
-              <thead><tr>
-  <th>순서</th>
+              <thead id="adminCampTableHead"><tr>
   <th>캠페인</th>
-  <th>상태</th>
-  <th>타입</th>
+  <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">▲▼</span></th>
   <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
   <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">▲▼</span></th>
   <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">▲▼</span></th>
@@ -465,7 +469,10 @@
           <div class="admin-card">
             <div class="admin-card-header">
               <span class="admin-card-title" id="infTableTitle">인플루언서 목록</span>
-              <span id="infTotalCount" style="font-size:12px;color:var(--muted)">0名登録</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <button class="btn btn-ghost btn-xs" id="btnInfSortReset" onclick="resetInfSort()" style="display:none">정렬 초기화</button>
+                <span id="infTotalCount" style="font-size:12px;color:var(--muted)">0名登録</span>
+              </div>
             </div>
             <table class="data-table" id="infTable">
               <thead id="infTableHead">
@@ -479,7 +486,7 @@
         <!-- INFLUENCER DETAIL PANE -->
         <div id="adminPane-influencer-detail" class="admin-pane">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('influencers',document.querySelectorAll('.admin-si')[4])">← 목록으로</button>
+            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('influencers',null)">← 목록으로</button>
             <div style="font-size:16px;font-weight:700" id="infDetailTitle">인플루언서 상세</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -523,7 +530,7 @@
         <!-- CAMPAIGN APPLICANTS PANE -->
         <div id="adminPane-camp-applicants" class="admin-pane">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',document.querySelectorAll('.admin-si')[2])">← 캠페인 목록으로</button>
+            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
             <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
           </div>
           <div class="admin-card">
@@ -550,37 +557,40 @@
 
         <!-- APPLICATIONS PANE -->
         <div id="adminPane-applications" class="admin-pane">
-          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
-          <!-- 리뷰어/기프팅 탭 -->
-          <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
-            <button id="appTypeTab-all" onclick="switchAppTypeTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="appTypeTab-monitor" onclick="switchAppTypeTab('monitor',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">리뷰어</button>
-            <button id="appTypeTab-gifting" onclick="switchAppTypeTab('gifting',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">기프팅</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
           </div>
-          <!-- 캠페인별 카드 리스트 -->
-          <div id="appCampList"></div>
-          <!-- 캠페인별 신청자 상세 (클릭 시 표시) -->
-          <div id="appCampDetail" style="display:none">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <button class="btn btn-ghost btn-sm" onclick="$('appCampList').style.display='';$('appCampDetail').style.display='none'">← 신청 관리로</button>
-              <div id="appDetailCampName" style="font-size:15px;font-weight:700"></div>
+          <!-- 필터 + 검색 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+            <select id="appTypeFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+              <option value="all">전체 타입</option>
+              <option value="monitor">리뷰어</option>
+              <option value="gifting">기프팅</option>
+            </select>
+            <select id="appStatusFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+              <option value="all">전체 상태</option>
+              <option value="pending">심사중</option>
+              <option value="approved">승인</option>
+              <option value="rejected">미승인</option>
+            </select>
+            <div style="position:relative;width:360px">
+              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+              <input type="text" id="appSearch" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
             </div>
+          </div>
+          <!-- 테이블 리스트 -->
+          <div id="appCampList">
             <div class="admin-card">
               <div class="admin-card-header">
-                <span class="admin-card-title">신청자 리스트</span>
-                <div style="display:flex;gap:6px;align-items:center">
-                  <span id="appDetailStats" style="font-size:12px;color:var(--muted)"></span>
-                  <select id="appDetailFilter" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderAppDetail()">
-                    <option value="">전체</option>
-                    <option value="pending">심사중</option>
-                    <option value="approved">승인</option>
-                    <option value="rejected">미승인</option>
-                  </select>
+                <span class="admin-card-title">신청 목록</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button class="btn btn-ghost btn-xs" id="btnAppSortReset" onclick="resetAppSort()" style="display:none">정렬 초기화</button>
+                  <span id="appTotalCount" style="font-size:12px;color:var(--muted)"></span>
                 </div>
               </div>
               <table class="data-table">
-                <thead><tr><th>인플루언서</th><th>Instagram</th><th>X / TikTok / YouTube</th><th>총 팔로워</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-                <tbody id="appDetailBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
+                <thead id="appTableHead"><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태</th><th>처리</th></tr></thead>
+                <tbody id="appTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -743,6 +753,41 @@
 
 <script src="../lib/supabase.js"></script>
 <script src="../lib/shared.js"></script>
+<!-- 인플루언서 상세 모달 -->
+<div class="modal-overlay" id="infDetailModal" style="z-index:500">
+  <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <div class="modal-title" id="infModalTitle">인플루언서 상세</div>
+      <div class="modal-close" onclick="closeModal('infDetailModal')">✕</div>
+    </div>
+    <div class="modal-body" style="padding:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--ink)">기본 정보</div>
+          <div id="infModalBasic"></div>
+          <div style="font-size:13px;font-weight:700;margin:16px 0 8px;color:var(--ink)">SNS 계정</div>
+          <div id="infModalSns"></div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--ink)">연락처</div>
+          <div id="infModalContact"></div>
+          <div style="font-size:13px;font-weight:700;margin:16px 0 8px;color:var(--ink)">배송지</div>
+          <div id="infModalAddress"></div>
+          <div style="font-size:13px;font-weight:700;margin:16px 0 8px;color:var(--ink)">계좌 정보</div>
+          <div id="infModalBank"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--ink)">신청 이력 <span id="infModalAppCount" style="font-weight:400;color:var(--muted)"></span></div>
+        <table class="data-table">
+          <thead><tr><th>캠페인</th><th>타입</th><th>신청일</th><th>상태</th></tr></thead>
+          <tbody id="infModalAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">신청 이력 없음</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="../lib/storage.js"></script>
 <script src="../js/ui.js"></script>
 <script src="../js/admin.js"></script>

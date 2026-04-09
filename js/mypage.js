@@ -54,8 +54,8 @@ async function loadMyApplications() {
     return `<div class="apply-item">
       <div class="apply-thumb">${camp.emoji||'📦'}</div>
       <div class="apply-item-info">
-        <div class="apply-item-name">${camp.title||a.campaign_id}</div>
-        <div class="apply-item-meta">${camp.brand||''} · 応募日 ${formatDate(a.created_at)}</div>
+        <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
+        <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
       </div>
       <div class="apply-item-status">${getStatusBadge(a.status)}</div>
     </div>`;
