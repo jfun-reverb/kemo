@@ -1152,6 +1152,10 @@ function getStatusBadge(s) {
   const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
   return m[s] || s;
 }
+function getStatusBadgeKo(s) {
+  const m = {pending:'<span class="badge badge-gold">심사중</span>',approved:'<span class="badge badge-green">승인</span>',rejected:'<span class="badge badge-gray">미승인</span>'};
+  return m[s] || s;
+}
 function getChannelBadge(ch) {
   const m = {instagram:'<span class="badge badge-blue">Instagram</span>',x:'<span class="badge badge-gray">X</span>',qoo10:'<span class="badge badge-gold">Qoo10</span>'};
   return m[ch] || `<span class="badge badge-gray">${esc(ch)}</span>`;
