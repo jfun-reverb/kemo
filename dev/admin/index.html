@@ -84,10 +84,10 @@
             <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">새로고침</button>
           </div>
           <div class="kpi-row">
-            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns">0</div><div class="kpi-lbl">전체 캠페인</div></div>
-            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers">0</div><div class="kpi-lbl">등록 인플루언서</div></div>
-            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications">0</div><div class="kpi-lbl">총 신청수</div></div>
-            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved">0</div><div class="kpi-lbl">승인 완료</div></div>
+            <div class="kpi-card kpi-r"><div class="kpi-val" id="kpiCampaigns"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 캠페인</div></div>
+            <div class="kpi-card kpi-o"><div class="kpi-val" id="kpiInfluencers"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">등록 인플루언서</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
+            <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
           </div>
           <!-- 회원가입 현황 -->
           <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
@@ -103,18 +103,18 @@
               <div style="padding:16px;height:240px"><canvas id="signupChart"></canvas></div>
               <div style="display:flex;gap:12px;padding:0 16px 16px">
                 <div style="flex:1;background:#FFF0F6;border-radius:10px;padding:12px 14px">
-                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday">0</div>
+                  <div style="font-size:22px;font-weight:800;color:var(--pink)" id="kpiSignupToday"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
                   <div style="font-size:11px;color:var(--muted);margin-top:2px">오늘 가입</div>
                 </div>
                 <div style="flex:1;background:#F0F4FF;border-radius:10px;padding:12px 14px">
-                  <div style="font-size:22px;font-weight:800;color:#5B7CFF" id="kpiSignupWeek">0</div>
+                  <div style="font-size:22px;font-weight:800;color:#5B7CFF" id="kpiSignupWeek"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(91,124,255,.2);border-top-color:#5B7CFF"></span></div>
                   <div style="font-size:11px;color:var(--muted);margin-top:2px">이번주 가입 (<span id="kpiWeekRange"></span>)</div>
                 </div>
               </div>
             </div>
             <div class="admin-card" style="padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">프로필 완성률</div>
-              <div id="profileCompletionBars"></div>
+              <div id="profileCompletionBars"><div style="display:flex;align-items:center;justify-content:center;min-height:80px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
             </div>
           </div>
 
