@@ -46,13 +46,13 @@ async function loadMyApplications() {
   }
   const container = $('myApplicationsList');
   if (!apps.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">まだ応募したキャンペーンはありません</div><div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">キャンペーンを見る</button></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">まだ応募したキャンペーンはありません</div><div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">キャンペーンを見る</button></div>`;
     return;
   }
   container.innerHTML = apps.map(a => {
     const camp = a.campaigns || allCampaigns.find(c=>c.id===a.campaign_id) || {};
     return `<div class="apply-item">
-      <div class="apply-thumb">${camp.emoji||'📦'}</div>
+      <div class="apply-thumb">${camp.emoji||'<span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:var(--muted)">inventory_2</span>'}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
@@ -88,9 +88,9 @@ async function saveProfile() {
   try {
     await updateInfluencer(currentUser.id, updated);
     currentUserProfile = Object.assign(currentUserProfile || {}, updated);
-    toast('저장했습니다','success'); loadMyPage();
+    toast('保存しました','success'); loadMyPage();
   } catch(e) {
-    toast('저장 오류: '+e.message,'error');
+    toast('保存エラー: '+e.message,'error');
   }
 }
 
@@ -105,9 +105,9 @@ async function saveBankInfo() {
   try {
     await updateInfluencer(currentUser.id, bankData);
     currentUserProfile = Object.assign(currentUserProfile || {}, bankData);
-    toast('계좌 정보를 저장했습니다','success');
+    toast('口座情報を保存しました','success');
   } catch(e) {
-    toast('저장 오류: '+e.message,'error');
+    toast('保存エラー: '+e.message,'error');
   }
 }
 

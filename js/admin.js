@@ -1,6 +1,25 @@
 // ══════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════
+// エラーメッセージを韓国語に変換
+function friendlyError(msg) {
+  if (!msg) return '알 수 없는 오류 [ERR_UNKNOWN]';
+  const s = String(msg);
+  if (s.includes('Already registered as admin')) return '이미 관리자로 등록된 계정입니다. [ERR_ADMIN_EXISTS]';
+  if (s.includes('duplicate key') || s.includes('unique constraint') || s.includes('already exists')) return '이미 등록된 데이터입니다. [ERR_DUPLICATE_23505]';
+  if (s.includes('Permission denied') || s.includes('permission denied')) return '권한이 없습니다. [ERR_PERMISSION_42501]';
+  if (s.includes('gen_salt') || s.includes('does not exist')) return 'DB 함수 오류입니다. 관리자에게 문의해주세요. [ERR_FUNC_42883]';
+  if (s.includes('violates foreign key')) return '연결된 데이터가 있어 처리할 수 없습니다. [ERR_FK_23503]';
+  if (s.includes('violates not-null')) return '필수 항목이 누락되었습니다. [ERR_NULL_23502]';
+  if (s.includes('network') || s.includes('fetch') || s.includes('Failed to fetch')) return '네트워크 오류입니다. 인터넷 연결을 확인해주세요. [ERR_NETWORK]';
+  if (s.includes('rate limit') || s.includes('429')) return '요청이 너무 많습니다. 잠시 후 다시 시도해주세요. [ERR_RATE_LIMIT_429]';
+  if (s.includes('not found') || s.includes('no rows')) return '데이터를 찾을 수 없습니다. [ERR_NOT_FOUND_404]';
+  if (s.includes('timeout') || s.includes('timed out')) return '요청 시간이 초과되었습니다. [ERR_TIMEOUT_408]';
+  if (s.includes('unauthorized') || s.includes('JWT')) return '인증이 만료되었습니다. 다시 로그인해주세요. [ERR_AUTH_401]';
+  if (s.includes('email_not_confirmed')) return '이메일 인증이 완료되지 않았습니다. [ERR_EMAIL_UNVERIFIED]';
+  return s + ' [ERR_UNHANDLED]';
+}
+
 function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
@@ -82,7 +101,7 @@ async function loadAdminData() {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'📦'}</span>`}
+            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
             <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
@@ -262,7 +281,7 @@ async function loadAdminCampaigns(useCache) {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'📦'}</span>`}
+            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0">
@@ -447,10 +466,10 @@ async function saveCampaignEdit() {
 
     await updateCampaign(campId, updates);
     allCampaigns = await fetchCampaigns();
-    toast('변경 사항을 저장했습니다 ✓','success');
+    toast('변경 사항을 저장했습니다','success');
     switchAdminPane('campaigns', null);
   } catch(err) {
-    toast('저장 오류: '+err.message,'error');
+    toast('저장 오류: '+friendlyError(err.message),'error');
   }
 }
 
@@ -482,7 +501,7 @@ async function duplicateCampaign(campId) {
     loadAdminCampaigns();
     toast('캠페인이 복제되었습니다 (준비 상태)','success');
   } catch(e) {
-    toast('복제 오류: ' + e.message,'error');
+    toast('복제 오류: ' + friendlyError(e.message),'error');
   }
 }
 
@@ -539,7 +558,7 @@ async function executeDeleteCampaign() {
     loadAdminCampaigns();
     toast('캠페인이 삭제되었습니다','success');
   } catch(e) {
-    err.textContent = '삭제 오류: ' + e.message; err.style.display = 'block';
+    err.textContent = '삭제 오류: ' + friendlyError(e.message); err.style.display = 'block';
   }
 }
 
@@ -1074,7 +1093,7 @@ async function renderAppCampList() {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'📦'}</span>`}
+            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
             <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
@@ -1099,11 +1118,11 @@ async function renderAppCampList() {
 async function updateAppStatus(appId, status) {
   try {
     await updateApplication(appId, {status});
-    toast(status==='approved'?'✓ 승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
+    toast(status==='approved'?'승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
     renderAppCampList();
     loadAdminData();
   } catch(e) {
-    toast('상태 변경 오류: '+e.message,'error');
+    toast('상태 변경 오류: '+friendlyError(e.message),'error');
   }
 }
 
@@ -1164,7 +1183,7 @@ async function addCampaign() {
   };
 
   await insertCampaign(camp);
-  toast('캠페인이 등록되었습니다 🎉','success');
+  toast('캠페인이 등록되었습니다','success');
   campImgData.length = 0;
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
@@ -1182,7 +1201,7 @@ async function addCampaign() {
 
   switchAdminPane('campaigns', null);
   } catch(err) {
-    toast('오류: ' + (err.message||String(err)), 'error');
+    toast('오류: ' + friendlyError(err.message||String(err)), 'error');
   }
 }
 
@@ -1234,7 +1253,7 @@ async function saveMyAdminInfo() {
   try {
     await db.from('admins').update({name}).eq('id', currentAdminInfo.id);
     currentAdminInfo.name = name;
-    toast('정보가 저장되었습니다 ✓','success');
+    toast('정보가 저장되었습니다','success');
   } catch(e) {
     toast('저장 오류: ' + e.message,'error');
   }
@@ -1252,12 +1271,12 @@ async function changeMyAdminPassword() {
   try {
     const {error} = await db.auth.updateUser({password: nw});
     if (error) { err.textContent = error.message; err.style.display='block'; return; }
-    toast('비밀번호가 변경되었습니다 ✓','success');
+    toast('비밀번호가 변경되었습니다','success');
     $('myAdminCurrentPw').value = '';
     $('myAdminNewPw').value = '';
     $('myAdminNewPw2').value = '';
   } catch(e) {
-    err.textContent = '변경 오류: ' + e.message; err.style.display='block';
+    err.textContent = '변경 오류: ' + friendlyError(e.message); err.style.display='block';
   }
 }
 
@@ -1299,11 +1318,11 @@ async function saveAdmin() {
     const role = $('adminFormRole').value;
     try {
       await db.from('admins').update({name, role}).eq('id', editId);
-      toast('관리자 정보가 수정되었습니다 ✓','success');
+      toast('관리자 정보가 수정되었습니다','success');
       closeModal('addAdminModal');
       loadAdminAccounts();
     } catch(e) {
-      err.textContent = '수정 오류: ' + e.message; err.style.display = 'block';
+      err.textContent = '수정 오류: ' + friendlyError(e.message); err.style.display = 'block';
     }
   } else {
     // 추가 모드
@@ -1318,11 +1337,11 @@ async function saveAdmin() {
         admin_email: email, admin_password: pw, admin_name: name, admin_role: role
       });
       if (error) throw error;
-      toast('관리자가 추가되었습니다 ✓','success');
+      toast('관리자가 추가되었습니다','success');
       closeModal('addAdminModal');
       loadAdminAccounts();
     } catch(e) {
-      err.textContent = '추가 오류: ' + e.message; err.style.display = 'block';
+      err.textContent = '추가 오류: ' + friendlyError(e.message); err.style.display = 'block';
     }
   }
 }
@@ -1334,7 +1353,7 @@ async function deleteAdmin(id, email) {
     toast('관리자가 삭제되었습니다','success');
     loadAdminAccounts();
   } catch(e) {
-    toast('삭제 오류: ' + e.message,'error');
+    toast('삭제 오류: ' + friendlyError(e.message),'error');
   }
 }
 
@@ -1355,10 +1374,10 @@ async function executeResetPw() {
   try {
     const {error} = await db.rpc('reset_admin_password', {target_auth_id: authId, new_password: newPw});
     if (error) throw error;
-    toast('비밀번호가 초기화되었습니다 ✓','success');
+    toast('비밀번호가 초기화되었습니다','success');
     closeModal('resetPwModal');
   } catch(e) {
-    err.textContent = '초기화 오류: ' + e.message; err.style.display = 'block';
+    err.textContent = '초기화 오류: ' + friendlyError(e.message); err.style.display = 'block';
   }
 }
 
@@ -1367,10 +1386,10 @@ async function sendResetEmail() {
   try {
     const {error} = await db.auth.resetPasswordForEmail(email);
     if (error) throw error;
-    toast(`${email}로 재설정 링크를 보냈습니다 📧`,'success');
+    toast(`${email}로 재설정 링크를 보냈습니다`,'success');
     closeModal('resetPwModal');
   } catch(e) {
-    toast('이메일 발송 오류: ' + e.message,'error');
+    toast('이메일 발송 오류: ' + friendlyError(e.message),'error');
   }
 }
 
