@@ -96,6 +96,12 @@ async function init() {
         navigate('reset-pw');
       }
     });
+    // URL にリカバリートークンが含まれている場合の検知
+    const hashParams = new URLSearchParams(location.hash.replace('#','').split('?').pop());
+    const urlType = hashParams.get('type') || new URLSearchParams(location.search).get('type');
+    if (urlType === 'recovery' || location.hash.includes('type=recovery')) {
+      navigate('reset-pw');
+    }
   }
 
   // 캠페인 불러오기
