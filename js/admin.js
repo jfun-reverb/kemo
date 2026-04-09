@@ -39,12 +39,12 @@ function switchAdminPane(pane, el, pushHistory) {
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo
   };
-  if (loaders[pane]) {
-    return Promise.resolve(loaders[pane]());
-  }
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
     history.pushState({pane: pane}, '', '#' + pane);
+  }
+  if (loaders[pane]) {
+    return Promise.resolve(loaders[pane]());
   }
 }
 
