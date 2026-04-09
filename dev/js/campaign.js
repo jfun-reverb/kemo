@@ -51,7 +51,7 @@ function buildChannelFilters(camps) {
   const channels = [...new Set(camps.map(c=>c.channel).filter(Boolean))];
   const chLabel = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10','instagram,x':'Instagram + X',tiktok:'TikTok',youtube:'YouTube'};
   row.innerHTML = `<button class="chip on" onclick="filterCamps('all',this)">すべて</button>` +
-    channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${chLabel[ch]||ch}</button>`).join('');
+    channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(chLabel[ch]||ch)}</button>`).join('');
 }
 
 async function loadCampaignsPage() {
@@ -155,12 +155,12 @@ function buildCampCards(camps) {
           ${!isFull&&!isScheduled&&!isClosed?'<span style="background:rgba(14,126,74,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>':''}
           ${typeLabel&&!isFull&&!isClosed?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
-        <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${getChannelLabel(c.channel)}</div>
+        <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel(c.channel))}</div>
       </div>
       <div class="camp-body">
-        <div class="camp-brand">${c.brand}</div>
-        <div class="camp-title">${c.title}</div>
-        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${t.trim()}</span>`).join('')}</div>` : ''}
+        <div class="camp-brand">${esc(c.brand)}</div>
+        <div class="camp-title">${esc(c.title)}</div>
+        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(t.trim())}</span>`).join('')}</div>` : ''}
       </div>
       <div class="camp-footer"><div class="camp-reward">🎁 ${reward}</div></div>
     </div>`;

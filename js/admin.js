@@ -6,6 +6,16 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
   if (paneEl) paneEl.classList.add('on');
+  // サイドバーのアクティブ状態をpane名で自動検索
+  if (!el) {
+    const parentPane = {
+      'add-campaign':'campaigns','edit-campaign':'campaigns',
+      'camp-applicants':'campaigns','influencer-detail':'influencers'
+    }[pane] || pane;
+    document.querySelectorAll('.admin-si').forEach(s => {
+      if (s.getAttribute('onclick') && s.getAttribute('onclick').includes("'" + parentPane + "'")) el = s;
+    });
+  }
   if (el) el.classList.add('on');
   if (pane==='applications') loadApplications();
   if (pane==='campaigns') loadAdminCampaigns();
@@ -61,20 +71,37 @@ async function loadAdminData() {
   renderProfileCompletion(users);
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
 
-  // Recent apps
+  // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
+    const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
+    const thumbUrl = imgs[0] || '';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px">기프팅</span>':'';
     return `<tr>
-      <td><strong>${a.user_name||a.user_email}</strong>${adminBadge(a.user_email)}<br><small style="color:var(--muted)">${a.user_email}</small></td>
-      <td>${camp.emoji||'📦'} ${camp.title||a.campaign_id}</td>
-      <td>${formatDate(a.created_at)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
+            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'📦'}</span>`}
+          </div>
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${users.find(u=>u.email===a.user_email)?.id||''}')">${esc(a.user_name)||'—'}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
+      </td>
+      <td style="max-width:180px;font-size:12px;color:var(--ink)">${esc(a.message)||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
-      <td><div style="display:flex;gap:5px">
+      <td style="white-space:nowrap"><div style="display:flex;gap:4px">
         ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
       </div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
+  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
 }
 
 let adminCampTypeFilter = 'all';
@@ -84,6 +111,20 @@ var adminCampSortDir = '';
 
 function filterAdminCampaigns() { loadAdminCampaigns(true); }
 
+function resetCampSort() {
+  adminCampSortKey = '';
+  adminCampSortDir = '';
+  updateSortArrows();
+  updateCampTableHead();
+  const btn = $('btnCampSortReset'); if (btn) btn.style.display = 'none';
+  filterAdminCampaigns();
+}
+
+function updateCampSortResetBtn() {
+  const btn = $('btnCampSortReset');
+  if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
+}
+
 function toggleCampSort(key) {
   if (adminCampSortKey === key) {
     adminCampSortDir = adminCampSortDir === 'desc' ? 'asc' : 'desc';
@@ -92,6 +133,7 @@ function toggleCampSort(key) {
     adminCampSortDir = 'desc';
   }
   updateSortArrows();
+  updateCampSortResetBtn();
   filterAdminCampaigns();
 }
 
@@ -117,9 +159,26 @@ function resetCampFilters() {
   updateSortArrows();
 }
 
+function updateCampTableHead() {
+  const head = $('adminCampTableHead');
+  if (!head) return;
+  if (adminReorderMode) {
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>상태</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
+  } else {
+    head.innerHTML = `<tr>
+      <th>캠페인</th><th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">${adminCampSortKey==='updated'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th></th></tr>`;
+  }
+}
+
 function enterReorderMode() {
   resetCampFilters();
   adminReorderMode = true;
+  updateCampTableHead();
   filterAdminCampaigns();
   const btn = $('btnReorderMode');
   if (btn) { btn.textContent = '순서 변경 완료'; btn.onclick = exitReorderMode; btn.classList.add('btn-primary'); btn.classList.remove('btn-ghost'); }
@@ -127,6 +186,7 @@ function enterReorderMode() {
 
 function exitReorderMode() {
   adminReorderMode = false;
+  updateCampTableHead();
   filterAdminCampaigns();
   const btn = $('btnReorderMode');
   if (btn) { btn.textContent = '순서 변경'; btn.onclick = enterReorderMode; btn.classList.remove('btn-primary'); btn.classList.add('btn-ghost'); }
@@ -158,7 +218,9 @@ async function loadAdminCampaigns(useCache) {
     });
   } else if (adminCampSortKey) {
     const dir = adminCampSortDir === 'asc' ? 1 : -1;
+    const statusOrder = {draft:0,scheduled:1,active:2,paused:3,closed:4};
     const getVal = {
+      status: c => statusOrder[c.status]??99,
       created: c => new Date(c.created_at).getTime(),
       updated: c => new Date(c.updated_at||c.created_at).getTime(),
       views: c => c.view_count||0,
@@ -173,7 +235,7 @@ async function loadAdminCampaigns(useCache) {
   // フィルタ・検索・ソート中は順序変更を無効化
   const isFiltered = searchVal || typeFilter !== 'all' || statusFilter !== 'all' || !!adminCampSortKey;
 
-  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold">기프팅</span>':'<span class="badge badge-gray">—</span>';
+  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
   const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
   const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',paused:'badge-gold',closed:'badge-gray'};
   const statusBadge = s => {
@@ -191,31 +253,30 @@ async function loadAdminCampaigns(useCache) {
     const thumbUrl = imgs[0] || '';
     const imgCount = imgs.length;
     return `<tr data-camp-id="${c.id}">
-      <td style="white-space:nowrap">
+      ${adminReorderMode ? `<td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
-          <button class="btn btn-ghost btn-xs" ${i===0||!adminReorderMode?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
-          <button class="btn btn-ghost btn-xs" ${i===camps.length-1||!adminReorderMode?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
+          <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
+          <button class="btn btn-ghost btn-xs" ${i===camps.length-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
-      </td>
+      </td>` : ''}
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${c.emoji||'📦'}</span>`}
+            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'📦'}</span>`}
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0">
-            <strong style="display:block">${c.title}</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.brand}</div>
+            <div style="display:flex;align-items:center;gap:5px">${typeLabel(c.recruit_type)}<strong>${esc(c.title)}</strong></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
       <td>${statusBadge(c.status)}</td>
-      <td>${typeLabel(c.recruit_type)}</td>
       <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" onclick="openCampApplicants('${c.id}','${c.title.replace(/'/g,'')}')">
+          <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
             ${cnt} / ${c.slots}명
           </button>
           <div style="width:48px;height:5px;background:var(--line);border-radius:3px;overflow:hidden">
@@ -226,13 +287,11 @@ async function loadAdminCampaigns(useCache) {
       </td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
-      <td style="white-space:nowrap"><div style="display:flex;gap:2px">
-        <button class="btn btn-primary btn-xs" onclick="openEditCampaign('${c.id}')" title="편집">편집</button>
-        <button class="btn btn-ghost btn-xs" onclick="duplicateCampaign('${c.id}')" title="복제">복제</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteCampaign('${c.id}','${c.title.replace(/'/g,'')}')">삭제</button>
-      </div></td>
+      ${adminReorderMode ? '' : `<td style="position:relative">
+        <span class="material-icons-round camp-more-btn" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" data-camp-title="${esc(c.title)}" onclick="toggleCampMoreMenu(event,this,'${c.id}',this.dataset.campTitle)">more_vert</span>
+      </td>`}
     </tr>`;
-  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>';
+  }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
 }
 
 // ── 캠페인 편집 ──
@@ -389,8 +448,7 @@ async function saveCampaignEdit() {
     await updateCampaign(campId, updates);
     allCampaigns = await fetchCampaigns();
     toast('변경 사항을 저장했습니다 ✓','success');
-    const campSi = (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })();
-    switchAdminPane('campaigns', campSi);
+    switchAdminPane('campaigns', null);
   } catch(err) {
     toast('저장 오류: '+err.message,'error');
   }
@@ -486,6 +544,32 @@ async function executeDeleteCampaign() {
 }
 
 // 상태 순환: 준비 → 모집예정 → 모집중 → 일시정지 → 종료 → 준비
+function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
+  e.stopPropagation();
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+
+  const rect = btnEl.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.className = 'camp-more-menu';
+  menu.innerHTML = `
+    <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round" style="font-size:16px">edit</span>편집</div>
+    <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round" style="font-size:16px">content_copy</span>복제</div>
+    <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round" style="font-size:16px">delete</span>삭제</div>
+  `;
+  document.body.appendChild(menu);
+  menu.style.left = (rect.left - menu.offsetWidth) + 'px';
+  menu.style.top = rect.top + 'px';
+
+  setTimeout(() => {
+    document.addEventListener('click', function _close(ev) {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 0);
+}
+
 function toggleStatusDropdown(badgeEl) {
   // 既存ドロップダウンを閉じる
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
@@ -614,23 +698,26 @@ async function loadCampApplicants() {
     <span style="color:var(--gold)">심사중 ${pending}명</span>
   `;
 
-  $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>`<tr>
+  const _users = await fetchInfluencers();
+  $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>{
+    const _u = _users.find(u=>u.email===a.user_email)||{};
+    return `<tr>
     <td>
-      <div style="font-weight:600">${a.user_name||'—'}${adminBadge(a.user_email)}</div>
-      <div style="font-size:11px;color:var(--muted)">${a.user_email||''}</div>
+      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
+      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>
     </td>
-    <td>${a.ig_id?`<a href="https://instagram.com/${a.ig_id}" target="_blank" style="color:var(--pink);font-weight:600">@${a.ig_id}</a>`:a.user_ig||'—'}</td>
+    <td>${a.ig_id?`<a href="https://instagram.com/${esc(a.ig_id)}" target="_blank" style="color:var(--pink);font-weight:600">@${esc(a.ig_id)}</a>`:esc(a.user_ig)||'—'}</td>
     <td style="font-weight:600">${(a.user_followers||0).toLocaleString()}</td>
-    <td style="max-width:200px;font-size:12px;color:var(--muted)">${a.message||'—'}</td>
+    <td style="max-width:200px;font-size:12px;color:var(--muted)">${esc(a.message)||'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadge(a.status)}</td>
     <td><div style="display:flex;gap:5px">
       ${a.status==='pending'?`
         <button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved');loadCampApplicants()">승인</button>
-        <button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected');loadCampApplicants()">✕</button>
+        <button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected');loadCampApplicants()">미승인</button>
       `:'—'}
     </div></td>
-  </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+  </tr>`;}).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
 }
 
 // ── 인플루언서 목록 ──
@@ -657,6 +744,69 @@ function switchInfTab(ch, btn) {
   loadAdminInfluencers();
 }
 
+var infSortKey = 'created';
+var infSortDir = 'desc';
+
+function toggleInfSort(key) {
+  if (infSortKey === key) {
+    infSortDir = infSortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    infSortKey = key;
+    infSortDir = 'desc';
+  }
+  updateInfSortUI();
+  loadAdminInfluencers();
+}
+
+function resetInfSort() {
+  infSortKey = 'created';
+  infSortDir = 'desc';
+  updateInfSortUI();
+  loadAdminInfluencers();
+}
+
+function updateInfSortUI() {
+  document.querySelectorAll('.inf-sort-arrows').forEach(el => {
+    el.classList.remove('asc','desc');
+    el.textContent = '▲▼';
+    if (el.dataset.sort === infSortKey) {
+      el.classList.add(infSortDir);
+      el.textContent = infSortDir === 'asc' ? '▲' : '▼';
+    }
+  });
+  const resetBtn = $('btnInfSortReset');
+  if (resetBtn) resetBtn.style.display = (infSortKey === 'created' && infSortDir === 'desc') ? 'none' : '';
+}
+
+function sortInfUsers(users) {
+  if (!infSortKey) return users;
+  const dir = infSortDir === 'asc' ? 1 : -1;
+  const getVal = {
+    name: u => (u.name_kanji||u.name||'').toLowerCase(),
+    ig: u => u.ig_followers||0,
+    x: u => u.x_followers||0,
+    tiktok: u => u.tiktok_followers||0,
+    youtube: u => u.youtube_followers||0,
+    total: u => (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0),
+    line: u => u.line_id ? 1 : 0,
+    addr: u => u.prefecture ? 1 : 0,
+    bank: u => u.bank_name ? 1 : 0,
+    created: u => new Date(u.created_at).getTime(),
+    followers: u => u[{instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[currentInfTab]]||0
+  };
+  const fn = getVal[infSortKey];
+  if (!fn) return users;
+  return users.slice().sort((a,b) => {
+    const va = fn(a), vb = fn(b);
+    if (typeof va === 'string') return va.localeCompare(vb) * dir;
+    return (va - vb) * dir;
+  });
+}
+
+function infSortTh(label, key) {
+  return `${label} <span class="sort-arrows inf-sort-arrows" data-sort="${key}" onclick="toggleInfSort('${key}')">${infSortKey===key?(infSortDir==='asc'?'▲':'▼'):'▲▼'}</span>`;
+}
+
 function renderInfTable(users, ch) {
   const titleEl = $('infTableTitle');
   const headEl = $('infTableHead');
@@ -667,7 +817,8 @@ function renderInfTable(users, ch) {
 
   if (ch === 'all') {
     if (titleEl) titleEl.textContent = '인플루언서 전체';
-    if (headEl) headEl.innerHTML = '<tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>';
+    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('계좌','bank')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
+    filtered = sortInfUsers(filtered);
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const igF = (u.ig_followers||0).toLocaleString();
       const xF = (u.x_followers||0).toLocaleString();
@@ -677,14 +828,14 @@ function renderInfTable(users, ch) {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
-        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
-        <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-        <td>${u.x?`@${u.x.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-        <td>${u.tiktok?`@${u.tiktok.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-        <td>${u.youtube?`@${u.youtube.replace('@','')}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+        <td>${u.ig?`<a href="https://instagram.com/${esc(u.ig.replace('@',''))}" target="_blank" style="color:var(--pink)">@${esc(u.ig.replace('@',''))}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
+        <td>${u.x?`@${esc(u.x.replace('@',''))}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
+        <td>${u.tiktok?`@${esc(u.tiktok.replace('@',''))}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
+        <td>${u.youtube?`@${esc(u.youtube.replace('@',''))}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
         <td style="font-weight:700;color:var(--pink)">${total}</td>
-        <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
-        <td style="font-size:12px;color:var(--muted)">${addr}</td>
+        <td style="font-size:12px;color:var(--muted)">${esc(u.line_id)||'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${esc(addr)}</td>
         <td>${bank}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
@@ -695,16 +846,17 @@ function renderInfTable(users, ch) {
     const idKey = {instagram:'ig',x:'x',tiktok:'tiktok',youtube:'youtube'}[ch];
     if (titleEl) titleEl.textContent = `${chLabel} 등록자`;
     filtered = users.filter(u => u[fKey] > 0);
-    if (headEl) headEl.innerHTML = `<tr><th>이름</th><th>${chLabel} ID</th><th>팔로워</th><th>LINE</th><th>배송지</th><th>계좌</th><th>등록일</th></tr>`;
-    bodyEl.innerHTML = filtered.length ? filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0)).map(u => {
+    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${chLabel} ID</th><th>${infSortTh('팔로워','followers')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('계좌','bank')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
+    filtered = infSortKey ? sortInfUsers(filtered) : filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0));
+    bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
-        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${u.name_kanji||u.name||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
-        <td>${u[idKey]?`@${u[idKey].replace('@','')}`:'—'}</td>
+        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+        <td>${u[idKey]?`@${esc(u[idKey].replace('@',''))}`:'—'}</td>
         <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
-        <td style="font-size:12px;color:var(--muted)">${u.line_id||'—'}</td>
-        <td style="font-size:12px;color:var(--muted)">${addr}</td>
+        <td style="font-size:12px;color:var(--muted)">${esc(u.line_id)||'—'}</td>
+        <td style="font-size:12px;color:var(--muted)">${esc(addr)}</td>
         <td>${bank}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
@@ -718,10 +870,10 @@ async function openInfluencerDetail(userId) {
   const u = users.find(x => x.id === userId);
   if (!u) { toast('인플루언서를 찾을 수 없습니다','error'); return; }
 
-  $('infDetailTitle').innerHTML = (u.name_kanji || u.name || u.email) + adminBadge(u.email);
+  $('infDetailTitle').innerHTML = esc(u.name_kanji || u.name || u.email) + adminBadge(u.email);
 
   // 기본 정보
-  const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${val||'—'}</div></div>`;
+  const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${esc(val)||'—'}</div></div>`;
 
   $('infDetailBasic').innerHTML =
     row('이름 (한자)', u.name_kanji || u.name) +
@@ -734,7 +886,7 @@ async function openInfluencerDetail(userId) {
   // SNS
   const snsRow = (icon, id, followers) => `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:12px">
     <div style="font-size:12px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0">${icon}</div>
-    <div style="flex:1;font-size:13px">${id ? `@${id.replace('@','')}` : '—'}</div>
+    <div style="flex:1;font-size:13px">${id ? `@${esc(id.replace('@',''))}` : '—'}</div>
     <div style="font-size:13px;font-weight:700;color:var(--pink)">${(followers||0).toLocaleString()}명</div>
   </div>`;
   const totalF = (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0);
@@ -759,7 +911,7 @@ async function openInfluencerDetail(userId) {
     row('건물명', u.building) +
     row('전체 주소', fullAddr);
 
-  // 계좌
+  // 계좌 — row()内でesc()済み
   const bankType = {'普通':'보통예금','当座':'당좌예금'}[u.bank_type] || u.bank_type;
   $('infDetailBank').innerHTML = u.bank_name
     ? row('은행명', u.bank_name) + row('지점명', u.bank_branch) + row('계좌 종류', bankType) + row('계좌번호', u.bank_number) + row('예금주', u.bank_holder)
@@ -773,7 +925,7 @@ async function openInfluencerDetail(userId) {
     const camp = camps.find(c=>c.id===a.campaign_id) || {};
     const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':'<span class="badge badge-gold">기프팅</span>';
     return `<tr>
-      <td style="font-weight:600">${camp.title||a.campaign_id}</td>
+      <td style="font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td>
       <td>${typeLabel}</td>
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
@@ -783,126 +935,172 @@ async function openInfluencerDetail(userId) {
   switchAdminPane('influencer-detail', null);
 }
 
+async function openInfluencerModal(userId) {
+  const users = await fetchInfluencers();
+  const u = users.find(x => x.id === userId);
+  if (!u) { toast('인플루언서를 찾을 수 없습니다','error'); return; }
+
+  $('infModalTitle').innerHTML = esc(u.name_kanji || u.name || u.email) + adminBadge(u.email);
+
+  const row = (label, val) => `<div style="display:flex;padding:6px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:80px;font-size:11px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:12px;color:var(--ink);flex:1">${esc(val)||'—'}</div></div>`;
+
+  $('infModalBasic').innerHTML =
+    row('이름(한자)', u.name_kanji||u.name) + row('이름(카나)', u.name_kana) +
+    row('이메일', u.email) + row('카테고리', u.category) +
+    row('자기소개', u.bio) + row('가입일', formatDate(u.created_at));
+
+  const snsUrls = {Instagram:'https://instagram.com/',X:'https://x.com/',TikTok:'https://tiktok.com/@',YouTube:'https://youtube.com/@'};
+  const snsRow = (icon, id, f) => {
+    const clean = id ? id.replace('@','') : '';
+    const url = snsUrls[icon];
+    const link = clean && url ? `<a href="${url}${esc(clean)}" target="_blank" style="color:var(--pink);text-decoration:none">@${esc(clean)}</a>` : '—';
+    return `<div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:8px"><div style="font-size:11px;font-weight:600;color:var(--muted);width:70px;flex-shrink:0">${icon}</div><div style="flex:1;font-size:12px">${link}</div><div style="font-size:12px;font-weight:700;color:var(--pink)">${(f||0).toLocaleString()}</div></div>`;
+  };
+  const totalF = (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0);
+  $('infModalSns').innerHTML =
+    snsRow('Instagram', u.ig, u.ig_followers) + snsRow('X', u.x, u.x_followers) +
+    snsRow('TikTok', u.tiktok, u.tiktok_followers) + snsRow('YouTube', u.youtube, u.youtube_followers) +
+    `<div style="display:flex;align-items:center;padding:8px 0;gap:8px"><div style="font-size:11px;font-weight:700;width:70px">총 팔로워</div><div style="font-size:16px;font-weight:800;color:var(--pink)">${totalF.toLocaleString()}</div></div>`;
+
+  $('infModalContact').innerHTML = row('LINE ID', u.line_id) + row('전화번호', u.phone);
+
+  const fullAddr2 = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : u.address;
+  $('infModalAddress').innerHTML = row('전체 주소', fullAddr2);
+
+  const bankType2 = {'普通':'보통예금','当座':'당좌예금'}[u.bank_type] || u.bank_type;
+  $('infModalBank').innerHTML = u.bank_name
+    ? row('은행', u.bank_name) + row('지점', u.bank_branch) + row('종류', bankType2) + row('계좌번호', u.bank_number) + row('예금주', u.bank_holder)
+    : '<div style="text-align:center;color:var(--muted);padding:12px;font-size:12px">계좌 미등록</div>';
+
+  const apps = await fetchApplications({user_id: userId});
+  const camps = await fetchCampaigns();
+  $('infModalAppCount').textContent = `${apps.length}건`;
+  $('infModalAppsBody').innerHTML = apps.length ? apps.map(a => {
+    const camp = camps.find(c=>c.id===a.campaign_id) || {};
+    const tl = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':'<span class="badge badge-gold">기프팅</span>';
+    return `<tr><td style="font-size:12px;font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td><td>${tl}</td><td style="font-size:11px;color:var(--muted)">${formatDate(a.created_at)}</td><td>${getStatusBadge(a.status)}</td></tr>`;
+  }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">신청 이력 없음</td></tr>';
+
+  openModal('infDetailModal');
+}
+
 // ── 신청 관리 (캠페인별) ──
 let currentAppTypeTab = 'all';
 let currentAppCampId = null;
 
 async function loadApplications() {
-  currentAppCampId = null;
-  const listEl = $('appCampList');
-  const detailEl = $('appCampDetail');
-  if (listEl) listEl.style.display = '';
-  if (detailEl) detailEl.style.display = 'none';
   renderAppCampList();
 }
 
-function switchAppTypeTab(type, btn) {
-  currentAppTypeTab = type;
-  document.querySelectorAll('[id^="appTypeTab-"]').forEach(b => {
-    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
+var appSortKey = 'created';
+var appSortDir = 'desc';
+
+function toggleAppSort(key) {
+  if (appSortKey === key) {
+    appSortDir = appSortDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    appSortKey = key;
+    appSortDir = 'desc';
+  }
+  document.querySelectorAll('.app-sort-arrows').forEach(el => {
+    el.classList.remove('asc','desc');
+    el.textContent = '▲▼';
+    if (el.dataset.sort === appSortKey) {
+      el.classList.add(appSortDir);
+      el.textContent = appSortDir === 'asc' ? '▲' : '▼';
+    }
   });
-  btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
+  const btn = $('btnAppSortReset');
+  if (btn) btn.style.display = (appSortKey === 'created' && appSortDir === 'desc') ? 'none' : '';
+  renderAppCampList();
+}
+
+function resetAppSort() {
+  appSortKey = 'created';
+  appSortDir = 'desc';
+  document.querySelectorAll('.app-sort-arrows').forEach(el => {
+    el.classList.remove('asc','desc');
+    el.textContent = '▲▼';
+    if (el.dataset.sort === 'created') { el.classList.add('desc'); el.textContent = '▼'; }
+  });
+  const btn = $('btnAppSortReset'); if (btn) btn.style.display = 'none';
   renderAppCampList();
 }
 
 async function renderAppCampList() {
-  const listEl = $('appCampList');
-  if (!listEl) return;
+  const bodyEl = $('appTableBody');
+  const countEl = $('appTotalCount');
+  if (!bodyEl) return;
+
   let camps = await fetchCampaigns();
-  if (currentAppTypeTab === 'monitor') camps = camps.filter(c=>c.recruit_type==='monitor');
-  else if (currentAppTypeTab === 'gifting') camps = camps.filter(c=>c.recruit_type==='gifting');
-  const apps = await fetchApplications();
-  if (!camps.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">캠페인 없음</div>'; return; }
-  listEl.innerHTML = camps.map(camp => {
-    const campApps = apps.filter(a=>a.campaign_id===camp.id);
-    const pending = campApps.filter(a=>a.status==='pending').length;
-    const approved = campApps.filter(a=>a.status==='approved').length;
-    const rejected = campApps.filter(a=>a.status==='rejected').length;
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold">기프팅</span>':'';
-    return `<div class="admin-card" style="margin-bottom:12px;cursor:pointer;transition:.15s" onclick="openAppCampDetail('${camp.id}')" onmouseenter="this.style.borderColor='var(--pink)'" onmouseleave="this.style.borderColor='var(--line)'">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            ${typeLabel}
-            <span style="font-size:15px;font-weight:700;color:var(--ink)">${camp.title}</span>
-          </div>
-          <div style="font-size:12px;color:var(--muted)">${camp.brand} · 마감 ${formatDate(camp.deadline)}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
-          <div style="text-align:center">
-            <div style="font-size:18px;font-weight:800;color:var(--ink)">${campApps.length}</div>
-            <div style="font-size:10px;color:var(--muted)">총 신청</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-size:18px;font-weight:800;color:var(--gold)">${pending}</div>
-            <div style="font-size:10px;color:var(--muted)">심사중</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-size:18px;font-weight:800;color:var(--green)">${approved}</div>
-            <div style="font-size:10px;color:var(--muted)">승인</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-size:18px;font-weight:800;color:var(--muted)">${rejected}</div>
-            <div style="font-size:10px;color:var(--muted)">미승인</div>
-          </div>
-          <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;color:var(--ink)">${campApps.length} / ${camp.slots}명 →</div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function openAppCampDetail(campId) {
-  currentAppCampId = campId;
-  const camps = await fetchCampaigns();
-  const camp = camps.find(c=>c.id===campId);
-  if (!camp) return;
-  $('appCampList').style.display = 'none';
-  $('appCampDetail').style.display = '';
-  $('appDetailCampName').textContent = camp.title;
-  if ($('appDetailFilter')) $('appDetailFilter').value = '';
-  renderAppDetail();
-}
-
-async function renderAppDetail() {
-  const bodyEl = $('appDetailBody');
-  const statsEl = $('appDetailStats');
-  if (!bodyEl||!currentAppCampId) return;
-  let apps = await fetchApplications({campaign_id: currentAppCampId});
-  const filter = $('appDetailFilter')?.value||'';
+  let apps = await fetchApplications();
   const users = await fetchInfluencers();
-  if (statsEl) statsEl.textContent = `총 ${apps.length}명 / 승인 ${apps.filter(a=>a.status==='approved').length}명`;
-  if (filter) apps = apps.filter(a=>a.status===filter);
-  apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  // タイプフィルタ
+  const typeFilter = $('appTypeFilter')?.value || 'all';
+  if (typeFilter !== 'all') {
+    const filteredCampIds = camps.filter(c => c.recruit_type === typeFilter).map(c => c.id);
+    apps = apps.filter(a => filteredCampIds.includes(a.campaign_id));
+  }
+
+  // ステータスフィルタ
+  const statusFilter = $('appStatusFilter')?.value || 'all';
+  if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
+
+  // 検索フィルタ
+  const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
+  if (searchVal) {
+    apps = apps.filter(a => {
+      const camp = camps.find(c => c.id === a.campaign_id) || {};
+      return (camp.title||'').toLowerCase().includes(searchVal)
+        || (camp.brand||'').toLowerCase().includes(searchVal)
+        || (a.user_name||'').toLowerCase().includes(searchVal)
+        || (a.user_email||'').toLowerCase().includes(searchVal);
+    });
+  }
+
+  const appDir = appSortDir === 'asc' ? 1 : -1;
+  apps.sort((a,b) => (new Date(a.created_at) - new Date(b.created_at)) * appDir);
+
+  if (countEl) countEl.textContent = `총 ${apps.length}건`;
+
   bodyEl.innerHTML = apps.length ? apps.map(a => {
-    const u = users.find(u=>u.email===a.user_email)||{};
-    const igF = (u.ig_followers||a.user_followers||0).toLocaleString();
-    const xF = u.x_followers ? `X: ${u.x_followers.toLocaleString()}` : '';
-    const ttF = u.tiktok_followers ? `TT: ${u.tiktok_followers.toLocaleString()}` : '';
-    const ytF = u.youtube_followers ? `YT: ${u.youtube_followers.toLocaleString()}` : '';
-    const others = [xF,ttF,ytF].filter(Boolean).join(' / ');
-    const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)||a.user_followers||0).toLocaleString();
+    const camp = camps.find(c => c.id === a.campaign_id) || {};
+    const u = users.find(u => u.email === a.user_email) || {};
+    const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
+    const thumbUrl = imgs[0] || '';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px">기프팅</span>':'';
     return `<tr>
-      <td><strong>${a.user_name||'—'}</strong>${adminBadge(a.user_email)}<div style="font-size:11px;color:var(--muted)">${a.user_email||''} · ${u.line_id?`LINE: ${u.line_id}`:''}</div></td>
-      <td>${u.ig?`<a href="https://instagram.com/${u.ig.replace('@','')}" target="_blank" style="color:var(--pink)">@${u.ig.replace('@','')}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">IG: ${igF}명</div></td>
-      <td style="font-size:11px;color:var(--muted)">${others||'—'}</td>
-      <td style="font-weight:700;color:var(--pink)">${total}명</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${a.message||'—'}</td>
-      <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
+            ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'📦'}</span>`}
+          </div>
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>
+      </td>
+      <td style="max-width:180px;font-size:12px;color:var(--ink)">${esc(a.message)||'—'}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadge(a.status)}</td>
-      <td><div style="display:flex;gap:5px">
+      <td style="white-space:nowrap"><div style="display:flex;gap:4px">
         ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
       </div></td>
     </tr>`;
-  }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
+  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
 }
 
 async function updateAppStatus(appId, status) {
   try {
     await updateApplication(appId, {status});
     toast(status==='approved'?'✓ 승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
-    if (currentAppCampId) renderAppDetail();
-    else loadApplications();
+    renderAppCampList();
     loadAdminData();
   } catch(e) {
     toast('상태 변경 오류: '+e.message,'error');
@@ -982,11 +1180,7 @@ async function addCampaign() {
 
   allCampaigns = await fetchCampaigns();
 
-  const allSi = document.querySelectorAll('.admin-si');
-  let campSi = null;
-  allSi.forEach(el => { if(el.textContent.includes('캠페인 관리')) campSi = el; });
-  if (campSi) switchAdminPane('campaigns', campSi);
-  else switchAdminPane('campaigns', null);
+  switchAdminPane('campaigns', null);
   } catch(err) {
     toast('오류: ' + (err.message||String(err)), 'error');
   }
@@ -1008,14 +1202,14 @@ async function loadAdminAccounts() {
     : '<span class="badge badge-gray">캠페인매니저</span>';
 
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>
-    <td style="font-weight:600">${a.name||'—'}</td>
-    <td>${a.email}</td>
+    <td style="font-weight:600">${esc(a.name)||'—'}</td>
+    <td>${esc(a.email)}</td>
     <td>${roleLabel(a.role)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td><div style="display:flex;gap:5px">
-      <button class="btn btn-ghost btn-xs" onclick="openEditAdmin('${a.id}','${a.email}','${a.name||''}','${a.role}')">수정</button>
-      <button class="btn btn-ghost btn-xs" onclick="openResetPwModal('${a.auth_id}','${a.email}')">비밀번호</button>
-      ${a.role !== 'super_admin' ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick="deleteAdmin('${a.id}','${a.email}')">삭제</button>` : ''}
+      <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
+      <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
+      ${a.role !== 'super_admin' ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" onclick="deleteAdmin('${a.id}',this.dataset.email)">삭제</button>` : ''}
     </div></td>
   </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 
