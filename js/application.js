@@ -25,13 +25,13 @@ async function openCampaign(id) {
   const slideHtml = slideImgs.length > 0 ? `
     <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)};aspect-ratio:1/1;height:auto">
       <div id="campSlides" style="display:flex;height:100%;transition:transform .32s cubic-bezier(.4,0,.2,1)">
-        ${slideImgs.map(url=>`<div style="min-width:100%;height:100%;flex-shrink:0"><img src="${url}" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.style.background='${getCampGrad(camp.category)}'"></div>`).join('')}
+        ${slideImgs.map(url=>`<div style="min-width:100%;height:100%;flex-shrink:0;background:${getCampGrad(camp.category)}"><img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block" onerror="this.parentElement.style.background='${getCampGrad(camp.category)}'"></div>`).join('')}
       </div>
       ${slideImgs.length>1?`
         <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round" style="font-size:20px;color:#333">chevron_left</span></button>
         <button onclick="slideMove(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round" style="font-size:20px;color:#333">chevron_right</span></button>
         <div style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:5">
-          ${slideImgs.map((_,i)=>`<div onclick="slideTo(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};cursor:pointer;transition:.2s"></div>`).join('')}
+          ${slideImgs.map((_,i)=>`<div onclick="slideTo(${i})" id="dot${i}" style="width:${i===0?'16px':'6px'};height:6px;border-radius:3px;background:${i===0?'#fff':'rgba(255,255,255,.5)'};border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s"></div>`).join('')}
         </div>
         <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
       <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
@@ -145,7 +145,7 @@ async function openCampaign(id) {
       ${camp.product_url ? `
       <div style="background:#fff;padding:12px 16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <a href="${esc(camp.product_url)}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
-          <span style="font-size:16px">🛍</span> 商品ページを見る →
+          <span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページを見る →
         </a>
       </div>` : ''}
 
@@ -180,7 +180,7 @@ async function openCampaign(id) {
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
             <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
             <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@586mnjoc」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録は必須です ✓</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録は必須です <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>
       </div>
@@ -202,7 +202,7 @@ async function openCampaign(id) {
     floatProductPageBtn.dataset.url = camp.product_url||'';
   }
   if (floatApplyBtn) {
-    if (alreadyApplied) { floatApplyBtn.textContent='✓ 応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
+    if (alreadyApplied) { floatApplyBtn.textContent='応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
     else if (camp.status==='closed') { floatApplyBtn.textContent='募集締切'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
     else if (isFull) { floatApplyBtn.textContent='募集終了'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
     else { floatApplyBtn.textContent='申請'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; }
@@ -271,7 +271,7 @@ async function submitApplication() {
   }
 
   closeModal('applyModal');
-  toast('応募完了！結果はメールでお知らせします ✉️','success');
+  toast('応募完了！結果はメールでお知らせします','success');
   openCampaign(currentCampaignId);
 }
 

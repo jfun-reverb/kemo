@@ -60,14 +60,14 @@ window._supabaseLoaded = false;
   <div style="background:#fff;border-radius:24px;width:calc(100% - 32px);max-width:500px;max-height:90vh;overflow:hidden">
     <div style="padding:20px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)">
       <div style="font-size:16px;font-weight:700">1:1 이미지 크롭</div>
-      <div onclick="closeCropModal()" style="width:32px;height:32px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--muted)">✕</div>
+      <div onclick="closeCropModal()" style="width:32px;height:32px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
     <div style="padding:16px;background:#000">
       <img id="cropImage" style="max-width:100%;display:block">
     </div>
     <div style="padding:16px 24px;display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn btn-ghost" onclick="closeCropModal()">취소</button>
-      <button class="btn btn-primary" onclick="applyCrop()">적용</button>
+      <button class="btn btn-ghost" onclick="closeCropModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="applyCrop()">適用</button>
     </div>
   </div>
 </div>
@@ -78,7 +78,7 @@ window._supabaseLoaded = false;
     <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)">Login Required</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7">Please log in to join the campaign.</div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()">취소</button>
+      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()">キャンセル</button>
       <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')">Log In</button>
     </div>
     <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">Don't have an account? <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer">Sign Up Free</a></div>
@@ -104,7 +104,7 @@ window._supabaseLoaded = false;
 <div id="page-home" class="page">
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow">🇰🇷 K-Brand × Japan Only</div>
+      <div class="hero-eyebrow"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:14px;background:#C4314B;color:#fff;font-size:9px;font-weight:900;border-radius:3px;margin-right:4px;vertical-align:middle">K</span> K-Brand × Japan Only</div>
       <h1 class="hero-h1">韓国の人気Kブランドを<span>あなたのSNSで</span>体験しよう<span class="hero-jp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
       <p class="hero-sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
@@ -125,17 +125,17 @@ window._supabaseLoaded = false;
     <div class="container">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
         <div style="padding:20px">
-          <div style="font-size:28px;margin-bottom:8px">🇰🇷</div>
+          <div style="font-size:28px;margin-bottom:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:22px;background:#C4314B;color:#fff;font-size:13px;font-weight:900;border-radius:4px">K</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">韓国直送・新商品</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
         <div style="padding:20px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
-          <div style="font-size:28px;margin-bottom:8px">💝</div>
+          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">完全無償提供</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6">製品代・送料すべて無料<br>リワード付きキャンペーンも</div>
         </div>
         <div style="padding:20px">
-          <div style="font-size:28px;margin-bottom:8px">✨</div>
+          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">あなたが選ばれる</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
@@ -178,7 +178,7 @@ window._supabaseLoaded = false;
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">LINE</span></div>
             <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
             <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px">友だち検索「@586mnjoc」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px">Reverbチャンネル登録はRequiredです ✓</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px">Reverbチャンネル登録はRequiredです <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>
       </div>
@@ -226,7 +226,7 @@ window._supabaseLoaded = false;
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
             <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
             <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@586mnjoc」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録はRequiredです ✓</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録はRequiredです <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>
       </div>
@@ -369,7 +369,7 @@ window._supabaseLoaded = false;
           </div>
         </div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up ✓</button>
+        <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up</button>
         <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
       <div class="auth-switch">すでにアカウントをお持ちですか？ <a onclick="navigate('login')">Log In</a></div>
@@ -556,7 +556,7 @@ window._supabaseLoaded = false;
         </div>
         <div class="form-group"><label class="form-label">口座名義（カタカナ）</label><input type="text" id="bankHolder" class="form-input" placeholder="ヤマダ ハナコ"></div>
         <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          ⚠️ 口座情報は安全に暗号化して保管されます。リワード付きキャンペーンに当選した場合のみ使用されます。
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">warning</span> 口座情報は安全に暗号化して保管されます。リワード付きキャンペーンに当選した場合のみ使用されます。
         </div>
         <button class="btn btn-primary btn-block" onclick="saveBankInfo()">口座情報を保存</button>
       </div>
@@ -590,7 +590,7 @@ window._supabaseLoaded = false;
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="applyModalTitle">応募する</div>
-      <div class="modal-close" onclick="closeModal('applyModal')">✕</div>
+      <div class="modal-close" onclick="closeModal('applyModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
     <div class="modal-body">
       <div id="applyModalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">

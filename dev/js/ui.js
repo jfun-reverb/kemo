@@ -2,6 +2,14 @@
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
 // ══════════════════════════════════════
 
+// Material Icons の翻訳防止（ブラウザ翻訳でアイコンが崩れるのを防止）
+new MutationObserver(() => {
+  document.querySelectorAll('.material-icons-round:not([translate])').forEach(el => {
+    el.setAttribute('translate','no');
+    el.classList.add('notranslate');
+  });
+}).observe(document.body || document.documentElement, {childList:true, subtree:true});
+
 // HTML エスケープ（XSS防止）
 function esc(s) {
   if (!s) return '';
@@ -238,7 +246,7 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
       '<img src="'+img.data+'" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+'">' +
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
       (img.original?'<div style="position:absolute;top:2px;left:2px;background:var(--pink);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;z-index:2">CROP</div>':'') +
-      '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제">×</button>' +
+      '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
         (img.original?'<button data-action="restore" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="원본 복원"><span class="material-icons-round" style="font-size:16px">undo</span></button>':'') +
         '<button data-action="crop" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:16px">crop</span></button>' +
@@ -386,7 +394,7 @@ function applyCrop() {
     renderImgPreview(list, _cropTarget.wrapId, _cropTarget.counterId, _cropTarget.listName);
   }
   closeCropModal();
-  toast('크롭 완료 ✓ (원본 유지됨)','success');
+  toast('크롭 완료 (원본 유지됨)','success');
 }
 
 // ── 로그인 안내 팝업 ──

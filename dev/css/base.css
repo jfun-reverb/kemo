@@ -38,7 +38,7 @@ button{cursor:pointer;border:none;background:none}
 img{display:block;max-width:100%}
 
 /* Material Icons 크기 */
-.material-icons-round{font-size:24px;vertical-align:middle}
+.material-icons-round{font-size:24px;vertical-align:middle;translate:no}
 
 /* Mobile app shell */
 #appShell{position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);box-shadow:var(--elevation-4);overflow:hidden;display:flex;flex-direction:column}

@@ -73,8 +73,8 @@
 .guide-tags{display:flex;gap:5px;flex-wrap:wrap}
 .req-list{list-style:none;display:flex;flex-direction:column;gap:5px}
 .req-list li{font-size:13px;display:flex;gap:7px;align-items:flex-start;color:var(--on-surface)}
-.req-list li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;margin-top:1px}
-.ng-list li::before{content:'✕';color:#B3261E!important}
+.req-list li::before{content:'check';font-family:'Material Icons Round';color:var(--green);font-weight:400;font-size:16px;flex-shrink:0;margin-top:1px}
+.ng-list li::before{content:'close';font-family:'Material Icons Round';color:#B3261E!important;font-weight:400;font-size:16px}
 
 /* Sidebar */
 .detail-sidebar{}

@@ -87,7 +87,7 @@ function renderCampaignGrid() {
     return new Date(b.created_at) - new Date(a.created_at);
   });
   if (!camps.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📋</div><div class="empty-text">現在募集中のキャンペーンはありません</div><div class="empty-sub">近日中に新しいKブランド体験団が登録されます</div></div>`;
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">現在募集中のキャンペーンはありません</div><div class="empty-sub">近日中に新しいKブランド体験団が登録されます</div></div>`;
     return;
   }
   grid.innerHTML = buildCampCards(camps);
@@ -162,7 +162,7 @@ function buildCampCards(camps) {
         <div class="camp-title">${esc(c.title)}</div>
         ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(t.trim())}</span>`).join('')}</div>` : ''}
       </div>
-      <div class="camp-footer"><div class="camp-reward">🎁 ${reward}</div></div>
+      <div class="camp-footer"><div class="camp-reward"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">redeem</span> ${reward}</div></div>
     </div>`;
   }).join('');
 }
@@ -175,7 +175,7 @@ function renderCampaigns(camps) {
     return new Date(b.created_at)-new Date(a.created_at);
   });
   if (!visible.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📋</div><div class="empty-text">現在募集中のキャンペーンはありません</div><div class="empty-sub">近日中に新しいKブランド体験団が登録されます</div></div>`;
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">現在募集中のキャンペーンはありません</div><div class="empty-sub">近日中に新しいKブランド体験団が登録されます</div></div>`;
     return;
   }
   grid.innerHTML = buildCampCards(visible);

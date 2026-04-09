@@ -97,10 +97,23 @@ async function init() {
       }
     });
     // URL にリカバリートークンが含まれている場合の検知
-    const hashParams = new URLSearchParams(location.hash.replace('#','').split('?').pop());
+    const hashStr = location.hash.replace('#','');
+    const hashParams = new URLSearchParams(hashStr.includes('&') ? hashStr : '');
     const urlType = hashParams.get('type') || new URLSearchParams(location.search).get('type');
-    if (urlType === 'recovery' || location.hash.includes('type=recovery')) {
+    if (urlType === 'recovery' || hashStr.includes('type=recovery')) {
       navigate('reset-pw');
+    }
+    // リンク期限切れ・エラー検知
+    const urlError = hashParams.get('error') || new URLSearchParams(location.search).get('error');
+    if (urlError) {
+      const errDesc = hashParams.get('error_description') || new URLSearchParams(location.search).get('error_description') || '';
+      const isExpired = errDesc.includes('expired') || errDesc.includes('invalid');
+      if (isExpired) {
+        navigate('forgot');
+        setTimeout(() => toast('リンクの有効期限が切れました。もう一度お試しください。','error'), 300);
+      } else {
+        navigate('home');
+      }
     }
   }
 

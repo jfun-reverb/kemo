@@ -41,12 +41,12 @@ async function handleSignup(e) {
 
   if (!db) {
     errEl.textContent='Cannot connect to server'; errEl.style.display='block';
-    btn.disabled=false; btn.textContent='Sign Up ✓'; return;
+    btn.disabled=false; btn.textContent='Sign Up'; return;
   }
 
   try {
     const {data, error} = await db.auth.signUp({email, password: pw});
-    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up ✓'; return; }
+    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up'; return; }
     if (data.user?.id) {
       try {
         await upsertInfluencer({id: data.user.id, ...userData});
@@ -58,12 +58,12 @@ async function handleSignup(e) {
     }
   } catch(e) {
     errEl.textContent='Sign up error: ' + (e.message || String(e)); errEl.style.display='block';
-    btn.disabled=false; btn.textContent='Sign Up ✓'; return;
+    btn.disabled=false; btn.textContent='Sign Up'; return;
   }
 
-  toast('Welcome to REVERB! 🎉','success');
+  toast('Welcome to REVERB!','success');
   updateGnb();
-  btn.disabled=false; btn.textContent='Sign Up ✓';
+  btn.disabled=false; btn.textContent='Sign Up';
   navigate('home');
 }
 
@@ -104,7 +104,7 @@ async function handleLogin(e) {
           currentUserProfile = {id: data.user.id, email};
         } catch(e) {}
       }
-      toast('Welcome back 👋','success'); updateGnb(); navigate('home');
+      toast('Welcome back','success'); updateGnb(); navigate('home');
     }
   } catch(e) {
     errEl.textContent='Login error occurred'; errEl.style.display='block';
@@ -193,7 +193,7 @@ async function handleResetPassword(e) {
       errEl.textContent = error.message;
       errEl.style.display = 'block';
     } else {
-      toast('パスワードが変更されました ✓', 'success');
+      toast('パスワードが変更されました', 'success');
       navigate('login');
     }
   } catch (err) {
