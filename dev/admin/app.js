@@ -61,6 +61,11 @@ async function init() {
 
   allCampaigns = await fetchCampaigns();
 
+  // 신청 뱃지는 항상 업데이트
+  var _apps = await fetchApplications();
+  var _pending = _apps.filter(function(a){return a.status==='pending'});
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>99?'99+':_pending.length)+'</span>':'');
+
   // URL 해시가 있으면 해당 패널로 이동
   var hash = location.hash.replace('#','');
   if (hash && hash !== 'dashboard') {
