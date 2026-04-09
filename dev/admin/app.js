@@ -59,27 +59,37 @@ async function init() {
   // 이미지 리스트 등록
   registerImgList('campImgData', campImgData);
 
-  // 캠페인 + 대시보드 로드
   allCampaigns = await fetchCampaigns();
-  loadAdminData();
 
   // URL 해시가 있으면 해당 패널로 이동
   var hash = location.hash.replace('#','');
   if (hash && hash !== 'dashboard') {
-    switchAdminPane(hash, null, false);
+    await Promise.resolve(switchAdminPane(hash, null, false));
   } else {
     history.replaceState({pane:'dashboard'}, '', '#dashboard');
+    await loadAdminData();
   }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // 해시에 맞는 패널을 즉시 활성화 (깜빡임 방지)
+  // データコンテキストが必要な下位パネルは親パネルへリダイレクト
   var initHash = location.hash.replace('#','') || 'dashboard';
-  if (initHash !== 'dashboard') {
-    document.querySelectorAll('.admin-pane').forEach(function(p) { p.classList.remove('on'); });
-    var initPane = document.getElementById('adminPane-' + initHash);
-    if (initPane) initPane.classList.add('on');
+  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers'};
+  if (subToParent[initHash]) {
+    initHash = subToParent[initHash];
+    history.replaceState({pane: initHash}, '', '#' + initHash);
   }
+  var sidePane = {'add-campaign':'campaigns'}[initHash] || initHash;
+  document.querySelectorAll('.admin-pane').forEach(function(p) { p.classList.remove('on'); });
+  document.querySelectorAll('.admin-si').forEach(function(s) { s.classList.remove('on'); });
+  var initPane = document.getElementById('adminPane-' + initHash) || document.getElementById('adminPane-dashboard');
+  if (initPane) initPane.classList.add('on');
+  document.querySelectorAll('.admin-si').forEach(function(s) {
+    if (s.dataset.pane === sidePane) s.classList.add('on');
+  });
+  // パネル設定完了後にbodyを表示
+  var cloak = document.getElementById('admin-cloak');
+  if (cloak) cloak.remove();
 
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();

@@ -25,22 +25,23 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
   if (paneEl) paneEl.classList.add('on');
-  // サイドバーのアクティブ状態をpane名で自動検索
+  // サイドバーのアクティブ状態をdata-pane属性で検索
   if (!el) {
-    const parentPane = {
-      'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns','influencer-detail':'influencers'
-    }[pane] || pane;
-    document.querySelectorAll('.admin-si').forEach(s => {
-      if (s.getAttribute('onclick') && s.getAttribute('onclick').includes("'" + parentPane + "'")) el = s;
-    });
+    const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
+      'camp-applicants':'campaigns','influencer-detail':'influencers'}[pane] || pane;
+    el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
-  if (pane==='applications') loadApplications();
-  if (pane==='campaigns') loadAdminCampaigns();
-  if (pane==='influencers') loadAdminInfluencers();
-  if (pane==='admin-accounts') loadAdminAccounts();
-  if (pane==='my-account') loadMyAdminInfo();
+  const loaders = {
+    applications: loadApplications,
+    campaigns: loadAdminCampaigns,
+    influencers: loadAdminInfluencers,
+    'admin-accounts': loadAdminAccounts,
+    'my-account': loadMyAdminInfo
+  };
+  if (loaders[pane]) {
+    return Promise.resolve(loaders[pane]());
+  }
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
     history.pushState({pane: pane}, '', '#' + pane);
@@ -88,7 +89,7 @@ async function loadAdminData() {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>99?'99+':pending.length}</span>`:''}`;
 
   // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -96,7 +97,7 @@ async function loadAdminData() {
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px">기프팅</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -104,7 +105,7 @@ async function loadAdminData() {
             ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
+            <div style="display:flex;align-items:center;gap:5px">${typeLabel}<strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong></div>
             <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
           </div>
         </div>
@@ -286,7 +287,7 @@ async function loadAdminCampaigns(useCache) {
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:5px">${typeLabel(c.recruit_type)}<strong>${esc(c.title)}</strong></div>
+            <div style="display:flex;align-items:center;gap:5px">${typeLabel(c.recruit_type)}<strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
@@ -564,6 +565,15 @@ async function executeDeleteCampaign() {
 }
 
 // 상태 순환: 준비 → 모집예정 → 모집중 → 일시정지 → 종료 → 준비
+function openCampPreviewModal(campId) {
+  const frame = $('campPreviewFrame');
+  const editBtn = $('campPreviewEditBtn');
+  if (!frame) return;
+  frame.src = '/#detail-' + campId;
+  editBtn.onclick = function() { closeModal('campPreviewModal'); openEditCampaign(campId); };
+  openModal('campPreviewModal');
+}
+
 function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   e.stopPropagation();
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
@@ -1092,7 +1102,7 @@ async function renderAppCampList() {
     const u = users.find(u => u.email === a.user_email) || {};
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px">기프팅</span>':'';
+    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -1100,7 +1110,7 @@ async function renderAppCampList() {
             ${thumbUrl ? `<img src="${thumbUrl}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:4px"><strong style="font-size:13px">${esc(camp.title)||'—'}</strong>${typeLabel}</div>
+            <div style="display:flex;align-items:center;gap:5px">${typeLabel}<strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong></div>
             <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
           </div>
         </div>
