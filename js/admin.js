@@ -115,10 +115,11 @@ async function loadAdminData() {
       </td>
       <td style="max-width:180px;font-size:12px;color:var(--ink)">${esc(a.message)||'—'}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadge(a.status)}</td>
-      <td style="white-space:nowrap"><div style="display:flex;gap:4px">
-        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
-      </div></td>
+      <td>${getStatusBadgeKo(a.status)}</td>
+      <td style="white-space:nowrap">
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+      </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
 }
@@ -729,13 +730,11 @@ async function loadCampApplicants() {
     <td style="font-weight:600">${(a.user_followers||0).toLocaleString()}</td>
     <td style="max-width:200px;font-size:12px;color:var(--muted)">${esc(a.message)||'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-    <td>${getStatusBadge(a.status)}</td>
-    <td><div style="display:flex;gap:5px">
-      ${a.status==='pending'?`
-        <button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved');loadCampApplicants()">승인</button>
-        <button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected');loadCampApplicants()">미승인</button>
-      `:'—'}
-    </div></td>
+    <td>${getStatusBadgeKo(a.status)}</td>
+    <td style="white-space:nowrap">
+      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+      :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+    </td>
   </tr>`;}).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
 }
 
@@ -947,7 +946,7 @@ async function openInfluencerDetail(userId) {
       <td style="font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td>
       <td>${typeLabel}</td>
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadge(a.status)}</td>
+      <td>${getStatusBadgeKo(a.status)}</td>
     </tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
@@ -997,7 +996,7 @@ async function openInfluencerModal(userId) {
   $('infModalAppsBody').innerHTML = apps.length ? apps.map(a => {
     const camp = camps.find(c=>c.id===a.campaign_id) || {};
     const tl = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':'<span class="badge badge-gold">기프팅</span>';
-    return `<tr><td style="font-size:12px;font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td><td>${tl}</td><td style="font-size:11px;color:var(--muted)">${formatDate(a.created_at)}</td><td>${getStatusBadge(a.status)}</td></tr>`;
+    return `<tr><td style="font-size:12px;font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td><td>${tl}</td><td style="font-size:11px;color:var(--muted)">${formatDate(a.created_at)}</td><td>${getStatusBadgeKo(a.status)}</td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">신청 이력 없음</td></tr>';
 
   openModal('infDetailModal');
@@ -1079,7 +1078,12 @@ async function renderAppCampList() {
   }
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
-  apps.sort((a,b) => (new Date(a.created_at) - new Date(b.created_at)) * appDir);
+  if (appSortKey === 'status') {
+    const statusOrder = {pending:0, approved:1, rejected:2};
+    apps.sort((a,b) => ((statusOrder[a.status]??9) - (statusOrder[b.status]??9)) * appDir);
+  } else {
+    apps.sort((a,b) => (new Date(a.created_at) - new Date(b.created_at)) * appDir);
+  }
 
   if (countEl) countEl.textContent = `총 ${apps.length}건`;
 
@@ -1107,20 +1111,28 @@ async function renderAppCampList() {
       </td>
       <td style="max-width:180px;font-size:12px;color:var(--ink)">${esc(a.message)||'—'}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadge(a.status)}</td>
-      <td style="white-space:nowrap"><div style="display:flex;gap:4px">
-        ${a.status==='pending'?`<button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button>`:'—'}
-      </div></td>
+      <td>${getStatusBadgeKo(a.status)}</td>
+      <td style="white-space:nowrap">
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+      </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
 }
 
 async function updateAppStatus(appId, status) {
   try {
-    await updateApplication(appId, {status});
-    toast(status==='approved'?'승인했습니다':'미승인 처리했습니다', status==='approved'?'success':'');
+    const reviewerName = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
+    await updateApplication(appId, {
+      status,
+      reviewed_by: reviewerName,
+      reviewed_at: new Date().toISOString()
+    });
+    const msgs = {approved:'승인했습니다', rejected:'미승인 처리했습니다', pending:'심사중으로 되돌렸습니다'};
+    toast(msgs[status]||'상태가 변경되었습니다', status==='approved'?'success':'');
     renderAppCampList();
     loadAdminData();
+    if (typeof loadCampApplicants === 'function' && currentCampApplicantId) loadCampApplicants();
   } catch(e) {
     toast('상태 변경 오류: '+friendlyError(e.message),'error');
   }
