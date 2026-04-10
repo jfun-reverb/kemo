@@ -565,20 +565,18 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="form-group">
         <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
         <div id="receiptPreview" style="margin-bottom:8px"></div>
-        <label style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">
+        <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
           <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
           <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
         </label>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="form-group">
-          <label class="form-label">購入日</label>
-          <input type="date" id="receiptDate" class="form-input">
-        </div>
-        <div class="form-group">
-          <label class="form-label">金額（円）</label>
-          <input type="number" id="receiptAmount" class="form-input" placeholder="0">
-        </div>
+      <div class="form-group">
+        <label class="form-label">購入日</label>
+        <input type="date" id="receiptDate" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">金額（円）</label>
+        <input type="number" id="receiptAmount" class="form-input" placeholder="0">
       </div>
       <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
     </div>
