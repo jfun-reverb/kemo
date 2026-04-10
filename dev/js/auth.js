@@ -51,7 +51,7 @@ async function handleSignup(e) {
     const {data, error} = await db.auth.signUp({email, password: pw});
     if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up'; return; }
     if (data.user?.id) {
-      // メール確認待ちの場合（identities が空）
+      // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
         btn.disabled=false; btn.textContent='Sign Up';
         errEl.style.display='none';
@@ -132,7 +132,7 @@ async function handleLogout() {
   toast('Logged out'); updateGnb(); navigate('home');
 }
 
-// ── パスワード再設定 ──
+// ── 비밀번호 재설정 ──
 async function handleForgotPassword(e) {
   e.preventDefault();
   const email = $('forgotEmail').value.trim();

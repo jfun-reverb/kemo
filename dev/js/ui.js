@@ -2,7 +2,7 @@
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
 // ══════════════════════════════════════
 
-// Material Icons の翻訳防止（ブラウザ翻訳でアイコンが崩れるのを防止）
+// Material Icons 번역 방지 (브라우저 번역 시 아이콘 깨짐 방지)
 new MutationObserver(() => {
   document.querySelectorAll('.material-icons-round:not([translate])').forEach(el => {
     el.setAttribute('translate','no');
@@ -10,13 +10,13 @@ new MutationObserver(() => {
   });
 }).observe(document.body || document.documentElement, {childList:true, subtree:true});
 
-// HTML エスケープ（XSS防止）
+// HTML 이스케이프 (XSS 방지)
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// 必須フィールド警告表示/解除
+// 필수 필드 경고 표시/해제
 function markRequired(id, msg) {
   const el = $(id);
   if (!el) return;
@@ -38,7 +38,7 @@ function clearRequired(id) {
   if (warn) warn.remove();
 }
 
-// マークダウンリンク形式からURLを抽出
+// 마크다운 링크 형식에서 URL 추출
 function cleanUrl(s) {
   if (!s) return '';
   const md = s.match(/\[.*?\]\((.*?)\)/);

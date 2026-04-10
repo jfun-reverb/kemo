@@ -7,7 +7,7 @@ async function openCampaign(id) {
   if (!camp) return;
   currentCampaignId = id;
 
-  // 조회수 증가 (非同期、UIブロックしない)
+  // 조회수 증가 (비동기, UI 차단 없음)
   incrementViewCount(id).catch(()=>{});
 
   let alreadyApplied = false;
@@ -215,7 +215,7 @@ async function openCampaign(id) {
   }
   if (fb) fb.style.display='block';
 
-  // 戻るボタンラベル更新
+  // 뒤로가기 버튼 라벨 업데이트
   const backLabel = $('detailBackLabel');
   if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? '応募履歴へ' : 'キャンペーン一覧へ';
 
@@ -299,7 +299,7 @@ function handleFloatApply() {
     if (o) { o.style.display='flex'; }
     return;
   }
-  // メール未確認チェック
+  // 이메일 미인증 체크
   if (!currentUser.email_confirmed_at) {
     toast('メールアドレスの認証が必要です。受信メールをご確認ください','error');
     return;
@@ -339,7 +339,7 @@ function openProductPage() {
 }
 
 // ══════════════════════════════════════
-// ACTIVITY PAGE — 活動管理
+// ACTIVITY PAGE — 활동 관리
 // ══════════════════════════════════════
 let _activityAppId = null;
 let _activityCampId = null;
