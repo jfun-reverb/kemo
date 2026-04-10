@@ -73,6 +73,16 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- ── 알럿 모달 ── -->
+<div class="modal-overlay" id="alertModal" style="z-index:600">
+  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
+    <div class="modal-body" style="padding:32px 24px 24px">
+      <div id="alertModalMessage" style="font-size:14px;line-height:1.6;color:var(--ink)"></div>
+      <button class="btn btn-primary" style="margin-top:20px;min-width:120px" onclick="closeModal('alertModal')">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">

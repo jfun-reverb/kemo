@@ -23,10 +23,16 @@ function initTagInput(wrapId) {
     } else {
       if (warnEl) warnEl.style.display = 'none';
     }
+    // IME 입력 중 콤마 처리
+    if (input.value.includes(',')) {
+      const parts = input.value.split(',');
+      parts.forEach(p => { const v = p.replace(/[#@]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
+      input.value = '';
+    }
   });
 
   input.addEventListener('keydown', e => {
-    if (e.key === ',' || e.key === 'Enter') {
+    if (e.key === 'Enter') {
       e.preventDefault();
       const val = input.value.replace(/[,#@]/g, '').trim();
       if (val) { addTag(wrapId, targetId, prefix, val); input.value = ''; }
@@ -419,6 +425,7 @@ async function openEditCampaign(campId) {
   sv('editCampGuide', camp.guide||'');
   sv('editCampNg', camp.ng||'');
   if ($('editCampChannel')) $('editCampChannel').value = camp.channel||'instagram';
+  sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
@@ -521,6 +528,7 @@ async function saveCampaignEdit() {
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: gv('editCampChannel'),
+      min_followers: parseInt(gv('editCampMinFollowers'))||0,
       category: gv('editCampCategory'),
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
@@ -565,7 +573,7 @@ async function duplicateCampaign(campId) {
     const copy = {
       title: '[복사] ' + src.title,
       brand: src.brand, product: src.product, product_url: src.product_url,
-      type: src.type, channel: src.channel, category: src.category,
+      type: src.type, channel: src.channel, min_followers: src.min_followers||0, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
@@ -1285,7 +1293,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch==='qoo10'?'qoo10':'nano', channel:ch, category:cat,
+    type: ch==='qoo10'?'qoo10':'nano', channel:ch, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
