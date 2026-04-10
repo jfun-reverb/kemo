@@ -127,7 +127,7 @@ img{display:block;max-width:100%}
 .form-input{padding:12px 16px;border:1.5px solid var(--outline);border-radius:var(--r12);font-size:16px;color:var(--on-surface);background:var(--surface);transition:all .2s cubic-bezier(.2,0,0,1);width:100%;box-sizing:border-box}
 .form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
 .form-input::placeholder{color:var(--on-surface-variant)}
-select.form-input{cursor:pointer}
+select.form-input{cursor:pointer;padding-right:36px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22><path d=%22M1 1l5 5 5-5%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:12px}
 textarea.form-input{resize:vertical;min-height:80px}
 .pw-wrap{position:relative;display:block}
 .pw-wrap .form-input{width:100%;padding-right:44px;box-sizing:border-box}
@@ -313,12 +313,17 @@ textarea.form-input{resize:vertical;min-height:80px}
 .mypage-sub-title{font-size:16px;font-weight:700;color:var(--ink)}
 
 /* 応募履歴 */
-.apply-item{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;transition:all .2s;box-shadow:var(--elevation-1)}
-.apply-item:hover{box-shadow:var(--elevation-2)}
-.apply-thumb{width:48px;height:48px;border-radius:var(--r12);background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.apply-tabs{display:flex;gap:0;border-bottom:1px solid var(--outline);margin-bottom:12px;overflow-x:auto}
+.apply-tab{padding:10px 14px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s}
+.apply-tab.on{color:var(--pink);border-bottom-color:var(--pink)}
+.apply-tab .apply-tab-count{margin-left:4px;font-size:11px;font-weight:400;color:var(--muted)}
+.apply-item{background:var(--surface);border-bottom:1px solid var(--outline);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.apply-item:last-child{border-bottom:none}
+.apply-thumb{width:44px;height:44px;border-radius:8px;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;overflow:hidden}
+.apply-thumb img{width:100%;height:100%;object-fit:cover}
 .apply-item-info{flex:1;min-width:0}
-.apply-item-name{font-size:14px;font-weight:700;margin-bottom:3px}
-.apply-item-meta{font-size:12px;color:var(--on-surface-variant)}
+.apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
 </style>
 </head>
@@ -693,6 +698,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <div>
             <div class="mypage-name" id="mypageName">—</div>
             <div class="mypage-handle" id="mypageHandle">—</div>
+            <div class="mypage-email" id="mypageEmail" style="font-size:11px;color:var(--muted);margin-top:1px">—</div>
           </div>
         </div>
       </div>
@@ -746,7 +752,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title">応募履歴</span>
     </div>
-    <div class="container mypage-wrap">
+    <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
+      <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
       <div id="myApplicationsList"></div>
     </div>
   </div>
@@ -757,8 +764,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title">基本情報</span>
     </div>
-    <div class="container mypage-wrap">
-      <div class="card card-pad">
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div>
         <div class="form-group"><label class="form-label">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
         <div class="form-group"><label class="form-label">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
         <div class="form-group"><label class="form-label">カテゴリー</label>
@@ -784,8 +791,19 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title">SNSアカウント</span>
     </div>
-    <div class="container mypage-wrap">
-      <div class="card card-pad">
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div>
+        <div class="form-group" style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--outline)">
+          <label class="form-label">代表アカウント</label>
+          <select id="profilePrimarySns" class="form-input">
+            <option value="">未選択</option>
+            <option value="instagram">Instagram</option>
+            <option value="x">X(Twitter)</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+          </select>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">マイページに表示されるアカウントです</div>
+        </div>
         <div class="form-group"><label class="form-label">Instagram ID</label>
           <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
           <input type="text" id="profileIg" class="form-input" style="padding-left:26px"></div>
@@ -817,8 +835,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title">配送先</span>
     </div>
-    <div class="container mypage-wrap">
-      <div class="card card-pad">
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div>
         <div class="form-group"><label class="form-label">郵便番号</label>
           <div style="display:flex;gap:8px">
             <input type="text" id="profileZip" class="form-input" placeholder="123-4567" style="flex:1">
@@ -845,8 +863,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title">振込口座</span>
     </div>
-    <div class="container mypage-wrap">
-      <div class="card card-pad">
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:18px">リワード（現金）受け取り用の口座情報を登録してください</div>
         <div class="form-row">
           <div class="form-group"><label class="form-label">銀行名</label><input type="text" id="bankName" class="form-input" placeholder="〇〇銀行"></div>
@@ -876,8 +894,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title">パスワード変更</span>
     </div>
-    <div class="container mypage-wrap">
-      <div class="card card-pad">
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:18px">定期的なパスワード変更をお勧めします</div>
         <div class="form-group"><label class="form-label">現在のパスワード</label><input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード"></div>
         <div class="form-row">
@@ -2330,7 +2348,11 @@ function loadMyPage() {
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
   $('mypageName').textContent = displayName;
-  $('mypageHandle').textContent = p.ig ? `@${p.ig}` : currentUser.email;
+  // SNS 代表アカウント: primary_sns 設定 → 未設定なら自動選択
+  const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
+  const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
+  $('mypageHandle').textContent = primary ? `@${primary}` : '未登録';
+  $('mypageEmail').textContent = currentUser.email;
 
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
@@ -2346,6 +2368,7 @@ function loadMyPage() {
   setVal('profileTiktokFollowers', p.tiktok_followers);
   setVal('profileYoutube', p.youtube);
   setVal('profileYoutubeFollowers', p.youtube_followers);
+  if(p.primary_sns && $('profilePrimarySns')) $('profilePrimarySns').value = p.primary_sns;
   setVal('profileZip', p.zip);
   if(p.prefecture && $('profilePrefecture')) $('profilePrefecture').value = p.prefecture;
   setVal('profileCity', p.city);
@@ -2360,24 +2383,46 @@ function loadMyPage() {
   loadMyApplications();
 }
 
+let _myApps = [];
+let _myAppsTab = 'all';
+
 async function loadMyApplications() {
   if (!currentUser) return;
-  let apps = [];
   if (db) {
     const {data} = await db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
-    apps = data || [];
+    _myApps = data || [];
   }
-  // キャンペーン情報がなければ再取得
   if (!allCampaigns || !allCampaigns.length) allCampaigns = await fetchCampaigns();
+  renderMyApplyTabs();
+  renderMyApplyList();
+}
+
+function renderMyApplyTabs() {
+  const tabs = $('myApplyTabs');
+  if (!tabs) return;
+  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0};
+  _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
+  const labels = {all:'すべて', pending:'審査中', approved:'承認', rejected:'非承認'};
+  tabs.innerHTML = Object.keys(labels).map(k =>
+    `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
+  ).join('');
+}
+
+function renderMyApplyList() {
   const container = $('myApplicationsList');
-  if (!apps.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">まだ応募したキャンペーンはありません</div><div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">キャンペーンを見る</button></div>`;
+  const filtered = _myAppsTab === 'all' ? _myApps : _myApps.filter(a => a.status === _myAppsTab);
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?'まだ応募したキャンペーンはありません':'該当する応募はありません'}</div>${_myAppsTab==='all'?'<div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate(\'home\')">キャンペーンを見る</button>':''}</div>`;
     return;
   }
-  container.innerHTML = apps.map(a => {
+  container.innerHTML = filtered.map(a => {
     const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
+    const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
+    const thumb = imgs[0]
+      ? `<img src="${esc(imgs[0])}" alt="">`
+      : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     return `<div class="apply-item">
-      <div class="apply-thumb">${camp.emoji||'<span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:var(--muted)">inventory_2</span>'}</div>
+      <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
@@ -2406,6 +2451,7 @@ async function saveProfile() {
     x: getVal('profileX'), x_followers: parseInt(getVal('profileXFollowers'))||0,
     tiktok: getVal('profileTiktok'), tiktok_followers: parseInt(getVal('profileTiktokFollowers'))||0,
     youtube: getVal('profileYoutube'), youtube_followers: parseInt(getVal('profileYoutubeFollowers'))||0,
+    primary_sns: getVal('profilePrimarySns'),
     zip, prefecture: pref, city, building, address,
     phone: getVal('profilePhone'),
     followers: (parseInt(getVal('profileIgFollowers'))||0)+(parseInt(getVal('profileXFollowers'))||0)+(parseInt(getVal('profileTiktokFollowers'))||0)+(parseInt(getVal('profileYoutubeFollowers'))||0)
@@ -2456,11 +2502,13 @@ function openMypageSub(sub) {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
   if (target) target.classList.add('active');
+  history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
 }
 
 function closeMypageSub() {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   $('mypage-list').classList.add('active');
+  history.pushState({page:'mypage'}, '', '#mypage');
 }
 // ══════════════════════════════════════
 // NAVIGATION + INIT
@@ -2514,7 +2562,13 @@ function navigate(page, pushHistory) {
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
   const page = e.state?.page || location.hash.replace('#','') || 'home';
-  if (page.startsWith('detail-')) {
+  if (page === 'mypage' && e.state?.sub) {
+    navigate('mypage', false);
+    openMypageSub(e.state.sub);
+  } else if (page === 'mypage' && !e.state?.sub) {
+    navigate('mypage', false);
+    closeMypageSub();
+  } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
   } else {
     navigate(page, false);

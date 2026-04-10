@@ -7,7 +7,11 @@ function loadMyPage() {
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
   $('mypageName').textContent = displayName;
-  $('mypageHandle').textContent = p.ig ? `@${p.ig}` : currentUser.email;
+  // SNS 代表アカウント: primary_sns 設定 → 未設定なら自動選択
+  const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
+  const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
+  $('mypageHandle').textContent = primary ? `@${primary}` : '未登録';
+  $('mypageEmail').textContent = currentUser.email;
 
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
@@ -23,6 +27,7 @@ function loadMyPage() {
   setVal('profileTiktokFollowers', p.tiktok_followers);
   setVal('profileYoutube', p.youtube);
   setVal('profileYoutubeFollowers', p.youtube_followers);
+  if(p.primary_sns && $('profilePrimarySns')) $('profilePrimarySns').value = p.primary_sns;
   setVal('profileZip', p.zip);
   if(p.prefecture && $('profilePrefecture')) $('profilePrefecture').value = p.prefecture;
   setVal('profileCity', p.city);
@@ -37,24 +42,46 @@ function loadMyPage() {
   loadMyApplications();
 }
 
+let _myApps = [];
+let _myAppsTab = 'all';
+
 async function loadMyApplications() {
   if (!currentUser) return;
-  let apps = [];
   if (db) {
     const {data} = await db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
-    apps = data || [];
+    _myApps = data || [];
   }
-  // キャンペーン情報がなければ再取得
   if (!allCampaigns || !allCampaigns.length) allCampaigns = await fetchCampaigns();
+  renderMyApplyTabs();
+  renderMyApplyList();
+}
+
+function renderMyApplyTabs() {
+  const tabs = $('myApplyTabs');
+  if (!tabs) return;
+  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0};
+  _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
+  const labels = {all:'すべて', pending:'審査中', approved:'承認', rejected:'非承認'};
+  tabs.innerHTML = Object.keys(labels).map(k =>
+    `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
+  ).join('');
+}
+
+function renderMyApplyList() {
   const container = $('myApplicationsList');
-  if (!apps.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">まだ応募したキャンペーンはありません</div><div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">キャンペーンを見る</button></div>`;
+  const filtered = _myAppsTab === 'all' ? _myApps : _myApps.filter(a => a.status === _myAppsTab);
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?'まだ応募したキャンペーンはありません':'該当する応募はありません'}</div>${_myAppsTab==='all'?'<div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate(\'home\')">キャンペーンを見る</button>':''}</div>`;
     return;
   }
-  container.innerHTML = apps.map(a => {
+  container.innerHTML = filtered.map(a => {
     const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
+    const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
+    const thumb = imgs[0]
+      ? `<img src="${esc(imgs[0])}" alt="">`
+      : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     return `<div class="apply-item">
-      <div class="apply-thumb">${camp.emoji||'<span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:var(--muted)">inventory_2</span>'}</div>
+      <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
@@ -83,6 +110,7 @@ async function saveProfile() {
     x: getVal('profileX'), x_followers: parseInt(getVal('profileXFollowers'))||0,
     tiktok: getVal('profileTiktok'), tiktok_followers: parseInt(getVal('profileTiktokFollowers'))||0,
     youtube: getVal('profileYoutube'), youtube_followers: parseInt(getVal('profileYoutubeFollowers'))||0,
+    primary_sns: getVal('profilePrimarySns'),
     zip, prefecture: pref, city, building, address,
     phone: getVal('profilePhone'),
     followers: (parseInt(getVal('profileIgFollowers'))||0)+(parseInt(getVal('profileXFollowers'))||0)+(parseInt(getVal('profileTiktokFollowers'))||0)+(parseInt(getVal('profileYoutubeFollowers'))||0)
@@ -133,9 +161,11 @@ function openMypageSub(sub) {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
   if (target) target.classList.add('active');
+  history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
 }
 
 function closeMypageSub() {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   $('mypage-list').classList.add('active');
+  history.pushState({page:'mypage'}, '', '#mypage');
 }
