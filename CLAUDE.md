@@ -37,7 +37,9 @@
 - 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트, closed 시 신청버튼 비활성(募集締切)
 - 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/주소/전화/은행) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지
 - 회원가입 이메일 확인: Supabase Confirm sign-up 활성화, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단
-- 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/振込口座/パスワード変更/ログアウト
+- 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/振込口座/パスワード変更/ログアウト, 대표SNS 선택 가능
+- 활동관리: 승인된 캠페인에서 구매 영수증 등록 (이미지+구매일+금액), receipts 테이블에 저장
+- 응모이력: 상태별 탭 필터(전체/심사중/승인/비승인), 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
 - 바텀탭: 홈 / キャンペーン / マイページ
 
 ## Features — 관리자 (PC)
@@ -68,6 +70,7 @@
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보 등)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
 - `admins` — 관리자 계정 (auth_id, email, name, role)
+- `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
 - `is_admin()` 함수: admins 테이블에서 auth.uid() 조회 (JWT email 하드코딩 아님)
 - 트리거: auth.users 생성 시 influencers 레코드 자동 생성
