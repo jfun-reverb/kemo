@@ -35,12 +35,12 @@
 - 캠페인 목록: 채널필터(동적 생성), 모집유형 필터(모니터/기프팅)
 - 캠페인 목록 노출: active + scheduled + closed(게시기한 남은 경우, 募集締切 오버레이)
 - 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트, closed 시 신청버튼 비활성(募集締切)
-- 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/주소/전화/은행) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지
+- 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/zip+prefecture+city+phone/은행) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지, 최소 팔로워수 미달 시 알럿 차단
 - 회원가입 이메일 확인: Supabase Confirm sign-up 활성화, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단
-- 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/振込口座/パスワード変更/ログアウト, 대표SNS 선택 가능
+- 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/振込口座/パスワード変更/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리 경고
+- 바텀탭: 홈 / キャンペーン / マイページ (로그인 전 마이페이지 숨김)
 - 활동관리: 승인된 캠페인에서 구매 영수증 등록 (이미지+구매일+금액), receipts 테이블에 저장
-- 응모이력: 상태별 탭 필터(전체/심사중/승인/비승인), 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
-- 바텀탭: 홈 / キャンペーン / マイページ
+- 응모이력: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터, 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
 
 ## Features — 관리자 (PC)
 - 사이드바: Material Icons, 접기/펼치기 토글 (햄버거 버튼), data-pane 속성 기반 라우팅, 신규등록 메뉴 제거, pending 배지 항상 표시
@@ -48,7 +48,8 @@
 - 대시보드: KPI 카드(캠페인수/인플루언서수/신청수/승인수), 회원가입 추이 차트(Chart.js, 7일/30일/전체 필터), 오늘/이번주 가입 KPI, 프로필 완성률(SNS별/배송지/계좌), 최근 신청 테이블
 - 로딩 UX: 테이블/대시보드 KPI/차트 영역에 인라인 스피너 (전체화면 오버레이 제거)
 - 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경 모드(버튼 토글)
-- 캠페인 목록: 썸네일+이미지수 표시, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨(게시마감/모집마감), 타입 라벨 통일([타입] 제목 형식)
+- 캠페인 등록/편집 폼: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드), 제품정보 2열(이미지+상세), 모집타입 라디오버튼 UI
+- 캠페인 목록: 썸네일+이미지수 표시, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨(게시마감/모집마감), 타입 라벨 통일([타입] 제목 형식), 승인수/모집수 표시 + 대기 배지
 - 캠페인 미리보기: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
 - 캠페인 상태: draft(준비) → scheduled(모집예정) → active(모집중) → paused(일시정지) → closed(종료), 드롭다운으로 변경
 - 캠페인 자동 종료: deadline 경과 시 active → closed 자동 변경 (클라이언트 체크)
@@ -57,8 +58,9 @@
 - 모집인원 초과 승인 차단: 승인 수가 slots에 도달하면 알럿 모달로 차단
 - 조회수: campaigns.view_count 컬럼, 캠페인 상세 열 때 +1, 관리자 목록에 표시
 - 이미지 관리: 드래그앤드롭 업로드, 크롭, 미리보기, Supabase Storage 저장
-- 신청 관리: 테이블 UI (캠페인 썸네일, 타입/상태/검색 필터, 상태 정렬), 인플루언서 상세 모달
-- 신청 처리: reviewed_by, reviewed_at 기록, 되돌리기(pending 복귀) 기능
+- 신청 관리: 테이블 UI (캠페인 썸네일, 타입/상태/검색 필터, 상태 정렬), 인플루언서 상세 모달, 모집인원/빈자리 표시
+- 신청 처리: reviewed_by, reviewed_at 기록, 되돌리기(pending 복귀) 기능, 빈자리 없으면 승인버튼 비활성(회색)
+- 해시태그/멘션: 태그 입력 UI (콤마 구분, 라벨+삭제, #/@ 입력 차단)
 - 에러 처리: friendlyError() 한국어 에러 메시지 + 에러 코드 표시
 - 상태 뱃지: getStatusBadgeKo() 한국어 상태 표시
 - 인플루언서 관리: 채널별 필터, 상세 프로필 조회
@@ -66,8 +68,8 @@
 - 내 계정: 이름/비밀번호 변경
 
 ## Database Schema (Supabase)
-- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, status, view_count, img1~img8 등)
-- `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보 등)
+- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, min_followers, status, view_count, img1~img8 등)
+- `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보, primary_sns 등)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
 - `admins` — 관리자 계정 (auth_id, email, name, role)
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
@@ -87,6 +89,9 @@
 - DB API: dev/lib/storage.js에 모든 DB 함수 집중 (fetchCampaigns, upsertInfluencer 등)
 - 세션 관리: onAuthStateChange로 SIGNED_IN/TOKEN_REFRESHED/SIGNED_OUT/SESSION_EXPIRED 처리 (인플루언서+관리자 양쪽)
 - URL 정제: cleanUrl()로 마크다운 링크 형식 자동 변환 (product_url 등)
+- 페이지 전환: 관리자/인플루언서 화면 같은 탭에서 이동 (새 탭 열기 금지)
+- 깜빡임 방지: visibility:hidden cloak 기법 (인플루언서+관리자 양쪽)
+- 마이페이지 서브해시: #mypage-applications 등 URL 해시로 서브페이지 복원
 
 ## Conventions
 - 인플루언서 페이지 UI 텍스트: 일본어
