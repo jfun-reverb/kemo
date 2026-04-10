@@ -464,6 +464,9 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <option value="instagram">Instagram</option><option value="x">X(Twitter)</option><option value="qoo10">Qoo10</option><option value="instagram,x">Instagram + X</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option>
                 </select>
               </div>
+              <div class="form-group"><label class="form-label">최소 팔로워수</label>
+                <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
+              </div>
               <div class="form-group"><label class="form-label">카테고리</label>
                 <select id="editCampCategory" class="form-input">
                   <option value="beauty">뷰티/코스메</option><option value="food">푸드/그르메</option><option value="fashion">패션/라이프</option><option value="health">헬스/웰니스</option><option value="other">기타</option>
@@ -604,6 +607,10 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <option value="tiktok">TikTok</option>
                   <option value="youtube">YouTube</option>
                 </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">최소 팔로워수</label>
+                <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0">
               </div>
               <div class="form-group">
                 <label class="form-label">카테고리</label>
@@ -1768,10 +1775,16 @@ function initTagInput(wrapId) {
     } else {
       if (warnEl) warnEl.style.display = 'none';
     }
+    // IME 입력 중 콤마 처리
+    if (input.value.includes(',')) {
+      const parts = input.value.split(',');
+      parts.forEach(p => { const v = p.replace(/[#@]/g, '').trim(); if (v) addTag(wrapId, targetId, prefix, v); });
+      input.value = '';
+    }
   });
 
   input.addEventListener('keydown', e => {
-    if (e.key === ',' || e.key === 'Enter') {
+    if (e.key === 'Enter') {
       e.preventDefault();
       const val = input.value.replace(/[,#@]/g, '').trim();
       if (val) { addTag(wrapId, targetId, prefix, val); input.value = ''; }
@@ -2164,6 +2177,7 @@ async function openEditCampaign(campId) {
   sv('editCampGuide', camp.guide||'');
   sv('editCampNg', camp.ng||'');
   if ($('editCampChannel')) $('editCampChannel').value = camp.channel||'instagram';
+  sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
@@ -2266,6 +2280,7 @@ async function saveCampaignEdit() {
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: gv('editCampChannel'),
+      min_followers: parseInt(gv('editCampMinFollowers'))||0,
       category: gv('editCampCategory'),
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
@@ -2310,7 +2325,7 @@ async function duplicateCampaign(campId) {
     const copy = {
       title: '[복사] ' + src.title,
       brand: src.brand, product: src.product, product_url: src.product_url,
-      type: src.type, channel: src.channel, category: src.category,
+      type: src.type, channel: src.channel, min_followers: src.min_followers||0, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
@@ -3030,7 +3045,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch==='qoo10'?'qoo10':'nano', channel:ch, category:cat,
+    type: ch==='qoo10'?'qoo10':'nano', channel:ch, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
