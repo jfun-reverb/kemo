@@ -165,6 +165,10 @@ async function init() {
   } else {
     history.replaceState({page:'home'}, '', '#home');
   }
+
+  // 初期化完了 — cloak 解除
+  const cloak = document.getElementById('app-cloak');
+  if (cloak) cloak.remove();
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
