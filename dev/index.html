@@ -449,16 +449,19 @@ window._supabaseLoaded = false;
         <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
           <span class="mypage-menu-label">SNSアカウント</span>
+          <span id="menuBadgeSns" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
           <span class="mypage-menu-label">配送先</span>
+          <span id="menuBadgeAddress" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('bank')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance</span>
           <span class="mypage-menu-label">振込口座</span>
+          <span id="menuBadgeBank" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
@@ -485,6 +488,18 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
+      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center">
+        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+          <option value="">キャンペーン状態</option>
+          <option value="active">募集中</option>
+          <option value="scheduled">近日公開</option>
+          <option value="closed">締切</option>
+        </select>
+        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+          <option value="newest">新しい順</option>
+          <option value="oldest">古い順</option>
+        </select>
+      </div>
       <div id="myApplicationsList"></div>
     </div>
   </div>

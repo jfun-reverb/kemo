@@ -39,6 +39,17 @@ function loadMyPage() {
   setVal('bankNumber', p.bank_number);
   setVal('bankHolder', p.bank_holder);
 
+  // 未登録バッジ表示
+  const hasSns = p.ig || p.x || p.tiktok || p.youtube;
+  const hasAddress = p.zip && p.prefecture && p.city && p.phone;
+  const hasBank = p.bank_name;
+  const badgeSns = $('menuBadgeSns');
+  const badgeAddr = $('menuBadgeAddress');
+  const badgeBank = $('menuBadgeBank');
+  if (badgeSns) badgeSns.style.display = hasSns ? 'none' : '';
+  if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
+  if (badgeBank) badgeBank.style.display = hasBank ? 'none' : '';
+
   loadMyApplications();
 }
 
@@ -69,7 +80,23 @@ function renderMyApplyTabs() {
 
 function renderMyApplyList() {
   const container = $('myApplicationsList');
-  const filtered = _myAppsTab === 'all' ? _myApps : _myApps.filter(a => a.status === _myAppsTab);
+  let filtered = _myAppsTab === 'all' ? _myApps.slice() : _myApps.filter(a => a.status === _myAppsTab);
+
+  // キャンペーン状態フィルタ
+  const campStatusFilter = $('myApplyCampStatus')?.value || '';
+  if (campStatusFilter) {
+    filtered = filtered.filter(a => {
+      const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+      return camp?.status === campStatusFilter;
+    });
+  }
+
+  // ソート
+  const sortVal = $('myApplySort')?.value || 'newest';
+  filtered.sort((a,b) => sortVal === 'oldest'
+    ? new Date(a.created_at) - new Date(b.created_at)
+    : new Date(b.created_at) - new Date(a.created_at));
+
   if (!filtered.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?'まだ応募したキャンペーンはありません':'該当する応募はありません'}</div>${_myAppsTab==='all'?'<div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate(\'home\')">キャンペーンを見る</button>':''}</div>`;
     return;

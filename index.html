@@ -305,6 +305,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .mypage-menu-item{display:flex;align-items:center;gap:14px;padding:14px 4px 14px 14px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--outline)}
 .mypage-menu-item:hover{background:var(--surface-dim);border-radius:var(--r8)}
 .mypage-menu-label{flex:1;font-size:14px;font-weight:500;color:var(--ink)}
+.mypage-menu-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap}
 .mypage-menu-arrow{font-size:20px;color:var(--on-surface-variant)}
 
 /* サブページヘッダー */
@@ -753,16 +754,19 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
           <span class="mypage-menu-label">SNSアカウント</span>
+          <span id="menuBadgeSns" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
           <span class="mypage-menu-label">配送先</span>
+          <span id="menuBadgeAddress" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('bank')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance</span>
           <span class="mypage-menu-label">振込口座</span>
+          <span id="menuBadgeBank" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
@@ -789,6 +793,18 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
+      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center">
+        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+          <option value="">キャンペーン状態</option>
+          <option value="active">募集中</option>
+          <option value="scheduled">近日公開</option>
+          <option value="closed">締切</option>
+        </select>
+        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+          <option value="newest">新しい順</option>
+          <option value="oldest">古い順</option>
+        </select>
+      </div>
       <div id="myApplicationsList"></div>
     </div>
   </div>
@@ -2392,7 +2408,9 @@ function handleFloatApply() {
   if (ch.includes('qoo10') && !p.ig) missing.push('Instagram ID');
   // SNS 계정이 하나도 없으면 기본적으로 Instagram 체크
   if (!ch && !p.ig) missing.push('Instagram ID');
-  if (!p.address && !p.zip) missing.push('配送先住所');
+  if (!p.zip) missing.push('郵便番号');
+  if (!p.prefecture) missing.push('都道府県');
+  if (!p.city) missing.push('市区町村・番地');
   if (!p.phone) missing.push('電話番号');
   if (!p.bank_name) missing.push('振込口座');
   if (missing.length > 0) {
@@ -2546,6 +2564,17 @@ function loadMyPage() {
   setVal('bankNumber', p.bank_number);
   setVal('bankHolder', p.bank_holder);
 
+  // 未登録バッジ表示
+  const hasSns = p.ig || p.x || p.tiktok || p.youtube;
+  const hasAddress = p.zip && p.prefecture && p.city && p.phone;
+  const hasBank = p.bank_name;
+  const badgeSns = $('menuBadgeSns');
+  const badgeAddr = $('menuBadgeAddress');
+  const badgeBank = $('menuBadgeBank');
+  if (badgeSns) badgeSns.style.display = hasSns ? 'none' : '';
+  if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
+  if (badgeBank) badgeBank.style.display = hasBank ? 'none' : '';
+
   loadMyApplications();
 }
 
@@ -2576,7 +2605,23 @@ function renderMyApplyTabs() {
 
 function renderMyApplyList() {
   const container = $('myApplicationsList');
-  const filtered = _myAppsTab === 'all' ? _myApps : _myApps.filter(a => a.status === _myAppsTab);
+  let filtered = _myAppsTab === 'all' ? _myApps.slice() : _myApps.filter(a => a.status === _myAppsTab);
+
+  // キャンペーン状態フィルタ
+  const campStatusFilter = $('myApplyCampStatus')?.value || '';
+  if (campStatusFilter) {
+    filtered = filtered.filter(a => {
+      const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+      return camp?.status === campStatusFilter;
+    });
+  }
+
+  // ソート
+  const sortVal = $('myApplySort')?.value || 'newest';
+  filtered.sort((a,b) => sortVal === 'oldest'
+    ? new Date(a.created_at) - new Date(b.created_at)
+    : new Date(b.created_at) - new Date(a.created_at));
+
   if (!filtered.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?'まだ応募したキャンペーンはありません':'該当する応募はありません'}</div>${_myAppsTab==='all'?'<div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate(\'home\')">キャンペーンを見る</button>':''}</div>`;
     return;
