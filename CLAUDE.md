@@ -35,7 +35,8 @@
 - 캠페인 목록: 채널필터(동적 생성), 모집유형 필터(모니터/기프팅)
 - 캠페인 목록 노출: active + scheduled + closed(게시기한 남은 경우, 募集締切 오버레이)
 - 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트, closed 시 신청버튼 비활성(募集締切)
-- 캠페인 신청: 필수정보 사전체크(채널별 SNS/주소/전화/은행) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지
+- 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/주소/전화/은행) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지
+- 회원가입 이메일 확인: Supabase Confirm sign-up 활성화, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단
 - 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/振込口座/パスワード変更/ログアウト
 - 바텀탭: 홈 / キャンペーン / マイページ
 
@@ -50,7 +51,8 @@
 - 캠페인 상태: draft(준비) → scheduled(모집예정) → active(모집중) → paused(일시정지) → closed(종료), 드롭다운으로 변경
 - 캠페인 자동 종료: deadline 경과 시 active → closed 자동 변경 (클라이언트 체크)
 - 마감일 검증: post_deadline >= deadline 필수, 인라인 경고 + 저장 차단
-- 마감일 경과 active 차단: deadline 지난 캠페인은 모집중 상태로 저장/변경 불가 (편집, 드롭다운 모두)
+- 마감일 경과 active/scheduled 차단: deadline 지난 캠페인은 모집중/모집예정 상태로 저장/변경 불가 (편집, 드롭다운 모두)
+- 모집인원 초과 승인 차단: 승인 수가 slots에 도달하면 알럿 모달로 차단
 - 조회수: campaigns.view_count 컬럼, 캠페인 상세 열 때 +1, 관리자 목록에 표시
 - 이미지 관리: 드래그앤드롭 업로드, 크롭, 미리보기, Supabase Storage 저장
 - 신청 관리: 테이블 UI (캠페인 썸네일, 타입/상태/검색 필터, 상태 정렬), 인플루언서 상세 모달
@@ -67,7 +69,9 @@
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
 - `admins` — 관리자 계정 (auth_id, email, name, role)
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
+- `is_admin()` 함수: admins 테이블에서 auth.uid() 조회 (JWT email 하드코딩 아님)
 - 트리거: auth.users 생성 시 influencers 레코드 자동 생성
+- 세션 만료 대응: retryWithRefresh()로 RLS/JWT 에러 시 세션 갱신 후 1회 재시도
 
 ## Test Accounts
 - 관리자: admin@kemo.jp / admin1234
@@ -78,6 +82,8 @@
 - 배포: `cd dev && bash build.sh` → 루트 index.html 자동 업데이트
 - 수정할 파일 찾기: 파일명이 기능과 일치 (캠페인=campaign, 로그인=auth 등)
 - DB API: dev/lib/storage.js에 모든 DB 함수 집중 (fetchCampaigns, upsertInfluencer 등)
+- 세션 관리: onAuthStateChange로 SIGNED_IN/TOKEN_REFRESHED/SIGNED_OUT/SESSION_EXPIRED 처리 (인플루언서+관리자 양쪽)
+- URL 정제: cleanUrl()로 마크다운 링크 형식 자동 변환 (product_url 등)
 
 ## Conventions
 - UI 텍스트: 일본어
