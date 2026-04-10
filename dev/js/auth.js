@@ -48,12 +48,18 @@ async function handleSignup(e) {
     const {data, error} = await db.auth.signUp({email, password: pw});
     if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up'; return; }
     if (data.user?.id) {
+      // メール確認待ちの場合（identities が空）
+      if (!data.session && data.user) {
+        btn.disabled=false; btn.textContent='Sign Up';
+        errEl.style.display='none';
+        $('signupFormArea').style.display='none';
+        $('signupConfirmMsg').style.display='block';
+        return;
+      }
       try {
         await upsertInfluencer({id: data.user.id, ...userData});
-      } catch(dbErr) {
-        // DB 저장 실패해도 Auth 계정은 생성됨 — 로그인 후 프로필 저장 가능
-      }
-      currentUser = {id: data.user.id, email};
+      } catch(dbErr) {}
+      currentUser = data.user;
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
@@ -83,7 +89,12 @@ async function handleLogin(e) {
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
-      errEl.textContent='Please check your email or password'; errEl.style.display='block';
+      if (error.message?.includes('Email not confirmed')) {
+        errEl.textContent='メールアドレスが未認証です。受信メールの確認リンクをクリックしてください。';
+      } else {
+        errEl.textContent='Please check your email or password';
+      }
+      errEl.style.display='block';
       btn.disabled=false; btn.textContent='Log In'; return;
     }
     currentUser = data.user;

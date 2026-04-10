@@ -636,6 +636,13 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="auth-sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
+      <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
+        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">確認メールを送信しました</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('login')">ログインページへ</button>
+      </div>
+      <div id="signupFormArea">
       <form id="signupForm" onsubmit="handleSignup(event)">
         <div class="form-row">
           <div class="form-group">
@@ -672,6 +679,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
       <div class="auth-switch">すでにアカウントをお持ちですか？ <a onclick="navigate('login')">Log In</a></div>
+      </div><!-- /signupFormArea -->
     </div>
   </div>
 </div>
@@ -960,6 +968,19 @@ var DEMO_CAMPAIGNS = [];
 // ══════════════════════════════════════
 const DEMO_SESSION_KEY = 'kemo_session';
 
+// セッション切れ時に自動リフレッシュして再試行
+async function retryWithRefresh(fn) {
+  try {
+    return await fn();
+  } catch(e) {
+    if ((e.message?.includes('row-level security') || e.message?.includes('JWT expired')) && db) {
+      const {error} = await db.auth.refreshSession();
+      if (!error) return await fn();
+    }
+    throw e;
+  }
+}
+
 // ── Campaigns ──
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
@@ -993,14 +1014,18 @@ async function autoCloseCampaigns(camps) {
 
 async function insertCampaign(camp) {
   if (!db) return;
-  const {error} = await db.from('campaigns').insert(camp);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('campaigns').insert(camp);
+    if (error) throw error;
+  });
 }
 
 async function updateCampaign(campId, updates) {
   if (!db) return;
-  const {error} = await db.from('campaigns').update(updates).eq('id', campId);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('campaigns').update(updates).eq('id', campId);
+    if (error) throw error;
+  });
 }
 
 async function incrementViewCount(campId) {
@@ -1024,8 +1049,10 @@ async function fetchInfluencers() {
 
 async function upsertInfluencer(profile) {
   if (!db) return;
-  const {error} = await db.from('influencers').upsert(profile);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('influencers').upsert(profile);
+    if (error) throw error;
+  });
 }
 
 async function updateInfluencer(userId, updates) {
@@ -1053,14 +1080,18 @@ async function fetchApplications(filters) {
 
 async function insertApplication(app) {
   if (!db) return;
-  const {error} = await db.from('applications').insert(app);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('applications').insert(app);
+    if (error) throw error;
+  });
 }
 
 async function updateApplication(appId, updates) {
   if (!db) return;
-  const {error} = await db.from('applications').update(updates).eq('id', appId);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('applications').update(updates).eq('id', appId);
+    if (error) throw error;
+  });
 }
 
 async function checkDuplicateApplication(userId, campaignId) {
@@ -1126,6 +1157,14 @@ new MutationObserver(() => {
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// マークダウンリンク形式からURLを抽出
+function cleanUrl(s) {
+  if (!s) return '';
+  const md = s.match(/\[.*?\]\((.*?)\)/);
+  if (md) return md[1].trim();
+  return s.trim();
 }
 
 function toast(msg, type='') {
@@ -1751,12 +1790,18 @@ async function handleSignup(e) {
     const {data, error} = await db.auth.signUp({email, password: pw});
     if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up'; return; }
     if (data.user?.id) {
+      // メール確認待ちの場合（identities が空）
+      if (!data.session && data.user) {
+        btn.disabled=false; btn.textContent='Sign Up';
+        errEl.style.display='none';
+        $('signupFormArea').style.display='none';
+        $('signupConfirmMsg').style.display='block';
+        return;
+      }
       try {
         await upsertInfluencer({id: data.user.id, ...userData});
-      } catch(dbErr) {
-        // DB 저장 실패해도 Auth 계정은 생성됨 — 로그인 후 프로필 저장 가능
-      }
-      currentUser = {id: data.user.id, email};
+      } catch(dbErr) {}
+      currentUser = data.user;
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
@@ -1786,7 +1831,12 @@ async function handleLogin(e) {
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
-      errEl.textContent='Please check your email or password'; errEl.style.display='block';
+      if (error.message?.includes('Email not confirmed')) {
+        errEl.textContent='メールアドレスが未認証です。受信メールの確認リンクをクリックしてください。';
+      } else {
+        errEl.textContent='Please check your email or password';
+      }
+      errEl.style.display='block';
       btn.disabled=false; btn.textContent='Log In'; return;
     }
     currentUser = data.user;
@@ -2090,7 +2140,7 @@ async function openCampaign(id) {
 
       ${camp.product_url ? `
       <div style="background:#fff;padding:12px 16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
-        <a href="${esc(camp.product_url)}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
+        <a href="${esc(cleanUrl(camp.product_url))}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
           <span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページを見る →
         </a>
       </div>` : ''}
@@ -2145,7 +2195,7 @@ async function openCampaign(id) {
     : '製品全額無償提供';
   if (floatProductPageBtn) {
     floatProductPageBtn.style.display = camp.product_url ? 'inline-flex' : 'none';
-    floatProductPageBtn.dataset.url = camp.product_url||'';
+    floatProductPageBtn.dataset.url = cleanUrl(camp.product_url)||'';
   }
   if (floatApplyBtn) {
     if (alreadyApplied) { floatApplyBtn.textContent='応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
@@ -2213,6 +2263,13 @@ async function submitApplication() {
       await updateCampaign(currentCampaignId, {applied_count: camp.applied_count}).catch(()=>{});
     }
   } catch(e) {
+    if (e.message?.includes('row-level security')) {
+      toast('セッションの有効期限が切れました。再ログインしてください','error');
+      closeModal('applyModal');
+      currentUser = null; currentUserProfile = null;
+      updateGnb();
+      return;
+    }
     toast('応募エラー: '+e.message,'error'); closeModal('applyModal'); return;
   }
 
@@ -2226,6 +2283,11 @@ function handleFloatApply() {
   if (!currentUser) {
     const o = $('loginPromptOverlay');
     if (o) { o.style.display='flex'; }
+    return;
+  }
+  // メール未確認チェック
+  if (!currentUser.email_confirmed_at) {
+    toast('メールアドレスの認証が必要です。受信メールをご確認ください','error');
     return;
   }
   // 필수 정보 체크: 캠페인 채널에 맞는 SNS 계정 + 배송지
@@ -2302,16 +2364,18 @@ async function loadMyApplications() {
   if (!currentUser) return;
   let apps = [];
   if (db) {
-    const {data} = await db.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id', currentUser.id).order('created_at', {ascending:false});
+    const {data} = await db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
     apps = data || [];
   }
+  // キャンペーン情報がなければ再取得
+  if (!allCampaigns || !allCampaigns.length) allCampaigns = await fetchCampaigns();
   const container = $('myApplicationsList');
   if (!apps.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">まだ応募したキャンペーンはありません</div><div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">キャンペーンを見る</button></div>`;
     return;
   }
   container.innerHTML = apps.map(a => {
-    const camp = a.campaigns || allCampaigns.find(c=>c.id===a.campaign_id) || {};
+    const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
     return `<div class="apply-item">
       <div class="apply-thumb">${camp.emoji||'<span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:var(--muted)">inventory_2</span>'}</div>
       <div class="apply-item-info">
@@ -2491,9 +2555,29 @@ async function init() {
 
   // パスワードリカバリーイベント検知
   if (db) {
-    db.auth.onAuthStateChange((event) => {
+    db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         navigate('reset-pw');
+        return;
+      }
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        if (!currentUser) {
+          currentUser = session.user;
+          const {data:adminData} = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
+          if (adminData) {
+            currentUser._isAdmin = true;
+            currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
+          } else {
+            const {data:profile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+            currentUserProfile = profile;
+          }
+          updateGnb();
+        }
+      }
+      if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
+        currentUser = null;
+        currentUserProfile = null;
+        updateGnb();
       }
     });
     // URL にリカバリートークンが含まれている場合の検知
@@ -2537,7 +2621,7 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   // 해시에 맞는 페이지를 즉시 활성화 (깜빡임 방지)
   const initHash = location.hash.replace('#','') || 'home';
   const initPage = initHash.startsWith('detail-') ? 'detail' : initHash;
@@ -2550,7 +2634,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
     updateStats(allCampaigns);
   }
-  init();
+  await init();
 
   // モバイルキーボード対応: visualViewportでappShell高さを動的調整
   if (window.visualViewport) {

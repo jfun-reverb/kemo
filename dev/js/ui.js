@@ -16,6 +16,14 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// マークダウンリンク形式からURLを抽出
+function cleanUrl(s) {
+  if (!s) return '';
+  const md = s.match(/\[.*?\]\((.*?)\)/);
+  if (md) return md[1].trim();
+  return s.trim();
+}
+
 function toast(msg, type='') {
   const el = document.getElementById('toast');
   el.textContent = msg; el.className = 'show' + (type ? ' '+type : '');

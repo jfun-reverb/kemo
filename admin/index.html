@@ -1046,6 +1046,16 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- 알럿 모달 (범용) -->
+<div class="modal-overlay" id="alertModal" style="z-index:600">
+  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
+    <div class="modal-body" style="padding:32px 24px 24px">
+      <div id="alertModalMessage" style="font-size:14px;line-height:1.6;color:var(--ink)"></div>
+      <button class="btn btn-primary" style="margin-top:20px;min-width:120px" onclick="closeModal('alertModal')">확인</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 // ══════════════════════════════════════
@@ -1071,6 +1081,19 @@ var DEMO_CAMPAIGNS = [];
 // localStorage는 세션 캐시에만 사용
 // ══════════════════════════════════════
 const DEMO_SESSION_KEY = 'kemo_session';
+
+// セッション切れ時に自動リフレッシュして再試行
+async function retryWithRefresh(fn) {
+  try {
+    return await fn();
+  } catch(e) {
+    if ((e.message?.includes('row-level security') || e.message?.includes('JWT expired')) && db) {
+      const {error} = await db.auth.refreshSession();
+      if (!error) return await fn();
+    }
+    throw e;
+  }
+}
 
 // ── Campaigns ──
 async function fetchCampaigns() {
@@ -1105,14 +1128,18 @@ async function autoCloseCampaigns(camps) {
 
 async function insertCampaign(camp) {
   if (!db) return;
-  const {error} = await db.from('campaigns').insert(camp);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('campaigns').insert(camp);
+    if (error) throw error;
+  });
 }
 
 async function updateCampaign(campId, updates) {
   if (!db) return;
-  const {error} = await db.from('campaigns').update(updates).eq('id', campId);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('campaigns').update(updates).eq('id', campId);
+    if (error) throw error;
+  });
 }
 
 async function incrementViewCount(campId) {
@@ -1136,8 +1163,10 @@ async function fetchInfluencers() {
 
 async function upsertInfluencer(profile) {
   if (!db) return;
-  const {error} = await db.from('influencers').upsert(profile);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('influencers').upsert(profile);
+    if (error) throw error;
+  });
 }
 
 async function updateInfluencer(userId, updates) {
@@ -1165,14 +1194,18 @@ async function fetchApplications(filters) {
 
 async function insertApplication(app) {
   if (!db) return;
-  const {error} = await db.from('applications').insert(app);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('applications').insert(app);
+    if (error) throw error;
+  });
 }
 
 async function updateApplication(appId, updates) {
   if (!db) return;
-  const {error} = await db.from('applications').update(updates).eq('id', appId);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('applications').update(updates).eq('id', appId);
+    if (error) throw error;
+  });
 }
 
 async function checkDuplicateApplication(userId, campaignId) {
@@ -1238,6 +1271,14 @@ new MutationObserver(() => {
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// マークダウンリンク形式からURLを抽出
+function cleanUrl(s) {
+  if (!s) return '';
+  const md = s.match(/\[.*?\]\((.*?)\)/);
+  if (md) return md[1].trim();
+  return s.trim();
 }
 
 function toast(msg, type='') {
@@ -1930,14 +1971,14 @@ async function loadAdminCampaigns(useCache) {
       <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
+          <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
+            <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:4px"></div>
+          </div>
+          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
             ${cnt} / ${c.slots}명
           </button>
-          <div style="width:48px;height:5px;background:var(--line);border-radius:3px;overflow:hidden">
-            <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:3px"></div>
-          </div>
         </div>
-        ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
+        ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:12px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
       </td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
@@ -1950,6 +1991,7 @@ async function loadAdminCampaigns(useCache) {
 
 // ── 캠페인 편집 ──
 async function openEditCampaign(campId) {
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
   const camps = await fetchCampaigns();
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
@@ -2055,10 +2097,11 @@ async function saveCampaignEdit() {
       return;
     }
     const editStatus = gv('editCampStatus');
-    if (editDeadline && editStatus === 'active') {
+    if (editDeadline && (editStatus === 'active' || editStatus === 'scheduled')) {
       const dl = new Date(editDeadline); dl.setHours(23,59,59,999);
       if (new Date() > dl) {
-        toast('모집 마감일이 지났으므로 「모집중」 상태로 저장할 수 없습니다','error');
+        const label = editStatus === 'active' ? '모집중' : '모집예정';
+        toast(`모집 마감일이 지났으므로 「${label}」 상태로 저장할 수 없습니다`,'error');
         return;
       }
     }
@@ -2069,7 +2112,7 @@ async function saveCampaignEdit() {
     const updates = {
       title, brand,
       product: gv('editCampProduct'),
-      product_url: gv('editCampProductUrl'),
+      product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: gv('editCampChannel'),
@@ -2272,12 +2315,13 @@ function toggleStatusDropdown(badgeEl) {
 
 async function changeCampStatus(campId, newStatus) {
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
-  if (newStatus === 'active') {
+  if (newStatus === 'active' || newStatus === 'scheduled') {
     const camp = allCampaigns.find(c => c.id === campId);
     if (camp?.deadline) {
       const dl = new Date(camp.deadline); dl.setHours(23,59,59,999);
       if (new Date() > dl) {
-        toast('모집 마감일이 지났으므로 「모집중」으로 변경할 수 없습니다','error');
+        const label = newStatus === 'active' ? '모집중' : '모집예정';
+        toast(`모집 마감일이 지났으므로 「${label}」으로 변경할 수 없습니다`,'error');
         return;
       }
     }
@@ -2765,6 +2809,20 @@ async function renderAppCampList() {
 
 async function updateAppStatus(appId, status) {
   try {
+    // 승인 시 모집인원 초과 체크
+    if (status === 'approved') {
+      const {data: app} = await db.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
+      if (app) {
+        const {data: camp} = await db.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
+        const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
+        const slots = camp?.slots || 0;
+        if (slots > 0 && approvedApps.length >= slots) {
+          $('alertModalMessage').innerHTML = `이 캠페인의 모집 정원은 <strong>${esc(String(slots))}명</strong>으로<br>이미 모두 찼습니다.`;
+          openModal('alertModal');
+          return;
+        }
+      }
+    }
     const reviewerName = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
     await updateApplication(appId, {
       status,
@@ -2786,7 +2844,7 @@ async function addCampaign() {
   const title = $('newCampTitle').value.trim();
   const brand = $('newCampBrand').value.trim();
   const product = $('newCampProduct').value.trim();
-  const productUrl = $('newCampProductUrl')?.value.trim()||'';
+  const productUrl = cleanUrl($('newCampProductUrl')?.value)||'';
   const slots = parseInt($('newCampSlots').value) || parseInt($('newCampSlots').placeholder) || 20;
   const deadline = $('newCampDeadline').value;
   const img1 = campImgData[0]?.data || '';
@@ -3196,53 +3254,65 @@ async function adminLogout() {
 }
 
 async function init() {
-  // 세션 확인
-  var sessionResult = await (db?.auth.getSession() || {data:{session:null}});
-  var session = sessionResult.data.session;
+  try {
+    // 세션 확인
+    var sessionResult = await (db?.auth.getSession() || {data:{session:null}});
+    var session = sessionResult?.data?.session;
 
-  if (!session) {
-    window.location.href = '/#login';
-    return;
-  }
+    if (!session) {
+      window.location.href = '/#login';
+      return;
+    }
 
-  currentUser = session.user;
+    currentUser = session.user;
 
-  // 관리자 확인
-  var adminResult = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
-  if (!adminResult.data) {
-    toast('관리자 권한이 없습니다','error');
-    setTimeout(function() { window.location.href = '/'; }, 1500);
-    return;
-  }
+    // 관리자 확인
+    var adminResult = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
+    if (!adminResult.data) {
+      toast('관리자 권한이 없습니다','error');
+      setTimeout(function() { window.location.href = '/'; }, 1500);
+      return;
+    }
 
-  currentUser._isAdmin = true;
-  currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
-  currentAdminInfo = adminResult.data;
+    currentUser._isAdmin = true;
+    currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
+    currentAdminInfo = adminResult.data;
 
-  // GNB에 관리자 이름 표시
-  var gnbInfo = document.getElementById('adminGnbInfo');
-  if (gnbInfo) {
-    var initial = (adminResult.data.name || 'A')[0].toUpperCase();
-    gnbInfo.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">' + initial + '</div><span>' + (adminResult.data.name || '관리자') + '</span>';
-  }
+    // GNB에 관리자 이름 표시
+    var gnbInfo = document.getElementById('adminGnbInfo');
+    if (gnbInfo) {
+      var initial = (adminResult.data.name || 'A')[0].toUpperCase();
+      gnbInfo.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">' + initial + '</div><span>' + (adminResult.data.name || '관리자') + '</span>';
+    }
 
-  // 이미지 리스트 등록
-  registerImgList('campImgData', campImgData);
+    // 세션 만료/갱신 감지
+    db.auth.onAuthStateChange(function(event) {
+      if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
+        currentUser = null; currentUserProfile = null;
+        window.location.href = '/#login';
+      }
+    });
 
-  allCampaigns = await fetchCampaigns();
+    // 이미지 리스트 등록
+    registerImgList('campImgData', campImgData);
 
-  // 신청 뱃지는 항상 업데이트
-  var _apps = await fetchApplications();
-  var _pending = _apps.filter(function(a){return a.status==='pending'});
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>99?'99+':_pending.length)+'</span>':'');
+    allCampaigns = await fetchCampaigns();
 
-  // URL 해시가 있으면 해당 패널로 이동
-  var hash = location.hash.replace('#','');
-  if (hash && hash !== 'dashboard') {
-    await Promise.resolve(switchAdminPane(hash, null, false));
-  } else {
-    history.replaceState({pane:'dashboard'}, '', '#dashboard');
-    await loadAdminData();
+    // 신청 뱃지는 항상 업데이트
+    var _apps = await fetchApplications();
+    var _pending = _apps.filter(function(a){return a.status==='pending'});
+    if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>99?'99+':_pending.length)+'</span>':'');
+
+    // URL 해시가 있으면 해당 패널로 이동
+    var hash = location.hash.replace('#','');
+    if (hash && hash !== 'dashboard') {
+      await Promise.resolve(switchAdminPane(hash, null, false));
+    } else {
+      history.replaceState({pane:'dashboard'}, '', '#dashboard');
+      await loadAdminData();
+    }
+  } catch(e) {
+    toast('초기화 오류: ' + (e.message||'알 수 없는 오류'), 'error');
   }
 }
 

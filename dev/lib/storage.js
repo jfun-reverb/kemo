@@ -4,6 +4,19 @@
 // ══════════════════════════════════════
 const DEMO_SESSION_KEY = 'kemo_session';
 
+// セッション切れ時に自動リフレッシュして再試行
+async function retryWithRefresh(fn) {
+  try {
+    return await fn();
+  } catch(e) {
+    if ((e.message?.includes('row-level security') || e.message?.includes('JWT expired')) && db) {
+      const {error} = await db.auth.refreshSession();
+      if (!error) return await fn();
+    }
+    throw e;
+  }
+}
+
 // ── Campaigns ──
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
@@ -37,14 +50,18 @@ async function autoCloseCampaigns(camps) {
 
 async function insertCampaign(camp) {
   if (!db) return;
-  const {error} = await db.from('campaigns').insert(camp);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('campaigns').insert(camp);
+    if (error) throw error;
+  });
 }
 
 async function updateCampaign(campId, updates) {
   if (!db) return;
-  const {error} = await db.from('campaigns').update(updates).eq('id', campId);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('campaigns').update(updates).eq('id', campId);
+    if (error) throw error;
+  });
 }
 
 async function incrementViewCount(campId) {
@@ -68,8 +85,10 @@ async function fetchInfluencers() {
 
 async function upsertInfluencer(profile) {
   if (!db) return;
-  const {error} = await db.from('influencers').upsert(profile);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('influencers').upsert(profile);
+    if (error) throw error;
+  });
 }
 
 async function updateInfluencer(userId, updates) {
@@ -97,14 +116,18 @@ async function fetchApplications(filters) {
 
 async function insertApplication(app) {
   if (!db) return;
-  const {error} = await db.from('applications').insert(app);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('applications').insert(app);
+    if (error) throw error;
+  });
 }
 
 async function updateApplication(appId, updates) {
   if (!db) return;
-  const {error} = await db.from('applications').update(updates).eq('id', appId);
-  if (error) throw error;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('applications').update(updates).eq('id', appId);
+    if (error) throw error;
+  });
 }
 
 async function checkDuplicateApplication(userId, campaignId) {
