@@ -317,7 +317,9 @@ function handleFloatApply() {
   if (ch.includes('qoo10') && !p.ig) missing.push('Instagram ID');
   // SNS 계정이 하나도 없으면 기본적으로 Instagram 체크
   if (!ch && !p.ig) missing.push('Instagram ID');
-  if (!p.address && !p.zip) missing.push('配送先住所');
+  if (!p.zip) missing.push('郵便番号');
+  if (!p.prefecture) missing.push('都道府県');
+  if (!p.city) missing.push('市区町村・番地');
   if (!p.phone) missing.push('電話番号');
   if (!p.bank_name) missing.push('振込口座');
   if (missing.length > 0) {
