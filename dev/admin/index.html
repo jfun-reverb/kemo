@@ -185,21 +185,29 @@
             </div>
             <input type="hidden" id="editCampId">
 
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
               <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input"></div>
             </div>
+
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">제품 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampProduct" class="form-input"></div>
               <div class="form-group"><label class="form-label">상품 페이지 URL</label><input type="url" id="editCampProductUrl" class="form-input"></div>
             </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">제품 금액 (¥)</label><input type="number" id="editCampProductPrice" class="form-input" min="0"></div>
+              <div class="form-group"><label class="form-label">리워드 금액 (¥)</label><input type="number" id="editCampReward" class="form-input" min="0"><div class="form-hint">0엔 = 제품 제공만</div></div>
+            </div>
 
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">모집 조건</div>
             <div class="form-row" style="grid-template-columns:1fr 120px;align-items:start">
               <div class="form-group">
                 <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"> 리뷰어</label>
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"> 기프팅</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
                 </div>
               </div>
               <div class="form-group"><label class="form-label">모집 인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="number" id="editCampSlots" class="form-input" min="1"></div>
@@ -234,13 +242,10 @@
             </div>
 
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">제품 금액 (¥)</label><input type="number" id="editCampProductPrice" class="form-input" min="0"></div>
-              <div class="form-group"><label class="form-label">리워드 금액 (¥)</label><input type="number" id="editCampReward" class="form-input" min="0"><div class="form-hint">0엔 = 제품 제공만</div></div>
-            </div>
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"></div>
               <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div></div>
             </div>
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="editCampDesc" class="form-input"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
@@ -299,7 +304,7 @@
             <div class="product-form-title">신규 캠페인 등록</div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
-            <!-- 1행: 캠페인명 / 브랜드명 -->
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -311,54 +316,86 @@
               </div>
             </div>
 
-            <!-- 2행: 제품명 / 상품URL / 모집인원 -->
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">제품 정보</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
               <div class="form-group">
-                <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="text" id="newCampProduct" class="form-input" placeholder="그린티 세럼 80ml">
+                <label class="form-label" style="display:flex;align-items:center;gap:8px">
+                  이미지 <span style="font-size:11px;font-weight:400;color:var(--muted)">최대 8장</span>
+                  <span id="campImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
+                </label>
+                <div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;flex-wrap:wrap">
+                  <div style="display:contents" id="campImgPreviewWrap"></div>
+                  <div id="campImgDropZone" data-img-dropzone="campImgData" style="width:80px;height:80px;border:2px dashed var(--line);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:var(--bg);flex-shrink:0;transition:all .2s" onclick="$('campImgFileInput').click()">
+                    <input type="file" accept="image/*" multiple style="display:none" id="campImgFileInput" onchange="handleCampImgSelect(this)">
+                    <span class="material-icons-round" style="font-size:24px;color:var(--muted)">add_photo_alternate</span>
+                  </div>
+                </div>
+                <div class="form-hint" style="margin-top:6px;line-height:1.8">
+                  - 첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지로 사용됩니다<br>
+                  - 이미지를 드래그하여 순서를 변경할 수 있습니다<br>
+                  - 클릭 또는 드래그앤드롭으로 이미지를 등록할 수 있습니다<br>
+                  - 권장 사이즈: 1080 x 1080px (1:1 정사각형)<br>
+                  - 권장 용량: 장당 5MB 이하<br>
+                  - 지원 확장자: JPG, PNG, WebP<br>
+                  - 최대 8장까지 등록 가능합니다
+                </div>
               </div>
-              <div class="form-group">
-                <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">Required</span></label>
-                <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
+              <div>
+                <div class="form-group">
+                  <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                  <input type="text" id="newCampProduct" class="form-input" placeholder="그린티 세럼 80ml">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                  <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
+                </div>
+                <div class="form-row" style="grid-template-columns:1fr 1fr">
+                  <div class="form-group">
+                    <label class="form-label">제품 금액 (¥)</label>
+                    <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">리워드 금액 (¥)</label>
+                    <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
+                    <div class="form-hint">0엔 = 제품 제공만</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- 모집 유형 + 모집인원 좌우 2열 -->
-            <div class="form-row" style="grid-template-columns:1fr 120px;align-items:start">
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">모집 조건</div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <label class="form-label">모집 타입/인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
-                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"> 리뷰어
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
+                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
                   </label>
-                  <label style="display:flex;align-items:center;justify-content:center;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
-                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"> 기프팅
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
                   </label>
+                  <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1" value="20" style="width:80px;flex-shrink:0">
                 </div>
               </div>
               <div class="form-group">
-                <label class="form-label">모집 인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1" value="20">
+                <div style="display:flex;gap:8px;margin-bottom:6px">
+                  <label class="form-label" style="flex:1;margin:0">채널</label>
+                  <label class="form-label" style="width:100px;flex-shrink:0;margin:0">최소 팔로워수</label>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <select id="newCampChannel" class="form-input" style="flex:1">
+                    <option value="instagram">Instagram</option>
+                    <option value="x">X(Twitter)</option>
+                    <option value="qoo10">Qoo10</option>
+                    <option value="instagram,x">Instagram + X</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                  </select>
+                  <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0" style="width:100px;flex-shrink:0">
+                </div>
               </div>
             </div>
-
-            <!-- 채널 / 카테고리 (콘텐츠 유형 위로) -->
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">채널</label>
-                <select id="newCampChannel" class="form-input">
-                  <option value="instagram">Instagram</option>
-                  <option value="x">X(Twitter)</option>
-                  <option value="qoo10">Qoo10</option>
-                  <option value="instagram,x">Instagram + X</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="youtube">YouTube</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">최소 팔로워수</label>
-                <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0">
-              </div>
               <div class="form-group">
                 <label class="form-label">카테고리</label>
                 <select id="newCampCategory" class="form-input">
@@ -369,32 +406,16 @@
                   <option value="other">기타</option>
                 </select>
               </div>
-            </div>
-
-            <!-- 콘텐츠 유형 (피드/릴스/스토리/숏폼/영상/이미지) -->
-            <div class="form-group">
-              <label class="form-label">콘텐츠 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-feed"><input type="checkbox" name="contentType" value="フィード" onchange="toggleCT(this)" style="display:none">フィード</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-reels"><input type="checkbox" name="contentType" value="リール" onchange="toggleCT(this)" style="display:none">リール</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-story"><input type="checkbox" name="contentType" value="ストーリー" onchange="toggleCT(this)" style="display:none">ストーリー</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-short"><input type="checkbox" name="contentType" value="ショート動画" onchange="toggleCT(this)" style="display:none">ショート動画</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-video"><input type="checkbox" name="contentType" value="動画" onchange="toggleCT(this)" style="display:none">動画</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-image"><input type="checkbox" name="contentType" value="画像" onchange="toggleCT(this)" style="display:none">画像</label>
-              </div>
-            </div>
-
-            <!-- 제품금액 / 리워드 금액 -->
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
-                <label class="form-label">제품 금액 (¥)</label>
-                <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
-                <div class="form-hint">입력하면 「¥〇〇,〇〇〇엔 상당의 제품을 무상 제공」으로 표시됩니다</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">리워드 금액 (¥)</label>
-                <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
-                <div class="form-hint">0엔 = 제품 제공만 / 입력 시 현금 리워드 추가</div>
+                <label class="form-label">콘텐츠 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-feed"><input type="checkbox" name="contentType" value="フィード" onchange="toggleCT(this)" style="display:none">フィード</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-reels"><input type="checkbox" name="contentType" value="リール" onchange="toggleCT(this)" style="display:none">リール</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-story"><input type="checkbox" name="contentType" value="ストーリー" onchange="toggleCT(this)" style="display:none">ストーリー</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-short"><input type="checkbox" name="contentType" value="ショート動画" onchange="toggleCT(this)" style="display:none">ショート動画</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-video"><input type="checkbox" name="contentType" value="動画" onchange="toggleCT(this)" style="display:none">動画</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-image"><input type="checkbox" name="contentType" value="画像" onchange="toggleCT(this)" style="display:none">画像</label>
+                </div>
               </div>
             </div>
 
@@ -412,28 +433,7 @@
               </div>
             </div>
 
-            <!-- 제품 이미지 첨부 (최대 8장) -->
-            <div class="form-group">
-              <label class="form-label" style="display:flex;align-items:center;gap:8px">
-                제품 이미지
-                <span style="font-size:11px;font-weight:400;color:var(--muted)">최대 8장 · 첫 번째가 메인 표시</span>
-                <span id="campImgCounter" style="font-size:11px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 8px;border-radius:20px">0/8</span>
-              </label>
-              <!-- 드래그앤드롭 업로드 영역 -->
-              <div id="campImgDropZone" data-img-dropzone="campImgData" style="border:2px dashed var(--line);border-radius:12px;padding:20px;text-align:center;margin-top:8px;transition:all .2s;cursor:pointer;background:var(--bg)" onclick="$('campImgFileInput').click()">
-                <input type="file" accept="image/*" multiple style="display:none" id="campImgFileInput" onchange="handleCampImgSelect(this)">
-                <span class="material-icons-round" style="font-size:36px;color:var(--muted);display:block;margin-bottom:8px">cloud_upload</span>
-                <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">이미지를 드래그하거나 클릭하여 업로드</div>
-                <div style="font-size:11px;color:var(--muted)">JPG / PNG / WebP · 장당 최대 5MB · 최대 8장</div>
-              </div>
-              <!-- 이미지 미리보기 (드래그로 순서 변경) -->
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:flex-start;min-height:0" id="campImgPreviewWrap"></div>
-              <div class="form-hint" style="margin-top:6px">
-                <span style="color:var(--pink);font-weight:600">※ 이미지는 <strong>1:1 정사각형</strong> 권장. 수정 버튼으로 크롭 가능.</span><br>
-                첫 번째 이미지가 캠페인 카드 및 상세 페이지의 메인 이미지가 됩니다. 드래그로 순서 변경 가능.
-              </div>
-            </div>
-
+            <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="newCampDesc" class="form-input" placeholder="인플루언서에게 보여줄 캠페인 소개를 입력하세요"></textarea></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
@@ -466,15 +466,15 @@
                 <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
                 <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
                 <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
-                <li>投稿は6ヶ月以上の掲載がRequiredです。</li>
+                <li>投稿は6ヶ月以上の掲載が필수です。</li>
                 <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
                 <li>ご不明点は <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">LINE(@586mnjoc)</a> まで。</li>
               </ul>
             </div>
 
-            <div style="display:flex;gap:10px;margin-top:16px">
-              <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
+            <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
             </div></div>
         </div>
 
