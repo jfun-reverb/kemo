@@ -1297,6 +1297,28 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// 必須フィールド警告表示/解除
+function markRequired(id, msg) {
+  const el = $(id);
+  if (!el) return;
+  el.style.borderColor = 'var(--red)';
+  const warnId = id + '_reqWarn';
+  if (!$(warnId)) {
+    const warn = document.createElement('div');
+    warn.id = warnId;
+    warn.style.cssText = 'font-size:11px;color:var(--red);margin-top:4px';
+    warn.textContent = msg;
+    el.parentElement.appendChild(warn);
+  }
+}
+function clearRequired(id) {
+  const el = $(id);
+  if (!el) return;
+  el.style.borderColor = '';
+  const warn = $(id + '_reqWarn');
+  if (warn) warn.remove();
+}
+
 // マークダウンリンク形式からURLを抽出
 function cleanUrl(s) {
   if (!s) return '';
