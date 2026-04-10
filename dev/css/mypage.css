@@ -26,10 +26,15 @@
 .mypage-sub-title{font-size:16px;font-weight:700;color:var(--ink)}
 
 /* 応募履歴 */
-.apply-item{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;transition:all .2s;box-shadow:var(--elevation-1)}
-.apply-item:hover{box-shadow:var(--elevation-2)}
-.apply-thumb{width:48px;height:48px;border-radius:var(--r12);background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.apply-tabs{display:flex;gap:0;border-bottom:1px solid var(--outline);margin-bottom:12px;overflow-x:auto}
+.apply-tab{padding:10px 14px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s}
+.apply-tab.on{color:var(--pink);border-bottom-color:var(--pink)}
+.apply-tab .apply-tab-count{margin-left:4px;font-size:11px;font-weight:400;color:var(--muted)}
+.apply-item{background:var(--surface);border-bottom:1px solid var(--outline);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.apply-item:last-child{border-bottom:none}
+.apply-thumb{width:44px;height:44px;border-radius:8px;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;overflow:hidden}
+.apply-thumb img{width:100%;height:100%;object-fit:cover}
 .apply-item-info{flex:1;min-width:0}
-.apply-item-name{font-size:14px;font-weight:700;margin-bottom:3px}
-.apply-item-meta{font-size:12px;color:var(--on-surface-variant)}
+.apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}

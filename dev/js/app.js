@@ -50,7 +50,13 @@ function navigate(page, pushHistory) {
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
   const page = e.state?.page || location.hash.replace('#','') || 'home';
-  if (page.startsWith('detail-')) {
+  if (page === 'mypage' && e.state?.sub) {
+    navigate('mypage', false);
+    openMypageSub(e.state.sub);
+  } else if (page === 'mypage' && !e.state?.sub) {
+    navigate('mypage', false);
+    closeMypageSub();
+  } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
   } else {
     navigate(page, false);
