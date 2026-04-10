@@ -14,7 +14,7 @@ function toggleAdminSidebar() {
 function navigate(page) {
   // admin 페이지 내에서는 사이드바 패널만 전환
   if (page === 'home' || page === 'detail') {
-    window.open('/', '_blank');
+    window.location.href = '/';
     return;
   }
 }

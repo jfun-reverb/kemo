@@ -49,7 +49,7 @@
           <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">A</div>
           <span>관리자</span>
         </div>
-        <button class="gnb-btn gnb-btn-ghost" onclick="window.open('/', '_blank')" style="font-size:12px;padding:5px 12px">인플루언서 화면</button>
+        <button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/'" style="font-size:12px;padding:5px 12px">인플루언서 화면</button>
         <span style="color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:.15s" onclick="adminLogout()">로그아웃</span>
       </div>
     </div>
@@ -540,7 +540,7 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center">
                 <span id="campApplicantsStats" style="font-size:13px;color:var(--muted)"></span>
-                <select id="campAppFilterStatus" class="form-input" style="padding:4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
+                <select id="campAppFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
                   <option value="">전체</option>
                   <option value="pending">심사중</option>
                   <option value="approved">승인</option>
