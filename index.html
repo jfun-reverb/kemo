@@ -2832,6 +2832,10 @@ async function init() {
   if (hash && hash.startsWith('detail-')) {
     const campId = hash.replace('detail-','');
     openCampaign(campId);
+  } else if (hash && hash.startsWith('mypage-')) {
+    const sub = hash.replace('mypage-','');
+    navigate('mypage', false);
+    openMypageSub(sub);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
@@ -2842,7 +2846,7 @@ async function init() {
 document.addEventListener('DOMContentLoaded', async function() {
   // 해시에 맞는 페이지를 즉시 활성화 (깜빡임 방지)
   const initHash = location.hash.replace('#','') || 'home';
-  const initPage = initHash.startsWith('detail-') ? 'detail' : initHash;
+  const initPage = initHash.startsWith('detail-') ? 'detail' : initHash.startsWith('mypage-') ? 'mypage' : initHash;
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');
