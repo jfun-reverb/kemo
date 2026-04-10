@@ -91,9 +91,29 @@ async function init() {
 
   // パスワードリカバリーイベント検知
   if (db) {
-    db.auth.onAuthStateChange((event) => {
+    db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         navigate('reset-pw');
+        return;
+      }
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        if (!currentUser) {
+          currentUser = session.user;
+          const {data:adminData} = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
+          if (adminData) {
+            currentUser._isAdmin = true;
+            currentUserProfile = {name: adminData.name || 'Admin', email: currentUser.email};
+          } else {
+            const {data:profile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+            currentUserProfile = profile;
+          }
+          updateGnb();
+        }
+      }
+      if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
+        currentUser = null;
+        currentUserProfile = null;
+        updateGnb();
       }
     });
     // URL にリカバリートークンが含まれている場合の検知
@@ -137,7 +157,7 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   // 해시에 맞는 페이지를 즉시 활성화 (깜빡임 방지)
   const initHash = location.hash.replace('#','') || 'home';
   const initPage = initHash.startsWith('detail-') ? 'detail' : initHash;
@@ -150,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
     updateStats(allCampaigns);
   }
-  init();
+  await init();
 
   // モバイルキーボード対応: visualViewportでappShell高さを動的調整
   if (window.visualViewport) {

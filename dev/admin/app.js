@@ -26,53 +26,65 @@ async function adminLogout() {
 }
 
 async function init() {
-  // 세션 확인
-  var sessionResult = await (db?.auth.getSession() || {data:{session:null}});
-  var session = sessionResult.data.session;
+  try {
+    // 세션 확인
+    var sessionResult = await (db?.auth.getSession() || {data:{session:null}});
+    var session = sessionResult?.data?.session;
 
-  if (!session) {
-    window.location.href = '/#login';
-    return;
-  }
+    if (!session) {
+      window.location.href = '/#login';
+      return;
+    }
 
-  currentUser = session.user;
+    currentUser = session.user;
 
-  // 관리자 확인
-  var adminResult = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
-  if (!adminResult.data) {
-    toast('관리자 권한이 없습니다','error');
-    setTimeout(function() { window.location.href = '/'; }, 1500);
-    return;
-  }
+    // 관리자 확인
+    var adminResult = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
+    if (!adminResult.data) {
+      toast('관리자 권한이 없습니다','error');
+      setTimeout(function() { window.location.href = '/'; }, 1500);
+      return;
+    }
 
-  currentUser._isAdmin = true;
-  currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
-  currentAdminInfo = adminResult.data;
+    currentUser._isAdmin = true;
+    currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
+    currentAdminInfo = adminResult.data;
 
-  // GNB에 관리자 이름 표시
-  var gnbInfo = document.getElementById('adminGnbInfo');
-  if (gnbInfo) {
-    var initial = (adminResult.data.name || 'A')[0].toUpperCase();
-    gnbInfo.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">' + initial + '</div><span>' + (adminResult.data.name || '관리자') + '</span>';
-  }
+    // GNB에 관리자 이름 표시
+    var gnbInfo = document.getElementById('adminGnbInfo');
+    if (gnbInfo) {
+      var initial = (adminResult.data.name || 'A')[0].toUpperCase();
+      gnbInfo.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">' + initial + '</div><span>' + (adminResult.data.name || '관리자') + '</span>';
+    }
 
-  // 이미지 리스트 등록
-  registerImgList('campImgData', campImgData);
+    // 세션 만료/갱신 감지
+    db.auth.onAuthStateChange(function(event) {
+      if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
+        currentUser = null; currentUserProfile = null;
+        window.location.href = '/#login';
+      }
+    });
 
-  allCampaigns = await fetchCampaigns();
+    // 이미지 리스트 등록
+    registerImgList('campImgData', campImgData);
 
-  // 신청 뱃지는 항상 업데이트
-  var _apps = await fetchApplications();
-  var _pending = _apps.filter(function(a){return a.status==='pending'});
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>99?'99+':_pending.length)+'</span>':'');
+    allCampaigns = await fetchCampaigns();
 
-  // URL 해시가 있으면 해당 패널로 이동
-  var hash = location.hash.replace('#','');
-  if (hash && hash !== 'dashboard') {
-    await Promise.resolve(switchAdminPane(hash, null, false));
-  } else {
-    history.replaceState({pane:'dashboard'}, '', '#dashboard');
-    await loadAdminData();
+    // 신청 뱃지는 항상 업데이트
+    var _apps = await fetchApplications();
+    var _pending = _apps.filter(function(a){return a.status==='pending'});
+    if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>99?'99+':_pending.length)+'</span>':'');
+
+    // URL 해시가 있으면 해당 패널로 이동
+    var hash = location.hash.replace('#','');
+    if (hash && hash !== 'dashboard') {
+      await Promise.resolve(switchAdminPane(hash, null, false));
+    } else {
+      history.replaceState({pane:'dashboard'}, '', '#dashboard');
+      await loadAdminData();
+    }
+  } catch(e) {
+    toast('초기화 오류: ' + (e.message||'알 수 없는 오류'), 'error');
   }
 }
 

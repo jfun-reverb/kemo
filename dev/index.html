@@ -337,6 +337,13 @@ window._supabaseLoaded = false;
         <div class="auth-sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
+      <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
+        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">確認メールを送信しました</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('login')">ログインページへ</button>
+      </div>
+      <div id="signupFormArea">
       <form id="signupForm" onsubmit="handleSignup(event)">
         <div class="form-row">
           <div class="form-group">
@@ -373,6 +380,7 @@ window._supabaseLoaded = false;
         <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
       <div class="auth-switch">すでにアカウントをお持ちですか？ <a onclick="navigate('login')">Log In</a></div>
+      </div><!-- /signupFormArea -->
     </div>
   </div>
 </div>

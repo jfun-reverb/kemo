@@ -41,16 +41,18 @@ async function loadMyApplications() {
   if (!currentUser) return;
   let apps = [];
   if (db) {
-    const {data} = await db.from('applications').select('*,campaigns(title,emoji,brand)').eq('user_id', currentUser.id).order('created_at', {ascending:false});
+    const {data} = await db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
     apps = data || [];
   }
+  // キャンペーン情報がなければ再取得
+  if (!allCampaigns || !allCampaigns.length) allCampaigns = await fetchCampaigns();
   const container = $('myApplicationsList');
   if (!apps.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">まだ応募したキャンペーンはありません</div><div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">キャンペーンを見る</button></div>`;
     return;
   }
   container.innerHTML = apps.map(a => {
-    const camp = a.campaigns || allCampaigns.find(c=>c.id===a.campaign_id) || {};
+    const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
     return `<div class="apply-item">
       <div class="apply-thumb">${camp.emoji||'<span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:var(--muted)">inventory_2</span>'}</div>
       <div class="apply-item-info">

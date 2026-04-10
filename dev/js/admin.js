@@ -297,14 +297,14 @@ async function loadAdminCampaigns(useCache) {
       <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-ghost btn-xs" style="font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
+          <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
+            <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:4px"></div>
+          </div>
+          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;color:${cnt>0?'var(--pink)':'var(--muted)'};border-color:${cnt>0?'var(--pink)':'var(--line)'}" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
             ${cnt} / ${c.slots}명
           </button>
-          <div style="width:48px;height:5px;background:var(--line);border-radius:3px;overflow:hidden">
-            <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:3px"></div>
-          </div>
         </div>
-        ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
+        ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:12px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
       </td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
@@ -317,6 +317,7 @@ async function loadAdminCampaigns(useCache) {
 
 // ── 캠페인 편집 ──
 async function openEditCampaign(campId) {
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
   const camps = await fetchCampaigns();
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
@@ -422,10 +423,11 @@ async function saveCampaignEdit() {
       return;
     }
     const editStatus = gv('editCampStatus');
-    if (editDeadline && editStatus === 'active') {
+    if (editDeadline && (editStatus === 'active' || editStatus === 'scheduled')) {
       const dl = new Date(editDeadline); dl.setHours(23,59,59,999);
       if (new Date() > dl) {
-        toast('모집 마감일이 지났으므로 「모집중」 상태로 저장할 수 없습니다','error');
+        const label = editStatus === 'active' ? '모집중' : '모집예정';
+        toast(`모집 마감일이 지났으므로 「${label}」 상태로 저장할 수 없습니다`,'error');
         return;
       }
     }
@@ -436,7 +438,7 @@ async function saveCampaignEdit() {
     const updates = {
       title, brand,
       product: gv('editCampProduct'),
-      product_url: gv('editCampProductUrl'),
+      product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: gv('editCampChannel'),
@@ -639,12 +641,13 @@ function toggleStatusDropdown(badgeEl) {
 
 async function changeCampStatus(campId, newStatus) {
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
-  if (newStatus === 'active') {
+  if (newStatus === 'active' || newStatus === 'scheduled') {
     const camp = allCampaigns.find(c => c.id === campId);
     if (camp?.deadline) {
       const dl = new Date(camp.deadline); dl.setHours(23,59,59,999);
       if (new Date() > dl) {
-        toast('모집 마감일이 지났으므로 「모집중」으로 변경할 수 없습니다','error');
+        const label = newStatus === 'active' ? '모집중' : '모집예정';
+        toast(`모집 마감일이 지났으므로 「${label}」으로 변경할 수 없습니다`,'error');
         return;
       }
     }
@@ -1132,6 +1135,20 @@ async function renderAppCampList() {
 
 async function updateAppStatus(appId, status) {
   try {
+    // 승인 시 모집인원 초과 체크
+    if (status === 'approved') {
+      const {data: app} = await db.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
+      if (app) {
+        const {data: camp} = await db.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
+        const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
+        const slots = camp?.slots || 0;
+        if (slots > 0 && approvedApps.length >= slots) {
+          $('alertModalMessage').innerHTML = `이 캠페인의 모집 정원은 <strong>${esc(String(slots))}명</strong>으로<br>이미 모두 찼습니다.`;
+          openModal('alertModal');
+          return;
+        }
+      }
+    }
     const reviewerName = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
     await updateApplication(appId, {
       status,
@@ -1153,7 +1170,7 @@ async function addCampaign() {
   const title = $('newCampTitle').value.trim();
   const brand = $('newCampBrand').value.trim();
   const product = $('newCampProduct').value.trim();
-  const productUrl = $('newCampProductUrl')?.value.trim()||'';
+  const productUrl = cleanUrl($('newCampProductUrl')?.value)||'';
   const slots = parseInt($('newCampSlots').value) || parseInt($('newCampSlots').placeholder) || 20;
   const deadline = $('newCampDeadline').value;
   const img1 = campImgData[0]?.data || '';

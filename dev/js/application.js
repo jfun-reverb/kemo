@@ -144,7 +144,7 @@ async function openCampaign(id) {
 
       ${camp.product_url ? `
       <div style="background:#fff;padding:12px 16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
-        <a href="${esc(camp.product_url)}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
+        <a href="${esc(cleanUrl(camp.product_url))}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
           <span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページを見る →
         </a>
       </div>` : ''}
@@ -199,7 +199,7 @@ async function openCampaign(id) {
     : '製品全額無償提供';
   if (floatProductPageBtn) {
     floatProductPageBtn.style.display = camp.product_url ? 'inline-flex' : 'none';
-    floatProductPageBtn.dataset.url = camp.product_url||'';
+    floatProductPageBtn.dataset.url = cleanUrl(camp.product_url)||'';
   }
   if (floatApplyBtn) {
     if (alreadyApplied) { floatApplyBtn.textContent='応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
@@ -267,6 +267,13 @@ async function submitApplication() {
       await updateCampaign(currentCampaignId, {applied_count: camp.applied_count}).catch(()=>{});
     }
   } catch(e) {
+    if (e.message?.includes('row-level security')) {
+      toast('セッションの有効期限が切れました。再ログインしてください','error');
+      closeModal('applyModal');
+      currentUser = null; currentUserProfile = null;
+      updateGnb();
+      return;
+    }
     toast('応募エラー: '+e.message,'error'); closeModal('applyModal'); return;
   }
 
@@ -280,6 +287,11 @@ function handleFloatApply() {
   if (!currentUser) {
     const o = $('loginPromptOverlay');
     if (o) { o.style.display='flex'; }
+    return;
+  }
+  // メール未確認チェック
+  if (!currentUser.email_confirmed_at) {
+    toast('メールアドレスの認証が必要です。受信メールをご確認ください','error');
     return;
   }
   // 필수 정보 체크: 캠페인 채널에 맞는 SNS 계정 + 배송지
