@@ -50,6 +50,19 @@ function loadMyPage() {
   if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
   if (badgeBank) badgeBank.style.display = hasBank ? 'none' : '';
 
+  // 必須フィールド警告表示
+  const reqMsg = 'キャンペーン応募に必須の入力項目です';
+  const snsFields = [{id:'profileIg',val:p.ig},{id:'profileX',val:p.x},{id:'profileTiktok',val:p.tiktok},{id:'profileYoutube',val:p.youtube}];
+  const addrFields = [{id:'profileZip',val:p.zip},{id:'profilePrefecture',val:p.prefecture},{id:'profileCity',val:p.city},{id:'profilePhone',val:p.phone}];
+  const bankFields = [{id:'bankName',val:p.bank_name}];
+  // SNS: 하나도 없으면 전부 경고
+  if (!hasSns) snsFields.forEach(f => markRequired(f.id, reqMsg));
+  else snsFields.forEach(f => clearRequired(f.id));
+  // 配送先: 개별 체크
+  addrFields.forEach(f => f.val ? clearRequired(f.id) : markRequired(f.id, reqMsg));
+  // 振込口座: 개별 체크
+  bankFields.forEach(f => f.val ? clearRequired(f.id) : markRequired(f.id, reqMsg));
+
   loadMyApplications();
 }
 
