@@ -1,6 +1,18 @@
 // ══════════════════════════════════════
 // NAVIGATION + INIT
 // ══════════════════════════════════════
+let _detailFrom = null;
+
+function navigateBackFromDetail() {
+  if (_detailFrom === 'mypage') {
+    _detailFrom = null;
+    navigate('mypage');
+    openMypageSub('applications');
+  } else {
+    _detailFrom = null;
+    navigate('home');
+  }
+}
 
 function navigate(page, pushHistory) {
   const appShell = $('appShell');

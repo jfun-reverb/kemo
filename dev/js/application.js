@@ -215,6 +215,10 @@ async function openCampaign(id) {
   }
   if (fb) fb.style.display='block';
 
+  // 戻るボタンラベル更新
+  const backLabel = $('detailBackLabel');
+  if (backLabel) backLabel.textContent = _detailFrom === 'mypage' ? '応募履歴へ' : 'キャンペーン一覧へ';
+
   navigate('detail-' + id);
 }
 
