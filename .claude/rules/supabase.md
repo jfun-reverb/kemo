@@ -21,6 +21,8 @@ globs: "dev/lib/*.js,dev/js/*.js"
 - campaigns: SELECT 공개, CUD는 관리자만
 - influencers: 본인 데이터만 SELECT/UPDATE, 관리자는 전체 SELECT
 - applications: 본인 INSERT/SELECT, 관리자는 전체 접근
+- `is_admin()`: admins 테이블에서 auth.uid() 조회 (JWT email 하드코딩 금지)
+- CUD 함수는 `retryWithRefresh()` 래퍼 사용 (세션 만료 시 자동 갱신 후 재시도)
 - 새 테이블 추가 시 반드시 RLS 정책 포함
 
 ## Storage
