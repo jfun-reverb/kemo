@@ -80,7 +80,8 @@ function renderMyApplyList() {
     const thumb = imgs[0]
       ? `<img src="${esc(imgs[0])}" alt="">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
-    return `<div class="apply-item">
+    const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="openCampaign('${a.campaign_id}')"`;
+    return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>

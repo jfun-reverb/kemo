@@ -104,7 +104,7 @@ window._supabaseLoaded = false;
 <div id="page-home" class="page">
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:14px;background:#C4314B;color:#fff;font-size:9px;font-weight:900;border-radius:3px;margin-right:4px;vertical-align:middle">K</span> K-Brand × Japan Only</div>
+      <div class="hero-eyebrow">🇰🇷 K-Brand × Japan Only</div>
       <h1 class="hero-h1">韓国の人気Kブランドを<span>あなたのSNSで</span>体験しよう<span class="hero-jp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
       <p class="hero-sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
@@ -125,7 +125,7 @@ window._supabaseLoaded = false;
     <div class="container">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
         <div style="padding:20px">
-          <div style="font-size:28px;margin-bottom:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:22px;background:#C4314B;color:#fff;font-size:13px;font-weight:900;border-radius:4px">K</span></div>
+          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">韓国直送・新商品</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
@@ -241,6 +241,42 @@ window._supabaseLoaded = false;
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
     <div class="detail-back" onclick="navigate('home')" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> キャンペーン一覧へ</div>
     <div class="detail-layout" id="detailContent"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: ACTIVITY (活動管理)
+══════════════════════════════════ -->
+<div id="page-activity" class="page">
+  <div class="container" style="padding:16px 16px calc(var(--tab-h) + 16px)">
+    <div class="detail-back" onclick="navigateBackFromActivity()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> 戻る</div>
+    <div id="activityCampTitle" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
+    <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
+
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">購入レシート</div>
+    <div id="receiptList" style="margin-bottom:20px"></div>
+
+    <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
+      <div class="form-group">
+        <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
+        <div id="receiptPreview" style="margin-bottom:8px"></div>
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
+          <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
+        </label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">購入日</label>
+          <input type="date" id="receiptDate" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">金額（円）</label>
+          <input type="number" id="receiptAmount" class="form-input" placeholder="0">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
+    </div>
   </div>
 </div>
 
