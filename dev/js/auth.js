@@ -4,16 +4,19 @@
 
 function updateGnb() {
   const gnbRight = $('gnbRight');
+  const tabMypage = $('tab-mypage');
   if (currentUser) {
     const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
     gnbRight.innerHTML = isAdmin
-      ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.open('/admin/','_blank')">Admin</button>`
+      ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/admin/'">Admin</button>`
       : '';
+    if (tabMypage) tabMypage.style.display = '';
   } else {
     gnbRight.innerHTML = `
       <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>
       <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">Sign Up</button>
     `;
+    if (tabMypage) tabMypage.style.display = 'none';
   }
 }
 
@@ -104,7 +107,7 @@ async function handleLogin(e) {
       currentUser._isAdmin = true;
       currentUserProfile = {name: adminData.name || 'Admin', email};
       toast('Logged in as Admin','success'); updateGnb();
-      setTimeout(() => { window.open('/admin/', '_blank'); }, 500);
+      window.location.href = '/admin/';
     } else {
       const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
       currentUserProfile = profile;
