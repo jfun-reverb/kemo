@@ -137,7 +137,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .form-error{font-size:12px;color:#B3261E;margin-top:4px}
 .form-row{display:grid;grid-template-columns:1fr;gap:12px}
 /* Admin form: 2-col layout */
-#page-admin .form-row{grid-template-columns:1fr 1fr}
+#page-admin .form-row{grid-template-columns:1fr 1fr;gap:40px}
 
 /* ── DIVIDER ── */
 .divider{border:none;border-top:1px solid var(--outline);margin:24px 0}
@@ -1428,14 +1428,24 @@ function toggleCT(cb) {
 function toggleRT(rb) {
   document.querySelectorAll('[id^="rt-"]').forEach(label => {
     label.style.borderColor='var(--line)';label.style.background='';label.style.color='';label.style.fontWeight='600';
+    const icon = label.querySelector('.material-icons-round');
+    if (icon) { icon.textContent='radio_button_unchecked'; icon.style.color='var(--muted)'; }
   });
   const label = rb.closest('label');
   label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';label.style.fontWeight='700';
+  const icon = label.querySelector('.material-icons-round');
+  if (icon) { icon.textContent='radio_button_checked'; icon.style.color='var(--pink)'; }
 }
 function toggleEditRT(rb) {
-  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
+  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{
+    l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';
+    const icon = l.querySelector('.material-icons-round');
+    if (icon) { icon.textContent='radio_button_unchecked'; icon.style.color='var(--muted)'; }
+  });
   const label=rb.closest('label');
   label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';label.style.fontWeight='700';
+  const icon = label.querySelector('.material-icons-round');
+  if (icon) { icon.textContent='radio_button_checked'; icon.style.color='var(--pink)'; }
 }
 function toggleEditCT(cb) {
   const label=cb.closest('label');

@@ -183,14 +183,24 @@ function toggleCT(cb) {
 function toggleRT(rb) {
   document.querySelectorAll('[id^="rt-"]').forEach(label => {
     label.style.borderColor='var(--line)';label.style.background='';label.style.color='';label.style.fontWeight='600';
+    const icon = label.querySelector('.material-icons-round');
+    if (icon) { icon.textContent='radio_button_unchecked'; icon.style.color='var(--muted)'; }
   });
   const label = rb.closest('label');
   label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';label.style.fontWeight='700';
+  const icon = label.querySelector('.material-icons-round');
+  if (icon) { icon.textContent='radio_button_checked'; icon.style.color='var(--pink)'; }
 }
 function toggleEditRT(rb) {
-  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
+  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{
+    l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';
+    const icon = l.querySelector('.material-icons-round');
+    if (icon) { icon.textContent='radio_button_unchecked'; icon.style.color='var(--muted)'; }
+  });
   const label=rb.closest('label');
   label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';label.style.fontWeight='700';
+  const icon = label.querySelector('.material-icons-round');
+  if (icon) { icon.textContent='radio_button_checked'; icon.style.color='var(--pink)'; }
 }
 function toggleEditCT(cb) {
   const label=cb.closest('label');
