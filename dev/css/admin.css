@@ -80,3 +80,12 @@
   .modal{border-radius:28px 28px 0 0;margin-top:auto}
   .modal-overlay{align-items:flex-end;padding:0}
 }
+
+/* タグ入力 */
+.tag-input-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border:1.5px solid var(--outline);border-radius:var(--r12);background:var(--surface);min-height:42px;align-items:center;cursor:text}
+.tag-input-wrap:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(200,120,163,.12)}
+.tag-input{border:none;outline:none;font-size:14px;background:transparent;min-width:80px;flex:1;padding:2px 0;color:var(--ink)}
+.tag-label{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--light-pink);color:var(--dark-pink);border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.tag-label button{border:none;background:none;cursor:pointer;font-size:14px;color:var(--dark-pink);padding:0;line-height:1;opacity:.7}
+.tag-label button:hover{opacity:1}
+.tag-input-warn{font-size:11px;color:var(--red);margin-top:4px}

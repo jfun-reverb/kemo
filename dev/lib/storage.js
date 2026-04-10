@@ -4,7 +4,7 @@
 // ══════════════════════════════════════
 const DEMO_SESSION_KEY = 'kemo_session';
 
-// セッション切れ時に自動リフレッシュして再試行
+// 세션 만료 시 자동 갱신 후 재시도
 async function retryWithRefresh(fn) {
   try {
     return await fn();

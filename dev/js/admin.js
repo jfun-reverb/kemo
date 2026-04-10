@@ -1,7 +1,72 @@
 // ══════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════
-// エラーメッセージを韓国語に変換
+
+// ── 태그 입력 ──
+function initTagInput(wrapId) {
+  const wrap = $(wrapId);
+  if (!wrap) return;
+  const input = wrap.querySelector('.tag-input');
+  if (!input || input._tagInit) return;
+  input._tagInit = true;
+  const targetId = input.dataset.target;
+  const prefix = input.dataset.prefix || '';
+  const forbidden = prefix === '#' ? '#' : '@';
+  const warnEl = $('tagWarn_' + targetId);
+
+  wrap.addEventListener('click', () => input.focus());
+
+  input.addEventListener('input', () => {
+    if (input.value.includes(forbidden)) {
+      input.value = input.value.replace(new RegExp('\\' + forbidden, 'g'), '');
+      if (warnEl) { warnEl.textContent = `${forbidden} 는 입력할 수 없습니다. 텍스트만 입력해주세요`; warnEl.style.display = 'block'; }
+    } else {
+      if (warnEl) warnEl.style.display = 'none';
+    }
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === ',' || e.key === 'Enter') {
+      e.preventDefault();
+      const val = input.value.replace(/[,#@]/g, '').trim();
+      if (val) { addTag(wrapId, targetId, prefix, val); input.value = ''; }
+    }
+    if (e.key === 'Backspace' && !input.value) {
+      const tags = wrap.querySelectorAll('.tag-label');
+      if (tags.length) tags[tags.length - 1].remove();
+      syncTagValue(wrapId, targetId, prefix);
+    }
+  });
+}
+
+function addTag(wrapId, targetId, prefix, text) {
+  const wrap = $(wrapId);
+  const input = wrap.querySelector('.tag-input');
+  const label = document.createElement('span');
+  label.className = 'tag-label';
+  label.innerHTML = `${esc(prefix + text)}<button onclick="this.parentElement.remove();syncTagValue('${wrapId}','${targetId}','${prefix}')">&times;</button>`;
+  wrap.insertBefore(label, input);
+  syncTagValue(wrapId, targetId, prefix);
+}
+
+function syncTagValue(wrapId, targetId, prefix) {
+  const wrap = $(wrapId);
+  const hidden = $(targetId);
+  if (!wrap || !hidden) return;
+  const tags = Array.from(wrap.querySelectorAll('.tag-label')).map(el => el.textContent.replace('×', '').trim());
+  hidden.value = tags.join(',');
+}
+
+function loadTagsFromValue(wrapId, targetId, prefix, value) {
+  const wrap = $(wrapId);
+  if (!wrap) return;
+  // 기존 태그 제거
+  wrap.querySelectorAll('.tag-label').forEach(el => el.remove());
+  if (!value) return;
+  value.split(',').map(s => s.replace(/[#@]/g, '').trim()).filter(Boolean).forEach(t => addTag(wrapId, targetId, prefix, t));
+}
+
+// 에러 메시지를 한국어로 변환
 function friendlyError(msg) {
   if (!msg) return '알 수 없는 오류 [ERR_UNKNOWN]';
   const s = String(msg);
@@ -25,7 +90,7 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
   if (paneEl) paneEl.classList.add('on');
-  // サイドバーのアクティブ状態をdata-pane属性で検索
+  // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
     const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
       'camp-applicants':'campaigns','influencer-detail':'influencers'}[pane] || pane;
@@ -42,6 +107,12 @@ function switchAdminPane(pane, el, pushHistory) {
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
     history.pushState({pane: pane}, '', '#' + pane);
+  }
+  if (pane === 'add-campaign') {
+    initTagInput('tagWrap_newCampHashtags');
+    initTagInput('tagWrap_newCampMentions');
+    loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
+    loadTagsFromValue('tagWrap_newCampMentions', 'newCampMentions', '@', '');
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
@@ -218,21 +289,21 @@ function exitReorderMode() {
 async function loadAdminCampaigns(useCache) {
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (!useCache) allCampaigns = camps.slice();
-  // タイプフィルタ
+  // 타입 필터
   const typeFilter = $('adminCampTypeFilter')?.value || 'all';
   if (typeFilter !== 'all') camps = camps.filter(c => c.recruit_type === typeFilter);
 
-  // ステータスフィルタ
+  // 상태 필터
   const statusFilter = $('adminCampStatusFilter')?.value || 'all';
   if (statusFilter !== 'all') camps = camps.filter(c => c.status === statusFilter);
 
-  // 検索フィルタ
+  // 검색 필터
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
   if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal));
 
   const allApps = await fetchApplications();
 
-  // ソート
+  // 정렬
   const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
   if (adminReorderMode) {
     camps.sort((a,b) => {
@@ -255,7 +326,7 @@ async function loadAdminCampaigns(useCache) {
     camps.sort((a,b) => new Date(b.created_at)-new Date(a.created_at));
   }
 
-  // フィルタ・検索・ソート中は順序変更を無効化
+  // 필터/검색/정렬 중에는 순서 변경 비활성화
   const isFiltered = searchVal || typeFilter !== 'all' || statusFilter !== 'all' || !!adminCampSortKey;
 
   const typeLabel = t => t==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
@@ -340,6 +411,10 @@ async function openEditCampaign(campId) {
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
+  initTagInput('tagWrap_editCampHashtags');
+  initTagInput('tagWrap_editCampMentions');
+  loadTagsFromValue('tagWrap_editCampHashtags', 'editCampHashtags', '#', camp.hashtags||'');
+  loadTagsFromValue('tagWrap_editCampMentions', 'editCampMentions', '@', camp.mentions||'');
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
   sv('editCampNg', camp.ng||'');
@@ -607,7 +682,7 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
 }
 
 function toggleStatusDropdown(badgeEl) {
-  // 既存ドロップダウンを閉じる
+  // 기존 드롭다운 닫기
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
 
   const wrapper = badgeEl.parentElement;
@@ -632,7 +707,7 @@ function toggleStatusDropdown(badgeEl) {
   ).join('');
   wrapper.appendChild(dd);
 
-  // 外部クリックで閉じる
+  // 외부 클릭 시 닫기
   setTimeout(() => {
     document.addEventListener('click', function _close(e) {
       if (!dd.contains(e.target) && e.target !== badgeEl) {
@@ -667,7 +742,7 @@ async function changeCampStatus(campId, newStatus) {
 }
 
 async function moveCampOrder(campId, dir) {
-  // ローカルキャッシュで即時UI更新
+  // 로컬 캐시로 즉시 UI 업데이트
   const camps = allCampaigns.slice().sort((a,b)=>{
     if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
     return new Date(b.created_at)-new Date(a.created_at);
@@ -681,13 +756,13 @@ async function moveCampOrder(campId, dir) {
   camps[idx].order_index = camps[swapIdx].order_index;
   camps[swapIdx].order_index = tmpOrder;
 
-  // allCampaignsも即時反映
+  // allCampaigns도 즉시 반영
   const a = allCampaigns.find(c=>c.id===camps[idx].id);
   const b = allCampaigns.find(c=>c.id===camps[swapIdx].id);
   if (a) a.order_index = camps[idx].order_index;
   if (b) b.order_index = camps[swapIdx].order_index;
 
-  // 即座にUI更新（キャッシュ使用）
+  // 즉시 UI 업데이트 (캐시 사용)
   loadAdminCampaigns(true);
   const movedRow = document.querySelector(`tr[data-camp-id="${campId}"]`);
   if (movedRow) {
@@ -696,7 +771,7 @@ async function moveCampOrder(campId, dir) {
     setTimeout(() => { movedRow.style.background = ''; }, 600);
   }
 
-  // DBはバックグラウンドで保存
+  // DB는 백그라운드에서 저장
   try {
     await Promise.all([
       updateCampaign(camps[idx].id, {order_index: camps[idx].order_index}),
@@ -952,7 +1027,7 @@ async function openInfluencerDetail(userId) {
     row('건물명', u.building) +
     row('전체 주소', fullAddr);
 
-  // 계좌 — row()内でesc()済み
+  // 계좌 — row() 내에서 esc() 처리됨
   const bankType = {'普通':'보통예금','当座':'당좌예금'}[u.bank_type] || u.bank_type;
   $('infDetailBank').innerHTML = u.bank_name
     ? row('은행명', u.bank_name) + row('지점명', u.bank_branch) + row('계좌 종류', bankType) + row('계좌번호', u.bank_number) + row('예금주', u.bank_holder)
@@ -1078,18 +1153,18 @@ async function renderAppCampList() {
   let apps = allAppsRaw.slice();
   const users = await fetchInfluencers();
 
-  // タイプフィルタ
+  // 타입 필터
   const typeFilter = $('appTypeFilter')?.value || 'all';
   if (typeFilter !== 'all') {
     const filteredCampIds = camps.filter(c => c.recruit_type === typeFilter).map(c => c.id);
     apps = apps.filter(a => filteredCampIds.includes(a.campaign_id));
   }
 
-  // ステータスフィルタ
+  // 상태 필터
   const statusFilter = $('appStatusFilter')?.value || 'all';
   if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
 
-  // 検索フィルタ
+  // 검색 필터
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   if (searchVal) {
     apps = apps.filter(a => {

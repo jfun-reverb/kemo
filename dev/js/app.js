@@ -107,7 +107,7 @@ async function init() {
   }
   updateGnb();
 
-  // パスワードリカバリーイベント検知
+  // 비밀번호 복구 이벤트 감지
   if (db) {
     db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -134,14 +134,14 @@ async function init() {
         updateGnb();
       }
     });
-    // URL にリカバリートークンが含まれている場合の検知
+    // URL에 복구 토큰이 포함된 경우 감지
     const hashStr = location.hash.replace('#','');
     const hashParams = new URLSearchParams(hashStr.includes('&') ? hashStr : '');
     const urlType = hashParams.get('type') || new URLSearchParams(location.search).get('type');
     if (urlType === 'recovery' || hashStr.includes('type=recovery')) {
       navigate('reset-pw');
     }
-    // リンク期限切れ・エラー検知
+    // 링크 만료/에러 감지
     const urlError = hashParams.get('error') || new URLSearchParams(location.search).get('error');
     if (urlError) {
       const errDesc = hashParams.get('error_description') || new URLSearchParams(location.search).get('error_description') || '';
@@ -178,7 +178,7 @@ async function init() {
     history.replaceState({page:'home'}, '', '#home');
   }
 
-  // 初期化完了 — cloak 解除
+  // 초기화 완료 — cloak 해제
   const cloak = document.getElementById('app-cloak');
   if (cloak) cloak.remove();
 }
@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
   await init();
 
-  // モバイルキーボード対応: visualViewportでappShell高さを動的調整
+  // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절
   if (window.visualViewport) {
     var appShell = $('appShell');
     function adjustHeight() {

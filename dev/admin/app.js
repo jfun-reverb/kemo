@@ -2,7 +2,7 @@
 // ADMIN APP — 관리자 페이지 초기화
 // ══════════════════════════════════════
 
-// サイドバー折りたたみ
+// 사이드바 접기/펼치기
 function toggleAdminSidebar() {
   const layout = document.querySelector('.admin-layout');
   layout.classList.toggle('collapsed');
@@ -89,7 +89,7 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // データコンテキストが必要な下位パネルは親パネルへリダイレクト
+  // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || 'dashboard';
   var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers'};
   if (subToParent[initHash]) {
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.admin-si').forEach(function(s) {
     if (s.dataset.pane === sidePane) s.classList.add('on');
   });
-  // パネル設定完了後にbodyを表示
+  // 패널 설정 완료 후 body 표시
   var cloak = document.getElementById('admin-cloak');
   if (cloak) cloak.remove();
 
