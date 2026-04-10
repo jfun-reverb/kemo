@@ -408,7 +408,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 <div id="page-home" class="page">
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:14px;background:#C4314B;color:#fff;font-size:9px;font-weight:900;border-radius:3px;margin-right:4px;vertical-align:middle">K</span> K-Brand × Japan Only</div>
+      <div class="hero-eyebrow">🇰🇷 K-Brand × Japan Only</div>
       <h1 class="hero-h1">韓国の人気Kブランドを<span>あなたのSNSで</span>体験しよう<span class="hero-jp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
       <p class="hero-sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
@@ -429,7 +429,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="container">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
         <div style="padding:20px">
-          <div style="font-size:28px;margin-bottom:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:22px;background:#C4314B;color:#fff;font-size:13px;font-weight:900;border-radius:4px">K</span></div>
+          <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">韓国直送・新商品</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
@@ -545,6 +545,42 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div class="container" style="padding-top:16px;padding-bottom:calc(var(--tab-h) + 60px)">
     <div class="detail-back" onclick="navigate('home')" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> キャンペーン一覧へ</div>
     <div class="detail-layout" id="detailContent"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: ACTIVITY (活動管理)
+══════════════════════════════════ -->
+<div id="page-activity" class="page">
+  <div class="container" style="padding:16px 16px calc(var(--tab-h) + 16px)">
+    <div class="detail-back" onclick="navigateBackFromActivity()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> 戻る</div>
+    <div id="activityCampTitle" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
+    <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
+
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">購入レシート</div>
+    <div id="receiptList" style="margin-bottom:20px"></div>
+
+    <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
+      <div class="form-group">
+        <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
+        <div id="receiptPreview" style="margin-bottom:8px"></div>
+        <label style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
+          <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
+        </label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label class="form-label">購入日</label>
+          <input type="date" id="receiptDate" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">金額（円）</label>
+          <input type="number" id="receiptAmount" class="form-input" placeholder="0">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
+    </div>
   </div>
 </div>
 
@@ -1116,6 +1152,29 @@ async function checkDuplicateApplication(userId, campaignId) {
   if (!db) return false;
   const {data} = await db.from('applications').select('id').eq('user_id', userId).eq('campaign_id', campaignId).maybeSingle();
   return !!data;
+}
+
+// ── Receipts ──
+async function fetchReceipts(filters) {
+  if (!db) return [];
+  try {
+    let query = db.from('receipts').select('*');
+    if (filters?.application_id) query = query.eq('application_id', filters.application_id);
+    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+    if (filters?.campaign_id) query = query.eq('campaign_id', filters.campaign_id);
+    query = query.order('created_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+async function insertReceipt(receipt) {
+  if (!db) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('receipts').insert(receipt);
+    if (error) throw error;
+  });
 }
 
 // ── Image Storage ──
@@ -2028,8 +2087,11 @@ async function openCampaign(id) {
   incrementViewCount(id).catch(()=>{});
 
   let alreadyApplied = false;
+  let _myApp = null;
   if (currentUser) {
-    alreadyApplied = await checkDuplicateApplication(currentUser.id, id);
+    const {data:_appData} = await (db?.from('applications').select('*').eq('user_id', currentUser.id).eq('campaign_id', id).maybeSingle() || {data:null});
+    _myApp = _appData;
+    alreadyApplied = !!_myApp;
   }
 
   const isFull = (camp.applied_count||0) >= camp.slots;
@@ -2219,10 +2281,13 @@ async function openCampaign(id) {
     floatProductPageBtn.dataset.url = cleanUrl(camp.product_url)||'';
   }
   if (floatApplyBtn) {
-    if (alreadyApplied) { floatApplyBtn.textContent='応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
-    else if (camp.status==='closed') { floatApplyBtn.textContent='募集締切'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
-    else if (isFull) { floatApplyBtn.textContent='募集終了'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
-    else { floatApplyBtn.textContent='申請'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; }
+    if (_myApp?.status === 'approved') {
+      floatApplyBtn.textContent='活動管理'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
+      floatApplyBtn.onclick = () => openActivityPage(_myApp.id, id, 'detail');
+    } else if (alreadyApplied) { floatApplyBtn.textContent='応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (camp.status==='closed') { floatApplyBtn.textContent='募集締切'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (isFull) { floatApplyBtn.textContent='募集終了'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else { floatApplyBtn.textContent='申請'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
   }
   if (fb) fb.style.display='block';
 
@@ -2342,6 +2407,101 @@ function openProductPage() {
   const url = $('floatProductPageBtn')?.dataset.url;
   if (url) window.open(url,'_blank');
 }
+
+// ══════════════════════════════════════
+// ACTIVITY PAGE — 活動管理
+// ══════════════════════════════════════
+let _activityAppId = null;
+let _activityCampId = null;
+let _activityFrom = 'detail'; // 'detail' or 'mypage'
+let _receiptImgData = null;
+
+async function openActivityPage(applicationId, campaignId, from) {
+  _activityAppId = applicationId;
+  _activityCampId = campaignId;
+  _activityFrom = from || 'detail';
+  const camp = allCampaigns.find(c=>c.id===campaignId) || {};
+  $('activityCampTitle').textContent = camp.title || '';
+  $('activityCampBrand').textContent = camp.brand || '';
+  $('receiptPreview').innerHTML = '';
+  $('receiptDate').value = '';
+  $('receiptAmount').value = '';
+  $('receiptFile').value = '';
+  _receiptImgData = null;
+  navigate('activity');
+  await loadReceipts();
+}
+
+function navigateBackFromActivity() {
+  if (_activityFrom === 'mypage') {
+    navigate('mypage');
+    openMypageSub('applications');
+  } else {
+    openCampaign(_activityCampId);
+  }
+}
+
+async function loadReceipts() {
+  const receipts = await fetchReceipts({application_id: _activityAppId});
+  const container = $('receiptList');
+  if (!receipts.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだレシートが登録されていません</div>';
+    return;
+  }
+  container.innerHTML = receipts.map(r => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--surface-dim)">
+        <img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--ink)">${r.purchase_date ? formatDate(r.purchase_date) : '日付未入力'}</div>
+        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+r.purchase_amount.toLocaleString() : '金額未入力'}</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">${formatDate(r.created_at)}</div>
+    </div>
+  `).join('');
+}
+
+function previewReceipt(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _receiptImgData = e.target.result;
+    $('receiptPreview').innerHTML = `<img src="${_receiptImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitReceipt() {
+  if (!_receiptImgData) { toast('レシート画像を選択してください','error'); return; }
+  if (!currentUser) { toast('ログインが必要です','error'); return; }
+
+  try {
+    toast('アップロード中...','');
+    const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
+    const receiptUrl = await uploadImage(_receiptImgData, fileName);
+
+    await insertReceipt({
+      application_id: _activityAppId,
+      user_id: currentUser.id,
+      campaign_id: _activityCampId,
+      receipt_url: receiptUrl,
+      purchase_date: $('receiptDate').value || null,
+      purchase_amount: parseInt($('receiptAmount').value) || 0
+    });
+
+    toast('レシートを登録しました','success');
+    _receiptImgData = null;
+    $('receiptPreview').innerHTML = '';
+    $('receiptFile').value = '';
+    $('receiptDate').value = '';
+    $('receiptAmount').value = '';
+    await loadReceipts();
+  } catch(e) {
+    toast('登録エラー: '+e.message,'error');
+  }
+}
 // ══════════════════════════════════════
 // MY PAGE
 // ══════════════════════════════════════
@@ -2424,7 +2584,8 @@ function renderMyApplyList() {
     const thumb = imgs[0]
       ? `<img src="${esc(imgs[0])}" alt="">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
-    return `<div class="apply-item">
+    const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="openCampaign('${a.campaign_id}')"`;
+    return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>

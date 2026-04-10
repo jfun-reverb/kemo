@@ -11,8 +11,11 @@ async function openCampaign(id) {
   incrementViewCount(id).catch(()=>{});
 
   let alreadyApplied = false;
+  let _myApp = null;
   if (currentUser) {
-    alreadyApplied = await checkDuplicateApplication(currentUser.id, id);
+    const {data:_appData} = await (db?.from('applications').select('*').eq('user_id', currentUser.id).eq('campaign_id', id).maybeSingle() || {data:null});
+    _myApp = _appData;
+    alreadyApplied = !!_myApp;
   }
 
   const isFull = (camp.applied_count||0) >= camp.slots;
@@ -202,10 +205,13 @@ async function openCampaign(id) {
     floatProductPageBtn.dataset.url = cleanUrl(camp.product_url)||'';
   }
   if (floatApplyBtn) {
-    if (alreadyApplied) { floatApplyBtn.textContent='応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
-    else if (camp.status==='closed') { floatApplyBtn.textContent='募集締切'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
-    else if (isFull) { floatApplyBtn.textContent='募集終了'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; }
-    else { floatApplyBtn.textContent='申請'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; }
+    if (_myApp?.status === 'approved') {
+      floatApplyBtn.textContent='活動管理'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
+      floatApplyBtn.onclick = () => openActivityPage(_myApp.id, id, 'detail');
+    } else if (alreadyApplied) { floatApplyBtn.textContent='応募済み'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (camp.status==='closed') { floatApplyBtn.textContent='募集締切'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (isFull) { floatApplyBtn.textContent='募集終了'; floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else { floatApplyBtn.textContent='申請'; floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
   }
   if (fb) fb.style.display='block';
 
@@ -324,4 +330,99 @@ function handleFloatApply() {
 function openProductPage() {
   const url = $('floatProductPageBtn')?.dataset.url;
   if (url) window.open(url,'_blank');
+}
+
+// ══════════════════════════════════════
+// ACTIVITY PAGE — 活動管理
+// ══════════════════════════════════════
+let _activityAppId = null;
+let _activityCampId = null;
+let _activityFrom = 'detail'; // 'detail' or 'mypage'
+let _receiptImgData = null;
+
+async function openActivityPage(applicationId, campaignId, from) {
+  _activityAppId = applicationId;
+  _activityCampId = campaignId;
+  _activityFrom = from || 'detail';
+  const camp = allCampaigns.find(c=>c.id===campaignId) || {};
+  $('activityCampTitle').textContent = camp.title || '';
+  $('activityCampBrand').textContent = camp.brand || '';
+  $('receiptPreview').innerHTML = '';
+  $('receiptDate').value = '';
+  $('receiptAmount').value = '';
+  $('receiptFile').value = '';
+  _receiptImgData = null;
+  navigate('activity');
+  await loadReceipts();
+}
+
+function navigateBackFromActivity() {
+  if (_activityFrom === 'mypage') {
+    navigate('mypage');
+    openMypageSub('applications');
+  } else {
+    openCampaign(_activityCampId);
+  }
+}
+
+async function loadReceipts() {
+  const receipts = await fetchReceipts({application_id: _activityAppId});
+  const container = $('receiptList');
+  if (!receipts.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだレシートが登録されていません</div>';
+    return;
+  }
+  container.innerHTML = receipts.map(r => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--surface-dim)">
+        <img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--ink)">${r.purchase_date ? formatDate(r.purchase_date) : '日付未入力'}</div>
+        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+r.purchase_amount.toLocaleString() : '金額未入力'}</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">${formatDate(r.created_at)}</div>
+    </div>
+  `).join('');
+}
+
+function previewReceipt(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _receiptImgData = e.target.result;
+    $('receiptPreview').innerHTML = `<img src="${_receiptImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitReceipt() {
+  if (!_receiptImgData) { toast('レシート画像を選択してください','error'); return; }
+  if (!currentUser) { toast('ログインが必要です','error'); return; }
+
+  try {
+    toast('アップロード中...','');
+    const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
+    const receiptUrl = await uploadImage(_receiptImgData, fileName);
+
+    await insertReceipt({
+      application_id: _activityAppId,
+      user_id: currentUser.id,
+      campaign_id: _activityCampId,
+      receipt_url: receiptUrl,
+      purchase_date: $('receiptDate').value || null,
+      purchase_amount: parseInt($('receiptAmount').value) || 0
+    });
+
+    toast('レシートを登録しました','success');
+    _receiptImgData = null;
+    $('receiptPreview').innerHTML = '';
+    $('receiptFile').value = '';
+    $('receiptDate').value = '';
+    $('receiptAmount').value = '';
+    await loadReceipts();
+  } catch(e) {
+    toast('登録エラー: '+e.message,'error');
+  }
 }

@@ -136,6 +136,29 @@ async function checkDuplicateApplication(userId, campaignId) {
   return !!data;
 }
 
+// ── Receipts ──
+async function fetchReceipts(filters) {
+  if (!db) return [];
+  try {
+    let query = db.from('receipts').select('*');
+    if (filters?.application_id) query = query.eq('application_id', filters.application_id);
+    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+    if (filters?.campaign_id) query = query.eq('campaign_id', filters.campaign_id);
+    query = query.order('created_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+async function insertReceipt(receipt) {
+  if (!db) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('receipts').insert(receipt);
+    if (error) throw error;
+  });
+}
+
 // ── Image Storage ──
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName) {
