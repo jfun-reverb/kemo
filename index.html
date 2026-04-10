@@ -8,6 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <title>REVERB Seeding</title>
+<style id="app-cloak">.page{visibility:hidden!important}</style>
 <script>
 // Supabase stub — replaced by real CDN below if available
 window._supabaseLoaded = false;
@@ -2841,6 +2842,10 @@ async function init() {
   } else {
     history.replaceState({page:'home'}, '', '#home');
   }
+
+  // 初期化完了 — cloak 解除
+  const cloak = document.getElementById('app-cloak');
+  if (cloak) cloak.remove();
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
