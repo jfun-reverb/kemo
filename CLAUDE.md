@@ -71,15 +71,17 @@
 - 인플루언서 관리: 채널별 필터, 상세 프로필 조회
 - 관리자 계정: 3단계 권한 (super_admin > campaign_admin > campaign_manager), create_admin으로 기존 인플루언서 계정도 관리자 추가 가능
 - 내 계정: 이름/비밀번호 변경
+- 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
 
 ## Database Schema (Supabase)
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, min_followers, status, view_count, img1~img8 등)
-- `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보, primary_sns 등)
+- `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
-- `admins` — 관리자 계정 (auth_id, email, name, role)
+- `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
+- `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
-- `is_admin()` 함수: admins 테이블에서 auth.uid() 조회 (JWT email 하드코딩 아님)
+- `is_admin()` / `is_super_admin()` / `is_campaign_admin()` 함수: admins 테이블에서 auth.uid() 조회 (search_path 고정)
 - 트리거: auth.users 생성 시 influencers 레코드 자동 생성
 - 세션 만료 대응: retryWithRefresh()로 RLS/JWT 에러 시 세션 갱신 후 1회 재시도
 
