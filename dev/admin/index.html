@@ -89,6 +89,19 @@
             <div class="kpi-card kpi-b"><div class="kpi-val" id="kpiApplications"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">총 신청수</div></div>
             <div class="kpi-card kpi-g"><div class="kpi-val" id="kpiApproved"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">승인 완료</div></div>
           </div>
+
+          <!-- 캠페인 분포 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+            <div class="admin-card" style="padding:16px">
+              <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">상태별 캠페인</div>
+              <div id="campStatusBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+            </div>
+            <div class="admin-card" style="padding:16px">
+              <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">채널별 캠페인 <span style="font-size:10px;font-weight:400;color:var(--muted)">(복수 채널 중복 집계)</span></div>
+              <div id="campChannelBreakdown" style="display:flex;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;justify-content:center;width:100%;min-height:60px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+            </div>
+          </div>
+
           <!-- 회원가입 현황 -->
           <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
             <div class="admin-card">
