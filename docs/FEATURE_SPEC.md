@@ -482,3 +482,79 @@
 **C. 합산 기준 (보조)**
 - 기본은 OR 유지, 옵션으로 합산 모드 제공
 - 단독 적용은 리치 왜곡 위험이 있어 비권장
+
+---
+
+## 11. 홈 푸터 (인플루언서 페이지)
+
+메인 페이지 하단에 회사 정보 및 법적 링크 영역을 노출합니다.
+
+### 11.1 노출 정보
+- 회사명: 株式会社ジェイファン
+- 所在地: ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号
+- 代表者: ジュ・ヒョンホ
+- お問い合わせ: 公式LINE @586mnjoc
+
+### 11.2 링크
+- 会社紹介 / 利用規約 / 個人情報処理方針 — 클릭 시 슬라이드업 모달(`#legalModal`)에서 내용 표시
+- 利用規約 / 個人情報処理方針 일본어 번역은 준비 중(시행 예정일 2026-05-01)
+
+### 11.3 SNS 아이콘
+- Instagram, X (인라인 SVG) — 실제 공식 계정 URL은 운영 시 업데이트 필요
+
+### 11.4 구현 파일
+- HTML: `dev/index.html` `#page-home` 내 `.site-footer`
+- CSS: `dev/css/components.css` `.site-footer`, `#legalModal`
+- JS: `dev/js/ui.js` `openLegalModal()`, `closeLegalModal()`, `buildLegalContent()`
+
+---
+
+## 12. 성능 최적화 (2026-04-13 적용)
+
+### 12.1 리소스 로드
+- preconnect: Supabase, Google Fonts, jsDelivr
+- CropperJS는 관리자 번들에만 포함 (인플루언서 번들에서 제거, 50KB 절감)
+- Noto Sans JP: 2개 → 필요 weight 4개(400/500/700/900)로 최적화
+- Noto Sans KR: 인플루언서 번들에서 제거 (일본어 전용)
+
+### 12.2 이미지 최적화
+- `loading="lazy"` `decoding="async"` 적용 위치
+  - 홈 캠페인 카드
+  - 캠페인 상세 캐러셀 2번째 슬라이드부터
+  - 마이페이지 응모이력 썸네일
+  - 관리자 캠페인/신청 썸네일
+- `imgThumb(url, width, quality)` 헬퍼 (`dev/js/ui.js`)
+  - `/storage/v1/object/public/` → `/storage/v1/render/image/public/?width=&quality=&resize=cover`
+  - Supabase Pro 플랜의 Image Transformation 활용
+  - 실패 시 `onerror` → 원본 URL 폴백 (`data-orig` 속성)
+- 용도별 width: 홈 카드 480, 캐러셀 960(q=80), 마이페이지 240, 관리자 160
+
+---
+
+## 13. 캠페인 채널 멀티 선택 (2026-04-13)
+
+### 13.1 스키마
+- `campaigns.channel` (text): 콤마 구분 문자열로 복수 채널 저장 — 예 `"instagram,x"`
+- 기존 단일값 캠페인과 하위 호환
+
+### 13.2 관리자 폼
+- 채널: 체크박스 그룹(Instagram/X/Qoo10/TikTok/YouTube)
+- 옵션 "Instagram + X" 삭제 — 두 채널 체크로 동일 효과
+- 저장: 체크된 값들을 콤마로 조인
+- 신규 등록 시 최소 1개 채널 선택 검증
+
+### 13.3 인플루언서 필터·라벨
+- 홈 채널 칩은 `camps.flatMap(c => c.channel.split(','))`로 동적 생성
+- 필터 매칭: `channels.includes(currentFilter)`
+- `getChannelLabel(ch)`: 콤마 분리 후 " + "로 조인 (예: "Instagram + X")
+
+---
+
+## 14. 이용약관 및 개인정보 처리방침
+
+- 원본 문서: `docs/TERMS.md`, `docs/PRIVACY.md`
+- 최종 확정일: 2026-04-13 세션
+- 시행 예정일: 2026-05-01
+- 준거법: 대한민국법 · 관할 서울중앙지방법원
+- 개인정보 보호책임자: 김영근 이사 (younggeun.kim@jfun.co.kr)
+- 배포 전 필수 작업: 일본 현지 법무 검토(APPI·特定商取引法·景品表示法·ステマ告示) + 일본어 번역본 작성
