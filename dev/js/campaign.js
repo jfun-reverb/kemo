@@ -57,7 +57,7 @@ function buildChannelFilters(camps) {
 async function loadCampaignsPage() {
   if (!allCampaigns || allCampaigns.length === 0) await loadCampaigns();
   campPageTypeFilter = 'all';
-  ['all','monitor','gifting'].forEach(t => {
+  ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
     btn.style.color = t==='all'?'var(--pink)':'var(--muted)';
@@ -80,8 +80,7 @@ function renderCampaignGrid() {
   const grid = $('campListGrid');
   if (!grid) return;
   let camps = visibleCamps(allCampaigns);
-  if (campPageTypeFilter === 'monitor') camps = camps.filter(c => c.recruit_type === 'monitor');
-  else if (campPageTypeFilter === 'gifting') camps = camps.filter(c => c.recruit_type === 'gifting');
+  if (campPageTypeFilter !== 'all') camps = camps.filter(c => c.recruit_type === campPageTypeFilter);
   camps = camps.sort((a,b) => {
     if (a.order_index != null && b.order_index != null) return a.order_index - b.order_index;
     return new Date(b.created_at) - new Date(a.created_at);
@@ -144,7 +143,7 @@ function buildCampCards(camps) {
     const reward = c.reward > 0 ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>` : c.product_price > 0 ? `<strong>製品無償提供</strong>` : '<strong>無償提供</strong>';
     const isNew = !isScheduled && !isClosed && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
-    const typeLabel = c.recruit_type==='monitor'?'Reviewer':c.recruit_type==='gifting'?'Gifting':'';
+    const typeLabel = getRecruitTypeLabelJa(c.recruit_type);
     const dimImage = isFull || isScheduled || isClosed;
     return `<div class="camp-card" onclick="${isClickable?'openCampaign(\''+c.id+'\')':''}" style="${!isClickable?'opacity:.85;cursor:default':''}">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">

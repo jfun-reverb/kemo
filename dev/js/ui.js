@@ -78,6 +78,24 @@ function getChannelLabel(ch) {
   const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
   return ch.split(',').map(s=>s.trim()).filter(Boolean).map(s=>m[s]||s).join(' + ');
 }
+// 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
+function getRecruitTypeLabelJa(t) {
+  return t==='monitor'?'Reviewer':t==='gifting'?'Gifting':t==='visit'?'Visit':'';
+}
+function getRecruitTypeBadgeKo(t) {
+  if (t==='monitor') return '<span class="badge badge-blue">리뷰어</span>';
+  if (t==='gifting') return '<span class="badge badge-gold">기프팅</span>';
+  if (t==='visit')   return '<span class="badge badge-green">방문형</span>';
+  return '';
+}
+function getRecruitTypeBadgeKoSm(t) {
+  const cls = 'font-size:9px;padding:1px 6px';
+  if (t==='monitor') return `<span class="badge badge-blue" style="${cls}">리뷰어</span>`;
+  if (t==='gifting') return `<span class="badge badge-gold" style="${cls}">기프팅</span>`;
+  if (t==='visit')   return `<span class="badge badge-green" style="${cls}">방문형</span>`;
+  return '';
+}
+
 function getStatusBadge(s) {
   const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
   return m[s] || s;
