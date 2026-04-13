@@ -237,6 +237,16 @@ function toggleEditCT(cb) {
   if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
+function toggleCH(cb) {
+  const label=cb.closest('label');
+  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
+  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
+}
+function toggleEditCH(cb) {
+  const label=cb.closest('label');
+  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
+  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
+}
 
 // ══════════════════════════════════════
 // 이미지 업로드 (드래그앤드롭 + 순서변경 + 크롭 + 다운로드)
