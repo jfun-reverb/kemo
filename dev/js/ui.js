@@ -499,3 +499,17 @@ function buildLegalContent(kind) {
   }
   return '';
 }
+
+// 회원가입 동의 체크박스 — 전체 동의 토글
+function toggleAgreeAll(el) {
+  const checked = el.checked;
+  document.querySelectorAll('.signup-agree input[type="checkbox"]').forEach(cb => {
+    if (cb.id !== 'agreeAll') cb.checked = checked;
+  });
+}
+function syncAgreeAll() {
+  const all = document.querySelectorAll('.signup-agree input[type="checkbox"]:not(#agreeAll)');
+  const checkedCount = Array.from(all).filter(cb => cb.checked).length;
+  const allEl = document.getElementById('agreeAll');
+  if (allEl) allEl.checked = checkedCount === all.length;
+}

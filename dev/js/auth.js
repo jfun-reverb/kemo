@@ -34,12 +34,23 @@ async function handleSignup(e) {
   if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
   if (pw.length < 8) { errEl.textContent='Password must be 8+ characters'; errEl.style.display='block'; return; }
+  if (!$('agreeTerms')?.checked || !$('agreePrivacy')?.checked) {
+    errEl.textContent = '利用規約および個人情報処理方針への同意が必要です';
+    errEl.style.display = 'block';
+    return;
+  }
+  const marketingOptIn = !!$('agreeMarketing')?.checked;
 
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
+  const nowIso = new Date().toISOString();
   const userData = {
     email, name, name_kanji: name, name_kana: nameKana,
-    created_at: new Date().toISOString()
+    terms_agreed_at: nowIso,
+    privacy_agreed_at: nowIso,
+    marketing_opt_in: marketingOptIn,
+    marketing_agreed_at: marketingOptIn ? nowIso : null,
+    created_at: nowIso
   };
 
   if (!db) {

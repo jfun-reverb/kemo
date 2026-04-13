@@ -461,6 +461,27 @@ window._supabaseLoaded = false;
           </div>
         </div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <div class="signup-agree">
+          <label class="signup-agree-all">
+            <input type="checkbox" id="agreeAll" onchange="toggleAgreeAll(this)">
+            <span>すべてに同意する</span>
+          </label>
+          <label class="signup-agree-row">
+            <input type="checkbox" class="agree-required" id="agreeTerms" onchange="syncAgreeAll()">
+            <span class="agree-req">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalModal('terms')">利用規約</a>に同意します</span>
+          </label>
+          <label class="signup-agree-row">
+            <input type="checkbox" class="agree-required" id="agreePrivacy" onchange="syncAgreeAll()">
+            <span class="agree-req">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalModal('privacy')">個人情報処理方針</a>に同意します</span>
+          </label>
+          <label class="signup-agree-row">
+            <input type="checkbox" id="agreeMarketing" onchange="syncAgreeAll()">
+            <span class="agree-opt">任意</span>
+            <span class="agree-text">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
+          </label>
+        </div>
         <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up</button>
         <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
       </form>

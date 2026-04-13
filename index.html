@@ -318,6 +318,16 @@ textarea.form-input{resize:vertical;min-height:80px}
 .auth-forgot a{font-size:12px;color:var(--on-surface-variant);cursor:pointer}
 .auth-forgot a:hover{color:var(--primary);text-decoration:underline}
 .form-success{background:#e8f5e9;color:#2e7d32;padding:10px 12px;border-radius:var(--r8);font-size:13px;line-height:1.5}
+
+/* ── 회원가입 동의 체크박스 ── */
+.signup-agree{margin:14px 0 12px;padding:14px 14px 10px;background:var(--bg);border:1px solid var(--line);border-radius:12px}
+.signup-agree-all{display:flex;align-items:center;gap:10px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
+.signup-agree-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:var(--ink);cursor:pointer;line-height:1.4}
+.signup-agree input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;accent-color:var(--pink);cursor:pointer;margin:0}
+.agree-req{font-size:10px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-opt{font-size:10px;font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-text{flex:1}
+.agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
 /* ══════════════════════════════════
    MY PAGE — マイページ (リスト → 詳細)
 ══════════════════════════════════ */
@@ -796,6 +806,27 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
         </div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
+        <div class="signup-agree">
+          <label class="signup-agree-all">
+            <input type="checkbox" id="agreeAll" onchange="toggleAgreeAll(this)">
+            <span>すべてに同意する</span>
+          </label>
+          <label class="signup-agree-row">
+            <input type="checkbox" class="agree-required" id="agreeTerms" onchange="syncAgreeAll()">
+            <span class="agree-req">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalModal('terms')">利用規約</a>に同意します</span>
+          </label>
+          <label class="signup-agree-row">
+            <input type="checkbox" class="agree-required" id="agreePrivacy" onchange="syncAgreeAll()">
+            <span class="agree-req">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalModal('privacy')">個人情報処理方針</a>に同意します</span>
+          </label>
+          <label class="signup-agree-row">
+            <input type="checkbox" id="agreeMarketing" onchange="syncAgreeAll()">
+            <span class="agree-opt">任意</span>
+            <span class="agree-text">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
+          </label>
+        </div>
         <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up</button>
         <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
@@ -1814,6 +1845,20 @@ function buildLegalContent(kind) {
   }
   return '';
 }
+
+// 회원가입 동의 체크박스 — 전체 동의 토글
+function toggleAgreeAll(el) {
+  const checked = el.checked;
+  document.querySelectorAll('.signup-agree input[type="checkbox"]').forEach(cb => {
+    if (cb.id !== 'agreeAll') cb.checked = checked;
+  });
+}
+function syncAgreeAll() {
+  const all = document.querySelectorAll('.signup-agree input[type="checkbox"]:not(#agreeAll)');
+  const checkedCount = Array.from(all).filter(cb => cb.checked).length;
+  const allEl = document.getElementById('agreeAll');
+  if (allEl) allEl.checked = checkedCount === all.length;
+}
 // ══════════════════════════════════════
 // CAMPAIGNS — 목록, 상세, 필터
 // ══════════════════════════════════════
@@ -2035,12 +2080,23 @@ async function handleSignup(e) {
   if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
   if (pw.length < 8) { errEl.textContent='Password must be 8+ characters'; errEl.style.display='block'; return; }
+  if (!$('agreeTerms')?.checked || !$('agreePrivacy')?.checked) {
+    errEl.textContent = '利用規約および個人情報処理方針への同意が必要です';
+    errEl.style.display = 'block';
+    return;
+  }
+  const marketingOptIn = !!$('agreeMarketing')?.checked;
 
   btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
+  const nowIso = new Date().toISOString();
   const userData = {
     email, name, name_kanji: name, name_kana: nameKana,
-    created_at: new Date().toISOString()
+    terms_agreed_at: nowIso,
+    privacy_agreed_at: nowIso,
+    marketing_opt_in: marketingOptIn,
+    marketing_agreed_at: marketingOptIn ? nowIso : null,
+    created_at: nowIso
   };
 
   if (!db) {
