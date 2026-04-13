@@ -209,7 +209,7 @@
 - **CLAUDE.md** (프로젝트 설명서) 최신 기능 반영 업데이트
 - **FEATURE_SPEC.md** (기능 정의서) 신규 기능 항목 추가
 - **service-flow.html** (서비스 플로우차트) 신규 작성
-  - 온라인 확인: https://kemo-liart.vercel.app/docs/service-flow.html
+  - 온라인 확인: https://globalreverb.com/docs/service-flow.html
 - **.claude/rules/interaction.md** (작업 규칙) 추가
   - 선택지 질문 시 키보드 선택 방식 사용
   - 새 규칙 발생 시 규칙 파일에 즉시 기록
@@ -220,9 +220,9 @@
 
 | 환경              | URL                                                  | 상태      |
 | ----------------- | ---------------------------------------------------- | --------- |
-| 운영 서버         | https://kemo-liart.vercel.app                        | 배포 완료 |
-| 관리자 페이지     | https://kemo-liart.vercel.app/admin/                 | 배포 완료 |
-| 서비스 플로우차트 | https://kemo-liart.vercel.app/docs/service-flow.html | 배포 완료 |
+| 운영 서버         | https://globalreverb.com                        | 배포 완료 |
+| 관리자 페이지     | https://globalreverb.com/admin/                 | 배포 완료 |
+| 서비스 플로우차트 | https://globalreverb.com/docs/service-flow.html | 배포 완료 |
 
 ---
 
@@ -381,9 +381,9 @@
 
 | 환경              | URL                                                  | 상태      |
 | ----------------- | ---------------------------------------------------- | --------- |
-| 운영 (인플루언서) | https://kemo-liart.vercel.app                        | 배포 완료 |
-| 운영 (관리자)     | https://kemo-liart.vercel.app/admin/                 | 배포 완료 |
-| 서비스 플로우차트 | https://kemo-liart.vercel.app/docs/service-flow.html | 배포 완료 |
+| 운영 (인플루언서) | https://globalreverb.com                        | 배포 완료 |
+| 운영 (관리자)     | https://globalreverb.com/admin/                 | 배포 완료 |
+| 서비스 플로우차트 | https://globalreverb.com/docs/service-flow.html | 배포 완료 |
 
 ---
 
@@ -403,3 +403,32 @@
 - [ ] 영수증 대신 방문 인증 수단 정의 (QR / 매장 스탬프 사진 / 매장 직원 확인 등)
 - [ ] 방문형의 성과물 제출 — 영수증·SNS URL 외 "방문 인증 사진" 추가 여부 (Pending Decision A와 통합 검토)
 - [ ] 방문 가능 지역 제한 (도쿄 한정 캠페인 등) 필터링 UI 필요 여부
+
+---
+
+## 4월 13일 추가 — 커스텀 도메인 연결
+
+### 도메인
+- 구매: 카페24에서 `globalreverb.com` 등록 (운영 주체: 주식회사 제이펀)
+- 네임서버: 카페24 기본 네임서버 사용
+
+### Vercel 연결
+- Vercel Dashboard → kemo 프로젝트 → Settings → Domains
+- `globalreverb.com` (apex) 추가
+- `www.globalreverb.com` 추가 (apex로 자동 redirect)
+- DNS 레코드:
+  - **A** `@` → `216.198.79.1`
+  - **CNAME** `www` → `5c5dadf7d315f908.vercel-dns-017.com.`
+- SSL 자동 발급 완료
+
+### Supabase 연동 갱신
+- Authentication → URL Configuration → **Site URL**: `https://globalreverb.com`
+- **Redirect URLs** 추가:
+  - `https://globalreverb.com`
+  - `https://globalreverb.com/**`
+  - `https://www.globalreverb.com`
+  - `https://kemo-liart.vercel.app` (백업 유지)
+
+### 영향
+- 비밀번호 재설정·가입 인증 메일 링크가 신규 도메인으로 자동 발송
+- 기존 vercel.app URL은 백업으로 계속 접근 가능

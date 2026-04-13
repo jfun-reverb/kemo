@@ -12,5 +12,5 @@ Vercel에 프로젝트 배포:
 5. **푸시**: 현재 브랜치에 푸시
 6. **배포 확인**:
    - Vercel 자동 배포 (푸시 시 트리거)
-   - 인플루언서 앱: https://kemo-liart.vercel.app/
-   - 관리자 앱: https://kemo-liart.vercel.app/admin/
+   - 인플루언서 앱: https://globalreverb.com/
+   - 관리자 앱: https://globalreverb.com/admin/

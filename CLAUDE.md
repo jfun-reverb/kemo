@@ -11,6 +11,9 @@
 - Package Manager: 없음 (CDN 기반)
 
 ## Key URLs
+- 운영 (인플루언서): https://globalreverb.com
+- 운영 (관리자): https://globalreverb.com/admin/
+- 백업 URL (Vercel 기본): https://kemo-liart.vercel.app
 - GitHub: github.com/jfun-reverb/kemo
 - Supabase: https://twofagomeizrtkwlhsuv.supabase.co
 - Admin: admin@kemo.jp / admin1234
@@ -110,7 +113,7 @@
 - localStorage 저장 시 이미지 base64는 별도 키로 분리 (용량 초과 방지)
 - 캠페인 삭제 시 관련 applications도 함께 삭제 (cascading)
 - 이미지 업로드는 Supabase Storage (campaign-images 버킷) 사용
-- 비밀번호 재설정 시 Supabase Redirect URL 설정 필수: Authentication → URL Configuration → Redirect URLs에 https://kemo-liart.vercel.app 등록
+- 비밀번호 재설정 시 Supabase Redirect URL 설정 필수: Authentication → URL Configuration → Redirect URLs에 https://globalreverb.com, https://globalreverb.com/**, https://www.globalreverb.com 등록 (Site URL도 https://globalreverb.com)
 - 아이콘은 Material Icons 사용 (이모지 사용 금지), translate="no" 속성 필수
 - 하드코딩 DOM 인덱스 금지 (querySelector 등에서 :nth-child 인덱스 직접 사용 금지)
 - 이미지 썸네일 표시는 `imgThumb(url, width, quality)` 헬퍼 사용 (Supabase Pro 플랜 transform), `data-orig` + `onerror`로 원본 URL 폴백 필수
