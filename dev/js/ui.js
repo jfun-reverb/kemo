@@ -65,7 +65,7 @@ function dDayLabel(d) {
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
 // 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백
-function thumbUrl(url, width, quality) {
+function imgThumb(url, width, quality) {
   if (!url || typeof url !== 'string') return url;
   if (!url.includes('/storage/v1/object/public/')) return url;
   const q = quality || 70;
