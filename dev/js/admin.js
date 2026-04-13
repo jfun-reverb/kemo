@@ -1635,7 +1635,7 @@ async function renderContentTypeCheckboxes(formMode, preSelectedLabels) {
   try { items = await fetchLookups('content_type'); } catch(e) { return; }
   const checked = new Set(preSelectedLabels || []);
   wrap.innerHTML = items.map(c =>
-    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.ctPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.ctName)}" value="${esc(c.name_ja)}" onchange="toggleCT(this)" style="display:none">${esc(c.name_ja)}</label>`
+    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.ctPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.ctName)}" value="${esc(c.name_ja)}" onchange="toggleCT(this)" style="display:none">${esc(c.name_ko)}</label>`
   ).join('');
   wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     if (checked.has(cb.value)) { cb.checked = true; toggleCT(cb); }
