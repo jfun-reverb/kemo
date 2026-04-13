@@ -488,6 +488,9 @@ async function openEditCampaign(campId) {
     renderContentTypeCheckboxes('edit', selectedContent),
     renderCategorySelect('edit', camp.category||'')
   ]);
+  // 기준 채널 선택값 복원 (없으면 첫 번째 채널)
+  const primary = camp.primary_channel || selectedChannels[0] || '';
+  refreshPrimaryChannelOptions('edit', primary);
 
   // 기존 이미지 로드
   editCampImgChanged = false;
@@ -598,6 +601,7 @@ async function saveCampaignEdit() {
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
       min_followers: parseInt(gv('editCampMinFollowers'))||0,
+      primary_channel: gv('editCampPrimaryChannel') || null,
       category: gv('editCampCategory'),
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
@@ -1363,7 +1367,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, primary_channel: $('newCampPrimaryChannel')?.value || null, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -1564,11 +1568,31 @@ let _lookupReorderMode = false;
 const _formCfg = {
   new:  { chWrap:'newCampChannelWrap',  chName:'newChannel',  chPrefix:'ch-',
           ctWrap:'newCampContentTypeWrap',  ctName:'contentType',  ctPrefix:'ct-',
-          catSelect:'newCampCategory' },
+          catSelect:'newCampCategory',  primarySelect:'newCampPrimaryChannel' },
   edit: { chWrap:'editCampChannelWrap', chName:'editChannel', chPrefix:'edit-ch-',
           ctWrap:'editCampContentTypeWrap', ctName:'editContentType', ctPrefix:'edit-ct-',
-          catSelect:'editCampCategory' }
+          catSelect:'editCampCategory', primarySelect:'editCampPrimaryChannel' }
 };
+
+// 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
+function refreshPrimaryChannelOptions(formMode, preferredCode) {
+  const cfg = _formCfg[formMode]; if (!cfg) return;
+  const sel = $(cfg.primarySelect); if (!sel) return;
+  const checked = Array.from(document.querySelectorAll(`input[name="${cfg.chName}"]:checked`));
+  const prevValue = preferredCode || sel.value;
+  if (checked.length === 0) {
+    sel.innerHTML = '<option value="">채널을 먼저 선택하세요</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = checked.map(cb => {
+    const label = cb.closest('label')?.textContent.trim() || cb.value;
+    return `<option value="${esc(cb.value)}">${esc(label)}</option>`;
+  }).join('');
+  // 기존 값 유지 (체크 목록에 있으면)
+  if (prevValue && checked.some(cb => cb.value === prevValue)) sel.value = prevValue;
+}
 
 async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
@@ -1584,11 +1608,12 @@ async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes) 
     return;
   }
   wrap.innerHTML = channels.map(c =>
-    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.chPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.chName)}" value="${esc(c.code)}" onchange="toggleCH(this)" style="display:none">${esc(c.name_ja)}</label>`
+    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.chPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.chName)}" value="${esc(c.code)}" onchange="toggleCH(this);refreshPrimaryChannelOptions('${formMode}')" style="display:none">${esc(c.name_ja)}</label>`
   ).join('');
   wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     if (checked.has(cb.value)) { cb.checked = true; toggleCH(cb); }
   });
+  refreshPrimaryChannelOptions(formMode);
 }
 
 async function renderContentTypeCheckboxes(formMode, preSelectedLabels) {

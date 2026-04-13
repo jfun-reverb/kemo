@@ -331,17 +331,17 @@ function handleFloatApply() {
     $('profileAlertOverlay').style.display = 'flex';
     return;
   }
-  // 최소 팔로워수 체크
+  // 최소 팔로워수 체크 — 기준 채널(primary_channel) 단일 검증
   const minF = camp.min_followers || 0;
   if (minF > 0) {
     const followerMap = {instagram: p.ig_followers||0, x: p.x_followers||0, tiktok: p.tiktok_followers||0, youtube: p.youtube_followers||0, qoo10: p.ig_followers||0};
-    const channels = ch ? ch.split(',').map(c=>c.trim()) : ['instagram'];
     const chNameMap = {instagram:'Instagram', x:'X(Twitter)', tiktok:'TikTok', youtube:'YouTube', qoo10:'Qoo10'};
-    const channelFollowers = channels.map(c => ({name: chNameMap[c]||c, count: followerMap[c]||0}));
-    const maxEntry = channelFollowers.reduce((a,b) => a.count >= b.count ? a : b);
-    if (maxEntry.count < minF) {
-      const chDetail = channelFollowers.map(cf => `${cf.name}: <strong>${cf.count.toLocaleString()}人</strong>`).join('<br>');
-      $('alertModalMessage').innerHTML = `このキャンペーンの応募条件は<br>フォロワー <strong>${minF.toLocaleString()}人以上</strong> です。<br><br>あなたのフォロワー数:<br>${chDetail}<br><br><span style="font-size:11px;color:var(--muted)">※ フォロワー数の虚偽申告が発覚した場合、<br>アカウント停止等の不利益を受ける場合があります。</span>`;
+    // 기준 채널: primary_channel 우선, 없으면 첫 번째 채널로 폴백
+    const primary = (camp.primary_channel || (ch||'').split(',')[0] || 'instagram').trim();
+    const primaryName = chNameMap[primary] || primary;
+    const primaryCount = followerMap[primary] || 0;
+    if (primaryCount < minF) {
+      $('alertModalMessage').innerHTML = `このキャンペーンの応募条件は<br><strong>${primaryName}</strong> フォロワー <strong>${minF.toLocaleString()}人以上</strong> です。<br><br>あなたの ${primaryName} フォロワー数:<br><strong>${primaryCount.toLocaleString()}人</strong><br><br><span style="font-size:11px;color:var(--muted)">※ フォロワー数の虚偽申告が発覚した場合、<br>アカウント停止等の不利益を受ける場合があります。</span>`;
       openModal('alertModal');
       return;
     }
