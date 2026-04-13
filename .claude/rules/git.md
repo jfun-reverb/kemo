@@ -16,4 +16,4 @@ globs: "*"
 
 ## 배포 완료 안내
 - dev push만: "dev 서버 배포 완료"
-- main merge + push: "운영 서버(Vercel) 배포 완료 — https://kemo-liart.vercel.app"
+- main merge + push: "운영 서버(Vercel) 배포 완료 — https://globalreverb.com"
