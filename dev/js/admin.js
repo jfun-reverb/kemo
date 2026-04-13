@@ -124,6 +124,7 @@ function switchAdminPane(pane, el, pushHistory) {
     renderChannelCheckboxes('new', null, []);
     renderContentTypeCheckboxes('new', []);
     renderCategorySelect('new', '');
+    applyMinFollowersVisibility('new', null);
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
@@ -491,6 +492,8 @@ async function openEditCampaign(campId) {
   // 기준 채널 선택값 복원 (없으면 첫 번째 채널)
   const primary = camp.primary_channel || selectedChannels[0] || '';
   refreshPrimaryChannelOptions('edit', primary);
+  // 모집 타입에 따라 기준 채널/최소 팔로워수 영역 표시
+  applyMinFollowersVisibility('edit', rtVal);
 
   // 기존 이미지 로드
   editCampImgChanged = false;
@@ -600,8 +603,8 @@ async function saveCampaignEdit() {
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
-      min_followers: parseInt(gv('editCampMinFollowers'))||0,
-      primary_channel: gv('editCampPrimaryChannel') || null,
+      min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
+      primary_channel: (recruitTypeEl?.value === 'monitor') ? null : (gv('editCampPrimaryChannel') || null),
       category: gv('editCampCategory'),
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
@@ -1367,7 +1370,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, primary_channel: $('newCampPrimaryChannel')?.value || null, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -1573,6 +1576,15 @@ const _formCfg = {
           ctWrap:'editCampContentTypeWrap', ctName:'editContentType', ctPrefix:'edit-ct-',
           catSelect:'editCampCategory', primarySelect:'editCampPrimaryChannel' }
 };
+
+// 모집 타입에 따라 기준 채널/최소 팔로워수 영역 표시 토글
+// 리뷰어(monitor)는 영수증 검증이라 팔로워 조건 불필요
+function applyMinFollowersVisibility(formMode, recruitType) {
+  const wrapId = formMode === 'edit' ? 'editCampMinFollowersGroup' : 'newCampMinFollowersGroup';
+  const wrap = $(wrapId);
+  if (!wrap) return;
+  wrap.style.display = recruitType === 'monitor' ? 'none' : '';
+}
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
 function refreshPrimaryChannelOptions(formMode, preferredCode) {

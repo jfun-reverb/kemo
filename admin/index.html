@@ -577,16 +577,16 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group">
                 <label class="form-label">모집 타입/인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
-                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
-                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
-                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-visit"><input type="radio" name="editRecruitType" value="visit" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor');applyMinFollowersVisibility('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting');applyMinFollowersVisibility('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-visit"><input type="radio" name="editRecruitType" value="visit" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','visit');applyMinFollowersVisibility('edit','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형</label>
                   <input type="number" id="editCampSlots" class="form-input" placeholder="20" min="1" style="width:80px;flex-shrink:0">
                 </div>
               </div>
               <div class="form-group">
                 <label class="form-label" style="margin:0 0 6px">채널 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="editCampChannelWrap"></div>
-                <div style="display:flex;gap:8px;align-items:end;margin-top:10px">
+                <div id="editCampMinFollowersGroup" style="display:flex;gap:8px;align-items:end;margin-top:10px">
                   <div style="flex:1">
                     <label class="form-label" style="margin:0 0 4px;font-size:11px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="editCampPrimaryChannel" class="form-input"></select>
@@ -716,13 +716,13 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label class="form-label">모집 타입/인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
-                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
+                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor');applyMinFollowersVisibility('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
-                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting');applyMinFollowersVisibility('new','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-visit">
-                    <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this);filterChannelsByRecruitType('new','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
+                    <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this);filterChannelsByRecruitType('new','visit');applyMinFollowersVisibility('new','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
                   </label>
                   <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1" value="20" style="width:80px;flex-shrink:0">
                 </div>
@@ -730,7 +730,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group">
                 <label class="form-label" style="margin:0 0 6px">채널 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="newCampChannelWrap"></div>
-                <div style="display:flex;gap:8px;align-items:end;margin-top:10px">
+                <div id="newCampMinFollowersGroup" style="display:flex;gap:8px;align-items:end;margin-top:10px">
                   <div style="flex:1">
                     <label class="form-label" style="margin:0 0 4px;font-size:11px">기준 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 팔로워수 검증)</span></label>
                     <select id="newCampPrimaryChannel" class="form-input"></select>
@@ -2273,6 +2273,7 @@ function switchAdminPane(pane, el, pushHistory) {
     renderChannelCheckboxes('new', null, []);
     renderContentTypeCheckboxes('new', []);
     renderCategorySelect('new', '');
+    applyMinFollowersVisibility('new', null);
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
@@ -2640,6 +2641,8 @@ async function openEditCampaign(campId) {
   // 기준 채널 선택값 복원 (없으면 첫 번째 채널)
   const primary = camp.primary_channel || selectedChannels[0] || '';
   refreshPrimaryChannelOptions('edit', primary);
+  // 모집 타입에 따라 기준 채널/최소 팔로워수 영역 표시
+  applyMinFollowersVisibility('edit', rtVal);
 
   // 기존 이미지 로드
   editCampImgChanged = false;
@@ -2749,8 +2752,8 @@ async function saveCampaignEdit() {
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
-      min_followers: parseInt(gv('editCampMinFollowers'))||0,
-      primary_channel: gv('editCampPrimaryChannel') || null,
+      min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
+      primary_channel: (recruitTypeEl?.value === 'monitor') ? null : (gv('editCampPrimaryChannel') || null),
       category: gv('editCampCategory'),
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
@@ -3516,7 +3519,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, primary_channel: $('newCampPrimaryChannel')?.value || null, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -3722,6 +3725,15 @@ const _formCfg = {
           ctWrap:'editCampContentTypeWrap', ctName:'editContentType', ctPrefix:'edit-ct-',
           catSelect:'editCampCategory', primarySelect:'editCampPrimaryChannel' }
 };
+
+// 모집 타입에 따라 기준 채널/최소 팔로워수 영역 표시 토글
+// 리뷰어(monitor)는 영수증 검증이라 팔로워 조건 불필요
+function applyMinFollowersVisibility(formMode, recruitType) {
+  const wrapId = formMode === 'edit' ? 'editCampMinFollowersGroup' : 'newCampMinFollowersGroup';
+  const wrap = $(wrapId);
+  if (!wrap) return;
+  wrap.style.display = recruitType === 'monitor' ? 'none' : '';
+}
 
 // 채널 체크 변경 시 기준 채널 셀렉트 옵션 갱신
 function refreshPrimaryChannelOptions(formMode, preferredCode) {
