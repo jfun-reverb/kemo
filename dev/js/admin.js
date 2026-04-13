@@ -176,7 +176,7 @@ async function loadAdminData() {
     const _dRem = Math.max((camp.slots||0)-apps.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
+    const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -376,7 +376,7 @@ async function loadAdminCampaigns(useCache) {
   // 필터/검색/정렬 중에는 순서 변경 비활성화
   const isFiltered = searchVal || typeFilter !== 'all' || statusFilter !== 'all' || !!adminCampSortKey;
 
-  const typeLabel = t => t==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':t==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
+  const typeLabel = t => getRecruitTypeBadgeKoSm(t);
   const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
   const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',paused:'badge-gold',closed:'badge-gray'};
   const statusBadge = s => {
@@ -1104,7 +1104,7 @@ async function openInfluencerDetail(userId) {
   $('infDetailAppCount').textContent = `${apps.length}건`;
   $('infDetailAppsBody').innerHTML = apps.length ? apps.map(a => {
     const camp = camps.find(c=>c.id===a.campaign_id) || {};
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':'<span class="badge badge-gold">기프팅</span>';
+    const typeLabel = getRecruitTypeBadgeKo(camp.recruit_type);
     return `<tr>
       <td style="font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td>
       <td>${typeLabel}</td>
@@ -1158,7 +1158,7 @@ async function openInfluencerModal(userId) {
   $('infModalAppCount').textContent = `${apps.length}건`;
   $('infModalAppsBody').innerHTML = apps.length ? apps.map(a => {
     const camp = camps.find(c=>c.id===a.campaign_id) || {};
-    const tl = camp.recruit_type==='monitor'?'<span class="badge badge-blue">리뷰어</span>':'<span class="badge badge-gold">기프팅</span>';
+    const tl = getRecruitTypeBadgeKo(camp.recruit_type);
     return `<tr><td style="font-size:12px;font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td><td>${tl}</td><td style="font-size:11px;color:var(--muted)">${formatDate(a.created_at)}</td><td>${getStatusBadgeKo(a.status)}</td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">신청 이력 없음</td></tr>';
 
@@ -1257,7 +1257,7 @@ async function renderAppCampList() {
     const _campRemaining = Math.max((camp.slots||0)-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
-    const typeLabel = camp.recruit_type==='monitor'?'<span class="badge badge-blue" style="font-size:9px;padding:1px 6px">리뷰어</span>':camp.recruit_type==='gifting'?'<span class="badge badge-gold" style="font-size:9px;padding:1px 6px">기프팅</span>':'';
+    const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
     return `<tr>
       <td>
         <div style="display:flex;align-items:center;gap:10px">

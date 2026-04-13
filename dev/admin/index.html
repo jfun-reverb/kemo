@@ -156,6 +156,7 @@
               <option value="all">전체 타입</option>
               <option value="monitor">리뷰어</option>
               <option value="gifting">기프팅</option>
+              <option value="visit">방문형</option>
             </select>
             <select id="adminCampStatusFilter" onchange="filterAdminCampaigns()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
               <option value="all">전체 상태</option>
@@ -225,6 +226,7 @@
                 <div style="display:flex;gap:8px;margin-top:6px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-visit"><input type="radio" name="editRecruitType" value="visit" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형</label>
                 </div>
               </div>
               <div class="form-group"><label class="form-label">모집 인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="number" id="editCampSlots" class="form-input" min="1"></div>
@@ -394,6 +396,9 @@
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
                     <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
+                  </label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-visit">
+                    <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
                   </label>
                   <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1" value="20" style="width:80px;flex-shrink:0">
                 </div>
@@ -610,6 +615,7 @@
               <option value="all">전체 타입</option>
               <option value="monitor">리뷰어</option>
               <option value="gifting">기프팅</option>
+              <option value="visit">방문형</option>
             </select>
             <select id="appStatusFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
               <option value="all">전체 상태</option>

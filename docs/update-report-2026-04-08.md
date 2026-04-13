@@ -384,3 +384,22 @@
 | 운영 (인플루언서) | https://kemo-liart.vercel.app                        | 배포 완료 |
 | 운영 (관리자)     | https://kemo-liart.vercel.app/admin/                 | 배포 완료 |
 | 서비스 플로우차트 | https://kemo-liart.vercel.app/docs/service-flow.html | 배포 완료 |
+
+---
+
+## 4월 13일 추가 — 캠페인 모집 타입 "방문형(訪問型)" 신설
+
+- 기존 2종(`monitor` / `gifting`) → 3종으로 확장
+- 신규 코드: `visit` (한국어 "방문형" / 日本語「来店」)
+- 정의: 지정된 오프라인 매장 또는 팝업스토어를 회원이 직접 방문하여 제품·서비스를 체험하고 콘텐츠를 게시하는 형태
+- 색상: green (기존 blue/gold와 구분)
+- 라벨 헬퍼 함수 신설 (`getRecruitTypeLabelJa`, `getRecruitTypeBadgeKo`, `getRecruitTypeBadgeKoSm`) — 기존 인라인 삼항 분기 제거
+- 약관 (KR/JA) 제2조 캠페인 정의에 방문형 추가
+- TERMS 노쇼 응답 지연 기준 3일 → 7일로 조정 (KR/JA 모두)
+
+### 결정 필요 사항 (방문형 관련)
+
+- [ ] 캠페인 등록 폼에 방문형 전용 필드 추가 여부 (매장 주소, 운영 시간, 예약 필요 여부, 방문 가능 일자 등)
+- [ ] 영수증 대신 방문 인증 수단 정의 (QR / 매장 스탬프 사진 / 매장 직원 확인 등)
+- [ ] 방문형의 성과물 제출 — 영수증·SNS URL 외 "방문 인증 사진" 추가 여부 (Pending Decision A와 통합 검토)
+- [ ] 방문 가능 지역 제한 (도쿄 한정 캠페인 등) 필터링 UI 필요 여부

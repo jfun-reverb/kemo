@@ -619,6 +619,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)">すべて</button>
         <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">Reviewer</button>
         <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">ギフティング</button>
+        <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">来店</button>
       </div>
     </div>
   </div>
@@ -1618,6 +1619,24 @@ function getChannelLabel(ch) {
   const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
   return ch.split(',').map(s=>s.trim()).filter(Boolean).map(s=>m[s]||s).join(' + ');
 }
+// 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
+function getRecruitTypeLabelJa(t) {
+  return t==='monitor'?'Reviewer':t==='gifting'?'Gifting':t==='visit'?'Visit':'';
+}
+function getRecruitTypeBadgeKo(t) {
+  if (t==='monitor') return '<span class="badge badge-blue">리뷰어</span>';
+  if (t==='gifting') return '<span class="badge badge-gold">기프팅</span>';
+  if (t==='visit')   return '<span class="badge badge-green">방문형</span>';
+  return '';
+}
+function getRecruitTypeBadgeKoSm(t) {
+  const cls = 'font-size:9px;padding:1px 6px';
+  if (t==='monitor') return `<span class="badge badge-blue" style="${cls}">리뷰어</span>`;
+  if (t==='gifting') return `<span class="badge badge-gold" style="${cls}">기프팅</span>`;
+  if (t==='visit')   return `<span class="badge badge-green" style="${cls}">방문형</span>`;
+  return '';
+}
+
 function getStatusBadge(s) {
   const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
   return m[s] || s;
@@ -2112,7 +2131,7 @@ function buildChannelFilters(camps) {
 async function loadCampaignsPage() {
   if (!allCampaigns || allCampaigns.length === 0) await loadCampaigns();
   campPageTypeFilter = 'all';
-  ['all','monitor','gifting'].forEach(t => {
+  ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
     btn.style.color = t==='all'?'var(--pink)':'var(--muted)';
@@ -2135,8 +2154,7 @@ function renderCampaignGrid() {
   const grid = $('campListGrid');
   if (!grid) return;
   let camps = visibleCamps(allCampaigns);
-  if (campPageTypeFilter === 'monitor') camps = camps.filter(c => c.recruit_type === 'monitor');
-  else if (campPageTypeFilter === 'gifting') camps = camps.filter(c => c.recruit_type === 'gifting');
+  if (campPageTypeFilter !== 'all') camps = camps.filter(c => c.recruit_type === campPageTypeFilter);
   camps = camps.sort((a,b) => {
     if (a.order_index != null && b.order_index != null) return a.order_index - b.order_index;
     return new Date(b.created_at) - new Date(a.created_at);
@@ -2199,7 +2217,7 @@ function buildCampCards(camps) {
     const reward = c.reward > 0 ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>` : c.product_price > 0 ? `<strong>製品無償提供</strong>` : '<strong>無償提供</strong>';
     const isNew = !isScheduled && !isClosed && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
-    const typeLabel = c.recruit_type==='monitor'?'Reviewer':c.recruit_type==='gifting'?'Gifting':'';
+    const typeLabel = getRecruitTypeLabelJa(c.recruit_type);
     const dimImage = isFull || isScheduled || isClosed;
     return `<div class="camp-card" onclick="${isClickable?'openCampaign(\''+c.id+'\')':''}" style="${!isClickable?'opacity:.85;cursor:default':''}">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
@@ -2569,7 +2587,7 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">募集タイプ</div>
             <div style="padding:10px 13px;flex:1;font-size:12px">
-              ${camp.recruit_type==='monitor'?'<span style="background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Reviewer</span>':camp.recruit_type==='gifting'?'<span style="background:var(--gold-l);color:var(--gold);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">Gifting</span>':'—'}
+              ${(()=>{const t=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)','Reviewer'],gifting:['var(--gold-l)','var(--gold)','Gifting'],visit:['#E8F7EF','#0E7E4A','Visit']};const m=map[t];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${m[2]}</span>`:'—'})()}
             </div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
