@@ -91,6 +91,17 @@ function updateTabBar(page) {
 // INIT
 // ══════════════════════════════════════
 async function init() {
+  // lookup_values 사전 로드 (채널/카테고리 라벨 동적 표시용, 인증과 무관하게 익명 SELECT 허용)
+  if (db) {
+    try {
+      await Promise.all([fetchLookups('channel'), fetchLookups('category')]);
+      // 라벨이 갱신되었으므로 활성 페이지 재렌더
+      if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
+        updateStats(allCampaigns);
+        renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
+      }
+    } catch(_) {}
+  }
   // 로그인 세션 복원
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
   if (session) {
