@@ -1526,9 +1526,10 @@ async function renderLookupsTable() {
     const isLast = i === rows.length - 1;
     const upId = isFirst ? '' : rows[i-1].id;
     const downId = isLast ? '' : rows[i+1].id;
-    const activeBadge = r.active
-      ? '<span class="badge badge-green" style="font-size:9px;padding:1px 6px">활성</span>'
-      : '<span class="badge badge-gray" style="font-size:9px;padding:1px 6px">비활성</span>';
+    const activeToggle = `<label class="lookup-toggle" title="${r.active?'활성':'비활성'}" onclick="event.stopPropagation()">
+      <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
+      <span class="lookup-toggle-slider"></span>
+    </label>`;
     const rtBadges = isChannel
       ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(r.recruit_types||[]).map(t => {
           const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
@@ -1543,10 +1544,9 @@ async function renderLookupsTable() {
       </div></td>` : ''}
       <td><strong style="font-size:13px">${esc(r.name_ko)}</strong>${rtBadges}</td>
       <td style="color:var(--ink);font-size:13px">${esc(r.name_ja)}</td>
-      <td>${activeBadge}</td>
+      <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${JSON.stringify(r)})'>편집</button>
-        <button class="btn btn-ghost btn-xs" onclick="toggleLookupActive('${r.id}',${!r.active})">${r.active?'비활성':'활성'}</button>
         <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
       </td>`}
     </tr>`;

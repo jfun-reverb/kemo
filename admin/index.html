@@ -327,6 +327,15 @@ textarea.form-input{resize:vertical;min-height:80px}
 .tag-label button{border:none;background:none;cursor:pointer;font-size:14px;color:var(--dark-pink);padding:0;line-height:1;opacity:.7}
 .tag-label button:hover{opacity:1}
 .tag-input-warn{font-size:11px;color:var(--red);margin-top:4px}
+
+/* ── 토글 스위치 (기준 데이터 활성/비활성 등) ── */
+.lookup-toggle{position:relative;display:inline-block;width:38px;height:22px;cursor:pointer;vertical-align:middle}
+.lookup-toggle input{opacity:0;width:0;height:0}
+.lookup-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:22px;transition:.2s}
+.lookup-toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--pink)}
+.lookup-toggle input:checked + .lookup-toggle-slider::before{transform:translateX(16px)}
+.lookup-toggle input:disabled + .lookup-toggle-slider{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -3675,9 +3684,10 @@ async function renderLookupsTable() {
     const isLast = i === rows.length - 1;
     const upId = isFirst ? '' : rows[i-1].id;
     const downId = isLast ? '' : rows[i+1].id;
-    const activeBadge = r.active
-      ? '<span class="badge badge-green" style="font-size:9px;padding:1px 6px">활성</span>'
-      : '<span class="badge badge-gray" style="font-size:9px;padding:1px 6px">비활성</span>';
+    const activeToggle = `<label class="lookup-toggle" title="${r.active?'활성':'비활성'}" onclick="event.stopPropagation()">
+      <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
+      <span class="lookup-toggle-slider"></span>
+    </label>`;
     const rtBadges = isChannel
       ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(r.recruit_types||[]).map(t => {
           const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
@@ -3692,10 +3702,9 @@ async function renderLookupsTable() {
       </div></td>` : ''}
       <td><strong style="font-size:13px">${esc(r.name_ko)}</strong>${rtBadges}</td>
       <td style="color:var(--ink);font-size:13px">${esc(r.name_ja)}</td>
-      <td>${activeBadge}</td>
+      <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${JSON.stringify(r)})'>편집</button>
-        <button class="btn btn-ghost btn-xs" onclick="toggleLookupActive('${r.id}',${!r.active})">${r.active?'비활성':'활성'}</button>
         <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
       </td>`}
     </tr>`;
