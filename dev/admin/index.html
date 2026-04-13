@@ -214,10 +214,14 @@
             </div>
 
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">채널</label>
-                <select id="editCampChannel" class="form-input">
-                  <option value="instagram">Instagram</option><option value="x">X(Twitter)</option><option value="qoo10">Qoo10</option><option value="instagram,x">Instagram + X</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option>
-                </select>
+              <div class="form-group"><label class="form-label">채널 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="editCampChannelWrap">
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-instagram"><input type="checkbox" name="editChannel" value="instagram" onchange="toggleEditCH(this)" style="display:none">Instagram</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-x"><input type="checkbox" name="editChannel" value="x" onchange="toggleEditCH(this)" style="display:none">X(Twitter)</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-qoo10"><input type="checkbox" name="editChannel" value="qoo10" onchange="toggleEditCH(this)" style="display:none">Qoo10</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-tiktok"><input type="checkbox" name="editChannel" value="tiktok" onchange="toggleEditCH(this)" style="display:none">TikTok</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-youtube"><input type="checkbox" name="editChannel" value="youtube" onchange="toggleEditCH(this)" style="display:none">YouTube</label>
+                </div>
               </div>
               <div class="form-group"><label class="form-label">최소 팔로워수</label>
                 <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
@@ -382,15 +386,14 @@
                   <label class="form-label" style="flex:1;margin:0">채널</label>
                   <label class="form-label" style="width:100px;flex-shrink:0;margin:0">최소 팔로워수</label>
                 </div>
-                <div style="display:flex;gap:8px">
-                  <select id="newCampChannel" class="form-input" style="flex:1">
-                    <option value="instagram">Instagram</option>
-                    <option value="x">X(Twitter)</option>
-                    <option value="qoo10">Qoo10</option>
-                    <option value="instagram,x">Instagram + X</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="youtube">YouTube</option>
-                  </select>
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="newCampChannelWrap">
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-instagram"><input type="checkbox" name="newChannel" value="instagram" onchange="toggleCH(this)" style="display:none">Instagram</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-x"><input type="checkbox" name="newChannel" value="x" onchange="toggleCH(this)" style="display:none">X(Twitter)</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-qoo10"><input type="checkbox" name="newChannel" value="qoo10" onchange="toggleCH(this)" style="display:none">Qoo10</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-tiktok"><input type="checkbox" name="newChannel" value="tiktok" onchange="toggleCH(this)" style="display:none">TikTok</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-youtube"><input type="checkbox" name="newChannel" value="youtube" onchange="toggleCH(this)" style="display:none">YouTube</label>
+                  </div>
                   <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0" style="width:100px;flex-shrink:0">
                 </div>
               </div>

@@ -467,10 +467,14 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
 
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">채널</label>
-                <select id="editCampChannel" class="form-input">
-                  <option value="instagram">Instagram</option><option value="x">X(Twitter)</option><option value="qoo10">Qoo10</option><option value="instagram,x">Instagram + X</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option>
-                </select>
+              <div class="form-group"><label class="form-label">채널 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="editCampChannelWrap">
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-instagram"><input type="checkbox" name="editChannel" value="instagram" onchange="toggleEditCH(this)" style="display:none">Instagram</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-x"><input type="checkbox" name="editChannel" value="x" onchange="toggleEditCH(this)" style="display:none">X(Twitter)</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-qoo10"><input type="checkbox" name="editChannel" value="qoo10" onchange="toggleEditCH(this)" style="display:none">Qoo10</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-tiktok"><input type="checkbox" name="editChannel" value="tiktok" onchange="toggleEditCH(this)" style="display:none">TikTok</label>
+                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-youtube"><input type="checkbox" name="editChannel" value="youtube" onchange="toggleEditCH(this)" style="display:none">YouTube</label>
+                </div>
               </div>
               <div class="form-group"><label class="form-label">최소 팔로워수</label>
                 <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
@@ -635,15 +639,14 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <label class="form-label" style="flex:1;margin:0">채널</label>
                   <label class="form-label" style="width:100px;flex-shrink:0;margin:0">최소 팔로워수</label>
                 </div>
-                <div style="display:flex;gap:8px">
-                  <select id="newCampChannel" class="form-input" style="flex:1">
-                    <option value="instagram">Instagram</option>
-                    <option value="x">X(Twitter)</option>
-                    <option value="qoo10">Qoo10</option>
-                    <option value="instagram,x">Instagram + X</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="youtube">YouTube</option>
-                  </select>
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="newCampChannelWrap">
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-instagram"><input type="checkbox" name="newChannel" value="instagram" onchange="toggleCH(this)" style="display:none">Instagram</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-x"><input type="checkbox" name="newChannel" value="x" onchange="toggleCH(this)" style="display:none">X(Twitter)</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-qoo10"><input type="checkbox" name="newChannel" value="qoo10" onchange="toggleCH(this)" style="display:none">Qoo10</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-tiktok"><input type="checkbox" name="newChannel" value="tiktok" onchange="toggleCH(this)" style="display:none">TikTok</label>
+                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-youtube"><input type="checkbox" name="newChannel" value="youtube" onchange="toggleCH(this)" style="display:none">YouTube</label>
+                  </div>
                   <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0" style="width:100px;flex-shrink:0">
                 </div>
               </div>
@@ -1376,8 +1379,9 @@ function dDayLabel(d) {
   return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
 }
 function getChannelLabel(ch) {
-  const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10','instagram,x':'Instagram + X'};
-  return m[ch] || ch;
+  if (!ch) return '';
+  const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+  return ch.split(',').map(s=>s.trim()).filter(Boolean).map(s=>m[s]||s).join(' + ');
 }
 function getStatusBadge(s) {
   const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
@@ -2186,7 +2190,11 @@ async function openEditCampaign(campId) {
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
   sv('editCampNg', camp.ng||'');
-  if ($('editCampChannel')) $('editCampChannel').value = camp.channel||'instagram';
+  const selectedChannels = (camp.channel||'instagram').split(',').map(s=>s.trim()).filter(Boolean);
+  document.querySelectorAll('input[name="editChannel"]').forEach(cb=>{
+    cb.checked = selectedChannels.includes(cb.value);
+    toggleEditCH(cb);
+  });
   sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
@@ -2242,6 +2250,18 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
+function toggleCH(cb) {
+  const label=cb.closest('label');
+  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
+  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
+}
+
+function toggleEditCH(cb) {
+  const label=cb.closest('label');
+  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
+  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
+}
+
 function validateDeadlines(deadlineId, postDeadlineId, warnId) {
   const dl = $(deadlineId)?.value;
   const pdl = $(postDeadlineId)?.value;
@@ -2289,7 +2309,7 @@ async function saveCampaignEdit() {
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
-      channel: gv('editCampChannel'),
+      channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
       min_followers: parseInt(gv('editCampMinFollowers'))||0,
       category: gv('editCampCategory'),
       content_types: contentTypes,
@@ -3046,7 +3066,8 @@ async function addCampaign() {
   }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
-  const ch = $('newCampChannel').value;
+  const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
+  if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
   const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   // 이미지를 Storage에 업로드
@@ -3055,7 +3076,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch==='qoo10'?'qoo10':'nano', channel:ch, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -3091,6 +3112,9 @@ async function addCampaign() {
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('input[name="contentType"]').forEach(cb=>{
     cb.checked=false; toggleCT(cb);
+  });
+  document.querySelectorAll('input[name="newChannel"]').forEach(cb=>{
+    cb.checked=false; toggleCH(cb);
   });
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
 

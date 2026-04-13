@@ -1,0 +1,466 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - heading "REVERB JP — Service Flow Chart" [level=1] [ref=e3]
+    - paragraph [ref=e4]: "인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-04-08"
+  - generic [ref=e5]:
+    - link "1. 전체 서비스 플로우" [ref=e6] [cursor=pointer]:
+      - /url: "#sec1"
+    - link "2. 인플루언서 사용자 플로우" [ref=e7] [cursor=pointer]:
+      - /url: "#sec2"
+    - link "3. 캠페인 상태 라이프사이클" [ref=e8] [cursor=pointer]:
+      - /url: "#sec3"
+    - link "4. 캠페인 신청 플로우" [ref=e9] [cursor=pointer]:
+      - /url: "#sec4"
+    - link "5. 관리자 워크플로우" [ref=e10] [cursor=pointer]:
+      - /url: "#sec5"
+    - link "6. 회원가입 / 인증 플로우" [ref=e11] [cursor=pointer]:
+      - /url: "#sec6"
+    - link "7. 신청 심사 플로우" [ref=e12] [cursor=pointer]:
+      - /url: "#sec7"
+  - generic [ref=e13]:
+    - generic [ref=e14]: 인플루언서 액션
+    - generic [ref=e16]: 관리자 액션
+    - generic [ref=e18]: 시스템 자동 / 완료
+    - generic [ref=e20]: 상태 / 조건
+    - generic [ref=e22]: 차단 / 에러
+  - generic [ref=e24]:
+    - heading "1 전체 서비스 플로우" [level=2] [ref=e25]:
+      - generic [ref=e26]: "1"
+      - text: 전체 서비스 플로우
+    - generic [ref=e27]:
+      - generic [ref=e28]: 브랜드(관리자)가 캠페인을 등록하고, 인플루언서가 신청 → 심사 → 상품발송 → SNS게시까지의 전체 흐름
+      - document [ref=e30]:
+        - generic [ref=e32]:
+          - generic [ref=e33]:
+            - generic [ref=e38]: 📋 신청 심사
+            - generic [ref=e43]: 📱 인플루언서 (모바일 480px)
+            - generic [ref=e48]: 🔧 관리자 (PC)
+          - generic [ref=e79]:
+            - generic [ref=e83]: post_deadline < deadline
+            - generic [ref=e87]: OK
+            - generic [ref=e91]: draft
+            - generic [ref=e95]: scheduled
+            - generic [ref=e99]: active
+            - generic [ref=e103]: "Yes"
+            - generic [ref=e107]: "No"
+            - generic [ref=e111]: "Yes"
+            - generic [ref=e115]: "No"
+            - generic [ref=e119]: 비로그인
+            - generic [ref=e123]: 프로필 부족
+            - generic [ref=e127]: 모집마감
+            - generic [ref=e131]: OK
+            - generic [ref=e135]: 承認
+            - generic [ref=e139]: 非承認
+          - generic [ref=e140]:
+            - generic [ref=e145] [cursor=pointer]: 심사
+            - generic [ref=e150] [cursor=pointer]: 관리자 — 신청 목록
+            - generic [ref=e155] [cursor=pointer]: 상품 발송
+            - generic [ref=e160] [cursor=pointer]: 미승인 통보
+            - generic [ref=e165] [cursor=pointer]: 인플루언서 — 상품 수령
+            - generic [ref=e171] [cursor=pointer]:
+              - text: SNS 게시
+              - text: post_deadline까지
+            - generic [ref=e176] [cursor=pointer]: LINE 게시 링크 전송
+            - generic [ref=e181] [cursor=pointer]: 캠페인 완료 ✓
+            - generic [ref=e186] [cursor=pointer]: 홈 — 캠페인 목록
+            - generic [ref=e191] [cursor=pointer]: 앱 접속
+            - generic [ref=e196] [cursor=pointer]: 채널 필터 · 모집유형 필터
+            - generic [ref=e202] [cursor=pointer]:
+              - text: 캠페인 상세
+              - text: 조회수 +1
+            - generic [ref=e207] [cursor=pointer]: 신청 조건 체크
+            - generic [ref=e212] [cursor=pointer]: 로그인 오버레이
+            - generic [ref=e217] [cursor=pointer]: 로그인/회원가입
+            - generic [ref=e223] [cursor=pointer]:
+              - text: 필수정보 안내 오버레이
+              - text: SNS·주소·전화·계좌
+            - generic [ref=e228] [cursor=pointer]: 마이페이지에서 입력
+            - generic [ref=e233] [cursor=pointer]: 募集締切 표시
+            - generic [ref=e239] [cursor=pointer]:
+              - text: 신청 모달
+              - text: 동기 + 배송지 + PR동의
+            - generic [ref=e244] [cursor=pointer]: 신청 완료 ✓
+            - generic [ref=e250] [cursor=pointer]:
+              - text: 캠페인 등록
+              - text: 25+ 필드 입력
+            - generic [ref=e255] [cursor=pointer]: 관리자 로그인
+            - generic [ref=e260] [cursor=pointer]: 마감일 검증
+            - generic [ref=e265] [cursor=pointer]: 경고 + 저장 차단
+            - generic [ref=e270] [cursor=pointer]: 상태 설정
+            - generic [ref=e275] [cursor=pointer]: 準備中 — 비공개
+            - generic [ref=e280] [cursor=pointer]: 近日公開 — 목록 노출
+            - generic [ref=e285] [cursor=pointer]: 募集中 — 신청 가능
+            - generic [ref=e290] [cursor=pointer]: deadline 경과?
+            - generic [ref=e295] [cursor=pointer]: 자동 closed
+            - generic [ref=e300] [cursor=pointer]: post_deadline 남음?
+            - generic [ref=e305] [cursor=pointer]: 募集締切 — 목록 노출 유지
+            - generic [ref=e310] [cursor=pointer]: 완전 비노출
+  - generic [ref=e311]:
+    - heading "2 인플루언서 사용자 플로우" [level=2] [ref=e312]:
+      - generic [ref=e313]: "2"
+      - text: 인플루언서 사용자 플로우
+    - generic [ref=e314]:
+      - generic [ref=e315]: 모바일 앱(480px)에서 인플루언서가 수행하는 모든 사용자 플로우 — 캠페인 탐색, 신청, 마이페이지
+      - document [ref=e317]:
+        - generic [ref=e319]:
+          - generic [ref=e347]:
+            - generic [ref=e352]:
+              - text: 채널 탭
+              - text: IG·X·TikTok·YT·Qoo10
+            - generic [ref=e357]:
+              - text: 모집유형
+              - text: 모니터·기프팅
+            - generic [ref=e361]: 비로그인
+            - generic [ref=e365]: 프로필 부족
+            - generic [ref=e369]: 모집마감
+            - generic [ref=e373]: 정원초과
+            - generic [ref=e377]: 응모済
+            - generic [ref=e381]: OK
+          - generic [ref=e382]:
+            - generic [ref=e387] [cursor=pointer]: 앱 접속
+            - generic [ref=e393] [cursor=pointer]:
+              - text: 홈 화면
+              - text: 캠페인수 · 브랜드수
+            - generic [ref=e398] [cursor=pointer]: 캠페인 탐색
+            - generic [ref=e403] [cursor=pointer]: 필터
+            - generic [ref=e409] [cursor=pointer]:
+              - text: 캠페인 상세
+              - text: 조회수 +1
+            - generic [ref=e415] [cursor=pointer]:
+              - text: 이미지 캐러셀
+              - text: 최대 9장
+            - generic [ref=e421] [cursor=pointer]:
+              - text: 상품정보 · 모집조건
+              - text: 참가방법 · 가이드라인
+            - generic [ref=e426] [cursor=pointer]: LINE · Instagram CTA
+            - generic [ref=e431] [cursor=pointer]: 신청 조건
+            - generic [ref=e436] [cursor=pointer]: 로그인 오버레이
+            - generic [ref=e441] [cursor=pointer]: 필수정보 입력 안내
+            - generic [ref=e446] [cursor=pointer]: 募集締切
+            - generic [ref=e451] [cursor=pointer]: 募集終了
+            - generic [ref=e456] [cursor=pointer]: 応募済み
+            - generic [ref=e461] [cursor=pointer]: 신청 모달
+            - generic [ref=e466] [cursor=pointer]: 신청 완료
+            - generic [ref=e471] [cursor=pointer]: マイページ
+            - generic [ref=e476] [cursor=pointer]: 메뉴 리스트
+            - generic [ref=e482] [cursor=pointer]:
+              - text: 応募履歴
+              - text: 審査中·承認·非承認
+            - generic [ref=e488] [cursor=pointer]:
+              - text: 基本情報
+              - text: 이름·카테고리·LINE·자기소개
+            - generic [ref=e494] [cursor=pointer]:
+              - text: SNSアカウント
+              - text: IG·X·TikTok·YT
+            - generic [ref=e500] [cursor=pointer]:
+              - text: 配送先
+              - text: 우편번호·주소·전화
+            - generic [ref=e506] [cursor=pointer]:
+              - text: 振込口座
+              - text: 은행·지점·계좌
+            - generic [ref=e511] [cursor=pointer]: パスワード変更
+            - generic [ref=e516] [cursor=pointer]: 退会
+            - generic [ref=e521] [cursor=pointer]: ログアウト
+  - generic [ref=e522]:
+    - heading "3 캠페인 상태 라이프사이클" [level=2] [ref=e523]:
+      - generic [ref=e524]: "3"
+      - text: 캠페인 상태 라이프사이클
+    - generic [ref=e525]:
+      - generic [ref=e526]: 캠페인의 5가지 상태(draft→scheduled→active→paused→closed)와 전환 조건, 노출 규칙
+      - document [ref=e528]:
+        - generic [ref=e530]:
+          - generic [ref=e555]:
+            - generic [ref=e560]: 캠페인 등록
+            - generic [ref=e565]: 관리자 상태 변경
+            - generic [ref=e570]: 관리자 상태 변경 (deadline 유효시)
+            - generic [ref=e575]: 관리자 상태 변경
+            - generic [ref=e580]: 관리자 상태 변경
+            - generic [ref=e585]: 관리자 일시정지
+            - generic [ref=e590]: 관리자 수동 종료
+            - generic [ref=e595]: deadline 경과 (자동)
+            - generic [ref=e600]: 관리자 재개 (deadline 미경과시만)
+            - generic [ref=e605]: 관리자 종료
+            - generic [ref=e610]: 관리자 재등록
+          - generic [ref=e611]:
+            - generic [ref=e618] [cursor=pointer]: draft
+            - generic [ref=e623] [cursor=pointer]: scheduled
+            - generic [ref=e628] [cursor=pointer]: active
+            - generic [ref=e633] [cursor=pointer]: paused
+            - generic [ref=e638] [cursor=pointer]: closed
+            - generic [ref=e644] [cursor=pointer]:
+              - text: 準備中 — 비공개
+              - text: 목록 미노출
+            - generic [ref=e650] [cursor=pointer]:
+              - text: 近日公開 — 목록 노출
+              - text: 신청 불가
+            - generic [ref=e656] [cursor=pointer]:
+              - text: 募集中 — 목록 노출
+              - text: 신청 가능
+              - text: deadline 경과 시 자동 closed
+            - generic [ref=e662] [cursor=pointer]:
+              - text: 一時停止 — 목록 미노출
+              - text: deadline 경과시 active 전환 차단
+            - generic [ref=e668] [cursor=pointer]:
+              - text: 모집마감
+              - text: post_deadline 남으면 → 募集締切로 목록 유지
+              - text: post_deadline 경과 → 완전 비노출
+  - generic [ref=e669]:
+    - heading "4 캠페인 신청 플로우" [level=2] [ref=e670]:
+      - generic [ref=e671]: "4"
+      - text: 캠페인 신청 플로우
+    - generic [ref=e672]:
+      - generic [ref=e673]: 인플루언서가 캠페인에 신청하기까지의 상세 체크 과정 — 인증, 프로필 완성도, 중복 체크
+      - document [ref=e675]:
+        - generic [ref=e677]:
+          - generic [ref=e703]:
+            - generic [ref=e707]: "No"
+            - generic [ref=e711]: "Yes"
+            - generic [ref=e715]: closed
+            - generic [ref=e719]: active
+            - generic [ref=e723]: "Yes"
+            - generic [ref=e727]: "No"
+            - generic [ref=e731]: 미입력
+            - generic [ref=e735]: 미입력
+            - generic [ref=e739]: 미입력
+            - generic [ref=e743]: 미입력
+            - generic [ref=e747]: OK
+            - generic [ref=e751]: OK
+            - generic [ref=e755]: OK
+            - generic [ref=e759]: OK
+          - generic [ref=e760]:
+            - generic [ref=e765] [cursor=pointer]: 신청 버튼 클릭
+            - generic [ref=e770] [cursor=pointer]: 로그인 상태?
+            - generic [ref=e776] [cursor=pointer]:
+              - text: 로그인 오버레이
+              - text: 로그인·회원가입 버튼
+            - generic [ref=e781] [cursor=pointer]: 로그인 처리
+            - generic [ref=e786] [cursor=pointer]: 캠페인 상태?
+            - generic [ref=e792] [cursor=pointer]:
+              - text: 募集締切
+              - text: 버튼 비활성
+            - generic [ref=e797] [cursor=pointer]: 중복 신청?
+            - generic [ref=e803] [cursor=pointer]:
+              - text: 応募済み
+              - text: 재신청 불가
+            - generic [ref=e808] [cursor=pointer]: 프로필 체크
+            - generic [ref=e813] [cursor=pointer]: 채널별 SNS ID?
+            - generic [ref=e818] [cursor=pointer]: 배송지?
+            - generic [ref=e823] [cursor=pointer]: 전화번호?
+            - generic [ref=e828] [cursor=pointer]: 계좌정보?
+            - generic [ref=e834] [cursor=pointer]:
+              - text: 필수정보 부족 안내
+              - text: 부족 항목 리스트 표시
+            - generic [ref=e839] [cursor=pointer]: 마이페이지 이동
+            - generic [ref=e844] [cursor=pointer]: 모든 조건 충족
+            - generic [ref=e849] [cursor=pointer]: 신청 모달 오픈
+            - generic [ref=e854] [cursor=pointer]: 동기 메시지 입력
+            - generic [ref=e860] [cursor=pointer]:
+              - text: 배송지 확인
+              - text: 프로필에서 자동입력
+            - generic [ref=e865] [cursor=pointer]: "#PR태그 동의 ✓"
+            - generic [ref=e870] [cursor=pointer]: 신청 전송
+            - generic [ref=e876] [cursor=pointer]:
+              - text: applications INSERT
+              - text: applied_count +1
+            - generic [ref=e882] [cursor=pointer]:
+              - text: 신청 완료
+              - text: 応募済み 표시
+  - generic [ref=e883]:
+    - heading "5 관리자 워크플로우" [level=2] [ref=e884]:
+      - generic [ref=e885]: "5"
+      - text: 관리자 워크플로우
+    - generic [ref=e886]:
+      - generic [ref=e887]: PC 관리자 앱의 전체 메뉴 구조와 주요 기능 — 대시보드, 캠페인 CRUD, 신청 심사, 인플루언서 관리
+      - document [ref=e889]:
+        - generic [ref=e891]:
+          - generic [ref=e923]:
+            - generic [ref=e927]: 위반
+            - generic [ref=e931]: OK
+            - generic [ref=e935]: "Yes"
+            - generic [ref=e939]: "No"
+          - generic [ref=e940]:
+            - generic [ref=e946] [cursor=pointer]:
+              - text: 관리자 로그인
+              - text: admins 테이블 확인
+            - generic [ref=e951] [cursor=pointer]: 사이드바 메뉴
+            - generic [ref=e956] [cursor=pointer]: 대시보드
+            - generic [ref=e962] [cursor=pointer]:
+              - text: KPI 카드
+              - text: 캠페인·인플루언서·신청·승인
+            - generic [ref=e968] [cursor=pointer]:
+              - text: 회원가입 추이 차트
+              - text: 7일·30일·전체
+            - generic [ref=e973] [cursor=pointer]: 오늘·이번주 가입 KPI
+            - generic [ref=e979] [cursor=pointer]:
+              - text: 프로필 완성률
+              - text: SNS별·배송지·계좌
+            - generic [ref=e985] [cursor=pointer]:
+              - text: 최근 신청 테이블
+              - text: 인라인 승인·거절
+            - generic [ref=e990] [cursor=pointer]: 캠페인 관리
+            - generic [ref=e996] [cursor=pointer]:
+              - text: 목록
+              - text: 썸네일·이미지수·D-day
+            - generic [ref=e1001] [cursor=pointer]: "필터: 상태·타입·검색"
+            - generic [ref=e1006] [cursor=pointer]: "정렬: 조회·신청·등록일·수정일 ▲▼"
+            - generic [ref=e1012] [cursor=pointer]:
+              - text: 순서 변경 모드
+              - text: ↑↓ 버튼
+            - generic [ref=e1018] [cursor=pointer]:
+              - text: 신규 등록
+              - text: 25+ 필드
+            - generic [ref=e1024] [cursor=pointer]:
+              - text: 마감일 검증
+              - text: post_deadline ≥ deadline
+            - generic [ref=e1029] [cursor=pointer]: 인라인 경고 + 저장 차단
+            - generic [ref=e1034] [cursor=pointer]: 저장
+            - generic [ref=e1039] [cursor=pointer]: 편집
+            - generic [ref=e1044] [cursor=pointer]: 복제
+            - generic [ref=e1050] [cursor=pointer]:
+              - text: 삭제
+              - text: 이름 확인 모달
+              - text: applications 연쇄삭제
+            - generic [ref=e1055] [cursor=pointer]: 상태 드롭다운
+            - generic [ref=e1061] [cursor=pointer]:
+              - text: deadline 경과
+              - text: + active 선택?
+            - generic [ref=e1066] [cursor=pointer]: 변경 차단
+            - generic [ref=e1071] [cursor=pointer]: 상태 업데이트
+            - generic [ref=e1076] [cursor=pointer]: 신청 관리
+            - generic [ref=e1082] [cursor=pointer]:
+              - text: 타입 필터
+              - text: 전체·모니터·기프팅
+            - generic [ref=e1088] [cursor=pointer]:
+              - text: 캠페인별 카드
+              - text: 신청수·대기·승인
+            - generic [ref=e1094] [cursor=pointer]:
+              - text: 신청자 상세
+              - text: 이름·이메일·SNS·메시지
+            - generic [ref=e1099] [cursor=pointer]: 承認
+            - generic [ref=e1104] [cursor=pointer]: 非承認
+            - generic [ref=e1109] [cursor=pointer]: 인플루언서 관리
+            - generic [ref=e1115] [cursor=pointer]:
+              - text: 채널 탭
+              - text: All·IG·X·TikTok·YT
+            - generic [ref=e1120] [cursor=pointer]: 팔로워순 정렬 목록
+            - generic [ref=e1126] [cursor=pointer]:
+              - text: 상세 모달
+              - text: 프로필·SNS·주소·계좌·응모이력
+            - generic [ref=e1132] [cursor=pointer]:
+              - text: 관리자 설정
+              - text: super_admin 전용
+            - generic [ref=e1138] [cursor=pointer]:
+              - text: 관리자 CRUD
+              - text: 3단계 권한
+            - generic [ref=e1144] [cursor=pointer]:
+              - text: 내 계정
+              - text: 이름·비밀번호 변경
+  - generic [ref=e1145]:
+    - heading "6 회원가입 / 인증 플로우" [level=2] [ref=e1146]:
+      - generic [ref=e1147]: "6"
+      - text: 회원가입 / 인증 플로우
+    - generic [ref=e1148]:
+      - generic [ref=e1149]: 회원가입(1단계 폼), 로그인, 비밀번호 재설정, 관리자 자동 감지까지의 인증 흐름
+      - document [ref=e1151]:
+        - generic [ref=e1154]:
+          - generic [ref=e1155]:
+            - generic [ref=e1161]: 세션 관리
+            - generic [ref=e1166]:
+              - generic [ref=e1170]: "Yes"
+              - generic [ref=e1174]: "No"
+            - generic [ref=e1175]:
+              - generic [ref=e1180] [cursor=pointer]: 기존 세션?
+              - generic [ref=e1185] [cursor=pointer]: 앱 접속
+              - generic [ref=e1191] [cursor=pointer]:
+                - text: 세션 복원
+                - text: 자동 로그인
+              - generic [ref=e1197] [cursor=pointer]:
+                - text: 비로그인 상태
+                - text: 목록 조회만 가능
+          - generic [ref=e1198]:
+            - generic [ref=e1204]: 비밀번호 재설정
+            - generic [ref=e1205]:
+              - generic [ref=e1210] [cursor=pointer]: 이메일 입력
+              - generic [ref=e1215] [cursor=pointer]: 비밀번호 찾기
+              - generic [ref=e1220] [cursor=pointer]: Supabase 재설정 메일 발송
+              - generic [ref=e1225] [cursor=pointer]: 메일 링크 클릭
+              - generic [ref=e1230] [cursor=pointer]: 앱 내 새 비밀번호 설정
+              - generic [ref=e1235] [cursor=pointer]: 로그인 완료
+          - generic [ref=e1236]:
+            - generic [ref=e1242]: 로그인
+            - generic [ref=e1250]:
+              - generic [ref=e1254]: 관리자
+              - generic [ref=e1258]: 인플루언서
+              - generic [ref=e1262]: 없음
+              - generic [ref=e1266]: 있음
+            - generic [ref=e1267]:
+              - generic [ref=e1272] [cursor=pointer]: 이메일 + 비밀번호
+              - generic [ref=e1277] [cursor=pointer]: 로그인 시작
+              - generic [ref=e1282] [cursor=pointer]: 세션 생성
+              - generic [ref=e1287] [cursor=pointer]: admins 테이블 확인
+              - generic [ref=e1293] [cursor=pointer]:
+                - text: admin 페이지
+                - text: 새 탭 오픈
+              - generic [ref=e1298] [cursor=pointer]: influencer 레코드?
+              - generic [ref=e1303] [cursor=pointer]: 자동 생성
+              - generic [ref=e1308] [cursor=pointer]: 홈으로 이동
+          - generic [ref=e1309]:
+            - generic [ref=e1315]: 회원가입
+            - generic [ref=e1316]:
+              - generic [ref=e1322] [cursor=pointer]:
+                - text: 1단계 폼
+                - text: 이름한자·가나·이메일·비밀번호
+              - generic [ref=e1327] [cursor=pointer]: 회원가입 시작
+              - generic [ref=e1332] [cursor=pointer]: Supabase Auth 생성
+              - generic [ref=e1338] [cursor=pointer]:
+                - text: DB 트리거
+                - text: influencers 자동 생성
+              - generic [ref=e1343] [cursor=pointer]: 로그인 완료 → 홈
+  - generic [ref=e1344]:
+    - heading "7 신청 심사 플로우" [level=2] [ref=e1345]:
+      - generic [ref=e1346]: "7"
+      - text: 신청 심사 플로우
+    - generic [ref=e1347]:
+      - generic [ref=e1348]: 관리자가 신청을 심사하고, 승인된 인플루언서가 상품을 수령 → SNS 게시 → 완료까지
+      - document [ref=e1350]:
+        - generic [ref=e1352]:
+          - generic [ref=e1353]:
+            - generic [ref=e1358]: 인플루언서
+            - generic [ref=e1363]: 관리자
+          - generic [ref=e1374]:
+            - generic [ref=e1378]: 承認
+            - generic [ref=e1382]: 非承認
+            - generic [ref=e1386]: 審査中
+            - generic [ref=e1390]: 承認
+            - generic [ref=e1394]: 非承認
+          - generic [ref=e1395]:
+            - generic [ref=e1400] [cursor=pointer]: 상태 확인
+            - generic [ref=e1406] [cursor=pointer]:
+              - text: 마이페이지
+              - text: 応募履歴 확인
+            - generic [ref=e1411] [cursor=pointer]: 대기
+            - generic [ref=e1416] [cursor=pointer]: 상품 수령
+            - generic [ref=e1421] [cursor=pointer]: 미승인
+            - generic [ref=e1426] [cursor=pointer]: 상품 리뷰 촬영
+            - generic [ref=e1432] [cursor=pointer]:
+              - text: SNS 게시
+              - text: 해시태그·멘션 포함
+            - generic [ref=e1438] [cursor=pointer]:
+              - text: 게시 링크
+              - text: LINE 전송
+            - generic [ref=e1443] [cursor=pointer]: 캠페인 완료 ✓
+            - generic [ref=e1449] [cursor=pointer]:
+              - text: 신청자 상세 확인
+              - text: 이름·SNS·팔로워·메시지
+            - generic [ref=e1455] [cursor=pointer]:
+              - text: 신청 목록 확인
+              - text: 캠페인별 카드뷰
+            - generic [ref=e1460] [cursor=pointer]: 심사 결정
+            - generic [ref=e1465] [cursor=pointer]: 승인 처리
+            - generic [ref=e1470] [cursor=pointer]: 미승인 처리
+            - generic [ref=e1476] [cursor=pointer]:
+              - text: 상품 발송 준비
+              - text: 배송지 확인
+  - generic [ref=e1477]:
+    - text: REVERB JP Service Flow Chart — Generated 2026-04-08
+    - text: "Tech: Supabase + Vanilla JS + Vercel | Mobile 480px + PC Full-Width"

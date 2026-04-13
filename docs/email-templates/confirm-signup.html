@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#E8E0EC;font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E8E0EC;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px 2px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);">
+
+          <!-- ヘッダー -->
+          <tr>
+            <td style="background:#2D1F2B;padding:28px 24px;text-align:center;">
+              <div style="width:44px;height:44px;background:#C878A3;border-radius:10px;display:inline-block;line-height:44px;font-family:'Helvetica Neue',Arial,sans-serif;font-weight:800;font-size:20px;color:#ffffff;">R</div>
+              <div style="color:#ffffff;font-size:18px;font-weight:700;margin-top:10px;letter-spacing:0.5px;">REVERB JP</div>
+            </td>
+          </tr>
+
+          <!-- 本文 -->
+          <tr>
+            <td style="padding:32px 28px 24px;">
+              <h1 style="font-size:18px;font-weight:700;color:#1E1320;margin:0 0 16px;line-height:1.5;">会員登録ありがとうございます 🎉</h1>
+              <p style="font-size:14px;color:#7A6B78;line-height:1.7;margin:0 0 12px;">
+                REVERB JPへようこそ！
+              </p>
+              <p style="font-size:14px;color:#7A6B78;line-height:1.7;margin:0 0 24px;">
+                以下のボタンをクリックして、メールアドレスの認証を完了してください。
+              </p>
+
+              <!-- CTA ボタン -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding:4px 0 28px;">
+                    <a href="{{ .ConfirmationURL }}"
+                       style="display:inline-block;background:#C878A3;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:12px;letter-spacing:0.3px;">
+                      メールアドレスを認証する
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- 補足 -->
+              <div style="background:#FDF0F7;border-radius:10px;padding:16px 18px;margin-bottom:8px;">
+                <p style="font-size:12px;color:#7D4A6A;line-height:1.7;margin:0;">
+                  認証後、すぐにキャンペーンへの応募が可能になります。<br>
+                  プロフィールの入力を完了すると、採用率がアップします！
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- 区切り線 -->
+          <tr>
+            <td style="padding:0 28px;">
+              <div style="border-top:1px solid #EDE6ED;"></div>
+            </td>
+          </tr>
+
+          <!-- ボタンが使えない場合 -->
+          <tr>
+            <td style="padding:20px 28px;">
+              <p style="font-size:11px;color:#7A6B78;line-height:1.7;margin:0;">
+                ボタンが機能しない場合は、以下のURLをブラウザに貼り付けてください：
+              </p>
+              <p style="font-size:11px;color:#C878A3;line-height:1.6;margin:6px 0 0;word-break:break-all;">
+                {{ .ConfirmationURL }}
+              </p>
+            </td>
+          </tr>
+
+          <!-- フッター -->
+          <tr>
+            <td style="background:#F8F5F8;padding:20px 28px;text-align:center;">
+              <p style="font-size:11px;color:#7A6B78;line-height:1.6;margin:0;">
+                ※ このメールに心当たりがない場合は、無視していただいて問題ありません。
+              </p>
+              <p style="font-size:11px;color:#7A6B78;margin:12px 0 0;">
+                © REVERB JP — インフルエンサー体験団プラットフォーム
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
