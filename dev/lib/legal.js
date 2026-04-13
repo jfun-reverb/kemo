@@ -3,8 +3,8 @@
 // ══════════════════════════════════════
 
 const LEGAL_DOCS = {
-  terms:   { ko: 'docs/TERMS.md',   ja: 'docs/TERMS_ja.md',   titleKo: '서비스 이용약관',     titleJa: '利用規約' },
-  privacy: { ko: 'docs/PRIVACY.md', ja: 'docs/PRIVACY_ja.md', titleKo: '개인정보 처리방침',   titleJa: '個人情報処理方針' }
+  terms:   { ko: 'docs/TERMS_kr.md',   ja: 'docs/TERMS_ja.md',   titleKo: '서비스 이용약관',     titleJa: '利用規約' },
+  privacy: { ko: 'docs/PRIVACY_kr.md', ja: 'docs/PRIVACY_ja.md', titleKo: '개인정보 처리방침',   titleJa: '個人情報処理方針' }
 };
 
 let _currentLegal = { kind: 'terms', lang: 'ko' };
