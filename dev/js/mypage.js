@@ -118,7 +118,7 @@ function renderMyApplyList() {
     const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
     const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
     const thumb = imgs[0]
-      ? `<img src="${esc(thumbUrl(imgs[0],240))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
+      ? `<img src="${esc(imgThumb(imgs[0],240))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
