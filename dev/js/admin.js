@@ -1499,6 +1499,7 @@ async function renderLookupsTable() {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">등록된 항목이 없습니다</td></tr>';
     return;
   }
+  const isChannel = _currentLookupKind === 'channel';
   tbody.innerHTML = rows.map((r, i) => {
     const isFirst = i === 0;
     const isLast = i === rows.length - 1;
@@ -1507,9 +1508,15 @@ async function renderLookupsTable() {
     const activeBadge = r.active
       ? '<span class="badge badge-green" style="font-size:9px;padding:1px 6px">활성</span>'
       : '<span class="badge badge-gray" style="font-size:9px;padding:1px 6px">비활성</span>';
+    const rtBadges = isChannel
+      ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(r.recruit_types||[]).map(t => {
+          const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+          return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+        }).join('')}</div>`
+      : '';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i+1}</td>
-      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong></td>
+      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong>${rtBadges}</td>
       <td style="color:var(--ink);font-size:13px">${esc(r.name_ja)}</td>
       <td><code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px">${esc(r.code)}</code></td>
       <td>${activeBadge}</td>
@@ -1526,6 +1533,19 @@ async function renderLookupsTable() {
   }).join('');
 }
 
+const RECRUIT_TYPE_LABEL_KO = {monitor:'리뷰어', gifting:'기프팅', visit:'방문형'};
+
+function applyLookupModalKindUI(kind, recruitTypes) {
+  // 채널 탭일 때만 모집 조건 입력 표시
+  const grp = $('lookupRecruitTypesGroup');
+  if (grp) grp.style.display = (kind === 'channel') ? '' : 'none';
+  // 체크박스 상태 초기화
+  const set = new Set(recruitTypes || []);
+  document.querySelectorAll('input[name="lookupRT"]').forEach(cb => {
+    cb.checked = set.has(cb.value);
+  });
+}
+
 function openLookupAddModal() {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 추가';
@@ -1535,6 +1555,8 @@ function openLookupAddModal() {
   $('lookupNameJa').value = '';
   $('lookupCode').value = '';
   $('lookupEditError').style.display = 'none';
+  // 신규 추가 시 채널이면 기본값으로 3개 모두 체크
+  applyLookupModalKindUI(_currentLookupKind, ['monitor','gifting','visit']);
   openModal('lookupEditModal');
 }
 
@@ -1547,6 +1569,7 @@ function openLookupEditModal(row) {
   $('lookupNameJa').value = row.name_ja || '';
   $('lookupCode').value = row.code || '';
   $('lookupEditError').style.display = 'none';
+  applyLookupModalKindUI(row.kind, row.recruit_types || []);
   openModal('lookupEditModal');
 }
 
@@ -1562,14 +1585,27 @@ async function saveLookupEdit() {
     err.style.display = 'block';
     return;
   }
+  // 채널이면 모집 조건 1개 이상 필수
+  let recruitTypes = null;
+  if (kind === 'channel') {
+    recruitTypes = Array.from(document.querySelectorAll('input[name="lookupRT"]:checked')).map(cb => cb.value);
+    if (recruitTypes.length === 0) {
+      err.textContent = '모집 타입을 1개 이상 선택해주세요';
+      err.style.display = 'block';
+      return;
+    }
+  }
   try {
     if (id) {
       const updates = {name_ko, name_ja};
       if (code) updates.code = code;
+      if (recruitTypes) updates.recruit_types = recruitTypes;
       await updateLookup(id, updates);
       toast('수정했습니다','success');
     } else {
-      await insertLookup({kind, name_ko, name_ja, code});
+      const payload = {kind, name_ko, name_ja, code};
+      if (recruitTypes) payload.recruit_types = recruitTypes;
+      await insertLookup(payload);
       toast('추가했습니다','success');
     }
     closeModal('lookupEditModal');
