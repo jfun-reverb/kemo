@@ -38,9 +38,9 @@
 - 캠페인 목록: 채널필터(동적 생성), 모집유형 필터(리뷰어/기프팅/방문형)
 - 캠페인 목록 노출: active + scheduled + closed(게시기한 남은 경우, 募集締切 오버레이)
 - 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트, closed 시 신청버튼 비활성(募集締切)
-- 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/zip+prefecture+city+phone/은행) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지, 최소 팔로워수 미달 시 알럿 차단
+- 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/zip+prefecture+city+phone/PayPal 이메일) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지, 최소 팔로워수 미달 시 알럿 차단
 - 회원가입 이메일 확인: Supabase Confirm sign-up 활성화, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단
-- 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/振込口座/パスワード変更/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리 경고
+- 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리 경고
 - 바텀탭: 홈 / キャンペーン / マイページ (로그인 전 마이페이지 숨김)
 - 활동관리: 승인된 캠페인에서 구매 영수증 등록 (이미지+구매일+금액), receipts 테이블에 저장
 - 응모이력: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터, 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
@@ -75,7 +75,7 @@
 
 ## Database Schema (Supabase)
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, min_followers, status, view_count, img1~img8 등)
-- `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, 은행정보, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등)
+- `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, paypal_email, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등) — bank_* 컬럼은 deprecated (유지, 미사용)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
 - `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)

@@ -49,7 +49,7 @@ window._supabaseLoaded = false;
 <div id="profileAlertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">
     <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px">キャンペーン応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">応募するにはマイページで「個人情報」「振込口座」の登録が必要です。<br>以下の項目を登録してください。</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
     <div id="profileAlertMissing" style="text-align:left;margin-bottom:20px"></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px">Cancel</button>
@@ -547,10 +547,10 @@ window._supabaseLoaded = false;
           <span id="menuBadgeAddress" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('bank')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance</span>
-          <span class="mypage-menu-label">振込口座</span>
-          <span id="menuBadgeBank" class="mypage-menu-badge" style="display:none">未登録</span>
+        <div class="mypage-menu-item" onclick="openMypageSub('paypal')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance_wallet</span>
+          <span class="mypage-menu-label">PayPal</span>
+          <span id="menuBadgePaypal" class="mypage-menu-badge" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
@@ -692,33 +692,22 @@ window._supabaseLoaded = false;
     </div>
   </div>
 
-  <!-- 振込口座 -->
-  <div id="mypage-sub-bank" class="mypage-view">
+  <!-- PayPal -->
+  <div id="mypage-sub-paypal" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">振込口座</span>
+      <span class="mypage-sub-title">PayPal</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px">リワード（現金）受け取り用の口座情報を登録してください</div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">銀行名</label><input type="text" id="bankName" class="form-input" placeholder="〇〇銀行"></div>
-          <div class="form-group"><label class="form-label">支店名</label><input type="text" id="bankBranch" class="form-input" placeholder="渋谷支店"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">口座種別</label>
-            <select id="bankType" class="form-input">
-              <option value="普通">普通</option>
-              <option value="当座">当座</option>
-            </select>
-          </div>
-          <div class="form-group"><label class="form-label">口座番号</label><input type="text" id="bankNumber" class="form-input" placeholder="1234567"></div>
-        </div>
-        <div class="form-group"><label class="form-label">口座名義（カタカナ）</label><input type="text" id="bankHolder" class="form-input" placeholder="ヤマダ ハナコ"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:18px">リワードはPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
+        <div class="form-group"><label class="form-label">PayPal メールアドレス</label><input type="email" id="paypalEmail" class="form-input" placeholder="your-paypal@example.com" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" autocomplete="off"></div>
+        <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">warning</span> 口座情報は安全に暗号化して保管されます。リワード付きキャンペーンに当選した場合のみ使用されます。
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。
         </div>
-        <button class="btn btn-primary btn-block" onclick="saveBankInfo()">口座情報を保存</button>
+        <button class="btn btn-primary btn-block" onclick="savePaypalInfo()">PayPal情報を保存</button>
       </div>
     </div>
   </div>

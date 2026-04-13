@@ -33,35 +33,31 @@ function loadMyPage() {
   setVal('profileCity', p.city);
   setVal('profileBuilding', p.building);
   setVal('profilePhone', p.phone);
-  setVal('bankName', p.bank_name);
-  setVal('bankBranch', p.bank_branch);
-  if(p.bank_type && $('bankType')) $('bankType').value = p.bank_type;
-  setVal('bankNumber', p.bank_number);
-  setVal('bankHolder', p.bank_holder);
+  setVal('paypalEmail', p.paypal_email);
+  setVal('paypalEmailConfirm', p.paypal_email);
 
   // 미등록 배지 표시
   const hasSns = p.ig || p.x || p.tiktok || p.youtube;
   const hasAddress = p.zip && p.prefecture && p.city && p.phone;
-  const hasBank = p.bank_name;
+  const hasPaypal = !!p.paypal_email;
   const badgeSns = $('menuBadgeSns');
   const badgeAddr = $('menuBadgeAddress');
-  const badgeBank = $('menuBadgeBank');
+  const badgePaypal = $('menuBadgePaypal');
   if (badgeSns) badgeSns.style.display = hasSns ? 'none' : '';
   if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
-  if (badgeBank) badgeBank.style.display = hasBank ? 'none' : '';
+  if (badgePaypal) badgePaypal.style.display = hasPaypal ? 'none' : '';
 
   // 필수 필드 경고 표시
   const reqMsg = 'キャンペーン応募に必須の入力項目です';
   const snsFields = [{id:'profileIg',val:p.ig},{id:'profileX',val:p.x},{id:'profileTiktok',val:p.tiktok},{id:'profileYoutube',val:p.youtube}];
   const addrFields = [{id:'profileZip',val:p.zip},{id:'profilePrefecture',val:p.prefecture},{id:'profileCity',val:p.city},{id:'profilePhone',val:p.phone}];
-  const bankFields = [{id:'bankName',val:p.bank_name}];
   // SNS: 하나도 없으면 전부 경고
   if (!hasSns) snsFields.forEach(f => markRequired(f.id, reqMsg));
   else snsFields.forEach(f => clearRequired(f.id));
   // 배송지: 개별 체크
   addrFields.forEach(f => f.val ? clearRequired(f.id) : markRequired(f.id, reqMsg));
-  // 입금 계좌: 개별 체크
-  bankFields.forEach(f => f.val ? clearRequired(f.id) : markRequired(f.id, reqMsg));
+  // PayPal: 개별 체크
+  if (hasPaypal) clearRequired('paypalEmail'); else markRequired('paypalEmail', reqMsg);
 
   loadMyApplications();
 }
@@ -165,18 +161,23 @@ async function saveProfile() {
   }
 }
 
-async function saveBankInfo() {
+async function savePaypalInfo() {
   if (!currentUser) return;
-  const getVal = id => $(id)?.value||'';
-  const bankData = {
-    bank_name: getVal('bankName'), bank_branch: getVal('bankBranch'),
-    bank_type: getVal('bankType'), bank_number: getVal('bankNumber'),
-    bank_holder: getVal('bankHolder')
-  };
+  const getVal = id => $(id)?.value?.trim()||'';
+  const email = getVal('paypalEmail');
+  const confirm = getVal('paypalEmailConfirm');
+  const err = $('paypalError');
+  const showErr = msg => { if (err) { err.textContent = msg; err.style.display = 'block'; } };
+  if (err) err.style.display = 'none';
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email) return showErr('PayPalメールアドレスを入力してください');
+  if (!emailRe.test(email)) return showErr('メールアドレスの形式が正しくありません');
+  if (email !== confirm) return showErr('確認用メールアドレスが一致しません');
   try {
-    await updateInfluencer(currentUser.id, bankData);
-    currentUserProfile = Object.assign(currentUserProfile || {}, bankData);
-    toast('口座情報を保存しました','success');
+    await updateInfluencer(currentUser.id, { paypal_email: email });
+    currentUserProfile = Object.assign(currentUserProfile || {}, { paypal_email: email });
+    toast('PayPal情報を保存しました','success');
+    loadMyPage();
   } catch(e) {
     toast('保存エラー: '+e.message,'error');
   }
