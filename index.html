@@ -1746,10 +1746,19 @@ function imgThumb(url, width, quality) {
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=cover`;
 }
 
-function getChannelLabel(ch) {
+// lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
+const CHANNEL_LABEL_FALLBACK = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+function getChannelLabel(ch, lang) {
   if (!ch) return '';
-  const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
-  return ch.split(',').map(s=>s.trim()).filter(Boolean).map(s=>m[s]||s).join(' + ');
+  const useLang = lang === 'ko' ? 'name_ko' : 'name_ja';
+  const cache = (typeof _lookupCache !== 'undefined' && _lookupCache.channel) || null;
+  return ch.split(',').map(s => s.trim()).filter(Boolean).map(code => {
+    if (cache) {
+      const row = cache.find(r => r.code === code);
+      if (row) return row[useLang] || row.name_ja || code;
+    }
+    return CHANNEL_LABEL_FALLBACK[code] || code;
+  }).join(' + ');
 }
 // 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
 function getRecruitTypeLabelJa(t) {
@@ -2265,9 +2274,9 @@ function buildChannelFilters(camps) {
   const row = $('filterRow');
   if (!row) return;
   const channels = [...new Set(camps.flatMap(c=>(c.channel||'').split(',').map(s=>s.trim())).filter(Boolean))];
-  const chLabel = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+  // lookup_values에서 라벨 가져오기 (없으면 코드 그대로)
   row.innerHTML = `<button class="chip on" onclick="filterCamps('all',this)">すべて</button>` +
-    channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(chLabel[ch]||ch)}</button>`).join('');
+    channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(getChannelLabel(ch))}</button>`).join('');
 }
 
 async function loadCampaignsPage() {
@@ -3421,6 +3430,17 @@ function updateTabBar(page) {
 // INIT
 // ══════════════════════════════════════
 async function init() {
+  // lookup_values 사전 로드 (채널/카테고리 라벨 동적 표시용, 인증과 무관하게 익명 SELECT 허용)
+  if (db) {
+    try {
+      await Promise.all([fetchLookups('channel'), fetchLookups('category')]);
+      // 라벨이 갱신되었으므로 활성 페이지 재렌더
+      if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
+        updateStats(allCampaigns);
+        renderCampaigns(allCampaigns.filter(c => c.status !== 'closed'));
+      }
+    } catch(_) {}
+  }
   // 로그인 세션 복원
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
   if (session) {

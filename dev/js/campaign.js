@@ -49,9 +49,9 @@ function buildChannelFilters(camps) {
   const row = $('filterRow');
   if (!row) return;
   const channels = [...new Set(camps.flatMap(c=>(c.channel||'').split(',').map(s=>s.trim())).filter(Boolean))];
-  const chLabel = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+  // lookup_values에서 라벨 가져오기 (없으면 코드 그대로)
   row.innerHTML = `<button class="chip on" onclick="filterCamps('all',this)">すべて</button>` +
-    channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(chLabel[ch]||ch)}</button>`).join('');
+    channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(getChannelLabel(ch))}</button>`).join('');
 }
 
 async function loadCampaignsPage() {
