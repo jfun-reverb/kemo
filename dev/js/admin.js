@@ -120,6 +120,10 @@ function switchAdminPane(pane, el, pushHistory) {
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
     loadTagsFromValue('tagWrap_newCampMentions', 'newCampMentions', '@', '');
+    // lookup_values 동적 렌더
+    renderChannelCheckboxes('new', null, []);
+    renderContentTypeCheckboxes('new', []);
+    renderCategorySelect('new', '');
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
@@ -466,26 +470,24 @@ async function openEditCampaign(campId) {
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
   sv('editCampNg', camp.ng||'');
-  const selectedChannels = (camp.channel||'instagram').split(',').map(s=>s.trim()).filter(Boolean);
-  document.querySelectorAll('input[name="editChannel"]').forEach(cb=>{
-    cb.checked = selectedChannels.includes(cb.value);
-    toggleEditCH(cb);
-  });
   sv('editCampMinFollowers', camp.min_followers||0);
-  if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
+  // 모집 타입 라디오 시각 표시
   document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
-  const rtEl = $('edit-rt-'+(camp.recruit_type||'monitor'));
+  const rtVal = camp.recruit_type || 'monitor';
+  const rtEl = $('edit-rt-'+rtVal);
   if (rtEl) { rtEl.style.borderColor='var(--pink)';rtEl.style.background='var(--light-pink)';rtEl.style.color='var(--pink)';rtEl.style.fontWeight='700'; }
-  document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===(camp.recruit_type||'monitor'));});
+  document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===rtVal);});
 
-  const ctMap = {'フィード':'feed','リール':'reels','ストーリー':'story','ショート動画':'short','動画':'video','画像':'image'};
-  const selected = (camp.content_types||'').split(',').map(t=>t.trim());
-  document.querySelectorAll('input[name="editContentType"]').forEach(cb=>{
-    cb.checked = selected.includes(cb.value);
-    toggleEditCT(cb);
-  });
+  // lookup_values 동적 렌더 (병렬)
+  const selectedChannels = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const selectedContent = (camp.content_types||'').split(',').map(t=>t.trim()).filter(Boolean);
+  await Promise.all([
+    renderChannelCheckboxes('edit', rtVal, selectedChannels),
+    renderContentTypeCheckboxes('edit', selectedContent),
+    renderCategorySelect('edit', camp.category||'')
+  ]);
 
   // 기존 이미지 로드
   editCampImgChanged = false;
@@ -1395,13 +1397,13 @@ async function addCampaign() {
    'newCampHashtags','newCampMentions','newCampAppeal','newCampGuide',
    'newCampProductPrice','newCampReward'].forEach(id => { const el=$(id); if(el) el.value=''; });
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
-  document.querySelectorAll('input[name="contentType"]').forEach(cb=>{
-    cb.checked=false; toggleCT(cb);
-  });
-  document.querySelectorAll('input[name="newChannel"]').forEach(cb=>{
-    cb.checked=false; toggleCH(cb);
-  });
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
+  // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
+  await Promise.all([
+    renderChannelCheckboxes('new', null, []),
+    renderContentTypeCheckboxes('new', []),
+    renderCategorySelect('new', '')
+  ]);
 
   allCampaigns = await fetchCampaigns();
 
@@ -1555,6 +1557,69 @@ async function renderLookupsTable() {
 
 const RECRUIT_TYPE_LABEL_KO = {monitor:'리뷰어', gifting:'기프팅', visit:'방문형'};
 let _lookupReorderMode = false;
+
+// ══════════════════════════════════════
+// 캠페인 폼: lookup_values 동적 렌더
+// ══════════════════════════════════════
+const _formCfg = {
+  new:  { chWrap:'newCampChannelWrap',  chName:'newChannel',  chPrefix:'ch-',
+          ctWrap:'newCampContentTypeWrap',  ctName:'contentType',  ctPrefix:'ct-',
+          catSelect:'newCampCategory' },
+  edit: { chWrap:'editCampChannelWrap', chName:'editChannel', chPrefix:'edit-ch-',
+          ctWrap:'editCampContentTypeWrap', ctName:'editContentType', ctPrefix:'edit-ct-',
+          catSelect:'editCampCategory' }
+};
+
+async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes) {
+  const cfg = _formCfg[formMode]; if (!cfg) return;
+  const wrap = $(cfg.chWrap); if (!wrap) return;
+  let channels = [];
+  try { channels = await fetchLookups('channel'); } catch(e) { return; }
+  if (recruitType) {
+    channels = channels.filter(c => Array.isArray(c.recruit_types) && c.recruit_types.includes(recruitType));
+  }
+  const checked = new Set(preSelectedCodes || []);
+  if (!channels.length) {
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:6px 0">선택한 모집 타입에서 사용 가능한 채널이 없습니다</div>`;
+    return;
+  }
+  wrap.innerHTML = channels.map(c =>
+    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.chPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.chName)}" value="${esc(c.code)}" onchange="toggleCH(this)" style="display:none">${esc(c.name_ja)}</label>`
+  ).join('');
+  wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    if (checked.has(cb.value)) { cb.checked = true; toggleCH(cb); }
+  });
+}
+
+async function renderContentTypeCheckboxes(formMode, preSelectedLabels) {
+  const cfg = _formCfg[formMode]; if (!cfg) return;
+  const wrap = $(cfg.ctWrap); if (!wrap) return;
+  let items = [];
+  try { items = await fetchLookups('content_type'); } catch(e) { return; }
+  const checked = new Set(preSelectedLabels || []);
+  wrap.innerHTML = items.map(c =>
+    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.ctPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.ctName)}" value="${esc(c.name_ja)}" onchange="toggleCT(this)" style="display:none">${esc(c.name_ja)}</label>`
+  ).join('');
+  wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    if (checked.has(cb.value)) { cb.checked = true; toggleCT(cb); }
+  });
+}
+
+async function renderCategorySelect(formMode, currentCode) {
+  const cfg = _formCfg[formMode]; if (!cfg) return;
+  const sel = $(cfg.catSelect); if (!sel) return;
+  let items = [];
+  try { items = await fetchLookups('category'); } catch(e) { return; }
+  sel.innerHTML = items.map(c => `<option value="${esc(c.code)}">${esc(c.name_ko)}</option>`).join('');
+  if (currentCode && items.some(c => c.code === currentCode)) sel.value = currentCode;
+}
+
+async function filterChannelsByRecruitType(formMode, recruitType) {
+  const cfg = _formCfg[formMode]; if (!cfg) return;
+  // 현재 체크된 코드 보존
+  const checked = Array.from(document.querySelectorAll(`input[name="${cfg.chName}"]:checked`)).map(c => c.value);
+  await renderChannelCheckboxes(formMode, recruitType, checked);
+}
 
 function enterLookupReorderMode() {
   _lookupReorderMode = true;
