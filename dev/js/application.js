@@ -332,8 +332,9 @@ function handleFloatApply() {
     return;
   }
   // 최소 팔로워수 체크 — 기준 채널(primary_channel) 단일 검증
+  // 리뷰어(monitor)형은 영수증 검증이라 팔로워 조건 미적용
   const minF = camp.min_followers || 0;
-  if (minF > 0) {
+  if (minF > 0 && camp.recruit_type !== 'monitor') {
     const followerMap = {instagram: p.ig_followers||0, x: p.x_followers||0, tiktok: p.tiktok_followers||0, youtube: p.youtube_followers||0, qoo10: p.ig_followers||0};
     const chNameMap = {instagram:'Instagram', x:'X(Twitter)', tiktok:'TikTok', youtube:'YouTube', qoo10:'Qoo10'};
     // 기준 채널: primary_channel 우선, 없으면 첫 번째 채널로 폴백
