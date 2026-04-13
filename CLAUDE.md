@@ -41,14 +41,16 @@
 - 바텀탭: 홈 / キャンペーン / マイページ (로그인 전 마이페이지 숨김)
 - 활동관리: 승인된 캠페인에서 구매 영수증 등록 (이미지+구매일+금액), receipts 테이블에 저장
 - 응모이력: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터, 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
+- 홈 하단 푸터: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
+- 성능 최적화: preconnect(Supabase/Fonts/jsDelivr), 캠페인 카드/마이페이지 썸네일 lazy loading + decoding=async, Supabase Storage 이미지 transform(`/render/image/public/?width=&quality=`)으로 썸네일 용량 축소, 이미지 로드 실패 시 원본 URL 자동 폴백
 
 ## Features — 관리자 (PC)
 - 사이드바: Material Icons, 접기/펼치기 토글 (햄버거 버튼), data-pane 속성 기반 라우팅, 신규등록 메뉴 제거, pending 배지 항상 표시
 - 페이지 새로고침: visibility:hidden cloak 기법 (깜빡임 완전 방지), 서브패널 새로고침 시 부모 패널로 리다이렉트
-- 대시보드: KPI 카드(캠페인수/인플루언서수/신청수/승인수), 회원가입 추이 차트(Chart.js, 7일/30일/전체 필터), 오늘/이번주 가입 KPI, 프로필 완성률(SNS별/배송지/계좌), 최근 신청 테이블
+- 대시보드: KPI 카드(캠페인수/인플루언서수/신청수/승인수), 상태별/채널별 캠페인 분포 카드(채널 복수 선택 캠페인은 각 채널에 중복 집계), 회원가입 추이 차트(Chart.js, 7일/30일/전체 필터), 오늘/이번주 가입 KPI, 프로필 완성률(SNS별/배송지/계좌), 최근 신청 테이블
 - 로딩 UX: 테이블/대시보드 KPI/차트 영역에 인라인 스피너 (전체화면 오버레이 제거)
 - 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경 모드(버튼 토글)
-- 캠페인 등록/편집 폼: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드), 제품정보 2열(이미지+상세), 모집타입 라디오버튼 UI
+- 캠페인 등록/편집 폼: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드), 제품정보 2열(이미지+상세), 모집타입 라디오버튼 UI, **채널은 복수 선택 체크박스**(Instagram/X/Qoo10/TikTok/YouTube · 콤마 구분 저장 `"instagram,x"`)
 - 캠페인 목록: 썸네일+이미지수 표시, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨(게시마감/모집마감), 타입 라벨 통일([타입] 제목 형식), 승인수/모집수 표시 + 대기 배지
 - 캠페인 미리보기: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
 - 캠페인 상태: draft(준비) → scheduled(모집예정) → active(모집중) → paused(일시정지) → closed(종료), 드롭다운으로 변경
@@ -111,6 +113,9 @@
 - 비밀번호 재설정 시 Supabase Redirect URL 설정 필수: Authentication → URL Configuration → Redirect URLs에 https://kemo-liart.vercel.app 등록
 - 아이콘은 Material Icons 사용 (이모지 사용 금지), translate="no" 속성 필수
 - 하드코딩 DOM 인덱스 금지 (querySelector 등에서 :nth-child 인덱스 직접 사용 금지)
+- 이미지 썸네일 표시는 `imgThumb(url, width, quality)` 헬퍼 사용 (Supabase Pro 플랜 transform), `data-orig` + `onerror`로 원본 URL 폴백 필수
+- 채널 비교는 항상 `split(',')` 후 `includes()` 사용 (단일 `===` 비교 금지 — 멀티채널 캠페인 누락 위험)
+- 최소 팔로워수 정책: **OR 방식** (선택 채널 중 1개 이상이 `min_followers` 충족하면 통과) — 상세는 `docs/FEATURE_SPEC.md` §10
 
 ## Mobile Layout Rules
 - #appShell은 position:fixed + top:0/bottom:0 (body 스크롤 차단, 뷰포트 고정)
