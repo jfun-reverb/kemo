@@ -14,3 +14,13 @@
 .auth-forgot a{font-size:12px;color:var(--on-surface-variant);cursor:pointer}
 .auth-forgot a:hover{color:var(--primary);text-decoration:underline}
 .form-success{background:#e8f5e9;color:#2e7d32;padding:10px 12px;border-radius:var(--r8);font-size:13px;line-height:1.5}
+
+/* ── 회원가입 동의 체크박스 ── */
+.signup-agree{margin:14px 0 12px;padding:14px 14px 10px;background:var(--bg);border:1px solid var(--line);border-radius:12px}
+.signup-agree-all{display:flex;align-items:center;gap:10px;padding-bottom:10px;margin-bottom:8px;border-bottom:1px solid var(--line);font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
+.signup-agree-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:var(--ink);cursor:pointer;line-height:1.4}
+.signup-agree input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;accent-color:var(--pink);cursor:pointer;margin:0}
+.agree-req{font-size:10px;font-weight:700;color:var(--pink);background:var(--light-pink);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-opt{font-size:10px;font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px;flex-shrink:0}
+.agree-text{flex:1}
+.agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
