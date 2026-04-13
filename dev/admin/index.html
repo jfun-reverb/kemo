@@ -221,47 +221,35 @@
             </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">모집 조건</div>
-            <div class="form-row" style="grid-template-columns:1fr 120px;align-items:start">
-              <div class="form-group">
-                <label class="form-label">모집 타입 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <div style="display:flex;gap:8px;margin-top:6px">
-                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
-                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
-                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1" id="edit-rt-visit"><input type="radio" name="editRecruitType" value="visit" onchange="toggleEditRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형</label>
-                </div>
-              </div>
-              <div class="form-group"><label class="form-label">모집 인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="number" id="editCampSlots" class="form-input" min="1"></div>
-            </div>
-
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">채널 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="editCampChannelWrap">
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-instagram"><input type="checkbox" name="editChannel" value="instagram" onchange="toggleEditCH(this)" style="display:none">Instagram</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-x"><input type="checkbox" name="editChannel" value="x" onchange="toggleEditCH(this)" style="display:none">X(Twitter)</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-qoo10"><input type="checkbox" name="editChannel" value="qoo10" onchange="toggleEditCH(this)" style="display:none">Qoo10</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-tiktok"><input type="checkbox" name="editChannel" value="tiktok" onchange="toggleEditCH(this)" style="display:none">TikTok</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ch-youtube"><input type="checkbox" name="editChannel" value="youtube" onchange="toggleEditCH(this)" style="display:none">YouTube</label>
+              <div class="form-group">
+                <label class="form-label">모집 타입/인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-monitor"><input type="radio" name="editRecruitType" value="monitor" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-gifting"><input type="radio" name="editRecruitType" value="gifting" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅</label>
+                  <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="edit-rt-visit"><input type="radio" name="editRecruitType" value="visit" onchange="toggleEditRT(this);filterChannelsByRecruitType('edit','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형</label>
+                  <input type="number" id="editCampSlots" class="form-input" placeholder="20" min="1" style="width:80px;flex-shrink:0">
                 </div>
               </div>
-              <div class="form-group"><label class="form-label">최소 팔로워수</label>
-                <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0">
-              </div>
-              <div class="form-group"><label class="form-label">카테고리</label>
-                <select id="editCampCategory" class="form-input">
-                  <option value="beauty">뷰티/코스메</option><option value="food">푸드/그르메</option><option value="fashion">패션/라이프</option><option value="health">헬스/웰니스</option><option value="other">기타</option>
-                </select>
+              <div class="form-group">
+                <div style="display:flex;gap:8px;margin-bottom:6px">
+                  <label class="form-label" style="flex:1;margin:0">채널</label>
+                  <label class="form-label" style="width:100px;flex-shrink:0;margin:0">최소 팔로워수</label>
+                </div>
+                <div style="display:flex;gap:8px;align-items:flex-start">
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="editCampChannelWrap"></div>
+                  <input type="number" id="editCampMinFollowers" class="form-input" placeholder="0" value="0" style="width:100px;flex-shrink:0">
+                </div>
               </div>
             </div>
-
-            <div class="form-group">
-              <label class="form-label">콘텐츠 종류 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-feed"><input type="checkbox" name="editContentType" value="フィード" onchange="toggleEditCT(this)" style="display:none">フィード</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-reels"><input type="checkbox" name="editContentType" value="リール" onchange="toggleEditCT(this)" style="display:none">リール</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-story"><input type="checkbox" name="editContentType" value="ストーリー" onchange="toggleEditCT(this)" style="display:none">ストーリー</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-short"><input type="checkbox" name="editContentType" value="ショート動画" onchange="toggleEditCT(this)" style="display:none">ショート動画</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-video"><input type="checkbox" name="editContentType" value="動画" onchange="toggleEditCT(this)" style="display:none">動画</label>
-                <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="edit-ct-image"><input type="checkbox" name="editContentType" value="画像" onchange="toggleEditCT(this)" style="display:none">画像</label>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">카테고리</label>
+                <select id="editCampCategory" class="form-input"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">콘텐츠 종류 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="editCampContentTypeWrap"></div>
               </div>
             </div>
 
@@ -393,13 +381,13 @@
                 <label class="form-label">모집 타입/인원 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <div style="display:flex;gap:8px;margin-top:6px">
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-monitor">
-                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
+                    <input type="radio" name="recruitType" value="monitor" onchange="toggleRT(this);filterChannelsByRecruitType('new','monitor')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-gifting">
-                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
+                    <input type="radio" name="recruitType" value="gifting" onchange="toggleRT(this);filterChannelsByRecruitType('new','gifting')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 기프팅
                   </label>
                   <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;flex:1;text-align:center" id="rt-visit">
-                    <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this)" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
+                    <input type="radio" name="recruitType" value="visit" onchange="toggleRT(this);filterChannelsByRecruitType('new','visit')" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 방문형
                   </label>
                   <input type="number" id="newCampSlots" class="form-input" placeholder="20" min="1" value="20" style="width:80px;flex-shrink:0">
                 </div>
@@ -410,13 +398,7 @@
                   <label class="form-label" style="width:100px;flex-shrink:0;margin:0">최소 팔로워수</label>
                 </div>
                 <div style="display:flex;gap:8px;align-items:flex-start">
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="newCampChannelWrap">
-                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-instagram"><input type="checkbox" name="newChannel" value="instagram" onchange="toggleCH(this)" style="display:none">Instagram</label>
-                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-x"><input type="checkbox" name="newChannel" value="x" onchange="toggleCH(this)" style="display:none">X(Twitter)</label>
-                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-qoo10"><input type="checkbox" name="newChannel" value="qoo10" onchange="toggleCH(this)" style="display:none">Qoo10</label>
-                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-tiktok"><input type="checkbox" name="newChannel" value="tiktok" onchange="toggleCH(this)" style="display:none">TikTok</label>
-                    <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ch-youtube"><input type="checkbox" name="newChannel" value="youtube" onchange="toggleCH(this)" style="display:none">YouTube</label>
-                  </div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;flex:1" id="newCampChannelWrap"></div>
                   <input type="number" id="newCampMinFollowers" class="form-input" placeholder="0" value="0" style="width:100px;flex-shrink:0">
                 </div>
               </div>
@@ -424,24 +406,11 @@
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">카테고리</label>
-                <select id="newCampCategory" class="form-input">
-                  <option value="beauty">뷰티/코스메</option>
-                  <option value="food">푸드/그르메</option>
-                  <option value="fashion">패션/라이프</option>
-                  <option value="health">헬스/웰니스</option>
-                  <option value="other">기타</option>
-                </select>
+                <select id="newCampCategory" class="form-input"></select>
               </div>
               <div class="form-group">
                 <label class="form-label">콘텐츠 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-feed"><input type="checkbox" name="contentType" value="フィード" onchange="toggleCT(this)" style="display:none">フィード</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-reels"><input type="checkbox" name="contentType" value="リール" onchange="toggleCT(this)" style="display:none">リール</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-story"><input type="checkbox" name="contentType" value="ストーリー" onchange="toggleCT(this)" style="display:none">ストーリー</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-short"><input type="checkbox" name="contentType" value="ショート動画" onchange="toggleCT(this)" style="display:none">ショート動画</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-video"><input type="checkbox" name="contentType" value="動画" onchange="toggleCT(this)" style="display:none">動画</label>
-                  <label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="ct-image"><input type="checkbox" name="contentType" value="画像" onchange="toggleCT(this)" style="display:none">画像</label>
-                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="newCampContentTypeWrap"></div>
               </div>
             </div>
 
