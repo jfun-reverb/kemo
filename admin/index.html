@@ -211,6 +211,31 @@ textarea.form-input{resize:vertical;min-height:80px}
 #legalModal .legal-body dt{font-weight:600;color:var(--muted);margin-top:6px;font-size:12px}
 #legalModal .legal-body dd{margin:0 0 4px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* ── LEGAL PAGE ── */
+#page-legal{background:#fff}
+.legal-page-head{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.legal-back{background:none;border:none;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;color:var(--ink);flex-shrink:0}
+.legal-back:active{background:var(--bg)}
+.legal-lang-tabs{display:flex;background:var(--bg);border-radius:20px;padding:3px;flex-shrink:0}
+.legal-lang-btn{background:none;border:none;font-size:11px;font-weight:600;padding:5px 12px;border-radius:18px;color:var(--muted);cursor:pointer;transition:.15s}
+.legal-lang-btn.on{background:var(--pink);color:#fff}
+.legal-page-body{padding:20px 18px calc(var(--tab-h) + 32px);overflow-y:auto;font-size:13px;line-height:1.75;color:var(--ink)}
+.legal-page-body h1{font-size:18px;font-weight:800;margin:0 0 12px}
+.legal-page-body h2{font-size:15px;font-weight:700;margin:22px 0 8px;color:var(--ink)}
+.legal-page-body h3{font-size:14px;font-weight:700;margin:18px 0 6px;color:var(--ink)}
+.legal-page-body h4{font-size:13px;font-weight:700;margin:14px 0 6px;color:var(--ink)}
+.legal-page-body p{margin:0 0 10px}
+.legal-page-body ul,.legal-page-body ol{padding-left:20px;margin:0 0 10px}
+.legal-page-body li{margin-bottom:4px}
+.legal-page-body hr{border:none;border-top:1px solid var(--line);margin:18px 0}
+.legal-page-body blockquote{margin:10px 0;padding:10px 14px;background:var(--bg);border-left:3px solid var(--pink);border-radius:0 8px 8px 0;font-size:12px;color:var(--muted)}
+.legal-page-body code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:12px;font-family:Menlo,monospace}
+.legal-page-body a{color:var(--pink);text-decoration:underline}
+.legal-page-body strong{font-weight:700;color:var(--ink)}
+.legal-table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0 14px;display:block;overflow-x:auto}
+.legal-table th,.legal-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.legal-table th{background:var(--bg);font-weight:700;font-size:11px;white-space:nowrap}
 /* ══════════════════════════════════
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */

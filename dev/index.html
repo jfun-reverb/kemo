@@ -221,8 +221,8 @@ window._supabaseLoaded = false;
       </dl>
       <div class="footer-links">
         <a href="#about" onclick="event.preventDefault();openLegalModal('about')">会社紹介</a>
-        <a href="#terms" onclick="event.preventDefault();openLegalModal('terms')">利用規約</a>
-        <a href="#privacy" onclick="event.preventDefault();openLegalModal('privacy')">個人情報処理方針</a>
+        <a href="#terms" onclick="event.preventDefault();openLegalPage('terms','ja')">利用規約</a>
+        <a href="#privacy" onclick="event.preventDefault();openLegalPage('privacy','ja')">個人情報処理方針</a>
       </div>
       <div class="footer-sns">
         <a href="#" target="_blank" rel="noopener" aria-label="Instagram">
@@ -283,6 +283,23 @@ window._supabaseLoaded = false;
       </div>
     </div>
   </section>
+</div>
+
+<!-- ══════════════════════════════════
+     PAGE: LEGAL (利用規約 / 個人情報処理方針)
+══════════════════════════════════ -->
+<div id="page-legal" class="page">
+  <div class="legal-page-head">
+    <div class="container" style="display:flex;align-items:center;gap:8px;padding:14px 16px">
+      <button class="legal-back" onclick="navigate('home')" aria-label="戻る"><span class="material-icons-round notranslate" translate="no">arrow_back</span></button>
+      <div id="legalPageTitle" style="font-size:15px;font-weight:700;flex:1"></div>
+      <div class="legal-lang-tabs">
+        <button class="legal-lang-btn on" data-lang="ko" onclick="setLegalLang('ko')">한국어</button>
+        <button class="legal-lang-btn" data-lang="ja" onclick="setLegalLang('ja')">日本語</button>
+      </div>
+    </div>
+  </div>
+  <div class="container legal-page-body" id="legalPageBody"></div>
 </div>
 
 <!-- ══════════════════════════════════
@@ -469,12 +486,12 @@ window._supabaseLoaded = false;
           <label class="signup-agree-row">
             <input type="checkbox" class="agree-required" id="agreeTerms" onchange="syncAgreeAll()">
             <span class="agree-req">必須</span>
-            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalModal('terms')">利用規約</a>に同意します</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('terms','ja')">利用規約</a>に同意します</span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" class="agree-required" id="agreePrivacy" onchange="syncAgreeAll()">
             <span class="agree-req">必須</span>
-            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalModal('privacy')">個人情報処理方針</a>に同意します</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy','ja')">個人情報処理方針</a>に同意します</span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" id="agreeMarketing" onchange="syncAgreeAll()">
@@ -780,6 +797,7 @@ window._supabaseLoaded = false;
 <script src="lib/supabase.js"></script>
 <script src="lib/shared.js"></script>
 <script src="lib/storage.js"></script>
+<script src="lib/legal.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/campaign.js"></script>
 <script src="js/auth.js"></script>
