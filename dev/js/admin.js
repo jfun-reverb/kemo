@@ -513,6 +513,39 @@ function removeEditCampImg(idx) {
   renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
 }
 
+// 커스텀 confirm 모달 (Promise 반환)
+let _confirmResolver = null;
+function showConfirm(message) {
+  return new Promise(resolve => {
+    _confirmResolver = resolve;
+    const msg = $('confirmModalMessage');
+    if (msg) msg.textContent = message;
+    openModal('confirmModal');
+  });
+}
+function resolveConfirmModal(ok) {
+  closeModal('confirmModal');
+  if (_confirmResolver) { _confirmResolver(!!ok); _confirmResolver = null; }
+}
+
+// 모집 마감일 입력 시 게시 마감일을 +14일로 자동 채우기 (확인 모달)
+async function suggestPostDeadline(deadlineId, postDeadlineId) {
+  const dl = $(deadlineId)?.value;
+  if (!dl) return;
+  const post = new Date(dl);
+  post.setDate(post.getDate() + 14);
+  const yyyy = post.getFullYear();
+  const mm = String(post.getMonth() + 1).padStart(2, '0');
+  const dd = String(post.getDate()).padStart(2, '0');
+  const suggested = `${yyyy}-${mm}-${dd}`;
+  const postEl = $(postDeadlineId);
+  if (!postEl) return;
+  // 이미 입력된 값이 같으면 무시
+  if (postEl.value === suggested) return;
+  const ok = await showConfirm(`게시 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(모집 마감일 + 2주)`);
+  if (ok) postEl.value = suggested;
+}
+
 function validateDeadlines(deadlineId, postDeadlineId, warnId) {
   const dl = $(deadlineId)?.value;
   const pdl = $(postDeadlineId)?.value;
