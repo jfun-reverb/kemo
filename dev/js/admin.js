@@ -424,7 +424,11 @@ async function openEditCampaign(campId) {
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
   sv('editCampNg', camp.ng||'');
-  if ($('editCampChannel')) $('editCampChannel').value = camp.channel||'instagram';
+  const selectedChannels = (camp.channel||'instagram').split(',').map(s=>s.trim()).filter(Boolean);
+  document.querySelectorAll('input[name="editChannel"]').forEach(cb=>{
+    cb.checked = selectedChannels.includes(cb.value);
+    toggleEditCH(cb);
+  });
   sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampCategory')) $('editCampCategory').value = camp.category||'beauty';
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
@@ -480,6 +484,18 @@ function toggleEditCT(cb) {
   else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
 }
 
+function toggleCH(cb) {
+  const label=cb.closest('label');
+  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
+  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
+}
+
+function toggleEditCH(cb) {
+  const label=cb.closest('label');
+  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
+  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
+}
+
 function validateDeadlines(deadlineId, postDeadlineId, warnId) {
   const dl = $(deadlineId)?.value;
   const pdl = $(postDeadlineId)?.value;
@@ -527,7 +543,7 @@ async function saveCampaignEdit() {
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
-      channel: gv('editCampChannel'),
+      channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
       min_followers: parseInt(gv('editCampMinFollowers'))||0,
       category: gv('editCampCategory'),
       content_types: contentTypes,
@@ -1284,7 +1300,8 @@ async function addCampaign() {
   }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
-  const ch = $('newCampChannel').value;
+  const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
+  if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
   const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   // 이미지를 Storage에 업로드
@@ -1293,7 +1310,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch==='qoo10'?'qoo10':'nano', channel:ch, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, min_followers: parseInt($('newCampMinFollowers')?.value)||0, category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -1329,6 +1346,9 @@ async function addCampaign() {
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('input[name="contentType"]').forEach(cb=>{
     cb.checked=false; toggleCT(cb);
+  });
+  document.querySelectorAll('input[name="newChannel"]').forEach(cb=>{
+    cb.checked=false; toggleCH(cb);
   });
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
 

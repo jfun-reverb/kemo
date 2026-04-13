@@ -48,8 +48,8 @@ function updateStats(camps) {
 function buildChannelFilters(camps) {
   const row = $('filterRow');
   if (!row) return;
-  const channels = [...new Set(camps.map(c=>c.channel).filter(Boolean))];
-  const chLabel = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10','instagram,x':'Instagram + X',tiktok:'TikTok',youtube:'YouTube'};
+  const channels = [...new Set(camps.flatMap(c=>(c.channel||'').split(',').map(s=>s.trim())).filter(Boolean))];
+  const chLabel = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
   row.innerHTML = `<button class="chip on" onclick="filterCamps('all',this)">すべて</button>` +
     channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(chLabel[ch]||ch)}</button>`).join('');
 }
@@ -113,7 +113,10 @@ function applyHomeFilter() {
     return new Date(b.created_at) - new Date(a.created_at);
   });
   if (currentTypeFilter !== 'all') camps = camps.filter(c=>c.recruit_type===currentTypeFilter);
-  if (currentFilter !== 'all') camps = camps.filter(c=>c.channel===currentFilter||c.category===currentFilter);
+  if (currentFilter !== 'all') camps = camps.filter(c=>{
+    const chs = (c.channel||'').split(',').map(s=>s.trim());
+    return chs.includes(currentFilter) || c.category===currentFilter;
+  });
   renderCampaigns(camps);
 }
 

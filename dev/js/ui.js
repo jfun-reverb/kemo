@@ -63,8 +63,9 @@ function dDayLabel(d) {
   return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
 }
 function getChannelLabel(ch) {
-  const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10','instagram,x':'Instagram + X'};
-  return m[ch] || ch;
+  if (!ch) return '';
+  const m = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+  return ch.split(',').map(s=>s.trim()).filter(Boolean).map(s=>m[s]||s).join(' + ');
 }
 function getStatusBadge(s) {
   const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
