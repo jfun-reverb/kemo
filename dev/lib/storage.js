@@ -200,3 +200,135 @@ async function uploadCampImages(imgList) {
   while (urls.length < 8) urls.push('');
   return urls;
 }
+
+// ══════════════════════════════════════
+// LOOKUP VALUES — 채널/카테고리/콘텐츠/NG 프리셋 통합
+// ══════════════════════════════════════
+
+// 메모리 캐시 (kind별 분리). 변경 시 invalidate 필요
+const _lookupCache = {};
+
+function invalidateLookupCache(kind) {
+  if (kind) delete _lookupCache[kind]; else for (const k in _lookupCache) delete _lookupCache[k];
+}
+
+// 활성 항목만 (캠페인 등록/인플루언서 페이지용)
+async function fetchLookups(kind) {
+  if (!db) return [];
+  if (_lookupCache[kind]) return _lookupCache[kind];
+  const {data, error} = await db.from('lookup_values')
+    .select('*')
+    .eq('kind', kind)
+    .eq('active', true)
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  _lookupCache[kind] = data || [];
+  return _lookupCache[kind];
+}
+
+// 전체 (관리자 페이지 — 비활성도 포함)
+async function fetchLookupsAll(kind) {
+  if (!db) return [];
+  const {data, error} = await db.from('lookup_values')
+    .select('*')
+    .eq('kind', kind)
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+// 한국어/일본어 명칭에서 영문 슬러그 자동 생성
+function generateLookupCode(name_ko, name_ja, kind) {
+  const base = (name_ko || name_ja || '').toString().trim().toLowerCase();
+  // 영문/숫자만 추출
+  const ascii = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (ascii && ascii.length > 1) return ascii.slice(0, 40);
+  // 한글/일본어만 있는 경우 랜덤 슬러그
+  return (kind || 'item') + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+async function insertLookup(row) {
+  let result;
+  await retryWithRefresh(async () => {
+    const code = row.code || generateLookupCode(row.name_ko, row.name_ja, row.kind);
+    // 다음 sort_order 결정 (현재 max + 10)
+    const existing = await fetchLookupsAll(row.kind);
+    const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+    const payload = {
+      kind: row.kind,
+      code,
+      name_ko: row.name_ko,
+      name_ja: row.name_ja,
+      sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
+      active: row.active != null ? row.active : true
+    };
+    const {data, error} = await db.from('lookup_values').insert(payload).select().maybeSingle();
+    if (error) throw error;
+    result = data;
+  });
+  invalidateLookupCache(row.kind);
+  return result;
+}
+
+async function updateLookup(id, updates) {
+  let kind;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.from('lookup_values').update(updates).eq('id', id).select('kind').maybeSingle();
+    if (error) throw error;
+    kind = data?.kind;
+  });
+  invalidateLookupCache(kind);
+}
+
+// soft delete (active=false) — 사용 중 여부와 무관하게 안전
+async function deactivateLookup(id) {
+  await updateLookup(id, {active: false});
+}
+
+async function activateLookup(id) {
+  await updateLookup(id, {active: true});
+}
+
+// 캠페인에서 사용 중인지 확인 (channel/category만 의미. content_type은 콤마 문자열 검사)
+async function isLookupInUse(row) {
+  if (!db || !row) return false;
+  if (row.kind === 'channel') {
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('channel', `%${row.code}%`);
+    return (count || 0) > 0;
+  }
+  if (row.kind === 'category') {
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).eq('category', row.code);
+    return (count || 0) > 0;
+  }
+  if (row.kind === 'content_type') {
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('content_types', `%${row.name_ja}%`);
+    return (count || 0) > 0;
+  }
+  // ng_item은 textarea 자유 입력이라 사용 여부 추적 불가 → 항상 false
+  return false;
+}
+
+// hard delete — 미사용 시에만 호출
+async function deleteLookup(id) {
+  let kind;
+  await retryWithRefresh(async () => {
+    const {data: row} = await db.from('lookup_values').select('kind').eq('id', id).maybeSingle();
+    kind = row?.kind;
+    const {error} = await db.from('lookup_values').delete().eq('id', id);
+    if (error) throw error;
+  });
+  invalidateLookupCache(kind);
+}
+
+// 정렬 순서 swap (↑↓ 버튼)
+async function swapLookupOrder(idA, idB) {
+  if (!db) return;
+  const {data: rows} = await db.from('lookup_values').select('id, kind, sort_order').in('id', [idA, idB]);
+  if (!rows || rows.length !== 2) return;
+  const [a, b] = rows;
+  await retryWithRefresh(async () => {
+    await db.from('lookup_values').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db.from('lookup_values').update({sort_order: a.sort_order}).eq('id', b.id);
+  });
+  invalidateLookupCache(a.kind);
+}

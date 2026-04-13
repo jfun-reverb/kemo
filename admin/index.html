@@ -327,6 +327,15 @@ textarea.form-input{resize:vertical;min-height:80px}
 .tag-label button{border:none;background:none;cursor:pointer;font-size:14px;color:var(--dark-pink);padding:0;line-height:1;opacity:.7}
 .tag-label button:hover{opacity:1}
 .tag-input-warn{font-size:11px;color:var(--red);margin-top:4px}
+
+/* ── 토글 스위치 (기준 데이터 활성/비활성 등) ── */
+.lookup-toggle{position:relative;display:inline-block;width:38px;height:22px;cursor:pointer;vertical-align:middle}
+.lookup-toggle input{opacity:0;width:0;height:0}
+.lookup-toggle-slider{position:absolute;inset:0;background:#ccc;border-radius:22px;transition:.2s}
+.lookup-toggle-slider::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.lookup-toggle input:checked + .lookup-toggle-slider{background:var(--pink)}
+.lookup-toggle input:checked + .lookup-toggle-slider::before{transform:translateX(16px)}
+.lookup-toggle input:disabled + .lookup-toggle-slider{opacity:.5;cursor:not-allowed}
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -382,6 +391,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
+      <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="switchAdminPane('lookups',this)" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
       <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
       <div class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
     </aside>
@@ -954,6 +964,38 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
         </div>
 
+        <!-- LOOKUPS (기준 데이터) PANE -->
+        <div id="adminPane-lookups" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 데이터</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">캠페인에서 사용하는 채널·카테고리·콘텐츠 종류·NG 프리셋을 관리합니다 (campaign_admin 이상)</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openLookupAddModal()">+ 항목 추가</button>
+          </div>
+
+          <!-- 종류 탭 -->
+          <div style="display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:14px">
+            <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>
+            <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">카테고리</button>
+            <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
+            <button class="lookup-tab" data-kind="ng_item" onclick="switchLookupTab('ng_item',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
+          </div>
+
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title" id="lookupTableTitle">채널 목록</span>
+              <button class="btn btn-ghost btn-xs" id="btnLookupReorderMode" onclick="enterLookupReorderMode()">순서 변경</button>
+            </div>
+            <table class="data-table">
+              <thead id="lookupTableHead"></thead>
+              <tbody id="lookupsTableBody">
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- ADMIN ACCOUNTS PANE -->
         <div id="adminPane-admin-accounts" class="admin-pane">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -1166,6 +1208,40 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="modal-body" style="padding:32px 24px 24px">
       <div id="alertModalMessage" style="font-size:14px;line-height:1.6;color:var(--ink)"></div>
       <button class="btn btn-primary" style="margin-top:20px;min-width:120px" onclick="closeModal('alertModal')">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 기준 데이터 추가/편집 모달 -->
+<div class="modal-overlay" id="lookupEditModal" style="z-index:600">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+    <div class="modal-body" style="padding:24px">
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="lookupModalTitle">항목 추가</div>
+      <input type="hidden" id="lookupEditId">
+      <input type="hidden" id="lookupEditKind">
+      <div class="form-group">
+        <label class="form-label">한국어 명칭 <span style="color:var(--red)">*</span></label>
+        <input type="text" id="lookupNameKo" class="form-input" placeholder="예: Instagram, 뷰티/코스메">
+      </div>
+      <div class="form-group">
+        <label class="form-label">일본어 명칭 <span style="color:var(--red)">*</span></label>
+        <input type="text" id="lookupNameJa" class="form-input" placeholder="例: Instagram, ビューティ">
+      </div>
+      <input type="hidden" id="lookupCode">
+      <!-- 채널 전용: 모집 조건 -->
+      <div class="form-group" id="lookupRecruitTypesGroup" style="display:none">
+        <label class="form-label">사용 가능한 모집 타입 <span style="color:var(--red)">*</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택)</span></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="lookupRT" value="monitor" style="accent-color:var(--pink)"> 리뷰어</label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="lookupRT" value="gifting" style="accent-color:var(--pink)"> 기프팅</label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="lookupRT" value="visit" style="accent-color:var(--pink)"> 방문형</label>
+        </div>
+      </div>
+      <div id="lookupEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('lookupEditModal')">취소</button>
+        <button class="btn btn-primary" onclick="saveLookupEdit()">저장</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1404,6 +1480,138 @@ async function uploadCampImages(imgList) {
   // 8개 슬롯 채우기
   while (urls.length < 8) urls.push('');
   return urls;
+}
+
+// ══════════════════════════════════════
+// LOOKUP VALUES — 채널/카테고리/콘텐츠/NG 프리셋 통합
+// ══════════════════════════════════════
+
+// 메모리 캐시 (kind별 분리). 변경 시 invalidate 필요
+const _lookupCache = {};
+
+function invalidateLookupCache(kind) {
+  if (kind) delete _lookupCache[kind]; else for (const k in _lookupCache) delete _lookupCache[k];
+}
+
+// 활성 항목만 (캠페인 등록/인플루언서 페이지용)
+async function fetchLookups(kind) {
+  if (!db) return [];
+  if (_lookupCache[kind]) return _lookupCache[kind];
+  const {data, error} = await db.from('lookup_values')
+    .select('*')
+    .eq('kind', kind)
+    .eq('active', true)
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  _lookupCache[kind] = data || [];
+  return _lookupCache[kind];
+}
+
+// 전체 (관리자 페이지 — 비활성도 포함)
+async function fetchLookupsAll(kind) {
+  if (!db) return [];
+  const {data, error} = await db.from('lookup_values')
+    .select('*')
+    .eq('kind', kind)
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+// 한국어/일본어 명칭에서 영문 슬러그 자동 생성
+function generateLookupCode(name_ko, name_ja, kind) {
+  const base = (name_ko || name_ja || '').toString().trim().toLowerCase();
+  // 영문/숫자만 추출
+  const ascii = base.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (ascii && ascii.length > 1) return ascii.slice(0, 40);
+  // 한글/일본어만 있는 경우 랜덤 슬러그
+  return (kind || 'item') + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+async function insertLookup(row) {
+  let result;
+  await retryWithRefresh(async () => {
+    const code = row.code || generateLookupCode(row.name_ko, row.name_ja, row.kind);
+    // 다음 sort_order 결정 (현재 max + 10)
+    const existing = await fetchLookupsAll(row.kind);
+    const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+    const payload = {
+      kind: row.kind,
+      code,
+      name_ko: row.name_ko,
+      name_ja: row.name_ja,
+      sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
+      active: row.active != null ? row.active : true
+    };
+    const {data, error} = await db.from('lookup_values').insert(payload).select().maybeSingle();
+    if (error) throw error;
+    result = data;
+  });
+  invalidateLookupCache(row.kind);
+  return result;
+}
+
+async function updateLookup(id, updates) {
+  let kind;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.from('lookup_values').update(updates).eq('id', id).select('kind').maybeSingle();
+    if (error) throw error;
+    kind = data?.kind;
+  });
+  invalidateLookupCache(kind);
+}
+
+// soft delete (active=false) — 사용 중 여부와 무관하게 안전
+async function deactivateLookup(id) {
+  await updateLookup(id, {active: false});
+}
+
+async function activateLookup(id) {
+  await updateLookup(id, {active: true});
+}
+
+// 캠페인에서 사용 중인지 확인 (channel/category만 의미. content_type은 콤마 문자열 검사)
+async function isLookupInUse(row) {
+  if (!db || !row) return false;
+  if (row.kind === 'channel') {
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('channel', `%${row.code}%`);
+    return (count || 0) > 0;
+  }
+  if (row.kind === 'category') {
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).eq('category', row.code);
+    return (count || 0) > 0;
+  }
+  if (row.kind === 'content_type') {
+    const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('content_types', `%${row.name_ja}%`);
+    return (count || 0) > 0;
+  }
+  // ng_item은 textarea 자유 입력이라 사용 여부 추적 불가 → 항상 false
+  return false;
+}
+
+// hard delete — 미사용 시에만 호출
+async function deleteLookup(id) {
+  let kind;
+  await retryWithRefresh(async () => {
+    const {data: row} = await db.from('lookup_values').select('kind').eq('id', id).maybeSingle();
+    kind = row?.kind;
+    const {error} = await db.from('lookup_values').delete().eq('id', id);
+    if (error) throw error;
+  });
+  invalidateLookupCache(kind);
+}
+
+// 정렬 순서 swap (↑↓ 버튼)
+async function swapLookupOrder(idA, idB) {
+  if (!db) return;
+  const {data: rows} = await db.from('lookup_values').select('id, kind, sort_order').in('id', [idA, idB]);
+  if (!rows || rows.length !== 2) return;
+  const [a, b] = rows;
+  await retryWithRefresh(async () => {
+    await db.from('lookup_values').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db.from('lookup_values').update({sort_order: a.sort_order}).eq('id', b.id);
+  });
+  invalidateLookupCache(a.kind);
 }
 // ══════════════════════════════════════
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
@@ -2058,7 +2266,8 @@ function switchAdminPane(pane, el, pushHistory) {
     campaigns: loadAdminCampaigns,
     influencers: loadAdminInfluencers,
     'admin-accounts': loadAdminAccounts,
-    'my-account': loadMyAdminInfo
+    'my-account': loadMyAdminInfo,
+    'lookups': loadLookupsPane
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -3389,6 +3598,252 @@ async function loadAdminAccounts() {
 
   // 현재 로그인한 관리자 정보 로드
   currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
+  applyLookupMenuVisibility();
+}
+
+// 권한에 따라 "기준 데이터" 메뉴 표시/숨김
+function isCampaignAdminOrAbove() {
+  const r = currentAdminInfo?.role;
+  return r === 'super_admin' || r === 'campaign_admin';
+}
+function applyLookupMenuVisibility() {
+  const el = document.getElementById('adminLookupsSi');
+  if (el) el.style.display = isCampaignAdminOrAbove() ? '' : 'none';
+}
+
+// ══════════════════════════════════════
+// 기준 데이터 (lookup_values) 관리
+// ══════════════════════════════════════
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항'};
+let _currentLookupKind = 'channel';
+
+async function loadLookupsPane() {
+  applyLookupMenuVisibility();
+  if (!isCampaignAdminOrAbove()) {
+    const tbody = $('lookupsTableBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">권한이 없습니다 (campaign_admin 이상)</td></tr>';
+    return;
+  }
+  await renderLookupsTable();
+}
+
+function switchLookupTab(kind, btn) {
+  _currentLookupKind = kind;
+  // 탭 전환 시 reorder 모드 자동 종료
+  if (_lookupReorderMode) {
+    _lookupReorderMode = false;
+    const rb = $('btnLookupReorderMode');
+    if (rb) { rb.textContent = '순서 변경'; rb.onclick = enterLookupReorderMode; rb.classList.remove('btn-primary'); rb.classList.add('btn-ghost'); }
+  }
+  document.querySelectorAll('.lookup-tab').forEach(b => {
+    b.style.color = 'var(--muted)';
+    b.style.borderBottomColor = 'transparent';
+    b.style.fontWeight = '600';
+  });
+  if (btn) {
+    btn.style.color = 'var(--pink)';
+    btn.style.borderBottomColor = 'var(--pink)';
+    btn.style.fontWeight = '700';
+  }
+  renderLookupsTable();
+}
+
+async function renderLookupsTable() {
+  const tbody = $('lookupsTableBody');
+  const thead = $('lookupTableHead');
+  const title = $('lookupTableTitle');
+  if (!tbody) return;
+  if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
+  const isChannel = _currentLookupKind === 'channel';
+  // 헤더 렌더
+  if (thead) {
+    thead.innerHTML = `<tr>
+      <th style="width:40px"></th>
+      ${_lookupReorderMode ? '<th style="width:80px">순서</th>' : ''}
+      <th>한국어 명칭${isChannel?' / 모집 타입':''}</th>
+      <th>일본어 명칭</th>
+      <th style="width:80px">상태</th>
+      ${_lookupReorderMode ? '' : '<th style="width:160px"></th>'}
+    </tr>`;
+  }
+  const colspan = _lookupReorderMode ? 5 : 5;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  let rows = [];
+  try {
+    rows = await fetchLookupsAll(_currentLookupKind);
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    return;
+  }
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">등록된 항목이 없습니다</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => {
+    const isFirst = i === 0;
+    const isLast = i === rows.length - 1;
+    const upId = isFirst ? '' : rows[i-1].id;
+    const downId = isLast ? '' : rows[i+1].id;
+    const activeToggle = `<label class="lookup-toggle" title="${r.active?'활성':'비활성'}" onclick="event.stopPropagation()">
+      <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
+      <span class="lookup-toggle-slider"></span>
+    </label>`;
+    const rtBadges = isChannel
+      ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(r.recruit_types||[]).map(t => {
+          const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+          return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+        }).join('')}</div>`
+      : '';
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      ${_lookupReorderMode ? `<td><div style="display:flex;gap:3px">
+        <button class="btn btn-ghost btn-xs" ${isFirst?'disabled':''} onclick="moveLookup('${r.id}','${upId}')" style="padding:2px 6px;font-size:13px">↑</button>
+        <button class="btn btn-ghost btn-xs" ${isLast?'disabled':''} onclick="moveLookup('${r.id}','${downId}')" style="padding:2px 6px;font-size:13px">↓</button>
+      </div></td>` : ''}
+      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong>${rtBadges}</td>
+      <td style="color:var(--ink);font-size:13px">${esc(r.name_ja)}</td>
+      <td>${activeToggle}</td>
+      ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${JSON.stringify(r)})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+      </td>`}
+    </tr>`;
+  }).join('');
+}
+
+const RECRUIT_TYPE_LABEL_KO = {monitor:'리뷰어', gifting:'기프팅', visit:'방문형'};
+let _lookupReorderMode = false;
+
+function enterLookupReorderMode() {
+  _lookupReorderMode = true;
+  const btn = $('btnLookupReorderMode');
+  if (btn) { btn.textContent = '순서 변경 완료'; btn.onclick = exitLookupReorderMode; btn.classList.add('btn-primary'); btn.classList.remove('btn-ghost'); }
+  renderLookupsTable();
+}
+function exitLookupReorderMode() {
+  _lookupReorderMode = false;
+  const btn = $('btnLookupReorderMode');
+  if (btn) { btn.textContent = '순서 변경'; btn.onclick = enterLookupReorderMode; btn.classList.remove('btn-primary'); btn.classList.add('btn-ghost'); }
+  renderLookupsTable();
+}
+
+function applyLookupModalKindUI(kind, recruitTypes) {
+  // 채널 탭일 때만 모집 조건 입력 표시
+  const grp = $('lookupRecruitTypesGroup');
+  if (grp) grp.style.display = (kind === 'channel') ? '' : 'none';
+  // 체크박스 상태 초기화
+  const set = new Set(recruitTypes || []);
+  document.querySelectorAll('input[name="lookupRT"]').forEach(cb => {
+    cb.checked = set.has(cb.value);
+  });
+}
+
+function openLookupAddModal() {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 추가';
+  $('lookupEditId').value = '';
+  $('lookupEditKind').value = _currentLookupKind;
+  $('lookupNameKo').value = '';
+  $('lookupNameJa').value = '';
+  $('lookupCode').value = '';
+  $('lookupEditError').style.display = 'none';
+  // 신규 추가 시 채널이면 기본값으로 3개 모두 체크
+  applyLookupModalKindUI(_currentLookupKind, ['monitor','gifting','visit']);
+  openModal('lookupEditModal');
+}
+
+function openLookupEditModal(row) {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + ' 편집';
+  $('lookupEditId').value = row.id;
+  $('lookupEditKind').value = row.kind;
+  $('lookupNameKo').value = row.name_ko || '';
+  $('lookupNameJa').value = row.name_ja || '';
+  $('lookupCode').value = row.code || '';
+  $('lookupEditError').style.display = 'none';
+  applyLookupModalKindUI(row.kind, row.recruit_types || []);
+  openModal('lookupEditModal');
+}
+
+async function saveLookupEdit() {
+  const id = $('lookupEditId').value;
+  const kind = $('lookupEditKind').value;
+  const name_ko = $('lookupNameKo').value.trim();
+  const name_ja = $('lookupNameJa').value.trim();
+  const code = $('lookupCode').value.trim();
+  const err = $('lookupEditError');
+  if (!name_ko || !name_ja) {
+    err.textContent = '한국어/일본어 명칭은 필수입니다';
+    err.style.display = 'block';
+    return;
+  }
+  // 채널이면 모집 조건 1개 이상 필수
+  let recruitTypes = null;
+  if (kind === 'channel') {
+    recruitTypes = Array.from(document.querySelectorAll('input[name="lookupRT"]:checked')).map(cb => cb.value);
+    if (recruitTypes.length === 0) {
+      err.textContent = '모집 타입을 1개 이상 선택해주세요';
+      err.style.display = 'block';
+      return;
+    }
+  }
+  try {
+    if (id) {
+      const updates = {name_ko, name_ja};
+      if (code) updates.code = code;
+      if (recruitTypes) updates.recruit_types = recruitTypes;
+      await updateLookup(id, updates);
+      toast('수정했습니다','success');
+    } else {
+      const payload = {kind, name_ko, name_ja, code};
+      if (recruitTypes) payload.recruit_types = recruitTypes;
+      await insertLookup(payload);
+      toast('추가했습니다','success');
+    }
+    closeModal('lookupEditModal');
+    renderLookupsTable();
+  } catch(e) {
+    err.textContent = '저장 실패: ' + (e.message || String(e));
+    err.style.display = 'block';
+  }
+}
+
+async function moveLookup(idA, idB) {
+  if (!idA || !idB) return;
+  try {
+    await swapLookupOrder(idA, idB);
+    renderLookupsTable();
+  } catch(e) {
+    toast('정렬 변경 실패: ' + (e.message||String(e)),'error');
+  }
+}
+
+async function toggleLookupActive(id, nextActive) {
+  try {
+    if (nextActive) await activateLookup(id);
+    else await deactivateLookup(id);
+    renderLookupsTable();
+  } catch(e) {
+    toast('상태 변경 실패: ' + (e.message||String(e)),'error');
+  }
+}
+
+async function handleLookupDelete(row) {
+  let inUse = false;
+  try { inUse = await isLookupInUse(row); } catch(e) {}
+  if (inUse) {
+    toast('이미 캠페인에서 사용 중입니다. 비활성으로 변경해주세요.','error');
+    return;
+  }
+  const ok = await showConfirm(`'${row.name_ko}' 항목을 영구 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`);
+  if (!ok) return;
+  try {
+    await deleteLookup(row.id);
+    toast('삭제했습니다','success');
+    renderLookupsTable();
+  } catch(e) {
+    toast('삭제 실패: ' + (e.message||String(e)),'error');
+  }
 }
 
 async function loadMyAdminInfo() {
@@ -3400,6 +3855,7 @@ async function loadMyAdminInfo() {
   if ($('myAdminEmail')) $('myAdminEmail').value = currentAdminInfo.email;
   if ($('myAdminName')) $('myAdminName').value = currentAdminInfo.name || '';
   if ($('myAdminRole')) $('myAdminRole').value = currentAdminInfo.role === 'super_admin' ? '슈퍼관리자' : currentAdminInfo.role === 'campaign_admin' ? '캠페인관리자' : '캠페인매니저';
+  applyLookupMenuVisibility();
 }
 
 async function saveMyAdminInfo() {
@@ -3719,6 +4175,7 @@ async function init() {
     currentUser._isAdmin = true;
     currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
     currentAdminInfo = adminResult.data;
+    if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
 
     // GNB에 관리자 이름 표시
     var gnbInfo = document.getElementById('adminGnbInfo');
