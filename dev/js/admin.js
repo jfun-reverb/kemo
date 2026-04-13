@@ -158,6 +158,7 @@ async function loadAdminData() {
   $('kpiInfluencers').textContent = users.length;
   $('kpiApplications').textContent = apps.length;
   $('kpiApproved').textContent = approved.length;
+  renderCampaignBreakdown(camps);
   loadAdminCampaigns();
   loadAdminInfluencers();
 
@@ -202,6 +203,46 @@ async function loadAdminData() {
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
+}
+
+function renderCampaignBreakdown(camps) {
+  const statusEl = $('campStatusBreakdown');
+  const chEl = $('campChannelBreakdown');
+  if (!statusEl || !chEl) return;
+
+  const statusDef = [
+    {key:'draft', label:'준비', color:'#9aa0a6', bg:'#F1F3F4'},
+    {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
+    {key:'active', label:'모집중', color:'#0E7E4A', bg:'#E8F7EF'},
+    {key:'paused', label:'일시정지', color:'#B26A00', bg:'#FFF4E5'},
+    {key:'closed', label:'종료', color:'#6B6B6B', bg:'#EEEEEE'},
+  ];
+  const statusCount = {};
+  camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
+  statusEl.innerHTML = statusDef.map(s => `
+    <div style="flex:1;min-width:90px;background:${s.bg};border-radius:10px;padding:10px 12px">
+      <div style="font-size:20px;font-weight:800;color:${s.color}">${statusCount[s.key]||0}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${s.label}</div>
+    </div>`).join('');
+
+  const chDef = [
+    {key:'instagram', label:'Instagram', color:'#C13584', bg:'#FCE8F3'},
+    {key:'x', label:'X(Twitter)', color:'#0F1419', bg:'#EEEEEE'},
+    {key:'qoo10', label:'Qoo10', color:'#B26A00', bg:'#FFF4E5'},
+    {key:'tiktok', label:'TikTok', color:'#010101', bg:'#E8F7F9'},
+    {key:'youtube', label:'YouTube', color:'#C4302B', bg:'#FDECEC'},
+  ];
+  const chCount = {};
+  camps.forEach(c => {
+    (c.channel||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(ch => {
+      chCount[ch]=(chCount[ch]||0)+1;
+    });
+  });
+  chEl.innerHTML = chDef.map(c => `
+    <div style="flex:1;min-width:90px;background:${c.bg};border-radius:10px;padding:10px 12px">
+      <div style="font-size:20px;font-weight:800;color:${c.color}">${chCount[c.key]||0}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.label}</div>
+    </div>`).join('');
 }
 
 let adminCampTypeFilter = 'all';
