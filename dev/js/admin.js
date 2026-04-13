@@ -990,7 +990,7 @@ function sortInfUsers(users) {
     total: u => (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0),
     line: u => u.line_id ? 1 : 0,
     addr: u => u.prefecture ? 1 : 0,
-    bank: u => u.bank_name ? 1 : 0,
+    bank: u => u.paypal_email ? 1 : 0,
     created: u => new Date(u.created_at).getTime(),
     followers: u => u[{instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[currentInfTab]]||0
   };
@@ -1017,7 +1017,7 @@ function renderInfTable(users, ch) {
 
   if (ch === 'all') {
     if (titleEl) titleEl.textContent = '인플루언서 전체';
-    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('계좌','bank')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
+    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','bank')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
     filtered = sortInfUsers(filtered);
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const igF = (u.ig_followers||0).toLocaleString();
@@ -1026,7 +1026,7 @@ function renderInfTable(users, ch) {
       const ytF = (u.youtube_followers||0).toLocaleString();
       const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+      const bank = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
         <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
         <td>${u.ig?`<a href="https://instagram.com/${esc(u.ig.replace('@',''))}" target="_blank" style="color:var(--pink)">@${esc(u.ig.replace('@',''))}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
@@ -1046,11 +1046,11 @@ function renderInfTable(users, ch) {
     const idKey = {instagram:'ig',x:'x',tiktok:'tiktok',youtube:'youtube'}[ch];
     if (titleEl) titleEl.textContent = `${chLabel} 등록자`;
     filtered = users.filter(u => u[fKey] > 0);
-    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${chLabel} ID</th><th>${infSortTh('팔로워','followers')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('계좌','bank')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
+    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${chLabel} ID</th><th>${infSortTh('팔로워','followers')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','bank')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
     filtered = infSortKey ? sortInfUsers(filtered) : filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0));
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const bank = u.bank_name ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+      const bank = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
       return `<tr>
         <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
         <td>${u[idKey]?`@${esc(u[idKey].replace('@',''))}`:'—'}</td>
@@ -1111,11 +1111,10 @@ async function openInfluencerDetail(userId) {
     row('건물명', u.building) +
     row('전체 주소', fullAddr);
 
-  // 계좌 — row() 내에서 esc() 처리됨
-  const bankType = {'普通':'보통예금','当座':'당좌예금'}[u.bank_type] || u.bank_type;
-  $('infDetailBank').innerHTML = u.bank_name
-    ? row('은행명', u.bank_name) + row('지점명', u.bank_branch) + row('계좌 종류', bankType) + row('계좌번호', u.bank_number) + row('예금주', u.bank_holder)
-    : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">계좌 미등록</div>';
+  // PayPal — row() 내에서 esc() 처리됨
+  $('infDetailBank').innerHTML = u.paypal_email
+    ? row('PayPal 이메일', u.paypal_email)
+    : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">PayPal 미등록</div>';
 
   // 신청 이력
   const apps = await fetchApplications({user_id: userId});
@@ -1167,10 +1166,9 @@ async function openInfluencerModal(userId) {
   const fullAddr2 = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : u.address;
   $('infModalAddress').innerHTML = row('전체 주소', fullAddr2);
 
-  const bankType2 = {'普通':'보통예금','当座':'당좌예금'}[u.bank_type] || u.bank_type;
-  $('infModalBank').innerHTML = u.bank_name
-    ? row('은행', u.bank_name) + row('지점', u.bank_branch) + row('종류', bankType2) + row('계좌번호', u.bank_number) + row('예금주', u.bank_holder)
-    : '<div style="text-align:center;color:var(--muted);padding:12px;font-size:12px">계좌 미등록</div>';
+  $('infModalBank').innerHTML = u.paypal_email
+    ? row('PayPal', u.paypal_email)
+    : '<div style="text-align:center;color:var(--muted);padding:12px;font-size:12px">PayPal 미등록</div>';
 
   const apps = await fetchApplications({user_id: userId});
   const camps = await fetchCampaigns();
@@ -2045,7 +2043,7 @@ function renderProfileCompletion(users) {
   const hasTiktok = users.filter(u => u.tiktok).length;
   const hasYt = users.filter(u => u.youtube).length;
   const hasAddr = users.filter(u => u.zip || u.address).length;
-  const hasBank = users.filter(u => u.bank_name).length;
+  const hasBank = users.filter(u => u.paypal_email).length;
 
   const pct = v => Math.round(v / total * 100);
   const bar = (label, val, color, sub) => `
@@ -2066,5 +2064,5 @@ function renderProfileCompletion(users) {
     bar('YouTube', pct(hasYt), '#5B7CFF', true) +
     '<div style="margin-top:4px"></div>' +
     bar('배송지', pct(hasAddr), '#FF9F43', false) +
-    bar('계좌', pct(hasBank), '#28C76F', false);
+    bar('PayPal', pct(hasBank), '#28C76F', false);
 }
