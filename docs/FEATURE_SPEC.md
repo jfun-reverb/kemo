@@ -421,21 +421,64 @@
 
 ## 9. 시드 데이터
 
-### 9.1 캠페인 (6건)
-
-| 브랜드    | 상품               | 카테고리 | 채널             | 유형    | 가격    | 보수    | 정원 |
-| --------- | ------------------ | -------- | ---------------- | ------- | ------- | ------- | ---- |
-| INNISFREE | Green Tea Serum    | Beauty   | Instagram        | Monitor | ¥3,200 | -       | 25   |
-| Round Lab | Birch Toner        | Beauty   | Instagram        | Monitor | ¥4,500 | -       | 20   |
-| DR.G      | Cushion Foundation | Beauty   | Instagram        | Monitor | ¥3,800 | ¥1,000 | 15   |
-| MEDIHEAL  | Mask Pack          | Beauty   | Instagram/TikTok | Gifting | ¥2,000 | -       | 30   |
-| PERIPERA  | Lip Tint           | Beauty   | Instagram/TikTok | Gifting | ¥1,500 | ¥500   | 20   |
-| BIBIGO    | Dumplings          | Food     | Qoo10            | Gifting | ¥1,200 | ¥2,000 | 10   |
-
-### 9.2 테스트 인플루언서 (3명)
+### 9.1 테스트 인플루언서 (3명)
 
 | 이메일                | 이름       | 카테고리 | 주력 채널   | 팔로워 | 비밀번호 |
 | --------------------- | ---------- | -------- | ----------- | ------ | -------- |
 | sakura.test@reverb.jp | 佐藤さくら | Beauty   | Instagram   | 12,500 | test1234 |
 | yui.test@reverb.jp    | 田中ゆい   | Food     | TikTok      | 45,000 | test1234 |
 | haruka.test@reverb.jp | 鈴木はるか | Fashion  | Instagram+X | 22,000 | test1234 |
+
+---
+
+## 10. 캠페인 신청 조건 — 최소 팔로워수 정책
+
+### 10.1 현재 정책 (2026-04-13 적용)
+
+**방식: OR (채널 1개 충족)**
+- 캠페인에 선택된 채널들 중 **최소 1개 채널이라도** `min_followers` 이상이면 신청 가능
+- 예시: 캠페인 채널=[Instagram, X], `min_followers`=5000
+  - Instagram 7,000 + X 1,000 → 신청 가능 (Instagram 조건 충족)
+  - Instagram 3,000 + X 4,000 → 차단 (둘 다 미달)
+
+### 10.2 스키마
+- `campaigns.channel` (text, 콤마 구분): `"instagram,x"` 형식으로 복수 채널 저장
+- `campaigns.min_followers` (int): 단일값, 모든 채널에 동일 기준 적용
+- `influencers.ig_followers / x_followers / tiktok_followers / youtube_followers`: 채널별 팔로워 수
+
+### 10.3 구현 위치
+- 검증 로직: `dev/js/application.js` (openApplyFlow 함수 내 팔로워 체크 블록)
+- 핵심 코드: 선택 채널의 팔로워 중 최댓값이 `min_followers` 미만이면 차단
+- Qoo10은 Instagram 팔로워를 참조
+
+### 10.4 선정 배경
+다른 안 대비 장점:
+1. **기준 채널 선택 방식**: 대표 채널 1개만 체크 → 타 채널 강자 탈락 (멀티채널 의미 약함)
+2. **채널별 최소치 지정**: 가장 정밀하나 스키마 확장·폼 복잡도↑
+3. **합산 n명 이상**: 구현 단순하나 소규모 계정 합산으로 리치 왜곡
+4. **OR 방식 (현재)**: 스키마 변경 없음, "복수 채널 중 활발한 쪽 기준" 직관과 일치
+
+### 10.5 알려진 한계
+- 전 채널 동시 활동을 요구하는 캠페인에는 부적합
+  - 예: "Instagram과 X 양쪽에 모두 게시 가능한 5천+ 인플루언서"
+- 현재는 사용 예시가 없지만, 향후 해당 요구가 생길 경우 정책 재검토 필요
+
+### 10.6 재검토 트리거
+- 광고주가 "양 채널 모두 기준 충족" 요건을 요청할 때
+- 채널별로 다른 최소치(Instagram 1만, X 5천 등)를 요구하는 캠페인이 필요해질 때
+- 합산 팔로워 기준으로 등급(나노/마이크로 등)을 나누고 싶을 때
+
+### 10.7 향후 확장안 (참고용)
+
+**A. AND 옵션 추가**
+- `campaigns.follower_policy: 'any' | 'all'` 컬럼 추가
+- 'all' 선택 시 선택 채널 **전부**가 `min_followers` 이상이어야 통과
+
+**B. 채널별 최소치**
+- `campaigns.min_followers_by_channel` (JSON): `{"instagram": 10000, "x": 5000}`
+- 캠페인 등록 폼에서 채널 체크박스 옆에 각 채널별 입력창 배치
+- 비어있는 채널은 최소 제한 없음으로 처리
+
+**C. 합산 기준 (보조)**
+- 기본은 OR 유지, 옵션으로 합산 모드 제공
+- 단독 적용은 리치 왜곡 위험이 있어 비권장

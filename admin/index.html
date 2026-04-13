@@ -181,6 +181,36 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* ── ANIMATIONS (Material Motion) ── */
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .fade-up{animation:fadeUp .3s cubic-bezier(.2,0,0,1) forwards}
+
+/* ── FOOTER ── */
+.site-footer{background:#F0F4F8;padding:28px 0 calc(var(--tab-h) + 24px);border-top:1px solid var(--line);color:var(--ink)}
+.site-footer .container{padding:0 20px}
+.footer-brand{font-size:16px;font-weight:800;margin-bottom:14px;color:var(--ink)}
+.footer-info{margin:0 0 18px;padding:0;font-size:11px;line-height:1.9;color:var(--muted)}
+.footer-info>div{display:flex;gap:16px}
+.footer-info dt{width:80px;flex-shrink:0;font-weight:500;color:var(--muted);margin:0}
+.footer-info dd{margin:0;color:var(--ink);font-weight:500;flex:1;word-break:break-word}
+.footer-info dd a{color:var(--ink);text-decoration:none;font-weight:600}
+.footer-links{display:flex;gap:16px;padding:14px 0;border-top:1px solid rgba(0,0,0,.08);border-bottom:1px solid rgba(0,0,0,.08);margin-bottom:16px}
+.footer-links a{font-size:11px;color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+.footer-sns{display:flex;gap:10px;margin-bottom:16px}
+.footer-sns a{display:inline-flex;line-height:0}
+.footer-copy{font-size:10px;color:var(--muted);letter-spacing:.02em}
+
+/* ── LEGAL MODAL ── */
+#legalModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;align-items:flex-end;justify-content:center}
+#legalModal.on{display:flex}
+#legalModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#legalModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+#legalModal .legal-title{font-size:15px;font-weight:700}
+#legalModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
+#legalModal .legal-body{padding:18px 18px 28px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--ink)}
+#legalModal .legal-body h3{font-size:14px;margin:16px 0 6px;font-weight:700}
+#legalModal .legal-body p{margin:0 0 10px}
+#legalModal .legal-body dl{margin:0 0 14px}
+#legalModal .legal-body dt{font-weight:600;color:var(--muted);margin-top:6px;font-size:12px}
+#legalModal .legal-body dd{margin:0 0 4px}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 /* ══════════════════════════════════
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
@@ -1791,6 +1821,46 @@ function closeLoginPrompt(e) {
   if (e && e.target !== $('loginPromptOverlay')) return;
   const o = $('loginPromptOverlay');
   if (o) o.style.display='none';
+}
+
+// ── 회사정보 / 이용약관 / 개인정보 모달 ──
+function openLegalModal(kind) {
+  const titles = {about:'会社紹介', terms:'利用規約', privacy:'個人情報処理方針'};
+  const $t = document.getElementById('legalTitle');
+  const $b = document.getElementById('legalBody');
+  const $m = document.getElementById('legalModal');
+  if (!$t || !$b || !$m) return;
+  $t.textContent = titles[kind] || '';
+  $b.innerHTML = buildLegalContent(kind);
+  $m.classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+function closeLegalModal() {
+  const $m = document.getElementById('legalModal');
+  if ($m) $m.classList.remove('on');
+  document.body.style.overflow = '';
+}
+function buildLegalContent(kind) {
+  if (kind === 'about') {
+    return `
+      <h3>会社情報</h3>
+      <dl>
+        <dt>会社名</dt><dd>株式会社ジェイファン（JFUN Corp.）</dd>
+        <dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd>
+        <dt>代表者</dt><dd>ジュ・ヒョンホ</dd>
+        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a></dd>
+      </dl>
+      <p>REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。</p>
+    `;
+  }
+  if (kind === 'terms' || kind === 'privacy') {
+    return `
+      <p>${kind==='terms'?'利用規約':'個人情報処理方針'}の日本語版は現在準備中です。</p>
+      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a>）までお問い合わせください。</p>
+      <p style="font-size:11px;color:var(--muted);margin-top:18px">施行予定日: 2026年5月1日</p>
+    `;
+  }
+  return '';
 }
 // ══════════════════════════════════════
 // ADMIN
