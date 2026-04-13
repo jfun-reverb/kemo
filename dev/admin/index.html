@@ -666,20 +666,14 @@
           </div>
 
           <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title" id="lookupTableTitle">채널 목록</span>
+              <button class="btn btn-ghost btn-xs" id="btnLookupReorderMode" onclick="enterLookupReorderMode()">순서 변경</button>
+            </div>
             <table class="data-table">
-              <thead>
-                <tr>
-                  <th style="width:40px"></th>
-                  <th>한국어 명칭</th>
-                  <th>일본어 명칭</th>
-                  <th style="width:140px">코드</th>
-                  <th style="width:80px">상태</th>
-                  <th style="width:120px">정렬</th>
-                  <th style="width:140px"></th>
-                </tr>
-              </thead>
+              <thead id="lookupTableHead"></thead>
               <tbody id="lookupsTableBody">
-                <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
               </tbody>
             </table>
           </div>
@@ -918,10 +912,7 @@
         <label class="form-label">일본어 명칭 <span style="color:var(--red)">*</span></label>
         <input type="text" id="lookupNameJa" class="form-input" placeholder="例: Instagram, ビューティ">
       </div>
-      <div class="form-group">
-        <label class="form-label">코드 <span style="font-size:11px;font-weight:400;color:var(--muted)">(영문/숫자, 비워두면 자동 생성)</span></label>
-        <input type="text" id="lookupCode" class="form-input" placeholder="instagram">
-      </div>
+      <input type="hidden" id="lookupCode">
       <!-- 채널 전용: 모집 조건 -->
       <div class="form-group" id="lookupRecruitTypesGroup" style="display:none">
         <label class="form-label">사용 가능한 모집 타입 <span style="color:var(--red)">*</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택)</span></label>

@@ -974,20 +974,14 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
 
           <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title" id="lookupTableTitle">채널 목록</span>
+              <button class="btn btn-ghost btn-xs" id="btnLookupReorderMode" onclick="enterLookupReorderMode()">순서 변경</button>
+            </div>
             <table class="data-table">
-              <thead>
-                <tr>
-                  <th style="width:40px"></th>
-                  <th>한국어 명칭</th>
-                  <th>일본어 명칭</th>
-                  <th style="width:140px">코드</th>
-                  <th style="width:80px">상태</th>
-                  <th style="width:120px">정렬</th>
-                  <th style="width:140px"></th>
-                </tr>
-              </thead>
+              <thead id="lookupTableHead"></thead>
               <tbody id="lookupsTableBody">
-                <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
+                <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
               </tbody>
             </table>
           </div>
@@ -1224,10 +1218,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <label class="form-label">일본어 명칭 <span style="color:var(--red)">*</span></label>
         <input type="text" id="lookupNameJa" class="form-input" placeholder="例: Instagram, ビューティ">
       </div>
-      <div class="form-group">
-        <label class="form-label">코드 <span style="font-size:11px;font-weight:400;color:var(--muted)">(영문/숫자, 비워두면 자동 생성)</span></label>
-        <input type="text" id="lookupCode" class="form-input" placeholder="instagram">
-      </div>
+      <input type="hidden" id="lookupCode">
       <!-- 채널 전용: 모집 조건 -->
       <div class="form-group" id="lookupRecruitTypesGroup" style="display:none">
         <label class="form-label">사용 가능한 모집 타입 <span style="color:var(--red)">*</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택)</span></label>
@@ -3629,6 +3620,12 @@ async function loadLookupsPane() {
 
 function switchLookupTab(kind, btn) {
   _currentLookupKind = kind;
+  // 탭 전환 시 reorder 모드 자동 종료
+  if (_lookupReorderMode) {
+    _lookupReorderMode = false;
+    const rb = $('btnLookupReorderMode');
+    if (rb) { rb.textContent = '순서 변경'; rb.onclick = enterLookupReorderMode; rb.classList.remove('btn-primary'); rb.classList.add('btn-ghost'); }
+  }
   document.querySelectorAll('.lookup-tab').forEach(b => {
     b.style.color = 'var(--muted)';
     b.style.borderBottomColor = 'transparent';
@@ -3644,20 +3641,35 @@ function switchLookupTab(kind, btn) {
 
 async function renderLookupsTable() {
   const tbody = $('lookupsTableBody');
+  const thead = $('lookupTableHead');
+  const title = $('lookupTableTitle');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
+  const isChannel = _currentLookupKind === 'channel';
+  // 헤더 렌더
+  if (thead) {
+    thead.innerHTML = `<tr>
+      <th style="width:40px"></th>
+      ${_lookupReorderMode ? '<th style="width:80px">순서</th>' : ''}
+      <th>한국어 명칭${isChannel?' / 모집 타입':''}</th>
+      <th>일본어 명칭</th>
+      <th style="width:80px">상태</th>
+      ${_lookupReorderMode ? '' : '<th style="width:160px"></th>'}
+    </tr>`;
+  }
+  const colspan = _lookupReorderMode ? 5 : 5;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try {
     rows = await fetchLookupsAll(_currentLookupKind);
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
     return;
   }
   if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">등록된 항목이 없습니다</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">등록된 항목이 없습니다</td></tr>`;
     return;
   }
-  const isChannel = _currentLookupKind === 'channel';
   tbody.innerHTML = rows.map((r, i) => {
     const isFirst = i === 0;
     const isLast = i === rows.length - 1;
@@ -3674,24 +3686,37 @@ async function renderLookupsTable() {
       : '';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      ${_lookupReorderMode ? `<td><div style="display:flex;gap:3px">
+        <button class="btn btn-ghost btn-xs" ${isFirst?'disabled':''} onclick="moveLookup('${r.id}','${upId}')" style="padding:2px 6px;font-size:13px">↑</button>
+        <button class="btn btn-ghost btn-xs" ${isLast?'disabled':''} onclick="moveLookup('${r.id}','${downId}')" style="padding:2px 6px;font-size:13px">↓</button>
+      </div></td>` : ''}
       <td><strong style="font-size:13px">${esc(r.name_ko)}</strong>${rtBadges}</td>
       <td style="color:var(--ink);font-size:13px">${esc(r.name_ja)}</td>
-      <td><code style="font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px">${esc(r.code)}</code></td>
       <td>${activeBadge}</td>
-      <td>
-        <button class="btn btn-ghost btn-xs" ${isFirst?'disabled':''} onclick="moveLookup('${r.id}','${upId}')" title="위로">↑</button>
-        <button class="btn btn-ghost btn-xs" ${isLast?'disabled':''} onclick="moveLookup('${r.id}','${downId}')" title="아래로">↓</button>
-      </td>
-      <td style="white-space:nowrap">
+      ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${JSON.stringify(r)})'>편집</button>
         <button class="btn btn-ghost btn-xs" onclick="toggleLookupActive('${r.id}',${!r.active})">${r.active?'비활성':'활성'}</button>
         <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
-      </td>
+      </td>`}
     </tr>`;
   }).join('');
 }
 
 const RECRUIT_TYPE_LABEL_KO = {monitor:'리뷰어', gifting:'기프팅', visit:'방문형'};
+let _lookupReorderMode = false;
+
+function enterLookupReorderMode() {
+  _lookupReorderMode = true;
+  const btn = $('btnLookupReorderMode');
+  if (btn) { btn.textContent = '순서 변경 완료'; btn.onclick = exitLookupReorderMode; btn.classList.add('btn-primary'); btn.classList.remove('btn-ghost'); }
+  renderLookupsTable();
+}
+function exitLookupReorderMode() {
+  _lookupReorderMode = false;
+  const btn = $('btnLookupReorderMode');
+  if (btn) { btn.textContent = '순서 변경'; btn.onclick = enterLookupReorderMode; btn.classList.remove('btn-primary'); btn.classList.add('btn-ghost'); }
+  renderLookupsTable();
+}
 
 function applyLookupModalKindUI(kind, recruitTypes) {
   // 채널 탭일 때만 모집 조건 입력 표시
