@@ -513,30 +513,6 @@ function removeEditCampImg(idx) {
   renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
 }
 
-function toggleEditRT(rb) {
-  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
-  const label=rb.closest('label');
-  label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';label.style.fontWeight='700';
-}
-
-function toggleEditCT(cb) {
-  const label=cb.closest('label');
-  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
-  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
-}
-
-function toggleCH(cb) {
-  const label=cb.closest('label');
-  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
-  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
-}
-
-function toggleEditCH(cb) {
-  const label=cb.closest('label');
-  if(cb.checked){label.style.borderColor='var(--pink)';label.style.background='var(--light-pink)';label.style.color='var(--pink)';}
-  else{label.style.borderColor='var(--line)';label.style.background='';label.style.color='';}
-}
-
 function validateDeadlines(deadlineId, postDeadlineId, warnId) {
   const dl = $(deadlineId)?.value;
   const pdl = $(postDeadlineId)?.value;
