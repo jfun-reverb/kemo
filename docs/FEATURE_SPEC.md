@@ -587,3 +587,61 @@
 
 ### 향후 검토
 - 방문형 캠페인의 추가 필드 — 매장 주소, 운영 시간, 예약 방법 등 캠페인 등록 폼에 별도 항목 필요할 수 있음
+
+---
+
+## 16. 기준 데이터 관리 (lookup_values)
+
+캠페인에서 사용하는 4종류 기준 데이터를 통합 관리하는 메뉴입니다.
+
+### 16.1 대상 데이터
+| kind | 한국어 | 일본어 라벨 예 | 비고 |
+|---|---|---|---|
+| `channel` | 채널 | Instagram / X(Twitter) / Qoo10 / TikTok / YouTube | 모집 타입(recruit_types[])과 연동 |
+| `category` | 카테고리 | 뷰티/푸드/패션/헬스/기타 | 캠페인 분류 |
+| `content_type` | 콘텐츠 종류 | 피드/릴스/스토리/쇼츠/동영상/이미지 | 캠페인 등록 시 복수 선택 |
+| `ng_item` | NG 사항 | 경쟁사 노출 금지 등 | 프리셋. 캠페인 등록 폼의 NG textarea에 클릭으로 삽입 |
+
+### 16.2 스키마 (`lookup_values`)
+| 컬럼 | 타입 | 비고 |
+|---|---|---|
+| id | uuid | PK |
+| kind | text | channel / category / content_type / ng_item |
+| code | text | 영문 식별자 (자동 생성, UI 비공개) |
+| name_ko | text | 한국어 명칭 (필수) |
+| name_ja | text | 일본어 명칭 (필수) |
+| sort_order | int | 정렬 순서 |
+| active | boolean | false면 신규 등록 폼에서 숨김 |
+| recruit_types | text[] | channel 전용. monitor/gifting/visit 중 1개 이상 |
+| created_at / updated_at | timestamptz | updated_at은 트리거로 자동 갱신 |
+
+UNIQUE 제약: `(kind, code)`
+
+### 16.3 권한 (RLS)
+- SELECT: 인증·익명 모두 가능 (익명은 active만)
+- INSERT/UPDATE/DELETE: `is_campaign_admin()` (campaign_admin 또는 super_admin)
+
+### 16.4 관리자 UI
+- 사이드바 메뉴 "기준 데이터" — campaign_admin 이상에게만 노출
+- 종류별 4개 탭 (채널 / 카테고리 / 콘텐츠 종류 / NG 사항)
+- 행: 한국어명(채널은 모집 타입 배지 함께) / 일본어명 / 활성 토글 / 편집 / 삭제
+- "순서 변경" 토글 버튼 — 모드 진입 시 ↑↓ 컬럼 표시, 다른 액션 숨김 (캠페인 관리와 동일 UX)
+- 추가/편집 모달: 한국어·일본어 명칭 필수, 채널이면 모집 타입 체크박스 (1개 이상 필수)
+- 삭제: 사용 중이면 토스트로 차단, 미사용이면 커스텀 confirm 모달 → hard delete
+
+### 16.5 코드(code) 정책
+- 운영자가 직접 입력하지 않음 (UI에 노출하지 않음)
+- 등록 시 한국어·일본어 명칭에서 자동 슬러그 생성 (`generateLookupCode`)
+- 영문/숫자가 거의 없으면 `kind-랜덤6자리` 형태로 폴백
+- 코드 변경이 필요한 경우 SQL로 직접 처리 (기존 캠페인 데이터 매칭이 깨질 위험 때문)
+
+### 16.6 캐싱
+- `fetchLookups(kind)` — 활성 항목만, 메모리 캐시 사용 (캠페인 등록 폼·인플루언서 페이지)
+- `fetchLookupsAll(kind)` — 비활성 포함, 캐시 미사용 (관리자 화면)
+- CUD 시 해당 kind 캐시 invalidate
+
+### 16.7 향후 통합 작업 (Pending)
+- 캠페인 등록/편집 폼의 채널·카테고리·콘텐츠 체크박스를 `lookup_values` 조회 결과로 동적 렌더링
+- 캠페인 폼에서 모집 타입 선택 시 → 채널 체크박스를 `recruit_types` 일치하는 것만 표시
+- 인플루언서 페이지 채널 라벨/필터를 `lookup_values`로 전환
+- NG 프리셋: 캠페인 등록 폼에 "프리셋 추가" 버튼 → 클릭 시 NG textarea에 일본어 본문 삽입
