@@ -4171,7 +4171,17 @@ async function init() {
 
   // URL 해시가 있으면 해당 페이지로 이동
   const hash = location.hash.replace('#','');
-  if (hash && hash.startsWith('detail-')) {
+
+  // recovery 진행 중이면 초기 라우팅 스킵 (Supabase SDK가 PASSWORD_RECOVERY 이벤트로 reset-pw 이동시킴)
+  let isRecoveryInProgress = false;
+  try { isRecoveryInProgress = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
+  const urlHasRecoveryCode = new URLSearchParams(location.search).has('code') ||
+                             location.hash.includes('type=recovery') ||
+                             location.hash.includes('access_token=');
+
+  if (isRecoveryInProgress || urlHasRecoveryCode) {
+    // 초기 라우팅 건너뜀. PASSWORD_RECOVERY 핸들러가 reset-pw로 이동시킴.
+  } else if (hash && hash.startsWith('detail-')) {
     const campId = hash.replace('detail-','');
     openCampaign(campId);
   } else if (hash && hash.startsWith('mypage-')) {
