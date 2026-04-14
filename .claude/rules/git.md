@@ -64,3 +64,4 @@ globs: "*"
 - `reverb-reviewer`: commit/push 직전 항상 실행
 - `reverb-supabase-expert`: `auth.users`, `auth.identities`, RLS, 마이그레이션, `storage.js`, Supabase 클라이언트 옵션 수정 시
 - `reverb-planner`: 기능 추가·개선·리팩토링 시작 전 (규모 무관)
+- `reverb-qa-tester`: 운영 배포 전 및 인증/신청/관리자 플로우 변경 시 (개발서버에서 E2E 검증)
