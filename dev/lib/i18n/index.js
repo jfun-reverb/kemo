@@ -36,11 +36,17 @@
   window.t = function(key, fallback) {
     const primary = lookup(getDict(currentLang), key);
     if (primary !== undefined) return primary;
-    // 폴백: JA → 키 자체
+    // 폴백: JA → 명시적 fallback → 키 자체
     const ja = lookup(getDict('ja'), key);
     if (ja !== undefined) return ja;
     return fallback !== undefined ? fallback : key;
   };
+
+  // 번역이 실제로 존재하는지 확인 (사전 누락 시 HTML fallback 유지용)
+  function hasTranslation(key) {
+    return lookup(getDict(currentLang), key) !== undefined
+        || lookup(getDict('ja'), key) !== undefined;
+  }
 
   // 현재 언어 조회
   window.getLang = function() { return currentLang; };
@@ -51,16 +57,14 @@
     // 텍스트 치환: <span data-i18n="key">
     root.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
-      if (!key) return;
-      const text = window.t(key);
-      if (text !== undefined) el.textContent = text;
+      if (!key || !hasTranslation(key)) return;
+      el.textContent = window.t(key);
     });
     // HTML 치환: <div data-i18n-html="key"> (<br> 등 허용, 자체 문구만 사용)
     root.querySelectorAll('[data-i18n-html]').forEach(el => {
       const key = el.getAttribute('data-i18n-html');
-      if (!key) return;
-      const text = window.t(key);
-      if (text !== undefined) el.innerHTML = text;
+      if (!key || !hasTranslation(key)) return;
+      el.innerHTML = window.t(key);
     });
     // 속성 치환: <input data-i18n-attr="placeholder:key,title:key2">
     root.querySelectorAll('[data-i18n-attr]').forEach(el => {
@@ -68,7 +72,7 @@
       if (!spec) return;
       spec.split(',').forEach(pair => {
         const [attr, key] = pair.split(':').map(s => s.trim());
-        if (attr && key) el.setAttribute(attr, window.t(key));
+        if (attr && key && hasTranslation(key)) el.setAttribute(attr, window.t(key));
       });
     });
   };
