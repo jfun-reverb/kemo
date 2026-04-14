@@ -1985,8 +1985,6 @@ async function executeRemoveRole() {
 }
 
 async function executeDeleteCompletely() {
-  const email = document.getElementById('deleteAdminEmail').textContent;
-  if (!confirm(`정말 ${email} 계정을 완전 삭제합니까? 인플루언서 데이터, 응모 이력 등 모두 삭제되며 복구 불가합니다.`)) return;
   const authId = document.getElementById('deleteAdminAuthId').value;
   if (!authId) return;
   try {
