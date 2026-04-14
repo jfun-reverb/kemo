@@ -46,7 +46,7 @@ function navigate(page, pushHistory) {
   }
 
   if (appShell) appShell.style.display = '';
-  document.body.style.background = '#E8E0EC';
+  document.body.style.background = '#E5E5E5';
 
   document.querySelectorAll('#appShell .page').forEach(p => p.classList.remove('active'));
   const el = $('page-'+pageName);
