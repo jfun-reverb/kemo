@@ -170,8 +170,8 @@ async function init() {
         updateGnb();
       }
     });
-    // URL에 복구 토큰이 포함된 경우 즉시 reset-pw로
-    if (isRecoveryUrl || hasAccessToken) {
+    // 초기 URL이 명시적 recovery인 경우에만 즉시 이동 (access_token만 있을 때는 이벤트 기다림)
+    if (isRecoveryUrl) {
       navigate('reset-pw');
     }
     // 링크 만료/에러 감지
