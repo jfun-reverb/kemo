@@ -1381,25 +1381,44 @@ var DEMO_CAMPAIGNS = [];
 const RICH_ALLOWED_TAGS = ['p','br','strong','b','em','i','u','s','strike','ul','ol','li','a','h2','h3','h4','blockquote','code','pre','span','div'];
 const RICH_ALLOWED_ATTR = ['href','target','rel','class'];
 
-// Quill 2.x: bullet 리스트도 <ol><li data-list="bullet">로 저장 → <ul>로 정규화
+// Quill 2.x: bullet 리스트도 <ol><li data-list="bullet">로 저장 → <ul>/<ol> 적절히 분리
 function normalizeQuillLists(wrapper) {
   wrapper.querySelectorAll('ol').forEach(ol => {
-    const items = Array.from(ol.children);
+    const items = Array.from(ol.children).filter(el => el.tagName === 'LI');
     if (!items.length) return;
-    const bulletItems = items.filter(li => li.getAttribute && li.getAttribute('data-list') === 'bullet');
-    const orderedItems = items.filter(li => li.getAttribute && li.getAttribute('data-list') === 'ordered');
-    // 모두 bullet이면 전체를 <ul>로 변환
-    if (bulletItems.length === items.length) {
-      const ul = document.createElement('ul');
-      items.forEach(li => {
-        li.removeAttribute('data-list');
-        ul.appendChild(li);
-      });
-      ol.replaceWith(ul);
+
+    // 각 li의 유형(bullet/ordered) 파악
+    const segments = []; // [{type: 'bullet'|'ordered', items: []}]
+    let current = null;
+    items.forEach(li => {
+      const type = li.getAttribute('data-list') === 'bullet' ? 'bullet' : 'ordered';
+      if (!current || current.type !== type) {
+        current = { type, items: [] };
+        segments.push(current);
+      }
+      li.removeAttribute('data-list');
+      current.items.push(li);
+    });
+
+    // 한 종류만 있으면 단순 교체
+    if (segments.length === 1) {
+      if (segments[0].type === 'bullet') {
+        const ul = document.createElement('ul');
+        segments[0].items.forEach(li => ul.appendChild(li));
+        ol.replaceWith(ul);
+      }
       return;
     }
-    // 혼합이면 연속된 bullet 묶음을 별도 <ul>로 분리 (간단 버전: 전체 data-list 제거)
-    items.forEach(li => li.removeAttribute('data-list'));
+
+    // 혼합: 원래 <ol> 위치에 여러 <ul>/<ol>를 순서대로 삽입
+    const parent = ol.parentNode;
+    const frag = document.createDocumentFragment();
+    segments.forEach(seg => {
+      const list = document.createElement(seg.type === 'bullet' ? 'ul' : 'ol');
+      seg.items.forEach(li => list.appendChild(li));
+      frag.appendChild(list);
+    });
+    parent.replaceChild(frag, ol);
   });
 }
 
