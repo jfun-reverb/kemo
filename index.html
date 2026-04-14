@@ -2603,7 +2603,10 @@ async function handleForgotPassword(e) {
       errEl.textContent = error.message;
       errEl.style.display = 'block';
     } else {
-      successEl.textContent = 'メールを送信しました。メールボックスをご確認ください。';
+      const msg = (typeof t === 'function')
+        ? t('auth.forgot.successMsg', 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。')
+        : 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。';
+      successEl.textContent = msg;
       successEl.style.display = 'block';
       $('forgotForm').reset();
     }
@@ -2651,6 +2654,8 @@ async function handleResetPassword(e) {
       errEl.textContent = error.message;
       errEl.style.display = 'block';
     } else {
+      try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
+      await db.auth.signOut();
       toast('パスワードが変更されました', 'success');
       navigate('login');
     }
@@ -3482,14 +3487,38 @@ async function init() {
   }
   updateGnb();
 
+  // 비밀번호 복구 URL 감지 (이벤트보다 먼저 판단)
+  // - implicit flow: #access_token=...&type=recovery
+  // - PKCE flow: ?code=... (with recovery intent)
+  const hashStr = location.hash.replace('#','');
+  const hashParams = new URLSearchParams(hashStr.includes('&') ? hashStr : '');
+  const queryParams = new URLSearchParams(location.search);
+  const urlType = hashParams.get('type') || queryParams.get('type');
+  const hasRecoveryHash = hashStr.includes('type=recovery');
+  const hasAccessToken = hashParams.get('access_token') && !urlType;
+  const isRecoveryUrl = urlType === 'recovery' || hasRecoveryHash;
+
+  // recovery URL로 들어온 경우 플래그 저장 (다른 탭 동기화 대응)
+  if (isRecoveryUrl) {
+    try { sessionStorage.setItem('reverb.recovery', '1'); } catch(e) {}
+  }
+
   // 비밀번호 복구 이벤트 감지
   if (db) {
     db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
+        try { sessionStorage.setItem('reverb.recovery', '1'); } catch(e) {}
         navigate('reset-pw');
         return;
       }
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        // recovery 모드에서는 SIGNED_IN을 받아도 reset-pw로 유도
+        let isRecovery = false;
+        try { isRecovery = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
+        if (isRecovery) {
+          navigate('reset-pw');
+          return;
+        }
         if (!currentUser) {
           currentUser = session.user;
           const {data:adminData} = await db.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
@@ -3504,16 +3533,14 @@ async function init() {
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
+        try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
         currentUser = null;
         currentUserProfile = null;
         updateGnb();
       }
     });
-    // URL에 복구 토큰이 포함된 경우 감지
-    const hashStr = location.hash.replace('#','');
-    const hashParams = new URLSearchParams(hashStr.includes('&') ? hashStr : '');
-    const urlType = hashParams.get('type') || new URLSearchParams(location.search).get('type');
-    if (urlType === 'recovery' || hashStr.includes('type=recovery')) {
+    // URL에 복구 토큰이 포함된 경우 즉시 reset-pw로
+    if (isRecoveryUrl || hasAccessToken) {
       navigate('reset-pw');
     }
     // 링크 만료/에러 감지
