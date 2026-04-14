@@ -774,7 +774,10 @@ textarea.form-input{resize:vertical;min-height:80px}
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.login.pwLabel">Password</label>
-          <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
+          <div class="pw-wrap">
+            <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
+            <button type="button" class="pw-toggle" onclick="togglePw('loginPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
         </div>
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="loginBtn" data-i18n="auth.login.btn">Log In</button>
@@ -824,11 +827,18 @@ textarea.form-input{resize:vertical;min-height:80px}
       <form id="resetPwForm" onsubmit="handleResetPassword(event)">
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.newLabel">新しいパスワード（8文字以上）</label>
-          <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
+          <div class="pw-wrap">
+            <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
+            <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
-          <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
+          <div class="pw-wrap">
+            <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
+            <button type="button" class="pw-toggle" onclick="togglePw('resetPwConfirm',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
         </div>
         <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn" data-i18n="auth.reset.btn">パスワードを変更</button>
@@ -852,7 +862,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
         <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
         <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('login')" data-i18n="auth.signup.confirmSentBtn">ログインページへ</button>
       </div>
       <div id="signupFormArea">
@@ -888,6 +898,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
           </div>
         </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div class="signup-agree">
           <label class="signup-agree-all">
@@ -967,6 +978,15 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
           <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <!-- 言語 / 언어 토글 -->
+        <div class="mypage-menu-item" style="cursor:default">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">language</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.language">言語 / 언어</span>
+          <div class="lang-toggle" role="group" aria-label="Language">
+            <button type="button" class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
+            <button type="button" class="lang-btn" data-lang="ko" onclick="setLang('ko')">한국어</button>
+          </div>
         </div>
         <div class="mypage-menu-item" onclick="handleLogout()">
           <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
@@ -1131,11 +1151,27 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:18px">定期的なパスワード変更をお勧めします</div>
-        <div class="form-group"><label class="form-label">現在のパスワード</label><input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード"></div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">新しいパスワード</label><input type="password" id="newPw" class="form-input" placeholder="8文字以上"></div>
-          <div class="form-group"><label class="form-label">新しいパスワード（確認）</label><input type="password" id="newPw2" class="form-input" placeholder="再入力"></div>
+        <div class="form-group"><label class="form-label">現在のパスワード</label>
+          <div class="pw-wrap">
+            <input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード">
+            <button type="button" class="pw-toggle" onclick="togglePw('currentPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
         </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">新しいパスワード</label>
+            <div class="pw-wrap">
+              <input type="password" id="newPw" class="form-input" placeholder="8文字以上">
+              <button type="button" class="pw-toggle" onclick="togglePw('newPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+          <div class="form-group"><label class="form-label">新しいパスワード（確認）</label>
+            <div class="pw-wrap">
+              <input type="password" id="newPw2" class="form-input" placeholder="再入力">
+              <button type="button" class="pw-toggle" onclick="togglePw('newPw2',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()">パスワードを変更</button>
       </div>
@@ -2451,6 +2487,22 @@ function toggleOptional() {
 }
 
 // ── 비밀번호 보기/숨기기 ──
+// 비밀번호 정책 검증
+// 규칙: 8자 이상 + 영문 소문자 1개 이상 + 특수문자 1개 이상
+// 유효하면 null, 위반 시 현지화된 에러 메시지 반환
+function validatePasswordPolicy(pw) {
+  const fallback = {
+    short: 'パスワードは8文字以上で入力してください。',
+    needLower: 'パスワードに英小文字を1つ以上含めてください。',
+    needSpecial: 'パスワードに記号（!@#$%^&*など）を1つ以上含めてください。'
+  };
+  const T = (key, fb) => (typeof t === 'function') ? t(key, fb) : fb;
+  if (!pw || pw.length < 8) return T('auth.pwTooShort', fallback.short);
+  if (!/[a-z]/.test(pw)) return T('auth.pwNeedLower', fallback.needLower);
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return T('auth.pwNeedSpecial', fallback.needSpecial);
+  return null;
+}
+
 function togglePw(inputId, btn) {
   const input = $(inputId);
   if (!input) return;
@@ -3050,8 +3102,9 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
-  if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
-  if (pw.length < 8) { errEl.textContent='Password must be 8+ characters'; errEl.style.display='block'; return; }
+  if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
+  const pwErr = validatePasswordPolicy(pw);
+  if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
   if (!$('agreeTerms')?.checked || !$('agreePrivacy')?.checked) {
     errEl.textContent = '利用規約および個人情報処理方針への同意が必要です';
     errEl.style.display = 'block';
@@ -3213,13 +3266,14 @@ async function handleResetPassword(e) {
 
   errEl.style.display = 'none';
 
-  if (pw.length < 8) {
-    errEl.textContent = 'パスワードは8文字以上で入力してください';
+  const pwErr = validatePasswordPolicy(pw);
+  if (pwErr) {
+    errEl.textContent = pwErr;
     errEl.style.display = 'block';
     return;
   }
   if (pw !== pw2) {
-    errEl.textContent = 'パスワードが一致しません';
+    errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch') : 'パスワードが一致しません';
     errEl.style.display = 'block';
     return;
   }
@@ -3931,8 +3985,10 @@ async function changePassword() {
   const err = $('pwChangeError');
   err.style.display='none';
   if (!cur || !nw) { err.textContent='すべての項目を入力してください'; err.style.display='block'; return; }
-  if (nw.length < 8) { err.textContent='新しいパスワードは8文字以上にしてください'; err.style.display='block'; return; }
-  if (nw !== nw2) { err.textContent='パスワードが一致しません'; err.style.display='block'; return; }
+  if (cur === nw) { err.textContent = (typeof t==='function') ? t('auth.pwSameAsCurrent', '現在のパスワードと同じパスワードは使用できません。') : '現在のパスワードと同じパスワードは使用できません。'; err.style.display='block'; return; }
+  const pwErr = (typeof validatePasswordPolicy === 'function') ? validatePasswordPolicy(nw) : null;
+  if (pwErr) { err.textContent = pwErr; err.style.display='block'; return; }
+  if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
   if (!db) { err.textContent='サーバーに接続できません'; err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
   if (error) { err.textContent=error.message; err.style.display='block'; return; }
