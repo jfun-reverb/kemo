@@ -1476,6 +1476,10 @@ async function loadAdminAccounts() {
   if (!db) return;
   const {data} = await db.from('admins').select('*').order('created_at');
   const admins = data || [];
+  // 현재 로그인한 관리자 정보 먼저 확정 (렌더 시 권한 판단에 사용)
+  currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+
   const roleLabel = r => r === 'super_admin'
     ? '<span class="badge badge-red">슈퍼관리자</span>'
     : r === 'campaign_admin'
@@ -1490,12 +1494,10 @@ async function loadAdminAccounts() {
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
-      ${a.auth_id !== currentUser?.id ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
+      ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
   </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 
-  // 현재 로그인한 관리자 정보 로드
-  currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
   applyLookupMenuVisibility();
 }
 
