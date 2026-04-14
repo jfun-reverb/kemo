@@ -32,7 +32,7 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
-  if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
+  if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
   const pwErr = validatePasswordPolicy(pw);
   if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
   if (!$('agreeTerms')?.checked || !$('agreePrivacy')?.checked) {

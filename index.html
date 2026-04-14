@@ -2501,13 +2501,17 @@ function toggleOptional() {
 // ── 비밀번호 보기/숨기기 ──
 // 비밀번호 정책 검증
 // 규칙: 8자 이상 + 영문 소문자 1개 이상 + 특수문자 1개 이상
-// (대문자/숫자 추가는 권장이지만 필수 아님 — 최소 "소문자 + 특수문자" 2종 조합)
-// 유효하면 null, 위반 시 한국어/일본어 에러 메시지 반환
+// 유효하면 null, 위반 시 현지화된 에러 메시지 반환
 function validatePasswordPolicy(pw) {
-  const T = (key) => (typeof t === 'function') ? t(key) : key;
-  if (!pw || pw.length < 8) return T('auth.pwTooShort');
-  if (!/[a-z]/.test(pw)) return T('auth.pwNeedLower');
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return T('auth.pwNeedSpecial');
+  const fallback = {
+    short: 'パスワードは8文字以上で入力してください。',
+    needLower: 'パスワードに英小文字を1つ以上含めてください。',
+    needSpecial: 'パスワードに記号（!@#$%^&*など）を1つ以上含めてください。'
+  };
+  const T = (key, fb) => (typeof t === 'function') ? t(key, fb) : fb;
+  if (!pw || pw.length < 8) return T('auth.pwTooShort', fallback.short);
+  if (!/[a-z]/.test(pw)) return T('auth.pwNeedLower', fallback.needLower);
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return T('auth.pwNeedSpecial', fallback.needSpecial);
   return null;
 }
 
@@ -3110,7 +3114,7 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
-  if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
+  if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
   const pwErr = validatePasswordPolicy(pw);
   if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
   if (!$('agreeTerms')?.checked || !$('agreePrivacy')?.checked) {
@@ -3993,10 +3997,10 @@ async function changePassword() {
   const err = $('pwChangeError');
   err.style.display='none';
   if (!cur || !nw) { err.textContent='すべての項目を入力してください'; err.style.display='block'; return; }
-  if (cur === nw) { err.textContent = (typeof t==='function') ? t('auth.pwSameAsCurrent') : '現在のパスワードと同じパスワードは使用できません。'; err.style.display='block'; return; }
+  if (cur === nw) { err.textContent = (typeof t==='function') ? t('auth.pwSameAsCurrent', '現在のパスワードと同じパスワードは使用できません。') : '現在のパスワードと同じパスワードは使用できません。'; err.style.display='block'; return; }
   const pwErr = (typeof validatePasswordPolicy === 'function') ? validatePasswordPolicy(nw) : null;
   if (pwErr) { err.textContent = pwErr; err.style.display='block'; return; }
-  if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch') : 'パスワードが一致しません'; err.style.display='block'; return; }
+  if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
   if (!db) { err.textContent='サーバーに接続できません'; err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
   if (error) { err.textContent=error.message; err.style.display='block'; return; }
