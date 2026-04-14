@@ -1275,6 +1275,8 @@ const SUPABASE_ENVS = {
   }
 };
 
+// 정규식은 globalreverb.com / www.globalreverb.com만 엄격히 매칭.
+// 다른 서브도메인(dev, staging, preview 등)이 실수로 production DB에 접근하는 것을 방지.
 function resolveSupabaseEnv(hostname) {
   if (/^(www\.)?globalreverb\.com$/.test(hostname)) return 'production';
   return 'staging';

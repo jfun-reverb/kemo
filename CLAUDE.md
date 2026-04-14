@@ -13,11 +13,20 @@
 ## Key URLs
 - 운영 (인플루언서): https://globalreverb.com
 - 운영 (관리자): https://globalreverb.com/admin/
-- 백업 URL (Vercel 기본): https://kemo-liart.vercel.app
+- 스테이징 (인플루언서): https://dev.globalreverb.com
+- 스테이징 (관리자): https://dev.globalreverb.com/admin/ (admin@kemo.jp / admin1234)
 - GitHub: github.com/jfun-reverb/kemo
-- Supabase: https://twofagomeizrtkwlhsuv.supabase.co
-- Admin: admin@kemo.jp / admin1234
+- Supabase (production): https://twofagomeizrtkwlhsuv.supabase.co (🇦🇺 Sydney)
+- Supabase (staging): https://qysmxtipobomefudyixw.supabase.co (🇯🇵 Tokyo)
 - LINE: @586mnjoc
+
+## Environments
+- **도메인 기반 자동 분기**: `dev/lib/supabase.js`의 `resolveSupabaseEnv()`가 `location.hostname` 을 판별
+  - `globalreverb.com`, `www.globalreverb.com` → production Supabase
+  - 그 외 (dev.globalreverb.com, localhost 등) → staging Supabase
+- Supabase URL/Key는 `SUPABASE_ENVS` 객체에서만 관리 (다른 파일 하드코딩 금지)
+- 관리자 페이지 헤더에 staging 환경에서만 주황색 `STAGING` 배지 표시
+- 운영 배포 시 반드시 staging에서 검증 후 main merge
 
 ## Architecture
 - 인플루언서 앱: dev/index.html (모바일 480px, 바텀탭바)
