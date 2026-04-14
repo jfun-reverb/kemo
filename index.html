@@ -30,6 +30,7 @@ window._supabaseLoaded = false;
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Sora:wght@700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <style>
 /* ══════════════════════════════════
    BASE — 초기화, 변수, 레이아웃 (Material Design 3)
@@ -249,6 +250,28 @@ textarea.form-input{resize:vertical;min-height:80px}
 .legal-table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0 14px;display:block;overflow-x:auto}
 .legal-table th,.legal-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 .legal-table th{background:var(--bg);font-weight:700;font-size:11px;white-space:nowrap}
+
+/* 리치 콘텐츠 렌더 */
+.rich-content{word-break:break-word}
+.rich-content p{margin:0 0 8px 0}
+.rich-content p:last-child{margin-bottom:0}
+.rich-content h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+.rich-content h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+.rich-content h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+.rich-content ul,.rich-content ol{margin:4px 0 8px;padding-left:20px}
+.rich-content li{margin:2px 0}
+.rich-content a{color:var(--pink);text-decoration:underline}
+.rich-content blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+.rich-content code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.9em;font-family:ui-monospace,monospace}
+.rich-content pre{background:var(--bg);padding:8px 10px;border-radius:6px;overflow-x:auto;font-size:.9em}
+.rich-content strong{font-weight:700}
+.rich-content em{font-style:italic}
+
+/* Quill 에디터 (admin) */
+.quill-host{background:#fff;border-radius:6px}
+.quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
+.quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
+.quill-host .ql-editor{min-height:120px}
 /* ══════════════════════════════════
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
 ══════════════════════════════════ */
@@ -404,6 +427,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
+
+/* 언어 토글 */
+.lang-toggle{display:inline-flex;gap:0;margin-left:auto;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
+.lang-toggle .lang-btn{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s}
+.lang-toggle .lang-btn.on{background:var(--primary);color:#fff}
+.lang-toggle .lang-btn:not(.on):hover{background:var(--outline)}
 </style>
 </head>
 <body>
@@ -428,12 +457,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- ── 프로필 부족 알럿 모달 ── -->
 <div id="profileAlertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px">キャンペーン応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
+    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px" data-i18n="profileAlert.title">キャンペーン応募の前に</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
     <div id="profileAlertMissing" style="text-align:left;margin-bottom:20px"></div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px">Cancel</button>
-      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px">My Page</button>
+      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">Cancel</button>
+      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">My Page</button>
     </div>
   </div>
 </div>
@@ -479,13 +508,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)">Login Required</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7">Please log in to join the campaign.</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">Login Required</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">Please log in to join the campaign.</div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()">キャンセル</button>
-      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')">Log In</button>
+      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()" data-i18n="common.cancel">キャンセル</button>
+      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')" data-i18n="nav.login">Log In</button>
     </div>
-    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">Don't have an account? <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer">Sign Up Free</a></div>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)"><span data-i18n="loginPrompt.noAccount">Don't have an account?</span> <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer" data-i18n="loginPrompt.signupFree">Sign Up Free</a></div>
   </div>
 </div>
 
@@ -496,8 +525,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
     <div class="gnb-right" id="gnbRight">
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">Sign Up</button>
+      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')" data-i18n="nav.login">Log In</button>
+      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')" data-i18n="nav.signup">Sign Up</button>
     </div>
   </div>
 </nav>
@@ -508,16 +537,16 @@ textarea.form-input{resize:vertical;min-height:80px}
 <div id="page-home" class="page">
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow">🇰🇷 K-Brand × Japan Only</div>
-      <h1 class="hero-h1">韓国の人気Kブランドを<span>あなたのSNSで</span>体験しよう<span class="hero-jp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
-      <p class="hero-sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
+      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
+      <h1 class="hero-h1"><span data-i18n="home.hero.titleLine1">韓国の人気Kブランドを</span><span data-i18n="home.hero.titleLine2">あなたのSNSで</span><span data-i18n="home.hero.titleLine3">体験しよう</span><span class="hero-jp" data-i18n="home.hero.titleJp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
+      <p class="hero-sub" data-i18n="home.hero.sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
-        <button class="hero-btn-p" onclick="navigate(currentUser?'campaigns':'signup')">無料で体験団に参加する →</button>
+        <button class="hero-btn-p" onclick="navigate(currentUser?'campaigns':'signup')" data-i18n="home.hero.cta">無料で体験団に参加する →</button>
       </div>
       <div class="hero-stats">
-        <div><div class="hero-stat-v">無償</div><div class="hero-stat-l">製品は全額無料</div></div>
-        <div><div class="hero-stat-v">先行</div><div class="hero-stat-l">日本未発売品も体験</div></div>
-        <div><div class="hero-stat-v">選考</div><div class="hero-stat-l">あなたの感想が選ばれる</div></div>
+        <div><div class="hero-stat-v" data-i18n="home.stat.freeValue">無償</div><div class="hero-stat-l" data-i18n="home.stat.freeLabel">製品は全額無料</div></div>
+        <div><div class="hero-stat-v" data-i18n="home.stat.priorityValue">先行</div><div class="hero-stat-l" data-i18n="home.stat.priorityLabel">日本未発売品も体験</div></div>
+        <div><div class="hero-stat-v" data-i18n="home.stat.chosenValue">選考</div><div class="hero-stat-l" data-i18n="home.stat.chosenLabel">あなたの感想が選ばれる</div></div>
       </div>
       <div id="statCampaigns" style="display:none"></div>
       <div id="statInfluencers" style="display:none"></div>
@@ -530,18 +559,18 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
         <div style="padding:20px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">韓国直送・新商品</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
         <div style="padding:20px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">完全無償提供</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">製品代・送料すべて無料<br>リワード付きキャンペーンも</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.freeTitle">完全無償提供</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>リワード付きキャンペーンも</div>
         </div>
         <div style="padding:20px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">あなたが選ばれる</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
       </div>
     </div>
@@ -550,8 +579,8 @@ textarea.form-input{resize:vertical;min-height:80px}
   <section class="campaigns-section">
     <div class="container">
       <div class="section-header">
-        <div><div class="section-title">キャンペーン <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub">今すぐ応募できる体験団</div></div>
-        <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0">すべて見る →</button>
+        <div><div class="section-title"><span data-i18n="home.section.campaignsTitle">キャンペーン</span> <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub" data-i18n="home.section.campaignsSub">今すぐ応募できる体験団</div></div>
+        <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0" data-i18n="home.section.viewAll">すべて見る →</button>
       </div>
       <!-- 채널 필터 -->
       <div class="filter-row" id="filterRow" style="margin-bottom:14px"></div>
@@ -623,13 +652,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 <div id="page-campaigns" class="page">
   <div style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
-      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px">キャンペーン一覧</div>
+      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
       <!-- 모집 유형 탭 (리뷰어/기프팅) -->
       <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
-        <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)">すべて</button>
-        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">Reviewer</button>
-        <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">ギフティング</button>
-        <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">来店</button>
+        <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)" data-i18n="campaigns.typeAll">すべて</button>
+        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeMonitor">Reviewer</button>
+        <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeGifting">ギフティング</button>
+        <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeVisit">来店</button>
       </div>
     </div>
   </div>
@@ -735,23 +764,23 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title">Log In</div>
-        <div class="auth-sub">REVERBインフルエンサーアカウントでログイン</div>
+        <div class="auth-title" data-i18n="auth.login.title">Log In</div>
+        <div class="auth-sub" data-i18n="auth.login.sub">REVERBインフルエンサーアカウントでログイン</div>
       </div>
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group">
-          <label class="form-label">Email</label>
+          <label class="form-label" data-i18n="auth.login.emailLabel">Email</label>
           <input type="email" id="loginEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Password</label>
+          <label class="form-label" data-i18n="auth.login.pwLabel">Password</label>
           <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
         </div>
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Log In</button>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn" data-i18n="auth.login.btn">Log In</button>
       </form>
-      <div class="auth-forgot"><a onclick="navigate('forgot')">パスワードをお忘れですか？</a></div>
-      <div class="auth-switch">アカウントをお持ちでないですか？ <a onclick="navigate('signup')">新規登録</a></div>
+      <div class="auth-forgot"><a onclick="navigate('forgot')" data-i18n="auth.login.forgotLink">パスワードをお忘れですか？</a></div>
+      <div class="auth-switch"><span data-i18n="auth.login.switchText">アカウントをお持ちでないですか？</span> <a onclick="navigate('signup')" data-i18n="auth.login.switchLink">新規登録</a></div>
     </div>
   </div>
 </div>
@@ -764,19 +793,19 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title">パスワード再設定</div>
-        <div class="auth-sub">登録したメールアドレスを入力してください。<br>パスワード再設定用のメールをお送りします。</div>
+        <div class="auth-title" data-i18n="auth.forgot.title">パスワード再設定</div>
+        <div class="auth-sub" data-i18n-html="auth.forgot.sub">登録したメールアドレスを入力してください。<br>パスワード再設定用のメールをお送りします。</div>
       </div>
       <form id="forgotForm" onsubmit="handleForgotPassword(event)">
         <div class="form-group">
-          <label class="form-label">メールアドレス</label>
+          <label class="form-label" data-i18n="auth.forgot.emailLabel">メールアドレス</label>
           <input type="email" id="forgotEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div id="forgotError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div id="forgotSuccess" class="form-success" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="forgotBtn">リセットメールを送信</button>
+        <button type="submit" class="btn btn-primary btn-block" id="forgotBtn" data-i18n="auth.forgot.btn">リセットメールを送信</button>
       </form>
-      <div class="auth-switch"><a onclick="navigate('login')">ログインに戻る</a></div>
+      <div class="auth-switch"><a onclick="navigate('login')" data-i18n="auth.forgot.backLink">ログインに戻る</a></div>
     </div>
   </div>
 </div>
@@ -789,20 +818,20 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title">新しいパスワード</div>
-        <div class="auth-sub">新しいパスワードを入力してください。</div>
+        <div class="auth-title" data-i18n="auth.reset.title">新しいパスワード</div>
+        <div class="auth-sub" data-i18n="auth.reset.sub">新しいパスワードを入力してください。</div>
       </div>
       <form id="resetPwForm" onsubmit="handleResetPassword(event)">
         <div class="form-group">
-          <label class="form-label">新しいパスワード（8文字以上）</label>
+          <label class="form-label" data-i18n="auth.reset.newLabel">新しいパスワード（8文字以上）</label>
           <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
         </div>
         <div class="form-group">
-          <label class="form-label">パスワード確認</label>
+          <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
           <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
         </div>
         <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn">パスワードを変更</button>
+        <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn" data-i18n="auth.reset.btn">パスワードを変更</button>
       </form>
     </div>
   </div>
@@ -816,26 +845,27 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="auth-card fade-up" style="max-width:560px">
       <div class="auth-logo" style="margin-bottom:16px">
         <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
-        <div class="auth-title" style="font-size:18px">Sign Up</div>
-        <div class="auth-sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
+        <div class="auth-title" style="font-size:18px" data-i18n="auth.signup.title">Sign Up</div>
+        <div class="auth-sub" data-i18n="auth.signup.sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
       <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
         <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
-        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">確認メールを送信しました</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
-        <button class="btn btn-primary btn-block" onclick="navigate('login')">ログインページへ</button>
+        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('login')" data-i18n="auth.signup.confirmSentBtn">ログインページへ</button>
       </div>
       <div id="signupFormArea">
       <form id="signupForm" onsubmit="handleSignup(event)">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Name (Kanji) <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">Name (Kanji)</span> <span style="color:var(--red)">*</span></label>
             <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Name (Kana) <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">Name (Kana)</span> <span style="color:var(--red)">*</span></label>
             <input type="text" id="signupNameKana" class="form-input" placeholder="やまだはなこ" required>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、かな名を入力してください</div>
           </div>
         </div>
         <div class="form-group">
@@ -862,28 +892,28 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="signup-agree">
           <label class="signup-agree-all">
             <input type="checkbox" id="agreeAll" onchange="toggleAgreeAll(this)">
-            <span>すべてに同意する</span>
+            <span data-i18n="auth.signup.agreeAll">すべてに同意する</span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" class="agree-required" id="agreeTerms" onchange="syncAgreeAll()">
-            <span class="agree-req">必須</span>
-            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('terms','ja')">利用規約</a>に同意します</span>
+            <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('terms')" data-i18n="legal.termsTitle">利用規約</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" class="agree-required" id="agreePrivacy" onchange="syncAgreeAll()">
-            <span class="agree-req">必須</span>
-            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy','ja')">個人情報処理方針</a>に同意します</span>
+            <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" id="agreeMarketing" onchange="syncAgreeAll()">
-            <span class="agree-opt">任意</span>
-            <span class="agree-text">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
+            <span class="agree-opt" data-i18n="auth.signup.optional">任意</span>
+            <span class="agree-text" data-i18n="auth.signup.agreeMarketing">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
           </label>
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up</button>
-        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
+        <button type="submit" class="btn btn-primary btn-block" id="signupBtn" data-i18n="auth.signup.btn">Sign Up</button>
+        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6" data-i18n="auth.signup.afterNote">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
-      <div class="auth-switch">すでにアカウントをお持ちですか？ <a onclick="navigate('login')">Log In</a></div>
+      <div class="auth-switch"><span data-i18n="auth.signup.switchText">すでにアカウントをお持ちですか？</span> <a onclick="navigate('login')" data-i18n="auth.signup.switchLink">Log In</a></div>
       </div><!-- /signupFormArea -->
     </div>
   </div>
@@ -907,44 +937,44 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="mypage-menu">
         <div class="mypage-menu-item" onclick="openMypageSub('applications')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
-          <span class="mypage-menu-label">応募履歴</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.applications">応募履歴</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-basic')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">person</span>
-          <span class="mypage-menu-label">基本情報</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.basic">基本情報</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
-          <span class="mypage-menu-label">SNSアカウント</span>
-          <span id="menuBadgeSns" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
+          <span id="menuBadgeSns" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
-          <span class="mypage-menu-label">配送先</span>
-          <span id="menuBadgeAddress" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.address">配送先</span>
+          <span id="menuBadgeAddress" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('paypal')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance_wallet</span>
-          <span class="mypage-menu-label">PayPal</span>
-          <span id="menuBadgePaypal" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.paypal">PayPal</span>
+          <span id="menuBadgePaypal" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
-          <span class="mypage-menu-label">パスワード変更</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="handleLogout()">
           <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
-          <span class="mypage-menu-label" style="color:var(--on-surface-variant)">ログアウト</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.logout" style="color:var(--on-surface-variant)">ログアウト</span>
         </div>
       </div>
       <div style="margin-top:20px;padding-left:14px">
-        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</span>
+        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</span>
       </div>
     </div>
   </div>
@@ -1212,7 +1242,7 @@ try {
   }
 } catch(e) {}
 // ══════════════════════════════════════
-// SHARED — 클라이언트/관리자 공유 변수
+// SHARED — 클라이언트/관리자 공유 변수 및 유틸
 // ══════════════════════════════════════
 var currentUser = null;
 var currentUserProfile = null;
@@ -1220,6 +1250,549 @@ var currentCampaignId = null;
 var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
+
+// ══════════════════════════════════════
+// 리치 텍스트 sanitize / render
+// ══════════════════════════════════════
+// 허용 태그/속성 (에디터 지원 범위와 일치)
+const RICH_ALLOWED_TAGS = ['p','br','strong','b','em','i','u','s','strike','ul','ol','li','a','h2','h3','h4','blockquote','code','pre','span','div'];
+const RICH_ALLOWED_ATTR = ['href','target','rel','class'];
+
+// Quill 2.x: bullet 리스트도 <ol><li data-list="bullet">로 저장 → <ul>/<ol> 적절히 분리
+function normalizeQuillLists(wrapper) {
+  wrapper.querySelectorAll('ol').forEach(ol => {
+    const items = Array.from(ol.children).filter(el => el.tagName === 'LI');
+    if (!items.length) return;
+
+    // 각 li의 유형(bullet/ordered) 파악
+    const segments = []; // [{type: 'bullet'|'ordered', items: []}]
+    let current = null;
+    items.forEach(li => {
+      const type = li.getAttribute('data-list') === 'bullet' ? 'bullet' : 'ordered';
+      if (!current || current.type !== type) {
+        current = { type, items: [] };
+        segments.push(current);
+      }
+      li.removeAttribute('data-list');
+      current.items.push(li);
+    });
+
+    // 한 종류만 있으면 단순 교체
+    if (segments.length === 1) {
+      if (segments[0].type === 'bullet') {
+        const ul = document.createElement('ul');
+        segments[0].items.forEach(li => ul.appendChild(li));
+        ol.replaceWith(ul);
+      }
+      return;
+    }
+
+    // 혼합: 원래 <ol> 위치에 여러 <ul>/<ol>를 순서대로 삽입
+    const parent = ol.parentNode;
+    const frag = document.createDocumentFragment();
+    segments.forEach(seg => {
+      const list = document.createElement(seg.type === 'bullet' ? 'ul' : 'ol');
+      seg.items.forEach(li => list.appendChild(li));
+      frag.appendChild(list);
+    });
+    parent.replaceChild(frag, ol);
+  });
+}
+
+// 링크 href에 프로토콜 없으면 https:// 자동 추가 + 보안 속성
+function normalizeLinks(wrapper) {
+  wrapper.querySelectorAll('a[href]').forEach(a => {
+    let href = (a.getAttribute('href') || '').trim();
+    if (!href) { a.removeAttribute('href'); return; }
+    // 내부 앵커 링크 (#으로 시작) / mailto / tel 은 그대로
+    if (/^(#|mailto:|tel:)/i.test(href)) return;
+    // http(s) 없으면 https:// 자동 부여
+    if (!/^https?:\/\//i.test(href)) {
+      href = 'https://' + href.replace(/^\/+/, '');
+      a.setAttribute('href', href);
+    }
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer nofollow');
+  });
+}
+
+// HTML 문자열을 sanitize 해서 안전한 HTML 반환
+function sanitizeRich(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') {
+    console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
+    return '';
+  }
+  const clean = DOMPurify.sanitize(String(html), {
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
+    ALLOWED_ATTR: RICH_ALLOWED_ATTR,
+    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
+    FORBID_ATTR: ['style','onerror','onload','onclick']
+  });
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = clean;
+  normalizeQuillLists(wrapper);
+  normalizeLinks(wrapper);
+  return wrapper.innerHTML;
+}
+
+// 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
+function richHtml(raw) {
+  const value = raw == null ? '' : String(raw);
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    return value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+  }
+  return sanitizeRich(value);
+}
+
+// 평문(legacy) 감지 → HTML로 변환. 이미 HTML이면 sanitize만.
+function renderRich(el, raw) {
+  if (!el) return;
+  const value = raw == null ? '' : String(raw);
+  // HTML 태그가 없으면 기존 평문 데이터로 간주 → 이스케이프 + 줄바꿈
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    const escaped = value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+    el.innerHTML = escaped;
+    el.classList.add('rich-content');
+    return;
+  }
+  el.innerHTML = sanitizeRich(value);
+  el.classList.add('rich-content');
+}
+// ══════════════════════════════════════
+// i18n — 일본어 (기본)
+// ══════════════════════════════════════
+window.I18N_JA = {
+  common: {
+    save: '保存する',
+    cancel: 'キャンセル',
+    confirm: '確認',
+    back: '戻る',
+    select: '選択してください',
+    unregistered: '未登録',
+    loading: '読み込み中…',
+    retry: '再試行',
+    close: '閉じる',
+    apply: '適用',
+    ok: 'OK',
+  },
+
+  // 홈
+  home: {
+    hero: {
+      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      titleLine1: '韓国の人気Kブランドを',
+      titleLine2: 'あなたのSNSで',
+      titleLine3: '体験しよう',
+      titleJp: '日本未発売の新商品を、インフルエンサー限定で無償体験',
+      sub: 'K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。',
+      cta: '無料で体験団に参加する →',
+    },
+    stat: {
+      freeValue: '無償',
+      freeLabel: '製品は全額無料',
+      priorityValue: '先行',
+      priorityLabel: '日本未発売品も体験',
+      chosenValue: '選考',
+      chosenLabel: 'あなたの感想が選ばれる',
+    },
+    feature: {
+      shippingTitle: '韓国直送・新商品',
+      shippingDesc: '日本未発売のKブランド新商品を<br>いち早く体験できます',
+      freeTitle: '完全無償提供',
+      freeDesc: '製品代・送料すべて無料<br>リワード付きキャンペーンも',
+      chosenTitle: 'あなたが選ばれる',
+      chosenDesc: 'フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎',
+    },
+    section: {
+      campaignsTitle: 'キャンペーン',
+      campaignsSub: '今すぐ応募できる体験団',
+      viewAll: 'すべて見る →',
+    },
+  },
+
+  // GNB
+  nav: {
+    login: 'Log In',
+    signup: 'Sign Up',
+  },
+
+  // 캠페인 목록 페이지
+  campaigns: {
+    pageTitle: 'キャンペーン一覧',
+    typeAll: 'すべて',
+    typeMonitor: 'Reviewer',
+    typeGifting: 'ギフティング',
+    typeVisit: '来店',
+  },
+
+  // 캠페인 상태
+  status: {
+    campaign: {
+      active: '募集中',
+      scheduled: '近日公開',
+      closed: '締切',
+      draft: '準備中',
+      paused: '一時停止',
+    },
+  },
+
+  // 인증
+  auth: {
+    login: {
+      title: 'Log In',
+      sub: 'REVERBインフルエンサーアカウントでログイン',
+      emailLabel: 'Email',
+      pwLabel: 'Password',
+      btn: 'Log In',
+      forgotLink: 'パスワードをお忘れですか？',
+      switchText: 'アカウントをお持ちでないですか？',
+      switchLink: '新規登録',
+    },
+    forgot: {
+      title: 'パスワード再設定',
+      sub: '登録したメールアドレスを入力してください。<br>パスワード再設定用のメールをお送りします。',
+      emailLabel: 'メールアドレス',
+      btn: 'リセットメールを送信',
+      backLink: 'ログインに戻る',
+      successMsg: 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。',
+    },
+    reset: {
+      title: '新しいパスワード',
+      sub: '新しいパスワードを入力してください。',
+      newLabel: '新しいパスワード（8文字以上）',
+      confirmLabel: 'パスワード確認',
+      btn: 'パスワードを変更',
+    },
+    signup: {
+      title: 'Sign Up',
+      sub: 'REVERBに参加してKブランドキャンペーンを体験しよう',
+      nameKanjiLabel: 'Name (Kanji)',
+      nameKanaLabel: 'Name (Kana)',
+      nameKanaHint: '日本語の配送先登録のため、かな名を入力してください',
+      emailLabel: 'Email',
+      pwLabel: 'Password',
+      pwHint: '(8+ chars)',
+      pwConfirmLabel: 'Confirm Password',
+      agreeAll: 'すべてに同意する',
+      required: '必須',
+      optional: '任意',
+      agreeTermsSuffix: 'に同意します',
+      agreeMarketing: 'マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）',
+      btn: 'Sign Up',
+      afterNote: 'SNS情報や配送先はマイページから後で追加できます',
+      switchText: 'すでにアカウントをお持ちですか？',
+      switchLink: 'Log In',
+      confirmSentTitle: '確認メールを送信しました',
+      confirmSentDesc: 'ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。',
+      confirmSentBtn: 'ログインページへ',
+    },
+  },
+
+  // 마이페이지
+  mypage: {
+    menu: {
+      applications: '応募履歴',
+      basic: '基本情報',
+      sns: 'SNSアカウント',
+      address: '配送先',
+      paypal: 'PayPal',
+      password: 'パスワード変更',
+      logout: 'ログアウト',
+      language: '言語 / 언어',
+    },
+    withdraw: '退会する',
+    withdrawConfirm: '本当に退会しますか？',
+    withdrawToast: '退会申請を受け付けました。運営にLINEでご連絡ください。',
+  },
+
+  // 프로필 부족 알림
+  profileAlert: {
+    title: 'キャンペーン応募の前に',
+    desc: '応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。',
+    cancel: 'Cancel',
+    goMypage: 'My Page',
+  },
+
+  // 로그인 프롬프트
+  loginPrompt: {
+    title: 'Login Required',
+    desc: 'Please log in to join the campaign.',
+    noAccount: "Don't have an account?",
+    signupFree: 'Sign Up Free',
+  },
+
+  // 약관/개인정보 링크 라벨
+  legal: {
+    termsTitle: '利用規約',
+    privacyTitle: '個人情報処理方針',
+    about: '会社紹介',
+  },
+};
+// ══════════════════════════════════════
+// i18n — 한국어
+// ══════════════════════════════════════
+window.I18N_KO = {
+  common: {
+    save: '저장',
+    cancel: '취소',
+    confirm: '확인',
+    back: '뒤로',
+    select: '선택해주세요',
+    unregistered: '미등록',
+    loading: '로딩 중…',
+    retry: '다시 시도',
+    close: '닫기',
+    apply: '적용',
+    ok: '확인',
+  },
+
+  home: {
+    hero: {
+      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      titleLine1: '한국 인기 K브랜드를',
+      titleLine2: '당신의 SNS로',
+      titleLine3: '체험해보세요',
+      titleJp: '일본 미발매 신상품을 인플루언서 한정으로 무료 체험',
+      sub: 'K-Beauty 트렌드를 가장 빠르게 팔로워에게. 엄선된 K브랜드와 진심으로 전하고 싶은 인플루언서를 연결하는 체험 플랫폼입니다.',
+      cta: '무료로 체험단 참여하기 →',
+    },
+    stat: {
+      freeValue: '무료',
+      freeLabel: '제품 전액 무료',
+      priorityValue: '선행',
+      priorityLabel: '일본 미발매 제품도 체험',
+      chosenValue: '선발',
+      chosenLabel: '당신의 리뷰가 선택됩니다',
+    },
+    feature: {
+      shippingTitle: '한국 직배송 · 신상품',
+      shippingDesc: '일본 미발매 K브랜드 신상품을<br>가장 먼저 체험할 수 있습니다',
+      freeTitle: '완전 무료 제공',
+      freeDesc: '제품비 · 배송비 모두 무료<br>리워드 지급 캠페인도 있음',
+      chosenTitle: '당신이 선택됩니다',
+      chosenDesc: '팔로워 수보다 "전달력"<br>나노 인플루언서 대환영',
+    },
+    section: {
+      campaignsTitle: '캠페인',
+      campaignsSub: '지금 바로 응모 가능한 체험단',
+      viewAll: '전체 보기 →',
+    },
+  },
+
+  nav: {
+    login: '로그인',
+    signup: '회원가입',
+  },
+
+  campaigns: {
+    pageTitle: '캠페인 목록',
+    typeAll: '전체',
+    typeMonitor: 'Reviewer',
+    typeGifting: '기프팅',
+    typeVisit: '방문형',
+  },
+
+  status: {
+    campaign: {
+      active: '모집중',
+      scheduled: '공개 예정',
+      closed: '마감',
+      draft: '준비중',
+      paused: '일시정지',
+    },
+  },
+
+  auth: {
+    login: {
+      title: '로그인',
+      sub: 'REVERB 인플루언서 계정으로 로그인',
+      emailLabel: '이메일',
+      pwLabel: '비밀번호',
+      btn: '로그인',
+      forgotLink: '비밀번호를 잊으셨나요?',
+      switchText: '계정이 없으신가요?',
+      switchLink: '회원가입',
+    },
+    forgot: {
+      title: '비밀번호 재설정',
+      sub: '가입한 이메일 주소를 입력해주세요.<br>비밀번호 재설정 메일을 보내드립니다.',
+      emailLabel: '이메일 주소',
+      btn: '재설정 메일 보내기',
+      backLink: '로그인으로 돌아가기',
+      successMsg: '입력하신 이메일이 등록되어 있다면 재설정 메일을 보냈습니다. 메일함(스팸함 포함)을 확인해주세요.',
+    },
+    reset: {
+      title: '새 비밀번호',
+      sub: '새 비밀번호를 입력해주세요.',
+      newLabel: '새 비밀번호 (8자 이상)',
+      confirmLabel: '비밀번호 확인',
+      btn: '비밀번호 변경',
+    },
+    signup: {
+      title: '회원가입',
+      sub: 'REVERB에 참여해서 K브랜드 캠페인을 체험하세요',
+      nameKanjiLabel: '이름 (한자)',
+      nameKanaLabel: '이름 (가나)',
+      nameKanaHint: '일본 주소 배송을 위해 일본어 가나 표기를 입력해주세요',
+      emailLabel: '이메일',
+      pwLabel: '비밀번호',
+      pwHint: '(8자 이상)',
+      pwConfirmLabel: '비밀번호 확인',
+      agreeAll: '전체 동의',
+      required: '필수',
+      optional: '선택',
+      agreeTermsSuffix: '에 동의합니다',
+      agreeMarketing: '마케팅 정보 수신에 동의합니다 (캠페인 안내 · 혜택 정보)',
+      btn: '회원가입',
+      afterNote: 'SNS 정보와 배송지는 마이페이지에서 나중에 추가할 수 있습니다',
+      switchText: '이미 계정이 있으신가요?',
+      switchLink: '로그인',
+      confirmSentTitle: '확인 메일을 보냈습니다',
+      confirmSentDesc: '입력하신 이메일 주소로 확인 메일을 보냈습니다.<br>메일 속 링크를 클릭해 가입을 완료해주세요.',
+      confirmSentBtn: '로그인 페이지로',
+    },
+  },
+
+  mypage: {
+    menu: {
+      applications: '응모 이력',
+      basic: '기본 정보',
+      sns: 'SNS 계정',
+      address: '배송지',
+      paypal: 'PayPal',
+      password: '비밀번호 변경',
+      logout: '로그아웃',
+      language: '言語 / 언어',
+    },
+    withdraw: '회원 탈퇴',
+    withdrawConfirm: '정말 탈퇴하시겠습니까?',
+    withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
+  },
+
+  profileAlert: {
+    title: '캠페인 응모 전에',
+    desc: '응모하려면 마이페이지에서 "개인정보"와 "PayPal" 등록이 필요합니다.<br>아래 항목을 등록해주세요.',
+    cancel: '취소',
+    goMypage: '마이페이지',
+  },
+
+  loginPrompt: {
+    title: '로그인이 필요합니다',
+    desc: '캠페인에 참여하려면 로그인해주세요.',
+    noAccount: '계정이 없으신가요?',
+    signupFree: '무료 회원가입',
+  },
+
+  legal: {
+    termsTitle: '서비스 이용약관',
+    privacyTitle: '개인정보 처리방침',
+    about: '회사 소개',
+  },
+};
+// ══════════════════════════════════════
+// i18n — 런타임 엔진 (언어 감지/전환/DOM 적용)
+// ══════════════════════════════════════
+(function() {
+  const STORAGE_KEY = 'reverb.lang';
+  const DEFAULT_LANG = 'ja';
+  const SUPPORTED = ['ja', 'ko'];
+
+  // 최초 언어 결정: localStorage > ?lang=xx (staging only) > 기본값
+  function resolveInitialLang() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && SUPPORTED.includes(saved)) return saved;
+    } catch(e) {}
+    // 개발서버에서만 ?lang=ko 쿼리 허용 (테스트 편의)
+    if (typeof IS_STAGING !== 'undefined' && IS_STAGING) {
+      const q = new URLSearchParams(location.search).get('lang');
+      if (q && SUPPORTED.includes(q)) return q;
+    }
+    return DEFAULT_LANG;
+  }
+
+  let currentLang = resolveInitialLang();
+
+  function getDict(lang) {
+    return (lang === 'ko' ? window.I18N_KO : window.I18N_JA) || {};
+  }
+
+  // 키 경로로 값 조회 (예: 'mypage.menu.applications')
+  function lookup(dict, key) {
+    if (!dict || !key) return undefined;
+    return key.split('.').reduce((obj, k) => (obj && typeof obj === 'object') ? obj[k] : undefined, dict);
+  }
+
+  // 번역 헬퍼 (전역)
+  window.t = function(key, fallback) {
+    const primary = lookup(getDict(currentLang), key);
+    if (primary !== undefined) return primary;
+    // 폴백: JA → 키 자체
+    const ja = lookup(getDict('ja'), key);
+    if (ja !== undefined) return ja;
+    return fallback !== undefined ? fallback : key;
+  };
+
+  // 현재 언어 조회
+  window.getLang = function() { return currentLang; };
+
+  // DOM 스캔하여 data-i18n 속성 치환
+  window.applyI18n = function(root) {
+    root = root || document;
+    // 텍스트 치환: <span data-i18n="key">
+    root.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (!key) return;
+      const text = window.t(key);
+      if (text !== undefined) el.textContent = text;
+    });
+    // HTML 치환: <div data-i18n-html="key"> (<br> 등 허용, 자체 문구만 사용)
+    root.querySelectorAll('[data-i18n-html]').forEach(el => {
+      const key = el.getAttribute('data-i18n-html');
+      if (!key) return;
+      const text = window.t(key);
+      if (text !== undefined) el.innerHTML = text;
+    });
+    // 속성 치환: <input data-i18n-attr="placeholder:key,title:key2">
+    root.querySelectorAll('[data-i18n-attr]').forEach(el => {
+      const spec = el.getAttribute('data-i18n-attr');
+      if (!spec) return;
+      spec.split(',').forEach(pair => {
+        const [attr, key] = pair.split(':').map(s => s.trim());
+        if (attr && key) el.setAttribute(attr, window.t(key));
+      });
+    });
+  };
+
+  // 언어 전환
+  window.setLang = function(lang) {
+    if (!SUPPORTED.includes(lang)) return;
+    currentLang = lang;
+    try { localStorage.setItem(STORAGE_KEY, lang); } catch(e) {}
+    document.documentElement.lang = lang === 'ko' ? 'ko' : 'ja';
+    window.applyI18n(document);
+    window.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
+  };
+
+  // 초기 적용
+  document.documentElement.lang = currentLang === 'ko' ? 'ko' : 'ja';
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.applyI18n(document));
+  } else {
+    window.applyI18n(document);
+  }
+})();
 // ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
 // localStorage는 세션 캐시에만 사용
@@ -1655,7 +2228,8 @@ function renderMarkdown(md) {
 
 async function openLegalPage(kind, lang) {
   _currentLegal.kind = kind;
-  _currentLegal.lang = lang || _currentLegal.lang || 'ko';
+  // 인자 > 현재 i18n 언어 > 기존 상태 > ja 기본
+  _currentLegal.lang = lang || (typeof getLang === 'function' ? getLang() : null) || _currentLegal.lang || 'ja';
   navigate('legal');
   await renderLegalPage();
 }
@@ -2839,13 +3413,13 @@ async function openCampaign(id) {
       ${camp.description ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">キャンペーン説明</div>
-        <div style="font-size:13px;color:var(--ink);line-height:1.7;white-space:pre-wrap">${esc(camp.description)}</div>
+        <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
       </div>` : ''}
 
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">投稿ガイドライン</div>
-        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">ブランドアピールポイント</div><div style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px;white-space:pre-wrap">${esc(camp.appeal)}</div></div>` : ''}
+        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">ブランドアピールポイント</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須ハッシュタグ</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.hashtags.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
         ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須メンション</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
       </div>` : ''}
@@ -2853,13 +3427,13 @@ async function openCampaign(id) {
       ${camp.guide ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">撮影ガイド</div>
-        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:8px">${esc(camp.guide)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:12px;border-radius:8px">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${camp.ng ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">NG事項</div>
-        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${esc(camp.ng)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>
       </div>` : ''}
 
       ${camp.product_url ? `
@@ -3378,6 +3952,25 @@ function closeMypageSub() {
   $('mypage-list').classList.add('active');
   history.pushState({page:'mypage'}, '', '#mypage');
 }
+
+// 언어 토글 버튼 상태 업데이트
+function updateLangToggleUI() {
+  const current = typeof getLang === 'function' ? getLang() : 'ja';
+  document.querySelectorAll('.lang-toggle .lang-btn').forEach(btn => {
+    btn.classList.toggle('on', btn.getAttribute('data-lang') === current);
+  });
+}
+
+// 회원 탈퇴 핸들러 (i18n 대응)
+function handleWithdraw() {
+  const confirmMsg = typeof t === 'function' ? t('mypage.withdrawConfirm') : '本当に退会しますか？';
+  const toastMsg = typeof t === 'function' ? t('mypage.withdrawToast') : '退会申請を受け付けました。運営にLINEでご連絡ください。';
+  if (confirm(confirmMsg)) toast(toastMsg);
+}
+
+// 초기 + langchange 이벤트에서 토글 상태 갱신
+document.addEventListener('DOMContentLoaded', updateLangToggleUI);
+window.addEventListener('langchange', updateLangToggleUI);
 // ══════════════════════════════════════
 // NAVIGATION + INIT
 // ══════════════════════════════════════

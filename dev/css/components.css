@@ -166,3 +166,25 @@ textarea.form-input{resize:vertical;min-height:80px}
 .legal-table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0 14px;display:block;overflow-x:auto}
 .legal-table th,.legal-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 .legal-table th{background:var(--bg);font-weight:700;font-size:11px;white-space:nowrap}
+
+/* 리치 콘텐츠 렌더 */
+.rich-content{word-break:break-word}
+.rich-content p{margin:0 0 8px 0}
+.rich-content p:last-child{margin-bottom:0}
+.rich-content h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+.rich-content h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+.rich-content h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+.rich-content ul,.rich-content ol{margin:4px 0 8px;padding-left:20px}
+.rich-content li{margin:2px 0}
+.rich-content a{color:var(--pink);text-decoration:underline}
+.rich-content blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+.rich-content code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.9em;font-family:ui-monospace,monospace}
+.rich-content pre{background:var(--bg);padding:8px 10px;border-radius:6px;overflow-x:auto;font-size:.9em}
+.rich-content strong{font-weight:700}
+.rich-content em{font-style:italic}
+
+/* Quill 에디터 (admin) */
+.quill-host{background:#fff;border-radius:6px}
+.quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
+.quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
+.quill-host .ql-editor{min-height:120px}
