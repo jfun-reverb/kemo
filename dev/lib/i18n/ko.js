@@ -89,6 +89,7 @@ window.I18N_KO = {
       emailLabel: '이메일 주소',
       btn: '재설정 메일 보내기',
       backLink: '로그인으로 돌아가기',
+      successMsg: '입력하신 이메일이 등록되어 있다면 재설정 메일을 보냈습니다. 메일함(스팸함 포함)을 확인해주세요.',
     },
     reset: {
       title: '새 비밀번호',
