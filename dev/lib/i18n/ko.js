@@ -145,6 +145,12 @@ window.I18N_KO = {
     withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
   },
 
+  tab: {
+    home: '홈',
+    campaigns: '캠페인',
+    mypage: '마이페이지',
+  },
+
   profileAlert: {
     title: '캠페인 응모 전에',
     desc: '응모하려면 마이페이지에서 "개인정보"와 "PayPal" 등록이 필요합니다.<br>아래 항목을 등록해주세요.',
