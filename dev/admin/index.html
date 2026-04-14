@@ -5,6 +5,16 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>REVERB Admin</title>
+<link id="appFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%232D1F2B'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>A</text></svg>">
+<script>
+(function(){
+  if (!/^(www\.)?globalreverb\.com$/.test(location.hostname)) {
+    document.title = '[DEV] REVERB Admin';
+    var fav = document.getElementById('appFavicon');
+    if (fav) fav.href = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23f59e0b'/><text x='32' y='42' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='22' fill='%23fff'>DEV</text></svg>";
+  }
+})();
+</script>
 <link rel="preconnect" href="https://twofagomeizrtkwlhsuv.supabase.co" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
