@@ -1441,7 +1441,7 @@ async function loadAdminAccounts() {
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
-      ${a.role !== 'super_admin' ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" onclick="deleteAdmin('${a.id}',this.dataset.email)">삭제</button>` : ''}
+      ${a.role !== 'super_admin' ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
   </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 
@@ -1878,19 +1878,25 @@ async function saveAdmin() {
       err.textContent = '수정 오류: ' + friendlyError(e.message); err.style.display = 'block';
     }
   } else {
-    // 추가 모드
+    // 추가 모드 (초대 플로우)
     const email = $('adminFormEmail').value.trim();
-    const pw = $('adminFormPw').value;
     const name = $('adminFormName').value.trim();
     const role = $('adminFormRole').value;
-    if (!email || !pw || !name) { err.textContent = '모든 항목을 입력해주세요'; err.style.display = 'block'; return; }
-    if (pw.length < 8) { err.textContent = '비밀번호는 8자 이상이어야 합니다'; err.style.display = 'block'; return; }
+    if (!email || !name) { err.textContent = '모든 항목을 입력해주세요'; err.style.display = 'block'; return; }
     try {
-      const {data, error} = await db.rpc('create_admin', {
-        admin_email: email, admin_password: pw, admin_name: name, admin_role: role
+      const {data, error} = await db.rpc('invite_admin', {
+        admin_email: email, admin_name: name, admin_role: role
       });
       if (error) throw error;
-      toast('관리자가 추가되었습니다','success');
+
+      // 초대 메일 발송 (비밀번호 설정 링크)
+      const redirectUrl = location.origin + '/#reset-pw';
+      const {error: mailErr} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
+      if (mailErr) {
+        toast('관리자 등록 성공. 단 초대 메일 발송 실패: ' + friendlyError(mailErr.message), 'error');
+      } else {
+        toast('관리자가 추가되었습니다. 초대 이메일이 발송되었습니다.', 'success');
+      }
       closeModal('addAdminModal');
       loadAdminAccounts();
     } catch(e) {
@@ -1899,14 +1905,46 @@ async function saveAdmin() {
   }
 }
 
-async function deleteAdmin(id, email) {
-  if (!confirm(`${email} 관리자를 삭제하시겠습니까?`)) return;
+function openDeleteAdminModal(adminId, authId, email) {
+  const modal = document.getElementById('deleteAdminModal');
+  if (!modal) return;
+  document.getElementById('deleteAdminEmail').textContent = email;
+  document.getElementById('deleteAdminAuthId').value = authId;
+  document.getElementById('deleteAdminAdminId').value = adminId;
+  modal.classList.add('open');
+}
+
+function closeDeleteAdminModal() {
+  document.getElementById('deleteAdminModal')?.classList.remove('open');
+}
+
+async function executeRemoveRole() {
+  const authId = document.getElementById('deleteAdminAuthId').value;
+  if (!authId) return;
   try {
-    await db.from('admins').delete().eq('id', id);
-    toast('관리자가 삭제되었습니다','success');
+    const { error } = await db.rpc('remove_admin_role', { target_auth_id: authId });
+    if (error) throw error;
+    toast('관리자 권한이 해제되었습니다 (인플루언서 계정은 유지)', 'success');
+    closeDeleteAdminModal();
     loadAdminAccounts();
   } catch(e) {
-    toast('삭제 오류: ' + friendlyError(e.message),'error');
+    toast('권한 해제 오류: ' + friendlyError(e.message), 'error');
+  }
+}
+
+async function executeDeleteCompletely() {
+  const email = document.getElementById('deleteAdminEmail').textContent;
+  if (!confirm(`정말 ${email} 계정을 완전 삭제합니까? 인플루언서 데이터, 응모 이력 등 모두 삭제되며 복구 불가합니다.`)) return;
+  const authId = document.getElementById('deleteAdminAuthId').value;
+  if (!authId) return;
+  try {
+    const { error } = await db.rpc('delete_admin_completely', { target_auth_id: authId });
+    if (error) throw error;
+    toast('계정이 완전 삭제되었습니다', 'success');
+    closeDeleteAdminModal();
+    loadAdminAccounts();
+  } catch(e) {
+    toast('삭제 오류: ' + friendlyError(e.message), 'error');
   }
 }
 
