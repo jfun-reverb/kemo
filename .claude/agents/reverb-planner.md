@@ -1,6 +1,6 @@
 ---
 name: reverb-planner
-description: REVERB JP 기능 추가/리팩토링 전 구현 계획 수립. 새 기능, DB 스키마 변경, 대규모 수정 작업 시 PROACTIVELY 사용. 코드는 수정하지 않고 영향 분석과 단계별 계획만 반환.
+description: REVERB JP 기능 추가/리팩토링 전 구현 계획 수립. **설계 분기점이 2개 이상이거나 DB/UI/RLS/Auth 중 하나라도 영향이 있는 모든 변경**에 PROACTIVELY 사용 (규모 무관). 관리자 추가/삭제 UX 재설계, 신규 RPC 도입, 페이지 플로우 변경 등 중소 규모도 포함. 코드는 수정하지 않고 경우의 수와 단계별 계획만 반환.
 tools: Read, Grep, Glob
 model: opus
 ---

@@ -50,9 +50,17 @@ globs: "*"
 - DB 변경이 얽혀있으면 백업에서 pg_dump 복원 + code revert 병행
 - 롤백 전 사용자 승인 필수
 
-## 배포 전 체크
+## 배포 전 체크 (필수)
 - [ ] 빌드 성공 (`bash build.sh` 에러 없음)
 - [ ] 제거한 DOM/함수의 잔존 참조 grep 확인
 - [ ] 개발서버에서 시나리오 테스트 완료
 - [ ] DB 변경 있으면 개발 DB에 적용 + 검증
-- [ ] reverb-reviewer 에이전트 검증 (복잡한 변경)
+- [ ] **`reverb-reviewer` 에이전트 호출 — 모든 commit 직전 예외 없이** (단순 한 줄 오탈자 제외)
+- [ ] Supabase/Auth 관련 변경이면 `reverb-supabase-expert` 호출
+- [ ] 설계 분기점 2개 이상이면 `reverb-planner`로 경우의 수 탐색 선행
+
+## 에이전트 호출 의무
+메인 Claude가 스스로 판단해서 스킵하지 말 것:
+- `reverb-reviewer`: commit/push 직전 항상 실행
+- `reverb-supabase-expert`: `auth.users`, `auth.identities`, RLS, 마이그레이션, `storage.js`, Supabase 클라이언트 옵션 수정 시
+- `reverb-planner`: 기능 추가·개선·리팩토링 시작 전 (규모 무관)
