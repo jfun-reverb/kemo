@@ -63,8 +63,8 @@ window._supabaseLoaded = false;
     <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
     <div id="profileAlertMissing" style="text-align:left;margin-bottom:20px"></div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">Cancel</button>
-      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">My Page</button>
+      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">キャンセル</button>
+      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">マイページへ</button>
     </div>
   </div>
 </div>
@@ -110,13 +110,13 @@ window._supabaseLoaded = false;
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">Login Required</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">Please log in to join the campaign.</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">ログインが必要です</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">キャンペーンに応募するにはログインしてください。</div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()" data-i18n="common.cancel">キャンセル</button>
-      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')" data-i18n="nav.login">Log In</button>
+      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')" data-i18n="nav.login">ログイン</button>
     </div>
-    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)"><span data-i18n="loginPrompt.noAccount">Don't have an account?</span> <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer" data-i18n="loginPrompt.signupFree">Sign Up Free</a></div>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)"><span data-i18n="loginPrompt.noAccount">アカウントをお持ちでないですか？</span> <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer" data-i18n="loginPrompt.signupFree">無料で新規登録</a></div>
   </div>
 </div>
 
@@ -127,8 +127,8 @@ window._supabaseLoaded = false;
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
     <div class="gnb-right" id="gnbRight">
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')" data-i18n="nav.login">Log In</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')" data-i18n="nav.signup">Sign Up</button>
+      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')" data-i18n="nav.login">ログイン</button>
+      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')" data-i18n="nav.signup">新規登録</button>
     </div>
   </div>
 </nav>
@@ -366,23 +366,23 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title" data-i18n="auth.login.title">Log In</div>
+        <div class="auth-title" data-i18n="auth.login.title">ログイン</div>
         <div class="auth-sub" data-i18n="auth.login.sub">REVERBインフルエンサーアカウントでログイン</div>
       </div>
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group">
-          <label class="form-label" data-i18n="auth.login.emailLabel">Email</label>
+          <label class="form-label" data-i18n="auth.login.emailLabel">メールアドレス</label>
           <input type="email" id="loginEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-group">
-          <label class="form-label" data-i18n="auth.login.pwLabel">Password</label>
+          <label class="form-label" data-i18n="auth.login.pwLabel">パスワード</label>
           <div class="pw-wrap">
-            <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
+            <input type="password" id="loginPw" class="form-input" placeholder="パスワードを入力" required>
             <button type="button" class="pw-toggle" onclick="togglePw('loginPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
         </div>
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="loginBtn" data-i18n="auth.login.btn">Log In</button>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn" data-i18n="auth.login.btn">ログイン</button>
       </form>
       <div class="auth-forgot"><a onclick="navigate('forgot')" data-i18n="auth.login.forgotLink">パスワードをお忘れですか？</a></div>
       <div class="auth-switch"><span data-i18n="auth.login.switchText">アカウントをお持ちでないですか？</span> <a onclick="navigate('signup')" data-i18n="auth.login.switchLink">新規登録</a></div>
@@ -457,7 +457,7 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up" style="max-width:560px">
       <div class="auth-logo" style="margin-bottom:16px">
         <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
-        <div class="auth-title" style="font-size:18px" data-i18n="auth.signup.title">Sign Up</div>
+        <div class="auth-title" style="font-size:18px" data-i18n="auth.signup.title">新規登録</div>
         <div class="auth-sub" data-i18n="auth.signup.sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
@@ -471,29 +471,29 @@ window._supabaseLoaded = false;
       <form id="signupForm" onsubmit="handleSignup(event)">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">Name (Kanji)</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">氏名（漢字）</span> <span style="color:var(--red)">*</span></label>
             <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
           </div>
           <div class="form-group">
-            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">Name (Kana)</span> <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">氏名（ふりがな）</span> <span style="color:var(--red)">*</span></label>
             <input type="text" id="signupNameKana" class="form-input" placeholder="やまだはなこ" required>
             <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、かな名を入力してください</div>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Email <span style="color:var(--red)">*</span></label>
+          <label class="form-label">メールアドレス <span style="color:var(--red)">*</span></label>
           <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Password <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">(8+ chars)</span></label>
+            <label class="form-label">パスワード <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">（8文字以上）</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" required minlength="8">
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Confirm Password <span style="color:var(--red)">*</span></label>
+            <label class="form-label">パスワード（確認） <span style="color:var(--red)">*</span></label>
             <div class="pw-wrap">
               <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" required>
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw2',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -523,10 +523,10 @@ window._supabaseLoaded = false;
             <span class="agree-text" data-i18n="auth.signup.agreeMarketing">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
           </label>
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="signupBtn" data-i18n="auth.signup.btn">Sign Up</button>
+        <button type="submit" class="btn btn-primary btn-block" id="signupBtn" data-i18n="auth.signup.btn">登録する</button>
         <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6" data-i18n="auth.signup.afterNote">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
-      <div class="auth-switch"><span data-i18n="auth.signup.switchText">すでにアカウントをお持ちですか？</span> <a onclick="navigate('login')" data-i18n="auth.signup.switchLink">Log In</a></div>
+      <div class="auth-switch"><span data-i18n="auth.signup.switchText">すでにアカウントをお持ちですか？</span> <a onclick="navigate('login')" data-i18n="auth.signup.switchLink">ログイン</a></div>
       </div><!-- /signupFormArea -->
     </div>
   </div>
@@ -818,15 +818,15 @@ window._supabaseLoaded = false;
 <nav class="bottom-tab" id="bottomTabBar">
   <button class="tab-item on" id="tab-home" onclick="navigateTab('home',this)">
     <span class="material-icons-round">home</span>
-    <span class="tab-lbl">Home</span>
+    <span class="tab-lbl" data-i18n="tab.home">ホーム</span>
   </button>
   <button class="tab-item" id="tab-camp" onclick="navigateTab('campaigns',this)">
     <span class="material-icons-round">campaign</span>
-    <span class="tab-lbl">Campaigns</span>
+    <span class="tab-lbl" data-i18n="tab.campaigns">キャンペーン</span>
   </button>
   <button class="tab-item" id="tab-mypage" onclick="navigateTab('mypage',this)">
     <span class="material-icons-round">person</span>
-    <span class="tab-lbl">My Page</span>
+    <span class="tab-lbl" data-i18n="tab.mypage">マイページ</span>
   </button>
 </nav>
 </div><!-- /appShell -->
