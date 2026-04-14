@@ -77,9 +77,8 @@ function normalizeLinks(wrapper) {
 function sanitizeRich(html) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
-    const tmp = document.createElement('div');
-    tmp.textContent = String(html);
-    return tmp.innerHTML;
+    console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
+    return '';
   }
   const clean = DOMPurify.sanitize(String(html), {
     ALLOWED_TAGS: RICH_ALLOWED_TAGS,
