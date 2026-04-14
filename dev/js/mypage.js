@@ -190,8 +190,10 @@ async function changePassword() {
   const err = $('pwChangeError');
   err.style.display='none';
   if (!cur || !nw) { err.textContent='すべての項目を入力してください'; err.style.display='block'; return; }
-  if (nw.length < 8) { err.textContent='新しいパスワードは8文字以上にしてください'; err.style.display='block'; return; }
-  if (nw !== nw2) { err.textContent='パスワードが一致しません'; err.style.display='block'; return; }
+  if (cur === nw) { err.textContent = (typeof t==='function') ? t('auth.pwSameAsCurrent', '現在のパスワードと同じパスワードは使用できません。') : '現在のパスワードと同じパスワードは使用できません。'; err.style.display='block'; return; }
+  const pwErr = (typeof validatePasswordPolicy === 'function') ? validatePasswordPolicy(nw) : null;
+  if (pwErr) { err.textContent = pwErr; err.style.display='block'; return; }
+  if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
   if (!db) { err.textContent='サーバーに接続できません'; err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
   if (error) { err.textContent=error.message; err.style.display='block'; return; }

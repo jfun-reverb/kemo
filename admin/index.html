@@ -1997,6 +1997,22 @@ function toggleOptional() {
 }
 
 // ── 비밀번호 보기/숨기기 ──
+// 비밀번호 정책 검증
+// 규칙: 8자 이상 + 영문 소문자 1개 이상 + 특수문자 1개 이상
+// 유효하면 null, 위반 시 현지화된 에러 메시지 반환
+function validatePasswordPolicy(pw) {
+  const fallback = {
+    short: 'パスワードは8文字以上で入力してください。',
+    needLower: 'パスワードに英小文字を1つ以上含めてください。',
+    needSpecial: 'パスワードに記号（!@#$%^&*など）を1つ以上含めてください。'
+  };
+  const T = (key, fb) => (typeof t === 'function') ? t(key, fb) : fb;
+  if (!pw || pw.length < 8) return T('auth.pwTooShort', fallback.short);
+  if (!/[a-z]/.test(pw)) return T('auth.pwNeedLower', fallback.needLower);
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return T('auth.pwNeedSpecial', fallback.needSpecial);
+  return null;
+}
+
 function togglePw(inputId, btn) {
   const input = $(inputId);
   if (!input) return;
