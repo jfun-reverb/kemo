@@ -71,6 +71,17 @@ feat: ...
 - [ ] Supabase/Auth 관련 변경이면 `reverb-supabase-expert` 호출
 - [ ] 설계 분기점 2개 이상이면 `reverb-planner`로 경우의 수 탐색 선행
 
+## 외부 시스템 설정 양 서버 동기화 (필수)
+코드/마이그레이션 외에 **대시보드에서 손으로 바꿔야 하는 설정**은 PR/merge로 자동 이관되지 않는다. 개발서버에서 바꿨다면 **같은 세션에서 운영서버 적용 절차까지 안내**:
+
+- [ ] **Supabase Auth**: Site URL, Redirect URLs, Email Templates, SMTP Settings
+- [ ] **Brevo/SMTP**: API Key 교체, 발신자 도메인 추가
+- [ ] **Supabase Storage**: 버킷 생성, 정책
+- [ ] **Vercel**: Domain 연결, Deployment Protection, Environment Variables
+- [ ] **DNS (cafe24 등)**: SPF/DKIM/DMARC 레코드
+
+원칙: "개발서버 설정 변경 완료"라고 말하는 순간 바로 다음 문장에 "운영서버에서도 아래 단계 적용하세요" 체크리스트 첨부.
+
 ## 에이전트 호출 의무
 메인 Claude가 스스로 판단해서 스킵하지 말 것:
 - `reverb-reviewer`: commit/push 직전 항상 실행
