@@ -170,7 +170,10 @@ async function handleForgotPassword(e) {
       errEl.textContent = error.message;
       errEl.style.display = 'block';
     } else {
-      successEl.textContent = 'メールを送信しました。メールボックスをご確認ください。';
+      const msg = (typeof t === 'function')
+        ? t('auth.forgot.successMsg', 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。')
+        : 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。';
+      successEl.textContent = msg;
       successEl.style.display = 'block';
       $('forgotForm').reset();
     }
@@ -218,6 +221,8 @@ async function handleResetPassword(e) {
       errEl.textContent = error.message;
       errEl.style.display = 'block';
     } else {
+      try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
+      await db.auth.signOut();
       toast('パスワードが変更されました', 'success');
       navigate('login');
     }
