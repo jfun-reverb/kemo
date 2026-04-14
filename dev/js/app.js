@@ -114,9 +114,11 @@ async function init() {
       }
     } catch(_) {}
   }
-  // 로그인 세션 복원
+  // 로그인 세션 복원 — 단, 비밀번호 재설정 중인 세션은 로그인 상태로 취급하지 않음
+  let inRecoveryInit = false;
+  try { inRecoveryInit = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
   const {data:{session}} = await (db?.auth.getSession() || {data:{session:null}});
-  if (session) {
+  if (session && !inRecoveryInit) {
     currentUser = session.user;
     // 관리자 테이블에서 확인
     const {data:adminData} = await db?.from('admins').select('*').eq('auth_id', currentUser.id).maybeSingle();
