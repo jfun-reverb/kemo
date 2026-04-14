@@ -78,7 +78,11 @@
 - 에러 처리: friendlyError() 한국어 에러 메시지 + 에러 코드 표시
 - 상태 뱃지: getStatusBadgeKo() 한국어 상태 표시
 - 인플루언서 관리: 채널별 필터, 상세 프로필 조회
-- 관리자 계정: 3단계 권한 (super_admin > campaign_admin > campaign_manager), create_admin으로 기존 인플루언서 계정도 관리자 추가 가능
+- 관리자 계정: 3단계 권한 (super_admin > campaign_admin > campaign_manager)
+- 관리자 추가: **초대 방식** — super_admin이 이메일+이름+역할 입력 → `invite_admin()` RPC가 auth.users + identities 생성 → 클라이언트가 즉시 `resetPasswordForEmail()` 호출 → 받은 사람이 메일 링크로 직접 비밀번호 설정. 이메일 유효성 자동 검증됨.
+- 기존 인플루언서 계정도 같은 이메일로 `invite_admin` 호출 시 자동으로 관리자 승격 (기존 프로필 유지)
+- 관리자 삭제 2택: **권한만 해제**(`remove_admin_role`) — 인플루언서 계정 유지 / **완전 삭제**(`delete_admin_completely`) — auth/influencers/applications/receipts 모두 cascade 삭제. 자기 자신 삭제 불가.
+- `create_admin()` 함수는 **deprecated** (migration 032). `invite_admin()` 사용.
 - 내 계정: 이름/비밀번호 변경
 - 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
 
