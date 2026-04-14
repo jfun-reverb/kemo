@@ -218,6 +218,8 @@ async function handleResetPassword(e) {
       errEl.textContent = error.message;
       errEl.style.display = 'block';
     } else {
+      try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
+      await db.auth.signOut();
       toast('パスワードが変更されました', 'success');
       navigate('login');
     }
