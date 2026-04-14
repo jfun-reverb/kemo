@@ -760,10 +760,6 @@
         <label class="form-label">이메일</label>
         <input type="email" id="adminFormEmail" class="form-input" placeholder="admin@example.com">
       </div>
-      <div class="form-group" id="adminFormPwGroup">
-        <label class="form-label">비밀번호 (8자 이상)</label>
-        <input type="password" id="adminFormPw" class="form-input" placeholder="비밀번호 입력">
-      </div>
       <div class="form-group">
         <label class="form-label">이름</label>
         <input type="text" id="adminFormName" class="form-input" placeholder="홍길동">
@@ -775,6 +771,9 @@
           <option value="campaign_admin">캠페인 관리자</option>
           <option value="super_admin">슈퍼관리자</option>
         </select>
+      </div>
+      <div id="adminFormInviteNotice" style="background:#FDF0F7;border:1px solid rgba(200,120,163,.25);border-radius:10px;padding:10px 12px;font-size:11px;color:#7D4A6A;line-height:1.6;margin-bottom:10px">
+        추가 시 초대 이메일이 발송됩니다. 받는 분이 이메일 링크로 직접 비밀번호를 설정해야 로그인 가능합니다.
       </div>
       <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
       <div style="display:flex;gap:10px;margin-top:16px">
@@ -808,6 +807,37 @@
       </div>
       <div style="margin-top:12px;text-align:center">
         <button class="btn btn-ghost btn-xs" onclick="sendResetEmail()" style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">email</span> 이메일로 재설정 링크 보내기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 삭제 옵션 모달 -->
+<div class="modal-overlay" id="deleteAdminModal">
+  <div class="modal" style="max-width:420px;border-radius:24px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title">관리자 삭제</div>
+      <div class="modal-close" onclick="closeDeleteAdminModal()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="deleteAdminAuthId">
+      <input type="hidden" id="deleteAdminAdminId">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">
+        <strong id="deleteAdminEmail"></strong> 계정을 어떻게 처리할까요?
+      </div>
+
+      <button class="btn btn-ghost btn-block" onclick="executeRemoveRole()" style="text-align:left;padding:14px;margin-bottom:10px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">권한만 해제</div>
+        <div style="font-size:11px;color:var(--muted);white-space:normal">관리자 권한 제거. 인플루언서 계정 및 데이터는 유지됩니다.</div>
+      </button>
+
+      <button class="btn btn-ghost btn-block" onclick="executeDeleteCompletely()" style="text-align:left;padding:14px;border-color:#B3261E">
+        <div style="font-weight:700;font-size:13px;color:#B3261E;margin-bottom:4px">계정 완전 삭제</div>
+        <div style="font-size:11px;color:var(--muted);white-space:normal">auth, 인플루언서 프로필, 응모, 영수증 전부 삭제. 복구 불가.</div>
+      </button>
+
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeDeleteAdminModal()" style="flex:1">취소</button>
       </div>
     </div>
   </div>
