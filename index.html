@@ -3010,18 +3010,10 @@ function applyHomeFilter() {
 }
 
 function getCampBg(cat) {
-  const m={beauty:'#FFF5F5',food:'#FFFBEB',fashion:'#F5F0FF',health:'#F0FBF5',other:'#F6F6FA'};
-  return m[cat]||'#F6F6FA';
+  return '#E5E5E5';
 }
 function getCampGrad(cat) {
-  const m={
-    beauty:'linear-gradient(135deg,#F7D0E8 0%,#C878A3 100%)',
-    food:'linear-gradient(135deg,#FFE4B5 0%,#E8A87C 100%)',
-    fashion:'linear-gradient(135deg,#D4C5F9 0%,#8B5CF6 100%)',
-    health:'linear-gradient(135deg,#B7F3D8 0%,#059669 100%)',
-    other:'linear-gradient(135deg,#E0B8CA 0%,#56475D 100%)'
-  };
-  return m[cat]||m.other;
+  return '#E5E5E5';
 }
 
 function buildCampCards(camps) {
