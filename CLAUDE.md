@@ -22,11 +22,29 @@
 
 ## Environments
 - **도메인 기반 자동 분기**: `dev/lib/supabase.js`의 `resolveSupabaseEnv()`가 `location.hostname` 을 판별
-  - `globalreverb.com`, `www.globalreverb.com` → production Supabase
-  - 그 외 (dev.globalreverb.com, localhost 등) → staging Supabase
+  - `globalreverb.com`, `www.globalreverb.com` → 운영서버 Supabase
+  - 그 외 (dev.globalreverb.com, localhost 등) → 개발서버 Supabase
 - Supabase URL/Key는 `SUPABASE_ENVS` 객체에서만 관리 (다른 파일 하드코딩 금지)
-- 관리자 페이지 헤더에 staging 환경에서만 주황색 `STAGING` 배지 표시
-- 운영 배포 시 반드시 staging에서 검증 후 main merge
+- 관리자 페이지 헤더에 개발서버에서만 주황색 `STAGING` 배지 + `[DEV]` 탭 제목/파비콘 표시
+- 운영 배포는 반드시 개발서버 검증 후 main merge
+- Supabase Client 옵션: `flowType: 'pkce'`, `detectSessionInUrl: true` (비밀번호 재설정 안정성)
+
+## Email / SMTP
+- 양 서버 모두 **Brevo Custom SMTP** 사용 (`smtp-relay.brevo.com:587`)
+- 발신: `noreply@globalreverb.com`, 발신명: 운영 `REVERB JP` / 개발 `REVERB JP [DEV]`
+- 발신 도메인 DNS 인증 완료 (SPF/DKIM/DMARC, cafe24 DNS 관리)
+- Auth URL Configuration:
+  - 운영: Site URL `https://globalreverb.com` + Redirect `https://globalreverb.com/**`, `https://www.globalreverb.com/**`
+  - 개발: Site URL `https://dev.globalreverb.com` + Redirect `https://dev.globalreverb.com/**`
+
+## i18n (개발서버 한정, Phase 1)
+- 인플루언서 페이지 KO/JA 토글 (마이페이지 메뉴)
+- 키-값: `dev/lib/i18n/{ja,ko}.js`, 런타임: `dev/lib/i18n/index.js`
+- HTML: `data-i18n="key"` (textContent), `data-i18n-html="key"` (innerHTML, `<br>` 허용)
+- JS 동적: `t('key')` 헬퍼
+- 기본값 `ja`, navigator.language 자동 감지 사용 안 함
+- 운영서버 배포 전 (테스터 검증 완료 후 결정)
+- Phase 1 완료 범위: 마이페이지, 인증(로그인/가입/재설정), GNB/홈, 캠페인 목록 탭
 
 ## Architecture
 - 인플루언서 앱: dev/index.html (모바일 480px, 바텀탭바)
