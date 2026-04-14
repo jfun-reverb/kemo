@@ -23,6 +23,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
@@ -246,6 +249,28 @@ textarea.form-input{resize:vertical;min-height:80px}
 .legal-table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0 14px;display:block;overflow-x:auto}
 .legal-table th,.legal-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 .legal-table th{background:var(--bg);font-weight:700;font-size:11px;white-space:nowrap}
+
+/* 리치 콘텐츠 렌더 */
+.rich-content{word-break:break-word}
+.rich-content p{margin:0 0 8px 0}
+.rich-content p:last-child{margin-bottom:0}
+.rich-content h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+.rich-content h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+.rich-content h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+.rich-content ul,.rich-content ol{margin:4px 0 8px;padding-left:20px}
+.rich-content li{margin:2px 0}
+.rich-content a{color:var(--pink);text-decoration:underline}
+.rich-content blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+.rich-content code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.9em;font-family:ui-monospace,monospace}
+.rich-content pre{background:var(--bg);padding:8px 10px;border-radius:6px;overflow-x:auto;font-size:.9em}
+.rich-content strong{font-weight:700}
+.rich-content em{font-style:italic}
+
+/* Quill 에디터 (admin) */
+.quill-host{background:#fff;border-radius:6px}
+.quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
+.quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
+.quill-host .ql-editor{min-height:120px}
 /* ══════════════════════════════════
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
@@ -629,7 +654,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div></div>
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="editCampDesc" class="form-input"></textarea></div>
+            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
@@ -642,10 +667,10 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <input type="hidden" id="editCampMentions">
               </div>
             </div>
-            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><textarea id="editCampAppeal" class="form-input"></textarea></div>
+            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="editCampAppeal"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">촬영 가이드</label><textarea id="editCampGuide" class="form-input" style="min-height:100px"></textarea></div>
-              <div class="form-group"><label class="form-label">NG 사항</label><textarea id="editCampNg" class="form-input" style="min-height:100px"></textarea></div>
+              <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
+              <div class="form-group"><label class="form-label">NG 사항</label><div class="quill-host" id="editCampNg"></div></div>
             </div>
             <div class="form-group"><label class="form-label">상태</label>
               <select id="editCampStatus" class="form-input">
@@ -785,7 +810,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="newCampDesc" class="form-input" placeholder="인플루언서에게 보여줄 캠페인 소개를 입력하세요"></textarea></div>
+            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="newCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_newCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="newCampHashtags" data-prefix="#"></div>
@@ -798,15 +823,10 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <input type="hidden" id="newCampMentions">
               </div>
             </div>
-            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><textarea id="newCampAppeal" class="form-input" placeholder="인플루언서가 콘텐츠에 담아야 할 메시지를 입력하세요"></textarea></div>
+            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="newCampAppeal"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">촬영 가이드</label><textarea id="newCampGuide" class="form-input" placeholder="촬영 방향, 앵글, 배경, 분위기 가이드" style="min-height:120px"></textarea></div>
-              <div class="form-group"><label class="form-label">NG 워드/사항</label><textarea id="newCampNg" class="form-input" style="min-height:120px">・競合他社の企業名・商品名・商品の露出 NG
-・暗い場所での撮影により商品が見えにくいもの NG
-・ロゴが逆向きになっているもの NG
-・ブランド名・商品名・パッケージ・商品の発色が見えにくいもの NG
-・本商品／サービスに対するネガティブな表現 NG
-・商品を実際に使用せずスウォッチ投稿のみ NG</textarea></div>
+              <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
+              <div class="form-group"><label class="form-label">NG 워드/사항</label><div class="quill-host" id="newCampNg"></div></div>
             </div>
 
             <!-- 고정 주의사항 -->
@@ -1345,7 +1365,7 @@ try {
   }
 } catch(e) {}
 // ══════════════════════════════════════
-// SHARED — 클라이언트/관리자 공유 변수
+// SHARED — 클라이언트/관리자 공유 변수 및 유틸
 // ══════════════════════════════════════
 var currentUser = null;
 var currentUserProfile = null;
@@ -1353,6 +1373,125 @@ var currentCampaignId = null;
 var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
+
+// ══════════════════════════════════════
+// 리치 텍스트 sanitize / render
+// ══════════════════════════════════════
+// 허용 태그/속성 (에디터 지원 범위와 일치)
+const RICH_ALLOWED_TAGS = ['p','br','strong','b','em','i','u','s','strike','ul','ol','li','a','h2','h3','h4','blockquote','code','pre','span','div'];
+const RICH_ALLOWED_ATTR = ['href','target','rel','class'];
+
+// Quill 2.x: bullet 리스트도 <ol><li data-list="bullet">로 저장 → <ul>/<ol> 적절히 분리
+function normalizeQuillLists(wrapper) {
+  wrapper.querySelectorAll('ol').forEach(ol => {
+    const items = Array.from(ol.children).filter(el => el.tagName === 'LI');
+    if (!items.length) return;
+
+    // 각 li의 유형(bullet/ordered) 파악
+    const segments = []; // [{type: 'bullet'|'ordered', items: []}]
+    let current = null;
+    items.forEach(li => {
+      const type = li.getAttribute('data-list') === 'bullet' ? 'bullet' : 'ordered';
+      if (!current || current.type !== type) {
+        current = { type, items: [] };
+        segments.push(current);
+      }
+      li.removeAttribute('data-list');
+      current.items.push(li);
+    });
+
+    // 한 종류만 있으면 단순 교체
+    if (segments.length === 1) {
+      if (segments[0].type === 'bullet') {
+        const ul = document.createElement('ul');
+        segments[0].items.forEach(li => ul.appendChild(li));
+        ol.replaceWith(ul);
+      }
+      return;
+    }
+
+    // 혼합: 원래 <ol> 위치에 여러 <ul>/<ol>를 순서대로 삽입
+    const parent = ol.parentNode;
+    const frag = document.createDocumentFragment();
+    segments.forEach(seg => {
+      const list = document.createElement(seg.type === 'bullet' ? 'ul' : 'ol');
+      seg.items.forEach(li => list.appendChild(li));
+      frag.appendChild(list);
+    });
+    parent.replaceChild(frag, ol);
+  });
+}
+
+// 링크 href에 프로토콜 없으면 https:// 자동 추가 + 보안 속성
+function normalizeLinks(wrapper) {
+  wrapper.querySelectorAll('a[href]').forEach(a => {
+    let href = (a.getAttribute('href') || '').trim();
+    if (!href) { a.removeAttribute('href'); return; }
+    // 내부 앵커 링크 (#으로 시작) / mailto / tel 은 그대로
+    if (/^(#|mailto:|tel:)/i.test(href)) return;
+    // http(s) 없으면 https:// 자동 부여
+    if (!/^https?:\/\//i.test(href)) {
+      href = 'https://' + href.replace(/^\/+/, '');
+      a.setAttribute('href', href);
+    }
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer nofollow');
+  });
+}
+
+// HTML 문자열을 sanitize 해서 안전한 HTML 반환
+function sanitizeRich(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') {
+    console.warn('[sanitizeRich] DOMPurify not loaded — refusing to process rich content');
+    return '';
+  }
+  const clean = DOMPurify.sanitize(String(html), {
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
+    ALLOWED_ATTR: RICH_ALLOWED_ATTR,
+    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
+    FORBID_ATTR: ['style','onerror','onload','onclick']
+  });
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = clean;
+  normalizeQuillLists(wrapper);
+  normalizeLinks(wrapper);
+  return wrapper.innerHTML;
+}
+
+// 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
+function richHtml(raw) {
+  const value = raw == null ? '' : String(raw);
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    return value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+  }
+  return sanitizeRich(value);
+}
+
+// 평문(legacy) 감지 → HTML로 변환. 이미 HTML이면 sanitize만.
+function renderRich(el, raw) {
+  if (!el) return;
+  const value = raw == null ? '' : String(raw);
+  // HTML 태그가 없으면 기존 평문 데이터로 간주 → 이스케이프 + 줄바꿈
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    const escaped = value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+    el.innerHTML = escaped;
+    el.classList.add('rich-content');
+    return;
+  }
+  el.innerHTML = sanitizeRich(value);
+  el.classList.add('rich-content');
+}
 // ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
 // localStorage는 세션 캐시에만 사용
@@ -2684,6 +2823,47 @@ async function loadAdminCampaigns(useCache) {
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
 }
 
+// ── Quill 리치 텍스트 에디터 관리 ──
+const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','editCampNg','newCampDesc','newCampAppeal','newCampGuide','newCampNg'];
+const richEditors = {};
+
+function getRichEditor(id) {
+  if (richEditors[id]) return richEditors[id];
+  const host = document.getElementById(id);
+  if (!host || typeof Quill === 'undefined') return null;
+  const q = new Quill(host, {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [2, 3, 4, false] }],
+        ['bold','italic','underline','strike'],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['link','blockquote'],
+        ['clean']
+      ],
+      clipboard: { matchVisual: false }
+    },
+    formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+  });
+  richEditors[id] = q;
+  return q;
+}
+function setRichValue(id, html) {
+  const q = getRichEditor(id);
+  if (!q) return;
+  const safe = (typeof sanitizeRich === 'function') ? sanitizeRich(html||'') : (html||'');
+  q.clipboard.dangerouslyPasteHTML(safe, 'silent');
+}
+function getRichValue(id) {
+  const q = getRichEditor(id);
+  if (!q) return '';
+  const raw = q.root.innerHTML;
+  // 빈 에디터 판정: Quill의 기본 placeholder 처리
+  const plain = q.getText().trim();
+  if (!plain) return '';
+  return (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
+}
+
 // ── 캠페인 편집 ──
 async function openEditCampaign(campId) {
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
@@ -2691,7 +2871,10 @@ async function openEditCampaign(campId) {
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
 
-  const sv = (id, val) => { const el=$(id); if(el) el.value = val||''; };
+  const sv = (id, val) => {
+    if (RICH_EDITOR_IDS.includes(id)) { setRichValue(id, val||''); return; }
+    const el=$(id); if(el) el.value = val||'';
+  };
   $('editCampId').value = campId;
   sv('editCampTitle', camp.title);
   sv('editCampBrand', camp.brand);
@@ -2813,7 +2996,10 @@ async function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
     if (!campId) { toast('ID를 찾을 수 없습니다','error'); return; }
-    const gv = id => $(id)?.value||'';
+    const gv = id => {
+      if (RICH_EDITOR_IDS.includes(id)) return getRichValue(id);
+      return $(id)?.value||'';
+    };
     const title = gv('editCampTitle').trim();
     const brand = gv('editCampBrand').trim();
     if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
@@ -3627,9 +3813,9 @@ async function addCampaign() {
     post_days: $('newCampPostDeadline')?.value
       ? Math.ceil((new Date($('newCampPostDeadline').value) - new Date()) / (1000*60*60*24))
       : 14,
-    description:$('newCampDesc').value,
+    description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
-    appeal:$('newCampAppeal')?.value||'', guide:$('newCampGuide').value, ng:$('newCampNg').value,
+    appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
     status:'draft'
   };
 
@@ -3639,9 +3825,11 @@ async function addCampaign() {
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
-   'newCampSlots','newCampDeadline','newCampPostDeadline','newCampDesc',
-   'newCampHashtags','newCampMentions','newCampAppeal','newCampGuide',
+   'newCampSlots','newCampDeadline','newCampPostDeadline',
+   'newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward'].forEach(id => { const el=$(id); if(el) el.value=''; });
+  // 리치 에디터 초기화
+  ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
@@ -3668,6 +3856,10 @@ async function loadAdminAccounts() {
   if (!db) return;
   const {data} = await db.from('admins').select('*').order('created_at');
   const admins = data || [];
+  // 현재 로그인한 관리자 정보 먼저 확정 (렌더 시 권한 판단에 사용)
+  currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+
   const roleLabel = r => r === 'super_admin'
     ? '<span class="badge badge-red">슈퍼관리자</span>'
     : r === 'campaign_admin'
@@ -3682,12 +3874,10 @@ async function loadAdminAccounts() {
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
-      ${a.role !== 'super_admin' ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
+      ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
   </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 
-  // 현재 로그인한 관리자 정보 로드
-  currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
   applyLookupMenuVisibility();
 }
 
@@ -4175,8 +4365,6 @@ async function executeRemoveRole() {
 }
 
 async function executeDeleteCompletely() {
-  const email = document.getElementById('deleteAdminEmail').textContent;
-  if (!confirm(`정말 ${email} 계정을 완전 삭제합니까? 인플루언서 데이터, 응모 이력 등 모두 삭제되며 복구 불가합니다.`)) return;
   const authId = document.getElementById('deleteAdminAuthId').value;
   if (!authId) return;
   try {

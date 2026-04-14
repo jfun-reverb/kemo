@@ -22,11 +22,29 @@
 
 ## Environments
 - **도메인 기반 자동 분기**: `dev/lib/supabase.js`의 `resolveSupabaseEnv()`가 `location.hostname` 을 판별
-  - `globalreverb.com`, `www.globalreverb.com` → production Supabase
-  - 그 외 (dev.globalreverb.com, localhost 등) → staging Supabase
+  - `globalreverb.com`, `www.globalreverb.com` → 운영서버 Supabase
+  - 그 외 (dev.globalreverb.com, localhost 등) → 개발서버 Supabase
 - Supabase URL/Key는 `SUPABASE_ENVS` 객체에서만 관리 (다른 파일 하드코딩 금지)
-- 관리자 페이지 헤더에 staging 환경에서만 주황색 `STAGING` 배지 표시
-- 운영 배포 시 반드시 staging에서 검증 후 main merge
+- 관리자 페이지 헤더에 개발서버에서만 주황색 `STAGING` 배지 + `[DEV]` 탭 제목/파비콘 표시
+- 운영 배포는 반드시 개발서버 검증 후 main merge
+- Supabase Client 옵션: `flowType: 'pkce'`, `detectSessionInUrl: true` (비밀번호 재설정 안정성)
+
+## Email / SMTP
+- 양 서버 모두 **Brevo Custom SMTP** 사용 (`smtp-relay.brevo.com:587`)
+- 발신: `noreply@globalreverb.com`, 발신명: 운영 `REVERB JP` / 개발 `REVERB JP [DEV]`
+- 발신 도메인 DNS 인증 완료 (SPF/DKIM/DMARC, cafe24 DNS 관리)
+- Auth URL Configuration:
+  - 운영: Site URL `https://globalreverb.com` + Redirect `https://globalreverb.com/**`, `https://www.globalreverb.com/**`
+  - 개발: Site URL `https://dev.globalreverb.com` + Redirect `https://dev.globalreverb.com/**`
+
+## i18n (개발서버 한정, Phase 1)
+- 인플루언서 페이지 KO/JA 토글 (마이페이지 메뉴)
+- 키-값: `dev/lib/i18n/{ja,ko}.js`, 런타임: `dev/lib/i18n/index.js`
+- HTML: `data-i18n="key"` (textContent), `data-i18n-html="key"` (innerHTML, `<br>` 허용)
+- JS 동적: `t('key')` 헬퍼
+- 기본값 `ja`, navigator.language 자동 감지 사용 안 함
+- 운영서버 배포 전 (테스터 검증 완료 후 결정)
+- Phase 1 완료 범위: 마이페이지, 인증(로그인/가입/재설정), GNB/홈, 캠페인 목록 탭
 
 ## Architecture
 - 인플루언서 앱: dev/index.html (모바일 480px, 바텀탭바)
@@ -63,6 +81,7 @@
 - 로딩 UX: 테이블/대시보드 KPI/차트 영역에 인라인 스피너 (전체화면 오버레이 제거)
 - 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경 모드(버튼 토글)
 - 캠페인 등록/편집 폼: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드), 제품정보 2열(이미지+상세), 모집타입 라디오버튼 UI, **채널은 복수 선택 체크박스**(Instagram/X/Qoo10/TikTok/YouTube · 콤마 구분 저장 `"instagram,x"`)
+- **콘텐츠 가이드 4개 필드(설명/어필 포인트/촬영 가이드/NG사항) 리치 텍스트 에디터** (Quill v2) — 볼드/이탤릭/리스트/링크/헤더/인용 지원. Notion 복사·붙여넣기로 서식 유지. 이미지 태그는 저장 시 제거(base64 폭증 방지). 저장 포맷은 sanitize된 HTML 문자열, 기존 `text` 컬럼 그대로 사용. 평문(legacy) 데이터는 렌더 시 자동 `<br>` 변환으로 하위호환. XSS 방어: DOMPurify 저장+렌더 이중 sanitize. 공통 헬퍼는 `dev/lib/shared.js`의 `sanitizeRich/richHtml/renderRich`
 - 캠페인 목록: 썸네일+이미지수 표시, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨(게시마감/모집마감), 타입 라벨 통일([타입] 제목 형식), 승인수/모집수 표시 + 대기 배지
 - 캠페인 미리보기: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
 - 캠페인 상태: draft(준비) → scheduled(모집예정) → active(모집중) → paused(일시정지) → closed(종료), 드롭다운으로 변경

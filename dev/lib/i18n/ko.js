@@ -1,0 +1,161 @@
+// ══════════════════════════════════════
+// i18n — 한국어
+// ══════════════════════════════════════
+window.I18N_KO = {
+  common: {
+    save: '저장',
+    cancel: '취소',
+    confirm: '확인',
+    back: '뒤로',
+    select: '선택해주세요',
+    unregistered: '미등록',
+    loading: '로딩 중…',
+    retry: '다시 시도',
+    close: '닫기',
+    apply: '적용',
+    ok: '확인',
+  },
+
+  home: {
+    hero: {
+      eyebrow: '🇰🇷 K-Brand × Japan Only',
+      titleLine1: '한국 인기 K브랜드를',
+      titleLine2: '당신의 SNS로',
+      titleLine3: '체험해보세요',
+      titleJp: '일본 미발매 신상품을 인플루언서 한정으로 무료 체험',
+      sub: 'K-Beauty 트렌드를 가장 빠르게 팔로워에게. 엄선된 K브랜드와 진심으로 전하고 싶은 인플루언서를 연결하는 체험 플랫폼입니다.',
+      cta: '무료로 체험단 참여하기 →',
+    },
+    stat: {
+      freeValue: '무료',
+      freeLabel: '제품 전액 무료',
+      priorityValue: '선행',
+      priorityLabel: '일본 미발매 제품도 체험',
+      chosenValue: '선발',
+      chosenLabel: '당신의 리뷰가 선택됩니다',
+    },
+    feature: {
+      shippingTitle: '한국 직배송 · 신상품',
+      shippingDesc: '일본 미발매 K브랜드 신상품을<br>가장 먼저 체험할 수 있습니다',
+      freeTitle: '완전 무료 제공',
+      freeDesc: '제품비 · 배송비 모두 무료<br>리워드 지급 캠페인도 있음',
+      chosenTitle: '당신이 선택됩니다',
+      chosenDesc: '팔로워 수보다 "전달력"<br>나노 인플루언서 대환영',
+    },
+    section: {
+      campaignsTitle: '캠페인',
+      campaignsSub: '지금 바로 응모 가능한 체험단',
+      viewAll: '전체 보기 →',
+    },
+  },
+
+  nav: {
+    login: '로그인',
+    signup: '회원가입',
+  },
+
+  campaigns: {
+    pageTitle: '캠페인 목록',
+    typeAll: '전체',
+    typeMonitor: 'Reviewer',
+    typeGifting: '기프팅',
+    typeVisit: '방문형',
+  },
+
+  status: {
+    campaign: {
+      active: '모집중',
+      scheduled: '공개 예정',
+      closed: '마감',
+      draft: '준비중',
+      paused: '일시정지',
+    },
+  },
+
+  auth: {
+    login: {
+      title: '로그인',
+      sub: 'REVERB 인플루언서 계정으로 로그인',
+      emailLabel: '이메일',
+      pwLabel: '비밀번호',
+      btn: '로그인',
+      forgotLink: '비밀번호를 잊으셨나요?',
+      switchText: '계정이 없으신가요?',
+      switchLink: '회원가입',
+    },
+    forgot: {
+      title: '비밀번호 재설정',
+      sub: '가입한 이메일 주소를 입력해주세요.<br>비밀번호 재설정 메일을 보내드립니다.',
+      emailLabel: '이메일 주소',
+      btn: '재설정 메일 보내기',
+      backLink: '로그인으로 돌아가기',
+      successMsg: '입력하신 이메일이 등록되어 있다면 재설정 메일을 보냈습니다. 메일함(스팸함 포함)을 확인해주세요.',
+    },
+    reset: {
+      title: '새 비밀번호',
+      sub: '새 비밀번호를 입력해주세요.',
+      newLabel: '새 비밀번호 (8자 이상)',
+      confirmLabel: '비밀번호 확인',
+      btn: '비밀번호 변경',
+    },
+    signup: {
+      title: '회원가입',
+      sub: 'REVERB에 참여해서 K브랜드 캠페인을 체험하세요',
+      nameKanjiLabel: '이름 (한자)',
+      nameKanaLabel: '이름 (가나)',
+      nameKanaHint: '일본 주소 배송을 위해 일본어 가나 표기를 입력해주세요',
+      emailLabel: '이메일',
+      pwLabel: '비밀번호',
+      pwHint: '(8자 이상)',
+      pwConfirmLabel: '비밀번호 확인',
+      agreeAll: '전체 동의',
+      required: '필수',
+      optional: '선택',
+      agreeTermsSuffix: '에 동의합니다',
+      agreeMarketing: '마케팅 정보 수신에 동의합니다 (캠페인 안내 · 혜택 정보)',
+      btn: '회원가입',
+      afterNote: 'SNS 정보와 배송지는 마이페이지에서 나중에 추가할 수 있습니다',
+      switchText: '이미 계정이 있으신가요?',
+      switchLink: '로그인',
+      confirmSentTitle: '확인 메일을 보냈습니다',
+      confirmSentDesc: '입력하신 이메일 주소로 확인 메일을 보냈습니다.<br>메일 속 링크를 클릭해 가입을 완료해주세요.',
+      confirmSentBtn: '로그인 페이지로',
+    },
+  },
+
+  mypage: {
+    menu: {
+      applications: '응모 이력',
+      basic: '기본 정보',
+      sns: 'SNS 계정',
+      address: '배송지',
+      paypal: 'PayPal',
+      password: '비밀번호 변경',
+      logout: '로그아웃',
+      language: '言語 / 언어',
+    },
+    withdraw: '회원 탈퇴',
+    withdrawConfirm: '정말 탈퇴하시겠습니까?',
+    withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
+  },
+
+  profileAlert: {
+    title: '캠페인 응모 전에',
+    desc: '응모하려면 마이페이지에서 "개인정보"와 "PayPal" 등록이 필요합니다.<br>아래 항목을 등록해주세요.',
+    cancel: '취소',
+    goMypage: '마이페이지',
+  },
+
+  loginPrompt: {
+    title: '로그인이 필요합니다',
+    desc: '캠페인에 참여하려면 로그인해주세요.',
+    noAccount: '계정이 없으신가요?',
+    signupFree: '무료 회원가입',
+  },
+
+  legal: {
+    termsTitle: '서비스 이용약관',
+    privacyTitle: '개인정보 처리방침',
+    about: '회사 소개',
+  },
+};

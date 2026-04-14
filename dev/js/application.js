@@ -122,13 +122,13 @@ async function openCampaign(id) {
       ${camp.description ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">キャンペーン説明</div>
-        <div style="font-size:13px;color:var(--ink);line-height:1.7;white-space:pre-wrap">${esc(camp.description)}</div>
+        <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
       </div>` : ''}
 
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">投稿ガイドライン</div>
-        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">ブランドアピールポイント</div><div style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px;white-space:pre-wrap">${esc(camp.appeal)}</div></div>` : ''}
+        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">ブランドアピールポイント</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須ハッシュタグ</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.hashtags.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
         ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須メンション</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
       </div>` : ''}
@@ -136,13 +136,13 @@ async function openCampaign(id) {
       ${camp.guide ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">撮影ガイド</div>
-        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:8px">${esc(camp.guide)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:12px;border-radius:8px">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${camp.ng ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">NG事項</div>
-        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${esc(camp.ng)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>
       </div>` : ''}
 
       ${camp.product_url ? `

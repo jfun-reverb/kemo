@@ -23,6 +23,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Noto+Sans+KR:wght@400;500;700&family=Sora:wght@700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
@@ -312,7 +315,7 @@
               <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div></div>
             </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="editCampDesc" class="form-input"></textarea></div>
+            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_editCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="editCampHashtags" data-prefix="#"></div>
@@ -325,10 +328,10 @@
                 <input type="hidden" id="editCampMentions">
               </div>
             </div>
-            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><textarea id="editCampAppeal" class="form-input"></textarea></div>
+            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="editCampAppeal"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">촬영 가이드</label><textarea id="editCampGuide" class="form-input" style="min-height:100px"></textarea></div>
-              <div class="form-group"><label class="form-label">NG 사항</label><textarea id="editCampNg" class="form-input" style="min-height:100px"></textarea></div>
+              <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
+              <div class="form-group"><label class="form-label">NG 사항</label><div class="quill-host" id="editCampNg"></div></div>
             </div>
             <div class="form-group"><label class="form-label">상태</label>
               <select id="editCampStatus" class="form-input">
@@ -468,7 +471,7 @@
             </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
-            <div class="form-group"><label class="form-label">캠페인 설명</label><textarea id="newCampDesc" class="form-input" placeholder="인플루언서에게 보여줄 캠페인 소개를 입력하세요"></textarea></div>
+            <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="newCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">필수 해시태그</label>
                 <div class="tag-input-wrap" id="tagWrap_newCampHashtags"><input type="text" class="tag-input" placeholder="입력 후 콤마(,)로 추가" data-target="newCampHashtags" data-prefix="#"></div>
@@ -481,15 +484,10 @@
                 <input type="hidden" id="newCampMentions">
               </div>
             </div>
-            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><textarea id="newCampAppeal" class="form-input" placeholder="인플루언서가 콘텐츠에 담아야 할 메시지를 입력하세요"></textarea></div>
+            <div class="form-group"><label class="form-label">브랜드 어필 포인트</label><div class="quill-host" id="newCampAppeal"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">촬영 가이드</label><textarea id="newCampGuide" class="form-input" placeholder="촬영 방향, 앵글, 배경, 분위기 가이드" style="min-height:120px"></textarea></div>
-              <div class="form-group"><label class="form-label">NG 워드/사항</label><textarea id="newCampNg" class="form-input" style="min-height:120px">・競合他社の企業名・商品名・商品の露出 NG
-・暗い場所での撮影により商品が見えにくいもの NG
-・ロゴが逆向きになっているもの NG
-・ブランド名・商品名・パッケージ・商品の発色が見えにくいもの NG
-・本商品／サービスに対するネガティブな表現 NG
-・商品を実際に使用せずスウォッチ投稿のみ NG</textarea></div>
+              <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
+              <div class="form-group"><label class="form-label">NG 워드/사항</label><div class="quill-host" id="newCampNg"></div></div>
             </div>
 
             <!-- 고정 주의사항 -->

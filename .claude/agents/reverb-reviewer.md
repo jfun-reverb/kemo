@@ -1,6 +1,6 @@
 ---
 name: reverb-reviewer
-description: REVERB JP 코드 변경사항을 프로젝트 규칙 기준으로 리뷰. 코드 수정/커밋 직전 MUST BE USED. 품질·보안·규칙 위반을 찾아내고 수정 제안.
+description: REVERB JP 코드 변경사항 리뷰 전담. 모든 commit/dev push 직전 **예외 없이 반드시** 호출 (단순 한 줄 오탈자 수정 제외). 품질·보안·규칙 위반, stale DOM 참조, 제거된 함수의 잔존 호출, 마이그레이션 완전성을 검증. MUST BE USED before every commit.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

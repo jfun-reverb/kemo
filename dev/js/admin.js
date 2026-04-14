@@ -443,6 +443,47 @@ async function loadAdminCampaigns(useCache) {
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
 }
 
+// ── Quill 리치 텍스트 에디터 관리 ──
+const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','editCampNg','newCampDesc','newCampAppeal','newCampGuide','newCampNg'];
+const richEditors = {};
+
+function getRichEditor(id) {
+  if (richEditors[id]) return richEditors[id];
+  const host = document.getElementById(id);
+  if (!host || typeof Quill === 'undefined') return null;
+  const q = new Quill(host, {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [2, 3, 4, false] }],
+        ['bold','italic','underline','strike'],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['link','blockquote'],
+        ['clean']
+      ],
+      clipboard: { matchVisual: false }
+    },
+    formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+  });
+  richEditors[id] = q;
+  return q;
+}
+function setRichValue(id, html) {
+  const q = getRichEditor(id);
+  if (!q) return;
+  const safe = (typeof sanitizeRich === 'function') ? sanitizeRich(html||'') : (html||'');
+  q.clipboard.dangerouslyPasteHTML(safe, 'silent');
+}
+function getRichValue(id) {
+  const q = getRichEditor(id);
+  if (!q) return '';
+  const raw = q.root.innerHTML;
+  // 빈 에디터 판정: Quill의 기본 placeholder 처리
+  const plain = q.getText().trim();
+  if (!plain) return '';
+  return (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
+}
+
 // ── 캠페인 편집 ──
 async function openEditCampaign(campId) {
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
@@ -450,7 +491,10 @@ async function openEditCampaign(campId) {
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
 
-  const sv = (id, val) => { const el=$(id); if(el) el.value = val||''; };
+  const sv = (id, val) => {
+    if (RICH_EDITOR_IDS.includes(id)) { setRichValue(id, val||''); return; }
+    const el=$(id); if(el) el.value = val||'';
+  };
   $('editCampId').value = campId;
   sv('editCampTitle', camp.title);
   sv('editCampBrand', camp.brand);
@@ -572,7 +616,10 @@ async function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
     if (!campId) { toast('ID를 찾을 수 없습니다','error'); return; }
-    const gv = id => $(id)?.value||'';
+    const gv = id => {
+      if (RICH_EDITOR_IDS.includes(id)) return getRichValue(id);
+      return $(id)?.value||'';
+    };
     const title = gv('editCampTitle').trim();
     const brand = gv('editCampBrand').trim();
     if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
@@ -1386,9 +1433,9 @@ async function addCampaign() {
     post_days: $('newCampPostDeadline')?.value
       ? Math.ceil((new Date($('newCampPostDeadline').value) - new Date()) / (1000*60*60*24))
       : 14,
-    description:$('newCampDesc').value,
+    description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
-    appeal:$('newCampAppeal')?.value||'', guide:$('newCampGuide').value, ng:$('newCampNg').value,
+    appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
     status:'draft'
   };
 
@@ -1398,9 +1445,11 @@ async function addCampaign() {
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
-   'newCampSlots','newCampDeadline','newCampPostDeadline','newCampDesc',
-   'newCampHashtags','newCampMentions','newCampAppeal','newCampGuide',
+   'newCampSlots','newCampDeadline','newCampPostDeadline',
+   'newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward'].forEach(id => { const el=$(id); if(el) el.value=''; });
+  // 리치 에디터 초기화
+  ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
@@ -1427,6 +1476,10 @@ async function loadAdminAccounts() {
   if (!db) return;
   const {data} = await db.from('admins').select('*').order('created_at');
   const admins = data || [];
+  // 현재 로그인한 관리자 정보 먼저 확정 (렌더 시 권한 판단에 사용)
+  currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+
   const roleLabel = r => r === 'super_admin'
     ? '<span class="badge badge-red">슈퍼관리자</span>'
     : r === 'campaign_admin'
@@ -1441,12 +1494,10 @@ async function loadAdminAccounts() {
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
-      ${a.role !== 'super_admin' ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
+      ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
   </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 
-  // 현재 로그인한 관리자 정보 로드
-  currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
   applyLookupMenuVisibility();
 }
 
@@ -1934,8 +1985,6 @@ async function executeRemoveRole() {
 }
 
 async function executeDeleteCompletely() {
-  const email = document.getElementById('deleteAdminEmail').textContent;
-  if (!confirm(`정말 ${email} 계정을 완전 삭제합니까? 인플루언서 데이터, 응모 이력 등 모두 삭제되며 복구 불가합니다.`)) return;
   const authId = document.getElementById('deleteAdminAuthId').value;
   if (!authId) return;
   try {

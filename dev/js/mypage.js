@@ -211,3 +211,22 @@ function closeMypageSub() {
   $('mypage-list').classList.add('active');
   history.pushState({page:'mypage'}, '', '#mypage');
 }
+
+// 언어 토글 버튼 상태 업데이트
+function updateLangToggleUI() {
+  const current = typeof getLang === 'function' ? getLang() : 'ja';
+  document.querySelectorAll('.lang-toggle .lang-btn').forEach(btn => {
+    btn.classList.toggle('on', btn.getAttribute('data-lang') === current);
+  });
+}
+
+// 회원 탈퇴 핸들러 (i18n 대응)
+function handleWithdraw() {
+  const confirmMsg = typeof t === 'function' ? t('mypage.withdrawConfirm') : '本当に退会しますか？';
+  const toastMsg = typeof t === 'function' ? t('mypage.withdrawToast') : '退会申請を受け付けました。運営にLINEでご連絡ください。';
+  if (confirm(confirmMsg)) toast(toastMsg);
+}
+
+// 초기 + langchange 이벤트에서 토글 상태 갱신
+document.addEventListener('DOMContentLoaded', updateLangToggleUI);
+window.addEventListener('langchange', updateLangToggleUI);
