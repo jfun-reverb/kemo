@@ -1,0 +1,13 @@
+# Supabase CLI cache & local bundles
+supabase/.temp/
+supabase/bundle/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Node
+node_modules/

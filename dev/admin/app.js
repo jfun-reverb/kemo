@@ -90,6 +90,14 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  // STAGING 환경 배지 표시
+  try {
+    if (typeof IS_STAGING !== 'undefined' && IS_STAGING) {
+      var badge = document.getElementById('stagingBadge');
+      if (badge) badge.style.display = 'inline-block';
+    }
+  } catch(e) {}
+
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || 'dashboard';
   var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers'};
