@@ -55,6 +55,13 @@
       const text = window.t(key);
       if (text !== undefined) el.textContent = text;
     });
+    // HTML 치환: <div data-i18n-html="key"> (<br> 등 허용, 자체 문구만 사용)
+    root.querySelectorAll('[data-i18n-html]').forEach(el => {
+      const key = el.getAttribute('data-i18n-html');
+      if (!key) return;
+      const text = window.t(key);
+      if (text !== undefined) el.innerHTML = text;
+    });
     // 속성 치환: <input data-i18n-attr="placeholder:key,title:key2">
     root.querySelectorAll('[data-i18n-attr]').forEach(el => {
       const spec = el.getAttribute('data-i18n-attr');

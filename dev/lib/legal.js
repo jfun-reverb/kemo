@@ -99,7 +99,8 @@ function renderMarkdown(md) {
 
 async function openLegalPage(kind, lang) {
   _currentLegal.kind = kind;
-  _currentLegal.lang = lang || _currentLegal.lang || 'ko';
+  // 인자 > 현재 i18n 언어 > 기존 상태 > ja 기본
+  _currentLegal.lang = lang || (typeof getLang === 'function' ? getLang() : null) || _currentLegal.lang || 'ja';
   navigate('legal');
   await renderLegalPage();
 }

@@ -58,12 +58,12 @@ window._supabaseLoaded = false;
 <!-- ── 프로필 부족 알럿 모달 ── -->
 <div id="profileAlertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">
-    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px">キャンペーン応募の前に</div>
-    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
+    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px" data-i18n="profileAlert.title">キャンペーン応募の前に</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="profileAlert.desc">応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。</div>
     <div id="profileAlertMissing" style="text-align:left;margin-bottom:20px"></div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px">Cancel</button>
-      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px">My Page</button>
+      <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">Cancel</button>
+      <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">My Page</button>
     </div>
   </div>
 </div>
@@ -109,13 +109,13 @@ window._supabaseLoaded = false;
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)">Login Required</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7">Please log in to join the campaign.</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px;color:var(--ink)" data-i18n="loginPrompt.title">Login Required</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.7" data-i18n="loginPrompt.desc">Please log in to join the campaign.</div>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()">キャンセル</button>
-      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')">Log In</button>
+      <button class="btn btn-ghost btn-block" onclick="closeLoginPrompt()" data-i18n="common.cancel">キャンセル</button>
+      <button class="btn btn-primary btn-block" onclick="closeLoginPrompt();navigate('login')" data-i18n="nav.login">Log In</button>
     </div>
-    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">Don't have an account? <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer">Sign Up Free</a></div>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)"><span data-i18n="loginPrompt.noAccount">Don't have an account?</span> <a onclick="closeLoginPrompt();navigate('signup')" style="color:var(--pink);font-weight:600;cursor:pointer" data-i18n="loginPrompt.signupFree">Sign Up Free</a></div>
   </div>
 </div>
 
@@ -126,8 +126,8 @@ window._supabaseLoaded = false;
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
     <div class="gnb-right" id="gnbRight">
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">Sign Up</button>
+      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')" data-i18n="nav.login">Log In</button>
+      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')" data-i18n="nav.signup">Sign Up</button>
     </div>
   </div>
 </nav>
@@ -138,16 +138,16 @@ window._supabaseLoaded = false;
 <div id="page-home" class="page">
   <section class="hero">
     <div class="container hero-inner">
-      <div class="hero-eyebrow">🇰🇷 K-Brand × Japan Only</div>
-      <h1 class="hero-h1">韓国の人気Kブランドを<span>あなたのSNSで</span>体験しよう<span class="hero-jp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
-      <p class="hero-sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
+      <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
+      <h1 class="hero-h1"><span data-i18n="home.hero.titleLine1">韓国の人気Kブランドを</span><span data-i18n="home.hero.titleLine2">あなたのSNSで</span><span data-i18n="home.hero.titleLine3">体験しよう</span><span class="hero-jp" data-i18n="home.hero.titleJp">日本未発売の新商品を、インフルエンサー限定で無償体験</span></h1>
+      <p class="hero-sub" data-i18n="home.hero.sub">K-Beautyのトレンドをいち早くあなたのフォロワーへ。厳選されたKブランドと、本当に伝えたいインフルエンサーをつなぐ体験プラットフォームです。</p>
       <div class="hero-cta">
-        <button class="hero-btn-p" onclick="navigate(currentUser?'campaigns':'signup')">無料で体験団に参加する →</button>
+        <button class="hero-btn-p" onclick="navigate(currentUser?'campaigns':'signup')" data-i18n="home.hero.cta">無料で体験団に参加する →</button>
       </div>
       <div class="hero-stats">
-        <div><div class="hero-stat-v">無償</div><div class="hero-stat-l">製品は全額無料</div></div>
-        <div><div class="hero-stat-v">先行</div><div class="hero-stat-l">日本未発売品も体験</div></div>
-        <div><div class="hero-stat-v">選考</div><div class="hero-stat-l">あなたの感想が選ばれる</div></div>
+        <div><div class="hero-stat-v" data-i18n="home.stat.freeValue">無償</div><div class="hero-stat-l" data-i18n="home.stat.freeLabel">製品は全額無料</div></div>
+        <div><div class="hero-stat-v" data-i18n="home.stat.priorityValue">先行</div><div class="hero-stat-l" data-i18n="home.stat.priorityLabel">日本未発売品も体験</div></div>
+        <div><div class="hero-stat-v" data-i18n="home.stat.chosenValue">選考</div><div class="hero-stat-l" data-i18n="home.stat.chosenLabel">あなたの感想が選ばれる</div></div>
       </div>
       <div id="statCampaigns" style="display:none"></div>
       <div id="statInfluencers" style="display:none"></div>
@@ -160,18 +160,18 @@ window._supabaseLoaded = false;
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
         <div style="padding:20px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">韓国直送・新商品</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
         <div style="padding:20px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">完全無償提供</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">製品代・送料すべて無料<br>リワード付きキャンペーンも</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.freeTitle">完全無償提供</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>リワード付きキャンペーンも</div>
         </div>
         <div style="padding:20px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px">あなたが選ばれる</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
       </div>
     </div>
@@ -180,8 +180,8 @@ window._supabaseLoaded = false;
   <section class="campaigns-section">
     <div class="container">
       <div class="section-header">
-        <div><div class="section-title">キャンペーン <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub">今すぐ応募できる体験団</div></div>
-        <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0">すべて見る →</button>
+        <div><div class="section-title"><span data-i18n="home.section.campaignsTitle">キャンペーン</span> <span id="campCount" style="color:var(--pink)">0</span></div><div class="section-sub" data-i18n="home.section.campaignsSub">今すぐ応募できる体験団</div></div>
+        <button onclick="navigate('campaigns')" style="font-size:12px;color:var(--pink);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0" data-i18n="home.section.viewAll">すべて見る →</button>
       </div>
       <!-- 채널 필터 -->
       <div class="filter-row" id="filterRow" style="margin-bottom:14px"></div>
@@ -253,13 +253,13 @@ window._supabaseLoaded = false;
 <div id="page-campaigns" class="page">
   <div style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
-      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px">キャンペーン一覧</div>
+      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
       <!-- 모집 유형 탭 (리뷰어/기프팅) -->
       <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
-        <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)">すべて</button>
-        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">Reviewer</button>
-        <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">ギフティング</button>
-        <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent">来店</button>
+        <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)" data-i18n="campaigns.typeAll">すべて</button>
+        <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeMonitor">Reviewer</button>
+        <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeGifting">ギフティング</button>
+        <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeVisit">来店</button>
       </div>
     </div>
   </div>
@@ -365,23 +365,23 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title">Log In</div>
-        <div class="auth-sub">REVERBインフルエンサーアカウントでログイン</div>
+        <div class="auth-title" data-i18n="auth.login.title">Log In</div>
+        <div class="auth-sub" data-i18n="auth.login.sub">REVERBインフルエンサーアカウントでログイン</div>
       </div>
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group">
-          <label class="form-label">Email</label>
+          <label class="form-label" data-i18n="auth.login.emailLabel">Email</label>
           <input type="email" id="loginEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-group">
-          <label class="form-label">Password</label>
+          <label class="form-label" data-i18n="auth.login.pwLabel">Password</label>
           <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
         </div>
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Log In</button>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn" data-i18n="auth.login.btn">Log In</button>
       </form>
-      <div class="auth-forgot"><a onclick="navigate('forgot')">パスワードをお忘れですか？</a></div>
-      <div class="auth-switch">アカウントをお持ちでないですか？ <a onclick="navigate('signup')">新規登録</a></div>
+      <div class="auth-forgot"><a onclick="navigate('forgot')" data-i18n="auth.login.forgotLink">パスワードをお忘れですか？</a></div>
+      <div class="auth-switch"><span data-i18n="auth.login.switchText">アカウントをお持ちでないですか？</span> <a onclick="navigate('signup')" data-i18n="auth.login.switchLink">新規登録</a></div>
     </div>
   </div>
 </div>
@@ -394,19 +394,19 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title">パスワード再設定</div>
-        <div class="auth-sub">登録したメールアドレスを入力してください。<br>パスワード再設定用のメールをお送りします。</div>
+        <div class="auth-title" data-i18n="auth.forgot.title">パスワード再設定</div>
+        <div class="auth-sub" data-i18n-html="auth.forgot.sub">登録したメールアドレスを入力してください。<br>パスワード再設定用のメールをお送りします。</div>
       </div>
       <form id="forgotForm" onsubmit="handleForgotPassword(event)">
         <div class="form-group">
-          <label class="form-label">メールアドレス</label>
+          <label class="form-label" data-i18n="auth.forgot.emailLabel">メールアドレス</label>
           <input type="email" id="forgotEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div id="forgotError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div id="forgotSuccess" class="form-success" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="forgotBtn">リセットメールを送信</button>
+        <button type="submit" class="btn btn-primary btn-block" id="forgotBtn" data-i18n="auth.forgot.btn">リセットメールを送信</button>
       </form>
-      <div class="auth-switch"><a onclick="navigate('login')">ログインに戻る</a></div>
+      <div class="auth-switch"><a onclick="navigate('login')" data-i18n="auth.forgot.backLink">ログインに戻る</a></div>
     </div>
   </div>
 </div>
@@ -419,20 +419,20 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up">
       <div class="auth-logo">
         <div class="auth-logo-mark">R</div>
-        <div class="auth-title">新しいパスワード</div>
-        <div class="auth-sub">新しいパスワードを入力してください。</div>
+        <div class="auth-title" data-i18n="auth.reset.title">新しいパスワード</div>
+        <div class="auth-sub" data-i18n="auth.reset.sub">新しいパスワードを入力してください。</div>
       </div>
       <form id="resetPwForm" onsubmit="handleResetPassword(event)">
         <div class="form-group">
-          <label class="form-label">新しいパスワード（8文字以上）</label>
+          <label class="form-label" data-i18n="auth.reset.newLabel">新しいパスワード（8文字以上）</label>
           <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
         </div>
         <div class="form-group">
-          <label class="form-label">パスワード確認</label>
+          <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
           <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
         </div>
         <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
-        <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn">パスワードを変更</button>
+        <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn" data-i18n="auth.reset.btn">パスワードを変更</button>
       </form>
     </div>
   </div>
@@ -446,26 +446,27 @@ window._supabaseLoaded = false;
     <div class="auth-card fade-up" style="max-width:560px">
       <div class="auth-logo" style="margin-bottom:16px">
         <div style="width:40px;height:40px;background:var(--pink);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:8px">R</div>
-        <div class="auth-title" style="font-size:18px">Sign Up</div>
-        <div class="auth-sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
+        <div class="auth-title" style="font-size:18px" data-i18n="auth.signup.title">Sign Up</div>
+        <div class="auth-sub" data-i18n="auth.signup.sub">REVERBに参加してKブランドキャンペーンを体験しよう</div>
       </div>
 
       <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
         <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
-        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">確認メールを送信しました</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
-        <button class="btn btn-primary btn-block" onclick="navigate('login')">ログインページへ</button>
+        <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('login')" data-i18n="auth.signup.confirmSentBtn">ログインページへ</button>
       </div>
       <div id="signupFormArea">
       <form id="signupForm" onsubmit="handleSignup(event)">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Name (Kanji) <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanjiLabel">Name (Kanji)</span> <span style="color:var(--red)">*</span></label>
             <input type="text" id="signupNameKanji" class="form-input" placeholder="山田花子" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Name (Kana) <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.nameKanaLabel">Name (Kana)</span> <span style="color:var(--red)">*</span></label>
             <input type="text" id="signupNameKana" class="form-input" placeholder="やまだはなこ" required>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、かな名を入力してください</div>
           </div>
         </div>
         <div class="form-group">
@@ -492,28 +493,28 @@ window._supabaseLoaded = false;
         <div class="signup-agree">
           <label class="signup-agree-all">
             <input type="checkbox" id="agreeAll" onchange="toggleAgreeAll(this)">
-            <span>すべてに同意する</span>
+            <span data-i18n="auth.signup.agreeAll">すべてに同意する</span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" class="agree-required" id="agreeTerms" onchange="syncAgreeAll()">
-            <span class="agree-req">必須</span>
-            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('terms','ja')">利用規約</a>に同意します</span>
+            <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('terms')" data-i18n="legal.termsTitle">利用規約</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" class="agree-required" id="agreePrivacy" onchange="syncAgreeAll()">
-            <span class="agree-req">必須</span>
-            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy','ja')">個人情報処理方針</a>に同意します</span>
+            <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+            <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
           </label>
           <label class="signup-agree-row">
             <input type="checkbox" id="agreeMarketing" onchange="syncAgreeAll()">
-            <span class="agree-opt">任意</span>
-            <span class="agree-text">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
+            <span class="agree-opt" data-i18n="auth.signup.optional">任意</span>
+            <span class="agree-text" data-i18n="auth.signup.agreeMarketing">マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）</span>
           </label>
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="signupBtn">Sign Up</button>
-        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6">SNS情報や配送先はマイページから後で追加できます</div>
+        <button type="submit" class="btn btn-primary btn-block" id="signupBtn" data-i18n="auth.signup.btn">Sign Up</button>
+        <div style="text-align:center;margin-top:12px;font-size:11px;color:var(--muted);line-height:1.6" data-i18n="auth.signup.afterNote">SNS情報や配送先はマイページから後で追加できます</div>
       </form>
-      <div class="auth-switch">すでにアカウントをお持ちですか？ <a onclick="navigate('login')">Log In</a></div>
+      <div class="auth-switch"><span data-i18n="auth.signup.switchText">すでにアカウントをお持ちですか？</span> <a onclick="navigate('login')" data-i18n="auth.signup.switchLink">Log In</a></div>
       </div><!-- /signupFormArea -->
     </div>
   </div>
