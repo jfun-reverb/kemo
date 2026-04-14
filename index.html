@@ -1267,11 +1267,49 @@ var DEMO_CAMPAIGNS = [];
 const RICH_ALLOWED_TAGS = ['p','br','strong','b','em','i','u','s','strike','ul','ol','li','a','h2','h3','h4','blockquote','code','pre','span','div'];
 const RICH_ALLOWED_ATTR = ['href','target','rel','class'];
 
+// Quill 2.x: bullet 리스트도 <ol><li data-list="bullet">로 저장 → <ul>로 정규화
+function normalizeQuillLists(wrapper) {
+  wrapper.querySelectorAll('ol').forEach(ol => {
+    const items = Array.from(ol.children);
+    if (!items.length) return;
+    const bulletItems = items.filter(li => li.getAttribute && li.getAttribute('data-list') === 'bullet');
+    const orderedItems = items.filter(li => li.getAttribute && li.getAttribute('data-list') === 'ordered');
+    // 모두 bullet이면 전체를 <ul>로 변환
+    if (bulletItems.length === items.length) {
+      const ul = document.createElement('ul');
+      items.forEach(li => {
+        li.removeAttribute('data-list');
+        ul.appendChild(li);
+      });
+      ol.replaceWith(ul);
+      return;
+    }
+    // 혼합이면 연속된 bullet 묶음을 별도 <ul>로 분리 (간단 버전: 전체 data-list 제거)
+    items.forEach(li => li.removeAttribute('data-list'));
+  });
+}
+
+// 링크 href에 프로토콜 없으면 https:// 자동 추가 + 보안 속성
+function normalizeLinks(wrapper) {
+  wrapper.querySelectorAll('a[href]').forEach(a => {
+    let href = (a.getAttribute('href') || '').trim();
+    if (!href) { a.removeAttribute('href'); return; }
+    // 내부 앵커 링크 (#으로 시작) / mailto / tel 은 그대로
+    if (/^(#|mailto:|tel:)/i.test(href)) return;
+    // http(s) 없으면 https:// 자동 부여
+    if (!/^https?:\/\//i.test(href)) {
+      href = 'https://' + href.replace(/^\/+/, '');
+      a.setAttribute('href', href);
+    }
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer nofollow');
+  });
+}
+
 // HTML 문자열을 sanitize 해서 안전한 HTML 반환
 function sanitizeRich(html) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
-    // DOMPurify 미로드 시 보수적으로 텍스트만 반환
     const tmp = document.createElement('div');
     tmp.textContent = String(html);
     return tmp.innerHTML;
@@ -1282,16 +1320,10 @@ function sanitizeRich(html) {
     FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
     FORBID_ATTR: ['style','onerror','onload','onclick']
   });
-  // 모든 외부 링크에 보안 속성 강제
   const wrapper = document.createElement('div');
   wrapper.innerHTML = clean;
-  wrapper.querySelectorAll('a[href]').forEach(a => {
-    const href = a.getAttribute('href') || '';
-    if (/^https?:\/\//i.test(href)) {
-      a.setAttribute('target', '_blank');
-      a.setAttribute('rel', 'noopener noreferrer nofollow');
-    }
-  });
+  normalizeQuillLists(wrapper);
+  normalizeLinks(wrapper);
   return wrapper.innerHTML;
 }
 
