@@ -88,7 +88,9 @@ UPDATE auth.users u
      email_change_token_new = COALESCE(email_change_token_new, ''),
      email_change_token_current = COALESCE(email_change_token_current, ''),
      phone_change_token = COALESCE(phone_change_token, ''),
-     reauthentication_token = COALESCE(reauthentication_token, '')
+     reauthentication_token = COALESCE(reauthentication_token, ''),
+     email_change = COALESCE(email_change, ''),
+     phone_change = COALESCE(phone_change, '')
   FROM public.admins a
  WHERE a.auth_id = u.id;
 
