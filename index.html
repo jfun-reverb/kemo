@@ -30,6 +30,7 @@ window._supabaseLoaded = false;
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onload="window._supabaseLoaded=true" onerror="window._supabaseLoaded=false"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Sora:wght@700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <style>
 /* ══════════════════════════════════
    BASE — 초기화, 변수, 레이아웃 (Material Design 3)
@@ -249,6 +250,28 @@ textarea.form-input{resize:vertical;min-height:80px}
 .legal-table{width:100%;border-collapse:collapse;font-size:11px;margin:10px 0 14px;display:block;overflow-x:auto}
 .legal-table th,.legal-table td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
 .legal-table th{background:var(--bg);font-weight:700;font-size:11px;white-space:nowrap}
+
+/* 리치 콘텐츠 렌더 */
+.rich-content{word-break:break-word}
+.rich-content p{margin:0 0 8px 0}
+.rich-content p:last-child{margin-bottom:0}
+.rich-content h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+.rich-content h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+.rich-content h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+.rich-content ul,.rich-content ol{margin:4px 0 8px;padding-left:20px}
+.rich-content li{margin:2px 0}
+.rich-content a{color:var(--pink);text-decoration:underline}
+.rich-content blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+.rich-content code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.9em;font-family:ui-monospace,monospace}
+.rich-content pre{background:var(--bg);padding:8px 10px;border-radius:6px;overflow-x:auto;font-size:.9em}
+.rich-content strong{font-weight:700}
+.rich-content em{font-style:italic}
+
+/* Quill 에디터 (admin) */
+.quill-host{background:#fff;border-radius:6px}
+.quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
+.quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
+.quill-host .ql-editor{min-height:120px}
 /* ══════════════════════════════════
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
 ══════════════════════════════════ */
@@ -1228,7 +1251,7 @@ try {
   }
 } catch(e) {}
 // ══════════════════════════════════════
-// SHARED — 클라이언트/관리자 공유 변수
+// SHARED — 클라이언트/관리자 공유 변수 및 유틸
 // ══════════════════════════════════════
 var currentUser = null;
 var currentUserProfile = null;
@@ -1236,6 +1259,75 @@ var currentCampaignId = null;
 var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
+
+// ══════════════════════════════════════
+// 리치 텍스트 sanitize / render
+// ══════════════════════════════════════
+// 허용 태그/속성 (에디터 지원 범위와 일치)
+const RICH_ALLOWED_TAGS = ['p','br','strong','b','em','i','u','s','strike','ul','ol','li','a','h2','h3','h4','blockquote','code','pre','span','div'];
+const RICH_ALLOWED_ATTR = ['href','target','rel','class'];
+
+// HTML 문자열을 sanitize 해서 안전한 HTML 반환
+function sanitizeRich(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') {
+    // DOMPurify 미로드 시 보수적으로 텍스트만 반환
+    const tmp = document.createElement('div');
+    tmp.textContent = String(html);
+    return tmp.innerHTML;
+  }
+  const clean = DOMPurify.sanitize(String(html), {
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
+    ALLOWED_ATTR: RICH_ALLOWED_ATTR,
+    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg'],
+    FORBID_ATTR: ['style','onerror','onload','onclick']
+  });
+  // 모든 외부 링크에 보안 속성 강제
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = clean;
+  wrapper.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href') || '';
+    if (/^https?:\/\//i.test(href)) {
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer nofollow');
+    }
+  });
+  return wrapper.innerHTML;
+}
+
+// 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
+function richHtml(raw) {
+  const value = raw == null ? '' : String(raw);
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    return value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+  }
+  return sanitizeRich(value);
+}
+
+// 평문(legacy) 감지 → HTML로 변환. 이미 HTML이면 sanitize만.
+function renderRich(el, raw) {
+  if (!el) return;
+  const value = raw == null ? '' : String(raw);
+  // HTML 태그가 없으면 기존 평문 데이터로 간주 → 이스케이프 + 줄바꿈
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    const escaped = value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+    el.innerHTML = escaped;
+    el.classList.add('rich-content');
+    return;
+  }
+  el.innerHTML = sanitizeRich(value);
+  el.classList.add('rich-content');
+}
 // ══════════════════════════════════════
 // i18n — 일본어 (기본)
 // ══════════════════════════════════════
@@ -3280,13 +3372,13 @@ async function openCampaign(id) {
       ${camp.description ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">キャンペーン説明</div>
-        <div style="font-size:13px;color:var(--ink);line-height:1.7;white-space:pre-wrap">${esc(camp.description)}</div>
+        <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
       </div>` : ''}
 
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">投稿ガイドライン</div>
-        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">ブランドアピールポイント</div><div style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px;white-space:pre-wrap">${esc(camp.appeal)}</div></div>` : ''}
+        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">ブランドアピールポイント</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須ハッシュタグ</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.hashtags.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
         ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">必須メンション</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
       </div>` : ''}
@@ -3294,13 +3386,13 @@ async function openCampaign(id) {
       ${camp.guide ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">撮影ガイド</div>
-        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:8px">${esc(camp.guide)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:12px;border-radius:8px">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${camp.ng ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">NG事項</div>
-        <div style="font-size:12px;color:var(--ink);line-height:1.7;white-space:pre-wrap;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${esc(camp.ng)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>
       </div>` : ''}
 
       ${camp.product_url ? `

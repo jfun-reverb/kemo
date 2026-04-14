@@ -443,6 +443,47 @@ async function loadAdminCampaigns(useCache) {
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
 }
 
+// ── Quill 리치 텍스트 에디터 관리 ──
+const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','editCampNg','newCampDesc','newCampAppeal','newCampGuide','newCampNg'];
+const richEditors = {};
+
+function getRichEditor(id) {
+  if (richEditors[id]) return richEditors[id];
+  const host = document.getElementById(id);
+  if (!host || typeof Quill === 'undefined') return null;
+  const q = new Quill(host, {
+    theme: 'snow',
+    modules: {
+      toolbar: [
+        [{ 'header': [2, 3, 4, false] }],
+        ['bold','italic','underline','strike'],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['link','blockquote'],
+        ['clean']
+      ],
+      clipboard: { matchVisual: false }
+    },
+    formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+  });
+  richEditors[id] = q;
+  return q;
+}
+function setRichValue(id, html) {
+  const q = getRichEditor(id);
+  if (!q) return;
+  const safe = (typeof sanitizeRich === 'function') ? sanitizeRich(html||'') : (html||'');
+  q.clipboard.dangerouslyPasteHTML(safe, 'silent');
+}
+function getRichValue(id) {
+  const q = getRichEditor(id);
+  if (!q) return '';
+  const raw = q.root.innerHTML;
+  // 빈 에디터 판정: Quill의 기본 placeholder 처리
+  const plain = q.getText().trim();
+  if (!plain) return '';
+  return (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
+}
+
 // ── 캠페인 편집 ──
 async function openEditCampaign(campId) {
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
@@ -450,7 +491,10 @@ async function openEditCampaign(campId) {
   const camp = camps.find(c=>c.id===campId);
   if (!camp) { toast('캠페인을 찾을 수 없습니다','error'); return; }
 
-  const sv = (id, val) => { const el=$(id); if(el) el.value = val||''; };
+  const sv = (id, val) => {
+    if (RICH_EDITOR_IDS.includes(id)) { setRichValue(id, val||''); return; }
+    const el=$(id); if(el) el.value = val||'';
+  };
   $('editCampId').value = campId;
   sv('editCampTitle', camp.title);
   sv('editCampBrand', camp.brand);
@@ -572,7 +616,10 @@ async function saveCampaignEdit() {
   try {
     const campId = $('editCampId').value;
     if (!campId) { toast('ID를 찾을 수 없습니다','error'); return; }
-    const gv = id => $(id)?.value||'';
+    const gv = id => {
+      if (RICH_EDITOR_IDS.includes(id)) return getRichValue(id);
+      return $(id)?.value||'';
+    };
     const title = gv('editCampTitle').trim();
     const brand = gv('editCampBrand').trim();
     if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
@@ -1386,9 +1433,9 @@ async function addCampaign() {
     post_days: $('newCampPostDeadline')?.value
       ? Math.ceil((new Date($('newCampPostDeadline').value) - new Date()) / (1000*60*60*24))
       : 14,
-    description:$('newCampDesc').value,
+    description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
-    appeal:$('newCampAppeal')?.value||'', guide:$('newCampGuide').value, ng:$('newCampNg').value,
+    appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
     status:'draft'
   };
 
@@ -1398,9 +1445,11 @@ async function addCampaign() {
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
-   'newCampSlots','newCampDeadline','newCampPostDeadline','newCampDesc',
-   'newCampHashtags','newCampMentions','newCampAppeal','newCampGuide',
+   'newCampSlots','newCampDeadline','newCampPostDeadline',
+   'newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward'].forEach(id => { const el=$(id); if(el) el.value=''; });
+  // 리치 에디터 초기화
+  ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
