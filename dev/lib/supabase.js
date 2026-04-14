@@ -31,4 +31,15 @@ const ADMIN_EMAIL = 'admin@kemo.jp';
 window.__REVERB_ENV__ = SUPABASE_ENV;
 
 let db = null;
-try { if (window.supabase) db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
+try {
+  if (window.supabase) {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        flowType: 'pkce',
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true
+      }
+    });
+  }
+} catch(e) {}
