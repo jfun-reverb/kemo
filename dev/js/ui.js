@@ -169,6 +169,18 @@ function toggleOptional() {
 }
 
 // ── 비밀번호 보기/숨기기 ──
+// 비밀번호 정책 검증
+// 규칙: 8자 이상 + 영문 소문자 1개 이상 + 특수문자 1개 이상
+// (대문자/숫자 추가는 권장이지만 필수 아님 — 최소 "소문자 + 특수문자" 2종 조합)
+// 유효하면 null, 위반 시 한국어/일본어 에러 메시지 반환
+function validatePasswordPolicy(pw) {
+  const T = (key) => (typeof t === 'function') ? t(key) : key;
+  if (!pw || pw.length < 8) return T('auth.pwTooShort');
+  if (!/[a-z]/.test(pw)) return T('auth.pwNeedLower');
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pw)) return T('auth.pwNeedSpecial');
+  return null;
+}
+
 function togglePw(inputId, btn) {
   const input = $(inputId);
   if (!input) return;

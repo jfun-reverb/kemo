@@ -376,7 +376,10 @@ window._supabaseLoaded = false;
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.login.pwLabel">Password</label>
-          <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
+          <div class="pw-wrap">
+            <input type="password" id="loginPw" class="form-input" placeholder="Enter password" required>
+            <button type="button" class="pw-toggle" onclick="togglePw('loginPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
         </div>
         <div id="loginError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="loginBtn" data-i18n="auth.login.btn">Log In</button>
@@ -426,11 +429,18 @@ window._supabaseLoaded = false;
       <form id="resetPwForm" onsubmit="handleResetPassword(event)">
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.newLabel">新しいパスワード（8文字以上）</label>
-          <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
+          <div class="pw-wrap">
+            <input type="password" id="resetPwNew" class="form-input" placeholder="新しいパスワード" required>
+            <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         </div>
         <div class="form-group">
           <label class="form-label" data-i18n="auth.reset.confirmLabel">パスワード確認</label>
-          <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
+          <div class="pw-wrap">
+            <input type="password" id="resetPwConfirm" class="form-input" placeholder="もう一度入力" required>
+            <button type="button" class="pw-toggle" onclick="togglePw('resetPwConfirm',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
         </div>
         <div id="resetPwError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button type="submit" class="btn btn-primary btn-block" id="resetPwBtn" data-i18n="auth.reset.btn">パスワードを変更</button>
@@ -454,7 +464,7 @@ window._supabaseLoaded = false;
       <div id="signupConfirmMsg" style="display:none;text-align:center;padding:24px 0">
         <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">mark_email_read</span>
         <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="auth.signup.confirmSentTitle">確認メールを送信しました</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px" data-i18n-html="auth.signup.confirmSentDesc">ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。</div>
         <button class="btn btn-primary btn-block" onclick="navigate('login')" data-i18n="auth.signup.confirmSentBtn">ログインページへ</button>
       </div>
       <div id="signupFormArea">
@@ -490,6 +500,7 @@ window._supabaseLoaded = false;
             </div>
           </div>
         </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:10px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="signupError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div class="signup-agree">
           <label class="signup-agree-all">
@@ -742,11 +753,27 @@ window._supabaseLoaded = false;
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:18px">定期的なパスワード変更をお勧めします</div>
-        <div class="form-group"><label class="form-label">現在のパスワード</label><input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード"></div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">新しいパスワード</label><input type="password" id="newPw" class="form-input" placeholder="8文字以上"></div>
-          <div class="form-group"><label class="form-label">新しいパスワード（確認）</label><input type="password" id="newPw2" class="form-input" placeholder="再入力"></div>
+        <div class="form-group"><label class="form-label">現在のパスワード</label>
+          <div class="pw-wrap">
+            <input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード">
+            <button type="button" class="pw-toggle" onclick="togglePw('currentPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
         </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">新しいパスワード</label>
+            <div class="pw-wrap">
+              <input type="password" id="newPw" class="form-input" placeholder="8文字以上">
+              <button type="button" class="pw-toggle" onclick="togglePw('newPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+          <div class="form-group"><label class="form-label">新しいパスワード（確認）</label>
+            <div class="pw-wrap">
+              <input type="password" id="newPw2" class="form-input" placeholder="再入力">
+              <button type="button" class="pw-toggle" onclick="togglePw('newPw2',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()">パスワードを変更</button>
       </div>

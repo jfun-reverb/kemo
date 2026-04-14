@@ -32,8 +32,9 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
-  if (pw !== pw2) { errEl.textContent='Passwords do not match'; errEl.style.display='block'; return; }
-  if (pw.length < 8) { errEl.textContent='Password must be 8+ characters'; errEl.style.display='block'; return; }
+  if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
+  const pwErr = validatePasswordPolicy(pw);
+  if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
   if (!$('agreeTerms')?.checked || !$('agreePrivacy')?.checked) {
     errEl.textContent = '利用規約および個人情報処理方針への同意が必要です';
     errEl.style.display = 'block';
@@ -195,13 +196,14 @@ async function handleResetPassword(e) {
 
   errEl.style.display = 'none';
 
-  if (pw.length < 8) {
-    errEl.textContent = 'パスワードは8文字以上で入力してください';
+  const pwErr = validatePasswordPolicy(pw);
+  if (pwErr) {
+    errEl.textContent = pwErr;
     errEl.style.display = 'block';
     return;
   }
   if (pw !== pw2) {
-    errEl.textContent = 'パスワードが一致しません';
+    errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch') : 'パスワードが一致しません';
     errEl.style.display = 'block';
     return;
   }
