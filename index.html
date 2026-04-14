@@ -404,6 +404,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
+
+/* 언어 토글 */
+.lang-toggle{display:inline-flex;gap:0;margin-left:auto;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
+.lang-toggle .lang-btn{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s}
+.lang-toggle .lang-btn.on{background:var(--primary);color:#fff}
+.lang-toggle .lang-btn:not(.on):hover{background:var(--outline)}
 </style>
 </head>
 <body>
@@ -907,44 +913,53 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="mypage-menu">
         <div class="mypage-menu-item" onclick="openMypageSub('applications')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
-          <span class="mypage-menu-label">応募履歴</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.applications">応募履歴</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-basic')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">person</span>
-          <span class="mypage-menu-label">基本情報</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.basic">基本情報</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
-          <span class="mypage-menu-label">SNSアカウント</span>
-          <span id="menuBadgeSns" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
+          <span id="menuBadgeSns" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
-          <span class="mypage-menu-label">配送先</span>
-          <span id="menuBadgeAddress" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.address">配送先</span>
+          <span id="menuBadgeAddress" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('paypal')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance_wallet</span>
-          <span class="mypage-menu-label">PayPal</span>
-          <span id="menuBadgePaypal" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.paypal">PayPal</span>
+          <span id="menuBadgePaypal" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
-          <span class="mypage-menu-label">パスワード変更</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <!-- 言語 / 언어 토글 -->
+        <div class="mypage-menu-item" style="cursor:default">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">language</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.language">言語 / 언어</span>
+          <div class="lang-toggle" role="group" aria-label="Language">
+            <button type="button" class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
+            <button type="button" class="lang-btn" data-lang="ko" onclick="setLang('ko')">한국어</button>
+          </div>
         </div>
         <div class="mypage-menu-item" onclick="handleLogout()">
           <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
-          <span class="mypage-menu-label" style="color:var(--on-surface-variant)">ログアウト</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.logout" style="color:var(--on-surface-variant)">ログアウト</span>
         </div>
       </div>
       <div style="margin-top:20px;padding-left:14px">
-        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</span>
+        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</span>
       </div>
     </div>
   </div>
@@ -1209,6 +1224,174 @@ var currentCampaignId = null;
 var allCampaigns = [];
 // DEMO_CAMPAIGNS — Client의 campaign.js에서 덮어씀, Admin에서는 빈 배열
 var DEMO_CAMPAIGNS = [];
+// ══════════════════════════════════════
+// i18n — 일본어 (기본)
+// ══════════════════════════════════════
+window.I18N_JA = {
+  // 공통
+  common: {
+    save: '保存する',
+    cancel: 'キャンセル',
+    confirm: '確認',
+    back: '戻る',
+    select: '選択してください',
+    unregistered: '未登録',
+    loading: '読み込み中…',
+    retry: '再試行',
+    close: '閉じる',
+  },
+
+  // 마이페이지
+  mypage: {
+    menu: {
+      applications: '応募履歴',
+      basic: '基本情報',
+      sns: 'SNSアカウント',
+      address: '配送先',
+      paypal: 'PayPal',
+      password: 'パスワード変更',
+      logout: 'ログアウト',
+      language: '言語 / 언어',
+    },
+    withdraw: '退会する',
+    withdrawConfirm: '本当に退会しますか？',
+    withdrawToast: '退会申請を受け付けました。運営にLINEでご連絡ください。',
+    subtitle: {
+      applications: '応募履歴',
+      basic: '基本情報',
+      sns: 'SNSアカウント',
+      address: '配送先',
+      paypal: 'PayPal',
+      password: 'パスワード変更',
+    },
+  },
+};
+// ══════════════════════════════════════
+// i18n — 한국어
+// ══════════════════════════════════════
+window.I18N_KO = {
+  common: {
+    save: '저장',
+    cancel: '취소',
+    confirm: '확인',
+    back: '뒤로',
+    select: '선택해주세요',
+    unregistered: '미등록',
+    loading: '로딩 중…',
+    retry: '다시 시도',
+    close: '닫기',
+  },
+
+  mypage: {
+    menu: {
+      applications: '응모 이력',
+      basic: '기본 정보',
+      sns: 'SNS 계정',
+      address: '배송지',
+      paypal: 'PayPal',
+      password: '비밀번호 변경',
+      logout: '로그아웃',
+      language: '言語 / 언어',
+    },
+    withdraw: '회원 탈퇴',
+    withdrawConfirm: '정말 탈퇴하시겠습니까?',
+    withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
+    subtitle: {
+      applications: '응모 이력',
+      basic: '기본 정보',
+      sns: 'SNS 계정',
+      address: '배송지',
+      paypal: 'PayPal',
+      password: '비밀번호 변경',
+    },
+  },
+};
+// ══════════════════════════════════════
+// i18n — 런타임 엔진 (언어 감지/전환/DOM 적용)
+// ══════════════════════════════════════
+(function() {
+  const STORAGE_KEY = 'reverb.lang';
+  const DEFAULT_LANG = 'ja';
+  const SUPPORTED = ['ja', 'ko'];
+
+  // 최초 언어 결정: localStorage > ?lang=xx (staging only) > 기본값
+  function resolveInitialLang() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && SUPPORTED.includes(saved)) return saved;
+    } catch(e) {}
+    // 개발서버에서만 ?lang=ko 쿼리 허용 (테스트 편의)
+    if (typeof IS_STAGING !== 'undefined' && IS_STAGING) {
+      const q = new URLSearchParams(location.search).get('lang');
+      if (q && SUPPORTED.includes(q)) return q;
+    }
+    return DEFAULT_LANG;
+  }
+
+  let currentLang = resolveInitialLang();
+
+  function getDict(lang) {
+    return (lang === 'ko' ? window.I18N_KO : window.I18N_JA) || {};
+  }
+
+  // 키 경로로 값 조회 (예: 'mypage.menu.applications')
+  function lookup(dict, key) {
+    if (!dict || !key) return undefined;
+    return key.split('.').reduce((obj, k) => (obj && typeof obj === 'object') ? obj[k] : undefined, dict);
+  }
+
+  // 번역 헬퍼 (전역)
+  window.t = function(key, fallback) {
+    const primary = lookup(getDict(currentLang), key);
+    if (primary !== undefined) return primary;
+    // 폴백: JA → 키 자체
+    const ja = lookup(getDict('ja'), key);
+    if (ja !== undefined) return ja;
+    return fallback !== undefined ? fallback : key;
+  };
+
+  // 현재 언어 조회
+  window.getLang = function() { return currentLang; };
+
+  // DOM 스캔하여 data-i18n 속성 치환
+  window.applyI18n = function(root) {
+    root = root || document;
+    // 텍스트 치환: <span data-i18n="key">
+    root.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (!key) return;
+      const text = window.t(key);
+      if (text !== undefined) el.textContent = text;
+    });
+    // 속성 치환: <input data-i18n-attr="placeholder:key,title:key2">
+    root.querySelectorAll('[data-i18n-attr]').forEach(el => {
+      const spec = el.getAttribute('data-i18n-attr');
+      if (!spec) return;
+      spec.split(',').forEach(pair => {
+        const [attr, key] = pair.split(':').map(s => s.trim());
+        if (attr && key) el.setAttribute(attr, window.t(key));
+      });
+    });
+  };
+
+  // 언어 전환
+  window.setLang = function(lang) {
+    if (!SUPPORTED.includes(lang)) return;
+    currentLang = lang;
+    try { localStorage.setItem(STORAGE_KEY, lang); } catch(e) {}
+    document.documentElement.lang = lang === 'ko' ? 'ko' : 'ja';
+    window.applyI18n(document);
+    window.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
+  };
+
+  // 초기 적용
+  document.documentElement.lang = currentLang === 'ko' ? 'ko' : 'ja';
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.applyI18n(document));
+  } else {
+    window.applyI18n(document);
+  }
+})();
 // ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
 // localStorage는 세션 캐시에만 사용
@@ -3362,6 +3545,25 @@ function closeMypageSub() {
   $('mypage-list').classList.add('active');
   history.pushState({page:'mypage'}, '', '#mypage');
 }
+
+// 언어 토글 버튼 상태 업데이트
+function updateLangToggleUI() {
+  const current = typeof getLang === 'function' ? getLang() : 'ja';
+  document.querySelectorAll('.lang-toggle .lang-btn').forEach(btn => {
+    btn.classList.toggle('on', btn.getAttribute('data-lang') === current);
+  });
+}
+
+// 회원 탈퇴 핸들러 (i18n 대응)
+function handleWithdraw() {
+  const confirmMsg = typeof t === 'function' ? t('mypage.withdrawConfirm') : '本当に退会しますか？';
+  const toastMsg = typeof t === 'function' ? t('mypage.withdrawToast') : '退会申請を受け付けました。運営にLINEでご連絡ください。';
+  if (confirm(confirmMsg)) toast(toastMsg);
+}
+
+// 초기 + langchange 이벤트에서 토글 상태 갱신
+document.addEventListener('DOMContentLoaded', updateLangToggleUI);
+window.addEventListener('langchange', updateLangToggleUI);
 // ══════════════════════════════════════
 // NAVIGATION + INIT
 // ══════════════════════════════════════

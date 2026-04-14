@@ -537,44 +537,53 @@ window._supabaseLoaded = false;
       <div class="mypage-menu">
         <div class="mypage-menu-item" onclick="openMypageSub('applications')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
-          <span class="mypage-menu-label">応募履歴</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.applications">応募履歴</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-basic')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">person</span>
-          <span class="mypage-menu-label">基本情報</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.basic">基本情報</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
-          <span class="mypage-menu-label">SNSアカウント</span>
-          <span id="menuBadgeSns" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
+          <span id="menuBadgeSns" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
-          <span class="mypage-menu-label">配送先</span>
-          <span id="menuBadgeAddress" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.address">配送先</span>
+          <span id="menuBadgeAddress" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('paypal')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance_wallet</span>
-          <span class="mypage-menu-label">PayPal</span>
-          <span id="menuBadgePaypal" class="mypage-menu-badge" style="display:none">未登録</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.paypal">PayPal</span>
+          <span id="menuBadgePaypal" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
-          <span class="mypage-menu-label">パスワード変更</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <!-- 言語 / 언어 토글 -->
+        <div class="mypage-menu-item" style="cursor:default">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">language</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.language">言語 / 언어</span>
+          <div class="lang-toggle" role="group" aria-label="Language">
+            <button type="button" class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
+            <button type="button" class="lang-btn" data-lang="ko" onclick="setLang('ko')">한국어</button>
+          </div>
         </div>
         <div class="mypage-menu-item" onclick="handleLogout()">
           <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
-          <span class="mypage-menu-label" style="color:var(--on-surface-variant)">ログアウト</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.logout" style="color:var(--on-surface-variant)">ログアウト</span>
         </div>
       </div>
       <div style="margin-top:20px;padding-left:14px">
-        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="if(confirm('本当に退会しますか？'))toast('退会申請を受け付けました。運営にLINEでご連絡ください。')">退会する</span>
+        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</span>
       </div>
     </div>
   </div>
@@ -796,6 +805,9 @@ window._supabaseLoaded = false;
 
 <script src="lib/supabase.js"></script>
 <script src="lib/shared.js"></script>
+<script src="lib/i18n/ja.js"></script>
+<script src="lib/i18n/ko.js"></script>
+<script src="lib/i18n/index.js"></script>
 <script src="lib/storage.js"></script>
 <script src="lib/legal.js"></script>
 <script src="js/ui.js"></script>
