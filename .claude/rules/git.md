@@ -35,6 +35,18 @@ globs: "*"
 - 영어 한 줄 메시지 선호 (한국어 설명은 body에)
 - 본문에 변경 이유(why)와 영향 범위 기록
 
+### 에이전트 활동 태그
+메인 Claude가 에이전트를 호출해서 나온 산출물/리뷰를 반영한 커밋이면 **body에 태그 명시**:
+```
+feat: ...
+
+[via planner] 환경 분리 기획 단계에서 계획 수립
+[via reviewer] dev push 직전 정적 검증 완료
+[via supabase-expert] migration 031 설계·구현
+[via qa-tester] E2E 회귀 시나리오 6/7 통과
+```
+여러 에이전트 참여 시 나열. team-manager의 Light Weekly 감사가 이 태그를 집계해서 호출 빈도 측정.
+
 ## 안전 규칙
 - main 브랜치 force push 금지
 - `.env`, API Key, SMTP Password, Service Role Key 커밋 금지

@@ -2,6 +2,11 @@
 supabase/.temp/
 supabase/bundle/
 
+# Playwright MCP artifacts
+.playwright-mcp/
+s*-*.png
+
+
 # macOS
 .DS_Store
 
