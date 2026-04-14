@@ -3974,6 +3974,18 @@ window.addEventListener('langchange', updateLangToggleUI);
 // ══════════════════════════════════════
 // NAVIGATION + INIT
 // ══════════════════════════════════════
+
+// 비밀번호 재설정 URL 감지 — 스크립트 로드 즉시 (Supabase SDK가 URL 소비하기 전에)
+(function detectRecoveryUrlEarly() {
+  try {
+    const hasCode = new URLSearchParams(location.search).has('code');
+    const hasRecoveryHash = location.hash.includes('type=recovery') || location.hash.includes('access_token=');
+    if (hasCode || hasRecoveryHash) {
+      sessionStorage.setItem('reverb.recovery', '1');
+    }
+  } catch(e) {}
+})();
+
 let _detailFrom = null;
 
 function navigateBackFromDetail() {
@@ -4200,9 +4212,13 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
-  // 해시에 맞는 페이지를 즉시 활성화 (깜빡임 방지)
+  // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
+  let inRecovery = false;
+  try { inRecovery = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
+
   const initHash = location.hash.replace('#','') || 'home';
-  const initPage = initHash.startsWith('detail-') ? 'detail' : initHash.startsWith('mypage-') ? 'mypage' : initHash;
+  const initPage = inRecovery ? 'reset-pw'
+    : (initHash.startsWith('detail-') ? 'detail' : initHash.startsWith('mypage-') ? 'mypage' : initHash);
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');
