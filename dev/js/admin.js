@@ -1838,12 +1838,12 @@ function openAddAdminModal() {
   $('editAdminId').value = '';
   $('adminFormEmail').value = '';
   $('adminFormEmail').disabled = false;
-  $('adminFormPw').value = '';
-  $('adminFormPwGroup').style.display = '';
   $('adminFormName').value = '';
   $('adminFormRole').value = 'campaign_admin';
   $('adminFormBtn').textContent = '추가';
   $('adminFormError').style.display = 'none';
+  const inviteNotice = document.getElementById('adminFormInviteNotice');
+  if (inviteNotice) inviteNotice.style.display = '';
   $('addAdminModal').classList.add('open');
 }
 
@@ -1852,11 +1852,12 @@ function openEditAdmin(id, email, name, role) {
   $('editAdminId').value = id;
   $('adminFormEmail').value = email;
   $('adminFormEmail').disabled = true;
-  $('adminFormPwGroup').style.display = 'none';
   $('adminFormName').value = name;
   $('adminFormRole').value = role;
   $('adminFormBtn').textContent = '저장';
   $('adminFormError').style.display = 'none';
+  const inviteNotice = document.getElementById('adminFormInviteNotice');
+  if (inviteNotice) inviteNotice.style.display = 'none';
   $('addAdminModal').classList.add('open');
 }
 
