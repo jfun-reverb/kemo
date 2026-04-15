@@ -285,6 +285,11 @@
               <div class="form-group">
                 <label class="form-label" style="margin:0 0 6px">채널 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="editCampChannelWrap"></div>
+                <div id="editCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
+                  <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="editChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="editChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                </div>
               </div>
               <div class="form-group" id="editCampMinFollowersGroup">
                 <div style="display:flex;gap:8px;align-items:end">
@@ -440,6 +445,11 @@
               <div class="form-group">
                 <label class="form-label" style="margin:0 0 6px">채널 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap" id="newCampChannelWrap"></div>
+                <div id="newCampChannelMatchGroup" style="display:none;margin-top:8px;gap:6px;align-items:center">
+                  <span style="font-size:11px;color:var(--muted)">표시 방식:</span>
+                  <label style="font-size:12px;cursor:pointer"><input type="radio" name="newChannelMatch" value="or" checked style="accent-color:var(--pink);vertical-align:middle"> or (하나 이상 해당)</label>
+                  <label style="font-size:12px;cursor:pointer;margin-left:6px"><input type="radio" name="newChannelMatch" value="and" style="accent-color:var(--pink);vertical-align:middle"> & (모두 해당)</label>
+                </div>
               </div>
               <div class="form-group" id="newCampMinFollowersGroup">
                 <div style="display:flex;gap:8px;align-items:end">
