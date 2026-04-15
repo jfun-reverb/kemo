@@ -2526,6 +2526,42 @@ function renderProfileCompletion(users) {
 // ============================================================
 let _delivCache = [];
 let _delivDetailCurrent = null;  // 열려 있는 상세 {id, version}
+let _delivSort = {col: null, dir: null};  // 수동 정렬 상태 (null이면 기본 정렬 사용)
+
+function toggleDelivSort(col) {
+  // 같은 컬럼: asc → desc → 해제
+  if (_delivSort.col === col) {
+    if (_delivSort.dir === 'asc') _delivSort.dir = 'desc';
+    else if (_delivSort.dir === 'desc') { _delivSort.col = null; _delivSort.dir = null; }
+    else _delivSort.dir = 'asc';
+  } else {
+    _delivSort.col = col;
+    _delivSort.dir = 'asc';
+  }
+  renderDeliverablesList();
+}
+
+function resetDelivFiltersAndSort() {
+  const k = $('delivKindFilter'); if (k) k.value = 'all';
+  const s = $('delivStatusFilter'); if (s) s.value = 'pending';
+  const c = $('delivCampFilter'); if (c) c.value = 'all';
+  const q = $('delivSearch'); if (q) q.value = '';
+  _delivSort = {col: null, dir: null};
+  renderDeliverablesList();
+}
+
+function applyDelivSortIndicators() {
+  document.querySelectorAll('#adminPane-deliverables .sort-arrows').forEach(el => {
+    const col = el.getAttribute('data-sort');
+    if (_delivSort.col === col) {
+      el.textContent = _delivSort.dir === 'asc' ? '▲' : '▼';
+      el.style.color = 'var(--dark-pink)';
+    } else {
+      el.textContent = '▲▼';
+      el.style.color = '';
+    }
+  });
+}
 
 async function loadDeliverables() {
   // 캠페인 드롭다운 채우기 (첫 로드만)
@@ -2552,12 +2588,31 @@ async function renderDeliverablesList() {
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
   const rows = await fetchDeliverables({status, kind, campaign_id: campId});
   _delivCache = rows;
-  const filtered = search
+  let filtered = search
     ? rows.filter(r => {
         const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
         return n.toLowerCase().includes(search);
       })
-    : rows;
+    : rows.slice();
+  // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
+  if (_delivSort.col) {
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    const statusOrder = {pending: 0, approved: 1, rejected: 2};
+    filtered.sort((a, b) => {
+      let av, bv;
+      switch (_delivSort.col) {
+        case 'kind':      av = a.kind || ''; bv = b.kind || ''; break;
+        case 'submitted': av = a.submitted_at || ''; bv = b.submitted_at || ''; break;
+        case 'reviewed':  av = a.reviewed_at || ''; bv = b.reviewed_at || ''; break;
+        case 'status':    av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; break;
+        default: return 0;
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+  }
+  applyDelivSortIndicators();
   const cnt = $('delivTotalCount');
   if (cnt) cnt.textContent = `총 ${filtered.length}건`;
   if (!filtered.length) {
@@ -2576,13 +2631,13 @@ async function renderDeliverablesList() {
     const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
     const infSub = [infEmail, infLine].filter(Boolean).join(' · ');
     const reviewedCell = d.reviewed_at
-      ? `<span style="font-size:12px">${formatDate(d.reviewed_at)}</span>`
+      ? `<span style="font-size:12px">${formatDateTime(d.reviewed_at)}</span>`
       : '<span style="font-size:11px;color:var(--muted)">—</span>';
     return `<tr>
       <td>${kindBadge}</td>
       <td>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
       <td>${infName}${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
-      <td style="font-size:12px">${formatDate(d.submitted_at)}</td>
+      <td style="font-size:12px">${formatDateTime(d.submitted_at)}</td>
       <td>${reviewedCell}</td>
       <td>${stBadge}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
