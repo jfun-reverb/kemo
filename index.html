@@ -2036,7 +2036,9 @@ async function fetchDeliverables(filters) {
     if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
     if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
     if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
-    query = query.order('submitted_at', {ascending: true});
+    // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
+    if (filters?.status === 'pending') query = query.order('submitted_at', {ascending: true});
+    else query = query.order('updated_at', {ascending: false});
     const {data, error} = await query;
     if (error) throw error;
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)

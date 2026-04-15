@@ -2545,7 +2545,7 @@ async function loadDeliverables() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   const status = $('delivStatusFilter')?.value || 'pending';
   const kind = $('delivKindFilter')?.value || 'all';
   const campId = $('delivCampFilter')?.value || 'all';
@@ -2561,7 +2561,7 @@ async function renderDeliverablesList() {
   const cnt = $('delivTotalCount');
   if (cnt) cnt.textContent = `총 ${filtered.length}건`;
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>';
     return;
   }
   tbody.innerHTML = filtered.map(d => {
@@ -2575,11 +2575,15 @@ async function renderDeliverablesList() {
     const infEmail = esc(inf.email || '');
     const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
     const infSub = [infEmail, infLine].filter(Boolean).join(' · ');
+    const reviewedCell = d.reviewed_at
+      ? `<span style="font-size:12px">${formatDate(d.reviewed_at)}</span>`
+      : '<span style="font-size:11px;color:var(--muted)">—</span>';
     return `<tr>
       <td>${kindBadge}</td>
       <td>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
       <td>${infName}${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
       <td style="font-size:12px">${formatDate(d.submitted_at)}</td>
+      <td>${reviewedCell}</td>
       <td>${stBadge}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
     </tr>`;
