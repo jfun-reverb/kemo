@@ -4532,10 +4532,10 @@ function renderPsetSteps() {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko)}" oninput="_psetCurrentSteps[${idx}].title_ko=this.value">
-        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja)}" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
-        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical" oninput="_psetCurrentSteps[${idx}].desc_ko=this.value">${esc(s.desc_ko)}</textarea>
-        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
+        <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ko=this.value">
+        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
+        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ko=this.value">${esc(s.desc_ko)}</textarea>
+        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
       </div>
     </div>
   `).join('');
@@ -4649,10 +4649,10 @@ function renderCampSteps(formMode) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko||'')}" oninput="_psetState['${formMode}'][${idx}].title_ko=this.value">
-        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja||'')}" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
-        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical" oninput="_psetState['${formMode}'][${idx}].desc_ko=this.value">${esc(s.desc_ko||'')}</textarea>
-        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
+        <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ko=this.value">
+        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
+        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ko=this.value">${esc(s.desc_ko||'')}</textarea>
+        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
       </div>
     </div>
   `).join('');
