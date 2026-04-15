@@ -319,6 +319,17 @@
               <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input" onchange="suggestPostDeadline('editCampDeadline','editCampPostDeadline');validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"></div>
               <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div></div>
             </div>
+            <div class="form-row" id="editCampPurchaseRow" style="grid-template-columns:1fr 1fr;display:none">
+              <div class="form-group"><label class="form-label">구매 시작일</label><input type="date" id="editCampPurchaseStart" class="form-input"><div class="form-hint">리뷰어용</div></div>
+              <div class="form-group"><label class="form-label">구매 마감일</label><input type="date" id="editCampPurchaseEnd" class="form-input"></div>
+            </div>
+            <div class="form-row" id="editCampVisitRow" style="grid-template-columns:1fr 1fr;display:none">
+              <div class="form-group"><label class="form-label">방문 시작일</label><input type="date" id="editCampVisitStart" class="form-input"><div class="form-hint">방문형용</div></div>
+              <div class="form-group"><label class="form-label">방문 마감일</label><input type="date" id="editCampVisitEnd" class="form-input"></div>
+            </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">결과물 제출 마감일</label><input type="date" id="editCampSubmissionEnd" class="form-input"><div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 게시 마감일로 폴백</div></div>
+            </div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -486,6 +497,37 @@
                 <input type="date" id="newCampPostDeadline" class="form-input" onchange="validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn')">
                 <div id="newPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div>
                 <div class="form-hint">제품 수령 후 이 날짜까지 게시해주세요</div>
+              </div>
+            </div>
+
+            <!-- 타입별 기한 (Stage 1) -->
+            <div class="form-row" id="newCampPurchaseRow" style="grid-template-columns:1fr 1fr;display:none">
+              <div class="form-group">
+                <label class="form-label">구매 시작일</label>
+                <input type="date" id="newCampPurchaseStart" class="form-input">
+                <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">구매 마감일</label>
+                <input type="date" id="newCampPurchaseEnd" class="form-input">
+              </div>
+            </div>
+            <div class="form-row" id="newCampVisitRow" style="grid-template-columns:1fr 1fr;display:none">
+              <div class="form-group">
+                <label class="form-label">방문 시작일</label>
+                <input type="date" id="newCampVisitStart" class="form-input">
+                <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">방문 마감일</label>
+                <input type="date" id="newCampVisitEnd" class="form-input">
+              </div>
+            </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">결과물 제출 마감일</label>
+                <input type="date" id="newCampSubmissionEnd" class="form-input">
+                <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 게시 마감일로 폴백</div>
               </div>
             </div>
 

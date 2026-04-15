@@ -1,5 +1,7 @@
 # 영수증 및 활동 관리 기획서 (초안)
 
+> ⚠️ **Superseded (2026-04-15)**: 이 문서는 영수증 한정 초안입니다. 게시물 URL 제출(기프팅/방문형)까지 통합한 최신 기획은 [`plans/2026-04-15_deliverables-management.md`](plans/2026-04-15_deliverables-management.md) 참조.
+
 ## 1. 현재 구현 상태
 
 ### 인플루언서 (완료)

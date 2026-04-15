@@ -151,19 +151,20 @@ function buildCampCards(camps) {
       </div>
       <div class="camp-body">
         ${(() => {
-          // 마감임박/잔여인원 배지 — 제목 위 (진행중 캠페인만)
+          // 마감임박 배지 + 응모 진행 (제목 위, 진행중 캠페인만)
           if (isFull || isScheduled || isClosed) return '';
           const flags = [];
+          let urgent = false;
           if (c.deadline) {
             const diffDays = Math.ceil((new Date(c.deadline) - new Date()) / (1000*60*60*24));
-            if (diffDays >= 0 && diffDays < 5) flags.push('<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">締切間近</span>');
+            if (diffDays >= 0 && diffDays < 5) urgent = true;
           }
           const slots = c.slots || 0;
           const applied = c.applied_count || 0;
           const remaining = slots - applied;
-          if (slots > 0 && remaining > 0 && remaining / slots <= 0.3) {
-            flags.push(`<span style="background:#FFF2D9;color:#B86E00;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">残り${remaining}名</span>`);
-          }
+          if (slots > 0 && remaining > 0 && remaining / slots <= 0.3) urgent = true;
+          if (urgent) flags.push('<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">締切間近</span>');
+          if (slots > 0) flags.push(`<span style="background:#F5F5F5;color:#555;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${applied}/${slots}名</span>`);
           return flags.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${flags.join('')}</div>` : '';
         })()}
         <div class="camp-brand">${esc(c.brand)}</div>

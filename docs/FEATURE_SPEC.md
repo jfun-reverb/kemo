@@ -682,3 +682,112 @@ UNIQUE 제약: `(kind, code)`
 - 평문 비밀번호는 **절대 DB·로그·토스트에 저장/노출 금지**
 - bcrypt 라운드 10 (`extensions.gen_salt(\047bf\047, 10)`) — Supabase Auth 기본값과 일치
 - HTTPS 전제 (운영·개발 양 환경 Vercel SSL)
+
+---
+
+## 18. 참여방법 번들 (participation_sets) — 2026-04-15
+
+### 18.1 개요
+캠페인 상세의 "참가방법 STEP 1~N" 영역을 재사용 가능한 **번들**로 관리.
+이전: 캠페인마다 동일한 단계를 반복 입력 → 현재: 번들 1개 만들고 캠페인에서 선택만.
+
+### 18.2 데이터 모델
+- **`participation_sets`** 테이블
+  - `id uuid PK`, `name_ko`, `name_ja` (UNIQUE name_ko)
+  - `recruit_types text[]` — monitor/gifting/visit 복수 가능. 빈 배열=전 타입 공통
+  - `steps jsonb` — `[{title_ko, title_ja, desc_ko, desc_ja}, ...]`, 1~6개 권장 (앱 레벨 소프트 제약)
+  - `sort_order int`, `active bool`, `created_at`, `updated_at` (트리거 자동 갱신)
+- **`campaigns` 추가 컬럼**
+  - `participation_set_id uuid` FK → `participation_sets.id` `ON DELETE SET NULL`
+  - `participation_steps jsonb` — 저장 시점 steps 스냅샷
+
+### 18.3 스냅샷 원칙
+- 캠페인 저장 시 선택한 번들의 `steps`를 `campaigns.participation_steps`로 **복사**
+- 이후 번들 수정 → 기존 캠페인 영향 **없음**
+- 신규 캠페인부터 새 번들 내용 적용
+- 캠페인 폼에서 단계 인라인 편집 → 해당 캠페인 스냅샷만 변경, 번들 원본 유지
+
+### 18.4 관리자 UI (`/admin#lookups` → 참여방법 탭)
+- 권한: `campaign_admin` 이상 (SELECT/INSERT/UPDATE/DELETE 모두)
+- 목록: 번들명/모집타입 태그/단계 수/활성 토글/순서 변경
+- 편집 모달: 각 단계 `title_ko/title_ja/desc_ko/desc_ja` 입력, ↑↓/삭제 버튼, 1~6개
+- 폰트 크기: 단계 입력은 13px (본 섹션이 밀집 폼이라 가독성 조정)
+
+### 18.5 캠페인 폼 통합
+- 모집 타입 선택 → `recruit_types` 매칭 + 전 타입 공통 번들 드롭다운 필터링
+- 번들 선택 시 `participation_steps` 자동 채움
+- **인라인 수정**: 각 단계 입력 가능 (이 캠페인 스냅샷에만 적용)
+- **번들 다시 불러오기** 버튼: 인라인 수정 전 원본 번들로 리셋 (저장 전에만 유효)
+
+### 18.6 인플루언서 렌더링
+- 캠페인 상세 "참가방법" 섹션:
+  - `camp.participation_steps` 있으면 그대로 렌더링
+  - 없으면 (2026-04-15 이전 캠페인) legacy 하드코딩 단계 fallback
+- 일본어 (`title_ja`, `desc_ja`)만 노출
+
+### 18.7 RLS
+- SELECT: `is_admin()` (인플루언서는 `campaigns.participation_steps` 스냅샷으로만 간접 접근)
+- INSERT/UPDATE/DELETE: `is_campaign_admin()`
+
+### 18.8 마이그레이션·시드
+- Migration: `supabase/migrations/033_create_participation_sets.sql`
+- Seed: `supabase/seed/participation_sets.sql` (리뷰어/기프팅/방문형 기본 3건, 각 3단계)
+- 재실행 안전 (`ON CONFLICT (name_ko) DO NOTHING`)
+
+---
+
+## 19. 캠페인 채널 매칭 표시 (channel_match) — 2026-04-15
+
+### 19.1 배경
+멀티채널 캠페인에서 인플루언서 상세 페이지에 채널 pill을 어떤 구분자로 연결할지 캠페인별 설정.
+**자격 검증 로직에는 영향 없음** — OR 방식 유지 (§10 참고).
+
+### 19.2 데이터
+- `campaigns.channel_match text DEFAULT 'or' CHECK (channel_match IN ('or','and'))`
+
+### 19.3 관리자 폼
+- 채널 체크박스 **2개 이상 선택**된 경우에만 `or`/`&` 라디오 노출
+- 채널 1개면 라디오 숨김, 값은 기본 `'or'` 유지
+
+### 19.4 인플루언서 상세 렌더링
+- 채널 pill 사이에 구분자 표시:
+  - `or` → 텍스트 `or`
+  - `and` → 텍스트 `&`
+- 예: `Instagram or TikTok` / `Instagram & X`
+
+### 19.5 카드 표시
+- 카드에서는 공간 절약을 위해 **첫 채널 + `+N`** 형식 고정 (channel_match 무시)
+- 상세 진입 시에만 구분자 기반 풀 렌더
+
+---
+
+## 20. 캠페인 카드 배지 레이아웃 — 2026-04-15
+
+### 20.1 변경 배경
+이전 카드: 이미지 위에 `募集中` + 모집타입 배지 중첩 → 정보 밀집도 과다, 모집 마감 임박을 인식하기 어려움.
+개편: 이미지 위/제목 위/콘텐츠 종류 아래로 **위치별 역할 분리**.
+
+### 20.2 배지 위치 규칙
+
+| 위치 | 배지 | 조건 |
+|---|---|---|
+| 이미지 좌상단 | `NEW` | 등록 7일 이내 |
+| 제목 위 (우) | `締切間近` | `deadline` 경과까지 5일 미만 **OR** 잔여 slots ≤ 30% |
+| 제목 위 (좌) | `{applied}/{slots}名` | 진행중 캠페인 항상 표시 |
+| 콘텐츠 종류 아래 | `모집타입` pill | 항상 표시 (리뷰어/기프팅/방문형) |
+| 콘텐츠 종류 아래 | `募集中` pill | `status=active` 시 항상 표시 |
+| 이미지 좌하단 | 첫 채널 + `+N` | 채널 복수 시 `+N` 표기 (`dev/js/campaign.js` `left:8px`) |
+
+### 20.3 `締切間近` 판정 로직
+- deadline 기준 D-day 5 미만 **또는** `(slots - applied) / slots ≤ 0.3`
+- 둘 중 하나라도 참이면 표시 (OR 조건)
+- 독립 배지 (`募集中`과 병존 가능)
+
+### 20.4 `{applied}/{slots}名` 규칙
+- `applications` 중 `status='approved'` 카운트를 `applied`로 사용
+- `slots`는 캠페인 정의값
+- 진행중 캠페인에서 **항상** 표시 (이전: 特정 조건에서만)
+
+### 20.5 구현 위치
+- 카드 렌더: `dev/js/campaign.js` 의 카드 생성 함수
+- 스타일: `dev/css/campaign.css`
