@@ -114,7 +114,9 @@
 - **참여방법 번들**(`participation_sets`): 캠페인 참여 단계 묶음(1~6단계, 각 단계 title/desc ko·ja) 관리. 모집 타입(recruit_types[]) 태깅으로 캠페인 폼에서 필터링. 캠페인 저장 시 **스냅샷 복사**(`campaigns.participation_steps` jsonb) — 번들 수정해도 기존 캠페인 영향 없음. 캠페인 폼에서 인라인 개별 수정 + "번들 다시 불러오기" 지원. hard delete는 FK `ON DELETE SET NULL`로 스냅샷 격리
 
 ## Database Schema (Supabase)
-- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps 등)
+- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps, deadline, post_deadline, purchase_start/end (monitor), visit_start/end (visit), submission_end 등)
+- `deliverables` — 결과물 통합 테이블 (kind: 'receipt'|'post', status, receipt_url/purchase_date/purchase_amount(receipt), post_url/post_channel/post_submissions(post), reject_reason, reviewed_by/at, version). receipts와 dual-write 동기화 중 (Stage 7에서 receipts DROP 예정)
+- `deliverable_events` — 결과물 상태 변경 이력 (action: submit/resubmit/approve/reject/revert, from_status, to_status). 트리거/RPC만 INSERT
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, paypal_email, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등) — bank_* 컬럼은 deprecated (유지, 미사용)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
 - `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)

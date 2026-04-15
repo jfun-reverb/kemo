@@ -513,6 +513,11 @@ async function openEditCampaign(campId) {
   sv('editCampReward', camp.reward||0);
   sv('editCampDeadline', camp.deadline||'');
   sv('editCampPostDeadline', camp.post_deadline||'');
+  sv('editCampPurchaseStart', camp.purchase_start||'');
+  sv('editCampPurchaseEnd', camp.purchase_end||'');
+  sv('editCampVisitStart', camp.visit_start||'');
+  sv('editCampVisitEnd', camp.visit_end||'');
+  sv('editCampSubmissionEnd', camp.submission_end||'');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
@@ -531,6 +536,7 @@ async function openEditCampaign(campId) {
   document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===rtVal);});
   const checkedRt = document.querySelector(`input[name="editRecruitType"][value="${rtVal}"]`);
   if (checkedRt) toggleEditRT(checkedRt);
+  applyDeadlineFieldsVisibility('edit', rtVal);
 
   // lookup_values 동적 렌더 (병렬)
   const selectedChannels = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
@@ -677,6 +683,11 @@ async function saveCampaignEdit() {
       reward: parseInt(gv('editCampReward'))||0,
       deadline: gv('editCampDeadline')||null,
       post_deadline: gv('editCampPostDeadline')||null,
+      purchase_start: gv('editCampPurchaseStart')||null,
+      purchase_end: gv('editCampPurchaseEnd')||null,
+      visit_start: gv('editCampVisitStart')||null,
+      visit_end: gv('editCampVisitEnd')||null,
+      submission_end: gv('editCampSubmissionEnd')||null,
       description: gv('editCampDesc'),
       hashtags: gv('editCampHashtags'),
       mentions: gv('editCampMentions'),
@@ -724,6 +735,9 @@ async function duplicateCampaign(campId) {
       product_price: src.product_price, reward: src.reward,
       slots: src.slots, applied_count: 0,
       deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
+      purchase_start: src.purchase_start, purchase_end: src.purchase_end,
+      visit_start: src.visit_start, visit_end: src.visit_end,
+      submission_end: src.submission_end,
       image_url: src.image_url,
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
@@ -1459,6 +1473,11 @@ async function addCampaign() {
     post_days: $('newCampPostDeadline')?.value
       ? Math.ceil((new Date($('newCampPostDeadline').value) - new Date()) / (1000*60*60*24))
       : 14,
+    purchase_start: $('newCampPurchaseStart')?.value||null,
+    purchase_end: $('newCampPurchaseEnd')?.value||null,
+    visit_start: $('newCampVisitStart')?.value||null,
+    visit_end: $('newCampVisitEnd')?.value||null,
+    submission_end: $('newCampSubmissionEnd')?.value||null,
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
@@ -1746,6 +1765,28 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   // 참여방법 번들 드롭다운도 모집 타입에 맞춰 갱신 (선택값은 유지 시도)
   const psetSel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
   await populateCampPsetDropdown(formMode, recruitType, psetSel?.value || null);
+  // 타입별 기한 필드 표시/숨김
+  applyDeadlineFieldsVisibility(formMode, recruitType);
+}
+
+// Stage 1: 모집 타입별 기한 필드 표시/숨김 (monitor=구매기간, visit=방문기간)
+// 숨겨지는 필드는 값도 초기화 — 타입 변경 후 저장 시 잔여 값 DB 오염 방지
+function applyDeadlineFieldsVisibility(formMode, recruitType) {
+  const prefix = formMode === 'edit' ? 'editCamp' : 'newCamp';
+  const purchaseRow = $(prefix + 'PurchaseRow');
+  const visitRow = $(prefix + 'VisitRow');
+  const showPurchase = (recruitType === 'monitor');
+  const showVisit = (recruitType === 'visit');
+  if (purchaseRow) purchaseRow.style.display = showPurchase ? '' : 'none';
+  if (visitRow) visitRow.style.display = showVisit ? '' : 'none';
+  if (!showPurchase) {
+    const ps = $(prefix + 'PurchaseStart'); if (ps) ps.value = '';
+    const pe = $(prefix + 'PurchaseEnd'); if (pe) pe.value = '';
+  }
+  if (!showVisit) {
+    const vs = $(prefix + 'VisitStart'); if (vs) vs.value = '';
+    const ve = $(prefix + 'VisitEnd'); if (ve) ve.value = '';
+  }
 }
 
 function enterLookupReorderMode() {

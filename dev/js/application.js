@@ -93,6 +93,21 @@ async function openCampaign(id) {
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">投稿締切日</div>
             <div style="padding:10px 13px;flex:1;font-size:12px;font-weight:600;color:var(--ink)">${camp.post_deadline ? formatDate(camp.post_deadline) : camp.post_days ? `受取後 ${camp.post_days}日以内` : '—'}</div>
           </div>
+          ${(camp.recruit_type==='monitor' && (camp.purchase_start||camp.purchase_end))?`
+          <div style="display:flex;border-top:1px solid #faf5f9">
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">購入期間</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div>
+          </div>`:''}
+          ${(camp.recruit_type==='visit' && (camp.visit_start||camp.visit_end))?`
+          <div style="display:flex;border-top:1px solid #faf5f9">
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">訪問期間</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div>
+          </div>`:''}
+          ${camp.submission_end?`
+          <div style="display:flex;border-top:1px solid #faf5f9">
+            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">成果物提出締切</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px;font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div>
+          </div>`:''}
           ${(camp.product_price>0||camp.reward>0)?`
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">リワード</div>
