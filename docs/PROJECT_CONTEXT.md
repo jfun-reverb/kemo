@@ -24,7 +24,12 @@
 
 ### 2-1. 개인정보 보호
 - **한국 PIPA** (개인정보 보호법) + **일본 APPI** (個人情報保護法) **이중 준수**
-- **국외 이전 동의**: 일본 거주자 데이터를 한국(Supabase 운영)으로 이전함에 대한 **명시적 동의 필수**. 현재 `influencers.terms_agreed_at`, `privacy_agreed_at`에서 포괄 동의 기록 중. 추후 "국외 이전" 별도 동의 항목 분리 예정.
+- **국외 이전 동의**: 일본 거주자 데이터를 **호주 시드니**(Supabase 운영 — AWS Sydney 리전)로 이전함에 대한 **명시적 동의 필수**. 현재 `influencers.terms_agreed_at`, `privacy_agreed_at`에서 포괄 동의 기록 중. 추후 "국외 이전" 별도 동의 항목 분리 예정.
+- **처리위탁 업체** (개인정보처리방침 §처리위탁 반영 대상):
+  - **Supabase Inc.** (미국 법인 / 데이터 처리 리전: 호주 시드니 AWS) — DB, Auth, Storage, Email Confirmation
+  - **Vercel Inc.** (미국) — 정적 호스팅, 엣지 함수
+  - **Brevo (Sendinblue SA)** (프랑스, EU) — 트랜잭션 메일 발송 (SMTP 릴레이)
+  - 각 업체별로 위탁 사항·위탁 기간·국외 이전 경유지 명시 필요
 - **비밀번호**: 일방향 해시 (Supabase Auth bcrypt 10 rounds)
 - **민감 정보 양방향 암호화**: 계좌/PayPal 이메일/주소 등은 저장 전 암호화 예정 (현재 평문 저장 — 추후 `pgcrypto` 또는 AES 래퍼 도입)
 - **접근 로그 1년 이상 보관**: 관리자 페이지 접근·개인정보 조회/수정 이력 기록. 신규 `access_logs` 테이블 필요.
