@@ -635,3 +635,50 @@ UNIQUE 제약: `(kind, code)`
 - 캠페인 폼에서 모집 타입 선택 시 → 채널 체크박스를 `recruit_types` 일치하는 것만 표시
 - 인플루언서 페이지 채널 라벨/필터를 `lookup_values`로 전환
 - NG 프리셋: 캠페인 등록 폼에 "프리셋 추가" 버튼 → 클릭 시 NG textarea에 일본어 본문 삽입
+
+
+## 17. 비밀번호 정책
+
+### 17.1 강도 규칙 (회원가입·비밀번호 변경 공통)
+- **최소 길이**: 8자 이상
+- **필수 조합**: 영문 소문자 + 특수문자 (최소)
+- **권장 조합**: 영문 대소문자 + 숫자 + 특수문자 중 2개 이상
+- **사용 가능 특수문자**: `!@#$%^&*()_+-=[]{}|;:,.<>?` 등 일반적인 ASCII 기호
+- **유출 비번 차단**: Supabase Auth의 HIBP(Have I Been Pwned) 검사 활성 — 유출 이력 있는 비밀번호는 가입·변경 모두 차단
+- 클라이언트 검증(`dev/js/auth.js`)과 Supabase Auth 정책 이중 적용
+
+### 17.2 변경 시 추가 제약
+- **현재 비밀번호와 동일 금지** — 새 비밀번호가 기존과 같으면 거부
+- **새 비밀번호 ≠ 새 비밀번호 확인** 시 거부
+- 변경 성공 시 토스트 안내 + 세션 유지 (재로그인 불필요)
+
+### 17.3 보기/가리기 토글 (UI)
+모든 비밀번호 input(`type="password"`) 우측에 눈 아이콘 토글 버튼 노출. 인플루언서·관리자 페이지 전체 적용.
+
+| 위치                                | input ID                                       |
+|-------------------------------------|------------------------------------------------|
+| 인플루언서 — 로그인                 | `loginPw`                                      |
+| 인플루언서 — 회원가입               | `signupPw`, `signupPw2`                        |
+| 인플루언서 — 비밀번호 재설정        | `resetPwNew`, `resetPwConfirm`                 |
+| 인플루언서 — 마이페이지 비번 변경   | `currentPw`, `newPw`, `newPw2`                 |
+| 관리자 — 내 계정 비번 변경          | `myAdminCurrentPw`, `myAdminNewPw`, `myAdminNewPw2` |
+| 관리자 — 비밀번호 초기화 모달       | `resetPwNew` (admin)                           |
+
+- 구현 헬퍼: `dev/js/ui.js`의 `togglePw(inputId, btn)` — 클릭 시 `type` 속성을 `password ↔ text` 토글, 아이콘은 눈/눈 가림 SVG 전환
+- CSS: `.pw-wrap`(상대위치 컨테이너) + `.pw-toggle`(우측 절대배치 버튼)
+
+### 17.4 가입 시 기존 이메일 처리
+- 이미 가입된 이메일로 재가입 시도하면 **계정 열거 방지**(`SECURITY` 규칙)에 따라 구체적 에러 노출 금지
+- 일본어 안내: "이미 등록된 이메일입니다. 로그인하거나 비밀번호 재설정을 이용해주세요" 수준의 일반적 메시지만 표기
+
+### 17.5 관리자 비밀번호 초기화 (super_admin 전용)
+두 가지 경로 제공 (`/admin#admin-accounts` → 관리자 행 액션 메뉴):
+- **메일로 재설정 링크 발송** — `auth.resetPasswordForEmail()` 호출 → 대상자가 메일 링크로 직접 새 비밀번호 설정 (권장)
+- **수동 비밀번호 지정** — 모달에서 8자 이상 새 비밀번호 입력 → `reset_admin_password(target_auth_id, new_password)` RPC 호출
+  - DB 함수는 `SECURITY DEFINER`로 정의, `extensions.crypt`/`extensions.gen_salt(\047bf\047, 10)` 사용 (search_path=`""` 환경에서 pgcrypto 호출)
+  - 자기 자신 비밀번호 수동 초기화 차단 — "내 계정" 메뉴의 비밀번호 변경 사용
+
+### 17.6 저장·전송
+- 평문 비밀번호는 **절대 DB·로그·토스트에 저장/노출 금지**
+- bcrypt 라운드 10 (`extensions.gen_salt(\047bf\047, 10)`) — Supabase Auth 기본값과 일치
+- HTTPS 전제 (운영·개발 양 환경 Vercel SSL)
