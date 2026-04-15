@@ -816,7 +816,6 @@ function toggleStatusDropdown(badgeEl) {
   // 기존 드롭다운 닫기
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
 
-  const wrapper = badgeEl.parentElement;
   const tr = badgeEl.closest('tr');
   const campId = tr?.dataset.campId;
   if (!campId) return;
@@ -836,7 +835,12 @@ function toggleStatusDropdown(badgeEl) {
       <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
     </div>`
   ).join('');
-  wrapper.appendChild(dd);
+  // body에 붙여 부모의 overflow:hidden 클리핑 회피
+  document.body.appendChild(dd);
+  const rect = badgeEl.getBoundingClientRect();
+  dd.style.position = 'fixed';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
 
   // 외부 클릭 시 닫기
   setTimeout(() => {

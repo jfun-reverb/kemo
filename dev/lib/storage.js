@@ -188,13 +188,9 @@ async function uploadCampImages(imgList) {
     if (!img || !img.data) { urls.push(''); continue; }
     // 이미 URL이면 그대로 사용
     if (img.data.startsWith('http')) { urls.push(img.data); continue; }
-    // base64면 업로드
-    try {
-      var url = await uploadImage(img.data, img.name || 'img' + i);
-      urls.push(url);
-    } catch(e) {
-      urls.push('');
-    }
+    // base64면 업로드 — 실패 시 throw (silent-fail 방지: 빈 URL이 DB에 저장되는 사고 차단)
+    var url = await uploadImage(img.data, img.name || 'img' + i);
+    urls.push(url);
   }
   // 8개 슬롯 채우기
   while (urls.length < 8) urls.push('');
