@@ -146,15 +146,36 @@ function buildCampCards(camps) {
         ${isFull&&!isScheduled&&!isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集終了</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;display:flex;gap:4px">
           ${isNew&&!isFull?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
-          ${!isFull&&!isScheduled&&!isClosed?'<span style="background:rgba(14,126,74,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>':''}
-          ${typeLabel&&!isFull&&!isClosed?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
         <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
       </div>
       <div class="camp-body">
+        ${(() => {
+          // 마감임박/잔여인원 배지 — 제목 위 (진행중 캠페인만)
+          if (isFull || isScheduled || isClosed) return '';
+          const flags = [];
+          if (c.deadline) {
+            const diffDays = Math.ceil((new Date(c.deadline) - new Date()) / (1000*60*60*24));
+            if (diffDays >= 0 && diffDays < 5) flags.push('<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">締切間近</span>');
+          }
+          const slots = c.slots || 0;
+          const applied = c.applied_count || 0;
+          const remaining = slots - applied;
+          if (slots > 0 && remaining > 0 && remaining / slots <= 0.3) {
+            flags.push(`<span style="background:#FFF2D9;color:#B86E00;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">残り${remaining}名</span>`);
+          }
+          return flags.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${flags.join('')}</div>` : '';
+        })()}
         <div class="camp-brand">${esc(c.brand)}</div>
         <div class="camp-title">${esc(c.title)}</div>
         ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(t.trim())}</span>`).join('')}</div>` : ''}
+        ${(() => {
+          // 모집타입 + 상태 배지 — 콘텐츠 종류 아래
+          const row = [];
+          if (typeLabel && !isFull && !isScheduled && !isClosed) row.push(`<span style="background:#FFF;border:1px solid var(--pink);color:var(--pink);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`);
+          if (!isFull && !isScheduled && !isClosed) row.push('<span style="background:rgba(14,126,74,.12);color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>');
+          return row.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${row.join('')}</div>` : '';
+        })()}
       </div>
       <div class="camp-footer"><div class="camp-reward"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">redeem</span> ${reward}</div></div>
     </div>`;
