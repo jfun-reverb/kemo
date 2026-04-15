@@ -103,7 +103,8 @@
 - 관리자 삭제 2택: **권한만 해제**(`remove_admin_role`) — 인플루언서 계정 유지 / **완전 삭제**(`delete_admin_completely`) — auth/influencers/applications/receipts 모두 cascade 삭제. 자기 자신 삭제 불가.
 - `create_admin()` 함수는 **deprecated** (migration 032). `invite_admin()` 사용.
 - 내 계정: 이름/비밀번호 변경
-- 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
+- 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/참여방법을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
+- **참여방법 번들**(`participation_sets`): 캠페인 참여 단계 묶음(1~6단계, 각 단계 title/desc ko·ja) 관리. 모집 타입(recruit_types[]) 태깅으로 캠페인 폼에서 필터링. 캠페인 저장 시 **스냅샷 복사**(`campaigns.participation_steps` jsonb) — 번들 수정해도 기존 캠페인 영향 없음. 캠페인 폼에서 인라인 개별 수정 + "번들 다시 불러오기" 지원. hard delete는 FK `ON DELETE SET NULL`로 스냅샷 격리
 
 ## Database Schema (Supabase)
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, category, reward, slots, min_followers, status, view_count, img1~img8 등)
@@ -112,6 +113,7 @@
 - `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용
+- `participation_sets` — 참여방법 번들 (name_ko/ja, recruit_types[], steps jsonb, sort_order, active). `campaigns.participation_steps jsonb` + `campaigns.participation_set_id uuid FK ON DELETE SET NULL` 로 스냅샷 저장·원본 참조
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
 - `is_admin()` / `is_super_admin()` / `is_campaign_admin()` 함수: admins 테이블에서 auth.uid() 조회 (search_path 고정)
 - 트리거: auth.users 생성 시 influencers 레코드 자동 생성
