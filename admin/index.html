@@ -1694,13 +1694,9 @@ async function uploadCampImages(imgList) {
     if (!img || !img.data) { urls.push(''); continue; }
     // 이미 URL이면 그대로 사용
     if (img.data.startsWith('http')) { urls.push(img.data); continue; }
-    // base64면 업로드
-    try {
-      var url = await uploadImage(img.data, img.name || 'img' + i);
-      urls.push(url);
-    } catch(e) {
-      urls.push('');
-    }
+    // base64면 업로드 — 실패 시 throw (silent-fail 방지: 빈 URL이 DB에 저장되는 사고 차단)
+    var url = await uploadImage(img.data, img.name || 'img' + i);
+    urls.push(url);
   }
   // 8개 슬롯 채우기
   while (urls.length < 8) urls.push('');
@@ -3224,7 +3220,6 @@ function toggleStatusDropdown(badgeEl) {
   // 기존 드롭다운 닫기
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
 
-  const wrapper = badgeEl.parentElement;
   const tr = badgeEl.closest('tr');
   const campId = tr?.dataset.campId;
   if (!campId) return;
@@ -3244,7 +3239,12 @@ function toggleStatusDropdown(badgeEl) {
       <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
     </div>`
   ).join('');
-  wrapper.appendChild(dd);
+  // body에 붙여 부모의 overflow:hidden 클리핑 회피
+  document.body.appendChild(dd);
+  const rect = badgeEl.getBoundingClientRect();
+  dd.style.position = 'fixed';
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
 
   // 외부 클릭 시 닫기
   setTimeout(() => {
