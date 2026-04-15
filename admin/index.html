@@ -5545,7 +5545,7 @@ async function approveDeliv(id, version) {
 }
 
 async function revertDeliv(id, version) {
-  const ok = await showConfirmModal('검수 결과를 되돌리시겠습니까?\n상태가 검수대기로 변경됩니다.\n\n인플루언서가 이미 결과를 확인했을 수 있습니다.');
+  const ok = await showConfirm('검수 결과를 되돌리시겠습니까?\n상태가 검수대기로 변경됩니다.\n\n인플루언서가 이미 결과를 확인했을 수 있습니다.');
   if (!ok) return;
   const ret = await updateDeliverableStatus(id, 'pending', version);
   if (ret === -1) {
