@@ -159,6 +159,73 @@ async function insertReceipt(receipt) {
   });
 }
 
+// ── Deliverables (Stage 2) ──
+// 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
+async function fetchDeliverables(filters) {
+  if (!db) return [];
+  try {
+    let query = db?.from('deliverables').select(`
+      id, kind, status, version,
+      receipt_url, purchase_date, purchase_amount, memo,
+      post_url, post_channel, post_submissions,
+      reject_reason, reject_template_code,
+      reviewed_by, reviewed_at, submitted_at, updated_at,
+      application_id, user_id, campaign_id,
+      campaigns:campaign_id (id, title, brand, recruit_type),
+      influencers:user_id (id, name, name_kana, email)
+    `);
+    if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
+    if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
+    if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
+    query = query.order('submitted_at', {ascending: true});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+async function fetchDeliverableById(id) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db?.from('deliverables').select(`
+      *,
+      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, img1),
+      influencers:user_id (id, name, name_kana, email, primary_sns)
+    `).eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchDeliverableById]', e); return null; }
+}
+
+async function fetchDeliverableEvents(deliverableId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db?.from('deliverable_events').select('*')
+      .eq('deliverable_id', deliverableId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// 낙관적 락: update_deliverable_status RPC 호출. 반환 -1=충돌, >0=새 version
+async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, templateCode) {
+  if (!db) return -1;
+  let ret = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_deliverable_status', {
+      p_id: id,
+      p_new_status: newStatus,
+      p_expected_version: expectedVersion,
+      p_reason: reason || null,
+      p_template_code: templateCode || null
+    });
+    if (error) throw error;
+    ret = typeof data === 'number' ? data : -1;
+  });
+  return ret;
+}
+
 // ── Image Storage ──
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
 async function uploadImage(base64Data, fileName) {

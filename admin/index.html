@@ -431,6 +431,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="admin-si-lbl">캠페인</div>
       <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
       <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
+      <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -1067,6 +1068,44 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
         </div>
 
+        <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
+        <div id="adminPane-deliverables" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+          </div>
+          <!-- 필터 + 검색 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <select id="delivKindFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+              <option value="all">전체 타입</option>
+              <option value="receipt">영수증</option>
+              <option value="post">게시물 URL</option>
+            </select>
+            <select id="delivStatusFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+              <option value="pending" selected>검수 대기</option>
+              <option value="approved">승인</option>
+              <option value="rejected">반려</option>
+              <option value="all">전체 상태</option>
+            </select>
+            <select id="delivCampFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);max-width:240px">
+              <option value="all">전체 캠페인</option>
+            </select>
+            <div style="position:relative;width:320px">
+              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+              <input type="text" id="delivSearch" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">결과물 목록</span>
+              <span id="delivTotalCount" style="font-size:12px;color:var(--muted)"></span>
+            </div>
+            <table class="data-table">
+              <thead><tr><th style="width:90px">타입</th><th>캠페인</th><th>인플루언서</th><th style="width:110px">제출일</th><th style="width:90px">상태</th><th style="width:110px">처리</th></tr></thead>
+              <tbody id="delivTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- LOOKUPS (기준 데이터) PANE -->
         <div id="adminPane-lookups" class="admin-pane">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -1428,6 +1467,52 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- Stage 2: 결과물 상세 모달 -->
+<div class="modal-overlay" id="delivDetailModal" style="z-index:605">
+  <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="delivDetailTitle">결과물 상세</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeDelivDetail()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 22px;overflow-y:auto;flex:1" id="delivDetailBody">
+      <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
+    </div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end" id="delivDetailFooter">
+    </div>
+  </div>
+</div>
+
+<!-- Stage 2: 반려 사유 입력 모달 -->
+<div class="modal-overlay" id="delivRejectModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">반려 사유 입력</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div class="form-group">
+        <label class="form-label">사유 템플릿 (선택)</label>
+        <select id="delivRejectTemplate" class="form-input" onchange="onDelivRejectTemplateChange()">
+          <option value="">— 직접 입력 —</option>
+          <option value="pr_tag_missing">PR 태그 누락 (#PR/#広告/#プロモーション)</option>
+          <option value="image_unclear">이미지 품질 부족 (흐림/식별 불가)</option>
+          <option value="amount_mismatch">금액·구매일 확인 불가</option>
+          <option value="post_deleted">게시물 삭제·비공개 상태</option>
+          <option value="mention_missing">필수 해시태그·멘션 누락</option>
+          <option value="other">기타</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">상세 사유 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+        <textarea id="delivRejectReason" class="form-input" rows="4" placeholder="인플루언서에게 전달할 반려 사유를 입력하세요" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeDelivRejectModal()">취소</button>
+      <button class="btn btn-primary" onclick="submitDelivReject()" style="background:#C33;border-color:#C33">반려 처리</button>
+    </div>
+  </div>
+</div>
+
 <!-- 게시 마감일 자동 제안 confirm 모달 -->
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
@@ -1775,6 +1860,73 @@ async function insertReceipt(receipt) {
     const {error} = await db.from('receipts').insert(receipt);
     if (error) throw error;
   });
+}
+
+// ── Deliverables (Stage 2) ──
+// 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
+async function fetchDeliverables(filters) {
+  if (!db) return [];
+  try {
+    let query = db?.from('deliverables').select(`
+      id, kind, status, version,
+      receipt_url, purchase_date, purchase_amount, memo,
+      post_url, post_channel, post_submissions,
+      reject_reason, reject_template_code,
+      reviewed_by, reviewed_at, submitted_at, updated_at,
+      application_id, user_id, campaign_id,
+      campaigns:campaign_id (id, title, brand, recruit_type),
+      influencers:user_id (id, name, name_kana, email)
+    `);
+    if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
+    if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
+    if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
+    query = query.order('submitted_at', {ascending: true});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+async function fetchDeliverableById(id) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db?.from('deliverables').select(`
+      *,
+      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, img1),
+      influencers:user_id (id, name, name_kana, email, primary_sns)
+    `).eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[fetchDeliverableById]', e); return null; }
+}
+
+async function fetchDeliverableEvents(deliverableId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db?.from('deliverable_events').select('*')
+      .eq('deliverable_id', deliverableId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// 낙관적 락: update_deliverable_status RPC 호출. 반환 -1=충돌, >0=새 version
+async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, templateCode) {
+  if (!db) return -1;
+  let ret = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_deliverable_status', {
+      p_id: id,
+      p_new_status: newStatus,
+      p_expected_version: expectedVersion,
+      p_reason: reason || null,
+      p_template_code: templateCode || null
+    });
+    if (error) throw error;
+    ret = typeof data === 'number' ? data : -1;
+  });
+  return ret;
 }
 
 // ── Image Storage ──
@@ -2706,7 +2858,8 @@ function switchAdminPane(pane, el, pushHistory) {
     influencers: loadAdminInfluencers,
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
-    'lookups': loadLookupsPane
+    'lookups': loadLookupsPane,
+    'deliverables': loadDeliverables
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -5115,6 +5268,260 @@ function renderProfileCompletion(users) {
     '<div style="margin-top:4px"></div>' +
     bar('배송지', pct(hasAddr), '#FF9F43', false) +
     bar('PayPal', pct(hasBank), '#28C76F', false);
+}
+
+// ============================================================
+// Stage 2: 결과물 관리 (Deliverables)
+// ============================================================
+let _delivCache = [];
+let _delivDetailCurrent = null;  // 열려 있는 상세 {id, version}
+
+async function loadDeliverables() {
+  // 캠페인 드롭다운 채우기 (첫 로드만)
+  const sel = $('delivCampFilter');
+  if (sel && sel.options.length <= 1) {
+    const camps = await fetchCampaigns().catch(() => []);
+    camps.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.title;
+      sel.appendChild(opt);
+    });
+  }
+  await renderDeliverablesList();
+}
+
+async function renderDeliverablesList() {
+  const tbody = $('delivTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  const status = $('delivStatusFilter')?.value || 'pending';
+  const kind = $('delivKindFilter')?.value || 'all';
+  const campId = $('delivCampFilter')?.value || 'all';
+  const search = ($('delivSearch')?.value || '').trim().toLowerCase();
+  const rows = await fetchDeliverables({status, kind, campaign_id: campId});
+  _delivCache = rows;
+  const filtered = search
+    ? rows.filter(r => {
+        const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
+        return n.toLowerCase().includes(search);
+      })
+    : rows;
+  const cnt = $('delivTotalCount');
+  if (cnt) cnt.textContent = `총 ${filtered.length}건`;
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(d => {
+    const kindBadge = d.kind === 'receipt'
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#fdf5fb;color:var(--dark-pink);font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">receipt</span> 영수증</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:3px;background:#eef5ff;color:#2c5fa8;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span> 게시물</span>';
+    const camp = d.campaigns || {};
+    const inf = d.influencers || {};
+    const stBadge = delivStatusBadge(d.status);
+    const infLabel = esc(inf.name || inf.email || '—');
+    return `<tr>
+      <td>${kindBadge}</td>
+      <td>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+      <td>${infLabel}</td>
+      <td style="font-size:12px">${formatDate(d.submitted_at)}</td>
+      <td>${stBadge}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function delivStatusBadge(status) {
+  const map = {
+    pending: '<span style="background:#FFF4E4;color:#B8741A;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">검수대기</span>',
+    approved: '<span style="background:#E4F5E8;color:#2D7A3E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">승인</span>',
+    rejected: '<span style="background:#FFE4E4;color:#C33;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">반려</span>'
+  };
+  return map[status] || status;
+}
+
+async function openDelivDetail(id) {
+  const modal = $('delivDetailModal');
+  if (!modal) return;
+  modal.classList.add('show');
+  const body = $('delivDetailBody');
+  const footer = $('delivDetailFooter');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+  if (footer) footer.innerHTML = '';
+  const [d, events] = await Promise.all([
+    fetchDeliverableById(id),
+    fetchDeliverableEvents(id)
+  ]);
+  if (!d) {
+    if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">결과물을 찾을 수 없습니다.</div>';
+    return;
+  }
+  _delivDetailCurrent = {id: d.id, version: d.version};
+  const camp = d.campaigns || {};
+  const inf = d.influencers || {};
+  const titleEl = $('delivDetailTitle');
+  if (titleEl) titleEl.innerHTML = `${esc(camp.title || '캠페인')} <span style="font-size:12px;color:var(--muted);font-weight:400">· ${esc(inf.name || '—')}</span>`;
+
+  // 본문
+  let contentHtml = '';
+  if (d.kind === 'receipt') {
+    const amt = d.purchase_amount != null ? `¥${Number(d.purchase_amount).toLocaleString('ja-JP')}` : '—';
+    contentHtml = `
+      <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
+        <div>
+          ${d.receipt_url
+            ? `<a href="${esc(d.receipt_url)}" target="_blank" rel="noopener"><img src="${esc(d.receipt_url)}" alt="영수증" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in"></a>`
+            : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
+        </div>
+        <div style="font-size:13px">
+          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매일</span> · ${d.purchase_date ? formatDate(d.purchase_date) : '—'}</div>
+          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매 금액</span> · <strong>${amt}</strong></div>
+          ${d.memo ? `<div style="margin-bottom:8px"><span style="color:var(--muted)">메모</span> · ${esc(d.memo)}</div>` : ''}
+          <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted)">
+            제출일 · ${formatDate(d.submitted_at)}<br>
+            최종 수정 · ${formatDate(d.updated_at)}<br>
+            version · ${d.version}
+          </div>
+        </div>
+      </div>`;
+  } else {
+    // post (Stage 3에서 본격 사용)
+    const subs = Array.isArray(d.post_submissions) ? d.post_submissions : [];
+    contentHtml = `
+      <div style="font-size:13px">
+        <div style="margin-bottom:10px"><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong></div>
+        <div style="margin-bottom:10px"><span style="color:var(--muted)">URL</span> · ${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all">${esc(d.post_url)}</a>` : '—'}</div>
+        ${subs.length ? `<div style="margin-top:12px"><span style="color:var(--muted);font-size:11px">제출 이력 (${subs.length}건)</span><ul style="margin:6px 0 0;padding-left:18px;font-size:11px">${subs.map(s => `<li>${esc(s.submitted_at || '')} · ${esc(s.channel || '')}</li>`).join('')}</ul></div>` : ''}
+      </div>`;
+  }
+
+  // 반려 사유 (있을 때만)
+  if (d.status === 'rejected' && d.reject_reason) {
+    contentHtml += `<div style="margin-top:14px;padding:10px 12px;background:#FFF5F5;border-left:3px solid #C33;border-radius:4px;font-size:12px">
+      <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
+      <div style="white-space:pre-wrap;color:var(--ink)">${esc(d.reject_reason)}</div>
+    </div>`;
+  }
+
+  // 이력 타임라인
+  if (events.length) {
+    contentHtml += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">변경 이력</div><div style="font-size:11px">';
+    contentHtml += events.map(e => {
+      const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
+        <span><strong>${label}</strong>${e.from_status ? ` · ${e.from_status} → ${e.to_status}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
+        <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+      </div>`;
+    }).join('');
+    contentHtml += '</div></div>';
+  }
+
+  if (body) body.innerHTML = contentHtml;
+
+  // 푸터 액션
+  let footerHtml = '';
+  if (d.status === 'pending') {
+    footerHtml = `
+      <button class="btn btn-ghost" onclick="closeDelivDetail()">닫기</button>
+      <button class="btn btn-ghost" onclick="openDelivRejectModal('${d.id}', ${d.version})" style="color:#C33;border-color:#C33">반려</button>
+      <button class="btn btn-primary" onclick="approveDeliv('${d.id}', ${d.version})">승인</button>
+    `;
+  } else {
+    footerHtml = `
+      <button class="btn btn-ghost" onclick="closeDelivDetail()">닫기</button>
+      <button class="btn btn-ghost" onclick="revertDeliv('${d.id}', ${d.version})">되돌리기 (pending으로)</button>
+    `;
+  }
+  if (footer) footer.innerHTML = footerHtml;
+}
+
+function closeDelivDetail() {
+  $('delivDetailModal')?.classList.remove('show');
+  _delivDetailCurrent = null;
+}
+
+async function approveDeliv(id, version) {
+  const ret = await updateDeliverableStatus(id, 'approved', version);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('승인 처리되었습니다.');
+  closeDelivDetail();
+  await renderDeliverablesList();
+}
+
+async function revertDeliv(id, version) {
+  const ok = await showConfirmModal('검수 결과를 되돌리시겠습니까?\n상태가 검수대기로 변경됩니다.\n\n인플루언서가 이미 결과를 확인했을 수 있습니다.');
+  if (!ok) return;
+  const ret = await updateDeliverableStatus(id, 'pending', version);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다.', 'warn');
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('검수대기로 되돌렸습니다.');
+  closeDelivDetail();
+  await renderDeliverablesList();
+}
+
+// 반려 모달 상태
+let _delivRejectCtx = null;  // {id, version}
+
+function openDelivRejectModal(id, version) {
+  _delivRejectCtx = {id, version};
+  const tpl = $('delivRejectTemplate');
+  const reason = $('delivRejectReason');
+  if (tpl) tpl.value = '';
+  if (reason) reason.value = '';
+  $('delivRejectModal')?.classList.add('show');
+}
+
+function closeDelivRejectModal() {
+  $('delivRejectModal')?.classList.remove('show');
+  _delivRejectCtx = null;
+}
+
+function onDelivRejectTemplateChange() {
+  const tpl = $('delivRejectTemplate')?.value;
+  const reason = $('delivRejectReason');
+  if (!reason) return;
+  const presets = {
+    pr_tag_missing: 'PR 태그(#PR/#広告/#プロモーション 중 1개)가 누락되었습니다. 수정 후 재제출 부탁드립니다.',
+    image_unclear: '이미지 품질이 부족하여 영수증 내용을 확인하기 어렵습니다. 선명한 사진으로 재제출 부탁드립니다.',
+    amount_mismatch: '구매 금액 또는 구매일을 영수증에서 확인할 수 없습니다. 해당 정보가 잘 보이는 사진을 첨부해주세요.',
+    post_deleted: '게시물이 삭제되었거나 비공개로 전환되어 확인할 수 없습니다.',
+    mention_missing: '필수 해시태그 또는 멘션이 포함되어 있지 않습니다.',
+    other: ''
+  };
+  if (tpl && presets[tpl] !== undefined) reason.value = presets[tpl];
+}
+
+async function submitDelivReject() {
+  if (!_delivRejectCtx) return;
+  const reason = ($('delivRejectReason')?.value || '').trim();
+  const templateCode = $('delivRejectTemplate')?.value || null;
+  if (!reason) {
+    toast('반려 사유를 입력해주세요.', 'warn');
+    return;
+  }
+  const {id, version} = _delivRejectCtx;
+  const ret = await updateDeliverableStatus(id, 'rejected', version, reason, templateCode);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다.', 'warn');
+    closeDelivRejectModal();
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('반려 처리되었습니다.');
+  closeDelivRejectModal();
+  closeDelivDetail();
+  await renderDeliverablesList();
 }
 // ══════════════════════════════════════
 // ADMIN APP — 관리자 페이지 초기화

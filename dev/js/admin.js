@@ -109,7 +109,8 @@ function switchAdminPane(pane, el, pushHistory) {
     influencers: loadAdminInfluencers,
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
-    'lookups': loadLookupsPane
+    'lookups': loadLookupsPane,
+    'deliverables': loadDeliverables
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -2518,4 +2519,258 @@ function renderProfileCompletion(users) {
     '<div style="margin-top:4px"></div>' +
     bar('배송지', pct(hasAddr), '#FF9F43', false) +
     bar('PayPal', pct(hasBank), '#28C76F', false);
+}
+
+// ============================================================
+// Stage 2: 결과물 관리 (Deliverables)
+// ============================================================
+let _delivCache = [];
+let _delivDetailCurrent = null;  // 열려 있는 상세 {id, version}
+
+async function loadDeliverables() {
+  // 캠페인 드롭다운 채우기 (첫 로드만)
+  const sel = $('delivCampFilter');
+  if (sel && sel.options.length <= 1) {
+    const camps = await fetchCampaigns().catch(() => []);
+    camps.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.title;
+      sel.appendChild(opt);
+    });
+  }
+  await renderDeliverablesList();
+}
+
+async function renderDeliverablesList() {
+  const tbody = $('delivTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  const status = $('delivStatusFilter')?.value || 'pending';
+  const kind = $('delivKindFilter')?.value || 'all';
+  const campId = $('delivCampFilter')?.value || 'all';
+  const search = ($('delivSearch')?.value || '').trim().toLowerCase();
+  const rows = await fetchDeliverables({status, kind, campaign_id: campId});
+  _delivCache = rows;
+  const filtered = search
+    ? rows.filter(r => {
+        const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
+        return n.toLowerCase().includes(search);
+      })
+    : rows;
+  const cnt = $('delivTotalCount');
+  if (cnt) cnt.textContent = `총 ${filtered.length}건`;
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(d => {
+    const kindBadge = d.kind === 'receipt'
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#fdf5fb;color:var(--dark-pink);font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">receipt</span> 영수증</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:3px;background:#eef5ff;color:#2c5fa8;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span> 게시물</span>';
+    const camp = d.campaigns || {};
+    const inf = d.influencers || {};
+    const stBadge = delivStatusBadge(d.status);
+    const infLabel = esc(inf.name || inf.email || '—');
+    return `<tr>
+      <td>${kindBadge}</td>
+      <td>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+      <td>${infLabel}</td>
+      <td style="font-size:12px">${formatDate(d.submitted_at)}</td>
+      <td>${stBadge}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function delivStatusBadge(status) {
+  const map = {
+    pending: '<span style="background:#FFF4E4;color:#B8741A;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">검수대기</span>',
+    approved: '<span style="background:#E4F5E8;color:#2D7A3E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">승인</span>',
+    rejected: '<span style="background:#FFE4E4;color:#C33;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">반려</span>'
+  };
+  return map[status] || status;
+}
+
+async function openDelivDetail(id) {
+  const modal = $('delivDetailModal');
+  if (!modal) return;
+  modal.classList.add('show');
+  const body = $('delivDetailBody');
+  const footer = $('delivDetailFooter');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+  if (footer) footer.innerHTML = '';
+  const [d, events] = await Promise.all([
+    fetchDeliverableById(id),
+    fetchDeliverableEvents(id)
+  ]);
+  if (!d) {
+    if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">결과물을 찾을 수 없습니다.</div>';
+    return;
+  }
+  _delivDetailCurrent = {id: d.id, version: d.version};
+  const camp = d.campaigns || {};
+  const inf = d.influencers || {};
+  const titleEl = $('delivDetailTitle');
+  if (titleEl) titleEl.innerHTML = `${esc(camp.title || '캠페인')} <span style="font-size:12px;color:var(--muted);font-weight:400">· ${esc(inf.name || '—')}</span>`;
+
+  // 본문
+  let contentHtml = '';
+  if (d.kind === 'receipt') {
+    const amt = d.purchase_amount != null ? `¥${Number(d.purchase_amount).toLocaleString('ja-JP')}` : '—';
+    contentHtml = `
+      <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
+        <div>
+          ${d.receipt_url
+            ? `<a href="${esc(d.receipt_url)}" target="_blank" rel="noopener"><img src="${esc(d.receipt_url)}" alt="영수증" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in"></a>`
+            : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
+        </div>
+        <div style="font-size:13px">
+          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매일</span> · ${d.purchase_date ? formatDate(d.purchase_date) : '—'}</div>
+          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매 금액</span> · <strong>${amt}</strong></div>
+          ${d.memo ? `<div style="margin-bottom:8px"><span style="color:var(--muted)">메모</span> · ${esc(d.memo)}</div>` : ''}
+          <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted)">
+            제출일 · ${formatDate(d.submitted_at)}<br>
+            최종 수정 · ${formatDate(d.updated_at)}<br>
+            version · ${d.version}
+          </div>
+        </div>
+      </div>`;
+  } else {
+    // post (Stage 3에서 본격 사용)
+    const subs = Array.isArray(d.post_submissions) ? d.post_submissions : [];
+    contentHtml = `
+      <div style="font-size:13px">
+        <div style="margin-bottom:10px"><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong></div>
+        <div style="margin-bottom:10px"><span style="color:var(--muted)">URL</span> · ${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all">${esc(d.post_url)}</a>` : '—'}</div>
+        ${subs.length ? `<div style="margin-top:12px"><span style="color:var(--muted);font-size:11px">제출 이력 (${subs.length}건)</span><ul style="margin:6px 0 0;padding-left:18px;font-size:11px">${subs.map(s => `<li>${esc(s.submitted_at || '')} · ${esc(s.channel || '')}</li>`).join('')}</ul></div>` : ''}
+      </div>`;
+  }
+
+  // 반려 사유 (있을 때만)
+  if (d.status === 'rejected' && d.reject_reason) {
+    contentHtml += `<div style="margin-top:14px;padding:10px 12px;background:#FFF5F5;border-left:3px solid #C33;border-radius:4px;font-size:12px">
+      <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
+      <div style="white-space:pre-wrap;color:var(--ink)">${esc(d.reject_reason)}</div>
+    </div>`;
+  }
+
+  // 이력 타임라인
+  if (events.length) {
+    contentHtml += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">변경 이력</div><div style="font-size:11px">';
+    contentHtml += events.map(e => {
+      const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
+        <span><strong>${label}</strong>${e.from_status ? ` · ${e.from_status} → ${e.to_status}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
+        <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+      </div>`;
+    }).join('');
+    contentHtml += '</div></div>';
+  }
+
+  if (body) body.innerHTML = contentHtml;
+
+  // 푸터 액션
+  let footerHtml = '';
+  if (d.status === 'pending') {
+    footerHtml = `
+      <button class="btn btn-ghost" onclick="closeDelivDetail()">닫기</button>
+      <button class="btn btn-ghost" onclick="openDelivRejectModal('${d.id}', ${d.version})" style="color:#C33;border-color:#C33">반려</button>
+      <button class="btn btn-primary" onclick="approveDeliv('${d.id}', ${d.version})">승인</button>
+    `;
+  } else {
+    footerHtml = `
+      <button class="btn btn-ghost" onclick="closeDelivDetail()">닫기</button>
+      <button class="btn btn-ghost" onclick="revertDeliv('${d.id}', ${d.version})">되돌리기 (pending으로)</button>
+    `;
+  }
+  if (footer) footer.innerHTML = footerHtml;
+}
+
+function closeDelivDetail() {
+  $('delivDetailModal')?.classList.remove('show');
+  _delivDetailCurrent = null;
+}
+
+async function approveDeliv(id, version) {
+  const ret = await updateDeliverableStatus(id, 'approved', version);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('승인 처리되었습니다.');
+  closeDelivDetail();
+  await renderDeliverablesList();
+}
+
+async function revertDeliv(id, version) {
+  const ok = await showConfirmModal('검수 결과를 되돌리시겠습니까?\n상태가 검수대기로 변경됩니다.\n\n인플루언서가 이미 결과를 확인했을 수 있습니다.');
+  if (!ok) return;
+  const ret = await updateDeliverableStatus(id, 'pending', version);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다.', 'warn');
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('검수대기로 되돌렸습니다.');
+  closeDelivDetail();
+  await renderDeliverablesList();
+}
+
+// 반려 모달 상태
+let _delivRejectCtx = null;  // {id, version}
+
+function openDelivRejectModal(id, version) {
+  _delivRejectCtx = {id, version};
+  const tpl = $('delivRejectTemplate');
+  const reason = $('delivRejectReason');
+  if (tpl) tpl.value = '';
+  if (reason) reason.value = '';
+  $('delivRejectModal')?.classList.add('show');
+}
+
+function closeDelivRejectModal() {
+  $('delivRejectModal')?.classList.remove('show');
+  _delivRejectCtx = null;
+}
+
+function onDelivRejectTemplateChange() {
+  const tpl = $('delivRejectTemplate')?.value;
+  const reason = $('delivRejectReason');
+  if (!reason) return;
+  const presets = {
+    pr_tag_missing: 'PR 태그(#PR/#広告/#プロモーション 중 1개)가 누락되었습니다. 수정 후 재제출 부탁드립니다.',
+    image_unclear: '이미지 품질이 부족하여 영수증 내용을 확인하기 어렵습니다. 선명한 사진으로 재제출 부탁드립니다.',
+    amount_mismatch: '구매 금액 또는 구매일을 영수증에서 확인할 수 없습니다. 해당 정보가 잘 보이는 사진을 첨부해주세요.',
+    post_deleted: '게시물이 삭제되었거나 비공개로 전환되어 확인할 수 없습니다.',
+    mention_missing: '필수 해시태그 또는 멘션이 포함되어 있지 않습니다.',
+    other: ''
+  };
+  if (tpl && presets[tpl] !== undefined) reason.value = presets[tpl];
+}
+
+async function submitDelivReject() {
+  if (!_delivRejectCtx) return;
+  const reason = ($('delivRejectReason')?.value || '').trim();
+  const templateCode = $('delivRejectTemplate')?.value || null;
+  if (!reason) {
+    toast('반려 사유를 입력해주세요.', 'warn');
+    return;
+  }
+  const {id, version} = _delivRejectCtx;
+  const ret = await updateDeliverableStatus(id, 'rejected', version, reason, templateCode);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다.', 'warn');
+    closeDelivRejectModal();
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('반려 처리되었습니다.');
+  closeDelivRejectModal();
+  closeDelivDetail();
+  await renderDeliverablesList();
 }
