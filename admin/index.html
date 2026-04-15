@@ -2926,12 +2926,11 @@ async function openEditCampaign(campId) {
   sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
-  // 모집 타입 라디오 시각 표시
-  document.querySelectorAll('[id^="edit-rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';l.style.fontWeight='600';});
+  // 모집 타입 라디오 복원 — 라벨 스타일 + 아이콘 상태 모두 갱신
   const rtVal = camp.recruit_type || 'monitor';
-  const rtEl = $('edit-rt-'+rtVal);
-  if (rtEl) { rtEl.style.borderColor='var(--pink)';rtEl.style.background='var(--light-pink)';rtEl.style.color='var(--pink)';rtEl.style.fontWeight='700'; }
   document.querySelectorAll('input[name="editRecruitType"]').forEach(r=>{r.checked=(r.value===rtVal);});
+  const checkedRt = document.querySelector(`input[name="editRecruitType"][value="${rtVal}"]`);
+  if (checkedRt) toggleEditRT(checkedRt);
 
   // lookup_values 동적 렌더 (병렬)
   const selectedChannels = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
