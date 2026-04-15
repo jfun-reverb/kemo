@@ -2062,7 +2062,7 @@ function getChannelLabel(ch, lang) {
       if (row) return row[useLang] || row.name_ja || code;
     }
     return CHANNEL_LABEL_FALLBACK[code] || code;
-  }).join(' + ');
+  }).join(' or ');
 }
 // 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
 function getRecruitTypeLabelJa(t) {

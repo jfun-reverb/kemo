@@ -66,7 +66,9 @@ async function openCampaign(id) {
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">チャンネル</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${esc(getChannelLabel(camp.channel))}</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              ${(camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join('<span style="color:var(--muted);font-size:11px;font-weight:600">or</span>')}
+            </div>
           </div>
           ${camp.content_types?`
           <div style="display:flex;border-top:1px solid #faf5f9">
