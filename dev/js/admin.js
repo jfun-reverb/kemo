@@ -2571,11 +2571,14 @@ async function renderDeliverablesList() {
     const camp = d.campaigns || {};
     const inf = d.influencers || {};
     const stBadge = delivStatusBadge(d.status);
-    const infLabel = esc(inf.name || inf.email || '—');
+    const infName = esc(inf.name || '—');
+    const infEmail = esc(inf.email || '');
+    const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
+    const infSub = [infEmail, infLine].filter(Boolean).join(' · ');
     return `<tr>
       <td>${kindBadge}</td>
       <td>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
-      <td>${infLabel}</td>
+      <td>${infName}${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
       <td style="font-size:12px">${formatDate(d.submitted_at)}</td>
       <td>${stBadge}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
@@ -2595,7 +2598,7 @@ function delivStatusBadge(status) {
 async function openDelivDetail(id) {
   const modal = $('delivDetailModal');
   if (!modal) return;
-  modal.classList.add('show');
+  openModal('delivDetailModal');
   const body = $('delivDetailBody');
   const footer = $('delivDetailFooter');
   if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
@@ -2688,7 +2691,7 @@ async function openDelivDetail(id) {
 }
 
 function closeDelivDetail() {
-  $('delivDetailModal')?.classList.remove('show');
+  closeModal('delivDetailModal');
   _delivDetailCurrent = null;
 }
 
@@ -2729,11 +2732,11 @@ function openDelivRejectModal(id, version) {
   const reason = $('delivRejectReason');
   if (tpl) tpl.value = '';
   if (reason) reason.value = '';
-  $('delivRejectModal')?.classList.add('show');
+  openModal('delivRejectModal');
 }
 
 function closeDelivRejectModal() {
-  $('delivRejectModal')?.classList.remove('show');
+  closeModal('delivRejectModal');
   _delivRejectCtx = null;
 }
 

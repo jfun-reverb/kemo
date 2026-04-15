@@ -205,7 +205,7 @@ async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
     const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns')
+      .select('id, name, name_kana, email, primary_sns, line_id')
       .in('id', userIds);
     if (error) throw error;
     const map = {};
