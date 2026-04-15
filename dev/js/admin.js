@@ -989,8 +989,20 @@ async function loadCampApplicants() {
   `;
 
   const _users = await fetchInfluencers();
+  // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
+  const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
+  const delivByApp = {};
+  allDelivs.forEach(d => {
+    const arr = (delivByApp[d.application_id] ||= []);
+    arr.push(d);
+  });
+  const isPostType = (camp?.recruit_type === 'gifting' || camp?.recruit_type === 'visit');
+  const selectedChannels = (camp?.channel || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const channelMatch = camp?.channel_match || 'or';
   $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>{
     const _u = _users.find(u=>u.email===a.user_email)||{};
+    const otCell = renderOtCell(a, isPostType);
+    const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
     return `<tr>
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
@@ -1001,11 +1013,78 @@ async function loadCampApplicants() {
     <td style="max-width:200px;font-size:12px;color:var(--muted)">${esc(a.message)||'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadgeKo(a.status)}</td>
+    <td>${otCell}</td>
+    <td>${delivCell}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
-  </tr>`;}).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+  </tr>`;}).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+}
+
+// Stage 4: OT 체크박스 셀 (gifting/visit 승인 건만 활성)
+function renderOtCell(a, isPostType) {
+  if (!isPostType) return '<span style="font-size:10px;color:var(--muted)">—</span>';
+  if (a.status !== 'approved') return '<span style="font-size:10px;color:var(--muted)">—</span>';
+  const checked = !!a.oriented_at;
+  const label = checked ? formatDate(a.oriented_at) : '미발송';
+  return `<label style="display:flex;flex-direction:column;gap:2px;cursor:pointer;font-size:10px">
+    <input type="checkbox" ${checked?'checked':''} onchange="onOtToggle('${a.id}', this)" style="margin:0">
+    <span style="color:${checked?'var(--green)':'var(--muted)'}">${label}</span>
+  </label>`;
+}
+
+async function onOtToggle(appId, checkbox) {
+  const wantChecked = checkbox.checked;
+  if (!wantChecked) {
+    const ok = await showConfirm('OT 발송 체크를 해제하시겠습니까?\n"미발송" 상태로 되돌립니다.');
+    if (!ok) { checkbox.checked = true; return; }
+  }
+  const isoOrNull = wantChecked ? new Date().toISOString() : null;
+  const ok = await updateApplicationOrientedAt(appId, isoOrNull);
+  if (!ok) {
+    toast('OT 상태 변경에 실패했습니다', 'warn');
+    checkbox.checked = !wantChecked;
+    return;
+  }
+  toast(wantChecked ? 'OT 발송으로 체크했습니다' : 'OT 발송 체크를 해제했습니다');
+  loadCampApplicants();
+}
+
+// Stage 4: 결과물 요약 셀 (건수 + 상태 분포 + 상세 링크)
+// Stage 5: channel_match('and')면 선택 채널 각각 approved post deliverable 필요 → 완료 판정
+function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPostType) {
+  if (appStatus !== 'approved') return '<span style="font-size:10px;color:var(--muted)">—</span>';
+  if (!list.length) return '<span style="font-size:11px;color:var(--muted)">미제출</span>';
+  const counts = {pending: 0, approved: 0, rejected: 0};
+  list.forEach(d => { counts[d.status] = (counts[d.status] || 0) + 1; });
+  const parts = [];
+  if (counts.approved) parts.push(`<span style="color:#2D7A3E">승인 ${counts.approved}</span>`);
+  if (counts.pending) parts.push(`<span style="color:#B8741A">검수대기 ${counts.pending}</span>`);
+  if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
+  const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
+  const completeBadge = complete
+    ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">完了</div>'
+    : '';
+  const latest = list[0];
+  return `<div style="font-size:10px">${parts.join(' · ')}</div>
+    ${completeBadge}
+    <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivDetail('${latest.id}')">상세</button>`;
+}
+
+// Stage 5: 완료 판정 — channel_match별
+// - post 타입 AND: 선택 채널 각각 approved post deliverable 필요
+// - post 타입 OR: 1개라도 approved면 완료
+// - receipt 타입(monitor): 1개라도 approved면 완료 (채널 개념 없음)
+function isApplicationComplete(delivs, selectedChannels, channelMatch, isPostType) {
+  const approved = delivs.filter(d => d.status === 'approved');
+  if (!approved.length) return false;
+  if (!isPostType) return true;  // monitor는 approved 하나면 완료
+  if (channelMatch === 'and') {
+    if (!selectedChannels.length) return false;  // 채널 미설정 AND는 완료 불가
+    return selectedChannels.every(ch => approved.some(d => (d.post_channel || '') === ch));
+  }
+  return true;  // or
 }
 
 // ── 인플루언서 목록 ──
@@ -1331,7 +1410,7 @@ async function renderAppCampList() {
   }
 
   // 상태 필터
-  const statusFilter = $('appStatusFilter')?.value || 'all';
+  const statusFilter = $('appStatusFilter')?.value || 'pending';
   if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
 
   // 검색 필터

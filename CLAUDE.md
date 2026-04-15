@@ -102,6 +102,7 @@
 - 신청 관리: 테이블 UI (캠페인 썸네일, 타입/상태/검색 필터, 상태 정렬), 인플루언서 상세 모달, 모집인원/빈자리 표시
 - 신청 처리: reviewed_by, reviewed_at 기록, 되돌리기(pending 복귀) 기능, 빈자리 없으면 승인버튼 비활성(회색)
 - 결과물 관리(`/admin#deliverables`): 영수증/게시물 URL 통합 검수 페인. 필터(상태 기본 pending·캠페인·타입·인플루언서 검색) + 오래된 순 정렬. 상세 모달에 이력 타임라인 + 승인/반려/되돌리기. 반려 사유 템플릿(PR태그 누락 등 6종) + 자유입력 혼합. 낙관적 락(`version`) 기반 동시 처리 충돌 엄격 차단 — 후순위는 "이미 처리됨" 토스트
+- 캠페인 진행현황(캠페인 → 신청자 보기): 기본 신청자 테이블에 OT 발송 체크박스(gifting/visit 승인 건만 활성, 해제 시 확인 모달) + 결과물 상태 요약(승인/검수대기/반려 건수 + 최신 상세 모달 링크) 컬럼 추가. 심사·OT·검수를 한 화면에서 처리
 - 해시태그/멘션: 태그 입력 UI (콤마 구분, 라벨+삭제, #/@ 입력 차단)
 - 에러 처리: friendlyError() 한국어 에러 메시지 + 에러 코드 표시
 - 상태 뱃지: getStatusBadgeKo() 한국어 상태 표시
@@ -120,7 +121,7 @@
 - `deliverables` — 결과물 통합 테이블 (kind: 'receipt'|'post', status, receipt_url/purchase_date/purchase_amount(receipt), post_url/post_channel/post_submissions(post), reject_reason, reviewed_by/at, version). receipts와 dual-write 동기화 중 (Stage 7에서 receipts DROP 예정)
 - `deliverable_events` — 결과물 상태 변경 이력 (action: submit/resubmit/approve/reject/revert, from_status, to_status). 트리거/RPC만 INSERT
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, paypal_email, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등) — bank_* 컬럼은 deprecated (유지, 미사용)
-- `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
+- `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at, oriented_at (OT 발송 체크 수동 토글), reviewed_version (낙관적 락))
 - `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용

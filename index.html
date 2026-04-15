@@ -2104,6 +2104,35 @@ async function fetchDeliverableById(id) {
   } catch(e) { console.error('[fetchDeliverableById]', e); return null; }
 }
 
+// applications.oriented_at 토글 (Stage 4: OT 발송 체크박스)
+async function updateApplicationOrientedAt(applicationId, isoOrNull) {
+  if (!db) return false;
+  let ok = false;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('applications')
+        .update({oriented_at: isoOrNull})
+        .eq('id', applicationId);
+      if (error) throw error;
+      ok = true;
+    });
+  } catch(e) { console.error('[updateApplicationOrientedAt]', e); }
+  return ok;
+}
+
+// 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
+async function fetchDeliverablesByCampaign(campaignId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db?.from('deliverables')
+      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason')
+      .eq('campaign_id', campaignId)
+      .order('submitted_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
+}
+
 // 인플루언서 본인 결과물 조회 (활동관리 화면)
 async function fetchDeliverablesForUser(filters) {
   if (!db) return [];
