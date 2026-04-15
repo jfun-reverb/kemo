@@ -66,7 +66,7 @@ async function openCampaign(id) {
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">チャンネル</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${esc(getChannelLabel(camp.channel))}</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${esc(getChannelLabel(camp.channel, null, ' or '))}</div>
           </div>
           ${camp.content_types?`
           <div style="display:flex;border-top:1px solid #faf5f9">
