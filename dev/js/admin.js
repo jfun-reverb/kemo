@@ -803,7 +803,7 @@ function openCampPreviewModal(campId) {
   const frame = $('campPreviewFrame');
   const editBtn = $('campPreviewEditBtn');
   if (!frame) return;
-  frame.src = '/#detail-' + campId;
+  frame.src = '/?v=' + Date.now() + '#detail-' + campId;
   editBtn.onclick = function() { closeModal('campPreviewModal'); openEditCampaign(campId); };
   openModal('campPreviewModal');
 }
