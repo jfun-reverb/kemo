@@ -73,6 +73,12 @@ window.I18N_KO = {
   },
 
   auth: {
+    pwPolicy: '8자 이상, 영문 소문자와 특수문자(!@#$%^&* 등)를 반드시 포함하고, 영문 대소문자·숫자·특수문자 중 2가지 이상 조합해주세요.',
+    pwTooShort: '비밀번호는 8자 이상이어야 합니다.',
+    pwNeedLower: '비밀번호에 영문 소문자를 1개 이상 포함해주세요.',
+    pwNeedSpecial: '비밀번호에 특수문자(!@#$%^&* 등)를 1개 이상 포함해주세요.',
+    pwMismatch: '비밀번호가 일치하지 않습니다.',
+    pwSameAsCurrent: '현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.',
     login: {
       title: '로그인',
       sub: 'REVERB 인플루언서 계정으로 로그인',
@@ -118,7 +124,7 @@ window.I18N_KO = {
       switchText: '이미 계정이 있으신가요?',
       switchLink: '로그인',
       confirmSentTitle: '확인 메일을 보냈습니다',
-      confirmSentDesc: '입력하신 이메일 주소로 확인 메일을 보냈습니다.<br>메일 속 링크를 클릭해 가입을 완료해주세요.',
+      confirmSentDesc: '입력하신 이메일 주소로 확인 메일을 보냈습니다.<br>메일 속 링크를 클릭해 가입을 완료해주세요.<br><br>※이미 등록된 이메일이라면 아래 "로그인 페이지로" 버튼으로 로그인해주세요.',
       confirmSentBtn: '로그인 페이지로',
     },
   },
@@ -137,6 +143,12 @@ window.I18N_KO = {
     withdraw: '회원 탈퇴',
     withdrawConfirm: '정말 탈퇴하시겠습니까?',
     withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
+  },
+
+  tab: {
+    home: '홈',
+    campaigns: '캠페인',
+    mypage: '마이페이지',
   },
 
   profileAlert: {

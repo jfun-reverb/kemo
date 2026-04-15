@@ -52,8 +52,8 @@ window.I18N_JA = {
 
   // GNB
   nav: {
-    login: 'Log In',
-    signup: 'Sign Up',
+    login: 'ログイン',
+    signup: '新規登録',
   },
 
   // 캠페인 목록 페이지
@@ -78,12 +78,18 @@ window.I18N_JA = {
 
   // 인증
   auth: {
+    pwPolicy: '8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。',
+    pwTooShort: 'パスワードは8文字以上で入力してください。',
+    pwNeedLower: 'パスワードに英小文字を1つ以上含めてください。',
+    pwNeedSpecial: 'パスワードに記号（!@#$%^&*など）を1つ以上含めてください。',
+    pwMismatch: 'パスワードが一致しません。',
+    pwSameAsCurrent: '現在のパスワードと同じパスワードは使用できません。',
     login: {
-      title: 'Log In',
+      title: 'ログイン',
       sub: 'REVERBインフルエンサーアカウントでログイン',
-      emailLabel: 'Email',
-      pwLabel: 'Password',
-      btn: 'Log In',
+      emailLabel: 'メールアドレス',
+      pwLabel: 'パスワード',
+      btn: 'ログイン',
       forgotLink: 'パスワードをお忘れですか？',
       switchText: 'アカウントをお持ちでないですか？',
       switchLink: '新規登録',
@@ -104,26 +110,26 @@ window.I18N_JA = {
       btn: 'パスワードを変更',
     },
     signup: {
-      title: 'Sign Up',
+      title: '新規登録',
       sub: 'REVERBに参加してKブランドキャンペーンを体験しよう',
-      nameKanjiLabel: 'Name (Kanji)',
-      nameKanaLabel: 'Name (Kana)',
+      nameKanjiLabel: '氏名（漢字）',
+      nameKanaLabel: '氏名（ふりがな）',
       nameKanaHint: '日本語の配送先登録のため、かな名を入力してください',
-      emailLabel: 'Email',
-      pwLabel: 'Password',
-      pwHint: '(8+ chars)',
-      pwConfirmLabel: 'Confirm Password',
+      emailLabel: 'メールアドレス',
+      pwLabel: 'パスワード',
+      pwHint: '（8文字以上）',
+      pwConfirmLabel: 'パスワード（確認）',
       agreeAll: 'すべてに同意する',
       required: '必須',
       optional: '任意',
       agreeTermsSuffix: 'に同意します',
       agreeMarketing: 'マーケティング情報の受信に同意します（キャンペーン案内・お得な情報）',
-      btn: 'Sign Up',
+      btn: '登録する',
       afterNote: 'SNS情報や配送先はマイページから後で追加できます',
       switchText: 'すでにアカウントをお持ちですか？',
-      switchLink: 'Log In',
+      switchLink: 'ログイン',
       confirmSentTitle: '確認メールを送信しました',
-      confirmSentDesc: 'ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。',
+      confirmSentDesc: 'ご入力いただいたメールアドレスに確認メールをお送りしました。<br>メール内のリンクをクリックして登録を完了してください。<br><br>※すでに登録されているメールアドレスの場合は、下の「ログインページへ」からログインしてください。',
       confirmSentBtn: 'ログインページへ',
     },
   },
@@ -145,20 +151,27 @@ window.I18N_JA = {
     withdrawToast: '退会申請を受け付けました。運営にLINEでご連絡ください。',
   },
 
+  // 하단 탭
+  tab: {
+    home: 'ホーム',
+    campaigns: 'キャンペーン',
+    mypage: 'マイページ',
+  },
+
   // 프로필 부족 알림
   profileAlert: {
     title: 'キャンペーン応募の前に',
     desc: '応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。',
-    cancel: 'Cancel',
-    goMypage: 'My Page',
+    cancel: 'キャンセル',
+    goMypage: 'マイページへ',
   },
 
   // 로그인 프롬프트
   loginPrompt: {
-    title: 'Login Required',
-    desc: 'Please log in to join the campaign.',
-    noAccount: "Don't have an account?",
-    signupFree: 'Sign Up Free',
+    title: 'ログインが必要です',
+    desc: 'キャンペーンに応募するにはログインしてください。',
+    noAccount: 'アカウントをお持ちでないですか？',
+    signupFree: '無料で新規登録',
   },
 
   // 약관/개인정보 링크 라벨

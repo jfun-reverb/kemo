@@ -125,6 +125,10 @@ function switchAdminPane(pane, el, pushHistory) {
     renderContentTypeCheckboxes('new', []);
     renderCategorySelect('new', '');
     applyMinFollowersVisibility('new', null);
+    // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
+    setTimeout(() => {
+      ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
+    }, 0);
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
