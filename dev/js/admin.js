@@ -543,6 +543,10 @@ async function openEditCampaign(campId) {
   // 기준 채널 선택값 복원 (없으면 첫 번째 채널)
   const primary = camp.primary_channel || selectedChannels[0] || '';
   refreshPrimaryChannelOptions('edit', primary);
+  // 채널 매칭 표시 방식 복원 (기본 or)
+  const matchVal = camp.channel_match === 'and' ? 'and' : 'or';
+  document.querySelectorAll('input[name="editChannelMatch"]').forEach(r => r.checked = (r.value === matchVal));
+  applyChannelMatchVisibility('edit');
   // 모집 타입에 따라 기준 채널/최소 팔로워수 영역 표시
   applyMinFollowersVisibility('edit', rtVal);
 
@@ -664,6 +668,7 @@ async function saveCampaignEdit() {
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
       channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
+      channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
       primary_channel: (recruitTypeEl?.value === 'monitor') ? null : (gv('editCampPrimaryChannel') || null),
       category: gv('editCampCategory'),
@@ -711,7 +716,7 @@ async function duplicateCampaign(campId) {
     const copy = {
       title: '[복사] ' + src.title,
       brand: src.brand, product: src.product, product_url: src.product_url,
-      type: src.type, channel: src.channel, min_followers: src.min_followers||0, category: src.category,
+      type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
@@ -1436,7 +1441,7 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
-    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
+    type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
     content_types: contentTypes,
@@ -1692,12 +1697,22 @@ async function renderChannelCheckboxes(formMode, recruitType, preSelectedCodes) 
     return;
   }
   wrap.innerHTML = channels.map(c =>
-    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.chPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.chName)}" value="${esc(c.code)}" onchange="toggleCH(this);refreshPrimaryChannelOptions('${formMode}')" style="display:none">${esc(c.name_ja)}</label>`
+    `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.chPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.chName)}" value="${esc(c.code)}" onchange="toggleCH(this);refreshPrimaryChannelOptions('${formMode}');applyChannelMatchVisibility('${formMode}')" style="display:none">${esc(c.name_ja)}</label>`
   ).join('');
   wrap.querySelectorAll('input[type="checkbox"]').forEach(cb => {
     if (checked.has(cb.value)) { cb.checked = true; toggleCH(cb); }
   });
   refreshPrimaryChannelOptions(formMode);
+  applyChannelMatchVisibility(formMode);
+}
+
+// 채널이 2개 이상 선택된 경우에만 or/& 토글 노출
+function applyChannelMatchVisibility(formMode) {
+  const cfg = _formCfg[formMode]; if (!cfg) return;
+  const group = $(formMode === 'edit' ? 'editCampChannelMatchGroup' : 'newCampChannelMatchGroup');
+  if (!group) return;
+  const count = document.querySelectorAll(`input[name="${cfg.chName}"]:checked`).length;
+  group.style.display = count >= 2 ? 'flex' : 'none';
 }
 
 async function renderContentTypeCheckboxes(formMode, preSelectedLabels) {
