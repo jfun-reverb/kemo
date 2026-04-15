@@ -171,8 +171,7 @@ async function fetchDeliverables(filters) {
       reject_reason, reject_template_code,
       reviewed_by, reviewed_at, submitted_at, updated_at,
       application_id, user_id, campaign_id,
-      campaigns:campaign_id (id, title, brand, recruit_type),
-      influencers:user_id (id, name, name_kana, email)
+      campaigns:campaign_id (id, title, brand, recruit_type)
     `);
     if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
     if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
@@ -180,7 +179,10 @@ async function fetchDeliverables(filters) {
     query = query.order('submitted_at', {ascending: true});
     const {data, error} = await query;
     if (error) throw error;
-    return data || [];
+    // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
+    const userIds = [...new Set((data || []).map(d => d.user_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(userIds);
+    return (data || []).map(d => ({...d, influencers: infMap[d.user_id] || null}));
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
 }
 
@@ -189,12 +191,27 @@ async function fetchDeliverableById(id) {
   try {
     const {data, error} = await db?.from('deliverables').select(`
       *,
-      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, img1),
-      influencers:user_id (id, name, name_kana, email, primary_sns)
+      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, img1)
     `).eq('id', id).maybeSingle();
     if (error) throw error;
-    return data || null;
+    if (!data) return null;
+    const infMap = await fetchInfluencersByIds([data.user_id]);
+    return {...data, influencers: infMap[data.user_id] || null};
   } catch(e) { console.error('[fetchDeliverableById]', e); return null; }
+}
+
+// 여러 user_id(auth.uid)에 대응하는 influencers 행을 map 형태로 반환
+async function fetchInfluencersByIds(userIds) {
+  if (!db || !userIds?.length) return {};
+  try {
+    const {data, error} = await db?.from('influencers')
+      .select('id, name, name_kana, email, primary_sns')
+      .in('id', userIds);
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(i => { map[i.id] = i; });
+    return map;
+  } catch(e) { return {}; }
 }
 
 async function fetchDeliverableEvents(deliverableId) {
