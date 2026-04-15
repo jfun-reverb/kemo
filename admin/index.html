@@ -1064,15 +1064,24 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div style="font-size:14px;font-weight:700;margin-bottom:12px">비밀번호 변경</div>
             <div class="form-group">
               <label class="form-label">현재 비밀번호</label>
-              <input type="password" id="myAdminCurrentPw" class="form-input">
+              <div class="pw-wrap">
+                <input type="password" id="myAdminCurrentPw" class="form-input">
+                <button type="button" class="pw-toggle" onclick="togglePw('myAdminCurrentPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">새 비밀번호 (8자 이상)</label>
-              <input type="password" id="myAdminNewPw" class="form-input">
+              <div class="pw-wrap">
+                <input type="password" id="myAdminNewPw" class="form-input">
+                <button type="button" class="pw-toggle" onclick="togglePw('myAdminNewPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">새 비밀번호 확인</label>
-              <input type="password" id="myAdminNewPw2" class="form-input">
+              <div class="pw-wrap">
+                <input type="password" id="myAdminNewPw2" class="form-input">
+                <button type="button" class="pw-toggle" onclick="togglePw('myAdminNewPw2',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              </div>
             </div>
             <div id="myPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
             <button class="btn btn-primary btn-sm" onclick="changeMyAdminPassword()">비밀번호 변경</button>
@@ -1135,7 +1144,10 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
       <div class="form-group">
         <label class="form-label">새 비밀번호 (8자 이상)</label>
-        <input type="password" id="resetPwNew" class="form-input">
+        <div class="pw-wrap">
+          <input type="password" id="resetPwNew" class="form-input">
+          <button type="button" class="pw-toggle" onclick="togglePw('resetPwNew',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </div>
       </div>
       <div id="resetPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
       <div style="display:flex;gap:10px;margin-top:16px">
