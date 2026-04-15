@@ -75,7 +75,8 @@
 - 회원가입 이메일 확인: Supabase Confirm sign-up 활성화, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단
 - 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리 경고
 - 바텀탭: 홈 / キャンペーン / マイページ (로그인 전 마이페이지 숨김)
-- 활동관리: 승인된 캠페인에서 구매 영수증 등록 (이미지+구매일+금액), receipts 테이블에 저장
+- 활동관리: 승인된 캠페인에서 결과물 제출. recruit_type 분기 — monitor=영수증(이미지+구매일+금액, receipts 테이블, dual-write 트리거로 deliverables 동기화), gifting/visit=SNS 게시물 URL(자동 채널 판별 + 실패 시 수동 드롭다운, deliverables 직접 INSERT + submit_deliverable RPC). 반려된 결과물은 상단 빨간 배너에 사유 표시, 재제출 시 pending 복귀(동일 URL은 post_submissions 배열에 날짜 누적). submission_end(폴백: post_deadline) 경과 시 폼 비활성
+- 응모 차단: 리뷰어(monitor) 캠페인은 applied_count >= slots일 때 신규 응모 차단 (기프팅·방문형은 초과 응모 허용)
 - 응모이력: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터, 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
 - 홈 하단 푸터: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
 - 성능 최적화: preconnect(Supabase/Fonts/jsDelivr), 캠페인 카드/마이페이지 썸네일 lazy loading + decoding=async, Supabase Storage 이미지 transform(`/render/image/public/?width=&quality=`)으로 썸네일 용량 축소, 이미지 로드 실패 시 원본 URL 자동 폴백
