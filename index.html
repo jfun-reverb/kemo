@@ -2188,6 +2188,87 @@ async function swapLookupOrder(idA, idB) {
   });
   invalidateLookupCache(a.kind);
 }
+
+// ══════════════════════════════════════
+// 참여방법 번들 (participation_sets)
+// ══════════════════════════════════════
+
+// recruit_type 지정하면 해당 타입 포함 번들만, 없으면 전체(활성) — 캠페인 폼용
+async function fetchParticipationSets(recruitType) {
+  if (!db) return [];
+  let q = db?.from('participation_sets')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', {ascending: true});
+  if (recruitType) q = q.contains('recruit_types', [recruitType]);
+  const {data, error} = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+// 관리자 페이지 — 비활성 포함 전체
+async function fetchParticipationSetsAll() {
+  if (!db) return [];
+  const {data, error} = await db?.from('participation_sets')
+    .select('*')
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+async function insertParticipationSet(row) {
+  let result;
+  await retryWithRefresh(async () => {
+    const existing = await fetchParticipationSetsAll();
+    const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+    const payload = {
+      name_ko: row.name_ko,
+      name_ja: row.name_ja,
+      recruit_types: row.recruit_types || [],
+      steps: row.steps || [],
+      sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
+      active: row.active != null ? row.active : true
+    };
+    const {data, error} = await db?.from('participation_sets').insert(payload).select().maybeSingle();
+    if (error) throw error;
+    result = data;
+  });
+  return result;
+}
+
+async function updateParticipationSet(id, updates) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('participation_sets').update(updates).eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function deactivateParticipationSet(id) {
+  await updateParticipationSet(id, {active: false});
+}
+
+async function activateParticipationSet(id) {
+  await updateParticipationSet(id, {active: true});
+}
+
+// hard delete — campaigns.participation_set_id는 ON DELETE SET NULL이라 안전
+async function deleteParticipationSet(id) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('participation_sets').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function swapParticipationSetOrder(idA, idB) {
+  if (!db) return;
+  const {data: rows} = await db?.from('participation_sets').select('id, sort_order').in('id', [idA, idB]);
+  if (!rows || rows.length !== 2) return;
+  const [a, b] = rows;
+  await retryWithRefresh(async () => {
+    await db?.from('participation_sets').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db?.from('participation_sets').update({sort_order: a.sort_order}).eq('id', b.id);
+  });
+}
 // ══════════════════════════════════════
 // LEGAL — 약관/개인정보 페이지 마크다운 렌더링
 // ══════════════════════════════════════
@@ -3463,23 +3544,32 @@ async function openCampaign(id) {
         </div>
       </div>
 
+      ${(() => {
+        // 캠페인별 참여방법 스냅샷 우선, 없으면 legacy 하드코딩 fallback
+        const legacy = [
+          {title_ja:'応募フォームを提出', desc_ja:'当選された方には当選日にLINEにてご連絡いたします。'},
+          {title_ja:'製品を使用してSNSにレビューを投稿', desc_ja:'① 投稿ガイドを確認 ② SNSにレビューを投稿'},
+          {title_ja:'LINEで投稿リンクを送る', desc_ja:'SNSの投稿リンクをコピーして、LINEで送信してください。'}
+        ];
+        const steps = (Array.isArray(camp.participation_steps) && camp.participation_steps.length)
+          ? camp.participation_steps
+          : legacy;
+        return `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">参加方法</div>
         <div style="display:flex;flex-direction:column;gap:14px">
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP 1</div>
-            <div><div style="font-size:13px;font-weight:700;margin-bottom:2px">応募フォームを提出</div><div style="font-size:12px;color:var(--muted);line-height:1.55">当選された方には当選日にLINEにてご連絡いたします。</div></div>
-          </div>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP 2</div>
-            <div><div style="font-size:13px;font-weight:700;margin-bottom:2px">製品を使用してSNSにレビューを投稿</div><div style="font-size:12px;color:var(--muted);line-height:1.55">① 投稿ガイドを確認 ② SNSにレビューを投稿</div></div>
-          </div>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP 3</div>
-            <div><div style="font-size:13px;font-weight:700;margin-bottom:2px">LINEで投稿リンクを送る</div><div style="font-size:12px;color:var(--muted);line-height:1.55">SNSの投稿リンクをコピーして、LINEで送信してください。</div></div>
-          </div>
+          ${steps.map((s,i)=>`
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP ${i+1}</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(s.title_ja||s.title_ko||'')}</div>
+                ${(s.desc_ja||s.desc_ko) ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(s.desc_ja||s.desc_ko||'')}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
         </div>
-      </div>
+      </div>`;
+      })()}
 
       ${camp.description ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">

@@ -333,6 +333,15 @@
               <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
               <div class="form-group"><label class="form-label">NG 사항</label><div class="quill-host" id="editCampNg"></div></div>
             </div>
+            <div class="form-group">
+              <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
+              <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
+                <select id="editCampPsetSelect" class="form-input" style="flex:1" onchange="onPsetSelectChange('edit')"><option value="">— 번들 선택 —</option></select>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="reloadPsetFromBundle('edit')">번들 다시 불러오기</button>
+              </div>
+              <div id="editCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('edit')" style="margin-top:8px">+ 단계 추가</button>
+            </div>
             <div class="form-group"><label class="form-label">상태</label>
               <select id="editCampStatus" class="form-input">
                 <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
@@ -488,6 +497,15 @@
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
               <div class="form-group"><label class="form-label">NG 워드/사항</label><div class="quill-host" id="newCampNg"></div></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
+              <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
+                <select id="newCampPsetSelect" class="form-input" style="flex:1" onchange="onPsetSelectChange('new')"><option value="">— 번들 선택 —</option></select>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="reloadPsetFromBundle('new')">번들 다시 불러오기</button>
+              </div>
+              <div id="newCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('new')" style="margin-top:8px">+ 단계 추가</button>
             </div>
 
             <!-- 고정 주의사항 -->
@@ -669,6 +687,7 @@
             <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">카테고리</button>
             <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
             <button class="lookup-tab" data-kind="ng_item" onclick="switchLookupTab('ng_item',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
+            <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
           </div>
 
           <div class="admin-card">
@@ -974,6 +993,42 @@
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button class="btn btn-ghost" onclick="closeModal('lookupEditModal')">취소</button>
         <button class="btn btn-primary" onclick="saveLookupEdit()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 참여방법 번들 편집 모달 -->
+<div class="modal-overlay" id="psetEditModal" style="z-index:600">
+  <div class="modal" style="max-width:640px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-body" style="padding:24px;overflow-y:auto">
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="psetModalTitle">참여방법 번들 추가</div>
+      <input type="hidden" id="psetEditId">
+      <div class="form-group">
+        <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
+        <input type="text" id="psetNameKo" class="form-input" placeholder="예: 리뷰어 기본">
+      </div>
+      <div class="form-group">
+        <label class="form-label">번들 이름 (일본어) <span style="color:var(--red)">*</span></label>
+        <input type="text" id="psetNameJa" class="form-input" placeholder="例: モニター標準">
+      </div>
+      <div class="form-group">
+        <label class="form-label">사용 가능한 모집 타입 <span style="color:var(--red)">*</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택)</span></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="psetRT" value="monitor" style="accent-color:var(--pink)"> 리뷰어</label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="psetRT" value="gifting" style="accent-color:var(--pink)"> 기프팅</label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="psetRT" value="visit" style="accent-color:var(--pink)"> 방문형</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">단계 <span style="color:var(--red)">*</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(1~6개)</span></label>
+        <div id="psetStepsWrap" style="display:flex;flex-direction:column;gap:10px;margin-top:6px"></div>
+        <button type="button" class="btn btn-ghost btn-xs" id="psetAddStepBtn" onclick="psetAddStep()" style="margin-top:8px">+ 단계 추가</button>
+      </div>
+      <div id="psetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
+        <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
       </div>
     </div>
   </div>

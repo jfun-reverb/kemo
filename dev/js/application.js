@@ -101,23 +101,32 @@ async function openCampaign(id) {
         </div>
       </div>
 
+      ${(() => {
+        // 캠페인별 참여방법 스냅샷 우선, 없으면 legacy 하드코딩 fallback
+        const legacy = [
+          {title_ja:'応募フォームを提出', desc_ja:'当選された方には当選日にLINEにてご連絡いたします。'},
+          {title_ja:'製品を使用してSNSにレビューを投稿', desc_ja:'① 投稿ガイドを確認 ② SNSにレビューを投稿'},
+          {title_ja:'LINEで投稿リンクを送る', desc_ja:'SNSの投稿リンクをコピーして、LINEで送信してください。'}
+        ];
+        const steps = (Array.isArray(camp.participation_steps) && camp.participation_steps.length)
+          ? camp.participation_steps
+          : legacy;
+        return `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">参加方法</div>
         <div style="display:flex;flex-direction:column;gap:14px">
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP 1</div>
-            <div><div style="font-size:13px;font-weight:700;margin-bottom:2px">応募フォームを提出</div><div style="font-size:12px;color:var(--muted);line-height:1.55">当選された方には当選日にLINEにてご連絡いたします。</div></div>
-          </div>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP 2</div>
-            <div><div style="font-size:13px;font-weight:700;margin-bottom:2px">製品を使用してSNSにレビューを投稿</div><div style="font-size:12px;color:var(--muted);line-height:1.55">① 投稿ガイドを確認 ② SNSにレビューを投稿</div></div>
-          </div>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP 3</div>
-            <div><div style="font-size:13px;font-weight:700;margin-bottom:2px">LINEで投稿リンクを送る</div><div style="font-size:12px;color:var(--muted);line-height:1.55">SNSの投稿リンクをコピーして、LINEで送信してください。</div></div>
-          </div>
+          ${steps.map((s,i)=>`
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP ${i+1}</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(s.title_ja||s.title_ko||'')}</div>
+                ${(s.desc_ja||s.desc_ko) ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(s.desc_ja||s.desc_ko||'')}</div>` : ''}
+              </div>
+            </div>
+          `).join('')}
         </div>
-      </div>
+      </div>`;
+      })()}
 
       ${camp.description ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">

@@ -129,6 +129,10 @@ function switchAdminPane(pane, el, pushHistory) {
     setTimeout(() => {
       ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
     }, 0);
+    // 참여방법 번들 초기화 (기본 recruit_type='monitor')
+    _psetState.new = [];
+    populateCampPsetDropdown('new', 'monitor', null);
+    renderCampSteps('new');
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
@@ -549,6 +553,13 @@ async function openEditCampaign(campId) {
     .filter(Boolean).forEach(url => editCampImgData.push({data: url}));
   renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
 
+  // 참여방법 번들 복원 (스냅샷 우선, 번들 드롭다운도 recruit_type 필터로 채움)
+  _psetState.edit = Array.isArray(camp.participation_steps)
+    ? camp.participation_steps.map(s => ({...s}))
+    : [];
+  await populateCampPsetDropdown('edit', rtVal, camp.participation_set_id || null);
+  renderCampSteps('edit');
+
   switchAdminPane('edit-campaign', null);
 }
 
@@ -668,6 +679,7 @@ async function saveCampaignEdit() {
       guide: gv('editCampGuide'),
       ng: gv('editCampNg'),
       status: gv('editCampStatus'),
+      ...collectCampPsetPayload('edit'),
     };
 
     // 이미지가 변경된 경우에만 업로드
@@ -711,6 +723,8 @@ async function duplicateCampaign(campId) {
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
       order_index: src.order_index,
+      participation_set_id: src.participation_set_id || null,
+      participation_steps: src.participation_steps || null,
       status: 'draft'
     };
     await insertCampaign(copy);
@@ -1443,7 +1457,8 @@ async function addCampaign() {
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
-    status:'draft'
+    status:'draft',
+    ...collectCampPsetPayload('new'),
   };
 
   await insertCampaign(camp);
@@ -1521,7 +1536,7 @@ function applyLookupMenuVisibility() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법'};
 let _currentLookupKind = 'channel';
 
 async function loadLookupsPane() {
@@ -1561,6 +1576,7 @@ async function renderLookupsTable() {
   const title = $('lookupTableTitle');
   if (!tbody) return;
   if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
+  if (_currentLookupKind === 'participation_set') { await renderPsetTable(); return; }
   const isChannel = _currentLookupKind === 'channel';
   // 헤더 렌더
   if (thead) {
@@ -1712,6 +1728,9 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   // 현재 체크된 코드 보존
   const checked = Array.from(document.querySelectorAll(`input[name="${cfg.chName}"]:checked`)).map(c => c.value);
   await renderChannelCheckboxes(formMode, recruitType, checked);
+  // 참여방법 번들 드롭다운도 모집 타입에 맞춰 갱신 (선택값은 유지 시도)
+  const psetSel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+  await populateCampPsetDropdown(formMode, recruitType, psetSel?.value || null);
 }
 
 function enterLookupReorderMode() {
@@ -1740,6 +1759,7 @@ function applyLookupModalKindUI(kind, recruitTypes) {
 
 function openLookupAddModal() {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  if (_currentLookupKind === 'participation_set') { openPsetAddModal(); return; }
   $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 추가';
   $('lookupEditId').value = '';
   $('lookupEditKind').value = _currentLookupKind;
@@ -1754,6 +1774,7 @@ function openLookupAddModal() {
 
 function openLookupEditModal(row) {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  if (_currentLookupKind === 'participation_set') { openPsetEditModal(row); return; }
   $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + ' 편집';
   $('lookupEditId').value = row.id;
   $('lookupEditKind').value = row.kind;
@@ -1811,7 +1832,8 @@ async function saveLookupEdit() {
 async function moveLookup(idA, idB) {
   if (!idA || !idB) return;
   try {
-    await swapLookupOrder(idA, idB);
+    if (_currentLookupKind === 'participation_set') await swapParticipationSetOrder(idA, idB);
+    else await swapLookupOrder(idA, idB);
     renderLookupsTable();
   } catch(e) {
     toast('정렬 변경 실패: ' + (e.message||String(e)),'error');
@@ -1820,8 +1842,11 @@ async function moveLookup(idA, idB) {
 
 async function toggleLookupActive(id, nextActive) {
   try {
-    if (nextActive) await activateLookup(id);
-    else await deactivateLookup(id);
+    if (_currentLookupKind === 'participation_set') {
+      if (nextActive) await activateParticipationSet(id); else await deactivateParticipationSet(id);
+    } else {
+      if (nextActive) await activateLookup(id); else await deactivateLookup(id);
+    }
     renderLookupsTable();
   } catch(e) {
     toast('상태 변경 실패: ' + (e.message||String(e)),'error');
@@ -1829,6 +1854,18 @@ async function toggleLookupActive(id, nextActive) {
 }
 
 async function handleLookupDelete(row) {
+  if (_currentLookupKind === 'participation_set' || row.kind === undefined) {
+    const ok = await showConfirm(`'${row.name_ko}' 번들을 영구 삭제하시겠습니까?\n이미 해당 번들을 쓴 캠페인은 스냅샷이 저장돼 영향 없습니다.`);
+    if (!ok) return;
+    try {
+      await deleteParticipationSet(row.id);
+      toast('삭제했습니다','success');
+      renderLookupsTable();
+    } catch(e) {
+      toast('삭제 실패: ' + (e.message||String(e)),'error');
+    }
+    return;
+  }
   let inUse = false;
   try { inUse = await isLookupInUse(row); } catch(e) {}
   if (inUse) {
@@ -1844,6 +1881,271 @@ async function handleLookupDelete(row) {
   } catch(e) {
     toast('삭제 실패: ' + (e.message||String(e)),'error');
   }
+}
+
+// ══════════════════════════════════════
+// 참여방법 번들 (participation_sets) — 관리자 UI
+// ══════════════════════════════════════
+const RECRUIT_TYPES_ALL = ['monitor','gifting','visit'];
+const RECRUIT_TYPE_LABEL_JA = {monitor:'モニター', gifting:'ギフティング', visit:'来店'};
+let _psetCurrentSteps = []; // 편집 중 steps 상태
+const MAX_PSET_STEPS = 6;
+
+async function renderPsetTable() {
+  const tbody = $('lookupsTableBody');
+  const thead = $('lookupTableHead');
+  if (!tbody) return;
+  if (thead) {
+    thead.innerHTML = `<tr>
+      <th style="width:40px"></th>
+      ${_lookupReorderMode ? '<th style="width:80px">순서</th>' : ''}
+      <th>번들 이름 (한국어 / 일본어)</th>
+      <th style="width:140px">모집 타입</th>
+      <th style="width:80px">단계</th>
+      <th style="width:80px">상태</th>
+      ${_lookupReorderMode ? '' : '<th style="width:160px"></th>'}
+    </tr>`;
+  }
+  const colspan = _lookupReorderMode ? 5 : 6;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  let rows = [];
+  try { rows = await fetchParticipationSetsAll(); } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    return;
+  }
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">등록된 번들이 없습니다</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => {
+    const isFirst = i === 0;
+    const isLast = i === rows.length - 1;
+    const upId = isFirst ? '' : rows[i-1].id;
+    const downId = isLast ? '' : rows[i+1].id;
+    const activeToggle = `<label class="lookup-toggle" title="${r.active?'활성':'비활성'}" onclick="event.stopPropagation()">
+      <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
+      <span class="lookup-toggle-slider"></span>
+    </label>`;
+    const rtBadges = (r.recruit_types||[]).map(t => {
+      const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+      return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+    }).join(' ');
+    const stepCount = Array.isArray(r.steps) ? r.steps.length : 0;
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      ${_lookupReorderMode ? `<td><div style="display:flex;gap:3px">
+        <button class="btn btn-ghost btn-xs" ${isFirst?'disabled':''} onclick="moveLookup('${r.id}','${upId}')" style="padding:2px 6px;font-size:13px">↑</button>
+        <button class="btn btn-ghost btn-xs" ${isLast?'disabled':''} onclick="moveLookup('${r.id}','${downId}')" style="padding:2px 6px;font-size:13px">↓</button>
+      </div></td>` : ''}
+      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong><div style="color:var(--muted);font-size:11px;margin-top:2px">${esc(r.name_ja)}</div></td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap">${rtBadges}</div></td>
+      <td style="font-size:12px;color:var(--ink)">${stepCount}개</td>
+      <td>${activeToggle}</td>
+      ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick='openPsetEditModal(${JSON.stringify(r)})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+      </td>`}
+    </tr>`;
+  }).join('');
+}
+
+function openPsetAddModal() {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('psetModalTitle').textContent = '참여방법 번들 추가';
+  $('psetEditId').value = '';
+  $('psetNameKo').value = '';
+  $('psetNameJa').value = '';
+  document.querySelectorAll('input[name="psetRT"]').forEach(cb => cb.checked = false);
+  _psetCurrentSteps = [{title_ko:'', title_ja:'', desc_ko:'', desc_ja:''}];
+  renderPsetSteps();
+  $('psetEditError').style.display = 'none';
+  openModal('psetEditModal');
+}
+
+function openPsetEditModal(row) {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('psetModalTitle').textContent = '참여방법 번들 편집';
+  $('psetEditId').value = row.id;
+  $('psetNameKo').value = row.name_ko || '';
+  $('psetNameJa').value = row.name_ja || '';
+  const rtSet = new Set(row.recruit_types || []);
+  document.querySelectorAll('input[name="psetRT"]').forEach(cb => cb.checked = rtSet.has(cb.value));
+  _psetCurrentSteps = Array.isArray(row.steps) && row.steps.length
+    ? row.steps.map(s => ({title_ko:s.title_ko||'', title_ja:s.title_ja||'', desc_ko:s.desc_ko||'', desc_ja:s.desc_ja||''}))
+    : [{title_ko:'', title_ja:'', desc_ko:'', desc_ja:''}];
+  renderPsetSteps();
+  $('psetEditError').style.display = 'none';
+  openModal('psetEditModal');
+}
+
+function renderPsetSteps() {
+  const wrap = $('psetStepsWrap');
+  if (!wrap) return;
+  wrap.innerHTML = _psetCurrentSteps.map((s, idx) => `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--pink)">STEP ${idx+1}</span>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="psetMoveStep(${idx},-1)" style="padding:2px 6px">↑</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===_psetCurrentSteps.length-1?'disabled':''} onclick="psetMoveStep(${idx},1)" style="padding:2px 6px">↓</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_psetCurrentSteps.length<=1?'disabled':''} onclick="psetRemoveStep(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko)}" oninput="_psetCurrentSteps[${idx}].title_ko=this.value">
+        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja)}" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
+        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical" oninput="_psetCurrentSteps[${idx}].desc_ko=this.value">${esc(s.desc_ko)}</textarea>
+        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
+      </div>
+    </div>
+  `).join('');
+  const addBtn = $('psetAddStepBtn');
+  if (addBtn) addBtn.disabled = _psetCurrentSteps.length >= MAX_PSET_STEPS;
+}
+
+function psetAddStep() {
+  if (_psetCurrentSteps.length >= MAX_PSET_STEPS) { toast(`단계는 최대 ${MAX_PSET_STEPS}개까지 입니다`,'error'); return; }
+  _psetCurrentSteps.push({title_ko:'', title_ja:'', desc_ko:'', desc_ja:''});
+  renderPsetSteps();
+}
+
+function psetRemoveStep(idx) {
+  if (_psetCurrentSteps.length <= 1) return;
+  _psetCurrentSteps.splice(idx, 1);
+  renderPsetSteps();
+}
+
+function psetMoveStep(idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= _psetCurrentSteps.length) return;
+  const [s] = _psetCurrentSteps.splice(idx, 1);
+  _psetCurrentSteps.splice(j, 0, s);
+  renderPsetSteps();
+}
+
+async function savePsetEdit() {
+  const errEl = $('psetEditError');
+  const show = m => { errEl.textContent = m; errEl.style.display = 'block'; };
+  errEl.style.display = 'none';
+  const id = $('psetEditId').value;
+  const name_ko = $('psetNameKo').value.trim();
+  const name_ja = $('psetNameJa').value.trim();
+  if (!name_ko || !name_ja) { show('한국어/일본어 이름을 모두 입력해주세요'); return; }
+  const recruit_types = Array.from(document.querySelectorAll('input[name="psetRT"]:checked')).map(cb => cb.value);
+  if (!recruit_types.length) { show('사용 가능한 모집 타입을 1개 이상 선택해주세요'); return; }
+  const steps = _psetCurrentSteps.filter(s => (s.title_ja||s.title_ko||'').trim());
+  if (!steps.length) { show('단계를 1개 이상 입력해주세요 (제목 필수)'); return; }
+  if (steps.length > MAX_PSET_STEPS) { show(`단계는 최대 ${MAX_PSET_STEPS}개까지`); return; }
+  const payload = {name_ko, name_ja, recruit_types, steps};
+  try {
+    if (id) await updateParticipationSet(id, payload);
+    else await insertParticipationSet(payload);
+    closeModal('psetEditModal');
+    toast('저장했습니다','success');
+    renderLookupsTable();
+  } catch(e) {
+    show('저장 실패: ' + (e.message||String(e)));
+  }
+}
+
+// ══════════════════════════════════════
+// 캠페인 폼: 참여방법 번들 + 인라인 단계 편집
+// ══════════════════════════════════════
+const _psetState = { new: [], edit: [] }; // 모드별 현재 단계 배열
+const _psetCache = { new: [], edit: [] }; // 모드별 드롭다운 원본 번들 리스트
+
+async function populateCampPsetDropdown(formMode, recruitType, selectedSetId) {
+  const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+  if (!sel) return;
+  let sets = [];
+  try { sets = await fetchParticipationSets(recruitType); } catch(e) { sets = []; }
+  _psetCache[formMode] = sets;
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>` +
+    sets.map(s => `<option value="${esc(s.id)}" ${selectedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+}
+
+function onPsetSelectChange(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+  if (!sel) return;
+  const set = _psetCache[formMode].find(s => s.id === sel.value);
+  if (!set) return;
+  // 현재 단계가 비어있지 않으면 confirm
+  const hasContent = _psetState[formMode].some(s => (s.title_ja||s.title_ko||s.desc_ja||s.desc_ko||'').trim());
+  const apply = () => {
+    _psetState[formMode] = (set.steps||[]).map(s => ({...s}));
+    renderCampSteps(formMode);
+  };
+  if (!hasContent) { apply(); return; }
+  showConfirm('현재 입력된 단계를 덮어쓸까요?').then(ok => { if (ok) apply(); else sel.value = ''; });
+}
+
+async function reloadPsetFromBundle(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+  if (!sel || !sel.value) { toast('먼저 번들을 선택하세요','error'); return; }
+  const set = _psetCache[formMode].find(s => s.id === sel.value);
+  if (!set) return;
+  const ok = await showConfirm(`번들 "${set.name_ko}"의 현재 내용으로 덮어쓸까요?`);
+  if (!ok) return;
+  _psetState[formMode] = (set.steps||[]).map(s => ({...s}));
+  renderCampSteps(formMode);
+}
+
+function renderCampSteps(formMode) {
+  const wrap = $(formMode === 'edit' ? 'editCampParticipationSteps' : 'newCampParticipationSteps');
+  if (!wrap) return;
+  const arr = _psetState[formMode];
+  if (!arr.length) {
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 0">단계가 없습니다. 번들을 선택하거나 단계를 추가하세요.</div>`;
+    return;
+  }
+  wrap.innerHTML = arr.map((s, idx) => `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--pink)">STEP ${idx+1}</span>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampPsetStep('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampPsetStep('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampPsetStep('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko||'')}" oninput="_psetState['${formMode}'][${idx}].title_ko=this.value">
+        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja||'')}" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
+        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical" oninput="_psetState['${formMode}'][${idx}].desc_ko=this.value">${esc(s.desc_ko||'')}</textarea>
+        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addCampPsetStep(formMode) {
+  if (_psetState[formMode].length >= MAX_PSET_STEPS) { toast(`단계는 최대 ${MAX_PSET_STEPS}개까지`,'error'); return; }
+  _psetState[formMode].push({title_ko:'', title_ja:'', desc_ko:'', desc_ja:''});
+  renderCampSteps(formMode);
+}
+
+function removeCampPsetStep(formMode, idx) {
+  _psetState[formMode].splice(idx, 1);
+  renderCampSteps(formMode);
+}
+
+function moveCampPsetStep(formMode, idx, dir) {
+  const arr = _psetState[formMode];
+  const j = idx + dir;
+  if (j < 0 || j >= arr.length) return;
+  const [s] = arr.splice(idx, 1);
+  arr.splice(j, 0, s);
+  renderCampSteps(formMode);
+}
+
+function collectCampPsetPayload(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+  const steps = _psetState[formMode].filter(s => (s.title_ja||s.title_ko||'').trim())
+    .map(s => ({title_ko:s.title_ko||'', title_ja:s.title_ja||'', desc_ko:s.desc_ko||'', desc_ja:s.desc_ja||''}));
+  return {
+    participation_set_id: sel?.value || null,
+    participation_steps: steps.length ? steps : null
+  };
 }
 
 async function loadMyAdminInfo() {

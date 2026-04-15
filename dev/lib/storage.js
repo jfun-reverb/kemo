@@ -328,3 +328,84 @@ async function swapLookupOrder(idA, idB) {
   });
   invalidateLookupCache(a.kind);
 }
+
+// ══════════════════════════════════════
+// 참여방법 번들 (participation_sets)
+// ══════════════════════════════════════
+
+// recruit_type 지정하면 해당 타입 포함 번들만, 없으면 전체(활성) — 캠페인 폼용
+async function fetchParticipationSets(recruitType) {
+  if (!db) return [];
+  let q = db?.from('participation_sets')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', {ascending: true});
+  if (recruitType) q = q.contains('recruit_types', [recruitType]);
+  const {data, error} = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+// 관리자 페이지 — 비활성 포함 전체
+async function fetchParticipationSetsAll() {
+  if (!db) return [];
+  const {data, error} = await db?.from('participation_sets')
+    .select('*')
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+async function insertParticipationSet(row) {
+  let result;
+  await retryWithRefresh(async () => {
+    const existing = await fetchParticipationSetsAll();
+    const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+    const payload = {
+      name_ko: row.name_ko,
+      name_ja: row.name_ja,
+      recruit_types: row.recruit_types || [],
+      steps: row.steps || [],
+      sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
+      active: row.active != null ? row.active : true
+    };
+    const {data, error} = await db?.from('participation_sets').insert(payload).select().maybeSingle();
+    if (error) throw error;
+    result = data;
+  });
+  return result;
+}
+
+async function updateParticipationSet(id, updates) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('participation_sets').update(updates).eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function deactivateParticipationSet(id) {
+  await updateParticipationSet(id, {active: false});
+}
+
+async function activateParticipationSet(id) {
+  await updateParticipationSet(id, {active: true});
+}
+
+// hard delete — campaigns.participation_set_id는 ON DELETE SET NULL이라 안전
+async function deleteParticipationSet(id) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('participation_sets').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function swapParticipationSetOrder(idA, idB) {
+  if (!db) return;
+  const {data: rows} = await db?.from('participation_sets').select('id, sort_order').in('id', [idA, idB]);
+  if (!rows || rows.length !== 2) return;
+  const [a, b] = rows;
+  await retryWithRefresh(async () => {
+    await db?.from('participation_sets').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db?.from('participation_sets').update({sort_order: a.sort_order}).eq('id', b.id);
+  });
+}
