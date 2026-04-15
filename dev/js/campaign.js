@@ -149,7 +149,7 @@ function buildCampCards(camps) {
           ${!isFull&&!isScheduled&&!isClosed?'<span style="background:rgba(14,126,74,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>':''}
           ${typeLabel&&!isFull&&!isClosed?`<span style="background:rgba(255,255,255,.9);color:var(--pink);font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`:''}
         </div>
-        <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel(c.channel))}</div>
+        <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
       </div>
       <div class="camp-body">
         <div class="camp-brand">${esc(c.brand)}</div>
