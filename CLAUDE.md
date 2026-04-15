@@ -120,6 +120,7 @@
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps, deadline, post_deadline, purchase_start/end (monitor), visit_start/end (visit), submission_end 등)
 - `deliverables` — 결과물 통합 테이블 (kind: 'receipt'|'post', status, receipt_url/purchase_date/purchase_amount(receipt), post_url/post_channel/post_submissions(post), reject_reason, reviewed_by/at, version). receipts와 dual-write 동기화 중 (Stage 7에서 receipts DROP 예정)
 - `deliverable_events` — 결과물 상태 변경 이력 (action: submit/resubmit/approve/reject/revert, from_status, to_status). 트리거/RPC만 INSERT
+- `notifications` — 인플루언서 알림 (kind: deliverable_rejected/deliverable_changed/deliverable_approved, ref_table/ref_id, read_at). deliverables.status 전이 트리거로 자동 생성, 재제출 시 미읽음 알림 자동 dismiss
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, paypal_email, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등) — bank_* 컬럼은 deprecated (유지, 미사용)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at, oriented_at (OT 발송 체크 수동 토글), reviewed_version (낙관적 락))
 - `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)

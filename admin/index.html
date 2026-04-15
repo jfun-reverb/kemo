@@ -1930,6 +1930,46 @@ async function updateApplicationOrientedAt(applicationId, isoOrNull) {
   return ok;
 }
 
+// Stage 6: 본인 알림 조회 (마이페이지 상단 알림 섹션용)
+async function fetchMyNotifications(opts) {
+  if (!db) return [];
+  try {
+    let q = db?.from('notifications').select('*').order('created_at', {ascending: false});
+    if (opts?.unreadOnly) q = q.is('read_at', null);
+    if (opts?.limit) q = q.limit(opts.limit);
+    const {data, error} = await q;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchMyNotifications]', e); return []; }
+}
+
+// 알림 1건 읽음 처리
+async function markNotificationRead(notificationId) {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('id', notificationId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markNotificationRead]', e); }
+}
+
+// 전체 알림 읽음 처리
+async function markAllNotificationsRead() {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markAllNotificationsRead]', e); }
+}
+
 // 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
 async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
