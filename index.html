@@ -4527,7 +4527,7 @@ async function openCampaign(id) {
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.winnerAnnounce')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${t('detail.winnerAnnounceValue')}</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.postDeadline')}</div>

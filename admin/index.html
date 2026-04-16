@@ -736,6 +736,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">결과물 제출 마감일</label><input type="date" id="editCampSubmissionEnd" class="form-input"><div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 게시 마감일로 폴백</div></div>
             </div>
+            <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -935,6 +936,11 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <input type="date" id="newCampSubmissionEnd" class="form-input">
                 <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 게시 마감일로 폴백</div>
               </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">당선 발표 안내</label>
+              <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、LINEにてご連絡" placeholder="選考後、LINEにてご連絡">
+              <div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 기본값 그대로 사용 가능</div>
             </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
@@ -3693,6 +3699,7 @@ async function openEditCampaign(campId) {
   sv('editCampVisitStart', camp.visit_start||'');
   sv('editCampVisitEnd', camp.visit_end||'');
   sv('editCampSubmissionEnd', camp.submission_end||'');
+  sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、LINEにてご連絡');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
@@ -3865,6 +3872,7 @@ async function saveCampaignEdit() {
       visit_start: gv('editCampVisitStart')||null,
       visit_end: gv('editCampVisitEnd')||null,
       submission_end: gv('editCampSubmissionEnd')||null,
+      winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
       description: gv('editCampDesc'),
       hashtags: gv('editCampHashtags'),
       mentions: gv('editCampMentions'),
@@ -3916,6 +3924,7 @@ async function duplicateCampaign(campId) {
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
       visit_start: src.visit_start, visit_end: src.visit_end,
       submission_end: src.submission_end,
+      winner_announce: src.winner_announce,
       image_url: src.image_url,
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
@@ -4736,6 +4745,7 @@ async function addCampaign() {
     visit_start: $('newCampVisitStart')?.value||null,
     visit_end: $('newCampVisitEnd')?.value||null,
     submission_end: $('newCampSubmissionEnd')?.value||null,
+    winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、LINEにてご連絡',
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),

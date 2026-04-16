@@ -332,6 +332,7 @@
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">결과물 제출 마감일</label><input type="date" id="editCampSubmissionEnd" class="form-input"><div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 게시 마감일로 폴백</div></div>
             </div>
+            <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -531,6 +532,11 @@
                 <input type="date" id="newCampSubmissionEnd" class="form-input">
                 <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 게시 마감일로 폴백</div>
               </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">당선 발표 안내</label>
+              <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、LINEにてご連絡" placeholder="選考後、LINEにてご連絡">
+              <div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 기본값 그대로 사용 가능</div>
             </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>

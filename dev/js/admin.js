@@ -551,6 +551,7 @@ async function openEditCampaign(campId) {
   sv('editCampVisitStart', camp.visit_start||'');
   sv('editCampVisitEnd', camp.visit_end||'');
   sv('editCampSubmissionEnd', camp.submission_end||'');
+  sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、LINEにてご連絡');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
@@ -723,6 +724,7 @@ async function saveCampaignEdit() {
       visit_start: gv('editCampVisitStart')||null,
       visit_end: gv('editCampVisitEnd')||null,
       submission_end: gv('editCampSubmissionEnd')||null,
+      winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
       description: gv('editCampDesc'),
       hashtags: gv('editCampHashtags'),
       mentions: gv('editCampMentions'),
@@ -774,6 +776,7 @@ async function duplicateCampaign(campId) {
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
       visit_start: src.visit_start, visit_end: src.visit_end,
       submission_end: src.submission_end,
+      winner_announce: src.winner_announce,
       image_url: src.image_url,
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
@@ -1594,6 +1597,7 @@ async function addCampaign() {
     visit_start: $('newCampVisitStart')?.value||null,
     visit_end: $('newCampVisitEnd')?.value||null,
     submission_end: $('newCampSubmissionEnd')?.value||null,
+    winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、LINEにてご連絡',
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
