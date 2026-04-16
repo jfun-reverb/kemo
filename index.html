@@ -841,7 +841,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <!-- 제출 마감 안내 -->
     <div id="activitySubmissionDeadline" style="display:none;font-size:12px;color:var(--muted);margin-bottom:12px"></div>
 
-    <!-- 이미지 섹션 (gifting/visit) -->
+    <!-- 이미지 섹션 (monitor=영수증 / visit=현장 사진) -->
     <div id="activityReceiptSection">
       <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.imageSection">画像の提出</div>
       <div id="receiptList" style="margin-bottom:20px"></div>
@@ -859,7 +859,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
     </div>
 
-    <!-- URL 섹션 (monitor/visit) -->
+    <!-- URL 섹션 (gifting/visit) -->
     <div id="activityPostSection" style="display:none;margin-top:20px">
       <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.postSection">投稿URLの提出</div>
       <div id="postSubmissionList" style="margin-bottom:20px"></div>
@@ -4877,12 +4877,12 @@ async function openActivityPage(applicationId, campaignId, from) {
   $('activityCampBrand').textContent = camp.brand || '';
 
   // 타입별 섹션 표시
-  //   monitor: URL만 (postSection)
-  //   gifting: 이미지만 (receiptSection)
-  //   visit:   이미지 + URL (둘 다)
+  //   monitor: 영수증 이미지만 (receiptSection) — 자비 구매 증빙
+  //   gifting: 게시 URL만 (postSection) — 무료 제품 + SNS 포스트
+  //   visit:   이미지 + URL (둘 다) — 현장 사진 + SNS 게시
   const rt = camp.recruit_type || 'monitor';
-  const showPost = (rt === 'monitor' || rt === 'visit');
-  const showImage = (rt === 'gifting' || rt === 'visit');
+  const showImage = (rt === 'monitor' || rt === 'visit');
+  const showPost = (rt === 'gifting' || rt === 'visit');
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
   const isPostType = showPost;  // 아래 마감 검사 로직용
@@ -4988,8 +4988,8 @@ async function loadReceipts() { return loadDeliverablesForActivity(); }
 async function loadDeliverablesForActivity() {
   const camp = _activityCamp || {};
   const rt = camp.recruit_type || 'monitor';
-  const showPost = (rt === 'monitor' || rt === 'visit');
-  const showImage = (rt === 'gifting' || rt === 'visit');
+  const showImage = (rt === 'monitor' || rt === 'visit');
+  const showPost = (rt === 'gifting' || rt === 'visit');
   const all = await fetchDeliverablesForUser({
     application_id: _activityAppId,
     user_id: currentUser?.id
@@ -5098,7 +5098,7 @@ function previewReceipt(input) {
   reader.readAsDataURL(file);
 }
 
-// Draft URL 추가 (리뷰어/방문형)
+// Draft URL 추가 (gifting/visit — SNS 게시 URL 제출)
 async function addDraftUrl() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const url = ($('postUrlInput')?.value || '').trim();
@@ -5135,7 +5135,7 @@ async function addDraftUrl() {
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
 
-// Draft 이미지 추가 (기프팅/방문형)
+// Draft 이미지 추가 (monitor/visit — 영수증·현장 사진 제출)
 async function addDraftImage() {
   if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }

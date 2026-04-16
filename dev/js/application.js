@@ -431,12 +431,12 @@ async function openActivityPage(applicationId, campaignId, from) {
   $('activityCampBrand').textContent = camp.brand || '';
 
   // 타입별 섹션 표시
-  //   monitor: URL만 (postSection)
-  //   gifting: 이미지만 (receiptSection)
-  //   visit:   이미지 + URL (둘 다)
+  //   monitor: 영수증 이미지만 (receiptSection) — 자비 구매 증빙
+  //   gifting: 게시 URL만 (postSection) — 무료 제품 + SNS 포스트
+  //   visit:   이미지 + URL (둘 다) — 현장 사진 + SNS 게시
   const rt = camp.recruit_type || 'monitor';
-  const showPost = (rt === 'monitor' || rt === 'visit');
-  const showImage = (rt === 'gifting' || rt === 'visit');
+  const showImage = (rt === 'monitor' || rt === 'visit');
+  const showPost = (rt === 'gifting' || rt === 'visit');
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
   const isPostType = showPost;  // 아래 마감 검사 로직용
@@ -542,8 +542,8 @@ async function loadReceipts() { return loadDeliverablesForActivity(); }
 async function loadDeliverablesForActivity() {
   const camp = _activityCamp || {};
   const rt = camp.recruit_type || 'monitor';
-  const showPost = (rt === 'monitor' || rt === 'visit');
-  const showImage = (rt === 'gifting' || rt === 'visit');
+  const showImage = (rt === 'monitor' || rt === 'visit');
+  const showPost = (rt === 'gifting' || rt === 'visit');
   const all = await fetchDeliverablesForUser({
     application_id: _activityAppId,
     user_id: currentUser?.id
@@ -652,7 +652,7 @@ function previewReceipt(input) {
   reader.readAsDataURL(file);
 }
 
-// Draft URL 추가 (리뷰어/방문형)
+// Draft URL 추가 (gifting/visit — SNS 게시 URL 제출)
 async function addDraftUrl() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const url = ($('postUrlInput')?.value || '').trim();
@@ -689,7 +689,7 @@ async function addDraftUrl() {
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
 
-// Draft 이미지 추가 (기프팅/방문형)
+// Draft 이미지 추가 (monitor/visit — 영수증·현장 사진 제출)
 async function addDraftImage() {
   if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
