@@ -791,3 +791,86 @@ UNIQUE 제약: `(kind, code)`
 ### 20.5 구현 위치
 - 카드 렌더: `dev/js/campaign.js` 의 카드 생성 함수
 - 스타일: `dev/css/campaign.css`
+
+---
+
+## 21. 다국어 대응 (i18n) — 2026-04-16
+
+### 21.1 개요
+인플루언서 앱(모바일)에 한국어(KO)/일본어(JA) 토글을 제공. 기본값은 일본어(ja).
+개발서버(`dev.globalreverb.com`)에서만 동작하며 운영 배포는 테스터 검증 후 결정.
+
+### 21.2 아키텍처
+- **키-값 사전**: `dev/lib/i18n/ja.js` (일본어), `dev/lib/i18n/ko.js` (한국어)
+- **런타임**: `dev/lib/i18n/index.js` — `getLang()`, `setLang()`, `t(key)`, `applyI18n()`
+- **HTML 정적 바인딩**: `data-i18n="key"` (textContent), `data-i18n-html="key"` (innerHTML, `<br>` 허용)
+- **JS 동적 바인딩**: `t('key')` 헬퍼 또는 `t('key', {var: val})` 플레이스홀더
+- **언어 저장**: `localStorage('reverb.lang')`, 기본값 `ja`
+- **navigator.language 자동 감지**: 사용 안 함 (명시적 토글만)
+
+### 21.3 Phase 1 범위 (2026-04-13)
+| 영역 | 키 프리픽스 | 파일 |
+|---|---|---|
+| GNB / 홈 | `gnb.*`, `home.*` | `dev/js/app.js`, `dev/index.html` |
+| 인증 (로그인/가입/재설정) | `auth.*` | `dev/js/auth.js` |
+| 마이페이지 메뉴·프로필·SNS·배송·PayPal | `mypage.*` | `dev/js/mypage.js` |
+| 캠페인 목록 탭 | `campaign.*` | `dev/js/campaign.js` |
+
+### 21.4 Phase 2 범위 (2026-04-16)
+| 영역 | 키 프리픽스 | 파일 | 추가된 키 수 |
+|---|---|---|---|
+| 캠페인 상세 라벨 | `detail.*` | `dev/js/campaign.js`, `dev/index.html` | ~12 |
+| 신청 모달 | `apply.*` | `dev/js/application.js` | ~10 |
+| 활동관리 (영수증·게시URL) | `activity.*` | `dev/js/application.js`, `dev/js/mypage.js` | ~20 |
+| 배송/심사 상태 배지 | `delivStatus.*` | `dev/js/application.js` | ~3 |
+| 알림 | `notif.*` | `dev/js/app.js` | ~3 |
+| DB 에러 메시지 로케일 대응 | — | `dev/js/ui.js` (`friendlyErrorJa`) | ~8 |
+
+**Phase 2 상세 변경:**
+- `application.js` ~40개 하드코딩 일본어 문자열 → `t()` 헬퍼로 전환
+- `mypage.js` 활동관리 라벨 일부 → `t()` 전환
+- `ui.js`에 `friendlyErrorJa(code, lang)` 함수 추가 — Supabase 에러 코드를 ko/ja 매핑
+- `dev/index.html` 내 `#page-activity` 영역에 `data-i18n` 속성 추가
+
+### 21.5 DB 에러 메시지 로케일 대응
+- **기존**: Supabase 에러가 영어 raw 메시지로 토스트 노출
+- **변경**: `friendlyErrorJa(errorCode, getLang())` → ko/ja 매핑된 사용자 친화 메시지 반환
+- **적용 범위**: `submitReceipt`, `submitPostUrl`, `submitApplication`, `saveProfile` (마이페이지)
+- **매핑 위치**: `dev/js/ui.js`
+
+### 21.6 언어 전환 흐름
+```
+사용자가 마이페이지 → 언어 메뉴에서 KO/JA 선택
+  ↓
+setLang('ko' 또는 'ja')
+  ↓
+localStorage('reverb.lang') 저장
+  ↓
+applyI18n() 실행 — DOM 전체에서 data-i18n/data-i18n-html 스캔
+  ↓
+현재 페이지의 모든 라벨이 선택 언어로 전환
+  ↓
+JS 동적 영역(토스트, 모달 등)은 다음 렌더링 시 t() 통해 반영
+```
+
+### 21.7 Phase 1 + 2 통합 커버리지
+| 페이지/영역 | Phase 1 | Phase 2 | 미대응 |
+|---|---|---|---|
+| GNB / 홈 | ✅ | — | — |
+| 인증 (로그인/가입/재설정) | ✅ | — | — |
+| 마이페이지 (메뉴·프로필·SNS·배송·PayPal) | ✅ | — | — |
+| 캠페인 목록 | ✅ | — | — |
+| 캠페인 상세 라벨 | — | ✅ | — |
+| 신청 모달 | — | ✅ | — |
+| 활동관리 | — | ✅ | — |
+| 알림 | — | ✅ | — |
+| DB 에러 토스트 | — | ✅ | — |
+| 푸터 / 약관 모달 | — | — | ⚠️ 미대응 |
+| 관리자 페이지 | — | — | 대상 아님 (한국어 고정) |
+
+### 21.8 구현 시 규칙
+- 새 UI 문자열 추가 시 **반드시** `ja.js` + `ko.js` 양쪽에 키 추가
+- HTML에 일본어 직접 쓰기 금지 — `data-i18n` 또는 `t()` 사용
+- 키 네이밍: `영역.항목` 점(dot) 구분 (예: `detail.recruitType`, `apply.loginRequired`)
+- 번역 없는 키 호출 시 키 이름 그대로 fallback (개발 중 누락 감지용)
+- i18n 파일은 `dev/lib/i18n/` 에만 위치 (다른 파일에 번역 사전 하드코딩 금지)
