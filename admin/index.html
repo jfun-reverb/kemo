@@ -2038,9 +2038,14 @@ async function deleteNotification(id) {
 async function markAllNotificationsRead() {
   if (!db) return;
   try {
+    // 현재 유저 ID 조회 (explicit user_id 필터 — Supabase global-update 방지)
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return;
     await retryWithRefresh(async () => {
       const {error} = await db?.from('notifications')
         .update({read_at: new Date().toISOString()})
+        .eq('user_id', uid)
         .is('read_at', null);
       if (error) throw error;
     });
