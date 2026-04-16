@@ -789,6 +789,7 @@
             <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
             <button class="lookup-tab" data-kind="ng_item" onclick="switchLookupTab('ng_item',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
             <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
+            <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
           </div>
 
           <div class="admin-card">
@@ -1161,12 +1162,7 @@
         <label class="form-label">사유 템플릿 (선택)</label>
         <select id="delivRejectTemplate" class="form-input" onchange="onDelivRejectTemplateChange()">
           <option value="">— 직접 입력 —</option>
-          <option value="pr_tag_missing">PR 태그 누락 (#PR/#広告/#プロモーション)</option>
-          <option value="image_unclear">이미지 품질 부족 (흐림/식별 불가)</option>
-          <option value="amount_mismatch">금액·구매일 확인 불가</option>
-          <option value="post_deleted">게시물 삭제·비공개 상태</option>
-          <option value="mention_missing">필수 해시태그·멘션 누락</option>
-          <option value="other">기타</option>
+          <!-- 기준 데이터(reject_reason)에서 동적 로드 -->
         </select>
       </div>
       <div class="form-group">

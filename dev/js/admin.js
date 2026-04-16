@@ -1655,7 +1655,7 @@ function applyLookupMenuVisibility() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유'};
 let _currentLookupKind = 'channel';
 
 async function loadLookupsPane() {
@@ -2883,11 +2883,29 @@ async function revertDeliv(id, version) {
 // 반려 모달 상태
 let _delivRejectCtx = null;  // {id, version}
 
-function openDelivRejectModal(id, version) {
+async function openDelivRejectModal(id, version) {
   _delivRejectCtx = {id, version};
   const tpl = $('delivRejectTemplate');
   const reason = $('delivRejectReason');
-  if (tpl) tpl.value = '';
+  if (tpl) {
+    // lookup_values에서 반려사유 목록 동적 로드
+    tpl.innerHTML = '<option value="">— 직접 입력 —</option>';
+    try {
+      const items = await fetchLookupsAll('reject_reason');
+      items.filter(v => v.active).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.code;
+        opt.textContent = v.name_ko;
+        opt.dataset.desc = v.name_ja || '';
+        tpl.appendChild(opt);
+      });
+    } catch(e) {}
+    const otherOpt = document.createElement('option');
+    otherOpt.value = 'other';
+    otherOpt.textContent = '기타';
+    tpl.appendChild(otherOpt);
+    tpl.value = '';
+  }
   if (reason) reason.value = '';
   openModal('delivRejectModal');
 }
@@ -2898,18 +2916,16 @@ function closeDelivRejectModal() {
 }
 
 function onDelivRejectTemplateChange() {
-  const tpl = $('delivRejectTemplate')?.value;
+  const tpl = $('delivRejectTemplate');
   const reason = $('delivRejectReason');
-  if (!reason) return;
-  const presets = {
-    pr_tag_missing: 'PR 태그(#PR/#広告/#プロモーション 중 1개)가 누락되었습니다. 수정 후 재제출 부탁드립니다.',
-    image_unclear: '이미지 품질이 부족하여 영수증 내용을 확인하기 어렵습니다. 선명한 사진으로 재제출 부탁드립니다.',
-    amount_mismatch: '구매 금액 또는 구매일을 영수증에서 확인할 수 없습니다. 해당 정보가 잘 보이는 사진을 첨부해주세요.',
-    post_deleted: '게시물이 삭제되었거나 비공개로 전환되어 확인할 수 없습니다.',
-    mention_missing: '필수 해시태그 또는 멘션이 포함되어 있지 않습니다.',
-    other: ''
-  };
-  if (tpl && presets[tpl] !== undefined) reason.value = presets[tpl];
+  if (!tpl || !reason) return;
+  const selected = tpl.options[tpl.selectedIndex];
+  const desc = selected?.dataset?.desc || '';
+  if (tpl.value && tpl.value !== 'other' && desc) {
+    reason.value = desc;
+  } else if (tpl.value === 'other') {
+    reason.value = '';
+  }
 }
 
 async function submitDelivReject() {
