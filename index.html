@@ -5091,6 +5091,26 @@ function navItemHtml(it) {
   </button>`;
 }
 
+// ── 배지 자동 갱신 (30초 폴링 + 탭 포커스) ──
+let _notifPollTimer = null;
+function startNotifPolling() {
+  if (_notifPollTimer) return;
+  _notifPollTimer = setInterval(() => {
+    if (currentUser && !document.hidden) refreshNotifBadge();
+  }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && currentUser) refreshNotifBadge();
+  });
+}
+// 앱 초기화 시 시작
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startNotifPolling);
+  } else {
+    startNotifPolling();
+  }
+}
+
 // ── 미읽음 배지 갱신 ──
 async function refreshNotifBadge() {
   const gnbBadge = $('gnbNotifBadge');
