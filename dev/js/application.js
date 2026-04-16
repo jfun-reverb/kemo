@@ -430,6 +430,15 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityCamp = camp;
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
+  const rtLabel = $('activityRecruitLabel');
+  if (rtLabel) {
+    if (camp.recruit_type && typeof getRecruitTypeLabelJa === 'function') {
+      rtLabel.textContent = getRecruitTypeLabelJa(camp.recruit_type);
+      rtLabel.style.display = '';
+    } else {
+      rtLabel.style.display = 'none';
+    }
+  }
 
   // 타입별 섹션 표시
   //   monitor: 영수증 이미지만 (receiptSection) — 자비 구매 증빙
