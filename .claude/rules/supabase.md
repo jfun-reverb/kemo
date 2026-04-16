@@ -40,7 +40,7 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 
 ## 관리자 삭제 (2택)
 - `remove_admin_role(auth_id)` — admins 행만 제거, 인플루언서 계정/데이터 유지
-- `delete_admin_completely(auth_id)` — applications, receipts, admins, influencers, identities, auth.users까지 cascade
+- `delete_admin_completely(auth_id)` — applications, receipts(Stage 7에서 deliverables로 통합 예정), admins, influencers, identities, auth.users까지 cascade
 - 자기 자신 삭제 차단 (`target_auth_id = auth.uid()` 검증)
 
 ## 비밀번호 재설정 플로우
