@@ -651,7 +651,7 @@ async function submitPostUrl() {
         post_url: url,
         post_channel: channel
       });
-      if (!id) { toast('登録に失敗しました', 'error'); return; }
+      if (!id) { toast(t('activity.saveFail'), 'error'); return; }
       toast(t('activity.postSuccess'), 'success');
     }
     // 폼 초기화
