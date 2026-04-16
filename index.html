@@ -5562,6 +5562,7 @@ async function renderMyApplyList() {
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
+        ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
       </div>
