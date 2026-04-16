@@ -5358,6 +5358,22 @@ async function refreshNotifBadge(opts) {
   });
 }
 
+// 알림 → deliverable → campaign.recruit_type 매핑 (렌더용 캐시)
+let _notifRecruitTypeMap = {};
+
+async function buildNotifRecruitTypeMap(items) {
+  _notifRecruitTypeMap = {};
+  const refIds = [...new Set(items.filter(n => n.ref_table === 'deliverables' && n.ref_id).map(n => n.ref_id))];
+  if (!refIds.length || !db) return;
+  try {
+    const {data: delivs} = await db.from('deliverables').select('id, campaign_id').in('id', refIds);
+    (delivs || []).forEach(d => {
+      const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === d.campaign_id);
+      if (camp?.recruit_type) _notifRecruitTypeMap[d.id] = camp.recruit_type;
+    });
+  } catch(e) {}
+}
+
 // ── 알림 모달 ──
 async function openNotifModal() {
   const m = $('notifModal');
@@ -5368,6 +5384,7 @@ async function openNotifModal() {
   try {
     const items = await fetchMyNotifications({limit: 30});
     _notifCache = items;
+    await buildNotifRecruitTypeMap(items);
     renderNotifModal(items);
   } catch(e) {
     if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
@@ -5394,9 +5411,15 @@ function renderNotifModal(items) {
     const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
+    const rt = _notifRecruitTypeMap[n.ref_id];
+    const rtLabel = rt ? (typeof getRecruitTypeLabelJa === 'function' ? getRecruitTypeLabelJa(rt) : rt) : '';
+    const rtBadge = rtLabel
+      ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
+      : '';
     return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
       <div class="notif-item-body">
+        ${rtBadge}
         <div class="notif-item-title">${esc(n.title||'')}</div>
         ${n.body ? `<div class="notif-item-desc">${esc(n.body)}</div>` : ''}
         <div class="notif-item-time">${formatDateTime(n.created_at)}</div>
