@@ -5249,10 +5249,9 @@ function renderNavMenu() {
       </button>
     `).join('');
     html += divider;
-    if (!isAdmin) {
-      html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
-      html += divider;
-    }
+    // 관리자/일반 모두 알림 메뉴 노출 (본인 알림만 받음)
+    html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+    html += divider;
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
   } else {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
@@ -5302,12 +5301,7 @@ async function refreshNotifBadge() {
     navBadges.forEach(b => b.classList.add('hidden'));
     return;
   }
-  const isAdmin = currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : '');
-  if (isAdmin) {
-    if (gnbBadge) gnbBadge.classList.add('hidden');
-    navBadges.forEach(b => b.classList.add('hidden'));
-    return;
-  }
+  // 관리자라도 본인 알림은 받아야 하므로 숨기지 않음 (본인이 인플루언서로도 활동 가능)
   let unread = 0;
   try {
     const items = await fetchMyNotifications({unreadOnly: true, limit: 30});
