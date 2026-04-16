@@ -1140,14 +1140,17 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
-      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center">
-        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center;flex-wrap:wrap">
+        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>
           <option value="scheduled" data-i18n="status.campaign.scheduled">近日公開</option>
           <option value="closed" data-i18n="status.campaign.closed">締切</option>
         </select>
-        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+        <select id="myApplyChannel" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+          <option value="" data-i18n="appHistory.allChannels">全チャンネル</option>
+        </select>
+        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
           <option value="newest" data-i18n="appHistory.sortNewest">新しい順</option>
           <option value="oldest" data-i18n="appHistory.sortOldest">古い順</option>
         </select>
@@ -1694,6 +1697,7 @@ window.I18N_JA = {
     emptySub: '今すぐKブランド体験団に応募してみましょう！',
     emptyBtn: 'キャンペーンを見る',
     applyDate: '応募日',
+    allChannels: '全チャンネル',
   },
 
   // 햄버거 메뉴
@@ -2094,6 +2098,7 @@ window.I18N_KO = {
     emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
+    allChannels: '전체 채널',
   },
 
   menu: {
@@ -5389,6 +5394,17 @@ async function renderMyApplyList() {
     });
   }
 
+  // 채널 필터 (공용 populateMyApplyChannelOptions에서 드롭다운 채움)
+  populateMyApplyChannelOptions();
+  const channelFilter = $('myApplyChannel')?.value || '';
+  if (channelFilter) {
+    filtered = filtered.filter(a => {
+      const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+      if (!camp?.channel) return false;
+      return camp.channel.split(',').map(s=>s.trim()).includes(channelFilter);
+    });
+  }
+
   // 정렬
   const sortVal = $('myApplySort')?.value || 'newest';
   filtered.sort((a,b) => sortVal === 'oldest'
@@ -5528,6 +5544,24 @@ function handleWithdraw() {
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
 
+// 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
+function populateMyApplyChannelOptions() {
+  const sel = $('myApplyChannel');
+  if (!sel) return;
+  const prev = sel.value;
+  // 내 응모 캠페인의 채널 집합
+  const chSet = new Set();
+  _myApps.forEach(a => {
+    const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+    if (!camp?.channel) return;
+    camp.channel.split(',').map(s=>s.trim()).filter(Boolean).forEach(c => chSet.add(c));
+  });
+  const channels = Array.from(chSet).sort();
+  const head = `<option value="" data-i18n="appHistory.allChannels">${t('appHistory.allChannels')}</option>`;
+  const options = channels.map(c => `<option value="${esc(c)}">${esc(getChannelLabel(c))}</option>`).join('');
+  sel.innerHTML = head + options;
+  if (prev && channels.includes(prev)) sel.value = prev;
+}
 // Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨
 // ══════════════════════════════════════
 // NAVIGATION + INIT

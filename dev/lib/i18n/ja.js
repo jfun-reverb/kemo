@@ -167,6 +167,7 @@ window.I18N_JA = {
     emptySub: '今すぐKブランド体験団に応募してみましょう！',
     emptyBtn: 'キャンペーンを見る',
     applyDate: '応募日',
+    allChannels: '全チャンネル',
   },
 
   // 햄버거 메뉴
