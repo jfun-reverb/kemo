@@ -3329,24 +3329,13 @@ function imgThumb(url, width, quality) {
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=cover`;
 }
 
-// 비파괴 크롭 렌더 — background-image 방식 (퍼센트 해석 이슈 회피)
-// crop = {x,y,w,h} 0~1 정규화. opts: {thumb, quality, lazy, class, style}
-// **중요**: 반환 HTML은 단독 div (부모에 aspect-ratio 지정은 호출부 책임)
-function renderCroppedImg(url, crop, opts) {
+// 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
+// opts: {thumb, quality, lazy}. crop 인자는 하위호환으로 받지만 무시
+function renderCroppedImg(url, _ignoredCrop, opts) {
   opts = opts || {};
   const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
-  if (!crop || typeof crop.w !== 'number' || crop.w <= 0) {
-    // 크롭 정보 없음 — 기존 방식: img + object-fit:cover (fallback)
-    const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
-    return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:cover;display:block" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
-  }
-  // 크롭 있음 — background-image로 렌더
-  const bgSizeW = (100 / crop.w).toFixed(4);
-  const bgSizeH = (100 / crop.h).toFixed(4);
-  const bgPosX = crop.w >= 1 ? 0 : (crop.x / (1 - crop.w) * 100).toFixed(4);
-  const bgPosY = crop.h >= 1 ? 0 : (crop.y / (1 - crop.h) * 100).toFixed(4);
-  const extra = opts.style || '';
-  return `<div style="width:100%;height:100%;background-image:url('${esc(thumb)}');background-size:${bgSizeW}% ${bgSizeH}%;background-position:${bgPosX}% ${bgPosY}%;background-repeat:no-repeat;${extra}"></div>`;
+  const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
+  return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
 }
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
@@ -3660,15 +3649,10 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
       ' ondragleave="this.style.outline=\'none\'"' +
       ' ondrop="imgDrop(event,'+i+',\''+listName+'\',\''+wrapId+'\',\''+counterId+'\')"' +
       ' style="position:relative;width:88px;height:88px;flex-shrink:0;cursor:grab">' +
-      (img.crop
-        ? '<div style="width:88px;height:88px;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';background-image:url(\''+img.data+'\');background-size:'+((100/img.crop.w).toFixed(4))+'% '+((100/img.crop.h).toFixed(4))+'%;background-position:'+(img.crop.w>=1?0:(img.crop.x/(1-img.crop.w)*100).toFixed(4))+'% '+(img.crop.h>=1?0:(img.crop.y/(1-img.crop.h)*100).toFixed(4))+'%;background-repeat:no-repeat;pointer-events:none"></div>'
-        : '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';pointer-events:none">') +
+      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:contain;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';background:#f5f5f5;pointer-events:none">' +
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
-      (img.crop||img.original?'<div style="position:absolute;top:2px;left:2px;background:var(--pink);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;z-index:2">CROP</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
-        (img.crop||img.original?'<button data-action="restore" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="크롭 취소"><span class="material-icons-round" style="font-size:16px">undo</span></button>':'') +
-        '<button data-action="crop" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:16px">crop</span></button>' +
         '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
       '</div>' +
     '</div>';
