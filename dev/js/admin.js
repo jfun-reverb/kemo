@@ -186,7 +186,7 @@ async function loadAdminData() {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>99?'99+':pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
 
   // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
