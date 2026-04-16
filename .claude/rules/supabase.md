@@ -76,6 +76,11 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 - Site URL은 반드시 `https://` 프로토콜 포함 (슬래시 누락 사고 사례 있음)
 - Redirect URLs에 양 환경 URL 모두 등록 (`https://globalreverb.com/**`, `https://dev.globalreverb.com/**`)
 - 발신 도메인은 Brevo에서 DNS 인증 필수 (SPF/DKIM/DMARC)
+- Auth Rate Limits (Authentication → Rate Limits):
+  - 운영: `Rate limit for sending emails` = **100 emails/h** (2026-04-16 30→100 상향)
+  - 개발: 30/h 유지 (Confirm email OFF, 트래픽 적어 충분)
+  - 한도 소진 증상: `429 email rate limit exceeded`. Logs & Analytics → Auth에서 확인
+  - 대시보드 수동 설정이라 repo에 반영 안 됨 — 재구축 시 이 섹션 참고
 
 ## 마이그레이션 관리
 - `supabase/migrations/*.sql` — 영구 보관, 순번 유지, 삭제/이동 금지

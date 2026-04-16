@@ -36,6 +36,10 @@
 - Auth URL Configuration:
   - 운영: Site URL `https://globalreverb.com` + Redirect `https://globalreverb.com/**`, `https://www.globalreverb.com/**`
   - 개발: Site URL `https://dev.globalreverb.com` + Redirect `https://dev.globalreverb.com/**`
+- Auth Rate Limits (대시보드 → Authentication → Rate Limits):
+  - 운영: `Rate limit for sending emails` = **100 emails/h** (2026-04-16 30→100 상향, 가입+초대+재설정 메일 공용 한도)
+  - 개발: 기본값 30/h 유지 (Confirm email OFF라 가입 메일 없음. 초대/재설정만 사용, 트래픽 적어 충분)
+  - 한도 소진 시 `429 email rate limit exceeded` 응답. Logs & Analytics → Auth에서 확인
 
 ## i18n (개발서버 한정)
 - 인플루언서 페이지 KO/JA 토글 (마이페이지 메뉴)
