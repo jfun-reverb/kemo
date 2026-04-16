@@ -116,7 +116,7 @@
 
 <div class="header">
   <h1>REVERB JP — Service Flow Chart</h1>
-  <p>인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-04-08</p>
+  <p>인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-04-16</p>
 </div>
 
 <div class="toc">
@@ -503,17 +503,21 @@ flowchart LR
 <div class="section" id="sec8">
   <h2><span class="num">8</span>결과물 검수 플로우</h2>
   <div class="chart-wrap">
-    <div class="chart-desc">승인된 인플루언서가 결과물(영수증/게시물 URL)을 제출 → 관리자 검수 → 승인/반려/재제출 루프 → 완료까지. 반려 사유는 기준데이터 템플릿에서 동적 로드</div>
+    <div class="chart-desc">승인된 인플루언서가 결과물(이미지/게시물 URL)을 초안으로 추가 → 일괄 제출 → 관리자 검수 → 승인/반려/재제출 루프. 매핑: monitor=영수증 이미지, gifting=게시 URL, visit=이미지+URL</div>
     <pre class="mermaid">
 flowchart TB
-  subgraph INF_SUBMIT["📱 인플루언서 제출"]
+  subgraph INF_SUBMIT["📱 인플루언서 제출 (초안→제출 2단계)"]
     S1[마이페이지 → 활동관리] --> S2{모집 타입}
-    S2 -->|리뷰어 monitor| S3[영수증 이미지 + 구매일 + 금액]
-    S2 -->|기프팅/방문형| S4[SNS 게시 URL]
-    S3 --> S5[deliverables INSERT<br/>status=pending<br/>kind=receipt]
-    S4 --> S6[submit_deliverable RPC<br/>status=pending<br/>kind=post]
-    S5 --> S7([제출 완료])
-    S6 --> S7
+    S2 -->|리뷰어 monitor<br/>영수증만| S3a[영수증 이미지 업로드 → 리스트에 추가]
+    S2 -->|기프팅 gifting<br/>URL만| S3b[게시 URL 입력 → 리스트에 추가]
+    S2 -->|방문형 visit<br/>이미지+URL| S3c[이미지·URL 각각 추가]
+    S3a --> SD[draft 상태로 INSERT<br/>未提出 배지 표시<br/>삭제 버튼 활성]
+    S3b --> SD
+    S3c --> SD
+    SD --> SE{더 추가?}
+    SE -->|Yes| S2
+    SE -->|No, 완료| SF[관리자에게 제출 버튼]
+    SF --> S7[일괄 status=pending 전환<br/>관리자 화면에 노출됨]
   end
 
   subgraph ADMIN_REVIEW["🔧 관리자 검수"]
@@ -532,8 +536,8 @@ flowchart TB
     J1[반려 모달 오픈] --> J2[템플릿 드롭다운<br/>모집 타입별 필터링]
     J2 --> J3{템플릿 선택}
     J3 -->|PR 태그 누락| J4[일본어 문구 자동 채움]
-    J3 -->|이미지 불선명 monitor만| J4
-    J3 -->|게시물 삭제 gifting/visit만| J4
+    J3 -->|이미지 불선명 monitor/visit| J4
+    J3 -->|게시물 삭제 gifting/visit| J4
     J3 -->|기타| J5[자유 입력]
     J4 --> J6[사유 추가 수정 가능]
     J5 --> J6

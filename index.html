@@ -841,7 +841,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <!-- 제출 마감 안내 -->
     <div id="activitySubmissionDeadline" style="display:none;font-size:12px;color:var(--muted);margin-bottom:12px"></div>
 
-    <!-- 이미지 섹션 (gifting/visit) -->
+    <!-- 이미지 섹션 (monitor=영수증 / visit=현장 사진) -->
     <div id="activityReceiptSection">
       <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.imageSection">画像の提出</div>
       <div id="receiptList" style="margin-bottom:20px"></div>
@@ -859,7 +859,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
     </div>
 
-    <!-- URL 섹션 (monitor/visit) -->
+    <!-- URL 섹션 (gifting/visit) -->
     <div id="activityPostSection" style="display:none;margin-top:20px">
       <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.postSection">投稿URLの提出</div>
       <div id="postSubmissionList" style="margin-bottom:20px"></div>
@@ -4486,7 +4486,9 @@ async function openCampaign(id) {
       <div id="campSlides" style="display:flex;height:100%;transition:transform .32s cubic-bezier(.4,0,.2,1)">
         ${slideData.map((s,idx)=>{
           const crop = s.key ? crops[s.key] : null;
-          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb:960, quality:80, lazy: idx>0})}</div>`;
+          // 첫 장(LCP)만 720, lazy 로드 나머지는 480으로 용량 절감
+          const thumb = idx === 0 ? 720 : 480;
+          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
         }).join('')}
       </div>
       ${slideImgs.length>1?`
@@ -4875,12 +4877,12 @@ async function openActivityPage(applicationId, campaignId, from) {
   $('activityCampBrand').textContent = camp.brand || '';
 
   // 타입별 섹션 표시
-  //   monitor: URL만 (postSection)
-  //   gifting: 이미지만 (receiptSection)
-  //   visit:   이미지 + URL (둘 다)
+  //   monitor: 영수증 이미지만 (receiptSection) — 자비 구매 증빙
+  //   gifting: 게시 URL만 (postSection) — 무료 제품 + SNS 포스트
+  //   visit:   이미지 + URL (둘 다) — 현장 사진 + SNS 게시
   const rt = camp.recruit_type || 'monitor';
-  const showPost = (rt === 'monitor' || rt === 'visit');
-  const showImage = (rt === 'gifting' || rt === 'visit');
+  const showImage = (rt === 'monitor' || rt === 'visit');
+  const showPost = (rt === 'gifting' || rt === 'visit');
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
   const isPostType = showPost;  // 아래 마감 검사 로직용
@@ -4986,8 +4988,8 @@ async function loadReceipts() { return loadDeliverablesForActivity(); }
 async function loadDeliverablesForActivity() {
   const camp = _activityCamp || {};
   const rt = camp.recruit_type || 'monitor';
-  const showPost = (rt === 'monitor' || rt === 'visit');
-  const showImage = (rt === 'gifting' || rt === 'visit');
+  const showImage = (rt === 'monitor' || rt === 'visit');
+  const showPost = (rt === 'gifting' || rt === 'visit');
   const all = await fetchDeliverablesForUser({
     application_id: _activityAppId,
     user_id: currentUser?.id
@@ -5096,7 +5098,7 @@ function previewReceipt(input) {
   reader.readAsDataURL(file);
 }
 
-// Draft URL 추가 (리뷰어/방문형)
+// Draft URL 추가 (gifting/visit — SNS 게시 URL 제출)
 async function addDraftUrl() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const url = ($('postUrlInput')?.value || '').trim();
@@ -5133,7 +5135,7 @@ async function addDraftUrl() {
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
 
-// Draft 이미지 추가 (기프팅/방문형)
+// Draft 이미지 추가 (monitor/visit — 영수증·현장 사진 제출)
 async function addDraftImage() {
   if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
@@ -5290,28 +5292,44 @@ function navItemHtml(it) {
   </button>`;
 }
 
-// ── 배지 자동 갱신 (30초 폴링 + 탭 포커스) ──
+// ── 배지 자동 갱신 (30초 폴링 + 탭 포커스, 로그인 상태에만 동작) ──
 let _notifPollTimer = null;
+let _notifLastFetchAt = 0;
+const _NOTIF_STALE_MS = 5000;  // 5초 이내 중복 요청은 스킵
+
 function startNotifPolling() {
   if (_notifPollTimer) return;
   _notifPollTimer = setInterval(() => {
     if (currentUser && !document.hidden) refreshNotifBadge();
   }, 30000);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && currentUser) refreshNotifBadge();
-  });
 }
-// 앱 초기화 시 시작
+function stopNotifPolling() {
+  if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
+  _notifLastFetchAt = 0;
+  // 배지 즉시 숨김
+  const gnbBadge = $('gnbNotifBadge');
+  if (gnbBadge) gnbBadge.classList.add('hidden');
+  document.querySelectorAll('[data-role="nav-badge"]').forEach(b => b.classList.add('hidden'));
+}
+
+// 탭 포커스 이벤트는 매번 등록해도 부작용 없으므로 초기화 시 한 번
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentUser) refreshNotifBadge();
+});
+
+// 앱 초기화: 로그인 상태면 시작
 if (typeof window !== 'undefined') {
+  const _maybeStart = () => { if (currentUser) startNotifPolling(); };
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startNotifPolling);
+    document.addEventListener('DOMContentLoaded', _maybeStart);
   } else {
-    startNotifPolling();
+    _maybeStart();
   }
 }
 
-// ── 미읽음 배지 갱신 ──
-async function refreshNotifBadge() {
+// ── 미읽음 배지 갱신 (stale 가드 적용) ──
+async function refreshNotifBadge(opts) {
+  const force = !!(opts && opts.force);
   const gnbBadge = $('gnbNotifBadge');
   const navBadges = document.querySelectorAll('[data-role="nav-badge"]');
   if (!currentUser) {
@@ -5319,6 +5337,10 @@ async function refreshNotifBadge() {
     navBadges.forEach(b => b.classList.add('hidden'));
     return;
   }
+  // 5초 이내 중복 호출 스킵 (force=true면 강제 갱신)
+  const now = Date.now();
+  if (!force && now - _notifLastFetchAt < _NOTIF_STALE_MS) return;
+  _notifLastFetchAt = now;
   // 관리자라도 본인 알림은 받아야 하므로 숨기지 않음 (본인이 인플루언서로도 활동 가능)
   let unread = 0;
   try {
@@ -5336,6 +5358,22 @@ async function refreshNotifBadge() {
   });
 }
 
+// 알림 → deliverable → campaign.recruit_type 매핑 (렌더용 캐시)
+let _notifRecruitTypeMap = {};
+
+async function buildNotifRecruitTypeMap(items) {
+  _notifRecruitTypeMap = {};
+  const refIds = [...new Set(items.filter(n => n.ref_table === 'deliverables' && n.ref_id).map(n => n.ref_id))];
+  if (!refIds.length || !db) return;
+  try {
+    const {data: delivs} = await db.from('deliverables').select('id, campaign_id').in('id', refIds);
+    (delivs || []).forEach(d => {
+      const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === d.campaign_id);
+      if (camp?.recruit_type) _notifRecruitTypeMap[d.id] = camp.recruit_type;
+    });
+  } catch(e) {}
+}
+
 // ── 알림 모달 ──
 async function openNotifModal() {
   const m = $('notifModal');
@@ -5346,6 +5384,7 @@ async function openNotifModal() {
   try {
     const items = await fetchMyNotifications({limit: 30});
     _notifCache = items;
+    await buildNotifRecruitTypeMap(items);
     renderNotifModal(items);
   } catch(e) {
     if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
@@ -5372,9 +5411,15 @@ function renderNotifModal(items) {
     const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
+    const rt = _notifRecruitTypeMap[n.ref_id];
+    const rtLabel = rt ? (typeof getRecruitTypeLabelJa === 'function' ? getRecruitTypeLabelJa(rt) : rt) : '';
+    const rtBadge = rtLabel
+      ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
+      : '';
     return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
       <div class="notif-item-body">
+        ${rtBadge}
         <div class="notif-item-title">${esc(n.title||'')}</div>
         ${n.body ? `<div class="notif-item-desc">${esc(n.body)}</div>` : ''}
         <div class="notif-item-time">${formatDateTime(n.created_at)}</div>
@@ -5422,7 +5467,7 @@ function updateFloatingAuthCta(pageName) {
 
 async function markAllNotifRead() {
   await markAllNotificationsRead();
-  await refreshNotifBadge();
+  await refreshNotifBadge({force: true});  // 전체읽음 직후는 즉시 반영 필수
   const items = await fetchMyNotifications({limit: 30});
   renderNotifModal(items);
 }
@@ -5566,7 +5611,7 @@ async function renderMyApplyList() {
     const camp = allCampaigns.find(c=>c.id===a.campaign_id) || {};
     const imgs = [camp.img1,camp.img2,camp.image_url].filter(Boolean);
     const thumb = imgs[0]
-      ? `<img src="${esc(imgThumb(imgs[0],240))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
+      ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
     // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
@@ -5827,9 +5872,12 @@ function updateActiveNav(page) {
 // INIT
 // ══════════════════════════════════════
 async function init() {
-  // lookup_values 사전 로드 (채널/카테고리 라벨 동적 표시용, 인증과 무관하게 익명 SELECT 허용)
+  // lookup_values + 캠페인을 병렬 발사 (둘 다 익명 SELECT 허용)
+  // 이후 getSession·admins 체크와 waterfall 구조에서 벗어나 초기 렌더 시간 단축
+  let campaignsPromise = null;
   if (db) {
     try {
+      campaignsPromise = fetchCampaigns();  // 병렬 발사, 나중에 await
       await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
@@ -5899,6 +5947,8 @@ async function init() {
             currentUserProfile = profile;
           }
           updateGnb();
+          // 로그인 시 알림 폴링 시작
+          if (typeof startNotifPolling === 'function') startNotifPolling();
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -5906,6 +5956,8 @@ async function init() {
         currentUser = null;
         currentUserProfile = null;
         updateGnb();
+        // 로그아웃 시 알림 폴링 중지
+        if (typeof stopNotifPolling === 'function') stopNotifPolling();
       }
     });
     // 초기 URL이 명시적 recovery인 경우에만 즉시 이동 (access_token만 있을 때는 이벤트 기다림)
@@ -5926,8 +5978,8 @@ async function init() {
     }
   }
 
-  // 캠페인 불러오기
-  allCampaigns = await fetchCampaigns();
+  // 캠페인 불러오기 (init 초입에서 병렬 발사해둔 promise 재사용)
+  allCampaigns = campaignsPromise ? (await campaignsPromise) : await fetchCampaigns();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
 

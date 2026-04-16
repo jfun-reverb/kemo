@@ -71,28 +71,44 @@ function navItemHtml(it) {
   </button>`;
 }
 
-// ── 배지 자동 갱신 (30초 폴링 + 탭 포커스) ──
+// ── 배지 자동 갱신 (30초 폴링 + 탭 포커스, 로그인 상태에만 동작) ──
 let _notifPollTimer = null;
+let _notifLastFetchAt = 0;
+const _NOTIF_STALE_MS = 5000;  // 5초 이내 중복 요청은 스킵
+
 function startNotifPolling() {
   if (_notifPollTimer) return;
   _notifPollTimer = setInterval(() => {
     if (currentUser && !document.hidden) refreshNotifBadge();
   }, 30000);
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && currentUser) refreshNotifBadge();
-  });
 }
-// 앱 초기화 시 시작
+function stopNotifPolling() {
+  if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
+  _notifLastFetchAt = 0;
+  // 배지 즉시 숨김
+  const gnbBadge = $('gnbNotifBadge');
+  if (gnbBadge) gnbBadge.classList.add('hidden');
+  document.querySelectorAll('[data-role="nav-badge"]').forEach(b => b.classList.add('hidden'));
+}
+
+// 탭 포커스 이벤트는 매번 등록해도 부작용 없으므로 초기화 시 한 번
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentUser) refreshNotifBadge();
+});
+
+// 앱 초기화: 로그인 상태면 시작
 if (typeof window !== 'undefined') {
+  const _maybeStart = () => { if (currentUser) startNotifPolling(); };
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startNotifPolling);
+    document.addEventListener('DOMContentLoaded', _maybeStart);
   } else {
-    startNotifPolling();
+    _maybeStart();
   }
 }
 
-// ── 미읽음 배지 갱신 ──
-async function refreshNotifBadge() {
+// ── 미읽음 배지 갱신 (stale 가드 적용) ──
+async function refreshNotifBadge(opts) {
+  const force = !!(opts && opts.force);
   const gnbBadge = $('gnbNotifBadge');
   const navBadges = document.querySelectorAll('[data-role="nav-badge"]');
   if (!currentUser) {
@@ -100,6 +116,10 @@ async function refreshNotifBadge() {
     navBadges.forEach(b => b.classList.add('hidden'));
     return;
   }
+  // 5초 이내 중복 호출 스킵 (force=true면 강제 갱신)
+  const now = Date.now();
+  if (!force && now - _notifLastFetchAt < _NOTIF_STALE_MS) return;
+  _notifLastFetchAt = now;
   // 관리자라도 본인 알림은 받아야 하므로 숨기지 않음 (본인이 인플루언서로도 활동 가능)
   let unread = 0;
   try {
@@ -117,6 +137,22 @@ async function refreshNotifBadge() {
   });
 }
 
+// 알림 → deliverable → campaign.recruit_type 매핑 (렌더용 캐시)
+let _notifRecruitTypeMap = {};
+
+async function buildNotifRecruitTypeMap(items) {
+  _notifRecruitTypeMap = {};
+  const refIds = [...new Set(items.filter(n => n.ref_table === 'deliverables' && n.ref_id).map(n => n.ref_id))];
+  if (!refIds.length || !db) return;
+  try {
+    const {data: delivs} = await db.from('deliverables').select('id, campaign_id').in('id', refIds);
+    (delivs || []).forEach(d => {
+      const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === d.campaign_id);
+      if (camp?.recruit_type) _notifRecruitTypeMap[d.id] = camp.recruit_type;
+    });
+  } catch(e) {}
+}
+
 // ── 알림 모달 ──
 async function openNotifModal() {
   const m = $('notifModal');
@@ -127,6 +163,7 @@ async function openNotifModal() {
   try {
     const items = await fetchMyNotifications({limit: 30});
     _notifCache = items;
+    await buildNotifRecruitTypeMap(items);
     renderNotifModal(items);
   } catch(e) {
     if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
@@ -153,9 +190,15 @@ function renderNotifModal(items) {
     const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
+    const rt = _notifRecruitTypeMap[n.ref_id];
+    const rtLabel = rt ? (typeof getRecruitTypeLabelJa === 'function' ? getRecruitTypeLabelJa(rt) : rt) : '';
+    const rtBadge = rtLabel
+      ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
+      : '';
     return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
       <div class="notif-item-body">
+        ${rtBadge}
         <div class="notif-item-title">${esc(n.title||'')}</div>
         ${n.body ? `<div class="notif-item-desc">${esc(n.body)}</div>` : ''}
         <div class="notif-item-time">${formatDateTime(n.created_at)}</div>
@@ -203,7 +246,7 @@ function updateFloatingAuthCta(pageName) {
 
 async function markAllNotifRead() {
   await markAllNotificationsRead();
-  await refreshNotifBadge();
+  await refreshNotifBadge({force: true});  // 전체읽음 직후는 즉시 반영 필수
   const items = await fetchMyNotifications({limit: 30});
   renderNotifModal(items);
 }
