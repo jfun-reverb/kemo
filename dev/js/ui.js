@@ -124,22 +124,24 @@ function imgThumb(url, width, quality) {
   return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=cover`;
 }
 
-// 비파괴 크롭 렌더 — 원본 이미지에서 특정 영역만 노출 (aspect 컨테이너 안)
-// crop = {x,y,w,h} 0~1 정규화. 없으면 단순 object-fit:cover
+// 비파괴 크롭 렌더 — background-image 방식 (퍼센트 해석 이슈 회피)
+// crop = {x,y,w,h} 0~1 정규화. opts: {thumb, quality, lazy, class, style}
+// **중요**: 반환 HTML은 단독 div (부모에 aspect-ratio 지정은 호출부 책임)
 function renderCroppedImg(url, crop, opts) {
   opts = opts || {};
-  const alt = opts.alt || '';
   const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
-  const imgAttrs = `src="${esc(thumb)}" data-orig="${esc(url)}" alt="${esc(alt)}" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}"`;
-  const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
   if (!crop || typeof crop.w !== 'number' || crop.w <= 0) {
-    return `<img ${imgAttrs} ${lazy} style="width:100%;height:100%;object-fit:cover;display:block">`;
+    // 크롭 정보 없음 — 기존 방식: img + object-fit:cover (fallback)
+    const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
+    return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:cover;display:block" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
   }
-  const scaleW = 100 / crop.w;
-  const scaleH = 100 / crop.h;
-  const offsetX = -crop.x * scaleW;
-  const offsetY = -crop.y * scaleH;
-  return `<img ${imgAttrs} ${lazy} style="position:absolute;left:${offsetX}%;top:${offsetY}%;width:${scaleW}%;height:${scaleH}%;max-width:none;display:block">`;
+  // 크롭 있음 — background-image로 렌더
+  const bgSizeW = (100 / crop.w).toFixed(4);
+  const bgSizeH = (100 / crop.h).toFixed(4);
+  const bgPosX = crop.w >= 1 ? 0 : (crop.x / (1 - crop.w) * 100).toFixed(4);
+  const bgPosY = crop.h >= 1 ? 0 : (crop.y / (1 - crop.h) * 100).toFixed(4);
+  const extra = opts.style || '';
+  return `<div style="width:100%;height:100%;background-image:url('${esc(thumb)}');background-size:${bgSizeW}% ${bgSizeH}%;background-position:${bgPosX}% ${bgPosY}%;background-repeat:no-repeat;${extra}"></div>`;
 }
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
