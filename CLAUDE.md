@@ -16,8 +16,8 @@
 - 스테이징 (인플루언서): https://dev.globalreverb.com
 - 스테이징 (관리자): https://dev.globalreverb.com/admin/ (admin@kemo.jp / admin1234)
 - GitHub: github.com/jfun-reverb/kemo
-- Supabase (production): https://twofagomeizrtkwlhsuv.supabase.co (🇦🇺 Sydney)
-- Supabase (staging): https://qysmxtipobomefudyixw.supabase.co (🇯🇵 Tokyo)
+- Supabase (production): https://twofagomeizrtkwlhsuv.supabase.co (🇦🇺 Sydney `ap-southeast-2`, Pro/NANO)
+- Supabase (staging): https://qysmxtipobomefudyixw.supabase.co (🇯🇵 Tokyo `ap-northeast-1`, Pro/MICRO)
 - LINE: @reverb.jp
 
 ## Environments
@@ -80,7 +80,7 @@
 - 캠페인 목록 노출: active + scheduled + closed(게시기한 남은 경우, 募集締切 오버레이)
 - 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트, closed 시 신청버튼 비활성(募集締切)
 - 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/zip+prefecture+city+phone/PayPal 이메일) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지, 최소 팔로워수 미달 시 알럿 차단
-- 회원가입 이메일 확인: Supabase Confirm sign-up 활성화, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단
+- 회원가입 이메일 확인: **운영서버 한정** Supabase Confirm sign-up 활성, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단. **개발서버는 Confirm email OFF** (테스트 계정 즉시 로그인 가능). auth.js는 `data.session` 유무로 자동 분기
 - 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리 경고
 - GNB 햄버거 메뉴: 상단 우측 ☰ 버튼에 미읽음 알림 배지(9+), 클릭 시 우측 슬라이드 패널(홈/캠페인/마이페이지/알림/로그아웃). 비로그인은 로그인/회원가입, 인증 페이지에선 햄버거 숨김, 관리자는 알림 항목 없음 (이전 바텀탭 대체, 키보드 간섭 제거)
 - 알림 모달: 햄버거 메뉴 → 알림 클릭 시 슬라이드업 풀스크린 모달. deliverables status 트리거로 생성된 rejected/changed/approved 알림 3종. 항목 클릭 시 읽음 처리 + 해당 활동관리로 이동. "모두 읽음" 버튼 제공

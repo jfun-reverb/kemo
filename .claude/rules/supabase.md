@@ -6,8 +6,8 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 # Supabase 규칙
 
 ## 환경 분리
-- **운영서버**: `twofagomeizrtkwlhsuv.supabase.co` (🇦🇺 Sydney, Pro)
-- **개발서버**: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo, Free)
+- **운영서버**: `twofagomeizrtkwlhsuv.supabase.co` (🇦🇺 Sydney `ap-southeast-2`, Pro / NANO compute)
+- **개발서버**: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / MICRO compute) — Org 레벨 PRO라 양 프로젝트 모두 Pro 혜택
 - URL/Key 관리는 `dev/lib/supabase.js`의 `SUPABASE_ENVS`에서만 (하드코딩 금지)
 - 도메인 분기: `globalreverb.com` / `www.globalreverb.com` → 운영, 나머지 → 개발
 - **DB 변경은 항상 개발서버 먼저 적용 → 검증 → 운영 적용**
@@ -22,6 +22,12 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 - PKCE flow 필수 (`flowType: 'pkce'`) — 비밀번호 재설정 링크 안정성 보장
 - `detectSessionInUrl: true`, `persistSession: true`, `autoRefreshToken: true`
 - service_role key는 절대 클라이언트 코드에 넣지 않음
+
+## Auth Confirm email 환경별 설정
+- **운영 프로젝트** (twofagomeizrtkwlhsuv): Authentication → Sign In / Providers → Email → `Confirm email` **ON** 유지 필수 (보안·메일 유효성 검증)
+- **개발 프로젝트** (qysmxtipobomefudyixw): `Confirm email` **OFF** — 테스트 인플루언서 계정 즉시 로그인 가능 (2026-04-16 설정)
+- 클라이언트 코드는 `signUp` 응답의 `data.session` 유무로 분기 (auth.js:57-65): session 있으면 바로 홈으로, 없으면 메일 확인 안내 화면
+- **대시보드 수동 설정은 repo에 반영되지 않음** — Supabase 프로젝트 재구축 시 이 섹션 참고하여 다시 설정
 
 ## Auth 레코드 완전성 (매우 중요)
 관리자/유저 생성 시 `auth.users`에 아래 필드 모두 채우지 않으면 로그인 실패 발생:
