@@ -3323,9 +3323,14 @@ function imgThumb(url, width, quality) {
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
 const CHANNEL_LABEL_FALLBACK = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+function _currentLookupLang(lang) {
+  if (lang) return lang;
+  try { if (typeof getLang === 'function') return getLang(); } catch(e) {}
+  return 'ja';
+}
 function getChannelLabel(ch, lang) {
   if (!ch) return '';
-  const useLang = lang === 'ko' ? 'name_ko' : 'name_ja';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
   const cache = (typeof _lookupCache !== 'undefined' && _lookupCache.channel) || null;
   return ch.split(',').map(s => s.trim()).filter(Boolean).map(code => {
     if (cache) {
@@ -3334,6 +3339,23 @@ function getChannelLabel(ch, lang) {
     }
     return CHANNEL_LABEL_FALLBACK[code] || code;
   }).join(' or ');
+}
+
+// lookup_values 공통: code 또는 name_ja를 현재 locale의 표시값으로
+function getLookupLabel(kind, valueOrCode, lang) {
+  if (!valueOrCode) return '';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
+  const cache = (typeof _lookupCache !== 'undefined' && _lookupCache[kind]) || null;
+  if (!cache) return valueOrCode;
+  const row = cache.find(r => r.code === valueOrCode || r.name_ja === valueOrCode || r.name_ko === valueOrCode);
+  return row ? (row[useLang] || row.name_ja || valueOrCode) : valueOrCode;
+}
+
+// 콤마 구분 콘텐츠 타입 등 복수 값 처리
+function getLookupLabelsJoined(kind, csv, sep, lang) {
+  if (!csv) return '';
+  return csv.split(',').map(s => s.trim()).filter(Boolean)
+    .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
 // 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
 function getRecruitTypeLabelJa(t) {
@@ -3990,7 +4012,7 @@ function buildCampCards(camps) {
         })()}
         <div class="camp-brand">${esc(c.brand)}</div>
         <div class="camp-title">${esc(c.title)}</div>
-        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(t.trim())}</span>`).join('')}</div>` : ''}
+        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
         ${(() => {
           // 모집타입 + 상태 배지 — 콘텐츠 종류 아래
           const row = [];
@@ -4329,7 +4351,7 @@ async function openCampaign(id) {
         </div>
         <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
       <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
-        ${camp.content_types?camp.content_types.split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(4px)">${esc(t.trim())}</span>`).join(''):''}
+        ${camp.content_types?camp.content_types.split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(4px)">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join(''):''}
       </div>
     </div>` : `<div style="aspect-ratio:1/1;width:100%;border-radius:16px;background:${getCampGrad(camp.category)};display:flex;align-items:center;justify-content:center;font-size:64px">${camp.emoji||''}</div>`;
 
@@ -4365,7 +4387,7 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.contentType')}</div>
             <div style="padding:10px 13px;flex:1;font-size:12px;display:flex;gap:4px;flex-wrap:wrap">
-              ${camp.content_types.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(t.trim())}</span>`).join('')}
+              ${camp.content_types.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}
             </div>
           </div>`:''}
           <div style="display:flex;border-top:1px solid #faf5f9">
@@ -5507,6 +5529,14 @@ window.addEventListener('popstate', function(e) {
   }
 });
 
+// 언어 전환 시 현재 페이지 재렌더 (lookup_values 기반 라벨 갱신)
+window.addEventListener('langchange', function() {
+  const page = location.hash.replace('#','') || 'home';
+  if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
+  else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
+  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+});
+
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
   const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage'};
@@ -5523,7 +5553,7 @@ async function init() {
   // lookup_values 사전 로드 (채널/카테고리 라벨 동적 표시용, 인증과 무관하게 익명 SELECT 허용)
   if (db) {
     try {
-      await Promise.all([fetchLookups('channel'), fetchLookups('category')]);
+      await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
         updateStats(allCampaigns);

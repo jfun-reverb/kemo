@@ -169,7 +169,7 @@ function buildCampCards(camps) {
         })()}
         <div class="camp-brand">${esc(c.brand)}</div>
         <div class="camp-title">${esc(c.title)}</div>
-        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(t.trim())}</span>`).join('')}</div>` : ''}
+        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
         ${(() => {
           // 모집타입 + 상태 배지 — 콘텐츠 종류 아래
           const row = [];

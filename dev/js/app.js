@@ -91,6 +91,14 @@ window.addEventListener('popstate', function(e) {
   }
 });
 
+// 언어 전환 시 현재 페이지 재렌더 (lookup_values 기반 라벨 갱신)
+window.addEventListener('langchange', function() {
+  const page = location.hash.replace('#','') || 'home';
+  if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
+  else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
+  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+});
+
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
   const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage'};
@@ -107,7 +115,7 @@ async function init() {
   // lookup_values 사전 로드 (채널/카테고리 라벨 동적 표시용, 인증과 무관하게 익명 SELECT 허용)
   if (db) {
     try {
-      await Promise.all([fetchLookups('channel'), fetchLookups('category')]);
+      await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
         updateStats(allCampaigns);
