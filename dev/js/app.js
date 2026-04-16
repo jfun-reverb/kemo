@@ -51,7 +51,9 @@ function navigate(page, pushHistory) {
   document.querySelectorAll('#appShell .page').forEach(p => p.classList.remove('active'));
   const el = $('page-'+pageName);
   if (el) el.classList.add('active');
-  var _sh = $('appShell'); if(_sh) _sh.scrollTo(0,0); else window.scrollTo(0,0);
+  // 새 페이지 진입 시 최상단으로 스크롤 (실제 스크롤 컨테이너는 .page.active)
+  if (el && el.scrollTo) el.scrollTo(0, 0);
+  else window.scrollTo(0, 0);
 
   const fb = $('detailFloatBar');
   if (fb && pageName !== 'detail') fb.style.display = 'none';
