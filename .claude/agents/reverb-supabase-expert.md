@@ -60,8 +60,9 @@ model: sonnet
 - [ ] 운영 DB 변경은 개발서버 먼저 → 검증 → 운영 적용
 
 ## 환경 분리
-- 운영서버: `twofagomeizrtkwlhsuv.supabase.co` (🇦🇺 Sydney, Pro)
-- 개발서버: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo, Free)
+- 운영서버: `twofagomeizrtkwlhsuv.supabase.co` (🇦🇺 Sydney `ap-southeast-2`, Pro / NANO compute)
+- 개발서버: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / MICRO compute)
+- Org `jfun-reverb's Org`가 PRO 플랜 — 양 프로젝트 모두 Pro 혜택 적용 (compute만 별도 add-on)
 - URL/Key는 `SUPABASE_ENVS` 객체에서만 (하드코딩 금지)
 
 ## 작업 시 체크

@@ -1044,7 +1044,7 @@ async function loadCampApplicants() {
     return `<tr>
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
-      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>
+      <div style="font-size:11px;color:var(--muted)">${[esc(a.user_email)||'', _u.line_id?`LINE: ${esc(_u.line_id)}`:''].filter(Boolean).join(' · ')}</div>
     </td>
     <td>${a.ig_id?`<a href="https://instagram.com/${esc(a.ig_id)}" target="_blank" style="color:var(--pink);font-weight:600">@${esc(a.ig_id)}</a>`:esc(a.user_ig)||'—'}</td>
     <td style="font-weight:600">${(a.user_followers||0).toLocaleString()}</td>
@@ -1467,6 +1467,8 @@ async function renderAppCampList() {
   if (appSortKey === 'status') {
     const statusOrder = {pending:0, approved:1, rejected:2};
     apps.sort((a,b) => ((statusOrder[a.status]??9) - (statusOrder[b.status]??9)) * appDir);
+  } else if (appSortKey === 'name') {
+    apps.sort((a,b) => (a.user_name||'').localeCompare(b.user_name||'', 'ja') * appDir);
   } else {
     apps.sort((a,b) => (new Date(a.created_at) - new Date(b.created_at)) * appDir);
   }
@@ -1495,7 +1497,7 @@ async function renderAppCampList() {
       </td>
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}</div>
-        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>
+        <div style="font-size:11px;color:var(--muted)">${[esc(a.user_email)||'', u.line_id?`LINE: ${esc(u.line_id)}`:''].filter(Boolean).join(' · ')}</div>
       </td>
       <td style="max-width:180px;font-size:12px;color:var(--ink)">${esc(a.message)||'—'}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
