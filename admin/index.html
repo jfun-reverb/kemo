@@ -5633,6 +5633,10 @@ async function renderDeliverablesList() {
   }).join('');
 }
 
+function statusLabelKo(status) {
+  return {pending: '검수대기', approved: '승인', rejected: '반려'}[status] || status;
+}
+
 function delivStatusBadge(status) {
   const map = {
     pending: '<span style="background:#FFF4E4;color:#B8741A;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">검수대기</span>',
@@ -5711,7 +5715,7 @@ async function openDelivDetail(id) {
     contentHtml += events.map(e => {
       const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
       return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
-        <span><strong>${label}</strong>${e.from_status ? ` · ${e.from_status} → ${e.to_status}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
+        <span><strong>${label}</strong>${e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
         <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
       </div>`;
     }).join('');
@@ -5731,7 +5735,7 @@ async function openDelivDetail(id) {
   } else {
     footerHtml = `
       <button class="btn btn-ghost" onclick="closeDelivDetail()">닫기</button>
-      <button class="btn btn-ghost" onclick="revertDeliv('${d.id}', ${d.version})">되돌리기 (pending으로)</button>
+      <button class="btn btn-ghost" onclick="revertDeliv('${d.id}', ${d.version})">되돌리기 (검수대기로)</button>
     `;
   }
   if (footer) footer.innerHTML = footerHtml;
