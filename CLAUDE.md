@@ -18,7 +18,7 @@
 - GitHub: github.com/jfun-reverb/kemo
 - Supabase (production): https://twofagomeizrtkwlhsuv.supabase.co (🇦🇺 Sydney)
 - Supabase (staging): https://qysmxtipobomefudyixw.supabase.co (🇯🇵 Tokyo)
-- LINE: @586mnjoc
+- LINE: @reverb.jp
 
 ## Environments
 - **도메인 기반 자동 분기**: `dev/lib/supabase.js`의 `resolveSupabaseEnv()`가 `location.hostname` 을 판별
@@ -46,6 +46,13 @@
 - 운영서버 배포 전 (테스터 검증 완료 후 결정)
 - Phase 1 완료 범위: 마이페이지, 인증(로그인/가입/재설정), GNB/홈, 캠페인 목록 탭
 - Phase 2 완료 범위: 캠페인 상세 라벨(모집타입/기간/인원/마감일), 신청 모달(로그인유도/사유/주소/PR동의), 활동관리(영수증/게시URL/마감일/상태배지/재제출/비승인배너), 알림(헤더/전체읽음), DB 에러 메시지 로케일 대응(`friendlyErrorJa` → ko/ja 분기)
+
+## 내부 문서 (개발서버 한정)
+- `docs/service-flow.html` — 전체 서비스 플로우차트
+- `docs/flowchart-i18n.html` — i18n 다국어 흐름도
+- 접속: https://dev.globalreverb.com/docs/service-flow.html, https://dev.globalreverb.com/docs/flowchart-i18n.html
+- **운영서버(main)에 머지하지 않음** — 내부 직원용 참고 자료이므로 개발서버에서만 유지
+- 내용 변경 시 dev 브랜치에만 커밋·푸시
 
 ## Architecture
 - 인플루언서 앱: dev/index.html (모바일 480px, 바텀탭바)

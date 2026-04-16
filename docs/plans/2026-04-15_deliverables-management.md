@@ -219,6 +219,31 @@ recruit_type 분기:
 
 ---
 
+## 12-A. 개발서버 테스트 환경 (2026-04-15 구축)
+
+### 설정
+- **Supabase (staging) Auth → Sign In / Providers → Email**: `Confirm email` **OFF**
+  - 개발서버 한정. 운영서버는 유지.
+  - 대시보드 수동 설정은 repo에 반영 안 됨 → 재구축 시 참고
+- 실제 메일 인증 플로우 회귀 테스트: 일회용 메일(예: mailinator.com) 사용 권장
+
+### Seed 스크립트
+Stage 0(035) + Stage 1(036) 적용 후 실행:
+
+1. `supabase/seed/test_campaigns_deliverables.sql` — 테스트 캠페인 3종 (monitor/gifting/visit)
+2. `supabase/seed/test_users_deliverables.sql` — 테스트 유저 6명 (상태별)
+   - `deliv.pending` / `deliv.approved` / `deliv.receipt` / `deliv.receipt-ok` / `deliv.post` / `deliv.rejected`
+   - 비밀번호: 전부 `test1234`
+   - monitor 타입 캠페인을 자동 선택하여 applications + receipts + deliverables 생성
+
+### 롤백
+```sql
+DELETE FROM campaigns WHERE brand LIKE '[TEST]%';
+DELETE FROM auth.users WHERE email LIKE 'deliv.%@reverb.jp';
+```
+
+---
+
 ## 13. 다음 단계
 
 1. DB 구조 설계 (receipts 확장 vs 신설, 알림 테이블, RLS)

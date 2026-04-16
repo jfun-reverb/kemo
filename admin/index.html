@@ -916,7 +916,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
                 <li>投稿は6ヶ月以上の掲載が필수です。</li>
                 <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
-                <li>ご不明点は <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">LINE(@586mnjoc)</a> まで。</li>
+                <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
               </ul>
             </div>
 
@@ -1133,6 +1133,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
             <button class="lookup-tab" data-kind="ng_item" onclick="switchLookupTab('ng_item',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
             <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
+            <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
           </div>
 
           <div class="admin-card">
@@ -1503,12 +1504,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <label class="form-label">사유 템플릿 (선택)</label>
         <select id="delivRejectTemplate" class="form-input" onchange="onDelivRejectTemplateChange()">
           <option value="">— 직접 입력 —</option>
-          <option value="pr_tag_missing">PR 태그 누락 (#PR/#広告/#プロモーション)</option>
-          <option value="image_unclear">이미지 품질 부족 (흐림/식별 불가)</option>
-          <option value="amount_mismatch">금액·구매일 확인 불가</option>
-          <option value="post_deleted">게시물 삭제·비공개 상태</option>
-          <option value="mention_missing">필수 해시태그·멘션 누락</option>
-          <option value="other">기타</option>
+          <!-- 기준 데이터(reject_reason)에서 동적 로드 -->
         </select>
       </div>
       <div class="form-group">
@@ -2744,8 +2740,13 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
 
   wrap.innerHTML = imgList.map(function(img,i) {
     return '<div data-idx="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'"' +
-      ' style="position:relative;width:88px;height:88px;flex-shrink:0">' +
-      '<img src="'+img.data+'" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+'">' +
+      ' draggable="true"' +
+      ' ondragstart="imgDragStart(event,'+i+')"' +
+      ' ondragover="event.preventDefault();this.style.outline=\'2px solid var(--pink)\'"' +
+      ' ondragleave="this.style.outline=\'none\'"' +
+      ' ondrop="imgDrop(event,'+i+',\''+listName+'\',\''+wrapId+'\',\''+counterId+'\')"' +
+      ' style="position:relative;width:88px;height:88px;flex-shrink:0;cursor:grab">' +
+      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';pointer-events:none">' +
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
       (img.original?'<div style="position:absolute;top:2px;left:2px;background:var(--pink);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;z-index:2">CROP</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
@@ -2931,7 +2932,7 @@ function buildLegalContent(kind) {
         <dt>会社名</dt><dd>株式会社ジェイファン（JFUN Corp.）</dd>
         <dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd>
         <dt>代表者</dt><dd>ジュ・ヒョンホ</dd>
-        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a></dd>
+        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd>
       </dl>
       <p>REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。</p>
     `;
@@ -2939,7 +2940,7 @@ function buildLegalContent(kind) {
   if (kind === 'terms' || kind === 'privacy') {
     return `
       <p>${kind==='terms'?'利用規約':'個人情報処理方針'}の日本語版は現在準備中です。</p>
-      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a>）までお問い合わせください。</p>
+      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a>）までお問い合わせください。</p>
       <p style="font-size:11px;color:var(--muted);margin-top:18px">施行予定日: 2026年5月1日</p>
     `;
   }
@@ -3082,11 +3083,15 @@ function switchAdminPane(pane, el, pushHistory) {
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
     loadTagsFromValue('tagWrap_newCampMentions', 'newCampMentions', '@', '');
+    // 모집 타입 기본값: 리뷰어(monitor)
+    const defaultRt = document.querySelector('input[name="recruitType"][value="monitor"]');
+    if (defaultRt) { defaultRt.checked = true; toggleRT(defaultRt); }
     // lookup_values 동적 렌더
-    renderChannelCheckboxes('new', null, []);
+    renderChannelCheckboxes('new', 'monitor', []);
     renderContentTypeCheckboxes('new', []);
     renderCategorySelect('new', '');
-    applyMinFollowersVisibility('new', null);
+    applyMinFollowersVisibility('new', 'monitor');
+    applyDeadlineFieldsVisibility('new', 'monitor');
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
       ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
@@ -4612,7 +4617,7 @@ function applyLookupMenuVisibility() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유'};
 let _currentLookupKind = 'channel';
 
 async function loadLookupsPane() {
@@ -4687,11 +4692,15 @@ async function renderLookupsTable() {
       <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
       <span class="lookup-toggle-slider"></span>
     </label>`;
-    const rtBadges = isChannel
-      ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(r.recruit_types||[]).map(t => {
-          const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
-          return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
-        }).join('')}</div>`
+    const showRt = isChannel || _currentLookupKind === 'reject_reason';
+    const rts = r.recruit_types || [];
+    const rtBadges = showRt
+      ? (rts.length
+        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${rts.map(t => {
+            const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+            return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+          }).join('')}</div>`
+        : `<div style="margin-top:4px"><span class="badge badge-gray" style="font-size:9px;padding:1px 6px">공통</span></div>`)
       : '';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i+1}</td>
@@ -4855,9 +4864,9 @@ function exitLookupReorderMode() {
 }
 
 function applyLookupModalKindUI(kind, recruitTypes) {
-  // 채널 탭일 때만 모집 조건 입력 표시
+  // 채널·반려사유 탭에서 모집 타입 선택 표시 (반려사유: 빈 배열=공통)
   const grp = $('lookupRecruitTypesGroup');
-  if (grp) grp.style.display = (kind === 'channel') ? '' : 'none';
+  if (grp) grp.style.display = (kind === 'channel' || kind === 'reject_reason') ? '' : 'none';
   // 체크박스 상태 초기화
   const set = new Set(recruitTypes || []);
   document.querySelectorAll('input[name="lookupRT"]').forEach(cb => {
@@ -4906,11 +4915,11 @@ async function saveLookupEdit() {
     err.style.display = 'block';
     return;
   }
-  // 채널이면 모집 조건 1개 이상 필수
+  // 채널이면 모집 조건 1개 이상 필수. 반려사유는 선택(빈 배열=공통)
   let recruitTypes = null;
-  if (kind === 'channel') {
+  if (kind === 'channel' || kind === 'reject_reason') {
     recruitTypes = Array.from(document.querySelectorAll('input[name="lookupRT"]:checked')).map(cb => cb.value);
-    if (recruitTypes.length === 0) {
+    if (kind === 'channel' && recruitTypes.length === 0) {
       err.textContent = '모집 타입을 1개 이상 선택해주세요';
       err.style.display = 'block';
       return;
@@ -5725,7 +5734,7 @@ async function openDelivDetail(id) {
     if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">결과물을 찾을 수 없습니다.</div>';
     return;
   }
-  _delivDetailCurrent = {id: d.id, version: d.version};
+  _delivDetailCurrent = {id: d.id, version: d.version, recruit_type: d.campaigns?.recruit_type || null};
   const camp = d.campaigns || {};
   const inf = d.influencers || {};
   const titleEl = $('delivDetailTitle');
@@ -5840,11 +5849,36 @@ async function revertDeliv(id, version) {
 // 반려 모달 상태
 let _delivRejectCtx = null;  // {id, version}
 
-function openDelivRejectModal(id, version) {
+async function openDelivRejectModal(id, version) {
   _delivRejectCtx = {id, version};
   const tpl = $('delivRejectTemplate');
   const reason = $('delivRejectReason');
-  if (tpl) tpl.value = '';
+  // 현재 열려 있는 deliverable의 캠페인 recruit_type 추출
+  const campRt = _delivDetailCurrent?.recruit_type
+    || (_delivCache.find(d => d.id === id)?.campaigns?.recruit_type)
+    || null;
+  if (tpl) {
+    tpl.innerHTML = '<option value="">— 직접 입력 —</option>';
+    try {
+      const items = await fetchLookupsAll('reject_reason');
+      items.filter(v => v.active).filter(v => {
+        const rts = Array.isArray(v.recruit_types) ? v.recruit_types : [];
+        // 빈 배열 = 공통, 아니면 캠페인 타입과 매칭
+        return !rts.length || !campRt || rts.includes(campRt);
+      }).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.code;
+        opt.textContent = v.name_ko;
+        opt.dataset.desc = v.name_ja || '';
+        tpl.appendChild(opt);
+      });
+    } catch(e) {}
+    const otherOpt = document.createElement('option');
+    otherOpt.value = 'other';
+    otherOpt.textContent = '기타';
+    tpl.appendChild(otherOpt);
+    tpl.value = '';
+  }
   if (reason) reason.value = '';
   openModal('delivRejectModal');
 }
@@ -5855,18 +5889,16 @@ function closeDelivRejectModal() {
 }
 
 function onDelivRejectTemplateChange() {
-  const tpl = $('delivRejectTemplate')?.value;
+  const tpl = $('delivRejectTemplate');
   const reason = $('delivRejectReason');
-  if (!reason) return;
-  const presets = {
-    pr_tag_missing: 'PR 태그(#PR/#広告/#プロモーション 중 1개)가 누락되었습니다. 수정 후 재제출 부탁드립니다.',
-    image_unclear: '이미지 품질이 부족하여 영수증 내용을 확인하기 어렵습니다. 선명한 사진으로 재제출 부탁드립니다.',
-    amount_mismatch: '구매 금액 또는 구매일을 영수증에서 확인할 수 없습니다. 해당 정보가 잘 보이는 사진을 첨부해주세요.',
-    post_deleted: '게시물이 삭제되었거나 비공개로 전환되어 확인할 수 없습니다.',
-    mention_missing: '필수 해시태그 또는 멘션이 포함되어 있지 않습니다.',
-    other: ''
-  };
-  if (tpl && presets[tpl] !== undefined) reason.value = presets[tpl];
+  if (!tpl || !reason) return;
+  const selected = tpl.options[tpl.selectedIndex];
+  const desc = selected?.dataset?.desc || '';
+  if (tpl.value && tpl.value !== 'other' && desc) {
+    reason.value = desc;
+  } else if (tpl.value === 'other') {
+    reason.value = '';
+  }
 }
 
 async function submitDelivReject() {

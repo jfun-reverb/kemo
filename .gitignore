@@ -16,3 +16,4 @@ s*-*.png
 
 # Node
 node_modules/
+HANDOFF.md

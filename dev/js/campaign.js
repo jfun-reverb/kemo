@@ -50,7 +50,7 @@ function buildChannelFilters(camps) {
   if (!row) return;
   const channels = [...new Set(camps.flatMap(c=>(c.channel||'').split(',').map(s=>s.trim())).filter(Boolean))];
   // lookup_values에서 라벨 가져오기 (없으면 코드 그대로)
-  row.innerHTML = `<button class="chip on" onclick="filterCamps('all',this)">すべて</button>` +
+  row.innerHTML = `<button class="chip on" onclick="filterCamps('all',this)">${t('campaign.channelAll')}</button>` +
     channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(getChannelLabel(ch))}</button>`).join('');
 }
 
@@ -86,7 +86,7 @@ function renderCampaignGrid() {
     return new Date(b.created_at) - new Date(a.created_at);
   });
   if (!camps.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">現在募集中のキャンペーンはありません</div><div class="empty-sub">近日中に新しいKブランド体験団が登録されます</div></div>`;
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
     return;
   }
   grid.innerHTML = buildCampCards(camps);
@@ -132,7 +132,7 @@ function buildCampCards(camps) {
     const isScheduled = c.status === 'scheduled';
     const isClosed = c.status === 'closed';
     const isClickable = !isScheduled;
-    const reward = c.reward > 0 ? `製品 + <strong>¥${c.reward.toLocaleString()}</strong>` : c.product_price > 0 ? `<strong>製品無償提供</strong>` : '<strong>無償提供</strong>';
+    const reward = c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
     const isNew = !isScheduled && !isClosed && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
     const typeLabel = getRecruitTypeLabelJa(c.recruit_type);
@@ -141,11 +141,11 @@ function buildCampCards(camps) {
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<img src="${imgThumb(c.image_url,480)}" data-orig="${c.image_url}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}else{this.style.display='none'}">`:''}
         <div class="camp-img-overlay"></div>
-        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">近日公開</span></div>`:''}
-        ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集締切</span></div>`:''}
-        ${isFull&&!isScheduled&&!isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">募集終了</span></div>`:''}
+        ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
+        ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
+        ${isFull&&!isScheduled&&!isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;display:flex;gap:4px">
-          ${isNew&&!isFull?'<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">NEW</span>':''}
+          ${isNew&&!isFull?`<span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeNew')}</span>`:''}
         </div>
         <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
       </div>
@@ -163,8 +163,8 @@ function buildCampCards(camps) {
           const applied = c.applied_count || 0;
           const remaining = slots - applied;
           if (slots > 0 && remaining > 0 && remaining / slots <= 0.3) urgent = true;
-          if (urgent) flags.push('<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">締切間近</span>');
-          if (slots > 0) flags.push(`<span style="background:#F5F5F5;color:#555;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${applied}/${slots}名</span>`);
+          if (urgent) flags.push(`<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeUrgent')}</span>`);
+          if (slots > 0) flags.push(`<span style="background:#F5F5F5;color:#555;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.slotFormat').replace('{applied}',applied).replace('{slots}',slots)}</span>`);
           return flags.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${flags.join('')}</div>` : '';
         })()}
         <div class="camp-brand">${esc(c.brand)}</div>
@@ -174,7 +174,7 @@ function buildCampCards(camps) {
           // 모집타입 + 상태 배지 — 콘텐츠 종류 아래
           const row = [];
           if (typeLabel && !isFull && !isScheduled && !isClosed) row.push(`<span style="background:#FFF;border:1px solid var(--pink);color:var(--pink);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`);
-          if (!isFull && !isScheduled && !isClosed) row.push('<span style="background:rgba(14,126,74,.12);color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">募集中</span>');
+          if (!isFull && !isScheduled && !isClosed) row.push(`<span style="background:rgba(14,126,74,.12);color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeRecruiting')}</span>`);
           return row.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${row.join('')}</div>` : '';
         })()}
       </div>
@@ -191,7 +191,7 @@ function renderCampaigns(camps) {
     return new Date(b.created_at)-new Date(a.created_at);
   });
   if (!visible.length) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">現在募集中のキャンペーンはありません</div><div class="empty-sub">近日中に新しいKブランド体験団が登録されます</div></div>`;
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
     return;
   }
   grid.innerHTML = buildCampCards(visible);

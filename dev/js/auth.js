@@ -31,12 +31,12 @@ async function handleSignup(e) {
   const btn = $('signupBtn');
 
   errEl.style.display='none';
-  if (!name || !nameKana) { errEl.textContent='Please enter your name'; errEl.style.display='block'; return; }
+  if (!name || !nameKana) { errEl.textContent=t('authError.enterName'); errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
   const pwErr = validatePasswordPolicy(pw);
   if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
   if (!$('agreeTerms')?.checked || !$('agreePrivacy')?.checked) {
-    errEl.textContent = '利用規約および個人情報処理方針への同意が必要です';
+    errEl.textContent = t('authError.agreeRequired');
     errEl.style.display = 'block';
     return;
   }
@@ -55,17 +55,17 @@ async function handleSignup(e) {
   };
 
   if (!db) {
-    errEl.textContent='Cannot connect to server'; errEl.style.display='block';
-    btn.disabled=false; btn.textContent='Sign Up'; return;
+    errEl.textContent=t('authError.serverError'); errEl.style.display='block';
+    btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
   try {
     const {data, error} = await db.auth.signUp({email, password: pw});
-    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent='Sign Up'; return; }
+    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
-        btn.disabled=false; btn.textContent='Sign Up';
+        btn.disabled=false; btn.textContent=t('auth.signup.btn');
         errEl.style.display='none';
         $('signupFormArea').style.display='none';
         $('signupConfirmMsg').style.display='block';
@@ -78,13 +78,13 @@ async function handleSignup(e) {
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
-    errEl.textContent='Sign up error: ' + (e.message || String(e)); errEl.style.display='block';
-    btn.disabled=false; btn.textContent='Sign Up'; return;
+    errEl.textContent=t('authError.genericError') + ': ' + (e.message || String(e)); errEl.style.display='block';
+    btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
   toast('Welcome to REVERB!','success');
   updateGnb();
-  btn.disabled=false; btn.textContent='Sign Up';
+  btn.disabled=false; btn.textContent=t('auth.signup.btn');
   navigate('home');
 }
 
@@ -97,20 +97,20 @@ async function handleLogin(e) {
   errEl.style.display='none'; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>';
 
   if (!db) {
-    errEl.textContent='Cannot connect to server'; errEl.style.display='block';
-    btn.disabled=false; btn.textContent='Log In'; return;
+    errEl.textContent=t('authError.serverError'); errEl.style.display='block';
+    btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
   }
 
   try {
     const {data, error} = await db.auth.signInWithPassword({email, password: pw});
     if (error) {
       if (error.message?.includes('Email not confirmed')) {
-        errEl.textContent='メールアドレスが未認証です。受信メールの確認リンクをクリックしてください。';
+        errEl.textContent=t('authError.emailUnverifiedDetail');
       } else {
-        errEl.textContent='Please check your email or password';
+        errEl.textContent=t('authError.checkCredentials');
       }
       errEl.style.display='block';
-      btn.disabled=false; btn.textContent='Log In'; return;
+      btn.disabled=false; btn.textContent=t('auth.login.btn'); return;
     }
     currentUser = data.user;
     // 관리자 테이블에서 확인
@@ -133,9 +133,9 @@ async function handleLogin(e) {
       toast('Welcome back','success'); updateGnb(); navigate('home');
     }
   } catch(e) {
-    errEl.textContent='Login error occurred'; errEl.style.display='block';
+    errEl.textContent=t('authError.genericError'); errEl.style.display='block';
   }
-  btn.disabled=false; btn.textContent='Log In';
+  btn.disabled=false; btn.textContent=t('auth.login.btn');
 }
 
 async function handleLogout() {
@@ -156,7 +156,7 @@ async function handleForgotPassword(e) {
   successEl.style.display = 'none';
 
   if (!db) {
-    errEl.textContent = 'サーバーに接続できません';
+    errEl.textContent = t('authError.serverError');
     errEl.style.display = 'block';
     return;
   }
@@ -171,20 +171,17 @@ async function handleForgotPassword(e) {
       errEl.textContent = error.message;
       errEl.style.display = 'block';
     } else {
-      const msg = (typeof t === 'function')
-        ? t('auth.forgot.successMsg', 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。')
-        : 'ご入力のメールアドレスが登録されている場合、再設定メールを送信しました。メールボックス（迷惑メールフォルダも含む）をご確認ください。';
-      successEl.textContent = msg;
+      successEl.textContent = t('auth.forgot.successMsg');
       successEl.style.display = 'block';
       $('forgotForm').reset();
     }
   } catch (err) {
-    errEl.textContent = 'エラーが発生しました';
+    errEl.textContent = t('authError.genericError');
     errEl.style.display = 'block';
   }
 
   btn.disabled = false;
-  btn.textContent = 'リセットメールを送信';
+  btn.textContent = t('auth.forgot.btn');
 }
 
 async function handleResetPassword(e) {
@@ -209,7 +206,7 @@ async function handleResetPassword(e) {
   }
 
   if (!db) {
-    errEl.textContent = 'サーバーに接続できません';
+    errEl.textContent = t('authError.serverError');
     errEl.style.display = 'block';
     return;
   }
@@ -225,16 +222,16 @@ async function handleResetPassword(e) {
     } else {
       try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
       await db.auth.signOut();
-      toast('パスワードが変更されました', 'success');
+      toast(t('profile.pwChanged'), 'success');
       navigate('login');
     }
   } catch (err) {
-    errEl.textContent = 'エラーが発生しました';
+    errEl.textContent = t('authError.genericError');
     errEl.style.display = 'block';
   }
 
   btn.disabled = false;
-  btn.textContent = 'パスワードを変更';
+  btn.textContent = t('auth.reset.btn');
 }
 
 // ── SIGNUP STEP NAVIGATION ──
@@ -246,10 +243,10 @@ function goStep(step) {
     const pw = $('signupPw')?.value;
     const pw2 = $('signupPw2')?.value;
     const err = $('step1Error');
-    if (!kanji || !kana) { err.textContent='Please enter your name'; err.style.display='block'; return; }
-    if (!email) { err.textContent='Please enter your email'; err.style.display='block'; return; }
-    if (!pw || pw.length < 8) { err.textContent='Password must be 8+ characters'; err.style.display='block'; return; }
-    if (pw !== pw2) { err.textContent='Passwords do not match'; err.style.display='block'; return; }
+    if (!kanji || !kana) { err.textContent=t('authError.enterName'); err.style.display='block'; return; }
+    if (!email) { err.textContent=t('authError.enterEmail'); err.style.display='block'; return; }
+    if (!pw || pw.length < 8) { err.textContent=t('authError.pwMin8'); err.style.display='block'; return; }
+    if (pw !== pw2) { err.textContent=t('authError.pwNoMatch'); err.style.display='block'; return; }
     err.style.display='none';
   }
   if (step === 3) {

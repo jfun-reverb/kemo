@@ -402,8 +402,13 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
 
   wrap.innerHTML = imgList.map(function(img,i) {
     return '<div data-idx="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'"' +
-      ' style="position:relative;width:88px;height:88px;flex-shrink:0">' +
-      '<img src="'+img.data+'" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+'">' +
+      ' draggable="true"' +
+      ' ondragstart="imgDragStart(event,'+i+')"' +
+      ' ondragover="event.preventDefault();this.style.outline=\'2px solid var(--pink)\'"' +
+      ' ondragleave="this.style.outline=\'none\'"' +
+      ' ondrop="imgDrop(event,'+i+',\''+listName+'\',\''+wrapId+'\',\''+counterId+'\')"' +
+      ' style="position:relative;width:88px;height:88px;flex-shrink:0;cursor:grab">' +
+      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';pointer-events:none">' +
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
       (img.original?'<div style="position:absolute;top:2px;left:2px;background:var(--pink);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;z-index:2">CROP</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
@@ -589,7 +594,7 @@ function buildLegalContent(kind) {
         <dt>会社名</dt><dd>株式会社ジェイファン（JFUN Corp.）</dd>
         <dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd>
         <dt>代表者</dt><dd>ジュ・ヒョンホ</dd>
-        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a></dd>
+        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd>
       </dl>
       <p>REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。</p>
     `;
@@ -597,7 +602,7 @@ function buildLegalContent(kind) {
   if (kind === 'terms' || kind === 'privacy') {
     return `
       <p>${kind==='terms'?'利用規約':'個人情報処理方針'}の日本語版は現在準備中です。</p>
-      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a>）までお問い合わせください。</p>
+      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a>）までお問い合わせください。</p>
       <p style="font-size:11px;color:var(--muted);margin-top:18px">施行予定日: 2026年5月1日</p>
     `;
   }

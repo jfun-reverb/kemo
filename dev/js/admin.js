@@ -121,11 +121,15 @@ function switchAdminPane(pane, el, pushHistory) {
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
     loadTagsFromValue('tagWrap_newCampMentions', 'newCampMentions', '@', '');
+    // 모집 타입 기본값: 리뷰어(monitor)
+    const defaultRt = document.querySelector('input[name="recruitType"][value="monitor"]');
+    if (defaultRt) { defaultRt.checked = true; toggleRT(defaultRt); }
     // lookup_values 동적 렌더
-    renderChannelCheckboxes('new', null, []);
+    renderChannelCheckboxes('new', 'monitor', []);
     renderContentTypeCheckboxes('new', []);
     renderCategorySelect('new', '');
-    applyMinFollowersVisibility('new', null);
+    applyMinFollowersVisibility('new', 'monitor');
+    applyDeadlineFieldsVisibility('new', 'monitor');
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
       ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
@@ -1651,7 +1655,7 @@ function applyLookupMenuVisibility() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유'};
 let _currentLookupKind = 'channel';
 
 async function loadLookupsPane() {
@@ -1726,11 +1730,15 @@ async function renderLookupsTable() {
       <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
       <span class="lookup-toggle-slider"></span>
     </label>`;
-    const rtBadges = isChannel
-      ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(r.recruit_types||[]).map(t => {
-          const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
-          return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
-        }).join('')}</div>`
+    const showRt = isChannel || _currentLookupKind === 'reject_reason';
+    const rts = r.recruit_types || [];
+    const rtBadges = showRt
+      ? (rts.length
+        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${rts.map(t => {
+            const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+            return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+          }).join('')}</div>`
+        : `<div style="margin-top:4px"><span class="badge badge-gray" style="font-size:9px;padding:1px 6px">공통</span></div>`)
       : '';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i+1}</td>
@@ -1894,9 +1902,9 @@ function exitLookupReorderMode() {
 }
 
 function applyLookupModalKindUI(kind, recruitTypes) {
-  // 채널 탭일 때만 모집 조건 입력 표시
+  // 채널·반려사유 탭에서 모집 타입 선택 표시 (반려사유: 빈 배열=공통)
   const grp = $('lookupRecruitTypesGroup');
-  if (grp) grp.style.display = (kind === 'channel') ? '' : 'none';
+  if (grp) grp.style.display = (kind === 'channel' || kind === 'reject_reason') ? '' : 'none';
   // 체크박스 상태 초기화
   const set = new Set(recruitTypes || []);
   document.querySelectorAll('input[name="lookupRT"]').forEach(cb => {
@@ -1945,11 +1953,11 @@ async function saveLookupEdit() {
     err.style.display = 'block';
     return;
   }
-  // 채널이면 모집 조건 1개 이상 필수
+  // 채널이면 모집 조건 1개 이상 필수. 반려사유는 선택(빈 배열=공통)
   let recruitTypes = null;
-  if (kind === 'channel') {
+  if (kind === 'channel' || kind === 'reject_reason') {
     recruitTypes = Array.from(document.querySelectorAll('input[name="lookupRT"]:checked')).map(cb => cb.value);
-    if (recruitTypes.length === 0) {
+    if (kind === 'channel' && recruitTypes.length === 0) {
       err.textContent = '모집 타입을 1개 이상 선택해주세요';
       err.style.display = 'block';
       return;
@@ -2764,7 +2772,7 @@ async function openDelivDetail(id) {
     if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">결과물을 찾을 수 없습니다.</div>';
     return;
   }
-  _delivDetailCurrent = {id: d.id, version: d.version};
+  _delivDetailCurrent = {id: d.id, version: d.version, recruit_type: d.campaigns?.recruit_type || null};
   const camp = d.campaigns || {};
   const inf = d.influencers || {};
   const titleEl = $('delivDetailTitle');
@@ -2879,11 +2887,36 @@ async function revertDeliv(id, version) {
 // 반려 모달 상태
 let _delivRejectCtx = null;  // {id, version}
 
-function openDelivRejectModal(id, version) {
+async function openDelivRejectModal(id, version) {
   _delivRejectCtx = {id, version};
   const tpl = $('delivRejectTemplate');
   const reason = $('delivRejectReason');
-  if (tpl) tpl.value = '';
+  // 현재 열려 있는 deliverable의 캠페인 recruit_type 추출
+  const campRt = _delivDetailCurrent?.recruit_type
+    || (_delivCache.find(d => d.id === id)?.campaigns?.recruit_type)
+    || null;
+  if (tpl) {
+    tpl.innerHTML = '<option value="">— 직접 입력 —</option>';
+    try {
+      const items = await fetchLookupsAll('reject_reason');
+      items.filter(v => v.active).filter(v => {
+        const rts = Array.isArray(v.recruit_types) ? v.recruit_types : [];
+        // 빈 배열 = 공통, 아니면 캠페인 타입과 매칭
+        return !rts.length || !campRt || rts.includes(campRt);
+      }).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.code;
+        opt.textContent = v.name_ko;
+        opt.dataset.desc = v.name_ja || '';
+        tpl.appendChild(opt);
+      });
+    } catch(e) {}
+    const otherOpt = document.createElement('option');
+    otherOpt.value = 'other';
+    otherOpt.textContent = '기타';
+    tpl.appendChild(otherOpt);
+    tpl.value = '';
+  }
   if (reason) reason.value = '';
   openModal('delivRejectModal');
 }
@@ -2894,18 +2927,16 @@ function closeDelivRejectModal() {
 }
 
 function onDelivRejectTemplateChange() {
-  const tpl = $('delivRejectTemplate')?.value;
+  const tpl = $('delivRejectTemplate');
   const reason = $('delivRejectReason');
-  if (!reason) return;
-  const presets = {
-    pr_tag_missing: 'PR 태그(#PR/#広告/#プロモーション 중 1개)가 누락되었습니다. 수정 후 재제출 부탁드립니다.',
-    image_unclear: '이미지 품질이 부족하여 영수증 내용을 확인하기 어렵습니다. 선명한 사진으로 재제출 부탁드립니다.',
-    amount_mismatch: '구매 금액 또는 구매일을 영수증에서 확인할 수 없습니다. 해당 정보가 잘 보이는 사진을 첨부해주세요.',
-    post_deleted: '게시물이 삭제되었거나 비공개로 전환되어 확인할 수 없습니다.',
-    mention_missing: '필수 해시태그 또는 멘션이 포함되어 있지 않습니다.',
-    other: ''
-  };
-  if (tpl && presets[tpl] !== undefined) reason.value = presets[tpl];
+  if (!tpl || !reason) return;
+  const selected = tpl.options[tpl.selectedIndex];
+  const desc = selected?.dataset?.desc || '';
+  if (tpl.value && tpl.value !== 'other' && desc) {
+    reason.value = desc;
+  } else if (tpl.value === 'other') {
+    reason.value = '';
+  }
 }
 
 async function submitDelivReject() {
