@@ -41,7 +41,8 @@ function renderNavMenu() {
       {sub:'paypal', label: t('mypage.menu.paypal')},
       {sub:'password', label: t('mypage.menu.password')}
     ];
-    html += subs.map(s => `
+    html += subs.map((s, i) => `
+      ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
       <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
         <span class="nav-label">${esc(s.label)}</span>
       </button>
