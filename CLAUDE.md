@@ -31,6 +31,7 @@
 
 ## Email / SMTP
 - 양 서버 모두 **Brevo Custom SMTP** 사용 (`smtp-relay.brevo.com:587`)
+- **Brevo 플랜: Starter 20,000 emails/월** (2026-04-16 Free 300/일→Starter로 업그레이드, 갱신일 매월 16일, Monthly $29). Marketing+Transactional 공용 쿼터, 일일 한도 없음
 - 발신: `noreply@globalreverb.com`, 발신명: 운영 `REVERB JP` / 개발 `REVERB JP [DEV]`
 - 발신 도메인 DNS 인증 완료 (SPF/DKIM/DMARC, cafe24 DNS 관리)
 - Auth URL Configuration:

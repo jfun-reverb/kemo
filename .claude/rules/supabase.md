@@ -72,6 +72,7 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 
 ## SMTP / 이메일
 - 양 서버 모두 **Brevo** Custom SMTP 사용 (`smtp-relay.brevo.com:587`)
+- **Brevo 플랜: Starter 20,000 emails/월** (Monthly $29, 갱신일 매월 16일). Marketing+Transactional 공용 쿼터. 2026-04-16 Free 300/일 폭주로 Starter 업그레이드
 - Supabase 기본 메일 서버는 3-4건/시간 제한이라 운영 불가
 - Site URL은 반드시 `https://` 프로토콜 포함 (슬래시 누락 사고 사례 있음)
 - Redirect URLs에 양 환경 URL 모두 등록 (`https://globalreverb.com/**`, `https://dev.globalreverb.com/**`)
