@@ -735,10 +735,10 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div id="activityRejectBanner" style="display:none;background:#FFF5F5;border-left:4px solid #C33;border-radius:8px;padding:12px 14px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:700;color:#C33;margin-bottom:6px;display:flex;align-items:center;gap:6px">
         <span class="material-icons-round notranslate" translate="no" style="font-size:18px">error_outline</span>
-        差し戻しされました
+        <span data-i18n="activity.rejectedTitle">差し戻しされました</span>
       </div>
       <div id="activityRejectReason" style="font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.5"></div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px">修正後、再度ご提出ください。</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px" data-i18n="activity.rejectedHint">修正後、再度ご提出ください。</div>
     </div>
 
     <!-- 제출 마감 안내 -->
@@ -746,41 +746,41 @@ textarea.form-input{resize:vertical;min-height:80px}
 
     <!-- 리뷰어(monitor) 영수증 섹션 -->
     <div id="activityReceiptSection">
-      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">購入レシート</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.receiptSection">購入レシート</div>
       <div id="receiptList" style="margin-bottom:20px"></div>
       <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
         <div class="form-group">
-          <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.receiptImageLabel">レシート画像</span> <span style="color:var(--red)">*</span></label>
           <div id="receiptPreview" style="margin-bottom:8px"></div>
           <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
+            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> <span data-i18n="activity.receiptImageBtn">画像を選択</span>
             <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
           </label>
         </div>
         <div class="form-group">
-          <label class="form-label">購入日</label>
+          <label class="form-label" data-i18n="activity.receiptDateLabel">購入日</label>
           <input type="date" id="receiptDate" class="form-input">
         </div>
         <div class="form-group">
-          <label class="form-label">金額（円）</label>
+          <label class="form-label" data-i18n="activity.receiptAmountLabel">金額（円）</label>
           <input type="number" id="receiptAmount" class="form-input" placeholder="0">
         </div>
-        <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
+        <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px" data-i18n="activity.submitBtn">登録する</button>
       </div>
     </div>
 
     <!-- 기프팅·방문형 게시물 URL 섹션 (Stage 3) -->
     <div id="activityPostSection" style="display:none">
-      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">投稿URLの提出</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.postSection">投稿URLの提出</div>
       <div id="postSubmissionList" style="margin-bottom:20px"></div>
       <div id="postSubmissionForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
         <div class="form-group">
-          <label class="form-label">投稿URL <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.postUrlLabel">投稿URL</span> <span style="color:var(--red)">*</span></label>
           <input type="url" id="postUrlInput" class="form-input" placeholder="https://www.instagram.com/p/... など" oninput="onPostUrlInputChange()">
           <div id="postChannelDetected" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
         </div>
         <div class="form-group" id="postChannelManualWrap" style="display:none">
-          <label class="form-label">チャンネルを選択 <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="activity.postChannelLabel">チャンネルを選択</span> <span style="color:var(--red)">*</span></label>
           <select id="postChannelManual" class="form-input">
             <option value="">— 選択してください —</option>
             <option value="instagram">Instagram</option>
@@ -792,7 +792,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           </select>
           <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">URLからチャンネルを自動判別できませんでした</div>
         </div>
-        <button class="btn btn-primary btn-block" onclick="submitPostUrl()" style="margin-top:12px">登録する</button>
+        <button class="btn btn-primary btn-block" onclick="submitPostUrl()" style="margin-top:12px" data-i18n="activity.submitBtn">登録する</button>
       </div>
     </div>
   </div>
@@ -1631,6 +1631,95 @@ window.I18N_JA = {
     privacyTitle: '個人情報処理方針',
     about: '会社紹介',
   },
+
+  // 캠페인 상세
+  detail: {
+    recruitType: '募集タイプ',
+    recruitPeriod: '募集期間',
+    recruitSlots: '募集人数',
+    winnerAnnounce: '当選発表',
+    winnerAnnounceValue: '選考後、LINEにてご連絡',
+    postDeadline: '投稿締切日',
+    postDeadlineRelative: '受取後 {days}日以内',
+    purchasePeriod: '購入期間',
+    visitPeriod: '訪問期間',
+    submissionEnd: '成果物提出締切',
+    peopleUnit: '名',
+    noSetting: '—',
+    applyBtn: '申請',
+    closedBtn: '募集締切',
+    fullBtn: '募集終了',
+    appliedBtn: '応募済み',
+    manageBtn: '活動管理',
+  },
+
+  // 응모
+  apply: {
+    reasonLabel: '応募理由',
+    reasonPlaceholder: 'Kブランドの体験に対する意気込みをお聞かせください',
+    addressLabel: '配送先住所',
+    prAgreeLabel: '#PRタグ表記に同意します',
+    submitBtn: '応募する',
+    needLogin: 'ログインが必要です',
+    needReason: '応募理由を入力してください',
+    needAddress: '配送先住所を入力してください',
+    needPrAgree: '#PRタグの表記に同意が必要です',
+    alreadyApplied: 'すでに応募済みのキャンペーンです',
+    slotsFull: '募集人数に達したため、応募できません',
+    sessionExpired: 'セッションの有効期限が切れました。再ログインしてください',
+    emailUnverified: 'メールアドレスの認証が必要です。受信メールをご確認ください',
+    success: '応募が完了しました！',
+  },
+
+  // 활동관리
+  activity: {
+    rejectedTitle: '差し戻しされました',
+    rejectedHint: '修正後、再度ご提出ください。',
+    submissionEndLabel: '提出期限',
+    submissionEndPast: '提出期限が過ぎました',
+    receiptSection: '購入レシート',
+    receiptImageLabel: 'レシート画像',
+    receiptImageBtn: '画像を選択',
+    receiptDateLabel: '購入日',
+    receiptAmountLabel: '金額（円）',
+    submitBtn: '登録する',
+    uploading: 'アップロード中...',
+    noReceipt: 'まだレシートが登録されていません',
+    postSection: '投稿URLの提出',
+    postUrlLabel: '投稿URL',
+    postUrlPlaceholder: 'https://www.instagram.com/p/... など',
+    postChannelLabel: 'チャンネルを選択',
+    postChannelHint: 'URLからチャンネルを自動判別できませんでした',
+    postChannelDetected: '判別: {channel}',
+    postChannelDetectFail: 'URLからチャンネルを自動判別できません',
+    noPost: 'まだ投稿が登録されていません',
+    submitCountLabel: '提出回数: {n}回',
+    needUrl: 'URLを入力してください',
+    badUrlFormat: 'URLの形式が正しくありません',
+    needChannel: 'チャンネルを選択してください',
+    afterDeadline: '提出期限が過ぎたため、登録できません',
+    needImage: 'レシート画像を選択してください',
+    receiptSuccess: 'レシートを登録しました',
+    postSuccess: '投稿URLを登録しました',
+    resubmitSuccess: '再提出しました',
+    appendedSuccess: '提出履歴を追加しました',
+    saveFail: '登録に失敗しました',
+    unknownDate: '日付未入力',
+    unknownAmount: '金額未入力',
+  },
+
+  // 결과물 상태 배지 (인플루언서 화면)
+  delivStatus: {
+    pending: '審査中',
+    approved: '承認',
+    rejected: '差戻',
+  },
+
+  // 알림
+  notif: {
+    headerN: 'お知らせ ({n})',
+    markAllRead: 'すべて既読',
+  },
 };
 // ══════════════════════════════════════
 // i18n — 한국어
@@ -1803,6 +1892,90 @@ window.I18N_KO = {
     termsTitle: '서비스 이용약관',
     privacyTitle: '개인정보 처리방침',
     about: '회사 소개',
+  },
+
+  detail: {
+    recruitType: '모집 타입',
+    recruitPeriod: '모집 기간',
+    recruitSlots: '모집 인원',
+    winnerAnnounce: '당선 발표',
+    winnerAnnounceValue: '선정 후 LINE으로 연락',
+    postDeadline: '게시 마감일',
+    postDeadlineRelative: '수령 후 {days}일 이내',
+    purchasePeriod: '구매 기간',
+    visitPeriod: '방문 기간',
+    submissionEnd: '결과물 제출 마감',
+    peopleUnit: '명',
+    noSetting: '—',
+    applyBtn: '응모',
+    closedBtn: '모집 마감',
+    fullBtn: '모집 종료',
+    appliedBtn: '응모 완료',
+    manageBtn: '활동 관리',
+  },
+
+  apply: {
+    reasonLabel: '응모 사유',
+    reasonPlaceholder: 'K브랜드 체험에 대한 의지를 알려주세요',
+    addressLabel: '배송지 주소',
+    prAgreeLabel: '#PR 태그 표기에 동의합니다',
+    submitBtn: '응모하기',
+    needLogin: '로그인이 필요합니다',
+    needReason: '응모 사유를 입력해주세요',
+    needAddress: '배송지 주소를 입력해주세요',
+    needPrAgree: '#PR 태그 표기에 동의가 필요합니다',
+    alreadyApplied: '이미 응모한 캠페인입니다',
+    slotsFull: '모집인원에 도달하여 응모할 수 없습니다',
+    sessionExpired: '세션이 만료되었습니다. 다시 로그인해주세요',
+    emailUnverified: '이메일 인증이 필요합니다. 메일함을 확인해주세요',
+    success: '응모가 완료되었습니다!',
+  },
+
+  activity: {
+    rejectedTitle: '반려되었습니다',
+    rejectedHint: '수정 후 다시 제출해주세요.',
+    submissionEndLabel: '제출 기한',
+    submissionEndPast: '제출 기한이 지났습니다',
+    receiptSection: '구매 영수증',
+    receiptImageLabel: '영수증 이미지',
+    receiptImageBtn: '이미지 선택',
+    receiptDateLabel: '구매일',
+    receiptAmountLabel: '금액(엔)',
+    submitBtn: '등록',
+    uploading: '업로드 중...',
+    noReceipt: '아직 등록된 영수증이 없습니다',
+    postSection: '게시물 URL 제출',
+    postUrlLabel: '게시물 URL',
+    postUrlPlaceholder: 'https://www.instagram.com/p/... 등',
+    postChannelLabel: '채널 선택',
+    postChannelHint: 'URL에서 채널을 자동 판별하지 못했습니다',
+    postChannelDetected: '판별: {channel}',
+    postChannelDetectFail: 'URL에서 채널을 자동 판별할 수 없습니다',
+    noPost: '아직 등록된 게시물이 없습니다',
+    submitCountLabel: '제출 횟수: {n}회',
+    needUrl: 'URL을 입력해주세요',
+    badUrlFormat: 'URL 형식이 올바르지 않습니다',
+    needChannel: '채널을 선택해주세요',
+    afterDeadline: '제출 기한이 지나 등록할 수 없습니다',
+    needImage: '영수증 이미지를 선택해주세요',
+    receiptSuccess: '영수증을 등록했습니다',
+    postSuccess: '게시물 URL을 등록했습니다',
+    resubmitSuccess: '재제출되었습니다',
+    appendedSuccess: '제출 이력을 추가했습니다',
+    saveFail: '등록에 실패했습니다',
+    unknownDate: '날짜 미입력',
+    unknownAmount: '금액 미입력',
+  },
+
+  delivStatus: {
+    pending: '심사중',
+    approved: '승인',
+    rejected: '반려',
+  },
+
+  notif: {
+    headerN: '알림 ({n})',
+    markAllRead: '모두 읽음',
   },
 };
 // ══════════════════════════════════════
@@ -4041,13 +4214,13 @@ function openApplyModal(campaignId) {
 }
 
 async function submitApplication() {
-  if (!currentUser) { toast('ログインが必要です','error'); return; }
+  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const msg = $('applyMessage').value.trim();
   const addr = $('applyAddress').value.trim();
   const prCheck = $('applyPrCheck').checked;
-  if (!msg) { toast('応募理由を入力してください','error'); return; }
-  if (!addr) { toast('配送先住所を入力してください','error'); return; }
-  if (!prCheck) { toast('#PRタグの表記に同意が必要です','error'); return; }
+  if (!msg) { toast(t('apply.needReason'),'error'); return; }
+  if (!addr) { toast(t('apply.needAddress'),'error'); return; }
+  if (!prCheck) { toast(t('apply.needPrAgree'),'error'); return; }
 
   const app = {
     id: 'app-'+Date.now(),
@@ -4064,7 +4237,7 @@ async function submitApplication() {
 
   const isDuplicate = await checkDuplicateApplication(currentUser.id, currentCampaignId);
   if (isDuplicate) {
-    toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
+    toast(t('apply.alreadyApplied'),'error'); closeModal('applyModal'); return;
   }
 
   // 리뷰어(monitor) 캠페인은 모집인원 초과 시 응모 차단
@@ -4074,7 +4247,7 @@ async function submitApplication() {
     const applied = Number(camp0.applied_count || 0);
     const slots = Number(camp0.slots || 0);
     if (slots > 0 && applied >= slots) {
-      toast('募集人数に達したため、応募できません', 'error');
+      toast(t('apply.slotsFull'), 'error');
       closeModal('applyModal');
       return;
     }
@@ -4096,7 +4269,7 @@ async function submitApplication() {
     }
   } catch(e) {
     if (e.message?.includes('row-level security')) {
-      toast('セッションの有効期限が切れました。再ログインしてください','error');
+      toast(t('apply.sessionExpired'),'error');
       closeModal('applyModal');
       currentUser = null; currentUserProfile = null;
       updateGnb();
@@ -4119,7 +4292,7 @@ function handleFloatApply() {
   }
   // 이메일 미인증 체크
   if (!currentUser.email_confirmed_at) {
-    toast('メールアドレスの認証が必要です。受信メールをご確認ください','error');
+    toast(t('apply.emailUnverified'),'error');
     return;
   }
   // 필수 정보 체크: 캠페인 채널에 맞는 SNS 계정 + 배송지
@@ -4204,8 +4377,8 @@ async function openActivityPage(applicationId, campaignId, from) {
     if (submissionEnd) {
       deadlineBox.style.display = '';
       deadlineBox.textContent = isAfterDeadline
-        ? `提出期限が過ぎました (${formatDate(submissionEnd)})`
-        : `提出期限: ${formatDate(submissionEnd)}`;
+        ? `${t('activity.submissionEndPast')} (${formatDate(submissionEnd)})`
+        : `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
       deadlineBox.style.color = isAfterDeadline ? '#C33' : 'var(--muted)';
     } else {
       deadlineBox.style.display = 'none';
@@ -4270,11 +4443,11 @@ function onPostUrlInputChange() {
   }
   const ch = detectChannelFromUrl(url);
   if (ch) {
-    if (detectedLbl) detectedLbl.textContent = `判別: ${CHANNEL_LABELS[ch]}`;
+    if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetected').replace('{channel}', CHANNEL_LABELS[ch]);
     if (detectedLbl) detectedLbl.style.color = 'var(--dark-pink)';
     if (manualWrap) manualWrap.style.display = 'none';
   } else {
-    if (detectedLbl) detectedLbl.textContent = 'URLからチャンネルを自動判別できません';
+    if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetectFail');
     if (detectedLbl) detectedLbl.style.color = '#C33';
     if (manualWrap) manualWrap.style.display = '';
   }
@@ -4324,7 +4497,7 @@ function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
   if (!container) return;
   if (!delivs.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだレシートが登録されていません</div>';
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noReceipt')}</div>`;
     return;
   }
   container.innerHTML = delivs.map(r => {
@@ -4335,8 +4508,8 @@ function renderActivityReceiptList(delivs) {
         ${r.receipt_url ? `<img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--ink)">${r.purchase_date ? formatDate(r.purchase_date) : '日付未入力'}</div>
-        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+Number(r.purchase_amount).toLocaleString() : '金額未入力'}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--ink)">${r.purchase_date ? formatDate(r.purchase_date) : t('activity.unknownDate')}</div>
+        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+Number(r.purchase_amount).toLocaleString() : t('activity.unknownAmount')}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         ${stBadge}
@@ -4350,7 +4523,7 @@ function renderActivityPostList(delivs) {
   const container = $('postSubmissionList');
   if (!container) return;
   if (!delivs.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだ投稿が登録されていません</div>';
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noPost')}</div>`;
     return;
   }
   container.innerHTML = delivs.map(d => {
@@ -4364,16 +4537,16 @@ function renderActivityPostList(delivs) {
         ${stBadge}
       </div>
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
-      ${subs.length > 1 ? `<div style="font-size:10px;color:var(--muted);margin-top:6px">提出回数: ${subs.length}回</div>` : ''}
+      ${subs.length > 1 ? `<div style="font-size:10px;color:var(--muted);margin-top:6px">${t('activity.submitCountLabel').replace('{n}', subs.length)}</div>` : ''}
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
     </div>`;
   }).join('');
 }
 
 function activityStatusBadge(status) {
-  if (status === 'approved') return '<span style="background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">承認</span>';
-  if (status === 'rejected') return '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">差戻</span>';
-  return '<span style="background:#FFF4E4;color:#B8741A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">審査中</span>';
+  if (status === 'approved') return `<span style="background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.approved')}</span>`;
+  if (status === 'rejected') return `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.rejected')}</span>`;
+  return `<span style="background:#FFF4E4;color:#B8741A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.pending')}</span>`;
 }
 
 function previewReceipt(input) {
@@ -4389,17 +4562,17 @@ function previewReceipt(input) {
 
 // Stage 3: 게시물 URL 제출 (기프팅·방문형)
 async function submitPostUrl() {
-  if (!currentUser) { toast('ログインが必要です','error'); return; }
+  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const url = ($('postUrlInput')?.value || '').trim();
-  if (!url) { toast('URLを入力してください', 'error'); return; }
+  if (!url) { toast(t('activity.needUrl'), 'error'); return; }
   // URL 형식 검증
-  try { new URL(url); } catch(e) { toast('URLの形式が正しくありません','error'); return; }
+  try { new URL(url); } catch(e) { toast(t('activity.badUrlFormat'),'error'); return; }
 
   // 제출 마감 확인
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end || camp.post_deadline;
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
-    toast('提出期限が過ぎたため、登録できません','error');
+    toast(t('activity.afterDeadline'),'error');
     return;
   }
 
@@ -4407,7 +4580,7 @@ async function submitPostUrl() {
   let channel = detectChannelFromUrl(url);
   if (!channel) {
     channel = $('postChannelManual')?.value || '';
-    if (!channel) { toast('チャンネルを選択してください', 'error'); return; }
+    if (!channel) { toast(t('activity.needChannel'), 'error'); return; }
   }
 
   try {
@@ -4420,7 +4593,7 @@ async function submitPostUrl() {
     const sameUrl = existing.find(d => (d.post_url || '').trim() === url);
     if (sameUrl) {
       await appendPostSubmission(sameUrl.id, url, channel);
-      toast(sameUrl.status === 'rejected' ? '再提出しました' : '提出履歴を追加しました', 'success');
+      toast(sameUrl.status === 'rejected' ? t('activity.resubmitSuccess') : t('activity.appendedSuccess'), 'success');
     } else {
       const id = await insertPostDeliverable({
         application_id: _activityAppId,
@@ -4430,7 +4603,7 @@ async function submitPostUrl() {
         post_channel: channel
       });
       if (!id) { toast('登録に失敗しました', 'error'); return; }
-      toast('投稿URLを登録しました', 'success');
+      toast(t('activity.postSuccess'), 'success');
     }
     // 폼 초기화
     const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
@@ -4443,19 +4616,19 @@ async function submitPostUrl() {
 }
 
 async function submitReceipt() {
-  if (!_receiptImgData) { toast('レシート画像を選択してください','error'); return; }
-  if (!currentUser) { toast('ログインが必要です','error'); return; }
+  if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
+  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
 
   // 제출 마감 확인 (Stage 3)
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end || camp.post_deadline;
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
-    toast('提出期限が過ぎたため、登録できません','error');
+    toast(t('activity.afterDeadline'),'error');
     return;
   }
 
   try {
-    toast('アップロード中...','');
+    toast(t('activity.uploading'),'');
     const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
     const receiptUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
 
@@ -4468,7 +4641,7 @@ async function submitReceipt() {
       purchase_amount: parseInt($('receiptAmount').value) || 0
     });
 
-    toast('レシートを登録しました','success');
+    toast(t('activity.receiptSuccess'),'success');
     _receiptImgData = null;
     $('receiptPreview').innerHTML = '';
     $('receiptFile').value = '';
@@ -4755,8 +4928,8 @@ async function loadMypageNotifications() {
   }).join('');
   section.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:700;color:var(--ink)">お知らせ (${items.length})</div>
-      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">すべて既読</button>
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">${t('notif.headerN').replace('{n}', items.length)}</div>
+      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">${t('notif.markAllRead')}</button>
     </div>
     ${rows}
   `;
