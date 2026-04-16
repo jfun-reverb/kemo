@@ -3602,6 +3602,10 @@ document.addEventListener('drop', function(e) {
   if (files.length) {
     var wrapId = listName === 'campImgData' ? 'campImgPreviewWrap' : 'editCampImgPreviewWrap';
     var counterId = listName === 'campImgData' ? 'campImgCounter' : 'editCampImgCounter';
+    // editCampImgChanged 플래그 세팅 (편집 폼 저장 로직이 이 플래그로 업로드 판단)
+    if (listName === 'editCampImgData' && typeof editCampImgChanged !== 'undefined') {
+      editCampImgChanged = true;
+    }
     addImagesToList(files, list, wrapId, counterId, listName);
   }
 });
