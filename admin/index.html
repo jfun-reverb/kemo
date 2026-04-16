@@ -631,6 +631,13 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
               <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input"></div>
             </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">상태</label>
+                <select id="editCampStatus" class="form-input">
+                  <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
+                </select>
+              </div>
+            </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">제품 정보</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
@@ -765,12 +772,6 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div id="editCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('edit')" style="margin-top:8px">+ 단계 추가</button>
             </div>
-            <div class="form-group"><label class="form-label">상태</label>
-              <select id="editCampStatus" class="form-input">
-                <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
-              </select>
-            </div>
-
             <div style="display:flex;gap:10px;margin-top:16px">
               <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
