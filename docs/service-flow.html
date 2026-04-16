@@ -127,6 +127,8 @@
   <a href="#sec5">5. 관리자 워크플로우</a>
   <a href="#sec6">6. 회원가입 / 인증 플로우</a>
   <a href="#sec7">7. 신청 심사 플로우</a>
+  <a href="#sec8">8. 결과물 검수 플로우</a>
+  <a href="#sec9">9. 알림 시스템 플로우</a>
 </div>
 
 <div class="legend">
@@ -497,8 +499,130 @@ flowchart LR
   </div>
 </div>
 
+<!-- 8. 결과물 검수 플로우 -->
+<div class="section" id="sec8">
+  <h2><span class="num">8</span>결과물 검수 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">승인된 인플루언서가 결과물(영수증/게시물 URL)을 제출 → 관리자 검수 → 승인/반려/재제출 루프 → 완료까지. 반려 사유는 기준데이터 템플릿에서 동적 로드</div>
+    <pre class="mermaid">
+flowchart TB
+  subgraph INF_SUBMIT["📱 인플루언서 제출"]
+    S1[마이페이지 → 활동관리] --> S2{모집 타입}
+    S2 -->|리뷰어 monitor| S3[영수증 이미지 + 구매일 + 금액]
+    S2 -->|기프팅/방문형| S4[SNS 게시 URL]
+    S3 --> S5[deliverables INSERT<br/>status=pending<br/>kind=receipt]
+    S4 --> S6[submit_deliverable RPC<br/>status=pending<br/>kind=post]
+    S5 --> S7([제출 완료])
+    S6 --> S7
+  end
+
+  subgraph ADMIN_REVIEW["🔧 관리자 검수"]
+    R1[결과물 관리 진입<br/>기본 필터: 검수대기] --> R2[목록에서 상세 클릭]
+    R2 --> R3[모달: 이미지/URL 확인<br/>+ 변경 이력 타임라인]
+    R3 --> R4{판단}
+    R4 -->|OK| R5[승인 버튼]
+    R4 -->|문제 발견| R6[반려 버튼]
+    R4 -->|판단 보류| R7[모달 닫기]
+    R5 --> R8[낙관적 락 체크<br/>version 일치?]
+    R8 -->|일치| R9[status=approved<br/>version+1]
+    R8 -->|불일치| R10[다른 관리자 처리 감지<br/>토스트 + 새로고침]
+  end
+
+  subgraph REJECT_FLOW["반려 플로우"]
+    J1[반려 모달 오픈] --> J2[템플릿 드롭다운<br/>모집 타입별 필터링]
+    J2 --> J3{템플릿 선택}
+    J3 -->|PR 태그 누락| J4[일본어 문구 자동 채움]
+    J3 -->|이미지 불선명 monitor만| J4
+    J3 -->|게시물 삭제 gifting/visit만| J4
+    J3 -->|기타| J5[자유 입력]
+    J4 --> J6[사유 추가 수정 가능]
+    J5 --> J6
+    J6 --> J7[반려 처리 버튼]
+    J7 --> J8[status=rejected<br/>reject_reason 저장<br/>version+1]
+  end
+
+  subgraph RESUBMIT["재제출 루프"]
+    Q1[인플루언서 활동관리<br/>빨간 배너 사유 확인] --> Q2[수정 후 재제출]
+    Q2 --> Q3[post_submissions 배열<br/>누적 이력 보관]
+    Q3 --> Q4[status=pending 복귀<br/>관련 미읽음 알림 자동 dismiss]
+    Q4 --> R1
+  end
+
+  S7 --> R1
+  R6 --> J1
+  J8 --> Q1
+  R9 --> COMPLETE([승인 · 검수 완료 ✓])
+
+  subgraph REVERT["되돌리기 옵션"]
+    V1[승인/반려 결과물] --> V2{되돌리기 필요?}
+    V2 -->|Yes| V3[확인 모달<br/>인플루언서 확인 가능성 경고]
+    V3 --> V4[status=pending 복귀<br/>version+1]
+    V4 --> R1
+  end
+
+  R9 --> V1
+  J8 --> V1
+
+  style S7 fill:#28C76F,color:#fff
+  style COMPLETE fill:#28C76F,color:#fff
+  style R9 fill:#28C76F,color:#fff
+  style J8 fill:#B3261E,color:#fff
+  style R10 fill:#FF9F43,color:#fff
+  style Q4 fill:#FF9F43,color:#fff
+    </pre>
+  </div>
+</div>
+
+<!-- 9. 알림 시스템 플로우 -->
+<div class="section" id="sec9">
+  <h2><span class="num">9</span>알림 시스템 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">결과물 상태 전이에 따라 DB 트리거가 자동으로 인플루언서 알림 생성. 관리자는 알림 UI 없음 (인플루언서 전용). 재제출 시 미읽음 알림 자동 dismiss</div>
+    <pre class="mermaid">
+flowchart LR
+  subgraph TRIGGER["DB 트리거 자동 발송"]
+    T1[deliverables.status UPDATE] --> T2{전이 패턴}
+    T2 -->|* → rejected| T3[kind=deliverable_rejected<br/>body=reject_reason]
+    T2 -->|approved → pending/rejected| T4[kind=deliverable_changed<br/>body=관리자 변경 안내]
+    T2 -->|rejected → pending<br/>재제출| T5[기존 미읽음 반려 알림<br/>자동 read_at=now]
+    T3 --> T6[notifications INSERT]
+    T4 --> T6
+  end
+
+  subgraph INF_UI["📱 인플루언서 알림 UI"]
+    N1[햄버거 메뉴 → 通知] --> N2[미읽음 배지 최대 9+]
+    N2 --> N3[슬라이드업 모달<br/>최대 30건 최신순]
+    N3 --> N4{알림 클릭}
+    N4 -->|개별 클릭| N5[해당 결과물 활동관리 이동<br/>+ 읽음 처리]
+    N4 -->|すべて既読| N6[전체 읽음 처리]
+    N5 --> N7[배지 자동 갱신]
+    N6 --> N7
+  end
+
+  subgraph ADMIN_UI["🔧 관리자 UI"]
+    A1[알림 메뉴 숨김<br/>isAdmin 체크] --> A2([관리자는 알림 없음])
+  end
+
+  T6 --> N1
+
+  subgraph POLICY["보안/정책"]
+    P1[RLS: SELECT 본인만<br/>+ 관리자 디버그 조회] --> P3
+    P2[RLS: UPDATE 본인 read_at만]  --> P3
+    P3[DELETE 정책 없음<br/>알림 영구 보존]
+    P4[INSERT: SECURITY DEFINER<br/>트리거에서만]
+  end
+
+  style T3 fill:#B3261E,color:#fff
+  style T4 fill:#FF9F43,color:#fff
+  style T5 fill:#28C76F,color:#fff
+  style A2 fill:#8B7A8E,color:#fff
+  style P3 fill:#5B7CFF,color:#fff
+    </pre>
+  </div>
+</div>
+
 <div class="footer">
-  REVERB JP Service Flow Chart — Generated 2026-04-08<br/>
+  REVERB JP Service Flow Chart — Generated 2026-04-08 · Updated 2026-04-16<br/>
   Tech: Supabase + Vanilla JS + Vercel | Mobile 480px + PC Full-Width
 </div>
 
@@ -529,7 +653,7 @@ mermaid.initialize({
 
 document.addEventListener('DOMContentLoaded', () => {
   const wait = setInterval(() => {
-    if (document.querySelectorAll('.chart-wrap svg').length >= 7) {
+    if (document.querySelectorAll('.chart-wrap svg').length >= 9) {
       clearInterval(wait); initHover();
     }
   }, 200);
