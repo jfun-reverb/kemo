@@ -524,14 +524,15 @@ async function loadDeliverablesForActivity() {
     kind
   });
 
-  // 반려 사유 배너: 가장 최근 rejected 항목의 사유를 표시
-  const rejected = delivs.filter(d => d.status === 'rejected').sort((a,b) => (b.updated_at||'').localeCompare(a.updated_at||''));
+  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시 (재제출하면 새 deliverable이 pending이므로 숨김)
   const banner = $('activityRejectBanner');
   const reasonEl = $('activityRejectReason');
   if (banner && reasonEl) {
-    if (rejected.length && rejected[0].reject_reason) {
+    const sorted = delivs.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
+    const latest = sorted[0];
+    if (latest && latest.status === 'rejected' && latest.reject_reason) {
       banner.style.display = '';
-      reasonEl.textContent = rejected[0].reject_reason;
+      reasonEl.textContent = latest.reject_reason;
     } else {
       banner.style.display = 'none';
     }

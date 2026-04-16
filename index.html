@@ -4251,14 +4251,15 @@ async function loadDeliverablesForActivity() {
     kind
   });
 
-  // 반려 사유 배너: 가장 최근 rejected 항목의 사유를 표시
-  const rejected = delivs.filter(d => d.status === 'rejected').sort((a,b) => (b.updated_at||'').localeCompare(a.updated_at||''));
+  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시 (재제출하면 새 deliverable이 pending이므로 숨김)
   const banner = $('activityRejectBanner');
   const reasonEl = $('activityRejectReason');
   if (banner && reasonEl) {
-    if (rejected.length && rejected[0].reject_reason) {
+    const sorted = delivs.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
+    const latest = sorted[0];
+    if (latest && latest.status === 'rejected' && latest.reject_reason) {
       banner.style.display = '';
-      reasonEl.textContent = rejected[0].reject_reason;
+      reasonEl.textContent = latest.reject_reason;
     } else {
       banner.style.display = 'none';
     }
@@ -4558,12 +4559,11 @@ async function renderMyApplyList() {
       ? `<img src="${esc(imgThumb(imgs[0],240))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
-    // Stage 6: 결과물 반려 배지 (승인된 신청만)
+    // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
     let delivBadge = '';
     if (a.status === 'approved') {
-      const ds = _myDelivsByApp[a.id] || [];
-      const hasRejected = ds.some(d => d.status === 'rejected');
-      if (hasRejected) delivBadge = '<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">差戻</span>';
+      const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
+      if (ds[0]?.status === 'rejected') delivBadge = '<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">差戻</span>';
     }
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
