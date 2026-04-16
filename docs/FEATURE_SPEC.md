@@ -204,9 +204,9 @@
 | ID      | 기능        | 상세                                                   |
 | ------- | ----------- | ------------------------------------------------------ |
 | ADM-050 | 관리자 목록 | 이메일, 이름, 역할, 생성일 표시                        |
-| ADM-051 | 관리자 추가 | 이메일, 비밀번호, 이름, 역할 입력 (super_admin만 가능), 기존 인플루언서 계정도 관리자로 추가 가능 |
+| ADM-051 | 관리자 초대 | **초대 방식**: 이메일+이름+역할 입력 → `invite_admin` RPC로 auth.users + identities 생성 → 클라이언트가 `resetPasswordForEmail()` 호출 → 받은 사람이 메일 링크로 비밀번호 설정 (super_admin만 가능). 기존 인플루언서 이메일이면 자동으로 관리자 권한 승격 (프로필 유지). `create_admin()`은 deprecated |
 | ADM-052 | 관리자 수정 | 이름, 역할 변경                                        |
-| ADM-053 | 관리자 삭제 | 확인 후 삭제 (auth.users 연쇄 삭제)                    |
+| ADM-053 | 관리자 삭제 (2택) | **권한만 해제**(`remove_admin_role`): admins 행만 제거, 인플루언서 계정·데이터 유지 / **완전 삭제**(`delete_admin_completely`): applications, receipts(Stage 7→deliverables), admins, influencers, identities, auth.users cascade. 자기 자신 삭제 차단 |
 | ADM-054 | 내 계정     | 이름 변경, 비밀번호 변경, 역할 확인 (읽기 전용)        |
 
 ---
@@ -331,8 +331,12 @@
 | ---------------------- | ------------------------------------------ |
 | is_admin()             | 현재 사용자의 관리자 여부 확인             |
 | is_super_admin()       | super_admin 여부 확인                      |
+| is_campaign_admin()    | campaign_admin 이상 여부 확인              |
 | handle_new_user()      | 회원가입 시 influencers 자동 생성 (트리거) |
-| create_admin()         | 새 관리자 계정 생성 (super_admin 전용, 기존 인플루언서 계정 지원) |
+| invite_admin()         | **관리자 초대** (super_admin 전용) — auth.users + identities 생성, 기존 인플루언서 자동 승격. 클라이언트는 직후 `resetPasswordForEmail` 호출 |
+| remove_admin_role()    | 관리자 권한만 해제 (admins 행 제거, 인플루언서 계정 유지) |
+| delete_admin_completely() | 관리자 완전 삭제 (applications/receipts/admins/influencers/identities/auth.users cascade, 자기 자신 차단) |
+| create_admin()         | **deprecated** (migration 032). 호출 시 예외 — `invite_admin` 사용 |
 | friendlyError()        | Supabase 에러를 한국어 메시지 + 에러 코드로 변환 (admin.js) |
 | getStatusBadgeKo()     | 관리자 페이지 한국어 상태 뱃지 생성 (admin.js) |
 | reset_admin_password() | 관리자 비밀번호 리셋 (super_admin 전용)    |
