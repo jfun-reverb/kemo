@@ -168,14 +168,13 @@ function buildCampCards(camps) {
           return flags.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">${flags.join('')}</div>` : '';
         })()}
         <div class="camp-brand">${esc(c.brand)}</div>
+        ${typeLabel ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin:2px 0">${esc(typeLabel)}</div>` : ''}
         <div class="camp-title">${esc(c.title)}</div>
         ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
         ${(() => {
-          // 모집타입 + 상태 배지 — 콘텐츠 종류 아래
-          const row = [];
-          if (typeLabel && !isFull && !isScheduled && !isClosed) row.push(`<span style="background:#FFF;border:1px solid var(--pink);color:var(--pink);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${typeLabel}</span>`);
-          if (!isFull && !isScheduled && !isClosed) row.push(`<span style="background:rgba(14,126,74,.12);color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeRecruiting')}</span>`);
-          return row.length ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${row.join('')}</div>` : '';
+          // 모집중 상태 배지 — 콘텐츠 종류 아래 (모집타입은 제목 위 라벨로 이동)
+          if (isFull || isScheduled || isClosed) return '';
+          return `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px"><span style="background:rgba(14,126,74,.12);color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeRecruiting')}</span></div>`;
         })()}
       </div>
       <div class="camp-footer"><div class="camp-reward"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">redeem</span> ${reward}</div></div>
