@@ -678,7 +678,7 @@ async function submitReceipt() {
   try {
     toast('アップロード中...','');
     const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
-    const receiptUrl = await uploadImage(_receiptImgData, fileName);
+    const receiptUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
 
     await insertReceipt({
       application_id: _activityAppId,

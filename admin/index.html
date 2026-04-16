@@ -2090,7 +2090,7 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
 
 // ── Image Storage ──
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
-async function uploadImage(base64Data, fileName) {
+async function uploadImage(base64Data, fileName, pathPrefix) {
   if (!db) return base64Data;
   // base64 → Blob 변환
   var parts = base64Data.split(',');
@@ -2099,9 +2099,10 @@ async function uploadImage(base64Data, fileName) {
   var arr = new Uint8Array(binary.length);
   for (var i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
   var blob = new Blob([arr], {type: mime});
-  // 파일 경로: campaigns/타임스탬프_파일명
+  // 파일 경로: {prefix}/타임스탬프_랜덤.ext (prefix 기본 'campaigns', 영수증은 'receipts')
+  var prefix = pathPrefix || 'campaigns';
   var ext = mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1];
-  var path = 'campaigns/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+  var path = prefix + '/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false});
   if (error) throw error;
   // 공개 URL 반환
