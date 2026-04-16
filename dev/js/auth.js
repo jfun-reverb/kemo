@@ -4,15 +4,8 @@
 
 function updateGnb() {
   const gnbRight = $('gnbRight');
-  if (currentUser) {
-    const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
-    gnbRight.innerHTML = isAdmin
-      ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/admin/'">Admin</button>`
-      : '';
-  } else {
-    // 비로그인: GNB 우측은 비우고 하단 플로팅 CTA로 유도
-    gnbRight.innerHTML = '';
-  }
+  // GNB 우측은 항상 비움 (로그인/가입은 하단 CTA, Admin은 햄버거 메뉴)
+  if (gnbRight) gnbRight.innerHTML = '';
   // 햄버거 메뉴 항목 갱신 (비로그인/관리자 분기)
   if (typeof renderNavMenu === 'function') renderNavMenu();
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();

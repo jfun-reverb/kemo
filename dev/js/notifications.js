@@ -17,33 +17,66 @@ function closeNavPanel() {
   if (p) p.setAttribute('aria-hidden', 'true');
 }
 
+let _navMypageOpen = false;
+
+function toggleNavMypage() {
+  _navMypageOpen = !_navMypageOpen;
+  renderNavMenu();
+}
+
 function renderNavMenu() {
   const menu = $('navMenu');
   if (!menu) return;
-  const items = [];
+  let html = '';
   if (currentUser) {
-    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
-    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
-    items.push({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
     const isAdmin = currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : '');
-    if (!isAdmin) {
-      items.push({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+    html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    // 마이페이지 (펼침)
+    const arrow = _navMypageOpen ? 'expand_less' : 'expand_more';
+    html += `<button class="nav-item" data-nav="mypage" onclick="toggleNavMypage()">
+      <span class="material-icons-round notranslate nav-icon" translate="no">person</span>
+      <span class="nav-label">${esc(t('tab.mypage'))}</span>
+      <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">${arrow}</span>
+    </button>`;
+    if (_navMypageOpen) {
+      const subs = [
+        {sub:'applications', label: t('mypage.menu.applications')},
+        {sub:'profile-basic', label: t('mypage.menu.basic')},
+        {sub:'profile-sns', label: t('mypage.menu.sns')},
+        {sub:'profile-address', label: t('mypage.menu.address')},
+        {sub:'paypal', label: t('mypage.menu.paypal')},
+        {sub:'password', label: t('mypage.menu.password')}
+      ];
+      html += subs.map(s => `
+        <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
+          <span class="nav-label">${esc(s.label)}</span>
+        </button>
+      `).join('');
     }
-    items.push({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
+    if (!isAdmin) {
+      html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+    }
+    if (isAdmin) {
+      html += navItemHtml({nav:'admin', icon:'admin_panel_settings', label: 'Admin', onclick:"window.location.href='/admin/'"});
+    }
+    html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
   } else {
-    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
-    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
-    items.push({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
-    items.push({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
+    html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += navItemHtml({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
+    html += navItemHtml({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
   }
-  menu.innerHTML = items.map(it => `
-    <button class="nav-item" data-nav="${it.nav}" onclick="${it.onclick}">
-      <span class="material-icons-round notranslate nav-icon" translate="no">${it.icon}</span>
-      <span class="nav-label">${esc(it.label)}</span>
-      ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
-    </button>
-  `).join('');
+  menu.innerHTML = html;
   refreshNotifBadge();
+}
+
+function navItemHtml(it) {
+  return `<button class="nav-item" data-nav="${it.nav}" onclick="${it.onclick}">
+    <span class="material-icons-round notranslate nav-icon" translate="no">${it.icon}</span>
+    <span class="nav-label">${esc(it.label)}</span>
+    ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
+  </button>`;
 }
 
 // ── 미읽음 배지 갱신 ──
