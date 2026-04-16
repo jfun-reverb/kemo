@@ -151,6 +151,23 @@ window.I18N_JA = {
     withdrawToast: '退会申請を受け付けました。運営にLINEでご連絡ください。',
   },
 
+  // 응모이력
+  appHistory: {
+    title: '応募履歴',
+    all: 'すべて',
+    pending: '審査中',
+    approved: '承認',
+    rejected: '非承認',
+    campStatus: 'キャンペーン状態',
+    sortNewest: '新しい順',
+    sortOldest: '古い順',
+    emptyAll: 'まだ応募したキャンペーンはありません',
+    emptyFiltered: '該当する応募はありません',
+    emptySub: '今すぐKブランド体験団に応募してみましょう！',
+    emptyBtn: 'キャンペーンを見る',
+    applyDate: '応募日',
+  },
+
   // 하단 탭
   tab: {
     home: 'ホーム',

@@ -145,6 +145,22 @@ window.I18N_KO = {
     withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
   },
 
+  appHistory: {
+    title: '응모 이력',
+    all: '전체',
+    pending: '심사중',
+    approved: '승인',
+    rejected: '비승인',
+    campStatus: '캠페인 상태',
+    sortNewest: '최신순',
+    sortOldest: '오래된순',
+    emptyAll: '아직 응모한 캠페인이 없습니다',
+    emptyFiltered: '해당하는 응모가 없습니다',
+    emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
+    emptyBtn: '캠페인 보기',
+    applyDate: '응모일',
+  },
+
   tab: {
     home: '홈',
     campaigns: '캠페인',

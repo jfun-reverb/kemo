@@ -655,14 +655,14 @@ window._supabaseLoaded = false;
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
       <div style="display:flex;gap:8px;padding:8px 16px;align-items:center">
         <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
-          <option value="">キャンペーン状態</option>
-          <option value="active">募集中</option>
-          <option value="scheduled">近日公開</option>
-          <option value="closed">締切</option>
+          <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
+          <option value="active" data-i18n="status.campaign.active">募集中</option>
+          <option value="scheduled" data-i18n="status.campaign.scheduled">近日公開</option>
+          <option value="closed" data-i18n="status.campaign.closed">締切</option>
         </select>
         <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
-          <option value="newest">新しい順</option>
-          <option value="oldest">古い順</option>
+          <option value="newest" data-i18n="appHistory.sortNewest">新しい順</option>
+          <option value="oldest" data-i18n="appHistory.sortOldest">古い順</option>
         </select>
       </div>
       <div id="myApplicationsList"></div>

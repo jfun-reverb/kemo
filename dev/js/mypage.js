@@ -82,7 +82,7 @@ function renderMyApplyTabs() {
   if (!tabs) return;
   const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0};
   _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
-  const labels = {all:'すべて', pending:'審査中', approved:'承認', rejected:'非承認'};
+  const labels = {all: t('appHistory.all'), pending: t('appHistory.pending'), approved: t('appHistory.approved'), rejected: t('appHistory.rejected')};
   tabs.innerHTML = Object.keys(labels).map(k =>
     `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
   ).join('');
@@ -119,7 +119,7 @@ async function renderMyApplyList() {
     : new Date(b.created_at) - new Date(a.created_at));
 
   if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?'まだ応募したキャンペーンはありません':'該当する応募はありません'}</div>${_myAppsTab==='all'?'<div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate(\'home\')">キャンペーンを見る</button>':''}</div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?t('appHistory.emptyAll'):t('appHistory.emptyFiltered')}</div>${_myAppsTab==='all'?`<div class="empty-sub">${t('appHistory.emptySub')}</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`:''}</div>`;
     return;
   }
   container.innerHTML = filtered.map(a => {
@@ -139,7 +139,7 @@ async function renderMyApplyList() {
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
-        <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
+        <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
       </div>
       <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
     </div>`;

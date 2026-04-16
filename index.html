@@ -1053,14 +1053,14 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
       <div style="display:flex;gap:8px;padding:8px 16px;align-items:center">
         <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
-          <option value="">キャンペーン状態</option>
-          <option value="active">募集中</option>
-          <option value="scheduled">近日公開</option>
-          <option value="closed">締切</option>
+          <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
+          <option value="active" data-i18n="status.campaign.active">募集中</option>
+          <option value="scheduled" data-i18n="status.campaign.scheduled">近日公開</option>
+          <option value="closed" data-i18n="status.campaign.closed">締切</option>
         </select>
         <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
-          <option value="newest">新しい順</option>
-          <option value="oldest">古い順</option>
+          <option value="newest" data-i18n="appHistory.sortNewest">新しい順</option>
+          <option value="oldest" data-i18n="appHistory.sortOldest">古い順</option>
         </select>
       </div>
       <div id="myApplicationsList"></div>
@@ -1602,6 +1602,23 @@ window.I18N_JA = {
     withdrawToast: '退会申請を受け付けました。運営にLINEでご連絡ください。',
   },
 
+  // 응모이력
+  appHistory: {
+    title: '応募履歴',
+    all: 'すべて',
+    pending: '審査中',
+    approved: '承認',
+    rejected: '非承認',
+    campStatus: 'キャンペーン状態',
+    sortNewest: '新しい順',
+    sortOldest: '古い順',
+    emptyAll: 'まだ応募したキャンペーンはありません',
+    emptyFiltered: '該当する応募はありません',
+    emptySub: '今すぐKブランド体験団に応募してみましょう！',
+    emptyBtn: 'キャンペーンを見る',
+    applyDate: '応募日',
+  },
+
   // 하단 탭
   tab: {
     home: 'ホーム',
@@ -1866,6 +1883,22 @@ window.I18N_KO = {
     withdraw: '회원 탈퇴',
     withdrawConfirm: '정말 탈퇴하시겠습니까?',
     withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
+  },
+
+  appHistory: {
+    title: '응모 이력',
+    all: '전체',
+    pending: '심사중',
+    approved: '승인',
+    rejected: '비승인',
+    campStatus: '캠페인 상태',
+    sortNewest: '최신순',
+    sortOldest: '오래된순',
+    emptyAll: '아직 응모한 캠페인이 없습니다',
+    emptyFiltered: '해당하는 응모가 없습니다',
+    emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
+    emptyBtn: '캠페인 보기',
+    applyDate: '응모일',
   },
 
   tab: {
@@ -4736,7 +4769,7 @@ function renderMyApplyTabs() {
   if (!tabs) return;
   const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0};
   _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
-  const labels = {all:'すべて', pending:'審査中', approved:'承認', rejected:'非承認'};
+  const labels = {all: t('appHistory.all'), pending: t('appHistory.pending'), approved: t('appHistory.approved'), rejected: t('appHistory.rejected')};
   tabs.innerHTML = Object.keys(labels).map(k =>
     `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
   ).join('');
@@ -4773,7 +4806,7 @@ async function renderMyApplyList() {
     : new Date(b.created_at) - new Date(a.created_at));
 
   if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?'まだ応募したキャンペーンはありません':'該当する応募はありません'}</div>${_myAppsTab==='all'?'<div class="empty-sub">今すぐKブランド体験団に応募してみましょう！</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate(\'home\')">キャンペーンを見る</button>':''}</div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?t('appHistory.emptyAll'):t('appHistory.emptyFiltered')}</div>${_myAppsTab==='all'?`<div class="empty-sub">${t('appHistory.emptySub')}</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`:''}</div>`;
     return;
   }
   container.innerHTML = filtered.map(a => {
@@ -4793,7 +4826,7 @@ async function renderMyApplyList() {
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
-        <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
+        <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
       </div>
       <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
     </div>`;
