@@ -223,6 +223,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-item .notif-badge{position:static;margin-left:auto}
 .nav-subitem{display:flex;align-items:center;padding:11px 20px 11px 54px;cursor:pointer;font-size:13px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
 .nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
+.nav-divider{height:1px;background:var(--line);margin:6px 14px}
 
 /* ── NOTIF MODAL (슬라이드업 시트) ── */
 .notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
@@ -1139,7 +1140,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">応募履歴</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
@@ -1163,7 +1164,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-profile-basic" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">基本情報</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.basic">基本情報</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1190,7 +1191,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-profile-sns" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">SNSアカウント</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.sns">SNSアカウント</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1234,7 +1235,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-profile-address" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">配送先</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.address">配送先</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1262,7 +1263,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-paypal" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">PayPal</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.paypal">PayPal</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1282,7 +1283,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-password" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">パスワード変更</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.password">パスワード変更</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -5048,9 +5049,11 @@ function renderNavMenu() {
   if (adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
 
   let html = '';
+  const divider = '<div class="nav-divider"></div>';
   if (currentUser) {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
     // 마이페이지 (클릭 시 바로 이동, 서브메뉴 항상 표시)
     html += navItemHtml({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
     const subs = [
@@ -5066,13 +5069,16 @@ function renderNavMenu() {
         <span class="nav-label">${esc(s.label)}</span>
       </button>
     `).join('');
+    html += divider;
     if (!isAdmin) {
       html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+      html += divider;
     }
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
   } else {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
     html += navItemHtml({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
     html += navItemHtml({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
   }

@@ -26,9 +26,11 @@ function renderNavMenu() {
   if (adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
 
   let html = '';
+  const divider = '<div class="nav-divider"></div>';
   if (currentUser) {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
     // 마이페이지 (클릭 시 바로 이동, 서브메뉴 항상 표시)
     html += navItemHtml({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
     const subs = [
@@ -44,13 +46,16 @@ function renderNavMenu() {
         <span class="nav-label">${esc(s.label)}</span>
       </button>
     `).join('');
+    html += divider;
     if (!isAdmin) {
       html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+      html += divider;
     }
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
   } else {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
     html += navItemHtml({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
     html += navItemHtml({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
   }
