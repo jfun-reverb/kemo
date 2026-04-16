@@ -4692,11 +4692,15 @@ async function renderLookupsTable() {
       <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
       <span class="lookup-toggle-slider"></span>
     </label>`;
-    const rtBadges = isChannel
-      ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(r.recruit_types||[]).map(t => {
-          const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
-          return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
-        }).join('')}</div>`
+    const showRt = isChannel || _currentLookupKind === 'reject_reason';
+    const rts = r.recruit_types || [];
+    const rtBadges = showRt
+      ? (rts.length
+        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${rts.map(t => {
+            const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+            return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+          }).join('')}</div>`
+        : `<div style="margin-top:4px"><span class="badge badge-gray" style="font-size:9px;padding:1px 6px">공통</span></div>`)
       : '';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i+1}</td>
@@ -4860,9 +4864,9 @@ function exitLookupReorderMode() {
 }
 
 function applyLookupModalKindUI(kind, recruitTypes) {
-  // 채널 탭일 때만 모집 조건 입력 표시
+  // 채널·반려사유 탭에서 모집 타입 선택 표시 (반려사유: 빈 배열=공통)
   const grp = $('lookupRecruitTypesGroup');
-  if (grp) grp.style.display = (kind === 'channel') ? '' : 'none';
+  if (grp) grp.style.display = (kind === 'channel' || kind === 'reject_reason') ? '' : 'none';
   // 체크박스 상태 초기화
   const set = new Set(recruitTypes || []);
   document.querySelectorAll('input[name="lookupRT"]').forEach(cb => {
@@ -4911,11 +4915,11 @@ async function saveLookupEdit() {
     err.style.display = 'block';
     return;
   }
-  // 채널이면 모집 조건 1개 이상 필수
+  // 채널이면 모집 조건 1개 이상 필수. 반려사유는 선택(빈 배열=공통)
   let recruitTypes = null;
-  if (kind === 'channel') {
+  if (kind === 'channel' || kind === 'reject_reason') {
     recruitTypes = Array.from(document.querySelectorAll('input[name="lookupRT"]:checked')).map(cb => cb.value);
-    if (recruitTypes.length === 0) {
+    if (kind === 'channel' && recruitTypes.length === 0) {
       err.textContent = '모집 타입을 1개 이상 선택해주세요';
       err.style.display = 'block';
       return;
@@ -5730,7 +5734,7 @@ async function openDelivDetail(id) {
     if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">결과물을 찾을 수 없습니다.</div>';
     return;
   }
-  _delivDetailCurrent = {id: d.id, version: d.version};
+  _delivDetailCurrent = {id: d.id, version: d.version, recruit_type: d.campaigns?.recruit_type || null};
   const camp = d.campaigns || {};
   const inf = d.influencers || {};
   const titleEl = $('delivDetailTitle');
@@ -5849,12 +5853,19 @@ async function openDelivRejectModal(id, version) {
   _delivRejectCtx = {id, version};
   const tpl = $('delivRejectTemplate');
   const reason = $('delivRejectReason');
+  // 현재 열려 있는 deliverable의 캠페인 recruit_type 추출
+  const campRt = _delivDetailCurrent?.recruit_type
+    || (_delivCache.find(d => d.id === id)?.campaigns?.recruit_type)
+    || null;
   if (tpl) {
-    // lookup_values에서 반려사유 목록 동적 로드
     tpl.innerHTML = '<option value="">— 직접 입력 —</option>';
     try {
       const items = await fetchLookupsAll('reject_reason');
-      items.filter(v => v.active).forEach(v => {
+      items.filter(v => v.active).filter(v => {
+        const rts = Array.isArray(v.recruit_types) ? v.recruit_types : [];
+        // 빈 배열 = 공통, 아니면 캠페인 타입과 매칭
+        return !rts.length || !campRt || rts.includes(campRt);
+      }).forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.code;
         opt.textContent = v.name_ko;
