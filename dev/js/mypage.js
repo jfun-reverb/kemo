@@ -11,7 +11,7 @@ function loadMyPage() {
   // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
   const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
   const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
-  $('mypageHandle').textContent = primary ? `@${primary}` : '未登録';
+  $('mypageHandle').textContent = primary ? `@${primary}` : t('profile.unregistered');
   $('mypageEmail').textContent = currentUser.email;
 
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
@@ -49,7 +49,7 @@ function loadMyPage() {
   if (badgePaypal) badgePaypal.style.display = hasPaypal ? 'none' : '';
 
   // 필수 필드 경고 표시
-  const reqMsg = 'キャンペーン応募に必須の入力項目です';
+  const reqMsg = t('profile.requiredHint');
   const snsFields = [{id:'profileIg',val:p.ig},{id:'profileX',val:p.x},{id:'profileTiktok',val:p.tiktok},{id:'profileYoutube',val:p.youtube}];
   const addrFields = [{id:'profileZip',val:p.zip},{id:'profilePrefecture',val:p.prefecture},{id:'profileCity',val:p.city},{id:'profilePhone',val:p.phone}];
   // SNS: 하나도 없으면 전부 경고
@@ -133,7 +133,7 @@ async function renderMyApplyList() {
     let delivBadge = '';
     if (a.status === 'approved') {
       const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
-      if (ds[0]?.status === 'rejected') delivBadge = '<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">差戻</span>';
+      if (ds[0]?.status === 'rejected') delivBadge = `<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">${t('delivStatus.rejected')}</span>`;
     }
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
@@ -173,7 +173,7 @@ async function saveProfile() {
   try {
     await updateInfluencer(currentUser.id, updated);
     currentUserProfile = Object.assign(currentUserProfile || {}, updated);
-    toast('保存しました','success'); loadMyPage();
+    toast(t('profile.saved'),'success'); loadMyPage();
   } catch(e) {
     toast(friendlyErrorJa(e), 'error');
   }
@@ -188,13 +188,13 @@ async function savePaypalInfo() {
   const showErr = msg => { if (err) { err.textContent = msg; err.style.display = 'block'; } };
   if (err) err.style.display = 'none';
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email) return showErr('PayPalメールアドレスを入力してください');
-  if (!emailRe.test(email)) return showErr('メールアドレスの形式が正しくありません');
-  if (email !== confirm) return showErr('確認用メールアドレスが一致しません');
+  if (!email) return showErr(t('profile.paypalRequired'));
+  if (!emailRe.test(email)) return showErr(t('profile.paypalInvalid'));
+  if (email !== confirm) return showErr(t('profile.paypalMismatch'));
   try {
     await updateInfluencer(currentUser.id, { paypal_email: email });
     currentUserProfile = Object.assign(currentUserProfile || {}, { paypal_email: email });
-    toast('PayPal情報を保存しました','success');
+    toast(t('profile.paypalSaved'),'success');
     loadMyPage();
   } catch(e) {
     toast(friendlyErrorJa(e), 'error');
@@ -207,15 +207,15 @@ async function changePassword() {
   const nw2 = $('newPw2')?.value;
   const err = $('pwChangeError');
   err.style.display='none';
-  if (!cur || !nw) { err.textContent='すべての項目を入力してください'; err.style.display='block'; return; }
+  if (!cur || !nw) { err.textContent=t('profile.fillAll'); err.style.display='block'; return; }
   if (cur === nw) { err.textContent = (typeof t==='function') ? t('auth.pwSameAsCurrent', '現在のパスワードと同じパスワードは使用できません。') : '現在のパスワードと同じパスワードは使用できません。'; err.style.display='block'; return; }
   const pwErr = (typeof validatePasswordPolicy === 'function') ? validatePasswordPolicy(nw) : null;
   if (pwErr) { err.textContent = pwErr; err.style.display='block'; return; }
   if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
-  if (!db) { err.textContent='サーバーに接続できません'; err.style.display='block'; return; }
+  if (!db) { err.textContent=t('authError.serverError'); err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
   if (error) { err.textContent=error.message; err.style.display='block'; return; }
-  toast('パスワードを変更しました','success');
+  toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
 }
 

@@ -677,9 +677,9 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div class="form-group"><label class="form-label">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
-        <div class="form-group"><label class="form-label">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
-        <div class="form-group"><label class="form-label">カテゴリー</label>
+        <div class="form-group"><label class="form-label" data-i18n="profile.nameKanji">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.nameKana">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="">選択してください</option>
             <option value="beauty">ビューティー・コスメ</option>
@@ -689,8 +689,8 @@ window._supabaseLoaded = false;
             <option value="other">その他</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@reverb.jpを追加後、IDを入力"></div>
-        <div class="form-group"><label class="form-label">一言自己紹介</label><input type="text" id="profileBio" class="form-input"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.lineId">LINE ID</label><input type="text" id="profileLine" class="form-input" placeholder="@reverb.jpを追加後、IDを入力" data-i18n-attr="placeholder:profile.lineIdHint"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.bio">一言自己紹介</label><input type="text" id="profileBio" class="form-input"></div>
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
       </div>
     </div>
@@ -705,15 +705,15 @@ window._supabaseLoaded = false;
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
         <div class="form-group" style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--outline)">
-          <label class="form-label">代表アカウント</label>
+          <label class="form-label" data-i18n="profile.primarySns">代表アカウント</label>
           <select id="profilePrimarySns" class="form-input">
-            <option value="">未選択</option>
+            <option value="" data-i18n="profile.primarySnsNone">未選択</option>
             <option value="instagram">Instagram</option>
             <option value="x">X(Twitter)</option>
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
           </select>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">マイページに表示されるアカウントです</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="profile.primarySnsHint">マイページに表示されるアカウントです</div>
         </div>
         <div class="form-group"><label class="form-label">Instagram ID</label>
           <div style="position:relative"><span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)">@</span>
@@ -748,21 +748,21 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div class="form-group"><label class="form-label">郵便番号</label>
+        <div class="form-group"><label class="form-label" data-i18n="profile.zip">郵便番号</label>
           <div style="display:flex;gap:8px">
             <input type="text" id="profileZip" class="form-input" placeholder="123-4567" style="flex:1">
             <button type="button" onclick="lookupZipProfile()" class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:12px">住所検索</button>
           </div>
         </div>
-        <div class="form-group"><label class="form-label">都道府県</label>
+        <div class="form-group"><label class="form-label" data-i18n="profile.prefecture">都道府県</label>
           <select id="profilePrefecture" class="form-input">
             <option value="">選択してください</option>
             <option>北海道</option><option>青森県</option><option>岩手県</option><option>宮城県</option><option>秋田県</option><option>山形県</option><option>福島県</option><option>茨城県</option><option>栃木県</option><option>群馬県</option><option>埼玉県</option><option>千葉県</option><option>東京都</option><option>神奈川県</option><option>新潟県</option><option>富山県</option><option>石川県</option><option>福井県</option><option>山梨県</option><option>長野県</option><option>岐阜県</option><option>静岡県</option><option>愛知県</option><option>三重県</option><option>滋賀県</option><option>京都府</option><option>大阪府</option><option>兵庫県</option><option>奈良県</option><option>和歌山県</option><option>鳥取県</option><option>島根県</option><option>岡山県</option><option>広島県</option><option>山口県</option><option>徳島県</option><option>香川県</option><option>愛媛県</option><option>高知県</option><option>福岡県</option><option>佐賀県</option><option>長崎県</option><option>熊本県</option><option>大分県</option><option>宮崎県</option><option>鹿児島県</option><option>沖縄県</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">市区町村・番地</label><input type="text" id="profileCity" class="form-input" placeholder="渋谷区渋谷1-2-3"></div>
-        <div class="form-group"><label class="form-label">建物名・部屋番号</label><input type="text" id="profileBuilding" class="form-input"></div>
-        <div class="form-group"><label class="form-label">電話番号</label><input type="tel" id="profilePhone" class="form-input" placeholder="090-1234-5678"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.city">市区町村・番地</label><input type="text" id="profileCity" class="form-input" placeholder="渋谷区渋谷1-2-3"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.building">建物名・部屋番号</label><input type="text" id="profileBuilding" class="form-input"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.phone">電話番号</label><input type="tel" id="profilePhone" class="form-input" placeholder="090-1234-5678"></div>
         <button class="btn btn-primary btn-block" onclick="saveProfile()" style="margin-top:12px">保存する</button>
       </div>
     </div>
@@ -776,14 +776,14 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px">リワードはPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
-        <div class="form-group"><label class="form-label">PayPal メールアドレス</label><input type="email" id="paypalEmail" class="form-input" placeholder="your-paypal@example.com" autocomplete="off"></div>
-        <div class="form-group"><label class="form-label">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" autocomplete="off"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.paypalHint">リワードはPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.paypalEmail">PayPal メールアドレス</label><input type="email" id="paypalEmail" class="form-input" placeholder="your-paypal@example.com" autocomplete="off"></div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.paypalConfirm">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" autocomplete="off"></div>
         <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <div style="background:var(--light-pink);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--dark-pink);margin-bottom:14px;line-height:1.6">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">info</span> <span data-i18n="profile.paypalNoAccount">PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。</span>
         </div>
-        <button class="btn btn-primary btn-block" onclick="savePaypalInfo()">PayPal情報を保存</button>
+        <button class="btn btn-primary btn-block" onclick="savePaypalInfo()" data-i18n="profile.paypalSaveBtn">PayPal情報を保存</button>
       </div>
     </div>
   </div>
@@ -796,21 +796,21 @@ window._supabaseLoaded = false;
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px">定期的なパスワード変更をお勧めします</div>
-        <div class="form-group"><label class="form-label">現在のパスワード</label>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.pwChangeHint">定期的なパスワード変更をお勧めします</div>
+        <div class="form-group"><label class="form-label" data-i18n="profile.currentPw">現在のパスワード</label>
           <div class="pw-wrap">
             <input type="password" id="currentPw" class="form-input" placeholder="現在のパスワード">
             <button type="button" class="pw-toggle" onclick="togglePw('currentPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label class="form-label">新しいパスワード</label>
+          <div class="form-group"><label class="form-label" data-i18n="profile.newPw">新しいパスワード</label>
             <div class="pw-wrap">
               <input type="password" id="newPw" class="form-input" placeholder="8文字以上">
               <button type="button" class="pw-toggle" onclick="togglePw('newPw',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
-          <div class="form-group"><label class="form-label">新しいパスワード（確認）</label>
+          <div class="form-group"><label class="form-label" data-i18n="profile.newPwConfirm">新しいパスワード（確認）</label>
             <div class="pw-wrap">
               <input type="password" id="newPw2" class="form-input" placeholder="再入力">
               <button type="button" class="pw-toggle" onclick="togglePw('newPw2',this)" aria-label="Show password"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
