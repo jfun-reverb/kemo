@@ -6,20 +6,21 @@ globs: "dev/**/*.html,dev/css/*.css,dev/js/*.js"
 # UI/레이아웃 규칙
 
 ## 레이아웃 분리 (절대 혼동 금지)
-- **인플루언서 페이지** (dev/index.html): 모바일 전용 max-width 480px, #appShell 내부, 바텀탭바
+- **인플루언서 페이지** (dev/index.html): 모바일 전용 max-width 480px, #appShell 내부, GNB + 우측 슬라이드 햄버거 메뉴
 - **관리자 페이지** (dev/admin/index.html): PC 전체폭, #appShell 밖, 사이드바 네비게이션
-- 관리자 페이지에 모바일 쉘/바텀탭 절대 적용 금지
+- 관리자 페이지에 모바일 쉘 절대 적용 금지
 - 인플루언서 페이지에 PC 전체폭 레이아웃 절대 적용 금지
+- 바텀탭은 제거됨 (2026-04 햄버거 메뉴로 대체, 키보드 간섭 제거 목적)
 
 ## 인플루언서 앱 구조
 - SPA 라우팅: `navigate()` 함수로 페이지 전환 (dev/js/app.js)
 - 페이지: #page-home, #page-campaigns, #page-detail, #page-login, #page-signup, #page-mypage
-- 바텀탭: 홈 / 캠페인 / 마이페이지
-- GNB: 상단 네비게이션 (로그인/회원가입 버튼)
+- GNB: 상단 네비게이션 (로그인/회원가입 버튼 + 우측 햄버거 ☰)
+- 햄버거 메뉴 항목: 홈 / 캠페인 / 마이페이지 / 알림(배지) / 로그아웃 (비로그인은 로그인·회원가입)
 
 ## 관리자 앱 구조
-- 사이드바 네비게이션: dashboard/campaigns/add-campaign/influencers/applications/admin-accounts/my-account
-- 관리자 페인: #pane-dashboard, #pane-campaigns 등
+- 사이드바 네비게이션: dashboard/campaigns/applications/deliverables/influencers/lookups(super_admin 한정)/admin-accounts/my-account (신규등록 메뉴는 제거 — `+ 신규 캠페인` 버튼으로만 진입)
+- 관리자 페인: #pane-dashboard, #pane-campaigns 등 (add-campaign/edit-campaign은 서브 페인)
 - 고정 헤더: 다크 배경 (#2D1F2B), 로고, 관리자 정보, 로그아웃
 
 ## UI 텍스트 언어 규칙
