@@ -14,7 +14,7 @@
 아래 변경을 건드리면 반드시 `/약관확인` 실행 또는 수동 영향 검토:
 
 - **Auth 변경** (회원가입 필드 추가/삭제, 소셜 로그인, MFA, 본인확인) → PRIVACY 수집항목·처리목적
-- **DB 스키마 신규 컬럼** (특히 `influencers`, `applications`, `receipts`) → PRIVACY 수집하는 개인정보
+- **DB 스키마 신규 컬럼** (특히 `influencers`, `applications`, `deliverables`, `receipts`(Stage 7에서 deliverables로 통합 예정)) → PRIVACY 수집하는 개인정보
 - **외부 서비스 추가** (새 SMTP, 결제 PG, SNS API, 분석 SDK) → PRIVACY 처리위탁·제3자 제공
 - **결제·정산·세무** (원천징수율, 환율, 수수료 변경) → TERMS 정산 조항
 - **관리자 열람 범위 확대** (새 열람 권한, 감사 로그) → PRIVACY 접근권한
