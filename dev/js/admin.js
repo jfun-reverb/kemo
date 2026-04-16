@@ -1028,7 +1028,7 @@ function renderOtCell(a, isPostType) {
   if (a.status !== 'approved') return '<span style="font-size:10px;color:var(--muted)">—</span>';
   const checked = !!a.oriented_at;
   const label = checked ? formatDate(a.oriented_at) : '미발송';
-  return `<label style="display:flex;flex-direction:column;gap:2px;cursor:pointer;font-size:10px">
+  return `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px">
     <input type="checkbox" ${checked?'checked':''} onchange="onOtToggle('${a.id}', this)" style="margin:0">
     <span style="color:${checked?'var(--green)':'var(--muted)'}">${label}</span>
   </label>`;
