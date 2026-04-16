@@ -170,6 +170,7 @@ window.I18N_KO = {
     markAllRead: '모두 읽음',
     headerN: '알림 ({n})',
     emptyUnread: '읽지 않은 알림이 없습니다',
+    refMissing: '관련 결과물을 찾을 수 없습니다',
   },
 
   tab: {

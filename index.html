@@ -584,10 +584,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="gnb-logo" onclick="navigate('home')">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
-    <div class="gnb-right" id="gnbRight">
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')" data-i18n="nav.login">ログイン</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')" data-i18n="nav.signup">新規登録</button>
-    </div>
+    <div class="gnb-right" id="gnbRight"></div>
     <button class="gnb-burger" id="gnbBurger" onclick="openNavPanel()" aria-label="Menu" style="position:relative">
       <span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:#fff">menu</span>
       <span id="gnbNotifBadge" class="notif-badge hidden"></span>
@@ -1702,6 +1699,7 @@ window.I18N_JA = {
     markAllRead: 'すべて既読',
     headerN: 'お知らせ ({n})',
     emptyUnread: '未読の通知はありません',
+    refMissing: '関連する成果物が見つかりません',
   },
 
   // 하단 탭 (deprecated — 햄버거 메뉴로 이전)
@@ -2113,6 +2111,7 @@ window.I18N_KO = {
     markAllRead: '모두 읽음',
     headerN: '알림 ({n})',
     emptyUnread: '읽지 않은 알림이 없습니다',
+    refMissing: '관련 결과물을 찾을 수 없습니다',
   },
 
   tab: {
@@ -2660,10 +2659,14 @@ async function updateApplicationOrientedAt(applicationId, isoOrNull) {
 }
 
 // Stage 6: 본인 알림 조회 (마이페이지 상단 알림 섹션용)
+// 관리자는 RLS SELECT 정책으로 전체 알림 SEE 가능하므로 명시적 user_id 필터 필수
 async function fetchMyNotifications(opts) {
   if (!db) return [];
   try {
-    let q = db?.from('notifications').select('*').order('created_at', {ascending: false});
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return [];
+    let q = db?.from('notifications').select('*').eq('user_id', uid).order('created_at', {ascending: false});
     if (opts?.unreadOnly) q = q.is('read_at', null);
     if (opts?.limit) q = q.limit(opts.limit);
     const {data, error} = await q;
@@ -2686,13 +2689,29 @@ async function markNotificationRead(notificationId) {
   } catch(e) { console.error('[markNotificationRead]', e); }
 }
 
+// 알림 1건 삭제 (본인만)
+async function deleteNotification(id) {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications').delete().eq('id', id);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[deleteNotification]', e); }
+}
+
 // 전체 알림 읽음 처리
 async function markAllNotificationsRead() {
   if (!db) return;
   try {
+    // 현재 유저 ID 조회 (explicit user_id 필터 — Supabase global-update 방지)
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return;
     await retryWithRefresh(async () => {
       const {error} = await db?.from('notifications')
         .update({read_at: new Date().toISOString()})
+        .eq('user_id', uid)
         .is('read_at', null);
       if (error) throw error;
     });
@@ -4892,14 +4911,13 @@ async function openActivityPage(applicationId, campaignId, from) {
     const ra = $('receiptAmount'); if (ra) ra.disabled = formDisabled;
   }
 
-  // 폼 초기화
-  if (!isPostType) {
-    $('receiptPreview').innerHTML = '';
-    $('receiptDate').value = '';
-    $('receiptAmount').value = '';
-    $('receiptFile').value = '';
+  // 폼 초기화 (이미지·URL 섹션 모두 null-safe 처리; 제거된 receiptDate/Amount도 안전하게 접근)
+  if (showImage) {
+    const rp = $('receiptPreview'); if (rp) rp.innerHTML = '';
+    const rf = $('receiptFile'); if (rf) rf.value = '';
     _receiptImgData = null;
-  } else {
+  }
+  if (showPost) {
     const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
     const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
@@ -5367,22 +5385,26 @@ function renderNotifModal(items) {
 
 async function onNotifItemClick(id, refTable, refId) {
   await markNotificationRead(id);
+  closeNotifModal();
+  // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
     try {
       const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
       const hit = delivs.find(d => d.id === refId);
       if (hit) {
-        closeNotifModal();
         openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
         refreshNotifBadge();
         return;
       }
     } catch(e) {}
+    // 참조는 있었으나 접근 불가 (삭제됨 등) → 알림도 제거
+    await deleteNotification(id);
+    toast(t('notif.refMissing'), 'warn');
+  } else {
+    // ref 없는 일반 알림: 응모이력으로 이동
+    if (typeof navigate === 'function') { navigate('mypage'); openMypageSub('applications'); }
   }
-  // 참조 없거나 실패: 배지·리스트 갱신
-  await refreshNotifBadge();
-  const items = await fetchMyNotifications({limit: 30});
-  renderNotifModal(items);
+  refreshNotifBadge();
 }
 
 // ── 비로그인 고정 CTA 표시 제어 ──

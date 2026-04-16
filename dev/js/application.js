@@ -465,14 +465,13 @@ async function openActivityPage(applicationId, campaignId, from) {
     const ra = $('receiptAmount'); if (ra) ra.disabled = formDisabled;
   }
 
-  // 폼 초기화
-  if (!isPostType) {
-    $('receiptPreview').innerHTML = '';
-    $('receiptDate').value = '';
-    $('receiptAmount').value = '';
-    $('receiptFile').value = '';
+  // 폼 초기화 (이미지·URL 섹션 모두 null-safe 처리; 제거된 receiptDate/Amount도 안전하게 접근)
+  if (showImage) {
+    const rp = $('receiptPreview'); if (rp) rp.innerHTML = '';
+    const rf = $('receiptFile'); if (rf) rf.value = '';
     _receiptImgData = null;
-  } else {
+  }
+  if (showPost) {
     const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
     const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';

@@ -178,6 +178,7 @@ window.I18N_JA = {
     markAllRead: 'すべて既読',
     headerN: 'お知らせ ({n})',
     emptyUnread: '未読の通知はありません',
+    refMissing: '関連する成果物が見つかりません',
   },
 
   // 하단 탭 (deprecated — 햄버거 메뉴로 이전)
