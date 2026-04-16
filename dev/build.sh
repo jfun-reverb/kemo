@@ -17,7 +17,7 @@ echo "🔨 REVERB JP 빌드 시작..."
 # 1. CLIENT 빌드 → ../index.html
 # ══════════════════════════════════════
 CLIENT_CSS_FILES=("css/base.css" "css/components.css" "css/campaign.css" "css/auth.css" "css/mypage.css")
-CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/storage.js" "lib/legal.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/mypage.js" "js/app.js")
+CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/storage.js" "lib/legal.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/notifications.js" "js/mypage.js" "js/app.js")
 
 CLIENT_CSS=""
 for f in "${CLIENT_CSS_FILES[@]}"; do

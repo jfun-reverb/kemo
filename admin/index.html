@@ -58,7 +58,7 @@
 
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
-  --tab-h:64px;
+  --tab-h:0px; /* deprecated: 바텀탭 제거됨. 과거 계산식 호환용 */
 }
 
 /* Material Design 타이포그래피 */
@@ -178,15 +178,53 @@ textarea.form-input{resize:vertical;min-height:80px}
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.08);z-index:9998;align-items:center;justify-content:center}
 .loading-overlay.show{display:flex}
 
-/* ── BOTTOM TAB BAR (Material Navigation Bar) ── */
-.bottom-tab{width:100%;height:var(--tab-h);background:var(--surface);border-top:none;display:flex;align-items:stretch;z-index:150;box-shadow:0 -1px 3px rgba(0,0,0,.08);flex-shrink:0}
-.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);color:var(--on-surface-variant);border:none;background:none;padding:8px 0;position:relative}
-.tab-item::before{content:'';position:absolute;top:8px;width:0;height:32px;background:var(--primary-container);border-radius:var(--r-full);transition:all .3s cubic-bezier(.2,0,0,1)}
-.tab-item.on::before{width:56px}
-.tab-item.on{color:var(--on-surface)}
-.tab-item .material-icons-round{font-size:24px;position:relative;z-index:1;transition:all .2s}
-.tab-item.on .material-icons-round{color:var(--primary);font-variation-settings:'FILL' 1}
-.tab-lbl{font-size:11px;font-weight:600;letter-spacing:.02em;position:relative;z-index:1}
+/* ── 햄버거 버튼 + 배지 ── */
+.gnb-burger{background:transparent;border:none;cursor:pointer;padding:6px 8px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background .15s;margin-left:4px}
+.gnb-burger:hover{background:rgba(255,255,255,.12)}
+.notif-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:#EF4444;color:#fff;border-radius:8px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.notif-badge.hidden{display:none}
+
+/* ── NAV PANEL (우측 슬라이드) ── */
+.nav-panel{position:fixed;inset:0;z-index:400;pointer-events:none}
+.nav-panel[aria-hidden="false"]{pointer-events:auto}
+.nav-panel-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;transition:opacity .25s}
+.nav-panel[aria-hidden="false"] .nav-panel-backdrop{opacity:1}
+.nav-panel-body{position:absolute;top:0;right:0;bottom:0;width:min(320px,82vw);background:#fff;transform:translateX(100%);transition:transform .25s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.nav-panel[aria-hidden="false"] .nav-panel-body{transform:translateX(0)}
+.nav-panel-header{display:flex;justify-content:flex-end;padding:8px 8px 0}
+.nav-panel-close{background:transparent;border:none;padding:8px;cursor:pointer;border-radius:8px}
+.nav-panel-close:hover{background:var(--surface-dim)}
+.nav-menu{display:flex;flex-direction:column;padding:8px 0}
+.nav-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;font-size:15px;color:var(--ink);border:none;background:transparent;text-align:left;transition:background .15s}
+.nav-item:hover{background:var(--surface-dim)}
+.nav-item.on{background:var(--light-pink);color:var(--pink);font-weight:700}
+.nav-item .nav-icon{font-size:22px;color:var(--muted);flex-shrink:0}
+.nav-item.on .nav-icon{color:var(--pink)}
+.nav-item .nav-label{flex:1}
+.nav-item .notif-badge{position:static;margin-left:auto}
+
+/* ── NOTIF MODAL (슬라이드업 시트) ── */
+.notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
+.notif-modal[aria-hidden="false"]{pointer-events:auto}
+.notif-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;transition:opacity .25s}
+.notif-modal[aria-hidden="false"] .notif-modal-backdrop{opacity:1}
+.notif-modal-body{position:absolute;left:0;right:0;bottom:0;top:15%;background:#fff;border-radius:16px 16px 0 0;transform:translateY(100%);transition:transform .3s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+.notif-modal[aria-hidden="false"] .notif-modal-body{transform:translateY(0)}
+.notif-modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.notif-modal-title{font-size:16px;font-weight:800;color:var(--ink)}
+.notif-mark-all{background:transparent;border:none;color:var(--pink);font-size:12px;font-weight:600;cursor:pointer;padding:4px 8px}
+.notif-mark-all:disabled{color:var(--muted);cursor:default}
+.notif-close-btn{background:transparent;border:none;padding:4px 8px;cursor:pointer;color:var(--muted)}
+.notif-modal-list{flex:1;overflow-y:auto;padding:8px 0}
+.notif-item{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid #faf5f9;cursor:pointer;transition:background .1s}
+.notif-item:hover{background:var(--surface-dim)}
+.notif-item.unread{background:#FFF8F0}
+.notif-item-icon{flex-shrink:0;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
+.notif-item-body{flex:1;min-width:0}
+.notif-item-title{font-size:13px;font-weight:700;color:var(--ink);line-height:1.3}
+.notif-item-desc{font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap}
+.notif-item-time{font-size:10px;color:var(--muted);margin-top:4px}
+.notif-empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
 
 /* ── FLOATING APPLY BAR ── */
 #detailFloatBar{display:none;position:fixed;bottom:var(--tab-h);left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--outline);padding:12px 16px;z-index:149;box-shadow:0 -2px 8px rgba(0,0,0,.06)}

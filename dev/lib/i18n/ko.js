@@ -161,6 +161,15 @@ window.I18N_KO = {
     applyDate: '응모일',
   },
 
+  menu: {
+    notifications: '알림',
+  },
+  notif: {
+    markAllRead: '모두 읽음',
+    headerN: '알림 ({n})',
+    emptyUnread: '읽지 않은 알림이 없습니다',
+  },
+
   tab: {
     home: '홈',
     campaigns: '캠페인',
@@ -373,10 +382,5 @@ window.I18N_KO = {
 
   channelLabel: {
     other: '기타',
-  },
-
-  notif: {
-    headerN: '알림 ({n})',
-    markAllRead: '모두 읽음',
   },
 };
