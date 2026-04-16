@@ -157,16 +157,16 @@ flowchart TB
     A2 --> A2V{마감일 검증}
     A2V -->|post_deadline < deadline| A2E[경고 + 저장 차단]
     A2V -->|OK| A3{상태 설정}
-    A3 -->|draft| A4[準備中 — 비공개]
-    A3 -->|scheduled| A5[近日公開 — 목록 노출]
-    A3 -->|active| A6[募集中 — 신청 가능]
+    A3 -->|draft| A4[준비중 — 비공개]
+    A3 -->|scheduled| A5[공개예정 — 목록 노출]
+    A3 -->|active| A6[모집중 — 신청 가능]
     A4 --> A3
     A5 --> A3
     A6 --> A7{deadline 경과?}
     A7 -->|Yes| A8[자동 closed]
     A7 -->|No| A6
     A8 --> A9{post_deadline 남음?}
-    A9 -->|Yes| A10[募集締切 — 목록 노출 유지]
+    A9 -->|Yes| A10[모집마감 — 목록 노출 유지]
     A9 -->|No| A11[완전 비노출]
   end
 
@@ -181,15 +181,15 @@ flowchart TB
     U4 -->|프로필 부족| U7[필수정보 안내 오버레이<br/>SNS·주소·전화·계좌]
     U7 --> U8[마이페이지에서 입력]
     U8 --> U3
-    U4 -->|모집마감| U9[募集締切 표시]
+    U4 -->|모집마감| U9[모집마감 표시]
     U4 -->|OK| U10[신청 모달<br/>동기 + 배송지 + PR동의]
     U10 --> U11[신청 완료 ✓]
   end
 
   subgraph REVIEW["📋 신청 심사"]
     R1[관리자 — 신청 목록] --> R2{심사}
-    R2 -->|承認| R3[상품 발송]
-    R2 -->|非承認| R4[미승인 통보]
+    R2 -->|승인| R3[상품 발송]
+    R2 -->|비승인| R4[미승인 통보]
     R3 --> R5[인플루언서 — 상품 수령]
     R5 --> R6[SNS 게시<br/>post_deadline까지]
     R6 --> R7[LINE 게시 링크 전송]
@@ -232,22 +232,22 @@ flowchart LR
   LOGIN --> DETAIL
   CHECK -->|프로필 부족| MYPAGE_FILL[필수정보 입력 안내]
   MYPAGE_FILL --> DETAIL
-  CHECK -->|모집마감| BLOCKED[募集締切]
-  CHECK -->|정원초과| FULL[募集終了]
-  CHECK -->|응모済| APPLIED[応募済み]
+  CHECK -->|모집마감| BLOCKED[모집마감]
+  CHECK -->|정원초과| FULL[모집종료]
+  CHECK -->|응모완료| APPLIED[응모완료]
   CHECK -->|OK| APPLY[신청 모달]
   APPLY --> DONE([신청 완료])
 
-  HOME --> MY[マイページ]
+  HOME --> MY[마이페이지]
   MY --> MY_LIST[메뉴 리스트]
-  MY_LIST --> MY_APP[応募履歴<br/>審査中·承認·非承認]
-  MY_LIST --> MY_BASIC[基本情報<br/>이름·카테고리·LINE·자기소개]
-  MY_LIST --> MY_SNS[SNSアカウント<br/>IG·X·TikTok·YT]
-  MY_LIST --> MY_ADDR[配送先<br/>우편번호·주소·전화]
-  MY_LIST --> MY_BANK[振込口座<br/>은행·지점·계좌]
-  MY_LIST --> MY_PW[パスワード変更]
-  MY_LIST --> MY_DEL[退会]
-  MY_LIST --> LOGOUT[ログアウト]
+  MY_LIST --> MY_APP[응모이력<br/>심사중·승인·비승인]
+  MY_LIST --> MY_BASIC[기본정보<br/>이름·카테고리·LINE·자기소개]
+  MY_LIST --> MY_SNS[SNS계정<br/>IG·X·TikTok·YT]
+  MY_LIST --> MY_ADDR[배송지<br/>우편번호·주소·전화]
+  MY_LIST --> MY_BANK[입금계좌<br/>은행·지점·계좌]
+  MY_LIST --> MY_PW[비밀번호 변경]
+  MY_LIST --> MY_DEL[탈퇴]
+  MY_LIST --> LOGOUT[로그아웃]
 
   style START fill:#C878A3,color:#fff
   style DONE fill:#28C76F,color:#fff
@@ -283,25 +283,25 @@ stateDiagram-v2
   closed --> draft: 관리자 재등록
 
   note right of draft
-    準備中 — 비공개
+    준비중 — 비공개
     목록 미노출
   end note
   note right of scheduled
-    近日公開 — 목록 노출
+    공개예정 — 목록 노출
     신청 불가
   end note
   note right of active
-    募集中 — 목록 노출
+    모집중 — 목록 노출
     신청 가능
     deadline 경과 시 자동 closed
   end note
   note right of paused
-    一時停止 — 목록 미노출
+    일시정지 — 목록 미노출
     deadline 경과시 active 전환 차단
   end note
   note right of closed
     모집마감
-    post_deadline 남으면 → 募集締切로 목록 유지
+    post_deadline 남으면 → 모집마감으로 목록 유지
     post_deadline 경과 → 완전 비노출
   end note
     </pre>
@@ -321,9 +321,9 @@ flowchart TB
   LOGIN --> AUTH
   AUTH -->|Yes| STATUS{캠페인 상태?}
 
-  STATUS -->|closed| CLOSED_END[募集締切<br/>버튼 비활성]
+  STATUS -->|closed| CLOSED_END[모집마감<br/>버튼 비활성]
   STATUS -->|active| DUP{중복 신청?}
-  DUP -->|Yes| DUP_END[応募済み<br/>재신청 불가]
+  DUP -->|Yes| DUP_END[응모완료<br/>재신청 불가]
   DUP -->|No| PROFILE{프로필 체크}
 
   PROFILE --> CH_CHECK{채널별 SNS ID?}
@@ -350,7 +350,7 @@ flowchart TB
   ADDR_CONFIRM --> PR[#PR태그 동의 ✓]
   PR --> SUBMIT[신청 전송]
   SUBMIT --> DB_INSERT[applications INSERT<br/>applied_count +1]
-  DB_INSERT --> DONE([신청 완료<br/>応募済み 표시])
+  DB_INSERT --> DONE([신청 완료<br/>응모완료 표시])
 
   style START fill:#C878A3,color:#fff
   style DONE fill:#28C76F,color:#fff
@@ -398,8 +398,8 @@ flowchart TB
   APP_MGR --> APP_TYPE[타입 필터<br/>전체·모니터·기프팅]
   APP_TYPE --> APP_CARD[캠페인별 카드<br/>신청수·대기·승인]
   APP_CARD --> APP_DETAIL[신청자 상세<br/>이름·이메일·SNS·메시지]
-  APP_DETAIL --> APPROVE[承認]
-  APP_DETAIL --> REJECT[非承認]
+  APP_DETAIL --> APPROVE[승인]
+  APP_DETAIL --> REJECT[비승인]
 
   SIDEBAR --> INF_MGR[인플루언서 관리]
   INF_MGR --> INF_TAB[채널 탭<br/>All·IG·X·TikTok·YT]
@@ -484,10 +484,10 @@ flowchart LR
   end
 
   subgraph INF_SIDE["인플루언서"]
-    I1[마이페이지<br/>応募履歴 확인] --> I2{상태 확인}
-    I2 -->|審査中| I3[대기]
-    I2 -->|承認| I4[상품 수령]
-    I2 -->|非承認| I5[미승인]
+    I1[마이페이지<br/>응모이력 확인] --> I2{상태 확인}
+    I2 -->|심사중| I3[대기]
+    I2 -->|승인| I4[상품 수령]
+    I2 -->|비승인| I5[미승인]
     I4 --> I6[상품 리뷰 촬영]
     I6 --> I7[SNS 게시<br/>해시태그·멘션 포함]
     I7 --> I8[게시 링크<br/>LINE 전송]
