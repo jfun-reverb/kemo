@@ -64,6 +64,7 @@ async function openCampaign(id) {
       <div style="background:#fff;border-bottom:1px solid var(--line);margin-bottom:10px">
         <div style="padding:16px 16px 12px">
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(camp.brand)}</div>
+          ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
           <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
           ${camp.product_price>0?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`:''}
           ${camp.reward>0?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
@@ -429,6 +430,15 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityCamp = camp;
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
+  const rtLabel = $('activityRecruitLabel');
+  if (rtLabel) {
+    if (camp.recruit_type && typeof getRecruitTypeLabelJa === 'function') {
+      rtLabel.textContent = getRecruitTypeLabelJa(camp.recruit_type);
+      rtLabel.style.display = '';
+    } else {
+      rtLabel.style.display = 'none';
+    }
+  }
 
   // 타입별 섹션 표시
   //   monitor: 영수증 이미지만 (receiptSection) — 자비 구매 증빙
