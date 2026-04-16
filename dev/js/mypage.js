@@ -175,7 +175,7 @@ async function saveProfile() {
     currentUserProfile = Object.assign(currentUserProfile || {}, updated);
     toast('保存しました','success'); loadMyPage();
   } catch(e) {
-    toast('保存エラー: '+e.message,'error');
+    toast(friendlyErrorJa(e), 'error');
   }
 }
 
@@ -197,7 +197,7 @@ async function savePaypalInfo() {
     toast('PayPal情報を保存しました','success');
     loadMyPage();
   } catch(e) {
-    toast('保存エラー: '+e.message,'error');
+    toast(friendlyErrorJa(e), 'error');
   }
 }
 
@@ -274,8 +274,8 @@ async function loadMypageNotifications() {
   }).join('');
   section.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:700;color:var(--ink)">お知らせ (${items.length})</div>
-      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">すべて既読</button>
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">${t('notif.headerN').replace('{n}', items.length)}</div>
+      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">${t('notif.markAllRead')}</button>
     </div>
     ${rows}
   `;

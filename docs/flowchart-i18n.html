@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>REVERB JP — i18n (다국어) 흐름도</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Pretendard', sans-serif; background: #f8f9fa; color: #1a1a2e; padding: 32px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 32px; }
+  .section { margin-bottom: 48px; }
+  .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; padding-left: 12px; border-left: 4px solid #6c5ce7; }
+
+  /* Flow diagram */
+  .flow { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .flow-row { display: flex; align-items: center; gap: 12px; }
+  .arrow { width: 2px; height: 28px; background: #b0b0b0; position: relative; }
+  .arrow::after { content: ''; position: absolute; bottom: -4px; left: -4px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 6px solid #b0b0b0; }
+  .box { padding: 10px 20px; border-radius: 8px; font-size: 13px; text-align: center; min-width: 180px; line-height: 1.5; }
+  .box-action { background: #dfe6e9; border: 1px solid #b2bec3; }
+  .box-system { background: #a29bfe; color: white; border: 1px solid #6c5ce7; }
+  .box-result { background: #55efc4; border: 1px solid #00b894; }
+  .box-decision { background: #ffeaa7; border: 1px solid #fdcb6e; transform: rotate(0deg); }
+  .box-error { background: #fab1a0; border: 1px solid #e17055; }
+
+  /* Coverage table */
+  table { border-collapse: collapse; width: 100%; max-width: 800px; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+  th { background: #6c5ce7; color: white; font-weight: 600; }
+  tr:nth-child(even) { background: #f0f0f5; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-done { background: #55efc4; color: #00614a; }
+  .badge-p2 { background: #a29bfe; color: white; }
+  .badge-todo { background: #fab1a0; color: #6b2c1a; }
+  .badge-na { background: #dfe6e9; color: #636e72; }
+
+  /* Error flow */
+  .error-flow { display: flex; align-items: stretch; gap: 16px; flex-wrap: wrap; max-width: 800px; }
+  .error-card { flex: 1; min-width: 200px; border-radius: 8px; padding: 16px; font-size: 12px; line-height: 1.6; }
+  .error-card h4 { font-size: 13px; margin-bottom: 8px; }
+
+  .legend { display: flex; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>REVERB JP — i18n (다국어) 흐름도</h1>
+<p class="subtitle">최종 업데이트: 2026-04-16 | Phase 1 + Phase 2 통합</p>
+
+<!-- Section 1: Language Toggle Flow -->
+<div class="section">
+  <div class="section-title">1. 언어 전환 흐름</div>
+  <div class="flow">
+    <div class="box box-action">사용자: 마이페이지 → 언어 메뉴 클릭</div>
+    <div class="arrow"></div>
+    <div class="box box-decision">KO(한국어) 또는 JA(일본어) 선택</div>
+    <div class="arrow"></div>
+    <div class="box box-system">setLang('ko' 또는 'ja')<br>→ localStorage('reverb.lang') 저장</div>
+    <div class="arrow"></div>
+    <div class="box box-system">applyI18n() 실행<br>DOM 전체 data-i18n / data-i18n-html 스캔</div>
+    <div class="arrow"></div>
+    <div class="box box-result">현재 페이지의 모든 라벨이<br>선택 언어로 즉시 전환</div>
+    <div class="arrow"></div>
+    <div class="box box-action" style="font-size:11px;">JS 동적 영역(토스트, 모달)은<br>다음 렌더링 시 t(key)로 반영</div>
+  </div>
+</div>
+
+<!-- Section 2: t() Helper Flow -->
+<div class="section">
+  <div class="section-title">2. t() 헬퍼 동작 흐름</div>
+  <div class="flow">
+    <div class="box box-action">코드에서 t('apply.loginRequired') 호출</div>
+    <div class="arrow"></div>
+    <div class="box box-system">getLang() → 현재 언어 확인 (ko/ja)</div>
+    <div class="arrow"></div>
+    <div class="box box-decision">해당 언어 사전에서 키 검색<br>(ja.js 또는 ko.js)</div>
+    <div class="arrow"></div>
+    <div style="display: flex; gap: 40px;">
+      <div class="flow" style="align-items: center;">
+        <div class="box box-result" style="min-width:140px;">키 존재 → 번역문 반환<br>"로그인해주세요"</div>
+      </div>
+      <div class="flow" style="align-items: center;">
+        <div class="box box-error" style="min-width:140px;">키 없음 → 키 이름 그대로 반환<br>"apply.loginRequired"<br>(개발 중 누락 감지)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: DB Error Locale Flow -->
+<div class="section">
+  <div class="section-title">3. DB 에러 메시지 로케일 대응 흐름</div>
+  <div class="flow">
+    <div class="box box-error">Supabase 에러 발생<br>(예: 23505 unique_violation)</div>
+    <div class="arrow"></div>
+    <div class="box box-system">friendlyErrorJa(errorCode, getLang())</div>
+    <div class="arrow"></div>
+    <div class="box box-decision">getLang() 결과</div>
+    <div class="arrow"></div>
+    <div style="display: flex; gap: 40px;">
+      <div class="flow" style="align-items: center;">
+        <div class="box box-result" style="min-width:180px;">
+          lang = 'ja'<br>"이미 등록되어 있습니다 (일본어)"
+        </div>
+      </div>
+      <div class="flow" style="align-items: center;">
+        <div class="box box-result" style="min-width:180px; background:#81ecec; border-color:#00cec9;">
+          lang = 'ko'<br>"이미 등록되어 있습니다"
+        </div>
+      </div>
+    </div>
+    <div class="arrow"></div>
+    <div class="box box-action">토스트(toast)로 사용자에게 표시</div>
+  </div>
+</div>
+
+<!-- Section 4: Coverage Table -->
+<div class="section">
+  <div class="section-title">4. i18n 적용 범위 (Phase 1 + Phase 2)</div>
+  <table>
+    <tr>
+      <th>페이지 / 영역</th>
+      <th>키 프리픽스</th>
+      <th>주요 파일</th>
+      <th>상태</th>
+    </tr>
+    <tr>
+      <td>GNB / 홈</td>
+      <td>gnb.*, home.*</td>
+      <td>app.js, index.html</td>
+      <td><span class="badge badge-done">P1 완료</span></td>
+    </tr>
+    <tr>
+      <td>인증 (로그인/가입/재설정)</td>
+      <td>auth.*</td>
+      <td>auth.js</td>
+      <td><span class="badge badge-done">P1 완료</span></td>
+    </tr>
+    <tr>
+      <td>마이페이지 (메뉴·프로필·SNS·배송·PayPal)</td>
+      <td>mypage.*</td>
+      <td>mypage.js</td>
+      <td><span class="badge badge-done">P1 완료</span></td>
+    </tr>
+    <tr>
+      <td>캠페인 목록</td>
+      <td>campaign.*</td>
+      <td>campaign.js</td>
+      <td><span class="badge badge-done">P1 완료</span></td>
+    </tr>
+    <tr>
+      <td>캠페인 상세 라벨</td>
+      <td>detail.*</td>
+      <td>campaign.js, index.html</td>
+      <td><span class="badge badge-p2">P2 완료</span></td>
+    </tr>
+    <tr>
+      <td>신청 모달</td>
+      <td>apply.*</td>
+      <td>application.js</td>
+      <td><span class="badge badge-p2">P2 완료</span></td>
+    </tr>
+    <tr>
+      <td>활동관리 (영수증·게시URL)</td>
+      <td>activity.*</td>
+      <td>application.js, mypage.js</td>
+      <td><span class="badge badge-p2">P2 완료</span></td>
+    </tr>
+    <tr>
+      <td>배송/심사 상태 배지</td>
+      <td>delivStatus.*</td>
+      <td>application.js</td>
+      <td><span class="badge badge-p2">P2 완료</span></td>
+    </tr>
+    <tr>
+      <td>알림</td>
+      <td>notif.*</td>
+      <td>app.js</td>
+      <td><span class="badge badge-p2">P2 완료</span></td>
+    </tr>
+    <tr>
+      <td>DB 에러 메시지</td>
+      <td>friendlyErrorJa()</td>
+      <td>ui.js</td>
+      <td><span class="badge badge-p2">P2 완료</span></td>
+    </tr>
+    <tr>
+      <td>푸터 / 약관 모달</td>
+      <td>—</td>
+      <td>app.js</td>
+      <td><span class="badge badge-todo">미대응</span></td>
+    </tr>
+    <tr>
+      <td>관리자 페이지</td>
+      <td>—</td>
+      <td>admin.js</td>
+      <td><span class="badge badge-na">대상 아님</span></td>
+    </tr>
+  </table>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#55efc4;"></div> Phase 1 완료</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a29bfe;"></div> Phase 2 완료</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#fab1a0;"></div> 미대응</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#dfe6e9;"></div> 대상 아님</div>
+  </div>
+</div>
+
+<!-- Section 5: File Architecture -->
+<div class="section">
+  <div class="section-title">5. 파일 구조</div>
+  <pre style="background:#2d3436; color:#dfe6e9; padding:20px; border-radius:8px; font-size:12px; line-height:1.8; overflow-x:auto;">
+dev/
+├── lib/
+│   └── i18n/
+│       ├── index.js      ← 런타임 (getLang, setLang, t, applyI18n)
+│       ├── ja.js          ← 일본어 사전 (~150 키)
+│       └── ko.js          ← 한국어 사전 (~150 키)
+├── js/
+│   ├── app.js            ← gnb.*, home.*, notif.*
+│   ├── auth.js           ← auth.*
+│   ├── campaign.js       ← campaign.*, detail.*
+│   ├── application.js    ← apply.*, activity.*, delivStatus.*
+│   ├── mypage.js         ← mypage.*, activity 일부
+│   └── ui.js             ← friendlyErrorJa() (에러 로케일)
+└── index.html            ← data-i18n / data-i18n-html 속성
+  </pre>
+</div>
+
+<!-- Section 6: Key Naming Convention -->
+<div class="section">
+  <div class="section-title">6. 키 네이밍 규칙</div>
+  <table style="max-width: 600px;">
+    <tr><th>형식</th><th>예시</th><th>설명</th></tr>
+    <tr><td>영역.항목</td><td>detail.recruitType</td><td>캠페인 상세의 모집타입 라벨</td></tr>
+    <tr><td>영역.하위.항목</td><td>apply.toast.success</td><td>신청 모달 성공 토스트</td></tr>
+    <tr><td>영역.동사</td><td>activity.submitReceipt</td><td>활동관리 영수증 제출 버튼</td></tr>
+    <tr><td>상태.값</td><td>delivStatus.approved</td><td>배송/심사 상태 "승인"</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

@@ -37,7 +37,7 @@
   - 운영: Site URL `https://globalreverb.com` + Redirect `https://globalreverb.com/**`, `https://www.globalreverb.com/**`
   - 개발: Site URL `https://dev.globalreverb.com` + Redirect `https://dev.globalreverb.com/**`
 
-## i18n (개발서버 한정, Phase 1)
+## i18n (개발서버 한정)
 - 인플루언서 페이지 KO/JA 토글 (마이페이지 메뉴)
 - 키-값: `dev/lib/i18n/{ja,ko}.js`, 런타임: `dev/lib/i18n/index.js`
 - HTML: `data-i18n="key"` (textContent), `data-i18n-html="key"` (innerHTML, `<br>` 허용)
@@ -45,6 +45,7 @@
 - 기본값 `ja`, navigator.language 자동 감지 사용 안 함
 - 운영서버 배포 전 (테스터 검증 완료 후 결정)
 - Phase 1 완료 범위: 마이페이지, 인증(로그인/가입/재설정), GNB/홈, 캠페인 목록 탭
+- Phase 2 완료 범위: 캠페인 상세 라벨(모집타입/기간/인원/마감일), 신청 모달(로그인유도/사유/주소/PR동의), 활동관리(영수증/게시URL/마감일/상태배지/재제출/비승인배너), 알림(헤더/전체읽음), DB 에러 메시지 로케일 대응(`friendlyErrorJa` → ko/ja 분기)
 
 ## Architecture
 - 인플루언서 앱: dev/index.html (모바일 480px, 바텀탭바)

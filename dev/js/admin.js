@@ -351,6 +351,17 @@ function exitReorderMode() {
 async function loadAdminCampaigns(useCache) {
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (!useCache) allCampaigns = camps.slice();
+
+  // 상태별 건수 요약 (필터 전 전체 기준)
+  const stCounts = {};
+  allCampaigns.forEach(c => { stCounts[c.status] = (stCounts[c.status]||0) + 1; });
+  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',paused:'일시정지',closed:'종료'};
+  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',paused:'var(--gold)',closed:'var(--muted)'};
+  const el = $('adminCampStatusCounts');
+  if (el) el.innerHTML = Object.keys(stLabels).filter(k=>stCounts[k]).map(k =>
+    `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
+  ).join('<span style="margin:0 4px;color:var(--line)">·</span>');
+
   // 타입 필터
   const typeFilter = $('adminCampTypeFilter')?.value || 'all';
   if (typeFilter !== 'all') camps = camps.filter(c => c.recruit_type === typeFilter);

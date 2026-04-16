@@ -301,13 +301,13 @@ async function insertPostDeliverable(payload) {
       post_channel: payload.post_channel,
       post_submissions: [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
     };
-    const {data, error} = await db.from('deliverables').insert(row).select('id').maybeSingle();
+    const {data, error} = await db?.from('deliverables').insert(row).select('id').maybeSingle();
     if (error) throw error;
     id = data?.id || null;
   });
   // 최초 제출 이벤트 기록 (SECURITY DEFINER)
   if (id) {
-    try { await db.rpc('submit_deliverable', {p_deliverable_id: id}); }
+    try { await db?.rpc('submit_deliverable', {p_deliverable_id: id}); }
     catch(e) { console.error('[submit_deliverable RPC]', e); }
   }
   return id;
@@ -318,7 +318,7 @@ async function insertPostDeliverable(payload) {
 async function appendPostSubmission(deliverableId, url, channel) {
   if (!db) return;
   await retryWithRefresh(async () => {
-    const {data: cur, error: e1} = await db.from('deliverables')
+    const {data: cur, error: e1} = await db?.from('deliverables')
       .select('post_submissions, status, version').eq('id', deliverableId).maybeSingle();
     if (e1) throw e1;
     if (!cur) return;
@@ -326,7 +326,7 @@ async function appendPostSubmission(deliverableId, url, channel) {
     arr.push({url, channel, submitted_at: new Date().toISOString()});
     const patch = {post_submissions: arr, version: (cur.version || 1) + 1};
     if (cur.status === 'rejected') { patch.status = 'pending'; patch.reject_reason = null; patch.reject_template_code = null; }
-    const {data: upd, error: e2} = await db.from('deliverables')
+    const {data: upd, error: e2} = await db?.from('deliverables')
       .update(patch).eq('id', deliverableId).eq('version', cur.version).select('id');
     if (e2) throw e2;
     if (!upd || !upd.length) throw new Error('conflict');
@@ -363,7 +363,7 @@ async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, t
   if (!db) return -1;
   let ret = -1;
   await retryWithRefresh(async () => {
-    const {data, error} = await db.rpc('update_deliverable_status', {
+    const {data, error} = await db?.rpc('update_deliverable_status', {
       p_id: id,
       p_new_status: newStatus,
       p_expected_version: expectedVersion,
