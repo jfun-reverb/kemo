@@ -731,27 +731,69 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div id="activityCampTitle" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
     <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
 
-    <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">購入レシート</div>
-    <div id="receiptList" style="margin-bottom:20px"></div>
+    <!-- 반려 사유 배너 (결과물 반려 시 노출) -->
+    <div id="activityRejectBanner" style="display:none;background:#FFF5F5;border-left:4px solid #C33;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#C33;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:18px">error_outline</span>
+        差し戻しされました
+      </div>
+      <div id="activityRejectReason" style="font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.5"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">修正後、再度ご提出ください。</div>
+    </div>
 
-    <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
-      <div class="form-group">
-        <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
-        <div id="receiptPreview" style="margin-bottom:8px"></div>
-        <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
-          <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
-        </label>
+    <!-- 제출 마감 안내 -->
+    <div id="activitySubmissionDeadline" style="display:none;font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+
+    <!-- 리뷰어(monitor) 영수증 섹션 -->
+    <div id="activityReceiptSection">
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">購入レシート</div>
+      <div id="receiptList" style="margin-bottom:20px"></div>
+      <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
+        <div class="form-group">
+          <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
+          <div id="receiptPreview" style="margin-bottom:8px"></div>
+          <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
+            <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">購入日</label>
+          <input type="date" id="receiptDate" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">金額（円）</label>
+          <input type="number" id="receiptAmount" class="form-input" placeholder="0">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">購入日</label>
-        <input type="date" id="receiptDate" class="form-input">
+    </div>
+
+    <!-- 기프팅·방문형 게시물 URL 섹션 (Stage 3) -->
+    <div id="activityPostSection" style="display:none">
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">投稿URLの提出</div>
+      <div id="postSubmissionList" style="margin-bottom:20px"></div>
+      <div id="postSubmissionForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
+        <div class="form-group">
+          <label class="form-label">投稿URL <span style="color:var(--red)">*</span></label>
+          <input type="url" id="postUrlInput" class="form-input" placeholder="https://www.instagram.com/p/... など" oninput="onPostUrlInputChange()">
+          <div id="postChannelDetected" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+        </div>
+        <div class="form-group" id="postChannelManualWrap" style="display:none">
+          <label class="form-label">チャンネルを選択 <span style="color:var(--red)">*</span></label>
+          <select id="postChannelManual" class="form-input">
+            <option value="">— 選択してください —</option>
+            <option value="instagram">Instagram</option>
+            <option value="x">X (Twitter)</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+            <option value="qoo10">Qoo10</option>
+            <option value="other">その他</option>
+          </select>
+          <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">URLからチャンネルを自動判別できませんでした</div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="submitPostUrl()" style="margin-top:12px">登録する</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">金額（円）</label>
-        <input type="number" id="receiptAmount" class="form-input" placeholder="0">
-      </div>
-      <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
     </div>
   </div>
 </div>
@@ -945,6 +987,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
     <div class="container mypage-wrap" style="padding-top:0">
+      <!-- Stage 6: 알림 섹션 (미읽음 있을 때만 노출) -->
+      <div id="mypageNotifSection" style="display:none;margin-bottom:12px"></div>
       <div class="mypage-menu">
         <div class="mypage-menu-item" onclick="openMypageSub('applications')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
@@ -2019,9 +2063,226 @@ async function insertReceipt(receipt) {
   });
 }
 
+// ── Deliverables (Stage 2) ──
+// 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
+async function fetchDeliverables(filters) {
+  if (!db) return [];
+  try {
+    let query = db?.from('deliverables').select(`
+      id, kind, status, version,
+      receipt_url, purchase_date, purchase_amount, memo,
+      post_url, post_channel, post_submissions,
+      reject_reason, reject_template_code,
+      reviewed_by, reviewed_at, submitted_at, updated_at,
+      application_id, user_id, campaign_id,
+      campaigns:campaign_id (id, title, brand, recruit_type)
+    `);
+    if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
+    if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
+    if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
+    // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
+    if (filters?.status === 'pending') query = query.order('submitted_at', {ascending: true});
+    else query = query.order('updated_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
+    const userIds = [...new Set((data || []).map(d => d.user_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(userIds);
+    return (data || []).map(d => ({...d, influencers: infMap[d.user_id] || null}));
+  } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+async function fetchDeliverableById(id) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db?.from('deliverables').select(`
+      *,
+      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, img1)
+    `).eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const infMap = await fetchInfluencersByIds([data.user_id]);
+    return {...data, influencers: infMap[data.user_id] || null};
+  } catch(e) { console.error('[fetchDeliverableById]', e); return null; }
+}
+
+// applications.oriented_at 토글 (Stage 4: OT 발송 체크박스)
+async function updateApplicationOrientedAt(applicationId, isoOrNull) {
+  if (!db) return false;
+  let ok = false;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('applications')
+        .update({oriented_at: isoOrNull})
+        .eq('id', applicationId);
+      if (error) throw error;
+      ok = true;
+    });
+  } catch(e) { console.error('[updateApplicationOrientedAt]', e); }
+  return ok;
+}
+
+// Stage 6: 본인 알림 조회 (마이페이지 상단 알림 섹션용)
+async function fetchMyNotifications(opts) {
+  if (!db) return [];
+  try {
+    let q = db?.from('notifications').select('*').order('created_at', {ascending: false});
+    if (opts?.unreadOnly) q = q.is('read_at', null);
+    if (opts?.limit) q = q.limit(opts.limit);
+    const {data, error} = await q;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchMyNotifications]', e); return []; }
+}
+
+// 알림 1건 읽음 처리
+async function markNotificationRead(notificationId) {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('id', notificationId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markNotificationRead]', e); }
+}
+
+// 전체 알림 읽음 처리
+async function markAllNotificationsRead() {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markAllNotificationsRead]', e); }
+}
+
+// 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
+async function fetchDeliverablesByCampaign(campaignId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db?.from('deliverables')
+      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason')
+      .eq('campaign_id', campaignId)
+      .order('submitted_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
+}
+
+// 인플루언서 본인 결과물 조회 (활동관리 화면)
+async function fetchDeliverablesForUser(filters) {
+  if (!db) return [];
+  try {
+    let query = db?.from('deliverables').select('*');
+    if (filters?.application_id) query = query.eq('application_id', filters.application_id);
+    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+    if (filters?.kind) query = query.eq('kind', filters.kind);
+    query = query.order('submitted_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverablesForUser]', e); return []; }
+}
+
+// 게시물 결과물 신규 INSERT (인플루언서)
+async function insertPostDeliverable(payload) {
+  if (!db) return null;
+  let id = null;
+  await retryWithRefresh(async () => {
+    const row = {
+      application_id: payload.application_id,
+      user_id: payload.user_id,
+      campaign_id: payload.campaign_id,
+      kind: 'post',
+      status: 'pending',
+      post_url: payload.post_url,
+      post_channel: payload.post_channel,
+      post_submissions: [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
+    };
+    const {data, error} = await db.from('deliverables').insert(row).select('id').maybeSingle();
+    if (error) throw error;
+    id = data?.id || null;
+  });
+  // 최초 제출 이벤트 기록 (SECURITY DEFINER)
+  if (id) {
+    try { await db.rpc('submit_deliverable', {p_deliverable_id: id}); }
+    catch(e) { console.error('[submit_deliverable RPC]', e); }
+  }
+  return id;
+}
+
+// 기존 게시물 deliverable에 재제출 반영 (동일 URL: 날짜만 누적, 반려건은 pending 복귀)
+// 낙관적 락: 관리자가 동시에 상태를 바꾸면 충돌 에러
+async function appendPostSubmission(deliverableId, url, channel) {
+  if (!db) return;
+  await retryWithRefresh(async () => {
+    const {data: cur, error: e1} = await db.from('deliverables')
+      .select('post_submissions, status, version').eq('id', deliverableId).maybeSingle();
+    if (e1) throw e1;
+    if (!cur) return;
+    const arr = Array.isArray(cur.post_submissions) ? cur.post_submissions.slice() : [];
+    arr.push({url, channel, submitted_at: new Date().toISOString()});
+    const patch = {post_submissions: arr, version: (cur.version || 1) + 1};
+    if (cur.status === 'rejected') { patch.status = 'pending'; patch.reject_reason = null; patch.reject_template_code = null; }
+    const {data: upd, error: e2} = await db.from('deliverables')
+      .update(patch).eq('id', deliverableId).eq('version', cur.version).select('id');
+    if (e2) throw e2;
+    if (!upd || !upd.length) throw new Error('conflict');
+  });
+}
+
+// 여러 user_id(auth.uid)에 대응하는 influencers 행을 map 형태로 반환
+async function fetchInfluencersByIds(userIds) {
+  if (!db || !userIds?.length) return {};
+  try {
+    const {data, error} = await db?.from('influencers')
+      .select('id, name, name_kana, email, primary_sns, line_id')
+      .in('id', userIds);
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(i => { map[i.id] = i; });
+    return map;
+  } catch(e) { return {}; }
+}
+
+async function fetchDeliverableEvents(deliverableId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db?.from('deliverable_events').select('*')
+      .eq('deliverable_id', deliverableId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// 낙관적 락: update_deliverable_status RPC 호출. 반환 -1=충돌, >0=새 version
+async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, templateCode) {
+  if (!db) return -1;
+  let ret = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_deliverable_status', {
+      p_id: id,
+      p_new_status: newStatus,
+      p_expected_version: expectedVersion,
+      p_reason: reason || null,
+      p_template_code: templateCode || null
+    });
+    if (error) throw error;
+    ret = typeof data === 'number' ? data : -1;
+  });
+  return ret;
+}
+
 // ── Image Storage ──
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
-async function uploadImage(base64Data, fileName) {
+async function uploadImage(base64Data, fileName, pathPrefix) {
   if (!db) return base64Data;
   // base64 → Blob 변환
   var parts = base64Data.split(',');
@@ -2030,9 +2291,10 @@ async function uploadImage(base64Data, fileName) {
   var arr = new Uint8Array(binary.length);
   for (var i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
   var blob = new Blob([arr], {type: mime});
-  // 파일 경로: campaigns/타임스탬프_파일명
+  // 파일 경로: {prefix}/타임스탬프_랜덤.ext (prefix 기본 'campaigns', 영수증은 'receipts')
+  var prefix = pathPrefix || 'campaigns';
   var ext = mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1];
-  var path = 'campaigns/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+  var path = prefix + '/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false});
   if (error) throw error;
   // 공개 URL 반환
@@ -3483,7 +3745,8 @@ async function openCampaign(id) {
     alreadyApplied = !!_myApp;
   }
 
-  const isFull = (camp.applied_count||0) >= camp.slots;
+  // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
+  const isFull = camp.recruit_type === 'monitor' && (camp.applied_count||0) >= camp.slots;
   _slideIdx = 0;
 
   // 슬라이드 이미지
@@ -3753,6 +4016,19 @@ async function submitApplication() {
     toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
   }
 
+  // 리뷰어(monitor) 캠페인은 모집인원 초과 시 응모 차단
+  // 주의: 클라이언트 캐시 기반 사전 차단(UX 보조). 근본 방어는 DB 레벨 트리거/체크가 필요.
+  const camp0 = allCampaigns.find(c => c.id === currentCampaignId);
+  if (camp0 && camp0.recruit_type === 'monitor') {
+    const applied = Number(camp0.applied_count || 0);
+    const slots = Number(camp0.slots || 0);
+    if (slots > 0 && applied >= slots) {
+      toast('募集人数に達したため、応募できません', 'error');
+      closeModal('applyModal');
+      return;
+    }
+  }
+
   try {
     await insertApplication({
       user_id: currentUser.id, user_email: currentUser.email,
@@ -3850,6 +4126,7 @@ function openProductPage() {
 // ══════════════════════════════════════
 let _activityAppId = null;
 let _activityCampId = null;
+let _activityCamp = null;
 let _activityFrom = 'detail'; // 'detail' or 'mypage'
 let _receiptImgData = null;
 
@@ -3858,15 +4135,98 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityCampId = campaignId;
   _activityFrom = from || 'detail';
   const camp = allCampaigns.find(c=>c.id===campaignId) || {};
+  _activityCamp = camp;
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
-  $('receiptPreview').innerHTML = '';
-  $('receiptDate').value = '';
-  $('receiptAmount').value = '';
-  $('receiptFile').value = '';
-  _receiptImgData = null;
+
+  // 타입 분기 (Stage 3)
+  const rt = camp.recruit_type || 'monitor';
+  const isPostType = (rt === 'gifting' || rt === 'visit');
+  $('activityReceiptSection').style.display = isPostType ? 'none' : '';
+  $('activityPostSection').style.display = isPostType ? '' : 'none';
+
+  // 제출 마감일 안내 + 마감 초과 시 폼 비활성
+  const submissionEnd = camp.submission_end || camp.post_deadline || null;
+  const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
+  const deadlineBox = $('activitySubmissionDeadline');
+  if (deadlineBox) {
+    if (submissionEnd) {
+      deadlineBox.style.display = '';
+      deadlineBox.textContent = isAfterDeadline
+        ? `提出期限が過ぎました (${formatDate(submissionEnd)})`
+        : `提出期限: ${formatDate(submissionEnd)}`;
+      deadlineBox.style.color = isAfterDeadline ? '#C33' : 'var(--muted)';
+    } else {
+      deadlineBox.style.display = 'none';
+    }
+  }
+  // 마감 후엔 입력 UI 비활성
+  const formDisabled = isAfterDeadline;
+  if (isPostType) {
+    const urlEl = $('postUrlInput'); if (urlEl) urlEl.disabled = formDisabled;
+    const selEl = $('postChannelManual'); if (selEl) selEl.disabled = formDisabled;
+  } else {
+    const rf = $('receiptFile'); if (rf) rf.disabled = formDisabled;
+    const rd = $('receiptDate'); if (rd) rd.disabled = formDisabled;
+    const ra = $('receiptAmount'); if (ra) ra.disabled = formDisabled;
+  }
+
+  // 폼 초기화
+  if (!isPostType) {
+    $('receiptPreview').innerHTML = '';
+    $('receiptDate').value = '';
+    $('receiptAmount').value = '';
+    $('receiptFile').value = '';
+    _receiptImgData = null;
+  } else {
+    const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
+    const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
+    const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
+  }
+
   navigate('activity');
-  await loadReceipts();
+  await loadDeliverablesForActivity();
+}
+
+// ── 게시물 URL 채널 자동판별 (Stage 3) ──
+function detectChannelFromUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (host.includes('instagram.com')) return 'instagram';
+    if (host.includes('tiktok.com')) return 'tiktok';
+    if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) return 'youtube';
+    if (host === 'x.com' || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'x';
+    if (host.includes('qoo10.jp')) return 'qoo10';
+    return null;
+  } catch(e) { return null; }
+}
+
+const CHANNEL_LABELS = {
+  instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube',
+  x: 'X (Twitter)', qoo10: 'Qoo10', other: 'その他'
+};
+
+function onPostUrlInputChange() {
+  const url = $('postUrlInput')?.value || '';
+  const detectedLbl = $('postChannelDetected');
+  const manualWrap = $('postChannelManualWrap');
+  if (!url.trim()) {
+    if (detectedLbl) detectedLbl.textContent = '';
+    if (manualWrap) manualWrap.style.display = 'none';
+    return;
+  }
+  const ch = detectChannelFromUrl(url);
+  if (ch) {
+    if (detectedLbl) detectedLbl.textContent = `判別: ${CHANNEL_LABELS[ch]}`;
+    if (detectedLbl) detectedLbl.style.color = 'var(--dark-pink)';
+    if (manualWrap) manualWrap.style.display = 'none';
+  } else {
+    if (detectedLbl) detectedLbl.textContent = 'URLからチャンネルを自動判別できません';
+    if (detectedLbl) detectedLbl.style.color = '#C33';
+    if (manualWrap) manualWrap.style.display = '';
+  }
 }
 
 function navigateBackFromActivity() {
@@ -3878,25 +4238,91 @@ function navigateBackFromActivity() {
   }
 }
 
-async function loadReceipts() {
-  const receipts = await fetchReceipts({application_id: _activityAppId});
+async function loadReceipts() { return loadDeliverablesForActivity(); }
+
+// Stage 3: 활동관리 화면의 결과물 리스트 (영수증·게시물 통합)
+async function loadDeliverablesForActivity() {
+  const camp = _activityCamp || {};
+  const isPostType = (camp.recruit_type === 'gifting' || camp.recruit_type === 'visit');
+  const kind = isPostType ? 'post' : 'receipt';
+  const delivs = await fetchDeliverablesForUser({
+    application_id: _activityAppId,
+    user_id: currentUser?.id,
+    kind
+  });
+
+  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시 (재제출하면 새 deliverable이 pending이므로 숨김)
+  const banner = $('activityRejectBanner');
+  const reasonEl = $('activityRejectReason');
+  if (banner && reasonEl) {
+    const sorted = delivs.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
+    const latest = sorted[0];
+    if (latest && latest.status === 'rejected' && latest.reject_reason) {
+      banner.style.display = '';
+      reasonEl.textContent = latest.reject_reason;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  if (isPostType) renderActivityPostList(delivs);
+  else renderActivityReceiptList(delivs);
+}
+
+function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
-  if (!receipts.length) {
+  if (!container) return;
+  if (!delivs.length) {
     container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだレシートが登録されていません</div>';
     return;
   }
-  container.innerHTML = receipts.map(r => `
+  container.innerHTML = delivs.map(r => {
+    const stBadge = activityStatusBadge(r.status);
+    return `
     <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--surface-dim)">
-        <img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">
+        ${r.receipt_url ? `<img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:var(--ink)">${r.purchase_date ? formatDate(r.purchase_date) : '日付未入力'}</div>
-        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+r.purchase_amount.toLocaleString() : '金額未入力'}</div>
+        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+Number(r.purchase_amount).toLocaleString() : '金額未入力'}</div>
       </div>
-      <div style="font-size:10px;color:var(--muted)">${formatDate(r.created_at)}</div>
-    </div>
-  `).join('');
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${stBadge}
+        <div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderActivityPostList(delivs) {
+  const container = $('postSubmissionList');
+  if (!container) return;
+  if (!delivs.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだ投稿が登録されていません</div>';
+    return;
+  }
+  container.innerHTML = delivs.map(d => {
+    const stBadge = activityStatusBadge(d.status);
+    const chLabel = CHANNEL_LABELS[d.post_channel] || d.post_channel || '—';
+    const subs = Array.isArray(d.post_submissions) ? d.post_submissions : [];
+    return `
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:600;color:var(--ink)">${esc(chLabel)}</div>
+        ${stBadge}
+      </div>
+      <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
+      ${subs.length > 1 ? `<div style="font-size:10px;color:var(--muted);margin-top:6px">提出回数: ${subs.length}回</div>` : ''}
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
+    </div>`;
+  }).join('');
+}
+
+function activityStatusBadge(status) {
+  if (status === 'approved') return '<span style="background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">承認</span>';
+  if (status === 'rejected') return '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">差戻</span>';
+  return '<span style="background:#FFF4E4;color:#B8741A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">審査中</span>';
 }
 
 function previewReceipt(input) {
@@ -3910,14 +4336,77 @@ function previewReceipt(input) {
   reader.readAsDataURL(file);
 }
 
+// Stage 3: 게시물 URL 제출 (기프팅·방문형)
+async function submitPostUrl() {
+  if (!currentUser) { toast('ログインが必要です','error'); return; }
+  const url = ($('postUrlInput')?.value || '').trim();
+  if (!url) { toast('URLを入力してください', 'error'); return; }
+  // URL 형식 검증
+  try { new URL(url); } catch(e) { toast('URLの形式が正しくありません','error'); return; }
+
+  // 제출 마감 확인
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || camp.post_deadline;
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+    toast('提出期限が過ぎたため、登録できません','error');
+    return;
+  }
+
+  // 채널 판별 (자동 실패 시 수동 선택 필수)
+  let channel = detectChannelFromUrl(url);
+  if (!channel) {
+    channel = $('postChannelManual')?.value || '';
+    if (!channel) { toast('チャンネルを選択してください', 'error'); return; }
+  }
+
+  try {
+    // 동일 URL 재제출 여부 확인
+    const existing = await fetchDeliverablesForUser({
+      application_id: _activityAppId,
+      user_id: currentUser.id,
+      kind: 'post'
+    });
+    const sameUrl = existing.find(d => (d.post_url || '').trim() === url);
+    if (sameUrl) {
+      await appendPostSubmission(sameUrl.id, url, channel);
+      toast(sameUrl.status === 'rejected' ? '再提出しました' : '提出履歴を追加しました', 'success');
+    } else {
+      const id = await insertPostDeliverable({
+        application_id: _activityAppId,
+        user_id: currentUser.id,
+        campaign_id: _activityCampId,
+        post_url: url,
+        post_channel: channel
+      });
+      if (!id) { toast('登録に失敗しました', 'error'); return; }
+      toast('投稿URLを登録しました', 'success');
+    }
+    // 폼 초기화
+    const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
+    const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
+    const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
+    await loadDeliverablesForActivity();
+  } catch(e) {
+    toast('登録エラー: ' + (e.message || e), 'error');
+  }
+}
+
 async function submitReceipt() {
   if (!_receiptImgData) { toast('レシート画像を選択してください','error'); return; }
   if (!currentUser) { toast('ログインが必要です','error'); return; }
 
+  // 제출 마감 확인 (Stage 3)
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || camp.post_deadline;
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+    toast('提出期限が過ぎたため、登録できません','error');
+    return;
+  }
+
   try {
     toast('アップロード中...','');
     const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
-    const receiptUrl = await uploadImage(_receiptImgData, fileName);
+    const receiptUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
 
     await insertReceipt({
       application_id: _activityAppId,
@@ -3948,6 +4437,7 @@ function loadMyPage() {
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
   $('mypageName').textContent = displayName;
+  loadMypageNotifications();  // Stage 6: 알림 섹션
   // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
   const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
   const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
@@ -4028,9 +4518,20 @@ function renderMyApplyTabs() {
   ).join('');
 }
 
-function renderMyApplyList() {
+let _myDelivsByApp = {};
+
+async function renderMyApplyList() {
   const container = $('myApplicationsList');
   let filtered = _myAppsTab === 'all' ? _myApps.slice() : _myApps.filter(a => a.status === _myAppsTab);
+
+  // Stage 6: 결과물 상태 배지용 — 본인 결과물 전체를 application별 그룹핑
+  if (currentUser) {
+    try {
+      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
+      _myDelivsByApp = {};
+      delivs.forEach(d => { (_myDelivsByApp[d.application_id] ||= []).push(d); });
+    } catch(e) { _myDelivsByApp = {}; }
+  }
 
   // 캠페인 상태 필터
   const campStatusFilter = $('myApplyCampStatus')?.value || '';
@@ -4058,13 +4559,19 @@ function renderMyApplyList() {
       ? `<img src="${esc(imgThumb(imgs[0],240))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
+    // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
+    let delivBadge = '';
+    if (a.status === 'approved') {
+      const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
+      if (ds[0]?.status === 'rejected') delivBadge = '<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">差戻</span>';
+    }
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
       </div>
-      <div class="apply-item-status">${getStatusBadge(a.status)}</div>
+      <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
     </div>`;
   }).join('');
 }
@@ -4173,6 +4680,54 @@ function handleWithdraw() {
 // 초기 + langchange 이벤트에서 토글 상태 갱신
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
+
+// ── Stage 6: 마이페이지 알림 섹션 ──
+async function loadMypageNotifications() {
+  const section = $('mypageNotifSection');
+  if (!section) return;
+  const items = await fetchMyNotifications({unreadOnly: true, limit: 10});
+  if (!items.length) { section.style.display = 'none'; section.innerHTML = ''; return; }
+  section.style.display = '';
+  const rows = items.map(n => {
+    const icon = n.kind === 'deliverable_rejected' ? 'error_outline'
+               : n.kind === 'deliverable_changed' ? 'change_circle'
+               : 'notifications';
+    const color = n.kind === 'deliverable_rejected' ? '#C33' : '#B8741A';
+    return `<div onclick="onNotifClick('${n.id}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')" style="display:flex;gap:10px;padding:10px 12px;background:#FFF8F0;border-left:3px solid ${color};border-radius:6px;margin-bottom:6px;cursor:pointer">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:${color};flex-shrink:0">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--ink)">${esc(n.title||'')}</div>
+        ${n.body ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:pre-wrap">${esc(n.body)}</div>` : ''}
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(n.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  section.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">お知らせ (${items.length})</div>
+      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">すべて既読</button>
+    </div>
+    ${rows}
+  `;
+}
+
+async function onNotifClick(id, refTable, refId) {
+  await markNotificationRead(id);
+  if (refTable === 'deliverables' && refId) {
+    // 해당 결과물이 속한 application을 찾아 활동관리 페이지로 이동
+    try {
+      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
+      const hit = delivs.find(d => d.id === refId);
+      if (hit) { openActivityPage(hit.application_id, hit.campaign_id, 'mypage'); return; }
+    } catch(e) {}
+  }
+  loadMypageNotifications();
+}
+
+async function onNotifMarkAllRead() {
+  await markAllNotificationsRead();
+  loadMypageNotifications();
+}
 // ══════════════════════════════════════
 // NAVIGATION + INIT
 // ══════════════════════════════════════

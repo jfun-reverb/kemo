@@ -333,27 +333,69 @@ window._supabaseLoaded = false;
     <div id="activityCampTitle" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
     <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
 
-    <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">購入レシート</div>
-    <div id="receiptList" style="margin-bottom:20px"></div>
+    <!-- 반려 사유 배너 (결과물 반려 시 노출) -->
+    <div id="activityRejectBanner" style="display:none;background:#FFF5F5;border-left:4px solid #C33;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#C33;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:18px">error_outline</span>
+        差し戻しされました
+      </div>
+      <div id="activityRejectReason" style="font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.5"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">修正後、再度ご提出ください。</div>
+    </div>
 
-    <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
-      <div class="form-group">
-        <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
-        <div id="receiptPreview" style="margin-bottom:8px"></div>
-        <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
-          <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
-          <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
-        </label>
+    <!-- 제출 마감 안내 -->
+    <div id="activitySubmissionDeadline" style="display:none;font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+
+    <!-- 리뷰어(monitor) 영수증 섹션 -->
+    <div id="activityReceiptSection">
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">購入レシート</div>
+      <div id="receiptList" style="margin-bottom:20px"></div>
+      <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
+        <div class="form-group">
+          <label class="form-label">レシート画像 <span style="color:var(--red)">*</span></label>
+          <div id="receiptPreview" style="margin-bottom:8px"></div>
+          <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> 画像を選択
+            <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">購入日</label>
+          <input type="date" id="receiptDate" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">金額（円）</label>
+          <input type="number" id="receiptAmount" class="form-input" placeholder="0">
+        </div>
+        <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">購入日</label>
-        <input type="date" id="receiptDate" class="form-input">
+    </div>
+
+    <!-- 기프팅·방문형 게시물 URL 섹션 (Stage 3) -->
+    <div id="activityPostSection" style="display:none">
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)">投稿URLの提出</div>
+      <div id="postSubmissionList" style="margin-bottom:20px"></div>
+      <div id="postSubmissionForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px">
+        <div class="form-group">
+          <label class="form-label">投稿URL <span style="color:var(--red)">*</span></label>
+          <input type="url" id="postUrlInput" class="form-input" placeholder="https://www.instagram.com/p/... など" oninput="onPostUrlInputChange()">
+          <div id="postChannelDetected" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+        </div>
+        <div class="form-group" id="postChannelManualWrap" style="display:none">
+          <label class="form-label">チャンネルを選択 <span style="color:var(--red)">*</span></label>
+          <select id="postChannelManual" class="form-input">
+            <option value="">— 選択してください —</option>
+            <option value="instagram">Instagram</option>
+            <option value="x">X (Twitter)</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+            <option value="qoo10">Qoo10</option>
+            <option value="other">その他</option>
+          </select>
+          <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px">URLからチャンネルを自動判別できませんでした</div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="submitPostUrl()" style="margin-top:12px">登録する</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">金額（円）</label>
-        <input type="number" id="receiptAmount" class="form-input" placeholder="0">
-      </div>
-      <button class="btn btn-primary btn-block" onclick="submitReceipt()" style="margin-top:12px">登録する</button>
     </div>
   </div>
 </div>
@@ -547,6 +589,8 @@ window._supabaseLoaded = false;
       </div>
     </div>
     <div class="container mypage-wrap" style="padding-top:0">
+      <!-- Stage 6: 알림 섹션 (미읽음 있을 때만 노출) -->
+      <div id="mypageNotifSection" style="display:none;margin-bottom:12px"></div>
       <div class="mypage-menu">
         <div class="mypage-menu-item" onclick="openMypageSub('applications')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>

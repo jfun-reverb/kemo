@@ -159,9 +159,226 @@ async function insertReceipt(receipt) {
   });
 }
 
+// ── Deliverables (Stage 2) ──
+// 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
+async function fetchDeliverables(filters) {
+  if (!db) return [];
+  try {
+    let query = db?.from('deliverables').select(`
+      id, kind, status, version,
+      receipt_url, purchase_date, purchase_amount, memo,
+      post_url, post_channel, post_submissions,
+      reject_reason, reject_template_code,
+      reviewed_by, reviewed_at, submitted_at, updated_at,
+      application_id, user_id, campaign_id,
+      campaigns:campaign_id (id, title, brand, recruit_type)
+    `);
+    if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
+    if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
+    if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
+    // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
+    if (filters?.status === 'pending') query = query.order('submitted_at', {ascending: true});
+    else query = query.order('updated_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
+    const userIds = [...new Set((data || []).map(d => d.user_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(userIds);
+    return (data || []).map(d => ({...d, influencers: infMap[d.user_id] || null}));
+  } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+async function fetchDeliverableById(id) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db?.from('deliverables').select(`
+      *,
+      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, img1)
+    `).eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const infMap = await fetchInfluencersByIds([data.user_id]);
+    return {...data, influencers: infMap[data.user_id] || null};
+  } catch(e) { console.error('[fetchDeliverableById]', e); return null; }
+}
+
+// applications.oriented_at 토글 (Stage 4: OT 발송 체크박스)
+async function updateApplicationOrientedAt(applicationId, isoOrNull) {
+  if (!db) return false;
+  let ok = false;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('applications')
+        .update({oriented_at: isoOrNull})
+        .eq('id', applicationId);
+      if (error) throw error;
+      ok = true;
+    });
+  } catch(e) { console.error('[updateApplicationOrientedAt]', e); }
+  return ok;
+}
+
+// Stage 6: 본인 알림 조회 (마이페이지 상단 알림 섹션용)
+async function fetchMyNotifications(opts) {
+  if (!db) return [];
+  try {
+    let q = db?.from('notifications').select('*').order('created_at', {ascending: false});
+    if (opts?.unreadOnly) q = q.is('read_at', null);
+    if (opts?.limit) q = q.limit(opts.limit);
+    const {data, error} = await q;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchMyNotifications]', e); return []; }
+}
+
+// 알림 1건 읽음 처리
+async function markNotificationRead(notificationId) {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('id', notificationId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markNotificationRead]', e); }
+}
+
+// 전체 알림 읽음 처리
+async function markAllNotificationsRead() {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markAllNotificationsRead]', e); }
+}
+
+// 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
+async function fetchDeliverablesByCampaign(campaignId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db?.from('deliverables')
+      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason')
+      .eq('campaign_id', campaignId)
+      .order('submitted_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
+}
+
+// 인플루언서 본인 결과물 조회 (활동관리 화면)
+async function fetchDeliverablesForUser(filters) {
+  if (!db) return [];
+  try {
+    let query = db?.from('deliverables').select('*');
+    if (filters?.application_id) query = query.eq('application_id', filters.application_id);
+    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
+    if (filters?.kind) query = query.eq('kind', filters.kind);
+    query = query.order('submitted_at', {ascending: false});
+    const {data, error} = await query;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverablesForUser]', e); return []; }
+}
+
+// 게시물 결과물 신규 INSERT (인플루언서)
+async function insertPostDeliverable(payload) {
+  if (!db) return null;
+  let id = null;
+  await retryWithRefresh(async () => {
+    const row = {
+      application_id: payload.application_id,
+      user_id: payload.user_id,
+      campaign_id: payload.campaign_id,
+      kind: 'post',
+      status: 'pending',
+      post_url: payload.post_url,
+      post_channel: payload.post_channel,
+      post_submissions: [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
+    };
+    const {data, error} = await db.from('deliverables').insert(row).select('id').maybeSingle();
+    if (error) throw error;
+    id = data?.id || null;
+  });
+  // 최초 제출 이벤트 기록 (SECURITY DEFINER)
+  if (id) {
+    try { await db.rpc('submit_deliverable', {p_deliverable_id: id}); }
+    catch(e) { console.error('[submit_deliverable RPC]', e); }
+  }
+  return id;
+}
+
+// 기존 게시물 deliverable에 재제출 반영 (동일 URL: 날짜만 누적, 반려건은 pending 복귀)
+// 낙관적 락: 관리자가 동시에 상태를 바꾸면 충돌 에러
+async function appendPostSubmission(deliverableId, url, channel) {
+  if (!db) return;
+  await retryWithRefresh(async () => {
+    const {data: cur, error: e1} = await db.from('deliverables')
+      .select('post_submissions, status, version').eq('id', deliverableId).maybeSingle();
+    if (e1) throw e1;
+    if (!cur) return;
+    const arr = Array.isArray(cur.post_submissions) ? cur.post_submissions.slice() : [];
+    arr.push({url, channel, submitted_at: new Date().toISOString()});
+    const patch = {post_submissions: arr, version: (cur.version || 1) + 1};
+    if (cur.status === 'rejected') { patch.status = 'pending'; patch.reject_reason = null; patch.reject_template_code = null; }
+    const {data: upd, error: e2} = await db.from('deliverables')
+      .update(patch).eq('id', deliverableId).eq('version', cur.version).select('id');
+    if (e2) throw e2;
+    if (!upd || !upd.length) throw new Error('conflict');
+  });
+}
+
+// 여러 user_id(auth.uid)에 대응하는 influencers 행을 map 형태로 반환
+async function fetchInfluencersByIds(userIds) {
+  if (!db || !userIds?.length) return {};
+  try {
+    const {data, error} = await db?.from('influencers')
+      .select('id, name, name_kana, email, primary_sns, line_id')
+      .in('id', userIds);
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(i => { map[i.id] = i; });
+    return map;
+  } catch(e) { return {}; }
+}
+
+async function fetchDeliverableEvents(deliverableId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db?.from('deliverable_events').select('*')
+      .eq('deliverable_id', deliverableId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// 낙관적 락: update_deliverable_status RPC 호출. 반환 -1=충돌, >0=새 version
+async function updateDeliverableStatus(id, newStatus, expectedVersion, reason, templateCode) {
+  if (!db) return -1;
+  let ret = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_deliverable_status', {
+      p_id: id,
+      p_new_status: newStatus,
+      p_expected_version: expectedVersion,
+      p_reason: reason || null,
+      p_template_code: templateCode || null
+    });
+    if (error) throw error;
+    ret = typeof data === 'number' ? data : -1;
+  });
+  return ret;
+}
+
 // ── Image Storage ──
 // base64를 Supabase Storage에 업로드하고 공개 URL 반환
-async function uploadImage(base64Data, fileName) {
+async function uploadImage(base64Data, fileName, pathPrefix) {
   if (!db) return base64Data;
   // base64 → Blob 변환
   var parts = base64Data.split(',');
@@ -170,9 +387,10 @@ async function uploadImage(base64Data, fileName) {
   var arr = new Uint8Array(binary.length);
   for (var i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
   var blob = new Blob([arr], {type: mime});
-  // 파일 경로: campaigns/타임스탬프_파일명
+  // 파일 경로: {prefix}/타임스탬프_랜덤.ext (prefix 기본 'campaigns', 영수증은 'receipts')
+  var prefix = pathPrefix || 'campaigns';
   var ext = mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1];
-  var path = 'campaigns/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+  var path = prefix + '/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false});
   if (error) throw error;
   // 공개 URL 반환

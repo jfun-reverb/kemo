@@ -75,7 +75,8 @@
 - 회원가입 이메일 확인: Supabase Confirm sign-up 활성화, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단
 - 마이페이지: 리스트 → 상세 페이지 네비게이션 (탭 방식 아님), 메뉴: 応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리 경고
 - 바텀탭: 홈 / キャンペーン / マイページ (로그인 전 마이페이지 숨김)
-- 활동관리: 승인된 캠페인에서 구매 영수증 등록 (이미지+구매일+금액), receipts 테이블에 저장
+- 활동관리: 승인된 캠페인에서 결과물 제출. recruit_type 분기 — monitor=영수증(이미지+구매일+금액, receipts 테이블, dual-write 트리거로 deliverables 동기화), gifting/visit=SNS 게시물 URL(자동 채널 판별 + 실패 시 수동 드롭다운, deliverables 직접 INSERT + submit_deliverable RPC). 반려된 결과물은 상단 빨간 배너에 사유 표시, 재제출 시 pending 복귀(동일 URL은 post_submissions 배열에 날짜 누적). submission_end(폴백: post_deadline) 경과 시 폼 비활성
+- 응모 차단: 리뷰어(monitor) 캠페인은 applied_count >= slots일 때 신규 응모 차단 (기프팅·방문형은 초과 응모 허용)
 - 응모이력: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터, 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
 - 홈 하단 푸터: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
 - 성능 최적화: preconnect(Supabase/Fonts/jsDelivr), 캠페인 카드/마이페이지 썸네일 lazy loading + decoding=async, Supabase Storage 이미지 transform(`/render/image/public/?width=&quality=`)으로 썸네일 용량 축소, 이미지 로드 실패 시 원본 URL 자동 폴백
@@ -100,6 +101,8 @@
 - 이미지 관리: 드래그앤드롭 업로드, 크롭, 미리보기, Supabase Storage 저장
 - 신청 관리: 테이블 UI (캠페인 썸네일, 타입/상태/검색 필터, 상태 정렬), 인플루언서 상세 모달, 모집인원/빈자리 표시
 - 신청 처리: reviewed_by, reviewed_at 기록, 되돌리기(pending 복귀) 기능, 빈자리 없으면 승인버튼 비활성(회색)
+- 결과물 관리(`/admin#deliverables`): 영수증/게시물 URL 통합 검수 페인. 필터(상태 기본 pending·캠페인·타입·인플루언서 검색) + 오래된 순 정렬. 상세 모달에 이력 타임라인 + 승인/반려/되돌리기. 반려 사유 템플릿(PR태그 누락 등 6종) + 자유입력 혼합. 낙관적 락(`version`) 기반 동시 처리 충돌 엄격 차단 — 후순위는 "이미 처리됨" 토스트
+- 캠페인 진행현황(캠페인 → 신청자 보기): 기본 신청자 테이블에 OT 발송 체크박스(gifting/visit 승인 건만 활성, 해제 시 확인 모달) + 결과물 상태 요약(승인/검수대기/반려 건수 + 최신 상세 모달 링크) 컬럼 추가. 심사·OT·검수를 한 화면에서 처리
 - 해시태그/멘션: 태그 입력 UI (콤마 구분, 라벨+삭제, #/@ 입력 차단)
 - 에러 처리: friendlyError() 한국어 에러 메시지 + 에러 코드 표시
 - 상태 뱃지: getStatusBadgeKo() 한국어 상태 표시
@@ -117,8 +120,9 @@
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps, deadline, post_deadline, purchase_start/end (monitor), visit_start/end (visit), submission_end 등)
 - `deliverables` — 결과물 통합 테이블 (kind: 'receipt'|'post', status, receipt_url/purchase_date/purchase_amount(receipt), post_url/post_channel/post_submissions(post), reject_reason, reviewed_by/at, version). receipts와 dual-write 동기화 중 (Stage 7에서 receipts DROP 예정)
 - `deliverable_events` — 결과물 상태 변경 이력 (action: submit/resubmit/approve/reject/revert, from_status, to_status). 트리거/RPC만 INSERT
+- `notifications` — 인플루언서 알림 (kind: deliverable_rejected/deliverable_changed/deliverable_approved, ref_table/ref_id, read_at). deliverables.status 전이 트리거로 자동 생성, 재제출 시 미읽음 알림 자동 dismiss
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, paypal_email, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등) — bank_* 컬럼은 deprecated (유지, 미사용)
-- `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at)
+- `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at, oriented_at (OT 발송 체크 수동 토글), reviewed_version (낙관적 락))
 - `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용

@@ -87,6 +87,7 @@
       <div class="admin-si-lbl">캠페인</div>
       <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
       <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
+      <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -675,8 +676,8 @@
               </div>
             </div>
             <table class="data-table">
-              <thead><tr><th>이름</th><th>Instagram</th><th>팔로워</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="campApplicantsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>팔로워</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>오리엔시트 발송</th><th>결과물</th><th>처리</th></tr></thead>
+              <tbody id="campApplicantsBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -695,10 +696,10 @@
               <option value="visit">방문형</option>
             </select>
             <select id="appStatusFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
-              <option value="all">전체 상태</option>
-              <option value="pending">심사중</option>
+              <option value="pending" selected>심사중</option>
               <option value="approved">승인</option>
               <option value="rejected">미승인</option>
+              <option value="all">전체 상태</option>
             </select>
             <div style="position:relative;width:360px">
               <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
@@ -720,6 +721,53 @@
                 <tbody id="appTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
+        <div id="adminPane-deliverables" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+          </div>
+          <!-- 필터 + 검색 -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <select id="delivKindFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+              <option value="all">전체 타입</option>
+              <option value="receipt">영수증</option>
+              <option value="post">게시물 URL</option>
+            </select>
+            <select id="delivStatusFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+              <option value="pending" selected>검수 대기</option>
+              <option value="approved">승인</option>
+              <option value="rejected">반려</option>
+              <option value="all">전체 상태</option>
+            </select>
+            <select id="delivCampFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);max-width:240px">
+              <option value="all">전체 캠페인</option>
+            </select>
+            <div style="position:relative;width:320px">
+              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+              <input type="text" id="delivSearch" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()" style="margin-left:auto">초기화</button>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">결과물 목록</span>
+              <span id="delivTotalCount" style="font-size:12px;color:var(--muted)"></span>
+            </div>
+            <table class="data-table">
+              <thead><tr>
+                <th style="width:90px">타입 <span class="sort-arrows" data-sort="kind" onclick="toggleDelivSort('kind')">▲▼</span></th>
+                <th>캠페인</th>
+                <th>인플루언서</th>
+                <th style="width:110px">제출일 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
+                <th style="width:110px">검수일 <span class="sort-arrows" data-sort="reviewed" onclick="toggleDelivSort('reviewed')">▲▼</span></th>
+                <th style="width:90px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleDelivSort('status')">▲▼</span></th>
+                <th style="width:110px">처리</th>
+              </tr></thead>
+              <tbody id="delivTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+            </table>
           </div>
         </div>
 
@@ -1082,6 +1130,52 @@
         <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
         <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stage 2: 결과물 상세 모달 -->
+<div class="modal-overlay" id="delivDetailModal" style="z-index:605">
+  <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="delivDetailTitle">결과물 상세</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeDelivDetail()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 22px;overflow-y:auto;flex:1" id="delivDetailBody">
+      <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
+    </div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end" id="delivDetailFooter">
+    </div>
+  </div>
+</div>
+
+<!-- Stage 2: 반려 사유 입력 모달 -->
+<div class="modal-overlay" id="delivRejectModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">반려 사유 입력</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div class="form-group">
+        <label class="form-label">사유 템플릿 (선택)</label>
+        <select id="delivRejectTemplate" class="form-input" onchange="onDelivRejectTemplateChange()">
+          <option value="">— 직접 입력 —</option>
+          <option value="pr_tag_missing">PR 태그 누락 (#PR/#広告/#プロモーション)</option>
+          <option value="image_unclear">이미지 품질 부족 (흐림/식별 불가)</option>
+          <option value="amount_mismatch">금액·구매일 확인 불가</option>
+          <option value="post_deleted">게시물 삭제·비공개 상태</option>
+          <option value="mention_missing">필수 해시태그·멘션 누락</option>
+          <option value="other">기타</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">상세 사유 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+        <textarea id="delivRejectReason" class="form-input" rows="4" placeholder="인플루언서에게 전달할 반려 사유를 입력하세요" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeDelivRejectModal()">취소</button>
+      <button class="btn btn-primary" onclick="submitDelivReject()" style="background:#C33;border-color:#C33">반려 처리</button>
     </div>
   </div>
 </div>

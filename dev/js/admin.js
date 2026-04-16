@@ -109,7 +109,8 @@ function switchAdminPane(pane, el, pushHistory) {
     influencers: loadAdminInfluencers,
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
-    'lookups': loadLookupsPane
+    'lookups': loadLookupsPane,
+    'deliverables': loadDeliverables
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -988,8 +989,20 @@ async function loadCampApplicants() {
   `;
 
   const _users = await fetchInfluencers();
+  // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
+  const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
+  const delivByApp = {};
+  allDelivs.forEach(d => {
+    const arr = (delivByApp[d.application_id] ||= []);
+    arr.push(d);
+  });
+  const isPostType = (camp?.recruit_type === 'gifting' || camp?.recruit_type === 'visit');
+  const selectedChannels = (camp?.channel || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const channelMatch = camp?.channel_match || 'or';
   $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>{
     const _u = _users.find(u=>u.email===a.user_email)||{};
+    const otCell = renderOtCell(a, isPostType);
+    const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
     return `<tr>
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
@@ -1000,11 +1013,78 @@ async function loadCampApplicants() {
     <td style="max-width:200px;font-size:12px;color:var(--muted)">${esc(a.message)||'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadgeKo(a.status)}</td>
+    <td>${otCell}</td>
+    <td>${delivCell}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
-  </tr>`;}).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+  </tr>`;}).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+}
+
+// Stage 4: OT 체크박스 셀 (gifting/visit 승인 건만 활성)
+function renderOtCell(a, isPostType) {
+  if (!isPostType) return '<span style="font-size:10px;color:var(--muted)">—</span>';
+  if (a.status !== 'approved') return '<span style="font-size:10px;color:var(--muted)">—</span>';
+  const checked = !!a.oriented_at;
+  const label = checked ? formatDate(a.oriented_at) : '미발송';
+  return `<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:11px">
+    <input type="checkbox" ${checked?'checked':''} onchange="onOtToggle('${a.id}', this)" style="margin:0">
+    <span style="color:${checked?'var(--green)':'var(--muted)'}">${label}</span>
+  </label>`;
+}
+
+async function onOtToggle(appId, checkbox) {
+  const wantChecked = checkbox.checked;
+  if (!wantChecked) {
+    const ok = await showConfirm('OT 발송 체크를 해제하시겠습니까?\n"미발송" 상태로 되돌립니다.');
+    if (!ok) { checkbox.checked = true; return; }
+  }
+  const isoOrNull = wantChecked ? new Date().toISOString() : null;
+  const ok = await updateApplicationOrientedAt(appId, isoOrNull);
+  if (!ok) {
+    toast('OT 상태 변경에 실패했습니다', 'warn');
+    checkbox.checked = !wantChecked;
+    return;
+  }
+  toast(wantChecked ? 'OT 발송으로 체크했습니다' : 'OT 발송 체크를 해제했습니다');
+  loadCampApplicants();
+}
+
+// Stage 4: 결과물 요약 셀 (건수 + 상태 분포 + 상세 링크)
+// Stage 5: channel_match('and')면 선택 채널 각각 approved post deliverable 필요 → 완료 판정
+function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPostType) {
+  if (appStatus !== 'approved') return '<span style="font-size:10px;color:var(--muted)">—</span>';
+  if (!list.length) return '<span style="font-size:11px;color:var(--muted)">미제출</span>';
+  const counts = {pending: 0, approved: 0, rejected: 0};
+  list.forEach(d => { counts[d.status] = (counts[d.status] || 0) + 1; });
+  const parts = [];
+  if (counts.approved) parts.push(`<span style="color:#2D7A3E">승인 ${counts.approved}</span>`);
+  if (counts.pending) parts.push(`<span style="color:#B8741A">검수대기 ${counts.pending}</span>`);
+  if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
+  const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
+  const completeBadge = complete
+    ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">完了</div>'
+    : '';
+  const latest = list[0];
+  return `<div style="font-size:10px">${parts.join(' · ')}</div>
+    ${completeBadge}
+    <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivDetail('${latest.id}')">상세</button>`;
+}
+
+// Stage 5: 완료 판정 — channel_match별
+// - post 타입 AND: 선택 채널 각각 approved post deliverable 필요
+// - post 타입 OR: 1개라도 approved면 완료
+// - receipt 타입(monitor): 1개라도 approved면 완료 (채널 개념 없음)
+function isApplicationComplete(delivs, selectedChannels, channelMatch, isPostType) {
+  const approved = delivs.filter(d => d.status === 'approved');
+  if (!approved.length) return false;
+  if (!isPostType) return true;  // monitor는 approved 하나면 완료
+  if (channelMatch === 'and') {
+    if (!selectedChannels.length) return false;  // 채널 미설정 AND는 완료 불가
+    return selectedChannels.every(ch => approved.some(d => (d.post_channel || '') === ch));
+  }
+  return true;  // or
 }
 
 // ── 인플루언서 목록 ──
@@ -1330,7 +1410,7 @@ async function renderAppCampList() {
   }
 
   // 상태 필터
-  const statusFilter = $('appStatusFilter')?.value || 'all';
+  const statusFilter = $('appStatusFilter')?.value || 'pending';
   if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
 
   // 검색 필터
@@ -2518,4 +2598,324 @@ function renderProfileCompletion(users) {
     '<div style="margin-top:4px"></div>' +
     bar('배송지', pct(hasAddr), '#FF9F43', false) +
     bar('PayPal', pct(hasBank), '#28C76F', false);
+}
+
+// ============================================================
+// Stage 2: 결과물 관리 (Deliverables)
+// ============================================================
+let _delivCache = [];
+let _delivDetailCurrent = null;  // 열려 있는 상세 {id, version}
+let _delivSort = {col: null, dir: null};  // 수동 정렬 상태 (null이면 기본 정렬 사용)
+
+function toggleDelivSort(col) {
+  // 같은 컬럼: asc → desc → 해제
+  if (_delivSort.col === col) {
+    if (_delivSort.dir === 'asc') _delivSort.dir = 'desc';
+    else if (_delivSort.dir === 'desc') { _delivSort.col = null; _delivSort.dir = null; }
+    else _delivSort.dir = 'asc';
+  } else {
+    _delivSort.col = col;
+    _delivSort.dir = 'asc';
+  }
+  renderDeliverablesList();
+}
+
+function resetDelivFiltersAndSort() {
+  const k = $('delivKindFilter'); if (k) k.value = 'all';
+  const s = $('delivStatusFilter'); if (s) s.value = 'pending';
+  const c = $('delivCampFilter'); if (c) c.value = 'all';
+  const q = $('delivSearch'); if (q) q.value = '';
+  _delivSort = {col: null, dir: null};
+  renderDeliverablesList();
+}
+
+function applyDelivSortIndicators() {
+  document.querySelectorAll('#adminPane-deliverables .sort-arrows').forEach(el => {
+    const col = el.getAttribute('data-sort');
+    if (_delivSort.col === col) {
+      el.textContent = _delivSort.dir === 'asc' ? '▲' : '▼';
+      el.style.color = 'var(--dark-pink)';
+    } else {
+      el.textContent = '▲▼';
+      el.style.color = '';
+    }
+  });
+}
+
+async function loadDeliverables() {
+  // 캠페인 드롭다운 채우기 (첫 로드만)
+  const sel = $('delivCampFilter');
+  if (sel && sel.options.length <= 1) {
+    const camps = await fetchCampaigns().catch(() => []);
+    camps.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.title;
+      sel.appendChild(opt);
+    });
+  }
+  await renderDeliverablesList();
+}
+
+async function renderDeliverablesList() {
+  const tbody = $('delivTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  const status = $('delivStatusFilter')?.value || 'pending';
+  const kind = $('delivKindFilter')?.value || 'all';
+  const campId = $('delivCampFilter')?.value || 'all';
+  const search = ($('delivSearch')?.value || '').trim().toLowerCase();
+  const rows = await fetchDeliverables({status, kind, campaign_id: campId});
+  _delivCache = rows;
+  let filtered = search
+    ? rows.filter(r => {
+        const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
+        return n.toLowerCase().includes(search);
+      })
+    : rows.slice();
+  // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
+  if (_delivSort.col) {
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    const statusOrder = {pending: 0, approved: 1, rejected: 2};
+    filtered.sort((a, b) => {
+      let av, bv;
+      switch (_delivSort.col) {
+        case 'kind':      av = a.kind || ''; bv = b.kind || ''; break;
+        case 'submitted': av = a.submitted_at || ''; bv = b.submitted_at || ''; break;
+        case 'reviewed':  av = a.reviewed_at || ''; bv = b.reviewed_at || ''; break;
+        case 'status':    av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; break;
+        default: return 0;
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+  }
+  applyDelivSortIndicators();
+  const cnt = $('delivTotalCount');
+  if (cnt) cnt.textContent = `총 ${filtered.length}건`;
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(d => {
+    const kindBadge = d.kind === 'receipt'
+      ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#fdf5fb;color:var(--dark-pink);font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">receipt</span> 영수증</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:3px;background:#eef5ff;color:#2c5fa8;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span> 게시물</span>';
+    const camp = d.campaigns || {};
+    const inf = d.influencers || {};
+    const stBadge = delivStatusBadge(d.status);
+    const infName = esc(inf.name || '—');
+    const infEmail = esc(inf.email || '');
+    const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
+    const infSub = [infEmail, infLine].filter(Boolean).join(' · ');
+    const reviewedCell = d.reviewed_at
+      ? `<span style="font-size:12px">${formatDateTime(d.reviewed_at)}</span>`
+      : '<span style="font-size:11px;color:var(--muted)">—</span>';
+    return `<tr>
+      <td>${kindBadge}</td>
+      <td>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+      <td>${infName}${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
+      <td style="font-size:12px">${formatDateTime(d.submitted_at)}</td>
+      <td>${reviewedCell}</td>
+      <td>${stBadge}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function statusLabelKo(status) {
+  return {pending: '검수대기', approved: '승인', rejected: '반려'}[status] || status;
+}
+
+function delivStatusBadge(status) {
+  const map = {
+    pending: '<span style="background:#FFF4E4;color:#B8741A;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">검수대기</span>',
+    approved: '<span style="background:#E4F5E8;color:#2D7A3E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">승인</span>',
+    rejected: '<span style="background:#FFE4E4;color:#C33;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">반려</span>'
+  };
+  return map[status] || status;
+}
+
+async function openDelivDetail(id) {
+  const modal = $('delivDetailModal');
+  if (!modal) return;
+  openModal('delivDetailModal');
+  const body = $('delivDetailBody');
+  const footer = $('delivDetailFooter');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+  if (footer) footer.innerHTML = '';
+  const [d, events] = await Promise.all([
+    fetchDeliverableById(id),
+    fetchDeliverableEvents(id)
+  ]);
+  if (!d) {
+    if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">결과물을 찾을 수 없습니다.</div>';
+    return;
+  }
+  _delivDetailCurrent = {id: d.id, version: d.version};
+  const camp = d.campaigns || {};
+  const inf = d.influencers || {};
+  const titleEl = $('delivDetailTitle');
+  if (titleEl) titleEl.innerHTML = `${esc(camp.title || '캠페인')} <span style="font-size:12px;color:var(--muted);font-weight:400">· ${esc(inf.name || '—')}</span>`;
+
+  // 본문
+  let contentHtml = '';
+  if (d.kind === 'receipt') {
+    const amt = d.purchase_amount != null ? `¥${Number(d.purchase_amount).toLocaleString('ja-JP')}` : '—';
+    contentHtml = `
+      <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
+        <div>
+          ${d.receipt_url
+            ? `<a href="${esc(d.receipt_url)}" target="_blank" rel="noopener"><img src="${esc(d.receipt_url)}" alt="영수증" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in"></a>`
+            : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
+        </div>
+        <div style="font-size:13px">
+          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매일</span> · ${d.purchase_date ? formatDate(d.purchase_date) : '—'}</div>
+          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매 금액</span> · <strong>${amt}</strong></div>
+          ${d.memo ? `<div style="margin-bottom:8px"><span style="color:var(--muted)">메모</span> · ${esc(d.memo)}</div>` : ''}
+          <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted)">
+            제출일 · ${formatDate(d.submitted_at)}<br>
+            최종 수정 · ${formatDate(d.updated_at)}<br>
+            version · ${d.version}
+          </div>
+        </div>
+      </div>`;
+  } else {
+    // post (Stage 3에서 본격 사용)
+    const subs = Array.isArray(d.post_submissions) ? d.post_submissions : [];
+    contentHtml = `
+      <div style="font-size:13px">
+        <div style="margin-bottom:10px"><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong></div>
+        <div style="margin-bottom:10px"><span style="color:var(--muted)">URL</span> · ${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all">${esc(d.post_url)}</a>` : '—'}</div>
+        ${subs.length ? `<div style="margin-top:12px"><span style="color:var(--muted);font-size:11px">제출 이력 (${subs.length}건)</span><ul style="margin:6px 0 0;padding-left:18px;font-size:11px">${subs.map(s => `<li>${esc(s.submitted_at || '')} · ${esc(s.channel || '')}</li>`).join('')}</ul></div>` : ''}
+      </div>`;
+  }
+
+  // 반려 사유 (있을 때만)
+  if (d.status === 'rejected' && d.reject_reason) {
+    contentHtml += `<div style="margin-top:14px;padding:10px 12px;background:#FFF5F5;border-left:3px solid #C33;border-radius:4px;font-size:12px">
+      <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
+      <div style="white-space:pre-wrap;color:var(--ink)">${esc(d.reject_reason)}</div>
+    </div>`;
+  }
+
+  // 이력 타임라인
+  if (events.length) {
+    contentHtml += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">변경 이력</div><div style="font-size:11px">';
+    contentHtml += events.map(e => {
+      const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
+        <span><strong>${label}</strong>${e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
+        <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+      </div>`;
+    }).join('');
+    contentHtml += '</div></div>';
+  }
+
+  if (body) body.innerHTML = contentHtml;
+
+  // 푸터 액션
+  let footerHtml = '';
+  if (d.status === 'pending') {
+    footerHtml = `
+      <button class="btn btn-ghost" onclick="closeDelivDetail()">닫기</button>
+      <button class="btn btn-ghost" onclick="openDelivRejectModal('${d.id}', ${d.version})" style="color:#C33;border-color:#C33">반려</button>
+      <button class="btn btn-primary" onclick="approveDeliv('${d.id}', ${d.version})">승인</button>
+    `;
+  } else {
+    footerHtml = `
+      <button class="btn btn-ghost" onclick="closeDelivDetail()">닫기</button>
+      <button class="btn btn-ghost" onclick="revertDeliv('${d.id}', ${d.version})">되돌리기 (검수대기로)</button>
+    `;
+  }
+  if (footer) footer.innerHTML = footerHtml;
+}
+
+function closeDelivDetail() {
+  closeModal('delivDetailModal');
+  _delivDetailCurrent = null;
+}
+
+async function approveDeliv(id, version) {
+  const ret = await updateDeliverableStatus(id, 'approved', version);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('승인 처리되었습니다.');
+  closeDelivDetail();
+  await renderDeliverablesList();
+}
+
+async function revertDeliv(id, version) {
+  const ok = await showConfirm('검수 결과를 되돌리시겠습니까?\n상태가 검수대기로 변경됩니다.\n\n인플루언서가 이미 결과를 확인했을 수 있습니다.');
+  if (!ok) return;
+  const ret = await updateDeliverableStatus(id, 'pending', version);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다.', 'warn');
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('검수대기로 되돌렸습니다.');
+  closeDelivDetail();
+  await renderDeliverablesList();
+}
+
+// 반려 모달 상태
+let _delivRejectCtx = null;  // {id, version}
+
+function openDelivRejectModal(id, version) {
+  _delivRejectCtx = {id, version};
+  const tpl = $('delivRejectTemplate');
+  const reason = $('delivRejectReason');
+  if (tpl) tpl.value = '';
+  if (reason) reason.value = '';
+  openModal('delivRejectModal');
+}
+
+function closeDelivRejectModal() {
+  closeModal('delivRejectModal');
+  _delivRejectCtx = null;
+}
+
+function onDelivRejectTemplateChange() {
+  const tpl = $('delivRejectTemplate')?.value;
+  const reason = $('delivRejectReason');
+  if (!reason) return;
+  const presets = {
+    pr_tag_missing: 'PR 태그(#PR/#広告/#プロモーション 중 1개)가 누락되었습니다. 수정 후 재제출 부탁드립니다.',
+    image_unclear: '이미지 품질이 부족하여 영수증 내용을 확인하기 어렵습니다. 선명한 사진으로 재제출 부탁드립니다.',
+    amount_mismatch: '구매 금액 또는 구매일을 영수증에서 확인할 수 없습니다. 해당 정보가 잘 보이는 사진을 첨부해주세요.',
+    post_deleted: '게시물이 삭제되었거나 비공개로 전환되어 확인할 수 없습니다.',
+    mention_missing: '필수 해시태그 또는 멘션이 포함되어 있지 않습니다.',
+    other: ''
+  };
+  if (tpl && presets[tpl] !== undefined) reason.value = presets[tpl];
+}
+
+async function submitDelivReject() {
+  if (!_delivRejectCtx) return;
+  const reason = ($('delivRejectReason')?.value || '').trim();
+  const templateCode = $('delivRejectTemplate')?.value || null;
+  if (!reason) {
+    toast('반려 사유를 입력해주세요.', 'warn');
+    return;
+  }
+  const {id, version} = _delivRejectCtx;
+  const ret = await updateDeliverableStatus(id, 'rejected', version, reason, templateCode);
+  if (ret === -1) {
+    toast('다른 관리자가 이미 처리했습니다.', 'warn');
+    closeDelivRejectModal();
+    closeDelivDetail();
+    await renderDeliverablesList();
+    return;
+  }
+  toast('반려 처리되었습니다.');
+  closeDelivRejectModal();
+  closeDelivDetail();
+  await renderDeliverablesList();
 }

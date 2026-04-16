@@ -18,7 +18,8 @@ async function openCampaign(id) {
     alreadyApplied = !!_myApp;
   }
 
-  const isFull = (camp.applied_count||0) >= camp.slots;
+  // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
+  const isFull = camp.recruit_type === 'monitor' && (camp.applied_count||0) >= camp.slots;
   _slideIdx = 0;
 
   // 슬라이드 이미지
@@ -288,6 +289,19 @@ async function submitApplication() {
     toast('すでに応募済みのキャンペーンです','error'); closeModal('applyModal'); return;
   }
 
+  // 리뷰어(monitor) 캠페인은 모집인원 초과 시 응모 차단
+  // 주의: 클라이언트 캐시 기반 사전 차단(UX 보조). 근본 방어는 DB 레벨 트리거/체크가 필요.
+  const camp0 = allCampaigns.find(c => c.id === currentCampaignId);
+  if (camp0 && camp0.recruit_type === 'monitor') {
+    const applied = Number(camp0.applied_count || 0);
+    const slots = Number(camp0.slots || 0);
+    if (slots > 0 && applied >= slots) {
+      toast('募集人数に達したため、応募できません', 'error');
+      closeModal('applyModal');
+      return;
+    }
+  }
+
   try {
     await insertApplication({
       user_id: currentUser.id, user_email: currentUser.email,
@@ -385,6 +399,7 @@ function openProductPage() {
 // ══════════════════════════════════════
 let _activityAppId = null;
 let _activityCampId = null;
+let _activityCamp = null;
 let _activityFrom = 'detail'; // 'detail' or 'mypage'
 let _receiptImgData = null;
 
@@ -393,15 +408,98 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityCampId = campaignId;
   _activityFrom = from || 'detail';
   const camp = allCampaigns.find(c=>c.id===campaignId) || {};
+  _activityCamp = camp;
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
-  $('receiptPreview').innerHTML = '';
-  $('receiptDate').value = '';
-  $('receiptAmount').value = '';
-  $('receiptFile').value = '';
-  _receiptImgData = null;
+
+  // 타입 분기 (Stage 3)
+  const rt = camp.recruit_type || 'monitor';
+  const isPostType = (rt === 'gifting' || rt === 'visit');
+  $('activityReceiptSection').style.display = isPostType ? 'none' : '';
+  $('activityPostSection').style.display = isPostType ? '' : 'none';
+
+  // 제출 마감일 안내 + 마감 초과 시 폼 비활성
+  const submissionEnd = camp.submission_end || camp.post_deadline || null;
+  const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
+  const deadlineBox = $('activitySubmissionDeadline');
+  if (deadlineBox) {
+    if (submissionEnd) {
+      deadlineBox.style.display = '';
+      deadlineBox.textContent = isAfterDeadline
+        ? `提出期限が過ぎました (${formatDate(submissionEnd)})`
+        : `提出期限: ${formatDate(submissionEnd)}`;
+      deadlineBox.style.color = isAfterDeadline ? '#C33' : 'var(--muted)';
+    } else {
+      deadlineBox.style.display = 'none';
+    }
+  }
+  // 마감 후엔 입력 UI 비활성
+  const formDisabled = isAfterDeadline;
+  if (isPostType) {
+    const urlEl = $('postUrlInput'); if (urlEl) urlEl.disabled = formDisabled;
+    const selEl = $('postChannelManual'); if (selEl) selEl.disabled = formDisabled;
+  } else {
+    const rf = $('receiptFile'); if (rf) rf.disabled = formDisabled;
+    const rd = $('receiptDate'); if (rd) rd.disabled = formDisabled;
+    const ra = $('receiptAmount'); if (ra) ra.disabled = formDisabled;
+  }
+
+  // 폼 초기화
+  if (!isPostType) {
+    $('receiptPreview').innerHTML = '';
+    $('receiptDate').value = '';
+    $('receiptAmount').value = '';
+    $('receiptFile').value = '';
+    _receiptImgData = null;
+  } else {
+    const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
+    const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
+    const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
+  }
+
   navigate('activity');
-  await loadReceipts();
+  await loadDeliverablesForActivity();
+}
+
+// ── 게시물 URL 채널 자동판별 (Stage 3) ──
+function detectChannelFromUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (host.includes('instagram.com')) return 'instagram';
+    if (host.includes('tiktok.com')) return 'tiktok';
+    if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) return 'youtube';
+    if (host === 'x.com' || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'x';
+    if (host.includes('qoo10.jp')) return 'qoo10';
+    return null;
+  } catch(e) { return null; }
+}
+
+const CHANNEL_LABELS = {
+  instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube',
+  x: 'X (Twitter)', qoo10: 'Qoo10', other: 'その他'
+};
+
+function onPostUrlInputChange() {
+  const url = $('postUrlInput')?.value || '';
+  const detectedLbl = $('postChannelDetected');
+  const manualWrap = $('postChannelManualWrap');
+  if (!url.trim()) {
+    if (detectedLbl) detectedLbl.textContent = '';
+    if (manualWrap) manualWrap.style.display = 'none';
+    return;
+  }
+  const ch = detectChannelFromUrl(url);
+  if (ch) {
+    if (detectedLbl) detectedLbl.textContent = `判別: ${CHANNEL_LABELS[ch]}`;
+    if (detectedLbl) detectedLbl.style.color = 'var(--dark-pink)';
+    if (manualWrap) manualWrap.style.display = 'none';
+  } else {
+    if (detectedLbl) detectedLbl.textContent = 'URLからチャンネルを自動判別できません';
+    if (detectedLbl) detectedLbl.style.color = '#C33';
+    if (manualWrap) manualWrap.style.display = '';
+  }
 }
 
 function navigateBackFromActivity() {
@@ -413,25 +511,91 @@ function navigateBackFromActivity() {
   }
 }
 
-async function loadReceipts() {
-  const receipts = await fetchReceipts({application_id: _activityAppId});
+async function loadReceipts() { return loadDeliverablesForActivity(); }
+
+// Stage 3: 활동관리 화면의 결과물 리스트 (영수증·게시물 통합)
+async function loadDeliverablesForActivity() {
+  const camp = _activityCamp || {};
+  const isPostType = (camp.recruit_type === 'gifting' || camp.recruit_type === 'visit');
+  const kind = isPostType ? 'post' : 'receipt';
+  const delivs = await fetchDeliverablesForUser({
+    application_id: _activityAppId,
+    user_id: currentUser?.id,
+    kind
+  });
+
+  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시 (재제출하면 새 deliverable이 pending이므로 숨김)
+  const banner = $('activityRejectBanner');
+  const reasonEl = $('activityRejectReason');
+  if (banner && reasonEl) {
+    const sorted = delivs.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
+    const latest = sorted[0];
+    if (latest && latest.status === 'rejected' && latest.reject_reason) {
+      banner.style.display = '';
+      reasonEl.textContent = latest.reject_reason;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  if (isPostType) renderActivityPostList(delivs);
+  else renderActivityReceiptList(delivs);
+}
+
+function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
-  if (!receipts.length) {
+  if (!container) return;
+  if (!delivs.length) {
     container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだレシートが登録されていません</div>';
     return;
   }
-  container.innerHTML = receipts.map(r => `
+  container.innerHTML = delivs.map(r => {
+    const stBadge = activityStatusBadge(r.status);
+    return `
     <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--surface-dim)">
-        <img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">
+        ${r.receipt_url ? `<img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:var(--ink)">${r.purchase_date ? formatDate(r.purchase_date) : '日付未入力'}</div>
-        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+r.purchase_amount.toLocaleString() : '金額未入力'}</div>
+        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+Number(r.purchase_amount).toLocaleString() : '金額未入力'}</div>
       </div>
-      <div style="font-size:10px;color:var(--muted)">${formatDate(r.created_at)}</div>
-    </div>
-  `).join('');
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        ${stBadge}
+        <div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderActivityPostList(delivs) {
+  const container = $('postSubmissionList');
+  if (!container) return;
+  if (!delivs.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">まだ投稿が登録されていません</div>';
+    return;
+  }
+  container.innerHTML = delivs.map(d => {
+    const stBadge = activityStatusBadge(d.status);
+    const chLabel = CHANNEL_LABELS[d.post_channel] || d.post_channel || '—';
+    const subs = Array.isArray(d.post_submissions) ? d.post_submissions : [];
+    return `
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:600;color:var(--ink)">${esc(chLabel)}</div>
+        ${stBadge}
+      </div>
+      <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
+      ${subs.length > 1 ? `<div style="font-size:10px;color:var(--muted);margin-top:6px">提出回数: ${subs.length}回</div>` : ''}
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
+    </div>`;
+  }).join('');
+}
+
+function activityStatusBadge(status) {
+  if (status === 'approved') return '<span style="background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">承認</span>';
+  if (status === 'rejected') return '<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">差戻</span>';
+  return '<span style="background:#FFF4E4;color:#B8741A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">審査中</span>';
 }
 
 function previewReceipt(input) {
@@ -445,14 +609,77 @@ function previewReceipt(input) {
   reader.readAsDataURL(file);
 }
 
+// Stage 3: 게시물 URL 제출 (기프팅·방문형)
+async function submitPostUrl() {
+  if (!currentUser) { toast('ログインが必要です','error'); return; }
+  const url = ($('postUrlInput')?.value || '').trim();
+  if (!url) { toast('URLを入力してください', 'error'); return; }
+  // URL 형식 검증
+  try { new URL(url); } catch(e) { toast('URLの形式が正しくありません','error'); return; }
+
+  // 제출 마감 확인
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || camp.post_deadline;
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+    toast('提出期限が過ぎたため、登録できません','error');
+    return;
+  }
+
+  // 채널 판별 (자동 실패 시 수동 선택 필수)
+  let channel = detectChannelFromUrl(url);
+  if (!channel) {
+    channel = $('postChannelManual')?.value || '';
+    if (!channel) { toast('チャンネルを選択してください', 'error'); return; }
+  }
+
+  try {
+    // 동일 URL 재제출 여부 확인
+    const existing = await fetchDeliverablesForUser({
+      application_id: _activityAppId,
+      user_id: currentUser.id,
+      kind: 'post'
+    });
+    const sameUrl = existing.find(d => (d.post_url || '').trim() === url);
+    if (sameUrl) {
+      await appendPostSubmission(sameUrl.id, url, channel);
+      toast(sameUrl.status === 'rejected' ? '再提出しました' : '提出履歴を追加しました', 'success');
+    } else {
+      const id = await insertPostDeliverable({
+        application_id: _activityAppId,
+        user_id: currentUser.id,
+        campaign_id: _activityCampId,
+        post_url: url,
+        post_channel: channel
+      });
+      if (!id) { toast('登録に失敗しました', 'error'); return; }
+      toast('投稿URLを登録しました', 'success');
+    }
+    // 폼 초기화
+    const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
+    const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
+    const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
+    await loadDeliverablesForActivity();
+  } catch(e) {
+    toast('登録エラー: ' + (e.message || e), 'error');
+  }
+}
+
 async function submitReceipt() {
   if (!_receiptImgData) { toast('レシート画像を選択してください','error'); return; }
   if (!currentUser) { toast('ログインが必要です','error'); return; }
 
+  // 제출 마감 확인 (Stage 3)
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || camp.post_deadline;
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+    toast('提出期限が過ぎたため、登録できません','error');
+    return;
+  }
+
   try {
     toast('アップロード中...','');
     const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
-    const receiptUrl = await uploadImage(_receiptImgData, fileName);
+    const receiptUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
 
     await insertReceipt({
       application_id: _activityAppId,

@@ -7,6 +7,7 @@ function loadMyPage() {
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
   $('mypageName').textContent = displayName;
+  loadMypageNotifications();  // Stage 6: 알림 섹션
   // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
   const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
   const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
@@ -87,9 +88,20 @@ function renderMyApplyTabs() {
   ).join('');
 }
 
-function renderMyApplyList() {
+let _myDelivsByApp = {};
+
+async function renderMyApplyList() {
   const container = $('myApplicationsList');
   let filtered = _myAppsTab === 'all' ? _myApps.slice() : _myApps.filter(a => a.status === _myAppsTab);
+
+  // Stage 6: 결과물 상태 배지용 — 본인 결과물 전체를 application별 그룹핑
+  if (currentUser) {
+    try {
+      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
+      _myDelivsByApp = {};
+      delivs.forEach(d => { (_myDelivsByApp[d.application_id] ||= []).push(d); });
+    } catch(e) { _myDelivsByApp = {}; }
+  }
 
   // 캠페인 상태 필터
   const campStatusFilter = $('myApplyCampStatus')?.value || '';
@@ -117,13 +129,19 @@ function renderMyApplyList() {
       ? `<img src="${esc(imgThumb(imgs[0],240))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
+    // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
+    let delivBadge = '';
+    if (a.status === 'approved') {
+      const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
+      if (ds[0]?.status === 'rejected') delivBadge = '<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">差戻</span>';
+    }
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · 応募日 ${formatDate(a.created_at)}</div>
       </div>
-      <div class="apply-item-status">${getStatusBadge(a.status)}</div>
+      <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
     </div>`;
   }).join('');
 }
@@ -232,3 +250,51 @@ function handleWithdraw() {
 // 초기 + langchange 이벤트에서 토글 상태 갱신
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
+
+// ── Stage 6: 마이페이지 알림 섹션 ──
+async function loadMypageNotifications() {
+  const section = $('mypageNotifSection');
+  if (!section) return;
+  const items = await fetchMyNotifications({unreadOnly: true, limit: 10});
+  if (!items.length) { section.style.display = 'none'; section.innerHTML = ''; return; }
+  section.style.display = '';
+  const rows = items.map(n => {
+    const icon = n.kind === 'deliverable_rejected' ? 'error_outline'
+               : n.kind === 'deliverable_changed' ? 'change_circle'
+               : 'notifications';
+    const color = n.kind === 'deliverable_rejected' ? '#C33' : '#B8741A';
+    return `<div onclick="onNotifClick('${n.id}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')" style="display:flex;gap:10px;padding:10px 12px;background:#FFF8F0;border-left:3px solid ${color};border-radius:6px;margin-bottom:6px;cursor:pointer">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:${color};flex-shrink:0">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--ink)">${esc(n.title||'')}</div>
+        ${n.body ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:pre-wrap">${esc(n.body)}</div>` : ''}
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(n.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  section.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:13px;font-weight:700;color:var(--ink)">お知らせ (${items.length})</div>
+      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">すべて既読</button>
+    </div>
+    ${rows}
+  `;
+}
+
+async function onNotifClick(id, refTable, refId) {
+  await markNotificationRead(id);
+  if (refTable === 'deliverables' && refId) {
+    // 해당 결과물이 속한 application을 찾아 활동관리 페이지로 이동
+    try {
+      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
+      const hit = delivs.find(d => d.id === refId);
+      if (hit) { openActivityPage(hit.application_id, hit.campaign_id, 'mypage'); return; }
+    } catch(e) {}
+  }
+  loadMypageNotifications();
+}
+
+async function onNotifMarkAllRead() {
+  await markAllNotificationsRead();
+  loadMypageNotifications();
+}
