@@ -9,7 +9,13 @@
 --
 -- rollback:
 --   DELETE FROM lookup_values WHERE kind = 'reject_reason';
+--   (CHECK 제약은 원복 필요 시 별도)
 -- ============================================================
+
+-- kind CHECK 제약에 reject_reason 추가
+ALTER TABLE lookup_values DROP CONSTRAINT IF EXISTS lookup_values_kind_check;
+ALTER TABLE lookup_values ADD CONSTRAINT lookup_values_kind_check
+  CHECK (kind IN ('channel','category','content_type','ng_item','reject_reason'));
 
 INSERT INTO lookup_values (kind, code, name_ko, name_ja, sort_order, active) VALUES
   ('reject_reason', 'pr_tag_missing',
