@@ -29,6 +29,21 @@ function loadMyPage() {
   setVal('profileTiktokFollowers', p.tiktok_followers);
   setVal('profileYoutube', p.youtube);
   setVal('profileYoutubeFollowers', p.youtube_followers);
+
+  // SNS 입력란: blur 시 핸들 자동 추출 (URL 붙여넣기 → 핸들로 정리)
+  const bindSnsExtract = (id, channel) => {
+    const el = $(id);
+    if (!el || el.dataset.snsExtractBound === '1') return;
+    el.dataset.snsExtractBound = '1';
+    el.addEventListener('blur', () => {
+      const next = extractSnsHandle(channel, el.value);
+      if (next !== el.value) el.value = next;
+    });
+  };
+  bindSnsExtract('profileIg', 'instagram');
+  bindSnsExtract('profileX', 'x');
+  bindSnsExtract('profileTiktok', 'tiktok');
+  bindSnsExtract('profileYoutube', 'youtube');
   if(p.primary_sns && $('profilePrimarySns')) $('profilePrimarySns').value = p.primary_sns;
   setVal('profileZip', p.zip);
   if(p.prefecture && $('profilePrefecture')) $('profilePrefecture').value = p.prefecture;
