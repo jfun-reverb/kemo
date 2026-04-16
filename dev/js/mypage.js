@@ -175,7 +175,7 @@ async function saveProfile() {
     currentUserProfile = Object.assign(currentUserProfile || {}, updated);
     toast('保存しました','success'); loadMyPage();
   } catch(e) {
-    toast('保存エラー: '+e.message,'error');
+    toast(friendlyErrorJa(e), 'error');
   }
 }
 
@@ -197,7 +197,7 @@ async function savePaypalInfo() {
     toast('PayPal情報を保存しました','success');
     loadMyPage();
   } catch(e) {
-    toast('保存エラー: '+e.message,'error');
+    toast(friendlyErrorJa(e), 'error');
   }
 }
 

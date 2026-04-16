@@ -324,7 +324,7 @@ async function submitApplication() {
       updateGnb();
       return;
     }
-    toast('応募エラー: '+e.message,'error'); closeModal('applyModal'); return;
+    toast(friendlyErrorJa(e), 'error'); closeModal('applyModal'); return;
   }
 
   closeModal('applyModal');
@@ -660,7 +660,7 @@ async function submitPostUrl() {
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
     await loadDeliverablesForActivity();
   } catch(e) {
-    toast('登録エラー: ' + (e.message || e), 'error');
+    toast(friendlyErrorJa(e), 'error');
   }
 }
 
@@ -698,6 +698,6 @@ async function submitReceipt() {
     $('receiptAmount').value = '';
     await loadReceipts();
   } catch(e) {
-    toast('登録エラー: '+e.message,'error');
+    toast(friendlyErrorJa(e), 'error');
   }
 }

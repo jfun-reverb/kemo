@@ -46,6 +46,57 @@ function cleanUrl(s) {
   return s.trim();
 }
 
+// 클라이언트(인플루언서) 전용: Supabase 영어 에러 → 현재 locale(ko/ja)에 맞게 변환
+const _ERR_DICT = {
+  ja: {
+    unknown: 'エラーが発生しました',
+    duplicate: 'すでに登録されています',
+    permission: '権限がありません',
+    fk: '関連データがあるため処理できません',
+    notnull: '必須項目が不足しています',
+    network: 'ネットワークエラーです。接続をご確認ください',
+    rate: 'リクエストが多すぎます。しばらくしてから再試行してください',
+    notfound: 'データが見つかりません',
+    timeout: 'タイムアウトしました。再度お試しください',
+    auth: 'セッションの有効期限が切れました。再ログインしてください',
+    emailUnverified: 'メールアドレスの認証が完了していません',
+    credentials: 'メールアドレスまたはパスワードが正しくありません'
+  },
+  ko: {
+    unknown: '오류가 발생했습니다',
+    duplicate: '이미 등록된 데이터입니다',
+    permission: '권한이 없습니다',
+    fk: '연결된 데이터가 있어 처리할 수 없습니다',
+    notnull: '필수 항목이 누락되었습니다',
+    network: '네트워크 오류입니다. 인터넷 연결을 확인해주세요',
+    rate: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요',
+    notfound: '데이터를 찾을 수 없습니다',
+    timeout: '요청 시간이 초과되었습니다',
+    auth: '인증이 만료되었습니다. 다시 로그인해주세요',
+    emailUnverified: '이메일 인증이 완료되지 않았습니다',
+    credentials: '이메일 또는 비밀번호가 올바르지 않습니다'
+  }
+};
+
+function friendlyErrorJa(e) {
+  const lang = (typeof getLang === 'function' ? getLang() : 'ja') === 'ko' ? 'ko' : 'ja';
+  const t = _ERR_DICT[lang];
+  const s = String(e?.message || e || '');
+  if (!s) return t.unknown;
+  if (/duplicate key|unique constraint|already exists/.test(s)) return t.duplicate;
+  if (/permission denied|Permission denied|violates row-level security/.test(s)) return t.permission;
+  if (/violates foreign key/.test(s)) return t.fk;
+  if (/violates not-null/.test(s)) return t.notnull;
+  if (/Failed to fetch|NetworkError|network/.test(s)) return t.network;
+  if (/rate limit|429/.test(s)) return t.rate;
+  if (/not found|no rows/.test(s)) return t.notfound;
+  if (/timeout|timed out/.test(s)) return t.timeout;
+  if (/unauthorized|JWT/.test(s)) return t.auth;
+  if (/email_not_confirmed/.test(s)) return t.emailUnverified;
+  if (/Invalid login credentials/.test(s)) return t.credentials;
+  return t.unknown;
+}
+
 function toast(msg, type='') {
   const el = document.getElementById('toast');
   el.textContent = msg; el.className = 'show' + (type ? ' '+type : '');
