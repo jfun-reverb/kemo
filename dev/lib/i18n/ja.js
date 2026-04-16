@@ -54,6 +54,7 @@ window.I18N_JA = {
   nav: {
     login: 'ログイン',
     signup: '新規登録',
+    signupOrLogin: '会員登録・ログイン',
   },
 
   // 캠페인 목록 페이지
@@ -168,7 +169,17 @@ window.I18N_JA = {
     applyDate: '応募日',
   },
 
-  // 하단 탭
+  // 햄버거 메뉴
+  menu: {
+    notifications: '通知',
+  },
+  notif: {
+    markAllRead: 'すべて既読',
+    headerN: 'お知らせ ({n})',
+    emptyUnread: '未読の通知はありません',
+  },
+
+  // 하단 탭 (deprecated — 햄버거 메뉴로 이전)
   tab: {
     home: 'ホーム',
     campaigns: 'キャンペーン',
@@ -392,11 +403,5 @@ window.I18N_JA = {
   // 채널 라벨
   channelLabel: {
     other: 'その他',
-  },
-
-  // 알림
-  notif: {
-    headerN: 'お知らせ ({n})',
-    markAllRead: 'すべて既読',
   },
 };

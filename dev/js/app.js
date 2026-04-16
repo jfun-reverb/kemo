@@ -58,11 +58,13 @@ function navigate(page, pushHistory) {
   const fb = $('detailFloatBar');
   if (fb && pageName !== 'detail') fb.style.display = 'none';
 
-  const tabBar = $('bottomTabBar');
-  if (tabBar) {
-    tabBar.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : 'flex';
-  }
-  updateTabBar(pageName);
+  // 햄버거 메뉴 활성 표시
+  if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
+  // 인증 페이지에선 햄버거 숨김
+  const gnbBurger = $('gnbBurger');
+  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : '';
+  // 비로그인 플로팅 CTA (인증 페이지 제외)
+  if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
   if (pageName === 'home') loadCampaigns();
   if (pageName === 'campaigns') loadCampaignsPage();
@@ -89,16 +91,13 @@ window.addEventListener('popstate', function(e) {
   }
 });
 
-function navigateTab(page, el) {
-  if (page === 'mypage' && !currentUser) { navigate('login'); return; }
-  navigate(page);
-}
-
-function updateTabBar(page) {
-  const map = {home:'tab-home',detail:'tab-home',mypage:'tab-mypage',campaigns:'tab-camp'};
-  document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('on'));
-  const activeEl = $(map[page]||'tab-home');
-  if (activeEl) activeEl.classList.add('on');
+// Step 3: 햄버거 메뉴 활성 페이지 하이라이트
+function updateActiveNav(page) {
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage'};
+  const active = map[page] || 'home';
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('on', el.dataset.nav === active);
+  });
 }
 
 // ══════════════════════════════════════

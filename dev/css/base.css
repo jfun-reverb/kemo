@@ -25,7 +25,7 @@
 
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
-  --tab-h:64px;
+  --tab-h:0px; /* deprecated: 바텀탭 제거됨. 과거 계산식 호환용 */
 }
 
 /* Material Design 타이포그래피 */

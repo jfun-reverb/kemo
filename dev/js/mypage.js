@@ -7,7 +7,8 @@ function loadMyPage() {
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
   $('mypageName').textContent = displayName;
-  loadMypageNotifications();  // Stage 6: 알림 섹션
+  // Stage 6 알림은 햄버거 메뉴 모달로 이전 (refreshNotifBadge에서 처리)
+  if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
   // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
   const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
   const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
@@ -251,50 +252,4 @@ function handleWithdraw() {
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
 
-// ── Stage 6: 마이페이지 알림 섹션 ──
-async function loadMypageNotifications() {
-  const section = $('mypageNotifSection');
-  if (!section) return;
-  const items = await fetchMyNotifications({unreadOnly: true, limit: 10});
-  if (!items.length) { section.style.display = 'none'; section.innerHTML = ''; return; }
-  section.style.display = '';
-  const rows = items.map(n => {
-    const icon = n.kind === 'deliverable_rejected' ? 'error_outline'
-               : n.kind === 'deliverable_changed' ? 'change_circle'
-               : 'notifications';
-    const color = n.kind === 'deliverable_rejected' ? '#C33' : '#B8741A';
-    return `<div onclick="onNotifClick('${n.id}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')" style="display:flex;gap:10px;padding:10px 12px;background:#FFF8F0;border-left:3px solid ${color};border-radius:6px;margin-bottom:6px;cursor:pointer">
-      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:${color};flex-shrink:0">${icon}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--ink)">${esc(n.title||'')}</div>
-        ${n.body ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:pre-wrap">${esc(n.body)}</div>` : ''}
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(n.created_at)}</div>
-      </div>
-    </div>`;
-  }).join('');
-  section.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:700;color:var(--ink)">${t('notif.headerN').replace('{n}', items.length)}</div>
-      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">${t('notif.markAllRead')}</button>
-    </div>
-    ${rows}
-  `;
-}
-
-async function onNotifClick(id, refTable, refId) {
-  await markNotificationRead(id);
-  if (refTable === 'deliverables' && refId) {
-    // 해당 결과물이 속한 application을 찾아 활동관리 페이지로 이동
-    try {
-      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
-      const hit = delivs.find(d => d.id === refId);
-      if (hit) { openActivityPage(hit.application_id, hit.campaign_id, 'mypage'); return; }
-    } catch(e) {}
-  }
-  loadMypageNotifications();
-}
-
-async function onNotifMarkAllRead() {
-  await markAllNotificationsRead();
-  loadMypageNotifications();
-}
+// Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨

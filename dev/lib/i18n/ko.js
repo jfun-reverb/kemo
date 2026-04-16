@@ -52,6 +52,7 @@ window.I18N_KO = {
   nav: {
     login: '로그인',
     signup: '회원가입',
+    signupOrLogin: '회원가입・로그인',
   },
 
   campaigns: {
@@ -159,6 +160,15 @@ window.I18N_KO = {
     emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
+  },
+
+  menu: {
+    notifications: '알림',
+  },
+  notif: {
+    markAllRead: '모두 읽음',
+    headerN: '알림 ({n})',
+    emptyUnread: '읽지 않은 알림이 없습니다',
   },
 
   tab: {
@@ -373,10 +383,5 @@ window.I18N_KO = {
 
   channelLabel: {
     other: '기타',
-  },
-
-  notif: {
-    headerN: '알림 ({n})',
-    markAllRead: '모두 읽음',
   },
 };

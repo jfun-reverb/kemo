@@ -108,16 +108,8 @@
     stroke: #C878A3;
   }
 
-  /* 툴팁 */
-  .flow-tooltip {
-    position: fixed; pointer-events: none; z-index: 9999;
-    background: #2D1F2B; color: #fff; padding: 6px 12px;
-    border-radius: 6px; font-size: 11px; font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0,0,0,.2);
-    opacity: 0; transition: opacity .15s;
-    max-width: 240px; white-space: nowrap;
-  }
-  .flow-tooltip.visible { opacity: 1; }
+  /* 툴팁 (비활성화) */
+  .flow-tooltip { display: none !important; }
 </style>
 </head>
 <body>

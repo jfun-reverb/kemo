@@ -59,7 +59,7 @@ window._supabaseLoaded = false;
 
   --sh:var(--elevation-1);
   --sh-hover:var(--elevation-3);
-  --tab-h:64px;
+  --tab-h:0px; /* deprecated: 바텀탭 제거됨. 과거 계산식 호환용 */
 }
 
 /* Material Design 타이포그래피 */
@@ -179,15 +179,69 @@ textarea.form-input{resize:vertical;min-height:80px}
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.08);z-index:9998;align-items:center;justify-content:center}
 .loading-overlay.show{display:flex}
 
-/* ── BOTTOM TAB BAR (Material Navigation Bar) ── */
-.bottom-tab{width:100%;height:var(--tab-h);background:var(--surface);border-top:none;display:flex;align-items:stretch;z-index:150;box-shadow:0 -1px 3px rgba(0,0,0,.08);flex-shrink:0}
-.tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);color:var(--on-surface-variant);border:none;background:none;padding:8px 0;position:relative}
-.tab-item::before{content:'';position:absolute;top:8px;width:0;height:32px;background:var(--primary-container);border-radius:var(--r-full);transition:all .3s cubic-bezier(.2,0,0,1)}
-.tab-item.on::before{width:56px}
-.tab-item.on{color:var(--on-surface)}
-.tab-item .material-icons-round{font-size:24px;position:relative;z-index:1;transition:all .2s}
-.tab-item.on .material-icons-round{color:var(--primary);font-variation-settings:'FILL' 1}
-.tab-lbl{font-size:11px;font-weight:600;letter-spacing:.02em;position:relative;z-index:1}
+/* ── 비로그인 고정 CTA ── */
+.floating-auth-cta{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index:300;
+  background:var(--pink); color:#fff;
+  font-size:14px; font-weight:700;
+  padding:14px 32px; border-radius:999px;
+  border:none; cursor:pointer;
+  box-shadow:0 6px 20px rgba(200,120,163,.35), 0 2px 6px rgba(0,0,0,.1);
+  transition:transform .15s, box-shadow .15s;
+  white-space:nowrap;
+}
+.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(200,120,163,.45)}
+.floating-auth-cta:active{transform:translateX(-50%) translateY(0)}
+
+/* ── 햄버거 버튼 + 배지 ── */
+.gnb-burger{background:transparent;border:none;cursor:pointer;padding:6px 8px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background .15s;margin-left:4px}
+.gnb-burger:hover{background:rgba(255,255,255,.12)}
+.notif-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:#EF4444;color:#fff;border-radius:8px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.notif-badge.hidden{display:none}
+
+/* ── NAV PANEL (우측 슬라이드) ── */
+.nav-panel{position:fixed;inset:0;z-index:400;pointer-events:none}
+.nav-panel[aria-hidden="false"]{pointer-events:auto}
+.nav-panel-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;transition:opacity .25s}
+.nav-panel[aria-hidden="false"] .nav-panel-backdrop{opacity:1}
+.nav-panel-body{position:absolute;top:0;right:0;bottom:0;width:min(320px,82vw);background:#fff;transform:translateX(100%);transition:transform .25s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.nav-panel[aria-hidden="false"] .nav-panel-body{transform:translateX(0)}
+.nav-panel-header{display:flex;justify-content:flex-end;padding:8px 8px 0}
+.nav-panel-close{background:transparent;border:none;padding:8px;cursor:pointer;border-radius:8px}
+.nav-panel-close:hover{background:var(--surface-dim)}
+.nav-menu{display:flex;flex-direction:column;padding:8px 0}
+.nav-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;font-size:15px;color:var(--ink);border:none;background:transparent;text-align:left;transition:background .15s}
+.nav-item:hover{background:var(--surface-dim)}
+.nav-item.on{background:var(--light-pink);color:var(--pink);font-weight:700}
+.nav-item .nav-icon{font-size:22px;color:var(--muted);flex-shrink:0}
+.nav-item.on .nav-icon{color:var(--pink)}
+.nav-item .nav-label{flex:1}
+.nav-item .notif-badge{position:static;margin-left:auto}
+
+/* ── NOTIF MODAL (슬라이드업 시트) ── */
+.notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
+.notif-modal[aria-hidden="false"]{pointer-events:auto}
+.notif-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.5);opacity:0;transition:opacity .25s}
+.notif-modal[aria-hidden="false"] .notif-modal-backdrop{opacity:1}
+.notif-modal-body{position:absolute;left:0;right:0;bottom:0;top:15%;background:#fff;border-radius:16px 16px 0 0;transform:translateY(100%);transition:transform .3s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+.notif-modal[aria-hidden="false"] .notif-modal-body{transform:translateY(0)}
+.notif-modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.notif-modal-title{font-size:16px;font-weight:800;color:var(--ink)}
+.notif-mark-all{background:transparent;border:none;color:var(--pink);font-size:12px;font-weight:600;cursor:pointer;padding:4px 8px}
+.notif-mark-all:disabled{color:var(--muted);cursor:default}
+.notif-close-btn{background:transparent;border:none;padding:4px 8px;cursor:pointer;color:var(--muted)}
+.notif-modal-list{flex:1;overflow-y:auto;padding:8px 0}
+.notif-item{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid #faf5f9;cursor:pointer;transition:background .1s}
+.notif-item:hover{background:var(--surface-dim)}
+.notif-item.unread{background:#FFF8F0}
+.notif-item-icon{flex-shrink:0;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
+.notif-item-body{flex:1;min-width:0}
+.notif-item-title{font-size:13px;font-weight:700;color:var(--ink);line-height:1.3}
+.notif-item-desc{font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap}
+.notif-item-time{font-size:10px;color:var(--muted);margin-top:4px}
+.notif-empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
 
 /* ── FLOATING APPLY BAR ── */
 #detailFloatBar{display:none;position:fixed;bottom:var(--tab-h);left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--surface);border-top:1px solid var(--outline);padding:12px 16px;z-index:149;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
@@ -528,8 +582,42 @@ textarea.form-input{resize:vertical;min-height:80px}
       <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')" data-i18n="nav.login">ログイン</button>
       <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')" data-i18n="nav.signup">新規登録</button>
     </div>
+    <button class="gnb-burger" id="gnbBurger" onclick="openNavPanel()" aria-label="Menu" style="position:relative">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:#fff">menu</span>
+      <span id="gnbNotifBadge" class="notif-badge hidden"></span>
+    </button>
   </div>
 </nav>
+
+<!-- ── NAV PANEL (우측 슬라이드) ── -->
+<aside id="navPanel" class="nav-panel" aria-hidden="true">
+  <div class="nav-panel-backdrop" onclick="closeNavPanel()"></div>
+  <div class="nav-panel-body">
+    <div class="nav-panel-header">
+      <button class="nav-panel-close" onclick="closeNavPanel()" aria-label="Close">
+        <span class="material-icons-round notranslate" translate="no">close</span>
+      </button>
+    </div>
+    <div id="navMenu" class="nav-menu"></div>
+  </div>
+</aside>
+
+<!-- ── NOTIF MODAL (슬라이드업) ── -->
+<div id="notifModal" class="notif-modal" aria-hidden="true">
+  <div class="notif-modal-backdrop" onclick="closeNotifModal()"></div>
+  <div class="notif-modal-body">
+    <div class="notif-modal-header">
+      <div class="notif-modal-title" data-i18n="menu.notifications">お知らせ</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
+        <button class="notif-close-btn" onclick="closeNotifModal()" aria-label="Close">
+          <span class="material-icons-round notranslate" translate="no">close</span>
+        </button>
+      </div>
+    </div>
+    <div id="notifModalBody" class="notif-modal-list"></div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════
      PAGE: HOME (キャンペーン一覧)
@@ -987,8 +1075,6 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
     <div class="container mypage-wrap" style="padding-top:0">
-      <!-- Stage 6: 알림 섹션 (미읽음 있을 때만 노출) -->
-      <div id="mypageNotifSection" style="display:none;margin-bottom:12px"></div>
       <div class="mypage-menu">
         <div class="mypage-menu-item" onclick="openMypageSub('applications')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
@@ -1256,21 +1342,8 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
-<!-- ── BOTTOM TAB BAR ── -->
-<nav class="bottom-tab" id="bottomTabBar">
-  <button class="tab-item on" id="tab-home" onclick="navigateTab('home',this)">
-    <span class="material-icons-round">home</span>
-    <span class="tab-lbl" data-i18n="tab.home">ホーム</span>
-  </button>
-  <button class="tab-item" id="tab-camp" onclick="navigateTab('campaigns',this)">
-    <span class="material-icons-round">campaign</span>
-    <span class="tab-lbl" data-i18n="tab.campaigns">キャンペーン</span>
-  </button>
-  <button class="tab-item" id="tab-mypage" onclick="navigateTab('mypage',this)">
-    <span class="material-icons-round">person</span>
-    <span class="tab-lbl" data-i18n="tab.mypage">マイページ</span>
-  </button>
-</nav>
+  <!-- 비로그인 고정 CTA (하단 중앙) -->
+  <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
 </div><!-- /appShell -->
 
 
@@ -1505,6 +1578,7 @@ window.I18N_JA = {
   nav: {
     login: 'ログイン',
     signup: '新規登録',
+    signupOrLogin: '会員登録・ログイン',
   },
 
   // 캠페인 목록 페이지
@@ -1619,7 +1693,17 @@ window.I18N_JA = {
     applyDate: '応募日',
   },
 
-  // 하단 탭
+  // 햄버거 메뉴
+  menu: {
+    notifications: '通知',
+  },
+  notif: {
+    markAllRead: 'すべて既読',
+    headerN: 'お知らせ ({n})',
+    emptyUnread: '未読の通知はありません',
+  },
+
+  // 하단 탭 (deprecated — 햄버거 메뉴로 이전)
   tab: {
     home: 'ホーム',
     campaigns: 'キャンペーン',
@@ -1844,12 +1928,6 @@ window.I18N_JA = {
   channelLabel: {
     other: 'その他',
   },
-
-  // 알림
-  notif: {
-    headerN: 'お知らせ ({n})',
-    markAllRead: 'すべて既読',
-  },
 };
 // ══════════════════════════════════════
 // i18n — 한국어
@@ -1905,6 +1983,7 @@ window.I18N_KO = {
   nav: {
     login: '로그인',
     signup: '회원가입',
+    signupOrLogin: '회원가입・로그인',
   },
 
   campaigns: {
@@ -2012,6 +2091,15 @@ window.I18N_KO = {
     emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
+  },
+
+  menu: {
+    notifications: '알림',
+  },
+  notif: {
+    markAllRead: '모두 읽음',
+    headerN: '알림 ({n})',
+    emptyUnread: '읽지 않은 알림이 없습니다',
   },
 
   tab: {
@@ -2226,11 +2314,6 @@ window.I18N_KO = {
 
   channelLabel: {
     other: '기타',
-  },
-
-  notif: {
-    headerN: '알림 ({n})',
-    markAllRead: '모두 읽음',
   },
 };
 // ══════════════════════════════════════
@@ -3940,20 +4023,19 @@ function renderCampaigns(camps) {
 
 function updateGnb() {
   const gnbRight = $('gnbRight');
-  const tabMypage = $('tab-mypage');
   if (currentUser) {
     const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
     gnbRight.innerHTML = isAdmin
       ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/admin/'">Admin</button>`
       : '';
-    if (tabMypage) tabMypage.style.display = '';
   } else {
-    gnbRight.innerHTML = `
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">Sign Up</button>
-    `;
-    if (tabMypage) tabMypage.style.display = 'none';
+    // 비로그인: GNB 우측은 비우고 하단 플로팅 CTA로 유도
+    gnbRight.innerHTML = '';
   }
+  // 햄버거 메뉴 항목 갱신 (비로그인/관리자 분기)
+  if (typeof renderNavMenu === 'function') renderNavMenu();
+  if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
+  if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta();
 }
 
 async function handleSignup(e) {
@@ -4913,6 +4995,171 @@ async function submitReceipt() {
   }
 }
 // ══════════════════════════════════════
+// NOTIFICATIONS — 햄버거 배지 + 슬라이드업 모달
+// (dev/index.html 전용: 햄버거 메뉴 리팩토링)
+// ══════════════════════════════════════
+
+let _notifCache = [];
+
+// ── 햄버거 메뉴 패널 ──
+function openNavPanel() {
+  const p = $('navPanel');
+  if (!p) return;
+  renderNavMenu();
+  p.setAttribute('aria-hidden', 'false');
+}
+function closeNavPanel() {
+  const p = $('navPanel');
+  if (p) p.setAttribute('aria-hidden', 'true');
+}
+
+function renderNavMenu() {
+  const menu = $('navMenu');
+  if (!menu) return;
+  const items = [];
+  if (currentUser) {
+    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    items.push({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
+    const isAdmin = currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : '');
+    if (!isAdmin) {
+      items.push({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+    }
+    items.push({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
+  } else {
+    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    items.push({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
+    items.push({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
+  }
+  menu.innerHTML = items.map(it => `
+    <button class="nav-item" data-nav="${it.nav}" onclick="${it.onclick}">
+      <span class="material-icons-round notranslate nav-icon" translate="no">${it.icon}</span>
+      <span class="nav-label">${esc(it.label)}</span>
+      ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
+    </button>
+  `).join('');
+  refreshNotifBadge();
+}
+
+// ── 미읽음 배지 갱신 ──
+async function refreshNotifBadge() {
+  const gnbBadge = $('gnbNotifBadge');
+  const navBadges = document.querySelectorAll('[data-role="nav-badge"]');
+  if (!currentUser) {
+    if (gnbBadge) gnbBadge.classList.add('hidden');
+    navBadges.forEach(b => b.classList.add('hidden'));
+    return;
+  }
+  const isAdmin = currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : '');
+  if (isAdmin) {
+    if (gnbBadge) gnbBadge.classList.add('hidden');
+    navBadges.forEach(b => b.classList.add('hidden'));
+    return;
+  }
+  let unread = 0;
+  try {
+    const items = await fetchMyNotifications({unreadOnly: true, limit: 30});
+    unread = items.length;
+  } catch(e) {}
+  const txt = unread > 9 ? '9+' : String(unread);
+  if (gnbBadge) {
+    if (unread > 0) { gnbBadge.textContent = txt; gnbBadge.classList.remove('hidden'); }
+    else gnbBadge.classList.add('hidden');
+  }
+  navBadges.forEach(b => {
+    if (unread > 0) { b.textContent = txt; b.classList.remove('hidden'); }
+    else b.classList.add('hidden');
+  });
+}
+
+// ── 알림 모달 ──
+async function openNotifModal() {
+  const m = $('notifModal');
+  if (!m) return;
+  m.setAttribute('aria-hidden', 'false');
+  const body = $('notifModalBody');
+  if (body) body.innerHTML = '<div class="notif-empty">' + t('common.loading') + '</div>';
+  try {
+    const items = await fetchMyNotifications({limit: 30});
+    _notifCache = items;
+    renderNotifModal(items);
+  } catch(e) {
+    if (body) body.innerHTML = '<div class="notif-empty">' + t('authError.serverError') + '</div>';
+  }
+}
+
+function closeNotifModal() {
+  const m = $('notifModal');
+  if (m) m.setAttribute('aria-hidden', 'true');
+}
+
+function renderNotifModal(items) {
+  const body = $('notifModalBody');
+  const markBtn = $('notifMarkAllBtn');
+  if (!body) return;
+  if (!items.length) {
+    body.innerHTML = '<div class="notif-empty">' + t('notif.emptyUnread') + '</div>';
+    if (markBtn) markBtn.disabled = true;
+    return;
+  }
+  const hasUnread = items.some(n => !n.read_at);
+  if (markBtn) markBtn.disabled = !hasUnread;
+  body.innerHTML = items.map(n => {
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}};
+    const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
+    const unread = !n.read_at ? 'unread' : '';
+    return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
+      <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
+      <div class="notif-item-body">
+        <div class="notif-item-title">${esc(n.title||'')}</div>
+        ${n.body ? `<div class="notif-item-desc">${esc(n.body)}</div>` : ''}
+        <div class="notif-item-time">${formatDateTime(n.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function onNotifItemClick(id, refTable, refId) {
+  await markNotificationRead(id);
+  if (refTable === 'deliverables' && refId && currentUser) {
+    try {
+      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
+      const hit = delivs.find(d => d.id === refId);
+      if (hit) {
+        closeNotifModal();
+        openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
+        refreshNotifBadge();
+        return;
+      }
+    } catch(e) {}
+  }
+  // 참조 없거나 실패: 배지·리스트 갱신
+  await refreshNotifBadge();
+  const items = await fetchMyNotifications({limit: 30});
+  renderNotifModal(items);
+}
+
+// ── 비로그인 고정 CTA 표시 제어 ──
+function updateFloatingAuthCta(pageName) {
+  const cta = $('floatingAuthCta');
+  if (!cta) return;
+  const hiddenPages = ['login','signup','forgot','reset-pw'];
+  const curPage = pageName || (location.hash.replace('#','').split('-')[0] || 'home');
+  if (currentUser || hiddenPages.includes(curPage)) {
+    cta.style.display = 'none';
+  } else {
+    cta.style.display = '';
+  }
+}
+
+async function markAllNotifRead() {
+  await markAllNotificationsRead();
+  await refreshNotifBadge();
+  const items = await fetchMyNotifications({limit: 30});
+  renderNotifModal(items);
+}
+// ══════════════════════════════════════
 // MY PAGE
 // ══════════════════════════════════════
 function loadMyPage() {
@@ -4921,7 +5168,8 @@ function loadMyPage() {
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
   $('mypageName').textContent = displayName;
-  loadMypageNotifications();  // Stage 6: 알림 섹션
+  // Stage 6 알림은 햄버거 메뉴 모달로 이전 (refreshNotifBadge에서 처리)
+  if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
   // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
   const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
   const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
@@ -5165,53 +5413,7 @@ function handleWithdraw() {
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
 
-// ── Stage 6: 마이페이지 알림 섹션 ──
-async function loadMypageNotifications() {
-  const section = $('mypageNotifSection');
-  if (!section) return;
-  const items = await fetchMyNotifications({unreadOnly: true, limit: 10});
-  if (!items.length) { section.style.display = 'none'; section.innerHTML = ''; return; }
-  section.style.display = '';
-  const rows = items.map(n => {
-    const icon = n.kind === 'deliverable_rejected' ? 'error_outline'
-               : n.kind === 'deliverable_changed' ? 'change_circle'
-               : 'notifications';
-    const color = n.kind === 'deliverable_rejected' ? '#C33' : '#B8741A';
-    return `<div onclick="onNotifClick('${n.id}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')" style="display:flex;gap:10px;padding:10px 12px;background:#FFF8F0;border-left:3px solid ${color};border-radius:6px;margin-bottom:6px;cursor:pointer">
-      <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:${color};flex-shrink:0">${icon}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--ink)">${esc(n.title||'')}</div>
-        ${n.body ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:pre-wrap">${esc(n.body)}</div>` : ''}
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(n.created_at)}</div>
-      </div>
-    </div>`;
-  }).join('');
-  section.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:700;color:var(--ink)">${t('notif.headerN').replace('{n}', items.length)}</div>
-      <button onclick="onNotifMarkAllRead()" style="background:none;border:none;font-size:11px;color:var(--muted);cursor:pointer">${t('notif.markAllRead')}</button>
-    </div>
-    ${rows}
-  `;
-}
-
-async function onNotifClick(id, refTable, refId) {
-  await markNotificationRead(id);
-  if (refTable === 'deliverables' && refId) {
-    // 해당 결과물이 속한 application을 찾아 활동관리 페이지로 이동
-    try {
-      const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
-      const hit = delivs.find(d => d.id === refId);
-      if (hit) { openActivityPage(hit.application_id, hit.campaign_id, 'mypage'); return; }
-    } catch(e) {}
-  }
-  loadMypageNotifications();
-}
-
-async function onNotifMarkAllRead() {
-  await markAllNotificationsRead();
-  loadMypageNotifications();
-}
+// Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨
 // ══════════════════════════════════════
 // NAVIGATION + INIT
 // ══════════════════════════════════════
@@ -5272,11 +5474,13 @@ function navigate(page, pushHistory) {
   const fb = $('detailFloatBar');
   if (fb && pageName !== 'detail') fb.style.display = 'none';
 
-  const tabBar = $('bottomTabBar');
-  if (tabBar) {
-    tabBar.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : 'flex';
-  }
-  updateTabBar(pageName);
+  // 햄버거 메뉴 활성 표시
+  if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
+  // 인증 페이지에선 햄버거 숨김
+  const gnbBurger = $('gnbBurger');
+  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : '';
+  // 비로그인 플로팅 CTA (인증 페이지 제외)
+  if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
   if (pageName === 'home') loadCampaigns();
   if (pageName === 'campaigns') loadCampaignsPage();
@@ -5303,16 +5507,13 @@ window.addEventListener('popstate', function(e) {
   }
 });
 
-function navigateTab(page, el) {
-  if (page === 'mypage' && !currentUser) { navigate('login'); return; }
-  navigate(page);
-}
-
-function updateTabBar(page) {
-  const map = {home:'tab-home',detail:'tab-home',mypage:'tab-mypage',campaigns:'tab-camp'};
-  document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('on'));
-  const activeEl = $(map[page]||'tab-home');
-  if (activeEl) activeEl.classList.add('on');
+// Step 3: 햄버거 메뉴 활성 페이지 하이라이트
+function updateActiveNav(page) {
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage'};
+  const active = map[page] || 'home';
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('on', el.dataset.nav === active);
+  });
 }
 
 // ══════════════════════════════════════

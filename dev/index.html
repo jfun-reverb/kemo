@@ -130,8 +130,42 @@ window._supabaseLoaded = false;
       <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')" data-i18n="nav.login">ログイン</button>
       <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')" data-i18n="nav.signup">新規登録</button>
     </div>
+    <button class="gnb-burger" id="gnbBurger" onclick="openNavPanel()" aria-label="Menu" style="position:relative">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:#fff">menu</span>
+      <span id="gnbNotifBadge" class="notif-badge hidden"></span>
+    </button>
   </div>
 </nav>
+
+<!-- ── NAV PANEL (우측 슬라이드) ── -->
+<aside id="navPanel" class="nav-panel" aria-hidden="true">
+  <div class="nav-panel-backdrop" onclick="closeNavPanel()"></div>
+  <div class="nav-panel-body">
+    <div class="nav-panel-header">
+      <button class="nav-panel-close" onclick="closeNavPanel()" aria-label="Close">
+        <span class="material-icons-round notranslate" translate="no">close</span>
+      </button>
+    </div>
+    <div id="navMenu" class="nav-menu"></div>
+  </div>
+</aside>
+
+<!-- ── NOTIF MODAL (슬라이드업) ── -->
+<div id="notifModal" class="notif-modal" aria-hidden="true">
+  <div class="notif-modal-backdrop" onclick="closeNotifModal()"></div>
+  <div class="notif-modal-body">
+    <div class="notif-modal-header">
+      <div class="notif-modal-title" data-i18n="menu.notifications">お知らせ</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="notifMarkAllBtn" class="notif-mark-all" onclick="markAllNotifRead()" data-i18n="notif.markAllRead">すべて既読</button>
+        <button class="notif-close-btn" onclick="closeNotifModal()" aria-label="Close">
+          <span class="material-icons-round notranslate" translate="no">close</span>
+        </button>
+      </div>
+    </div>
+    <div id="notifModalBody" class="notif-modal-list"></div>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════
      PAGE: HOME (キャンペーン一覧)
@@ -589,8 +623,6 @@ window._supabaseLoaded = false;
       </div>
     </div>
     <div class="container mypage-wrap" style="padding-top:0">
-      <!-- Stage 6: 알림 섹션 (미읽음 있을 때만 노출) -->
-      <div id="mypageNotifSection" style="display:none;margin-bottom:12px"></div>
       <div class="mypage-menu">
         <div class="mypage-menu-item" onclick="openMypageSub('applications')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
@@ -858,21 +890,8 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
-<!-- ── BOTTOM TAB BAR ── -->
-<nav class="bottom-tab" id="bottomTabBar">
-  <button class="tab-item on" id="tab-home" onclick="navigateTab('home',this)">
-    <span class="material-icons-round">home</span>
-    <span class="tab-lbl" data-i18n="tab.home">ホーム</span>
-  </button>
-  <button class="tab-item" id="tab-camp" onclick="navigateTab('campaigns',this)">
-    <span class="material-icons-round">campaign</span>
-    <span class="tab-lbl" data-i18n="tab.campaigns">キャンペーン</span>
-  </button>
-  <button class="tab-item" id="tab-mypage" onclick="navigateTab('mypage',this)">
-    <span class="material-icons-round">person</span>
-    <span class="tab-lbl" data-i18n="tab.mypage">マイページ</span>
-  </button>
-</nav>
+  <!-- 비로그인 고정 CTA (하단 중앙) -->
+  <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
 </div><!-- /appShell -->
 
 
