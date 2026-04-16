@@ -126,9 +126,14 @@ function imgThumb(url, width, quality) {
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
 const CHANNEL_LABEL_FALLBACK = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+function _currentLookupLang(lang) {
+  if (lang) return lang;
+  try { if (typeof getLang === 'function') return getLang(); } catch(e) {}
+  return 'ja';
+}
 function getChannelLabel(ch, lang) {
   if (!ch) return '';
-  const useLang = lang === 'ko' ? 'name_ko' : 'name_ja';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
   const cache = (typeof _lookupCache !== 'undefined' && _lookupCache.channel) || null;
   return ch.split(',').map(s => s.trim()).filter(Boolean).map(code => {
     if (cache) {
@@ -137,6 +142,23 @@ function getChannelLabel(ch, lang) {
     }
     return CHANNEL_LABEL_FALLBACK[code] || code;
   }).join(' or ');
+}
+
+// lookup_values 공통: code 또는 name_ja를 현재 locale의 표시값으로
+function getLookupLabel(kind, valueOrCode, lang) {
+  if (!valueOrCode) return '';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
+  const cache = (typeof _lookupCache !== 'undefined' && _lookupCache[kind]) || null;
+  if (!cache) return valueOrCode;
+  const row = cache.find(r => r.code === valueOrCode || r.name_ja === valueOrCode || r.name_ko === valueOrCode);
+  return row ? (row[useLang] || row.name_ja || valueOrCode) : valueOrCode;
+}
+
+// 콤마 구분 콘텐츠 타입 등 복수 값 처리
+function getLookupLabelsJoined(kind, csv, sep, lang) {
+  if (!csv) return '';
+  return csv.split(',').map(s => s.trim()).filter(Boolean)
+    .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
 // 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
 function getRecruitTypeLabelJa(t) {
@@ -157,7 +179,12 @@ function getRecruitTypeBadgeKoSm(t) {
 }
 
 function getStatusBadge(s) {
-  const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
+  const labels = {
+    pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
+    approved: (typeof t === 'function' ? t('appHistory.approved') : '承認'),
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '非承認')
+  };
+  const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
   return m[s] || s;
 }
 function getStatusBadgeKo(s) {

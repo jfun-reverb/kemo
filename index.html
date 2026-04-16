@@ -208,7 +208,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-panel[aria-hidden="false"] .nav-panel-backdrop{opacity:1}
 .nav-panel-body{position:absolute;top:0;right:0;bottom:0;width:min(320px,82vw);background:#fff;transform:translateX(100%);transition:transform .25s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
 .nav-panel[aria-hidden="false"] .nav-panel-body{transform:translateX(0)}
-.nav-panel-header{display:flex;justify-content:flex-end;padding:8px 8px 0}
+.nav-panel-header{display:flex;align-items:center;gap:8px;padding:10px 12px 4px}
+.nav-admin-btn{background:var(--pink);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}
+.nav-admin-btn:hover{background:var(--dark-pink)}
 .nav-panel-close{background:transparent;border:none;padding:8px;cursor:pointer;border-radius:8px}
 .nav-panel-close:hover{background:var(--surface-dim)}
 .nav-menu{display:flex;flex-direction:column;padding:8px 0}
@@ -219,6 +221,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-item.on .nav-icon{color:var(--pink)}
 .nav-item .nav-label{flex:1}
 .nav-item .notif-badge{position:static;margin-left:auto}
+.nav-subitem{display:flex;align-items:center;padding:11px 20px 11px 54px;cursor:pointer;font-size:13px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
+.nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
+.nav-divider{height:1px;background:var(--line);margin:6px 14px}
+.nav-divider-sub{height:1px;background:var(--line);margin:0 20px 0 54px;opacity:.6}
 
 /* ── NOTIF MODAL (슬라이드업 시트) ── */
 .notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
@@ -594,6 +600,12 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div class="nav-panel-backdrop" onclick="closeNavPanel()"></div>
   <div class="nav-panel-body">
     <div class="nav-panel-header">
+      <button id="navAdminBtn" class="nav-admin-btn" onclick="window.location.href='/admin/'" style="display:none">Admin</button>
+      <div class="lang-toggle" role="group" aria-label="Language" style="margin-left:8px">
+        <button type="button" class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
+        <button type="button" class="lang-btn" data-lang="ko" onclick="setLang('ko')">한국어</button>
+      </div>
+      <span style="flex:1"></span>
       <button class="nav-panel-close" onclick="closeNavPanel()" aria-label="Close">
         <span class="material-icons-round notranslate" translate="no">close</span>
       </button>
@@ -1109,15 +1121,6 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
-        <!-- 言語 / 언어 토글 -->
-        <div class="mypage-menu-item" style="cursor:default">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">language</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.language">言語 / 언어</span>
-          <div class="lang-toggle" role="group" aria-label="Language">
-            <button type="button" class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
-            <button type="button" class="lang-btn" data-lang="ko" onclick="setLang('ko')">한국어</button>
-          </div>
-        </div>
         <div class="mypage-menu-item" onclick="handleLogout()">
           <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
           <span class="mypage-menu-label" data-i18n="mypage.menu.logout" style="color:var(--on-surface-variant)">ログアウト</span>
@@ -1133,7 +1136,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">応募履歴</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
@@ -1157,7 +1160,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-profile-basic" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">基本情報</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.basic">基本情報</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1184,7 +1187,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-profile-sns" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">SNSアカウント</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.sns">SNSアカウント</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1228,7 +1231,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-profile-address" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">配送先</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.address">配送先</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1256,7 +1259,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-paypal" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">PayPal</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.paypal">PayPal</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -1276,7 +1279,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="mypage-sub-password" class="mypage-view">
     <div class="mypage-sub-header">
       <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
-      <span class="mypage-sub-title">パスワード変更</span>
+      <span class="mypage-sub-title" data-i18n="mypage.menu.password">パスワード変更</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
@@ -3323,9 +3326,14 @@ function imgThumb(url, width, quality) {
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
 const CHANNEL_LABEL_FALLBACK = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+function _currentLookupLang(lang) {
+  if (lang) return lang;
+  try { if (typeof getLang === 'function') return getLang(); } catch(e) {}
+  return 'ja';
+}
 function getChannelLabel(ch, lang) {
   if (!ch) return '';
-  const useLang = lang === 'ko' ? 'name_ko' : 'name_ja';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
   const cache = (typeof _lookupCache !== 'undefined' && _lookupCache.channel) || null;
   return ch.split(',').map(s => s.trim()).filter(Boolean).map(code => {
     if (cache) {
@@ -3334,6 +3342,23 @@ function getChannelLabel(ch, lang) {
     }
     return CHANNEL_LABEL_FALLBACK[code] || code;
   }).join(' or ');
+}
+
+// lookup_values 공통: code 또는 name_ja를 현재 locale의 표시값으로
+function getLookupLabel(kind, valueOrCode, lang) {
+  if (!valueOrCode) return '';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
+  const cache = (typeof _lookupCache !== 'undefined' && _lookupCache[kind]) || null;
+  if (!cache) return valueOrCode;
+  const row = cache.find(r => r.code === valueOrCode || r.name_ja === valueOrCode || r.name_ko === valueOrCode);
+  return row ? (row[useLang] || row.name_ja || valueOrCode) : valueOrCode;
+}
+
+// 콤마 구분 콘텐츠 타입 등 복수 값 처리
+function getLookupLabelsJoined(kind, csv, sep, lang) {
+  if (!csv) return '';
+  return csv.split(',').map(s => s.trim()).filter(Boolean)
+    .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
 // 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
 function getRecruitTypeLabelJa(t) {
@@ -3354,7 +3379,12 @@ function getRecruitTypeBadgeKoSm(t) {
 }
 
 function getStatusBadge(s) {
-  const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
+  const labels = {
+    pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
+    approved: (typeof t === 'function' ? t('appHistory.approved') : '承認'),
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '非承認')
+  };
+  const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
   return m[s] || s;
 }
 function getStatusBadgeKo(s) {
@@ -3990,7 +4020,7 @@ function buildCampCards(camps) {
         })()}
         <div class="camp-brand">${esc(c.brand)}</div>
         <div class="camp-title">${esc(c.title)}</div>
-        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(t.trim())}</span>`).join('')}</div>` : ''}
+        ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}
         ${(() => {
           // 모집타입 + 상태 배지 — 콘텐츠 종류 아래
           const row = [];
@@ -4023,15 +4053,8 @@ function renderCampaigns(camps) {
 
 function updateGnb() {
   const gnbRight = $('gnbRight');
-  if (currentUser) {
-    const isAdmin = currentUser._isAdmin || currentUser.email === ADMIN_EMAIL;
-    gnbRight.innerHTML = isAdmin
-      ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/admin/'">Admin</button>`
-      : '';
-  } else {
-    // 비로그인: GNB 우측은 비우고 하단 플로팅 CTA로 유도
-    gnbRight.innerHTML = '';
-  }
+  // GNB 우측은 항상 비움 (로그인/가입은 하단 CTA, Admin은 햄버거 메뉴)
+  if (gnbRight) gnbRight.innerHTML = '';
   // 햄버거 메뉴 항목 갱신 (비로그인/관리자 분기)
   if (typeof renderNavMenu === 'function') renderNavMenu();
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
@@ -4329,7 +4352,7 @@ async function openCampaign(id) {
         </div>
         <div style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;z-index:5"><span id="slideCurrentNum">1</span>/${slideImgs.length}</div>` : ''}
       <div style="position:absolute;top:12px;left:12px;display:flex;gap:5px;z-index:5">
-        ${camp.content_types?camp.content_types.split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(4px)">${esc(t.trim())}</span>`).join(''):''}
+        ${camp.content_types?camp.content_types.split(',').map(t=>`<span style="background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;backdrop-filter:blur(4px)">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join(''):''}
       </div>
     </div>` : `<div style="aspect-ratio:1/1;width:100%;border-radius:16px;background:${getCampGrad(camp.category)};display:flex;align-items:center;justify-content:center;font-size:64px">${camp.emoji||''}</div>`;
 
@@ -4365,7 +4388,7 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.contentType')}</div>
             <div style="padding:10px 13px;flex:1;font-size:12px;display:flex;gap:4px;flex-wrap:wrap">
-              ${camp.content_types.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(t.trim())}</span>`).join('')}
+              ${camp.content_types.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}
             </div>
           </div>`:''}
           <div style="display:flex;border-top:1px solid #faf5f9">
@@ -5016,30 +5039,56 @@ function closeNavPanel() {
 function renderNavMenu() {
   const menu = $('navMenu');
   if (!menu) return;
-  const items = [];
+  // Admin 버튼 표시 제어
+  const adminBtn = $('navAdminBtn');
+  const isAdmin = currentUser && (currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : ''));
+  if (adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
+
+  let html = '';
+  const divider = '<div class="nav-divider"></div>';
   if (currentUser) {
-    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
-    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
-    items.push({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
-    const isAdmin = currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : '');
+    html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
+    // 마이페이지 (클릭 시 바로 이동, 서브메뉴 항상 표시)
+    html += navItemHtml({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
+    const subs = [
+      {sub:'applications', label: t('mypage.menu.applications')},
+      {sub:'profile-basic', label: t('mypage.menu.basic')},
+      {sub:'profile-sns', label: t('mypage.menu.sns')},
+      {sub:'profile-address', label: t('mypage.menu.address')},
+      {sub:'paypal', label: t('mypage.menu.paypal')},
+      {sub:'password', label: t('mypage.menu.password')}
+    ];
+    html += subs.map((s, i) => `
+      ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
+      <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
+        <span class="nav-label">${esc(s.label)}</span>
+      </button>
+    `).join('');
+    html += divider;
     if (!isAdmin) {
-      items.push({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+      html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+      html += divider;
     }
-    items.push({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
+    html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
   } else {
-    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
-    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
-    items.push({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
-    items.push({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
+    html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
+    html += navItemHtml({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
+    html += navItemHtml({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
   }
-  menu.innerHTML = items.map(it => `
-    <button class="nav-item" data-nav="${it.nav}" onclick="${it.onclick}">
-      <span class="material-icons-round notranslate nav-icon" translate="no">${it.icon}</span>
-      <span class="nav-label">${esc(it.label)}</span>
-      ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
-    </button>
-  `).join('');
+  menu.innerHTML = html;
   refreshNotifBadge();
+}
+
+function navItemHtml(it) {
+  return `<button class="nav-item" data-nav="${it.nav}" onclick="${it.onclick}">
+    <span class="material-icons-round notranslate nav-icon" translate="no">${it.icon}</span>
+    <span class="nav-label">${esc(it.label)}</span>
+    ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
+  </button>`;
 }
 
 // ── 미읽음 배지 갱신 ──
@@ -5507,6 +5556,14 @@ window.addEventListener('popstate', function(e) {
   }
 });
 
+// 언어 전환 시 현재 페이지 재렌더 (lookup_values 기반 라벨 갱신)
+window.addEventListener('langchange', function() {
+  const page = location.hash.replace('#','') || 'home';
+  if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
+  else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
+  else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+});
+
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
   const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage'};
@@ -5523,7 +5580,7 @@ async function init() {
   // lookup_values 사전 로드 (채널/카테고리 라벨 동적 표시용, 인증과 무관하게 익명 SELECT 허용)
   if (db) {
     try {
-      await Promise.all([fetchLookups('channel'), fetchLookups('category')]);
+      await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
         updateStats(allCampaigns);

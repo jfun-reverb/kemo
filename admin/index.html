@@ -207,7 +207,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-panel[aria-hidden="false"] .nav-panel-backdrop{opacity:1}
 .nav-panel-body{position:absolute;top:0;right:0;bottom:0;width:min(320px,82vw);background:#fff;transform:translateX(100%);transition:transform .25s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
 .nav-panel[aria-hidden="false"] .nav-panel-body{transform:translateX(0)}
-.nav-panel-header{display:flex;justify-content:flex-end;padding:8px 8px 0}
+.nav-panel-header{display:flex;align-items:center;gap:8px;padding:10px 12px 4px}
+.nav-admin-btn{background:var(--pink);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}
+.nav-admin-btn:hover{background:var(--dark-pink)}
 .nav-panel-close{background:transparent;border:none;padding:8px;cursor:pointer;border-radius:8px}
 .nav-panel-close:hover{background:var(--surface-dim)}
 .nav-menu{display:flex;flex-direction:column;padding:8px 0}
@@ -218,6 +220,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-item.on .nav-icon{color:var(--pink)}
 .nav-item .nav-label{flex:1}
 .nav-item .notif-badge{position:static;margin-left:auto}
+.nav-subitem{display:flex;align-items:center;padding:11px 20px 11px 54px;cursor:pointer;font-size:13px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
+.nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
+.nav-divider{height:1px;background:var(--line);margin:6px 14px}
+.nav-divider-sub{height:1px;background:var(--line);margin:0 20px 0 54px;opacity:.6}
 
 /* ── NOTIF MODAL (슬라이드업 시트) ── */
 .notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
@@ -2518,9 +2524,14 @@ function imgThumb(url, width, quality) {
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
 const CHANNEL_LABEL_FALLBACK = {instagram:'Instagram',x:'X(Twitter)',qoo10:'Qoo10',tiktok:'TikTok',youtube:'YouTube'};
+function _currentLookupLang(lang) {
+  if (lang) return lang;
+  try { if (typeof getLang === 'function') return getLang(); } catch(e) {}
+  return 'ja';
+}
 function getChannelLabel(ch, lang) {
   if (!ch) return '';
-  const useLang = lang === 'ko' ? 'name_ko' : 'name_ja';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
   const cache = (typeof _lookupCache !== 'undefined' && _lookupCache.channel) || null;
   return ch.split(',').map(s => s.trim()).filter(Boolean).map(code => {
     if (cache) {
@@ -2529,6 +2540,23 @@ function getChannelLabel(ch, lang) {
     }
     return CHANNEL_LABEL_FALLBACK[code] || code;
   }).join(' or ');
+}
+
+// lookup_values 공통: code 또는 name_ja를 현재 locale의 표시값으로
+function getLookupLabel(kind, valueOrCode, lang) {
+  if (!valueOrCode) return '';
+  const useLang = _currentLookupLang(lang) === 'ko' ? 'name_ko' : 'name_ja';
+  const cache = (typeof _lookupCache !== 'undefined' && _lookupCache[kind]) || null;
+  if (!cache) return valueOrCode;
+  const row = cache.find(r => r.code === valueOrCode || r.name_ja === valueOrCode || r.name_ko === valueOrCode);
+  return row ? (row[useLang] || row.name_ja || valueOrCode) : valueOrCode;
+}
+
+// 콤마 구분 콘텐츠 타입 등 복수 값 처리
+function getLookupLabelsJoined(kind, csv, sep, lang) {
+  if (!csv) return '';
+  return csv.split(',').map(s => s.trim()).filter(Boolean)
+    .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
 // 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
 function getRecruitTypeLabelJa(t) {
@@ -2549,7 +2577,12 @@ function getRecruitTypeBadgeKoSm(t) {
 }
 
 function getStatusBadge(s) {
-  const m = {pending:'<span class="badge badge-gold">審査中</span>',approved:'<span class="badge badge-green">承認</span>',rejected:'<span class="badge badge-gray">非承認</span>'};
+  const labels = {
+    pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
+    approved: (typeof t === 'function' ? t('appHistory.approved') : '承認'),
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '非承認')
+  };
+  const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
   return m[s] || s;
 }
 function getStatusBadgeKo(s) {

@@ -20,30 +20,56 @@ function closeNavPanel() {
 function renderNavMenu() {
   const menu = $('navMenu');
   if (!menu) return;
-  const items = [];
+  // Admin 버튼 표시 제어
+  const adminBtn = $('navAdminBtn');
+  const isAdmin = currentUser && (currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : ''));
+  if (adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
+
+  let html = '';
+  const divider = '<div class="nav-divider"></div>';
   if (currentUser) {
-    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
-    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
-    items.push({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
-    const isAdmin = currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : '');
+    html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
+    // 마이페이지 (클릭 시 바로 이동, 서브메뉴 항상 표시)
+    html += navItemHtml({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
+    const subs = [
+      {sub:'applications', label: t('mypage.menu.applications')},
+      {sub:'profile-basic', label: t('mypage.menu.basic')},
+      {sub:'profile-sns', label: t('mypage.menu.sns')},
+      {sub:'profile-address', label: t('mypage.menu.address')},
+      {sub:'paypal', label: t('mypage.menu.paypal')},
+      {sub:'password', label: t('mypage.menu.password')}
+    ];
+    html += subs.map((s, i) => `
+      ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
+      <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
+        <span class="nav-label">${esc(s.label)}</span>
+      </button>
+    `).join('');
+    html += divider;
     if (!isAdmin) {
-      items.push({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+      html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
+      html += divider;
     }
-    items.push({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
+    html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
   } else {
-    items.push({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
-    items.push({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
-    items.push({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
-    items.push({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
+    html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
+    html += divider;
+    html += navItemHtml({nav:'login', icon:'login', label: t('nav.login'), onclick:"navigate('login');closeNavPanel()"});
+    html += navItemHtml({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
   }
-  menu.innerHTML = items.map(it => `
-    <button class="nav-item" data-nav="${it.nav}" onclick="${it.onclick}">
-      <span class="material-icons-round notranslate nav-icon" translate="no">${it.icon}</span>
-      <span class="nav-label">${esc(it.label)}</span>
-      ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
-    </button>
-  `).join('');
+  menu.innerHTML = html;
   refreshNotifBadge();
+}
+
+function navItemHtml(it) {
+  return `<button class="nav-item" data-nav="${it.nav}" onclick="${it.onclick}">
+    <span class="material-icons-round notranslate nav-icon" translate="no">${it.icon}</span>
+    <span class="nav-label">${esc(it.label)}</span>
+    ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
+  </button>`;
 }
 
 // ── 미읽음 배지 갱신 ──
