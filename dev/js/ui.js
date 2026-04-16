@@ -589,7 +589,7 @@ function buildLegalContent(kind) {
         <dt>会社名</dt><dd>株式会社ジェイファン（JFUN Corp.）</dd>
         <dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd>
         <dt>代表者</dt><dd>ジュ・ヒョンホ</dd>
-        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a></dd>
+        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd>
       </dl>
       <p>REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。</p>
     `;
@@ -597,7 +597,7 @@ function buildLegalContent(kind) {
   if (kind === 'terms' || kind === 'privacy') {
     return `
       <p>${kind==='terms'?'利用規約':'個人情報処理方針'}の日本語版は現在準備中です。</p>
-      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener">@586mnjoc</a>）までお問い合わせください。</p>
+      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a>）までお問い合わせください。</p>
       <p style="font-size:11px;color:var(--muted);margin-top:18px">施行予定日: 2026年5月1日</p>
     `;
   }

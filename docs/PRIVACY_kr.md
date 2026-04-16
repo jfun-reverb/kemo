@@ -160,7 +160,7 @@
 
 - **책임자**: 김영근 이사
 - **이메일**: younggeun.kim@jfun.co.kr
-- **LINE 공식 계정**: @586mnjoc
+- **LINE 공식 계정**: @reverb.jp
 
 ---
 

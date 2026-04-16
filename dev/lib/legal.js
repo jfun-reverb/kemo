@@ -143,7 +143,7 @@ async function renderLegalPage() {
           <div style="font-size:32px;margin-bottom:12px"><span class="material-icons-round notranslate" translate="no">translate</span></div>
           <div style="font-weight:700;color:var(--ink);margin-bottom:6px">日本語版は現在準備中です</div>
           <div>正式な日本語訳は施行日（2026年5月1日）までに公開予定です。</div>
-          <div style="margin-top:12px">韓国語版を確認するか、公式LINE（<a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" rel="noopener" style="color:var(--pink)">@586mnjoc</a>）までお問い合わせください。</div>
+          <div style="margin-top:12px">韓国語版を確認するか、公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener" style="color:var(--pink)">@reverb.jp</a>）までお問い合わせください。</div>
           <button class="btn btn-ghost" style="margin-top:16px" onclick="setLegalLang('ko')">韓国語版を見る</button>
         </div>`;
     } else {

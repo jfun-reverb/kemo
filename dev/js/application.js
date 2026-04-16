@@ -188,7 +188,7 @@ async function openCampaign(id) {
           <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
           <li>投稿は6ヶ月以上の掲載が必須です。</li>
           <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
-          <li>ご不明点は <a href="https://line.me/R/ti/p/@586mnjoc" target="_blank" style="color:var(--pink);font-weight:600">LINE(@586mnjoc)</a> まで。</li>
+          <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
         </ul>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;padding:0 0 calc(var(--tab-h) + 70px)">
@@ -202,14 +202,14 @@ async function openCampaign(id) {
             <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px">@reverb_jp をフォロー →</div>
           </div>
         </div>
-        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@586mnjoc','_blank')">
+        <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
           <div style="flex-shrink:0;width:44px;height:44px;background:#fff;border-radius:10px;overflow:hidden;padding:3px">
-            <img src="https://qr-official.line.me/sid/M/586mnjoc.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
+            <img src="https://qr-official.line.me/sid/M/reverb.jp.png" style="width:100%;height:100%;object-fit:contain" alt="LINE QR" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22><rect width=%2240%22 height=%2240%22 fill=%22%2306A434%22/><text x=%2250%%22 y=%2255%%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>L</text></svg>'">
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
             <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@586mnjoc」</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@reverb.jp」</div>
             <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録は必須です <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>

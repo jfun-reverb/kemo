@@ -160,7 +160,7 @@
 
 - **責任者**: キム・ヨングン 理事
 - **メール**: younggeun.kim@jfun.co.kr
-- **LINE 公式アカウント**: @586mnjoc
+- **LINE 公式アカウント**: @reverb.jp
 
 ---
 
