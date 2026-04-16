@@ -85,15 +85,17 @@ async function fetchInfluencers() {
 
 async function upsertInfluencer(profile) {
   if (!db) return;
+  const normalized = (typeof normalizeSnsFields === 'function') ? normalizeSnsFields(profile) : profile;
   await retryWithRefresh(async () => {
-    const {error} = await db.from('influencers').upsert(profile);
+    const {error} = await db.from('influencers').upsert(normalized);
     if (error) throw error;
   });
 }
 
 async function updateInfluencer(userId, updates) {
   if (!db) return;
-  const {error} = await db.from('influencers').update(updates).eq('id', userId);
+  const normalized = (typeof normalizeSnsFields === 'function') ? normalizeSnsFields(updates) : updates;
+  const {error} = await db.from('influencers').update(normalized).eq('id', userId);
   if (error) throw error;
 }
 

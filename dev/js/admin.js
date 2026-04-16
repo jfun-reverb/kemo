@@ -1046,7 +1046,7 @@ async function loadCampApplicants() {
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
       <div style="font-size:11px;color:var(--muted)">${[esc(a.user_email)||'', _u.line_id?`LINE: ${esc(_u.line_id)}`:''].filter(Boolean).join(' · ')}</div>
     </td>
-    <td>${a.ig_id?`<a href="https://instagram.com/${esc(a.ig_id)}" target="_blank" style="color:var(--pink);font-weight:600">@${esc(a.ig_id)}</a>`:esc(a.user_ig)||'—'}</td>
+    <td>${a.ig_id?`<a href="https://instagram.com/${esc(a.ig_id)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">@${esc(a.ig_id)}</a>`:esc(a.user_ig)||'—'}</td>
     <td style="font-weight:600">${(a.user_followers||0).toLocaleString()}</td>
     <td style="max-width:200px;font-size:12px;color:var(--muted)">${esc(a.message)||'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
@@ -1232,20 +1232,21 @@ function renderInfTable(users, ch) {
       const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-      const snsCell = (raw, prefix='') => {
-        if (!raw) return '—';
-        const v = raw.replace('@','');
-        const safe = esc(v);
-        const inner = prefix ? `<a href="${prefix}${safe}" target="_blank" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+      const snsCell = (channel, raw) => {
+        const handle = extractSnsHandle(channel, raw);
+        if (!handle) return '—';
+        const safe = esc(handle);
+        const url = snsProfileUrl(channel, handle);
+        const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
         return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
       };
       const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
       return `<tr>
         <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-        <td>${snsCell(u.ig, 'https://instagram.com/')}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-        <td>${snsCell(u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-        <td>${snsCell(u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-        <td>${snsCell(u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+        <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
+        <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
+        <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
+        <td>${snsCell('youtube', u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
         <td style="font-weight:700;color:var(--pink)">${total}</td>
         <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
         <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
@@ -1264,9 +1265,10 @@ function renderInfTable(users, ch) {
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-      const idVal = u[idKey] ? u[idKey].replace('@','') : '';
+      const idVal = extractSnsHandle(ch, u[idKey]);
+      const idUrl = snsProfileUrl(ch, idVal);
       const idCell = idVal
-        ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">@${esc(idVal)}</div>`
+        ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">${idUrl ? `<a href="${idUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${esc(idVal)}</a>` : `@${esc(idVal)}`}</div>`
         : '—';
       const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
       return `<tr>
@@ -1302,17 +1304,24 @@ async function openInfluencerDetail(userId) {
     row('가입일', formatDate(u.created_at));
 
   // SNS
-  const snsRow = (icon, id, followers) => `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:12px">
-    <div style="font-size:12px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0">${icon}</div>
-    <div style="flex:1;font-size:13px">${id ? `@${esc(id.replace('@',''))}` : '—'}</div>
-    <div style="font-size:13px;font-weight:700;color:var(--pink)">${(followers||0).toLocaleString()}명</div>
-  </div>`;
+  const snsRow = (label, channel, raw, followers) => {
+    const handle = extractSnsHandle(channel, raw);
+    const url = snsProfileUrl(channel, handle);
+    const idHtml = handle
+      ? (url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);text-decoration:none">@${esc(handle)}</a>` : `@${esc(handle)}`)
+      : '—';
+    return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);width:80px;flex-shrink:0">${label}</div>
+      <div style="flex:1;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(handle||'')}">${idHtml}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--pink)">${(followers||0).toLocaleString()}명</div>
+    </div>`;
+  };
   const totalF = (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0);
   $('infDetailSns').innerHTML =
-    snsRow('Instagram', u.ig, u.ig_followers) +
-    snsRow('X (Twitter)', u.x, u.x_followers) +
-    snsRow('TikTok', u.tiktok, u.tiktok_followers) +
-    snsRow('YouTube', u.youtube, u.youtube_followers) +
+    snsRow('Instagram', 'instagram', u.ig, u.ig_followers) +
+    snsRow('X (Twitter)', 'x', u.x, u.x_followers) +
+    snsRow('TikTok', 'tiktok', u.tiktok, u.tiktok_followers) +
+    snsRow('YouTube', 'youtube', u.youtube, u.youtube_followers) +
     `<div style="display:flex;align-items:center;padding:12px 0;gap:12px"><div style="font-size:12px;font-weight:700;color:var(--ink);width:80px">총 팔로워</div><div style="font-size:18px;font-weight:800;color:var(--pink)">${totalF.toLocaleString()}명</div></div>`;
 
   // 연락처
@@ -1366,17 +1375,18 @@ async function openInfluencerModal(userId) {
     row('이메일', u.email) + row('카테고리', u.category) +
     row('자기소개', u.bio) + row('가입일', formatDate(u.created_at));
 
-  const snsUrls = {Instagram:'https://instagram.com/',X:'https://x.com/',TikTok:'https://tiktok.com/@',YouTube:'https://youtube.com/@'};
-  const snsRow = (icon, id, f) => {
-    const clean = id ? id.replace('@','') : '';
-    const url = snsUrls[icon];
-    const link = clean && url ? `<a href="${url}${esc(clean)}" target="_blank" style="color:var(--pink);text-decoration:none">@${esc(clean)}</a>` : '—';
-    return `<div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:8px"><div style="font-size:11px;font-weight:600;color:var(--muted);width:70px;flex-shrink:0">${icon}</div><div style="flex:1;font-size:12px">${link}</div><div style="font-size:12px;font-weight:700;color:var(--pink)">${(f||0).toLocaleString()}</div></div>`;
+  const snsRow = (label, channel, raw, f) => {
+    const handle = extractSnsHandle(channel, raw);
+    const url = snsProfileUrl(channel, handle);
+    const link = handle
+      ? (url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);text-decoration:none">@${esc(handle)}</a>` : `@${esc(handle)}`)
+      : '—';
+    return `<div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid var(--surface-dim,var(--bg));gap:8px"><div style="font-size:11px;font-weight:600;color:var(--muted);width:70px;flex-shrink:0">${label}</div><div style="flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(handle||'')}">${link}</div><div style="font-size:12px;font-weight:700;color:var(--pink)">${(f||0).toLocaleString()}</div></div>`;
   };
   const totalF = (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0);
   $('infModalSns').innerHTML =
-    snsRow('Instagram', u.ig, u.ig_followers) + snsRow('X', u.x, u.x_followers) +
-    snsRow('TikTok', u.tiktok, u.tiktok_followers) + snsRow('YouTube', u.youtube, u.youtube_followers) +
+    snsRow('Instagram', 'instagram', u.ig, u.ig_followers) + snsRow('X', 'x', u.x, u.x_followers) +
+    snsRow('TikTok', 'tiktok', u.tiktok, u.tiktok_followers) + snsRow('YouTube', 'youtube', u.youtube, u.youtube_followers) +
     `<div style="display:flex;align-items:center;padding:8px 0;gap:8px"><div style="font-size:11px;font-weight:700;width:70px">총 팔로워</div><div style="font-size:16px;font-weight:800;color:var(--pink)">${totalF.toLocaleString()}</div></div>`;
 
   $('infModalContact').innerHTML = row('LINE ID', u.line_id) + row('전화번호', u.phone);

@@ -126,3 +126,78 @@ function renderRich(el, raw) {
   el.innerHTML = sanitizeRich(value);
   el.classList.add('rich-content');
 }
+
+// ══════════════════════════════════════
+// SNS 핸들 추출 / URL 생성
+// ══════════════════════════════════════
+// raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
+// 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
+function extractSnsHandle(channel, raw) {
+  if (!raw) return '';
+  let s = String(raw).trim();
+  if (!s) return '';
+  // 입력값이 "@https://..." 형태일 수 있으므로 leading @ 임시 제거
+  const withoutAt = s.replace(/^@+/, '');
+  if (/^https?:\/\//i.test(withoutAt)) {
+    try {
+      const url = new URL(withoutAt);
+      let path = url.pathname.replace(/^\/+|\/+$/g, '');
+      if (!path) return s.replace(/^@+/, '');
+      const segs = path.split('/');
+      // 채널별 경로 매핑
+      if (channel === 'youtube') {
+        // /@handle, /c/name, /channel/UC...
+        if (segs[0].startsWith('@')) return segs[0].slice(1);
+        if (segs[0] === 'c' && segs[1]) return segs[1];
+        if (segs[0] === 'channel' && segs[1]) return segs[1]; // UC...
+        if (segs[0] === 'user' && segs[1]) return segs[1];
+        return segs[0].replace(/^@+/, '');
+      }
+      if (channel === 'tiktok') {
+        // /@handle 형식
+        return (segs[0] || '').replace(/^@+/, '');
+      }
+      // instagram / x / twitter — 첫 segment가 핸들
+      // IG는 p/ reel/ stories/ 같은 비-프로필 경로 제외
+      if (channel === 'instagram' && /^(p|reel|reels|stories|explore|tv)$/i.test(segs[0])) {
+        return s.replace(/^@+/, '');
+      }
+      if (channel === 'x' && /^(i|home|intent|search|messages|notifications|explore)$/i.test(segs[0])) {
+        return s.replace(/^@+/, '');
+      }
+      return segs[0].replace(/^@+/, '');
+    } catch (_) {
+      return s.replace(/^@+/, '');
+    }
+  }
+  // URL 아님: leading @ 와 공백만 정리
+  return withoutAt.replace(/\s+/g, '');
+}
+
+// 핸들로 프로필 URL 생성. 빈 핸들이면 빈 문자열 반환.
+function snsProfileUrl(channel, handle) {
+  if (!handle) return '';
+  const h = String(handle).replace(/^@+/, '');
+  if (!h) return '';
+  switch (channel) {
+    case 'instagram': return `https://instagram.com/${encodeURIComponent(h)}`;
+    case 'x':         return `https://x.com/${encodeURIComponent(h)}`;
+    case 'tiktok':    return `https://tiktok.com/@${encodeURIComponent(h)}`;
+    case 'youtube':
+      // UCxxxxx 형태면 채널 ID 경로
+      if (/^UC[A-Za-z0-9_-]{20,}$/.test(h)) return `https://youtube.com/channel/${encodeURIComponent(h)}`;
+      return `https://youtube.com/@${encodeURIComponent(h)}`;
+    default: return '';
+  }
+}
+
+// SNS 4필드를 한 번에 정규화 (저장 직전 호출용)
+function normalizeSnsFields(profile) {
+  if (!profile || typeof profile !== 'object') return profile;
+  const out = Object.assign({}, profile);
+  if ('ig'      in out) out.ig      = extractSnsHandle('instagram', out.ig);
+  if ('x'       in out) out.x       = extractSnsHandle('x',         out.x);
+  if ('tiktok'  in out) out.tiktok  = extractSnsHandle('tiktok',    out.tiktok);
+  if ('youtube' in out) out.youtube = extractSnsHandle('youtube',   out.youtube);
+  return out;
+}
