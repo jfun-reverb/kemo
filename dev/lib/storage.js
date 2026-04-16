@@ -221,10 +221,14 @@ async function updateApplicationOrientedAt(applicationId, isoOrNull) {
 }
 
 // Stage 6: 본인 알림 조회 (마이페이지 상단 알림 섹션용)
+// 관리자는 RLS SELECT 정책으로 전체 알림 SEE 가능하므로 명시적 user_id 필터 필수
 async function fetchMyNotifications(opts) {
   if (!db) return [];
   try {
-    let q = db?.from('notifications').select('*').order('created_at', {ascending: false});
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return [];
+    let q = db?.from('notifications').select('*').eq('user_id', uid).order('created_at', {ascending: false});
     if (opts?.unreadOnly) q = q.is('read_at', null);
     if (opts?.limit) q = q.limit(opts.limit);
     const {data, error} = await q;
