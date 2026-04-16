@@ -179,6 +179,22 @@ textarea.form-input{resize:vertical;min-height:80px}
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.08);z-index:9998;align-items:center;justify-content:center}
 .loading-overlay.show{display:flex}
 
+/* ── 비로그인 고정 CTA ── */
+.floating-auth-cta{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index:300;
+  background:var(--pink); color:#fff;
+  font-size:14px; font-weight:700;
+  padding:14px 32px; border-radius:999px;
+  border:none; cursor:pointer;
+  box-shadow:0 6px 20px rgba(200,120,163,.35), 0 2px 6px rgba(0,0,0,.1);
+  transition:transform .15s, box-shadow .15s;
+  white-space:nowrap;
+}
+.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(200,120,163,.45)}
+.floating-auth-cta:active{transform:translateX(-50%) translateY(0)}
+
 /* ── 햄버거 버튼 + 배지 ── */
 .gnb-burger{background:transparent;border:none;cursor:pointer;padding:6px 8px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background .15s;margin-left:4px}
 .gnb-burger:hover{background:rgba(255,255,255,.12)}
@@ -1326,6 +1342,8 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+  <!-- 비로그인 고정 CTA (하단 중앙) -->
+  <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
 </div><!-- /appShell -->
 
 
@@ -1560,6 +1578,7 @@ window.I18N_JA = {
   nav: {
     login: 'ログイン',
     signup: '新規登録',
+    signupOrLogin: '会員登録・ログイン',
   },
 
   // 캠페인 목록 페이지
@@ -1964,6 +1983,7 @@ window.I18N_KO = {
   nav: {
     login: '로그인',
     signup: '회원가입',
+    signupOrLogin: '회원가입・로그인',
   },
 
   campaigns: {
@@ -4009,14 +4029,13 @@ function updateGnb() {
       ? `<button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/admin/'">Admin</button>`
       : '';
   } else {
-    gnbRight.innerHTML = `
-      <button class="gnb-btn gnb-btn-ghost" onclick="navigate('login')">Log In</button>
-      <button class="gnb-btn gnb-btn-red" onclick="navigate('signup')">Sign Up</button>
-    `;
+    // 비로그인: GNB 우측은 비우고 하단 플로팅 CTA로 유도
+    gnbRight.innerHTML = '';
   }
   // 햄버거 메뉴 항목 갱신 (비로그인/관리자 분기)
   if (typeof renderNavMenu === 'function') renderNavMenu();
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
+  if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta();
 }
 
 async function handleSignup(e) {
@@ -5121,6 +5140,19 @@ async function onNotifItemClick(id, refTable, refId) {
   renderNotifModal(items);
 }
 
+// ── 비로그인 고정 CTA 표시 제어 ──
+function updateFloatingAuthCta(pageName) {
+  const cta = $('floatingAuthCta');
+  if (!cta) return;
+  const hiddenPages = ['login','signup','forgot','reset-pw'];
+  const curPage = pageName || (location.hash.replace('#','').split('-')[0] || 'home');
+  if (currentUser || hiddenPages.includes(curPage)) {
+    cta.style.display = 'none';
+  } else {
+    cta.style.display = '';
+  }
+}
+
 async function markAllNotifRead() {
   await markAllNotificationsRead();
   await refreshNotifBadge();
@@ -5447,6 +5479,8 @@ function navigate(page, pushHistory) {
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
   if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : '';
+  // 비로그인 플로팅 CTA (인증 페이지 제외)
+  if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
   if (pageName === 'home') loadCampaigns();
   if (pageName === 'campaigns') loadCampaignsPage();

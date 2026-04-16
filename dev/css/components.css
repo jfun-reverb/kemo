@@ -95,6 +95,22 @@ textarea.form-input{resize:vertical;min-height:80px}
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.08);z-index:9998;align-items:center;justify-content:center}
 .loading-overlay.show{display:flex}
 
+/* ── 비로그인 고정 CTA ── */
+.floating-auth-cta{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index:300;
+  background:var(--pink); color:#fff;
+  font-size:14px; font-weight:700;
+  padding:14px 32px; border-radius:999px;
+  border:none; cursor:pointer;
+  box-shadow:0 6px 20px rgba(200,120,163,.35), 0 2px 6px rgba(0,0,0,.1);
+  transition:transform .15s, box-shadow .15s;
+  white-space:nowrap;
+}
+.floating-auth-cta:hover{transform:translateX(-50%) translateY(-1px); box-shadow:0 8px 24px rgba(200,120,163,.45)}
+.floating-auth-cta:active{transform:translateX(-50%) translateY(0)}
+
 /* ── 햄버거 버튼 + 배지 ── */
 .gnb-burger{background:transparent;border:none;cursor:pointer;padding:6px 8px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background .15s;margin-left:4px}
 .gnb-burger:hover{background:rgba(255,255,255,.12)}

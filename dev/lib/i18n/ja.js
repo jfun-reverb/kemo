@@ -54,6 +54,7 @@ window.I18N_JA = {
   nav: {
     login: 'ログイン',
     signup: '新規登録',
+    signupOrLogin: '会員登録・ログイン',
   },
 
   // 캠페인 목록 페이지

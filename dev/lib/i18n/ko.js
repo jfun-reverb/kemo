@@ -52,6 +52,7 @@ window.I18N_KO = {
   nav: {
     login: '로그인',
     signup: '회원가입',
+    signupOrLogin: '회원가입・로그인',
   },
 
   campaigns: {

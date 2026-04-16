@@ -63,6 +63,8 @@ function navigate(page, pushHistory) {
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
   if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : '';
+  // 비로그인 플로팅 CTA (인증 페이지 제외)
+  if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
   if (pageName === 'home') loadCampaigns();
   if (pageName === 'campaigns') loadCampaignsPage();

@@ -144,6 +144,19 @@ async function onNotifItemClick(id, refTable, refId) {
   renderNotifModal(items);
 }
 
+// ── 비로그인 고정 CTA 표시 제어 ──
+function updateFloatingAuthCta(pageName) {
+  const cta = $('floatingAuthCta');
+  if (!cta) return;
+  const hiddenPages = ['login','signup','forgot','reset-pw'];
+  const curPage = pageName || (location.hash.replace('#','').split('-')[0] || 'home');
+  if (currentUser || hiddenPages.includes(curPage)) {
+    cta.style.display = 'none';
+  } else {
+    cta.style.display = '';
+  }
+}
+
 async function markAllNotifRead() {
   await markAllNotificationsRead();
   await refreshNotifBadge();
