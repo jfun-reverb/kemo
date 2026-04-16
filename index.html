@@ -2688,6 +2688,17 @@ async function markNotificationRead(notificationId) {
   } catch(e) { console.error('[markNotificationRead]', e); }
 }
 
+// 알림 1건 삭제 (본인만)
+async function deleteNotification(id) {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications').delete().eq('id', id);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[deleteNotification]', e); }
+}
+
 // 전체 알림 읽음 처리
 async function markAllNotificationsRead() {
   if (!db) return;
@@ -5381,7 +5392,8 @@ async function onNotifItemClick(id, refTable, refId) {
         return;
       }
     } catch(e) {}
-    // 참조는 있었으나 접근 불가 (삭제됨 등)
+    // 참조는 있었으나 접근 불가 (삭제됨 등) → 알림도 제거
+    await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
   } else {
     // ref 없는 일반 알림: 응모이력으로 이동

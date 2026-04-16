@@ -178,7 +178,8 @@ async function onNotifItemClick(id, refTable, refId) {
         return;
       }
     } catch(e) {}
-    // 참조는 있었으나 접근 불가 (삭제됨 등)
+    // 참조는 있었으나 접근 불가 (삭제됨 등) → 알림도 제거
+    await deleteNotification(id);
     toast(t('notif.refMissing'), 'warn');
   } else {
     // ref 없는 일반 알림: 응모이력으로 이동

@@ -2023,6 +2023,17 @@ async function markNotificationRead(notificationId) {
   } catch(e) { console.error('[markNotificationRead]', e); }
 }
 
+// 알림 1건 삭제 (본인만)
+async function deleteNotification(id) {
+  if (!db) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications').delete().eq('id', id);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[deleteNotification]', e); }
+}
+
 // 전체 알림 읽음 처리
 async function markAllNotificationsRead() {
   if (!db) return;
