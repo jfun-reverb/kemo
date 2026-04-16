@@ -40,7 +40,9 @@ async function openCampaign(id) {
       <div id="campSlides" style="display:flex;height:100%;transition:transform .32s cubic-bezier(.4,0,.2,1)">
         ${slideData.map((s,idx)=>{
           const crop = s.key ? crops[s.key] : null;
-          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb:960, quality:80, lazy: idx>0})}</div>`;
+          // 첫 장(LCP)만 720, lazy 로드 나머지는 480으로 용량 절감
+          const thumb = idx === 0 ? 720 : 480;
+          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb, quality:80, lazy: idx>0})}</div>`;
         }).join('')}
       </div>
       ${slideImgs.length>1?`

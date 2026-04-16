@@ -114,9 +114,12 @@ function updateActiveNav(page) {
 // INIT
 // ══════════════════════════════════════
 async function init() {
-  // lookup_values 사전 로드 (채널/카테고리 라벨 동적 표시용, 인증과 무관하게 익명 SELECT 허용)
+  // lookup_values + 캠페인을 병렬 발사 (둘 다 익명 SELECT 허용)
+  // 이후 getSession·admins 체크와 waterfall 구조에서 벗어나 초기 렌더 시간 단축
+  let campaignsPromise = null;
   if (db) {
     try {
+      campaignsPromise = fetchCampaigns();  // 병렬 발사, 나중에 await
       await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]);
       // 라벨이 갱신되었으므로 활성 페이지 재렌더
       if (allCampaigns && allCampaigns.length && document.getElementById('page-home')?.classList.contains('active')) {
@@ -186,6 +189,8 @@ async function init() {
             currentUserProfile = profile;
           }
           updateGnb();
+          // 로그인 시 알림 폴링 시작
+          if (typeof startNotifPolling === 'function') startNotifPolling();
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -193,6 +198,8 @@ async function init() {
         currentUser = null;
         currentUserProfile = null;
         updateGnb();
+        // 로그아웃 시 알림 폴링 중지
+        if (typeof stopNotifPolling === 'function') stopNotifPolling();
       }
     });
     // 초기 URL이 명시적 recovery인 경우에만 즉시 이동 (access_token만 있을 때는 이벤트 기다림)
@@ -213,8 +220,8 @@ async function init() {
     }
   }
 
-  // 캠페인 불러오기
-  allCampaigns = await fetchCampaigns();
+  // 캠페인 불러오기 (init 초입에서 병렬 발사해둔 promise 재사용)
+  allCampaigns = campaignsPromise ? (await campaignsPromise) : await fetchCampaigns();
   renderCampaigns(allCampaigns);
   updateStats(allCampaigns);
 
