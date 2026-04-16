@@ -166,22 +166,25 @@ function renderNotifModal(items) {
 
 async function onNotifItemClick(id, refTable, refId) {
   await markNotificationRead(id);
+  closeNotifModal();
+  // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
     try {
       const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
       const hit = delivs.find(d => d.id === refId);
       if (hit) {
-        closeNotifModal();
         openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
         refreshNotifBadge();
         return;
       }
     } catch(e) {}
+    // 참조는 있었으나 접근 불가 (삭제됨 등)
+    toast(t('notif.refMissing'), 'warn');
+  } else {
+    // ref 없는 일반 알림: 응모이력으로 이동
+    if (typeof navigate === 'function') { navigate('mypage'); openMypageSub('applications'); }
   }
-  // 참조 없거나 실패: 배지·리스트 갱신
-  await refreshNotifBadge();
-  const items = await fetchMyNotifications({limit: 30});
-  renderNotifModal(items);
+  refreshNotifBadge();
 }
 
 // ── 비로그인 고정 CTA 표시 제어 ──

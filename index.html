@@ -1702,6 +1702,7 @@ window.I18N_JA = {
     markAllRead: 'すべて既読',
     headerN: 'お知らせ ({n})',
     emptyUnread: '未読の通知はありません',
+    refMissing: '関連する成果物が見つかりません',
   },
 
   // 하단 탭 (deprecated — 햄버거 메뉴로 이전)
@@ -2113,6 +2114,7 @@ window.I18N_KO = {
     markAllRead: '모두 읽음',
     headerN: '알림 ({n})',
     emptyUnread: '읽지 않은 알림이 없습니다',
+    refMissing: '관련 결과물을 찾을 수 없습니다',
   },
 
   tab: {
@@ -5367,22 +5369,25 @@ function renderNotifModal(items) {
 
 async function onNotifItemClick(id, refTable, refId) {
   await markNotificationRead(id);
+  closeNotifModal();
+  // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
     try {
       const delivs = await fetchDeliverablesForUser({user_id: currentUser.id});
       const hit = delivs.find(d => d.id === refId);
       if (hit) {
-        closeNotifModal();
         openActivityPage(hit.application_id, hit.campaign_id, 'mypage');
         refreshNotifBadge();
         return;
       }
     } catch(e) {}
+    // 참조는 있었으나 접근 불가 (삭제됨 등)
+    toast(t('notif.refMissing'), 'warn');
+  } else {
+    // ref 없는 일반 알림: 응모이력으로 이동
+    if (typeof navigate === 'function') { navigate('mypage'); openMypageSub('applications'); }
   }
-  // 참조 없거나 실패: 배지·리스트 갱신
-  await refreshNotifBadge();
-  const items = await fetchMyNotifications({limit: 30});
-  renderNotifModal(items);
+  refreshNotifBadge();
 }
 
 // ── 비로그인 고정 CTA 표시 제어 ──
