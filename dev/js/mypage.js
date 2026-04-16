@@ -113,6 +113,17 @@ async function renderMyApplyList() {
     });
   }
 
+  // 채널 필터 (공용 populateMyApplyChannelOptions에서 드롭다운 채움)
+  populateMyApplyChannelOptions();
+  const channelFilter = $('myApplyChannel')?.value || '';
+  if (channelFilter) {
+    filtered = filtered.filter(a => {
+      const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+      if (!camp?.channel) return false;
+      return camp.channel.split(',').map(s=>s.trim()).includes(channelFilter);
+    });
+  }
+
   // 정렬
   const sortVal = $('myApplySort')?.value || 'newest';
   filtered.sort((a,b) => sortVal === 'oldest'
@@ -252,4 +263,22 @@ function handleWithdraw() {
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
 
+// 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
+function populateMyApplyChannelOptions() {
+  const sel = $('myApplyChannel');
+  if (!sel) return;
+  const prev = sel.value;
+  // 내 응모 캠페인의 채널 집합
+  const chSet = new Set();
+  _myApps.forEach(a => {
+    const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+    if (!camp?.channel) return;
+    camp.channel.split(',').map(s=>s.trim()).filter(Boolean).forEach(c => chSet.add(c));
+  });
+  const channels = Array.from(chSet).sort();
+  const head = `<option value="" data-i18n="appHistory.allChannels">${t('appHistory.allChannels')}</option>`;
+  const options = channels.map(c => `<option value="${esc(c)}">${esc(getChannelLabel(c))}</option>`).join('');
+  sel.innerHTML = head + options;
+  if (prev && channels.includes(prev)) sel.value = prev;
+}
 // Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨

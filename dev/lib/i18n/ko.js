@@ -160,6 +160,7 @@ window.I18N_KO = {
     emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
+    allChannels: '전체 채널',
   },
 
   menu: {

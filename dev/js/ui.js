@@ -121,7 +121,17 @@ function imgThumb(url, width, quality) {
   if (!url.includes('/storage/v1/object/public/')) return url;
   const q = quality || 70;
   const w = width || 400;
-  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=cover`;
+  // resize=contain: 비율 유지 (cover는 크롭됨)
+  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=contain`;
+}
+
+// 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
+// opts: {thumb, quality, lazy}. crop 인자는 하위호환으로 받지만 무시
+function renderCroppedImg(url, _ignoredCrop, opts) {
+  opts = opts || {};
+  const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
+  const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
+  return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
 }
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
@@ -231,7 +241,7 @@ function previewSlideImgs() {
   if (!preview) return;
   preview.innerHTML = campImgData.map((img,i)=>`
     <div style="position:relative;width:68px;height:68px;border-radius:8px;overflow:hidden;border:2px solid ${i===0?'var(--pink)':'var(--line)'}">
-      <img src="${img.data}" style="width:100%;height:100%;object-fit:cover">
+      <img src="${img.data}" style="width:100%;height:100%;object-fit:contain;background:#f5f5f5">
       ${i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;padding:1px">MAIN</div>':''}
     </div>`).join('');
 }
@@ -388,6 +398,10 @@ document.addEventListener('drop', function(e) {
   if (files.length) {
     var wrapId = listName === 'campImgData' ? 'campImgPreviewWrap' : 'editCampImgPreviewWrap';
     var counterId = listName === 'campImgData' ? 'campImgCounter' : 'editCampImgCounter';
+    // editCampImgChanged 플래그 세팅 (편집 폼 저장 로직이 이 플래그로 업로드 판단)
+    if (listName === 'editCampImgData' && typeof editCampImgChanged !== 'undefined') {
+      editCampImgChanged = true;
+    }
     addImagesToList(files, list, wrapId, counterId, listName);
   }
 });
@@ -435,13 +449,10 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
       ' ondragleave="this.style.outline=\'none\'"' +
       ' ondrop="imgDrop(event,'+i+',\''+listName+'\',\''+wrapId+'\',\''+counterId+'\')"' +
       ' style="position:relative;width:88px;height:88px;flex-shrink:0;cursor:grab">' +
-      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';pointer-events:none">' +
+      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:contain;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';background:#f5f5f5;pointer-events:none">' +
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
-      (img.original?'<div style="position:absolute;top:2px;left:2px;background:var(--pink);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;z-index:2">CROP</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
-        (img.original?'<button data-action="restore" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="원본 복원"><span class="material-icons-round" style="font-size:16px">undo</span></button>':'') +
-        '<button data-action="crop" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:16px">crop</span></button>' +
         '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
       '</div>' +
     '</div>';
@@ -486,6 +497,10 @@ function imgDrop(e, targetIdx, listName, wrapId, counterId) {
   var item = list.splice(_dragSrcIdx, 1)[0];
   list.splice(targetIdx, 0, item);
   _dragSrcIdx = null;
+  // 편집 폼 저장 플래그 세팅 (순서만 바뀌어도 DB 재업로드 필요)
+  if (listName === 'editCampImgData' && typeof editCampImgChanged !== 'undefined') {
+    editCampImgChanged = true;
+  }
   renderImgPreview(list, wrapId, counterId, listName);
 }
 
@@ -505,11 +520,16 @@ function downloadImg(idx, listName) {
 // 원본 복원
 function restoreOriginal(idx, listName, wrapId, counterId) {
   var list = getImgList(listName);
-  if (!list || !list[idx] || !list[idx].original) return;
-  list[idx].data = list[idx].original;
-  delete list[idx].original;
+  if (!list || !list[idx]) return;
+  // 비파괴 크롭 좌표 제거
+  if (list[idx].crop) delete list[idx].crop;
+  // 레거시 파괴적 크롭(original 백업) 복원
+  if (list[idx].original) {
+    list[idx].data = list[idx].original;
+    delete list[idx].original;
+  }
   renderImgPreview(list, wrapId, counterId, listName);
-  toast('원본으로 복원됨','success');
+  toast('크롭 영역 해제','success');
 }
 
 // 1:1 크롭 모달
@@ -575,18 +595,25 @@ function closeCropModal() {
 
 function applyCrop() {
   if (!_cropperInstance || !_cropTarget) return;
-  var canvas = _cropperInstance.getCroppedCanvas({width:1080, height:1080, imageSmoothingQuality:'high'});
-  var croppedData = canvas.toDataURL('image/jpeg', 0.92);
+  // 비파괴 크롭: 좌표만 0~1로 정규화해서 저장 (원본 이미지 유지)
+  var cropData = _cropperInstance.getData(true);  // {x,y,width,height,rotate,scaleX,scaleY}
+  var imgData = _cropperInstance.getImageData();  // {naturalWidth,naturalHeight,...}
+  var natW = imgData.naturalWidth;
+  var natH = imgData.naturalHeight;
+  var rect = natW && natH ? {
+    x: Math.max(0, cropData.x / natW),
+    y: Math.max(0, cropData.y / natH),
+    w: Math.min(1, cropData.width / natW),
+    h: Math.min(1, cropData.height / natH)
+  } : null;
   var list = getImgList(_cropTarget.listName);
-  if (list) {
+  if (list && rect) {
     var item = list[_cropTarget.idx];
-    // 원본 보존 — 처음 크롭할 때만 원본 저장
-    if (!item.original) item.original = item.data;
-    item.data = croppedData;
+    item.crop = rect;  // 좌표만 저장, item.data는 그대로
     renderImgPreview(list, _cropTarget.wrapId, _cropTarget.counterId, _cropTarget.listName);
   }
   closeCropModal();
-  toast('크롭 완료 (원본 유지됨)','success');
+  toast('크롭 영역 저장 (원본 유지)','success');
 }
 
 // ── 로그인 안내 팝업 ──

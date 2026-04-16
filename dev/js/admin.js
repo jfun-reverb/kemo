@@ -352,6 +352,23 @@ function exitReorderMode() {
   if (btn) { btn.textContent = '순서 변경'; btn.onclick = enterReorderMode; btn.classList.remove('btn-primary'); btn.classList.add('btn-ghost'); }
 }
 
+// 이미지 리스트의 crop 정보를 {img1:{x,y,w,h},...} 맵으로 직렬화
+function buildImageCrops(imgList) {
+  const out = {};
+  (imgList || []).forEach((img, i) => {
+    if (i < 8 && img?.crop) out['img' + (i+1)] = img.crop;
+  });
+  return out;
+}
+// 저장된 image_crops를 imgList 항목에 주입 (편집 로드 시)
+function applyImageCropsToList(imgList, cropsMap) {
+  if (!cropsMap || !imgList) return;
+  imgList.forEach((img, i) => {
+    const key = 'img' + (i+1);
+    if (cropsMap[key]) img.crop = cropsMap[key];
+  });
+}
+
 async function loadAdminCampaigns(useCache) {
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (!useCache) allCampaigns = camps.slice();
@@ -435,7 +452,7 @@ async function loadAdminCampaigns(useCache) {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${imgThumb(thumbUrl,160)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:160, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0">
@@ -577,6 +594,8 @@ async function openEditCampaign(campId) {
   editCampImgData.length = 0;
   [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8]
     .filter(Boolean).forEach(url => editCampImgData.push({data: url}));
+  // 저장된 crop 좌표 복원
+  applyImageCropsToList(editCampImgData, camp.image_crops || {});
   renderImgPreview(editCampImgData, 'editCampImgPreviewWrap', 'editCampImgCounter', 'editCampImgData');
 
   // 참여방법 번들 복원 (스냅샷 우선, 번들 드롭다운도 recruit_type 필터로 채움)
@@ -723,6 +742,7 @@ async function saveCampaignEdit() {
       updates.img3 = imgUrls[2]; updates.img4 = imgUrls[3];
       updates.img5 = imgUrls[4]; updates.img6 = imgUrls[5];
       updates.img7 = imgUrls[6]; updates.img8 = imgUrls[7];
+      updates.image_crops = buildImageCrops(editCampImgData);
     }
 
     await updateCampaign(campId, updates);
@@ -1559,6 +1579,7 @@ async function addCampaign() {
     img3: imgUrls[2], img4: imgUrls[3],
     img5: imgUrls[4], img6: imgUrls[5],
     img7: imgUrls[6], img8: imgUrls[7],
+    image_crops: buildImageCrops(campImgData),
     product_url: productUrl,
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,

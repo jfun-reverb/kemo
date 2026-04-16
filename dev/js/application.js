@@ -22,14 +22,26 @@ async function openCampaign(id) {
   const isFull = camp.recruit_type === 'monitor' && (camp.applied_count||0) >= camp.slots;
   _slideIdx = 0;
 
-  // 슬라이드 이미지
-  const slideImgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url]
-    .filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
+  // 슬라이드 이미지 + 크롭 정보 매핑
+  const crops = camp.image_crops || {};
+  const rawSlides = [
+    {url: camp.img1, key: 'img1'}, {url: camp.img2, key: 'img2'},
+    {url: camp.img3, key: 'img3'}, {url: camp.img4, key: 'img4'},
+    {url: camp.img5, key: 'img5'}, {url: camp.img6, key: 'img6'},
+    {url: camp.img7, key: 'img7'}, {url: camp.img8, key: 'img8'},
+    {url: camp.image_url, key: null}
+  ].filter(s => s.url);
+  const seen = new Set();
+  const slideData = rawSlides.filter(s => seen.has(s.url) ? false : (seen.add(s.url), true));
+  const slideImgs = slideData.map(s => s.url);
 
   const slideHtml = slideImgs.length > 0 ? `
     <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)};aspect-ratio:1/1;height:auto">
       <div id="campSlides" style="display:flex;height:100%;transition:transform .32s cubic-bezier(.4,0,.2,1)">
-        ${slideImgs.map((url,idx)=>`<div style="flex:0 0 100%;width:100%;height:100%;background:${getCampGrad(camp.category)}"><img src="${imgThumb(url,960,80)}" data-orig="${url}" ${idx===0?'':'loading="lazy"'} decoding="async" style="width:100%;height:100%;object-fit:contain;display:block" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}else{this.parentElement.style.background='${getCampGrad(camp.category)}'}"></div>`).join('')}
+        ${slideData.map((s,idx)=>{
+          const crop = s.key ? crops[s.key] : null;
+          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb:960, quality:80, lazy: idx>0})}</div>`;
+        }).join('')}
       </div>
       ${slideImgs.length>1?`
         <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round" style="font-size:20px;color:#333">chevron_left</span></button>
@@ -133,15 +145,19 @@ async function openCampaign(id) {
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
         <div style="display:flex;flex-direction:column;gap:14px">
-          ${steps.map((s,i)=>`
+          ${steps.map((s,i)=>{
+            const lang = (typeof getLang === 'function' ? getLang() : 'ja');
+            const title = lang === 'ko' ? (s.title_ko||s.title_ja||'') : (s.title_ja||s.title_ko||'');
+            const desc = lang === 'ko' ? (s.desc_ko||s.desc_ja||'') : (s.desc_ja||s.desc_ko||'');
+            return `
             <div style="display:flex;gap:12px;align-items:flex-start">
               <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP ${i+1}</div>
               <div>
-                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(s.title_ja||s.title_ko||'')}</div>
-                ${(s.desc_ja||s.desc_ko) ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(s.desc_ja||s.desc_ko||'')}</div>` : ''}
+                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(title)}</div>
+                ${desc ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(desc)}</div>` : ''}
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
       })()}

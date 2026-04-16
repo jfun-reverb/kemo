@@ -139,7 +139,7 @@ function buildCampCards(camps) {
     const dimImage = isFull || isScheduled || isClosed;
     return `<div class="camp-card" onclick="${isClickable?'openCampaign(\''+c.id+'\')':''}" style="${!isClickable?'opacity:.85;cursor:default':''}">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
-        ${c.image_url?`<img src="${imgThumb(c.image_url,480)}" data-orig="${c.image_url}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}else{this.style.display='none'}">`:''}
+        ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
         ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}

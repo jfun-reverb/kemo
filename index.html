@@ -1140,14 +1140,17 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
       <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
-      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center">
-        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center;flex-wrap:wrap">
+        <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>
           <option value="scheduled" data-i18n="status.campaign.scheduled">近日公開</option>
           <option value="closed" data-i18n="status.campaign.closed">締切</option>
         </select>
-        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1" onchange="renderMyApplyList()">
+        <select id="myApplyChannel" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
+          <option value="" data-i18n="appHistory.allChannels">全チャンネル</option>
+        </select>
+        <select id="myApplySort" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:100px" onchange="renderMyApplyList()">
           <option value="newest" data-i18n="appHistory.sortNewest">新しい順</option>
           <option value="oldest" data-i18n="appHistory.sortOldest">古い順</option>
         </select>
@@ -1694,6 +1697,7 @@ window.I18N_JA = {
     emptySub: '今すぐKブランド体験団に応募してみましょう！',
     emptyBtn: 'キャンペーンを見る',
     applyDate: '応募日',
+    allChannels: '全チャンネル',
   },
 
   // 햄버거 메뉴
@@ -2094,6 +2098,7 @@ window.I18N_KO = {
     emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
+    allChannels: '전체 채널',
   },
 
   menu: {
@@ -3321,7 +3326,17 @@ function imgThumb(url, width, quality) {
   if (!url.includes('/storage/v1/object/public/')) return url;
   const q = quality || 70;
   const w = width || 400;
-  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=cover`;
+  // resize=contain: 비율 유지 (cover는 크롭됨)
+  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=contain`;
+}
+
+// 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
+// opts: {thumb, quality, lazy}. crop 인자는 하위호환으로 받지만 무시
+function renderCroppedImg(url, _ignoredCrop, opts) {
+  opts = opts || {};
+  const thumb = opts.thumb ? imgThumb(url, opts.thumb, opts.quality||80) : url;
+  const lazy = opts.lazy ? 'loading="lazy" decoding="async"' : '';
+  return `<img src="${esc(thumb)}" data-orig="${esc(url)}" ${lazy} style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`;
 }
 
 // lookup_values 캐시에서 라벨 우선 조회, 없으면 하드코딩 폴백
@@ -3431,7 +3446,7 @@ function previewSlideImgs() {
   if (!preview) return;
   preview.innerHTML = campImgData.map((img,i)=>`
     <div style="position:relative;width:68px;height:68px;border-radius:8px;overflow:hidden;border:2px solid ${i===0?'var(--pink)':'var(--line)'}">
-      <img src="${img.data}" style="width:100%;height:100%;object-fit:cover">
+      <img src="${img.data}" style="width:100%;height:100%;object-fit:contain;background:#f5f5f5">
       ${i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;padding:1px">MAIN</div>':''}
     </div>`).join('');
 }
@@ -3588,6 +3603,10 @@ document.addEventListener('drop', function(e) {
   if (files.length) {
     var wrapId = listName === 'campImgData' ? 'campImgPreviewWrap' : 'editCampImgPreviewWrap';
     var counterId = listName === 'campImgData' ? 'campImgCounter' : 'editCampImgCounter';
+    // editCampImgChanged 플래그 세팅 (편집 폼 저장 로직이 이 플래그로 업로드 판단)
+    if (listName === 'editCampImgData' && typeof editCampImgChanged !== 'undefined') {
+      editCampImgChanged = true;
+    }
     addImagesToList(files, list, wrapId, counterId, listName);
   }
 });
@@ -3635,13 +3654,10 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
       ' ondragleave="this.style.outline=\'none\'"' +
       ' ondrop="imgDrop(event,'+i+',\''+listName+'\',\''+wrapId+'\',\''+counterId+'\')"' +
       ' style="position:relative;width:88px;height:88px;flex-shrink:0;cursor:grab">' +
-      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:cover;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';pointer-events:none">' +
+      '<img src="'+img.data+'" draggable="false" style="width:88px;height:88px;object-fit:contain;border-radius:10px;border:2px solid '+(i===0?'var(--pink)':'var(--line)')+';background:#f5f5f5;pointer-events:none">' +
       (i===0?'<div style="position:absolute;bottom:0;left:0;right:0;background:var(--pink);color:#fff;font-size:9px;font-weight:700;text-align:center;border-radius:0 0 8px 8px;padding:2px">MAIN</div>':'') +
-      (img.original?'<div style="position:absolute;top:2px;left:2px;background:var(--pink);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;z-index:2">CROP</div>':'') +
       '<button data-action="remove" data-i="'+i+'" data-remove-fn="'+removeFn+'" style="position:absolute;top:-4px;right:-4px;width:22px;height:22px;background:#333;color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;z-index:2" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>' +
       '<div style="position:absolute;bottom:'+(i===0?'20px':'2px')+';right:2px;display:flex;gap:3px;z-index:2">' +
-        (img.original?'<button data-action="restore" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="원본 복원"><span class="material-icons-round" style="font-size:16px">undo</span></button>':'') +
-        '<button data-action="crop" data-i="'+i+'" data-list="'+listName+'" data-wrap="'+wrapId+'" data-counter="'+counterId+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="1:1 크롭"><span class="material-icons-round" style="font-size:16px">crop</span></button>' +
         '<button data-action="download" data-i="'+i+'" data-list="'+listName+'" style="width:26px;height:26px;background:rgba(0,0,0,.7);color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer" title="다운로드"><span class="material-icons-round" style="font-size:16px">download</span></button>' +
       '</div>' +
     '</div>';
@@ -3686,6 +3702,10 @@ function imgDrop(e, targetIdx, listName, wrapId, counterId) {
   var item = list.splice(_dragSrcIdx, 1)[0];
   list.splice(targetIdx, 0, item);
   _dragSrcIdx = null;
+  // 편집 폼 저장 플래그 세팅 (순서만 바뀌어도 DB 재업로드 필요)
+  if (listName === 'editCampImgData' && typeof editCampImgChanged !== 'undefined') {
+    editCampImgChanged = true;
+  }
   renderImgPreview(list, wrapId, counterId, listName);
 }
 
@@ -3705,11 +3725,16 @@ function downloadImg(idx, listName) {
 // 원본 복원
 function restoreOriginal(idx, listName, wrapId, counterId) {
   var list = getImgList(listName);
-  if (!list || !list[idx] || !list[idx].original) return;
-  list[idx].data = list[idx].original;
-  delete list[idx].original;
+  if (!list || !list[idx]) return;
+  // 비파괴 크롭 좌표 제거
+  if (list[idx].crop) delete list[idx].crop;
+  // 레거시 파괴적 크롭(original 백업) 복원
+  if (list[idx].original) {
+    list[idx].data = list[idx].original;
+    delete list[idx].original;
+  }
   renderImgPreview(list, wrapId, counterId, listName);
-  toast('원본으로 복원됨','success');
+  toast('크롭 영역 해제','success');
 }
 
 // 1:1 크롭 모달
@@ -3775,18 +3800,25 @@ function closeCropModal() {
 
 function applyCrop() {
   if (!_cropperInstance || !_cropTarget) return;
-  var canvas = _cropperInstance.getCroppedCanvas({width:1080, height:1080, imageSmoothingQuality:'high'});
-  var croppedData = canvas.toDataURL('image/jpeg', 0.92);
+  // 비파괴 크롭: 좌표만 0~1로 정규화해서 저장 (원본 이미지 유지)
+  var cropData = _cropperInstance.getData(true);  // {x,y,width,height,rotate,scaleX,scaleY}
+  var imgData = _cropperInstance.getImageData();  // {naturalWidth,naturalHeight,...}
+  var natW = imgData.naturalWidth;
+  var natH = imgData.naturalHeight;
+  var rect = natW && natH ? {
+    x: Math.max(0, cropData.x / natW),
+    y: Math.max(0, cropData.y / natH),
+    w: Math.min(1, cropData.width / natW),
+    h: Math.min(1, cropData.height / natH)
+  } : null;
   var list = getImgList(_cropTarget.listName);
-  if (list) {
+  if (list && rect) {
     var item = list[_cropTarget.idx];
-    // 원본 보존 — 처음 크롭할 때만 원본 저장
-    if (!item.original) item.original = item.data;
-    item.data = croppedData;
+    item.crop = rect;  // 좌표만 저장, item.data는 그대로
     renderImgPreview(list, _cropTarget.wrapId, _cropTarget.counterId, _cropTarget.listName);
   }
   closeCropModal();
-  toast('크롭 완료 (원본 유지됨)','success');
+  toast('크롭 영역 저장 (원본 유지)','success');
 }
 
 // ── 로그인 안내 팝업 ──
@@ -3990,7 +4022,7 @@ function buildCampCards(camps) {
     const dimImage = isFull || isScheduled || isClosed;
     return `<div class="camp-card" onclick="${isClickable?'openCampaign(\''+c.id+'\')':''}" style="${!isClickable?'opacity:.85;cursor:default':''}">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
-        ${c.image_url?`<img src="${imgThumb(c.image_url,480)}" data-orig="${c.image_url}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}else{this.style.display='none'}">`:''}
+        ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
         ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
@@ -4335,14 +4367,26 @@ async function openCampaign(id) {
   const isFull = camp.recruit_type === 'monitor' && (camp.applied_count||0) >= camp.slots;
   _slideIdx = 0;
 
-  // 슬라이드 이미지
-  const slideImgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url]
-    .filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
+  // 슬라이드 이미지 + 크롭 정보 매핑
+  const crops = camp.image_crops || {};
+  const rawSlides = [
+    {url: camp.img1, key: 'img1'}, {url: camp.img2, key: 'img2'},
+    {url: camp.img3, key: 'img3'}, {url: camp.img4, key: 'img4'},
+    {url: camp.img5, key: 'img5'}, {url: camp.img6, key: 'img6'},
+    {url: camp.img7, key: 'img7'}, {url: camp.img8, key: 'img8'},
+    {url: camp.image_url, key: null}
+  ].filter(s => s.url);
+  const seen = new Set();
+  const slideData = rawSlides.filter(s => seen.has(s.url) ? false : (seen.add(s.url), true));
+  const slideImgs = slideData.map(s => s.url);
 
   const slideHtml = slideImgs.length > 0 ? `
     <div id="campSlider" style="position:relative;overflow:hidden;border-radius:16px;margin-bottom:0;background:${getCampGrad(camp.category)};aspect-ratio:1/1;height:auto">
       <div id="campSlides" style="display:flex;height:100%;transition:transform .32s cubic-bezier(.4,0,.2,1)">
-        ${slideImgs.map((url,idx)=>`<div style="flex:0 0 100%;width:100%;height:100%;background:${getCampGrad(camp.category)}"><img src="${imgThumb(url,960,80)}" data-orig="${url}" ${idx===0?'':'loading="lazy"'} decoding="async" style="width:100%;height:100%;object-fit:contain;display:block" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}else{this.parentElement.style.background='${getCampGrad(camp.category)}'}"></div>`).join('')}
+        ${slideData.map((s,idx)=>{
+          const crop = s.key ? crops[s.key] : null;
+          return `<div style="flex:0 0 100%;width:100%;height:100%;position:relative;overflow:hidden;background:${getCampGrad(camp.category)}">${renderCroppedImg(s.url, crop, {thumb:960, quality:80, lazy: idx>0})}</div>`;
+        }).join('')}
       </div>
       ${slideImgs.length>1?`
         <button onclick="slideMove(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;background:rgba(255,255,255,.88);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.15)"><span class="material-icons-round" style="font-size:20px;color:#333">chevron_left</span></button>
@@ -4446,15 +4490,19 @@ async function openCampaign(id) {
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
         <div style="display:flex;flex-direction:column;gap:14px">
-          ${steps.map((s,i)=>`
+          ${steps.map((s,i)=>{
+            const lang = (typeof getLang === 'function' ? getLang() : 'ja');
+            const title = lang === 'ko' ? (s.title_ko||s.title_ja||'') : (s.title_ja||s.title_ko||'');
+            const desc = lang === 'ko' ? (s.desc_ko||s.desc_ja||'') : (s.desc_ja||s.desc_ko||'');
+            return `
             <div style="display:flex;gap:12px;align-items:flex-start">
               <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP ${i+1}</div>
               <div>
-                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(s.title_ja||s.title_ko||'')}</div>
-                ${(s.desc_ja||s.desc_ko) ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(s.desc_ja||s.desc_ko||'')}</div>` : ''}
+                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(title)}</div>
+                ${desc ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(desc)}</div>` : ''}
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
       })()}
@@ -5091,6 +5139,26 @@ function navItemHtml(it) {
   </button>`;
 }
 
+// ── 배지 자동 갱신 (30초 폴링 + 탭 포커스) ──
+let _notifPollTimer = null;
+function startNotifPolling() {
+  if (_notifPollTimer) return;
+  _notifPollTimer = setInterval(() => {
+    if (currentUser && !document.hidden) refreshNotifBadge();
+  }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && currentUser) refreshNotifBadge();
+  });
+}
+// 앱 초기화 시 시작
+if (typeof window !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startNotifPolling);
+  } else {
+    startNotifPolling();
+  }
+}
+
 // ── 미읽음 배지 갱신 ──
 async function refreshNotifBadge() {
   const gnbBadge = $('gnbNotifBadge');
@@ -5323,6 +5391,17 @@ async function renderMyApplyList() {
     });
   }
 
+  // 채널 필터 (공용 populateMyApplyChannelOptions에서 드롭다운 채움)
+  populateMyApplyChannelOptions();
+  const channelFilter = $('myApplyChannel')?.value || '';
+  if (channelFilter) {
+    filtered = filtered.filter(a => {
+      const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+      if (!camp?.channel) return false;
+      return camp.channel.split(',').map(s=>s.trim()).includes(channelFilter);
+    });
+  }
+
   // 정렬
   const sortVal = $('myApplySort')?.value || 'newest';
   filtered.sort((a,b) => sortVal === 'oldest'
@@ -5462,6 +5541,24 @@ function handleWithdraw() {
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
 
+// 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
+function populateMyApplyChannelOptions() {
+  const sel = $('myApplyChannel');
+  if (!sel) return;
+  const prev = sel.value;
+  // 내 응모 캠페인의 채널 집합
+  const chSet = new Set();
+  _myApps.forEach(a => {
+    const camp = allCampaigns.find(c=>c.id===a.campaign_id);
+    if (!camp?.channel) return;
+    camp.channel.split(',').map(s=>s.trim()).filter(Boolean).forEach(c => chSet.add(c));
+  });
+  const channels = Array.from(chSet).sort();
+  const head = `<option value="" data-i18n="appHistory.allChannels">${t('appHistory.allChannels')}</option>`;
+  const options = channels.map(c => `<option value="${esc(c)}">${esc(getChannelLabel(c))}</option>`).join('');
+  sel.innerHTML = head + options;
+  if (prev && channels.includes(prev)) sel.value = prev;
+}
 // Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨
 // ══════════════════════════════════════
 // NAVIGATION + INIT
@@ -5562,6 +5659,8 @@ window.addEventListener('langchange', function() {
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
   else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
   else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+  // 햄버거 메뉴 재렌더 (언어에 따라 라벨 갱신)
+  if (typeof renderNavMenu === 'function') renderNavMenu();
 });
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
