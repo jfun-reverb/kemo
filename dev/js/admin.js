@@ -1232,15 +1232,23 @@ function renderInfTable(users, ch) {
       const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+      const snsCell = (raw, prefix='') => {
+        if (!raw) return '—';
+        const v = raw.replace('@','');
+        const safe = esc(v);
+        const inner = prefix ? `<a href="${prefix}${safe}" target="_blank" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+        return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+      };
+      const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
       return `<tr>
         <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-        <td>${u.ig?`<a href="https://instagram.com/${esc(u.ig.replace('@',''))}" target="_blank" style="color:var(--pink)">@${esc(u.ig.replace('@',''))}</a>`:'—'}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-        <td>${u.x?`@${esc(u.x.replace('@',''))}`:'—'}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-        <td>${u.tiktok?`@${esc(u.tiktok.replace('@',''))}`:'—'}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-        <td>${u.youtube?`@${esc(u.youtube.replace('@',''))}`:'—'}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+        <td>${snsCell(u.ig, 'https://instagram.com/')}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
+        <td>${snsCell(u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
+        <td>${snsCell(u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
+        <td>${snsCell(u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
         <td style="font-weight:700;color:var(--pink)">${total}</td>
-        <td style="font-size:12px;color:var(--muted)">${esc(u.line_id)||'—'}</td>
-        <td style="font-size:12px;color:var(--muted)">${esc(addr)}</td>
+        <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
+        <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
         <td>${paypalBadge}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
@@ -1256,12 +1264,17 @@ function renderInfTable(users, ch) {
     bodyEl.innerHTML = filtered.length ? filtered.map(u => {
       const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
       const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+      const idVal = u[idKey] ? u[idKey].replace('@','') : '';
+      const idCell = idVal
+        ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">@${esc(idVal)}</div>`
+        : '—';
+      const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
       return `<tr>
         <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-        <td>${u[idKey]?`@${esc(u[idKey].replace('@',''))}`:'—'}</td>
+        <td>${idCell}</td>
         <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
-        <td style="font-size:12px;color:var(--muted)">${esc(u.line_id)||'—'}</td>
-        <td style="font-size:12px;color:var(--muted)">${esc(addr)}</td>
+        <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
+        <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
         <td>${paypalBadge}</td>
         <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
       </tr>`;
