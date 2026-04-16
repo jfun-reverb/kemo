@@ -17,48 +17,35 @@ function closeNavPanel() {
   if (p) p.setAttribute('aria-hidden', 'true');
 }
 
-let _navMypageOpen = false;
-
-function toggleNavMypage() {
-  _navMypageOpen = !_navMypageOpen;
-  renderNavMenu();
-}
-
 function renderNavMenu() {
   const menu = $('navMenu');
   if (!menu) return;
+  // Admin 버튼 표시 제어
+  const adminBtn = $('navAdminBtn');
+  const isAdmin = currentUser && (currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : ''));
+  if (adminBtn) adminBtn.style.display = isAdmin ? '' : 'none';
+
   let html = '';
   if (currentUser) {
-    const isAdmin = currentUser._isAdmin || currentUser.email === (typeof ADMIN_EMAIL !== 'undefined' ? ADMIN_EMAIL : '');
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
-    // 마이페이지 (펼침)
-    const arrow = _navMypageOpen ? 'expand_less' : 'expand_more';
-    html += `<button class="nav-item" data-nav="mypage" onclick="toggleNavMypage()">
-      <span class="material-icons-round notranslate nav-icon" translate="no">person</span>
-      <span class="nav-label">${esc(t('tab.mypage'))}</span>
-      <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">${arrow}</span>
-    </button>`;
-    if (_navMypageOpen) {
-      const subs = [
-        {sub:'applications', label: t('mypage.menu.applications')},
-        {sub:'profile-basic', label: t('mypage.menu.basic')},
-        {sub:'profile-sns', label: t('mypage.menu.sns')},
-        {sub:'profile-address', label: t('mypage.menu.address')},
-        {sub:'paypal', label: t('mypage.menu.paypal')},
-        {sub:'password', label: t('mypage.menu.password')}
-      ];
-      html += subs.map(s => `
-        <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
-          <span class="nav-label">${esc(s.label)}</span>
-        </button>
-      `).join('');
-    }
+    // 마이페이지 (클릭 시 바로 이동, 서브메뉴 항상 표시)
+    html += navItemHtml({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
+    const subs = [
+      {sub:'applications', label: t('mypage.menu.applications')},
+      {sub:'profile-basic', label: t('mypage.menu.basic')},
+      {sub:'profile-sns', label: t('mypage.menu.sns')},
+      {sub:'profile-address', label: t('mypage.menu.address')},
+      {sub:'paypal', label: t('mypage.menu.paypal')},
+      {sub:'password', label: t('mypage.menu.password')}
+    ];
+    html += subs.map(s => `
+      <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
+        <span class="nav-label">${esc(s.label)}</span>
+      </button>
+    `).join('');
     if (!isAdmin) {
       html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
-    }
-    if (isAdmin) {
-      html += navItemHtml({nav:'admin', icon:'admin_panel_settings', label: 'Admin', onclick:"window.location.href='/admin/'"});
     }
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
   } else {
