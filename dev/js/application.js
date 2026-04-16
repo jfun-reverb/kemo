@@ -133,15 +133,19 @@ async function openCampaign(id) {
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
         <div style="display:flex;flex-direction:column;gap:14px">
-          ${steps.map((s,i)=>`
+          ${steps.map((s,i)=>{
+            const lang = (typeof getLang === 'function' ? getLang() : 'ja');
+            const title = lang === 'ko' ? (s.title_ko||s.title_ja||'') : (s.title_ja||s.title_ko||'');
+            const desc = lang === 'ko' ? (s.desc_ko||s.desc_ja||'') : (s.desc_ja||s.desc_ko||'');
+            return `
             <div style="display:flex;gap:12px;align-items:flex-start">
               <div style="min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0">STEP ${i+1}</div>
               <div>
-                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(s.title_ja||s.title_ko||'')}</div>
-                ${(s.desc_ja||s.desc_ko) ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(s.desc_ja||s.desc_ko||'')}</div>` : ''}
+                <div style="font-size:13px;font-weight:700;margin-bottom:2px">${esc(title)}</div>
+                ${desc ? `<div style="font-size:12px;color:var(--muted);line-height:1.55">${esc(desc)}</div>` : ''}
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
       })()}
