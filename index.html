@@ -3702,6 +3702,10 @@ function imgDrop(e, targetIdx, listName, wrapId, counterId) {
   var item = list.splice(_dragSrcIdx, 1)[0];
   list.splice(targetIdx, 0, item);
   _dragSrcIdx = null;
+  // 편집 폼 저장 플래그 세팅 (순서만 바뀌어도 DB 재업로드 필요)
+  if (listName === 'editCampImgData' && typeof editCampImgChanged !== 'undefined') {
+    editCampImgChanged = true;
+  }
   renderImgPreview(list, wrapId, counterId, listName);
 }
 
