@@ -3087,11 +3087,15 @@ function switchAdminPane(pane, el, pushHistory) {
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
     loadTagsFromValue('tagWrap_newCampMentions', 'newCampMentions', '@', '');
+    // 모집 타입 기본값: 리뷰어(monitor)
+    const defaultRt = document.querySelector('input[name="recruitType"][value="monitor"]');
+    if (defaultRt) { defaultRt.checked = true; toggleRT(defaultRt); }
     // lookup_values 동적 렌더
-    renderChannelCheckboxes('new', null, []);
+    renderChannelCheckboxes('new', 'monitor', []);
     renderContentTypeCheckboxes('new', []);
     renderCategorySelect('new', '');
-    applyMinFollowersVisibility('new', null);
+    applyMinFollowersVisibility('new', 'monitor');
+    applyDeadlineFieldsVisibility('new', 'monitor');
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
       ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
