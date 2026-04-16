@@ -121,7 +121,8 @@ function imgThumb(url, width, quality) {
   if (!url.includes('/storage/v1/object/public/')) return url;
   const q = quality || 70;
   const w = width || 400;
-  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=cover`;
+  // resize=contain: 비율 유지 (cover는 크롭됨)
+  return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${w}&quality=${q}&resize=contain`;
 }
 
 // 이미지 렌더 — 가로세로 비율 유지 (object-fit:contain, 레터박스)
