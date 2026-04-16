@@ -173,6 +173,8 @@ async function fetchDeliverables(filters) {
       application_id, user_id, campaign_id,
       campaigns:campaign_id (id, title, brand, recruit_type)
     `);
+    // 관리자: draft 상태는 제외 (인플루언서가 제출 안 한 작성중 항목)
+    query = query.neq('status', 'draft');
     if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
     if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
     if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
@@ -284,6 +286,70 @@ async function fetchDeliverablesForUser(filters) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchDeliverablesForUser]', e); return []; }
+}
+
+// ── Draft 플로우 (Stage: draft 제출 플로우) ──
+// 신규 draft(post URL 또는 image) 1건 저장
+async function insertDraftDeliverable(payload) {
+  if (!db) return null;
+  let id = null;
+  await retryWithRefresh(async () => {
+    const row = {
+      application_id: payload.application_id,
+      user_id: payload.user_id,
+      campaign_id: payload.campaign_id,
+      kind: payload.kind,            // 'post' | 'receipt' (receipt = image evidence)
+      status: 'draft',
+      post_url: payload.post_url || null,
+      post_channel: payload.post_channel || null,
+      post_submissions: payload.kind === 'post'
+        ? [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
+        : [],
+      receipt_url: payload.receipt_url || null,
+      memo: payload.memo || null
+    };
+    const {data, error} = await db?.from('deliverables').insert(row).select('id').maybeSingle();
+    if (error) throw error;
+    id = data?.id || null;
+  });
+  return id;
+}
+
+// 본인 draft 삭제
+async function deleteDraftDeliverable(id) {
+  if (!db) return false;
+  let ok = false;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('deliverables').delete().eq('id', id).eq('status', 'draft');
+      if (error) throw error;
+      ok = true;
+    });
+  } catch(e) { console.error('[deleteDraftDeliverable]', e); }
+  return ok;
+}
+
+// 특정 application의 draft 전체를 pending으로 제출 (본인만)
+async function submitDrafts(applicationId, kind) {
+  if (!db || !applicationId) return 0;
+  let count = 0;
+  try {
+    await retryWithRefresh(async () => {
+      let q = db.from('deliverables').update({status: 'pending'})
+        .eq('application_id', applicationId)
+        .eq('status', 'draft');
+      if (kind) q = q.eq('kind', kind);
+      const {data, error} = await q.select('id');
+      if (error) throw error;
+      count = (data || []).length;
+      // 제출 이벤트 로그 (RPC submit_deliverable) — 각 제출된 draft마다
+      for (const row of (data || [])) {
+        try { await db.rpc('submit_deliverable', {p_deliverable_id: row.id}); }
+        catch(e) { console.error('[submit_deliverable rpc]', e); }
+      }
+    });
+  } catch(e) { console.error('[submitDrafts]', e); }
+  return count;
 }
 
 // 게시물 결과물 신규 INSERT (인플루언서)

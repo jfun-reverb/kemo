@@ -100,7 +100,7 @@ async function openCampaign(id) {
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.winnerAnnounce')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${t('detail.winnerAnnounceValue')}</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.postDeadline')}</div>
@@ -428,11 +428,16 @@ async function openActivityPage(applicationId, campaignId, from) {
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
 
-  // 타입 분기 (Stage 3)
+  // 타입별 섹션 표시
+  //   monitor: URL만 (postSection)
+  //   gifting: 이미지만 (receiptSection)
+  //   visit:   이미지 + URL (둘 다)
   const rt = camp.recruit_type || 'monitor';
-  const isPostType = (rt === 'gifting' || rt === 'visit');
-  $('activityReceiptSection').style.display = isPostType ? 'none' : '';
-  $('activityPostSection').style.display = isPostType ? '' : 'none';
+  const showPost = (rt === 'monitor' || rt === 'visit');
+  const showImage = (rt === 'gifting' || rt === 'visit');
+  $('activityReceiptSection').style.display = showImage ? '' : 'none';
+  $('activityPostSection').style.display = showPost ? '' : 'none';
+  const isPostType = showPost;  // 아래 마감 검사 로직용
 
   // 제출 마감일 안내 + 마감 초과 시 폼 비활성
   const submissionEnd = camp.submission_end || camp.post_deadline || null;
@@ -535,19 +540,19 @@ async function loadReceipts() { return loadDeliverablesForActivity(); }
 // Stage 3: 활동관리 화면의 결과물 리스트 (영수증·게시물 통합)
 async function loadDeliverablesForActivity() {
   const camp = _activityCamp || {};
-  const isPostType = (camp.recruit_type === 'gifting' || camp.recruit_type === 'visit');
-  const kind = isPostType ? 'post' : 'receipt';
-  const delivs = await fetchDeliverablesForUser({
+  const rt = camp.recruit_type || 'monitor';
+  const showPost = (rt === 'monitor' || rt === 'visit');
+  const showImage = (rt === 'gifting' || rt === 'visit');
+  const all = await fetchDeliverablesForUser({
     application_id: _activityAppId,
-    user_id: currentUser?.id,
-    kind
+    user_id: currentUser?.id
   });
 
-  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시 (재제출하면 새 deliverable이 pending이므로 숨김)
+  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시
   const banner = $('activityRejectBanner');
   const reasonEl = $('activityRejectReason');
   if (banner && reasonEl) {
-    const sorted = delivs.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
+    const sorted = all.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
     const latest = sorted[0];
     if (latest && latest.status === 'rejected' && latest.reject_reason) {
       banner.style.display = '';
@@ -557,58 +562,76 @@ async function loadDeliverablesForActivity() {
     }
   }
 
-  if (isPostType) renderActivityPostList(delivs);
-  else renderActivityReceiptList(delivs);
+  if (showImage) renderActivityReceiptList(all.filter(d => d.kind === 'receipt'));
+  if (showPost) renderActivityPostList(all.filter(d => d.kind === 'post'));
 }
 
 function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
   if (!container) return;
+  const submitBtn = $('submitImagesBtn');
   if (!delivs.length) {
-    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noReceipt')}</div>`;
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
+    if (submitBtn) submitBtn.style.display = 'none';
     return;
   }
+  let hasDraft = false;
   container.innerHTML = delivs.map(r => {
-    const stBadge = activityStatusBadge(r.status);
+    const isDraft = r.status === 'draft';
+    if (isDraft) hasDraft = true;
+    const stBadge = isDraft
+      ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+      : activityStatusBadge(r.status);
+    const rightCol = isDraft
+      ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
+      : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
     return `
     <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--surface-dim)">
-        ${r.receipt_url ? `<img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:cover;cursor:pointer" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+      <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
+        ${r.receipt_url ? `<img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--ink)">${r.purchase_date ? formatDate(r.purchase_date) : t('activity.unknownDate')}</div>
-        <div style="font-size:12px;color:var(--muted)">${r.purchase_amount ? '¥'+Number(r.purchase_amount).toLocaleString() : t('activity.unknownAmount')}</div>
+        ${stBadge}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        ${stBadge}
-        <div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>
+        ${rightCol}
       </div>
     </div>`;
   }).join('');
+  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
 }
 
 function renderActivityPostList(delivs) {
   const container = $('postSubmissionList');
   if (!container) return;
+  const submitBtn = $('submitPostsBtn');
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noPost')}</div>`;
+    if (submitBtn) submitBtn.style.display = 'none';
     return;
   }
+  let hasDraft = false;
   container.innerHTML = delivs.map(d => {
-    const stBadge = activityStatusBadge(d.status);
+    const isDraft = d.status === 'draft';
+    if (isDraft) hasDraft = true;
+    const stBadge = isDraft
+      ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+      : activityStatusBadge(d.status);
     const chLabel = CHANNEL_LABELS[d.post_channel] || d.post_channel || '—';
-    const subs = Array.isArray(d.post_submissions) ? d.post_submissions : [];
+    const actionBtn = isDraft
+      ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
         <div style="font-size:12px;font-weight:600;color:var(--ink)">${esc(chLabel)}</div>
-        ${stBadge}
+        <div style="display:flex;align-items:center;gap:6px">${stBadge}${actionBtn}</div>
       </div>
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
-      ${subs.length > 1 ? `<div style="font-size:10px;color:var(--muted);margin-top:6px">${t('activity.submitCountLabel').replace('{n}', subs.length)}</div>` : ''}
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
     </div>`;
   }).join('');
+  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
 }
 
 function activityStatusBadge(status) {
@@ -628,23 +651,19 @@ function previewReceipt(input) {
   reader.readAsDataURL(file);
 }
 
-// Stage 3: 게시물 URL 제출 (기프팅·방문형)
-async function submitPostUrl() {
+// Draft URL 추가 (리뷰어/방문형)
+async function addDraftUrl() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const url = ($('postUrlInput')?.value || '').trim();
   if (!url) { toast(t('activity.needUrl'), 'error'); return; }
-  // URL 형식 검증
   try { new URL(url); } catch(e) { toast(t('activity.badUrlFormat'),'error'); return; }
 
-  // 제출 마감 확인
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end || camp.post_deadline;
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
-    toast(t('activity.afterDeadline'),'error');
-    return;
+    toast(t('activity.afterDeadline'),'error'); return;
   }
 
-  // 채널 판별 (자동 실패 시 수동 선택 필수)
   let channel = detectChannelFromUrl(url);
   if (!channel) {
     channel = $('postChannelManual')?.value || '';
@@ -652,35 +671,68 @@ async function submitPostUrl() {
   }
 
   try {
-    // 동일 URL 재제출 여부 확인
-    const existing = await fetchDeliverablesForUser({
+    const id = await insertDraftDeliverable({
       application_id: _activityAppId,
       user_id: currentUser.id,
-      kind: 'post'
+      campaign_id: _activityCampId,
+      kind: 'post',
+      post_url: url,
+      post_channel: channel
     });
-    const sameUrl = existing.find(d => (d.post_url || '').trim() === url);
-    if (sameUrl) {
-      await appendPostSubmission(sameUrl.id, url, channel);
-      toast(sameUrl.status === 'rejected' ? t('activity.resubmitSuccess') : t('activity.appendedSuccess'), 'success');
-    } else {
-      const id = await insertPostDeliverable({
-        application_id: _activityAppId,
-        user_id: currentUser.id,
-        campaign_id: _activityCampId,
-        post_url: url,
-        post_channel: channel
-      });
-      if (!id) { toast(t('activity.saveFail'), 'error'); return; }
-      toast(t('activity.postSuccess'), 'success');
-    }
-    // 폼 초기화
-    const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
+    if (!id) { toast(t('activity.saveFail'), 'error'); return; }
+    $('postUrlInput').value = '';
     const ch = $('postChannelDetected'); if (ch) ch.textContent = '';
     const mw = $('postChannelManualWrap'); if (mw) mw.style.display = 'none';
+    toast(t('activity.draftAdded'), 'success');
     await loadDeliverablesForActivity();
-  } catch(e) {
-    toast(friendlyErrorJa(e), 'error');
+  } catch(e) { toast(friendlyErrorJa(e), 'error'); }
+}
+
+// Draft 이미지 추가 (기프팅/방문형)
+async function addDraftImage() {
+  if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
+  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || camp.post_deadline;
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+    toast(t('activity.afterDeadline'),'error'); return;
   }
+  try {
+    toast(t('activity.uploading'),'');
+    const fileName = `evidence_${currentUser.id}_${Date.now()}.jpg`;
+    const imgUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
+    const id = await insertDraftDeliverable({
+      application_id: _activityAppId,
+      user_id: currentUser.id,
+      campaign_id: _activityCampId,
+      kind: 'receipt',
+      receipt_url: imgUrl
+    });
+    if (!id) { toast(t('activity.saveFail'), 'error'); return; }
+    _receiptImgData = null;
+    $('receiptPreview').innerHTML = '';
+    $('receiptFile').value = '';
+    toast(t('activity.draftAdded'), 'success');
+    await loadDeliverablesForActivity();
+  } catch(e) { toast(friendlyErrorJa(e), 'error'); }
+}
+
+// Draft 삭제
+async function deleteDraft(id) {
+  const ok = await deleteDraftDeliverable(id);
+  if (ok) {
+    toast(t('activity.draftDeleted'), 'success');
+    await loadDeliverablesForActivity();
+  } else toast(t('activity.saveFail'), 'error');
+}
+
+// Draft → 제출 (kind 별로 일괄)
+async function submitAllDrafts(kind) {
+  const count = await submitDrafts(_activityAppId, kind);
+  if (count > 0) {
+    toast(t('activity.submittedN').replace('{n}', count), 'success');
+    await loadDeliverablesForActivity();
+  } else toast(t('activity.nothingToSubmit'), 'warn');
 }
 
 async function submitReceipt() {

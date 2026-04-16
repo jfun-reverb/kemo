@@ -631,6 +631,13 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
               <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input"></div>
             </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">상태</label>
+                <select id="editCampStatus" class="form-input">
+                  <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
+                </select>
+              </div>
+            </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">제품 정보</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
@@ -736,6 +743,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">결과물 제출 마감일</label><input type="date" id="editCampSubmissionEnd" class="form-input"><div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 게시 마감일로 폴백</div></div>
             </div>
+            <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -764,12 +772,6 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div id="editCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('edit')" style="margin-top:8px">+ 단계 추가</button>
             </div>
-            <div class="form-group"><label class="form-label">상태</label>
-              <select id="editCampStatus" class="form-input">
-                <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
-              </select>
-            </div>
-
             <div style="display:flex;gap:10px;margin-top:16px">
               <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
@@ -935,6 +937,11 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <input type="date" id="newCampSubmissionEnd" class="form-input">
                 <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 게시 마감일로 폴백</div>
               </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">당선 발표 안내</label>
+              <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、LINEにてご連絡" placeholder="選考後、LINEにてご連絡">
+              <div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 기본값 그대로 사용 가능</div>
             </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
@@ -1942,6 +1949,8 @@ async function fetchDeliverables(filters) {
       application_id, user_id, campaign_id,
       campaigns:campaign_id (id, title, brand, recruit_type)
     `);
+    // 관리자: draft 상태는 제외 (인플루언서가 제출 안 한 작성중 항목)
+    query = query.neq('status', 'draft');
     if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
     if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
     if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
@@ -2053,6 +2062,70 @@ async function fetchDeliverablesForUser(filters) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchDeliverablesForUser]', e); return []; }
+}
+
+// ── Draft 플로우 (Stage: draft 제출 플로우) ──
+// 신규 draft(post URL 또는 image) 1건 저장
+async function insertDraftDeliverable(payload) {
+  if (!db) return null;
+  let id = null;
+  await retryWithRefresh(async () => {
+    const row = {
+      application_id: payload.application_id,
+      user_id: payload.user_id,
+      campaign_id: payload.campaign_id,
+      kind: payload.kind,            // 'post' | 'receipt' (receipt = image evidence)
+      status: 'draft',
+      post_url: payload.post_url || null,
+      post_channel: payload.post_channel || null,
+      post_submissions: payload.kind === 'post'
+        ? [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
+        : [],
+      receipt_url: payload.receipt_url || null,
+      memo: payload.memo || null
+    };
+    const {data, error} = await db?.from('deliverables').insert(row).select('id').maybeSingle();
+    if (error) throw error;
+    id = data?.id || null;
+  });
+  return id;
+}
+
+// 본인 draft 삭제
+async function deleteDraftDeliverable(id) {
+  if (!db) return false;
+  let ok = false;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('deliverables').delete().eq('id', id).eq('status', 'draft');
+      if (error) throw error;
+      ok = true;
+    });
+  } catch(e) { console.error('[deleteDraftDeliverable]', e); }
+  return ok;
+}
+
+// 특정 application의 draft 전체를 pending으로 제출 (본인만)
+async function submitDrafts(applicationId, kind) {
+  if (!db || !applicationId) return 0;
+  let count = 0;
+  try {
+    await retryWithRefresh(async () => {
+      let q = db.from('deliverables').update({status: 'pending'})
+        .eq('application_id', applicationId)
+        .eq('status', 'draft');
+      if (kind) q = q.eq('kind', kind);
+      const {data, error} = await q.select('id');
+      if (error) throw error;
+      count = (data || []).length;
+      // 제출 이벤트 로그 (RPC submit_deliverable) — 각 제출된 draft마다
+      for (const row of (data || [])) {
+        try { await db.rpc('submit_deliverable', {p_deliverable_id: row.id}); }
+        catch(e) { console.error('[submit_deliverable rpc]', e); }
+      }
+    });
+  } catch(e) { console.error('[submitDrafts]', e); }
+  return count;
 }
 
 // 게시물 결과물 신규 INSERT (인플루언서)
@@ -3627,6 +3700,7 @@ async function openEditCampaign(campId) {
   sv('editCampVisitStart', camp.visit_start||'');
   sv('editCampVisitEnd', camp.visit_end||'');
   sv('editCampSubmissionEnd', camp.submission_end||'');
+  sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、LINEにてご連絡');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
   sv('editCampMentions', camp.mentions||'');
@@ -3799,6 +3873,7 @@ async function saveCampaignEdit() {
       visit_start: gv('editCampVisitStart')||null,
       visit_end: gv('editCampVisitEnd')||null,
       submission_end: gv('editCampSubmissionEnd')||null,
+      winner_announce: gv('editCampWinnerAnnounce') || '選考後、LINEにてご連絡',
       description: gv('editCampDesc'),
       hashtags: gv('editCampHashtags'),
       mentions: gv('editCampMentions'),
@@ -3850,6 +3925,7 @@ async function duplicateCampaign(campId) {
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
       visit_start: src.visit_start, visit_end: src.visit_end,
       submission_end: src.submission_end,
+      winner_announce: src.winner_announce,
       image_url: src.image_url,
       img1: src.img1, img2: src.img2, img3: src.img3, img4: src.img4,
       img5: src.img5, img6: src.img6, img7: src.img7, img8: src.img8,
@@ -4670,6 +4746,7 @@ async function addCampaign() {
     visit_start: $('newCampVisitStart')?.value||null,
     visit_end: $('newCampVisitEnd')?.value||null,
     submission_end: $('newCampSubmissionEnd')?.value||null,
+    winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、LINEにてご連絡',
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
