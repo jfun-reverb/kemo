@@ -105,6 +105,7 @@ function switchAdminPane(pane, el, pushHistory) {
   }
   if (el) el.classList.add('on');
   const loaders = {
+    dashboard: loadAdminData,
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
     influencers: loadAdminInfluencers,
