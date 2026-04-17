@@ -1108,10 +1108,10 @@ textarea.form-input{resize:vertical;min-height:80px}
               <option value="visit">방문형</option>
             </select>
             <select id="appStatusFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
-              <option value="pending" selected>심사중</option>
+              <option value="all" selected>전체 상태</option>
+              <option value="pending">심사중</option>
               <option value="approved">승인</option>
               <option value="rejected">미승인</option>
-              <option value="all">전체 상태</option>
             </select>
             <div style="position:relative;width:360px">
               <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
@@ -4733,7 +4733,7 @@ async function renderAppCampList() {
   }
 
   // 상태 필터
-  const statusFilter = $('appStatusFilter')?.value || 'pending';
+  const statusFilter = $('appStatusFilter')?.value || 'all';
   if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
 
   // 검색 필터
