@@ -596,15 +596,17 @@
         </div>
 
         <!-- INFLUENCERS PANE -->
-        <div id="adminPane-influencers" class="admin-pane">
-          <div style="margin-bottom:16px;font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
-          <!-- 채널별 탭 -->
-          <div style="display:flex;gap:0;border-bottom:2px solid var(--line);margin-bottom:16px">
-            <button id="infTab-all" onclick="switchInfTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-            <button id="infTab-instagram" onclick="switchInfTab('instagram',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">Instagram <span id="infCnt-instagram" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-            <button id="infTab-x" onclick="switchInfTab('x',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">X(Twitter) <span id="infCnt-x" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-            <button id="infTab-tiktok" onclick="switchInfTab('tiktok',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">TikTok <span id="infCnt-tiktok" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-            <button id="infTab-youtube" onclick="switchInfTab('youtube',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">YouTube <span id="infCnt-youtube" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+        <div id="adminPane-influencers" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="margin-bottom:12px;font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
+            <!-- 채널별 탭 -->
+            <div style="display:flex;gap:0;border-bottom:2px solid var(--line)">
+              <button id="infTab-all" onclick="switchInfTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
+              <button id="infTab-instagram" onclick="switchInfTab('instagram',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">Instagram <span id="infCnt-instagram" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+              <button id="infTab-x" onclick="switchInfTab('x',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">X(Twitter) <span id="infCnt-x" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+              <button id="infTab-tiktok" onclick="switchInfTab('tiktok',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">TikTok <span id="infCnt-tiktok" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+              <button id="infTab-youtube" onclick="switchInfTab('youtube',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">YouTube <span id="infCnt-youtube" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+            </div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -614,12 +616,14 @@
                 <span id="infTotalCount" style="font-size:12px;color:var(--muted)">0名登録</span>
               </div>
             </div>
+            <div class="admin-table-wrap">
             <table class="data-table" id="infTable">
               <thead id="infTableHead">
                 <tr><th>이름</th><th>Instagram</th><th>X(Twitter)</th><th>TikTok</th><th>YouTube</th><th>합계</th><th>LINE</th><th>배송지</th><th>PayPal</th><th>등록일</th></tr>
               </thead>
               <tbody id="adminInfluencersBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
           </div>
         </div>
 
@@ -668,19 +672,16 @@
         </div>
 
         <!-- CAMPAIGN APPLICANTS PANE -->
-        <div id="adminPane-camp-applicants" class="admin-pane">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
-            <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
-            <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
-          </div>
-          <div class="admin-card">
-            <div class="admin-card-header">
-              <div>
-                <span class="admin-card-title" id="campApplicantsSubtitle">신청자 목록</span>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center">
-                <span id="campApplicantsStats" style="font-size:13px;color:var(--muted)"></span>
+        <div id="adminPane-camp-applicants" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
+              <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
+              <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted)"></div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>상태</label>
                 <select id="campAppFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadCampApplicants()">
                   <option value="">전체</option>
                   <option value="pending">심사중</option>
@@ -689,10 +690,17 @@
                 </select>
               </div>
             </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="campApplicantsSubtitle">신청자 목록</span><span id="campApplicantsStats" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="campApplicantsHead"><tr><th>이름</th><th>Instagram</th><th>팔로워</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>오리엔시트 발송</th><th>결과물</th><th>처리</th></tr></thead>
               <tbody id="campApplicantsBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
           </div>
         </div>
 
@@ -797,23 +805,24 @@
         </div>
 
         <!-- LOOKUPS (기준 데이터) PANE -->
-        <div id="adminPane-lookups" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div>
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 데이터</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">캠페인에서 사용하는 채널·카테고리·콘텐츠 종류·NG 프리셋을 관리합니다 (campaign_admin 이상)</div>
+        <div id="adminPane-lookups" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">기준 데이터</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">캠페인에서 사용하는 채널·카테고리·콘텐츠 종류·NG 프리셋을 관리합니다 (campaign_admin 이상)</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openLookupAddModal()">+ 항목 추가</button>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="openLookupAddModal()">+ 항목 추가</button>
-          </div>
-
-          <!-- 종류 탭 -->
-          <div style="display:flex;gap:0;border-bottom:1px solid var(--line);margin-bottom:14px">
-            <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>
-            <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">카테고리</button>
-            <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
-            <button class="lookup-tab" data-kind="ng_item" onclick="switchLookupTab('ng_item',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
-            <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
-            <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
+            <!-- 종류 탭 -->
+            <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
+              <button class="lookup-tab on" data-kind="channel" onclick="switchLookupTab('channel',this)" style="padding:10px 16px;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--pink);color:var(--pink);cursor:pointer">채널</button>
+              <button class="lookup-tab" data-kind="category" onclick="switchLookupTab('category',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">카테고리</button>
+              <button class="lookup-tab" data-kind="content_type" onclick="switchLookupTab('content_type',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">콘텐츠 종류</button>
+              <button class="lookup-tab" data-kind="ng_item" onclick="switchLookupTab('ng_item',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
+              <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
+              <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
+            </div>
           </div>
 
           <div class="admin-card">
@@ -821,29 +830,35 @@
               <span class="admin-card-title" id="lookupTableTitle">채널 목록</span>
               <button class="btn btn-ghost btn-xs" id="btnLookupReorderMode" onclick="enterLookupReorderMode()">순서 변경</button>
             </div>
+            <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="lookupTableHead"></thead>
               <tbody id="lookupsTableBody">
                 <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 
         <!-- ADMIN ACCOUNTS PANE -->
-        <div id="adminPane-admin-accounts" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자 계정</div>
-            <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+        <div id="adminPane-admin-accounts" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자 계정</div>
+              <button class="btn btn-primary btn-sm" onclick="openAddAdminModal()">+ 관리자 추가</button>
+            </div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
               <span class="admin-card-title">관리자 목록</span>
             </div>
+            <div class="admin-table-wrap">
             <table class="data-table">
               <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th>등록일</th><th>처리</th></tr></thead>
               <tbody id="adminAccountsBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
           </div>
         </div>
 

@@ -27,8 +27,9 @@ globs: "dev/**/*.html,dev/css/*.css,dev/js/*.js"
 - 사이드바 메뉴 영역: 대시보드 → 캠페인(관리/신청/결과물) → 회원관리(인플루언서) → 관리자설정(기준데이터[super_admin 한정]/관리자계정) → 접속자 프로필(#sidebarAdminProfile → my-account)
 - 사이드바 하단(border-top 구분): 인플루언서 화면 / 로그아웃 (2개만)
 - 관리자 페인: #adminPane-dashboard, #adminPane-campaigns 등 (add-campaign/edit-campaign은 서브 페인)
-- **목록 페인 (campaigns/applications/deliverables)**: `admin-pane-list` 클래스 사용. flex column 구조로 제목+필터 고정, 카드 헤더 고정, thead sticky, tbody만 스크롤
-- **목록 페인 HTML 구조 통일 필수**: 3개 페인의 HTML 구조(admin-sticky-header → admin-card → admin-card-header → admin-table-wrap → table)가 반드시 동일해야 함. 래퍼 div 추가/제거 시 3개 모두 확인
+- **목록 페인 (campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts)**: `admin-pane-list` 클래스 사용. flex column 구조로 제목+필터 고정, 카드 헤더 고정, thead sticky, tbody만 스크롤
+- **목록 페인 HTML 구조 통일 필수**: 7개 페인의 HTML 구조(admin-sticky-header → admin-card → admin-card-header → admin-table-wrap → table)가 반드시 동일해야 함. 래퍼 div 추가/제거 시 7개 모두 확인
+- 대시보드(adminPane-dashboard)와 상세/폼 페인(add-campaign/edit-campaign/influencer-detail/my-account)은 목록이 아니므로 admin-pane-list 미적용 — 자연 스크롤
 
 ## UI 텍스트 언어 규칙
 - 인플루언서 페이지: 일본어 (한국어/영어 금지)
