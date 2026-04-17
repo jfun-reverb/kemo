@@ -203,7 +203,8 @@ async function loadAdminData() {
             ${thumbUrl ? `<img src="${imgThumb(thumbUrl,160)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:5px">${typeLabel}<strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong></div>
+            ${typeLabel}
+            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
             <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
             ${camp.slots?`<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_dRem>0?'var(--green)':'var(--red)'};font-weight:600">${_dRem>0?_dRem+'건':'없음'}</span></div>`:''}
           </div>
@@ -477,7 +478,8 @@ async function loadAdminCampaigns(useCache) {
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:5px">${typeLabel(c.recruit_type)}<strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong></div>
+            ${typeLabel(c.recruit_type)}
+            <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
@@ -1066,7 +1068,7 @@ async function loadCampApplicants() {
     return `<tr>
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
-      <div style="font-size:11px;color:var(--muted)">${[esc(a.user_email)||'', _u.line_id?`LINE: ${esc(_u.line_id)}`:''].filter(Boolean).join(' · ')}</div>
+      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
     </td>
     <td>${a.ig_id?`<a href="https://instagram.com/${esc(a.ig_id)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">@${esc(a.ig_id)}</a>`:esc(a.user_ig)||'—'}</td>
     <td style="font-weight:600">${(a.user_followers||0).toLocaleString()}</td>
@@ -1534,7 +1536,8 @@ async function renderAppCampList() {
             ${thumbUrl ? `<img src="${imgThumb(thumbUrl,160)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
-            <div style="display:flex;align-items:center;gap:5px">${typeLabel}<strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong></div>
+            ${typeLabel}
+            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
             <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
             ${camp.slots?(()=>{const _r=Math.max(camp.slots-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
@@ -1542,7 +1545,7 @@ async function renderAppCampList() {
       </td>
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}</div>
-        <div style="font-size:11px;color:var(--muted)">${[esc(a.user_email)||'', u.line_id?`LINE: ${esc(u.line_id)}`:''].filter(Boolean).join(' · ')}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(u.line_id)}</div>`:''}
       </td>
       <td>${msgCell(a.message)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
@@ -2799,7 +2802,7 @@ async function renderDeliverablesList() {
     const infName = esc(inf.name || '—');
     const infEmail = esc(inf.email || '');
     const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
-    const infSub = [infEmail, infLine].filter(Boolean).join(' · ');
+    const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
     const reviewedCell = d.reviewed_at
       ? `<span style="font-size:12px">${formatDateTime(d.reviewed_at)}</span>`
       : '<span style="font-size:11px;color:var(--muted)">—</span>';
