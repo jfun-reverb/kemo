@@ -285,6 +285,11 @@ function updateCampSortResetBtn() {
   if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
 }
 
+// 필터 select: 전체(all)가 아닌 값 선택 시 배경 흰색으로 활성 표시
+function highlightFilter(el) {
+  el.style.background = el.value === 'all' ? '' : '#fff';
+}
+
 function toggleCampSort(key) {
   if (adminCampSortKey === key) {
     adminCampSortDir = adminCampSortDir === 'desc' ? 'asc' : 'desc';
@@ -2692,9 +2697,9 @@ function toggleDelivSort(col) {
 }
 
 function resetDelivFiltersAndSort() {
-  const k = $('delivKindFilter'); if (k) k.value = 'all';
-  const s = $('delivStatusFilter'); if (s) s.value = 'pending';
-  const c = $('delivCampFilter'); if (c) c.value = 'all';
+  const k = $('delivKindFilter'); if (k) { k.value = 'all'; highlightFilter(k); }
+  const s = $('delivStatusFilter'); if (s) { s.value = 'all'; highlightFilter(s); }
+  const c = $('delivCampFilter'); if (c) { c.value = 'all'; highlightFilter(c); }
   const q = $('delivSearch'); if (q) q.value = '';
   _delivSort = {col: null, dir: null};
   renderDeliverablesList();
@@ -2732,7 +2737,7 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  const status = $('delivStatusFilter')?.value || 'pending';
+  const status = $('delivStatusFilter')?.value || 'all';
   const kind = $('delivKindFilter')?.value || 'all';
   const campId = $('delivCampFilter')?.value || 'all';
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
