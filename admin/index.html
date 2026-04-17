@@ -3799,7 +3799,7 @@ async function loadAdminCampaigns(useCache) {
   }
 
   // 필터/검색/정렬 중에는 순서 변경 비활성화
-  const isFiltered = searchVal || typeFilter !== 'all' || statusFilter !== 'all' || !!adminCampSortKey;
+  const isFiltered = searchVal || typeVals.length > 0 || statusVals.length > 0 || !!adminCampSortKey;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
   const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
