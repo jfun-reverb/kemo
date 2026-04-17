@@ -92,6 +92,7 @@ function friendlyError(msg) {
 }
 
 function switchAdminPane(pane, el, pushHistory) {
+  initMultiFilters();
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);

@@ -11,7 +11,7 @@
 .admin-filter.active{background-color:#fff}
 .admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
 /* sticky 상단 영역 */
-.admin-sticky-header{position:sticky;top:0;z-index:10;background:var(--surface-container-low);padding-bottom:8px}
+.admin-sticky-header{position:sticky;top:-24px;z-index:10;background:var(--surface-container-low);padding:24px 0 8px;margin:-24px -24px 0;padding-left:24px;padding-right:24px}
 /* 다중 선택 드롭다운 */
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
