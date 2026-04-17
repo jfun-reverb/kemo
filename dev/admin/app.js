@@ -51,13 +51,6 @@ async function init() {
     currentAdminInfo = adminResult.data;
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
 
-    // GNB에 관리자 이름 표시
-    var gnbInfo = document.getElementById('adminGnbInfo');
-    if (gnbInfo) {
-      var initial = (adminResult.data.name || 'A')[0].toUpperCase();
-      gnbInfo.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">' + initial + '</div><span>' + (adminResult.data.name || '관리자') + '</span>';
-    }
-
     // 세션 만료/갱신 감지
     db.auth.onAuthStateChange(function(event) {
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {

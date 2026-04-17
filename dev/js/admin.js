@@ -222,7 +222,7 @@ async function loadAdminData(preloaded) {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
 
   // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -625,7 +625,7 @@ async function loadAdminCampaigns(useCache) {
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
       ${adminReorderMode ? '' : `<td style="position:relative">
-        <span class="material-icons-round camp-more-btn" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" data-camp-title="${esc(c.title)}" onclick="toggleCampMoreMenu(event,this,'${c.id}',this.dataset.campTitle)">more_vert</span>
+        <span class="material-icons-round notranslate camp-more-btn" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" data-camp-title="${esc(c.title)}" onclick="toggleCampMoreMenu(event,this,'${c.id}',this.dataset.campTitle)">more_vert</span>
       </td>`}
     </tr>`;
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
@@ -1016,9 +1016,9 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
   menu.innerHTML = `
-    <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round" style="font-size:16px">edit</span>편집</div>
-    <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round" style="font-size:16px">content_copy</span>복제</div>
-    <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round" style="font-size:16px">delete</span>삭제</div>
+    <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
+    <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
+    <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
   menu.style.left = (rect.left - menu.offsetWidth) + 'px';
@@ -1154,13 +1154,13 @@ async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
   const total = apps.length;
+  const allApproved = apps.filter(a => a.status === 'approved').length;
   if (filter) apps = apps.filter(a=>a.status===filter);
   const approved = apps.filter(a=>a.status==='approved').length;
   const pending = apps.filter(a=>a.status==='pending').length;
 
   const camp = allCampaigns.find(c=>c.id===currentCampApplicantId);
   const slots = camp?.slots || 0;
-  const allApproved = (await fetchApplications({campaign_id: currentCampApplicantId, status: 'approved'})).length;
   const remaining = Math.max(slots - allApproved, 0);
   $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
 
@@ -1687,9 +1687,9 @@ async function updateAppStatus(appId, status) {
   try {
     // 승인 시 모집인원 초과 체크
     if (status === 'approved') {
-      const {data: app} = await db.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
+      const {data: app} = await db?.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
       if (app) {
-        const {data: camp} = await db.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
+        const {data: camp} = await db?.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
         const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
         const slots = camp?.slots || 0;
         if (slots > 0 && approvedApps.length >= slots) {
@@ -2603,7 +2603,7 @@ async function saveAdmin() {
     const name = $('adminFormName').value.trim();
     const role = $('adminFormRole').value;
     try {
-      await db.from('admins').update({name, role}).eq('id', editId);
+      await retryWithRefresh(() => db?.from('admins').update({name, role}).eq('id', editId));
       toast('관리자 정보가 수정되었습니다','success');
       closeModal('addAdminModal');
       loadAdminAccounts();
