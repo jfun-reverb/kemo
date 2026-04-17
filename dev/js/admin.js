@@ -2538,6 +2538,7 @@ async function saveMyAdminInfo() {
   try {
     await db.from('admins').update({name}).eq('id', currentAdminInfo.id);
     currentAdminInfo.name = name;
+    updateSidebarProfile();
     toast('정보가 저장되었습니다','success');
   } catch(e) {
     toast('저장 오류: ' + e.message,'error');

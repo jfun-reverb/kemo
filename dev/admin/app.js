@@ -50,6 +50,7 @@ async function init() {
     currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
     currentAdminInfo = adminResult.data;
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
+    if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 
     // 세션 만료/갱신 감지
     db.auth.onAuthStateChange(function(event) {
