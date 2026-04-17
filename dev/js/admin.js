@@ -370,6 +370,7 @@ function applyImageCropsToList(imgList, cropsMap) {
 }
 
 async function loadAdminCampaigns(useCache) {
+  updateCampTableHead();
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (!useCache) allCampaigns = camps.slice();
 
