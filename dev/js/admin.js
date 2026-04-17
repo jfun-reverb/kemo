@@ -335,28 +335,16 @@ function highlightFilter(el) {
   el.classList.toggle('active', el.value !== 'all');
 }
 
-// 카드 헤더 + thead sticky 고정 (sticky header 높이 기준 동적 계산)
-function updateStickyPositions(paneId) {
+// 테이블 wrap 높이를 화면에 맞춰 설정 → wrap 안에서만 스크롤
+function updateTableScrollHeight(paneId) {
   setTimeout(() => {
     const pane = $(paneId);
     if (!pane) return;
-    const sh = pane.querySelector('.admin-sticky-header');
-    if (!sh) return;
-    const shH = sh.offsetHeight;
-    const ch = pane.querySelector('.admin-card-header');
-    if (ch) {
-      ch.style.position = 'sticky';
-      ch.style.top = shH + 'px';
-      ch.style.zIndex = '9';
-      ch.style.background = 'var(--surface)';
-      ch.style.borderBottom = '1px solid var(--surface-dim)';
-    }
-    const chH = ch ? ch.offsetHeight : 0;
-    pane.querySelectorAll('.data-table thead th').forEach(th => {
-      th.style.position = 'sticky';
-      th.style.top = (shH + chH) + 'px';
-      th.style.zIndex = '8';
-    });
+    const wrap = pane.querySelector('.admin-table-wrap');
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    wrap.style.maxHeight = (window.innerHeight - rect.top - 16) + 'px';
+    wrap.style.overflowY = 'auto';
   }, 0);
 }
 
@@ -639,7 +627,7 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
-  updateStickyPositions('adminPane-campaigns');
+  updateTableScrollHeight('adminPane-campaigns');
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
@@ -1692,7 +1680,7 @@ async function renderAppCampList() {
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
-  updateStickyPositions('adminPane-applications');
+  updateTableScrollHeight('adminPane-applications');
 }
 
 async function updateAppStatus(appId, status) {
@@ -2958,7 +2946,7 @@ async function renderDeliverablesList() {
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
     </tr>`;
   }).join('');
-  updateStickyPositions('adminPane-deliverables');
+  updateTableScrollHeight('adminPane-deliverables');
 }
 
 function statusLabelKo(status) {

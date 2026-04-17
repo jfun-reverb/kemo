@@ -411,12 +411,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 .status-dropdown-item{padding:6px 10px;border-radius:6px;cursor:pointer;transition:background .12s}
 .status-dropdown-item:hover{background:var(--surface-dim)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
+.data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:5}
+.admin-table-wrap{overflow-y:auto}
 .data-table td{padding:10px 10px;border-bottom:1px solid var(--surface-dim);color:var(--on-surface);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-dim)}
-.admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:visible;margin-bottom:16px;box-shadow:var(--elevation-1)}
-.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-radius:var(--r16) var(--r16) 0 0}
+.admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
+.admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
 .product-form{background:var(--surface);border:none;border-radius:var(--r24);padding:28px;margin-bottom:20px;box-shadow:var(--elevation-1)}
 .product-form-title{font-size:18px;font-weight:700;margin-bottom:4px}
@@ -622,6 +623,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
               </div>
             </div>
+            <div class="admin-table-wrap">
             <table class="data-table">
               <thead id="adminCampTableHead"><tr>
   <th>캠페인</th>
@@ -634,6 +636,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 </tr></thead>
               <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
           </div>
         </div>
 
@@ -1151,10 +1154,12 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <button class="btn btn-ghost btn-xs" id="btnAppSortReset" onclick="resetAppSort()" style="display:none">정렬 초기화</button>
                 </div>
               </div>
+              <div class="admin-table-wrap">
               <table class="data-table">
                 <thead id="appTableHead"><tr><th>캠페인</th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
                 <tbody id="appTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>
@@ -1197,6 +1202,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">결과물 목록</span><span id="delivTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
+            <div class="admin-table-wrap">
             <table class="data-table">
               <thead><tr>
                 <th style="width:90px">타입 <span class="sort-arrows" data-sort="kind" onclick="toggleDelivSort('kind')">▲▼</span></th>
@@ -1209,6 +1215,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
           </div>
         </div>
 
@@ -3625,28 +3632,16 @@ function highlightFilter(el) {
   el.classList.toggle('active', el.value !== 'all');
 }
 
-// 카드 헤더 + thead sticky 고정 (sticky header 높이 기준 동적 계산)
-function updateStickyPositions(paneId) {
+// 테이블 wrap 높이를 화면에 맞춰 설정 → wrap 안에서만 스크롤
+function updateTableScrollHeight(paneId) {
   setTimeout(() => {
     const pane = $(paneId);
     if (!pane) return;
-    const sh = pane.querySelector('.admin-sticky-header');
-    if (!sh) return;
-    const shH = sh.offsetHeight;
-    const ch = pane.querySelector('.admin-card-header');
-    if (ch) {
-      ch.style.position = 'sticky';
-      ch.style.top = shH + 'px';
-      ch.style.zIndex = '9';
-      ch.style.background = 'var(--surface)';
-      ch.style.borderBottom = '1px solid var(--surface-dim)';
-    }
-    const chH = ch ? ch.offsetHeight : 0;
-    pane.querySelectorAll('.data-table thead th').forEach(th => {
-      th.style.position = 'sticky';
-      th.style.top = (shH + chH) + 'px';
-      th.style.zIndex = '8';
-    });
+    const wrap = pane.querySelector('.admin-table-wrap');
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    wrap.style.maxHeight = (window.innerHeight - rect.top - 16) + 'px';
+    wrap.style.overflowY = 'auto';
   }, 0);
 }
 
@@ -3929,7 +3924,7 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
-  updateStickyPositions('adminPane-campaigns');
+  updateTableScrollHeight('adminPane-campaigns');
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
@@ -4982,7 +4977,7 @@ async function renderAppCampList() {
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
-  updateStickyPositions('adminPane-applications');
+  updateTableScrollHeight('adminPane-applications');
 }
 
 async function updateAppStatus(appId, status) {
@@ -6248,7 +6243,7 @@ async function renderDeliverablesList() {
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
     </tr>`;
   }).join('');
-  updateStickyPositions('adminPane-deliverables');
+  updateTableScrollHeight('adminPane-deliverables');
 }
 
 function statusLabelKo(status) {
