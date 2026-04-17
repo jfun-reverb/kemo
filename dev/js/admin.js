@@ -346,6 +346,13 @@ function resetMultiFilter(containerId, allLabel) {
   items.forEach(c => c.checked = false);
   if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
 }
+function updateFilterResetBtn(btnId, multiIds, searchId) {
+  const btn = $(btnId);
+  if (!btn) return;
+  const hasMulti = multiIds.some(id => getMultiFilterValues(id).length > 0);
+  const hasSearch = searchId && $(searchId)?.value?.trim();
+  btn.style.display = (hasMulti || hasSearch) ? '' : 'none';
+}
 function resetCampFilters() {
   resetMultiFilter('campTypeMulti', '전체 타입');
   resetMultiFilter('campStatusMulti', '전체 상태');
@@ -515,6 +522,8 @@ async function loadAdminCampaigns(useCache) {
   // 검색 필터
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
   if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal));
+
+  updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
   const allApps = await fetchApplications();
 
@@ -1608,6 +1617,8 @@ async function renderAppCampList() {
         || (a.user_email||'').toLowerCase().includes(searchVal);
     });
   }
+
+  updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appStatusMulti'], 'appSearch');
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
@@ -2870,6 +2881,7 @@ async function renderDeliverablesList() {
     const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
     return n.toLowerCase().includes(search);
   });
+  updateFilterResetBtn('btnDelivFilterReset', ['delivKindMulti','delivStatusMulti'], 'delivSearch');
   // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
   if (_delivSort.col) {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
