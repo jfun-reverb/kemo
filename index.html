@@ -6170,10 +6170,14 @@ document.addEventListener('DOMContentLoaded', async function() {
       if (!camp || !camp.id) return;
       allCampaigns = allCampaigns.filter(c => c.id !== '__preview__');
       allCampaigns.push(camp);
-      // #page-detail 강제 활성화 후 openCampaign 호출
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById('page-detail')?.classList.add('active');
-      if (typeof openCampaign === 'function') openCampaign('__preview__');
+      if (typeof openCampaign !== 'function') {
+        console.warn('[preview] openCampaign 미정의 — 스크립트 로드 대기');
+        return;
+      }
+      try { openCampaign('__preview__'); }
+      catch(e) { console.warn('[preview] openCampaign 실패:', e); }
     });
     // 부모에게 ready 통지
     try { parent.postMessage({type: 'reverb-preview-ready'}, location.origin); } catch(e) {}
