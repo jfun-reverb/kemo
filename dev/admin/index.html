@@ -166,7 +166,7 @@
         <div id="adminPane-campaigns" class="admin-pane">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
+              <div style="display:flex;align-items:center;gap:12px"><span style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</span><span id="adminCampStatusCounts" style="font-size:12px;color:var(--muted)"></span></div>
               <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
@@ -194,7 +194,6 @@
           <div class="admin-card">
             <div class="admin-card-header">
               <span class="admin-card-title">캠페인 목록</span>
-              <span id="adminCampStatusCounts" style="font-size:12px;color:var(--muted);margin-left:8px"></span>
               <div style="display:flex;align-items:center;gap:6px">
                 <button class="btn btn-ghost btn-xs" id="btnCampSortReset" onclick="resetCampSort()" style="display:none">정렬 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
@@ -696,7 +695,7 @@
         <div id="adminPane-applications" class="admin-pane">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
+              <div style="display:flex;align-items:center;gap:12px"><span style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</span><span id="appTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -727,7 +726,6 @@
                 <span class="admin-card-title">신청 목록</span>
                 <div style="display:flex;align-items:center;gap:6px">
                   <button class="btn btn-ghost btn-xs" id="btnAppSortReset" onclick="resetAppSort()" style="display:none">정렬 초기화</button>
-                  <span id="appTotalCount" style="font-size:12px;color:var(--muted)"></span>
                 </div>
               </div>
               <table class="data-table">
@@ -742,7 +740,7 @@
         <div id="adminPane-deliverables" class="admin-pane">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+              <div style="display:flex;align-items:center;gap:12px"><span style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</span><span id="delivTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -775,7 +773,6 @@
           <div class="admin-card">
             <div class="admin-card-header">
               <span class="admin-card-title">결과물 목록</span>
-              <span id="delivTotalCount" style="font-size:12px;color:var(--muted)"></span>
             </div>
             <table class="data-table">
               <thead><tr>
