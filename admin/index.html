@@ -1100,14 +1100,14 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
           </div>
           <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-            <select id="appTypeFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <select id="appTypeFilter" onchange="highlightFilter(this);renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
               <option value="all">전체 타입</option>
               <option value="monitor">리뷰어</option>
               <option value="gifting">기프팅</option>
               <option value="visit">방문형</option>
             </select>
-            <select id="appStatusFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+            <select id="appStatusFilter" onchange="highlightFilter(this);renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
               <option value="all" selected>전체 상태</option>
               <option value="pending">심사중</option>
               <option value="approved">승인</option>
@@ -1143,18 +1143,18 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
           <!-- 필터 + 검색 -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="delivKindFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+            <select id="delivKindFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
               <option value="all">전체 타입</option>
               <option value="receipt">영수증</option>
               <option value="post">게시물 URL</option>
             </select>
-            <select id="delivStatusFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
-              <option value="pending" selected>검수 대기</option>
+            <select id="delivStatusFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+              <option value="all" selected>전체 상태</option>
+              <option value="pending">검수 대기</option>
               <option value="approved">승인</option>
               <option value="rejected">반려</option>
-              <option value="all">전체 상태</option>
             </select>
-            <select id="delivCampFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);max-width:240px">
+            <select id="delivCampFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);max-width:240px">
               <option value="all">전체 캠페인</option>
             </select>
             <div style="position:relative;width:320px">
@@ -3546,6 +3546,11 @@ function updateCampSortResetBtn() {
   if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
 }
 
+// 필터 select: 전체(all)가 아닌 값 선택 시 배경 흰색으로 활성 표시
+function highlightFilter(el) {
+  el.style.background = el.value === 'all' ? '' : '#fff';
+}
+
 function toggleCampSort(key) {
   if (adminCampSortKey === key) {
     adminCampSortDir = adminCampSortDir === 'desc' ? 'asc' : 'desc';
@@ -3631,6 +3636,7 @@ function applyImageCropsToList(imgList, cropsMap) {
 }
 
 async function loadAdminCampaigns(useCache) {
+  updateCampTableHead();
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (!useCache) allCampaigns = camps.slice();
 
@@ -5952,9 +5958,9 @@ function toggleDelivSort(col) {
 }
 
 function resetDelivFiltersAndSort() {
-  const k = $('delivKindFilter'); if (k) k.value = 'all';
-  const s = $('delivStatusFilter'); if (s) s.value = 'pending';
-  const c = $('delivCampFilter'); if (c) c.value = 'all';
+  const k = $('delivKindFilter'); if (k) { k.value = 'all'; highlightFilter(k); }
+  const s = $('delivStatusFilter'); if (s) { s.value = 'all'; highlightFilter(s); }
+  const c = $('delivCampFilter'); if (c) { c.value = 'all'; highlightFilter(c); }
   const q = $('delivSearch'); if (q) q.value = '';
   _delivSort = {col: null, dir: null};
   renderDeliverablesList();
@@ -5992,7 +5998,7 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  const status = $('delivStatusFilter')?.value || 'pending';
+  const status = $('delivStatusFilter')?.value || 'all';
   const kind = $('delivKindFilter')?.value || 'all';
   const campId = $('delivCampFilter')?.value || 'all';
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();

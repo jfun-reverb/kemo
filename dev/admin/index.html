@@ -696,14 +696,14 @@
             <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
           </div>
           <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-            <select id="appTypeFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <select id="appTypeFilter" onchange="highlightFilter(this);renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
               <option value="all">전체 타입</option>
               <option value="monitor">리뷰어</option>
               <option value="gifting">기프팅</option>
               <option value="visit">방문형</option>
             </select>
-            <select id="appStatusFilter" onchange="renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+            <select id="appStatusFilter" onchange="highlightFilter(this);renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
               <option value="all" selected>전체 상태</option>
               <option value="pending">심사중</option>
               <option value="approved">승인</option>
@@ -739,18 +739,18 @@
           </div>
           <!-- 필터 + 검색 -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="delivKindFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+            <select id="delivKindFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
               <option value="all">전체 타입</option>
               <option value="receipt">영수증</option>
               <option value="post">게시물 URL</option>
             </select>
-            <select id="delivStatusFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
-              <option value="pending" selected>검수 대기</option>
+            <select id="delivStatusFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+              <option value="all" selected>전체 상태</option>
+              <option value="pending">검수 대기</option>
               <option value="approved">승인</option>
               <option value="rejected">반려</option>
-              <option value="all">전체 상태</option>
             </select>
-            <select id="delivCampFilter" onchange="renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);max-width:240px">
+            <select id="delivCampFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);max-width:240px">
               <option value="all">전체 캠페인</option>
             </select>
             <div style="position:relative;width:320px">
