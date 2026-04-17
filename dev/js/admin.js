@@ -1909,18 +1909,20 @@ async function renderLookupsTable() {
   if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
   if (_currentLookupKind === 'participation_set') { await renderPsetTable(); return; }
   const isChannel = _currentLookupKind === 'channel';
+  const showRt = isChannel || _currentLookupKind === 'reject_reason';
   // 헤더 렌더
   if (thead) {
     thead.innerHTML = `<tr>
       <th style="width:40px"></th>
       ${_lookupReorderMode ? '<th style="width:80px">순서</th>' : ''}
-      <th>한국어 명칭${isChannel?' / 모집 타입':''}</th>
+      <th>한국어 명칭</th>
       <th>일본어 명칭</th>
+      ${showRt ? '<th style="width:140px">모집 타입</th>' : ''}
       <th style="width:80px">상태</th>
       ${_lookupReorderMode ? '' : '<th style="width:160px"></th>'}
     </tr>`;
   }
-  const colspan = _lookupReorderMode ? 5 : 5;
+  const colspan = 5 + (showRt ? 1 : 0);
   tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try {
@@ -1942,15 +1944,16 @@ async function renderLookupsTable() {
       <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
       <span class="lookup-toggle-slider"></span>
     </label>`;
-    const showRt = isChannel || _currentLookupKind === 'reject_reason';
     const rts = r.recruit_types || [];
-    const rtBadges = showRt
-      ? (rts.length
-        ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${rts.map(t => {
-            const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
-            return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
-          }).join('')}</div>`
-        : `<div style="margin-top:4px"><span class="badge badge-gray" style="font-size:9px;padding:1px 6px">공통</span></div>`)
+    const rtCell = showRt
+      ? `<td><div style="display:flex;gap:3px;flex-wrap:wrap">${
+          rts.length
+            ? rts.map(t => {
+                const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+                return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+              }).join('')
+            : `<span class="badge badge-gray" style="font-size:9px;padding:1px 6px">공통</span>`
+        }</div></td>`
       : '';
     return `<tr>
       <td style="color:var(--muted);font-size:11px">${i+1}</td>
@@ -1958,8 +1961,9 @@ async function renderLookupsTable() {
         <button class="btn btn-ghost btn-xs" ${isFirst?'disabled':''} onclick="moveLookup('${r.id}','${upId}')" style="padding:2px 6px;font-size:13px">↑</button>
         <button class="btn btn-ghost btn-xs" ${isLast?'disabled':''} onclick="moveLookup('${r.id}','${downId}')" style="padding:2px 6px;font-size:13px">↓</button>
       </div></td>` : ''}
-      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong>${rtBadges}</td>
+      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong></td>
       <td style="color:var(--ink);font-size:13px">${esc(r.name_ja)}</td>
+      ${rtCell}
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${JSON.stringify(r)})'>편집</button>
