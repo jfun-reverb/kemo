@@ -25,9 +25,9 @@
 .mf-item:hover{background:var(--surface-dim)}
 .mf-item input[type="checkbox"]{margin:0;accent-color:var(--primary)}
 .mf-item.all-item{border-bottom:1px solid var(--surface-dim);font-weight:600}
-.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh;transition:grid-template-columns .25s ease}
+.admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:#1A0F18;padding:0 0 0;position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
+.admin-side{background:#1A0F18;padding:0;height:100%;overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
 .admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
 .admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
@@ -47,7 +47,7 @@
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
 .admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #1A0F18;border-radius:10px;box-sizing:content-box}
-.admin-main{background:var(--surface-container-low);overflow-y:auto}
+.admin-main{background:var(--surface-container-low);height:100%;overflow-y:auto}
 
 .admin-body{padding:24px}
 .admin-pane{display:none}.admin-pane.on{display:block}
@@ -91,10 +91,8 @@
 .product-form-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:24px}
 
 /* ── RESPONSIVE ── */
-#page-admin{overflow-x:auto;width:100%;background:var(--surface-container-low);min-height:100vh;position:fixed;inset:0;display:none;z-index:200;overflow-y:auto}
-#page-admin .admin-layout{min-width:900px}
-#page-admin .gnb{max-width:100%;width:100%}
-#page-admin .gnb-inner{max-width:100%;padding:0 24px}
+#page-admin{width:100%;height:100vh;background:var(--surface-container-low);position:fixed;inset:0;display:none;z-index:200;overflow:hidden}
+#page-admin .admin-layout{min-width:900px;height:100vh;overflow:hidden}
 
 @media(max-width:540px){
   .form-row{grid-template-columns:1fr}
