@@ -20,7 +20,13 @@ async function openCampaign(id) {
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
   // DB 트리거(048)가 최종 방어선, 여기서는 UX 보조.
-  const isFull = camp.recruit_type === 'monitor' && (camp.applied_count||0) >= camp.slots;
+  // applied_count는 수동 동기화 캐시 → 실시간 DB count로 판정 (pending+approved 기준, 트리거와 일치)
+  let actualApplied = camp.applied_count || 0;
+  if (camp.recruit_type === 'monitor' && db) {
+    const cnt = await countActiveApplications(id);
+    if (cnt > 0) actualApplied = cnt;
+  }
+  const isFull = camp.recruit_type === 'monitor' && actualApplied >= (camp.slots || 0);
   if (isFull && !alreadyApplied) {
     toast(t('apply.slotsFull'), 'error');
   }
@@ -312,13 +318,12 @@ async function submitApplication() {
     toast(t('apply.alreadyApplied'),'error'); closeModal('applyModal'); return;
   }
 
-  // 리뷰어(monitor) 캠페인은 모집인원 초과 시 응모 차단
-  // 주의: 클라이언트 캐시 기반 사전 차단(UX 보조). 근본 방어는 DB 레벨 트리거/체크가 필요.
+  // 리뷰어(monitor) 캠페인은 모집인원 초과 시 응모 차단 (UX 보조, DB 트리거 048이 최종)
   const camp0 = allCampaigns.find(c => c.id === currentCampaignId);
   if (camp0 && camp0.recruit_type === 'monitor') {
-    const applied = Number(camp0.applied_count || 0);
+    const realCount = await countActiveApplications(currentCampaignId);
     const slots = Number(camp0.slots || 0);
-    if (slots > 0 && applied >= slots) {
+    if (slots > 0 && realCount >= slots) {
       toast(t('apply.slotsFull'), 'error');
       closeModal('applyModal');
       return;
