@@ -332,17 +332,6 @@ textarea.form-input{resize:vertical;min-height:80px}
 .quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
 .quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
 .quill-host .ql-editor{min-height:120px}
-
-/* 미리보기 모드 (관리자 캠페인 폼 iframe 내부) */
-/* 모바일 고정 레이아웃(position:fixed + overflow:hidden)을 해제하고 iframe이 자연 흐름 스크롤하도록 전환 */
-html.preview-mode,body.preview-mode{height:auto!important;overflow:auto!important;position:static!important}
-body.preview-mode #appShell{position:static!important;top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;height:auto!important;min-height:100vh;max-width:none!important}
-body.preview-mode .page{display:none}
-body.preview-mode .page.active{display:block!important;height:auto!important;overflow:visible!important;flex:initial}
-body.preview-mode::before{content:"プレビュー";position:fixed;top:8px;left:50%;transform:translateX(-50%);background:var(--pink);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;z-index:99999;pointer-events:none;letter-spacing:.04em}
-body.preview-mode .apply-btn,body.preview-mode #applyBtn,body.preview-mode [onclick*="openApplyModal"]{opacity:.45;pointer-events:none;cursor:not-allowed!important}
-body.preview-mode #gnb,body.preview-mode #navToggle{pointer-events:none}
-body.preview-mode #gnbRight,body.preview-mode #floatingAuthCta{display:none!important}
 /* ══════════════════════════════════
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
 ══════════════════════════════════ */
@@ -5915,10 +5904,6 @@ function populateMyApplyChannelOptions() {
   } catch(e) {}
 })();
 
-// 관리자 캠페인 폼의 실시간 미리보기 모드
-// URL hash #preview-mode로 진입 → body.preview-mode 클래스 + postMessage 수신 대기
-window.__isPreviewMode = location.hash === '#preview-mode';
-
 let _detailFrom = null;
 
 function navigateBackFromDetail() {
@@ -6165,29 +6150,6 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
-  // 미리보기 모드: 관리자 캠페인 폼 iframe 안에서 동작 (same-origin)
-  // init() 호출을 스킵하여 db/currentUser를 미초기화 상태로 유지 → DB 부작용 자동 차단
-  if (window.__isPreviewMode) {
-    document.documentElement.classList.add('preview-mode');
-    document.body.classList.add('preview-mode');
-    allCampaigns = [];
-    // 부모 창이 iframe.contentWindow.__reverbPreviewApply(camp)를 직접 호출
-    window.__reverbPreviewApply = function(camp) {
-      if (!camp || !camp.id) return;
-      allCampaigns = allCampaigns.filter(c => c.id !== '__preview__');
-      allCampaigns.push(camp);
-      document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-      const pd = document.getElementById('page-detail');
-      if (pd) pd.classList.add('active');
-      if (typeof openCampaign !== 'function') { console.warn('[preview] openCampaign 미정의'); return; }
-      try { openCampaign('__preview__'); }
-      catch(e) { console.warn('[preview] openCampaign 실패:', e); }
-    };
-    window.__reverbPreviewReady = true;
-    console.log('[preview] iframe ready');
-    return;
-  }
-
   // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
   let inRecovery = false;
   try { inRecovery = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}

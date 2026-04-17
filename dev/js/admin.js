@@ -1068,43 +1068,71 @@ function buildPreviewCamp(mode) {
   };
 }
 
-// preview iframe — same-origin 직접 호출 방식 (postMessage 대체)
+// 캠페인 폼 미리보기 — 우측 패널에 간소화된 카드를 직접 렌더
 const _previewState = {new: null, edit: null};
+
+function renderCampPreview(mode) {
+  const el = document.getElementById(mode === 'edit' ? 'editCampPreviewContent' : 'newCampPreviewContent');
+  if (!el) return;
+  let camp;
+  try { camp = buildPreviewCamp(mode); }
+  catch(e) { console.warn('[preview] buildPreviewCamp 실패:', e); return; }
+
+  const hasAnyValue = camp.title || camp.brand || camp.product || camp.img1 || camp.product_price > 0 || camp.reward > 0 || camp.reward_note;
+  if (!hasAnyValue) { el.innerHTML = ''; return; }
+
+  const img = camp.img1 || camp.image_url || '';
+  const thumbs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8].filter(Boolean);
+  const rtLabel = camp.recruit_type === 'monitor' ? 'レビュアー' : camp.recruit_type === 'gifting' ? 'ギフティング' : camp.recruit_type === 'visit' ? '訪問型' : '';
+  const channelCodes = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const channelNames = channelCodes.map(c => (typeof getChannelLabel === 'function' ? getChannelLabel(c) : c));
+  const contentTypeCodes = (camp.content_types||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const contentTypeNames = contentTypeCodes.map(c => (typeof getLookupLabel === 'function' ? getLookupLabel('content_type', c) : c));
+  const richFn = (typeof richHtml === 'function') ? richHtml : (s => esc(s).replace(/\n/g,'<br>'));
+
+  el.innerHTML = `
+    <div class="cp-card">
+      <div class="cp-hero" style="${img?`background-image:url('${esc(img)}')`:''}">${!img?'画像なし':''}</div>
+      ${thumbs.length>1?`<div class="cp-thumbs">${thumbs.map(u=>`<img src="${esc(u)}" alt="">`).join('')}</div>`:''}
+      <div class="cp-body">
+        ${rtLabel?`<div class="cp-type-badge">${esc(rtLabel)}</div>`:''}
+        ${camp.brand?`<div class="cp-brand">${esc(camp.brand)}</div>`:''}
+        <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
+        ${camp.product_price>0?`<div class="cp-price">¥${camp.product_price.toLocaleString()}<span class="cp-price-label">商品提供</span></div>`:''}
+        ${camp.reward>0?`<div class="cp-reward">+ リワード ¥${camp.reward.toLocaleString()}</div>`:''}
+        ${camp.reward_note?`<div class="cp-note">${esc(camp.reward_note)}</div>`:''}
+        <div class="cp-table">
+          ${camp.product?`<div class="cp-row"><div class="cp-row-key">제품</div><div class="cp-row-val">${esc(camp.product)}</div></div>`:''}
+          ${channelNames.length?`<div class="cp-row"><div class="cp-row-key">채널</div><div class="cp-row-val"><div class="cp-chips">${channelNames.map(n=>`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          ${contentTypeNames.length?`<div class="cp-row"><div class="cp-row-key">콘텐츠</div><div class="cp-row-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          ${camp.slots?`<div class="cp-row"><div class="cp-row-key">모집</div><div class="cp-row-val">${camp.slots}명</div></div>`:''}
+          ${camp.min_followers?`<div class="cp-row"><div class="cp-row-key">최소 팔로워</div><div class="cp-row-val">${camp.min_followers.toLocaleString()}</div></div>`:''}
+          ${camp.deadline?`<div class="cp-row"><div class="cp-row-key">모집 마감</div><div class="cp-row-val">${esc(camp.deadline)}</div></div>`:''}
+          ${camp.post_deadline?`<div class="cp-row"><div class="cp-row-key">게시 마감</div><div class="cp-row-val">${esc(camp.post_deadline)}</div></div>`:''}
+        </div>
+        ${camp.description?`<div class="cp-section"><div class="cp-section-title">캠페인 설명</div><div class="cp-section-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${camp.appeal?`<div class="cp-section"><div class="cp-section-title">어필 포인트</div><div class="cp-section-body rich-content">${richFn(camp.appeal)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-section"><div class="cp-section-title">촬영 가이드</div><div class="cp-section-body rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.ng?`<div class="cp-section"><div class="cp-section-title">NG 사항</div><div class="cp-section-body rich-content">${richFn(camp.ng)}</div></div>`:''}
+      </div>
+    </div>`;
+}
+
 function setupCampPreview(mode) {
-  const frame = document.getElementById(mode === 'edit' ? 'editCampPreviewFrame' : 'newCampPreviewFrame');
   const pane = document.getElementById(mode === 'edit' ? 'adminPane-edit-campaign' : 'adminPane-add-campaign');
-  if (!frame || !pane) return;
+  if (!pane) return;
   const st = _previewState[mode];
-  if (st?.attached) { st.send(); return; }
-  const entry = {attached: true, ready: false, timer: null};
-  entry.send = function() {
-    const win = frame.contentWindow;
-    if (!win || !win.__reverbPreviewReady || typeof win.__reverbPreviewApply !== 'function') return;
-    let camp;
-    try { camp = buildPreviewCamp(mode); }
-    catch(e) { console.warn('[preview] buildPreviewCamp 실패:', e); return; }
-    try { win.__reverbPreviewApply(camp); }
-    catch(e) { console.warn('[preview] apply 실패:', e); }
-  };
+  if (st?.attached) { renderCampPreview(mode); return; }
+  const entry = {attached: true, timer: null};
+  entry.render = function() { renderCampPreview(mode); };
   entry.debounced = function() {
     clearTimeout(entry.timer);
-    entry.timer = setTimeout(entry.send, 300);
+    entry.timer = setTimeout(entry.render, 200);
   };
-  // iframe load 완료 대기 (인플루언서 스크립트 로드 후 __reverbPreviewReady 세팅됨)
-  function pollReady(n) {
-    const win = frame.contentWindow;
-    if (win && win.__reverbPreviewReady) { entry.ready = true; entry.send(); return; }
-    if (n > 0) setTimeout(function(){pollReady(n-1);}, 100);
-    else console.warn('[preview] iframe ready 대기 시간 초과');
-  }
-  frame.addEventListener('load', function() { pollReady(30); });
-  // 캐시버스터 + #preview-mode
-  frame.src = '/?preview=' + Date.now() + '#preview-mode';
   pane.addEventListener('input', entry.debounced);
   pane.addEventListener('change', entry.debounced);
-  // 이미지 변경 / 체크박스 재렌더 / 참여방법 변경 시 명시적 이벤트 (각 훅에서 발행)
   window.addEventListener('reverb:campFormChange', entry.debounced);
-  // Quill text-change 훅 — 에디터가 lazy init이라 즉시 존재 보장 안 됨. 최대 5회 retry
+  // Quill text-change 훅 (lazy init retry)
   (function tryHookQuill(retries) {
     const g = mode === 'edit' ? 'editCamp' : 'newCamp';
     let allHooked = true;
@@ -1119,6 +1147,7 @@ function setupCampPreview(mode) {
     if (!allHooked && retries > 0) setTimeout(function(){tryHookQuill(retries-1);}, 300);
   })(5);
   _previewState[mode] = entry;
+  renderCampPreview(mode);
 }
 
 // 미리보기 패널 접기/펼치기
