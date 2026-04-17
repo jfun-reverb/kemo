@@ -472,7 +472,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .camp-preview-content{flex:1;overflow-y:auto;padding:0;background:#E5E5E5;display:flex;justify-content:center;min-height:560px}
 .camp-preview-content:empty::before{content:"입력하면 미리보기가 표시됩니다";color:var(--muted);font-size:12px;align-self:center}
 /* 인플루언서 상세 페이지 레이아웃 복제 */
-.cp-frame{width:100%;max-width:380px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);align-self:flex-start;position:relative;display:flex;flex-direction:column;min-height:100%}
+.cp-frame{width:100%;max-width:400px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);align-self:flex-start;position:relative;display:flex;flex-direction:column;min-height:100%}
 .cp-gnb{background:#1b1b1f;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .cp-gnb-logo{font-family:'Sora',sans-serif;font-weight:800;font-size:14px}
 .cp-gnb-badge{background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
@@ -480,38 +480,44 @@ textarea.form-input{resize:vertical;min-height:80px}
 .cp-hero{aspect-ratio:1/1;width:100%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#F8BBD0 0%,#F48FB1 100%)}
 .cp-hero-ct{position:absolute;top:10px;left:10px;display:flex;gap:4px;flex-wrap:wrap}
 .cp-hero-ct-chip{background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;backdrop-filter:blur(4px)}
-.cp-head{background:#fff;border-bottom:1px solid var(--line);padding:14px 14px 10px}
-.cp-brand{font-size:10px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:3px}
-.cp-rt{font-size:9px;font-weight:700;color:var(--pink);margin-bottom:4px}
-.cp-title{font-size:15px;font-weight:800;line-height:1.3;color:var(--ink);margin-bottom:8px;word-break:break-word}
-.cp-price-box{display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:5px 10px;margin-bottom:3px}
-.cp-price-amount{font-size:15px;font-weight:900;color:var(--pink)}
-.cp-price-label{font-size:10px;color:var(--dark-pink);font-weight:600}
-.cp-reward-cash{font-size:11px;color:var(--green);font-weight:600;margin-top:3px}
-.cp-reward-note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:5px;white-space:pre-wrap}
+.cp-head{background:#fff;border-bottom:1px solid var(--line);padding:16px 16px 12px}
+.cp-brand{font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px}
+.cp-rt{font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px}
+.cp-title{font-size:18px;font-weight:800;line-height:1.3;color:var(--ink);margin-bottom:10px;word-break:break-word}
+.cp-price-box{display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px}
+.cp-price-amount{font-size:17px;font-weight:900;color:var(--pink)}
+.cp-price-label{font-size:12px;color:var(--dark-pink);font-weight:600}
+.cp-reward-cash{font-size:12px;color:var(--green);font-weight:600;margin-top:4px}
+.cp-reward-note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px;white-space:pre-wrap}
 /* 상세 테이블 — 핑크 라벨 + 값 */
-.cp-info{background:#fff;font-size:12px}
+.cp-info{background:#fff;font-size:13px}
 .cp-info-row{display:flex;border-top:1px solid #faf5f9}
-.cp-info-key{width:80px;padding:9px 12px;color:var(--dark-pink);font-weight:600;font-size:10px;background:#fdf5fb;flex-shrink:0}
-.cp-info-val{padding:9px 12px;flex:1;font-size:11px;word-break:break-word;color:var(--ink)}
-.cp-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
-.cp-chip{display:inline-block;font-size:10px;font-weight:600;background:var(--light-pink);color:var(--dark-pink);padding:1px 8px;border-radius:10px}
-.cp-chip-sep{color:var(--muted);font-size:10px;font-weight:600}
+.cp-info-key{width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0}
+.cp-info-val{padding:10px 13px;flex:1;font-size:12px;word-break:break-word;color:var(--ink)}
+.cp-info-val.cp-info-val-pink{color:var(--pink);font-weight:600}
+.cp-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cp-chip{display:inline-block;font-size:11px;font-weight:600;background:var(--light-pink);color:var(--dark-pink);padding:2px 10px;border-radius:20px}
+.cp-chip.cp-chip-sm{font-size:10px;padding:2px 8px}
+.cp-chip.cp-chip-mention{background:#f0f0ff;color:#4040cc}
+.cp-chip-sep{color:var(--muted);font-size:11px;font-weight:600}
+.cp-rt-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
 /* 참여방법 STEP */
-.cp-participation{background:#fff;padding:14px;border-bottom:8px solid #E5E5E5}
-.cp-section-heading{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px}
-.cp-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+.cp-participation{background:#fff;padding:16px;border-bottom:8px solid #E5E5E5}
+.cp-section-heading{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px}
+.cp-step{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
 .cp-step:last-child{margin-bottom:0}
-.cp-step-num{min-width:44px;height:18px;background:var(--light-pink);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--pink);flex-shrink:0}
-.cp-step-title{font-size:12px;font-weight:700;margin-bottom:2px;color:var(--ink)}
-.cp-step-desc{font-size:11px;color:var(--muted);line-height:1.55}
+.cp-step-num{min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0}
+.cp-step-title{font-size:13px;font-weight:700;margin-bottom:2px;color:var(--ink)}
+.cp-step-desc{font-size:12px;color:var(--muted);line-height:1.55}
 /* 본문 섹션 공통 */
-.cp-sec{background:#fff;padding:14px;border-bottom:8px solid #E5E5E5}
-.cp-sec-body{font-size:12px;color:var(--ink);line-height:1.65;word-break:break-word}
+.cp-sec{background:#fff;padding:16px;border-bottom:8px solid #E5E5E5}
+.cp-sec-desc-body{font-size:13px;color:var(--ink);line-height:1.7;word-break:break-word}
+.cp-sec-body{font-size:12px;color:var(--ink);line-height:1.7;word-break:break-word}
 .cp-sec-body .rich-content *{font-size:inherit!important}
-.cp-sec-bg-pink{background:var(--bg);padding:10px;border-radius:8px}
-.cp-sec-bg-ng{background:#fff8f8;padding:10px;border-radius:8px;border:1px solid #fdd}
-.cp-sec-subtitle{font-size:10px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.cp-sec-bg-pink{background:var(--bg);padding:10px 12px;border-radius:8px}
+.cp-sec-bg-guide{background:var(--bg);padding:12px;border-radius:8px}
+.cp-sec-bg-ng{background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd}
+.cp-sec-subtitle{font-size:11px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 /* 하단 고정 CTA 모방 */
 .cp-cta{position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,.04)}
 .cp-cta-name{flex:1;font-size:11px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4497,7 +4503,12 @@ function renderCampPreview(mode) {
 
   const img = camp.img1 || camp.image_url || '';
   const rtLabel = camp.recruit_type === 'monitor' ? 'レビュアー' : camp.recruit_type === 'gifting' ? 'ギフティング' : camp.recruit_type === 'visit' ? '訪問型' : '';
-  const rtLabelEn = camp.recruit_type === 'monitor' ? 'Reviewer' : camp.recruit_type === 'gifting' ? 'Gifting' : camp.recruit_type === 'visit' ? 'Visit' : '—';
+  const rtBadgeMap = {
+    monitor: {bg:'var(--blue-l)', color:'var(--blue)', label:'Reviewer'},
+    gifting: {bg:'var(--gold-l)', color:'var(--gold)', label:'Gifting'},
+    visit:   {bg:'#E8F7EF', color:'#0E7E4A', label:'Visit'}
+  };
+  const rtBadge = rtBadgeMap[camp.recruit_type];
   const channelCodes = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
   const channelNames = channelCodes.map(c => (typeof getChannelLabel === 'function' ? getChannelLabel(c) : c));
   const chSep = camp.channel_match === 'and' ? '&' : 'or';
@@ -4505,6 +4516,9 @@ function renderCampPreview(mode) {
   const contentTypeNames = contentTypeCodes.map(c => (typeof getLookupLabel === 'function' ? getLookupLabel('content_type', c) : c));
   const richFn = (typeof richHtml === 'function') ? richHtml : (s => esc(s).replace(/\n/g,'<br>'));
   const fmt = v => v ? (typeof formatDate === 'function' ? formatDate(v) : v) : '—';
+  const rewardText = (camp.product_price>0 || camp.reward>0)
+    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 商品提供`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} リワード`:''}`
+    : '';
 
   // 참여방법 (스냅샷 > legacy)
   const legacySteps = [
@@ -4535,15 +4549,18 @@ function renderCampPreview(mode) {
         </div>
         <div class="cp-info">
           <div class="cp-info-row"><div class="cp-info-key">製品名</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>
-          <div class="cp-info-row"><div class="cp-info-key">募集タイプ</div><div class="cp-info-val">${esc(rtLabelEn)}</div></div>
+          <div class="cp-info-row"><div class="cp-info-key">募集タイプ</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>
           ${channelNames.length?`<div class="cp-info-row"><div class="cp-info-key">チャンネル</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          ${contentTypeNames.length?`<div class="cp-info-row"><div class="cp-info-key">コンテンツ種類</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          <div class="cp-info-row"><div class="cp-info-key">募集期間</div><div class="cp-info-val">${fmt(new Date())} 〜 ${fmt(camp.deadline)}</div></div>
           ${camp.slots?`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`:''}
           ${camp.min_followers?`<div class="cp-info-row"><div class="cp-info-key">最小フォロワー</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`:''}
-          ${camp.deadline?`<div class="cp-info-row"><div class="cp-info-key">募集締切</div><div class="cp-info-val">${fmt(camp.deadline)}</div></div>`:''}
-          ${camp.post_deadline?`<div class="cp-info-row"><div class="cp-info-key">投稿締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.post_deadline)}</div></div>`:''}
+          <div class="cp-info-row"><div class="cp-info-key">当選発表</div><div class="cp-info-val">${esc(camp.winner_announce||'選考後、LINEにてご連絡')}</div></div>
+          <div class="cp-info-row"><div class="cp-info-key">投稿締切</div><div class="cp-info-val" style="font-weight:600">${camp.post_deadline?fmt(camp.post_deadline):'—'}</div></div>
           ${(camp.recruit_type==='monitor'&&(camp.purchase_start||camp.purchase_end))?`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`:''}
           ${(camp.recruit_type==='visit'&&(camp.visit_start||camp.visit_end))?`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`:''}
           ${camp.submission_end?`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`:''}
+          ${rewardText?`<div class="cp-info-row"><div class="cp-info-key">リワード</div><div class="cp-info-val cp-info-val-pink">${esc(rewardText)}</div></div>`:''}
         </div>
         <div class="cp-participation">
           <div class="cp-section-heading">参加方法</div>
@@ -4553,13 +4570,13 @@ function renderCampPreview(mode) {
             return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
           }).join('')}
         </div>
-        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
-          ${camp.appeal?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
-          ${camp.hashtags?`<div style="margin-bottom:8px"><div class="cp-sec-subtitle">必須ハッシュタグ</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
-          ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip" style="background:#f0f0ff;color:#4040cc">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
+          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">必須ハッシュタグ</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${camp.ng?`<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`:''}
       </div>
       <div class="cp-cta">

@@ -139,7 +139,7 @@
 .camp-preview-content{flex:1;overflow-y:auto;padding:0;background:#E5E5E5;display:flex;justify-content:center;min-height:560px}
 .camp-preview-content:empty::before{content:"입력하면 미리보기가 표시됩니다";color:var(--muted);font-size:12px;align-self:center}
 /* 인플루언서 상세 페이지 레이아웃 복제 */
-.cp-frame{width:100%;max-width:380px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);align-self:flex-start;position:relative;display:flex;flex-direction:column;min-height:100%}
+.cp-frame{width:100%;max-width:400px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.08);align-self:flex-start;position:relative;display:flex;flex-direction:column;min-height:100%}
 .cp-gnb{background:#1b1b1f;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .cp-gnb-logo{font-family:'Sora',sans-serif;font-weight:800;font-size:14px}
 .cp-gnb-badge{background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
@@ -147,38 +147,44 @@
 .cp-hero{aspect-ratio:1/1;width:100%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;position:relative;background:linear-gradient(135deg,#F8BBD0 0%,#F48FB1 100%)}
 .cp-hero-ct{position:absolute;top:10px;left:10px;display:flex;gap:4px;flex-wrap:wrap}
 .cp-hero-ct-chip{background:rgba(0,0,0,.55);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;backdrop-filter:blur(4px)}
-.cp-head{background:#fff;border-bottom:1px solid var(--line);padding:14px 14px 10px}
-.cp-brand{font-size:10px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:3px}
-.cp-rt{font-size:9px;font-weight:700;color:var(--pink);margin-bottom:4px}
-.cp-title{font-size:15px;font-weight:800;line-height:1.3;color:var(--ink);margin-bottom:8px;word-break:break-word}
-.cp-price-box{display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:5px 10px;margin-bottom:3px}
-.cp-price-amount{font-size:15px;font-weight:900;color:var(--pink)}
-.cp-price-label{font-size:10px;color:var(--dark-pink);font-weight:600}
-.cp-reward-cash{font-size:11px;color:var(--green);font-weight:600;margin-top:3px}
-.cp-reward-note{font-size:11px;color:var(--muted);line-height:1.6;margin-top:5px;white-space:pre-wrap}
+.cp-head{background:#fff;border-bottom:1px solid var(--line);padding:16px 16px 12px}
+.cp-brand{font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px}
+.cp-rt{font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px}
+.cp-title{font-size:18px;font-weight:800;line-height:1.3;color:var(--ink);margin-bottom:10px;word-break:break-word}
+.cp-price-box{display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px}
+.cp-price-amount{font-size:17px;font-weight:900;color:var(--pink)}
+.cp-price-label{font-size:12px;color:var(--dark-pink);font-weight:600}
+.cp-reward-cash{font-size:12px;color:var(--green);font-weight:600;margin-top:4px}
+.cp-reward-note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px;white-space:pre-wrap}
 /* 상세 테이블 — 핑크 라벨 + 값 */
-.cp-info{background:#fff;font-size:12px}
+.cp-info{background:#fff;font-size:13px}
 .cp-info-row{display:flex;border-top:1px solid #faf5f9}
-.cp-info-key{width:80px;padding:9px 12px;color:var(--dark-pink);font-weight:600;font-size:10px;background:#fdf5fb;flex-shrink:0}
-.cp-info-val{padding:9px 12px;flex:1;font-size:11px;word-break:break-word;color:var(--ink)}
-.cp-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
-.cp-chip{display:inline-block;font-size:10px;font-weight:600;background:var(--light-pink);color:var(--dark-pink);padding:1px 8px;border-radius:10px}
-.cp-chip-sep{color:var(--muted);font-size:10px;font-weight:600}
+.cp-info-key{width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0}
+.cp-info-val{padding:10px 13px;flex:1;font-size:12px;word-break:break-word;color:var(--ink)}
+.cp-info-val.cp-info-val-pink{color:var(--pink);font-weight:600}
+.cp-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cp-chip{display:inline-block;font-size:11px;font-weight:600;background:var(--light-pink);color:var(--dark-pink);padding:2px 10px;border-radius:20px}
+.cp-chip.cp-chip-sm{font-size:10px;padding:2px 8px}
+.cp-chip.cp-chip-mention{background:#f0f0ff;color:#4040cc}
+.cp-chip-sep{color:var(--muted);font-size:11px;font-weight:600}
+.cp-rt-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
 /* 참여방법 STEP */
-.cp-participation{background:#fff;padding:14px;border-bottom:8px solid #E5E5E5}
-.cp-section-heading{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px}
-.cp-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px}
+.cp-participation{background:#fff;padding:16px;border-bottom:8px solid #E5E5E5}
+.cp-section-heading{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px}
+.cp-step{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
 .cp-step:last-child{margin-bottom:0}
-.cp-step-num{min-width:44px;height:18px;background:var(--light-pink);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--pink);flex-shrink:0}
-.cp-step-title{font-size:12px;font-weight:700;margin-bottom:2px;color:var(--ink)}
-.cp-step-desc{font-size:11px;color:var(--muted);line-height:1.55}
+.cp-step-num{min-width:50px;height:20px;background:var(--light-pink);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--pink);flex-shrink:0}
+.cp-step-title{font-size:13px;font-weight:700;margin-bottom:2px;color:var(--ink)}
+.cp-step-desc{font-size:12px;color:var(--muted);line-height:1.55}
 /* 본문 섹션 공통 */
-.cp-sec{background:#fff;padding:14px;border-bottom:8px solid #E5E5E5}
-.cp-sec-body{font-size:12px;color:var(--ink);line-height:1.65;word-break:break-word}
+.cp-sec{background:#fff;padding:16px;border-bottom:8px solid #E5E5E5}
+.cp-sec-desc-body{font-size:13px;color:var(--ink);line-height:1.7;word-break:break-word}
+.cp-sec-body{font-size:12px;color:var(--ink);line-height:1.7;word-break:break-word}
 .cp-sec-body .rich-content *{font-size:inherit!important}
-.cp-sec-bg-pink{background:var(--bg);padding:10px;border-radius:8px}
-.cp-sec-bg-ng{background:#fff8f8;padding:10px;border-radius:8px;border:1px solid #fdd}
-.cp-sec-subtitle{font-size:10px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.cp-sec-bg-pink{background:var(--bg);padding:10px 12px;border-radius:8px}
+.cp-sec-bg-guide{background:var(--bg);padding:12px;border-radius:8px}
+.cp-sec-bg-ng{background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd}
+.cp-sec-subtitle{font-size:11px;font-weight:700;color:var(--pink);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
 /* 하단 고정 CTA 모방 */
 .cp-cta{position:absolute;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,.04)}
 .cp-cta-name{flex:1;font-size:11px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -1083,7 +1083,12 @@ function renderCampPreview(mode) {
 
   const img = camp.img1 || camp.image_url || '';
   const rtLabel = camp.recruit_type === 'monitor' ? 'レビュアー' : camp.recruit_type === 'gifting' ? 'ギフティング' : camp.recruit_type === 'visit' ? '訪問型' : '';
-  const rtLabelEn = camp.recruit_type === 'monitor' ? 'Reviewer' : camp.recruit_type === 'gifting' ? 'Gifting' : camp.recruit_type === 'visit' ? 'Visit' : '—';
+  const rtBadgeMap = {
+    monitor: {bg:'var(--blue-l)', color:'var(--blue)', label:'Reviewer'},
+    gifting: {bg:'var(--gold-l)', color:'var(--gold)', label:'Gifting'},
+    visit:   {bg:'#E8F7EF', color:'#0E7E4A', label:'Visit'}
+  };
+  const rtBadge = rtBadgeMap[camp.recruit_type];
   const channelCodes = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
   const channelNames = channelCodes.map(c => (typeof getChannelLabel === 'function' ? getChannelLabel(c) : c));
   const chSep = camp.channel_match === 'and' ? '&' : 'or';
@@ -1091,6 +1096,9 @@ function renderCampPreview(mode) {
   const contentTypeNames = contentTypeCodes.map(c => (typeof getLookupLabel === 'function' ? getLookupLabel('content_type', c) : c));
   const richFn = (typeof richHtml === 'function') ? richHtml : (s => esc(s).replace(/\n/g,'<br>'));
   const fmt = v => v ? (typeof formatDate === 'function' ? formatDate(v) : v) : '—';
+  const rewardText = (camp.product_price>0 || camp.reward>0)
+    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 商品提供`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} リワード`:''}`
+    : '';
 
   // 참여방법 (스냅샷 > legacy)
   const legacySteps = [
@@ -1121,15 +1129,18 @@ function renderCampPreview(mode) {
         </div>
         <div class="cp-info">
           <div class="cp-info-row"><div class="cp-info-key">製品名</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>
-          <div class="cp-info-row"><div class="cp-info-key">募集タイプ</div><div class="cp-info-val">${esc(rtLabelEn)}</div></div>
+          <div class="cp-info-row"><div class="cp-info-key">募集タイプ</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>
           ${channelNames.length?`<div class="cp-info-row"><div class="cp-info-key">チャンネル</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          ${contentTypeNames.length?`<div class="cp-info-row"><div class="cp-info-key">コンテンツ種類</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          <div class="cp-info-row"><div class="cp-info-key">募集期間</div><div class="cp-info-val">${fmt(new Date())} 〜 ${fmt(camp.deadline)}</div></div>
           ${camp.slots?`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`:''}
           ${camp.min_followers?`<div class="cp-info-row"><div class="cp-info-key">最小フォロワー</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`:''}
-          ${camp.deadline?`<div class="cp-info-row"><div class="cp-info-key">募集締切</div><div class="cp-info-val">${fmt(camp.deadline)}</div></div>`:''}
-          ${camp.post_deadline?`<div class="cp-info-row"><div class="cp-info-key">投稿締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.post_deadline)}</div></div>`:''}
+          <div class="cp-info-row"><div class="cp-info-key">当選発表</div><div class="cp-info-val">${esc(camp.winner_announce||'選考後、LINEにてご連絡')}</div></div>
+          <div class="cp-info-row"><div class="cp-info-key">投稿締切</div><div class="cp-info-val" style="font-weight:600">${camp.post_deadline?fmt(camp.post_deadline):'—'}</div></div>
           ${(camp.recruit_type==='monitor'&&(camp.purchase_start||camp.purchase_end))?`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`:''}
           ${(camp.recruit_type==='visit'&&(camp.visit_start||camp.visit_end))?`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`:''}
           ${camp.submission_end?`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`:''}
+          ${rewardText?`<div class="cp-info-row"><div class="cp-info-key">リワード</div><div class="cp-info-val cp-info-val-pink">${esc(rewardText)}</div></div>`:''}
         </div>
         <div class="cp-participation">
           <div class="cp-section-heading">参加方法</div>
@@ -1139,13 +1150,13 @@ function renderCampPreview(mode) {
             return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
           }).join('')}
         </div>
-        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
-          ${camp.appeal?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
-          ${camp.hashtags?`<div style="margin-bottom:8px"><div class="cp-sec-subtitle">必須ハッシュタグ</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
-          ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip" style="background:#f0f0ff;color:#4040cc">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
+          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">必須ハッシュタグ</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
-        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${camp.ng?`<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`:''}
       </div>
       <div class="cp-cta">
