@@ -169,14 +169,14 @@
             <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
           </div>
           <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-            <select id="adminCampTypeFilter" onchange="filterAdminCampaigns()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <select id="adminCampTypeFilter" class="admin-filter" onchange="highlightFilter(this);filterAdminCampaigns()">
               <option value="all">전체 타입</option>
               <option value="monitor">리뷰어</option>
               <option value="gifting">기프팅</option>
               <option value="visit">방문형</option>
             </select>
-            <select id="adminCampStatusFilter" onchange="filterAdminCampaigns()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);appearance:none;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%226%22><path d=%22M0 0l5 6 5-6z%22 fill=%22%23999%22/></svg>') no-repeat right 10px center;background-size:8px">
+            <select id="adminCampStatusFilter" class="admin-filter" onchange="highlightFilter(this);filterAdminCampaigns()">
               <option value="all">전체 상태</option>
               <option value="draft">준비</option>
               <option value="scheduled">모집예정</option>
@@ -186,7 +186,7 @@
             </select>
             <div style="position:relative;width:360px">
               <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="adminCampSearch" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
+              <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()">
             </div>
           </div>
           <div class="admin-card">
@@ -711,7 +711,7 @@
             </select>
             <div style="position:relative;width:360px">
               <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="appSearch" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
+              <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()">
             </div>
           </div>
           <!-- 테이블 리스트 -->
@@ -755,7 +755,7 @@
             </select>
             <div style="position:relative;width:320px">
               <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="delivSearch" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()" style="padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none">
+              <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()">
             </div>
             <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()" style="margin-left:auto">초기화</button>
           </div>
