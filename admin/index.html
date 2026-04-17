@@ -701,16 +701,19 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <label class="form-label">상품 페이지 URL</label>
                   <input type="url" id="editCampProductUrl" class="form-input">
                 </div>
-                <div class="form-row" style="grid-template-columns:1fr 1fr">
-                  <div class="form-group">
-                    <label class="form-label">제품 금액 (¥)</label>
-                    <input type="number" id="editCampProductPrice" class="form-input" min="0">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">리워드 금액 (¥)</label>
-                    <input type="number" id="editCampReward" class="form-input" min="0">
-                    <div class="form-hint">0엔 = 제품 제공만</div>
-                  </div>
+                <div class="form-group">
+                  <label class="form-label">제품 금액 (¥)</label>
+                  <input type="number" id="editCampProductPrice" class="form-input" min="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 금액 (¥)</label>
+                  <input type="number" id="editCampReward" class="form-input" min="0">
+                  <div class="form-hint">0엔 = 제품 제공만</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 추가 정보</label>
+                  <textarea id="editCampRewardNote" class="form-input" rows="3" maxlength="500" placeholder="지급 조건·정산 시점·수수료 등 안내 (선택, 최대 500자)"></textarea>
+                  <div class="form-hint">줄바꿈 가능. 인플루언서 상세 리워드 영역에 노출됩니다.</div>
                 </div>
               </div>
             </div>
@@ -861,16 +864,19 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                   <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
                 </div>
-                <div class="form-row" style="grid-template-columns:1fr 1fr">
-                  <div class="form-group">
-                    <label class="form-label">제품 금액 (¥)</label>
-                    <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">리워드 금액 (¥)</label>
-                    <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
-                    <div class="form-hint">0엔 = 제품 제공만</div>
-                  </div>
+                <div class="form-group">
+                  <label class="form-label">제품 금액 (¥)</label>
+                  <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 금액 (¥)</label>
+                  <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
+                  <div class="form-hint">0엔 = 제품 제공만</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 추가 정보</label>
+                  <textarea id="newCampRewardNote" class="form-input" rows="3" maxlength="500" placeholder="지급 조건·정산 시점·수수료 등 안내 (선택, 최대 500자)"></textarea>
+                  <div class="form-hint">줄바꿈 가능. 인플루언서 상세 리워드 영역에 노출됩니다.</div>
                 </div>
               </div>
             </div>
@@ -4013,6 +4019,7 @@ async function openEditCampaign(campId) {
   sv('editCampSlots', camp.slots);
   sv('editCampProductPrice', camp.product_price||0);
   sv('editCampReward', camp.reward||0);
+  sv('editCampRewardNote', camp.reward_note||'');
   sv('editCampDeadline', camp.deadline||'');
   sv('editCampPostDeadline', camp.post_deadline||'');
   sv('editCampPurchaseStart', camp.purchase_start||'');
@@ -4186,6 +4193,7 @@ async function saveCampaignEdit() {
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
+      reward_note: gv('editCampRewardNote') || null,
       deadline: gv('editCampDeadline')||null,
       post_deadline: gv('editCampPostDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -4239,7 +4247,7 @@ async function duplicateCampaign(campId) {
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
       appeal: src.appeal, guide: src.guide, ng: src.ng,
-      product_price: src.product_price, reward: src.reward,
+      product_price: src.product_price, reward: src.reward, reward_note: src.reward_note,
       slots: src.slots, applied_count: 0,
       deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
@@ -5083,6 +5091,7 @@ async function addCampaign() {
     product_url: productUrl,
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
+    reward_note: ($('newCampRewardNote')?.value || '').trim() || null,
     slots, applied_count:0,
     deadline: deadline||null,
     post_deadline: $('newCampPostDeadline')?.value||null,
@@ -5110,7 +5119,7 @@ async function addCampaign() {
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
    'newCampSlots','newCampDeadline','newCampPostDeadline',
    'newCampHashtags','newCampMentions',
-   'newCampProductPrice','newCampReward'].forEach(id => { const el=$(id); if(el) el.value=''; });
+   'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
   // 리치 에디터 초기화
   ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);

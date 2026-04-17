@@ -691,6 +691,7 @@ async function openEditCampaign(campId) {
   sv('editCampSlots', camp.slots);
   sv('editCampProductPrice', camp.product_price||0);
   sv('editCampReward', camp.reward||0);
+  sv('editCampRewardNote', camp.reward_note||'');
   sv('editCampDeadline', camp.deadline||'');
   sv('editCampPostDeadline', camp.post_deadline||'');
   sv('editCampPurchaseStart', camp.purchase_start||'');
@@ -864,6 +865,7 @@ async function saveCampaignEdit() {
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
+      reward_note: gv('editCampRewardNote') || null,
       deadline: gv('editCampDeadline')||null,
       post_deadline: gv('editCampPostDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -917,7 +919,7 @@ async function duplicateCampaign(campId) {
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
       appeal: src.appeal, guide: src.guide, ng: src.ng,
-      product_price: src.product_price, reward: src.reward,
+      product_price: src.product_price, reward: src.reward, reward_note: src.reward_note,
       slots: src.slots, applied_count: 0,
       deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
@@ -1761,6 +1763,7 @@ async function addCampaign() {
     product_url: productUrl,
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
+    reward_note: ($('newCampRewardNote')?.value || '').trim() || null,
     slots, applied_count:0,
     deadline: deadline||null,
     post_deadline: $('newCampPostDeadline')?.value||null,
@@ -1788,7 +1791,7 @@ async function addCampaign() {
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
    'newCampSlots','newCampDeadline','newCampPostDeadline',
    'newCampHashtags','newCampMentions',
-   'newCampProductPrice','newCampReward'].forEach(id => { const el=$(id); if(el) el.value=''; });
+   'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
   // 리치 에디터 초기화
   ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);

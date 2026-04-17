@@ -271,16 +271,19 @@
                   <label class="form-label">상품 페이지 URL</label>
                   <input type="url" id="editCampProductUrl" class="form-input">
                 </div>
-                <div class="form-row" style="grid-template-columns:1fr 1fr">
-                  <div class="form-group">
-                    <label class="form-label">제품 금액 (¥)</label>
-                    <input type="number" id="editCampProductPrice" class="form-input" min="0">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">리워드 금액 (¥)</label>
-                    <input type="number" id="editCampReward" class="form-input" min="0">
-                    <div class="form-hint">0엔 = 제품 제공만</div>
-                  </div>
+                <div class="form-group">
+                  <label class="form-label">제품 금액 (¥)</label>
+                  <input type="number" id="editCampProductPrice" class="form-input" min="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 금액 (¥)</label>
+                  <input type="number" id="editCampReward" class="form-input" min="0">
+                  <div class="form-hint">0엔 = 제품 제공만</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 추가 정보</label>
+                  <textarea id="editCampRewardNote" class="form-input" rows="3" maxlength="500" placeholder="지급 조건·정산 시점·수수료 등 안내 (선택, 최대 500자)"></textarea>
+                  <div class="form-hint">줄바꿈 가능. 인플루언서 상세 리워드 영역에 노출됩니다.</div>
                 </div>
               </div>
             </div>
@@ -431,16 +434,19 @@
                   <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                   <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
                 </div>
-                <div class="form-row" style="grid-template-columns:1fr 1fr">
-                  <div class="form-group">
-                    <label class="form-label">제품 금액 (¥)</label>
-                    <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">리워드 금액 (¥)</label>
-                    <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
-                    <div class="form-hint">0엔 = 제품 제공만</div>
-                  </div>
+                <div class="form-group">
+                  <label class="form-label">제품 금액 (¥)</label>
+                  <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 금액 (¥)</label>
+                  <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
+                  <div class="form-hint">0엔 = 제품 제공만</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 추가 정보</label>
+                  <textarea id="newCampRewardNote" class="form-input" rows="3" maxlength="500" placeholder="지급 조건·정산 시점·수수료 등 안내 (선택, 최대 500자)"></textarea>
+                  <div class="form-hint">줄바꿈 가능. 인플루언서 상세 리워드 영역에 노출됩니다.</div>
                 </div>
               </div>
             </div>
