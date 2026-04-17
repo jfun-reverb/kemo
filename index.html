@@ -3444,7 +3444,8 @@ const _ERR_DICT = {
     timeout: 'タイムアウトしました。再度お試しください',
     auth: 'セッションの有効期限が切れました。再ログインしてください',
     emailUnverified: 'メールアドレスの認証が完了していません',
-    credentials: 'メールアドレスまたはパスワードが正しくありません'
+    credentials: 'メールアドレスまたはパスワードが正しくありません',
+    slotsFull: '募集定員に達したため、応募を受け付けておりません'
   },
   ko: {
     unknown: '오류가 발생했습니다',
@@ -3458,7 +3459,8 @@ const _ERR_DICT = {
     timeout: '요청 시간이 초과되었습니다',
     auth: '인증이 만료되었습니다. 다시 로그인해주세요',
     emailUnverified: '이메일 인증이 완료되지 않았습니다',
-    credentials: '이메일 또는 비밀번호가 올바르지 않습니다'
+    credentials: '이메일 또는 비밀번호가 올바르지 않습니다',
+    slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다'
   }
 };
 
@@ -3478,6 +3480,7 @@ function friendlyErrorJa(e) {
   if (/unauthorized|JWT/.test(s)) return t.auth;
   if (/email_not_confirmed/.test(s)) return t.emailUnverified;
   if (/Invalid login credentials/.test(s)) return t.credentials;
+  if (/모집 정원|slots/.test(s)) return t.slotsFull;
   return t.unknown;
 }
 
@@ -4542,7 +4545,11 @@ async function openCampaign(id) {
   }
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
+  // DB 트리거(048)가 최종 방어선, 여기서는 UX 보조.
   const isFull = camp.recruit_type === 'monitor' && (camp.applied_count||0) >= camp.slots;
+  if (isFull && !alreadyApplied) {
+    toast(t('apply.slotsFull'), 'error');
+  }
   _slideIdx = 0;
 
   // 슬라이드 이미지 + 크롭 정보 매핑
