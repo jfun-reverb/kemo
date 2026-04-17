@@ -624,7 +624,6 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
-  updateTableScrollHeight('adminPane-campaigns');
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
@@ -1677,7 +1676,6 @@ async function renderAppCampList() {
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
-  updateTableScrollHeight('adminPane-applications');
 }
 
 async function updateAppStatus(appId, status) {
@@ -2956,7 +2954,6 @@ async function renderDeliverablesList() {
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
     </tr>`;
   }).join('');
-  updateTableScrollHeight('adminPane-deliverables');
 }
 
 function statusLabelKo(status) {

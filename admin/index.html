@@ -380,7 +380,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
 .admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #1A0F18;border-radius:10px;box-sizing:content-box}
-.admin-main{background:var(--surface-container-low);height:100%;overflow-y:auto}
+.admin-main{background:var(--surface-container-low);height:100%;overflow-y:auto;overflow-x:hidden}
 
 .admin-body{padding:24px}
 .admin-pane{display:none}.admin-pane.on{display:block}
@@ -412,7 +412,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .status-dropdown-item:hover{background:var(--surface-dim)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
 .data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:5}
-.admin-table-wrap{overflow-y:auto}
+.admin-table-wrap{overflow-y:auto;max-height:calc(100vh - 260px)}
 .data-table td{padding:10px 10px;border-bottom:1px solid var(--surface-dim);color:var(--on-surface);vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:var(--surface-dim)}
@@ -3922,7 +3922,6 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
-  updateTableScrollHeight('adminPane-campaigns');
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
@@ -4975,7 +4974,6 @@ async function renderAppCampList() {
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
-  updateTableScrollHeight('adminPane-applications');
 }
 
 async function updateAppStatus(appId, status) {
@@ -6254,7 +6252,6 @@ async function renderDeliverablesList() {
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
     </tr>`;
   }).join('');
-  updateTableScrollHeight('adminPane-deliverables');
 }
 
 function statusLabelKo(status) {
