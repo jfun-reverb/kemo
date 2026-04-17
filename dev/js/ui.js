@@ -442,6 +442,8 @@ function renderImgPreview(imgList, wrapId, counterId, listName) {
   var counter = $(counterId);
   if (!wrap) return;
   if (counter) counter.textContent = imgList.length + '/8';
+  // 미리보기 패널 업데이트 트리거 (이미지 추가/삭제/크롭 반영)
+  try { window.dispatchEvent(new CustomEvent('reverb:campFormChange')); } catch(e) {}
   var removeFn = listName === 'campImgData' ? 'removeCampImg' : 'removeEditCampImg';
 
   wrap.innerHTML = imgList.map(function(img,i) {

@@ -1068,38 +1068,42 @@ function buildPreviewCamp(mode) {
   };
 }
 
-// preview iframe 통신 설정 (pane 진입 시 1회만)
+// preview iframe — same-origin 직접 호출 방식 (postMessage 대체)
 const _previewState = {new: null, edit: null};
 function setupCampPreview(mode) {
-  const st = _previewState[mode];
-  if (st?.attached) { st.send(); return; }
   const frame = document.getElementById(mode === 'edit' ? 'editCampPreviewFrame' : 'newCampPreviewFrame');
   const pane = document.getElementById(mode === 'edit' ? 'adminPane-edit-campaign' : 'adminPane-add-campaign');
   if (!frame || !pane) return;
+  const st = _previewState[mode];
+  if (st?.attached) { st.send(); return; }
   const entry = {attached: true, ready: false, timer: null};
   entry.send = function() {
-    if (!entry.ready || !frame.contentWindow) return;
+    const win = frame.contentWindow;
+    if (!win || !win.__reverbPreviewReady || typeof win.__reverbPreviewApply !== 'function') return;
     let camp;
     try { camp = buildPreviewCamp(mode); }
     catch(e) { console.warn('[preview] buildPreviewCamp 실패:', e); return; }
-    try { frame.contentWindow.postMessage({type:'reverb-preview', camp}, location.origin); }
-    catch(e) { console.warn('[preview] postMessage 실패:', e); }
+    try { win.__reverbPreviewApply(camp); }
+    catch(e) { console.warn('[preview] apply 실패:', e); }
   };
   entry.debounced = function() {
     clearTimeout(entry.timer);
     entry.timer = setTimeout(entry.send, 300);
   };
-  frame.addEventListener('load', function() {
-    entry.ready = true;
-    entry.send();
-  });
-  frame.src = '/#preview-mode';
+  // iframe load 완료 대기 (인플루언서 스크립트 로드 후 __reverbPreviewReady 세팅됨)
+  function pollReady(n) {
+    const win = frame.contentWindow;
+    if (win && win.__reverbPreviewReady) { entry.ready = true; entry.send(); return; }
+    if (n > 0) setTimeout(function(){pollReady(n-1);}, 100);
+    else console.warn('[preview] iframe ready 대기 시간 초과');
+  }
+  frame.addEventListener('load', function() { pollReady(30); });
+  // 캐시버스터 + #preview-mode
+  frame.src = '/?preview=' + Date.now() + '#preview-mode';
   pane.addEventListener('input', entry.debounced);
   pane.addEventListener('change', entry.debounced);
-  // 이미지 업로드·드래그앤드롭·체크박스 재렌더 등 input/change를 거치지 않는 변경 감지
-  const mo = new MutationObserver(entry.debounced);
-  mo.observe(pane, {childList: true, subtree: true});
-  entry.observer = mo;
+  // 이미지 변경 / 체크박스 재렌더 / 참여방법 변경 시 명시적 이벤트 (각 훅에서 발행)
+  window.addEventListener('reverb:campFormChange', entry.debounced);
   // Quill text-change 훅 — 에디터가 lazy init이라 즉시 존재 보장 안 됨. 최대 5회 retry
   (function tryHookQuill(retries) {
     const g = mode === 'edit' ? 'editCamp' : 'newCamp';

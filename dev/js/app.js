@@ -263,29 +263,25 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
-  // 미리보기 모드: 관리자 캠페인 폼 iframe 안에서 postMessage로 임시 캠페인 수신
-  // init() 호출을 스킵하여 db/currentUser를 미초기화 상태로 유지 → incrementViewCount 등 DB 부작용 자동 차단
+  // 미리보기 모드: 관리자 캠페인 폼 iframe 안에서 동작 (same-origin)
+  // init() 호출을 스킵하여 db/currentUser를 미초기화 상태로 유지 → DB 부작용 자동 차단
   if (window.__isPreviewMode) {
     document.body.classList.add('preview-mode');
     allCampaigns = [];
-    window.addEventListener('message', function(ev) {
-      if (ev.origin !== location.origin) return;
-      if (!ev.data || ev.data.type !== 'reverb-preview') return;
-      const camp = ev.data.camp;
+    // 부모 창이 iframe.contentWindow.__reverbPreviewApply(camp)를 직접 호출
+    window.__reverbPreviewApply = function(camp) {
       if (!camp || !camp.id) return;
       allCampaigns = allCampaigns.filter(c => c.id !== '__preview__');
       allCampaigns.push(camp);
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.getElementById('page-detail')?.classList.add('active');
-      if (typeof openCampaign !== 'function') {
-        console.warn('[preview] openCampaign 미정의 — 스크립트 로드 대기');
-        return;
-      }
+      document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+      const pd = document.getElementById('page-detail');
+      if (pd) pd.classList.add('active');
+      if (typeof openCampaign !== 'function') { console.warn('[preview] openCampaign 미정의'); return; }
       try { openCampaign('__preview__'); }
       catch(e) { console.warn('[preview] openCampaign 실패:', e); }
-    });
-    // 부모에게 ready 통지
-    try { parent.postMessage({type: 'reverb-preview-ready'}, location.origin); } catch(e) {}
+    };
+    window.__reverbPreviewReady = true;
+    console.log('[preview] iframe ready');
     return;
   }
 
