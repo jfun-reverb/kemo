@@ -1472,7 +1472,7 @@ async function renderAppCampList() {
   }
 
   // 상태 필터
-  const statusFilter = $('appStatusFilter')?.value || 'pending';
+  const statusFilter = $('appStatusFilter')?.value || 'all';
   if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
 
   // 검색 필터
