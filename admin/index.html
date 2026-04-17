@@ -2628,7 +2628,8 @@ const _ERR_DICT = {
     timeout: 'タイムアウトしました。再度お試しください',
     auth: 'セッションの有効期限が切れました。再ログインしてください',
     emailUnverified: 'メールアドレスの認証が完了していません',
-    credentials: 'メールアドレスまたはパスワードが正しくありません'
+    credentials: 'メールアドレスまたはパスワードが正しくありません',
+    slotsFull: '募集定員に達したため、応募を受け付けておりません'
   },
   ko: {
     unknown: '오류가 발생했습니다',
@@ -2642,7 +2643,8 @@ const _ERR_DICT = {
     timeout: '요청 시간이 초과되었습니다',
     auth: '인증이 만료되었습니다. 다시 로그인해주세요',
     emailUnverified: '이메일 인증이 완료되지 않았습니다',
-    credentials: '이메일 또는 비밀번호가 올바르지 않습니다'
+    credentials: '이메일 또는 비밀번호가 올바르지 않습니다',
+    slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다'
   }
 };
 
@@ -2662,6 +2664,7 @@ function friendlyErrorJa(e) {
   if (/unauthorized|JWT/.test(s)) return t.auth;
   if (/email_not_confirmed/.test(s)) return t.emailUnverified;
   if (/Invalid login credentials/.test(s)) return t.credentials;
+  if (/모집 정원|slots/.test(s)) return t.slotsFull;
   return t.unknown;
 }
 

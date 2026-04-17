@@ -19,7 +19,11 @@ async function openCampaign(id) {
   }
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
+  // DB 트리거(048)가 최종 방어선, 여기서는 UX 보조.
   const isFull = camp.recruit_type === 'monitor' && (camp.applied_count||0) >= camp.slots;
+  if (isFull && !alreadyApplied) {
+    toast(t('apply.slotsFull'), 'error');
+  }
   _slideIdx = 0;
 
   // 슬라이드 이미지 + 크롭 정보 매핑
