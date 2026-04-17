@@ -296,7 +296,6 @@ function renderCampaignBreakdown(camps) {
     </div>`).join('');
 }
 
-let adminCampTypeFilter = 'all';
 
 var adminCampSortKey = '';
 var adminCampSortDir = '';
@@ -416,8 +415,11 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
     update();
   };
   itemCbs.forEach(c => { c.onchange = () => { if (c.checked) allCb.checked = false; update(); }; });
-  // 바깥 클릭 닫기
-  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) drop.classList.remove('open'); });
+  // 바깥 클릭 닫기 (wrap 당 1회만 등록)
+  if (!wrap._mfClickBound) {
+    wrap._mfClickBound = true;
+    document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) drop.classList.remove('open'); });
+  }
 }
 function getMultiFilterValues(containerId) {
   const wrap = $(containerId);
@@ -452,14 +454,7 @@ function updateSortArrows() {
 
 var adminReorderMode = false;
 
-function resetCampFilters() {
-  adminCampSortKey = '';
-  adminCampSortDir = '';
-  const search = $('adminCampSearch'); if (search) search.value = '';
-  const status = $('adminCampStatusFilter'); if (status) status.value = 'all';
-  const type = $('adminCampTypeFilter'); if (type) type.value = 'all';
-  updateSortArrows();
-}
+
 
 function updateCampTableHead() {
   const head = $('adminCampTableHead');
