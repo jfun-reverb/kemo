@@ -1924,21 +1924,25 @@ async function fetchCampaigns() {
   }
 }
 
-// 마감일 경과 캠페인 자동 상태 변경
+// 마감일 경과 캠페인 자동 상태 변경 (병렬 UPDATE)
 async function autoCloseCampaigns(camps) {
   if (!db) return camps;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  for (const c of camps) {
-    if (c.status === 'active' && c.deadline) {
-      const dl = new Date(c.deadline);
-      dl.setHours(23, 59, 59, 999);
-      if (now > dl) {
-        c.status = 'closed';
-        await db.from('campaigns').update({ status: 'closed' }).eq('id', c.id).then(() => {});
-      }
-    }
-  }
+  const toClose = camps.filter(c => {
+    if (c.status !== 'active' || !c.deadline) return false;
+    const dl = new Date(c.deadline);
+    dl.setHours(23, 59, 59, 999);
+    return now > dl;
+  });
+  if (!toClose.length) return camps;
+  const results = await Promise.allSettled(toClose.map(c => {
+    c.status = 'closed';
+    return db.from('campaigns').update({ status: 'closed' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoCloseCampaigns 실패:', toClose[i]?.id, r.reason);
+  });
   return camps;
 }
 
@@ -3497,14 +3501,19 @@ function initMultiFilters() {
   ], () => renderDeliverablesList());
 }
 
-async function loadAdminData() {
+async function loadAdminData(preloaded) {
   initMultiFilters();
-  await loadAdminEmails();
-  // 사이드바 접속자 정보 업데이트
   updateSidebarProfile();
-  const camps = await fetchCampaigns();
-  const users = await fetchInfluencers();
-  const apps = await fetchApplications();
+
+  // 병렬 fetch — preloaded 있으면 재사용 (init에서 이미 가져온 경우)
+  const fetches = preloaded
+    ? Promise.resolve(preloaded)
+    : Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
+  const adminEmailsPromise = (_adminEmails && _adminEmails.length) ? null : loadAdminEmails();
+  const [camps, users, apps] = await fetches;
+  if (adminEmailsPromise) await adminEmailsPromise;
+
+  allCampaigns = camps.slice();
   const approved = apps.filter(a=>a.status==='approved');
   const pending = apps.filter(a=>a.status==='pending');
 
@@ -3513,8 +3522,7 @@ async function loadAdminData() {
   $('kpiApplications').textContent = apps.length;
   $('kpiApproved').textContent = approved.length;
   renderCampaignBreakdown(camps);
-  loadAdminCampaigns();
-  loadAdminInfluencers();
+  // 목록 페인(loadAdminCampaigns/loadAdminInfluencers)은 해당 pane 진입 시에만 로드
 
   // 회원가입 차트 + KPI
   _allUsers = users;
@@ -6549,11 +6557,12 @@ async function init() {
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
 
-    allCampaigns = await fetchCampaigns();
+    // campaigns/influencers/applications 3개 병렬 fetch — 순차 대기 제거
+    var preloaded = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
+    allCampaigns = preloaded[0].slice();
 
-    // 신청 뱃지는 항상 업데이트
-    var _apps = await fetchApplications();
-    var _pending = _apps.filter(function(a){return a.status==='pending'});
+    // 신청 뱃지 업데이트
+    var _pending = preloaded[2].filter(function(a){return a.status==='pending'});
     if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>999?'999+':_pending.length)+'</span>':'');
 
     // URL 해시가 있으면 해당 패널로 이동
@@ -6562,7 +6571,7 @@ async function init() {
       await Promise.resolve(switchAdminPane(hash, null, false));
     } else {
       history.replaceState({pane:'dashboard'}, '', '#dashboard');
-      await loadAdminData();
+      await loadAdminData(preloaded);
     }
   } catch(e) {
     toast('초기화 오류: ' + (e.message||'알 수 없는 오류'), 'error');

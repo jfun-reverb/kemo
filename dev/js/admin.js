@@ -193,14 +193,19 @@ function initMultiFilters() {
   ], () => renderDeliverablesList());
 }
 
-async function loadAdminData() {
+async function loadAdminData(preloaded) {
   initMultiFilters();
-  await loadAdminEmails();
-  // 사이드바 접속자 정보 업데이트
   updateSidebarProfile();
-  const camps = await fetchCampaigns();
-  const users = await fetchInfluencers();
-  const apps = await fetchApplications();
+
+  // 병렬 fetch — preloaded 있으면 재사용 (init에서 이미 가져온 경우)
+  const fetches = preloaded
+    ? Promise.resolve(preloaded)
+    : Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
+  const adminEmailsPromise = (_adminEmails && _adminEmails.length) ? null : loadAdminEmails();
+  const [camps, users, apps] = await fetches;
+  if (adminEmailsPromise) await adminEmailsPromise;
+
+  allCampaigns = camps.slice();
   const approved = apps.filter(a=>a.status==='approved');
   const pending = apps.filter(a=>a.status==='pending');
 
@@ -209,8 +214,7 @@ async function loadAdminData() {
   $('kpiApplications').textContent = apps.length;
   $('kpiApproved').textContent = approved.length;
   renderCampaignBreakdown(camps);
-  loadAdminCampaigns();
-  loadAdminInfluencers();
+  // 목록 페인(loadAdminCampaigns/loadAdminInfluencers)은 해당 pane 진입 시에만 로드
 
   // 회원가입 차트 + KPI
   _allUsers = users;

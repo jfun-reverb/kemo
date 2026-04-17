@@ -30,21 +30,25 @@ async function fetchCampaigns() {
   }
 }
 
-// 마감일 경과 캠페인 자동 상태 변경
+// 마감일 경과 캠페인 자동 상태 변경 (병렬 UPDATE)
 async function autoCloseCampaigns(camps) {
   if (!db) return camps;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  for (const c of camps) {
-    if (c.status === 'active' && c.deadline) {
-      const dl = new Date(c.deadline);
-      dl.setHours(23, 59, 59, 999);
-      if (now > dl) {
-        c.status = 'closed';
-        await db.from('campaigns').update({ status: 'closed' }).eq('id', c.id).then(() => {});
-      }
-    }
-  }
+  const toClose = camps.filter(c => {
+    if (c.status !== 'active' || !c.deadline) return false;
+    const dl = new Date(c.deadline);
+    dl.setHours(23, 59, 59, 999);
+    return now > dl;
+  });
+  if (!toClose.length) return camps;
+  const results = await Promise.allSettled(toClose.map(c => {
+    c.status = 'closed';
+    return db.from('campaigns').update({ status: 'closed' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoCloseCampaigns 실패:', toClose[i]?.id, r.reason);
+  });
   return camps;
 }
 

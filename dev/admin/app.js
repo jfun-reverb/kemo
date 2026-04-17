@@ -69,11 +69,12 @@ async function init() {
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
 
-    allCampaigns = await fetchCampaigns();
+    // campaigns/influencers/applications 3개 병렬 fetch — 순차 대기 제거
+    var preloaded = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
+    allCampaigns = preloaded[0].slice();
 
-    // 신청 뱃지는 항상 업데이트
-    var _apps = await fetchApplications();
-    var _pending = _apps.filter(function(a){return a.status==='pending'});
+    // 신청 뱃지 업데이트
+    var _pending = preloaded[2].filter(function(a){return a.status==='pending'});
     if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>999?'999+':_pending.length)+'</span>':'');
 
     // URL 해시가 있으면 해당 패널로 이동
@@ -82,7 +83,7 @@ async function init() {
       await Promise.resolve(switchAdminPane(hash, null, false));
     } else {
       history.replaceState({pane:'dashboard'}, '', '#dashboard');
-      await loadAdminData();
+      await loadAdminData(preloaded);
     }
   } catch(e) {
     toast('초기화 오류: ' + (e.message||'알 수 없는 오류'), 'error');
