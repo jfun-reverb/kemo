@@ -6073,7 +6073,7 @@ async function renderDeliverablesList() {
     return `<tr>
       <td>${kindBadge}</td>
       <td><div>${getRecruitTypeBadgeKoSm(camp.recruit_type)}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
-      <td>${infName}${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
+      <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${inf.id||''}')">${infName}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
       <td style="font-size:12px">${formatDateTime(d.submitted_at)}</td>
       <td>${reviewedCell}</td>
       <td>${stBadge}</td>
