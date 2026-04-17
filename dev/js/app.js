@@ -266,6 +266,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 미리보기 모드: 관리자 캠페인 폼 iframe 안에서 동작 (same-origin)
   // init() 호출을 스킵하여 db/currentUser를 미초기화 상태로 유지 → DB 부작용 자동 차단
   if (window.__isPreviewMode) {
+    document.documentElement.classList.add('preview-mode');
     document.body.classList.add('preview-mode');
     allCampaigns = [];
     // 부모 창이 iframe.contentWindow.__reverbPreviewApply(camp)를 직접 호출

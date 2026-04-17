@@ -334,6 +334,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 .quill-host .ql-editor{min-height:120px}
 
 /* 미리보기 모드 (관리자 캠페인 폼 iframe 내부) */
+/* 모바일 고정 레이아웃(position:fixed + overflow:hidden)을 해제하고 iframe이 자연 흐름 스크롤하도록 전환 */
+html.preview-mode,body.preview-mode{height:auto!important;overflow:auto!important;position:static!important}
+body.preview-mode #appShell{position:static!important;top:auto!important;bottom:auto!important;left:auto!important;right:auto!important;height:auto!important;min-height:100vh;max-width:none!important}
+body.preview-mode .page{display:none}
+body.preview-mode .page.active{display:block!important;height:auto!important;overflow:visible!important;flex:initial}
 body.preview-mode::before{content:"プレビュー";position:fixed;top:8px;left:50%;transform:translateX(-50%);background:var(--pink);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;z-index:99999;pointer-events:none;letter-spacing:.04em}
 body.preview-mode .apply-btn,body.preview-mode #applyBtn,body.preview-mode [onclick*="openApplyModal"]{opacity:.45;pointer-events:none;cursor:not-allowed!important}
 body.preview-mode #gnb,body.preview-mode #navToggle{pointer-events:none}
@@ -6163,6 +6168,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // 미리보기 모드: 관리자 캠페인 폼 iframe 안에서 동작 (same-origin)
   // init() 호출을 스킵하여 db/currentUser를 미초기화 상태로 유지 → DB 부작용 자동 차단
   if (window.__isPreviewMode) {
+    document.documentElement.classList.add('preview-mode');
     document.body.classList.add('preview-mode');
     allCampaigns = [];
     // 부모 창이 iframe.contentWindow.__reverbPreviewApply(camp)를 직접 호출
