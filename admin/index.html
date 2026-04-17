@@ -601,6 +601,10 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>캠페인 상태</label>
                 <div id="campStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" onclick="resetCampFilters()">초기화</button>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px">
                 <label>검색</label>
                 <div style="position:relative">
@@ -1126,6 +1130,10 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>신청 상태</label>
                 <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" onclick="resetAppFilters()">초기화</button>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px">
                 <label>검색</label>
                 <div style="position:relative">
@@ -1158,7 +1166,6 @@ textarea.form-input{resize:vertical;min-height:80px}
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
-              <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()">초기화</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -1174,6 +1181,10 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
                   <option value="all">전체 캠페인</option>
                 </select>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()">초기화</button>
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px">
                 <label>검색</label>
@@ -3615,6 +3626,30 @@ function openMsgModal(btn) {
 // 필터 select: 전체(all)가 아닌 값 선택 시 배경 흰색으로 활성 표시
 function highlightFilter(el) {
   el.classList.toggle('active', el.value !== 'all');
+}
+
+// 다중 필터 리셋
+function resetMultiFilter(containerId, allLabel) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  const btn = wrap.querySelector('.mf-btn');
+  const allCb = wrap.querySelector('input[value="all"]');
+  const items = wrap.querySelectorAll('.mf-drop input:not([value="all"])');
+  if (allCb) allCb.checked = true;
+  items.forEach(c => c.checked = false);
+  if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
+}
+function resetCampFilters() {
+  resetMultiFilter('campTypeMulti', '전체 타입');
+  resetMultiFilter('campStatusMulti', '전체 상태');
+  const s = $('adminCampSearch'); if (s) s.value = '';
+  filterAdminCampaigns();
+}
+function resetAppFilters() {
+  resetMultiFilter('appTypeMulti', '전체 타입');
+  resetMultiFilter('appStatusMulti', '전체 상태');
+  const s = $('appSearch'); if (s) s.value = '';
+  renderAppCampList();
 }
 
 // ── 다중 선택 드롭다운 필터 ──
@@ -6072,8 +6107,8 @@ function toggleDelivSort(col) {
 }
 
 function resetDelivFiltersAndSort() {
-  const k = $('delivKindFilter'); if (k) { k.value = 'all'; highlightFilter(k); }
-  const s = $('delivStatusFilter'); if (s) { s.value = 'all'; highlightFilter(s); }
+  resetMultiFilter('delivKindMulti', '전체 타입');
+  resetMultiFilter('delivStatusMulti', '전체 상태');
   const c = $('delivCampFilter'); if (c) { c.value = 'all'; highlightFilter(c); }
   const q = $('delivSearch'); if (q) q.value = '';
   _delivSort = {col: null, dir: null};

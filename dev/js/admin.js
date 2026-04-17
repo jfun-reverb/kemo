@@ -335,6 +335,30 @@ function highlightFilter(el) {
   el.classList.toggle('active', el.value !== 'all');
 }
 
+// 다중 필터 리셋
+function resetMultiFilter(containerId, allLabel) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  const btn = wrap.querySelector('.mf-btn');
+  const allCb = wrap.querySelector('input[value="all"]');
+  const items = wrap.querySelectorAll('.mf-drop input:not([value="all"])');
+  if (allCb) allCb.checked = true;
+  items.forEach(c => c.checked = false);
+  if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
+}
+function resetCampFilters() {
+  resetMultiFilter('campTypeMulti', '전체 타입');
+  resetMultiFilter('campStatusMulti', '전체 상태');
+  const s = $('adminCampSearch'); if (s) s.value = '';
+  filterAdminCampaigns();
+}
+function resetAppFilters() {
+  resetMultiFilter('appTypeMulti', '전체 타입');
+  resetMultiFilter('appStatusMulti', '전체 상태');
+  const s = $('appSearch'); if (s) s.value = '';
+  renderAppCampList();
+}
+
 // ── 다중 선택 드롭다운 필터 ──
 function createMultiFilter(containerId, allLabel, options, onChange) {
   const wrap = $(containerId);
@@ -2790,8 +2814,8 @@ function toggleDelivSort(col) {
 }
 
 function resetDelivFiltersAndSort() {
-  const k = $('delivKindFilter'); if (k) { k.value = 'all'; highlightFilter(k); }
-  const s = $('delivStatusFilter'); if (s) { s.value = 'all'; highlightFilter(s); }
+  resetMultiFilter('delivKindMulti', '전체 타입');
+  resetMultiFilter('delivStatusMulti', '전체 상태');
   const c = $('delivCampFilter'); if (c) { c.value = 'all'; highlightFilter(c); }
   const q = $('delivSearch'); if (q) q.value = '';
   _delivSort = {col: null, dir: null};

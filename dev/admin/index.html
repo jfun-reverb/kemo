@@ -178,6 +178,10 @@
                 <label>캠페인 상태</label>
                 <div id="campStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" onclick="resetCampFilters()">초기화</button>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px">
                 <label>검색</label>
                 <div style="position:relative">
@@ -703,6 +707,10 @@
                 <label>신청 상태</label>
                 <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" onclick="resetAppFilters()">초기화</button>
+              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px">
                 <label>검색</label>
                 <div style="position:relative">
@@ -735,7 +743,6 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
-              <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()">초기화</button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -751,6 +758,10 @@
                 <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
                   <option value="all">전체 캠페인</option>
                 </select>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()">초기화</button>
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px">
                 <label>검색</label>
