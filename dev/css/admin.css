@@ -6,8 +6,8 @@
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
 #page-admin select.form-input{padding-right:32px;background-position:right 10px center}
-.admin-filter{padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);background:transparent}
-.admin-filter.active{background:#fff}
+.admin-filter{padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
+.admin-filter.active{background-color:#fff}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
 .admin-side{background:#1A0F18;padding:0 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
