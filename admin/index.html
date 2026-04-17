@@ -1967,6 +1967,18 @@ async function fetchApplications(filters) {
   }
 }
 
+async function countActiveApplications(campaignId) {
+  if (!db || !campaignId) return 0;
+  try {
+    const {count, error} = await db.from('applications')
+      .select('*', {count: 'exact', head: true})
+      .eq('campaign_id', campaignId)
+      .in('status', ['pending', 'approved']);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { return 0; }
+}
+
 async function insertApplication(app) {
   if (!db) return;
   await retryWithRefresh(async () => {
