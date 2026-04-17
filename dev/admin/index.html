@@ -57,30 +57,19 @@
 </div>
 
 <div id="page-admin" style="display:block;min-height:100vh">
-  <!-- 관리자 전용 상단 헤더 -->
-  <div style="background:#2D1F2B;height:56px;display:flex;align-items:center;position:sticky;top:0;z-index:100;width:100%">
-    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 24px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:#fff;cursor:pointer" onclick="switchAdminPane('dashboard',document.querySelector('.admin-si'))">Reverb</span>
-        <span id="stagingBadge" style="display:none;background:#f59e0b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.5px">STAGING</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div id="adminGnbInfo" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.7);font-size:13px">
-          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">A</div>
-          <span>관리자</span>
-        </div>
-        <button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/'" style="font-size:12px;padding:5px 12px">인플루언서 화면</button>
-        <span style="color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:.15s" onclick="adminLogout()">로그아웃</span>
-      </div>
-    </div>
-  </div>
+  <!-- 상단 헤더 제거 → 사이드바로 이동 -->
+  <span id="stagingBadge" style="display:none"></span>
+  <div id="adminGnbInfo" style="display:none"></div>
   <div class="admin-layout">
-    <aside class="admin-side">
+    <aside class="admin-side" style="display:flex;flex-direction:column">
       <div class="sidebar-toggle-wrap">
         <button class="sidebar-toggle" onclick="toggleAdminSidebar()" id="sidebarToggleBtn" title="메뉴 접기/펼치기">
           <span class="material-icons-round" style="font-size:20px">menu</span>
         </button>
-        <span class="sidebar-toggle-label">MENU</span>
+        <span class="sidebar-toggle-label" style="display:flex;align-items:center;gap:8px">
+          <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;cursor:pointer" onclick="switchAdminPane('dashboard',document.querySelector('.admin-si'))">Reverb</span>
+          <span id="stagingBadgeSide" style="display:none;background:#f59e0b;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px">STAGING</span>
+        </span>
       </div>
       <div class="admin-si-lbl">대시보드</div>
       <div class="admin-si" data-pane="dashboard" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
@@ -94,6 +83,22 @@
       <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="switchAdminPane('lookups',this)" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
       <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
       <div class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
+      <!-- 사이드바 하단 — 접속자 + 버튼 -->
+      <div style="flex:1"></div>
+      <div style="padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)">
+        <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)" style="margin-right:0;border-radius:8px;padding:10px 12px">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
+          <span class="si-text" id="sidebarAdminName" style="font-size:12px;font-weight:600;color:rgba(255,255,255,.8)">관리자</span>
+        </div>
+        <div class="admin-si" onclick="window.location.href='/'" style="margin-right:0;border-radius:8px;padding:8px 12px;font-size:12px">
+          <span class="si-icon material-icons-round" style="font-size:18px">open_in_new</span>
+          <span class="si-text">인플루언서 화면</span>
+        </div>
+        <div class="admin-si" onclick="adminLogout()" style="margin-right:0;border-radius:8px;padding:8px 12px;font-size:12px">
+          <span class="si-icon material-icons-round" style="font-size:18px">logout</span>
+          <span class="si-text">로그아웃</span>
+        </div>
+      </div>
     </aside>
     <main class="admin-main">
 

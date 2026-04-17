@@ -196,6 +196,8 @@ function initMultiFilters() {
 async function loadAdminData() {
   initMultiFilters();
   await loadAdminEmails();
+  // 사이드바 접속자 정보 업데이트
+  updateSidebarProfile();
   const camps = await fetchCampaigns();
   const users = await fetchInfluencers();
   const apps = await fetchApplications();
@@ -1812,6 +1814,19 @@ async function addCampaign() {
 // 관리자 계정 관리
 // ══════════════════════════════════════
 let currentAdminInfo = null;
+
+function updateSidebarProfile() {
+  const name = currentAdminInfo?.name || currentUserProfile?.name || currentUser?.email || '관리자';
+  const initial = (name || 'A').charAt(0).toUpperCase();
+  const el = $('sidebarAdminName');
+  const av = $('sidebarAdminAvatar');
+  if (el) el.textContent = name;
+  if (av) av.textContent = initial;
+  // STAGING 배지
+  const sb = $('stagingBadgeSide');
+  const sbOrig = $('stagingBadge');
+  if (sb && sbOrig && sbOrig.style.display !== 'none') sb.style.display = '';
+}
 
 async function loadAdminAccounts() {
   if (!db) return;

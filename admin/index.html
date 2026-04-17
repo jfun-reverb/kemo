@@ -358,9 +358,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .mf-item:hover{background:var(--surface-dim)}
 .mf-item input[type="checkbox"]{margin:0;accent-color:var(--primary)}
 .mf-item.all-item{border-bottom:1px solid var(--surface-dim);font-weight:600}
-.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);transition:grid-template-columns .25s ease}
+.admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh;transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:#1A0F18;padding:0 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
+.admin-side{background:#1A0F18;padding:0 0 0;position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
 .admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
 .admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
@@ -481,30 +481,19 @@ textarea.form-input{resize:vertical;min-height:80px}
 </div>
 
 <div id="page-admin" style="display:block;min-height:100vh">
-  <!-- 관리자 전용 상단 헤더 -->
-  <div style="background:#2D1F2B;height:56px;display:flex;align-items:center;position:sticky;top:0;z-index:100;width:100%">
-    <div style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 24px">
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:17px;color:#fff;cursor:pointer" onclick="switchAdminPane('dashboard',document.querySelector('.admin-si'))">Reverb</span>
-        <span id="stagingBadge" style="display:none;background:#f59e0b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.5px">STAGING</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div id="adminGnbInfo" style="display:flex;align-items:center;gap:8px;color:rgba(255,255,255,.7);font-size:13px">
-          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">A</div>
-          <span>관리자</span>
-        </div>
-        <button class="gnb-btn gnb-btn-ghost" onclick="window.location.href='/'" style="font-size:12px;padding:5px 12px">인플루언서 화면</button>
-        <span style="color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px;transition:.15s" onclick="adminLogout()">로그아웃</span>
-      </div>
-    </div>
-  </div>
+  <!-- 상단 헤더 제거 → 사이드바로 이동 -->
+  <span id="stagingBadge" style="display:none"></span>
+  <div id="adminGnbInfo" style="display:none"></div>
   <div class="admin-layout">
-    <aside class="admin-side">
+    <aside class="admin-side" style="display:flex;flex-direction:column">
       <div class="sidebar-toggle-wrap">
         <button class="sidebar-toggle" onclick="toggleAdminSidebar()" id="sidebarToggleBtn" title="메뉴 접기/펼치기">
           <span class="material-icons-round" style="font-size:20px">menu</span>
         </button>
-        <span class="sidebar-toggle-label">MENU</span>
+        <span class="sidebar-toggle-label" style="display:flex;align-items:center;gap:8px">
+          <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;cursor:pointer" onclick="switchAdminPane('dashboard',document.querySelector('.admin-si'))">Reverb</span>
+          <span id="stagingBadgeSide" style="display:none;background:#f59e0b;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px">STAGING</span>
+        </span>
       </div>
       <div class="admin-si-lbl">대시보드</div>
       <div class="admin-si" data-pane="dashboard" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
@@ -518,6 +507,22 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="switchAdminPane('lookups',this)" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
       <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
       <div class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)"><span class="si-icon material-icons-round">account_circle</span><span class="si-text">내 정보</span></div>
+      <!-- 사이드바 하단 — 접속자 + 버튼 -->
+      <div style="flex:1"></div>
+      <div style="padding:12px 16px;border-top:1px solid rgba(255,255,255,.1)">
+        <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)" style="margin-right:0;border-radius:8px;padding:10px 12px">
+          <div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
+          <span class="si-text" id="sidebarAdminName" style="font-size:12px;font-weight:600;color:rgba(255,255,255,.8)">관리자</span>
+        </div>
+        <div class="admin-si" onclick="window.location.href='/'" style="margin-right:0;border-radius:8px;padding:8px 12px;font-size:12px">
+          <span class="si-icon material-icons-round" style="font-size:18px">open_in_new</span>
+          <span class="si-text">인플루언서 화면</span>
+        </div>
+        <div class="admin-si" onclick="adminLogout()" style="margin-right:0;border-radius:8px;padding:8px 12px;font-size:12px">
+          <span class="si-icon material-icons-round" style="font-size:18px">logout</span>
+          <span class="si-text">로그아웃</span>
+        </div>
+      </div>
     </aside>
     <main class="admin-main">
 
@@ -3493,6 +3498,8 @@ function initMultiFilters() {
 async function loadAdminData() {
   initMultiFilters();
   await loadAdminEmails();
+  // 사이드바 접속자 정보 업데이트
+  updateSidebarProfile();
   const camps = await fetchCampaigns();
   const users = await fetchInfluencers();
   const apps = await fetchApplications();
@@ -5110,6 +5117,19 @@ async function addCampaign() {
 // ══════════════════════════════════════
 let currentAdminInfo = null;
 
+function updateSidebarProfile() {
+  const name = currentAdminInfo?.name || currentUserProfile?.name || currentUser?.email || '관리자';
+  const initial = (name || 'A').charAt(0).toUpperCase();
+  const el = $('sidebarAdminName');
+  const av = $('sidebarAdminAvatar');
+  if (el) el.textContent = name;
+  if (av) av.textContent = initial;
+  // STAGING 배지
+  const sb = $('stagingBadgeSide');
+  const sbOrig = $('stagingBadge');
+  if (sb && sbOrig && sbOrig.style.display !== 'none') sb.style.display = '';
+}
+
 async function loadAdminAccounts() {
   if (!db) return;
   const {data} = await db.from('admins').select('*').order('created_at');
@@ -6561,6 +6581,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof IS_STAGING !== 'undefined' && IS_STAGING) {
       var badge = document.getElementById('stagingBadge');
       if (badge) badge.style.display = 'inline-block';
+      var badgeSide = document.getElementById('stagingBadgeSide');
+      if (badgeSide) badgeSide.style.display = 'inline-block';
     }
   } catch(e) {}
 

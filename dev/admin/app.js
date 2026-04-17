@@ -95,6 +95,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof IS_STAGING !== 'undefined' && IS_STAGING) {
       var badge = document.getElementById('stagingBadge');
       if (badge) badge.style.display = 'inline-block';
+      var badgeSide = document.getElementById('stagingBadgeSide');
+      if (badgeSide) badgeSide.style.display = 'inline-block';
     }
   } catch(e) {}
 
