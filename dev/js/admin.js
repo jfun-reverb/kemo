@@ -287,7 +287,7 @@ function updateCampSortResetBtn() {
 
 // 필터 select: 전체(all)가 아닌 값 선택 시 배경 흰색으로 활성 표시
 function highlightFilter(el) {
-  el.style.background = el.value === 'all' ? '' : '#fff';
+  el.classList.toggle('active', el.value !== 'all');
 }
 
 function toggleCampSort(key) {

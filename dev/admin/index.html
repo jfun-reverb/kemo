@@ -697,13 +697,13 @@
           </div>
           <!-- 필터 + 검색 -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="appTypeFilter" onchange="highlightFilter(this);renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+            <select id="appTypeFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()">
               <option value="all">전체 타입</option>
               <option value="monitor">리뷰어</option>
               <option value="gifting">기프팅</option>
               <option value="visit">방문형</option>
             </select>
-            <select id="appStatusFilter" onchange="highlightFilter(this);renderAppCampList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+            <select id="appStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()">
               <option value="all" selected>전체 상태</option>
               <option value="pending">심사중</option>
               <option value="approved">승인</option>
@@ -739,18 +739,18 @@
           </div>
           <!-- 필터 + 검색 -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="delivKindFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+            <select id="delivKindFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()">
               <option value="all">전체 타입</option>
               <option value="receipt">영수증</option>
               <option value="post">게시물 URL</option>
             </select>
-            <select id="delivStatusFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)">
+            <select id="delivStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()">
               <option value="all" selected>전체 상태</option>
               <option value="pending">검수 대기</option>
               <option value="approved">승인</option>
               <option value="rejected">반려</option>
             </select>
-            <select id="delivCampFilter" onchange="highlightFilter(this);renderDeliverablesList()" style="padding:6px 24px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink);max-width:240px">
+            <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
               <option value="all">전체 캠페인</option>
             </select>
             <div style="position:relative;width:320px">
