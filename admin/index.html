@@ -6072,7 +6072,7 @@ async function renderDeliverablesList() {
       : '<span style="font-size:11px;color:var(--muted)">—</span>';
     return `<tr>
       <td>${kindBadge}</td>
-      <td>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+      <td><div>${getRecruitTypeBadgeKoSm(camp.recruit_type)}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
       <td>${infName}${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
       <td style="font-size:12px">${formatDateTime(d.submitted_at)}</td>
       <td>${reviewedCell}</td>
