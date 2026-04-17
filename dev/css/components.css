@@ -248,3 +248,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
 .quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
 .quill-host .ql-editor{min-height:120px}
+
+/* 미리보기 모드 (관리자 캠페인 폼 iframe 내부) */
+body.preview-mode::before{content:"プレビュー";position:fixed;top:8px;left:50%;transform:translateX(-50%);background:var(--pink);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;z-index:99999;pointer-events:none;letter-spacing:.04em}
+body.preview-mode .apply-btn,body.preview-mode #applyBtn,body.preview-mode [onclick*="openApplyModal"]{opacity:.45;pointer-events:none;cursor:not-allowed!important}
+body.preview-mode #gnb,body.preview-mode #navToggle{pointer-events:none}

@@ -140,6 +140,10 @@ function switchAdminPane(pane, el, pushHistory) {
     _psetState.new = [];
     populateCampPsetDropdown('new', 'monitor', null);
     renderCampSteps('new');
+    setupCampPreview('new');
+  }
+  if (pane === 'edit-campaign') {
+    setupCampPreview('edit');
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
@@ -998,6 +1002,118 @@ async function executeDeleteCampaign() {
   } catch(e) {
     err.textContent = '삭제 오류: ' + friendlyError(e.message); err.style.display = 'block';
   }
+}
+
+// ── 캠페인 폼 실시간 미리보기 (add/edit 사이드 패널 iframe) ──
+
+// 폼 입력값 → 가짜 camp 객체 (인플루언서 상세 렌더용)
+function buildPreviewCamp(mode) {
+  const g = mode === 'edit' ? 'editCamp' : 'newCamp';
+  const chName = mode === 'edit' ? 'editChannel' : 'channel';
+  const ctName = mode === 'edit' ? 'editContentType' : 'contentType';
+  const rtName = mode === 'edit' ? 'editRecruitType' : 'recruitType';
+  const cmName = mode === 'edit' ? 'editChannelMatch' : 'channelMatch';
+  const val = id => document.getElementById(id)?.value || '';
+  const channels = Array.from(document.querySelectorAll(`input[name="${chName}"]:checked`)).map(cb => cb.value);
+  const contentTypes = Array.from(document.querySelectorAll(`input[name="${ctName}"]:checked`)).map(cb => cb.value);
+  const recruitType = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
+  const channelMatch = document.querySelector(`input[name="${cmName}"]:checked`)?.value || 'or';
+  // edit 모드는 editCampImgData, add 모드는 campImgData 사용 (항목 shape 차이: {url} / {data})
+  const imgList = mode === 'edit'
+    ? (typeof editCampImgData !== 'undefined' ? editCampImgData : [])
+    : (typeof campImgData !== 'undefined' ? campImgData : []);
+  const imgUrls = imgList.map(x => x?.url || x?.data || x).filter(Boolean);
+  const crops = (typeof buildImageCrops === 'function') ? buildImageCrops(imgList) : {};
+  const pset = (typeof collectCampPsetPayload === 'function') ? collectCampPsetPayload(mode) : {};
+  return {
+    id: '__preview__',
+    title: val(g+'Title') || '(캠페인명)',
+    brand: val(g+'Brand') || '(브랜드)',
+    product: val(g+'Product'),
+    product_url: val(g+'ProductUrl'),
+    product_price: parseInt(val(g+'ProductPrice'))||0,
+    reward: parseInt(val(g+'Reward'))||0,
+    reward_note: val(g+'RewardNote') || null,
+    recruit_type: recruitType,
+    channel: channels.join(','),
+    channel_match: channelMatch,
+    content_types: contentTypes.join(','),
+    category: val(g+'Category'),
+    slots: parseInt(val(g+'Slots'))||10,
+    min_followers: parseInt(val(g+'MinFollowers'))||0,
+    primary_channel: val(g+'PrimaryChannel')||null,
+    deadline: val(g+'Deadline')||null,
+    post_deadline: val(g+'PostDeadline')||null,
+    purchase_start: val(g+'PurchaseStart')||null,
+    purchase_end: val(g+'PurchaseEnd')||null,
+    visit_start: val(g+'VisitStart')||null,
+    visit_end: val(g+'VisitEnd')||null,
+    submission_end: val(g+'SubmissionEnd')||null,
+    winner_announce: val(g+'WinnerAnnounce')||'',
+    description: typeof getRichValue === 'function' ? getRichValue(g+'Desc') : '',
+    appeal: typeof getRichValue === 'function' ? getRichValue(g+'Appeal') : '',
+    guide: typeof getRichValue === 'function' ? getRichValue(g+'Guide') : '',
+    ng: typeof getRichValue === 'function' ? getRichValue(g+'Ng') : '',
+    hashtags: val(g+'Hashtags'),
+    mentions: val(g+'Mentions'),
+    image_url: imgUrls[0]||null,
+    img1: imgUrls[0]||null, img2: imgUrls[1]||null, img3: imgUrls[2]||null, img4: imgUrls[3]||null,
+    img5: imgUrls[4]||null, img6: imgUrls[5]||null, img7: imgUrls[6]||null, img8: imgUrls[7]||null,
+    image_crops: crops,
+    status: 'active',
+    applied_count: 0,
+    view_count: 0,
+    created_at: new Date().toISOString(),
+    ...pset,
+  };
+}
+
+// preview iframe 통신 설정 (pane 진입 시 1회만)
+const _previewState = {new: null, edit: null};
+function setupCampPreview(mode) {
+  const st = _previewState[mode];
+  if (st?.attached) { st.send(); return; }
+  const frame = document.getElementById(mode === 'edit' ? 'editCampPreviewFrame' : 'newCampPreviewFrame');
+  const pane = document.getElementById(mode === 'edit' ? 'adminPane-edit-campaign' : 'adminPane-add-campaign');
+  if (!frame || !pane) return;
+  const entry = {attached: true, ready: false, timer: null};
+  entry.send = function() {
+    if (!entry.ready || !frame.contentWindow) return;
+    try { frame.contentWindow.postMessage({type:'reverb-preview', camp: buildPreviewCamp(mode)}, location.origin); } catch(e) {}
+  };
+  entry.debounced = function() {
+    clearTimeout(entry.timer);
+    entry.timer = setTimeout(entry.send, 300);
+  };
+  frame.addEventListener('load', function() {
+    entry.ready = true;
+    entry.send();
+  });
+  // 이미 로드됐을 수 있으므로 iframe src가 about:blank가 아니면 즉시 send 대기
+  frame.src = '/#preview-mode';
+  pane.addEventListener('input', entry.debounced);
+  pane.addEventListener('change', entry.debounced);
+  // Quill text-change 훅 — 에디터가 lazy init이라 즉시 존재 보장 안 됨. 최대 5회 retry
+  (function tryHookQuill(retries) {
+    const g = mode === 'edit' ? 'editCamp' : 'newCamp';
+    let allHooked = true;
+    ['Desc','Appeal','Guide','Ng'].forEach(function(k) {
+      const el = document.getElementById(g + k);
+      const quill = el?._quill;
+      if (quill && !quill.__previewHooked) {
+        quill.on('text-change', entry.debounced);
+        quill.__previewHooked = true;
+      } else if (!quill) allHooked = false;
+    });
+    if (!allHooked && retries > 0) setTimeout(function(){tryHookQuill(retries-1);}, 300);
+  })(5);
+  _previewState[mode] = entry;
+}
+
+// 미리보기 패널 접기/펼치기
+function toggleCampPreviewPane(mode) {
+  const pane = document.getElementById(mode === 'edit' ? 'editCampPreviewPane' : 'newCampPreviewPane');
+  if (pane) pane.classList.toggle('collapsed');
 }
 
 // 상태 순환: 준비 → 모집예정 → 모집중 → 일시정지 → 종료 → 준비

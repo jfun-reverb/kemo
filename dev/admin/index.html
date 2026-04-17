@@ -220,6 +220,8 @@
 
         <!-- EDIT CAMPAIGN PANE -->
         <div id="adminPane-edit-campaign" class="admin-pane">
+          <div class="camp-form-2col">
+            <div class="camp-form-main">
           <div class="product-form">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
               <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
@@ -381,10 +383,21 @@
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
             </div>
           </div>
+            </div>
+            <aside class="camp-preview-pane" id="editCampPreviewPane">
+              <div class="camp-preview-pane-header">
+                <span>미리보기</span>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+              </div>
+              <iframe id="editCampPreviewFrame" class="camp-preview-iframe" title="캠페인 미리보기" src="about:blank"></iframe>
+            </aside>
+          </div>
         </div>
 
         <!-- ADD CAMPAIGN PANE -->
         <div id="adminPane-add-campaign" class="admin-pane">
+          <div class="camp-form-2col">
+            <div class="camp-form-main">
           <div class="product-form">
             <div class="product-form-title">신규 캠페인 등록</div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
@@ -598,6 +611,15 @@
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
               <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
             </div></div>
+            </div>
+            <aside class="camp-preview-pane" id="newCampPreviewPane">
+              <div class="camp-preview-pane-header">
+                <span>미리보기</span>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+              </div>
+              <iframe id="newCampPreviewFrame" class="camp-preview-iframe" title="캠페인 미리보기" src="about:blank"></iframe>
+            </aside>
+          </div>
         </div>
 
         <!-- INFLUENCERS PANE -->

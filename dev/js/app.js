@@ -13,6 +13,10 @@
   } catch(e) {}
 })();
 
+// 관리자 캠페인 폼의 실시간 미리보기 모드
+// URL hash #preview-mode로 진입 → body.preview-mode 클래스 + postMessage 수신 대기
+window.__isPreviewMode = location.hash === '#preview-mode';
+
 let _detailFrom = null;
 
 function navigateBackFromDetail() {
@@ -259,6 +263,28 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
+  // 미리보기 모드: 관리자 캠페인 폼 iframe 안에서 postMessage로 임시 캠페인 수신
+  // init() 호출을 스킵하여 db/currentUser를 미초기화 상태로 유지 → incrementViewCount 등 DB 부작용 자동 차단
+  if (window.__isPreviewMode) {
+    document.body.classList.add('preview-mode');
+    allCampaigns = [];
+    window.addEventListener('message', function(ev) {
+      if (ev.origin !== location.origin) return;
+      if (!ev.data || ev.data.type !== 'reverb-preview') return;
+      const camp = ev.data.camp;
+      if (!camp || !camp.id) return;
+      allCampaigns = allCampaigns.filter(c => c.id !== '__preview__');
+      allCampaigns.push(camp);
+      // #page-detail 강제 활성화 후 openCampaign 호출
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-detail')?.classList.add('active');
+      if (typeof openCampaign === 'function') openCampaign('__preview__');
+    });
+    // 부모에게 ready 통지
+    try { parent.postMessage({type: 'reverb-preview-ready'}, location.origin); } catch(e) {}
+    return;
+  }
+
   // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
   let inRecovery = false;
   try { inRecovery = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
