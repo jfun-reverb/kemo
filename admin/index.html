@@ -339,9 +339,25 @@ textarea.form-input{resize:vertical;min-height:80px}
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
 #page-admin select.form-input{padding-right:32px;background-position:right 10px center}
+/* 필터 공통 */
 .admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
 .admin-filter.active{background-color:#fff}
 .admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
+/* sticky 상단 영역 */
+.admin-sticky-header{position:sticky;top:0;z-index:10;background:var(--surface-container-low);padding-bottom:8px}
+/* 다중 선택 드롭다운 */
+.admin-filter-group{display:flex;flex-direction:column;gap:2px}
+.admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+.mf-wrap{position:relative;display:inline-block}
+.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
+.mf-btn::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted)}
+.mf-btn.has-selection{background:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
+.mf-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:160px;background:#fff;border:1px solid var(--outline);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:100;padding:4px 0;max-height:240px;overflow-y:auto}
+.mf-drop.open{display:block}
+.mf-item{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:var(--ink);transition:background .1s}
+.mf-item:hover{background:var(--surface-dim)}
+.mf-item input[type="checkbox"]{margin:0;accent-color:var(--primary)}
+.mf-item.all-item{border-bottom:1px solid var(--surface-dim);font-weight:600}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
 .admin-side{background:#1A0F18;padding:0 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
@@ -571,29 +587,27 @@ textarea.form-input{resize:vertical;min-height:80px}
 
         <!-- CAMPAIGNS PANE -->
         <div id="adminPane-campaigns" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
-            <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
-          </div>
-          <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="adminCampTypeFilter" class="admin-filter" onchange="highlightFilter(this);filterAdminCampaigns()">
-              <option value="all">전체 타입</option>
-              <option value="monitor">리뷰어</option>
-              <option value="gifting">기프팅</option>
-              <option value="visit">방문형</option>
-            </select>
-            <select id="adminCampStatusFilter" class="admin-filter" onchange="highlightFilter(this);filterAdminCampaigns()">
-              <option value="all">전체 상태</option>
-              <option value="draft">준비</option>
-              <option value="scheduled">모집예정</option>
-              <option value="active">모집중</option>
-              <option value="paused">일시정지</option>
-              <option value="closed">종료</option>
-            </select>
-            <div style="position:relative;width:360px">
-              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
+              <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>캠페인 타입</label>
+                <div id="campTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>캠페인 상태</label>
+                <div id="campStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()">
+                </div>
+              </div>
             </div>
           </div>
           <div class="admin-card">
@@ -1099,26 +1113,26 @@ textarea.form-input{resize:vertical;min-height:80px}
 
         <!-- APPLICATIONS PANE -->
         <div id="adminPane-applications" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
-          </div>
-          <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="appTypeFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()">
-              <option value="all">전체 타입</option>
-              <option value="monitor">리뷰어</option>
-              <option value="gifting">기프팅</option>
-              <option value="visit">방문형</option>
-            </select>
-            <select id="appStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()">
-              <option value="all" selected>전체 상태</option>
-              <option value="pending">심사중</option>
-              <option value="approved">승인</option>
-              <option value="rejected">미승인</option>
-            </select>
-            <div style="position:relative;width:360px">
-              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>캠페인 타입</label>
+                <div id="appTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>신청 상태</label>
+                <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()">
+                </div>
+              </div>
             </div>
           </div>
           <!-- 테이블 리스트 -->
@@ -1141,30 +1155,34 @@ textarea.form-input{resize:vertical;min-height:80px}
 
         <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
         <div id="adminPane-deliverables" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
-          </div>
-          <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="delivKindFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()">
-              <option value="all">전체 타입</option>
-              <option value="receipt">영수증</option>
-              <option value="post">게시물 URL</option>
-            </select>
-            <select id="delivStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()">
-              <option value="all" selected>전체 상태</option>
-              <option value="pending">검수 대기</option>
-              <option value="approved">승인</option>
-              <option value="rejected">반려</option>
-            </select>
-            <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
-              <option value="all">전체 캠페인</option>
-            </select>
-            <div style="position:relative;width:320px">
-              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+              <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()">초기화</button>
             </div>
-            <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()" style="margin-left:auto">초기화</button>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>결과물 타입</label>
+                <div id="delivKindMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>검수 상태</label>
+                <div id="delivStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
+                  <option value="all">전체 캠페인</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()">
+                </div>
+              </div>
+            </div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -3429,7 +3447,35 @@ async function loadAdminEmails() {
 function isAdminEmail(email) { return _adminEmails.includes(email); }
 function adminBadge(email) { return isAdminEmail(email) ? ' <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px">관리자</span>' : ''; }
 
+var _multiFiltersInitialized = false;
+function initMultiFilters() {
+  if (_multiFiltersInitialized) return;
+  _multiFiltersInitialized = true;
+  // 캠페인관리
+  createMultiFilter('campTypeMulti', '전체 타입', [
+    {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
+  ], () => filterAdminCampaigns());
+  createMultiFilter('campStatusMulti', '전체 상태', [
+    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'paused',label:'일시정지'},{value:'closed',label:'종료'}
+  ], () => filterAdminCampaigns());
+  // 신청관리
+  createMultiFilter('appTypeMulti', '전체 타입', [
+    {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
+  ], () => renderAppCampList());
+  createMultiFilter('appStatusMulti', '전체 상태', [
+    {value:'pending',label:'심사중'},{value:'approved',label:'승인'},{value:'rejected',label:'미승인'}
+  ], () => renderAppCampList());
+  // 결과물관리
+  createMultiFilter('delivKindMulti', '전체 타입', [
+    {value:'receipt',label:'영수증'},{value:'post',label:'게시물 URL'}
+  ], () => renderDeliverablesList());
+  createMultiFilter('delivStatusMulti', '전체 상태', [
+    {value:'pending',label:'검수 대기'},{value:'approved',label:'승인'},{value:'rejected',label:'반려'}
+  ], () => renderDeliverablesList());
+}
+
 async function loadAdminData() {
+  initMultiFilters();
   await loadAdminEmails();
   const camps = await fetchCampaigns();
   const users = await fetchInfluencers();
@@ -3570,6 +3616,52 @@ function highlightFilter(el) {
   el.classList.toggle('active', el.value !== 'all');
 }
 
+// ── 다중 선택 드롭다운 필터 ──
+function createMultiFilter(containerId, allLabel, options, onChange) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  const btn = wrap.querySelector('.mf-btn');
+  const drop = wrap.querySelector('.mf-drop');
+  if (!btn || !drop) return;
+  // 드롭다운 아이템 생성
+  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked> ${esc(allLabel)}</label>`
+    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}"> ${esc(o.label)}</label>`).join('');
+  btn.textContent = allLabel;
+  // 토글
+  btn.onclick = (e) => { e.stopPropagation(); drop.classList.toggle('open'); };
+  // 체크 로직
+  const allCb = drop.querySelector('input[value="all"]');
+  const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
+  const update = () => {
+    const selected = itemCbs.filter(c => c.checked);
+    if (selected.length === 0 || selected.length === itemCbs.length) {
+      allCb.checked = true;
+      itemCbs.forEach(c => c.checked = false);
+      btn.textContent = allLabel;
+      btn.classList.remove('has-selection');
+    } else {
+      allCb.checked = false;
+      btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
+      btn.classList.add('has-selection');
+    }
+    onChange(getMultiFilterValues(containerId));
+  };
+  allCb.onchange = () => {
+    if (allCb.checked) { itemCbs.forEach(c => c.checked = false); }
+    update();
+  };
+  itemCbs.forEach(c => { c.onchange = () => { if (c.checked) allCb.checked = false; update(); }; });
+  // 바깥 클릭 닫기
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) drop.classList.remove('open'); });
+}
+function getMultiFilterValues(containerId) {
+  const wrap = $(containerId);
+  if (!wrap) return [];
+  const allCb = wrap.querySelector('input[value="all"]');
+  if (allCb?.checked) return [];
+  return [...wrap.querySelectorAll('.mf-drop input:checked')].map(c => c.value);
+}
+
 function toggleCampSort(key) {
   if (adminCampSortKey === key) {
     adminCampSortDir = adminCampSortDir === 'desc' ? 'asc' : 'desc';
@@ -3669,13 +3761,13 @@ async function loadAdminCampaigns(useCache) {
     `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
   ).join('<span style="margin:0 4px;color:var(--line)">·</span>');
 
-  // 타입 필터
-  const typeFilter = $('adminCampTypeFilter')?.value || 'all';
-  if (typeFilter !== 'all') camps = camps.filter(c => c.recruit_type === typeFilter);
+  // 타입 필터 (다중 선택)
+  const typeVals = getMultiFilterValues('campTypeMulti');
+  if (typeVals.length) camps = camps.filter(c => typeVals.includes(c.recruit_type));
 
-  // 상태 필터
-  const statusFilter = $('adminCampStatusFilter')?.value || 'all';
-  if (statusFilter !== 'all') camps = camps.filter(c => c.status === statusFilter);
+  // 상태 필터 (다중 선택)
+  const statusVals = getMultiFilterValues('campStatusMulti');
+  if (statusVals.length) camps = camps.filter(c => statusVals.includes(c.status));
 
   // 검색 필터
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
@@ -4751,16 +4843,16 @@ async function renderAppCampList() {
   let apps = allAppsRaw.slice();
   const users = await fetchInfluencers();
 
-  // 타입 필터
-  const typeFilter = $('appTypeFilter')?.value || 'all';
-  if (typeFilter !== 'all') {
-    const filteredCampIds = camps.filter(c => c.recruit_type === typeFilter).map(c => c.id);
+  // 타입 필터 (다중 선택)
+  const appTypeVals = getMultiFilterValues('appTypeMulti');
+  if (appTypeVals.length) {
+    const filteredCampIds = camps.filter(c => appTypeVals.includes(c.recruit_type)).map(c => c.id);
     apps = apps.filter(a => filteredCampIds.includes(a.campaign_id));
   }
 
-  // 상태 필터
-  const statusFilter = $('appStatusFilter')?.value || 'all';
-  if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
+  // 상태 필터 (다중 선택)
+  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  if (appStatusVals.length) apps = apps.filter(a => appStatusVals.includes(a.status));
 
   // 검색 필터
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
@@ -6019,18 +6111,22 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  const status = $('delivStatusFilter')?.value || 'all';
-  const kind = $('delivKindFilter')?.value || 'all';
+  const delivStatusVals = getMultiFilterValues('delivStatusMulti');
+  const delivKindVals = getMultiFilterValues('delivKindMulti');
+  const status = delivStatusVals.length === 1 ? delivStatusVals[0] : 'all';
+  const kind = delivKindVals.length === 1 ? delivKindVals[0] : 'all';
   const campId = $('delivCampFilter')?.value || 'all';
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
   const rows = await fetchDeliverables({status, kind, campaign_id: campId});
   _delivCache = rows;
-  let filtered = search
-    ? rows.filter(r => {
-        const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
-        return n.toLowerCase().includes(search);
-      })
-    : rows.slice();
+  // 다중 선택 시 클라이언트 필터링
+  let filtered = rows.slice();
+  if (delivStatusVals.length > 1) filtered = filtered.filter(r => delivStatusVals.includes(r.status));
+  if (delivKindVals.length > 1) filtered = filtered.filter(r => delivKindVals.includes(r.kind));
+  if (search) filtered = filtered.filter(r => {
+    const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
+    return n.toLowerCase().includes(search);
+  });
   // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
   if (_delivSort.col) {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;

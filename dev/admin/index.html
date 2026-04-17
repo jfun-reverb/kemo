@@ -164,29 +164,27 @@
 
         <!-- CAMPAIGNS PANE -->
         <div id="adminPane-campaigns" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
-            <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
-          </div>
-          <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="adminCampTypeFilter" class="admin-filter" onchange="highlightFilter(this);filterAdminCampaigns()">
-              <option value="all">전체 타입</option>
-              <option value="monitor">리뷰어</option>
-              <option value="gifting">기프팅</option>
-              <option value="visit">방문형</option>
-            </select>
-            <select id="adminCampStatusFilter" class="admin-filter" onchange="highlightFilter(this);filterAdminCampaigns()">
-              <option value="all">전체 상태</option>
-              <option value="draft">준비</option>
-              <option value="scheduled">모집예정</option>
-              <option value="active">모집중</option>
-              <option value="paused">일시정지</option>
-              <option value="closed">종료</option>
-            </select>
-            <div style="position:relative;width:360px">
-              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">캠페인 관리</div>
+              <button class="btn btn-primary btn-sm" onclick="switchAdminPane('add-campaign',null)">+ 신규 캠페인</button>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>캠페인 타입</label>
+                <div id="campTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>캠페인 상태</label>
+                <div id="campStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()">
+                </div>
+              </div>
             </div>
           </div>
           <div class="admin-card">
@@ -692,26 +690,26 @@
 
         <!-- APPLICATIONS PANE -->
         <div id="adminPane-applications" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
-          </div>
-          <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="appTypeFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()">
-              <option value="all">전체 타입</option>
-              <option value="monitor">리뷰어</option>
-              <option value="gifting">기프팅</option>
-              <option value="visit">방문형</option>
-            </select>
-            <select id="appStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()">
-              <option value="all" selected>전체 상태</option>
-              <option value="pending">심사중</option>
-              <option value="approved">승인</option>
-              <option value="rejected">미승인</option>
-            </select>
-            <div style="position:relative;width:360px">
-              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">신청 관리</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>캠페인 타입</label>
+                <div id="appTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>신청 상태</label>
+                <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()">
+                </div>
+              </div>
             </div>
           </div>
           <!-- 테이블 리스트 -->
@@ -734,30 +732,34 @@
 
         <!-- DELIVERABLES (결과물 관리) PANE — Stage 2 -->
         <div id="adminPane-deliverables" class="admin-pane">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
-          </div>
-          <!-- 필터 + 검색 -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-            <select id="delivKindFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()">
-              <option value="all">전체 타입</option>
-              <option value="receipt">영수증</option>
-              <option value="post">게시물 URL</option>
-            </select>
-            <select id="delivStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()">
-              <option value="all" selected>전체 상태</option>
-              <option value="pending">검수 대기</option>
-              <option value="approved">승인</option>
-              <option value="rejected">반려</option>
-            </select>
-            <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
-              <option value="all">전체 캠페인</option>
-            </select>
-            <div style="position:relative;width:320px">
-              <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-              <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+              <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()">초기화</button>
             </div>
-            <button class="btn btn-ghost btn-xs" onclick="resetDelivFiltersAndSort()" style="margin-left:auto">초기화</button>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>결과물 타입</label>
+                <div id="delivKindMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>검수 상태</label>
+                <div id="delivStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
+                  <option value="all">전체 캠페인</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()">
+                </div>
+              </div>
+            </div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">

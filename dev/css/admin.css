@@ -6,9 +6,25 @@
 #page-admin .form-input{font-size:13px;padding:8px 12px;line-height:1.5}
 #page-admin textarea.form-input{min-height:60px;line-height:1.5}
 #page-admin select.form-input{padding-right:32px;background-position:right 10px center}
+/* 필터 공통 */
 .admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
 .admin-filter.active{background-color:#fff}
 .admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
+/* sticky 상단 영역 */
+.admin-sticky-header{position:sticky;top:0;z-index:10;background:var(--surface-container-low);padding-bottom:8px}
+/* 다중 선택 드롭다운 */
+.admin-filter-group{display:flex;flex-direction:column;gap:2px}
+.admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+.mf-wrap{position:relative;display:inline-block}
+.mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
+.mf-btn::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted)}
+.mf-btn.has-selection{background:#fff;border-color:var(--primary);color:var(--primary);font-weight:600}
+.mf-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:160px;background:#fff;border:1px solid var(--outline);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:100;padding:4px 0;max-height:240px;overflow-y:auto}
+.mf-drop.open{display:block}
+.mf-item{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:var(--ink);transition:background .1s}
+.mf-item:hover{background:var(--surface-dim)}
+.mf-item input[type="checkbox"]{margin:0;accent-color:var(--primary)}
+.mf-item.all-item{border-bottom:1px solid var(--surface-dim);font-weight:600}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 56px);transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
 .admin-side{background:#1A0F18;padding:0 0 24px;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}

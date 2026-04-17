@@ -165,7 +165,35 @@ async function loadAdminEmails() {
 function isAdminEmail(email) { return _adminEmails.includes(email); }
 function adminBadge(email) { return isAdminEmail(email) ? ' <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-left:4px">관리자</span>' : ''; }
 
+var _multiFiltersInitialized = false;
+function initMultiFilters() {
+  if (_multiFiltersInitialized) return;
+  _multiFiltersInitialized = true;
+  // 캠페인관리
+  createMultiFilter('campTypeMulti', '전체 타입', [
+    {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
+  ], () => filterAdminCampaigns());
+  createMultiFilter('campStatusMulti', '전체 상태', [
+    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'paused',label:'일시정지'},{value:'closed',label:'종료'}
+  ], () => filterAdminCampaigns());
+  // 신청관리
+  createMultiFilter('appTypeMulti', '전체 타입', [
+    {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
+  ], () => renderAppCampList());
+  createMultiFilter('appStatusMulti', '전체 상태', [
+    {value:'pending',label:'심사중'},{value:'approved',label:'승인'},{value:'rejected',label:'미승인'}
+  ], () => renderAppCampList());
+  // 결과물관리
+  createMultiFilter('delivKindMulti', '전체 타입', [
+    {value:'receipt',label:'영수증'},{value:'post',label:'게시물 URL'}
+  ], () => renderDeliverablesList());
+  createMultiFilter('delivStatusMulti', '전체 상태', [
+    {value:'pending',label:'검수 대기'},{value:'approved',label:'승인'},{value:'rejected',label:'반려'}
+  ], () => renderDeliverablesList());
+}
+
 async function loadAdminData() {
+  initMultiFilters();
   await loadAdminEmails();
   const camps = await fetchCampaigns();
   const users = await fetchInfluencers();
@@ -306,6 +334,52 @@ function highlightFilter(el) {
   el.classList.toggle('active', el.value !== 'all');
 }
 
+// ── 다중 선택 드롭다운 필터 ──
+function createMultiFilter(containerId, allLabel, options, onChange) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  const btn = wrap.querySelector('.mf-btn');
+  const drop = wrap.querySelector('.mf-drop');
+  if (!btn || !drop) return;
+  // 드롭다운 아이템 생성
+  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked> ${esc(allLabel)}</label>`
+    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}"> ${esc(o.label)}</label>`).join('');
+  btn.textContent = allLabel;
+  // 토글
+  btn.onclick = (e) => { e.stopPropagation(); drop.classList.toggle('open'); };
+  // 체크 로직
+  const allCb = drop.querySelector('input[value="all"]');
+  const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
+  const update = () => {
+    const selected = itemCbs.filter(c => c.checked);
+    if (selected.length === 0 || selected.length === itemCbs.length) {
+      allCb.checked = true;
+      itemCbs.forEach(c => c.checked = false);
+      btn.textContent = allLabel;
+      btn.classList.remove('has-selection');
+    } else {
+      allCb.checked = false;
+      btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
+      btn.classList.add('has-selection');
+    }
+    onChange(getMultiFilterValues(containerId));
+  };
+  allCb.onchange = () => {
+    if (allCb.checked) { itemCbs.forEach(c => c.checked = false); }
+    update();
+  };
+  itemCbs.forEach(c => { c.onchange = () => { if (c.checked) allCb.checked = false; update(); }; });
+  // 바깥 클릭 닫기
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) drop.classList.remove('open'); });
+}
+function getMultiFilterValues(containerId) {
+  const wrap = $(containerId);
+  if (!wrap) return [];
+  const allCb = wrap.querySelector('input[value="all"]');
+  if (allCb?.checked) return [];
+  return [...wrap.querySelectorAll('.mf-drop input:checked')].map(c => c.value);
+}
+
 function toggleCampSort(key) {
   if (adminCampSortKey === key) {
     adminCampSortDir = adminCampSortDir === 'desc' ? 'asc' : 'desc';
@@ -405,13 +479,13 @@ async function loadAdminCampaigns(useCache) {
     `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
   ).join('<span style="margin:0 4px;color:var(--line)">·</span>');
 
-  // 타입 필터
-  const typeFilter = $('adminCampTypeFilter')?.value || 'all';
-  if (typeFilter !== 'all') camps = camps.filter(c => c.recruit_type === typeFilter);
+  // 타입 필터 (다중 선택)
+  const typeVals = getMultiFilterValues('campTypeMulti');
+  if (typeVals.length) camps = camps.filter(c => typeVals.includes(c.recruit_type));
 
-  // 상태 필터
-  const statusFilter = $('adminCampStatusFilter')?.value || 'all';
-  if (statusFilter !== 'all') camps = camps.filter(c => c.status === statusFilter);
+  // 상태 필터 (다중 선택)
+  const statusVals = getMultiFilterValues('campStatusMulti');
+  if (statusVals.length) camps = camps.filter(c => statusVals.includes(c.status));
 
   // 검색 필터
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
@@ -1487,16 +1561,16 @@ async function renderAppCampList() {
   let apps = allAppsRaw.slice();
   const users = await fetchInfluencers();
 
-  // 타입 필터
-  const typeFilter = $('appTypeFilter')?.value || 'all';
-  if (typeFilter !== 'all') {
-    const filteredCampIds = camps.filter(c => c.recruit_type === typeFilter).map(c => c.id);
+  // 타입 필터 (다중 선택)
+  const appTypeVals = getMultiFilterValues('appTypeMulti');
+  if (appTypeVals.length) {
+    const filteredCampIds = camps.filter(c => appTypeVals.includes(c.recruit_type)).map(c => c.id);
     apps = apps.filter(a => filteredCampIds.includes(a.campaign_id));
   }
 
-  // 상태 필터
-  const statusFilter = $('appStatusFilter')?.value || 'all';
-  if (statusFilter !== 'all') apps = apps.filter(a => a.status === statusFilter);
+  // 상태 필터 (다중 선택)
+  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  if (appStatusVals.length) apps = apps.filter(a => appStatusVals.includes(a.status));
 
   // 검색 필터
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
@@ -2755,18 +2829,22 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  const status = $('delivStatusFilter')?.value || 'all';
-  const kind = $('delivKindFilter')?.value || 'all';
+  const delivStatusVals = getMultiFilterValues('delivStatusMulti');
+  const delivKindVals = getMultiFilterValues('delivKindMulti');
+  const status = delivStatusVals.length === 1 ? delivStatusVals[0] : 'all';
+  const kind = delivKindVals.length === 1 ? delivKindVals[0] : 'all';
   const campId = $('delivCampFilter')?.value || 'all';
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
   const rows = await fetchDeliverables({status, kind, campaign_id: campId});
   _delivCache = rows;
-  let filtered = search
-    ? rows.filter(r => {
-        const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
-        return n.toLowerCase().includes(search);
-      })
-    : rows.slice();
+  // 다중 선택 시 클라이언트 필터링
+  let filtered = rows.slice();
+  if (delivStatusVals.length > 1) filtered = filtered.filter(r => delivStatusVals.includes(r.status));
+  if (delivKindVals.length > 1) filtered = filtered.filter(r => delivKindVals.includes(r.kind));
+  if (search) filtered = filtered.filter(r => {
+    const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
+    return n.toLowerCase().includes(search);
+  });
   // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
   if (_delivSort.col) {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
