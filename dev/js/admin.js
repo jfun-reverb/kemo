@@ -213,7 +213,7 @@ async function loadAdminData() {
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${users.find(u=>u.email===a.user_email)?.id||''}')">${esc(a.user_name)||'—'}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
-      <td style="max-width:180px;font-size:12px;color:var(--ink)">${esc(a.message)||'—'}</td>
+      <td>${msgCell(a.message)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
@@ -283,6 +283,21 @@ function resetCampSort() {
 function updateCampSortResetBtn() {
   const btn = $('btnCampSortReset');
   if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
+}
+
+// 신청 사유: 2줄 말줄임 + 더보기 모달
+function msgCell(text) {
+  if (!text) return '—';
+  const safe = esc(text);
+  const short = `<div style="max-width:200px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--ink)">${safe}</div>`;
+  if (text.length <= 40) return short;
+  return short + `<button class="btn btn-ghost btn-xs" style="font-size:10px;margin-top:2px;padding:1px 6px;color:var(--pink)" onclick="event.stopPropagation();openMsgModal(this)" data-msg="${safe}">더보기</button>`;
+}
+function openMsgModal(btn) {
+  const msg = btn.dataset.msg;
+  const el = $('alertModalMessage');
+  if (el) el.innerHTML = `<div style="font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:60vh;overflow-y:auto">${msg}</div>`;
+  openModal('alertModal');
 }
 
 // 필터 select: 전체(all)가 아닌 값 선택 시 배경 흰색으로 활성 표시
@@ -1055,7 +1070,7 @@ async function loadCampApplicants() {
     </td>
     <td>${a.ig_id?`<a href="https://instagram.com/${esc(a.ig_id)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">@${esc(a.ig_id)}</a>`:esc(a.user_ig)||'—'}</td>
     <td style="font-weight:600">${(a.user_followers||0).toLocaleString()}</td>
-    <td style="max-width:200px;font-size:12px;color:var(--muted)">${esc(a.message)||'—'}</td>
+    <td>${msgCell(a.message)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadgeKo(a.status)}</td>
     <td>${otCell}</td>
@@ -1529,7 +1544,7 @@ async function renderAppCampList() {
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}</div>
         <div style="font-size:11px;color:var(--muted)">${[esc(a.user_email)||'', u.line_id?`LINE: ${esc(u.line_id)}`:''].filter(Boolean).join(' · ')}</div>
       </td>
-      <td style="max-width:180px;font-size:12px;color:var(--ink)">${esc(a.message)||'—'}</td>
+      <td>${msgCell(a.message)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
