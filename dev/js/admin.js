@@ -1125,7 +1125,6 @@ function renderCampPreview(mode) {
           <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
           ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">商品提供</span></div>`:''}
           ${camp.reward>0?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} リワード</div>`:''}
-          ${camp.reward_note?`<div class="cp-reward-note">${esc(camp.reward_note)}</div>`:''}
         </div>
         <div class="cp-info">
           <div class="cp-info-row"><div class="cp-info-key">製品名</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>
@@ -1140,7 +1139,7 @@ function renderCampPreview(mode) {
           ${(camp.recruit_type==='monitor'&&(camp.purchase_start||camp.purchase_end))?`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`:''}
           ${(camp.recruit_type==='visit'&&(camp.visit_start||camp.visit_end))?`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`:''}
           ${camp.submission_end?`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`:''}
-          ${rewardText?`<div class="cp-info-row"><div class="cp-info-key">リワード</div><div class="cp-info-val cp-info-val-pink">${esc(rewardText)}</div></div>`:''}
+          ${(rewardText||camp.reward_note)?`<div class="cp-info-row"><div class="cp-info-key">リワード</div><div class="cp-info-val cp-info-val-pink">${rewardText?esc(rewardText):''}${camp.reward_note?`<div style="margin-top:${rewardText?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}</div></div>`:''}
         </div>
         <div class="cp-participation">
           <div class="cp-section-heading">参加方法</div>
