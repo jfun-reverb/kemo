@@ -224,9 +224,10 @@
           <div class="camp-form-2col">
             <div class="camp-form-main">
           <div class="product-form">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
               <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
               <div class="product-form-title" style="margin:0">캠페인 편집</div>
+              <span id="editCampNoBadge" style="display:none;font-family:monospace;font-size:12px;font-weight:700;letter-spacing:0.02em;background:var(--pink-soft,#fdf5fb);color:var(--pink);padding:3px 10px;border-radius:6px;cursor:pointer" title="클릭하여 복사"></span>
             </div>
             <input type="hidden" id="editCampId">
 

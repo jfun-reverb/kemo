@@ -189,7 +189,7 @@ async function fetchDeliverables(filters) {
       reject_reason, reject_template_code,
       reviewed_by, reviewed_at, submitted_at, updated_at,
       application_id, user_id, campaign_id,
-      campaigns:campaign_id (id, title, brand, recruit_type)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
     `);
     // 관리자: draft 상태는 제외 (인플루언서가 제출 안 한 작성중 항목)
     query = query.neq('status', 'draft');
@@ -213,7 +213,7 @@ async function fetchDeliverableById(id) {
   try {
     const {data, error} = await db?.from('deliverables').select(`
       *,
-      campaigns:campaign_id (id, title, brand, recruit_type, channel, channel_match, img1)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, img1)
     `).eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return null;
