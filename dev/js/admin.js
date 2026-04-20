@@ -197,6 +197,13 @@ function initMultiFilters() {
   createMultiFilter('delivStatusMulti', '전체 상태', [
     {value:'pending',label:'검수 대기'},{value:'approved',label:'승인'},{value:'rejected',label:'반려'}
   ], () => renderDeliverablesList());
+  // 광고주 신청
+  createMultiFilter('brandAppFormMulti', '전체 폼', [
+    {value:'reviewer',label:'Qoo10 리뷰어'},{value:'seeding',label:'나노 시딩'}
+  ], () => renderBrandApplicationsList());
+  createMultiFilter('brandAppStatusMulti', '전체 상태', [
+    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적전달'},{value:'paid',label:'입금완료'},{value:'done',label:'완료'},{value:'rejected',label:'반려'}
+  ], () => renderBrandApplicationsList());
 }
 
 async function loadAdminData(preloaded) {
@@ -3490,16 +3497,16 @@ function renderBrandApplicationsList() {
   var tbody = $('brandAppTableBody');
   if (!tbody) return;
 
-  var form = ($('brandAppFormFilter')?.value) || 'all';
-  var status = ($('brandAppStatusFilter')?.value) || 'all';
+  var formVals = getMultiFilterValues('brandAppFormMulti');
+  var statusVals = getMultiFilterValues('brandAppStatusMulti');
   var from = ($('brandAppFromDate')?.value) || '';
   var to = ($('brandAppToDate')?.value) || '';
   var q = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
 
   var list = _brandApps.slice();
 
-  if (form !== 'all') list = list.filter(a => a.form_type === form);
-  if (status !== 'all') list = list.filter(a => a.status === status);
+  if (formVals.length > 0) list = list.filter(a => formVals.indexOf(a.form_type) >= 0);
+  if (statusVals.length > 0) list = list.filter(a => statusVals.indexOf(a.status) >= 0);
   if (from) list = list.filter(a => (a.created_at || '') >= from);
   if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
   if (q) list = list.filter(a =>
@@ -3523,7 +3530,7 @@ function renderBrandApplicationsList() {
   });
 
   // 초기화 버튼 표시 여부
-  var filterActive = (form !== 'all' || status !== 'all' || from || to || q);
+  var filterActive = (formVals.length > 0 || statusVals.length > 0 || from || to || q);
   var resetBtn = $('btnBrandAppFilterReset');
   if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
 
@@ -3552,12 +3559,12 @@ function renderBrandApplicationsList() {
 }
 
 function resetBrandAppFilters() {
-  if ($('brandAppFormFilter')) $('brandAppFormFilter').value = 'all';
-  if ($('brandAppStatusFilter')) $('brandAppStatusFilter').value = 'all';
+  resetMultiFilter('brandAppFormMulti', '전체 폼');
+  resetMultiFilter('brandAppStatusMulti', '전체 상태');
   if ($('brandAppFromDate')) $('brandAppFromDate').value = '';
   if ($('brandAppToDate')) $('brandAppToDate').value = '';
   if ($('brandAppSearch')) $('brandAppSearch').value = '';
-  ['brandAppFormFilter','brandAppStatusFilter','brandAppFromDate','brandAppToDate'].forEach(function(id){
+  ['brandAppFromDate','brandAppToDate'].forEach(function(id){
     var el = $(id); if (el) el.classList.remove('filter-active');
   });
   renderBrandApplicationsList();
