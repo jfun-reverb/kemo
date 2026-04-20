@@ -129,6 +129,7 @@
 - 내 계정: 이름/비밀번호 변경
 - 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/참여방법을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
 - **참여방법 번들**(`participation_sets`): 캠페인 참여 단계 묶음(1~6단계, 각 단계 title/desc ko·ja) 관리. 모집 타입(recruit_types[]) 태깅으로 캠페인 폼에서 필터링. 캠페인 저장 시 **스냅샷 복사**(`campaigns.participation_steps` jsonb) — 번들 수정해도 기존 캠페인 영향 없음. 캠페인 폼에서 인라인 개별 수정 + "번들 다시 불러오기" 지원. hard delete는 FK `ON DELETE SET NULL`로 스냅샷 격리
+- **광고주 신청 관리**(`/admin#brand-applications`): 영업팀이 비공개 URL(`/sales/reviewer`, `/sales/seeding`)로 받은 광고주 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근 가능(`is_admin()`). 리스트 필터(폼타입/상태/기간/검색) + pending(new) 배지 + 상세 모달(제품 테이블·사업자등록증 signed URL 다운로드·final_quote_krw 수동 입력·quote_sent_at 체크·admin_memo·낙관적 락 version). 상태 전이 new→reviewing→quoted→paid→done/rejected + "되돌리기"(new 복귀). 클라이언트 URL 스킴은 http/https 화이트리스트만 href로 렌더
 
 ## Database Schema (Supabase)
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, reward_note, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps, deadline, post_deadline, purchase_start/end (monitor), visit_start/end (visit), submission_end 등). `reward_note`는 리워드 금액 외 추가 안내(지급 조건·정산 시점) 자유 텍스트, 인플루언서 상세 리워드 영역에 노출
@@ -141,6 +142,8 @@
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용
 - `participation_sets` — 참여방법 번들 (name_ko/ja, recruit_types[], steps jsonb, sort_order, active). `campaigns.participation_steps jsonb` + `campaigns.participation_set_id uuid FK ON DELETE SET NULL` 로 스냅샷 저장·원본 참조
+- `brand_applications` — 광고주(브랜드) 신청 폼 제출 데이터 (form_type: reviewer|seeding, brand_name, contact_name, phone, email, billing_email, products jsonb, total_jpy/total_qty, estimated_krw, final_quote_krw, quote_sent_at, business_license_path, status: new→reviewing→quoted→paid→done/rejected, admin_memo, version 낙관적 락). 서버 트리거가 `JFUN-Q|N-YYYYMMDD-NNN` 채번 + products 재계산. anon INSERT 허용, 관리자만 SELECT/UPDATE/DELETE
+- `brand_app_daily_counter` — 일자별(JST) 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 접근 차단)
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
 - `is_admin()` / `is_super_admin()` / `is_campaign_admin()` 함수: admins 테이블에서 auth.uid() 조회 (search_path 고정)
 - 트리거: auth.users 생성 시 influencers 레코드 자동 생성
