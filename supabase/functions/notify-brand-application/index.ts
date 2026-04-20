@@ -8,10 +8,15 @@
 //
 // 환경변수 (Edge Functions Secrets):
 //   BREVO_API_KEY         Brevo Transactional API 키
-//   NOTIFY_ADMIN_EMAILS   관리자 수신자 (콤마 구분, 기본 jfun@jfun.co.kr)
+//   NOTIFY_ADMIN_EMAILS   관리자 수신자 추가(콤마 구분, DB 수신자와 합산). 없어도 됨.
 //   PUBLIC_ADMIN_URL      관리자 페이지 절대 URL (딥링크용)
 //   BREVO_SENDER_EMAIL    발신자 이메일 (기본 noreply@globalreverb.com)
 //   BREVO_SENDER_NAME     발신자 이름 (기본 환경별 REVERB JP 또는 REVERB JP [DEV])
+//
+// 관리자 수신자 결정 로직 (2026-04-20~):
+//   1) admins.receive_brand_notify = true 이메일 (DB, 관리자 페이지에서 토글)
+//   2) + NOTIFY_ADMIN_EMAILS 환경변수에 나열된 이메일 (외부 수신자 병합)
+//   3) 중복 제거 후 발송. DB 조회 실패 시 env만 사용.
 //
 // 배포 명령:
 //   supabase functions deploy notify-brand-application --project-ref <ref>
@@ -25,6 +30,8 @@
 //   HTTP Method: POST
 //   HTTP Headers: (기본)
 // ══════════════════════════════════════════════════════════════════
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface BrandApplication {
   id: string;
@@ -55,6 +62,32 @@ const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
+}
+
+// 관리자 수신자 결정: admins.receive_brand_notify=true ∪ NOTIFY_ADMIN_EMAILS
+async function resolveAdminEmails(): Promise<string[]> {
+  const fromEnv = env("NOTIFY_ADMIN_EMAILS", "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+  const supaUrl = env("SUPABASE_URL");
+  const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supaUrl || !serviceKey) return [...new Set(fromEnv)];
+
+  try {
+    const sb = createClient(supaUrl, serviceKey, { auth: { persistSession: false } });
+    const { data, error } = await sb
+      .from("admins")
+      .select("email")
+      .eq("receive_brand_notify", true);
+    if (error) throw error;
+    const fromDb = (data || []).map((r: { email: string | null }) => (r.email || "").trim()).filter(Boolean);
+    return [...new Set([...fromDb, ...fromEnv])];
+  } catch (_e) {
+    // DB 조회 실패 시 env만 사용 (fail-safe)
+    return [...new Set(fromEnv)];
+  }
 }
 
 function formLabel(formType: string): string {
@@ -170,48 +203,73 @@ function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: st
 }
 
 function buildBrandEmail(row: BrandApplication): { subject: string; html: string; text: string } {
-  const label = formLabel(row.form_type);
-  const subject = `【REVERB JP】お申込みありがとうございます (${row.application_no})`;
+  const labelKo = row.form_type === "reviewer" ? "Qoo10 리뷰어 모집" : "나노 인플루언서 시딩";
+  const subject = `[REVERB JP] ${labelKo} 신청이 접수되었습니다 (${row.application_no})`;
 
-  const nextStepsJa =
+  // 완료 페이지(sales/*.html)와 동일한 최신 단계
+  const nextSteps =
     row.form_type === "reviewer"
       ? [
-          "1. 担当者が内容を確認します（営業日1日以内）",
-          "2. 最終見積書をメールでお送りします",
-          "3. ご入金確認後、LINEでご案内いたします",
-          "4. Qoo10レビュアー募集を開始します",
+          "담당자가 신청 내역을 검토합니다 (영업일 1일 이내)",
+          "최종 견적서를 이메일로 발송합니다",
+          "입금 확인 후 메일 및 카톡으로 안내",
+          "전체 타임라인 공유",
+          "Qoo10 리뷰어 모집 시작",
         ]
       : [
-          "1. 担当者が内容を確認します（営業日1〜2日）",
-          "2. マッチング候補リストをお送りします",
-          "3. ブランド様より商品発送（日本国内住所）",
-          "4. インフルエンサーSNS投稿を開始",
+          "담당자가 신청 내역을 검토합니다 (영업일 1~2일)",
+          "전체 타임라인 공유",
+          "모집 시작",
+          "매칭 가능한 인플루언서 리스트 전달",
+          "브랜드사에서 제품 발송 (일본 현지 주소)",
+          "인플루언서 SNS 포스팅 진행",
         ];
 
-  const text =
-    `REVERB JP にお申込みいただきありがとうございます。\n\n` +
-    `申込番号: ${row.application_no}\n` +
-    `ブランド: ${row.brand_name}\n` +
-    `プラン: ${label}\n\n` +
-    `【今後の流れ】\n` +
-    nextStepsJa.join("\n") +
-    `\n\nお問い合わせ: LINE @reverb.jp\nhttps://line.me/R/ti/p/@reverb.jp\n`;
+  const stepsText = nextSteps.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s}`).join("\n");
 
-  const stepsHtml = nextStepsJa.map((s) => `<li style="margin:6px 0;color:#444">${escapeHtml(s)}</li>`).join("");
+  const text =
+    `REVERB JP에 신청해주셔서 감사합니다.\n\n` +
+    `신청번호: ${row.application_no}\n` +
+    `브랜드: ${row.brand_name}\n` +
+    `플랜: ${labelKo}\n\n` +
+    `[다음 단계]\n` +
+    stepsText +
+    `\n\n` +
+    `[문의]\n` +
+    `· LINE @reverb.jp — https://line.me/R/ti/p/@reverb.jp\n` +
+    `· 카카오톡 byhyunho7\n` +
+    `· 연락처 010-2550-1511\n`;
+
+  const stepsHtml = nextSteps
+    .map(
+      (s, i) =>
+        `<li style="margin:8px 0;color:#444;padding-left:4px">` +
+        `<span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">${String(i + 1).padStart(2, "0")}</span>` +
+        `${escapeHtml(s)}</li>`
+    )
+    .join("");
 
   const html =
-    `<div style="font-family:'Noto Sans JP','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">` +
-    `<h2 style="color:#E8344E;margin:0 0 8px">お申込みありがとうございます</h2>` +
-    `<p style="margin:0 0 16px;color:#666;font-size:13px">${escapeHtml(row.brand_name)} 様</p>` +
-    `<div style="background:#FAFAF7;border:1px solid #EAEAE4;border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:13px">` +
-    `<div style="color:#888;font-size:11px;margin-bottom:4px">申込番号</div>` +
-    `<div style="font-family:monospace;font-size:15px;font-weight:700;color:#E8344E">${escapeHtml(row.application_no)}</div>` +
-    `<div style="color:#888;font-size:11px;margin:10px 0 4px">プラン</div>` +
-    `<div>${escapeHtml(label)}</div>` +
+    `<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">` +
+    `<h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">신청이 접수되었습니다</h2>` +
+    `<p style="margin:0 0 18px;color:#666;font-size:13px">${escapeHtml(row.brand_name)} 담당자님</p>` +
+    `<div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">` +
+      `<div style="color:#888;font-size:11px;letter-spacing:0.08em;margin-bottom:4px;text-transform:uppercase;font-weight:700">신청번호</div>` +
+      `<div style="font-family:monospace;font-size:16px;font-weight:700;color:#E8344E">${escapeHtml(row.application_no)}</div>` +
+      `<div style="color:#888;font-size:11px;letter-spacing:0.08em;margin:12px 0 4px;text-transform:uppercase;font-weight:700">플랜</div>` +
+      `<div style="font-weight:600">${escapeHtml(labelKo)}</div>` +
     `</div>` +
-    `<h3 style="font-size:13px;color:#222;margin:18px 0 8px">今後の流れ</h3>` +
-    `<ol style="padding-left:18px;margin:0;font-size:13px">${stepsHtml.replace(/<li/g, "<li")}</ol>` +
-    `<p style="margin:20px 0 0;font-size:12px;color:#666">ご不明な点は LINE <a href="https://line.me/R/ti/p/@reverb.jp" style="color:#E8344E">@reverb.jp</a> までお問い合わせください。</p>` +
+    `<h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin:22px 0 12px;text-transform:uppercase;font-weight:700">다음 단계</h3>` +
+    `<ol style="padding:0;margin:0;font-size:13px;list-style:none">${stepsHtml}</ol>` +
+    `<div style="border-top:1px solid #EAEAE4;margin-top:26px;padding-top:18px">` +
+      `<h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin-bottom:12px;text-transform:uppercase;font-weight:700">문의</h3>` +
+      `<table style="border-collapse:collapse;width:100%;font-size:13px">` +
+        `<tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;width:100px">LINE</td><td style="padding:6px 0"><a href="https://line.me/R/ti/p/@reverb.jp" style="color:#E8344E;text-decoration:none;font-weight:600">@reverb.jp</a></td></tr>` +
+        `<tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">KakaoTalk</td><td style="padding:6px 0;font-weight:600">byhyunho7</td></tr>` +
+        `<tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">TEL</td><td style="padding:6px 0;font-family:monospace;font-weight:600">010-2550-1511</td></tr>` +
+      `</table>` +
+    `</div>` +
+    `<p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>` +
     `</div>`;
 
   return { subject, html, text };
@@ -241,11 +299,8 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const adminEmailsRaw = env("NOTIFY_ADMIN_EMAILS", "jfun@jfun.co.kr");
-    const adminEmails = adminEmailsRaw
-      .split(",")
-      .map((e) => e.trim())
-      .filter(Boolean);
+    // 관리자 수신자: DB admins.receive_brand_notify=true + NOTIFY_ADMIN_EMAILS 병합
+    const adminEmails = await resolveAdminEmails();
     const adminUrl = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/");
 
     const results = { admin: false, brand: false, errors: [] as string[] };

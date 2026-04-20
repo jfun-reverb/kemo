@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>REVERB JP · Email Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
+    background: #EEECE6;
+    color: #161618;
+    padding: 40px 20px 80px;
+    min-height: 100vh;
+  }
+  h1 { text-align: center; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .sub { text-align: center; font-size: 13px; color: #666; margin-bottom: 36px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+    gap: 28px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .mail-card { background: #fff; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); overflow: hidden; }
+  .mail-head { background: #F7F4EE; border-bottom: 1px solid #EAEAE4; padding: 18px 22px; }
+  .mail-from { font-size: 11px; color: #888; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; font-weight: 700; }
+  .mail-meta { font-size: 12px; color: #555; line-height: 1.7; }
+  .mail-meta b { color: #161618; font-weight: 600; }
+  .mail-subject { font-size: 16px; font-weight: 700; color: #161618; margin-top: 8px; letter-spacing: -0.01em; }
+  .mail-body { padding: 32px 28px; background: #fff; }
+</style>
+</head>
+<body>
+
+<h1>REVERB JP · Email Preview</h1>
+<p class="sub">실제 발송되는 메일과 동일한 HTML. Edge Function <code>notify-brand-application</code> 기준.</p>
+
+<div class="grid">
+
+  <!-- ============================================================ -->
+  <!-- ① Admin Notification -->
+  <!-- ============================================================ -->
+  <div class="mail-card">
+    <div class="mail-head">
+      <div class="mail-from">Preview · Admin Notification</div>
+      <div class="mail-meta">
+        <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+        <div><b>To:</b> jfun@jfun.co.kr</div>
+      </div>
+      <div class="mail-subject">[REVERB JP] 신규 광고주 신청 — 테스트브랜드 (Qoo10 리뷰어 모집)</div>
+    </div>
+    <div class="mail-body">
+
+      <div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+        <h2 style="color:#E8344E;margin:0 0 8px">신규 광고주 신청</h2>
+        <p style="margin:0 0 16px;color:#666;font-size:13px">REVERB JP 관리자 알림</p>
+        <table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px">
+          <tr><td style="padding:6px 0;color:#888;width:100px">신청번호</td><td style="padding:6px 0;font-family:monospace">JFUN-Q-20260420-001</td></tr>
+          <tr><td style="padding:6px 0;color:#888">폼 종류</td><td style="padding:6px 0">Qoo10 리뷰어 모집</td></tr>
+          <tr><td style="padding:6px 0;color:#888">브랜드</td><td style="padding:6px 0;font-weight:700">테스트브랜드</td></tr>
+          <tr><td style="padding:6px 0;color:#888">담당자</td><td style="padding:6px 0">홍길동 · 010-1234-5678 · hong@test.com</td></tr>
+          <tr><td style="padding:6px 0;color:#888">계산서</td><td style="padding:6px 0">billing@test.com</td></tr>
+          <tr><td style="padding:6px 0;color:#888">예상 견적</td><td style="padding:6px 0;font-weight:700">₩ 41,250</td></tr>
+        </table>
+        <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:16px;border:1px solid #eee">
+          <thead><tr style="background:#f5f5f5">
+            <th style="padding:6px 8px;text-align:left">제품</th>
+            <th style="padding:6px 8px;text-align:right">가격</th>
+            <th style="padding:6px 8px;text-align:right">수량</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td style="padding:4px 8px;border-bottom:1px solid #eee">테스트 상품</td>
+              <td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">¥1,000</td>
+              <td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">3</td>
+            </tr>
+          </tbody>
+        </table>
+        <a href="https://globalreverb.com/admin/#brand-applications?id=sample"
+           style="display:inline-block;background:#E8344E;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">관리자 페이지에서 확인</a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ② Brand Acknowledgement (reviewer, KO) -->
+  <!-- ============================================================ -->
+  <div class="mail-card">
+    <div class="mail-head">
+      <div class="mail-from">Preview · Brand Acknowledgement · Reviewer</div>
+      <div class="mail-meta">
+        <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+        <div><b>To:</b> brand@example.com (폼에 입력된 이메일)</div>
+      </div>
+      <div class="mail-subject">[REVERB JP] Qoo10 리뷰어 모집 신청이 접수되었습니다 (JFUN-Q-20260420-001)</div>
+    </div>
+    <div class="mail-body">
+
+      <div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+        <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">신청이 접수되었습니다</h2>
+        <p style="margin:0 0 18px;color:#666;font-size:13px">테스트브랜드 담당자님</p>
+        <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
+          <div style="color:#888;font-size:11px;letter-spacing:0.08em;margin-bottom:4px;text-transform:uppercase;font-weight:700">신청번호</div>
+          <div style="font-family:monospace;font-size:16px;font-weight:700;color:#E8344E">JFUN-Q-20260420-001</div>
+          <div style="color:#888;font-size:11px;letter-spacing:0.08em;margin:12px 0 4px;text-transform:uppercase;font-weight:700">플랜</div>
+          <div style="font-weight:600">Qoo10 리뷰어 모집</div>
+        </div>
+        <h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin:22px 0 12px;text-transform:uppercase;font-weight:700">다음 단계</h3>
+        <ol style="padding:0;margin:0;font-size:13px;list-style:none">
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">01</span>담당자가 신청 내역을 검토합니다 (영업일 1일 이내)</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">02</span>최종 견적서를 이메일로 발송합니다</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">03</span>입금 확인 후 메일 및 카톡으로 안내</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">04</span>전체 타임라인 공유</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">05</span>Qoo10 리뷰어 모집 시작</li>
+        </ol>
+        <div style="border-top:1px solid #EAEAE4;margin-top:26px;padding-top:18px">
+          <h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin-bottom:12px;text-transform:uppercase;font-weight:700">문의</h3>
+          <table style="border-collapse:collapse;width:100%;font-size:13px">
+            <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;width:100px">LINE</td><td style="padding:6px 0"><a href="https://line.me/R/ti/p/@reverb.jp" style="color:#E8344E;text-decoration:none;font-weight:600">@reverb.jp</a></td></tr>
+            <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">KakaoTalk</td><td style="padding:6px 0;font-weight:600">byhyunho7</td></tr>
+            <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">TEL</td><td style="padding:6px 0;font-family:monospace;font-weight:600">010-2550-1511</td></tr>
+          </table>
+        </div>
+        <p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- ③ Brand Acknowledgement (seeding, KO) -->
+  <!-- ============================================================ -->
+  <div class="mail-card">
+    <div class="mail-head">
+      <div class="mail-from">Preview · Brand Acknowledgement · Seeding</div>
+      <div class="mail-meta">
+        <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+        <div><b>To:</b> brand@example.com (폼에 입력된 이메일)</div>
+      </div>
+      <div class="mail-subject">[REVERB JP] 나노 인플루언서 시딩 신청이 접수되었습니다 (JFUN-N-20260420-001)</div>
+    </div>
+    <div class="mail-body">
+
+      <div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+        <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">신청이 접수되었습니다</h2>
+        <p style="margin:0 0 18px;color:#666;font-size:13px">테스트브랜드 담당자님</p>
+        <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
+          <div style="color:#888;font-size:11px;letter-spacing:0.08em;margin-bottom:4px;text-transform:uppercase;font-weight:700">신청번호</div>
+          <div style="font-family:monospace;font-size:16px;font-weight:700;color:#E8344E">JFUN-N-20260420-001</div>
+          <div style="color:#888;font-size:11px;letter-spacing:0.08em;margin:12px 0 4px;text-transform:uppercase;font-weight:700">플랜</div>
+          <div style="font-weight:600">나노 인플루언서 시딩</div>
+        </div>
+        <h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin:22px 0 12px;text-transform:uppercase;font-weight:700">다음 단계</h3>
+        <ol style="padding:0;margin:0;font-size:13px;list-style:none">
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">01</span>담당자가 신청 내역을 검토합니다 (영업일 1~2일)</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">02</span>전체 타임라인 공유</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">03</span>모집 시작</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">04</span>매칭 가능한 인플루언서 리스트 전달</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">05</span>브랜드사에서 제품 발송 (일본 현지 주소)</li>
+          <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">06</span>인플루언서 SNS 포스팅 진행</li>
+        </ol>
+        <div style="border-top:1px solid #EAEAE4;margin-top:26px;padding-top:18px">
+          <h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin-bottom:12px;text-transform:uppercase;font-weight:700">문의</h3>
+          <table style="border-collapse:collapse;width:100%;font-size:13px">
+            <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;width:100px">LINE</td><td style="padding:6px 0"><a href="https://line.me/R/ti/p/@reverb.jp" style="color:#E8344E;text-decoration:none;font-weight:600">@reverb.jp</a></td></tr>
+            <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">KakaoTalk</td><td style="padding:6px 0;font-weight:600">byhyunho7</td></tr>
+            <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">TEL</td><td style="padding:6px 0;font-family:monospace;font-weight:600">010-2550-1511</td></tr>
+          </table>
+        </div>
+        <p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

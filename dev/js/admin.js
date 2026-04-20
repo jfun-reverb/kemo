@@ -2057,15 +2057,34 @@ async function loadAdminAccounts() {
     <td style="font-weight:600">${esc(a.name)||'—'}</td>
     <td>${esc(a.email)}</td>
     <td>${roleLabel(a.role)}</td>
+    <td style="text-align:center">
+      <label class="lookup-toggle" title="광고주 신청 접수 시 알림 메일 수신" onclick="event.stopPropagation()">
+        <input type="checkbox" ${a.receive_brand_notify ? 'checked' : ''} onchange="toggleAdminBrandNotify('${a.id}', this.checked)">
+        <span class="lookup-toggle-slider"></span>
+      </label>
+    </td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" onclick="openResetPwModal('${a.auth_id}',this.dataset.email)">비밀번호</button>
       ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
-  </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
+  </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
 
   applyLookupMenuVisibility();
+}
+
+// 광고주 신청 알림 수신 토글 (admins.receive_brand_notify)
+async function toggleAdminBrandNotify(adminId, checked) {
+  if (!db) return;
+  try {
+    const {error} = await db.from('admins').update({receive_brand_notify: !!checked}).eq('id', adminId);
+    if (error) throw error;
+    toast(checked ? '알림 수신 켜짐' : '알림 수신 꺼짐');
+  } catch(e) {
+    toast('저장 실패: ' + (e.message || '알 수 없는 오류'), 'error');
+    loadAdminAccounts();
+  }
 }
 
 // 권한에 따라 "기준 데이터" 메뉴 표시/숨김
