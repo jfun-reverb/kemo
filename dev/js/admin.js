@@ -3594,7 +3594,7 @@ function copyBrandProductUrl(url) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -3658,7 +3658,7 @@ function renderBrandApplicationsList() {
   if (count) count.textContent = '(' + list.length + '건)';
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
     return;
   }
 
