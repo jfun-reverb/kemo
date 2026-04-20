@@ -114,22 +114,25 @@ body {
 .lang-toggle .sep { color: var(--ink-mute); opacity: 0.4; }
 
 /* ──── HERO ──── */
-.hero { position: relative; margin-bottom: 52px; }
+.hero { position: relative; margin-bottom: 52px; text-align: center; }
 
 .hero-eyebrow {
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--brand);
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  color: var(--ink);
+  letter-spacing: 0.02em;
   margin-bottom: 18px;
+}
+.hero-eyebrow em {
+  font-style: normal;
+  color: var(--brand);
 }
 
 .hero-title {
   font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
   font-weight: 800;
-  font-size: 36px;
-  line-height: 1.15;
+  font-size: 30px;
+  line-height: 1.2;
   letter-spacing: -0.035em;
   color: var(--ink);
   margin-bottom: 24px;
@@ -145,7 +148,16 @@ body {
   color: var(--ink-soft);
   line-height: 1.75;
   max-width: 360px;
+  margin: 0 auto;
   letter-spacing: -0.005em;
+}
+.hero-stats {
+  display: block;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  margin-bottom: 10px;
 }
 
 /* Editorial 구분선 */
@@ -249,9 +261,86 @@ body {
   color: var(--ink-soft);
   line-height: 1.7;
   max-width: 320px;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 
+/* 카드 혜택 체크리스트 */
+.card-benefits {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.55;
+  font-weight: 600;
+}
+.card-benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.card-benefits li::before {
+  content: "✔";
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.choice-card.reviewer .card-benefits li::before { color: var(--brand); }
+.choice-card.seeding .card-benefits li::before { color: var(--sage-ink); }
+
+/* Solid CTA 버튼 — 우측 하단 pill 스타일, 눈에 띄게 */
+.card-cta-btn {
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 999px;
+  border: none;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s, background 0.25s;
+  text-decoration: none;
+  z-index: 2;
+  white-space: nowrap;
+}
+.card-cta-btn .cta-arrow {
+  font-size: 16px !important;
+  color: inherit !important;
+  transition: transform 0.25s;
+}
+.choice-card.reviewer .card-cta-btn {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 6px 14px -4px rgba(232, 52, 78, 0.42), 0 2px 4px rgba(0,0,0,0.06);
+}
+.choice-card.reviewer:hover .card-cta-btn {
+  background: var(--brand-deep);
+  box-shadow: 0 10px 20px -6px rgba(232, 52, 78, 0.52), 0 4px 8px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+.choice-card.seeding .card-cta-btn {
+  background: var(--sage-ink);
+  color: #fff;
+  box-shadow: 0 6px 14px -4px rgba(62, 74, 48, 0.38), 0 2px 4px rgba(0,0,0,0.06);
+}
+.choice-card.seeding:hover .card-cta-btn {
+  background: #2A331F;
+  box-shadow: 0 10px 20px -6px rgba(62, 74, 48, 0.48), 0 4px 8px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+.choice-card:hover .card-cta-btn .cta-arrow { transform: translateX(3px); }
+
+/* 기존 텍스트형 CTA (시딩 카드 전용 유지) */
 .card-cta {
   position: absolute;
   right: 22px;
@@ -307,10 +396,10 @@ body {
   margin-bottom: 24px;
 }
 .contact-block-label {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--ink);
   margin-bottom: 16px;
 }
@@ -327,10 +416,10 @@ body {
 .contact-row:last-child { border-bottom: none; }
 .contact-row .k {
   color: var(--ink-mute);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .contact-row .v {
   font-family: 'Manrope', 'Pretendard Variable', sans-serif;
@@ -384,14 +473,23 @@ body {
   </div>
 
   <div class="hero">
-    <div class="hero-eyebrow reveal d1">REVERB JP · Advertiser</div>
+    <div class="hero-eyebrow reveal d1">
+      <span class="ko-only">일본 전용 체험단 솔루션 오픈 <em>· 4월 한정 기간 이벤트</em></span>
+      <span class="ja-only">日本専用モニター体験ソリューションオープン <em>· 4月限定キャンペーン</em></span>
+    </div>
     <h1 class="hero-title reveal d2">
-      <span class="ko-only">브랜드를 <em>일본</em>으로</span>
-      <span class="ja-only">ブランドを <em>日本</em>へ</span>
+      <span class="ko-only">Qoo10 리뷰 + 나노 인플루언서,<br><em>광고비 없이</em> 일본 시장 진출</span>
+      <span class="ja-only">Qoo10レビュー × ナノインフルエンサーで、<br><em>広告費ゼロ</em>の日本市場進出</span>
     </h1>
     <p class="hero-desc reveal d3">
-      <span class="ko-only">원하시는 서비스를 선택해주세요.<br>신청서를 남겨주시면 담당자가 24시간 이내에 연락드립니다.</span>
-      <span class="ja-only">ご希望のサービスをお選びください。<br>お申込み後、担当者より24時間以内にご連絡いたします。</span>
+      <span class="ko-only">
+        <strong class="hero-stats">4,000+ LINE 인플루언서 ㅣ 6,000+ IG 팔로워 ㅣ 100여개 브랜드사 진행 노하우</strong>
+        신청서를 남겨주시면 담당자가 24시간 이내에 연락드립니다.
+      </span>
+      <span class="ja-only">
+        <strong class="hero-stats">LINE 4,000+ インフルエンサー ㅣ IG 6,000+ フォロワー ㅣ 100+ ブランド運用実績</strong>
+        お申込みいただければ、担当者より24時間以内にご連絡いたします。
+      </span>
     </p>
   </div>
 
@@ -410,20 +508,23 @@ body {
         <span class="ja-only">Qoo10 レビュアー</span>
       </div>
       <div class="card-title">
-        <span class="ko-only">일본 유저의 <em>리얼 리뷰</em></span>
-        <span class="ja-only">日本ユーザーの <em>リアルレビュー</em></span>
+        <span class="ko-only">Qoo10 전환을 만드는 <em>일본 리뷰</em></span>
+        <span class="ja-only">Qoo10の購入転換を生む <em>日本レビュー</em></span>
       </div>
       <p class="card-desc">
-        <span class="ko-only">Qoo10 일본 유저가 직접 구매 후 리뷰를 작성합니다. 판매대금은 Qoo10 정산 시스템으로.</span>
-        <span class="ja-only">Qoo10の日本ユーザーが直接購入しレビュー作成。売上はQoo10精算システムへ。</span>
+        <span class="ko-only">일본 유저가 실제 구매 후 작성하는 리뷰로 상품 신뢰도와 구매 전환율을 동시에 확보합니다.</span>
+        <span class="ja-only">日本ユーザーが実際に購入して作成するレビューで、商品の信頼性と購入転換率を同時に確保します。</span>
       </p>
-      <div class="card-cta">
-        <span class="cta-text">
-          <span class="ko-only">신청서 작성하기</span>
-          <span class="ja-only">お申込みへ</span>
-        </span>
-        <span class="material-icons-outlined cta-arrow">arrow_forward</span>
-      </div>
+      <ul class="card-benefits">
+        <li><span class="ko-only">Qoo10 알고리즘 반영</span><span class="ja-only">Qoo10アルゴリズム反映</span></li>
+        <li><span class="ko-only">초기 판매 전환율 개선</span><span class="ja-only">初期販売転換率の改善</span></li>
+        <li><span class="ko-only">별점 · 텍스트 리뷰 확보</span><span class="ja-only">星評価・テキストレビュー確保</span></li>
+      </ul>
+      <span class="card-cta-btn" role="button">
+        <span class="ko-only">무료 혜택 지금 신청하기</span>
+        <span class="ja-only">無料特典を今すぐ申込む</span>
+        <span class="material-icons-outlined notranslate cta-arrow" translate="no">arrow_forward</span>
+      </span>
     </a>
 
     <a class="choice-card seeding reveal d5" id="goSeeding" href="seeding.html">
@@ -434,20 +535,18 @@ body {
         <span class="ja-only">ナノシーディング</span>
       </div>
       <div class="card-title">
-        <span class="ko-only">현지 나노 인플루언서 <em>무료 매칭</em></span>
-        <span class="ja-only">現地ナノインフルエンサー <em>無料マッチング</em></span>
+        <span class="ko-only">일본 나노 인플루언서 <em>무료 매칭</em></span>
+        <span class="ja-only">日本のナノインフルエンサー <em>無料マッチング</em></span>
       </div>
       <p class="card-desc">
-        <span class="ko-only">일본 현지 나노 인플루언서에게 제품을 직접 전달하고 SNS 포스팅을 확보합니다.</span>
-        <span class="ja-only">日本のナノインフルエンサーへ商品を直接届け、SNS投稿を獲得。</span>
+        <span class="ko-only">팔로워 1,000~10,000명의 일본 현지 나노 인플루언서가 Instagram, TikTok, X에서 자연스러운 리뷰 콘텐츠를 제작합니다.</span>
+        <span class="ja-only">フォロワー1,000〜10,000人の日本在住ナノインフルエンサーが、Instagram・TikTok・Xで自然なレビューコンテンツを制作します。</span>
       </p>
-      <div class="card-cta">
-        <span class="cta-text">
-          <span class="ko-only">신청서 작성하기</span>
-          <span class="ja-only">お申込みへ</span>
-        </span>
-        <span class="material-icons-outlined cta-arrow">arrow_forward</span>
-      </div>
+      <span class="card-cta-btn" role="button">
+        <span class="ko-only">무료 혜택 지금 신청하기</span>
+        <span class="ja-only">無料特典を今すぐ申込む</span>
+        <span class="material-icons-outlined notranslate cta-arrow" translate="no">arrow_forward</span>
+      </span>
     </a>
 
   </div>
@@ -455,8 +554,8 @@ body {
   <div class="contact-block reveal d6">
     <div class="contact-block-label">Contact</div>
     <div class="contact-row">
-      <span class="k">LINE</span>
-      <span class="v"><a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a></span>
+      <span class="k">Mail</span>
+      <span class="v"><a href="mailto:ceo@jfun.co.kr">ceo@jfun.co.kr</a></span>
     </div>
     <div class="contact-row">
       <span class="k">KakaoTalk</span>
@@ -468,7 +567,10 @@ body {
     </div>
   </div>
 
-  <div class="footnote">© JFUN Corp. · 株式会社ジェイファン</div>
+  <div class="footnote">
+    <span class="ko-only">08507 서울 금천구 가산디지털1로 128 에스티엑스브이타워 1201호</span>
+    <span class="ja-only">08507 ソウル特別市 衿川区 加山デジタル1路 128 STX Vタワー 1201号</span>
+  </div>
 
 </div>
 
