@@ -615,7 +615,7 @@ async function loadAdminCampaigns(useCache) {
           <div style="min-width:0">
             <div>${typeLabel(c.recruit_type)}</div>
             <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}${c.campaign_no ? ` · <span style="font-family:monospace;font-size:10px;letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
@@ -696,6 +696,22 @@ async function openEditCampaign(campId) {
     const el=$(id); if(el) el.value = val||'';
   };
   $('editCampId').value = campId;
+  // 캠페인 번호 배지 (CAMP-YYYY-NNNN)
+  var noBadge = $('editCampNoBadge');
+  if (noBadge) {
+    if (camp.campaign_no) {
+      noBadge.textContent = camp.campaign_no;
+      noBadge.style.display = 'inline-block';
+      noBadge.onclick = function() {
+        try {
+          navigator.clipboard.writeText(camp.campaign_no);
+          toast(camp.campaign_no + ' 복사됨');
+        } catch(e) {}
+      };
+    } else {
+      noBadge.style.display = 'none';
+    }
+  }
   sv('editCampTitle', camp.title);
   sv('editCampBrand', camp.brand);
   sv('editCampProduct', camp.product);
@@ -3197,7 +3213,7 @@ async function renderDeliverablesList() {
       : '<span style="font-size:11px;color:var(--muted)">—</span>';
     return `<tr>
       <td>${kindBadge}</td>
-      <td><div>${getRecruitTypeBadgeKoSm(camp.recruit_type)}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+      <td><div>${getRecruitTypeBadgeKoSm(camp.recruit_type)}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}${camp.campaign_no ? ` · <span style="font-family:monospace">${esc(camp.campaign_no)}</span>` : ''}</div></td>
       <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${inf.id||''}')">${infName}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
       <td style="font-size:12px">${formatDateTime(d.submitted_at)}</td>
       <td>${reviewedCell}</td>
