@@ -1154,6 +1154,7 @@ function renderCampPreview(mode) {
             return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
           }).join('')}
         </div>
+        ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
         ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}

@@ -503,6 +503,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .cp-chip.cp-chip-mention{background:#f0f0ff;color:#4040cc}
 .cp-chip-sep{color:var(--muted);font-size:11px;font-weight:600}
 .cp-rt-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+/* 상품 페이지 링크 카드 */
+.cp-product-link{background:#fff;padding:12px 16px;border-bottom:8px solid #E5E5E5;color:var(--pink);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
 /* 참여방법 STEP */
 .cp-participation{background:#fff;padding:16px;border-bottom:8px solid #E5E5E5}
 .cp-section-heading{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px}
@@ -4576,6 +4578,7 @@ function renderCampPreview(mode) {
             return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
           }).join('')}
         </div>
+        ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
         ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
           ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
