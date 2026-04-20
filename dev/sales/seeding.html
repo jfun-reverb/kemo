@@ -1312,6 +1312,12 @@ function updateSummary() {
 
 updateProgress();
 updateSummary();
+
+// number input 포커스 상태에서 마우스 휠로 값이 변경되는 브라우저 기본 동작 차단
+document.addEventListener('wheel', function() {
+  const el = document.activeElement;
+  if (el && el.tagName === 'INPUT' && el.type === 'number') el.blur();
+}, { passive: true });
 </script>
 
 </body>

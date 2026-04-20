@@ -159,18 +159,18 @@ body {
 }
 
 .intro-title {
-  font-family: 'Fraunces', serif;
-  font-size: 34px;
+  font-family: 'Sora', 'Noto Sans KR', 'Noto Sans JP', sans-serif;
+  font-size: 30px;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.25;
   letter-spacing: -0.03em;
   margin-bottom: 16px;
 }
 
 .intro-title em {
-  font-style: italic;
+  font-style: normal;
   color: var(--brand);
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .intro-sub {
@@ -844,8 +844,8 @@ body {
     <span class="ja-only">Qoo10 レビュアー募集</span>
   </div>
   <h1 class="intro-title">
-    <span class="ko-only">일본 유저의<br>리얼 <em>리뷰</em>를<br>손에 쥐다.</span>
-    <span class="ja-only">日本ユーザーの<br>リアルな<em>レビュー</em>を。</span>
+    <span class="ko-only">일본 유저의 리얼 <em>리뷰</em>를 손에 쥐다.</span>
+    <span class="ja-only">日本ユーザーのリアルな<em>レビュー</em>を。</span>
   </h1>
   <p class="intro-sub">
     <span class="ko-only">Qoo10 일본 현지 유저가 직접 구매 후 리뷰를 남깁니다. 브랜드사는 Qoo10 정산 시스템으로 판매대금을 받습니다.</span>
@@ -885,7 +885,7 @@ body {
           <span class="ko-only">환산 : 3,000엔 ≒ 30,000원 (×10 기준)</span>
           <span class="ja-only">換算 : 3,000円 ≒ 30,000KRW (×10基準)</span>
         </div>
-        <div class="detail" style="color:var(--brand-dark);font-weight:600;margin-top:6px">
+        <div class="detail">
           <span class="ko-only">※ 신청 인원수만큼 제품 구매 비용을 사전 송금해야 리뷰어에게 지급됩니다</span>
           <span class="ja-only">※ 申込人数分の商品購入費を事前送金いただくと、レビュアーへ支払われます</span>
         </div>
@@ -1524,6 +1524,12 @@ function handleFile(e) {
 
 updateProgress();
 calcQuote();
+
+// number input 포커스 상태에서 마우스 휠로 값이 변경되는 브라우저 기본 동작 차단
+document.addEventListener('wheel', function() {
+  const el = document.activeElement;
+  if (el && el.tagName === 'INPUT' && el.type === 'number') el.blur();
+}, { passive: true });
 </script>
 
 </body>
