@@ -151,13 +151,27 @@ body {
   margin: 0 auto;
   letter-spacing: -0.005em;
 }
+/* 통계 라벨 (칩 스타일) — 한 줄에 하나씩 */
 .hero-stats {
-  display: block;
-  color: var(--ink);
+  list-style: none;
+  padding: 0;
+  margin: 0 auto 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.hero-stats li {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 14px;
   font-weight: 700;
-  font-size: 12.5px;
-  letter-spacing: 0.01em;
-  margin-bottom: 10px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
 }
 
 /* Editorial 구분선 */
@@ -478,18 +492,26 @@ body {
       <span class="ja-only">日本専用モニター体験ソリューションオープン <em>· 4月限定キャンペーン</em></span>
     </div>
     <h1 class="hero-title reveal d2">
-      <span class="ko-only">Qoo10 리뷰 + 나노 인플루언서,<br><em>광고비 없이</em> 일본 시장 진출</span>
+      <span class="ko-only">큐텐 리뷰 + 나노 인플루언서,<br><em>광고비 없이</em> 일본 시장 진출</span>
       <span class="ja-only">Qoo10レビュー × ナノインフルエンサーで、<br><em>広告費ゼロ</em>の日本市場進出</span>
     </h1>
+    <ul class="hero-stats reveal d3">
+      <li>
+        <span class="ko-only">4,000+ LINE 인플루언서</span>
+        <span class="ja-only">LINE 4,000+ インフルエンサー</span>
+      </li>
+      <li>
+        <span class="ko-only">6,000+ IG 팔로워</span>
+        <span class="ja-only">IG 6,000+ フォロワー</span>
+      </li>
+      <li>
+        <span class="ko-only">100여개 브랜드사 진행 노하우</span>
+        <span class="ja-only">100+ ブランド運用実績</span>
+      </li>
+    </ul>
     <p class="hero-desc reveal d3">
-      <span class="ko-only">
-        <strong class="hero-stats">4,000+ LINE 인플루언서 ㅣ 6,000+ IG 팔로워 ㅣ 100여개 브랜드사 진행 노하우</strong>
-        신청서를 남겨주시면 담당자가 24시간 이내에 연락드립니다.
-      </span>
-      <span class="ja-only">
-        <strong class="hero-stats">LINE 4,000+ インフルエンサー ㅣ IG 6,000+ フォロワー ㅣ 100+ ブランド運用実績</strong>
-        お申込みいただければ、担当者より24時間以内にご連絡いたします。
-      </span>
+      <span class="ko-only">신청서를 남겨주시면 담당자가 24시간 이내에 연락드립니다.</span>
+      <span class="ja-only">お申込みいただければ、担当者より24時間以内にご連絡いたします。</span>
     </p>
   </div>
 
