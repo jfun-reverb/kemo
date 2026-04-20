@@ -1010,10 +1010,10 @@ async function executeDeleteCampaign() {
 // 폼 입력값 → 가짜 camp 객체 (인플루언서 상세 렌더용)
 function buildPreviewCamp(mode) {
   const g = mode === 'edit' ? 'editCamp' : 'newCamp';
-  const chName = mode === 'edit' ? 'editChannel' : 'channel';
+  const chName = mode === 'edit' ? 'editChannel' : 'newChannel';
   const ctName = mode === 'edit' ? 'editContentType' : 'contentType';
   const rtName = mode === 'edit' ? 'editRecruitType' : 'recruitType';
-  const cmName = mode === 'edit' ? 'editChannelMatch' : 'channelMatch';
+  const cmName = mode === 'edit' ? 'editChannelMatch' : 'newChannelMatch';
   const val = id => document.getElementById(id)?.value || '';
   const channels = Array.from(document.querySelectorAll(`input[name="${chName}"]:checked`)).map(cb => cb.value);
   const contentTypes = Array.from(document.querySelectorAll(`input[name="${ctName}"]:checked`)).map(cb => cb.value);
@@ -1191,7 +1191,8 @@ function setupCampPreview(mode) {
     const g = mode === 'edit' ? 'editCamp' : 'newCamp';
     let allHooked = true;
     ['Desc','Appeal','Guide','Ng'].forEach(function(k) {
-      const quill = richEditors[g + k];
+      // lazy init 보장: 아직 생성 전이면 즉시 초기화
+      const quill = richEditors[g + k] || getRichEditor(g + k);
       if (quill && !quill.__previewHooked) {
         quill.on('text-change', entry.debounced);
         quill.__previewHooked = true;
