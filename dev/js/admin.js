@@ -1081,7 +1081,11 @@ function renderCampPreview(mode) {
   const hasAnyValue = camp.title || camp.brand || camp.product || camp.img1 || camp.product_price > 0 || camp.reward > 0 || camp.reward_note;
   if (!hasAnyValue) { el.innerHTML = ''; return; }
 
-  const img = camp.img1 || camp.image_url || '';
+  // 이미지 슬라이드 목록 (중복 제거) — 상세 페이지와 동일한 구성
+  const imgCandidates = [camp.img1, camp.img2, camp.img3, camp.img4, camp.img5, camp.img6, camp.img7, camp.img8, camp.image_url].filter(Boolean);
+  const _seen = new Set();
+  const slideUrls = imgCandidates.filter(u => _seen.has(u) ? false : (_seen.add(u), true));
+  const img = slideUrls[0] || '';
   const rtLabel = camp.recruit_type === 'monitor' ? 'レビュアー' : camp.recruit_type === 'gifting' ? 'ギフティング' : camp.recruit_type === 'visit' ? '訪問型' : '';
   const rtBadgeMap = {
     monitor: {bg:'var(--blue-l)', color:'var(--blue)', label:'Reviewer'},
@@ -1115,9 +1119,10 @@ function renderCampPreview(mode) {
         <div class="cp-gnb-badge">プレビュー</div>
       </div>
       <div class="cp-body-scroll">
-        <div class="cp-hero" style="${img?`background-image:url('${esc(img)}')`:''}">
+        <div class="cp-hero">
+          ${img?(typeof renderCroppedImg==='function'?renderCroppedImg(img,null,{thumb:480,quality:80}):`<img src="${esc(img)}" style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5">`):'<span style="color:rgba(255,255,255,.7)">画像なし</span>'}
           ${contentTypeNames.length?`<div class="cp-hero-ct">${contentTypeNames.map(n=>`<span class="cp-hero-ct-chip">${esc(n)}</span>`).join('')}</div>`:''}
-          ${!img?'<span style="color:rgba(255,255,255,.7)">画像なし</span>':''}
+          ${slideUrls.length>1?`<div class="cp-hero-count">1/${slideUrls.length}</div>`:''}
         </div>
         <div class="cp-head">
           ${camp.brand?`<div class="cp-brand">${esc(camp.brand)}</div>`:''}
