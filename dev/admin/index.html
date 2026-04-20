@@ -75,6 +75,7 @@
       <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
       <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
       <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+      <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="switchAdminPane('brand-applications',this)"><span class="si-icon material-icons-round">storefront</span><span class="si-text">광고주 신청</span></div>
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -831,6 +832,81 @@
           </div>
         </div>
 
+        <!-- BRAND APPLICATIONS (광고주 신청) PANE -->
+        <div id="adminPane-brand-applications" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">광고주 신청</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">Qoo10 리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>폼 종류</label>
+                <select id="brandAppFormFilter" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+                  <option value="all">전체</option>
+                  <option value="reviewer">Qoo10 리뷰어</option>
+                  <option value="seeding">나노 시딩</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>상태</label>
+                <select id="brandAppStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+                  <option value="all">전체</option>
+                  <option value="new">신규</option>
+                  <option value="reviewing">검토중</option>
+                  <option value="quoted">견적전달</option>
+                  <option value="paid">입금완료</option>
+                  <option value="done">완료</option>
+                  <option value="rejected">반려</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>기간 (시작)</label>
+                <input type="date" id="brandAppFromDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+              </div>
+              <div class="admin-filter-group">
+                <label>기간 (종료)</label>
+                <input type="date" id="brandAppToDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" id="btnBrandAppFilterReset" onclick="resetBrandAppFilters()" style="display:none">초기화</button>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="brandAppSearch" class="admin-filter-search" placeholder="브랜드명 · 담당자 · 이메일" oninput="renderBrandApplicationsList()">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">신청 목록</span><span id="brandAppTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+            <table class="data-table">
+              <thead><tr>
+                <th style="width:160px">신청번호</th>
+                <th style="width:90px">폼 종류</th>
+                <th>브랜드</th>
+                <th style="width:110px">담당자</th>
+                <th style="width:130px">연락처</th>
+                <th style="width:120px">예상 견적 <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
+                <th style="width:120px">확정 견적</th>
+                <th style="width:100px">상태</th>
+                <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
+                <th style="width:80px">처리</th>
+              </tr></thead>
+              <tbody id="brandAppTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
         <!-- LOOKUPS (기준 데이터) PANE -->
         <div id="adminPane-lookups" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
@@ -1239,6 +1315,21 @@
     <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeDelivRejectModal()">취소</button>
       <button class="btn btn-primary" onclick="submitDelivReject()" style="background:#C33;border-color:#C33">반려 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 광고주 신청 상세 모달 -->
+<div class="modal-overlay" id="brandAppDetailModal" style="z-index:605">
+  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="brandAppDetailTitle">광고주 신청 상세</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBrandAppDetail()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 22px;overflow-y:auto;flex:1" id="brandAppDetailBody">
+      <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
+    </div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap" id="brandAppDetailFooter">
     </div>
   </div>
 </div>

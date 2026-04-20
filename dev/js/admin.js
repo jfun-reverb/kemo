@@ -112,7 +112,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
     'lookups': loadLookupsPane,
-    'deliverables': loadDeliverables
+    'deliverables': loadDeliverables,
+    'brand-applications': loadBrandApplications
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -3397,4 +3398,313 @@ async function submitDelivReject() {
   closeDelivRejectModal();
   closeDelivDetail();
   await renderDeliverablesList();
+}
+
+// ══════════════════════════════════════
+// BRAND APPLICATIONS (광고주 신청 관리 — PR-4)
+// ══════════════════════════════════════
+
+var _brandApps = [];          // 캐시된 전체 목록
+var _brandAppSort = {field: 'created', dir: 'desc'};
+var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
+
+// 상태 라벨·컬러
+var BRAND_APP_STATUS = {
+  'new':       {label:'신규',     color:'#C33',   bg:'#FEE'},
+  'reviewing': {label:'검토중',   color:'#B88',   bg:'#FFE'},
+  'quoted':    {label:'견적전달', color:'#08A',   bg:'#DEF'},
+  'paid':      {label:'입금완료', color:'#6A2',   bg:'#EFE'},
+  'done':      {label:'완료',     color:'#555',   bg:'#EEE'},
+  'rejected':  {label:'반려',     color:'#999',   bg:'#F5F5F5'}
+};
+
+function brandAppStatusBadge(status) {
+  var s = BRAND_APP_STATUS[status] || {label: status, color:'#666', bg:'#EEE'};
+  return '<span style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">'+esc(s.label)+'</span>';
+}
+
+function brandAppFormLabel(formType) {
+  return formType === 'reviewer' ? 'Qoo10 리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
+}
+
+// 광고주가 입력한 URL을 http/https만 허용 (javascript:, data: 스킴 차단)
+function safeBrandUrl(url) {
+  if (!url) return null;
+  try {
+    var u = new URL(url);
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? url : null;
+  } catch(e) { return null; }
+}
+
+function fmtKrw(n) {
+  if (n === null || n === undefined || n === '') return '—';
+  var v = Number(n);
+  if (!isFinite(v) || v === 0) return '—';
+  return '₩ ' + v.toLocaleString('ko-KR');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    var d = new Date(iso);
+    return d.toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\s+/g,'');
+  } catch(e) { return '—'; }
+}
+
+async function loadBrandApplications() {
+  var tbody = $('brandAppTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  _brandApps = await fetchBrandApplications();
+  renderBrandApplicationsList();
+  refreshBrandAppBadge();
+}
+
+async function refreshBrandAppBadge() {
+  var el = $('adminBrandAppSi');
+  if (!el) return;
+  var count = await fetchBrandAppPendingCount();
+  var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">광고주 신청</span>' + badge;
+}
+
+function renderBrandApplicationsList() {
+  var tbody = $('brandAppTableBody');
+  if (!tbody) return;
+
+  var form = ($('brandAppFormFilter')?.value) || 'all';
+  var status = ($('brandAppStatusFilter')?.value) || 'all';
+  var from = ($('brandAppFromDate')?.value) || '';
+  var to = ($('brandAppToDate')?.value) || '';
+  var q = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
+
+  var list = _brandApps.slice();
+
+  if (form !== 'all') list = list.filter(a => a.form_type === form);
+  if (status !== 'all') list = list.filter(a => a.status === status);
+  if (from) list = list.filter(a => (a.created_at || '') >= from);
+  if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
+  if (q) list = list.filter(a =>
+    (a.brand_name || '').toLowerCase().includes(q) ||
+    (a.contact_name || '').toLowerCase().includes(q) ||
+    (a.email || '').toLowerCase().includes(q) ||
+    (a.application_no || '').toLowerCase().includes(q)
+  );
+
+  // 정렬
+  list.sort(function(a, b) {
+    var av, bv;
+    if (_brandAppSort.field === 'estimated') {
+      av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
+    } else {
+      av = a.created_at || ''; bv = b.created_at || '';
+    }
+    if (av < bv) return _brandAppSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return _brandAppSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // 초기화 버튼 표시 여부
+  var filterActive = (form !== 'all' || status !== 'all' || from || to || q);
+  var resetBtn = $('btnBrandAppFilterReset');
+  if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
+
+  var count = $('brandAppTotalCount');
+  if (count) count.textContent = '(' + list.length + '건)';
+
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(function(a) {
+    return '<tr>'
+      + '<td style="font-family:monospace;font-size:11px">' + esc(a.application_no || '—') + '</td>'
+      + '<td><span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></td>'
+      + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
+      + '<td>' + esc(a.contact_name || '—') + '</td>'
+      + '<td style="font-family:monospace;font-size:11px">' + esc(a.phone || '—') + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
+      + '<td>' + brandAppStatusBadge(a.status) + '</td>'
+      + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
+      + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
+      + '</tr>';
+  }).join('');
+}
+
+function resetBrandAppFilters() {
+  if ($('brandAppFormFilter')) $('brandAppFormFilter').value = 'all';
+  if ($('brandAppStatusFilter')) $('brandAppStatusFilter').value = 'all';
+  if ($('brandAppFromDate')) $('brandAppFromDate').value = '';
+  if ($('brandAppToDate')) $('brandAppToDate').value = '';
+  if ($('brandAppSearch')) $('brandAppSearch').value = '';
+  ['brandAppFormFilter','brandAppStatusFilter','brandAppFromDate','brandAppToDate'].forEach(function(id){
+    var el = $(id); if (el) el.classList.remove('filter-active');
+  });
+  renderBrandApplicationsList();
+}
+
+function toggleBrandAppSort(field) {
+  if (_brandAppSort.field === field) {
+    _brandAppSort.dir = _brandAppSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _brandAppSort = {field: field, dir: 'desc'};
+  }
+  updateBrandAppSortIndicators();
+  renderBrandApplicationsList();
+}
+
+// 정렬 화살표 활성 상태 시각화 (▲ asc / ▼ desc / ▲▼ inactive)
+function updateBrandAppSortIndicators() {
+  document.querySelectorAll('#adminPane-brand-applications .sort-arrows').forEach(function(el) {
+    var field = el.getAttribute('data-sort');
+    if (field === _brandAppSort.field) {
+      el.textContent = _brandAppSort.dir === 'asc' ? '▲' : '▼';
+      el.style.color = 'var(--pink)';
+    } else {
+      el.textContent = '▲▼';
+      el.style.color = '';
+    }
+  });
+}
+
+async function openBrandAppDetail(id) {
+  _brandAppCurrentId = id;
+  var modal = $('brandAppDetailModal');
+  if (modal) modal.classList.add('on');
+  var body = $('brandAppDetailBody');
+  var footer = $('brandAppDetailFooter');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+  if (footer) footer.innerHTML = '';
+
+  var a = await fetchBrandApplicationById(id);
+  if (!a) {
+    if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>';
+    return;
+  }
+
+  var title = $('brandAppDetailTitle');
+  if (title) title.textContent = brandAppFormLabel(a.form_type) + ' · ' + a.application_no;
+
+  // products 테이블 렌더
+  var productsHtml = '<div style="color:var(--muted);font-size:12px">제품 없음</div>';
+  if (Array.isArray(a.products) && a.products.length > 0) {
+    productsHtml = '<table class="data-table" style="font-size:12px">'
+      + '<thead><tr><th>제품명</th><th style="width:auto">URL</th><th style="width:80px;text-align:right">가격(¥)</th><th style="width:60px;text-align:right">수량</th></tr></thead>'
+      + '<tbody>' + a.products.map(function(p){
+        // 스킴 화이트리스트(http/https)만 href로 렌더 — javascript:/data: 등 주입 차단
+        var safe = safeBrandUrl(p.url);
+        var urlHtml = safe
+          ? '<a href="' + esc(safe) + '" target="_blank" rel="noopener" style="color:var(--pink);word-break:break-all">' + esc(p.url) + '</a>'
+          : esc(p.url || '—');
+        return '<tr><td>' + esc(p.name || '—') + '</td><td>' + urlHtml + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.price)||0).toLocaleString('ja-JP') + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.qty)||0) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  // 상세 폼 (정보 read-only + 편집 영역)
+  var editableDisabled = (a.status === 'done') ? 'disabled' : '';
+  var statusOptions = ['new','reviewing','quoted','paid','done','rejected'].map(function(s){
+    return '<option value="' + s + '"' + (a.status === s ? ' selected' : '') + '>' + BRAND_APP_STATUS[s].label + '</option>';
+  }).join('');
+
+  if (body) body.innerHTML = ''
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:18px;font-size:13px">'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">브랜드</div><div style="font-weight:600">' + esc(a.brand_name) + '</div></div>'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">담당자</div><div>' + esc(a.contact_name) + '</div></div>'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">연락처</div><div style="font-family:monospace">' + esc(a.phone) + '</div></div>'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">이메일</div><div style="font-family:monospace;word-break:break-all">' + esc(a.email) + '</div></div>'
+    + (a.billing_email ? '<div style="grid-column:1 / -1"><div style="color:var(--muted);font-size:11px;margin-bottom:2px">계산서 이메일</div><div style="font-family:monospace">' + esc(a.billing_email) + '</div></div>' : '')
+    + '</div>'
+    + '<div style="margin-bottom:18px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px">신청 상품 (' + (a.products?.length || 0) + '개, 총 ' + (a.total_qty || 0) + '명 · ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP') + ')</div>'
+    + productsHtml
+    + '</div>'
+    + (a.business_license_path ? '<div style="margin-bottom:18px"><button class="btn btn-ghost btn-xs" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')"><span class="material-icons-round" style="font-size:14px;vertical-align:middle">download</span> 사업자등록증 다운로드</button></div>' : '')
+    + '<div style="border-top:1px solid var(--line);padding-top:16px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">관리자 처리</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">상태</label><select id="brandAppEditStatus" class="admin-filter" ' + editableDisabled + '>' + statusOptions + '</select></div>'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">예상 견적 (자동)</label><input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly></div>'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">확정 견적 (₩)</label><input type="number" id="brandAppEditFinalQuote" class="admin-filter" value="' + (a.final_quote_krw || '') + '" placeholder="0" ' + editableDisabled + '></div>'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px"><input type="checkbox" id="brandAppEditQuoteSent" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + editableDisabled + ' style="margin-right:4px">견적서 전달 완료</label><div style="font-size:10px;color:var(--muted)">' + (a.quote_sent_at ? '전달일: ' + fmtDate(a.quote_sent_at) : '미전달') + '</div></div>'
+    + '</div>'
+    + '<div style="margin-top:12px"><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">내부 메모</label><textarea id="brandAppEditMemo" class="admin-filter" rows="3" style="resize:vertical" ' + editableDisabled + '>' + esc(a.admin_memo || '') + '</textarea></div>'
+    + '<div style="margin-top:10px;font-size:11px;color:var(--muted)">'
+    + '신청일: ' + fmtDate(a.created_at) + (a.reviewed_at ? ' · 검수일: ' + fmtDate(a.reviewed_at) : '') + ' · 버전: ' + a.version
+    + '</div>'
+    + '</div>';
+
+  if (footer) footer.innerHTML = ''
+    + '<button class="btn btn-ghost" onclick="closeBrandAppDetail()">닫기</button>'
+    + (a.status !== 'new' ? '<button class="btn btn-ghost" onclick="revertBrandApp()">되돌리기</button>' : '')
+    + '<button class="btn btn-primary" onclick="saveBrandAppChanges(' + a.version + ')">저장</button>';
+
+  // 현재 row 버전·원본 저장 (낙관적 락용)
+  window._brandAppCurrent = a;
+}
+
+function closeBrandAppDetail() {
+  var modal = $('brandAppDetailModal');
+  if (modal) modal.classList.remove('on');
+  _brandAppCurrentId = null;
+  window._brandAppCurrent = null;
+}
+
+async function downloadBrandDoc(path) {
+  var url = await signBrandDocUrl(path);
+  if (!url) { toast('다운로드 URL 발급 실패', 'error'); return; }
+  window.open(url, '_blank', 'noopener');
+}
+
+async function saveBrandAppChanges(expectedVersion) {
+  var cur = window._brandAppCurrent;
+  if (!cur) return;
+  var status = $('brandAppEditStatus')?.value;
+  var finalQuote = $('brandAppEditFinalQuote')?.value;
+  var quoteSentChecked = $('brandAppEditQuoteSent')?.checked;
+  var memo = $('brandAppEditMemo')?.value || '';
+
+  var patch = {
+    status: status,
+    final_quote_krw: finalQuote ? Number(finalQuote) : null,
+    quote_sent_at: quoteSentChecked ? (cur.quote_sent_at || new Date().toISOString()) : null,
+    admin_memo: memo || null
+  };
+  // 최초 검수 진입 시 reviewed_by/at 기록
+  if (cur.status === 'new' && status !== 'new') {
+    patch.reviewed_by = currentUser?.id || null;
+    patch.reviewed_at = new Date().toISOString();
+  }
+
+  var result = await updateBrandApplication(cur.id, patch, expectedVersion);
+  if (result.conflict) {
+    // 낙관적 락 충돌 — 사용자 입력값은 유실됨(의도적 동작).
+    // 복원 로직 대신 최신 상태를 다시 로드해 사용자가 재확인·재입력하도록 유도.
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await openBrandAppDetail(cur.id);
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  toast('저장되었습니다.');
+  closeBrandAppDetail();
+  await loadBrandApplications();
+}
+
+async function revertBrandApp() {
+  var cur = window._brandAppCurrent;
+  if (!cur) return;
+  if (!await showConfirm('상태를 신규로 되돌리고 검수 기록을 초기화합니다.\n계속할까요?')) return;
+  var result = await updateBrandApplication(cur.id, {
+    status: 'new',
+    reviewed_by: null,
+    reviewed_at: null
+  }, cur.version);
+  if (result.conflict) { toast('다른 관리자가 먼저 처리했습니다.', 'warn'); return; }
+  if (!result.ok) { toast('되돌리기 실패', 'error'); return; }
+  toast('되돌렸습니다.');
+  closeBrandAppDetail();
+  await loadBrandApplications();
 }
