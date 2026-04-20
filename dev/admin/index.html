@@ -156,6 +156,19 @@
             </div>
           </div>
 
+          <!-- 배송지 분포 (도도부현 Top 10 + 未登録/海外) -->
+          <div class="admin-card" style="margin-bottom:16px">
+            <div class="admin-card-header">
+              <span class="admin-card-title">배송지 분포 (도도부현)</span>
+              <span id="addressDistTotal" style="font-size:11px;color:var(--muted)"></span>
+            </div>
+            <div style="padding:16px;position:relative;height:260px">
+              <canvas id="addressDistChart"></canvas>
+              <div id="addressDistEmpty" style="display:none;text-align:center;color:var(--muted);padding:60px 0;font-size:13px">집계할 배송지 데이터가 없습니다</div>
+              <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+            </div>
+          </div>
+
           <div class="admin-card">
             <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
             <table class="data-table" id="recentAppsTable">
@@ -853,11 +866,11 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">광고주 신청</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">Qoo10 리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
-                <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 광고주 신청 페이지 열기">
+                <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 브랜드 서베이 페이지 열기">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
                   설문조사 바로가기
                 </a>
@@ -972,7 +985,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:110px;text-align:center" title="광고주 신청 접수 시 알림 메일 수신">설문 메일받기</th><th>등록일</th><th>처리</th></tr></thead>
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:110px;text-align:center" title="브랜드 서베이 접수 시 알림 메일 수신">설문 메일받기</th><th>등록일</th><th>처리</th></tr></thead>
               <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
@@ -1337,7 +1350,7 @@
 <div class="modal-overlay" id="brandAppDetailModal" style="z-index:605">
   <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="brandAppDetailTitle">광고주 신청 상세</div>
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="brandAppDetailTitle">브랜드 서베이 상세</div>
       <button class="btn btn-ghost btn-xs" onclick="closeBrandAppDetail()" style="padding:4px 10px">✕</button>
     </div>
     <div class="modal-body" style="padding:20px 22px;overflow-y:auto;flex:1" id="brandAppDetailBody">

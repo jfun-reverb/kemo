@@ -87,6 +87,37 @@ async function fetchInfluencers() {
   }
 }
 
+// 대시보드 전용: 인플루언서 배송지(도도부현) 분포 집계
+// - Top 10 일본 도도부현 + 未登録(NULL/빈값) + 海外(비일본) 분리
+// - 도도부현 판별: 끝자가 都/道/府/県 으로 끝나면 일본으로 간주
+async function fetchInfluencerPrefectureStats() {
+  if (!db) return { top: [], unregistered: 0, overseas: 0, total: 0 };
+  try {
+    const { data, error } = await db.from('influencers').select('prefecture');
+    if (error) throw error;
+    const rows = data || [];
+    const counts = {};
+    let unregistered = 0;
+    let overseas = 0;
+    for (const row of rows) {
+      const p = (row.prefecture || '').trim();
+      if (!p) { unregistered++; continue; }
+      if (/(都|道|府|県)$/.test(p)) {
+        counts[p] = (counts[p] || 0) + 1;
+      } else {
+        overseas++;
+      }
+    }
+    const top = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name, count]) => ({ name, count }));
+    return { top, unregistered, overseas, total: rows.length };
+  } catch (e) {
+    return { top: [], unregistered: 0, overseas: 0, total: 0 };
+  }
+}
+
 async function upsertInfluencer(profile) {
   if (!db) return;
   const normalized = (typeof normalizeSnsFields === 'function') ? normalizeSnsFields(profile) : profile;
