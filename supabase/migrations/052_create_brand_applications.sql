@@ -87,7 +87,8 @@ CREATE TABLE IF NOT EXISTS brand_applications (
   admin_memo            text,
 
   -- 검수 정보
-  reviewed_by           uuid        REFERENCES public.admins(auth_id) ON DELETE SET NULL,
+  -- 검수자: auth.users(id) 직접 참조 (admins.auth_id는 UNIQUE가 아니라 FK 불가. deliverables 패턴과 일치)
+  reviewed_by           uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
   reviewed_at           timestamptz,
 
   -- 낙관적 락: 동시 편집 충돌 방지
@@ -333,11 +334,13 @@ CREATE POLICY "brand_app_daily_counter_select_admin"
 
 -- ============================================================
 -- 8. GRANT
---    anon·authenticated → brand_applications INSERT 허용
+--    anon·authenticated → brand_applications INSERT만 허용 (최소 권한 원칙)
+--    SELECT/UPDATE/DELETE는 RLS 정책의 is_admin()으로만 통제
 --    brand_app_daily_counter는 SECURITY DEFINER 트리거 내부 접근이므로 별도 GRANT 불필요
 -- ============================================================
 GRANT INSERT ON TABLE public.brand_applications TO anon, authenticated;
 GRANT SELECT, UPDATE, DELETE ON TABLE public.brand_applications TO authenticated;
+-- 주석: authenticated GRANT는 RLS가 실질 통제. 필요 시 향후 관리자 전용 DB Role로 분리 검토.
 
 
 -- ============================================================
