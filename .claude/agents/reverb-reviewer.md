@@ -36,6 +36,15 @@ model: sonnet
 - [ ] dev/ 수정 후 `cd dev && bash build.sh` 실행 여부
 - [ ] 신규 CSS/JS 파일이 build.sh에 등록됐는지
 
+### 빌드 산출물 일관성 (2026-04-21 추가 — PR #96 빌드 누락 사고 방지)
+- [ ] `git diff --stat HEAD` 결과에 `dev/js/`, `dev/lib/`, `dev/css/` 변경이 있는데 **루트 `index.html` / `admin/index.html`에 대응 변경이 없으면 🔴 Critical**
+- [ ] `dev/sales/` 변경 있으면 루트 `sales/` 도 변경됐는지 (reviewer.html, seeding.html, images/)
+- [ ] `dev/admin/index.html` 변경 있으면 루트 `admin/index.html`도 변경됐는지
+- [ ] 변경된 `dev/index.html` 상단의 `v{timestamp}` 또는 `_buildVersion` 마커가 stale인지 (몇 시간 이상 차이면 build.sh 미실행 의심)
+- [ ] `sales/images/*.png` 신규 파일이 .gitignore에 의해 차단되지 않았는지 (QA 글롭 `s*-*.png` 주의)
+
+→ 위 항목 위반 시 **메인 Claude에게 "빌드 재실행 후 커밋" 지시 요구**. 방치하면 운영 배포 때 빌드 산출물만 누락되는 사고 재발
+
 ### 보안
 - [ ] XSS: textContent 우선, innerHTML 시 esc()
 - [ ] RLS 정책 신규 테이블에 포함
