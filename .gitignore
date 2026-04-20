@@ -2,9 +2,16 @@
 supabase/.temp/
 supabase/bundle/
 
-# Playwright MCP artifacts
+# Playwright MCP artifacts / QA screenshots
 .playwright-mcp/
 s*-*.png
+qa-*.png
+/[0-9]*-*.png
+add-campaign-*.png
+edit-*.png
+channel-*.png
+detail-*.png
+home-*.png
 
 
 # macOS

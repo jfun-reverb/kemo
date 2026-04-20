@@ -13,6 +13,7 @@
 ## Key URLs
 - 운영 (인플루언서): https://globalreverb.com
 - 운영 (관리자): https://globalreverb.com/admin/
+- 운영 (광고주 신청 폼): https://sales.globalreverb.com (별도 Vercel 프로젝트 `reverb-sales`, Root Directory=`sales/`)
 - 스테이징 (인플루언서): https://dev.globalreverb.com
 - 스테이징 (관리자): https://dev.globalreverb.com/admin/ (admin@kemo.jp / admin1234)
 - GitHub: github.com/jfun-reverb/kemo
@@ -129,7 +130,8 @@
 - 내 계정: 이름/비밀번호 변경
 - 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/참여방법을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
 - **참여방법 번들**(`participation_sets`): 캠페인 참여 단계 묶음(1~6단계, 각 단계 title/desc ko·ja) 관리. 모집 타입(recruit_types[]) 태깅으로 캠페인 폼에서 필터링. 캠페인 저장 시 **스냅샷 복사**(`campaigns.participation_steps` jsonb) — 번들 수정해도 기존 캠페인 영향 없음. 캠페인 폼에서 인라인 개별 수정 + "번들 다시 불러오기" 지원. hard delete는 FK `ON DELETE SET NULL`로 스냅샷 격리
-- **광고주 신청 관리**(`/admin#brand-applications`): 영업팀이 비공개 URL(`/sales/reviewer`, `/sales/seeding`)로 받은 광고주 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근 가능(`is_admin()`). 리스트 필터(폼타입/상태/기간/검색) + pending(new) 배지 + 상세 모달(제품 테이블·사업자등록증 signed URL 다운로드·final_quote_krw 수동 입력·quote_sent_at 체크·admin_memo·낙관적 락 version). 상태 전이 new→reviewing→quoted→paid→done/rejected + "되돌리기"(new 복귀). 클라이언트 URL 스킴은 http/https 화이트리스트만 href로 렌더
+- **광고주 신청 관리**(`/admin#brand-applications`): 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 광고주 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근 가능(`is_admin()`). 리스트 필터(폼타입/상태/기간/검색, multi-filter 스타일로 타 페인과 동일) + pending(new) 배지 + 상세 모달(제품 테이블·사업자등록증 signed URL 다운로드·final_quote_krw 수동 입력·quote_sent_at 체크·admin_memo·낙관적 락 version). 상태 전이 new→reviewing→quoted→paid→done/rejected + "되돌리기"(new 복귀). 클라이언트 URL 스킴은 http/https 화이트리스트만 href로 렌더
+- **설문 메일받기 토글**(`/admin#admin-accounts`): 관리자 계정 리스트 각 행의 토글로 `admins.receive_brand_notify` on/off. 광고주 신청 접수 시 Edge Function `notify-brand-application` 이 참조해 알림 메일 발송 대상을 결정. env `NOTIFY_ADMIN_EMAILS` 에 지정된 외부 이메일과 합산(중복 제거). DB 조회 실패 시 env만 폴백 사용
 
 ## Database Schema (Supabase)
 - `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, reward_note, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps, deadline, post_deadline, purchase_start/end (monitor), visit_start/end (visit), submission_end 등). `reward_note`는 리워드 금액 외 추가 안내(지급 조건·정산 시점) 자유 텍스트, 인플루언서 상세 리워드 영역에 노출
@@ -138,7 +140,7 @@
 - `notifications` — 인플루언서 알림 (kind: deliverable_rejected/deliverable_changed/deliverable_approved, ref_table/ref_id, read_at). deliverables.status 전이 트리거로 자동 생성, 재제출 시 미읽음 알림 자동 dismiss
 - `influencers` — 인플루언서 프로필 (name, SNS계정+팔로워, 주소, paypal_email, primary_sns, terms_agreed_at, privacy_agreed_at, marketing_opt_in 등) — bank_* 컬럼은 deprecated (유지, 미사용)
 - `applications` — 캠페인 신청 (user_id, campaign_id, message, address, status, reviewed_by, reviewed_at, oriented_at (OT 발송 체크 수동 토글), reviewed_version (낙관적 락))
-- `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager)
+- `admins` — 관리자 계정 (auth_id, email, name, role: super_admin/campaign_admin/campaign_manager, receive_brand_notify: 광고주 신청 접수 알림 메일 수신 여부)
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용
 - `participation_sets` — 참여방법 번들 (name_ko/ja, recruit_types[], steps jsonb, sort_order, active). `campaigns.participation_steps jsonb` + `campaigns.participation_set_id uuid FK ON DELETE SET NULL` 로 스냅샷 저장·원본 참조
