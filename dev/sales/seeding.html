@@ -1044,7 +1044,9 @@ const SUPABASE_ENVS = {
     key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
   }
 };
-const SUPABASE_ENV = /^(www\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+// 운영 도메인: globalreverb.com · www.globalreverb.com · sales.globalreverb.com
+// 그 외(dev.globalreverb.com · sales-dev.globalreverb.com · *.vercel.app · localhost 등) = staging
+const SUPABASE_ENV = /^(www\.|sales\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
 const sb = window.supabase
   ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key)
   : null;
