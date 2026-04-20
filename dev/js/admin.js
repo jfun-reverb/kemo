@@ -1019,7 +1019,7 @@ function buildPreviewCamp(mode) {
   const contentTypes = Array.from(document.querySelectorAll(`input[name="${ctName}"]:checked`)).map(cb => cb.value);
   const recruitType = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
   const channelMatch = document.querySelector(`input[name="${cmName}"]:checked`)?.value || 'or';
-  // edit 모드는 editCampImgData, add 모드는 campImgData 사용 (항목 shape 차이: {url} / {data})
+  // edit/add 모두 {data: url} shape (campImgData는 업로드 직후 {data, file} 구조, editCampImgData는 복원 시 {data: url})
   const imgList = mode === 'edit'
     ? (typeof editCampImgData !== 'undefined' ? editCampImgData : [])
     : (typeof campImgData !== 'undefined' ? campImgData : []);
@@ -1061,7 +1061,7 @@ function buildPreviewCamp(mode) {
     img1: imgUrls[0]||null, img2: imgUrls[1]||null, img3: imgUrls[2]||null, img4: imgUrls[3]||null,
     img5: imgUrls[4]||null, img6: imgUrls[5]||null, img7: imgUrls[6]||null, img8: imgUrls[7]||null,
     image_crops: crops,
-    status: 'active',
+    status: mode === 'edit' ? (val('editCampStatus') || 'active') : 'active',
     applied_count: 0,
     view_count: 0,
     created_at: new Date().toISOString(),
@@ -1191,8 +1191,7 @@ function setupCampPreview(mode) {
     const g = mode === 'edit' ? 'editCamp' : 'newCamp';
     let allHooked = true;
     ['Desc','Appeal','Guide','Ng'].forEach(function(k) {
-      const el = document.getElementById(g + k);
-      const quill = el?._quill;
+      const quill = richEditors[g + k];
       if (quill && !quill.__previewHooked) {
         quill.on('text-change', entry.debounced);
         quill.__previewHooked = true;

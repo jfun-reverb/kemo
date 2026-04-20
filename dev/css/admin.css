@@ -200,4 +200,4 @@
 .camp-preview-pane.collapsed .camp-preview-pane-header{justify-content:center;padding:10px 4px}
 .camp-preview-pane.collapsed .camp-preview-pane-header button .material-icons-round{transform:rotate(180deg)}
 @media(max-width:1400px){.camp-preview-pane{width:380px}}
-@media(max-width:1200px){.camp-preview-pane{width:340px}.camp-preview-iframe{min-height:500px}}
+@media(max-width:1200px){.camp-preview-pane{width:340px}}

@@ -379,9 +379,23 @@
               <div id="editCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('edit')" style="margin-top:8px">+ 단계 추가</button>
             </div>
-            <div style="display:flex;gap:10px;margin-top:16px">
-              <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
+            <!-- 고정 주의사항 -->
+            <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
+              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서에게 표시됩니다)</span></div>
+              <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
+                <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
+                <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
+                <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
+                <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
+                <li>投稿は6ヶ月以上の掲載が必須です。</li>
+                <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
+                <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
+              </ul>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
             </div>
           </div>
             </div>
@@ -596,13 +610,13 @@
 
             <!-- 고정 주의사항 -->
             <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
-              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(등록 후 인플루언서에게 표시됩니다)</span></div>
+              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서에게 표시됩니다)</span></div>
               <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
                 <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
                 <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
                 <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
                 <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
-                <li>投稿は6ヶ月以上の掲載が필수です。</li>
+                <li>投稿は6ヶ月以上の掲載が必須です。</li>
                 <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
                 <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
               </ul>
@@ -611,7 +625,8 @@
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
               <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
-            </div></div>
+            </div>
+          </div>
             </div>
             <aside class="camp-preview-pane" id="newCampPreviewPane">
               <div class="camp-preview-pane-header">
