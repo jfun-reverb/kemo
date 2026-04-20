@@ -3468,6 +3468,46 @@ function brandAppStatusBadge(status) {
   return '<span style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">'+esc(s.label)+'</span>';
 }
 
+// 리스트에서 즉시 변경 가능한 셀렉트 형태 상태 뱃지
+function brandAppStatusSelect(a) {
+  var s = BRAND_APP_STATUS[a.status] || {label: a.status, color:'#666', bg:'#EEE'};
+  var opts = Object.keys(BRAND_APP_STATUS).map(function(k) {
+    return '<option value="'+k+'"'+(a.status===k?' selected':'')+'>'+esc(BRAND_APP_STATUS[k].label)+'</option>';
+  }).join('');
+  return '<select class="brand-app-status-sel" onchange="quickChangeBrandAppStatus(\''+esc(a.id)+'\', this.value, '+a.version+')" '
+    + 'style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:3px 22px 3px 10px;border-radius:4px;'
+    + 'border:0;cursor:pointer;appearance:none;-webkit-appearance:none;'
+    + 'background-image:linear-gradient(45deg,transparent 50%,'+s.color+' 50%),linear-gradient(-45deg,transparent 50%,'+s.color+' 50%);'
+    + 'background-position:calc(100% - 10px) 8px,calc(100% - 6px) 8px;background-size:4px 4px;background-repeat:no-repeat"'
+    + ' onclick="event.stopPropagation()">'+opts+'</select>';
+}
+
+// 리스트에서 즉시 상태 변경 (낙관적 락 체크)
+async function quickChangeBrandAppStatus(id, newStatus, expectedVersion) {
+  var cur = _brandApps.find(function(a){ return a.id === id; });
+  if (!cur) return;
+  if (cur.status === newStatus) return;
+  var patch = {status: newStatus};
+  // 최초 검수 진입 시 reviewed_by/at 기록
+  if (cur.status === 'new' && newStatus !== 'new') {
+    patch.reviewed_by = currentUser?.id || null;
+    patch.reviewed_at = new Date().toISOString();
+  }
+  var result = await updateBrandApplication(id, patch, expectedVersion);
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('상태 변경 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    await loadBrandApplications();
+    return;
+  }
+  toast('상태가 ' + (BRAND_APP_STATUS[newStatus]?.label || newStatus) + '(으)로 변경됨');
+  await loadBrandApplications();
+}
+
 function brandAppFormLabel(formType) {
   return formType === 'reviewer' ? 'Qoo10 리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
 }
@@ -3515,7 +3555,7 @@ function copyBrandSalesUrl() {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -3574,7 +3614,7 @@ function renderBrandApplicationsList() {
   if (count) count.textContent = '(' + list.length + '건)';
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
     return;
   }
 
@@ -3585,11 +3625,15 @@ function renderBrandApplicationsList() {
         + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
       + '</td>'
       + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
-      + '<td>' + esc(a.contact_name || '—') + '</td>'
+      + '<td>'
+        + '<div>' + esc(a.contact_name || '—') + '</div>'
+        + (a.email ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:monospace;word-break:break-all">' + esc(a.email) + '</div>' : '')
+      + '</td>'
       + '<td style="font-family:monospace;font-size:11px">' + esc(a.phone || '—') + '</td>'
+      + '<td style="font-family:monospace;font-size:11px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
-      + '<td>' + brandAppStatusBadge(a.status) + '</td>'
+      + '<td>' + brandAppStatusSelect(a) + '</td>'
       + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
       + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
       + '</tr>';
