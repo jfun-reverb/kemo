@@ -3696,16 +3696,16 @@ async function openBrandAppDetail(id) {
     return;
   }
 
+  // 모달 타이틀: 신청번호만 (상태 뱃지는 body 상단으로)
   var title = $('brandAppDetailTitle');
-  if (title) title.textContent = brandAppFormLabel(a.form_type) + ' · ' + a.application_no;
+  if (title) title.textContent = a.application_no;
 
-  // products 테이블 렌더
-  var productsHtml = '<div style="color:var(--muted);font-size:12px">제품 없음</div>';
+  // 제품 테이블
+  var productsHtml = '<div style="color:var(--muted);font-size:12px;padding:12px">제품 정보 없음</div>';
   if (Array.isArray(a.products) && a.products.length > 0) {
-    productsHtml = '<table class="data-table" style="font-size:12px">'
-      + '<thead><tr><th>제품명</th><th style="width:auto">URL</th><th style="width:80px;text-align:right">가격(¥)</th><th style="width:60px;text-align:right">수량</th></tr></thead>'
+    productsHtml = '<table class="data-table" style="font-size:12px;margin:0">'
+      + '<thead><tr><th>제품명</th><th>URL</th><th style="width:100px;text-align:right">가격 (¥)</th><th style="width:70px;text-align:right">수량</th></tr></thead>'
       + '<tbody>' + a.products.map(function(p){
-        // 스킴 화이트리스트(http/https)만 href로 렌더 — javascript:/data: 등 주입 차단
         var safe = safeBrandUrl(p.url);
         var urlHtml = safe
           ? '<a href="' + esc(safe) + '" target="_blank" rel="noopener" style="color:var(--pink);word-break:break-all">' + esc(p.url) + '</a>'
@@ -3714,37 +3714,95 @@ async function openBrandAppDetail(id) {
       }).join('') + '</tbody></table>';
   }
 
-  // 상세 폼 (정보 read-only + 편집 영역)
-  var editableDisabled = (a.status === 'done') ? 'disabled' : '';
+  // 편집 가능 여부 — done 또는 rejected면 읽기전용
+  var editableDisabled = (a.status === 'done' || a.status === 'rejected') ? 'disabled' : '';
   var statusOptions = ['new','reviewing','quoted','paid','done','rejected'].map(function(s){
     return '<option value="' + s + '"' + (a.status === s ? ' selected' : '') + '>' + BRAND_APP_STATUS[s].label + '</option>';
   }).join('');
 
+  // 섹션 재사용 스타일
+  var sectionLabel = function(txt) {
+    return '<div style="font-size:11px;font-weight:700;color:var(--ink);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">' + esc(txt) + '</div>';
+  };
+  var kvCard = function(label, value) {
+    return '<div><div style="color:var(--muted);font-size:11px;margin-bottom:3px;font-weight:600">' + esc(label) + '</div><div style="font-size:13px;color:var(--ink);word-break:break-all">' + (value || '<span style="color:var(--muted)">—</span>') + '</div></div>';
+  };
+
+  // 총 상품가/수량 요약
+  var productsSummary = '';
+  if (Array.isArray(a.products) && a.products.length > 0) {
+    productsSummary = '<span style="font-weight:400;color:var(--muted);margin-left:8px;font-size:11px">'
+      + (a.products.length) + '종 · 총 ' + (a.total_qty || 0) + '명 · ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP')
+      + '</span>';
+  }
+
   if (body) body.innerHTML = ''
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:18px;font-size:13px">'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">브랜드</div><div style="font-weight:600">' + esc(a.brand_name) + '</div></div>'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">담당자</div><div>' + esc(a.contact_name) + '</div></div>'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">연락처</div><div style="font-family:monospace">' + esc(a.phone) + '</div></div>'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">이메일</div><div style="font-family:monospace;word-break:break-all">' + esc(a.email) + '</div></div>'
-    + (a.billing_email ? '<div style="grid-column:1 / -1"><div style="color:var(--muted);font-size:11px;margin-bottom:2px">계산서 이메일</div><div style="font-family:monospace">' + esc(a.billing_email) + '</div></div>' : '')
+    // 헤더: 폼 타입 + 상태 뱃지
+    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">'
+      + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px">' + esc(brandAppFormLabel(a.form_type)) + '</span>'
+      + brandAppStatusBadge(a.status)
     + '</div>'
-    + '<div style="margin-bottom:18px">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px">신청 상품 (' + (a.products?.length || 0) + '개, 총 ' + (a.total_qty || 0) + '명 · ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP') + ')</div>'
-    + productsHtml
+
+    // § 기본 정보
+    + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
+      + sectionLabel('기본 정보')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">'
+        + kvCard('브랜드', '<strong>' + esc(a.brand_name) + '</strong>')
+        + kvCard('담당자', esc(a.contact_name))
+        + kvCard('연락처', esc(a.phone))
+        + kvCard('이메일', esc(a.email))
+        + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace('<div>','').replace(/<\/div>$/,'') + '</div>' : '')
+      + '</div>'
     + '</div>'
-    + (a.business_license_path ? '<div style="margin-bottom:18px"><button class="btn btn-ghost btn-xs" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')"><span class="material-icons-round" style="font-size:14px;vertical-align:middle">download</span> 사업자등록증 다운로드</button></div>' : '')
-    + '<div style="border-top:1px solid var(--line);padding-top:16px">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">관리자 처리</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">상태</label><select id="brandAppEditStatus" class="admin-filter" ' + editableDisabled + '>' + statusOptions + '</select></div>'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">예상 견적 (자동)</label><input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly></div>'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">확정 견적 (₩)</label><input type="number" id="brandAppEditFinalQuote" class="admin-filter" value="' + (a.final_quote_krw || '') + '" placeholder="0" ' + editableDisabled + '></div>'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px"><input type="checkbox" id="brandAppEditQuoteSent" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + editableDisabled + ' style="margin-right:4px">견적서 전달 완료</label><div style="font-size:10px;color:var(--muted)">' + (a.quote_sent_at ? '전달일: ' + fmtDate(a.quote_sent_at) : '미전달') + '</div></div>'
+
+    // § 신청 상품
+    + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
+      + '<div style="display:flex;align-items:baseline;margin-bottom:10px">' + sectionLabel('신청 상품') + productsSummary + '</div>'
+      + productsHtml
     + '</div>'
-    + '<div style="margin-top:12px"><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">내부 메모</label><textarea id="brandAppEditMemo" class="admin-filter" rows="3" style="resize:vertical" ' + editableDisabled + '>' + esc(a.admin_memo || '') + '</textarea></div>'
-    + '<div style="margin-top:10px;font-size:11px;color:var(--muted)">'
-    + '신청일: ' + fmtDate(a.created_at) + (a.reviewed_at ? ' · 검수일: ' + fmtDate(a.reviewed_at) : '') + ' · 버전: ' + a.version
+
+    // § 사업자등록증 (reviewer 전용)
+    + (a.business_license_path
+      ? '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
+        + sectionLabel('사업자등록증')
+        + '<button class="btn btn-ghost btn-sm" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')" style="display:inline-flex;align-items:center;gap:4px">'
+          + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>파일 다운로드'
+        + '</button>'
+      + '</div>'
+      : '')
+
+    // § 관리자 처리
+    + '<div style="padding-bottom:16px;margin-bottom:16px">'
+      + sectionLabel('관리자 처리')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">'
+        + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">상태</label>'
+          + '<select id="brandAppEditStatus" class="admin-filter" ' + editableDisabled + '>' + statusOptions + '</select>'
+        + '</div>'
+        + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">예상 견적 (자동)</label>'
+          + '<input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly style="background:#F7F7F7;color:var(--muted)">'
+        + '</div>'
+        + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">확정 견적 (₩)</label>'
+          + '<input type="number" id="brandAppEditFinalQuote" class="admin-filter" value="' + (a.final_quote_krw || '') + '" placeholder="0" ' + editableDisabled + '>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;justify-content:flex-end">'
+          + '<label style="display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13px;cursor:pointer">'
+            + '<input type="checkbox" id="brandAppEditQuoteSent" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + editableDisabled + '>'
+            + '견적서 전달 완료'
+          + '</label>'
+          + '<div style="font-size:10px;color:var(--muted);margin-top:3px">' + (a.quote_sent_at ? '전달일 ' + fmtDate(a.quote_sent_at) : '미전달') + '</div>'
+        + '</div>'
+      + '</div>'
+      + '<div style="margin-top:14px">'
+        + '<label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">내부 메모</label>'
+        + '<textarea id="brandAppEditMemo" class="admin-filter" rows="3" style="resize:vertical" placeholder="관리자끼리 공유할 메모 (광고주에게 노출되지 않음)" ' + editableDisabled + '>' + esc(a.admin_memo || '') + '</textarea>'
+      + '</div>'
     + '</div>'
+
+    // § 이력
+    + '<div style="padding-top:12px;border-top:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)">'
+      + '<span><span style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-right:4px">신청일</span>' + fmtDate(a.created_at) + '</span>'
+      + (a.reviewed_at ? '<span><span style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-right:4px">검수일</span>' + fmtDate(a.reviewed_at) + '</span>' : '')
+      + '<span style="margin-left:auto"><span style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-right:4px">ver</span>' + a.version + '</span>'
     + '</div>';
 
   if (footer) footer.innerHTML = ''
