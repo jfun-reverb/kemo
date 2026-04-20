@@ -691,7 +691,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 검색" oninput="filterAdminCampaigns()">
+                  <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
                 </div>
               </div>
             </div>
@@ -1273,7 +1273,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 검색" oninput="renderAppCampList()">
+                  <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 · 캠페인번호 검색" oninput="renderAppCampList()">
                 </div>
               </div>
             </div>
@@ -1324,7 +1324,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 검색" oninput="renderDeliverablesList()">
+                  <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 · 캠페인명 · 캠페인번호 검색" oninput="renderDeliverablesList()">
                 </div>
               </div>
             </div>
@@ -4163,7 +4163,7 @@ async function loadAdminCampaigns(useCache) {
 
   // 검색 필터
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
-  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal));
+  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal) || (c.campaign_no||'').toLowerCase().includes(searchVal));
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
@@ -4871,6 +4871,7 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   menu.innerHTML = `
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
+    <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
@@ -5481,6 +5482,7 @@ async function renderAppCampList() {
       const camp = camps.find(c => c.id === a.campaign_id) || {};
       return (camp.title||'').toLowerCase().includes(searchVal)
         || (camp.brand||'').toLowerCase().includes(searchVal)
+        || (camp.campaign_no||'').toLowerCase().includes(searchVal)
         || (a.user_name||'').toLowerCase().includes(searchVal)
         || (a.user_email||'').toLowerCase().includes(searchVal);
     });
@@ -6787,7 +6789,11 @@ async function renderDeliverablesList() {
   if (delivKindVals.length > 1) filtered = filtered.filter(r => delivKindVals.includes(r.kind));
   if (search) filtered = filtered.filter(r => {
     const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
-    return n.toLowerCase().includes(search);
+    const camp = r.campaigns || {};
+    return n.toLowerCase().includes(search)
+      || (camp.title || '').toLowerCase().includes(search)
+      || (camp.brand || '').toLowerCase().includes(search)
+      || (camp.campaign_no || '').toLowerCase().includes(search);
   });
   updateFilterResetBtn('btnDelivFilterReset', ['delivKindMulti','delivStatusMulti'], 'delivSearch');
   // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
@@ -7179,6 +7185,208 @@ function fmtDate(iso) {
     var d = new Date(iso);
     return d.toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\s+/g,'');
   } catch(e) { return '—'; }
+}
+
+// ══════════════════════════════════════
+// 캠페인 결과물 엑셀 다운로드 (exceljs 지연 로드 + 이미지 임베드)
+// ══════════════════════════════════════
+var _excelJsLoading = null;
+function loadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve();
+  if (_excelJsLoading) return _excelJsLoading;
+  _excelJsLoading = new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+    s.onload = function() { resolve(); };
+    s.onerror = function() { reject(new Error('ExcelJS 로드 실패')); };
+    document.head.appendChild(s);
+  });
+  return _excelJsLoading;
+}
+
+// Supabase Storage 이미지를 Image→Canvas를 거쳐 jpeg ArrayBuffer로 변환
+// fetch 기반보다 CORS·binary 안정성이 좋고 webp 등 예외 포맷도 jpeg로 통일
+function imgToJpegArrayBuffer(url, maxW, maxH) {
+  return new Promise(function(resolve, reject) {
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      try {
+        var ratio = Math.min((maxW || 800) / img.width, (maxH || 800) / img.height, 1);
+        var w = Math.max(1, Math.round(img.width * ratio));
+        var h = Math.max(1, Math.round(img.height * ratio));
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob) {
+          if (!blob) { reject(new Error('canvas toBlob returned null')); return; }
+          blob.arrayBuffer().then(function(buf) {
+            resolve({buffer: buf, ext: 'jpeg'});
+          }).catch(reject);
+        }, 'image/jpeg', 0.85);
+      } catch(e) { reject(e); }
+    };
+    img.onerror = function() { reject(new Error('image load failed: ' + url)); };
+    img.src = url;
+  });
+}
+
+async function exportCampaignDeliverables(campId) {
+  try {
+    document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
+    toast('엑셀 생성 중...');
+    await loadExcelJS();
+
+    // 1) 캠페인 로드
+    var camp = (Array.isArray(allCampaigns) ? allCampaigns : []).find(function(c){ return c.id === campId; });
+    if (!camp && db) {
+      var res = await db?.from('campaigns').select('*').eq('id', campId).maybeSingle();
+      camp = res?.data;
+    }
+    if (!camp) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
+
+    // 2) 승인된 결과물 로드
+    var delivs = await fetchDeliverables({campaign_id: campId, status: 'approved'});
+    if (!delivs.length) { toast('승인된 결과물이 없습니다', 'warn'); return; }
+
+    // 3) 영수증 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
+    var imgBuffers = {};
+    await Promise.all(delivs.filter(function(d){
+      return d.kind === 'receipt' && d.receipt_url;
+    }).map(async function(d) {
+      try {
+        var url = d.receipt_url;
+        if (url && !/^https?:\/\//.test(url) && db?.storage) {
+          var sig = await db.storage.from('campaign-images').createSignedUrl(url, 3600);
+          url = sig?.data?.signedUrl;
+        }
+        if (!url) return;
+        var result = await imgToJpegArrayBuffer(url, 400, 400);
+        if (result && result.buffer && result.buffer.byteLength > 0) {
+          imgBuffers[d.id] = result;
+        }
+      } catch(e) {
+        console.warn('[excel] receipt fetch failed', d.id, e);
+      }
+    }));
+
+    // 4) 워크북 생성
+    var wb = new ExcelJS.Workbook();
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+    var ws = wb.addWorksheet('결과물');
+
+    // 헤더 (A1:J1, A2:J2) — 총 10열
+    ws.mergeCells('A1:J1');
+    var t = ws.getCell('A1');
+    t.value = (camp.campaign_no ? camp.campaign_no + '  ' : '') + (camp.title || '');
+    t.font = {bold: true, size: 14};
+    t.alignment = {vertical: 'middle'};
+    ws.getRow(1).height = 26;
+
+    ws.mergeCells('A2:J2');
+    var m = ws.getCell('A2');
+    m.value = '브랜드: ' + (camp.brand || '—') + '  ·  승인 건수: ' + delivs.length + '건  ·  생성일: ' + new Date().toLocaleString('ko-KR');
+    m.font = {color: {argb: 'FF888888'}, size: 11};
+    ws.getRow(2).height = 20;
+
+    // 컬럼 헤더 (4행)
+    ws.getRow(4).values = [
+      '인플루언서', 'SNS 아이디', '타입', '제출일', '검수일',
+      '상태', '영수증', 'URL', '구매일', '구매금액 (¥)'
+    ];
+    ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
+    ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
+    ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
+    ws.getRow(4).height = 24;
+
+    // 컬럼 너비 (G=영수증 16, H=URL 40)
+    ws.columns = [
+      {width: 18}, {width: 20}, {width: 10}, {width: 14}, {width: 14},
+      {width: 10}, {width: 16}, {width: 40}, {width: 14}, {width: 14}
+    ];
+
+    // 본문 행
+    delivs.forEach(function(d, i) {
+      var rowNum = 5 + i;
+      var inf = d.influencers || {};
+      var kindLabel = d.kind === 'receipt' ? '영수증' : '게시물';
+      var statusLabel = {pending:'검수대기', approved:'승인', rejected:'반려'}[d.status] || d.status;
+      var row = ws.getRow(rowNum);
+      row.height = 84;
+
+      // post_submissions 최신 URL 우선 (재제출 이력 중 마지막)
+      var postUrl = d.post_url || '';
+      if (d.kind === 'post' && Array.isArray(d.post_submissions) && d.post_submissions.length) {
+        var last = d.post_submissions[d.post_submissions.length - 1];
+        postUrl = (last && last.url) || postUrl;
+      }
+
+      // 영수증 열 (G): receipt → 이미지만 임베드 / post → 공란
+      // URL 열 (H): post → 게시물 URL / receipt → '영수증 보기' 하이퍼링크
+      var urlCellValue = '';
+      if (d.kind === 'post' && postUrl) {
+        urlCellValue = {text: postUrl, hyperlink: postUrl};
+      } else if (d.kind === 'receipt' && d.receipt_url) {
+        var receiptUrl = /^https?:\/\//.test(d.receipt_url)
+          ? d.receipt_url
+          : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
+        urlCellValue = {text: '영수증 보기', hyperlink: receiptUrl};
+      }
+
+      row.values = [
+        inf.name || '—',
+        inf.primary_sns || '',
+        kindLabel,
+        d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '',
+        d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '',
+        statusLabel,
+        '',
+        urlCellValue,
+        d.purchase_date || '',
+        d.purchase_amount ? Number(d.purchase_amount) : ''
+      ];
+      row.alignment = {vertical: 'middle', wrapText: true};
+
+      // 하이퍼링크 셀 스타일 (H열 = URL)
+      var urlCell = row.getCell(8);
+      if (urlCell && urlCell.value && urlCell.value.hyperlink) {
+        urlCell.font = {color: {argb: 'FFE8344E'}, underline: true};
+      }
+
+      // 이미지 셀 내부 임베드 (receipt만, G열)
+      // 레인지 문자열(`G5:G5`)로 셀 경계에 정확히 앵커 — 셀 이동·크기 조정 시 따라감
+      if (d.kind === 'receipt' && imgBuffers[d.id]) {
+        var imgId = wb.addImage({buffer: imgBuffers[d.id].buffer, extension: imgBuffers[d.id].ext});
+        ws.addImage(imgId, 'G' + rowNum + ':G' + rowNum);
+      }
+    });
+
+    // 구매금액 숫자 포맷 (J열 = 10번째)
+    ws.getColumn(10).numFmt = '#,##0';
+
+    // 5) 파일 저장
+    var buffer = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
+    var today = new Date().toISOString().slice(0, 10);
+    var fname = (camp.campaign_no || camp.id.slice(0,8)) + '_' + safeBrand + '_결과물_' + today + '.xlsx';
+
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fname;
+    link.click();
+    setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
+
+    toast('엑셀 다운로드 완료');
+  } catch(e) {
+    console.error('[exportCampaignDeliverables]', e);
+    toast('엑셀 생성 실패: ' + (e.message || String(e)), 'error');
+  }
 }
 
 // 임의 텍스트를 클립보드에 복사 (execCommand fallback 포함)
