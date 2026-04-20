@@ -5,33 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="robots" content="noindex,nofollow">
 <meta name="googlebot" content="noindex,nofollow">
-<title>REVERB JP | 광고주 신청</title>
+<title>REVERB JP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Sora:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Noto+Sans+JP:wght@300;400;500;700;900&family=Sora:wght@600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;0,9..144,900;1,9..144,600;1,9..144,800;1,9..144,900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 <style>
 :root {
   --brand: #E8344E;
-  --brand-dark: #C41E3A;
-  --brand-soft: #FFF0F2;
+  --brand-deep: #B1253C;
   --ink: #161618;
   --ink-soft: #4A4A4F;
   --ink-mute: #8A8A90;
-  --paper: #FAFAF7;
+  --paper: #F7F4EE;
+  --paper-warm: #EFEAE0;
+  --sage: #D8DFC6;
+  --sage-deep: #9BAB7E;
+  --sage-ink: #3E4A30;
   --card: #FFFFFF;
-  --border: #EAEAE4;
-  --border-strong: #D4D4CC;
-  --sage: #E8ECDA;
-  --sage-ink: #4A5A3A;
-  --accent: #F4E4C1;
+  --border: rgba(22,22,24,0.08);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 html, body {
   font-family: 'Sora', 'Noto Sans KR', 'Noto Sans JP', sans-serif;
-  background: var(--paper);
   color: var(--ink);
   line-height: 1.6;
   font-size: 15px;
@@ -43,220 +41,343 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 40px 24px 48px;
+  background: var(--paper);
+  position: relative;
+  overflow-x: hidden;
 }
 
-/* HEADER */
+/* 여백 톤 */
+.shell { padding: 24px 20px 48px; }
+
+/* Entrance motion */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slowFloat {
+  0%,100% { transform: translate(0,0); }
+  50% { transform: translate(-10px, 10px); }
+}
+.reveal { opacity: 0; animation: fadeUp 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+.d1 { animation-delay: 0.05s; }
+.d2 { animation-delay: 0.15s; }
+.d3 { animation-delay: 0.28s; }
+.d4 { animation-delay: 0.42s; }
+.d5 { animation-delay: 0.58s; }
+.d6 { animation-delay: 0.70s; }
+
+/* ──── HEADER ──── */
 .top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
+  padding: 8px 2px 0;
+  margin-bottom: 44px;
 }
 
 .brand-logo {
-  font-family: 'Sora', 'Noto Sans KR', sans-serif;
+  font-family: 'Sora', sans-serif;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: -0.03em;
   color: var(--ink);
 }
 
 .lang-toggle {
   display: flex;
-  gap: 2px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 100px;
-  padding: 3px;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
-
 .lang-toggle button {
   background: none;
   border: none;
-  padding: 6px 12px;
-  border-radius: 100px;
+  padding: 4px 2px;
   cursor: pointer;
   color: var(--ink-mute);
   font-family: inherit;
-  font-weight: 600;
-}
-
-.lang-toggle button.active {
-  background: var(--ink);
-  color: white;
-}
-
-/* INTRO */
-.eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--brand);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  margin-bottom: 14px;
-}
-
-.title {
-  font-family: 'Sora', 'Noto Sans KR', sans-serif;
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.03em;
-  margin-bottom: 14px;
-  color: var(--ink);
-}
-
-.desc {
-  font-size: 14px;
-  color: var(--ink-soft);
-  line-height: 1.65;
-  margin-bottom: 28px;
-}
-
-/* CHOICE CARDS */
-.choice-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 28px;
-}
-
-.choice-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 20px 20px 18px;
-  text-decoration: none;
-  color: inherit;
-  display: block;
-  transition: all 0.18s;
-  position: relative;
-  overflow: hidden;
-}
-.choice-card:hover {
-  border-color: var(--ink);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-}
-
-.choice-card .chip {
-  display: inline-block;
-  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 100px;
-  margin-bottom: 12px;
+  position: relative;
 }
-
-.choice-card.reviewer .chip {
-  background: var(--brand-soft);
-  color: var(--brand);
+.lang-toggle button.active { color: var(--ink); }
+.lang-toggle button.active::after {
+  content: "";
+  position: absolute;
+  left: 2px; right: 2px; bottom: -2px;
+  height: 2px;
+  background: var(--ink);
 }
+.lang-toggle .sep { color: var(--ink-mute); opacity: 0.4; }
 
-.choice-card.seeding .chip {
-  background: var(--sage);
-  color: var(--sage-ink);
-}
+/* ──── HERO ──── */
+.hero { position: relative; margin-bottom: 52px; }
 
-.choice-card .card-title {
-  font-family: 'Sora', 'Noto Sans KR', sans-serif;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  margin-bottom: 6px;
-}
-
-.choice-card .card-desc {
-  font-size: 13px;
-  color: var(--ink-soft);
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
-
-.choice-card .tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.choice-card .tag {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-mute);
-  background: var(--paper);
-  border: 1px solid var(--border);
-  padding: 3px 9px;
-  border-radius: 6px;
-}
-
-.choice-card .cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
+.hero-eyebrow {
+  font-size: 10px;
   font-weight: 700;
-  color: var(--ink);
-}
-.choice-card .cta .material-icons-outlined {
-  font-size: 16px;
-  transition: transform 0.18s;
-}
-.choice-card:hover .cta { color: var(--brand); }
-.choice-card:hover .cta .material-icons-outlined { transform: translateX(4px); }
-
-/* CONTACT */
-.contact-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px 20px;
+  color: var(--brand);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
   margin-bottom: 18px;
 }
 
-.contact-label {
-  font-size: 11px;
-  font-weight: 700;
+.hero-title {
+  font-family: 'Fraunces', 'Noto Sans KR', 'Noto Sans JP', serif;
+  font-weight: 900;
+  font-size: 46px;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
   color: var(--ink);
-  letter-spacing: 0.12em;
+  margin-bottom: 28px;
+}
+.hero-title em {
+  font-style: italic;
+  font-weight: 900;
+  color: var(--brand);
+}
+.hero-title .line2 { display: block; margin-top: 4px; }
+
+.hero-desc {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.75;
+  max-width: 360px;
+  letter-spacing: -0.005em;
+}
+
+/* Editorial 구분선 */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 24px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--ink-mute);
   text-transform: uppercase;
-  margin-bottom: 10px;
+}
+.divider::before, .divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.18;
+}
+
+/* ──── CHOICE CARDS ──── */
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 56px;
+}
+
+.choice-card {
+  position: relative;
+  border-radius: 28px;
+  padding: 32px 26px 26px;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  min-height: 290px;
+  transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s;
+  cursor: pointer;
+}
+
+.choice-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.choice-card .orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.55;
+  animation: slowFloat 9s ease-in-out infinite;
+}
+.choice-card .orb-1 {
+  width: 220px; height: 220px;
+  top: -60px; right: -70px;
+  opacity: 0.48;
+}
+.choice-card .orb-2 {
+  width: 130px; height: 130px;
+  bottom: -40px; left: -30px;
+  opacity: 0.35;
+  animation-direction: reverse;
+  animation-duration: 11s;
+}
+
+/* REVIEWER */
+.choice-card.reviewer {
+  background: linear-gradient(170deg, #FFEAEE 0%, #FFF7F3 55%, #FBFBF7 100%);
+  color: var(--ink);
+}
+.choice-card.reviewer .orb-1 { background: radial-gradient(circle, rgba(232,52,78,0.75) 0%, transparent 70%); }
+.choice-card.reviewer .orb-2 { background: radial-gradient(circle, rgba(244,228,193,0.9) 0%, transparent 70%); }
+
+/* SEEDING */
+.choice-card.seeding {
+  background: linear-gradient(170deg, #E5ECD2 0%, #F3F2E3 55%, #FBFBF7 100%);
+  color: var(--ink);
+}
+.choice-card.seeding .orb-1 { background: radial-gradient(circle, rgba(155,171,126,0.75) 0%, transparent 70%); }
+.choice-card.seeding .orb-2 { background: radial-gradient(circle, rgba(232,52,78,0.35) 0%, transparent 70%); }
+
+.choice-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 22px 48px -20px rgba(0,0,0,0.18);
+}
+.choice-card:active { transform: translateY(-1px); }
+
+.card-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  opacity: 0.62;
+  margin-bottom: 16px;
+}
+.choice-card.reviewer .card-kicker { color: var(--brand-deep); }
+.choice-card.seeding .card-kicker { color: var(--sage-ink); }
+
+.card-title {
+  font-family: 'Fraunces', 'Noto Sans KR', 'Noto Sans JP', serif;
+  font-weight: 900;
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  margin-bottom: 14px;
+  color: var(--ink);
+}
+.card-title em { font-style: italic; color: var(--brand); font-weight: 900; }
+.choice-card.seeding .card-title em { color: var(--sage-deep); font-weight: 900; }
+
+.card-desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  max-width: 320px;
+  margin-bottom: 28px;
+}
+
+.card-cta {
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cta-text {
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.cta-circle {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s, background 0.25s;
+}
+.cta-circle .material-icons-outlined { font-size: 18px; }
+.choice-card:hover .cta-circle { transform: translate(6px, 0); }
+.choice-card.reviewer:hover .cta-circle { background: var(--brand); }
+.choice-card.seeding:hover .cta-circle { background: var(--sage-ink); }
+
+/* 워터마크 워드마크 */
+.watermark {
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  font-family: 'Fraunces', serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 58px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: -1;
+  white-space: nowrap;
+}
+.choice-card.reviewer .watermark { color: var(--brand); }
+.choice-card.seeding .watermark { color: var(--sage-ink); }
+
+/* ──── CONTACT — minimal editorial ──── */
+.contact-block {
+  border-top: 1px solid var(--ink);
+  padding-top: 22px;
+  margin-bottom: 24px;
+}
+.contact-block-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 16px;
 }
 
 .contact-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  font-size: 13px;
-  color: var(--ink-soft);
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 0;
+  font-size: 13.5px;
   border-bottom: 1px solid var(--border);
 }
 .contact-row:last-child { border-bottom: none; }
-
 .contact-row .k {
   color: var(--ink-mute);
-  min-width: 70px;
-  font-weight: 600;
+  min-width: 76px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
-
+.contact-row .v {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
 .contact-row .v a {
-  color: var(--brand);
+  color: var(--ink);
   text-decoration: none;
-  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
 }
+.contact-row .v a:hover { border-bottom-color: var(--brand); }
 
 .footnote {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
   font-size: 11px;
   color: var(--ink-mute);
   text-align: center;
-  line-height: 1.6;
+  letter-spacing: 0.03em;
+  margin-top: 28px;
 }
 
 /* LANG */
@@ -265,113 +386,117 @@ body {
 [lang-ko] .ja-only { display: none; }
 
 @media (max-width: 360px) {
-  body { padding: 28px 18px 40px; }
-  .title { font-size: 26px; }
-  .choice-card .card-title { font-size: 16px; }
+  .hero-title { font-size: 38px; }
+  .card-title { font-size: 26px; }
+  .choice-card { min-height: 270px; padding: 28px 22px 22px; }
+  .card-cta { left: 22px; right: 22px; }
+  .watermark { font-size: 48px; right: 16px; bottom: 14px; }
 }
 </style>
 </head>
 <body lang-ko>
 
-<div class="top-bar">
-  <div class="brand-logo">Reverb</div>
-  <div class="lang-toggle">
-    <button class="active" onclick="setLang('ko', event)">KO</button>
-    <button onclick="setLang('ja', event)">JA</button>
+<div class="shell">
+
+  <div class="top-bar reveal">
+    <div class="brand-logo">Reverb</div>
+    <div class="lang-toggle">
+      <button class="active" onclick="setLang('ko', event)">KO</button>
+      <span class="sep">·</span>
+      <button onclick="setLang('ja', event)">JA</button>
+    </div>
   </div>
-</div>
 
-<div class="eyebrow">REVERB JP</div>
-<h1 class="title">
-  <span class="ko-only">어떤 서비스를 신청하시나요?</span>
-  <span class="ja-only">ご希望のサービスをお選びください</span>
-</h1>
-<p class="desc">
-  <span class="ko-only">브랜드의 목표에 맞춰 적합한 서비스를 선택해주세요.<br>선택 후 온라인 신청서를 작성하시면 담당자가 확인 후 연락드립니다.</span>
-  <span class="ja-only">ブランドの目的に合わせて最適なサービスをお選びください。<br>お申込み後、担当者よりご連絡いたします。</span>
-</p>
-
-<div class="choice-list">
-  <a class="choice-card reviewer" id="goReviewer" href="reviewer.html">
-    <span class="chip">
-      <span class="ko-only">Qoo10 리뷰어 모집</span>
-      <span class="ja-only">Qoo10 レビュアー募集</span>
-    </span>
-    <div class="card-title">
-      <span class="ko-only">일본 유저의 실구매 리뷰</span>
-      <span class="ja-only">日本ユーザーの実購入レビュー</span>
-    </div>
-    <div class="card-desc">
-      <span class="ko-only">Qoo10 일본 유저가 직접 구매 후 리뷰를 작성합니다. Qoo10 정산 시스템으로 판매대금 수령.</span>
-      <span class="ja-only">Qoo10の日本ユーザーが直接購入してレビューを作成。Qoo10精算システムで売上受取。</span>
-    </div>
-    <div class="tags">
-      <span class="tag">
-        <span class="ko-only">리뷰어 모집비 무료</span>
-        <span class="ja-only">募集費無料</span>
-      </span>
-      <span class="tag">
-        <span class="ko-only">선금 결제</span>
-        <span class="ja-only">前金決済</span>
-      </span>
-      <span class="tag">
-        <span class="ko-only">엔화 기준 견적</span>
-        <span class="ja-only">円建て見積</span>
-      </span>
-    </div>
-    <div class="cta">
-      <span class="ko-only">리뷰어 신청하기</span>
-      <span class="ja-only">レビュアー申込へ</span>
-      <span class="material-icons-outlined">arrow_forward</span>
-    </div>
-  </a>
-
-  <a class="choice-card seeding" id="goSeeding" href="seeding.html">
-    <span class="chip">
-      <span class="ko-only">나노 인플루언서 시딩</span>
-      <span class="ja-only">ナノインフルエンサー シーディング</span>
-    </span>
-    <div class="card-title">
-      <span class="ko-only">일본 현지 인플루언서 매칭</span>
-      <span class="ja-only">日本のインフルエンサーマッチング</span>
-    </div>
-    <div class="card-desc">
-      <span class="ko-only">일본 현지 나노 인플루언서에게 제품을 직접 전달하고 SNS 포스팅을 받습니다.</span>
-      <span class="ja-only">日本のナノインフルエンサーへ商品を直接お届けし、SNS投稿をご提供。</span>
-    </div>
-    <div class="tags">
-      <span class="tag">
-        <span class="ko-only">매칭·운영 무료</span>
-        <span class="ja-only">マッチング・運営無料</span>
-      </span>
-      <span class="tag">
-        <span class="ko-only">제품 발송만 브랜드 부담</span>
-        <span class="ja-only">商品発送のみ負担</span>
-      </span>
-      <span class="tag">
-        <span class="ko-only">팔로워 ~1,000명</span>
-        <span class="ja-only">フォロワー〜1,000名</span>
-      </span>
-    </div>
-    <div class="cta">
-      <span class="ko-only">시딩 신청하기</span>
-      <span class="ja-only">シーディング申込へ</span>
-      <span class="material-icons-outlined">arrow_forward</span>
-    </div>
-  </a>
-</div>
-
-<div class="contact-card">
-  <div class="contact-label">
-    <span class="ko-only">문의</span>
-    <span class="ja-only">お問合せ</span>
+  <div class="hero">
+    <div class="hero-eyebrow reveal d1">REVERB JP · Advertiser</div>
+    <h1 class="hero-title reveal d2">
+      <span class="ko-only">브랜드를 일본으로,<span class="line2"><em>가장 가까운 길</em>로.</span></span>
+      <span class="ja-only">ブランドを日本へ、<span class="line2"><em>最短の道</em>で。</span></span>
+    </h1>
+    <p class="hero-desc reveal d3">
+      <span class="ko-only">원하시는 서비스를 선택해주세요. 신청서를 남겨주시면 담당자가 24시간 이내에 연락드립니다.</span>
+      <span class="ja-only">ご希望のサービスをお選びください。お申込み後、担当者より24時間以内にご連絡いたします。</span>
+    </p>
   </div>
-  <div class="contact-row"><span class="k">LINE</span><span class="v"><a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a></span></div>
-  <div class="contact-row"><span class="k">KakaoTalk</span><span class="v">byhyunho7</span></div>
-  <div class="contact-row"><span class="k">TEL</span><span class="v"><a href="tel:+821025501511">010-2550-1511</a></span></div>
-</div>
 
-<div class="footnote">© JFUN Corp. / 株式会社ジェイファン</div>
+  <div class="divider reveal d3">
+    <span class="ko-only">서비스 선택</span>
+    <span class="ja-only">サービス選択</span>
+  </div>
+
+  <div class="choice-list">
+
+    <a class="choice-card reviewer reveal d4" id="goReviewer" href="reviewer.html">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="watermark">Review</span>
+      <div class="card-kicker">
+        <span class="ko-only">01 · Qoo10 Reviewer</span>
+        <span class="ja-only">01 · Qoo10 レビュアー</span>
+      </div>
+      <div class="card-title">
+        <span class="ko-only">일본 유저의<br><em>리얼 리뷰</em>.</span>
+        <span class="ja-only">日本ユーザーの<br><em>リアルレビュー</em>。</span>
+      </div>
+      <p class="card-desc">
+        <span class="ko-only">Qoo10 일본 유저가 직접 구매 후 리뷰를 작성합니다. 판매대금은 Qoo10 정산 시스템으로.</span>
+        <span class="ja-only">Qoo10の日本ユーザーが直接購入しレビュー作成。売上はQoo10精算システムへ。</span>
+      </p>
+      <div class="card-cta">
+        <span class="cta-text">
+          <span class="ko-only">신청서 작성하기</span>
+          <span class="ja-only">お申込みへ</span>
+        </span>
+        <span class="cta-circle"><span class="material-icons-outlined">arrow_forward</span></span>
+      </div>
+    </a>
+
+    <a class="choice-card seeding reveal d5" id="goSeeding" href="seeding.html">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="watermark">Seeding</span>
+      <div class="card-kicker">
+        <span class="ko-only">02 · Nano Seeding</span>
+        <span class="ja-only">02 · ナノシーディング</span>
+      </div>
+      <div class="card-title">
+        <span class="ko-only">현지 인플루언서,<br><em>무료 매칭</em>.</span>
+        <span class="ja-only">現地インフルエンサー,<br><em>無料マッチング</em>。</span>
+      </div>
+      <p class="card-desc">
+        <span class="ko-only">일본 현지 나노 인플루언서에게 제품을 직접 전달하고 SNS 포스팅을 확보합니다.</span>
+        <span class="ja-only">日本のナノインフルエンサーへ商品を直接届け、SNS投稿を獲得。</span>
+      </p>
+      <div class="card-cta">
+        <span class="cta-text">
+          <span class="ko-only">신청서 작성하기</span>
+          <span class="ja-only">お申込みへ</span>
+        </span>
+        <span class="cta-circle"><span class="material-icons-outlined">arrow_forward</span></span>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="contact-block reveal d6">
+    <div class="contact-block-label">Contact</div>
+    <div class="contact-row">
+      <span class="k">LINE</span>
+      <span class="v"><a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a></span>
+    </div>
+    <div class="contact-row">
+      <span class="k">KakaoTalk</span>
+      <span class="v">byhyunho7</span>
+    </div>
+    <div class="contact-row">
+      <span class="k">TEL</span>
+      <span class="v"><a href="tel:+821025501511">010-2550-1511</a></span>
+    </div>
+  </div>
+
+  <div class="footnote">© JFUN Corp. · 株式会社ジェイファン</div>
+
+</div>
 
 <script>
 function setLang(lang, ev) {
@@ -387,7 +512,6 @@ function setLang(lang, ev) {
   const reviewerLink = document.getElementById('goReviewer');
   const seedingLink = document.getElementById('goSeeding');
   const p = location.pathname;
-  // 서브도메인에서는 rewrites된 /reviewer, /seeding로 이동
   const onSubdomain = (p === '/' || p === '/index.html');
   if (reviewerLink) reviewerLink.href = onSubdomain ? '/reviewer' : 'reviewer.html';
   if (seedingLink) seedingLink.href = onSubdomain ? '/seeding' : 'seeding.html';
