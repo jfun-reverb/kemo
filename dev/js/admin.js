@@ -3468,18 +3468,48 @@ function brandAppStatusBadge(status) {
   return '<span style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">'+esc(s.label)+'</span>';
 }
 
-// 리스트에서 즉시 변경 가능한 셀렉트 형태 상태 뱃지
-function brandAppStatusSelect(a) {
-  var s = BRAND_APP_STATUS[a.status] || {label: a.status, color:'#666', bg:'#EEE'};
-  var opts = Object.keys(BRAND_APP_STATUS).map(function(k) {
-    return '<option value="'+k+'"'+(a.status===k?' selected':'')+'>'+esc(BRAND_APP_STATUS[k].label)+'</option>';
+// 뱃지 스타일 상태 select 공통 렌더러
+function brandAppStatusSelectStyled(opts) {
+  var status = opts.status;
+  var s = BRAND_APP_STATUS[status] || {color:'#666', bg:'#EEE'};
+  var optionsHtml = Object.keys(BRAND_APP_STATUS).map(function(k) {
+    return '<option value="'+k+'"'+(status===k?' selected':'')+'>'+esc(BRAND_APP_STATUS[k].label)+'</option>';
   }).join('');
-  return '<select class="brand-app-status-sel" onchange="quickChangeBrandAppStatus(\''+esc(a.id)+'\', this.value, '+a.version+')" '
-    + 'style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:3px 22px 3px 10px;border-radius:4px;'
+  var sizeSm = opts.size === 'sm';
+  var padding = sizeSm ? '3px 22px 3px 10px' : '7px 28px 7px 14px';
+  var fontSize = sizeSm ? '11px' : '13px';
+  var arrowPos1 = sizeSm ? 'calc(100% - 10px) 8px' : 'calc(100% - 12px) 50%';
+  var arrowPos2 = sizeSm ? 'calc(100% - 6px) 8px' : 'calc(100% - 8px) 50%';
+  var arrowSize = sizeSm ? '4px 4px' : '5px 5px';
+  var extraAttrs = (opts.id ? ' id="'+esc(opts.id)+'"' : '')
+    + (opts.disabled ? ' disabled' : '')
+    + (opts.onchange ? ' onchange="'+opts.onchange+'"' : '')
+    + (opts.onclick ? ' onclick="'+opts.onclick+'"' : '');
+  return '<select class="brand-app-status-sel"' + extraAttrs
+    + ' style="background:'+s.bg+';color:'+s.color+';font-size:'+fontSize+';font-weight:700;padding:'+padding+';border-radius:6px;'
     + 'border:0;cursor:pointer;appearance:none;-webkit-appearance:none;'
     + 'background-image:linear-gradient(45deg,transparent 50%,'+s.color+' 50%),linear-gradient(-45deg,transparent 50%,'+s.color+' 50%);'
-    + 'background-position:calc(100% - 10px) 8px,calc(100% - 6px) 8px;background-size:4px 4px;background-repeat:no-repeat"'
-    + ' onclick="event.stopPropagation()">'+opts+'</select>';
+    + 'background-position:'+arrowPos1+','+arrowPos2+';background-size:'+arrowSize+';background-repeat:no-repeat">'
+    + optionsHtml + '</select>';
+}
+
+// 리스트용 shortcut (즉시 저장)
+function brandAppStatusSelect(a) {
+  return brandAppStatusSelectStyled({
+    status: a.status,
+    size: 'sm',
+    onchange: 'quickChangeBrandAppStatus(\''+esc(a.id)+'\', this.value, '+a.version+')',
+    onclick: 'event.stopPropagation()'
+  });
+}
+
+// 상세 모달 내 select 색상 자동 갱신 (선택만 변경, 저장은 별도 버튼)
+function onBrandAppEditStatusChange(sel) {
+  var s = BRAND_APP_STATUS[sel.value] || {color:'#666', bg:'#EEE'};
+  sel.style.background = s.bg;
+  sel.style.color = s.color;
+  sel.style.backgroundImage = 'linear-gradient(45deg,transparent 50%,' + s.color + ' 50%),linear-gradient(-45deg,transparent 50%,' + s.color + ' 50%)';
+  sel.style.backgroundRepeat = 'no-repeat';
 }
 
 // 리스트에서 즉시 상태 변경 (낙관적 락 체크)
@@ -3705,22 +3735,34 @@ async function openBrandAppDetail(id) {
     return;
   }
 
-  // 모달 타이틀: 신청번호만 (상태 뱃지는 body 상단으로)
+  // 모달 타이틀: [폼 종류 뱃지] 신청번호
   var title = $('brandAppDetailTitle');
-  if (title) title.textContent = a.application_no;
+  if (title) title.innerHTML = ''
+    + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;margin-right:8px;vertical-align:middle">'
+    + esc(brandAppFormLabel(a.form_type))
+    + '</span>'
+    + '<span style="vertical-align:middle">' + esc(a.application_no) + '</span>';
 
   // 제품 테이블
   var productsHtml = '<div style="color:var(--muted);font-size:12px;padding:12px">제품 정보 없음</div>';
   if (Array.isArray(a.products) && a.products.length > 0) {
-    productsHtml = '<table class="data-table" style="font-size:12px;margin:0">'
-      + '<thead><tr><th>제품명</th><th>URL</th><th style="width:100px;text-align:right">가격 (¥)</th><th style="width:70px;text-align:right">수량</th></tr></thead>'
+    productsHtml = '<table class="data-table" style="font-size:12px;margin:0;table-layout:fixed">'
+      + '<thead><tr>'
+        + '<th style="width:30%">제품명</th>'
+        + '<th>URL</th>'
+        + '<th style="width:80px;text-align:right">수량</th>'
+        + '<th style="width:110px;text-align:right">가격 (¥)</th>'
+        + '<th style="width:130px;text-align:right">총액 (¥)</th>'
+      + '</tr></thead>'
       + '<tbody>' + a.products.map(function(p){
+        var price = Number(p.price) || 0;
+        var qty = Number(p.qty) || 0;
+        var lineTotal = price * qty;
         var safe = safeBrandUrl(p.url);
-        var urlHtml;
+        var urlCell = '<span style="color:var(--muted)">—</span>';
         if (safe) {
-          // 최대 2줄 표시 + 호버 시 full URL 툴팁 + 복사 버튼
           var jsSafe = safe.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-          urlHtml = '<div style="display:flex;align-items:flex-start;gap:6px;min-width:0">'
+          urlCell = '<div style="display:flex;align-items:flex-start;gap:4px;min-width:0">'
             + '<a href="' + esc(safe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '"'
               + ' style="flex:1;min-width:0;color:var(--pink);word-break:break-all;'
               + 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;max-height:2.8em">'
@@ -3730,18 +3772,21 @@ async function openBrandAppDetail(id) {
               + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">content_copy</span>'
             + '</button>'
           + '</div>';
-        } else {
-          urlHtml = esc(p.url || '—');
+        } else if (p.url) {
+          urlCell = '<span style="color:var(--muted);word-break:break-all">' + esc(p.url) + '</span>';
         }
-        return '<tr><td>' + esc(p.name || '—') + '</td><td style="max-width:0">' + urlHtml + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.price)||0).toLocaleString('ja-JP') + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.qty)||0) + '</td></tr>';
+        return '<tr>'
+          + '<td style="font-weight:600;color:var(--ink);word-break:break-word">' + esc(p.name || '—') + '</td>'
+          + '<td>' + urlCell + '</td>'
+          + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + qty.toLocaleString('ja-JP') + '</td>'
+          + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + price.toLocaleString('ja-JP') + '</td>'
+          + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + lineTotal.toLocaleString('ja-JP') + '</td>'
+        + '</tr>';
       }).join('') + '</tbody></table>';
   }
 
   // 편집 가능 여부 — done 또는 rejected면 읽기전용
   var editableDisabled = (a.status === 'done' || a.status === 'rejected') ? 'disabled' : '';
-  var statusOptions = ['new','reviewing','quoted','paid','done','rejected'].map(function(s){
-    return '<option value="' + s + '"' + (a.status === s ? ' selected' : '') + '>' + BRAND_APP_STATUS[s].label + '</option>';
-  }).join('');
 
   // 섹션 재사용 스타일
   var sectionLabel = function(txt) {
@@ -3760,12 +3805,6 @@ async function openBrandAppDetail(id) {
   }
 
   if (body) body.innerHTML = ''
-    // 헤더: 폼 타입 + 상태 뱃지
-    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">'
-      + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px">' + esc(brandAppFormLabel(a.form_type)) + '</span>'
-      + brandAppStatusBadge(a.status)
-    + '</div>'
-
     // § 기본 정보 (사업자등록증 포함)
     + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
       + sectionLabel('기본 정보')
@@ -3797,7 +3836,7 @@ async function openBrandAppDetail(id) {
       + sectionLabel('관리자 처리')
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">'
         + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">상태</label>'
-          + '<select id="brandAppEditStatus" class="admin-filter" ' + editableDisabled + '>' + statusOptions + '</select>'
+          + brandAppStatusSelectStyled({id:'brandAppEditStatus', status:a.status, disabled: !!editableDisabled, onchange:'onBrandAppEditStatusChange(this)'})
         + '</div>'
         + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">예상 견적 (자동)</label>'
           + '<input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly style="background:#F7F7F7;color:var(--muted)">'
