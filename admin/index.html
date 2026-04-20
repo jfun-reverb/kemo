@@ -7381,7 +7381,7 @@ async function openBrandAppDetail(id) {
       + brandAppStatusBadge(a.status)
     + '</div>'
 
-    // § 기본 정보
+    // § 기본 정보 (사업자등록증 포함)
     + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
       + sectionLabel('기본 정보')
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">'
@@ -7389,7 +7389,15 @@ async function openBrandAppDetail(id) {
         + kvCard('담당자', esc(a.contact_name))
         + kvCard('연락처', esc(a.phone))
         + kvCard('이메일', esc(a.email))
-        + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace('<div>','').replace(/<\/div>$/,'') + '</div>' : '')
+        + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace(/^<div>/,'').replace(/<\/div>$/,'') + '</div>' : '')
+        + (a.business_license_path
+          ? '<div style="grid-column:1 / -1">'
+            + '<div style="color:var(--muted);font-size:11px;margin-bottom:6px;font-weight:600">사업자등록증</div>'
+            + '<button class="btn btn-ghost btn-sm" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')" style="display:inline-flex;align-items:center;gap:4px">'
+              + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>파일 다운로드'
+            + '</button>'
+          + '</div>'
+          : '')
       + '</div>'
     + '</div>'
 
@@ -7398,16 +7406,6 @@ async function openBrandAppDetail(id) {
       + '<div style="display:flex;align-items:baseline;margin-bottom:10px">' + sectionLabel('신청 상품') + productsSummary + '</div>'
       + productsHtml
     + '</div>'
-
-    // § 사업자등록증 (reviewer 전용)
-    + (a.business_license_path
-      ? '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
-        + sectionLabel('사업자등록증')
-        + '<button class="btn btn-ghost btn-sm" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')" style="display:inline-flex;align-items:center;gap:4px">'
-          + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>파일 다운로드'
-        + '</button>'
-      + '</div>'
-      : '')
 
     // § 관리자 처리
     + '<div style="padding-bottom:16px;margin-bottom:16px">'
