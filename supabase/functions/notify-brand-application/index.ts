@@ -282,9 +282,16 @@ Deno.serve(async (req: Request) => {
 
   try {
     const payload = (await req.json()) as WebhookPayload;
+    console.log("[notify-brand-application] payload received", {
+      type: payload?.type,
+      table: payload?.table,
+      record_id: payload?.record?.id,
+      application_no: payload?.record?.application_no,
+    });
 
     // INSERT 이벤트만 처리 (UPDATE/DELETE는 무시)
     if (payload.type !== "INSERT" || payload.table !== "brand_applications") {
+      console.log("[notify-brand-application] skipped non-insert");
       return new Response(JSON.stringify({ skipped: true, reason: "non-insert" }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -293,6 +300,7 @@ Deno.serve(async (req: Request) => {
 
     const row = payload.record;
     if (!row?.id || !row.application_no) {
+      console.error("[notify-brand-application] invalid payload", { row });
       return new Response(JSON.stringify({ error: "invalid payload" }), {
         status: 400,
         headers: { "content-type": "application/json" },
@@ -302,6 +310,11 @@ Deno.serve(async (req: Request) => {
     // 관리자 수신자: DB admins.receive_brand_notify=true + NOTIFY_ADMIN_EMAILS 병합
     const adminEmails = await resolveAdminEmails();
     const adminUrl = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/");
+    console.log("[notify-brand-application] adminEmails resolved", {
+      count: adminEmails.length,
+      emails: adminEmails,
+      adminUrl,
+    });
 
     const results = { admin: false, brand: false, errors: [] as string[] };
 
@@ -309,6 +322,7 @@ Deno.serve(async (req: Request) => {
     try {
       if (adminEmails.length > 0) {
         const { subject, html, text } = buildAdminEmail(row, adminUrl);
+        console.log("[notify-brand-application] sending admin email", { to: adminEmails, subject });
         await sendBrevoEmail({
           to: adminEmails.map((e) => ({ email: e })),
           subject,
@@ -316,15 +330,21 @@ Deno.serve(async (req: Request) => {
           textContent: text,
         });
         results.admin = true;
+        console.log("[notify-brand-application] admin email sent");
+      } else {
+        console.warn("[notify-brand-application] no admin emails, skipping admin notification");
       }
     } catch (e) {
-      results.errors.push(`admin: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      console.error("[notify-brand-application] admin email failed", msg);
+      results.errors.push(`admin: ${msg}`);
     }
 
     // 2) 브랜드 접수 확인
     try {
       if (row.email) {
         const { subject, html, text } = buildBrandEmail(row);
+        console.log("[notify-brand-application] sending brand email", { to: row.email, subject });
         await sendBrevoEmail({
           to: [{ email: row.email, name: row.brand_name }],
           subject,
@@ -332,18 +352,27 @@ Deno.serve(async (req: Request) => {
           textContent: text,
         });
         results.brand = true;
+        console.log("[notify-brand-application] brand email sent");
+      } else {
+        console.warn("[notify-brand-application] no brand email on row, skipping brand notification");
       }
     } catch (e) {
-      results.errors.push(`brand: ${(e as Error).message}`);
+      const msg = (e as Error).message;
+      console.error("[notify-brand-application] brand email failed", msg);
+      results.errors.push(`brand: ${msg}`);
     }
 
+    const status = results.errors.length > 0 && !results.admin && !results.brand ? 500 : 200;
+    console.log("[notify-brand-application] done", { status, ...results });
     return new Response(JSON.stringify(results), {
-      status: results.errors.length > 0 && !results.admin && !results.brand ? 500 : 200,
+      status,
       headers: { "content-type": "application/json" },
     });
   } catch (e) {
+    const msg = (e as Error).message || "unknown";
+    console.error("[notify-brand-application] top-level error", msg, (e as Error).stack);
     return new Response(
-      JSON.stringify({ error: (e as Error).message || "unknown" }),
+      JSON.stringify({ error: msg }),
       { status: 500, headers: { "content-type": "application/json" } }
     );
   }
