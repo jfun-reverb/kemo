@@ -3536,21 +3536,30 @@ function fmtDate(iso) {
   } catch(e) { return '—'; }
 }
 
-// 광고주 신청 페이지 URL을 클립보드에 복사 (영업팀 공유용)
-function copyBrandSalesUrl() {
-  const url = 'https://sales.globalreverb.com/';
+// 임의 텍스트를 클립보드에 복사 (execCommand fallback 포함)
+function copyTextToClipboard(text, successMsg) {
+  var msg = successMsg || '복사됨';
   try {
-    navigator.clipboard.writeText(url);
-    toast(url + ' 복사됨');
+    navigator.clipboard.writeText(text);
+    toast(msg);
   } catch (e) {
-    // fallback: input 선택
-    const tmp = document.createElement('input');
-    tmp.value = url;
+    var tmp = document.createElement('input');
+    tmp.value = text;
     document.body.appendChild(tmp);
     tmp.select();
-    try { document.execCommand('copy'); toast('URL 복사됨'); } catch(_) { toast('복사 실패', 'error'); }
+    try { document.execCommand('copy'); toast(msg); } catch(_) { toast('복사 실패', 'error'); }
     document.body.removeChild(tmp);
   }
+}
+
+// 광고주 신청 페이지 URL을 클립보드에 복사 (영업팀 공유용)
+function copyBrandSalesUrl() {
+  copyTextToClipboard('https://sales.globalreverb.com/', 'https://sales.globalreverb.com/ 복사됨');
+}
+
+// 제품 URL 복사 (상세 모달의 상품 테이블에서 사용)
+function copyBrandProductUrl(url) {
+  copyTextToClipboard(url, 'URL 복사됨');
 }
 
 async function loadBrandApplications() {
@@ -3707,10 +3716,24 @@ async function openBrandAppDetail(id) {
       + '<thead><tr><th>제품명</th><th>URL</th><th style="width:100px;text-align:right">가격 (¥)</th><th style="width:70px;text-align:right">수량</th></tr></thead>'
       + '<tbody>' + a.products.map(function(p){
         var safe = safeBrandUrl(p.url);
-        var urlHtml = safe
-          ? '<a href="' + esc(safe) + '" target="_blank" rel="noopener" style="color:var(--pink);word-break:break-all">' + esc(p.url) + '</a>'
-          : esc(p.url || '—');
-        return '<tr><td>' + esc(p.name || '—') + '</td><td>' + urlHtml + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.price)||0).toLocaleString('ja-JP') + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.qty)||0) + '</td></tr>';
+        var urlHtml;
+        if (safe) {
+          // 최대 2줄 표시 + 호버 시 full URL 툴팁 + 복사 버튼
+          var jsSafe = safe.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          urlHtml = '<div style="display:flex;align-items:flex-start;gap:6px;min-width:0">'
+            + '<a href="' + esc(safe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '"'
+              + ' style="flex:1;min-width:0;color:var(--pink);word-break:break-all;'
+              + 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;max-height:2.8em">'
+              + esc(p.url) + '</a>'
+            + '<button type="button" class="btn btn-ghost btn-xs" onclick="copyBrandProductUrl(\'' + jsSafe + '\')" '
+              + 'title="URL 복사" style="padding:2px 6px;flex-shrink:0">'
+              + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">content_copy</span>'
+            + '</button>'
+          + '</div>';
+        } else {
+          urlHtml = esc(p.url || '—');
+        }
+        return '<tr><td>' + esc(p.name || '—') + '</td><td style="max-width:0">' + urlHtml + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.price)||0).toLocaleString('ja-JP') + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.qty)||0) + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
 
