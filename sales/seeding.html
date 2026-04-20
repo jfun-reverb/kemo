@@ -150,22 +150,26 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* PAGE 1: INTRO */
+/* PAGE 1: INTRO — 랜딩(index.html) / reviewer와 폰트 스타일 통일 */
 .intro-eyebrow {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
-  color: var(--sage-ink);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  margin-bottom: 14px;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  margin-bottom: 18px;
+}
+.intro-eyebrow em {
+  font-style: normal;
+  color: var(--brand);
 }
 
 .intro-title {
   font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
   font-size: 30px;
   font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.03em;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  color: var(--ink);
   margin-bottom: 16px;
 }
 
@@ -175,11 +179,93 @@ body {
   font-weight: 800;
 }
 
+.intro-lead {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
 .intro-sub {
-  font-size: 15px;
+  font-size: 13.5px;
   color: var(--ink-soft);
   margin-bottom: 28px;
-  line-height: 1.65;
+  line-height: 1.75;
+  letter-spacing: -0.005em;
+}
+.intro-sub em {
+  font-style: normal;
+  color: var(--brand);
+  font-weight: 700;
+}
+.intro-sub strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+.check-item em {
+  font-style: normal;
+  color: var(--brand);
+  font-weight: 800;
+}
+
+/* 나노 시딩 실사례 슬라이드 */
+.seeding-sample {
+  margin: 4px 0 32px;
+}
+.seeding-sample .sample-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.sample-slider {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  overflow: hidden;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.sample-slider .slide {
+  width: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  width: calc(100% - 32px);
+}
+.sample-slider .slide.active {
+  opacity: 1;
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+.sample-slider .slide-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+.sample-slider .slide-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(22, 22, 24, 0.18);
+  transition: background 0.3s;
+}
+.sample-slider .slide-dots span.on {
+  background: var(--brand);
 }
 
 /* Hero visual */
@@ -742,14 +828,26 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
-  background: rgba(247, 244, 238, 0.85);
+  padding: 10px 20px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(247, 244, 238, 0.9);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-top: none;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   z-index: 50;
+}
+.nav-hint {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--ink-mute);
+  letter-spacing: -0.005em;
+}
+.nav-buttons {
+  display: flex;
+  gap: 10px;
+  width: 100%;
 }
 
 .btn {
@@ -824,18 +922,23 @@ body {
     <span class="ja-only">無料マッチング</span>
   </div>
 
+  <div class="intro-eyebrow">
+    <span class="ko-only">4월 한정 <em>· 완전 무료 매칭 서비스</em></span>
+    <span class="ja-only">4月限定 <em>· 完全無料マッチング</em></span>
+  </div>
+
   <h1 class="intro-title">
-    <span class="ko-only"><em>나노</em> 인플루언서 매칭.</span>
-    <span class="ja-only"><em>ナノ</em>インフルエンサー マッチング。</span>
+    <span class="ko-only">제품만 보내면, <em>일본 SNS</em>가 알아서 퍼집니다</span>
+    <span class="ja-only">商品を送るだけ、<em>日本のSNS</em>へ自然に広がります</span>
   </h1>
   <p class="intro-sub">
-    <span class="ko-only">팔로워 수보다 '전달력'. 일본 현지에서 꾸준히 활동하는 나노 인플루언서와 브랜드를 연결합니다.</span>
-    <span class="ja-only">フォロワー数より「届ける力」。日本現地で活動するナノインフルエンサーとブランドを繋ぎます。</span>
+    <span class="ko-only">모집비용 0원! 팔로워 <strong>1,000~10,000명</strong>의 일본 현지 크리에이터들이 <em>Instagram · TikTok · X</em>에 브랜드 리뷰 콘텐츠를 직접 제작합니다. 모집부터 포스팅 관리까지 — 브랜드사는 제품 발송만 하시면 됩니다.</span>
+    <span class="ja-only">募集費 ¥0！ フォロワー<strong>1,000〜10,000人</strong>の日本現地クリエイターが、<em>Instagram・TikTok・X</em>にブランドレビューコンテンツを直接制作。募集から投稿管理まで — ブランド様は商品発送のみで完結します。</span>
   </p>
 
   <div class="hero-visual">
     <div class="hero-big-number">
-      <em>¥0</em>
+      <em><span class="ko-only">0원</span><span class="ja-only">¥0</span></em>
     </div>
     <div class="hero-caption">
       <span class="ko-only">매칭·운영 모두 무료. 제품만 준비하세요.</span>
@@ -845,27 +948,27 @@ body {
 
   <div class="checklist">
     <div class="check-item">
-      <div class="check-icon"><span class="material-icons-outlined">check</span></div>
+      <div class="check-icon"><span class="material-icons-outlined notranslate" translate="no">check</span></div>
       <div><strong>
-        <span class="ko-only">브랜드사 준비사항</span>
-        <span class="ja-only">ブランド様のご準備</span>
+        <span class="ko-only">제품 정보 가이드 작성 (<em>10</em>분 완성)</span>
+        <span class="ja-only">商品情報ガイド作成（<em>10</em>分で完了）</span>
       </strong><br>
-        <span class="ko-only">제품 준비 및 발송만 해주시면 됩니다</span>
-        <span class="ja-only">商品のご準備と発送のみ</span>
+        <span class="ko-only">인플루언서가 제품의 매력을 제대로 어필할 수 있도록 간단한 제품 특징과 강조 포인트만 알려주세요. (작성하기 쉬운 양식 제공)</span>
+        <span class="ja-only">インフルエンサーが商品の魅力を的確にアピールできるよう、簡単な商品特徴とアピールポイントをお伝えください（記入しやすい様式をご提供）</span>
       </div>
     </div>
     <div class="check-item">
-      <div class="check-icon"><span class="material-icons-outlined">check</span></div>
+      <div class="check-icon"><span class="material-icons-outlined notranslate" translate="no">check</span></div>
       <div><strong>
-        <span class="ko-only">일본 현지 직배송</span>
-        <span class="ja-only">日本現地への直送</span>
+        <span class="ko-only">제품 발송</span>
+        <span class="ja-only">商品発送</span>
       </strong><br>
-        <span class="ko-only">매칭된 인플루언서의 현지 주소로 발송</span>
-        <span class="ja-only">マッチングされたインフルエンサーの住所へ</span>
+        <span class="ko-only">매칭된 일본 인플루언서 주소로 발송 완료!</span>
+        <span class="ja-only">マッチング済みの日本インフルエンサーのご住所へ発送完了！</span>
       </div>
     </div>
     <div class="check-item">
-      <div class="check-icon"><span class="material-icons-outlined">check</span></div>
+      <div class="check-icon"><span class="material-icons-outlined notranslate" translate="no">check</span></div>
       <div><strong>
         <span class="ko-only">나노 인플루언서 시딩</span>
         <span class="ja-only">ナノインフルエンサーシーディング</span>
@@ -875,13 +978,29 @@ body {
       </div>
     </div>
     <div class="check-item">
-      <div class="check-icon"><span class="material-icons-outlined">check</span></div>
+      <div class="check-icon"><span class="material-icons-outlined notranslate" translate="no">check</span></div>
       <div><strong>
         <span class="ko-only">카테고리 매칭</span>
         <span class="ja-only">カテゴリーマッチング</span>
       </strong><br>
         <span class="ko-only">뷰티·푸드·패션·헬스 카테고리 전문 매칭</span>
         <span class="ja-only">ビューティー・フード・ファッション・ヘルス別に最適化</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 나노 시딩 실사례 슬라이드 -->
+  <div class="seeding-sample">
+    <div class="sample-label">
+      <span class="ko-only">나노 시딩 실사례</span>
+      <span class="ja-only">ナノシーディング 実例</span>
+    </div>
+    <div class="sample-slider" id="seedingSlider">
+      <img class="slide active" src="images/seeding-sample.png" alt="Nano seeding sample 1" loading="lazy">
+      <img class="slide" src="images/seeding-sample-2.png" alt="Nano seeding sample 2" loading="lazy">
+      <div class="slide-dots">
+        <span class="on"></span>
+        <span></span>
       </div>
     </div>
   </div>
@@ -1101,18 +1220,24 @@ body {
 
 <!-- BOTTOM NAV -->
 <div class="nav-bar" id="navBar">
-  <button class="btn btn-secondary" id="btnPrev" onclick="prevPage()" style="display:none;">
-    <span class="material-icons-outlined">arrow_back</span>
-    <span class="ko-only">이전</span>
-    <span class="ja-only">戻る</span>
-  </button>
-  <button class="btn btn-primary" id="btnNext" onclick="nextPage()">
-    <span id="btnText">
-      <span class="ko-only">신청 시작하기</span>
-      <span class="ja-only">はじめる</span>
-    </span>
-    <span class="material-icons-outlined">arrow_forward</span>
-  </button>
+  <div class="nav-hint" id="navHint">
+    <span class="ko-only">다음 단계에서 상품 정보만 입력하면 신청 완료</span>
+    <span class="ja-only">次のステップで商品情報を入力すればお申込み完了</span>
+  </div>
+  <div class="nav-buttons">
+    <button class="btn btn-secondary" id="btnPrev" onclick="prevPage()" style="display:none;">
+      <span class="material-icons-outlined">arrow_back</span>
+      <span class="ko-only">이전</span>
+      <span class="ja-only">戻る</span>
+    </button>
+    <button class="btn btn-primary" id="btnNext" onclick="nextPage()">
+      <span id="btnText">
+        <span class="ko-only">상품 정보 입력하기</span>
+        <span class="ja-only">商品情報を入力</span>
+      </span>
+      <span class="material-icons-outlined">arrow_forward</span>
+    </button>
+  </div>
 </div>
 
 <script>
@@ -1163,6 +1288,23 @@ function setLang(lang, ev) {
   logo.href = onSubdomain ? '/' : 'index.html';
 })();
 
+// 나노 시딩 실사례 자동 슬라이드 (4초 간격 fade)
+(function() {
+  var slider = document.getElementById('seedingSlider');
+  if (!slider) return;
+  var slides = slider.querySelectorAll('.slide');
+  var dots = slider.querySelectorAll('.slide-dots span');
+  if (slides.length < 2) return;
+  var idx = 0;
+  setInterval(function() {
+    slides[idx].classList.remove('active');
+    if (dots[idx]) dots[idx].classList.remove('on');
+    idx = (idx + 1) % slides.length;
+    slides[idx].classList.add('active');
+    if (dots[idx]) dots[idx].classList.add('on');
+  }, 4000);
+})();
+
 function updateProgress() {
   const percent = (currentPage / 3) * 100;
   document.getElementById('progressFill').style.width = percent + '%';
@@ -1180,11 +1322,13 @@ function showPage(n) {
   const nextBtn = document.getElementById('btnNext');
   const btnText = document.getElementById('btnText');
   const navBar = document.getElementById('navBar');
+  const navHint = document.getElementById('navHint');
+  if (navHint) navHint.style.display = (n === 1) ? 'block' : 'none';
 
   if (n === 1) {
     prevBtn.style.display = 'none';
     nextBtn.style.display = 'flex';
-    btnText.innerHTML = '<span class="ko-only">신청 시작하기</span><span class="ja-only">はじめる</span>';
+    btnText.innerHTML = '<span class="ko-only">상품 정보 입력하기</span><span class="ja-only">商品情報を入力</span>';
     navBar.style.display = 'flex';
   } else if (n === 2) {
     prevBtn.style.display = 'flex';
