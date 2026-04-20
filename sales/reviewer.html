@@ -74,35 +74,42 @@ body {
   font-size: 19px;
   letter-spacing: -0.03em;
   color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
 }
+.brand-logo:hover { color: var(--brand); }
 
+/* 랜딩(index.html)과 동일한 심플 텍스트 토글 */
 .lang-toggle {
   display: flex;
-  gap: 2px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 100px;
-  padding: 3px;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .lang-toggle button {
   background: none;
   border: none;
-  padding: 6px 12px;
-  border-radius: 100px;
+  padding: 4px 2px;
   cursor: pointer;
   color: var(--ink-mute);
-  transition: all 0.2s;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  position: relative;
 }
 
-.lang-toggle button.active {
+.lang-toggle button.active { color: var(--ink); }
+.lang-toggle button.active::after {
+  content: "";
+  position: absolute;
+  left: 2px; right: 2px; bottom: -2px;
+  height: 2px;
   background: var(--ink);
-  color: white;
 }
+
+.lang-toggle .sep { color: var(--ink-mute); opacity: 0.4; }
 
 /* Progress */
 .progress-wrap {
@@ -151,22 +158,27 @@ body {
 }
 
 /* ============ PAGE 1: INTRO ============ */
+/* 랜딩(index.html) hero와 폰트 스타일 통일 */
 .intro-eyebrow {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  margin-bottom: 18px;
+}
+.intro-eyebrow em {
+  font-style: normal;
   color: var(--brand);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  margin-bottom: 14px;
 }
 
 .intro-title {
   font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
   font-size: 30px;
   font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.03em;
-  margin-bottom: 16px;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  margin-bottom: 24px;
 }
 
 .intro-title em {
@@ -176,10 +188,111 @@ body {
 }
 
 .intro-sub {
-  font-size: 15px;
+  font-size: 13.5px;
   color: var(--ink-soft);
   margin-bottom: 28px;
-  line-height: 1.65;
+  line-height: 1.75;
+  letter-spacing: -0.005em;
+}
+
+/* 프로세스 플로우 (좌측 타임라인 스타일) — 블록 전체 중앙 배치 */
+.process-flow {
+  margin: 0 auto 28px;
+  max-width: 320px;
+}
+.process-flow .process-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.process-steps {
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+  position: relative;
+}
+/* 좌측 세로 타임라인 축 — 도트 중심과 동일 x (9px) */
+.process-steps::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 16px;
+  bottom: 16px;
+  width: 2px;
+  background: rgba(232, 52, 78, 0.2);
+  border-radius: 2px;
+}
+.process-steps .step {
+  list-style: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-left: 30px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+.process-steps .step:last-child { margin-bottom: 0; }
+/* 타임라인 도트 — 단순 솔리드 원 */
+.process-steps .step::before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand);
+  z-index: 2;
+}
+/* 도트-카드 연결 점선 */
+.process-steps .step::after {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  border-top: 1.5px dashed rgba(232, 52, 78, 0.5);
+  z-index: 1;
+}
+.process-steps .step-icon {
+  font-size: 22px !important;
+  color: var(--brand);
+  flex-shrink: 0;
+}
+.process-steps .step-text { letter-spacing: -0.01em; }
+
+/* Qoo10 실사례 샘플 이미지 */
+.qoo10-sample {
+  margin-bottom: 32px;
+}
+.qoo10-sample .sample-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.qoo10-sample img {
+  width: 100%;
+  display: block;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 24px 0;
+  box-sizing: border-box;
 }
 
 .info-stack {
@@ -883,10 +996,11 @@ body {
 <!-- ============ HEADER ============ -->
 <div class="header">
   <div class="header-top">
-    <div class="brand-logo">Reverb</div>
+    <a class="brand-logo" id="brandLogo" href="index.html" aria-label="Reverb 홈">Reverb</a>
     <div class="lang-toggle">
-      <button class="active" onclick="setLang('ko')">KO</button>
-      <button onclick="setLang('ja')">JA</button>
+      <button class="active" onclick="setLang('ko', event)">KO</button>
+      <span class="sep">·</span>
+      <button onclick="setLang('ja', event)">JA</button>
     </div>
   </div>
   <div class="progress-wrap">
@@ -902,12 +1016,12 @@ body {
     <span class="ja-only">Qoo10 レビュアー募集</span>
   </div>
   <h1 class="intro-title">
-    <span class="ko-only">일본 유저의 리얼 <em>리뷰</em>를 손에 쥐다.</span>
-    <span class="ja-only">日本ユーザーのリアルな<em>レビュー</em>を。</span>
+    <span class="ko-only">모집 비용 <em>0원</em>, 일본 Qoo10 실구매 리뷰를 바로 확보하세요</span>
+    <span class="ja-only">募集費 <em>¥0</em>、日本Qoo10の実購入レビューをすぐに確保</span>
   </h1>
   <p class="intro-sub">
-    <span class="ko-only">Qoo10 일본 현지 유저가 직접 구매 후 리뷰를 남깁니다. 브랜드사는 Qoo10 정산 시스템으로 판매대금을 받습니다.</span>
-    <span class="ja-only">Qoo10の日本ユーザーが直接購入してレビューを書きます。ブランド様はQoo10で売上代金を精算されます。</span>
+    <span class="ko-only">일본 Qoo10 현지 유저가 직접 구매 후 포토·텍스트 리뷰를 작성합니다. 상품 구매 대금은 Qoo10 정산 시스템을 통해 브랜드사로 전액 환급되며, 실제 부담 비용은 리뷰어 1명당 해외 송금 수수료 2,500원뿐입니다.</span>
+    <span class="ja-only">日本Qoo10の現地ユーザーが直接購入し、写真・テキストレビューを作成します。商品の購入代金はQoo10精算システムを通じてブランド様へ全額返金され、実質ご負担はレビュアー1名あたり海外送金手数料 ¥250 のみです。</span>
   </p>
 
   <div class="info-stack">
@@ -915,16 +1029,16 @@ body {
       <div class="icon"><span class="material-icons-outlined">groups</span></div>
       <div class="info-body">
         <div class="label">
-          <span class="ko-only">리뷰어 모집 비용</span>
-          <span class="ja-only">レビュアー募集費</span>
+          <span class="ko-only">리뷰어</span>
+          <span class="ja-only">レビュアー</span>
         </div>
-        <div class="value"><strong>
-          <span class="ko-only">무료</span>
-          <span class="ja-only">無料</span>
-        </strong></div>
+        <div class="value">
+          <span class="ko-only">모집 비용: <strong>무료</strong></span>
+          <span class="ja-only">募集費: <strong>無料</strong></span>
+        </div>
         <div class="detail">
-          <span class="ko-only">동종업계 평균 10,000~15,000원 상당</span>
-          <span class="ja-only">同業界平均 ¥1,000〜¥1,500相当</span>
+          <span class="ko-only">일반 대행사 기준 1인당 1만~1.5만원 절감</span>
+          <span class="ja-only">一般代理店基準で1人あたり¥1,000〜¥1,500を節約</span>
         </div>
       </div>
     </div>
@@ -932,20 +1046,20 @@ body {
       <div class="icon"><span class="material-icons-outlined">payments</span></div>
       <div class="info-body">
         <div class="label">
-          <span class="ko-only">상품 결제 대금</span>
-          <span class="ja-only">商品決済代金</span>
+          <span class="ko-only">상품 구매 예치금 (Qoo10 정산으로 회수)</span>
+          <span class="ja-only">商品購入預り金 (Qoo10精算で返還)</span>
         </div>
         <div class="value">
-          <span class="ko-only">일본 유저에게 지급되는 금액</span>
-          <span class="ja-only">日本ユーザーへ支払われる金額</span>
+          <span class="ko-only">일본 고객에 실 구매하는 제품 금액</span>
+          <span class="ja-only">日本のお客様が実購入する商品金額</span>
         </div>
         <div class="detail">
-          <span class="ko-only">환산 : 3,000엔 ≒ 30,000원 (×10 기준)</span>
-          <span class="ja-only">換算 : 3,000円 ≒ 30,000KRW (×10基準)</span>
+          <span class="ko-only">예시 : 제품가 1,000엔(1만원) × 모집 10명 = 총 예치금 10,000엔(10만원)</span>
+          <span class="ja-only">例 : 商品価格 ¥1,000 × 募集10名 = 預り金合計 ¥10,000</span>
         </div>
         <div class="detail">
-          <span class="ko-only">※ 신청 인원수만큼 제품 구매 비용을 사전 송금해야 리뷰어에게 지급됩니다</span>
-          <span class="ja-only">※ 申込人数分の商品購入費を事前送金いただくと、レビュアーへ支払われます</span>
+          <span class="ko-only">※ Qoo10 판매 정산을 통해 브랜드사로 환급 받는 금액</span>
+          <span class="ja-only">※ Qoo10販売精算を通じてブランド様へ返金される金額</span>
         </div>
       </div>
     </div>
@@ -974,6 +1088,53 @@ body {
       <span class="ko-only">선금 결제 완료 후 리뷰어 모집이 시작되며, <strong>입금 확인 순으로 부킹이 진행</strong>됩니다.</span>
       <span class="ja-only">前金決済完了後にレビュアー募集を開始し、<strong>入金確認順にブッキングが進行</strong>されます。</span>
     </span>
+  </div>
+
+  <!-- 프로세스 플로우 -->
+  <div class="process-flow">
+    <div class="process-label">
+      <span class="ko-only">프로세스</span>
+      <span class="ja-only">プロセス</span>
+    </div>
+    <ol class="process-steps">
+      <li class="step">
+        <span class="material-icons-outlined notranslate step-icon" translate="no">account_balance_wallet</span>
+        <span class="step-text">
+          <span class="ko-only">브랜드사 예치</span>
+          <span class="ja-only">ブランド様 預り金入金</span>
+        </span>
+      </li>
+      <li class="step">
+        <span class="material-icons-outlined notranslate step-icon" translate="no">shopping_bag</span>
+        <span class="step-text">
+          <span class="ko-only">일본 리뷰어 구매·리뷰 작성</span>
+          <span class="ja-only">日本レビュアー 購入・レビュー作成</span>
+        </span>
+      </li>
+      <li class="step">
+        <span class="material-icons-outlined notranslate step-icon" translate="no">storefront</span>
+        <span class="step-text">
+          <span class="ko-only">Qoo10 판매 정산</span>
+          <span class="ja-only">Qoo10 販売精算</span>
+        </span>
+      </li>
+      <li class="step">
+        <span class="material-icons-outlined notranslate step-icon" translate="no">currency_exchange</span>
+        <span class="step-text">
+          <span class="ko-only">브랜드사 제품 비용 환급</span>
+          <span class="ja-only">ブランド様へ商品代金返金</span>
+        </span>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Qoo10 실사례 샘플 -->
+  <div class="qoo10-sample">
+    <div class="sample-label">
+      <span class="ko-only">Qoo10 실사례</span>
+      <span class="ja-only">Qoo10 実際のレビュー例</span>
+    </div>
+    <img src="images/qoo10-review-sample.png" alt="Qoo10 review sample" loading="lazy">
   </div>
 </div>
 
@@ -1300,13 +1461,22 @@ const MAX_PRODUCTS = 10;
 const EXCHANGE_RATE = 10; // 1 JPY = 10 KRW (fixed display)
 const TRANSFER_FEE = 2500; // per reviewer
 
-function setLang(lang) {
+function setLang(lang, ev) {
   document.body.setAttribute('lang-' + lang, '');
   document.body.removeAttribute('lang-' + (lang === 'ko' ? 'ja' : 'ko'));
   document.documentElement.lang = lang;
   document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (ev && ev.target) ev.target.classList.add('active');
 }
+
+// 서브도메인(sales.globalreverb.com/reviewer)과 경로(/sales/reviewer.html) 양쪽 모두 랜딩으로 이동
+(function() {
+  var logo = document.getElementById('brandLogo');
+  if (!logo) return;
+  var p = location.pathname;
+  var onSubdomain = /^\/(reviewer|seeding)\/?$/.test(p);
+  logo.href = onSubdomain ? '/' : 'index.html';
+})();
 
 function updateProgress() {
   const percent = (currentPage / 3) * 100;
