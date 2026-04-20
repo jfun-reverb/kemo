@@ -58,7 +58,7 @@ VALUES
 
 -- ── 3. visit (방문형) ──
 (
-  '[TEST] 訪問型テストキャンペーン', '[TEST] TestBrand C', 'テスト店舗訪問 (来店)',
+  '[TEST] 訪問型テストキャンペーン', '[TEST] TestBrand C', 'テスト店舗訪問',
   'visit', 'visit', 'instagram', 'or', 'food', '📍',
   'https://placehold.co/600x600?text=visit',
   'https://placehold.co/600x600?text=visit',

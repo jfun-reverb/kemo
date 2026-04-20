@@ -175,7 +175,7 @@ function getLookupLabelsJoined(kind, csv, sep, lang) {
 }
 // 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
 function getRecruitTypeLabelJa(t) {
-  return t==='monitor'?'Reviewer':t==='gifting'?'Gifting':t==='visit'?'Visit':'';
+  return t==='monitor'?'レビュアー':t==='gifting'?'ギフティング':t==='visit'?'訪問':'';
 }
 function getRecruitTypeBadgeKo(t) {
   if (t==='monitor') return '<span class="badge badge-blue">리뷰어</span>';

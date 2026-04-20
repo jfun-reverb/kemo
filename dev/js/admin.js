@@ -2472,7 +2472,7 @@ async function handleLookupDelete(row) {
 // 참여방법 번들 (participation_sets) — 관리자 UI
 // ══════════════════════════════════════
 const RECRUIT_TYPES_ALL = ['monitor','gifting','visit'];
-const RECRUIT_TYPE_LABEL_JA = {monitor:'モニター', gifting:'ギフティング', visit:'来店'};
+const RECRUIT_TYPE_LABEL_JA = {monitor:'モニター', gifting:'ギフティング', visit:'訪問'};
 let _psetCurrentSteps = []; // 편집 중 steps 상태
 const MAX_PSET_STEPS = 6;
 
