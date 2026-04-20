@@ -296,6 +296,13 @@ ALTER TABLE brand_applications      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE brand_app_daily_counter ENABLE ROW LEVEL SECURITY;
 
 
+-- idempotent 재적용을 위해 기존 정책을 먼저 DROP (PostgreSQL은 CREATE POLICY IF NOT EXISTS 미지원)
+DROP POLICY IF EXISTS "brand_applications_insert_public" ON brand_applications;
+DROP POLICY IF EXISTS "brand_applications_select_admin" ON brand_applications;
+DROP POLICY IF EXISTS "brand_applications_update_admin" ON brand_applications;
+DROP POLICY IF EXISTS "brand_applications_delete_admin" ON brand_applications;
+DROP POLICY IF EXISTS "brand_app_daily_counter_select_admin" ON brand_app_daily_counter;
+
 -- ── brand_applications ──
 
 -- anon·authenticated 모두 INSERT 가능 (비공개 URL 접근자 = 광고주)

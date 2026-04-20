@@ -8,7 +8,7 @@
 <title>나노 인플루언서 시딩 신청 | REVERB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Noto+Sans+JP:wght@300;400;500;700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Noto+Sans+JP:wght@300;400;500;700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,600&family=Sora:wght@700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -68,13 +68,12 @@ body {
 }
 
 .brand-logo {
-  font-family: 'Fraunces', serif;
+  font-family: 'Sora', 'Noto Sans KR', sans-serif;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 19px;
   letter-spacing: -0.03em;
+  color: var(--ink);
 }
-
-.brand-logo span { color: var(--brand); font-style: italic; }
 
 .lang-toggle {
   display: flex;
@@ -738,7 +737,7 @@ body {
 <!-- HEADER -->
 <div class="header">
   <div class="header-top">
-    <div class="brand-logo">Reve<span>rb</span></div>
+    <div class="brand-logo">Reverb</div>
     <div class="lang-toggle">
       <button class="active" onclick="setLang('ko')">KO</button>
       <button onclick="setLang('ja')">JA</button>
@@ -801,6 +800,16 @@ body {
     <div class="check-item">
       <div class="check-icon"><span class="material-icons-outlined">check</span></div>
       <div><strong>
+        <span class="ko-only">나노 인플루언서 시딩</span>
+        <span class="ja-only">ナノインフルエンサーシーディング</span>
+      </strong><br>
+        <span class="ko-only">최소 팔로워수 ~1,000명</span>
+        <span class="ja-only">最低フォロワー数 〜1,000名</span>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-icon"><span class="material-icons-outlined">check</span></div>
+      <div><strong>
         <span class="ko-only">카테고리 매칭</span>
         <span class="ja-only">カテゴリーマッチング</span>
       </strong><br>
@@ -810,13 +819,6 @@ body {
     </div>
   </div>
 
-  <div class="alert-box">
-    <span class="material-icons-outlined">info</span>
-    <span>
-      <span class="ko-only">신청 접수 후 영업일 1~2일 이내 매칭 가능한 인플루언서 리스트를 전달드립니다.</span>
-      <span class="ja-only">お申込み後、営業日1〜2日以内にマッチング候補リストをお送りします。</span>
-    </span>
-  </div>
 </div>
 
 <!-- PAGE 2: FORM -->
@@ -979,24 +981,33 @@ body {
           <span class="ja-only">担当者が内容を確認します（営業日1〜2日）</span>
         </span></li>
         <li><span class="step-num">02</span><span>
+          <span class="ko-only">전체 타임라인 공유</span>
+          <span class="ja-only">全体スケジュールをご共有</span>
+        </span></li>
+        <li><span class="step-num">03</span><span>
+          <span class="ko-only">모집 시작</span>
+          <span class="ja-only">インフルエンサー募集開始</span>
+        </span></li>
+        <li><span class="step-num">04</span><span>
           <span class="ko-only">매칭 가능한 인플루언서 리스트 전달</span>
           <span class="ja-only">マッチング候補リストをお送りします</span>
         </span></li>
-        <li><span class="step-num">03</span><span>
+        <li><span class="step-num">05</span><span>
           <span class="ko-only">브랜드사에서 제품 발송 (일본 현지 주소)</span>
           <span class="ja-only">ブランド様より商品発送（日本国内住所）</span>
         </span></li>
-        <li><span class="step-num">04</span><span>
+        <li><span class="step-num">06</span><span>
           <span class="ko-only">인플루언서 SNS 포스팅 진행</span>
           <span class="ja-only">インフルエンサーSNS投稿を開始</span>
         </span></li>
       </ul>
     </div>
 
-    <div class="help-link">
-      <span class="ko-only">문의 : LINE </span>
-      <span class="ja-only">お問合せ : LINE </span>
-      <a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a>
+    <div class="help-link" style="line-height:1.8">
+      <div style="font-weight:700;color:var(--ink);margin-bottom:4px"><span class="ko-only">문의</span><span class="ja-only">お問合せ</span></div>
+      <div>· LINE <a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a></div>
+      <div>· <span class="ko-only">카카오톡</span><span class="ja-only">KakaoTalk</span> <a href="https://open.kakao.com/">byhyunho7</a></div>
+      <div>· <span class="ko-only">연락처</span><span class="ja-only">TEL</span> <a href="tel:+821025501511">010-2550-1511</a></div>
     </div>
   </div>
 </div>
