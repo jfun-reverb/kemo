@@ -3515,7 +3515,7 @@ function copyBrandSalesUrl() {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -3574,14 +3574,16 @@ function renderBrandApplicationsList() {
   if (count) count.textContent = '(' + list.length + '건)';
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
     return;
   }
 
   tbody.innerHTML = list.map(function(a) {
     return '<tr>'
-      + '<td style="font-family:monospace;font-size:11px">' + esc(a.application_no || '—') + '</td>'
-      + '<td><span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></td>'
+      + '<td>'
+        + '<div style="font-family:monospace;font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+        + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
+      + '</td>'
       + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
       + '<td>' + esc(a.contact_name || '—') + '</td>'
       + '<td style="font-family:monospace;font-size:11px">' + esc(a.phone || '—') + '</td>'

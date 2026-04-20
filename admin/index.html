@@ -1406,8 +1406,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="admin-table-wrap">
             <table class="data-table">
               <thead><tr>
-                <th style="width:160px">신청번호</th>
-                <th style="width:90px">폼 종류</th>
+                <th style="width:180px">신청번호 / 폼 종류</th>
                 <th>브랜드</th>
                 <th style="width:110px">담당자</th>
                 <th style="width:130px">연락처</th>
@@ -1417,7 +1416,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">처리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -7130,7 +7129,7 @@ function copyBrandSalesUrl() {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -7189,14 +7188,16 @@ function renderBrandApplicationsList() {
   if (count) count.textContent = '(' + list.length + '건)';
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
     return;
   }
 
   tbody.innerHTML = list.map(function(a) {
     return '<tr>'
-      + '<td style="font-family:monospace;font-size:11px">' + esc(a.application_no || '—') + '</td>'
-      + '<td><span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></td>'
+      + '<td>'
+        + '<div style="font-family:monospace;font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+        + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
+      + '</td>'
       + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
       + '<td>' + esc(a.contact_name || '—') + '</td>'
       + '<td style="font-family:monospace;font-size:11px">' + esc(a.phone || '—') + '</td>'
