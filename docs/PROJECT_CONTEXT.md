@@ -11,6 +11,7 @@
 - **주요 엔드유저**: 브랜드(한국어), 인플루언서(일본어), 관리자(한국어)
 
 ### 핵심 프로세스
+0. **광고주(브랜드) 인테이크**: `sales.globalreverb.com` 신청 폼(reviewer/seeding) → 관리자 검수·견적 확정 → 계약 → 캠페인 등록으로 연결 (2026-04-20 추가)
 1. 캠페인 등록 (관리자/브랜드)
 2. 인플루언서 신청 → 선정 (reviewed_by/at)
 3. 제품 배송 (한국 → 일본, tracking_number)
@@ -68,6 +69,14 @@
 - 동의 범위: 기간, 매체, 지역 명시
 - `applications` 또는 `receipts`에 `secondary_use_agreed_at`, `secondary_use_scope` 컬럼 필요
 
+### 3-4. 브랜드 인테이크 & Edge Functions (2026-04-20 추가)
+- **신규 개인정보 수집 채널**: `brand_applications` 테이블은 인플루언서 데이터와 **별개**의 광고주 개인정보 수집 채널. 수집 항목: 담당자 이름·전화·이메일·세금계산서 이메일(reviewer)·사업자등록증 이미지(reviewer)
+- **비공개 버킷**: `brand-docs` Supabase Storage 버킷 (public=false, 10MB, PDF/JPEG/PNG). 관리자 signed URL로만 접근. anon INSERT는 경로 정규식(`YYYY/MM/UUID/`) 강제
+- **Edge Function**: `notify-brand-application` (Supabase Functions) — `brand_applications` INSERT 후 클라이언트가 호출 → `admins.receive_brand_notify=true` + env `NOTIFY_ADMIN_EMAILS` 합산 대상에게 Brevo SMTP 경유 알림 메일 발송
+- **서브도메인**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` (별도 Vercel 프로젝트 `reverb-sales`, Root Directory=`sales/`). `noindex/nofollow` 메타 유지(검색 노출 차단). 별도 favicon으로 STAGING DEV 아이콘 누수 방지
+- **PIPA/APPI 일관성**: 광고주 데이터도 호주 시드니 AWS 리전(Supabase 운영)으로 국외 이전됨 → PRIVACY §5 반영 필요 (docs/PRIVACY_{kr,ja}.md §5 광고주 항목 포함됨)
+- **처리위탁 범위**: Edge Function·Storage 모두 Supabase Inc. 위탁 내. 별도 수탁사 추가 없음 (2026-04-20 결정)
+
 ---
 
 ## 4. 데이터 모델 설계 가이드
@@ -114,6 +123,21 @@ Access Logs (NEW 테이블):
   - ip INET, user_agent TEXT
   - created_at TIMESTAMPTZ
   - 보관 정책: 최소 **1년**, 초과 시 아카이브
+
+Brand Applications (2026-04-20 구현):
+  - id UUID
+  - application_no TEXT UNIQUE (JFUN-{Q|N}-YYYYMMDD-NNN 자동 채번)
+  - form_type TEXT (reviewer|seeding)
+  - brand_name, contact_name, phone, email TEXT
+  - billing_email TEXT (reviewer 전용, 세금계산서)
+  - products JSONB (상품 배열 1~50)
+  - total_jpy, total_qty, estimated_krw NUMERIC (서버 트리거 재계산)
+  - final_quote_krw NUMERIC (관리자 확정)
+  - business_license_path TEXT (brand-docs Storage 경로, reviewer 전용)
+  - status TEXT (new→reviewing→quoted→paid→done/rejected)
+  - admin_memo TEXT
+  - version INT (낙관적 락)
+  - 보관 정책: 계약 미체결 6개월 / 계약 체결 5년 (PRIVACY §6.1 참조)
 ```
 
 ---
@@ -151,18 +175,19 @@ Access Logs (NEW 테이블):
 
 ---
 
-## 7. 현재 구현 상태 체크 (2026-04-14 기준)
+## 7. 현재 구현 상태 체크 (2026-04-20 기준)
 
 ### ✅ 구현됨
 - Supabase Auth (PKCE, 비밀번호 재설정, 초대 플로우)
-- RLS 정책 6개 테이블
+- RLS 정책 (campaigns/influencers/applications/admins/receipts/deliverables/brand_applications/lookup_values/participation_sets)
 - 이메일 동의 기록 (terms/privacy/marketing agreed_at)
 - 개발/운영 환경 완전 분리
 - 인플루언서 페이지 일본어 기본 + 한국어 토글(개발서버)
-- 관리자 페이지 한국어
+- 관리자 페이지 한국어 (2단 고정 레이아웃, 목록 페인 sticky thead 통일)
 - 우편번호 7자리/도도부현 드롭다운
 - PayPal 이메일 필드 (계좌 대체)
-- 이미지 Supabase Storage (`campaign-images` 버킷)
+- 이미지 Supabase Storage (`campaign-images`, `brand-docs` 버킷)
+- **광고주 신청 인테이크 (2026-04-20)**: `sales.globalreverb.com` 서브도메인, `brand_applications` 테이블, `notify-brand-application` Edge Function, 관리자 검수 페인, `admins.receive_brand_notify` 수신자 토글
 
 ### ⚠️ 부분 구현
 - 개인정보 양방향 암호화 (평문 저장 중)
@@ -177,7 +202,7 @@ Access Logs (NEW 테이블):
 - 정산 시스템 (원천징수 22% + 환율 + 거주자 증명)
 - PortOne/PayPal API 모듈 설계
 - 국제배송 tracking_number 플로우
-- 브랜드 분리 테이블(`brands`)
+- 브랜드 분리 테이블(`brands`) — 정식 계약 체결 후 엔터티화. `brand_applications`(인테이크)와는 별개 성격
 - 2차 활용 동의 별도 플로우
 
 ---
@@ -194,3 +219,4 @@ Access Logs (NEW 테이블):
 
 ## 9. 문서 개정 이력
 - 2026-04-14: 초기 작성 (글로벌 시딩 플랫폼 법률/보안 맥락 통합)
+- 2026-04-20: 광고주 신청 시스템(`brand_applications`/`brand-docs`/`notify-brand-application`) 도입 — §3-4, §4, §7 반영. `reward_note`, 일본어 용어 표준화(来店→訪問, Reviewer→レビュアー) 반영. 핵심 프로세스 0번 단계 추가.

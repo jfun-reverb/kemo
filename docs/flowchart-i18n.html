@@ -48,7 +48,7 @@
 <body>
 
 <h1>REVERB JP — i18n (다국어) 흐름도</h1>
-<p class="subtitle">최종 업데이트: 2026-04-16 | Phase 1 + Phase 2 통합</p>
+<p class="subtitle">최종 업데이트: 2026-04-20 | Phase 1 + Phase 2 + 일본어 용어 표준화</p>
 
 <!-- Section 1: Language Toggle Flow -->
 <div class="section">
@@ -239,6 +239,27 @@ dev/
     <tr><td>영역.동사</td><td>activity.submitReceipt</td><td>활동관리 영수증 제출 버튼</td></tr>
     <tr><td>상태.값</td><td>delivStatus.approved</td><td>배송/심사 상태 "승인"</td></tr>
   </table>
+</div>
+
+<!-- Section 7: Japanese Terminology Standardization (2026-04-16) -->
+<div class="section">
+  <div class="section-title">7. 일본어 용어 표준화 (2026-04-16)</div>
+  <p style="font-size:12px; color:#555; margin-bottom:12px;">근거 커밋: <code>b0fa825</code> — 일본어 UI 일관성 확보를 위한 카타카나/한자 표기 통일. 전 일본어 사전(<code>ja.js</code>)과 HTML 탭 라벨, 관리자 UI 헬퍼 전반에 일괄 적용.</p>
+  <table style="max-width: 700px;">
+    <tr><th>이전 표기</th><th>변경 표기</th><th>영향 위치</th></tr>
+    <tr><td style="text-decoration:line-through; color:#999;">来店</td><td><strong>訪問</strong></td><td>모집타입 <code>visit</code> 라벨 — 캠페인 목록 탭, 카드 배지, 상세 info 테이블, 관리자 배지 모두</td></tr>
+    <tr><td style="text-decoration:line-through; color:#999;">Reviewer (영문)</td><td><strong>レビュアー</strong></td><td>모집타입 <code>monitor</code> 탭/라벨 — 카타카나 음역으로 통일 (전에는 モニター와 영문 혼용)</td></tr>
+  </table>
+  <div style="margin-top:16px;">
+    <h4 style="font-size:13px; margin-bottom:6px;">영향 파일</h4>
+    <pre style="background:#f6f8fa; padding:12px; border-radius:6px; font-size:11px; line-height:1.6;">
+dev/js/ui.js              ← getRecruitTypeLabelJa() 매핑
+dev/lib/i18n/ja.js        ← 캠페인 목록 탭 라벨 키
+dev/lib/i18n/ko.js        ← 동일 키(일관성)
+dev/index.html            ← 탭 UI 하드코딩 레거시 제거
+sales/index.html 외       ← 광고주 신청 페이지 카피도 レビュアー로 통일</pre>
+  </div>
+  <p style="font-size:11px; color:#666; margin-top:12px;">⚠️ 새 UI 문자열 추가 시 한자/카타카나 선택 가이드: <strong>서비스명·고유명·액션은 카타카나(レビュアー, ギフティング)</strong>, <strong>동작 설명은 한자 2자 표기(訪問, 応募, 配送)</strong>가 원칙.</p>
 </div>
 
 </body>
