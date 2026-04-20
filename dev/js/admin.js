@@ -3732,7 +3732,7 @@ async function openBrandAppDetail(id) {
   var productsSummary = '';
   if (Array.isArray(a.products) && a.products.length > 0) {
     productsSummary = '<span style="font-weight:400;color:var(--muted);margin-left:8px;font-size:11px">'
-      + (a.products.length) + '종 · 총 ' + (a.total_qty || 0) + '개 · ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP')
+      + (a.products.length) + '종 · ' + (a.total_qty || 0) + '개 · 상품 총액 ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP')
       + '</span>';
   }
 
