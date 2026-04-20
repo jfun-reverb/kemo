@@ -114,6 +114,11 @@ if [ -d "sales" ]; then
   cp sales/*.html ../sales/
   # Vercel cleanUrls 설정 파일도 함께 복사 (reverb-sales 프로젝트가 sales/를 Root로 사용)
   [ -f sales/vercel.json ] && cp sales/vercel.json ../sales/
+  # 이미지 디렉토리 (Qoo10 샘플 리뷰 등)
+  if [ -d "sales/images" ]; then
+    mkdir -p ../sales/images
+    cp sales/images/* ../sales/images/
+  fi
   echo "  ✅ Sales 폼 복사 완료 → ../sales/"
 fi
 

@@ -76,32 +76,39 @@ body {
   font-size: 19px;
   letter-spacing: -0.03em;
   color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
 }
+.brand-logo:hover { color: var(--brand); }
 
+/* 랜딩(index.html)과 동일한 심플 텍스트 토글 */
 .lang-toggle {
   display: flex;
-  gap: 2px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 100px;
-  padding: 3px;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
-
 .lang-toggle button {
   background: none;
   border: none;
-  padding: 6px 12px;
-  border-radius: 100px;
+  padding: 4px 2px;
   cursor: pointer;
   color: var(--ink-mute);
-  transition: all 0.2s;
   font-family: inherit;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  position: relative;
 }
-
-.lang-toggle button.active { background: var(--ink); color: white; }
+.lang-toggle button.active { color: var(--ink); }
+.lang-toggle button.active::after {
+  content: "";
+  position: absolute;
+  left: 2px; right: 2px; bottom: -2px;
+  height: 2px;
+  background: var(--ink);
+}
+.lang-toggle .sep { color: var(--ink-mute); opacity: 0.4; }
 
 .progress-wrap { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 
@@ -796,10 +803,11 @@ body {
 <!-- HEADER -->
 <div class="header">
   <div class="header-top">
-    <div class="brand-logo">Reverb</div>
+    <a class="brand-logo" id="brandLogo" href="index.html" aria-label="Reverb 홈">Reverb</a>
     <div class="lang-toggle">
-      <button class="active" onclick="setLang('ko')">KO</button>
-      <button onclick="setLang('ja')">JA</button>
+      <button class="active" onclick="setLang('ko', event)">KO</button>
+      <span class="sep">·</span>
+      <button onclick="setLang('ja', event)">JA</button>
     </div>
   </div>
   <div class="progress-wrap">
@@ -1138,13 +1146,22 @@ let currentPage = 1;
 let productCount = 1;
 const MAX_PRODUCTS = 10;
 
-function setLang(lang) {
+function setLang(lang, ev) {
   document.body.setAttribute('lang-' + lang, '');
   document.body.removeAttribute('lang-' + (lang === 'ko' ? 'ja' : 'ko'));
   document.documentElement.lang = lang;
   document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (ev && ev.target) ev.target.classList.add('active');
 }
+
+// 서브도메인(sales.globalreverb.com/seeding)과 경로(/sales/seeding.html) 양쪽 모두 랜딩으로 이동
+(function() {
+  var logo = document.getElementById('brandLogo');
+  if (!logo) return;
+  var p = location.pathname;
+  var onSubdomain = /^\/(reviewer|seeding)\/?$/.test(p);
+  logo.href = onSubdomain ? '/' : 'index.html';
+})();
 
 function updateProgress() {
   const percent = (currentPage / 3) * 100;
