@@ -1174,7 +1174,7 @@ function setupCampPreview(mode) {
   entry.render = function() { renderCampPreview(mode); };
   entry.debounced = function() {
     clearTimeout(entry.timer);
-    entry.timer = setTimeout(entry.render, 200);
+    entry.timer = setTimeout(entry.render, 100);
   };
   pane.addEventListener('input', entry.debounced);
   pane.addEventListener('change', entry.debounced);
@@ -2694,6 +2694,8 @@ function renderCampSteps(formMode) {
       </div>
     </div>
   `).join('');
+  // 단계 DOM 재생성 후 미리보기 트리거 (add/remove/move/reload 경로 커버 — 타이핑은 bubble된 input 이벤트가 자체 처리)
+  window.dispatchEvent(new Event('reverb:campFormChange'));
 }
 
 function addCampPsetStep(formMode) {
