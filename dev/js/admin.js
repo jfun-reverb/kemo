@@ -234,6 +234,8 @@ async function loadAdminData(preloaded) {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
+  // 배송지 분포(도도부현 Top 10) — 별도 쿼리(select prefecture only)로 렌더
+  renderAddressDistribution();
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
 
   // Recent apps — 신청관리와 동일 UI
@@ -2983,6 +2985,115 @@ async function sendResetEmail() {
 // ══════════════════════════════════════
 var _allUsers = [];
 var _signupChart = null;
+var _addressDistChart = null;
+
+// 일본 도도부현 한국어 표기 매핑 (47개 전체)
+var PREFECTURE_KO = {
+  '北海道':'홋카이도','青森県':'아오모리현','岩手県':'이와테현','宮城県':'미야기현',
+  '秋田県':'아키타현','山形県':'야마가타현','福島県':'후쿠시마현','茨城県':'이바라키현',
+  '栃木県':'도치기현','群馬県':'군마현','埼玉県':'사이타마현','千葉県':'지바현',
+  '東京都':'도쿄도','神奈川県':'가나가와현','新潟県':'니가타현','富山県':'도야마현',
+  '石川県':'이시카와현','福井県':'후쿠이현','山梨県':'야마나시현','長野県':'나가노현',
+  '岐阜県':'기후현','静岡県':'시즈오카현','愛知県':'아이치현','三重県':'미에현',
+  '滋賀県':'시가현','京都府':'교토부','大阪府':'오사카부','兵庫県':'효고현',
+  '奈良県':'나라현','和歌山県':'와카야마현','鳥取県':'돗토리현','島根県':'시마네현',
+  '岡山県':'오카야마현','広島県':'히로시마현','山口県':'야마구치현','徳島県':'도쿠시마현',
+  '香川県':'가가와현','愛媛県':'에히메현','高知県':'고치현','福岡県':'후쿠오카현',
+  '佐賀県':'사가현','長崎県':'나가사키현','熊本県':'구마모토현','大分県':'오이타현',
+  '宮崎県':'미야자키현','鹿児島県':'가고시마현','沖縄県':'오키나와현'
+};
+
+// 파이 차트용 컬러 팔레트 (Top 10 + 미등록/해외)
+var ADDRESS_DIST_COLORS = [
+  '#E8344E','#5B7CFF','#4ECDC4','#F4A43A','#9B59B6',
+  '#5BA86E','#E87A96','#3E79B8','#D49158','#7CA565'
+];
+
+// 배송지(도도부현) 분포 파이 차트 렌더 — Top 10 + 미등록 + 해외
+async function renderAddressDistribution() {
+  const canvas = $('addressDistChart');
+  const totalLabel = $('addressDistTotal');
+  const emptyLabel = $('addressDistEmpty');
+  const loading = $('addressDistLoading');
+  if (!canvas) return;
+
+  try {
+    const stats = await fetchInfluencerPrefectureStats();
+    if (loading) loading.style.display = 'none';
+    if (totalLabel) totalLabel.textContent = `전체 ${stats.total}명`;
+
+    // 라벨을 한국어로 변환 (매핑 없으면 원문 유지)
+    const labels = stats.top.map(r => PREFECTURE_KO[r.name] || r.name);
+    const values = stats.top.map(r => r.count);
+    const colors = stats.top.map((_, i) => ADDRESS_DIST_COLORS[i % ADDRESS_DIST_COLORS.length]);
+
+    if (stats.unregistered > 0) { labels.push('미등록'); values.push(stats.unregistered); colors.push('#BDBDC4'); }
+    if (stats.overseas > 0) { labels.push('해외'); values.push(stats.overseas); colors.push('#8A8A90'); }
+
+    if (_addressDistChart) { _addressDistChart.destroy(); _addressDistChart = null; }
+
+    if (labels.length === 0) {
+      canvas.style.display = 'none';
+      if (emptyLabel) emptyLabel.style.display = 'block';
+      return;
+    }
+
+    canvas.style.display = 'block';
+    if (emptyLabel) emptyLabel.style.display = 'none';
+
+    _addressDistChart = new Chart(canvas.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors,
+          borderColor: '#fff',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '55%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 12,
+              padding: 10,
+              font: { size: 12 },
+              generateLabels: function(chart) {
+                const data = chart.data;
+                return data.labels.map((label, i) => {
+                  const value = data.datasets[0].data[i];
+                  const pct = stats.total ? ((value / stats.total) * 100).toFixed(1) : '0.0';
+                  return {
+                    text: `${label}  ${value}명 (${pct}%)`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    strokeStyle: '#fff',
+                    lineWidth: 1,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const pct = stats.total ? ((ctx.parsed / stats.total) * 100).toFixed(1) : '0.0';
+                return `${ctx.label}: ${ctx.parsed}명 (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  } catch (e) {
+    if (loading) loading.style.display = 'none';
+  }
+}
 
 function renderSignupKPIs(users) {
   const now = new Date();

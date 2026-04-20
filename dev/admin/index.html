@@ -156,6 +156,19 @@
             </div>
           </div>
 
+          <!-- 배송지 분포 (도도부현 Top 10 + 未登録/海外) -->
+          <div class="admin-card" style="margin-bottom:16px">
+            <div class="admin-card-header">
+              <span class="admin-card-title">배송지 분포 (도도부현)</span>
+              <span id="addressDistTotal" style="font-size:11px;color:var(--muted)"></span>
+            </div>
+            <div style="padding:16px;position:relative;height:260px">
+              <canvas id="addressDistChart"></canvas>
+              <div id="addressDistEmpty" style="display:none;text-align:center;color:var(--muted);padding:60px 0;font-size:13px">집계할 배송지 데이터가 없습니다</div>
+              <div id="addressDistLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+            </div>
+          </div>
+
           <div class="admin-card">
             <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
             <table class="data-table" id="recentAppsTable">
