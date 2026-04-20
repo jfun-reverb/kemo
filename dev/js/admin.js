@@ -166,7 +166,7 @@ window.addEventListener('popstate', function(e) {
 var _adminEmails = [];
 async function loadAdminEmails() {
   if (!db) return;
-  const {data} = await db.from('admins').select('email');
+  const {data} = await db?.from('admins').select('email');
   _adminEmails = (data||[]).map(a=>a.email);
 }
 function isAdminEmail(email) { return _adminEmails.includes(email); }
@@ -998,9 +998,9 @@ async function executeDeleteCampaign() {
   var err = $('deleteCampError');
   if (input !== title) { err.textContent = '캠페인명이 일치하지 않습니다'; err.style.display = 'block'; return; }
   try {
-    if (db) await db.from('applications').delete().eq('campaign_id', campId);
+    if (db) await db?.from('applications').delete().eq('campaign_id', campId);
     if (db) {
-      var result = await db.from('campaigns').delete().eq('id', campId);
+      var result = await db?.from('campaigns').delete().eq('id', campId);
       if (result.error) throw result.error;
     }
     closeDeleteCampModal();
@@ -2048,7 +2048,7 @@ function updateSidebarProfile() {
 
 async function loadAdminAccounts() {
   if (!db) return;
-  const {data} = await db.from('admins').select('*').order('created_at');
+  const {data} = await db?.from('admins').select('*').order('created_at');
   const admins = data || [];
   // 현재 로그인한 관리자 정보 먼저 확정 (렌더 시 권한 판단에 사용)
   currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
@@ -2085,7 +2085,7 @@ async function loadAdminAccounts() {
 async function toggleAdminBrandNotify(adminId, checked) {
   if (!db) return;
   try {
-    const {error} = await db.from('admins').update({receive_brand_notify: !!checked}).eq('id', adminId);
+    const {error} = await db?.from('admins').update({receive_brand_notify: !!checked}).eq('id', adminId);
     if (error) throw error;
     toast(checked ? '알림 수신 켜짐' : '알림 수신 꺼짐');
   } catch(e) {
@@ -2763,7 +2763,7 @@ function collectCampPsetPayload(formMode) {
 
 async function loadMyAdminInfo() {
   if (!currentAdminInfo && db) {
-    const {data} = await db.from('admins').select('*').eq('auth_id', currentUser?.id).maybeSingle();
+    const {data} = await db?.from('admins').select('*').eq('auth_id', currentUser?.id).maybeSingle();
     currentAdminInfo = data;
   }
   if (!currentAdminInfo) return;
@@ -2777,7 +2777,7 @@ async function saveMyAdminInfo() {
   if (!currentAdminInfo || !db) return;
   const name = $('myAdminName')?.value.trim();
   try {
-    await db.from('admins').update({name}).eq('id', currentAdminInfo.id);
+    await db?.from('admins').update({name}).eq('id', currentAdminInfo.id);
     currentAdminInfo.name = name;
     updateSidebarProfile();
     toast('정보가 저장되었습니다','success');
