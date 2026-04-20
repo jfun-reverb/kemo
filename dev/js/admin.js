@@ -3571,7 +3571,7 @@ function updateBrandAppSortIndicators() {
 async function openBrandAppDetail(id) {
   _brandAppCurrentId = id;
   var modal = $('brandAppDetailModal');
-  if (modal) modal.classList.add('on');
+  if (modal) modal.classList.add('open');
   var body = $('brandAppDetailBody');
   var footer = $('brandAppDetailFooter');
   if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
@@ -3645,7 +3645,7 @@ async function openBrandAppDetail(id) {
 
 function closeBrandAppDetail() {
   var modal = $('brandAppDetailModal');
-  if (modal) modal.classList.remove('on');
+  if (modal) modal.classList.remove('open');
   _brandAppCurrentId = null;
   window._brandAppCurrent = null;
 }
