@@ -3621,16 +3621,16 @@ function renderBrandApplicationsList() {
   tbody.innerHTML = list.map(function(a) {
     return '<tr>'
       + '<td>'
-        + '<div style="font-family:monospace;font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+        + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
         + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
       + '</td>'
       + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
       + '<td>'
         + '<div>' + esc(a.contact_name || '—') + '</div>'
-        + (a.email ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:monospace;word-break:break-all">' + esc(a.email) + '</div>' : '')
+        + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
       + '</td>'
-      + '<td style="font-family:monospace;font-size:11px">' + esc(a.phone || '—') + '</td>'
-      + '<td style="font-family:monospace;font-size:11px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
+      + '<td style="font-size:12px">' + esc(a.phone || '—') + '</td>'
+      + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
       + '<td>' + brandAppStatusSelect(a) + '</td>'
