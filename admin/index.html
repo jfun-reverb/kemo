@@ -4223,7 +4223,7 @@ async function loadAdminCampaigns(useCache) {
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}${c.campaign_no ? ` · <span style="font-family:monospace;font-size:10px;letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
