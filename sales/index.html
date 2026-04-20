@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Sora:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 <style>
 :root {
   --brand: #E8344E;
@@ -20,6 +21,10 @@
   --paper: #FAFAF7;
   --card: #FFFFFF;
   --border: #EAEAE4;
+  --border-strong: #D4D4CC;
+  --sage: #E8ECDA;
+  --sage-ink: #4A5A3A;
+  --accent: #F4E4C1;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -38,10 +43,15 @@ body {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 40px 24px;
+  padding: 40px 24px 48px;
+}
+
+/* HEADER */
+.top-bar {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
 }
 
 .brand-logo {
@@ -50,45 +60,164 @@ body {
   font-size: 22px;
   letter-spacing: -0.03em;
   color: var(--ink);
-  margin-bottom: 32px;
-  text-align: center;
 }
 
+.lang-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 3px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lang-toggle button {
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 100px;
+  cursor: pointer;
+  color: var(--ink-mute);
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.lang-toggle button.active {
+  background: var(--ink);
+  color: white;
+}
+
+/* INTRO */
 .eyebrow {
   font-size: 11px;
   font-weight: 700;
   color: var(--brand);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  text-align: center;
   margin-bottom: 14px;
 }
 
 .title {
   font-family: 'Sora', 'Noto Sans KR', sans-serif;
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 800;
-  line-height: 1.3;
-  letter-spacing: -0.02em;
-  margin-bottom: 16px;
-  text-align: center;
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+  margin-bottom: 14px;
   color: var(--ink);
 }
 
 .desc {
   font-size: 14px;
   color: var(--ink-soft);
-  line-height: 1.7;
-  text-align: center;
-  margin-bottom: 32px;
+  line-height: 1.65;
+  margin-bottom: 28px;
 }
 
+/* CHOICE CARDS */
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.choice-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 20px 18px;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: all 0.18s;
+  position: relative;
+  overflow: hidden;
+}
+.choice-card:hover {
+  border-color: var(--ink);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
+.choice-card .chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 100px;
+  margin-bottom: 12px;
+}
+
+.choice-card.reviewer .chip {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.choice-card.seeding .chip {
+  background: var(--sage);
+  color: var(--sage-ink);
+}
+
+.choice-card .card-title {
+  font-family: 'Sora', 'Noto Sans KR', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.choice-card .card-desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.choice-card .tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.choice-card .tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-mute);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.choice-card .cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.choice-card .cta .material-icons-outlined {
+  font-size: 16px;
+  transition: transform 0.18s;
+}
+.choice-card:hover .cta { color: var(--brand); }
+.choice-card:hover .cta .material-icons-outlined { transform: translateX(4px); }
+
+/* CONTACT */
 .contact-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 20px 22px;
-  margin-bottom: 20px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
 }
 
 .contact-label {
@@ -97,24 +226,23 @@ body {
   color: var(--ink);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .contact-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
+  padding: 6px 0;
   font-size: 13px;
   color: var(--ink-soft);
   border-bottom: 1px solid var(--border);
 }
-
 .contact-row:last-child { border-bottom: none; }
 
 .contact-row .k {
   color: var(--ink-mute);
-  min-width: 64px;
+  min-width: 70px;
   font-weight: 600;
 }
 
@@ -128,26 +256,143 @@ body {
   font-size: 11px;
   color: var(--ink-mute);
   text-align: center;
-  margin-top: 20px;
   line-height: 1.6;
+}
+
+/* LANG */
+[lang-ja] .ko-only { display: none; }
+[lang-ja] .ja-only { display: initial; }
+[lang-ko] .ja-only { display: none; }
+
+@media (max-width: 360px) {
+  body { padding: 28px 18px 40px; }
+  .title { font-size: 26px; }
+  .choice-card .card-title { font-size: 16px; }
 }
 </style>
 </head>
-<body>
+<body lang-ko>
 
-<div class="brand-logo">Reverb</div>
+<div class="top-bar">
+  <div class="brand-logo">Reverb</div>
+  <div class="lang-toggle">
+    <button class="active" onclick="setLang('ko', event)">KO</button>
+    <button onclick="setLang('ja', event)">JA</button>
+  </div>
+</div>
+
 <div class="eyebrow">REVERB JP</div>
-<h1 class="title">광고주 신청</h1>
-<p class="desc">영업 담당자에게 전달받으신 전용 URL로 접속해주세요.<br>직접 접근이 제한된 페이지입니다.</p>
+<h1 class="title">
+  <span class="ko-only">어떤 서비스를 신청하시나요?</span>
+  <span class="ja-only">ご希望のサービスをお選びください</span>
+</h1>
+<p class="desc">
+  <span class="ko-only">브랜드의 목표에 맞춰 적합한 서비스를 선택해주세요.<br>선택 후 온라인 신청서를 작성하시면 담당자가 확인 후 연락드립니다.</span>
+  <span class="ja-only">ブランドの目的に合わせて最適なサービスをお選びください。<br>お申込み後、担当者よりご連絡いたします。</span>
+</p>
+
+<div class="choice-list">
+  <a class="choice-card reviewer" id="goReviewer" href="reviewer.html">
+    <span class="chip">
+      <span class="ko-only">Qoo10 리뷰어 모집</span>
+      <span class="ja-only">Qoo10 レビュアー募集</span>
+    </span>
+    <div class="card-title">
+      <span class="ko-only">일본 유저의 실구매 리뷰</span>
+      <span class="ja-only">日本ユーザーの実購入レビュー</span>
+    </div>
+    <div class="card-desc">
+      <span class="ko-only">Qoo10 일본 유저가 직접 구매 후 리뷰를 작성합니다. Qoo10 정산 시스템으로 판매대금 수령.</span>
+      <span class="ja-only">Qoo10の日本ユーザーが直接購入してレビューを作成。Qoo10精算システムで売上受取。</span>
+    </div>
+    <div class="tags">
+      <span class="tag">
+        <span class="ko-only">리뷰어 모집비 무료</span>
+        <span class="ja-only">募集費無料</span>
+      </span>
+      <span class="tag">
+        <span class="ko-only">선금 결제</span>
+        <span class="ja-only">前金決済</span>
+      </span>
+      <span class="tag">
+        <span class="ko-only">엔화 기준 견적</span>
+        <span class="ja-only">円建て見積</span>
+      </span>
+    </div>
+    <div class="cta">
+      <span class="ko-only">리뷰어 신청하기</span>
+      <span class="ja-only">レビュアー申込へ</span>
+      <span class="material-icons-outlined">arrow_forward</span>
+    </div>
+  </a>
+
+  <a class="choice-card seeding" id="goSeeding" href="seeding.html">
+    <span class="chip">
+      <span class="ko-only">나노 인플루언서 시딩</span>
+      <span class="ja-only">ナノインフルエンサー シーディング</span>
+    </span>
+    <div class="card-title">
+      <span class="ko-only">일본 현지 인플루언서 매칭</span>
+      <span class="ja-only">日本のインフルエンサーマッチング</span>
+    </div>
+    <div class="card-desc">
+      <span class="ko-only">일본 현지 나노 인플루언서에게 제품을 직접 전달하고 SNS 포스팅을 받습니다.</span>
+      <span class="ja-only">日本のナノインフルエンサーへ商品を直接お届けし、SNS投稿をご提供。</span>
+    </div>
+    <div class="tags">
+      <span class="tag">
+        <span class="ko-only">매칭·운영 무료</span>
+        <span class="ja-only">マッチング・運営無料</span>
+      </span>
+      <span class="tag">
+        <span class="ko-only">제품 발송만 브랜드 부담</span>
+        <span class="ja-only">商品発送のみ負担</span>
+      </span>
+      <span class="tag">
+        <span class="ko-only">팔로워 ~1,000명</span>
+        <span class="ja-only">フォロワー〜1,000名</span>
+      </span>
+    </div>
+    <div class="cta">
+      <span class="ko-only">시딩 신청하기</span>
+      <span class="ja-only">シーディング申込へ</span>
+      <span class="material-icons-outlined">arrow_forward</span>
+    </div>
+  </a>
+</div>
 
 <div class="contact-card">
-  <div class="contact-label">Contact</div>
+  <div class="contact-label">
+    <span class="ko-only">문의</span>
+    <span class="ja-only">お問合せ</span>
+  </div>
   <div class="contact-row"><span class="k">LINE</span><span class="v"><a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a></span></div>
   <div class="contact-row"><span class="k">KakaoTalk</span><span class="v">byhyunho7</span></div>
   <div class="contact-row"><span class="k">TEL</span><span class="v"><a href="tel:+821025501511">010-2550-1511</a></span></div>
 </div>
 
 <div class="footnote">© JFUN Corp. / 株式会社ジェイファン</div>
+
+<script>
+function setLang(lang, ev) {
+  document.body.setAttribute('lang-' + lang, '');
+  document.body.removeAttribute('lang-' + (lang === 'ko' ? 'ja' : 'ko'));
+  document.documentElement.lang = lang;
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
+  if (ev && ev.target) ev.target.classList.add('active');
+}
+
+// 서브도메인(/ rewrite)과 경로 접속(/sales/index.html) 양쪽 URL을 모두 지원
+(function() {
+  const reviewerLink = document.getElementById('goReviewer');
+  const seedingLink = document.getElementById('goSeeding');
+  const p = location.pathname;
+  // 서브도메인에서는 rewrites된 /reviewer, /seeding로 이동
+  const onSubdomain = (p === '/' || p === '/index.html');
+  if (reviewerLink) reviewerLink.href = onSubdomain ? '/reviewer' : 'reviewer.html';
+  if (seedingLink) seedingLink.href = onSubdomain ? '/seeding' : 'seeding.html';
+})();
+</script>
 
 </body>
 </html>
