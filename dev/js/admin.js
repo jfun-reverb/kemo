@@ -2086,7 +2086,7 @@ async function loadAdminAccounts() {
     <td>${esc(a.email)}</td>
     <td>${roleLabel(a.role)}</td>
     <td style="text-align:center">
-      <label class="lookup-toggle" title="광고주 신청 접수 시 알림 메일 수신" onclick="event.stopPropagation()">
+      <label class="lookup-toggle" title="브랜드 서베이 접수 시 알림 메일 수신" onclick="event.stopPropagation()">
         <input type="checkbox" ${a.receive_brand_notify ? 'checked' : ''} onchange="toggleAdminBrandNotify('${a.id}', this.checked)">
         <span class="lookup-toggle-slider"></span>
       </label>
