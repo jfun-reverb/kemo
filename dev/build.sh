@@ -112,6 +112,8 @@ PYTHON_SCRIPT
 if [ -d "sales" ]; then
   mkdir -p ../sales
   cp sales/*.html ../sales/
+  # Vercel cleanUrls 설정 파일도 함께 복사 (reverb-sales 프로젝트가 sales/를 Root로 사용)
+  [ -f sales/vercel.json ] && cp sales/vercel.json ../sales/
   echo "  ✅ Sales 폼 복사 완료 → ../sales/"
 fi
 
