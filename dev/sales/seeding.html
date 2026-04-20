@@ -1302,26 +1302,22 @@ async function submitApplication() {
     const email = document.getElementById('email')?.value.trim();
     const products = collectProducts();
 
-    // 6. DB INSERT (application_no는 트리거 자동 생성, seeding은 estimated_krw=0)
-    const { data, error } = await sb
-      .from('brand_applications')
-      .insert({
-        application_no: '',
-        form_type: 'seeding',
-        brand_name: brandName,
-        contact_name: contactName,
-        phone: phone,
-        email: email,
-        products: products
-      })
-      .select('application_no')
-      .maybeSingle();
+    // 6. DB INSERT — SECURITY DEFINER RPC 경유 (anon RLS 42501 우회)
+    //    함수가 application_no 만 반환. seeding 은 estimated_krw 트리거가 0 으로 고정.
+    const { data: applicationNo, error } = await sb.rpc('submit_brand_application', {
+      p_form_type: 'seeding',
+      p_brand_name: brandName,
+      p_contact_name: contactName,
+      p_phone: phone,
+      p_email: email,
+      p_products: products
+    });
 
     if (error) throw error;
-    if (!data) throw new Error('no_response');
+    if (!applicationNo) throw new Error('no_response');
 
     // 7. 완료 화면 값 갱신
-    document.getElementById('applicationNum').textContent = '— ' + data.application_no + ' —';
+    document.getElementById('applicationNum').textContent = '— ' + applicationNo + ' —';
 
     markSubmitted();
     showPage(3);
