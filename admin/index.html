@@ -1413,7 +1413,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:180px">계산서 이메일</th>
                 <th style="width:120px">예상 견적 <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:120px">확정 견적</th>
-                <th style="width:120px">상태</th>
+                <th style="width:120px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleBrandAppSort('status')">▲▼</span></th>
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">처리</th>
               </tr></thead>
@@ -7212,6 +7212,11 @@ function renderBrandApplicationsList() {
     var av, bv;
     if (_brandAppSort.field === 'estimated') {
       av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
+    } else if (_brandAppSort.field === 'status') {
+      // 진행 순서 기반 정렬 (asc: 초기 상태부터, desc: 완료/반려부터)
+      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, done:4, rejected:5};
+      av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
+      bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
     } else {
       av = a.created_at || ''; bv = b.created_at || '';
     }

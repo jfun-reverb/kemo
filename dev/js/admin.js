@@ -3597,6 +3597,11 @@ function renderBrandApplicationsList() {
     var av, bv;
     if (_brandAppSort.field === 'estimated') {
       av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
+    } else if (_brandAppSort.field === 'status') {
+      // 진행 순서 기반 정렬 (asc: 초기 상태부터, desc: 완료/반려부터)
+      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, done:4, rejected:5};
+      av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
+      bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
     } else {
       av = a.created_at || ''; bv = b.created_at || '';
     }
