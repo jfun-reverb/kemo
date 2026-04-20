@@ -371,6 +371,11 @@ body {
   box-shadow: 0 0 0 3px rgba(22, 22, 24, 0.08);
 }
 
+.field input.is-invalid {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(232, 52, 78, 0.12);
+}
+
 .field input::placeholder { color: var(--ink-mute); font-weight: 400; }
 
 .field-hint { font-size: 11px; color: var(--ink-mute); margin-top: 5px; }
@@ -665,6 +670,56 @@ body {
   min-width: 18px;
   font-style: italic;
 }
+
+.cross-promo {
+  background: var(--brand-soft);
+  border: 1px solid rgba(232, 52, 78, 0.15);
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.cross-promo-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.cross-promo-title {
+  font-family: 'Sora', 'Noto Sans KR', 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.4;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+.cross-promo-desc {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+
+.cross-promo-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.cross-promo-cta:hover { background: var(--brand); }
 
 .help-link { font-size: 12px; color: var(--ink-mute); }
 .help-link a { color: var(--brand); text-decoration: none; font-weight: 600; }
@@ -1003,6 +1058,26 @@ body {
       </ul>
     </div>
 
+    <div class="cross-promo">
+      <div class="cross-promo-label">
+        <span class="ko-only">추천 — Qoo10 리뷰어 모집</span>
+        <span class="ja-only">おすすめ — Qoo10 レビュアー募集</span>
+      </div>
+      <div class="cross-promo-title">
+        <span class="ko-only">일본 유저의 실구매 리뷰가<br>필요하다면?</span>
+        <span class="ja-only">日本ユーザーの<br>実購入レビューが必要なら?</span>
+      </div>
+      <div class="cross-promo-desc">
+        <span class="ko-only">Qoo10 일본 유저가 직접 구매 후 리뷰를 남깁니다.</span>
+        <span class="ja-only">Qoo10の日本ユーザーが直接購入してレビューを書きます。</span>
+      </div>
+      <a class="cross-promo-cta" id="toOtherForm" href="reviewer.html">
+        <span class="ko-only">리뷰어 신청하기</span>
+        <span class="ja-only">レビュアー申込へ</span>
+        <span>→</span>
+      </a>
+    </div>
+
     <div class="help-link" style="line-height:1.8">
       <div style="font-weight:700;color:var(--ink);margin-bottom:4px"><span class="ko-only">문의</span><span class="ja-only">お問合せ</span></div>
       <div>· LINE <a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a></div>
@@ -1113,11 +1188,23 @@ async function nextPage() {
 function isKo() { return document.body.hasAttribute('lang-ko'); }
 function tMsg(ko, ja) { return isKo() ? ko : ja; }
 
-function showError(msg) {
+function showError(msg, opts) {
   const el = document.getElementById('submitError');
   el.textContent = msg;
   el.style.display = 'block';
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (!opts || opts.scroll !== false) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function fieldLabelText(el) {
+  const field = el.closest('.field');
+  const label = field?.querySelector('label');
+  if (!label) return '';
+  const ko = label.querySelector('.ko-only')?.textContent?.trim();
+  const ja = label.querySelector('.ja-only')?.textContent?.trim();
+  const picked = isKo() ? (ko || '') : (ja || '');
+  return picked.replace(/[*★]/g, '').trim();
 }
 function clearError() {
   const el = document.getElementById('submitError');
@@ -1126,11 +1213,21 @@ function clearError() {
 }
 
 function validateForm() {
+  document.querySelectorAll('#page2 input.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
   const inputs = document.querySelectorAll('#page2 input[required]');
   for (const el of inputs) {
     if (!el.value || !el.checkValidity()) {
-      el.focus();
-      return tMsg('필수 항목을 모두 입력해주세요.', '必須項目をすべてご入力ください。');
+      el.classList.add('is-invalid');
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e) {}
+      setTimeout(() => el.focus({ preventScroll: true }), 350);
+      const name = fieldLabelText(el);
+      const prodItem = el.closest('.product-item');
+      const prodNum = prodItem ? (prodItem.dataset?.index || '') : '';
+      const prefix = prodNum ? (isKo() ? '[제품 ' + prodNum + '] ' : '[商品' + prodNum + '] ') : '';
+      return name
+        ? (isKo() ? prefix + name + ' 항목을 입력해주세요.' : prefix + name + ' をご入力ください。')
+        : tMsg('필수 항목을 모두 입력해주세요.', '必須項目をすべてご入力ください。');
     }
   }
   return null;
@@ -1171,9 +1268,9 @@ async function submitApplication() {
     return;
   }
 
-  // 2. 필수 입력 검증
+  // 2. 필수 입력 검증 — scroll=false로 필드로의 스크롤(validateForm)을 우선
   const err = validateForm();
-  if (err) { showError(err); return; }
+  if (err) { showError(err, { scroll: false }); return; }
 
   // 3. 5분 내 중복 제출 방지
   if (checkDuplicate()) {
@@ -1314,6 +1411,15 @@ function updateSummary() {
 
 updateProgress();
 updateSummary();
+
+// 크로스 프로모 링크 — 서브도메인(rewrite된 /reviewer)과 경로 접근(reviewer.html) 둘 다 지원
+(function() {
+  const link = document.getElementById('toOtherForm');
+  if (link) {
+    const p = location.pathname;
+    link.href = (p === '/seeding' || p === '/seeding.html') ? '/reviewer' : 'reviewer.html';
+  }
+})();
 
 // number input 포커스 상태에서 마우스 휠로 값이 변경되는 브라우저 기본 동작 차단
 document.addEventListener('wheel', function() {
