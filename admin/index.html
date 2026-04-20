@@ -4218,9 +4218,12 @@ async function loadAdminCampaigns(useCache) {
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0">
-            <div>${typeLabel(c.recruit_type)}</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              ${typeLabel(c.recruit_type)}
+              ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
+            </div>
             <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}${c.campaign_no ? ` · <span style="font-family:monospace;font-size:10px;letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
@@ -6818,7 +6821,7 @@ async function renderDeliverablesList() {
       : '<span style="font-size:11px;color:var(--muted)">—</span>';
     return `<tr>
       <td>${kindBadge}</td>
-      <td><div>${getRecruitTypeBadgeKoSm(camp.recruit_type)}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}${camp.campaign_no ? ` · <span style="font-family:monospace">${esc(camp.campaign_no)}</span>` : ''}</div></td>
+      <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${getRecruitTypeBadgeKoSm(camp.recruit_type)}${camp.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span>` : ''}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
       <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${inf.id||''}')">${infName}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
       <td style="font-size:12px">${formatDateTime(d.submitted_at)}</td>
       <td>${reviewedCell}</td>
