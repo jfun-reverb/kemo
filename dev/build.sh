@@ -104,4 +104,15 @@ with open(output_path, "w", encoding="utf-8") as f:
 print(f"  ✅ Admin 빌드 완료 → {output_path}")
 PYTHON_SCRIPT
 
+# ══════════════════════════════════════
+# 3. SALES 폼 → ../sales/ (self-contained HTML 단순 복사)
+#    - 클라이언트/관리자 어디에서도 링크 노출 X (영업팀이 URL 직접 전달)
+#    - robots.txt + meta noindex로 검색 차단
+# ══════════════════════════════════════
+if [ -d "sales" ]; then
+  mkdir -p ../sales
+  cp sales/*.html ../sales/
+  echo "  ✅ Sales 폼 복사 완료 → ../sales/"
+fi
+
 echo "📦 빌드 완료 ($VERSION)"

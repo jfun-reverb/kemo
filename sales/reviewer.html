@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex,nofollow">
+<meta name="googlebot" content="noindex,nofollow">
+<title>Qoo10 리뷰어 모집 신청 | REVERB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Noto+Sans+JP:wght@300;400;500;700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,800;1,9..144,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --brand: #E8344E;
+  --brand-dark: #C41E3A;
+  --brand-soft: #FFF0F2;
+  --ink: #161618;
+  --ink-soft: #4A4A4F;
+  --ink-mute: #8A8A90;
+  --paper: #FAFAF7;
+  --card: #FFFFFF;
+  --border: #EAEAE4;
+  --border-strong: #D4D4CC;
+  --success: #1F9D55;
+  --accent: #F4E4C1;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  font-family: 'Noto Sans KR', 'Noto Sans JP', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--paper);
+  position: relative;
+  padding-bottom: 120px;
+}
+
+/* ============ HEADER ============ */
+.header {
+  padding: 20px 24px 16px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  background: rgba(250, 250, 247, 0.92);
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.brand-logo {
+  font-family: 'Fraunces', serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.brand-logo span { color: var(--brand); font-style: italic; }
+
+.lang-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 3px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lang-toggle button {
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 100px;
+  cursor: pointer;
+  color: var(--ink-mute);
+  transition: all 0.2s;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.lang-toggle button.active {
+  background: var(--ink);
+  color: white;
+}
+
+/* Progress */
+.progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--brand);
+  width: 33%;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 100px;
+}
+
+.progress-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ============ PAGE CONTAINER ============ */
+.page {
+  display: none;
+  padding: 32px 24px;
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page.active { display: block; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============ PAGE 1: INTRO ============ */
+.intro-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.intro-title {
+  font-family: 'Fraunces', serif;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+}
+
+.intro-title em {
+  font-style: italic;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.intro-sub {
+  font-size: 15px;
+  color: var(--ink-soft);
+  margin-bottom: 28px;
+  line-height: 1.65;
+}
+
+.info-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.info-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.info-card .icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.info-card .icon .material-icons-outlined { font-size: 18px; }
+
+.info-body .label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.info-body .value {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.info-body .value strong { color: var(--brand); font-weight: 700; }
+.info-body .detail {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.alert-box {
+  background: var(--accent);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.alert-box .material-icons-outlined { font-size: 18px; color: var(--ink); flex-shrink: 0; margin-top: 1px; }
+
+/* ============ PAGE 2: FORM ============ */
+.section-header {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-family: 'Fraunces', serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--ink-mute);
+}
+
+.field-group {
+  margin-bottom: 32px;
+}
+
+.field-group-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-group-label .count {
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.field {
+  margin-bottom: 18px;
+}
+
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+.field label .req {
+  color: var(--brand);
+  margin-left: 3px;
+}
+
+.field input[type="text"],
+.field input[type="tel"],
+.field input[type="email"],
+.field input[type="url"],
+.field input[type="number"] {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: inherit;
+  background: var(--card);
+  color: var(--ink);
+  transition: all 0.2s;
+  -webkit-appearance: none;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(22, 22, 24, 0.08);
+}
+
+.field input::placeholder {
+  color: var(--ink-mute);
+  font-weight: 400;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin-top: 5px;
+}
+
+/* Product item card */
+.product-item {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 18px 16px 8px;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.product-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.product-num {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  font-style: italic;
+}
+
+.product-num::before {
+  content: "#";
+  color: var(--brand);
+  margin-right: 2px;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: var(--ink-mute);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 3px;
+}
+
+.remove-btn:hover { color: var(--brand); }
+.remove-btn .material-icons-outlined { font-size: 16px; }
+
+.add-product-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--paper);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.add-product-btn:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.add-product-btn .material-icons-outlined { font-size: 18px; }
+
+/* File upload */
+.file-upload {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--card);
+}
+
+.file-upload:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.file-upload input { display: none; }
+
+.file-upload-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+}
+
+.file-upload-text {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.file-upload-sub {
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin-top: 3px;
+}
+
+.file-name {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* ============ QUOTE BOX ============ */
+.quote-box {
+  background: var(--ink);
+  color: white;
+  border-radius: 18px;
+  padding: 24px 22px;
+  margin-top: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.quote-box::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(232, 52, 78, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.quote-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  position: relative;
+}
+
+.quote-title {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.quote-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 13px;
+  position: relative;
+}
+
+.quote-row .l { color: rgba(255,255,255,0.6); }
+.quote-row .r { color: white; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.quote-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 10px 0;
+}
+
+.quote-final {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  position: relative;
+}
+
+.quote-final .l {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+.quote-final .r {
+  font-family: 'Fraunces', serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: white;
+  font-variant-numeric: tabular-nums;
+}
+
+.quote-disclaimer {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 14px;
+  line-height: 1.5;
+  position: relative;
+}
+
+/* ============ PAGE 3: COMPLETE ============ */
+.complete-wrap { text-align: center; padding: 20px 0; }
+
+.complete-mark {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.complete-mark .material-icons-outlined { font-size: 38px; }
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.complete-title {
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.complete-num {
+  font-family: 'Fraunces', serif;
+  font-size: 14px;
+  color: var(--brand);
+  font-weight: 600;
+  font-style: italic;
+  margin-bottom: 28px;
+}
+
+.bank-card {
+  background: var(--ink);
+  color: white;
+  border-radius: 18px;
+  padding: 24px 20px;
+  text-align: left;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bank-card::before {
+  content: "入金";
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 40px;
+  font-family: 'Noto Sans JP', serif;
+  font-weight: 900;
+  color: rgba(232, 52, 78, 0.15);
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.bank-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.bank-info {
+  margin-bottom: 14px;
+}
+
+.bank-info-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.bank-info-row .k {
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.bank-info-row .v {
+  font-size: 15px;
+  color: white;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-amount {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.bank-amount .k {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bank-amount .v {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.next-steps {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 18px;
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.next-steps-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.step-list { list-style: none; }
+.step-list li {
+  display: flex;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  align-items: flex-start;
+}
+
+.step-num {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  color: var(--brand);
+  font-size: 14px;
+  flex-shrink: 0;
+  min-width: 18px;
+  font-style: italic;
+}
+
+.help-link {
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+
+.help-link a {
+  color: var(--brand);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ============ BOTTOM NAV ============ */
+.nav-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  background: rgba(250, 250, 247, 0.92);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  z-index: 50;
+}
+
+.btn {
+  flex: 1;
+  padding: 15px 18px;
+  border-radius: 100px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  letter-spacing: -0.01em;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: white;
+  flex: 2;
+}
+
+.btn-primary:hover { background: var(--brand); }
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+}
+
+.btn-secondary:hover { border-color: var(--ink); }
+
+.btn .material-icons-outlined { font-size: 18px; }
+
+/* ============ CHECKBOX ============ */
+.checkbox-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.checkbox-wrap input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
+/* ============ JAPANESE MODE ============ */
+[lang-ja] .ko-only { display: none; }
+[lang-ja] .ja-only { display: initial; }
+[lang-ko] .ja-only { display: none; }
+
+/* ============ TINY SCREEN ============ */
+@media (max-width: 360px) {
+  .intro-title { font-size: 28px; }
+  .section-title { font-size: 22px; }
+  .page { padding: 24px 18px; }
+  .header { padding: 16px 18px 14px; }
+  .nav-bar { padding: 12px 16px; }
+}
+</style>
+</head>
+<body lang-ko>
+
+<!-- ============ HEADER ============ -->
+<div class="header">
+  <div class="header-top">
+    <div class="brand-logo">Reve<span>rb</span></div>
+    <div class="lang-toggle">
+      <button class="active" onclick="setLang('ko')">KO</button>
+      <button onclick="setLang('ja')">JA</button>
+    </div>
+  </div>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-text" id="progressText">01 / 03</div>
+  </div>
+</div>
+
+<!-- ============ PAGE 1: INTRO ============ -->
+<div class="page active" id="page1">
+  <div class="intro-eyebrow">
+    <span class="ko-only">큐텐 리뷰어 모집</span>
+    <span class="ja-only">Qoo10 レビュアー募集</span>
+  </div>
+  <h1 class="intro-title">
+    <span class="ko-only">일본 유저의<br>리얼 <em>리뷰</em>를<br>손에 쥐다.</span>
+    <span class="ja-only">日本ユーザーの<br>リアルな<em>レビュー</em>を。</span>
+  </h1>
+  <p class="intro-sub">
+    <span class="ko-only">Qoo10 일본 현지 유저가 직접 구매 후 리뷰를 남깁니다. 브랜드사는 Qoo10 정산 시스템으로 판매대금을 받습니다.</span>
+    <span class="ja-only">Qoo10の日本ユーザーが直接購入してレビューを書きます。ブランド様はQoo10で売上代金を精算されます。</span>
+  </p>
+
+  <div class="info-stack">
+    <div class="info-card">
+      <div class="icon"><span class="material-icons-outlined">groups</span></div>
+      <div class="info-body">
+        <div class="label">
+          <span class="ko-only">리뷰어 모집 비용</span>
+          <span class="ja-only">レビュアー募集費</span>
+        </div>
+        <div class="value"><strong>
+          <span class="ko-only">무료</span>
+          <span class="ja-only">無料</span>
+        </strong></div>
+        <div class="detail">
+          <span class="ko-only">시중 평균 10,000~15,000원 상당</span>
+          <span class="ja-only">市場平均 ¥1,000〜¥1,500相当</span>
+        </div>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="icon"><span class="material-icons-outlined">payments</span></div>
+      <div class="info-body">
+        <div class="label">
+          <span class="ko-only">상품 결제 대금</span>
+          <span class="ja-only">商品決済代金</span>
+        </div>
+        <div class="value">
+          <span class="ko-only">일본 유저에게 지급되는 금액</span>
+          <span class="ja-only">日本ユーザーへ支払われる金額</span>
+        </div>
+        <div class="detail">
+          <span class="ko-only">환산 : 3,000엔 ≒ 30,000원 (×10 기준)</span>
+          <span class="ja-only">換算 : 3,000円 ≒ 30,000KRW (×10基準)</span>
+        </div>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="icon"><span class="material-icons-outlined">swap_horiz</span></div>
+      <div class="info-body">
+        <div class="label">
+          <span class="ko-only">해외 송금 수수료</span>
+          <span class="ja-only">海外送金手数料</span>
+        </div>
+        <div class="value">
+          <span class="ko-only"><strong>리뷰어 1명당 ₩2,500</strong></span>
+          <span class="ja-only"><strong>レビュアー1名あたり ¥250</strong></span>
+        </div>
+        <div class="detail">
+          <span class="ko-only">리뷰어별 개별 송금 발생</span>
+          <span class="ja-only">レビュアー別に個別送金</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert-box">
+    <span class="material-icons-outlined">info</span>
+    <span>
+      <span class="ko-only">선금 결제 완료 후 리뷰어 모집이 시작됩니다.</span>
+      <span class="ja-only">前金決済完了後にレビュアー募集を開始します。</span>
+    </span>
+  </div>
+</div>
+
+<!-- ============ PAGE 2: FORM ============ -->
+<div class="page" id="page2">
+  <div class="section-header">
+    <h2 class="section-title">
+      <span class="ko-only">신청 정보</span>
+      <span class="ja-only">お申込み情報</span>
+    </h2>
+    <p class="section-desc">
+      <span class="ko-only">브랜드 정보와 리뷰어 모집 제품을 입력해주세요.</span>
+      <span class="ja-only">ブランド情報と募集商品をご入力ください。</span>
+    </p>
+  </div>
+
+  <!-- Honeypot: 봇 차단용 숨김 필드 (사용자는 입력 불가) -->
+  <input type="text" name="company_website" id="hp_field" tabindex="-1" autocomplete="off"
+         style="position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none;" aria-hidden="true">
+
+  <!-- 제출 에러 표시 영역 -->
+  <div id="submitError" style="display:none;background:#FFF0F2;border:1px solid var(--brand);color:var(--brand-dark);padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:18px;"></div>
+
+  <!-- Group 1: Brand Info -->
+  <div class="field-group">
+    <div class="field-group-label">
+      <span>
+        <span class="ko-only">01 / 브랜드 정보</span>
+        <span class="ja-only">01 / ブランド情報</span>
+      </span>
+    </div>
+    <div class="field">
+      <label><span class="ko-only">브랜드명</span><span class="ja-only">ブランド名</span><span class="req">*</span></label>
+      <input type="text" id="brandName" placeholder="예: 닥터립 / Dr.Lip" required>
+    </div>
+    <div class="field">
+      <label><span class="ko-only">담당자명</span><span class="ja-only">ご担当者名</span><span class="req">*</span></label>
+      <input type="text" id="contactName" placeholder="홍길동" required>
+    </div>
+    <div class="field">
+      <label><span class="ko-only">연락처</span><span class="ja-only">連絡先</span><span class="req">*</span></label>
+      <input type="tel" id="phone" placeholder="010-1234-5678" required>
+    </div>
+    <div class="field">
+      <label><span class="ko-only">담당자 이메일</span><span class="ja-only">メールアドレス</span><span class="req">*</span></label>
+      <input type="email" id="email" placeholder="name@company.com" required>
+    </div>
+  </div>
+
+  <!-- Group 2: Product Info -->
+  <div class="field-group">
+    <div class="field-group-label">
+      <span>
+        <span class="ko-only">02 / 리뷰어 모집 제품</span>
+        <span class="ja-only">02 / レビュー対象商品</span>
+      </span>
+      <span class="count" id="productCount">1 / 10</span>
+    </div>
+
+    <div id="productList">
+      <div class="product-item" data-index="1">
+        <div class="product-item-head">
+          <div class="product-num">Product 1</div>
+        </div>
+        <div class="field">
+          <label><span class="ko-only">제품명</span><span class="ja-only">商品名</span><span class="req">*</span></label>
+          <input type="text" class="p-name" placeholder="글로니안 텍스쳐 빈오버 스팟크림" required>
+        </div>
+        <div class="field">
+          <label><span class="ko-only">Qoo10 상품 URL</span><span class="ja-only">Qoo10商品URL</span><span class="req">*</span></label>
+          <input type="url" class="p-url" placeholder="https://www.qoo10.jp/g/..." required>
+        </div>
+        <div class="field">
+          <label><span class="ko-only">엔화 가격</span><span class="ja-only">JPY価格</span><span class="req">*</span></label>
+          <input type="number" class="p-price" placeholder="5300" oninput="calcQuote()" required>
+          <div class="field-hint">JPY · ¥</div>
+        </div>
+        <div class="field">
+          <label><span class="ko-only">희망 리뷰어 수</span><span class="ja-only">希望レビュアー数</span><span class="req">*</span></label>
+          <input type="number" class="p-qty" placeholder="100" oninput="calcQuote()" required>
+          <div class="field-hint">
+            <span class="ko-only">명 · Persons</span>
+            <span class="ja-only">名</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="add-product-btn" onclick="addProduct()">
+      <span class="material-icons-outlined">add</span>
+      <span class="ko-only">제품 추가</span>
+      <span class="ja-only">商品を追加</span>
+    </button>
+  </div>
+
+  <!-- Group 3: Billing -->
+  <div class="field-group">
+    <div class="field-group-label">
+      <span>
+        <span class="ko-only">03 / 정산 정보</span>
+        <span class="ja-only">03 / 精算情報</span>
+      </span>
+    </div>
+    <div class="field">
+      <label>
+        <span class="ko-only">계산서 발행 이메일</span>
+        <span class="ja-only">請求書送付先メール</span>
+        <span class="req">*</span>
+      </label>
+      <input type="email" id="billingEmail" placeholder="billing@company.com" required>
+      <div class="field-hint">
+        <span class="ko-only">결제대금 + 이체수수료 세금계산서가 발행됩니다.</span>
+        <span class="ja-only">決済代金+送金手数料の請求書を発行します。</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>
+        <span class="ko-only">사업자등록증</span>
+        <span class="ja-only">事業者登録証</span>
+        <span class="req">*</span>
+      </label>
+      <label class="file-upload">
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFile(event)">
+        <div class="file-upload-icon"><span class="material-icons-outlined">upload_file</span></div>
+        <div class="file-upload-text">
+          <span class="ko-only">탭하여 파일 선택</span>
+          <span class="ja-only">タップしてファイル選択</span>
+        </div>
+        <div class="file-upload-sub">PDF · JPG · PNG · 10MB</div>
+        <div class="file-name" id="fileName"></div>
+      </label>
+    </div>
+  </div>
+
+  <!-- Quote Preview -->
+  <div class="quote-box">
+    <div class="quote-label">
+      <span class="ko-only">예상 견적</span>
+      <span class="ja-only">お見積り</span>
+    </div>
+    <div class="quote-title">
+      <span class="ko-only">Estimated Quote</span>
+      <span class="ja-only">概算金額</span>
+    </div>
+    <div class="quote-row">
+      <span class="l"><span class="ko-only">결제대금 (엔)</span><span class="ja-only">決済代金 (¥)</span></span>
+      <span class="r"><span id="totalJPY">¥ 0</span></span>
+    </div>
+    <div class="quote-row">
+      <span class="l"><span class="ko-only">결제대금 (원)</span><span class="ja-only">決済代金 (₩)</span></span>
+      <span class="r"><span id="totalKRW">₩ 0</span></span>
+    </div>
+    <div class="quote-row">
+      <span class="l"><span class="ko-only">이체수수료</span><span class="ja-only">送金手数料</span></span>
+      <span class="r"><span id="transferFee">₩ 0</span></span>
+    </div>
+    <div class="quote-divider"></div>
+    <div class="quote-row">
+      <span class="l"><span class="ko-only">공급가</span><span class="ja-only">供給価額</span></span>
+      <span class="r"><span id="supply">₩ 0</span></span>
+    </div>
+    <div class="quote-row">
+      <span class="l"><span class="ko-only">부가세 (10%)</span><span class="ja-only">消費税 (10%)</span></span>
+      <span class="r"><span id="vat">₩ 0</span></span>
+    </div>
+    <div class="quote-final">
+      <span class="l"><span class="ko-only">합계</span><span class="ja-only">合計</span></span>
+      <span class="r"><span id="finalAmount">₩ 0</span></span>
+    </div>
+    <div class="quote-disclaimer">
+      <span class="ko-only">× 환율 1엔=10원 고정 환산. 최종 청구는 당일 환율로 재산출됩니다.</span>
+      <span class="ja-only">× 為替1円=10ウォン固定換算。最終請求は当日為替にて再計算されます。</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE 3: COMPLETE ============ -->
+<div class="page" id="page3">
+  <div class="complete-wrap">
+    <div class="complete-mark">
+      <span class="material-icons-outlined">check</span>
+    </div>
+    <h2 class="complete-title">
+      <span class="ko-only">신청이 접수되었습니다</span>
+      <span class="ja-only">お申込みを受付けました</span>
+    </h2>
+    <div class="complete-num" id="applicationNum">— JFUN-Q-20260419-001 —</div>
+
+    <div class="bank-card">
+      <div class="bank-label">
+        <span class="ko-only">입금 계좌</span>
+        <span class="ja-only">振込先</span>
+      </div>
+      <div class="bank-info">
+        <div class="bank-info-row">
+          <span class="k"><span class="ko-only">은행</span><span class="ja-only">銀行</span></span>
+          <span class="v">
+            <span class="ko-only">우리은행</span>
+            <span class="ja-only">Woori Bank</span>
+          </span>
+        </div>
+        <div class="bank-info-row">
+          <span class="k"><span class="ko-only">계좌번호</span><span class="ja-only">口座番号</span></span>
+          <span class="v">1005-XXX-XXXXXX</span>
+        </div>
+        <div class="bank-info-row">
+          <span class="k"><span class="ko-only">예금주</span><span class="ja-only">口座名義</span></span>
+          <span class="v">
+            <span class="ko-only">(주)제이펀</span>
+            <span class="ja-only">株式会社ジェイファン</span>
+          </span>
+        </div>
+      </div>
+      <div class="bank-amount">
+        <span class="k"><span class="ko-only">입금액</span><span class="ja-only">振込金額</span></span>
+        <span class="v" id="finalAmountConfirm">₩ 0</span>
+      </div>
+    </div>
+
+    <div class="next-steps">
+      <div class="next-steps-title">
+        <span class="ko-only">다음 단계</span>
+        <span class="ja-only">次のステップ</span>
+      </div>
+      <ul class="step-list">
+        <li><span class="step-num">01</span><span>
+          <span class="ko-only">담당자가 신청 내역을 검토합니다 (영업일 1일 이내)</span>
+          <span class="ja-only">担当者が内容を確認します（営業日1日以内）</span>
+        </span></li>
+        <li><span class="step-num">02</span><span>
+          <span class="ko-only">최종 견적서를 이메일로 발송합니다</span>
+          <span class="ja-only">最終見積書をメールでお送りします</span>
+        </span></li>
+        <li><span class="step-num">03</span><span>
+          <span class="ko-only">입금이 확인되면 LINE으로 안내드립니다</span>
+          <span class="ja-only">ご入金確認後、LINEでご案内いたします</span>
+        </span></li>
+        <li><span class="step-num">04</span><span>
+          <span class="ko-only">Qoo10 리뷰어 모집이 시작됩니다</span>
+          <span class="ja-only">Qoo10レビュアー募集を開始します</span>
+        </span></li>
+      </ul>
+    </div>
+
+    <div class="help-link">
+      <span class="ko-only">문의 : LINE </span>
+      <span class="ja-only">お問合せ : LINE </span>
+      <a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BOTTOM NAV ============ -->
+<div class="nav-bar" id="navBar">
+  <button class="btn btn-secondary" id="btnPrev" onclick="prevPage()" style="display:none;">
+    <span class="material-icons-outlined">arrow_back</span>
+    <span class="ko-only">이전</span>
+    <span class="ja-only">戻る</span>
+  </button>
+  <button class="btn btn-primary" id="btnNext" onclick="nextPage()">
+    <span id="btnText">
+      <span class="ko-only">신청 시작하기</span>
+      <span class="ja-only">はじめる</span>
+    </span>
+    <span class="material-icons-outlined">arrow_forward</span>
+  </button>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// Supabase 환경별 자동 분기 (dev/lib/supabase.js와 동일 로직)
+// 운영: globalreverb.com / www.globalreverb.com
+// 개발: dev.globalreverb.com / *.vercel.app / localhost / file://
+// ══════════════════════════════════════
+const SUPABASE_ENVS = {
+  production: {
+    url: 'https://twofagomeizrtkwlhsuv.supabase.co',
+    key: 'sb_publishable_3KgWYIf5w5J727Q2g3Cl7Q_ETD1Swps'
+  },
+  staging: {
+    url: 'https://qysmxtipobomefudyixw.supabase.co',
+    key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
+  }
+};
+const SUPABASE_ENV = /^(www\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+const sb = window.supabase
+  ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key)
+  : null;
+
+// 중복 제출 방지 (localStorage 5분)
+const DUP_KEY = 'reverb.salesSubmit.reviewer';
+const DUP_WINDOW_MS = 5 * 60 * 1000;
+
+let currentPage = 1;
+let productCount = 1;
+const MAX_PRODUCTS = 10;
+const EXCHANGE_RATE = 10; // 1 JPY = 10 KRW (fixed display)
+const TRANSFER_FEE = 2500; // per reviewer
+
+function setLang(lang) {
+  document.body.setAttribute('lang-' + lang, '');
+  document.body.removeAttribute('lang-' + (lang === 'ko' ? 'ja' : 'ko'));
+  document.documentElement.lang = lang;
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function updateProgress() {
+  const percent = (currentPage / 3) * 100;
+  document.getElementById('progressFill').style.width = percent + '%';
+  document.getElementById('progressText').textContent = String(currentPage).padStart(2, '0') + ' / 03';
+}
+
+function showPage(n) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page' + n).classList.add('active');
+  currentPage = n;
+  updateProgress();
+  window.scrollTo(0, 0);
+
+  const prevBtn = document.getElementById('btnPrev');
+  const nextBtn = document.getElementById('btnNext');
+  const btnText = document.getElementById('btnText');
+  const navBar = document.getElementById('navBar');
+
+  if (n === 1) {
+    prevBtn.style.display = 'none';
+    nextBtn.style.display = 'flex';
+    btnText.innerHTML = '<span class="ko-only">신청 시작하기</span><span class="ja-only">はじめる</span>';
+    navBar.style.display = 'flex';
+  } else if (n === 2) {
+    prevBtn.style.display = 'flex';
+    nextBtn.style.display = 'flex';
+    btnText.innerHTML = '<span class="ko-only">신청 접수하기</span><span class="ja-only">お申込み送信</span>';
+    navBar.style.display = 'flex';
+  } else if (n === 3) {
+    navBar.style.display = 'none';
+  }
+}
+
+async function nextPage() {
+  if (currentPage === 1) {
+    showPage(2);
+    return;
+  }
+  if (currentPage === 2) {
+    await submitApplication();
+  }
+}
+
+function isKo() { return document.body.hasAttribute('lang-ko'); }
+function tMsg(ko, ja) { return isKo() ? ko : ja; }
+
+function showError(msg) {
+  const el = document.getElementById('submitError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function clearError() {
+  const el = document.getElementById('submitError');
+  el.style.display = 'none';
+  el.textContent = '';
+}
+
+function validateForm() {
+  const inputs = document.querySelectorAll('#page2 input[required]');
+  for (const el of inputs) {
+    if (!el.value || !el.checkValidity()) {
+      el.focus();
+      return tMsg('필수 항목을 모두 입력해주세요.', '必須項目をすべてご入力ください。');
+    }
+  }
+  return null;
+}
+
+function collectProducts() {
+  const items = document.querySelectorAll('.product-item');
+  const arr = [];
+  items.forEach(item => {
+    arr.push({
+      name: (item.querySelector('.p-name')?.value || '').trim(),
+      url: (item.querySelector('.p-url')?.value || '').trim(),
+      price: parseFloat(item.querySelector('.p-price')?.value) || 0,
+      qty: parseInt(item.querySelector('.p-qty')?.value) || 0
+    });
+  });
+  return arr;
+}
+
+function checkDuplicate() {
+  try {
+    const raw = localStorage.getItem(DUP_KEY);
+    if (!raw) return false;
+    const ts = parseInt(raw);
+    return !isNaN(ts) && (Date.now() - ts) < DUP_WINDOW_MS;
+  } catch (e) { return false; }
+}
+function markSubmitted() {
+  try { localStorage.setItem(DUP_KEY, String(Date.now())); } catch (e) {}
+}
+
+async function submitApplication() {
+  clearError();
+
+  // 1. honeypot 체크 (봇이면 성공처럼 보이게 조용히 종료)
+  if (document.getElementById('hp_field').value) {
+    showPage(3);
+    return;
+  }
+
+  // 2. 필수 입력 검증
+  const err = validateForm();
+  if (err) { showError(err); return; }
+
+  // 3. 5분 내 중복 제출 방지
+  if (checkDuplicate()) {
+    showError(tMsg('방금 신청하셨습니다. 5분 후 다시 시도해주세요.', '先ほどお申込み済みです。5分後に再度お試しください。'));
+    return;
+  }
+
+  // 4. Supabase 클라이언트 확인
+  if (!sb) {
+    showError(tMsg('연결에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.', '接続エラーが発生しました。しばらくしてから再度お試しください。'));
+    return;
+  }
+
+  const btnNext = document.getElementById('btnNext');
+  btnNext.disabled = true;
+  btnNext.style.opacity = '0.6';
+  const btnTextOrig = document.getElementById('btnText').innerHTML;
+  document.getElementById('btnText').textContent = tMsg('전송 중...', '送信中...');
+
+  try {
+    // 5. 사업자등록증 업로드 (있는 경우)
+    const fileInput = document.querySelector('.file-upload input[type="file"]');
+    const file = fileInput?.files?.[0] || null;
+    let licensePath = null;
+
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error(tMsg('파일 크기는 10MB 이하여야 합니다.', 'ファイルサイズは10MB以下にしてください。'));
+      }
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const uuid = crypto.randomUUID();
+      const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+      licensePath = `${yyyy}/${mm}/${uuid}/license.${ext}`;
+
+      const { error: upErr } = await sb.storage
+        .from('brand-docs')
+        .upload(licensePath, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+    }
+
+    // 6. 폼 값 수집 (id 기반 — DOM 인덱스 사용 금지 규칙 준수)
+    const brandName = document.getElementById('brandName')?.value.trim();
+    const contactName = document.getElementById('contactName')?.value.trim();
+    const phone = document.getElementById('phone')?.value.trim();
+    const email = document.getElementById('email')?.value.trim();
+    const billingEmail = document.getElementById('billingEmail')?.value.trim() || null;
+    const products = collectProducts();
+
+    // 7. DB INSERT (application_no는 트리거가 생성)
+    const { data, error } = await sb
+      .from('brand_applications')
+      .insert({
+        application_no: '',   // 트리거가 채움
+        form_type: 'reviewer',
+        brand_name: brandName,
+        contact_name: contactName,
+        phone: phone,
+        email: email,
+        billing_email: billingEmail,
+        products: products,
+        business_license_path: licensePath,
+        estimated_krw: Number(String(document.getElementById('finalAmount').textContent).replace(/[^\d]/g, '')) || 0
+      })
+      .select('application_no, estimated_krw')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error('no_response');
+
+    // 8. 완료 화면 값 갱신
+    document.getElementById('applicationNum').textContent = '— ' + data.application_no + ' —';
+    document.getElementById('finalAmountConfirm').textContent = document.getElementById('finalAmount').textContent;
+
+    markSubmitted();
+    showPage(3);
+  } catch (e) {
+    const code = e?.code || '';
+    const msg = e?.message || '';
+    if (code === '23505' || msg.includes('duplicate')) {
+      showError(tMsg('이미 접수된 신청입니다. 문의는 LINE @reverb.jp로 연락주세요.', '既に受付済みです。お問い合わせはLINE @reverb.jpまで。'));
+    } else {
+      showError(tMsg('전송에 실패했습니다. 잠시 후 다시 시도해주세요.', '送信に失敗しました。しばらくしてから再度お試しください。'));
+    }
+  } finally {
+    btnNext.disabled = false;
+    btnNext.style.opacity = '1';
+    document.getElementById('btnText').innerHTML = btnTextOrig;
+  }
+}
+
+function prevPage() {
+  if (currentPage > 1) showPage(currentPage - 1);
+}
+
+function addProduct() {
+  if (productCount >= MAX_PRODUCTS) return;
+  productCount++;
+  const html = `
+    <div class="product-item" data-index="${productCount}">
+      <div class="product-item-head">
+        <div class="product-num">Product ${productCount}</div>
+        <button class="remove-btn" onclick="removeProduct(this)">
+          <span class="material-icons-outlined">close</span>
+          <span class="ko-only">삭제</span>
+          <span class="ja-only">削除</span>
+        </button>
+      </div>
+      <div class="field">
+        <label><span class="ko-only">제품명</span><span class="ja-only">商品名</span><span class="req">*</span></label>
+        <input type="text" class="p-name" placeholder="제품명" required>
+      </div>
+      <div class="field">
+        <label><span class="ko-only">Qoo10 상품 URL</span><span class="ja-only">Qoo10商品URL</span><span class="req">*</span></label>
+        <input type="url" class="p-url" placeholder="https://www.qoo10.jp/g/..." required>
+      </div>
+      <div class="field">
+        <label><span class="ko-only">엔화 가격</span><span class="ja-only">JPY価格</span><span class="req">*</span></label>
+        <input type="number" class="p-price" placeholder="5300" oninput="calcQuote()" required>
+        <div class="field-hint">JPY · ¥</div>
+      </div>
+      <div class="field">
+        <label><span class="ko-only">희망 리뷰어 수</span><span class="ja-only">希望レビュアー数</span><span class="req">*</span></label>
+        <input type="number" class="p-qty" placeholder="100" oninput="calcQuote()" required>
+        <div class="field-hint"><span class="ko-only">명 · Persons</span><span class="ja-only">名</span></div>
+      </div>
+    </div>`;
+  document.getElementById('productList').insertAdjacentHTML('beforeend', html);
+  updateProductCount();
+}
+
+function removeProduct(btn) {
+  btn.closest('.product-item').remove();
+  renumberProducts();
+  calcQuote();
+}
+
+function renumberProducts() {
+  const items = document.querySelectorAll('.product-item');
+  productCount = items.length;
+  items.forEach((item, i) => {
+    item.dataset.index = i + 1;
+    item.querySelector('.product-num').textContent = 'Product ' + (i + 1);
+  });
+  updateProductCount();
+}
+
+function updateProductCount() {
+  document.getElementById('productCount').textContent = productCount + ' / ' + MAX_PRODUCTS;
+}
+
+function calcQuote() {
+  let totalJpy = 0;
+  let totalQty = 0;
+
+  document.querySelectorAll('.product-item').forEach(item => {
+    const price = parseFloat(item.querySelector('.p-price').value) || 0;
+    const qty = parseFloat(item.querySelector('.p-qty').value) || 0;
+    totalJpy += price * qty;
+    totalQty += qty;
+  });
+
+  const totalKrw = totalJpy * EXCHANGE_RATE;
+  const transferFee = totalQty * TRANSFER_FEE;
+  const supply = totalKrw + transferFee;
+  const vat = Math.floor(supply * 0.1);
+  const final = supply + vat;
+
+  const fmt = n => '₩ ' + Math.round(n).toLocaleString('ko-KR');
+  const fmtJpy = n => '¥ ' + Math.round(n).toLocaleString('ja-JP');
+
+  document.getElementById('totalJPY').textContent = fmtJpy(totalJpy);
+  document.getElementById('totalKRW').textContent = fmt(totalKrw);
+  document.getElementById('transferFee').textContent = fmt(transferFee);
+  document.getElementById('supply').textContent = fmt(supply);
+  document.getElementById('vat').textContent = fmt(vat);
+  document.getElementById('finalAmount').textContent = fmt(final);
+}
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (file) {
+    document.getElementById('fileName').textContent = file.name;
+  }
+}
+
+updateProgress();
+calcQuote();
+</script>
+
+</body>
+</html>
