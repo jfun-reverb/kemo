@@ -57,7 +57,6 @@
 </div>
 
 <span id="stagingBadge" style="display:none"></span>
-<span id="adminGnbInfo" style="display:none"></span>
 <div id="page-admin" style="display:block;min-height:100vh">
   <div class="admin-layout">
     <aside class="admin-side" style="display:flex;flex-direction:column">
@@ -76,6 +75,7 @@
       <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
       <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
       <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+      <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="switchAdminPane('brand-applications',this)"><span class="si-icon material-icons-round">storefront</span><span class="si-text">광고주 신청</span></div>
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -221,6 +221,8 @@
 
         <!-- EDIT CAMPAIGN PANE -->
         <div id="adminPane-edit-campaign" class="admin-pane">
+          <div class="camp-form-2col">
+            <div class="camp-form-main">
           <div class="product-form">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
               <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
@@ -272,16 +274,19 @@
                   <label class="form-label">상품 페이지 URL</label>
                   <input type="url" id="editCampProductUrl" class="form-input">
                 </div>
-                <div class="form-row" style="grid-template-columns:1fr 1fr">
-                  <div class="form-group">
-                    <label class="form-label">제품 금액 (¥)</label>
-                    <input type="number" id="editCampProductPrice" class="form-input" min="0">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">리워드 금액 (¥)</label>
-                    <input type="number" id="editCampReward" class="form-input" min="0">
-                    <div class="form-hint">0엔 = 제품 제공만</div>
-                  </div>
+                <div class="form-group">
+                  <label class="form-label">제품 금액 (¥)</label>
+                  <input type="number" id="editCampProductPrice" class="form-input" min="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 금액 (¥)</label>
+                  <input type="number" id="editCampReward" class="form-input" min="0">
+                  <div class="form-hint">0엔 = 제품 제공만</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 추가 정보</label>
+                  <textarea id="editCampRewardNote" class="form-input" rows="3" maxlength="500" placeholder="지급 조건·정산 시점·수수료 등 안내 (선택, 최대 500자)"></textarea>
+                  <div class="form-hint">줄바꿈 가능. 인플루언서 상세 리워드 영역에 노출됩니다.</div>
                 </div>
               </div>
             </div>
@@ -374,15 +379,40 @@
               <div id="editCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('edit')" style="margin-top:8px">+ 단계 추가</button>
             </div>
-            <div style="display:flex;gap:10px;margin-top:16px">
-              <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
-              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+            <!-- 고정 주의사항 -->
+            <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
+              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서에게 표시됩니다)</span></div>
+              <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
+                <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
+                <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
+                <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
+                <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
+                <li>投稿は6ヶ月以上の掲載が必須です。</li>
+                <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
+                <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
+              </ul>
             </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+              <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
+              <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
+            </div>
+          </div>
+            </div>
+            <aside class="camp-preview-pane" id="editCampPreviewPane">
+              <div class="camp-preview-pane-header">
+                <span>미리보기</span>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('edit')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+              </div>
+              <div id="editCampPreviewContent" class="camp-preview-content"></div>
+            </aside>
           </div>
         </div>
 
         <!-- ADD CAMPAIGN PANE -->
         <div id="adminPane-add-campaign" class="admin-pane">
+          <div class="camp-form-2col">
+            <div class="camp-form-main">
           <div class="product-form">
             <div class="product-form-title">신규 캠페인 등록</div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
@@ -432,16 +462,19 @@
                   <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                   <input type="url" id="newCampProductUrl" class="form-input" placeholder="https://www.qoo10.jp/item/...">
                 </div>
-                <div class="form-row" style="grid-template-columns:1fr 1fr">
-                  <div class="form-group">
-                    <label class="form-label">제품 금액 (¥)</label>
-                    <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">리워드 금액 (¥)</label>
-                    <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
-                    <div class="form-hint">0엔 = 제품 제공만</div>
-                  </div>
+                <div class="form-group">
+                  <label class="form-label">제품 금액 (¥)</label>
+                  <input type="number" id="newCampProductPrice" class="form-input" placeholder="3200" min="0" value="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 금액 (¥)</label>
+                  <input type="number" id="newCampReward" class="form-input" placeholder="0" min="0" value="0">
+                  <div class="form-hint">0엔 = 제품 제공만</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">리워드 추가 정보</label>
+                  <textarea id="newCampRewardNote" class="form-input" rows="3" maxlength="500" placeholder="지급 조건·정산 시점·수수료 등 안내 (선택, 최대 500자)"></textarea>
+                  <div class="form-hint">줄바꿈 가능. 인플루언서 상세 리워드 영역에 노출됩니다.</div>
                 </div>
               </div>
             </div>
@@ -577,13 +610,13 @@
 
             <!-- 고정 주의사항 -->
             <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
-              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(등록 후 인플루언서에게 표시됩니다)</span></div>
+              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서에게 표시됩니다)</span></div>
               <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
                 <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
                 <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
                 <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
                 <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
-                <li>投稿は6ヶ月以上の掲載が필수です。</li>
+                <li>投稿は6ヶ月以上の掲載が必須です。</li>
                 <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
                 <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
               </ul>
@@ -592,7 +625,17 @@
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
               <button type="button" class="btn btn-primary" onclick="addCampaign()">캠페인 등록</button>
-            </div></div>
+            </div>
+          </div>
+            </div>
+            <aside class="camp-preview-pane" id="newCampPreviewPane">
+              <div class="camp-preview-pane-header">
+                <span>미리보기</span>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampPreviewPane('new')" title="접기/펼치기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">chevron_right</span></button>
+              </div>
+              <div id="newCampPreviewContent" class="camp-preview-content"></div>
+            </aside>
+          </div>
         </div>
 
         <!-- INFLUENCERS PANE -->
@@ -799,6 +842,81 @@
                 <th style="width:110px">처리</th>
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+            </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- BRAND APPLICATIONS (광고주 신청) PANE -->
+        <div id="adminPane-brand-applications" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">광고주 신청</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">Qoo10 리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>폼 종류</label>
+                <select id="brandAppFormFilter" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+                  <option value="all">전체</option>
+                  <option value="reviewer">Qoo10 리뷰어</option>
+                  <option value="seeding">나노 시딩</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>상태</label>
+                <select id="brandAppStatusFilter" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+                  <option value="all">전체</option>
+                  <option value="new">신규</option>
+                  <option value="reviewing">검토중</option>
+                  <option value="quoted">견적전달</option>
+                  <option value="paid">입금완료</option>
+                  <option value="done">완료</option>
+                  <option value="rejected">반려</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>기간 (시작)</label>
+                <input type="date" id="brandAppFromDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+              </div>
+              <div class="admin-filter-group">
+                <label>기간 (종료)</label>
+                <input type="date" id="brandAppToDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" id="btnBrandAppFilterReset" onclick="resetBrandAppFilters()" style="display:none">초기화</button>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="brandAppSearch" class="admin-filter-search" placeholder="브랜드명 · 담당자 · 이메일" oninput="renderBrandApplicationsList()">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">신청 목록</span><span id="brandAppTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+            <table class="data-table">
+              <thead><tr>
+                <th style="width:160px">신청번호</th>
+                <th style="width:90px">폼 종류</th>
+                <th>브랜드</th>
+                <th style="width:110px">담당자</th>
+                <th style="width:130px">연락처</th>
+                <th style="width:120px">예상 견적 <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
+                <th style="width:120px">확정 견적</th>
+                <th style="width:100px">상태</th>
+                <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
+                <th style="width:80px">처리</th>
+              </tr></thead>
+              <tbody id="brandAppTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1212,6 +1330,21 @@
     <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeDelivRejectModal()">취소</button>
       <button class="btn btn-primary" onclick="submitDelivReject()" style="background:#C33;border-color:#C33">반려 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 광고주 신청 상세 모달 -->
+<div class="modal-overlay" id="brandAppDetailModal" style="z-index:605">
+  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="brandAppDetailTitle">광고주 신청 상세</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBrandAppDetail()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 22px;overflow-y:auto;flex:1" id="brandAppDetailBody">
+      <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
+    </div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap" id="brandAppDetailFooter">
     </div>
   </div>
 </div>

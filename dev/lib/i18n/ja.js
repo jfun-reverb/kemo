@@ -61,9 +61,9 @@ window.I18N_JA = {
   campaigns: {
     pageTitle: 'キャンペーン一覧',
     typeAll: 'すべて',
-    typeMonitor: 'Reviewer',
+    typeMonitor: 'レビュアー',
     typeGifting: 'ギフティング',
-    typeVisit: '来店',
+    typeVisit: '訪問',
   },
 
   // 캠페인 상태

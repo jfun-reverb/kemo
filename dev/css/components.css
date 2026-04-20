@@ -248,3 +248,4 @@ textarea.form-input{resize:vertical;min-height:80px}
 .quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
 .quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
 .quill-host .ql-editor{min-height:120px}
+

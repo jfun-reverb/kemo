@@ -70,7 +70,7 @@ VALUES
 -- ③ 방문형(visit) 기본 — STEP 2 visit 전용 문구
 (
   '방문형 기본',
-  '来店型基本',
+  '訪問型基本',
   ARRAY['visit'],
   '[
     {

@@ -112,7 +112,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
     'lookups': loadLookupsPane,
-    'deliverables': loadDeliverables
+    'deliverables': loadDeliverables,
+    'brand-applications': loadBrandApplications
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -140,6 +141,10 @@ function switchAdminPane(pane, el, pushHistory) {
     _psetState.new = [];
     populateCampPsetDropdown('new', 'monitor', null);
     renderCampSteps('new');
+    setupCampPreview('new');
+  }
+  if (pane === 'edit-campaign') {
+    setupCampPreview('edit');
   }
   if (loaders[pane]) {
     return Promise.resolve(loaders[pane]());
@@ -222,7 +227,7 @@ async function loadAdminData(preloaded) {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
 
   // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -625,7 +630,7 @@ async function loadAdminCampaigns(useCache) {
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
       ${adminReorderMode ? '' : `<td style="position:relative">
-        <span class="material-icons-round camp-more-btn" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" data-camp-title="${esc(c.title)}" onclick="toggleCampMoreMenu(event,this,'${c.id}',this.dataset.campTitle)">more_vert</span>
+        <span class="material-icons-round notranslate camp-more-btn" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" data-camp-title="${esc(c.title)}" onclick="toggleCampMoreMenu(event,this,'${c.id}',this.dataset.campTitle)">more_vert</span>
       </td>`}
     </tr>`;
   }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
@@ -691,6 +696,7 @@ async function openEditCampaign(campId) {
   sv('editCampSlots', camp.slots);
   sv('editCampProductPrice', camp.product_price||0);
   sv('editCampReward', camp.reward||0);
+  sv('editCampRewardNote', camp.reward_note||'');
   sv('editCampDeadline', camp.deadline||'');
   sv('editCampPostDeadline', camp.post_deadline||'');
   sv('editCampPurchaseStart', camp.purchase_start||'');
@@ -864,6 +870,7 @@ async function saveCampaignEdit() {
       content_types: contentTypes,
       product_price: parseInt(gv('editCampProductPrice'))||0,
       reward: parseInt(gv('editCampReward'))||0,
+      reward_note: gv('editCampRewardNote') || null,
       deadline: gv('editCampDeadline')||null,
       post_deadline: gv('editCampPostDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
@@ -917,7 +924,7 @@ async function duplicateCampaign(campId) {
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
       appeal: src.appeal, guide: src.guide, ng: src.ng,
-      product_price: src.product_price, reward: src.reward,
+      product_price: src.product_price, reward: src.reward, reward_note: src.reward_note,
       slots: src.slots, applied_count: 0,
       deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
@@ -998,6 +1005,211 @@ async function executeDeleteCampaign() {
   }
 }
 
+// ── 캠페인 폼 실시간 미리보기 (add/edit 사이드 패널 iframe) ──
+
+// 폼 입력값 → 가짜 camp 객체 (인플루언서 상세 렌더용)
+function buildPreviewCamp(mode) {
+  const g = mode === 'edit' ? 'editCamp' : 'newCamp';
+  const chName = mode === 'edit' ? 'editChannel' : 'newChannel';
+  const ctName = mode === 'edit' ? 'editContentType' : 'contentType';
+  const rtName = mode === 'edit' ? 'editRecruitType' : 'recruitType';
+  const cmName = mode === 'edit' ? 'editChannelMatch' : 'newChannelMatch';
+  const val = id => document.getElementById(id)?.value || '';
+  const channels = Array.from(document.querySelectorAll(`input[name="${chName}"]:checked`)).map(cb => cb.value);
+  const contentTypes = Array.from(document.querySelectorAll(`input[name="${ctName}"]:checked`)).map(cb => cb.value);
+  const recruitType = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
+  const channelMatch = document.querySelector(`input[name="${cmName}"]:checked`)?.value || 'or';
+  // edit/add 모두 {data: url} shape (campImgData는 업로드 직후 {data, file} 구조, editCampImgData는 복원 시 {data: url})
+  const imgList = mode === 'edit'
+    ? (typeof editCampImgData !== 'undefined' ? editCampImgData : [])
+    : (typeof campImgData !== 'undefined' ? campImgData : []);
+  const imgUrls = imgList.map(x => x?.url || x?.data || x).filter(Boolean);
+  const crops = (typeof buildImageCrops === 'function') ? buildImageCrops(imgList) : {};
+  const pset = (typeof collectCampPsetPayload === 'function') ? collectCampPsetPayload(mode) : {};
+  return {
+    id: '__preview__',
+    title: val(g+'Title') || '(캠페인명)',
+    brand: val(g+'Brand') || '(브랜드)',
+    product: val(g+'Product'),
+    product_url: val(g+'ProductUrl'),
+    product_price: parseInt(val(g+'ProductPrice'))||0,
+    reward: parseInt(val(g+'Reward'))||0,
+    reward_note: val(g+'RewardNote') || null,
+    recruit_type: recruitType,
+    channel: channels.join(','),
+    channel_match: channelMatch,
+    content_types: contentTypes.join(','),
+    category: val(g+'Category'),
+    slots: parseInt(val(g+'Slots'))||10,
+    min_followers: parseInt(val(g+'MinFollowers'))||0,
+    primary_channel: val(g+'PrimaryChannel')||null,
+    deadline: val(g+'Deadline')||null,
+    post_deadline: val(g+'PostDeadline')||null,
+    purchase_start: val(g+'PurchaseStart')||null,
+    purchase_end: val(g+'PurchaseEnd')||null,
+    visit_start: val(g+'VisitStart')||null,
+    visit_end: val(g+'VisitEnd')||null,
+    submission_end: val(g+'SubmissionEnd')||null,
+    winner_announce: val(g+'WinnerAnnounce')||'',
+    description: typeof getRichValue === 'function' ? getRichValue(g+'Desc') : '',
+    appeal: typeof getRichValue === 'function' ? getRichValue(g+'Appeal') : '',
+    guide: typeof getRichValue === 'function' ? getRichValue(g+'Guide') : '',
+    ng: typeof getRichValue === 'function' ? getRichValue(g+'Ng') : '',
+    hashtags: val(g+'Hashtags'),
+    mentions: val(g+'Mentions'),
+    image_url: imgUrls[0]||null,
+    img1: imgUrls[0]||null, img2: imgUrls[1]||null, img3: imgUrls[2]||null, img4: imgUrls[3]||null,
+    img5: imgUrls[4]||null, img6: imgUrls[5]||null, img7: imgUrls[6]||null, img8: imgUrls[7]||null,
+    image_crops: crops,
+    status: mode === 'edit' ? (val('editCampStatus') || 'active') : 'active',
+    applied_count: 0,
+    view_count: 0,
+    created_at: new Date().toISOString(),
+    ...pset,
+  };
+}
+
+// 캠페인 폼 미리보기 — 우측 패널에 간소화된 카드를 직접 렌더
+const _previewState = {new: null, edit: null};
+
+function renderCampPreview(mode) {
+  const el = document.getElementById(mode === 'edit' ? 'editCampPreviewContent' : 'newCampPreviewContent');
+  if (!el) return;
+  let camp;
+  try { camp = buildPreviewCamp(mode); }
+  catch(e) { console.warn('[preview] buildPreviewCamp 실패:', e); return; }
+
+  const hasAnyValue = camp.title || camp.brand || camp.product || camp.img1 || camp.product_price > 0 || camp.reward > 0 || camp.reward_note;
+  if (!hasAnyValue) { el.innerHTML = ''; return; }
+
+  // 이미지 슬라이드 목록 (중복 제거) — 상세 페이지와 동일한 구성
+  const imgCandidates = [camp.img1, camp.img2, camp.img3, camp.img4, camp.img5, camp.img6, camp.img7, camp.img8, camp.image_url].filter(Boolean);
+  const _seen = new Set();
+  const slideUrls = imgCandidates.filter(u => _seen.has(u) ? false : (_seen.add(u), true));
+  const img = slideUrls[0] || '';
+  const rtLabel = camp.recruit_type === 'monitor' ? 'レビュアー' : camp.recruit_type === 'gifting' ? 'ギフティング' : camp.recruit_type === 'visit' ? '訪問型' : '';
+  const rtBadgeMap = {
+    monitor: {bg:'var(--blue-l)', color:'var(--blue)', label:'Reviewer'},
+    gifting: {bg:'var(--gold-l)', color:'var(--gold)', label:'Gifting'},
+    visit:   {bg:'#E8F7EF', color:'#0E7E4A', label:'Visit'}
+  };
+  const rtBadge = rtBadgeMap[camp.recruit_type];
+  const channelCodes = (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const channelNames = channelCodes.map(c => (typeof getChannelLabel === 'function' ? getChannelLabel(c) : c));
+  const chSep = camp.channel_match === 'and' ? '&' : 'or';
+  const contentTypeCodes = (camp.content_types||'').split(',').map(s=>s.trim()).filter(Boolean);
+  const contentTypeNames = contentTypeCodes.map(c => (typeof getLookupLabel === 'function' ? getLookupLabel('content_type', c) : c));
+  const richFn = (typeof richHtml === 'function') ? richHtml : (s => esc(s).replace(/\n/g,'<br>'));
+  const fmt = v => v ? (typeof formatDate === 'function' ? formatDate(v) : v) : '—';
+  const rewardText = (camp.product_price>0 || camp.reward>0)
+    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 商品提供`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} リワード`:''}`
+    : '';
+
+  // 참여방법 (스냅샷 > legacy)
+  const legacySteps = [
+    {title_ja:'応募フォームを提出', desc_ja:'当選された方には当選日にLINEにてご連絡いたします。'},
+    {title_ja:'製品を使用してSNSにレビューを投稿', desc_ja:'① 投稿ガイドを確認 ② SNSにレビューを投稿'},
+    {title_ja:'LINEで投稿リンクを送る', desc_ja:'SNSの投稿リンクをコピーして、LINEで送信してください。'}
+  ];
+  const steps = (Array.isArray(camp.participation_steps) && camp.participation_steps.length) ? camp.participation_steps : legacySteps;
+
+  el.innerHTML = `
+    <div class="cp-frame">
+      <div class="cp-gnb">
+        <div class="cp-gnb-logo">Reverb</div>
+        <div class="cp-gnb-badge">プレビュー</div>
+      </div>
+      <div class="cp-body-scroll">
+        <div class="cp-hero">
+          ${img?(typeof renderCroppedImg==='function'?renderCroppedImg(img,null,{thumb:480,quality:80}):`<img src="${esc(img)}" style="width:100%;height:100%;object-fit:contain;display:block;background:#f5f5f5">`):'<span style="color:rgba(255,255,255,.7)">画像なし</span>'}
+          ${contentTypeNames.length?`<div class="cp-hero-ct">${contentTypeNames.map(n=>`<span class="cp-hero-ct-chip">${esc(n)}</span>`).join('')}</div>`:''}
+          ${slideUrls.length>1?`<div class="cp-hero-count">1/${slideUrls.length}</div>`:''}
+        </div>
+        <div class="cp-head">
+          ${camp.brand?`<div class="cp-brand">${esc(camp.brand)}</div>`:''}
+          ${rtLabel?`<div class="cp-rt">${esc(rtLabel)}</div>`:''}
+          <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
+          ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">商品提供</span></div>`:''}
+          ${camp.reward>0?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} リワード</div>`:''}
+        </div>
+        <div class="cp-info">
+          <div class="cp-info-row"><div class="cp-info-key">製品名</div><div class="cp-info-val">${esc(camp.product||'—')}</div></div>
+          <div class="cp-info-row"><div class="cp-info-key">募集タイプ</div><div class="cp-info-val">${rtBadge?`<span class="cp-rt-badge" style="background:${rtBadge.bg};color:${rtBadge.color}">${rtBadge.label}</span>`:'—'}</div></div>
+          ${channelNames.length?`<div class="cp-info-row"><div class="cp-info-key">チャンネル</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          ${contentTypeNames.length?`<div class="cp-info-row"><div class="cp-info-key">コンテンツ種類</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`:''}
+          <div class="cp-info-row"><div class="cp-info-key">募集期間</div><div class="cp-info-val">${fmt(new Date())} 〜 ${fmt(camp.deadline)}</div></div>
+          ${camp.slots?`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`:''}
+          ${camp.min_followers?`<div class="cp-info-row"><div class="cp-info-key">最小フォロワー</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`:''}
+          <div class="cp-info-row"><div class="cp-info-key">当選発表</div><div class="cp-info-val">${esc(camp.winner_announce||'選考後、LINEにてご連絡')}</div></div>
+          <div class="cp-info-row"><div class="cp-info-key">投稿締切</div><div class="cp-info-val" style="font-weight:600">${camp.post_deadline?fmt(camp.post_deadline):'—'}</div></div>
+          ${(camp.recruit_type==='monitor'&&(camp.purchase_start||camp.purchase_end))?`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`:''}
+          ${(camp.recruit_type==='visit'&&(camp.visit_start||camp.visit_end))?`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`:''}
+          ${camp.submission_end?`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`:''}
+          ${(rewardText||camp.reward_note)?`<div class="cp-info-row"><div class="cp-info-key">リワード</div><div class="cp-info-val cp-info-val-pink">${rewardText?esc(rewardText):''}${camp.reward_note?`<div style="margin-top:${rewardText?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}</div></div>`:''}
+        </div>
+        <div class="cp-participation">
+          <div class="cp-section-heading">参加方法</div>
+          ${steps.map((s,i)=>{
+            const title = s.title_ja || s.title_ko || '';
+            const desc = s.desc_ja || s.desc_ko || '';
+            return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
+          }).join('')}
+        </div>
+        ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
+        ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
+        ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
+          ${camp.appeal?`<div style="margin-bottom:12px"><div class="cp-sec-subtitle">ブランドアピール</div><div class="cp-sec-body cp-sec-bg-pink rich-content">${richFn(camp.appeal)}</div></div>`:''}
+          ${camp.hashtags?`<div style="margin-bottom:10px"><div class="cp-sec-subtitle">必須ハッシュタグ</div><div class="cp-chips">${camp.hashtags.split(',').filter(Boolean).map(t=>`<span class="cp-chip">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+          ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
+        </div>`:''}
+        ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
+        ${camp.ng?`<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`:''}
+      </div>
+      <div class="cp-cta">
+        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 商品提供`:''}</small></div>
+        <div class="cp-cta-btn">応募</div>
+      </div>
+    </div>`;
+}
+
+function setupCampPreview(mode) {
+  const pane = document.getElementById(mode === 'edit' ? 'adminPane-edit-campaign' : 'adminPane-add-campaign');
+  if (!pane) return;
+  const st = _previewState[mode];
+  if (st?.attached) { renderCampPreview(mode); return; }
+  const entry = {attached: true, timer: null};
+  entry.render = function() { renderCampPreview(mode); };
+  entry.debounced = function() {
+    clearTimeout(entry.timer);
+    entry.timer = setTimeout(entry.render, 100);
+  };
+  pane.addEventListener('input', entry.debounced);
+  pane.addEventListener('change', entry.debounced);
+  window.addEventListener('reverb:campFormChange', entry.debounced);
+  // Quill text-change 훅 (lazy init retry)
+  (function tryHookQuill(retries) {
+    const g = mode === 'edit' ? 'editCamp' : 'newCamp';
+    let allHooked = true;
+    ['Desc','Appeal','Guide','Ng'].forEach(function(k) {
+      // lazy init 보장: 아직 생성 전이면 즉시 초기화
+      const quill = richEditors[g + k] || getRichEditor(g + k);
+      if (quill && !quill.__previewHooked) {
+        quill.on('text-change', entry.debounced);
+        quill.__previewHooked = true;
+      } else if (!quill) allHooked = false;
+    });
+    if (!allHooked && retries > 0) setTimeout(function(){tryHookQuill(retries-1);}, 300);
+  })(5);
+  _previewState[mode] = entry;
+  renderCampPreview(mode);
+}
+
+// 미리보기 패널 접기/펼치기
+function toggleCampPreviewPane(mode) {
+  const pane = document.getElementById(mode === 'edit' ? 'editCampPreviewPane' : 'newCampPreviewPane');
+  if (pane) pane.classList.toggle('collapsed');
+}
+
 // 상태 순환: 준비 → 모집예정 → 모집중 → 일시정지 → 종료 → 준비
 function openCampPreviewModal(campId) {
   const frame = $('campPreviewFrame');
@@ -1016,9 +1228,9 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
   menu.innerHTML = `
-    <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round" style="font-size:16px">edit</span>편집</div>
-    <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round" style="font-size:16px">content_copy</span>복제</div>
-    <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round" style="font-size:16px">delete</span>삭제</div>
+    <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
+    <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
+    <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
   menu.style.left = (rect.left - menu.offsetWidth) + 'px';
@@ -1154,13 +1366,13 @@ async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
   const total = apps.length;
+  const allApproved = apps.filter(a => a.status === 'approved').length;
   if (filter) apps = apps.filter(a=>a.status===filter);
   const approved = apps.filter(a=>a.status==='approved').length;
   const pending = apps.filter(a=>a.status==='pending').length;
 
   const camp = allCampaigns.find(c=>c.id===currentCampApplicantId);
   const slots = camp?.slots || 0;
-  const allApproved = (await fetchApplications({campaign_id: currentCampApplicantId, status: 'approved'})).length;
   const remaining = Math.max(slots - allApproved, 0);
   $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
 
@@ -1687,9 +1899,9 @@ async function updateAppStatus(appId, status) {
   try {
     // 승인 시 모집인원 초과 체크
     if (status === 'approved') {
-      const {data: app} = await db.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
+      const {data: app} = await db?.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
       if (app) {
-        const {data: camp} = await db.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
+        const {data: camp} = await db?.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
         const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
         const slots = camp?.slots || 0;
         if (slots > 0 && approvedApps.length >= slots) {
@@ -1761,6 +1973,7 @@ async function addCampaign() {
     product_url: productUrl,
     product_price: parseInt($('newCampProductPrice')?.value)||0,
     reward: parseInt($('newCampReward').value)||0,
+    reward_note: ($('newCampRewardNote')?.value || '').trim() || null,
     slots, applied_count:0,
     deadline: deadline||null,
     post_deadline: $('newCampPostDeadline')?.value||null,
@@ -1788,7 +2001,7 @@ async function addCampaign() {
   ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
    'newCampSlots','newCampDeadline','newCampPostDeadline',
    'newCampHashtags','newCampMentions',
-   'newCampProductPrice','newCampReward'].forEach(id => { const el=$(id); if(el) el.value=''; });
+   'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
   // 리치 에디터 초기화
   ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
@@ -2259,7 +2472,7 @@ async function handleLookupDelete(row) {
 // 참여방법 번들 (participation_sets) — 관리자 UI
 // ══════════════════════════════════════
 const RECRUIT_TYPES_ALL = ['monitor','gifting','visit'];
-const RECRUIT_TYPE_LABEL_JA = {monitor:'モニター', gifting:'ギフティング', visit:'来店'};
+const RECRUIT_TYPE_LABEL_JA = {monitor:'モニター', gifting:'ギフティング', visit:'訪問'};
 let _psetCurrentSteps = []; // 편집 중 steps 상태
 const MAX_PSET_STEPS = 6;
 
@@ -2488,6 +2701,8 @@ function renderCampSteps(formMode) {
       </div>
     </div>
   `).join('');
+  // 단계 DOM 재생성 후 미리보기 트리거 (add/remove/move/reload 경로 커버 — 타이핑은 bubble된 input 이벤트가 자체 처리)
+  window.dispatchEvent(new Event('reverb:campFormChange'));
 }
 
 function addCampPsetStep(formMode) {
@@ -2538,6 +2753,7 @@ async function saveMyAdminInfo() {
   try {
     await db.from('admins').update({name}).eq('id', currentAdminInfo.id);
     currentAdminInfo.name = name;
+    updateSidebarProfile();
     toast('정보가 저장되었습니다','success');
   } catch(e) {
     toast('저장 오류: ' + e.message,'error');
@@ -2603,7 +2819,7 @@ async function saveAdmin() {
     const name = $('adminFormName').value.trim();
     const role = $('adminFormRole').value;
     try {
-      await db.from('admins').update({name, role}).eq('id', editId);
+      await retryWithRefresh(() => db?.from('admins').update({name, role}).eq('id', editId));
       toast('관리자 정보가 수정되었습니다','success');
       closeModal('addAdminModal');
       loadAdminAccounts();
@@ -3182,4 +3398,313 @@ async function submitDelivReject() {
   closeDelivRejectModal();
   closeDelivDetail();
   await renderDeliverablesList();
+}
+
+// ══════════════════════════════════════
+// BRAND APPLICATIONS (광고주 신청 관리 — PR-4)
+// ══════════════════════════════════════
+
+var _brandApps = [];          // 캐시된 전체 목록
+var _brandAppSort = {field: 'created', dir: 'desc'};
+var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
+
+// 상태 라벨·컬러
+var BRAND_APP_STATUS = {
+  'new':       {label:'신규',     color:'#C33',   bg:'#FEE'},
+  'reviewing': {label:'검토중',   color:'#B88',   bg:'#FFE'},
+  'quoted':    {label:'견적전달', color:'#08A',   bg:'#DEF'},
+  'paid':      {label:'입금완료', color:'#6A2',   bg:'#EFE'},
+  'done':      {label:'완료',     color:'#555',   bg:'#EEE'},
+  'rejected':  {label:'반려',     color:'#999',   bg:'#F5F5F5'}
+};
+
+function brandAppStatusBadge(status) {
+  var s = BRAND_APP_STATUS[status] || {label: status, color:'#666', bg:'#EEE'};
+  return '<span style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">'+esc(s.label)+'</span>';
+}
+
+function brandAppFormLabel(formType) {
+  return formType === 'reviewer' ? 'Qoo10 리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
+}
+
+// 광고주가 입력한 URL을 http/https만 허용 (javascript:, data: 스킴 차단)
+function safeBrandUrl(url) {
+  if (!url) return null;
+  try {
+    var u = new URL(url);
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? url : null;
+  } catch(e) { return null; }
+}
+
+function fmtKrw(n) {
+  if (n === null || n === undefined || n === '') return '—';
+  var v = Number(n);
+  if (!isFinite(v) || v === 0) return '—';
+  return '₩ ' + v.toLocaleString('ko-KR');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try {
+    var d = new Date(iso);
+    return d.toLocaleDateString('ko-KR', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/\s+/g,'');
+  } catch(e) { return '—'; }
+}
+
+async function loadBrandApplications() {
+  var tbody = $('brandAppTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  _brandApps = await fetchBrandApplications();
+  renderBrandApplicationsList();
+  refreshBrandAppBadge();
+}
+
+async function refreshBrandAppBadge() {
+  var el = $('adminBrandAppSi');
+  if (!el) return;
+  var count = await fetchBrandAppPendingCount();
+  var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">광고주 신청</span>' + badge;
+}
+
+function renderBrandApplicationsList() {
+  var tbody = $('brandAppTableBody');
+  if (!tbody) return;
+
+  var form = ($('brandAppFormFilter')?.value) || 'all';
+  var status = ($('brandAppStatusFilter')?.value) || 'all';
+  var from = ($('brandAppFromDate')?.value) || '';
+  var to = ($('brandAppToDate')?.value) || '';
+  var q = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
+
+  var list = _brandApps.slice();
+
+  if (form !== 'all') list = list.filter(a => a.form_type === form);
+  if (status !== 'all') list = list.filter(a => a.status === status);
+  if (from) list = list.filter(a => (a.created_at || '') >= from);
+  if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
+  if (q) list = list.filter(a =>
+    (a.brand_name || '').toLowerCase().includes(q) ||
+    (a.contact_name || '').toLowerCase().includes(q) ||
+    (a.email || '').toLowerCase().includes(q) ||
+    (a.application_no || '').toLowerCase().includes(q)
+  );
+
+  // 정렬
+  list.sort(function(a, b) {
+    var av, bv;
+    if (_brandAppSort.field === 'estimated') {
+      av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
+    } else {
+      av = a.created_at || ''; bv = b.created_at || '';
+    }
+    if (av < bv) return _brandAppSort.dir === 'asc' ? -1 : 1;
+    if (av > bv) return _brandAppSort.dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // 초기화 버튼 표시 여부
+  var filterActive = (form !== 'all' || status !== 'all' || from || to || q);
+  var resetBtn = $('btnBrandAppFilterReset');
+  if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
+
+  var count = $('brandAppTotalCount');
+  if (count) count.textContent = '(' + list.length + '건)';
+
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(function(a) {
+    return '<tr>'
+      + '<td style="font-family:monospace;font-size:11px">' + esc(a.application_no || '—') + '</td>'
+      + '<td><span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></td>'
+      + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
+      + '<td>' + esc(a.contact_name || '—') + '</td>'
+      + '<td style="font-family:monospace;font-size:11px">' + esc(a.phone || '—') + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
+      + '<td>' + brandAppStatusBadge(a.status) + '</td>'
+      + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
+      + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
+      + '</tr>';
+  }).join('');
+}
+
+function resetBrandAppFilters() {
+  if ($('brandAppFormFilter')) $('brandAppFormFilter').value = 'all';
+  if ($('brandAppStatusFilter')) $('brandAppStatusFilter').value = 'all';
+  if ($('brandAppFromDate')) $('brandAppFromDate').value = '';
+  if ($('brandAppToDate')) $('brandAppToDate').value = '';
+  if ($('brandAppSearch')) $('brandAppSearch').value = '';
+  ['brandAppFormFilter','brandAppStatusFilter','brandAppFromDate','brandAppToDate'].forEach(function(id){
+    var el = $(id); if (el) el.classList.remove('filter-active');
+  });
+  renderBrandApplicationsList();
+}
+
+function toggleBrandAppSort(field) {
+  if (_brandAppSort.field === field) {
+    _brandAppSort.dir = _brandAppSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _brandAppSort = {field: field, dir: 'desc'};
+  }
+  updateBrandAppSortIndicators();
+  renderBrandApplicationsList();
+}
+
+// 정렬 화살표 활성 상태 시각화 (▲ asc / ▼ desc / ▲▼ inactive)
+function updateBrandAppSortIndicators() {
+  document.querySelectorAll('#adminPane-brand-applications .sort-arrows').forEach(function(el) {
+    var field = el.getAttribute('data-sort');
+    if (field === _brandAppSort.field) {
+      el.textContent = _brandAppSort.dir === 'asc' ? '▲' : '▼';
+      el.style.color = 'var(--pink)';
+    } else {
+      el.textContent = '▲▼';
+      el.style.color = '';
+    }
+  });
+}
+
+async function openBrandAppDetail(id) {
+  _brandAppCurrentId = id;
+  var modal = $('brandAppDetailModal');
+  if (modal) modal.classList.add('open');
+  var body = $('brandAppDetailBody');
+  var footer = $('brandAppDetailFooter');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+  if (footer) footer.innerHTML = '';
+
+  var a = await fetchBrandApplicationById(id);
+  if (!a) {
+    if (body) body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>';
+    return;
+  }
+
+  var title = $('brandAppDetailTitle');
+  if (title) title.textContent = brandAppFormLabel(a.form_type) + ' · ' + a.application_no;
+
+  // products 테이블 렌더
+  var productsHtml = '<div style="color:var(--muted);font-size:12px">제품 없음</div>';
+  if (Array.isArray(a.products) && a.products.length > 0) {
+    productsHtml = '<table class="data-table" style="font-size:12px">'
+      + '<thead><tr><th>제품명</th><th style="width:auto">URL</th><th style="width:80px;text-align:right">가격(¥)</th><th style="width:60px;text-align:right">수량</th></tr></thead>'
+      + '<tbody>' + a.products.map(function(p){
+        // 스킴 화이트리스트(http/https)만 href로 렌더 — javascript:/data: 등 주입 차단
+        var safe = safeBrandUrl(p.url);
+        var urlHtml = safe
+          ? '<a href="' + esc(safe) + '" target="_blank" rel="noopener" style="color:var(--pink);word-break:break-all">' + esc(p.url) + '</a>'
+          : esc(p.url || '—');
+        return '<tr><td>' + esc(p.name || '—') + '</td><td>' + urlHtml + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.price)||0).toLocaleString('ja-JP') + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.qty)||0) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  // 상세 폼 (정보 read-only + 편집 영역)
+  var editableDisabled = (a.status === 'done') ? 'disabled' : '';
+  var statusOptions = ['new','reviewing','quoted','paid','done','rejected'].map(function(s){
+    return '<option value="' + s + '"' + (a.status === s ? ' selected' : '') + '>' + BRAND_APP_STATUS[s].label + '</option>';
+  }).join('');
+
+  if (body) body.innerHTML = ''
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:18px;font-size:13px">'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">브랜드</div><div style="font-weight:600">' + esc(a.brand_name) + '</div></div>'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">담당자</div><div>' + esc(a.contact_name) + '</div></div>'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">연락처</div><div style="font-family:monospace">' + esc(a.phone) + '</div></div>'
+    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">이메일</div><div style="font-family:monospace;word-break:break-all">' + esc(a.email) + '</div></div>'
+    + (a.billing_email ? '<div style="grid-column:1 / -1"><div style="color:var(--muted);font-size:11px;margin-bottom:2px">계산서 이메일</div><div style="font-family:monospace">' + esc(a.billing_email) + '</div></div>' : '')
+    + '</div>'
+    + '<div style="margin-bottom:18px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px">신청 상품 (' + (a.products?.length || 0) + '개, 총 ' + (a.total_qty || 0) + '명 · ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP') + ')</div>'
+    + productsHtml
+    + '</div>'
+    + (a.business_license_path ? '<div style="margin-bottom:18px"><button class="btn btn-ghost btn-xs" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')"><span class="material-icons-round" style="font-size:14px;vertical-align:middle">download</span> 사업자등록증 다운로드</button></div>' : '')
+    + '<div style="border-top:1px solid var(--line);padding-top:16px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">관리자 처리</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">상태</label><select id="brandAppEditStatus" class="admin-filter" ' + editableDisabled + '>' + statusOptions + '</select></div>'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">예상 견적 (자동)</label><input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly></div>'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">확정 견적 (₩)</label><input type="number" id="brandAppEditFinalQuote" class="admin-filter" value="' + (a.final_quote_krw || '') + '" placeholder="0" ' + editableDisabled + '></div>'
+    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px"><input type="checkbox" id="brandAppEditQuoteSent" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + editableDisabled + ' style="margin-right:4px">견적서 전달 완료</label><div style="font-size:10px;color:var(--muted)">' + (a.quote_sent_at ? '전달일: ' + fmtDate(a.quote_sent_at) : '미전달') + '</div></div>'
+    + '</div>'
+    + '<div style="margin-top:12px"><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">내부 메모</label><textarea id="brandAppEditMemo" class="admin-filter" rows="3" style="resize:vertical" ' + editableDisabled + '>' + esc(a.admin_memo || '') + '</textarea></div>'
+    + '<div style="margin-top:10px;font-size:11px;color:var(--muted)">'
+    + '신청일: ' + fmtDate(a.created_at) + (a.reviewed_at ? ' · 검수일: ' + fmtDate(a.reviewed_at) : '') + ' · 버전: ' + a.version
+    + '</div>'
+    + '</div>';
+
+  if (footer) footer.innerHTML = ''
+    + '<button class="btn btn-ghost" onclick="closeBrandAppDetail()">닫기</button>'
+    + (a.status !== 'new' ? '<button class="btn btn-ghost" onclick="revertBrandApp()">되돌리기</button>' : '')
+    + '<button class="btn btn-primary" onclick="saveBrandAppChanges(' + a.version + ')">저장</button>';
+
+  // 현재 row 버전·원본 저장 (낙관적 락용)
+  window._brandAppCurrent = a;
+}
+
+function closeBrandAppDetail() {
+  var modal = $('brandAppDetailModal');
+  if (modal) modal.classList.remove('open');
+  _brandAppCurrentId = null;
+  window._brandAppCurrent = null;
+}
+
+async function downloadBrandDoc(path) {
+  var url = await signBrandDocUrl(path);
+  if (!url) { toast('다운로드 URL 발급 실패', 'error'); return; }
+  window.open(url, '_blank', 'noopener');
+}
+
+async function saveBrandAppChanges(expectedVersion) {
+  var cur = window._brandAppCurrent;
+  if (!cur) return;
+  var status = $('brandAppEditStatus')?.value;
+  var finalQuote = $('brandAppEditFinalQuote')?.value;
+  var quoteSentChecked = $('brandAppEditQuoteSent')?.checked;
+  var memo = $('brandAppEditMemo')?.value || '';
+
+  var patch = {
+    status: status,
+    final_quote_krw: finalQuote ? Number(finalQuote) : null,
+    quote_sent_at: quoteSentChecked ? (cur.quote_sent_at || new Date().toISOString()) : null,
+    admin_memo: memo || null
+  };
+  // 최초 검수 진입 시 reviewed_by/at 기록
+  if (cur.status === 'new' && status !== 'new') {
+    patch.reviewed_by = currentUser?.id || null;
+    patch.reviewed_at = new Date().toISOString();
+  }
+
+  var result = await updateBrandApplication(cur.id, patch, expectedVersion);
+  if (result.conflict) {
+    // 낙관적 락 충돌 — 사용자 입력값은 유실됨(의도적 동작).
+    // 복원 로직 대신 최신 상태를 다시 로드해 사용자가 재확인·재입력하도록 유도.
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await openBrandAppDetail(cur.id);
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  toast('저장되었습니다.');
+  closeBrandAppDetail();
+  await loadBrandApplications();
+}
+
+async function revertBrandApp() {
+  var cur = window._brandAppCurrent;
+  if (!cur) return;
+  if (!await showConfirm('상태를 신규로 되돌리고 검수 기록을 초기화합니다.\n계속할까요?')) return;
+  var result = await updateBrandApplication(cur.id, {
+    status: 'new',
+    reviewed_by: null,
+    reviewed_at: null
+  }, cur.version);
+  if (result.conflict) { toast('다른 관리자가 먼저 처리했습니다.', 'warn'); return; }
+  if (!result.ok) { toast('되돌리기 실패', 'error'); return; }
+  toast('되돌렸습니다.');
+  closeBrandAppDetail();
+  await loadBrandApplications();
 }

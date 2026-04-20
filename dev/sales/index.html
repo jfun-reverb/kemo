@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex,nofollow">
+<meta name="googlebot" content="noindex,nofollow">
+<title>REVERB JP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+<style>
+:root {
+  --brand: #E8344E;
+  --brand-deep: #B1253C;
+  --ink: #161618;
+  --ink-soft: #4A4A4F;
+  --ink-mute: #8A8A90;
+  --paper: #F7F4EE;
+  --paper-warm: #EFEAE0;
+  --sage: #D8DFC6;
+  --sage-deep: #9BAB7E;
+  --sage-ink: #3E4A30;
+  --card: #FFFFFF;
+  --border: rgba(22,22,24,0.08);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  color: var(--ink);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+body {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--paper);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* 여백 톤 */
+.shell { padding: 24px 20px 48px; }
+
+/* Entrance motion */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slowFloat {
+  0%,100% { transform: translate(0,0); }
+  50% { transform: translate(-10px, 10px); }
+}
+.reveal { opacity: 0; animation: fadeUp 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+.d1 { animation-delay: 0.05s; }
+.d2 { animation-delay: 0.15s; }
+.d3 { animation-delay: 0.28s; }
+.d4 { animation-delay: 0.42s; }
+.d5 { animation-delay: 0.58s; }
+.d6 { animation-delay: 0.70s; }
+
+/* ──── HEADER ──── */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 2px 0;
+  margin-bottom: 44px;
+}
+
+.brand-logo {
+  font-family: 'Manrope', 'Pretendard Variable', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.lang-toggle {
+  display: flex;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.lang-toggle button {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  cursor: pointer;
+  color: var(--ink-mute);
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  position: relative;
+}
+.lang-toggle button.active { color: var(--ink); }
+.lang-toggle button.active::after {
+  content: "";
+  position: absolute;
+  left: 2px; right: 2px; bottom: -2px;
+  height: 2px;
+  background: var(--ink);
+}
+.lang-toggle .sep { color: var(--ink-mute); opacity: 0.4; }
+
+/* ──── HERO ──── */
+.hero { position: relative; margin-bottom: 52px; }
+
+.hero-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+
+.hero-title {
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
+  font-weight: 800;
+  font-size: 36px;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  margin-bottom: 24px;
+}
+.hero-title em {
+  font-style: normal;
+  font-weight: 800;
+  color: var(--brand);
+}
+
+.hero-desc {
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  line-height: 1.75;
+  max-width: 360px;
+  letter-spacing: -0.005em;
+}
+
+/* Editorial 구분선 */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 24px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+}
+.divider::before, .divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.18;
+}
+
+/* ──── CHOICE CARDS ──── */
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 56px;
+}
+
+.choice-card {
+  position: relative;
+  border-radius: 24px;
+  padding: 28px 24px 64px;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s;
+  cursor: pointer;
+}
+
+.choice-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.choice-card .orb {
+  /* orb 제거 — 깔끔한 단색 카드로 */
+  display: none;
+}
+
+/* REVIEWER — warm peach 톤 (베이지 배경과 동일 계열) */
+.choice-card.reviewer {
+  background: #F3E6E0;
+  border: 1px solid rgba(196,100,90,0.14);
+  color: var(--ink);
+}
+
+/* SEEDING — warm olive 톤 */
+.choice-card.seeding {
+  background: #E3E4CE;
+  border: 1px solid rgba(110,120,80,0.14);
+  color: var(--ink);
+}
+
+.choice-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 22px 48px -20px rgba(0,0,0,0.18);
+}
+.choice-card:active { transform: translateY(-1px); }
+
+.card-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  opacity: 0.62;
+  margin-bottom: 16px;
+}
+.choice-card.reviewer .card-kicker { color: var(--brand-deep); }
+.choice-card.seeding .card-kicker { color: var(--sage-ink); }
+
+.card-title {
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
+  font-weight: 800;
+  font-size: 24px;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+.card-title em { font-style: normal; color: var(--ink); font-weight: 800; }
+.choice-card.seeding .card-title em { color: var(--ink); font-weight: 800; }
+
+.card-desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.7;
+  max-width: 320px;
+  margin-bottom: 28px;
+}
+
+.card-cta {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+}
+
+.cta-text {
+  font-family: 'Manrope', 'Pretendard Variable', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.cta-arrow {
+  font-size: 18px !important;
+  color: var(--ink);
+  transition: transform 0.25s, color 0.25s;
+}
+.choice-card:hover .cta-arrow { transform: translateX(4px); }
+.choice-card.reviewer:hover .cta-text,
+.choice-card.reviewer:hover .cta-arrow { color: var(--brand); }
+.choice-card.seeding:hover .cta-text,
+.choice-card.seeding:hover .cta-arrow { color: var(--sage-ink); }
+
+/* 워터마크 워드마크 — 좌측 하단, 심플 고딕 */
+.watermark {
+  position: absolute;
+  bottom: 14px;
+  left: 22px;
+  font-family: 'Manrope', 'Pretendard Variable', sans-serif;
+  font-weight: 800;
+  font-style: italic;
+  font-size: 46px;
+  line-height: 1;
+  letter-spacing: -0.08em;
+  opacity: 0.06;
+  pointer-events: none;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.choice-card.reviewer .watermark { color: var(--brand); }
+.choice-card.seeding .watermark { color: var(--sage-ink); }
+
+/* ──── CONTACT — minimal editorial ──── */
+.contact-block {
+  border-top: 1px solid var(--ink);
+  padding-top: 22px;
+  margin-bottom: 24px;
+}
+.contact-block-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+
+.contact-row {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  align-items: baseline;
+  column-gap: 14px;
+  padding: 10px 0;
+  font-size: 13.5px;
+  border-bottom: 1px solid var(--border);
+}
+.contact-row:last-child { border-bottom: none; }
+.contact-row .k {
+  color: var(--ink-mute);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.contact-row .v {
+  font-family: 'Manrope', 'Pretendard Variable', sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.contact-row .v a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+.contact-row .v a:hover { border-bottom-color: var(--brand); }
+
+.footnote {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 11px;
+  color: var(--ink-mute);
+  text-align: center;
+  letter-spacing: 0.03em;
+  margin-top: 28px;
+}
+
+/* LANG */
+[lang-ja] .ko-only { display: none; }
+[lang-ja] .ja-only { display: initial; }
+[lang-ko] .ja-only { display: none; }
+
+@media (max-width: 360px) {
+  .hero-title { font-size: 38px; }
+  .card-title { font-size: 26px; }
+  .choice-card { min-height: 270px; padding: 28px 22px 22px; }
+  .card-cta { left: 22px; right: 22px; }
+  .watermark { font-size: 40px; left: 18px; bottom: 12px; }
+}
+</style>
+</head>
+<body lang-ko>
+
+<div class="shell">
+
+  <div class="top-bar reveal">
+    <div class="brand-logo">Reverb</div>
+    <div class="lang-toggle">
+      <button class="active" onclick="setLang('ko', event)">KO</button>
+      <span class="sep">·</span>
+      <button onclick="setLang('ja', event)">JA</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hero-eyebrow reveal d1">REVERB JP · Advertiser</div>
+    <h1 class="hero-title reveal d2">
+      <span class="ko-only">브랜드를 <em>일본</em>으로</span>
+      <span class="ja-only">ブランドを <em>日本</em>へ</span>
+    </h1>
+    <p class="hero-desc reveal d3">
+      <span class="ko-only">원하시는 서비스를 선택해주세요.<br>신청서를 남겨주시면 담당자가 24시간 이내에 연락드립니다.</span>
+      <span class="ja-only">ご希望のサービスをお選びください。<br>お申込み後、担当者より24時間以内にご連絡いたします。</span>
+    </p>
+  </div>
+
+  <div class="divider reveal d3">
+    <span class="ko-only">서비스 선택</span>
+    <span class="ja-only">サービス選択</span>
+  </div>
+
+  <div class="choice-list">
+
+    <a class="choice-card reviewer reveal d4" id="goReviewer" href="reviewer.html">
+      <span class="orb orb-1"></span>
+      <span class="watermark">Review</span>
+      <div class="card-kicker">
+        <span class="ko-only">Qoo10 Reviewer</span>
+        <span class="ja-only">Qoo10 レビュアー</span>
+      </div>
+      <div class="card-title">
+        <span class="ko-only">일본 유저의 <em>리얼 리뷰</em></span>
+        <span class="ja-only">日本ユーザーの <em>リアルレビュー</em></span>
+      </div>
+      <p class="card-desc">
+        <span class="ko-only">Qoo10 일본 유저가 직접 구매 후 리뷰를 작성합니다. 판매대금은 Qoo10 정산 시스템으로.</span>
+        <span class="ja-only">Qoo10の日本ユーザーが直接購入しレビュー作成。売上はQoo10精算システムへ。</span>
+      </p>
+      <div class="card-cta">
+        <span class="cta-text">
+          <span class="ko-only">신청서 작성하기</span>
+          <span class="ja-only">お申込みへ</span>
+        </span>
+        <span class="material-icons-outlined cta-arrow">arrow_forward</span>
+      </div>
+    </a>
+
+    <a class="choice-card seeding reveal d5" id="goSeeding" href="seeding.html">
+      <span class="orb orb-1"></span>
+      <span class="watermark">Seeding</span>
+      <div class="card-kicker">
+        <span class="ko-only">Nano Seeding</span>
+        <span class="ja-only">ナノシーディング</span>
+      </div>
+      <div class="card-title">
+        <span class="ko-only">현지 나노 인플루언서 <em>무료 매칭</em></span>
+        <span class="ja-only">現地ナノインフルエンサー <em>無料マッチング</em></span>
+      </div>
+      <p class="card-desc">
+        <span class="ko-only">일본 현지 나노 인플루언서에게 제품을 직접 전달하고 SNS 포스팅을 확보합니다.</span>
+        <span class="ja-only">日本のナノインフルエンサーへ商品を直接届け、SNS投稿を獲得。</span>
+      </p>
+      <div class="card-cta">
+        <span class="cta-text">
+          <span class="ko-only">신청서 작성하기</span>
+          <span class="ja-only">お申込みへ</span>
+        </span>
+        <span class="material-icons-outlined cta-arrow">arrow_forward</span>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="contact-block reveal d6">
+    <div class="contact-block-label">Contact</div>
+    <div class="contact-row">
+      <span class="k">LINE</span>
+      <span class="v"><a href="https://line.me/R/ti/p/@reverb.jp">@reverb.jp</a></span>
+    </div>
+    <div class="contact-row">
+      <span class="k">KakaoTalk</span>
+      <span class="v">byhyunho7</span>
+    </div>
+    <div class="contact-row">
+      <span class="k">TEL</span>
+      <span class="v"><a href="tel:+821025501511">010-2550-1511</a></span>
+    </div>
+  </div>
+
+  <div class="footnote">© JFUN Corp. · 株式会社ジェイファン</div>
+
+</div>
+
+<script>
+function setLang(lang, ev) {
+  document.body.setAttribute('lang-' + lang, '');
+  document.body.removeAttribute('lang-' + (lang === 'ko' ? 'ja' : 'ko'));
+  document.documentElement.lang = lang;
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
+  if (ev && ev.target) ev.target.classList.add('active');
+}
+
+// 서브도메인(/ rewrite)과 경로 접속(/sales/index.html) 양쪽 URL을 모두 지원
+(function() {
+  const reviewerLink = document.getElementById('goReviewer');
+  const seedingLink = document.getElementById('goSeeding');
+  const p = location.pathname;
+  const onSubdomain = (p === '/' || p === '/index.html');
+  if (reviewerLink) reviewerLink.href = onSubdomain ? '/reviewer' : 'reviewer.html';
+  if (seedingLink) seedingLink.href = onSubdomain ? '/seeding' : 'seeding.html';
+})();
+</script>
+
+</body>
+</html>

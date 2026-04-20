@@ -50,13 +50,7 @@ async function init() {
     currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
     currentAdminInfo = adminResult.data;
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
-
-    // GNB에 관리자 이름 표시
-    var gnbInfo = document.getElementById('adminGnbInfo');
-    if (gnbInfo) {
-      var initial = (adminResult.data.name || 'A')[0].toUpperCase();
-      gnbInfo.innerHTML = '<div style="width:28px;height:28px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">' + initial + '</div><span>' + (adminResult.data.name || '관리자') + '</span>';
-    }
+    if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 
     // 세션 만료/갱신 감지
     db.auth.onAuthStateChange(function(event) {
@@ -76,6 +70,9 @@ async function init() {
     // 신청 뱃지 업데이트
     var _pending = preloaded[2].filter(function(a){return a.status==='pending'});
     if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>999?'999+':_pending.length)+'</span>':'');
+
+    // 광고주 신청 pending 배지 (신규 brand_applications)
+    if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
 
     // URL 해시가 있으면 해당 패널로 이동
     var hash = location.hash.replace('#','');

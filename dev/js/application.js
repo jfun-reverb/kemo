@@ -87,7 +87,7 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.recruitType')}</div>
             <div style="padding:10px 13px;flex:1;font-size:12px">
-              ${(()=>{const t=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)','Reviewer'],gifting:['var(--gold-l)','var(--gold)','Gifting'],visit:['#E8F7EF','#0E7E4A','Visit']};const m=map[t];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${m[2]}</span>`:'—'})()}
+              ${(()=>{const t=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)','レビュアー'],gifting:['var(--gold-l)','var(--gold)','ギフティング'],visit:['#E8F7EF','#0E7E4A','訪問']};const m=map[t];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${m[2]}</span>`:'—'})()}
             </div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
@@ -134,11 +134,12 @@ async function openCampaign(id) {
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.submissionEnd')}</div>
             <div style="padding:10px 13px;flex:1;font-size:12px;font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div>
           </div>`:''}
-          ${(camp.product_price>0||camp.reward>0)?`
+          ${(camp.product_price>0||camp.reward>0||camp.reward_note)?`
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.reward')}</div>
             <div style="padding:10px 13px;flex:1;font-size:12px;color:var(--pink);font-weight:600">
-              ${camp.product_price>0?t('detail.rewardProductAmount').replace('{price}',camp.product_price.toLocaleString()):t('detail.rewardProductFree')}${camp.reward>0?` + ${t('detail.rewardCashAmount').replace('{amount}',camp.reward.toLocaleString())}`:''}
+              ${(camp.product_price>0||camp.reward>0)?`${camp.product_price>0?t('detail.rewardProductAmount').replace('{price}',camp.product_price.toLocaleString()):t('detail.rewardProductFree')}${camp.reward>0?` + ${t('detail.rewardCashAmount').replace('{amount}',camp.reward.toLocaleString())}`:''}`:''}
+              ${camp.reward_note?`<div style="margin-top:${(camp.product_price>0||camp.reward>0)?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}
             </div>
           </div>`:''}
         </div>
