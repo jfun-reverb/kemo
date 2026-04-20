@@ -116,10 +116,11 @@
 
 <div class="header">
   <h1>REVERB JP — Service Flow Chart</h1>
-  <p>인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-04-16</p>
+  <p>인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-04-20</p>
 </div>
 
 <div class="toc">
+  <a href="#sec0">0. 광고주 인테이크 플로우 (신규)</a>
   <a href="#sec1">1. 전체 서비스 플로우</a>
   <a href="#sec2">2. 인플루언서 사용자 플로우</a>
   <a href="#sec3">3. 캠페인 상태 라이프사이클</a>
@@ -137,6 +138,74 @@
   <div class="legend-item"><div class="legend-dot" style="background:#28C76F"></div>시스템 자동 / 완료</div>
   <div class="legend-item"><div class="legend-dot" style="background:#FF9F43"></div>상태 / 조건</div>
   <div class="legend-item"><div class="legend-dot" style="background:#B3261E"></div>차단 / 에러</div>
+</div>
+
+<!-- 0. 광고주 인테이크 플로우 (2026-04-20 신규) -->
+<div class="section" id="sec0">
+  <h2><span class="num">0</span>광고주 인테이크 플로우 <span style="font-size:12px; color:#888; font-weight:normal;">(2026-04-20 신설)</span></h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">광고주(브랜드)가 비공개 랜딩(sales.globalreverb.com)에서 캠페인 신청을 접수하고, 관리자가 검수·견적·상태 전이까지 처리하는 영업 인테이크 플로우. 이 단계가 완료된 후 §1 캠페인 등록으로 연결됨.</div>
+    <pre class="mermaid">
+flowchart TB
+  subgraph BRAND["🏢 광고주 (sales.globalreverb.com)"]
+    B1[랜딩 접속<br/>noindex·nofollow] --> B2{신청 종류 선택}
+    B2 -->|리뷰어 모집| B3[/reviewer 폼<br/>JFUN-Q]
+    B2 -->|나노 인플루언서 시딩| B4[/seeding 폼<br/>JFUN-N]
+    B3 --> B5[상품 정보 입력<br/>1~50개 · 실시간 견적]
+    B4 --> B5
+    B3 --> B6[사업자등록증 업로드<br/>brand-docs 비공개 버킷<br/>경로: YYYY/MM/uuid/license.ext]
+    B5 --> B7{유효성 검증}
+    B6 --> B7
+    B7 -->|필드 누락| B7E[인라인 경고]
+    B7 -->|OK| B8[anon INSERT<br/>brand_applications]
+  end
+
+  subgraph DB["🗃 Supabase (Sydney)"]
+    T1[BEFORE INSERT 트리거<br/>generate_brand_application_no<br/>JST JFUN-Q|N-YYYYMMDD-NNN] --> T2[BEFORE INSERT 트리거<br/>recalc_brand_application_totals<br/>total_jpy · total_qty · estimated_krw]
+    T2 --> T3[INSERT 완료<br/>status=new]
+  end
+
+  subgraph NOTIFY["📧 Edge Function"]
+    E1[notify-brand-application<br/>클라이언트 직접 호출] --> E2[수신자 결정<br/>admins.receive_brand_notify=true<br/>+ env NOTIFY_ADMIN_EMAILS]
+    E2 --> E3[Brevo SMTP 발송<br/>noreply@globalreverb.com]
+  end
+
+  subgraph ADMIN["🔧 관리자 (/admin#brand-applications)"]
+    M1[메일 수신] --> M2[상세 모달 오픈<br/>제품 테이블 · 사업자등록증 signed URL]
+    M2 --> M3{상태 전이}
+    M3 -->|검토 시작| M4[reviewing]
+    M4 --> M5[final_quote_krw 수동 입력<br/>admin_memo 작성]
+    M5 --> M6[견적서 발송<br/>quote_sent_at 체크]
+    M6 --> M7[quoted]
+    M7 --> M8{계약 체결?}
+    M8 -->|성공| M9[paid → done]
+    M8 -->|거절/무응답| M10[rejected]
+    M3 -->|되돌리기| M0[new 복귀]
+    M9 --> NEXT[[§1 캠페인 등록으로 연결]]
+  end
+
+  B8 --> T1
+  T3 --> E1
+  E3 --> M1
+
+  style BRAND fill:#FFF8E6,stroke:#FF9F43,stroke-width:2px
+  style DB fill:#E8F4FF,stroke:#5B7CFF,stroke-width:2px
+  style NOTIFY fill:#F0FFF4,stroke:#28C76F,stroke-width:2px
+  style ADMIN fill:#F0F4FF,stroke:#5B7CFF,stroke-width:2px
+  style B7E fill:#B3261E,color:#fff
+  style NEXT fill:#8B7A8E,color:#fff
+    </pre>
+  </div>
+  <div style="margin-top:12px; font-size:12px; color:#555;">
+    <strong>관련 스키마·구현:</strong>
+    <ul style="margin-top:4px; padding-left:20px;">
+      <li>Migrations: <code>052_create_brand_applications.sql</code>, <code>053_brand_docs_storage.sql</code>, <code>054_admin_receive_brand_notify.sql</code></li>
+      <li>Edge Function: <code>supabase/functions/notify-brand-application/</code></li>
+      <li>Sales 앱: <code>sales/{index,reviewer,seeding}.html</code> (별도 Vercel 프로젝트 <code>reverb-sales</code>)</li>
+      <li>관리자 페인: <code>/admin#brand-applications</code> (낙관적 락 <code>version</code>, 상태 전이 new→reviewing→quoted→paid→done/rejected)</li>
+      <li>PRIVACY 반영: <code>docs/PRIVACY_{kr,ja}.md</code> §2.2 / §5 / §6.1 / §7 / §9</li>
+    </ul>
+  </div>
 </div>
 
 <!-- 1. 전체 서비스 플로우 -->
@@ -626,7 +695,7 @@ flowchart LR
 </div>
 
 <div class="footer">
-  REVERB JP Service Flow Chart — Generated 2026-04-08 · Updated 2026-04-16<br/>
+  REVERB JP Service Flow Chart — Generated 2026-04-08 · Updated 2026-04-20<br/>
   Tech: Supabase + Vanilla JS + Vercel | Mobile 480px + PC Full-Width
 </div>
 

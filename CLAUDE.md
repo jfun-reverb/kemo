@@ -35,6 +35,7 @@
 - **Brevo 플랜: Starter 20,000 emails/월** (2026-04-16 Free 300/일→Starter로 업그레이드, 갱신일 매월 16일, Monthly $29). Marketing+Transactional 공용 쿼터, 일일 한도 없음
 - 발신: `noreply@globalreverb.com`, 발신명: 운영 `REVERB JP` / 개발 `REVERB JP [DEV]`
 - 발신 도메인 DNS 인증 완료 (SPF/DKIM/DMARC, cafe24 DNS 관리)
+- **광고주 신청 접수 알림**: Supabase Edge Function `notify-brand-application` 이 `brand_applications` INSERT 직후 호출 → `admins.receive_brand_notify=true` 계정 + env `NOTIFY_ADMIN_EMAILS` 외부 이메일 합산(중복 제거) 대상에게 Brevo SMTP 경유로 접수 알림 발송. DB 조회 실패 시 env 만 폴백
 - Auth URL Configuration:
   - 운영: Site URL `https://globalreverb.com` + Redirect `https://globalreverb.com/**`, `https://www.globalreverb.com/**`
   - 개발: Site URL `https://dev.globalreverb.com` + Redirect `https://dev.globalreverb.com/**`
@@ -62,13 +63,16 @@
 
 ## Architecture
 - 인플루언서 앱: dev/index.html (모바일 480px, GNB + 우측 슬라이드 햄버거 메뉴)
-- 관리자 앱: dev/admin/index.html (PC 전체폭, 별도 페이지)
+- 관리자 앱: dev/admin/index.html (PC 전체폭, 별도 페이지, **2단 고정 레이아웃** — 사이드바/메인 독립 스크롤, 상단 GNB 없음)
+- **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — 별도 Vercel 프로젝트 `reverb-sales`(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com` 서브도메인, 루트 랜딩에서 `/reviewer`(Qoo10 리뷰어 모집) 또는 `/seeding`(나노 인플루언서 시딩) 폼 선택. anon으로 `brand_applications` INSERT + `brand-docs` 비공개 버킷에 사업자등록증 업로드(reviewer 전용). Vercel `cleanUrls`+catch-all rewrite로 `/reviewer` → `reviewer.html` 라우팅
 - 배포용: 루트 index.html (build.sh로 생성)
 - 개발 폴더 구조:
   - dev/js/ — app, ui, campaign, application, auth, mypage, admin
   - dev/css/ — base, components, campaign, auth, mypage, admin
   - dev/lib/ — supabase(설정), shared(전역변수), storage(DB/Storage API)
   - dev/build.sh — dev/ → 루트 index.html 빌드
+  - sales/ — 광고주 신청 폼 (빌드 없이 정적 파일 그대로 배포)
+  - supabase/functions/notify-brand-application/ — 광고주 신청 알림 Edge Function
 - Supabase 미연결 시 localStorage로 동작 (DEMO_MODE)
 
 ## Features — 인플루언서 (모바일)
@@ -82,7 +86,7 @@
   - 제목 위: `締切間近`(deadline < 5일 OR 잔여 slots ≤ 30%) + `{applied}/{slots}名` (진행중 항상 표시)
   - 콘텐츠 종류 아래: 모집타입 + `募集中` pill
   - 이미지 좌하단: 첫 채널 + `+N` (여러 채널 보유 시)
-- 캠페인 상세 채널 렌더링: 채널 pill 사이에 `or` 또는 `&` 구분자 (캠페인별 `channel_match` 기준). 자격 검증은 여전히 OR 방식 — 표시만 다름
+- 캠페인 상세 채널 렌더링: 채널 pill 사이에 `or` 또는 `&` 구분자 (캠페인별 `channel_match` 기준). 자격 검증은 `primary_channel` 단일 기준 — 표시만 다름
 - 캠페인 목록 노출: active + scheduled + closed(게시기한 남은 경우, 募集締切 오버레이)
 - 캠페인 상세: 이미지 캐러셀(최대9장), 상품정보, 모집조건, 참가방법(3단계), 가이드라인, NG사항, LINE/Instagram CTA, 조회수 자동 카운트, closed 시 신청버튼 비활성(募集締切)
 - 캠페인 신청: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS/zip+prefecture+city+phone/PayPal 이메일) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지, 최소 팔로워수 미달 시 알럿 차단
@@ -103,7 +107,7 @@
 - 로딩 UX: 테이블/대시보드 KPI/차트 영역에 인라인 스피너 (전체화면 오버레이 제거)
 - 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경 모드(버튼 토글)
 - 캠페인 등록/편집 폼: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드), 제품정보 2열(이미지+상세), 모집타입 라디오버튼 UI, **채널은 복수 선택 체크박스**(Instagram/X/Qoo10/TikTok/YouTube · 콤마 구분 저장 `"instagram,x"`)
-- **채널 매칭 표시 (channel_match)**: 채널 2개 이상 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match` (text, default 'or', CHECK(or|and))에 저장. 인플루언서 상세 pill 구분자로 사용. 자격 검증 로직은 OR 유지
+- **채널 매칭 표시 (channel_match)**: 채널 2개 이상 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match` (text, default 'or', CHECK(or|and))에 저장. 인플루언서 상세 pill 구분자로 사용. 자격 검증 로직: primary_channel 단일 기준(Rules 최소 팔로워수 정책 참조)
 - **콘텐츠 가이드 4개 필드(설명/어필 포인트/촬영 가이드/NG사항) 리치 텍스트 에디터** (Quill v2) — 볼드/이탤릭/리스트/링크/헤더/인용 지원. Notion 복사·붙여넣기로 서식 유지. 이미지 태그는 저장 시 제거(base64 폭증 방지). 저장 포맷은 sanitize된 HTML 문자열, 기존 `text` 컬럼 그대로 사용. 평문(legacy) 데이터는 렌더 시 자동 `<br>` 변환으로 하위호환. XSS 방어: DOMPurify 저장+렌더 이중 sanitize. 공통 헬퍼는 `dev/lib/shared.js`의 `sanitizeRich/richHtml/renderRich`
 - 캠페인 목록: 썸네일+이미지수 표시, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨(게시마감/모집마감), 타입 라벨 통일([타입] 제목 형식), 승인수/모집수 표시 + 대기 배지
 - 캠페인 미리보기: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
@@ -186,7 +190,8 @@
 - 하드코딩 DOM 인덱스 금지 (querySelector 등에서 :nth-child 인덱스 직접 사용 금지)
 - 이미지 썸네일 표시는 `imgThumb(url, width, quality)` 헬퍼 사용 (Supabase Pro 플랜 transform), `data-orig` + `onerror`로 원본 URL 폴백 필수
 - 채널 비교는 항상 `split(',')` 후 `includes()` 사용 (단일 `===` 비교 금지 — 멀티채널 캠페인 누락 위험)
-- 최소 팔로워수 정책: **OR 방식** (선택 채널 중 1개 이상이 `min_followers` 충족하면 통과) — 상세는 `docs/FEATURE_SPEC.md` §10
+- 최소 팔로워수 정책: **primary_channel 단일 검증** (캠페인의 `primary_channel` 팔로워수만 `min_followers`와 비교, 없으면 채널 리스트 첫 번째로 폴백. `recruit_type='monitor'`는 팔로워 체크 건너뜀) — 상세는 `docs/FEATURE_SPEC.md` §10, 구현은 `dev/js/application.js`
+- **Sales(광고주) 서브도메인 규칙**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` 페이지 UI는 한국어, `<meta name="robots" content="noindex,nofollow">` 유지(검색 노출 차단). 사업자등록증 업로드는 `brand-docs` **비공개 버킷**(관리자만 signed URL로 열람). 루트에 choice landing + `/reviewer`·`/seeding` 경로는 Vercel `cleanUrls`로 HTML 확장자 제거
 
 ## Mobile Layout Rules
 - #appShell은 position:fixed + top:0/bottom:0 (body 스크롤 차단, 뷰포트 고정)

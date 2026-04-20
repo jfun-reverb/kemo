@@ -3468,6 +3468,76 @@ function brandAppStatusBadge(status) {
   return '<span style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">'+esc(s.label)+'</span>';
 }
 
+// 뱃지 스타일 상태 select 공통 렌더러
+function brandAppStatusSelectStyled(opts) {
+  var status = opts.status;
+  var s = BRAND_APP_STATUS[status] || {color:'#666', bg:'#EEE'};
+  var optionsHtml = Object.keys(BRAND_APP_STATUS).map(function(k) {
+    return '<option value="'+k+'"'+(status===k?' selected':'')+'>'+esc(BRAND_APP_STATUS[k].label)+'</option>';
+  }).join('');
+  var sizeSm = opts.size === 'sm';
+  var padding = sizeSm ? '3px 22px 3px 10px' : '7px 28px 7px 14px';
+  var fontSize = sizeSm ? '11px' : '13px';
+  var arrowPos1 = sizeSm ? 'calc(100% - 10px) 8px' : 'calc(100% - 12px) 50%';
+  var arrowPos2 = sizeSm ? 'calc(100% - 6px) 8px' : 'calc(100% - 8px) 50%';
+  var arrowSize = sizeSm ? '4px 4px' : '5px 5px';
+  var extraAttrs = (opts.id ? ' id="'+esc(opts.id)+'"' : '')
+    + (opts.disabled ? ' disabled' : '')
+    + (opts.onchange ? ' onchange="'+opts.onchange+'"' : '')
+    + (opts.onclick ? ' onclick="'+opts.onclick+'"' : '');
+  return '<select class="brand-app-status-sel"' + extraAttrs
+    + ' style="background:'+s.bg+';color:'+s.color+';font-size:'+fontSize+';font-weight:700;padding:'+padding+';border-radius:6px;'
+    + 'border:0;cursor:pointer;appearance:none;-webkit-appearance:none;'
+    + 'background-image:linear-gradient(45deg,transparent 50%,'+s.color+' 50%),linear-gradient(-45deg,transparent 50%,'+s.color+' 50%);'
+    + 'background-position:'+arrowPos1+','+arrowPos2+';background-size:'+arrowSize+';background-repeat:no-repeat">'
+    + optionsHtml + '</select>';
+}
+
+// 리스트용 shortcut (즉시 저장)
+function brandAppStatusSelect(a) {
+  return brandAppStatusSelectStyled({
+    status: a.status,
+    size: 'sm',
+    onchange: 'quickChangeBrandAppStatus(\''+esc(a.id)+'\', this.value, '+a.version+')',
+    onclick: 'event.stopPropagation()'
+  });
+}
+
+// 상세 모달 내 select 색상 자동 갱신 (선택만 변경, 저장은 별도 버튼)
+function onBrandAppEditStatusChange(sel) {
+  var s = BRAND_APP_STATUS[sel.value] || {color:'#666', bg:'#EEE'};
+  sel.style.background = s.bg;
+  sel.style.color = s.color;
+  sel.style.backgroundImage = 'linear-gradient(45deg,transparent 50%,' + s.color + ' 50%),linear-gradient(-45deg,transparent 50%,' + s.color + ' 50%)';
+  sel.style.backgroundRepeat = 'no-repeat';
+}
+
+// 리스트에서 즉시 상태 변경 (낙관적 락 체크)
+async function quickChangeBrandAppStatus(id, newStatus, expectedVersion) {
+  var cur = _brandApps.find(function(a){ return a.id === id; });
+  if (!cur) return;
+  if (cur.status === newStatus) return;
+  var patch = {status: newStatus};
+  // 최초 검수 진입 시 reviewed_by/at 기록
+  if (cur.status === 'new' && newStatus !== 'new') {
+    patch.reviewed_by = currentUser?.id || null;
+    patch.reviewed_at = new Date().toISOString();
+  }
+  var result = await updateBrandApplication(id, patch, expectedVersion);
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('상태 변경 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    await loadBrandApplications();
+    return;
+  }
+  toast('상태가 ' + (BRAND_APP_STATUS[newStatus]?.label || newStatus) + '(으)로 변경됨');
+  await loadBrandApplications();
+}
+
 function brandAppFormLabel(formType) {
   return formType === 'reviewer' ? 'Qoo10 리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
 }
@@ -3496,21 +3566,30 @@ function fmtDate(iso) {
   } catch(e) { return '—'; }
 }
 
-// 광고주 신청 페이지 URL을 클립보드에 복사 (영업팀 공유용)
-function copyBrandSalesUrl() {
-  const url = 'https://sales.globalreverb.com/';
+// 임의 텍스트를 클립보드에 복사 (execCommand fallback 포함)
+function copyTextToClipboard(text, successMsg) {
+  var msg = successMsg || '복사됨';
   try {
-    navigator.clipboard.writeText(url);
-    toast(url + ' 복사됨');
+    navigator.clipboard.writeText(text);
+    toast(msg);
   } catch (e) {
-    // fallback: input 선택
-    const tmp = document.createElement('input');
-    tmp.value = url;
+    var tmp = document.createElement('input');
+    tmp.value = text;
     document.body.appendChild(tmp);
     tmp.select();
-    try { document.execCommand('copy'); toast('URL 복사됨'); } catch(_) { toast('복사 실패', 'error'); }
+    try { document.execCommand('copy'); toast(msg); } catch(_) { toast('복사 실패', 'error'); }
     document.body.removeChild(tmp);
   }
+}
+
+// 광고주 신청 페이지 URL을 클립보드에 복사 (영업팀 공유용)
+function copyBrandSalesUrl() {
+  copyTextToClipboard('https://sales.globalreverb.com/', 'https://sales.globalreverb.com/ 복사됨');
+}
+
+// 제품 URL 복사 (상세 모달의 상품 테이블에서 사용)
+function copyBrandProductUrl(url) {
+  copyTextToClipboard(url, 'URL 복사됨');
 }
 
 async function loadBrandApplications() {
@@ -3557,6 +3636,11 @@ function renderBrandApplicationsList() {
     var av, bv;
     if (_brandAppSort.field === 'estimated') {
       av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
+    } else if (_brandAppSort.field === 'status') {
+      // 진행 순서 기반 정렬 (asc: 초기 상태부터, desc: 완료/반려부터)
+      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, done:4, rejected:5};
+      av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
+      bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
     } else {
       av = a.created_at || ''; bv = b.created_at || '';
     }
@@ -3581,15 +3665,19 @@ function renderBrandApplicationsList() {
   tbody.innerHTML = list.map(function(a) {
     return '<tr>'
       + '<td>'
-        + '<div style="font-family:monospace;font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+        + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
         + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
       + '</td>'
       + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
-      + '<td>' + esc(a.contact_name || '—') + '</td>'
-      + '<td style="font-family:monospace;font-size:11px">' + esc(a.phone || '—') + '</td>'
+      + '<td>'
+        + '<div>' + esc(a.contact_name || '—') + '</div>'
+        + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
+      + '</td>'
+      + '<td style="font-size:12px">' + esc(a.phone || '—') + '</td>'
+      + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
-      + '<td>' + brandAppStatusBadge(a.status) + '</td>'
+      + '<td>' + brandAppStatusSelect(a) + '</td>'
       + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
       + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
       + '</tr>';
@@ -3647,55 +3735,134 @@ async function openBrandAppDetail(id) {
     return;
   }
 
+  // 모달 타이틀: [폼 종류 뱃지] 신청번호
   var title = $('brandAppDetailTitle');
-  if (title) title.textContent = brandAppFormLabel(a.form_type) + ' · ' + a.application_no;
+  if (title) title.innerHTML = ''
+    + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;margin-right:8px;vertical-align:middle">'
+    + esc(brandAppFormLabel(a.form_type))
+    + '</span>'
+    + '<span style="vertical-align:middle">' + esc(a.application_no) + '</span>';
 
-  // products 테이블 렌더
-  var productsHtml = '<div style="color:var(--muted);font-size:12px">제품 없음</div>';
+  // 제품 테이블
+  var productsHtml = '<div style="color:var(--muted);font-size:12px;padding:12px">제품 정보 없음</div>';
   if (Array.isArray(a.products) && a.products.length > 0) {
-    productsHtml = '<table class="data-table" style="font-size:12px">'
-      + '<thead><tr><th>제품명</th><th style="width:auto">URL</th><th style="width:80px;text-align:right">가격(¥)</th><th style="width:60px;text-align:right">수량</th></tr></thead>'
+    productsHtml = '<table class="data-table" style="font-size:12px;margin:0;table-layout:fixed">'
+      + '<thead><tr>'
+        + '<th style="width:30%">제품명</th>'
+        + '<th>URL</th>'
+        + '<th style="width:80px;text-align:right">수량</th>'
+        + '<th style="width:110px;text-align:right">가격 (¥)</th>'
+        + '<th style="width:130px;text-align:right">총액 (¥)</th>'
+      + '</tr></thead>'
       + '<tbody>' + a.products.map(function(p){
-        // 스킴 화이트리스트(http/https)만 href로 렌더 — javascript:/data: 등 주입 차단
+        var price = Number(p.price) || 0;
+        var qty = Number(p.qty) || 0;
+        var lineTotal = price * qty;
         var safe = safeBrandUrl(p.url);
-        var urlHtml = safe
-          ? '<a href="' + esc(safe) + '" target="_blank" rel="noopener" style="color:var(--pink);word-break:break-all">' + esc(p.url) + '</a>'
-          : esc(p.url || '—');
-        return '<tr><td>' + esc(p.name || '—') + '</td><td>' + urlHtml + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.price)||0).toLocaleString('ja-JP') + '</td><td style="text-align:right;font-variant-numeric:tabular-nums">' + (Number(p.qty)||0) + '</td></tr>';
+        var urlCell = '<span style="color:var(--muted)">—</span>';
+        if (safe) {
+          var jsSafe = safe.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          urlCell = '<div style="display:flex;align-items:flex-start;gap:4px;min-width:0">'
+            + '<a href="' + esc(safe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '"'
+              + ' style="flex:1;min-width:0;color:var(--pink);word-break:break-all;'
+              + 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;max-height:2.8em">'
+              + esc(p.url) + '</a>'
+            + '<button type="button" class="btn btn-ghost btn-xs" onclick="copyBrandProductUrl(\'' + jsSafe + '\')" '
+              + 'title="URL 복사" style="padding:2px 6px;flex-shrink:0">'
+              + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">content_copy</span>'
+            + '</button>'
+          + '</div>';
+        } else if (p.url) {
+          urlCell = '<span style="color:var(--muted);word-break:break-all">' + esc(p.url) + '</span>';
+        }
+        return '<tr>'
+          + '<td style="font-weight:600;color:var(--ink);word-break:break-word">' + esc(p.name || '—') + '</td>'
+          + '<td>' + urlCell + '</td>'
+          + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + qty.toLocaleString('ja-JP') + '</td>'
+          + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + price.toLocaleString('ja-JP') + '</td>'
+          + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + lineTotal.toLocaleString('ja-JP') + '</td>'
+        + '</tr>';
       }).join('') + '</tbody></table>';
   }
 
-  // 상세 폼 (정보 read-only + 편집 영역)
-  var editableDisabled = (a.status === 'done') ? 'disabled' : '';
-  var statusOptions = ['new','reviewing','quoted','paid','done','rejected'].map(function(s){
-    return '<option value="' + s + '"' + (a.status === s ? ' selected' : '') + '>' + BRAND_APP_STATUS[s].label + '</option>';
-  }).join('');
+  // 편집 가능 여부 — done 또는 rejected면 읽기전용
+  var editableDisabled = (a.status === 'done' || a.status === 'rejected') ? 'disabled' : '';
+
+  // 섹션 재사용 스타일
+  var sectionLabel = function(txt) {
+    return '<div style="font-size:11px;font-weight:700;color:var(--ink);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px">' + esc(txt) + '</div>';
+  };
+  var kvCard = function(label, value) {
+    return '<div><div style="color:var(--muted);font-size:11px;margin-bottom:3px;font-weight:600">' + esc(label) + '</div><div style="font-size:13px;color:var(--ink);word-break:break-all">' + (value || '<span style="color:var(--muted)">—</span>') + '</div></div>';
+  };
+
+  // 총 상품가/수량 요약
+  var productsSummary = '';
+  if (Array.isArray(a.products) && a.products.length > 0) {
+    productsSummary = '<span style="font-weight:400;color:var(--muted);margin-left:8px;font-size:11px">'
+      + (a.products.length) + '종 · ' + (a.total_qty || 0) + '개 · 상품 총액 ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP')
+      + '</span>';
+  }
 
   if (body) body.innerHTML = ''
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:18px;font-size:13px">'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">브랜드</div><div style="font-weight:600">' + esc(a.brand_name) + '</div></div>'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">담당자</div><div>' + esc(a.contact_name) + '</div></div>'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">연락처</div><div style="font-family:monospace">' + esc(a.phone) + '</div></div>'
-    + '<div><div style="color:var(--muted);font-size:11px;margin-bottom:2px">이메일</div><div style="font-family:monospace;word-break:break-all">' + esc(a.email) + '</div></div>'
-    + (a.billing_email ? '<div style="grid-column:1 / -1"><div style="color:var(--muted);font-size:11px;margin-bottom:2px">계산서 이메일</div><div style="font-family:monospace">' + esc(a.billing_email) + '</div></div>' : '')
+    // § 기본 정보 (사업자등록증 포함)
+    + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
+      + sectionLabel('기본 정보')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">'
+        + kvCard('브랜드', '<strong>' + esc(a.brand_name) + '</strong>')
+        + kvCard('담당자', esc(a.contact_name))
+        + kvCard('연락처', esc(a.phone))
+        + kvCard('이메일', esc(a.email))
+        + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace(/^<div>/,'').replace(/<\/div>$/,'') + '</div>' : '')
+        + (a.business_license_path
+          ? '<div style="grid-column:1 / -1">'
+            + '<div style="color:var(--muted);font-size:11px;margin-bottom:6px;font-weight:600">사업자등록증</div>'
+            + '<button class="btn btn-ghost btn-sm" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')" style="display:inline-flex;align-items:center;gap:4px">'
+              + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>파일 다운로드'
+            + '</button>'
+          + '</div>'
+          : '')
+      + '</div>'
     + '</div>'
-    + '<div style="margin-bottom:18px">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px">신청 상품 (' + (a.products?.length || 0) + '개, 총 ' + (a.total_qty || 0) + '명 · ¥' + (Number(a.total_jpy)||0).toLocaleString('ja-JP') + ')</div>'
-    + productsHtml
+
+    // § 신청 상품
+    + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
+      + '<div style="display:flex;align-items:baseline;margin-bottom:10px">' + sectionLabel('신청 상품') + productsSummary + '</div>'
+      + productsHtml
     + '</div>'
-    + (a.business_license_path ? '<div style="margin-bottom:18px"><button class="btn btn-ghost btn-xs" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')"><span class="material-icons-round" style="font-size:14px;vertical-align:middle">download</span> 사업자등록증 다운로드</button></div>' : '')
-    + '<div style="border-top:1px solid var(--line);padding-top:16px">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px">관리자 처리</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px">'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">상태</label><select id="brandAppEditStatus" class="admin-filter" ' + editableDisabled + '>' + statusOptions + '</select></div>'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">예상 견적 (자동)</label><input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly></div>'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">확정 견적 (₩)</label><input type="number" id="brandAppEditFinalQuote" class="admin-filter" value="' + (a.final_quote_krw || '') + '" placeholder="0" ' + editableDisabled + '></div>'
-    + '<div><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px"><input type="checkbox" id="brandAppEditQuoteSent" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + editableDisabled + ' style="margin-right:4px">견적서 전달 완료</label><div style="font-size:10px;color:var(--muted)">' + (a.quote_sent_at ? '전달일: ' + fmtDate(a.quote_sent_at) : '미전달') + '</div></div>'
+
+    // § 관리자 처리
+    + '<div style="padding-bottom:16px;margin-bottom:16px">'
+      + sectionLabel('관리자 처리')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">'
+        + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">상태</label>'
+          + brandAppStatusSelectStyled({id:'brandAppEditStatus', status:a.status, disabled: !!editableDisabled, onchange:'onBrandAppEditStatusChange(this)'})
+        + '</div>'
+        + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">예상 견적 (자동)</label>'
+          + '<input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly style="background:#F7F7F7;color:var(--muted)">'
+        + '</div>'
+        + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">확정 견적 (₩)</label>'
+          + '<input type="number" id="brandAppEditFinalQuote" class="admin-filter" value="' + (a.final_quote_krw || '') + '" placeholder="0" ' + editableDisabled + '>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;justify-content:flex-end">'
+          + '<label style="display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13px;cursor:pointer">'
+            + '<input type="checkbox" id="brandAppEditQuoteSent" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + editableDisabled + '>'
+            + '견적서 전달 완료'
+          + '</label>'
+          + '<div style="font-size:10px;color:var(--muted);margin-top:3px">' + (a.quote_sent_at ? '전달일 ' + fmtDate(a.quote_sent_at) : '미전달') + '</div>'
+        + '</div>'
+      + '</div>'
+      + '<div style="margin-top:14px">'
+        + '<label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">내부 메모</label>'
+        + '<textarea id="brandAppEditMemo" class="admin-filter" rows="3" style="resize:vertical" placeholder="관리자끼리 공유할 메모 (광고주에게 노출되지 않음)" ' + editableDisabled + '>' + esc(a.admin_memo || '') + '</textarea>'
+      + '</div>'
     + '</div>'
-    + '<div style="margin-top:12px"><label style="color:var(--muted);font-size:11px;display:block;margin-bottom:4px">내부 메모</label><textarea id="brandAppEditMemo" class="admin-filter" rows="3" style="resize:vertical" ' + editableDisabled + '>' + esc(a.admin_memo || '') + '</textarea></div>'
-    + '<div style="margin-top:10px;font-size:11px;color:var(--muted)">'
-    + '신청일: ' + fmtDate(a.created_at) + (a.reviewed_at ? ' · 검수일: ' + fmtDate(a.reviewed_at) : '') + ' · 버전: ' + a.version
-    + '</div>'
+
+    // § 이력
+    + '<div style="padding-top:12px;border-top:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted)">'
+      + '<span><span style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-right:4px">신청일</span>' + fmtDate(a.created_at) + '</span>'
+      + (a.reviewed_at ? '<span><span style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-right:4px">검수일</span>' + fmtDate(a.reviewed_at) + '</span>' : '')
+      + '<span style="margin-left:auto"><span style="font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-right:4px">ver</span>' + a.version + '</span>'
     + '</div>';
 
   if (footer) footer.innerHTML = ''
