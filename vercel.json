@@ -1,33 +1,13 @@
 {
   "rewrites": [
     {
-      "source": "/reviewer",
-      "destination": "/sales/reviewer.html",
+      "source": "/:path*",
+      "destination": "/sales/:path*",
       "has": [{ "type": "host", "value": "sales.globalreverb.com" }]
     },
     {
-      "source": "/seeding",
-      "destination": "/sales/seeding.html",
-      "has": [{ "type": "host", "value": "sales.globalreverb.com" }]
-    },
-    {
-      "source": "/",
-      "destination": "/sales/index.html",
-      "has": [{ "type": "host", "value": "sales.globalreverb.com" }]
-    },
-    {
-      "source": "/reviewer",
-      "destination": "/sales/reviewer.html",
-      "has": [{ "type": "host", "value": "sales-dev.globalreverb.com" }]
-    },
-    {
-      "source": "/seeding",
-      "destination": "/sales/seeding.html",
-      "has": [{ "type": "host", "value": "sales-dev.globalreverb.com" }]
-    },
-    {
-      "source": "/",
-      "destination": "/sales/index.html",
+      "source": "/:path*",
+      "destination": "/sales/:path*",
       "has": [{ "type": "host", "value": "sales-dev.globalreverb.com" }]
     }
   ]
