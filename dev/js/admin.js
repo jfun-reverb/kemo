@@ -3496,6 +3496,23 @@ function fmtDate(iso) {
   } catch(e) { return '—'; }
 }
 
+// 광고주 신청 페이지 URL을 클립보드에 복사 (영업팀 공유용)
+function copyBrandSalesUrl() {
+  const url = 'https://sales.globalreverb.com/';
+  try {
+    navigator.clipboard.writeText(url);
+    toast(url + ' 복사됨');
+  } catch (e) {
+    // fallback: input 선택
+    const tmp = document.createElement('input');
+    tmp.value = url;
+    document.body.appendChild(tmp);
+    tmp.select();
+    try { document.execCommand('copy'); toast('URL 복사됨'); } catch(_) { toast('복사 실패', 'error'); }
+    document.body.removeChild(tmp);
+  }
+}
+
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';

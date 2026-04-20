@@ -851,10 +851,20 @@
         <!-- BRAND APPLICATIONS (광고주 신청) PANE -->
         <div id="adminPane-brand-applications" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">광고주 신청</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">Qoo10 리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 광고주 신청 페이지 열기">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
+                  설문조사 바로가기
+                </a>
+                <button type="button" class="btn btn-primary btn-sm" onclick="copyBrandSalesUrl()" style="display:inline-flex;align-items:center;gap:4px" title="광고주에게 공유할 URL을 클립보드에 복사">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px">content_copy</span>
+                  URL 복사
+                </button>
               </div>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
