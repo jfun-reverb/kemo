@@ -1516,8 +1516,19 @@ function isApplicationComplete(delivs, selectedChannels, channelMatch, isPostTyp
 // ── 인플루언서 목록 ──
 let currentInfTab = 'all';
 
+var infUsersCache = null;
+
 async function loadAdminInfluencers() {
-  const users = await fetchInfluencers();
+  infUsersCache = await fetchInfluencers();
+  renderInfluencersPane(infUsersCache);
+}
+
+function rerenderInfluencersFromCache() {
+  if (!infUsersCache) { loadAdminInfluencers(); return; }
+  renderInfluencersPane(infUsersCache);
+}
+
+function renderInfluencersPane(users) {
   const cnt = ch => users.filter(u => ch==='instagram'?u.ig_followers>0:ch==='x'?u.x_followers>0:ch==='tiktok'?u.tiktok_followers>0:u.youtube_followers>0).length;
   ['instagram','x','tiktok','youtube'].forEach(ch => {
     const el = $('infCnt-'+ch);
@@ -1534,7 +1545,7 @@ function switchInfTab(ch, btn) {
     b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
   });
   btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
-  loadAdminInfluencers();
+  rerenderInfluencersFromCache();
 }
 
 var infSortKey = 'created';
@@ -1548,14 +1559,14 @@ function toggleInfSort(key) {
     infSortDir = 'desc';
   }
   updateInfSortUI();
-  loadAdminInfluencers();
+  rerenderInfluencersFromCache();
 }
 
 function resetInfSort() {
   infSortKey = 'created';
   infSortDir = 'desc';
   updateInfSortUI();
-  loadAdminInfluencers();
+  rerenderInfluencersFromCache();
 }
 
 function updateInfSortUI() {
@@ -1864,6 +1875,9 @@ function resetAppSort() {
   renderAppCampList();
 }
 
+var appLazy = null;
+const APP_PAGE_SIZE = 50;
+
 async function renderAppCampList() {
   const bodyEl = $('appTableBody');
   const countEl = $('appTotalCount');
@@ -1912,14 +1926,14 @@ async function renderAppCampList() {
 
   if (countEl) countEl.textContent = `총 ${apps.length}건`;
 
-  bodyEl.innerHTML = apps.length ? apps.map(a => {
+  const renderAppRow = (a) => {
     const camp = camps.find(c => c.id === a.campaign_id) || {};
     const u = users.find(u => u.email === a.user_email) || {};
     const _campRemaining = Math.max((camp.slots||0)-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    return `<tr>
+    return `<tr data-id="${esc(a.id)}">
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
@@ -1945,7 +1959,17 @@ async function renderAppCampList() {
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
+  };
+  const scrollRoot = bodyEl.closest('.admin-table-wrap');
+  if (appLazy) appLazy.destroy();
+  appLazy = mountLazyList({
+    tbody: bodyEl,
+    scrollRoot,
+    rows: apps,
+    renderRow: renderAppRow,
+    pageSize: APP_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
+  });
 }
 
 async function updateAppStatus(appId, status) {
@@ -3295,6 +3319,9 @@ async function loadDeliverables() {
   await renderDeliverablesList();
 }
 
+var delivLazy = null;
+const DELIV_PAGE_SIZE = 50;
+
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
@@ -3341,11 +3368,7 @@ async function renderDeliverablesList() {
   applyDelivSortIndicators();
   const cnt = $('delivTotalCount');
   if (cnt) cnt.textContent = `총 ${filtered.length}건`;
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = filtered.map(d => {
+  const renderDelivRow = (d) => {
     const kindBadge = d.kind === 'receipt'
       ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#fdf5fb;color:var(--dark-pink);font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">receipt</span> 영수증</span>'
       : '<span style="display:inline-flex;align-items:center;gap:3px;background:#eef5ff;color:#2c5fa8;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span> 게시물</span>';
@@ -3359,7 +3382,7 @@ async function renderDeliverablesList() {
     const reviewedCell = d.reviewed_at
       ? `<span style="font-size:12px">${formatDateTime(d.reviewed_at)}</span>`
       : '<span style="font-size:11px;color:var(--muted)">—</span>';
-    return `<tr>
+    return `<tr data-id="${esc(d.id)}">
       <td>${kindBadge}</td>
       <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${getRecruitTypeBadgeKoSm(camp.recruit_type)}${camp.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span>` : ''}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
       <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${inf.id||''}')">${infName}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
@@ -3368,7 +3391,17 @@ async function renderDeliverablesList() {
       <td>${stBadge}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
     </tr>`;
-  }).join('');
+  };
+  const scrollRoot = tbody.closest('.admin-table-wrap');
+  if (delivLazy) delivLazy.destroy();
+  delivLazy = mountLazyList({
+    tbody,
+    scrollRoot,
+    rows: filtered,
+    renderRow: renderDelivRow,
+    pageSize: DELIV_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+  });
 }
 
 function statusLabelKo(status) {
@@ -4002,7 +4035,15 @@ function renderBrandApplicationsList() {
   if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
 
   var count = $('brandAppTotalCount');
-  if (count) count.textContent = '(' + list.length + '건)';
+  if (count) {
+    var totalAll = (_brandApps || []).length;
+    var reviewerN = (_brandApps || []).filter(function(a){ return a.form_type === 'reviewer'; }).length;
+    var seedingN  = (_brandApps || []).filter(function(a){ return a.form_type === 'seeding'; }).length;
+    var summary = '전체 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
+    count.textContent = filterActive
+      ? '(필터 ' + list.length + ' / ' + summary + ')'
+      : '(' + summary + ')';
+  }
 
   if (list.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
