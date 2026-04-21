@@ -17,13 +17,30 @@ async function retryWithRefresh(fn) {
   }
 }
 
+// PostgREST 기본 1000행 제한 우회: range() 반복으로 전체 수집
+// buildQuery: 매 반복마다 새 query builder 반환하는 함수 (filter/order 이미 적용)
+async function fetchAllPaged(buildQuery, pageSize = 1000) {
+  const all = [];
+  let from = 0;
+  while (true) {
+    const {data, error} = await buildQuery().range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 // ── Campaigns ──
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
-    const {data, error} = await db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false});
-    if (error) throw error;
-    if (data && data.length > 0) { await autoCloseCampaigns(data); return data; }
+    const data = await fetchAllPaged(() =>
+      db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false})
+    );
+    if (data.length > 0) { await autoCloseCampaigns(data); return data; }
     return DEMO_CAMPAIGNS.slice();
   } catch(e) {
     return DEMO_CAMPAIGNS.slice();
@@ -79,9 +96,7 @@ async function incrementViewCount(campId) {
 async function fetchInfluencers() {
   if (!db) return [];
   try {
-    const {data, error} = await db.from('influencers').select('*');
-    if (error) throw error;
-    return data || [];
+    return await fetchAllPaged(() => db.from('influencers').select('*'));
   } catch(e) {
     return [];
   }
@@ -134,14 +149,13 @@ async function updateInfluencer(userId, updates) {
 async function fetchApplications(filters) {
   if (!db) return [];
   try {
-    let query = db.from('applications').select('*');
-    if (filters?.campaign_id) query = query.eq('campaign_id', filters.campaign_id);
-    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
-    if (filters?.status) query = query.eq('status', filters.status);
-    query = query.order('created_at', {ascending: false});
-    const {data, error} = await query;
-    if (error) throw error;
-    return data || [];
+    return await fetchAllPaged(() => {
+      let q = db.from('applications').select('*');
+      if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
+      if (filters?.user_id) q = q.eq('user_id', filters.user_id);
+      if (filters?.status) q = q.eq('status', filters.status);
+      return q.order('created_at', {ascending: false});
+    });
   } catch(e) {
     return [];
   }
@@ -185,14 +199,13 @@ async function checkDuplicateApplication(userId, campaignId) {
 async function fetchReceipts(filters) {
   if (!db) return [];
   try {
-    let query = db.from('receipts').select('*');
-    if (filters?.application_id) query = query.eq('application_id', filters.application_id);
-    if (filters?.user_id) query = query.eq('user_id', filters.user_id);
-    if (filters?.campaign_id) query = query.eq('campaign_id', filters.campaign_id);
-    query = query.order('created_at', {ascending: false});
-    const {data, error} = await query;
-    if (error) throw error;
-    return data || [];
+    return await fetchAllPaged(() => {
+      let q = db.from('receipts').select('*');
+      if (filters?.application_id) q = q.eq('application_id', filters.application_id);
+      if (filters?.user_id) q = q.eq('user_id', filters.user_id);
+      if (filters?.campaign_id) q = q.eq('campaign_id', filters.campaign_id);
+      return q.order('created_at', {ascending: false});
+    });
   } catch(e) { return []; }
 }
 
@@ -209,29 +222,28 @@ async function insertReceipt(receipt) {
 async function fetchDeliverables(filters) {
   if (!db) return [];
   try {
-    let query = db?.from('deliverables').select(`
-      id, kind, status, version,
-      receipt_url, purchase_date, purchase_amount, memo,
-      post_url, post_channel, post_submissions,
-      reject_reason, reject_template_code,
-      reviewed_by, reviewed_at, submitted_at, updated_at,
-      application_id, user_id, campaign_id,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
-    `);
-    // 관리자: draft 상태는 제외 (인플루언서가 제출 안 한 작성중 항목)
-    query = query.neq('status', 'draft');
-    if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
-    if (filters?.kind && filters.kind !== 'all') query = query.eq('kind', filters.kind);
-    if (filters?.campaign_id && filters.campaign_id !== 'all') query = query.eq('campaign_id', filters.campaign_id);
-    // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
-    if (filters?.status === 'pending') query = query.order('submitted_at', {ascending: true});
-    else query = query.order('updated_at', {ascending: false});
-    const {data, error} = await query;
-    if (error) throw error;
+    const data = await fetchAllPaged(() => {
+      let q = db.from('deliverables').select(`
+        id, kind, status, version,
+        receipt_url, purchase_date, purchase_amount, memo,
+        post_url, post_channel, post_submissions,
+        reject_reason, reject_template_code,
+        reviewed_by, reviewed_at, submitted_at, updated_at,
+        application_id, user_id, campaign_id,
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
+      `).neq('status', 'draft');
+      if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
+      if (filters?.campaign_id && filters.campaign_id !== 'all') q = q.eq('campaign_id', filters.campaign_id);
+      // pending 기본: 오래된 순(방치 방지). 그 외 상태: 최근 처리 순
+      if (filters?.status === 'pending') q = q.order('submitted_at', {ascending: true});
+      else q = q.order('updated_at', {ascending: false});
+      return q;
+    });
     // influencers는 별도 조회 후 user_id로 매핑 (PostgREST가 auth.users 경유 조인 못 하므로)
-    const userIds = [...new Set((data || []).map(d => d.user_id).filter(Boolean))];
+    const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
     const infMap = await fetchInfluencersByIds(userIds);
-    return (data || []).map(d => ({...d, influencers: infMap[d.user_id] || null}));
+    return data.map(d => ({...d, influencers: infMap[d.user_id] || null}));
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
 }
 
@@ -767,24 +779,23 @@ async function swapParticipationSetOrder(idA, idB) {
 async function fetchBrandApplications(filters) {
   if (!db) return [];
   try {
-    let query = db?.from('brand_applications').select(`
-      id, application_no, form_type,
-      brand_name, contact_name, phone, email, billing_email,
-      products, total_jpy, total_qty,
-      estimated_krw, final_quote_krw, quote_sent_at,
-      business_license_path,
-      status, admin_memo,
-      reviewed_by, reviewed_at,
-      version, created_at, updated_at
-    `);
-    if (filters?.form_type && filters.form_type !== 'all') query = query.eq('form_type', filters.form_type);
-    if (filters?.status && filters.status !== 'all') query = query.eq('status', filters.status);
-    if (filters?.from) query = query.gte('created_at', filters.from);
-    if (filters?.to) query = query.lte('created_at', filters.to);
-    query = query.order('created_at', {ascending: false});
-    const {data, error} = await query;
-    if (error) throw error;
-    return data || [];
+    return await fetchAllPaged(() => {
+      let q = db.from('brand_applications').select(`
+        id, application_no, form_type,
+        brand_name, contact_name, phone, email, billing_email,
+        products, total_jpy, total_qty,
+        estimated_krw, final_quote_krw, quote_sent_at,
+        business_license_path,
+        status, admin_memo,
+        reviewed_by, reviewed_at,
+        version, created_at, updated_at
+      `);
+      if (filters?.form_type && filters.form_type !== 'all') q = q.eq('form_type', filters.form_type);
+      if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      if (filters?.from) q = q.gte('created_at', filters.from);
+      if (filters?.to) q = q.lte('created_at', filters.to);
+      return q.order('created_at', {ascending: false});
+    });
   } catch(e) { console.error('[fetchBrandApplications]', e); return []; }
 }
 
