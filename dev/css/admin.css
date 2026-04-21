@@ -67,6 +67,9 @@
 .kpi-lbl{font-size:12px;color:var(--on-surface-variant);font-weight:500}
 .signup-period-btn{font-size:11px!important;padding:4px 10px!important;border-radius:6px!important;color:var(--muted)!important}
 .signup-period-btn.on{background:var(--primary)!important;color:#fff!important}
+.brand-trend-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s}
+.brand-trend-btn:hover{border-color:var(--pink);color:var(--pink)}
+.brand-trend-btn.on{background:var(--pink);color:#fff;border-color:var(--pink)}
 .btn-ghost[style*="B3261E"]:hover{background:rgba(179,38,30,.08);border-color:#B3261E;color:#B3261E}
 .btn-ghost[style*="B3261E"]:active{background:rgba(179,38,30,.15);transform:scale(.96)}
 .sort-arrows{cursor:pointer;font-size:9px;color:var(--muted);margin-left:2px;user-select:none;letter-spacing:-1px}

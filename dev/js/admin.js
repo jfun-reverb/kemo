@@ -113,7 +113,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'my-account': loadMyAdminInfo,
     'lookups': loadLookupsPane,
     'deliverables': loadDeliverables,
-    'brand-applications': loadBrandApplications
+    'brand-applications': loadBrandApplications,
+    'brand-dashboard': loadBrandDashboard
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -4017,6 +4018,347 @@ function copyBrandProductUrl(url) {
   copyTextToClipboard(url, 'URL 복사됨');
 }
 
+// ══════════════════════════════════════
+// 브랜드 서베이 현황 대시보드 (#brand-dashboard)
+// - brand_applications 전체 조회 후 클라이언트 집계
+// - 차트: Form 도넛 / Status 도넛 / 일별 추이 바 (기본 7일, 토글 가능)
+// - KPI: 전체·폼별·월별·대기·완료·평균 처리일·견적 합계
+// ══════════════════════════════════════
+var _brandDashApps = null;
+var _brandTrendChart = null;
+var _brandFormDonut = null;
+var _brandStatusDonut = null;
+var _brandTrendDays = 7;
+
+var BRAND_STATUS_LABEL_KO = {
+  new: '신규', reviewing: '검토중', quoted: '견적전달',
+  paid: '입금완료', done: '완료', rejected: '반려'
+};
+var BRAND_STATUS_COLOR = {
+  new:      '#C878A3',   // 핑크 (대기)
+  reviewing:'#E8A355',   // 오렌지
+  quoted:   '#5B8FD6',   // 블루
+  paid:     '#6BB38E',   // 그린 (입금)
+  done:     '#1F9D55',   // 짙은 그린 (완료)
+  rejected: '#B0B0B8'    // 회색 (종료)
+};
+var BRAND_FUNNEL_STAGES = [
+  {key:'new',       label:'접수 (new)'},
+  {key:'reviewing', label:'검토 (reviewing)'},
+  {key:'quoted',    label:'견적 전달 (quoted)'},
+  {key:'paid',      label:'입금 완료 (paid)'},
+  {key:'done',      label:'성약 (done)'}
+];
+// 전환 깔때기용: status가 이 단계 이상이면 도달한 것으로 간주 (rejected 제외)
+var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, done:4, rejected:-1};
+
+async function loadBrandDashboard() {
+  // 로딩 표시
+  setBrandDashLoading(true);
+  _brandDashApps = await fetchBrandApplications();
+  setBrandDashLoading(false);
+  renderBrandDashboard();
+}
+
+function setBrandDashLoading(loading) {
+  var ids = ['brandKpiTotal','brandKpiReviewer','brandKpiSeeding','brandKpiThisMonth',
+             'brandKpiPending','brandKpiQuoted','brandKpiDone','brandKpiLeadTime',
+             'brandKpiEstimated','brandKpiFinal'];
+  if (loading) {
+    ids.forEach(function(id){
+      var el = $(id);
+      if (el) el.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span>';
+    });
+  }
+}
+
+function renderBrandDashboard() {
+  var apps = _brandDashApps || [];
+  renderBrandKPIs(apps);
+  renderBrandFunnel(apps);
+  renderBrandFormDonut(apps);
+  renderBrandStatusDonut(apps);
+  renderBrandTrendChart(apps, _brandTrendDays);
+  renderBrandRecent(apps);
+  renderBrandLongPending(apps);
+}
+
+function renderBrandKPIs(apps) {
+  var now = new Date();
+  var thisMonth = now.toISOString().slice(0,7); // 'YYYY-MM'
+  var reviewerN = apps.filter(function(a){ return a.form_type === 'reviewer'; }).length;
+  var seedingN  = apps.filter(function(a){ return a.form_type === 'seeding'; }).length;
+  var thisMonthN = apps.filter(function(a){ return (a.created_at||'').slice(0,7) === thisMonth; }).length;
+  var pendingN = apps.filter(function(a){ return a.status === 'new' || a.status === 'reviewing'; }).length;
+  var quotedN  = apps.filter(function(a){ return a.status === 'quoted'; }).length;
+  var doneN    = apps.filter(function(a){ return a.status === 'done'; }).length;
+
+  // 평균 처리일: done 건만 대상, created_at -> reviewed_at 차이(폴백 updated_at)
+  var leadDays = [];
+  apps.forEach(function(a){
+    if (a.status !== 'done') return;
+    var start = a.created_at ? new Date(a.created_at).getTime() : null;
+    var endSrc = a.reviewed_at || a.quote_sent_at || a.updated_at;
+    var end = endSrc ? new Date(endSrc).getTime() : null;
+    if (start && end && end >= start) {
+      leadDays.push((end - start) / (1000*60*60*24));
+    }
+  });
+  var avgLead = leadDays.length
+    ? (leadDays.reduce(function(s,v){return s+v;},0) / leadDays.length)
+    : null;
+
+  // 견적 합계
+  var estimated = apps.reduce(function(s,a){ return s + (Number(a.estimated_krw) || 0); }, 0);
+  var finalSum = apps
+    .filter(function(a){ return ['quoted','paid','done'].indexOf(a.status) !== -1; })
+    .reduce(function(s,a){ return s + (Number(a.final_quote_krw) || Number(a.estimated_krw) || 0); }, 0);
+
+  var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
+
+  $('brandKpiTotal').textContent    = apps.length;
+  $('brandKpiReviewer').textContent = reviewerN;
+  $('brandKpiSeeding').textContent  = seedingN;
+  $('brandKpiThisMonth').textContent = thisMonthN;
+  $('brandKpiPending').textContent  = pendingN;
+  $('brandKpiQuoted').textContent   = quotedN;
+  $('brandKpiDone').textContent     = doneN;
+  $('brandKpiLeadTime').textContent = avgLead !== null ? avgLead.toFixed(1) + '일' : '—';
+  $('brandKpiEstimated').textContent = fmtKRW(estimated);
+  $('brandKpiFinal').textContent     = fmtKRW(finalSum);
+}
+
+function renderBrandFunnel(apps) {
+  var host = $('brandFunnel');
+  if (!host) return;
+  if (!apps.length) {
+    host.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">데이터 없음</div>';
+    return;
+  }
+  // rejected 제외한 총 접수 건수 (깔때기 분모)
+  var activeTotal = apps.filter(function(a){ return a.status !== 'rejected'; }).length;
+  var html = BRAND_FUNNEL_STAGES.map(function(stage, idx) {
+    var threshold = BRAND_STATUS_ORDER_FOR_FUNNEL[stage.key];
+    var reached = apps.filter(function(a){
+      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[a.status];
+      return ord !== -1 && ord >= threshold;
+    }).length;
+    var ratio = activeTotal ? Math.round((reached / activeTotal) * 100) : 0;
+    var prev = idx === 0 ? activeTotal : apps.filter(function(a){
+      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[a.status];
+      var prevThreshold = BRAND_STATUS_ORDER_FOR_FUNNEL[BRAND_FUNNEL_STAGES[idx-1].key];
+      return ord !== -1 && ord >= prevThreshold;
+    }).length;
+    var stepConv = prev ? Math.round((reached / prev) * 100) : 0;
+    return '<div style="display:grid;grid-template-columns:160px 1fr 80px 70px;gap:10px;align-items:center">'
+      + '<div style="font-size:12px;font-weight:600;color:var(--ink)">' + esc(stage.label) + '</div>'
+      + '<div style="height:22px;background:rgba(200,120,163,.08);border-radius:100px;overflow:hidden;position:relative">'
+      + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
+      + '</div>'
+      + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '건</div>'
+      + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
+      + '</div>';
+  }).join('');
+  host.innerHTML = html;
+}
+
+function renderBrandFormDonut(apps) {
+  var canvas = $('brandFormDonut');
+  var empty = $('brandFormEmpty');
+  var totalLabel = $('brandFormTotal');
+  if (!canvas) return;
+  if (_brandFormDonut) { _brandFormDonut.destroy(); _brandFormDonut = null; }
+
+  var reviewerN = apps.filter(function(a){ return a.form_type === 'reviewer'; }).length;
+  var seedingN  = apps.filter(function(a){ return a.form_type === 'seeding'; }).length;
+  var total = reviewerN + seedingN;
+  if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '건') : '';
+  if (!total) {
+    canvas.style.display = 'none';
+    if (empty) empty.style.display = 'flex';
+    return;
+  }
+  canvas.style.display = 'block';
+  if (empty) empty.style.display = 'none';
+
+  _brandFormDonut = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Qoo10 리뷰어', '나노 시딩'],
+      datasets: [{
+        data: [reviewerN, seedingN],
+        backgroundColor: ['#C878A3', '#5B8FD6'],
+        borderColor: '#fff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
+              return ctx.label + ': ' + ctx.parsed + '건 (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderBrandStatusDonut(apps) {
+  var canvas = $('brandStatusDonut');
+  var empty = $('brandStatusEmpty');
+  var totalLabel = $('brandStatusTotal');
+  if (!canvas) return;
+  if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
+
+  var keys = ['new','reviewing','quoted','paid','done','rejected'];
+  var counts = keys.map(function(k){ return apps.filter(function(a){ return a.status === k; }).length; });
+  var total = counts.reduce(function(s,n){ return s+n; }, 0);
+  if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '건') : '';
+  if (!total) {
+    canvas.style.display = 'none';
+    if (empty) empty.style.display = 'flex';
+    return;
+  }
+  canvas.style.display = 'block';
+  if (empty) empty.style.display = 'none';
+
+  _brandStatusDonut = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: keys.map(function(k){ return BRAND_STATUS_LABEL_KO[k]; }),
+      datasets: [{
+        data: counts,
+        backgroundColor: keys.map(function(k){ return BRAND_STATUS_COLOR[k]; }),
+        borderColor: '#fff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
+              return ctx.label + ': ' + ctx.parsed + '건 (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderBrandTrendChart(apps, days) {
+  var canvas = $('brandTrendChart');
+  if (!canvas) return;
+  if (_brandTrendChart) { _brandTrendChart.destroy(); _brandTrendChart = null; }
+
+  var now = new Date();
+  var labels = [];
+  var reviewerData = [];
+  var seedingData = [];
+  for (var i = days - 1; i >= 0; i--) {
+    var d = new Date(now);
+    d.setDate(d.getDate() - i);
+    var dateStr = d.toISOString().slice(0, 10);
+    labels.push((d.getMonth()+1) + '/' + d.getDate());
+    reviewerData.push(apps.filter(function(a){ return a.form_type === 'reviewer' && (a.created_at||'').slice(0,10) === dateStr; }).length);
+    seedingData.push(apps.filter(function(a){ return a.form_type === 'seeding' && (a.created_at||'').slice(0,10) === dateStr; }).length);
+  }
+
+  _brandTrendChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'Qoo10 리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
+        { label: '나노 시딩',    data: seedingData,  backgroundColor: '#5B8FD6', borderRadius: 3, stack: 'applications' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } }
+      },
+      scales: {
+        x: { stacked: true, ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } }
+      }
+    }
+  });
+}
+
+function switchBrandTrendPeriod(days, btn) {
+  _brandTrendDays = days;
+  document.querySelectorAll('.brand-trend-btn').forEach(function(b){ b.classList.remove('on'); });
+  if (btn) btn.classList.add('on');
+  renderBrandTrendChart(_brandDashApps || [], days);
+}
+
+function renderBrandRecent(apps) {
+  var host = $('brandRecentList');
+  if (!host) return;
+  var top5 = apps.slice().sort(function(a,b){
+    return (b.created_at || '').localeCompare(a.created_at || '');
+  }).slice(0, 5);
+  if (!top5.length) {
+    host.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">데이터 없음</div>';
+    return;
+  }
+  host.innerHTML = top5.map(function(a){
+    var formLabel = a.form_type === 'reviewer' ? 'Qoo10 리뷰어' : (a.form_type === 'seeding' ? '나노 시딩' : a.form_type);
+    var dateStr = (a.created_at || '').slice(0,10);
+    var statusColor = BRAND_STATUS_COLOR[a.status] || '#888';
+    var statusLabel = BRAND_STATUS_LABEL_KO[a.status] || a.status;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'rgba(200,120,163,.04)\'" onmouseout="this.style.background=\'transparent\'" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
+      +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(a.application_no || '') + ' · ' + esc(dateStr) + '</div>'
+      + '</div>'
+      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:' + statusColor + '20;color:' + statusColor + '">' + esc(statusLabel) + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+function renderBrandLongPending(apps) {
+  var host = $('brandLongPendingList');
+  var countLabel = $('brandLongPendingCount');
+  if (!host) return;
+  var threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+  var longPending = apps.filter(function(a){
+    if (a.status !== 'new') return false;
+    var ts = a.created_at ? new Date(a.created_at).getTime() : 0;
+    return ts > 0 && ts < threeDaysAgo;
+  }).sort(function(a,b){
+    return (a.created_at || '').localeCompare(b.created_at || '');
+  });
+  if (countLabel) countLabel.textContent = longPending.length ? (longPending.length + '건') : '';
+  if (!longPending.length) {
+    host.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">3일 이상 대기 중인 신청 없음</div>';
+    return;
+  }
+  host.innerHTML = longPending.slice(0,5).map(function(a){
+    var formLabel = a.form_type === 'reviewer' ? 'Qoo10 리뷰어' : '나노 시딩';
+    var dateStr = (a.created_at || '').slice(0,10);
+    var waitDays = Math.floor((Date.now() - new Date(a.created_at).getTime()) / (1000*60*60*24));
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #E8A355;border-radius:8px;cursor:pointer;transition:background 0.15s;background:rgba(232,163,85,.04)" onmouseover="this.style.background=\'rgba(232,163,85,.1)\'" onmouseout="this.style.background=\'rgba(232,163,85,.04)\'" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:12px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.brand_name || '(브랜드명 없음)') + '</div>'
+      +   '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + esc(formLabel) + ' · ' + esc(dateStr) + '</div>'
+      + '</div>'
+      + '<span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;background:#E8A35520;color:#E8A355">' + waitDays + '일 대기</span>'
+      + '</div>';
+  }).join('');
+}
+
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
@@ -4030,7 +4372,7 @@ async function refreshBrandAppBadge() {
   if (!el) return;
   var count = await fetchBrandAppPendingCount();
   var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
-  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">브랜드 서베이</span>' + badge;
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">신청 목록</span>' + badge;
 }
 
 var brandAppLazy = null;
@@ -4245,7 +4587,7 @@ async function openBrandAppDetail(id) {
   }
 
   if (body) body.innerHTML = ''
-    // § 기본 정보 (사업자등록증 포함)
+    // § 기본 정보
     + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
       + sectionLabel('기본 정보')
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">'
@@ -4254,14 +4596,6 @@ async function openBrandAppDetail(id) {
         + kvCard('연락처', esc(a.phone))
         + kvCard('이메일', esc(a.email))
         + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace(/^<div>/,'').replace(/<\/div>$/,'') + '</div>' : '')
-        + (a.business_license_path
-          ? '<div style="grid-column:1 / -1">'
-            + '<div style="color:var(--muted);font-size:11px;margin-bottom:6px;font-weight:600">사업자등록증</div>'
-            + '<button class="btn btn-ghost btn-sm" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')" style="display:inline-flex;align-items:center;gap:4px">'
-              + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>파일 다운로드'
-            + '</button>'
-          + '</div>'
-          : '')
       + '</div>'
     + '</div>'
 
@@ -4319,12 +4653,6 @@ function closeBrandAppDetail() {
   if (modal) modal.classList.remove('open');
   _brandAppCurrentId = null;
   window._brandAppCurrent = null;
-}
-
-async function downloadBrandDoc(path) {
-  var url = await signBrandDocUrl(path);
-  if (!url) { toast('다운로드 URL 발급 실패', 'error'); return; }
-  window.open(url, '_blank', 'noopener');
 }
 
 async function saveBrandAppChanges(expectedVersion) {

@@ -75,7 +75,9 @@
       <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
       <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
       <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
-      <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="switchAdminPane('brand-applications',this)"><span class="si-icon material-icons-round">storefront</span><span class="si-text">브랜드 서베이</span></div>
+      <div class="admin-si-lbl">브랜드 서베이</div>
+      <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="switchAdminPane('brand-dashboard',this)"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
+      <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="switchAdminPane('brand-applications',this)"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
       <div class="admin-si-lbl">회원 관리</div>
       <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
       <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -857,6 +859,140 @@
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- BRAND DASHBOARD (광고주 서베이 현황) PANE -->
+        <div id="adminPane-brand-dashboard" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이 현황</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">광고주 신청 접수·검수·성약 현황 요약 (brand_applications 기반)</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="loadBrandDashboard()" style="display:inline-flex;align-items:center;gap:4px" title="데이터 새로고침">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span>
+                새로고침
+              </button>
+              <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 광고주 설문 페이지 열기">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
+                설문 페이지
+              </a>
+            </div>
+          </div>
+
+          <!-- KPI Row 1: 전체 · 리뷰어 · 시딩 · 이번달 -->
+          <div class="kpi-row">
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiTotal"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div><div class="kpi-lbl">전체 신청</div></div>
+            <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiReviewer">—</div><div class="kpi-lbl">리뷰어 (Qoo10)</div></div>
+            <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiSeeding">—</div><div class="kpi-lbl">시딩 (나노)</div></div>
+            <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiThisMonth">—</div><div class="kpi-lbl">이번달 신청</div></div>
+          </div>
+
+          <!-- KPI Row 2: 검수 대기 · 견적 전달 · 입금완료 · 평균 처리일 -->
+          <div class="kpi-row" style="margin-top:12px">
+            <div class="kpi-card kpi-o"><div class="kpi-val" id="brandKpiPending">—</div><div class="kpi-lbl">검수 대기 (new+reviewing)</div></div>
+            <div class="kpi-card kpi-b"><div class="kpi-val" id="brandKpiQuoted">—</div><div class="kpi-lbl">견적 전달 (quoted)</div></div>
+            <div class="kpi-card kpi-g"><div class="kpi-val" id="brandKpiDone">—</div><div class="kpi-lbl">성약 완료 (done)</div></div>
+            <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiLeadTime">—</div><div class="kpi-lbl">평균 처리일 (new→done)</div></div>
+          </div>
+
+          <!-- 견적 합계 -->
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px">
+            <div class="admin-card" style="padding:16px">
+              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">예상 견적 합계 (KRW)</div>
+              <div id="brandKpiEstimated" style="font-size:20px;font-weight:800;color:var(--ink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">초기 접수 기준 추정치</div>
+            </div>
+            <div class="admin-card" style="padding:16px">
+              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">확정 견적 합계 (KRW)</div>
+              <div id="brandKpiFinal" style="font-size:20px;font-weight:800;color:var(--pink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px">quoted 이상 단계 합산</div>
+            </div>
+          </div>
+
+          <!-- 전환 깔때기 -->
+          <div class="admin-card" style="margin-top:16px;padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:13px;font-weight:700;color:var(--ink)">전환 깔때기 (접수 → 완료)</div>
+              <div style="font-size:10px;color:var(--muted)">각 단계는 "해당 단계 이상 도달한 건수" 기준</div>
+            </div>
+            <div id="brandFunnel" style="display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">데이터 로드 중…</div>
+            </div>
+          </div>
+
+          <!-- 도넛 2개 + 일별 추이 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+            <div class="admin-card" style="padding:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:13px;font-weight:700;color:var(--ink)">폼 종류 분포</div>
+                <span id="brandFormTotal" style="font-size:11px;color:var(--muted)"></span>
+              </div>
+              <div style="height:200px;position:relative">
+                <canvas id="brandFormDonut"></canvas>
+                <div id="brandFormEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
+              </div>
+            </div>
+            <div class="admin-card" style="padding:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:13px;font-weight:700;color:var(--ink)">상태 분포</div>
+                <span id="brandStatusTotal" style="font-size:11px;color:var(--muted)"></span>
+              </div>
+              <div style="height:200px;position:relative">
+                <canvas id="brandStatusDonut"></canvas>
+                <div id="brandStatusEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">데이터 없음</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top:16px;padding:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:13px;font-weight:700;color:var(--ink)">일별 신청 추이</div>
+              <div style="display:flex;gap:6px">
+                <button class="brand-trend-btn on" data-days="7" onclick="switchBrandTrendPeriod(7,this)">7일</button>
+                <button class="brand-trend-btn" data-days="30" onclick="switchBrandTrendPeriod(30,this)">30일</button>
+                <button class="brand-trend-btn" data-days="90" onclick="switchBrandTrendPeriod(90,this)">90일</button>
+              </div>
+            </div>
+            <div style="height:220px;position:relative">
+              <canvas id="brandTrendChart"></canvas>
+            </div>
+          </div>
+
+          <!-- 최근 신청 + 장기 대기 리스트 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+            <div class="admin-card" style="padding:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="font-size:13px;font-weight:700;color:var(--ink)">최근 신청 5건</div>
+                <a href="#brand-applications" onclick="switchAdminPane('brand-applications',null)" style="font-size:11px;color:var(--pink);text-decoration:none">신청 목록 ▸</a>
+              </div>
+              <div id="brandRecentList" style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">로드 중…</div></div>
+            </div>
+            <div class="admin-card" style="padding:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="font-size:13px;font-weight:700;color:var(--ink)">장기 대기 (new 3일+)</div>
+                <span id="brandLongPendingCount" style="font-size:11px;color:var(--muted)"></span>
+              </div>
+              <div id="brandLongPendingList" style="display:flex;flex-direction:column;gap:8px"><div style="font-size:12px;color:var(--muted);padding:20px;text-align:center">로드 중…</div></div>
+            </div>
+          </div>
+
+          <!-- Vercel Analytics 링크 카드 (Phase 1: 링크만, Phase 2 Edge Function 연동 예정) -->
+          <div class="admin-card" style="margin-top:16px;padding:18px;background:linear-gradient(135deg,rgba(200,120,163,.06),rgba(80,120,200,.06))">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;color:var(--pink)">leaderboard</span>
+                  설문 페이지 접속 통계
+                </div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">index / reviewer / seeding 페이지별 방문자·고유방문자·유입경로는 Vercel Web Analytics 대시보드에서 확인 (쿠키 미사용)</div>
+              </div>
+              <a href="https://vercel.com/jfun-reverbs-projects/reverb-sales/analytics" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
+                Vercel Analytics 열기
+              </a>
             </div>
           </div>
         </div>

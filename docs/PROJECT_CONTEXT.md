@@ -70,8 +70,7 @@
 - `applications` 또는 `receipts`에 `secondary_use_agreed_at`, `secondary_use_scope` 컬럼 필요
 
 ### 3-4. 브랜드 인테이크 & Edge Functions (2026-04-20 추가)
-- **신규 개인정보 수집 채널**: `brand_applications` 테이블은 인플루언서 데이터와 **별개**의 광고주 개인정보 수집 채널. 수집 항목: 담당자 이름·전화·이메일·세금계산서 이메일(reviewer)·사업자등록증 이미지(reviewer)
-- **비공개 버킷**: `brand-docs` Supabase Storage 버킷 (public=false, 10MB, PDF/JPEG/PNG). 관리자 signed URL로만 접근. anon INSERT는 경로 정규식(`YYYY/MM/UUID/`) 강제
+- **신규 개인정보 수집 채널**: `brand_applications` 테이블은 인플루언서 데이터와 **별개**의 광고주 개인정보 수집 채널. 수집 항목: 담당자 이름·전화·이메일·세금계산서 이메일(reviewer). 사업자등록증 이미지 및 `brand-docs` Storage 버킷은 2026-04-21(migration 057)에 수집·저장 중단
 - **Edge Function**: `notify-brand-application` (Supabase Functions) — `brand_applications` INSERT 후 클라이언트가 호출 → `admins.receive_brand_notify=true` + env `NOTIFY_ADMIN_EMAILS` 합산 대상에게 Brevo SMTP 경유 알림 메일 발송
 - **서브도메인**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` (별도 Vercel 프로젝트 `reverb-sales`, Root Directory=`sales/`). `noindex/nofollow` 메타 유지(검색 노출 차단). 별도 favicon으로 STAGING DEV 아이콘 누수 방지
 - **PIPA/APPI 일관성**: 광고주 데이터도 호주 시드니 AWS 리전(Supabase 운영)으로 국외 이전됨 → PRIVACY §5 반영 필요 (docs/PRIVACY_{kr,ja}.md §5 광고주 항목 포함됨)
@@ -133,7 +132,6 @@ Brand Applications (2026-04-20 구현):
   - products JSONB (상품 배열 1~50)
   - total_jpy, total_qty, estimated_krw NUMERIC (서버 트리거 재계산)
   - final_quote_krw NUMERIC (관리자 확정)
-  - business_license_path TEXT (brand-docs Storage 경로, reviewer 전용)
   - status TEXT (new→reviewing→quoted→paid→done/rejected)
   - admin_memo TEXT
   - version INT (낙관적 락)
@@ -186,7 +184,7 @@ Brand Applications (2026-04-20 구현):
 - 관리자 페이지 한국어 (2단 고정 레이아웃, 목록 페인 sticky thead 통일)
 - 우편번호 7자리/도도부현 드롭다운
 - PayPal 이메일 필드 (계좌 대체)
-- 이미지 Supabase Storage (`campaign-images`, `brand-docs` 버킷)
+- 이미지 Supabase Storage (`campaign-images` 버킷)
 - **광고주 신청 인테이크 (2026-04-20)**: `sales.globalreverb.com` 서브도메인, `brand_applications` 테이블, `notify-brand-application` Edge Function, 관리자 검수 페인, `admins.receive_brand_notify` 수신자 토글
 - **익명 접수 RPC (2026-04-20, migration 056)**: `submit_brand_application()` SECURITY DEFINER RPC로 anon INSERT 경로 안정화. 직접 INSERT 시 42501 RLS 충돌 회피
 - **캠페인 번호 `CAMP-YYYY-NNNN` (2026-04-20, migration 055)**: JST 연도별 4자리 순차 채번. `campaigns.campaign_no` UNIQUE + `campaigns_yearly_counter` + BEFORE INSERT 트리거. 기존 캠페인 backfill 완료(dev 5건, prod 51건). 캠페인·신청·결과물 3개 페인 검색창이 `campaign_no` 매칭
@@ -227,3 +225,4 @@ Brand Applications (2026-04-20 구현):
 - 2026-04-14: 초기 작성 (글로벌 시딩 플랫폼 법률/보안 맥락 통합)
 - 2026-04-20: 광고주 신청 시스템(`brand_applications`/`brand-docs`/`notify-brand-application`) 도입 — §3-4, §4, §7 반영. `reward_note`, 일본어 용어 표준화(来店→訪問, Reviewer→レビュアー) 반영. 핵심 프로세스 0번 단계 추가.
 - 2026-04-21: §7에 2026-04-20/21 배포분 반영 — (1) `CAMP-YYYY-NNNN` 캠페인 번호(migration 055), (2) 익명 접수 RPC `submit_brand_application()`(migration 056)로 anon INSERT 경로 안정화, (3) 결과물 엑셀 내보내기(ExcelJS 이미지 임베드), (4) 대시보드 배송지 도도부현 분포 도넛, (5) 광고주 신청 UI 라벨 → "브랜드 서베이"(내부 용어·DB·라우트는 그대로), (6) Sales 페이지 리디자인. `.claude/commands/배포진단.md` skill + reviewer/typo 가드 hooks도 운영 도구로 정식 등록.
+- 2026-04-21(이후): 브랜드 서베이 현황 대시보드(`/admin#brand-dashboard`) 추가 + sales 페이지 Vercel Web Analytics 연동 + **사업자등록증 수집 기능 전면 제거**(migration 057: `business_license_path` 컬럼 DROP + `brand-docs` Storage 버킷 삭제 + RPC 파라미터 하위호환 유지). PRIVACY §2.2/§5/§9에서 사업자등록증 관련 수집·보관 항목 삭제.

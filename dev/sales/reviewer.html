@@ -561,55 +561,6 @@ body {
 
 .add-product-btn .material-icons-outlined { font-size: 18px; }
 
-/* File upload */
-.file-upload {
-  border: 1.5px dashed var(--border-strong);
-  border-radius: 12px;
-  padding: 20px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: var(--card);
-}
-
-.file-upload:hover {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-}
-
-.file-upload input { display: none; }
-
-.file-upload-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--brand-soft);
-  color: var(--brand);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 8px;
-}
-
-.file-upload-text {
-  font-size: 13px;
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.file-upload-sub {
-  font-size: 11px;
-  color: var(--ink-mute);
-  margin-top: 3px;
-}
-
-.file-name {
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--success);
-  font-weight: 600;
-}
-
 /* ============ QUOTE BOX ============ */
 .quote-box {
   background: var(--ink);
@@ -1286,23 +1237,6 @@ body {
         <span class="ja-only">決済代金+送金手数料の請求書を発行します。</span>
       </div>
     </div>
-    <div class="field">
-      <label>
-        <span class="ko-only">사업자등록증</span>
-        <span class="ja-only">事業者登録証</span>
-        <span class="req">*</span>
-      </label>
-      <label class="file-upload">
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFile(event)">
-        <div class="file-upload-icon"><span class="material-icons-outlined">upload_file</span></div>
-        <div class="file-upload-text">
-          <span class="ko-only">탭하여 파일 선택</span>
-          <span class="ja-only">タップしてファイル選択</span>
-        </div>
-        <div class="file-upload-sub">PDF · JPG · PNG · 10MB</div>
-        <div class="file-name" id="fileName"></div>
-      </label>
-    </div>
   </div>
 
   <!-- Quote Preview -->
@@ -1674,29 +1608,7 @@ async function submitApplication() {
   document.getElementById('btnText').textContent = tMsg('전송 중...', '送信中...');
 
   try {
-    // 5. 사업자등록증 업로드 (있는 경우)
-    const fileInput = document.querySelector('.file-upload input[type="file"]');
-    const file = fileInput?.files?.[0] || null;
-    let licensePath = null;
-
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        throw new Error(tMsg('파일 크기는 10MB 이하여야 합니다.', 'ファイルサイズは10MB以下にしてください。'));
-      }
-      const now = new Date();
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const uuid = crypto.randomUUID();
-      const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
-      licensePath = `${yyyy}/${mm}/${uuid}/license.${ext}`;
-
-      const { error: upErr } = await sb.storage
-        .from('brand-docs')
-        .upload(licensePath, file, { contentType: file.type, upsert: false });
-      if (upErr) throw upErr;
-    }
-
-    // 6. 폼 값 수집 (id 기반 — DOM 인덱스 사용 금지 규칙 준수)
+    // 폼 값 수집 (id 기반 — DOM 인덱스 사용 금지 규칙 준수)
     const brandName = document.getElementById('brandName')?.value.trim();
     const contactName = document.getElementById('contactName')?.value.trim();
     const phone = document.getElementById('phone')?.value.trim();
@@ -1704,8 +1616,9 @@ async function submitApplication() {
     const billingEmail = document.getElementById('billingEmail')?.value.trim() || null;
     const products = collectProducts();
 
-    // 7. DB INSERT — SECURITY DEFINER RPC 경유 (anon RLS 42501 우회)
-    //    함수가 application_no 만 반환. estimated_krw 는 서버 트리거 재계산 사용.
+    // DB INSERT — SECURITY DEFINER RPC 경유 (anon RLS 42501 우회)
+    //   함수가 application_no 만 반환. estimated_krw 는 서버 트리거 재계산 사용.
+    //   p_business_license_path 는 057 마이그레이션에서 파라미터만 남기고 무시하도록 수정됨.
     const { data: applicationNo, error } = await sb.rpc('submit_brand_application', {
       p_form_type: 'reviewer',
       p_brand_name: brandName,
@@ -1714,7 +1627,7 @@ async function submitApplication() {
       p_email: email,
       p_products: products,
       p_billing_email: billingEmail,
-      p_business_license_path: licensePath
+      p_business_license_path: null
     });
 
     if (error) throw error;
@@ -1827,13 +1740,6 @@ function calcQuote() {
   document.getElementById('supply').textContent = fmt(supply);
   document.getElementById('vat').textContent = fmt(vat);
   document.getElementById('finalAmount').textContent = fmt(final);
-}
-
-function handleFile(e) {
-  const file = e.target.files[0];
-  if (file) {
-    document.getElementById('fileName').textContent = file.name;
-  }
 }
 
 updateProgress();
