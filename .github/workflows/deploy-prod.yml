@@ -1,0 +1,75 @@
+# Deploy to Vercel (Production)
+#
+# Purpose: Replace Vercel's GitHub App auto-deploy (which has intermittently
+# missed push events, requiring Disconnect/Reconnect workaround). This workflow
+# calls the Vercel CLI directly so push events cannot be "lost".
+#
+# Triggers on main push and manual workflow_dispatch. Two projects deploy in
+# parallel: kemo (globalreverb.com) and reverb-sales (sales.globalreverb.com).
+#
+# Required secrets:
+#   VERCEL_TOKEN             — Vercel account token (scoped to jfun-reverb team)
+#   VERCEL_ORG_ID            — team_UBvzCy9bOjrNB35L0Q5Kgn1G
+#   VERCEL_KEMO_PROJECT_ID   — prj_M1P6PU96roBMmlyHFIccyY4AX0HM
+#   VERCEL_SALES_PROJECT_ID  — prj_EbnVfjKVD0aQAEEANeRJa7Ev2ZK6
+
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-prod-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-kemo:
+    name: Deploy kemo (globalreverb.com)
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_KEMO_PROJECT_ID }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel production environment
+        run: vercel pull --yes --environment=production
+
+      - name: Build
+        run: vercel build --prod
+
+      - name: Deploy (production)
+        run: vercel deploy --prebuilt --prod
+
+  deploy-sales:
+    name: Deploy reverb-sales (sales.globalreverb.com)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sales
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_SALES_PROJECT_ID }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel production environment
+        run: vercel pull --yes --environment=production
+
+      - name: Build
+        run: vercel build --prod
+
+      - name: Deploy (production)
+        run: vercel deploy --prebuilt --prod
