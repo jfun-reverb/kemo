@@ -30,3 +30,5 @@ home-*.png
 # Node
 node_modules/
 HANDOFF.md
+.vercel
+.env*.local
