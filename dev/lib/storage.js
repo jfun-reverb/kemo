@@ -96,7 +96,9 @@ async function incrementViewCount(campId) {
 async function fetchInfluencers() {
   if (!db) return [];
   try {
-    return await fetchAllPaged(() => db.from('influencers').select('*'));
+    return await fetchAllPaged(() =>
+      db.from('influencers').select('*').order('created_at', {ascending: true})
+    );
   } catch(e) {
     return [];
   }
