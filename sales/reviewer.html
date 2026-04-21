@@ -1217,7 +1217,7 @@ body {
         </div>
         <div class="field">
           <label><span class="ko-only">Qoo10 상품 URL</span><span class="ja-only">Qoo10商品URL</span><span class="req">*</span></label>
-          <input type="url" class="p-url" placeholder="https://www.qoo10.jp/g/..." required>
+          <input type="url" class="p-url" placeholder="www.qoo10.jp/g/..." required>
         </div>
         <div class="field">
           <label><span class="ko-only">엔화 가격</span><span class="ja-only">JPY価格</span><span class="req">*</span></label>
@@ -1740,7 +1740,7 @@ function addProduct() {
       </div>
       <div class="field">
         <label><span class="ko-only">Qoo10 상품 URL</span><span class="ja-only">Qoo10商品URL</span><span class="req">*</span></label>
-        <input type="url" class="p-url" placeholder="https://www.qoo10.jp/g/..." required>
+        <input type="url" class="p-url" placeholder="www.qoo10.jp/g/..." required>
       </div>
       <div class="field">
         <label><span class="ko-only">엔화 가격</span><span class="ja-only">JPY価格</span><span class="req">*</span></label>
@@ -1830,6 +1830,16 @@ document.addEventListener('wheel', function() {
   const el = document.activeElement;
   if (el && el.tagName === 'INPUT' && el.type === 'number') el.blur();
 }, { passive: true });
+
+// .p-url 입력에 스킴이 없으면 포커스 아웃 시 https:// 자동 보정 (동적 추가 필드까지 커버)
+document.addEventListener('focusout', function(e) {
+  const el = e.target;
+  if (!el || !el.classList || !el.classList.contains('p-url')) return;
+  const v = (el.value || '').trim();
+  if (v && !/^https?:\/\//i.test(v)) {
+    el.value = 'https://' + v;
+  }
+});
 </script>
 
 </body>
