@@ -234,8 +234,8 @@ async function loadAdminData(preloaded) {
   renderSignupKPIs(users);
   renderSignupChart(users, 30);
   renderProfileCompletion(users);
-  // 배송지 분포(도도부현 Top 10) — 별도 쿼리(select prefecture only)로 렌더
-  renderAddressDistribution();
+  // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
+  renderAddressDistribution(users);
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
 
   // Recent apps — 신청관리와 동일 UI
@@ -3009,8 +3009,48 @@ var ADDRESS_DIST_COLORS = [
   '#5BA86E','#E87A96','#3E79B8','#D49158','#7CA565'
 ];
 
-// 배송지(도도부현) 분포 파이 차트 렌더 — Top 10 + 미등록 + 해외
-async function renderAddressDistribution() {
+// Chart.js 옵션 빌더 — legend/tooltip 퍼센티지 포맷 (렌더 함수 길이 축소 목적 분리)
+function buildAddressChartOptions(stats) {
+  const totalForPct = stats && stats.total ? stats.total : 0;
+  const pctOf = (value) => totalForPct ? ((value / totalForPct) * 100).toFixed(1) : '0.0';
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '55%',
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          boxWidth: 12,
+          padding: 10,
+          font: { size: 12 },
+          generateLabels(chart) {
+            const data = chart.data;
+            return data.labels.map((label, i) => {
+              const value = data.datasets[0].data[i];
+              return {
+                text: `${label}  ${value}명 (${pctOf(value)}%)`,
+                fillStyle: data.datasets[0].backgroundColor[i],
+                strokeStyle: '#fff',
+                lineWidth: 1,
+                index: i
+              };
+            });
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => `${ctx.label}: ${ctx.parsed}명 (${pctOf(ctx.parsed)}%)`
+        }
+      }
+    }
+  };
+}
+
+// 배송지(도도부현) 분포 파이 차트 렌더 — Top N + 미등록 + 해외
+// - loadAdminData가 이미 가져온 users 배열을 받아 중복 쿼리 없이 집계
+function renderAddressDistribution(users) {
   const canvas = $('addressDistChart');
   const totalLabel = $('addressDistTotal');
   const emptyLabel = $('addressDistEmpty');
@@ -3018,7 +3058,7 @@ async function renderAddressDistribution() {
   if (!canvas) return;
 
   try {
-    const stats = await fetchInfluencerPrefectureStats();
+    const stats = computePrefectureStats(users || []);
     if (loading) loading.style.display = 'none';
     if (totalLabel) totalLabel.textContent = `전체 ${stats.total}명`;
 
@@ -3052,46 +3092,11 @@ async function renderAddressDistribution() {
           borderWidth: 2
         }]
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '55%',
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: {
-              boxWidth: 12,
-              padding: 10,
-              font: { size: 12 },
-              generateLabels: function(chart) {
-                const data = chart.data;
-                return data.labels.map((label, i) => {
-                  const value = data.datasets[0].data[i];
-                  const pct = stats.total ? ((value / stats.total) * 100).toFixed(1) : '0.0';
-                  return {
-                    text: `${label}  ${value}명 (${pct}%)`,
-                    fillStyle: data.datasets[0].backgroundColor[i],
-                    strokeStyle: '#fff',
-                    lineWidth: 1,
-                    index: i
-                  };
-                });
-              }
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                const pct = stats.total ? ((ctx.parsed / stats.total) * 100).toFixed(1) : '0.0';
-                return `${ctx.label}: ${ctx.parsed}명 (${pct}%)`;
-              }
-            }
-          }
-        }
-      }
+      options: buildAddressChartOptions(stats)
     });
   } catch (e) {
     if (loading) loading.style.display = 'none';
+    console.error('[addressDist] render failed:', e);
   }
 }
 
