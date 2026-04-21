@@ -5123,12 +5123,10 @@ async function submitApplication() {
       user_ig: currentUserProfile?.ig || '',
       campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
     });
-    // 신청수 업데이트
+    // DB 트리거(058)가 applied_count를 자동 동기화하므로 수동 UPDATE 불필요.
+    // 로컬 객체만 낙관적 증가 → 다음 fetchCampaigns 시 DB 실제값으로 덮어씌워짐.
     const camp = allCampaigns.find(c=>c.id===currentCampaignId);
-    if (camp) {
-      camp.applied_count = (camp.applied_count||0) + 1;
-      await updateCampaign(currentCampaignId, {applied_count: camp.applied_count}).catch(()=>{});
-    }
+    if (camp) camp.applied_count = (camp.applied_count||0) + 1;
   } catch(e) {
     if (e.message?.includes('row-level security')) {
       toast(t('apply.sessionExpired'),'error');
