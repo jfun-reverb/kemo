@@ -64,7 +64,7 @@
 ## Architecture
 - 인플루언서 앱: dev/index.html (모바일 480px, GNB + 우측 슬라이드 햄버거 메뉴)
 - 관리자 앱: dev/admin/index.html (PC 전체폭, 별도 페이지, **2단 고정 레이아웃** — 사이드바/메인 독립 스크롤, 상단 GNB 없음)
-- **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — 별도 Vercel 프로젝트 `reverb-sales`(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com` 서브도메인, 루트 랜딩에서 `/reviewer`(Qoo10 리뷰어 모집) 또는 `/seeding`(나노 인플루언서 시딩) 폼 선택. anon으로 `brand_applications` INSERT + `brand-docs` 비공개 버킷에 사업자등록증 업로드(reviewer 전용). Vercel `cleanUrls`+catch-all rewrite로 `/reviewer` → `reviewer.html` 라우팅
+- **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — 별도 Vercel 프로젝트 `reverb-sales`(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com` 서브도메인, 루트 랜딩에서 `/reviewer`(Qoo10 리뷰어 모집) 또는 `/seeding`(나노 인플루언서 시딩) 폼 선택. anon으로 `submit_brand_application` RPC 경유 `brand_applications` INSERT. Vercel `cleanUrls`+catch-all rewrite로 `/reviewer` → `reviewer.html` 라우팅. (migration 057에서 사업자등록증 수집 기능 제거 — `brand-docs` 버킷·`business_license_path` 컬럼 모두 삭제)
 - 배포용: 루트 index.html (build.sh로 생성)
 - 개발 폴더 구조:
   - dev/js/ — app, ui, campaign, application, auth, mypage, admin
@@ -135,8 +135,8 @@
 - 내 계정: 이름/비밀번호 변경
 - 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/참여방법을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
 - **참여방법 번들**(`participation_sets`): 캠페인 참여 단계 묶음(1~6단계, 각 단계 title/desc ko·ja) 관리. 모집 타입(recruit_types[]) 태깅으로 캠페인 폼에서 필터링. 캠페인 저장 시 **스냅샷 복사**(`campaigns.participation_steps` jsonb) — 번들 수정해도 기존 캠페인 영향 없음. 캠페인 폼에서 인라인 개별 수정 + "번들 다시 불러오기" 지원. hard delete는 FK `ON DELETE SET NULL`로 스냅샷 격리
-- **브랜드 서베이 현황 대시보드**(`/admin#brand-dashboard`): 광고주 신청 접수·검수·성약 현황 요약. KPI 8개(전체/리뷰어/시딩/이번달/검수대기/견적전달/완료/평균 처리일) + 견적 합계(예상·확정) + 사업자등록증 업로드율 + 전환 깔때기(new→reviewing→quoted→paid→done 각 단계 도달률) + 폼·상태 도넛 2개 + 일별 추이 바차트(7/30/90일 토글) + 최근 신청 5건 + 장기 대기(new 3일+) 리스트 + Vercel Web Analytics 외부 링크 카드. `brand_applications` 클라이언트 집계. 모든 관리자 접근(`is_admin()`)
-- **광고주 신청 관리**(`/admin#brand-applications`) — **UI 라벨: "브랜드 서베이"** (사이드바/페인 헤더/tooltip). 내부 용어·DB(`brand_applications`)·라우트(`#brand-applications`)·함수명은 `광고주 신청` 그대로 유지. 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근 가능(`is_admin()`). 리스트 필터(폼타입/상태/기간/검색, multi-filter 스타일로 타 페인과 동일) + pending(new) 배지 + 상세 모달(제품 테이블·사업자등록증 signed URL 다운로드·final_quote_krw 수동 입력·quote_sent_at 체크·admin_memo·낙관적 락 version). 상태 전이 new→reviewing→quoted→paid→done/rejected + "되돌리기"(new 복귀). 클라이언트 URL 스킴은 http/https 화이트리스트만 href로 렌더
+- **브랜드 서베이 현황 대시보드**(`/admin#brand-dashboard`): 광고주 신청 접수·검수·성약 현황 요약. KPI 8개(전체/리뷰어/시딩/이번달/검수대기/견적전달/완료/평균 처리일) + 견적 합계(예상·확정) + 전환 깔때기(new→reviewing→quoted→paid→done 각 단계 도달률) + 폼·상태 도넛 2개 + 일별 추이 바차트(7/30/90일 토글) + 최근 신청 5건 + 장기 대기(new 3일+) 리스트 + Vercel Web Analytics 외부 링크 카드. `brand_applications` 클라이언트 집계. 모든 관리자 접근(`is_admin()`)
+- **광고주 신청 관리**(`/admin#brand-applications`) — **UI 라벨: "브랜드 서베이"** (사이드바/페인 헤더/tooltip). 내부 용어·DB(`brand_applications`)·라우트(`#brand-applications`)·함수명은 `광고주 신청` 그대로 유지. 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근 가능(`is_admin()`). 리스트 필터(폼타입/상태/기간/검색, multi-filter 스타일로 타 페인과 동일) + pending(new) 배지 + 상세 모달(제품 테이블·final_quote_krw 수동 입력·quote_sent_at 체크·admin_memo·낙관적 락 version). 상태 전이 new→reviewing→quoted→paid→done/rejected + "되돌리기"(new 복귀). 클라이언트 URL 스킴은 http/https 화이트리스트만 href로 렌더
 - **설문 메일받기 토글**(`/admin#admin-accounts`): 관리자 계정 리스트 각 행의 토글로 `admins.receive_brand_notify` on/off. 광고주 신청 접수 시 Edge Function `notify-brand-application` 이 참조해 알림 메일 발송 대상을 결정. env `NOTIFY_ADMIN_EMAILS` 에 지정된 외부 이메일과 합산(중복 제거). DB 조회 실패 시 env만 폴백 사용
 
 ## Database Schema (Supabase)
@@ -151,8 +151,8 @@
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용
 - `participation_sets` — 참여방법 번들 (name_ko/ja, recruit_types[], steps jsonb, sort_order, active). `campaigns.participation_steps jsonb` + `campaigns.participation_set_id uuid FK ON DELETE SET NULL` 로 스냅샷 저장·원본 참조
-- `brand_applications` — 광고주(브랜드) 신청 폼 제출 데이터 (form_type: reviewer|seeding, brand_name, contact_name, phone, email, billing_email, products jsonb, total_jpy/total_qty, estimated_krw, final_quote_krw, quote_sent_at, business_license_path, status: new→reviewing→quoted→paid→done/rejected, admin_memo, version 낙관적 락). 서버 트리거가 `JFUN-Q|N-YYYYMMDD-NNN` 채번 + products 재계산. 관리자만 SELECT/UPDATE/DELETE. **익명 INSERT는 `submit_brand_application()` RPC(SECURITY DEFINER, BYPASSRLS) 경유 필수** — 직접 INSERT는 42501 RLS 오류 (migration 056)
-- `submit_brand_application(payload jsonb)` — sales 페이지용 익명 접수 RPC. anon/authenticated 호출 가능. 반환 `{id, application_no}`. business_license_path 별도 인자. 클라이언트는 `.insert().select()` 대신 `.rpc('submit_brand_application', {...})` 사용
+- `brand_applications` — 광고주(브랜드) 신청 폼 제출 데이터 (form_type: reviewer|seeding, brand_name, contact_name, phone, email, billing_email, products jsonb, total_jpy/total_qty, estimated_krw, final_quote_krw, quote_sent_at, status: new→reviewing→quoted→paid→done/rejected, admin_memo, version 낙관적 락). 서버 트리거가 `JFUN-Q|N-YYYYMMDD-NNN` 채번 + products 재계산. 관리자만 SELECT/UPDATE/DELETE. **익명 INSERT는 `submit_brand_application()` RPC(SECURITY DEFINER, BYPASSRLS) 경유 필수** — 직접 INSERT는 42501 RLS 오류 (migration 056). 사업자등록증(`business_license_path`)·`brand-docs` 버킷은 migration 057에서 제거됨
+- `submit_brand_application(payload jsonb)` — sales 페이지용 익명 접수 RPC. anon/authenticated 호출 가능. 반환 `{id, application_no}`. `p_business_license_path` 파라미터는 057 이후 무시됨(하위호환 위해 시그니처 유지). 클라이언트는 `.insert().select()` 대신 `.rpc('submit_brand_application', {...})` 사용
 - `brand_app_daily_counter` — 일자별(JST) 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 접근 차단)
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
 - `is_admin()` / `is_super_admin()` / `is_campaign_admin()` 함수: admins 테이블에서 auth.uid() 조회 (search_path 고정)
@@ -195,7 +195,7 @@
 - 이미지 썸네일 표시는 `imgThumb(url, width, quality)` 헬퍼 사용 (Supabase Pro 플랜 transform), `data-orig` + `onerror`로 원본 URL 폴백 필수
 - 채널 비교는 항상 `split(',')` 후 `includes()` 사용 (단일 `===` 비교 금지 — 멀티채널 캠페인 누락 위험)
 - 최소 팔로워수 정책: **primary_channel 단일 검증** (캠페인의 `primary_channel` 팔로워수만 `min_followers`와 비교, 없으면 채널 리스트 첫 번째로 폴백. `recruit_type='monitor'`는 팔로워 체크 건너뜀) — 상세는 `docs/FEATURE_SPEC.md` §10, 구현은 `dev/js/application.js`
-- **Sales(광고주) 서브도메인 규칙**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` 페이지 UI는 한국어, `<meta name="robots" content="noindex,nofollow">` 유지(검색 노출 차단). 사업자등록증 업로드는 `brand-docs` **비공개 버킷**(관리자만 signed URL로 열람). 루트에 choice landing + `/reviewer`·`/seeding` 경로는 Vercel `cleanUrls`로 HTML 확장자 제거. 브랜드 로고는 홈으로 클릭 가능, reviewer/seeding 페이지는 샘플 이미지 + 통계 칩으로 인트로 구성(2026-04-21 리디자인)
+- **Sales(광고주) 서브도메인 규칙**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` 페이지 UI는 한국어, `<meta name="robots" content="noindex,nofollow">` 유지(검색 노출 차단). 루트에 choice landing + `/reviewer`·`/seeding` 경로는 Vercel `cleanUrls`로 HTML 확장자 제거. 브랜드 로고는 홈으로 클릭 가능, reviewer/seeding 페이지는 샘플 이미지 + 통계 칩으로 인트로 구성(2026-04-21 리디자인). 파일 업로드(사업자등록증 등) 기능 없음 — 텍스트 입력만 수집
 - **익명 폼 INSERT 패턴**: anon이 쓰는 Supabase 테이블은 `.insert().select()` 대신 **SECURITY DEFINER RPC**로 감쌀 것. RLS `WITH CHECK` + RETURNING SELECT 권한 충돌로 42501 발생 사례 있음 (`brand_applications` → `submit_brand_application()` RPC, migration 056)
 
 ## Mobile Layout Rules

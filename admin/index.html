@@ -1403,8 +1403,8 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="kpi-card kpi-r"><div class="kpi-val" id="brandKpiLeadTime">—</div><div class="kpi-lbl">평균 처리일 (new→done)</div></div>
           </div>
 
-          <!-- 견적 합계 + 사업자등록증 업로드율 -->
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px">
+          <!-- 견적 합계 -->
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px">
             <div class="admin-card" style="padding:16px">
               <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">예상 견적 합계 (KRW)</div>
               <div id="brandKpiEstimated" style="font-size:20px;font-weight:800;color:var(--ink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
@@ -1414,11 +1414,6 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">확정 견적 합계 (KRW)</div>
               <div id="brandKpiFinal" style="font-size:20px;font-weight:800;color:var(--pink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
               <div style="font-size:10px;color:var(--muted);margin-top:2px">quoted 이상 단계 합산</div>
-            </div>
-            <div class="admin-card" style="padding:16px">
-              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">사업자등록증 업로드율</div>
-              <div id="brandKpiLicense" style="font-size:20px;font-weight:800;color:var(--ink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px" id="brandKpiLicenseSub">—</div>
             </div>
           </div>
 
@@ -3057,7 +3052,6 @@ async function fetchBrandApplications(filters) {
         brand_name, contact_name, phone, email, billing_email,
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at,
-        business_license_path,
         status, admin_memo,
         reviewed_by, reviewed_at,
         version, created_at, updated_at
@@ -3116,16 +3110,6 @@ async function updateBrandApplication(id, patch, expectedVersion) {
     console.error('[updateBrandApplication]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
-}
-
-// 사업자등록증 signed URL 발급 (60초)
-async function signBrandDocUrl(path) {
-  if (!db || !path) return null;
-  try {
-    const {data, error} = await db.storage.from('brand-docs').createSignedUrl(path, 60);
-    if (error) throw error;
-    return data?.signedUrl || null;
-  } catch(e) { console.error('[signBrandDocUrl]', e); return null; }
 }
 // ══════════════════════════════════════
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
@@ -7962,7 +7946,7 @@ function copyBrandProductUrl(url) {
 // 브랜드 서베이 현황 대시보드 (#brand-dashboard)
 // - brand_applications 전체 조회 후 클라이언트 집계
 // - 차트: Form 도넛 / Status 도넛 / 일별 추이 바 (기본 7일, 토글 가능)
-// - KPI: 전체·폼별·월별·대기·완료·평균 처리일·견적 합계·사업자등록증 업로드율
+// - KPI: 전체·폼별·월별·대기·완료·평균 처리일·견적 합계
 // ══════════════════════════════════════
 var _brandDashApps = null;
 var _brandTrendChart = null;
@@ -8003,7 +7987,7 @@ async function loadBrandDashboard() {
 function setBrandDashLoading(loading) {
   var ids = ['brandKpiTotal','brandKpiReviewer','brandKpiSeeding','brandKpiThisMonth',
              'brandKpiPending','brandKpiQuoted','brandKpiDone','brandKpiLeadTime',
-             'brandKpiEstimated','brandKpiFinal','brandKpiLicense'];
+             'brandKpiEstimated','brandKpiFinal'];
   if (loading) {
     ids.forEach(function(id){
       var el = $(id);
@@ -8054,13 +8038,6 @@ function renderBrandKPIs(apps) {
     .filter(function(a){ return ['quoted','paid','done'].indexOf(a.status) !== -1; })
     .reduce(function(s,a){ return s + (Number(a.final_quote_krw) || Number(a.estimated_krw) || 0); }, 0);
 
-  // 사업자등록증 업로드율: form_type='reviewer'만 대상(사업자등록증은 reviewer 필수)
-  var reviewerApps = apps.filter(function(a){ return a.form_type === 'reviewer'; });
-  var withLicense = reviewerApps.filter(function(a){ return !!a.business_license_path; }).length;
-  var licenseRate = reviewerApps.length
-    ? Math.round((withLicense / reviewerApps.length) * 100)
-    : null;
-
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
 
   $('brandKpiTotal').textContent    = apps.length;
@@ -8073,13 +8050,6 @@ function renderBrandKPIs(apps) {
   $('brandKpiLeadTime').textContent = avgLead !== null ? avgLead.toFixed(1) + '일' : '—';
   $('brandKpiEstimated').textContent = fmtKRW(estimated);
   $('brandKpiFinal').textContent     = fmtKRW(finalSum);
-  if (licenseRate !== null) {
-    $('brandKpiLicense').textContent = licenseRate + '%';
-    $('brandKpiLicenseSub').textContent = '리뷰어 ' + withLicense + ' / ' + reviewerApps.length + '건';
-  } else {
-    $('brandKpiLicense').textContent = '—';
-    $('brandKpiLicenseSub').textContent = '리뷰어 신청 없음';
-  }
 }
 
 function renderBrandFunnel(apps) {
@@ -8541,7 +8511,7 @@ async function openBrandAppDetail(id) {
   }
 
   if (body) body.innerHTML = ''
-    // § 기본 정보 (사업자등록증 포함)
+    // § 기본 정보
     + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
       + sectionLabel('기본 정보')
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">'
@@ -8550,14 +8520,6 @@ async function openBrandAppDetail(id) {
         + kvCard('연락처', esc(a.phone))
         + kvCard('이메일', esc(a.email))
         + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace(/^<div>/,'').replace(/<\/div>$/,'') + '</div>' : '')
-        + (a.business_license_path
-          ? '<div style="grid-column:1 / -1">'
-            + '<div style="color:var(--muted);font-size:11px;margin-bottom:6px;font-weight:600">사업자등록증</div>'
-            + '<button class="btn btn-ghost btn-sm" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')" style="display:inline-flex;align-items:center;gap:4px">'
-              + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>파일 다운로드'
-            + '</button>'
-          + '</div>'
-          : '')
       + '</div>'
     + '</div>'
 
@@ -8615,12 +8577,6 @@ function closeBrandAppDetail() {
   if (modal) modal.classList.remove('open');
   _brandAppCurrentId = null;
   window._brandAppCurrent = null;
-}
-
-async function downloadBrandDoc(path) {
-  var url = await signBrandDocUrl(path);
-  if (!url) { toast('다운로드 URL 발급 실패', 'error'); return; }
-  window.open(url, '_blank', 'noopener');
 }
 
 async function saveBrandAppChanges(expectedVersion) {

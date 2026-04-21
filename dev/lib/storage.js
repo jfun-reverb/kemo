@@ -787,7 +787,6 @@ async function fetchBrandApplications(filters) {
         brand_name, contact_name, phone, email, billing_email,
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at,
-        business_license_path,
         status, admin_memo,
         reviewed_by, reviewed_at,
         version, created_at, updated_at
@@ -848,12 +847,3 @@ async function updateBrandApplication(id, patch, expectedVersion) {
   }
 }
 
-// 사업자등록증 signed URL 발급 (60초)
-async function signBrandDocUrl(path) {
-  if (!db || !path) return null;
-  try {
-    const {data, error} = await db.storage.from('brand-docs').createSignedUrl(path, 60);
-    if (error) throw error;
-    return data?.signedUrl || null;
-  } catch(e) { console.error('[signBrandDocUrl]', e); return null; }
-}

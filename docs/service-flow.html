@@ -153,11 +153,9 @@ flowchart TB
     B2 -->|나노 인플루언서 시딩| B4[/seeding 폼<br/>JFUN-N]
     B3 --> B5[상품 정보 입력<br/>1~50개 · 실시간 견적]
     B4 --> B5
-    B3 --> B6[사업자등록증 업로드<br/>brand-docs 비공개 버킷<br/>경로: YYYY/MM/uuid/license.ext]
     B5 --> B7{유효성 검증}
-    B6 --> B7
     B7 -->|필드 누락| B7E[인라인 경고]
-    B7 -->|OK| B8[anon INSERT<br/>brand_applications]
+    B7 -->|OK| B8[anon INSERT<br/>submit_brand_application RPC]
   end
 
   subgraph DB["🗃 Supabase (Sydney)"]
@@ -171,7 +169,7 @@ flowchart TB
   end
 
   subgraph ADMIN["🔧 관리자 (/admin#brand-applications)"]
-    M1[메일 수신] --> M2[상세 모달 오픈<br/>제품 테이블 · 사업자등록증 signed URL]
+    M1[메일 수신] --> M2[상세 모달 오픈<br/>제품 테이블 · 견적 입력]
     M2 --> M3{상태 전이}
     M3 -->|검토 시작| M4[reviewing]
     M4 --> M5[final_quote_krw 수동 입력<br/>admin_memo 작성]

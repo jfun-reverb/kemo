@@ -4022,7 +4022,7 @@ function copyBrandProductUrl(url) {
 // 브랜드 서베이 현황 대시보드 (#brand-dashboard)
 // - brand_applications 전체 조회 후 클라이언트 집계
 // - 차트: Form 도넛 / Status 도넛 / 일별 추이 바 (기본 7일, 토글 가능)
-// - KPI: 전체·폼별·월별·대기·완료·평균 처리일·견적 합계·사업자등록증 업로드율
+// - KPI: 전체·폼별·월별·대기·완료·평균 처리일·견적 합계
 // ══════════════════════════════════════
 var _brandDashApps = null;
 var _brandTrendChart = null;
@@ -4063,7 +4063,7 @@ async function loadBrandDashboard() {
 function setBrandDashLoading(loading) {
   var ids = ['brandKpiTotal','brandKpiReviewer','brandKpiSeeding','brandKpiThisMonth',
              'brandKpiPending','brandKpiQuoted','brandKpiDone','brandKpiLeadTime',
-             'brandKpiEstimated','brandKpiFinal','brandKpiLicense'];
+             'brandKpiEstimated','brandKpiFinal'];
   if (loading) {
     ids.forEach(function(id){
       var el = $(id);
@@ -4114,13 +4114,6 @@ function renderBrandKPIs(apps) {
     .filter(function(a){ return ['quoted','paid','done'].indexOf(a.status) !== -1; })
     .reduce(function(s,a){ return s + (Number(a.final_quote_krw) || Number(a.estimated_krw) || 0); }, 0);
 
-  // 사업자등록증 업로드율: form_type='reviewer'만 대상(사업자등록증은 reviewer 필수)
-  var reviewerApps = apps.filter(function(a){ return a.form_type === 'reviewer'; });
-  var withLicense = reviewerApps.filter(function(a){ return !!a.business_license_path; }).length;
-  var licenseRate = reviewerApps.length
-    ? Math.round((withLicense / reviewerApps.length) * 100)
-    : null;
-
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
 
   $('brandKpiTotal').textContent    = apps.length;
@@ -4133,13 +4126,6 @@ function renderBrandKPIs(apps) {
   $('brandKpiLeadTime').textContent = avgLead !== null ? avgLead.toFixed(1) + '일' : '—';
   $('brandKpiEstimated').textContent = fmtKRW(estimated);
   $('brandKpiFinal').textContent     = fmtKRW(finalSum);
-  if (licenseRate !== null) {
-    $('brandKpiLicense').textContent = licenseRate + '%';
-    $('brandKpiLicenseSub').textContent = '리뷰어 ' + withLicense + ' / ' + reviewerApps.length + '건';
-  } else {
-    $('brandKpiLicense').textContent = '—';
-    $('brandKpiLicenseSub').textContent = '리뷰어 신청 없음';
-  }
 }
 
 function renderBrandFunnel(apps) {
@@ -4601,7 +4587,7 @@ async function openBrandAppDetail(id) {
   }
 
   if (body) body.innerHTML = ''
-    // § 기본 정보 (사업자등록증 포함)
+    // § 기본 정보
     + '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
       + sectionLabel('기본 정보')
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">'
@@ -4610,14 +4596,6 @@ async function openBrandAppDetail(id) {
         + kvCard('연락처', esc(a.phone))
         + kvCard('이메일', esc(a.email))
         + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace(/^<div>/,'').replace(/<\/div>$/,'') + '</div>' : '')
-        + (a.business_license_path
-          ? '<div style="grid-column:1 / -1">'
-            + '<div style="color:var(--muted);font-size:11px;margin-bottom:6px;font-weight:600">사업자등록증</div>'
-            + '<button class="btn btn-ghost btn-sm" onclick="downloadBrandDoc(\'' + esc(a.business_license_path) + '\')" style="display:inline-flex;align-items:center;gap:4px">'
-              + '<span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>파일 다운로드'
-            + '</button>'
-          + '</div>'
-          : '')
       + '</div>'
     + '</div>'
 
@@ -4675,12 +4653,6 @@ function closeBrandAppDetail() {
   if (modal) modal.classList.remove('open');
   _brandAppCurrentId = null;
   window._brandAppCurrent = null;
-}
-
-async function downloadBrandDoc(path) {
-  var url = await signBrandDocUrl(path);
-  if (!url) { toast('다운로드 URL 발급 실패', 'error'); return; }
-  window.open(url, '_blank', 'noopener');
 }
 
 async function saveBrandAppChanges(expectedVersion) {

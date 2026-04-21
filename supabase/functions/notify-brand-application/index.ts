@@ -46,7 +46,6 @@ interface BrandApplication {
   total_jpy?: number | null;
   total_qty?: number | null;
   estimated_krw?: number | null;
-  business_license_path?: string | null;
   created_at: string;
 }
 
