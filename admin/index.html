@@ -1430,7 +1430,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">처리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -4321,6 +4321,9 @@ function applyImageCropsToList(imgList, cropsMap) {
   });
 }
 
+var campsLazy = null;
+const CAMPS_PAGE_SIZE = 50;
+
 async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
@@ -4388,7 +4391,9 @@ async function loadAdminCampaigns(useCache) {
       <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
     </div>`;
   };
-  $('adminCampsBody').innerHTML = camps.map((c,i)=>{
+  const campsBody = $('adminCampsBody');
+  if (!campsBody) return;
+  const buildCampRow = (c, i, totalLen) => {
     const campApps = allApps.filter(a=>a.campaign_id===c.id);
     const approvedCnt = campApps.filter(a=>a.status==='approved').length;
     const pendingCnt = campApps.filter(a=>a.status==='pending').length;
@@ -4397,11 +4402,11 @@ async function loadAdminCampaigns(useCache) {
     const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,idx,a)=>a.indexOf(v)===idx);
     const thumbUrl = imgs[0] || '';
     const imgCount = imgs.length;
-    return `<tr data-camp-id="${c.id}">
+    return `<tr data-camp-id="${c.id}" data-id="${esc(c.id)}">
       ${adminReorderMode ? `<td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
           <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
-          <button class="btn btn-ghost btn-xs" ${i===camps.length-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
+          <button class="btn btn-ghost btn-xs" ${i===totalLen-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>` : ''}
       <td>
@@ -4441,7 +4446,23 @@ async function loadAdminCampaigns(useCache) {
         <span class="material-icons-round notranslate camp-more-btn" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" data-camp-title="${esc(c.title)}" onclick="toggleCampMoreMenu(event,this,'${c.id}',this.dataset.campTitle)">more_vert</span>
       </td>`}
     </tr>`;
-  }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  };
+  const emptyHtml = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  if (adminReorderMode) {
+    // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
+    if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
+    campsBody.innerHTML = camps.length ? camps.map((c, i) => buildCampRow(c, i, camps.length)).join('') : emptyHtml;
+  } else {
+    if (campsLazy) campsLazy.destroy();
+    campsLazy = mountLazyList({
+      tbody: campsBody,
+      scrollRoot: campsBody.closest('.admin-table-wrap'),
+      rows: camps,
+      renderRow: (c) => buildCampRow(c, 0, camps.length),
+      pageSize: CAMPS_PAGE_SIZE,
+      emptyHtml,
+    });
+  }
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
@@ -5187,6 +5208,9 @@ async function openCampApplicants(campId, campTitle) {
   loadCampApplicants();
 }
 
+var campApplicantsLazy = null;
+const CAMP_APPLICANTS_PAGE_SIZE = 50;
+
 async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
@@ -5221,11 +5245,13 @@ async function loadCampApplicants() {
   const isPostType = (camp?.recruit_type === 'gifting' || camp?.recruit_type === 'visit');
   const selectedChannels = (camp?.channel || '').split(',').map(s=>s.trim()).filter(Boolean);
   const channelMatch = camp?.channel_match || 'or';
-  $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>{
+  const body = $('campApplicantsBody');
+  if (!body) return;
+  const renderCampApplicantRow = (a) => {
     const _u = _users.find(u=>u.email===a.user_email)||{};
     const otCell = renderOtCell(a, isPostType);
     const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
-    return `<tr>
+    return `<tr data-id="${esc(a.id)}">
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
@@ -5241,7 +5267,17 @@ async function loadCampApplicants() {
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
-  </tr>`;}).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+  </tr>`;
+  };
+  if (campApplicantsLazy) campApplicantsLazy.destroy();
+  campApplicantsLazy = mountLazyList({
+    tbody: body,
+    scrollRoot: body.closest('.admin-table-wrap'),
+    rows: apps,
+    renderRow: renderCampApplicantRow,
+    pageSize: CAMP_APPLICANTS_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
+  });
 }
 
 // Stage 4: OT 체크박스 셀 (gifting/visit 승인 건만 활성)
@@ -5312,8 +5348,19 @@ function isApplicationComplete(delivs, selectedChannels, channelMatch, isPostTyp
 // ── 인플루언서 목록 ──
 let currentInfTab = 'all';
 
+var infUsersCache = null;
+
 async function loadAdminInfluencers() {
-  const users = await fetchInfluencers();
+  infUsersCache = await fetchInfluencers();
+  renderInfluencersPane(infUsersCache);
+}
+
+function rerenderInfluencersFromCache() {
+  if (!infUsersCache) { loadAdminInfluencers(); return; }
+  renderInfluencersPane(infUsersCache);
+}
+
+function renderInfluencersPane(users) {
   const cnt = ch => users.filter(u => ch==='instagram'?u.ig_followers>0:ch==='x'?u.x_followers>0:ch==='tiktok'?u.tiktok_followers>0:u.youtube_followers>0).length;
   ['instagram','x','tiktok','youtube'].forEach(ch => {
     const el = $('infCnt-'+ch);
@@ -5330,7 +5377,7 @@ function switchInfTab(ch, btn) {
     b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
   });
   btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
-  loadAdminInfluencers();
+  rerenderInfluencersFromCache();
 }
 
 var infSortKey = 'created';
@@ -5344,14 +5391,14 @@ function toggleInfSort(key) {
     infSortDir = 'desc';
   }
   updateInfSortUI();
-  loadAdminInfluencers();
+  rerenderInfluencersFromCache();
 }
 
 function resetInfSort() {
   infSortKey = 'created';
   infSortDir = 'desc';
   updateInfSortUI();
-  loadAdminInfluencers();
+  rerenderInfluencersFromCache();
 }
 
 function updateInfSortUI() {
@@ -5622,6 +5669,7 @@ let currentAppTypeTab = 'all';
 let currentAppCampId = null;
 
 async function loadApplications() {
+  invalidateAppListCache();
   renderAppCampList();
 }
 
@@ -5660,15 +5708,25 @@ function resetAppSort() {
   renderAppCampList();
 }
 
+var appLazy = null;
+const APP_PAGE_SIZE = 50;
+var _appListCache = null;
+
+function invalidateAppListCache() { _appListCache = null; }
+
 async function renderAppCampList() {
   const bodyEl = $('appTableBody');
   const countEl = $('appTotalCount');
   if (!bodyEl) return;
 
-  let camps = await fetchCampaigns();
-  const allAppsRaw = await fetchApplications();
+  if (!_appListCache) {
+    const [cs, as, us] = await Promise.all([fetchCampaigns(), fetchApplications(), fetchInfluencers()]);
+    _appListCache = { camps: cs, allAppsRaw: as, users: us };
+  }
+  let camps = _appListCache.camps.slice();
+  const allAppsRaw = _appListCache.allAppsRaw;
   let apps = allAppsRaw.slice();
-  const users = await fetchInfluencers();
+  const users = _appListCache.users;
 
   // 타입 필터 (다중 선택)
   const appTypeVals = getMultiFilterValues('appTypeMulti');
@@ -5708,14 +5766,14 @@ async function renderAppCampList() {
 
   if (countEl) countEl.textContent = `총 ${apps.length}건`;
 
-  bodyEl.innerHTML = apps.length ? apps.map(a => {
+  const renderAppRow = (a) => {
     const camp = camps.find(c => c.id === a.campaign_id) || {};
     const u = users.find(u => u.email === a.user_email) || {};
     const _campRemaining = Math.max((camp.slots||0)-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    return `<tr>
+    return `<tr data-id="${esc(a.id)}">
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
@@ -5741,7 +5799,17 @@ async function renderAppCampList() {
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
+  };
+  const scrollRoot = bodyEl.closest('.admin-table-wrap');
+  if (appLazy) appLazy.destroy();
+  appLazy = mountLazyList({
+    tbody: bodyEl,
+    scrollRoot,
+    rows: apps,
+    renderRow: renderAppRow,
+    pageSize: APP_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
+  });
 }
 
 async function updateAppStatus(appId, status) {
@@ -5768,6 +5836,7 @@ async function updateAppStatus(appId, status) {
     });
     const msgs = {approved:'승인했습니다', rejected:'미승인 처리했습니다', pending:'심사중으로 되돌렸습니다'};
     toast(msgs[status]||'상태가 변경되었습니다', status==='approved'?'success':'');
+    invalidateAppListCache();
     renderAppCampList();
     loadAdminData();
     if (typeof loadCampApplicants === 'function' && currentCampApplicantId) loadCampApplicants();
@@ -7091,6 +7160,9 @@ async function loadDeliverables() {
   await renderDeliverablesList();
 }
 
+var delivLazy = null;
+const DELIV_PAGE_SIZE = 50;
+
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
@@ -7137,11 +7209,7 @@ async function renderDeliverablesList() {
   applyDelivSortIndicators();
   const cnt = $('delivTotalCount');
   if (cnt) cnt.textContent = `총 ${filtered.length}건`;
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = filtered.map(d => {
+  const renderDelivRow = (d) => {
     const kindBadge = d.kind === 'receipt'
       ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#fdf5fb;color:var(--dark-pink);font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">receipt</span> 영수증</span>'
       : '<span style="display:inline-flex;align-items:center;gap:3px;background:#eef5ff;color:#2c5fa8;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span> 게시물</span>';
@@ -7155,7 +7223,7 @@ async function renderDeliverablesList() {
     const reviewedCell = d.reviewed_at
       ? `<span style="font-size:12px">${formatDateTime(d.reviewed_at)}</span>`
       : '<span style="font-size:11px;color:var(--muted)">—</span>';
-    return `<tr>
+    return `<tr data-id="${esc(d.id)}">
       <td>${kindBadge}</td>
       <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${getRecruitTypeBadgeKoSm(camp.recruit_type)}${camp.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span>` : ''}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
       <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${inf.id||''}')">${infName}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
@@ -7164,7 +7232,17 @@ async function renderDeliverablesList() {
       <td>${stBadge}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
     </tr>`;
-  }).join('');
+  };
+  const scrollRoot = tbody.closest('.admin-table-wrap');
+  if (delivLazy) delivLazy.destroy();
+  delivLazy = mountLazyList({
+    tbody,
+    scrollRoot,
+    rows: filtered,
+    renderRow: renderDelivRow,
+    pageSize: DELIV_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+  });
 }
 
 function statusLabelKo(status) {
@@ -7737,7 +7815,7 @@ function copyBrandProductUrl(url) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -7750,6 +7828,9 @@ async function refreshBrandAppBadge() {
   var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
   el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">브랜드 서베이</span>' + badge;
 }
+
+var brandAppLazy = null;
+var BRAND_APP_PAGE_SIZE = 50;
 
 function renderBrandApplicationsList() {
   var tbody = $('brandAppTableBody');
@@ -7798,15 +7879,18 @@ function renderBrandApplicationsList() {
   if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
 
   var count = $('brandAppTotalCount');
-  if (count) count.textContent = '(' + list.length + '건)';
-
-  if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
-    return;
+  if (count) {
+    var totalAll = (_brandApps || []).length;
+    var reviewerN = (_brandApps || []).filter(function(a){ return a.form_type === 'reviewer'; }).length;
+    var seedingN  = (_brandApps || []).filter(function(a){ return a.form_type === 'seeding'; }).length;
+    var summary = '전체 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
+    count.textContent = filterActive
+      ? '(필터 ' + list.length + ' / ' + summary + ')'
+      : '(' + summary + ')';
   }
 
-  tbody.innerHTML = list.map(function(a) {
-    return '<tr>'
+  var renderBrandAppRow = function(a) {
+    return '<tr data-id="' + esc(a.id) + '">'
       + '<td>'
         + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
         + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
@@ -7824,7 +7908,16 @@ function renderBrandApplicationsList() {
       + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
       + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
       + '</tr>';
-  }).join('');
+  };
+  if (brandAppLazy) brandAppLazy.destroy();
+  brandAppLazy = mountLazyList({
+    tbody: tbody,
+    scrollRoot: tbody.closest('.admin-table-wrap'),
+    rows: list,
+    renderRow: renderBrandAppRow,
+    pageSize: BRAND_APP_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+  });
 }
 
 function resetBrandAppFilters() {
