@@ -662,7 +662,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div style="padding:20px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.freeTitle">完全無償提供</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>リワード付きキャンペーンも</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
         </div>
         <div style="padding:20px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
@@ -1258,7 +1258,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
       <div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.paypalHint">リワードはPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:18px" data-i18n="profile.paypalHint">報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalEmail">PayPal メールアドレス</label><input type="email" id="paypalEmail" class="form-input" placeholder="your-paypal@example.com" autocomplete="off"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.paypalConfirm">確認のため再入力</label><input type="email" id="paypalEmailConfirm" class="form-input" placeholder="もう一度入力してください" autocomplete="off"></div>
         <div id="paypalError" class="form-error" style="margin-bottom:10px;display:none"></div>
@@ -1636,7 +1636,7 @@ window.I18N_JA = {
       shippingTitle: '韓国直送・新商品',
       shippingDesc: '日本未発売のKブランド新商品を<br>いち早く体験できます',
       freeTitle: '完全無償提供',
-      freeDesc: '製品代・送料すべて無料<br>リワード付きキャンペーンも',
+      freeDesc: '製品代・送料すべて無料<br>報酬付きキャンペーンも',
       chosenTitle: 'あなたが選ばれる',
       chosenDesc: 'フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎',
     },
@@ -1828,7 +1828,7 @@ window.I18N_JA = {
     appliedBtn: '応募済み',
     manageBtn: '活動管理',
     rewardProduct: '円相当の製品を無償提供',
-    rewardCash: '+ 現金リワード ¥{amount}',
+    rewardCash: '+ 現金報酬 ¥{amount}',
     rewardFree: '製品全額無償提供',
     rewardProductAmount: '製品 ¥{price}円相当',
     rewardProductFree: '製品無償提供',
@@ -1836,7 +1836,7 @@ window.I18N_JA = {
     productName: '商品名',
     channel: 'チャンネル',
     contentType: 'コンテンツ',
-    reward: 'リワード',
+    reward: '報酬',
     participationTitle: '参加方法',
     campaignDesc: 'キャンペーン説明',
     postGuideline: '投稿ガイドライン',
@@ -1976,7 +1976,7 @@ window.I18N_JA = {
     prefecture: '都道府県',
     paypalEmail: 'PayPal メールアドレス',
     paypalConfirm: '確認のため再入力',
-    paypalHint: 'リワードはPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。',
+    paypalHint: '報酬はPayPalで送金されます。受け取り用のPayPalメールアドレスを登録してください。',
     paypalNoAccount: 'PayPalアカウントをお持ちでない場合は、受け取り時にメールでご案内が届きます。',
     paypalSaveBtn: 'PayPal情報を保存',
     currentPw: '現在のパスワード',
@@ -4337,10 +4337,10 @@ let currentTypeFilter = 'all';
 DEMO_CAMPAIGNS = [
   {id:'demo-1',recruit_type:'monitor',title:'グリーンティセラム ナノ体験団',brand:'INNISFREE · イニスフリー',product:'グリーンティセラム 80ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0016/A00000016477202.jpg',product_price:3200,reward:0,slots:25,applied_count:18,deadline:'2026-05-30',post_days:7,content_types:'インスタ/フィード,インスタ/リール',description:'イニスフリーの人気スキンケアアイテム、グリーンティセラムを体験していただける方を募集します。',hashtags:'#innisfree #イニスフリー #グリーンティセラム #スキンケア',mentions:'@innisfree_official_jp',appeal:'グリーンティ由来の保湿成分が肌深部まで浸透。',guide:'明るい自然光で撮影してください。商品のテクスチャーがわかるようにアップで撮影。',ng:'競合ブランド商品との比較投稿はNG。ネガティブ表現はNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
   {id:'demo-2',recruit_type:'monitor',title:'ラウンドラボ バーチュラ体験団',brand:'ROUND LAB · ラウンドラボ',product:'バーチュラトナー 200ml',type:'nano',channel:'instagram',category:'beauty',emoji:'🌿',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018208201.jpg',product_price:4500,reward:0,slots:20,applied_count:12,deadline:'2026-05-25',post_days:10,content_types:'インスタ/フィード',description:'ROUND LABの大人気バーチュラトナーを体験していただける方を募集します。',hashtags:'#roundlab #ラウンドラボ #バーチュラトナー #韓国コスメ',mentions:'@roundlab_jp',appeal:'白樺水配合で肌を優しく整えるトナー。乾燥肌・敏感肌の方に特におすすめ。',guide:'清潔感のある明るい背景で撮影。使用前後の肌の変化を表現してください。',ng:'他ブランドとの比較NG。フィルター過剰使用NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-3',recruit_type:'monitor',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',product_price:3800,reward:1000,slots:15,applied_count:9,deadline:'2026-06-01',post_days:14,content_types:'インスタ/フィード,インスタ/リール,インスタ/ストーリー',description:'DR.Gの人気クッションファンデーションを体験していただける方を募集！リワード¥1,000付き。',hashtags:'#drg #ドクタージー #クッションファンデ #韓国コスメ',mentions:'@drg_japan',appeal:'赤みをカバーしながら素肌感を演出。SPF50+PA+++で紫外線対策も。',guide:'使用前後のビフォーアフターが伝わる投稿。明るい自然光での撮影推奨。',ng:'過度なフィルター加工NG。競合製品との比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-3',recruit_type:'monitor',title:'DR.G クッションファンデ体験団',brand:'DR.G · ドクタージー',product:'レッドブレミッシュクッション',type:'nano',channel:'instagram',category:'beauty',emoji:'💄',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018580206.jpg',product_price:3800,reward:1000,slots:15,applied_count:9,deadline:'2026-06-01',post_days:14,content_types:'インスタ/フィード,インスタ/リール,インスタ/ストーリー',description:'DR.Gの人気クッションファンデーションを体験していただける方を募集！報酬¥1,000付き。',hashtags:'#drg #ドクタージー #クッションファンデ #韓国コスメ',mentions:'@drg_japan',appeal:'赤みをカバーしながら素肌感を演出。SPF50+PA+++で紫外線対策も。',guide:'使用前後のビフォーアフターが伝わる投稿。明るい自然光での撮影推奨。',ng:'過度なフィルター加工NG。競合製品との比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
   {id:'demo-4',recruit_type:'gifting',title:'MEDIHEAL マスクパック体験団',brand:'MEDIHEAL · メディヒール',product:'TEAトゥリーケアマスクパック 10枚',type:'nano',channel:'instagram',category:'beauty',emoji:'🩺',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0014/A00000014060204.jpg',product_price:2000,reward:0,slots:30,applied_count:22,deadline:'2026-05-20',post_days:7,content_types:'インスタ/フィード,TikTok',description:'MEDIHEALのTEAトゥリーマスクパックを体験していただける方を募集します。',hashtags:'#mediheal #メディヒール #マスクパック #スキンケア',mentions:'@mediheal_japan',appeal:'ティーツリー成分が肌トラブルをケア。毛穴引き締め効果も。',guide:'着用中・着用後の自然な表情を撮影。朝・夜のスキンケアシーンに合わせてください。',ng:'加工しすぎた写真NG。マスク着用以外の用途での撮影NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-5',recruit_type:'gifting',title:'PERIPERA リップ体験団',brand:'PERIPERA · ペリペラ',product:'インクムードグロウティント',type:'nano',channel:'instagram',category:'beauty',emoji:'💋',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',product_price:1500,reward:500,slots:20,applied_count:15,deadline:'2026-05-31',post_days:7,content_types:'インスタ/リール,TikTok',description:'PERIPERAの人気リップを体験！リワード¥500付き。カラー発色が美しいグロウティントです。',hashtags:'#peripera #ペリペラ #リップ #韓国コスメ #Kビューティ',mentions:'@peripera_japan',appeal:'ウォータリーなテクスチャーで唇に密着。鮮やかな発色が長時間持続。',guide:'リップスウォッチや着用シーンを撮影。明るい照明で発色が伝わるように。',ng:'口元以外の過度なフィルターNG。競合リップとの比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
-  {id:'demo-6',recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',product_price:1200,reward:2000,slots:10,applied_count:7,deadline:'2026-06-15',post_days:10,content_types:'インスタ/フィード,X投稿',description:'BIBIGOの人気王餃子をQoo10でレビュー！リワード¥2,000付き。',hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
+  {id:'demo-5',recruit_type:'gifting',title:'PERIPERA リップ体験団',brand:'PERIPERA · ペリペラ',product:'インクムードグロウティント',type:'nano',channel:'instagram',category:'beauty',emoji:'💋',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0018/A00000018133201.jpg',product_price:1500,reward:500,slots:20,applied_count:15,deadline:'2026-05-31',post_days:7,content_types:'インスタ/リール,TikTok',description:'PERIPERAの人気リップを体験！報酬¥500付き。カラー発色が美しいグロウティントです。',hashtags:'#peripera #ペリペラ #リップ #韓国コスメ #Kビューティ',mentions:'@peripera_japan',appeal:'ウォータリーなテクスチャーで唇に密着。鮮やかな発色が長時間持続。',guide:'リップスウォッチや着用シーンを撮影。明るい照明で発色が伝わるように。',ng:'口元以外の過度なフィルターNG。競合リップとの比較NG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'},
+  {id:'demo-6',recruit_type:'gifting',title:'BIBIGO 餃子 Qoo10体験団',brand:'CJ BIBIGO · ビビゴ',product:'王餃子 420g',type:'qoo10',channel:'qoo10',category:'food',emoji:'🥟',image_url:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',img1:'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/thumbnails/10/0000/0020/A00000020087901.jpg',product_price:1200,reward:2000,slots:10,applied_count:7,deadline:'2026-06-15',post_days:10,content_types:'インスタ/フィード,X投稿',description:'BIBIGOの人気王餃子をQoo10でレビュー！報酬¥2,000付き。',hashtags:'#bibigo #ビビゴ #王餃子 #韓国フード #Qoo10',mentions:'@bibigo_japan',appeal:'本場韓国の味をそのままに。もちもちの皮と旨味たっぷりの肉あん。',guide:'調理過程・完成品を美しく撮影。食欲をそそるシズル感を大切に。',ng:'他社冷凍食品との比較NG。料理以外での使用シーンNG。',status:'active',created_at:'2026-04-01T00:00:00.000Z'}
 ];
 
 async function loadCampaigns() {
