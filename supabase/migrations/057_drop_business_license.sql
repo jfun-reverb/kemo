@@ -5,37 +5,51 @@
 --       UI 제거는 클라이언트 코드(sales/reviewer.html, admin.js, storage.js) 별도 작업.
 --
 -- 변경 내용:
---   1. submit_brand_application() RPC 재정의
+--   1. Storage brand-docs 버킷 정책(RLS) 제거 (Step 1)
+--   2. submit_brand_application() RPC 재정의 (Step 2)
 --      - p_business_license_path 파라미터 유지 (하위 호환) + 컬럼에 쓰지 않음
 --      - 기존 클라이언트가 파라미터를 넘겨도 안전하게 무시됨
---   2. brand_applications.business_license_path 컬럼 DROP
---   3. Storage brand-docs 버킷 정책(RLS) 제거
---      - brand-docs 버킷 안의 object 삭제 및 버킷 자체 삭제는 수동 작업 필요
---        → 이 SQL 실행 전에 Dashboard → Storage → brand-docs에서 파일 전체 삭제 후
---          버킷 삭제, 또는 아래 Step 0 쿼리로 DB object 레코드 삭제 + 버킷 삭제
+--   3. brand_applications.business_license_path 컬럼 DROP (Step 3)
+--
+-- !! 이 SQL 실행 전 필수 수동 작업 !!
+-- ==========================================================
+-- Supabase는 storage.objects / storage.buckets 에 대한 SQL DELETE를
+-- storage.protect_delete() 트리거로 차단한다 (42501 에러).
+-- 버킷 삭제는 반드시 Dashboard 또는 Storage API로 수행해야 한다.
+--
+-- [개발서버 수동 작업]
+--   1. https://supabase.com/dashboard/project/qysmxtipobomefudyixw/storage/buckets
+--      → brand-docs 버킷 클릭
+--      → 파일 전체 선택 → Delete (파일이 없어도 OK)
+--      → 버킷 목록으로 돌아가서 brand-docs → "Delete bucket" 클릭
+--
+-- [운영서버 수동 작업]
+--   1. https://supabase.com/dashboard/project/twofagomeizrtkwlhsuv/storage/buckets
+--      → 위와 동일하게 brand-docs 버킷 삭제
+--
+-- 수동 삭제 완료 후 이 SQL을 실행할 것.
+-- (버킷이 이미 없어도 Step 1 DROP POLICY는 idempotent하게 안전하게 실행됨)
+-- ==========================================================
 --
 -- 적용 순서:
---   개발서버(qysmxtipobomefudyixw) 먼저 → 검증 → 운영서버(twofagomeizrtkwlhsuv)
+--   (A) Dashboard에서 brand-docs 버킷 수동 삭제
+--   (B) 이 SQL 실행 (개발서버 먼저 → 검증 → 운영서버)
+--   (C) 하단 검증 쿼리 실행
 --
 -- 주의: 컬럼 DROP 전에 RPC가 먼저 재정의되어야 함 (아래 순서 준수)
 -- ============================================================
 
 
 -- ============================================================
--- Step 0: Storage 파일 및 버킷 정리 (SQL로 처리 가능한 부분)
+-- Step 0: Storage 파일 및 버킷 정리 → 수동 작업으로 대체됨
 -- ============================================================
--- storage.objects 레코드 삭제 (brand-docs 버킷 내 모든 파일)
--- 주의: 이 쿼리는 DB 레코드만 삭제. 실제 S3 오브젝트는 Supabase 내부에서
---       storage.objects 삭제 시 자동으로 연동하여 제거된다.
---       (Supabase Storage가 DB-S3 연동 관리)
--- idempotent: brand-docs 버킷이 없어도 오류 없음
-DELETE FROM storage.objects
-WHERE bucket_id = 'brand-docs';
-
--- brand-docs 버킷 삭제
--- 주의: 버킷 안에 오브젝트가 남아 있으면 삭제 실패 (위 DELETE가 먼저 실행되어야 함)
-DELETE FROM storage.buckets
-WHERE id = 'brand-docs';
+-- Supabase의 storage.protect_delete() 트리거가 SQL DELETE를 차단하므로
+-- (ERROR 42501: Direct deletion from storage tables is not allowed)
+-- 아래 DELETE 구문은 제거됨. Dashboard에서 수동으로 버킷을 삭제할 것.
+--
+-- [참고] 이전 시도 구문 (실행 불가 — 주석 처리)
+-- DELETE FROM storage.objects WHERE bucket_id = 'brand-docs';
+-- DELETE FROM storage.buckets WHERE id = 'brand-docs';
 
 
 -- ============================================================
@@ -156,7 +170,7 @@ ALTER TABLE public.brand_applications
 --   AND tablename = 'objects'
 --   AND policyname LIKE 'brand_docs_%';
 
--- 3. 버킷 삭제 확인 (0건이어야 함)
+-- 3. 버킷 삭제 확인 — 수동 삭제 완료 후 확인 (0건이어야 함)
 -- SELECT id FROM storage.buckets WHERE id = 'brand-docs';
 
 -- 4. RPC 정상 동작 확인 (p_business_license_path 전달해도 오류 없이 무시)
@@ -187,4 +201,4 @@ ALTER TABLE public.brand_applications
 -- 2. RPC 이전 버전으로 복원 (056_submit_brand_application_rpc.sql 내용 재실행)
 
 -- 3. Storage 버킷 및 정책 복원 (053_brand_docs_storage.sql 내용 재실행)
---    주의: 기존 파일은 복원 불가 (S3 오브젝트가 Step 0에서 영구 삭제됨)
+--    주의: 버킷 안에 있던 파일은 복원 불가 (Dashboard 삭제로 S3 오브젝트가 영구 삭제됨)
