@@ -1430,7 +1430,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">처리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -4321,6 +4321,9 @@ function applyImageCropsToList(imgList, cropsMap) {
   });
 }
 
+var campsLazy = null;
+const CAMPS_PAGE_SIZE = 50;
+
 async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
@@ -4388,7 +4391,9 @@ async function loadAdminCampaigns(useCache) {
       <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
     </div>`;
   };
-  $('adminCampsBody').innerHTML = camps.map((c,i)=>{
+  const campsBody = $('adminCampsBody');
+  if (!campsBody) return;
+  const buildCampRow = (c, i, totalLen) => {
     const campApps = allApps.filter(a=>a.campaign_id===c.id);
     const approvedCnt = campApps.filter(a=>a.status==='approved').length;
     const pendingCnt = campApps.filter(a=>a.status==='pending').length;
@@ -4397,11 +4402,11 @@ async function loadAdminCampaigns(useCache) {
     const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,idx,a)=>a.indexOf(v)===idx);
     const thumbUrl = imgs[0] || '';
     const imgCount = imgs.length;
-    return `<tr data-camp-id="${c.id}">
+    return `<tr data-camp-id="${c.id}" data-id="${esc(c.id)}">
       ${adminReorderMode ? `<td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
           <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
-          <button class="btn btn-ghost btn-xs" ${i===camps.length-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
+          <button class="btn btn-ghost btn-xs" ${i===totalLen-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>` : ''}
       <td>
@@ -4441,7 +4446,23 @@ async function loadAdminCampaigns(useCache) {
         <span class="material-icons-round notranslate camp-more-btn" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" data-camp-title="${esc(c.title)}" onclick="toggleCampMoreMenu(event,this,'${c.id}',this.dataset.campTitle)">more_vert</span>
       </td>`}
     </tr>`;
-  }).join('') || `<tr><td colspan="${adminReorderMode?8:8}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  };
+  const emptyHtml = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  if (adminReorderMode) {
+    // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
+    if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
+    campsBody.innerHTML = camps.length ? camps.map((c, i) => buildCampRow(c, i, camps.length)).join('') : emptyHtml;
+  } else {
+    if (campsLazy) campsLazy.destroy();
+    campsLazy = mountLazyList({
+      tbody: campsBody,
+      scrollRoot: campsBody.closest('.admin-table-wrap'),
+      rows: camps,
+      renderRow: (c) => buildCampRow(c, 0, camps.length),
+      pageSize: CAMPS_PAGE_SIZE,
+      emptyHtml,
+    });
+  }
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
@@ -5187,6 +5208,9 @@ async function openCampApplicants(campId, campTitle) {
   loadCampApplicants();
 }
 
+var campApplicantsLazy = null;
+const CAMP_APPLICANTS_PAGE_SIZE = 50;
+
 async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
@@ -5221,11 +5245,13 @@ async function loadCampApplicants() {
   const isPostType = (camp?.recruit_type === 'gifting' || camp?.recruit_type === 'visit');
   const selectedChannels = (camp?.channel || '').split(',').map(s=>s.trim()).filter(Boolean);
   const channelMatch = camp?.channel_match || 'or';
-  $('campApplicantsBody').innerHTML = apps.length ? apps.map(a=>{
+  const body = $('campApplicantsBody');
+  if (!body) return;
+  const renderCampApplicantRow = (a) => {
     const _u = _users.find(u=>u.email===a.user_email)||{};
     const otCell = renderOtCell(a, isPostType);
     const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
-    return `<tr>
+    return `<tr data-id="${esc(a.id)}">
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
@@ -5241,7 +5267,17 @@ async function loadCampApplicants() {
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
-  </tr>`;}).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>';
+  </tr>`;
+  };
+  if (campApplicantsLazy) campApplicantsLazy.destroy();
+  campApplicantsLazy = mountLazyList({
+    tbody: body,
+    scrollRoot: body.closest('.admin-table-wrap'),
+    rows: apps,
+    renderRow: renderCampApplicantRow,
+    pageSize: CAMP_APPLICANTS_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
+  });
 }
 
 // Stage 4: OT 체크박스 셀 (gifting/visit 승인 건만 활성)
@@ -7770,7 +7806,7 @@ function copyBrandProductUrl(url) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -7783,6 +7819,9 @@ async function refreshBrandAppBadge() {
   var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
   el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">브랜드 서베이</span>' + badge;
 }
+
+var brandAppLazy = null;
+var BRAND_APP_PAGE_SIZE = 50;
 
 function renderBrandApplicationsList() {
   var tbody = $('brandAppTableBody');
@@ -7841,13 +7880,8 @@ function renderBrandApplicationsList() {
       : '(' + summary + ')';
   }
 
-  if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = list.map(function(a) {
-    return '<tr>'
+  var renderBrandAppRow = function(a) {
+    return '<tr data-id="' + esc(a.id) + '">'
       + '<td>'
         + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
         + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
@@ -7865,7 +7899,16 @@ function renderBrandApplicationsList() {
       + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
       + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
       + '</tr>';
-  }).join('');
+  };
+  if (brandAppLazy) brandAppLazy.destroy();
+  brandAppLazy = mountLazyList({
+    tbody: tbody,
+    scrollRoot: tbody.closest('.admin-table-wrap'),
+    rows: list,
+    renderRow: renderBrandAppRow,
+    pageSize: BRAND_APP_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+  });
 }
 
 function resetBrandAppFilters() {
