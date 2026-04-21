@@ -1873,6 +1873,7 @@ let currentAppTypeTab = 'all';
 let currentAppCampId = null;
 
 async function loadApplications() {
+  invalidateAppListCache();
   renderAppCampList();
 }
 
@@ -1913,16 +1914,23 @@ function resetAppSort() {
 
 var appLazy = null;
 const APP_PAGE_SIZE = 50;
+var _appListCache = null;
+
+function invalidateAppListCache() { _appListCache = null; }
 
 async function renderAppCampList() {
   const bodyEl = $('appTableBody');
   const countEl = $('appTotalCount');
   if (!bodyEl) return;
 
-  let camps = await fetchCampaigns();
-  const allAppsRaw = await fetchApplications();
+  if (!_appListCache) {
+    const [cs, as, us] = await Promise.all([fetchCampaigns(), fetchApplications(), fetchInfluencers()]);
+    _appListCache = { camps: cs, allAppsRaw: as, users: us };
+  }
+  let camps = _appListCache.camps.slice();
+  const allAppsRaw = _appListCache.allAppsRaw;
   let apps = allAppsRaw.slice();
-  const users = await fetchInfluencers();
+  const users = _appListCache.users;
 
   // 타입 필터 (다중 선택)
   const appTypeVals = getMultiFilterValues('appTypeMulti');
@@ -2032,6 +2040,7 @@ async function updateAppStatus(appId, status) {
     });
     const msgs = {approved:'승인했습니다', rejected:'미승인 처리했습니다', pending:'심사중으로 되돌렸습니다'};
     toast(msgs[status]||'상태가 변경되었습니다', status==='approved'?'success':'');
+    invalidateAppListCache();
     renderAppCampList();
     loadAdminData();
     if (typeof loadCampApplicants === 'function' && currentCampApplicantId) loadCampApplicants();
