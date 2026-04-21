@@ -81,10 +81,11 @@
 - 비밀번호 재설정: 이메일 입력 → Supabase 재설정 메일 발송 → 앱 내 새 비밀번호 설정 (#page-forgot, #page-reset-pw)
 - GNB: 비로그인 시 Log In/Sign Up 버튼, 로그인 시 버튼 없음 (Admin만 관리자용), 홈/캠페인/마이페이지/알림/로그아웃은 우측 햄버거 메뉴에서 접근
 - 캠페인 목록: 채널필터(동적 생성), 모집유형 필터(리뷰어/기프팅/방문형)
-- 캠페인 카드 배지 레이아웃:
-  - 이미지 위 좌상단: `NEW` (7일 이내 등록)
-  - 제목 위: `締切間近`(deadline < 5일 OR 잔여 slots ≤ 30%) + `{applied}/{slots}名` (진행중 항상 표시)
-  - 콘텐츠 종류 아래: 모집타입 + `募集中` pill
+- 캠페인 카드 배지 레이아웃 (2026-04-21 재배치 — 커밋 9364b07/82b377b/32bc19d):
+  - 이미지 위 **좌상단**: `募集中` pill (solid 배경, status=active, 이미지 대비 확보)
+  - 이미지 위 **우상단**: `NEW` (7일 이내 등록, 단일 flex row로 募集中과 나란히)
+  - 제목 위: `締切間近`(deadline < 5일 OR 잔여 slots ≤ 30%)
+  - 콘텐츠 종류 아래: 모집타입 pill + `{applied}/{slots}名` 슬롯 카운트 (진행중 캠페인 항상 표시)
   - 이미지 좌하단: 첫 채널 + `+N` (여러 채널 보유 시)
 - 캠페인 상세 채널 렌더링: 채널 pill 사이에 `or` 또는 `&` 구분자 (캠페인별 `channel_match` 기준). 자격 검증은 `primary_channel` 단일 기준 — 표시만 다름
 - 캠페인 목록 노출: active + scheduled + closed(게시기한 남은 경우, 募集締切 오버레이)
@@ -197,6 +198,8 @@
 - 최소 팔로워수 정책: **primary_channel 단일 검증** (캠페인의 `primary_channel` 팔로워수만 `min_followers`와 비교, 없으면 채널 리스트 첫 번째로 폴백. `recruit_type='monitor'`는 팔로워 체크 건너뜀) — 상세는 `docs/FEATURE_SPEC.md` §10, 구현은 `dev/js/application.js`
 - **Sales(광고주) 서브도메인 규칙**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` 페이지 UI는 한국어, `<meta name="robots" content="noindex,nofollow">` 유지(검색 노출 차단). 루트에 choice landing + `/reviewer`·`/seeding` 경로는 Vercel `cleanUrls`로 HTML 확장자 제거. 브랜드 로고는 홈으로 클릭 가능, reviewer/seeding 페이지는 샘플 이미지 + 통계 칩으로 인트로 구성(2026-04-21 리디자인). 파일 업로드(사업자등록증 등) 기능 없음 — 텍스트 입력만 수집
 - **익명 폼 INSERT 패턴**: anon이 쓰는 Supabase 테이블은 `.insert().select()` 대신 **SECURITY DEFINER RPC**로 감쌀 것. RLS `WITH CHECK` + RETURNING SELECT 권한 충돌로 42501 발생 사례 있음 (`brand_applications` → `submit_brand_application()` RPC, migration 056)
+- **관리자 리스트 IntersectionObserver lazy-load**: 8개 목록 페인(campaigns/applications/deliverables/camp-applicants/influencers/lookups/admin-accounts/brand-applications) 모두 sentinel 기반 점진 렌더. 필터·검색·정렬 변경 시 sentinel 리셋 필수. `renderAppCampList`는 campaigns/applications/influencers 결과 in-memory 캐시 공유 (2026-04-21 커밋 79a98c6/8520430/cbb4396/4e34f3c)
+- **PostgREST 1000-row cap 대응**: 대시보드 집계용 fetch(`fetchInfluencers`/`fetchApplications`/`fetchDeliverables` 등)는 반드시 `range(from, from+999)` pagination loop로 전건 조회. 단일 `.from().select()` 호출은 1000건에서 잘림 (Supabase PostgREST 기본값). 2026-04-21 이전 KPI가 정확히 1000에 고정됐던 회귀 있음 (커밋 245e3f5)
 
 ## Mobile Layout Rules
 - #appShell은 position:fixed + top:0/bottom:0 (body 스크롤 차단, 뷰포트 고정)
