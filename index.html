@@ -2610,7 +2610,9 @@ async function incrementViewCount(campId) {
 async function fetchInfluencers() {
   if (!db) return [];
   try {
-    return await fetchAllPaged(() => db.from('influencers').select('*'));
+    return await fetchAllPaged(() =>
+      db.from('influencers').select('*').order('created_at', {ascending: true})
+    );
   } catch(e) {
     return [];
   }
@@ -4204,6 +4206,134 @@ function syncAgreeAll() {
   const checkedCount = Array.from(all).filter(cb => cb.checked).length;
   const allEl = document.getElementById('agreeAll');
   if (allEl) allEl.checked = checkedCount === all.length;
+}
+
+// ══════════════════════════════════════
+// Lazy List — 관리자 목록 페인 점진 렌더링
+// ══════════════════════════════════════
+// 전체 rows 배열을 받아 초기 pageSize만 DOM에 렌더하고,
+// 스크롤 바닥 근처(sentinel 교차) 도달 시 다음 배치를 append.
+// IntersectionObserver 미지원 환경에선 "더보기" 버튼 폴백.
+//
+// 사용 예:
+//   const lazy = mountLazyList({
+//     tbody: document.querySelector('#infTbody'),
+//     scrollRoot: document.querySelector('#influencersScrollRoot'),
+//     rows: filteredUsers,
+//     renderRow: (u) => `<tr data-id="${u.id}"><td>${u.name}</td>...</tr>`,
+//     pageSize: 80,
+//     emptyHtml: '<tr><td colspan="5" class="empty">該当なし</td></tr>',
+//   });
+//   // 필터/정렬 변경 시
+//   lazy.reset(newRows);
+//   // 단일 row 업데이트
+//   lazy.patchRow(id, '<tr data-id="...">...</tr>');
+//   // 페인 전환 시
+//   lazy.destroy();
+function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, emptyHtml = '' }) {
+  if (!tbody) return { reset(){}, patchRow(){}, destroy(){} };
+  const state = {
+    rows: Array.isArray(rows) ? rows : [],
+    cursor: 0,
+    observer: null,
+    sentinel: null,
+    moreBtn: null,
+    destroyed: false,
+  };
+
+  function clearSentinel() {
+    if (state.observer) { state.observer.disconnect(); state.observer = null; }
+    if (state.sentinel && state.sentinel.parentNode) state.sentinel.parentNode.removeChild(state.sentinel);
+    state.sentinel = null;
+    if (state.moreBtn && state.moreBtn.parentNode) state.moreBtn.parentNode.removeChild(state.moreBtn);
+    state.moreBtn = null;
+  }
+
+  function appendBatch() {
+    if (state.destroyed) return;
+    const end = Math.min(state.cursor + pageSize, state.rows.length);
+    if (end <= state.cursor) return;
+    const frag = document.createDocumentFragment();
+    const wrap = document.createElement('tbody');
+    const html = [];
+    for (let i = state.cursor; i < end; i++) html.push(renderRow(state.rows[i]));
+    wrap.innerHTML = html.join('');
+    while (wrap.firstChild) frag.appendChild(wrap.firstChild);
+    // sentinel 바로 앞에 삽입
+    if (state.sentinel && state.sentinel.parentNode === tbody) {
+      tbody.insertBefore(frag, state.sentinel);
+    } else {
+      tbody.appendChild(frag);
+    }
+    state.cursor = end;
+    if (state.cursor >= state.rows.length) clearSentinel();
+  }
+
+  function mountSentinel() {
+    if (state.cursor >= state.rows.length) return;
+    // 테이블의 컬럼 수 추정 (첫 행 기준, 없으면 100)
+    const colCount = (tbody.querySelector('tr')?.children.length) || 100;
+    state.sentinel = document.createElement('tr');
+    state.sentinel.className = 'lazy-sentinel';
+    state.sentinel.setAttribute('aria-hidden', 'true');
+    state.sentinel.innerHTML = `<td colspan="${colCount}" style="padding:0;border:none;height:1px"></td>`;
+    tbody.appendChild(state.sentinel);
+    if (typeof IntersectionObserver === 'function') {
+      state.observer = new IntersectionObserver((entries) => {
+        for (const e of entries) if (e.isIntersecting) appendBatch();
+      }, { root: scrollRoot || null, rootMargin: '200px 0px', threshold: 0 });
+      state.observer.observe(state.sentinel);
+    } else {
+      // 폴백: 더보기 버튼
+      state.moreBtn = document.createElement('tr');
+      state.moreBtn.innerHTML = `<td colspan="${colCount}" style="text-align:center;padding:12px"><button type="button" class="btn-ghost" onclick="this.disabled=true">더보기 (${state.rows.length - state.cursor}건)</button></td>`;
+      const btn = state.moreBtn.querySelector('button');
+      btn?.addEventListener('click', () => {
+        appendBatch();
+        btn.disabled = false;
+        const left = state.rows.length - state.cursor;
+        if (left > 0) btn.textContent = `더보기 (${left}건)`;
+      });
+      tbody.appendChild(state.moreBtn);
+    }
+  }
+
+  function initialRender() {
+    clearSentinel();
+    tbody.innerHTML = '';
+    if (!state.rows.length) {
+      if (emptyHtml) tbody.innerHTML = emptyHtml;
+      return;
+    }
+    state.cursor = 0;
+    appendBatch();
+    mountSentinel();
+  }
+
+  initialRender();
+
+  return {
+    reset(newRows) {
+      state.rows = Array.isArray(newRows) ? newRows : [];
+      if (scrollRoot) scrollRoot.scrollTop = 0;
+      initialRender();
+    },
+    patchRow(id, html) {
+      const sel = `tr[data-id="${CSS && CSS.escape ? CSS.escape(String(id)) : String(id).replace(/"/g,'\\"')}"]`;
+      const old = tbody.querySelector(sel);
+      if (!old) return;
+      const tmp = document.createElement('tbody');
+      tmp.innerHTML = html;
+      const next = tmp.firstElementChild;
+      if (next) old.replaceWith(next);
+    },
+    destroy() {
+      state.destroyed = true;
+      clearSentinel();
+    },
+    get rendered() { return state.cursor; },
+    get total() { return state.rows.length; },
+  };
 }
 // ══════════════════════════════════════
 // CAMPAIGNS — 목록, 상세, 필터

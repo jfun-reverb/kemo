@@ -1600,6 +1600,60 @@ function infSortTh(label, key) {
   return `${label} <span class="sort-arrows inf-sort-arrows" data-sort="${key}" onclick="toggleInfSort('${key}')">${infSortKey===key?(infSortDir==='asc'?'▲':'▼'):'▲▼'}</span>`;
 }
 
+var infLazy = null;
+const INF_PAGE_SIZE = 80;
+
+function buildInfRowAll(u) {
+  const igF = (u.ig_followers||0).toLocaleString();
+  const xF = (u.x_followers||0).toLocaleString();
+  const ttF = (u.tiktok_followers||0).toLocaleString();
+  const ytF = (u.youtube_followers||0).toLocaleString();
+  const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
+  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
+  const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+  const snsCell = (channel, raw) => {
+    const handle = extractSnsHandle(channel, raw);
+    if (!handle) return '—';
+    const safe = esc(handle);
+    const url = snsProfileUrl(channel, handle);
+    const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+    return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+  };
+  const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
+  return `<tr data-id="${esc(u.id)}">
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+    <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
+    <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
+    <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
+    <td>${snsCell('youtube', u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+    <td style="font-weight:700;color:var(--pink)">${total}</td>
+    <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
+    <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
+    <td>${paypalBadge}</td>
+    <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
+  </tr>`;
+}
+
+function buildInfRowChannel(u, ch, idKey, fKey) {
+  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
+  const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+  const idVal = extractSnsHandle(ch, u[idKey]);
+  const idUrl = snsProfileUrl(ch, idVal);
+  const idCell = idVal
+    ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">${idUrl ? `<a href="${idUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${esc(idVal)}</a>` : `@${esc(idVal)}`}</div>`
+    : '—';
+  const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
+  return `<tr data-id="${esc(u.id)}">
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+    <td>${idCell}</td>
+    <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
+    <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
+    <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
+    <td>${paypalBadge}</td>
+    <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
+  </tr>`;
+}
+
 function renderInfTable(users, ch) {
   const titleEl = $('infTableTitle');
   const headEl = $('infTableHead');
@@ -1607,41 +1661,15 @@ function renderInfTable(users, ch) {
   if (!bodyEl) return;
 
   let filtered = users;
+  let renderRow;
+  let colspan;
 
   if (ch === 'all') {
     if (titleEl) titleEl.textContent = '인플루언서 전체';
     if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
     filtered = sortInfUsers(filtered);
-    bodyEl.innerHTML = filtered.length ? filtered.map(u => {
-      const igF = (u.ig_followers||0).toLocaleString();
-      const xF = (u.x_followers||0).toLocaleString();
-      const ttF = (u.tiktok_followers||0).toLocaleString();
-      const ytF = (u.youtube_followers||0).toLocaleString();
-      const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
-      const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-      const snsCell = (channel, raw) => {
-        const handle = extractSnsHandle(channel, raw);
-        if (!handle) return '—';
-        const safe = esc(handle);
-        const url = snsProfileUrl(channel, handle);
-        const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
-        return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
-      };
-      const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-      return `<tr>
-        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-        <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
-        <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
-        <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
-        <td>${snsCell('youtube', u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
-        <td style="font-weight:700;color:var(--pink)">${total}</td>
-        <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
-        <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
-        <td>${paypalBadge}</td>
-        <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
-      </tr>`;
-    }).join('') : `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
+    renderRow = buildInfRowAll;
+    colspan = 10;
   } else {
     const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
     const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
@@ -1650,26 +1678,21 @@ function renderInfTable(users, ch) {
     filtered = users.filter(u => u[fKey] > 0);
     if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${chLabel} ID</th><th>${infSortTh('팔로워','followers')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
     filtered = infSortKey ? sortInfUsers(filtered) : filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0));
-    bodyEl.innerHTML = filtered.length ? filtered.map(u => {
-      const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-      const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-      const idVal = extractSnsHandle(ch, u[idKey]);
-      const idUrl = snsProfileUrl(ch, idVal);
-      const idCell = idVal
-        ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">${idUrl ? `<a href="${idUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${esc(idVal)}</a>` : `@${esc(idVal)}`}</div>`
-        : '—';
-      const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-      return `<tr>
-        <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-        <td>${idCell}</td>
-        <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
-        <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
-        <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
-        <td>${paypalBadge}</td>
-        <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
-      </tr>`;
-    }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
+    renderRow = (u) => buildInfRowChannel(u, ch, idKey, fKey);
+    colspan = 7;
   }
+
+  const scrollRoot = bodyEl.closest('.admin-table-wrap');
+  const emptyHtml = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
+  if (infLazy) infLazy.destroy();
+  infLazy = mountLazyList({
+    tbody: bodyEl,
+    scrollRoot,
+    rows: filtered,
+    renderRow,
+    pageSize: INF_PAGE_SIZE,
+    emptyHtml,
+  });
 }
 
 // ── 인플루언서 상세 ──

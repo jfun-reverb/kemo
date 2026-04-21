@@ -215,11 +215,24 @@ body {
   margin: 4px 0 32px;
 }
 .seeding-sample .sample-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink-mute);
-  letter-spacing: 0.08em;
-  margin-bottom: 10px;
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.seeding-sample .sample-label::before {
+  content: "";
+  width: 3px;
+  height: 15px;
+  background: var(--brand);
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 .sample-slider {
   position: relative;

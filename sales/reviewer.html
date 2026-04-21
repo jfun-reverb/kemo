@@ -195,18 +195,29 @@ body {
   letter-spacing: -0.005em;
 }
 
-/* 프로세스 플로우 (좌측 타임라인 스타일) — 블록 전체 중앙 배치 */
+/* 프로세스 플로우 (좌측 타임라인 스타일) — 전체 폭 사용 */
 .process-flow {
-  margin: 0 auto 28px;
-  max-width: 320px;
+  margin: 0 0 28px;
 }
 .process-flow .process-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink-mute);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.process-flow .process-label::before {
+  content: "";
+  width: 3px;
+  height: 15px;
+  background: var(--brand);
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 .process-steps {
   list-style: none;
@@ -279,11 +290,24 @@ body {
   margin-bottom: 32px;
 }
 .qoo10-sample .sample-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--ink-mute);
-  letter-spacing: 0.08em;
-  margin-bottom: 10px;
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, 'Noto Sans JP', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.qoo10-sample .sample-label::before {
+  content: "";
+  width: 3px;
+  height: 15px;
+  background: var(--brand);
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 .qoo10-sample img {
   width: 100%;
