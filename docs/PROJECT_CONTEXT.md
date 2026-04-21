@@ -188,6 +188,12 @@ Brand Applications (2026-04-20 구현):
 - PayPal 이메일 필드 (계좌 대체)
 - 이미지 Supabase Storage (`campaign-images`, `brand-docs` 버킷)
 - **광고주 신청 인테이크 (2026-04-20)**: `sales.globalreverb.com` 서브도메인, `brand_applications` 테이블, `notify-brand-application` Edge Function, 관리자 검수 페인, `admins.receive_brand_notify` 수신자 토글
+- **익명 접수 RPC (2026-04-20, migration 056)**: `submit_brand_application()` SECURITY DEFINER RPC로 anon INSERT 경로 안정화. 직접 INSERT 시 42501 RLS 충돌 회피
+- **캠페인 번호 `CAMP-YYYY-NNNN` (2026-04-20, migration 055)**: JST 연도별 4자리 순차 채번. `campaigns.campaign_no` UNIQUE + `campaigns_yearly_counter` + BEFORE INSERT 트리거. 기존 캠페인 backfill 완료(dev 5건, prod 51건). 캠페인·신청·결과물 3개 페인 검색창이 `campaign_no` 매칭
+- **결과물 엑셀 내보내기 (2026-04-20)**: 캠페인 더보기 메뉴 → 결과물 엑셀(ExcelJS, 영수증 이미지 셀 임베드 + URL 하이퍼링크). CORS 안전 `Image→Canvas→JPEG` 변환
+- **배송지 도도부현 분포 도넛 (2026-04-21)**: 대시보드 Top 10 + 未登録/海外 분포 차트. 47개 현 한국어 매핑 `Chart.js` 도넛
+- **UI 라벨 `광고주 신청` → `브랜드 서베이` (2026-04-20)**: 사이드바/페인 헤더/tooltip만 교체. 내부 용어·DB(`brand_applications`)·라우트(`#brand-applications`)·함수명은 **모두 "광고주 신청" 그대로 유지**
+- **Sales 페이지 리디자인 (2026-04-20/21)**: 랜딩 hero/cards/contact/footer + stats chips 폴리시, reviewer/seeding intro 개편(샘플 이미지·통계 칩), 브랜드 로고 클릭 시 홈 이동
 
 ### ⚠️ 부분 구현
 - 개인정보 양방향 암호화 (평문 저장 중)
@@ -220,3 +226,4 @@ Brand Applications (2026-04-20 구현):
 ## 9. 문서 개정 이력
 - 2026-04-14: 초기 작성 (글로벌 시딩 플랫폼 법률/보안 맥락 통합)
 - 2026-04-20: 광고주 신청 시스템(`brand_applications`/`brand-docs`/`notify-brand-application`) 도입 — §3-4, §4, §7 반영. `reward_note`, 일본어 용어 표준화(来店→訪問, Reviewer→レビュアー) 반영. 핵심 프로세스 0번 단계 추가.
+- 2026-04-21: §7에 2026-04-20/21 배포분 반영 — (1) `CAMP-YYYY-NNNN` 캠페인 번호(migration 055), (2) 익명 접수 RPC `submit_brand_application()`(migration 056)로 anon INSERT 경로 안정화, (3) 결과물 엑셀 내보내기(ExcelJS 이미지 임베드), (4) 대시보드 배송지 도도부현 분포 도넛, (5) 광고주 신청 UI 라벨 → "브랜드 서베이"(내부 용어·DB·라우트는 그대로), (6) Sales 페이지 리디자인. `.claude/commands/배포진단.md` skill + reviewer/typo 가드 hooks도 운영 도구로 정식 등록.

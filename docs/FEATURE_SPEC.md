@@ -170,9 +170,9 @@
 | ADM-037a | 폼 실시간 미리보기 | 등록/편집 폼 우측에 **인라인 카드**(iframe 아님) 미리보기 사이드바. 모든 폼 signal(제목/채널/이미지/reward_note/Quill 리치 에디터/참여단계 DOM 재구성) 반영. Quill lazy init 훅 + 이미지 업로드 상태/에러 표면화. §24 참조 |
 | ADM-038 | 타입 라벨 통일  | 캠페인 목록에서 [리뷰어]/[기프팅] 타입 라벨 + 제목 형식으로 통일            |
 | ADM-039 | 인라인 스피너   | 테이블, 대시보드 KPI, 차트 영역에 인라인 스피너 로딩 (전체화면 오버레이 제거) |
-| ADM-040 | 캠페인 번호     | `CAMP-YYYY-NNNN` 형식(JST 연도별 4자리 순차, 연도 바뀌면 0001 리셋). 신규 INSERT 시 BEFORE INSERT 트리거 `generate_campaign_no()` 자동 채번(SECURITY DEFINER + search_path ''). 캠페인 목록 브랜드 라인 뒤에 monospace 표기(` · CAMP-2026-0001`), 편집 페인 헤더에 **클릭 시 클립보드 복사** 핑크 배지. 기존 레코드는 `created_at` 순으로 backfill 완료(dev 5건/prod 51건, 2026-04-20). 컬럼: `campaigns.campaign_no` UNIQUE NOT NULL |
-| ADM-041 | 결과물 엑셀 내보내기 | 캠페인 더보기 메뉴(목록 행) → `결과물 엑셀` 항목. ExcelJS CDN lazy-load → 해당 캠페인 결과물 전체 → xlsx 다운로드. 영수증(`kind='receipt'`) 이미지는 `Image→Canvas→JPEG`(CORS 안전) 셀 임베드, 게시물(`kind='post'`)은 URL 하이퍼링크. 컬럼 순서: 인플루언서/채널/제출일/영수증 이미지/URL/상태/반려사유 등 |
-| ADM-042 | campaign_no 검색 | 캠페인/신청/결과물 3개 페인 검색창 확장 — 제목·브랜드 외에 `campaign_no`도 매칭. 결과물 검색은 캠페인 타이틀/브랜드/`campaign_no`까지 포괄 |
+| ADM-060 | 캠페인 번호     | `CAMP-YYYY-NNNN` 형식(JST 연도별 4자리 순차, 연도 바뀌면 0001 리셋). 신규 INSERT 시 BEFORE INSERT 트리거 `generate_campaign_no()` 자동 채번(SECURITY DEFINER + search_path ''). 캠페인 목록 브랜드 라인 뒤에 monospace 표기(` · CAMP-2026-0001`), 편집 페인 헤더에 **클릭 시 클립보드 복사** 핑크 배지. 기존 레코드는 `created_at` 순으로 backfill 완료(dev 5건/prod 51건, 2026-04-20). 컬럼: `campaigns.campaign_no` UNIQUE NOT NULL. (ID 040~049는 §3.5 인플루언서 관리에서 사용 중이라 060대 부여) |
+| ADM-061 | 결과물 엑셀 내보내기 | 캠페인 더보기 메뉴(목록 행) → `결과물 엑셀` 항목. ExcelJS CDN lazy-load → 해당 캠페인 결과물 전체 → xlsx 다운로드. 영수증(`kind='receipt'`) 이미지는 `Image→Canvas→JPEG`(CORS 안전) 셀 임베드, 게시물(`kind='post'`)은 URL 하이퍼링크. 컬럼 순서: 인플루언서/채널/제출일/영수증 이미지/URL/상태/반려사유 등 |
+| ADM-062 | campaign_no 검색 | 캠페인/신청/결과물 3개 페인 검색창 확장 — 제목·브랜드 외에 `campaign_no`도 매칭. 결과물 검색은 캠페인 타이틀/브랜드/`campaign_no`까지 포괄 |
 
 ### 3.3 이미지 관리
 
@@ -239,8 +239,9 @@
 | influencers               | admin: 전체 / 유저: 본인만 | 본인 or 인증 사용자     | admin or 본인       | admin만       |
 | applications              | admin: 전체 / 유저: 본인만 | 인증 사용자 (본인)      | admin만             | admin만       |
 | admins                    | admin만                    | super_admin or 최초 1명 | super_admin or 본인 | super_admin만 |
-| brand_applications        | admin만                    | anon·authenticated (폼 INSERT) | admin만 | admin만 |
+| brand_applications        | admin만                    | **anon·authenticated은 `submit_brand_application()` RPC 경유 필수** (직접 INSERT는 42501) | admin만 | admin만 |
 | brand_app_daily_counter   | admin만 (SECURITY DEFINER) | SECURITY DEFINER 트리거 전용 | — | — |
+| campaigns_yearly_counter  | admin만                    | SECURITY DEFINER 트리거 전용 (`generate_campaign_no()`) | — | — |
 | storage (campaign-images) | 공개                       | admin만                 | admin만             | admin만       |
 | storage (brand-docs)      | admin만 (signed URL)       | anon·authenticated (경로 정규식 `^\d{4}/\d{2}/...$`) | admin만 | admin만 |
 
@@ -253,7 +254,7 @@
 | 컬럼          | 타입            | 설명                                        |
 | ------------- | --------------- | ------------------------------------------- |
 | id            | uuid (PK)       | 자동 생성                                   |
-| campaign_no   | text UNIQUE NOT NULL | `CAMP-YYYY-NNNN`(JST 연도별 4자리, BEFORE INSERT 트리거 자동 채번, ADM-040 참조) |
+| campaign_no   | text UNIQUE NOT NULL | `CAMP-YYYY-NNNN`(JST 연도별 4자리, BEFORE INSERT 트리거 자동 채번, ADM-060 참조) |
 | title         | text (NOT NULL) | 캠페인명                                    |
 | brand         | text            | 브랜드명                                    |
 | product       | text            | 상품명                                      |

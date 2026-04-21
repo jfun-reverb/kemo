@@ -103,9 +103,10 @@
 ## Features — 관리자 (PC)
 - 사이드바: Material Icons, 접기/펼치기 토글 (햄버거 버튼), data-pane 속성 기반 라우팅, 신규등록 메뉴 제거, pending 배지 항상 표시
 - 페이지 새로고침: visibility:hidden cloak 기법 (깜빡임 완전 방지), 서브패널 새로고침 시 부모 패널로 리다이렉트
-- 대시보드: KPI 카드(캠페인수/인플루언서수/신청수/승인수), 상태별/채널별 캠페인 분포 카드(채널 복수 선택 캠페인은 각 채널에 중복 집계), 회원가입 추이 차트(Chart.js, 7일/30일/전체 필터), 오늘/이번주 가입 KPI, 프로필 완성률(SNS별/배송지/PayPal), 최근 신청 테이블
+- 대시보드: KPI 카드(캠페인수/인플루언서수/신청수/승인수), 상태별/채널별 캠페인 분포 카드(채널 복수 선택 캠페인은 각 채널에 중복 집계), 회원가입 추이 차트(Chart.js, 7일/30일/전체 필터), 오늘/이번주 가입 KPI, 프로필 완성률(SNS별/배송지/PayPal), **배송지 도도부현 분포 도넛**(Top 10 + 未登録/海外, 47개 현 한국어 라벨 매핑), 최근 신청 테이블
 - 로딩 UX: 테이블/대시보드 KPI/차트 영역에 인라인 스피너 (전체화면 오버레이 제거)
-- 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경 모드(버튼 토글)
+- 캠페인 관리: CRUD + 복제 + 삭제(확인모달) + 순서변경 모드(버튼 토글) + **결과물 엑셀 내보내기**(캠페인 더보기 메뉴 → `결과물 엑셀`, ExcelJS CDN lazy-load, 영수증 이미지 셀 임베드 `Image→Canvas→JPEG`, URL 하이퍼링크)
+- **캠페인 번호**: `CAMP-YYYY-NNNN` (JST 연도별 4자리 순차, 신규 INSERT 시 트리거 자동 채번, 연도 바뀌면 0001 리셋). 캠페인 목록 브랜드 라인·편집 페인 헤더(클릭 시 복사)·결과물 목록에 표시. 캠페인/신청/결과물 3개 페인 검색창이 `campaign_no`도 매칭
 - 캠페인 등록/편집 폼: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드), 제품정보 2열(이미지+상세), 모집타입 라디오버튼 UI, **채널은 복수 선택 체크박스**(Instagram/X/Qoo10/TikTok/YouTube · 콤마 구분 저장 `"instagram,x"`)
 - **채널 매칭 표시 (channel_match)**: 채널 2개 이상 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match` (text, default 'or', CHECK(or|and))에 저장. 인플루언서 상세 pill 구분자로 사용. 자격 검증 로직: primary_channel 단일 기준(Rules 최소 팔로워수 정책 참조)
 - **콘텐츠 가이드 4개 필드(설명/어필 포인트/촬영 가이드/NG사항) 리치 텍스트 에디터** (Quill v2) — 볼드/이탤릭/리스트/링크/헤더/인용 지원. Notion 복사·붙여넣기로 서식 유지. 이미지 태그는 저장 시 제거(base64 폭증 방지). 저장 포맷은 sanitize된 HTML 문자열, 기존 `text` 컬럼 그대로 사용. 평문(legacy) 데이터는 렌더 시 자동 `<br>` 변환으로 하위호환. XSS 방어: DOMPurify 저장+렌더 이중 sanitize. 공통 헬퍼는 `dev/lib/shared.js`의 `sanitizeRich/richHtml/renderRich`
@@ -134,11 +135,12 @@
 - 내 계정: 이름/비밀번호 변경
 - 기준 데이터 관리(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/참여방법을 한국어·일본어 두 언어로 관리 (campaign_admin 이상). 각 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code는 자동 생성·UI 비공개
 - **참여방법 번들**(`participation_sets`): 캠페인 참여 단계 묶음(1~6단계, 각 단계 title/desc ko·ja) 관리. 모집 타입(recruit_types[]) 태깅으로 캠페인 폼에서 필터링. 캠페인 저장 시 **스냅샷 복사**(`campaigns.participation_steps` jsonb) — 번들 수정해도 기존 캠페인 영향 없음. 캠페인 폼에서 인라인 개별 수정 + "번들 다시 불러오기" 지원. hard delete는 FK `ON DELETE SET NULL`로 스냅샷 격리
-- **광고주 신청 관리**(`/admin#brand-applications`): 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 광고주 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근 가능(`is_admin()`). 리스트 필터(폼타입/상태/기간/검색, multi-filter 스타일로 타 페인과 동일) + pending(new) 배지 + 상세 모달(제품 테이블·사업자등록증 signed URL 다운로드·final_quote_krw 수동 입력·quote_sent_at 체크·admin_memo·낙관적 락 version). 상태 전이 new→reviewing→quoted→paid→done/rejected + "되돌리기"(new 복귀). 클라이언트 URL 스킴은 http/https 화이트리스트만 href로 렌더
+- **광고주 신청 관리**(`/admin#brand-applications`) — **UI 라벨: "브랜드 서베이"** (사이드바/페인 헤더/tooltip). 내부 용어·DB(`brand_applications`)·라우트(`#brand-applications`)·함수명은 `광고주 신청` 그대로 유지. 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근 가능(`is_admin()`). 리스트 필터(폼타입/상태/기간/검색, multi-filter 스타일로 타 페인과 동일) + pending(new) 배지 + 상세 모달(제품 테이블·사업자등록증 signed URL 다운로드·final_quote_krw 수동 입력·quote_sent_at 체크·admin_memo·낙관적 락 version). 상태 전이 new→reviewing→quoted→paid→done/rejected + "되돌리기"(new 복귀). 클라이언트 URL 스킴은 http/https 화이트리스트만 href로 렌더
 - **설문 메일받기 토글**(`/admin#admin-accounts`): 관리자 계정 리스트 각 행의 토글로 `admins.receive_brand_notify` on/off. 광고주 신청 접수 시 Edge Function `notify-brand-application` 이 참조해 알림 메일 발송 대상을 결정. env `NOTIFY_ADMIN_EMAILS` 에 지정된 외부 이메일과 합산(중복 제거). DB 조회 실패 시 env만 폴백 사용
 
 ## Database Schema (Supabase)
-- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, reward_note, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps, deadline, post_deadline, purchase_start/end (monitor), visit_start/end (visit), submission_end 등). `reward_note`는 리워드 금액 외 추가 안내(지급 조건·정산 시점) 자유 텍스트, 인플루언서 상세 리워드 영역에 노출
+- `campaigns` — 캠페인 정보 (title, brand, product, type, channel, channel_match('or'|'and'), category, reward, reward_note, slots, min_followers, status, view_count, img1~img8, participation_set_id, participation_steps, deadline, post_deadline, purchase_start/end (monitor), visit_start/end (visit), submission_end, `campaign_no` 등). `reward_note`는 리워드 금액 외 추가 안내(지급 조건·정산 시점) 자유 텍스트, 인플루언서 상세 리워드 영역에 노출. `campaign_no` = `CAMP-YYYY-NNNN`(JST 연도별 4자리, 트리거 자동 채번, UNIQUE)
+- `campaigns_yearly_counter` — 연도별(JST) 캠페인 번호 채번 카운터. SECURITY DEFINER 트리거 `generate_campaign_no()` 전용 (직접 UPDATE 금지)
 - `deliverables` — 결과물 통합 테이블 (kind: 'receipt'|'post', status, receipt_url/purchase_date/purchase_amount(receipt), post_url/post_channel/post_submissions(post), reject_reason, reviewed_by/at, version). receipts와 dual-write 동기화 중 (Stage 7에서 receipts DROP 예정)
 - `deliverable_events` — 결과물 상태 변경 이력 (action: submit/resubmit/approve/reject/revert, from_status, to_status). 트리거/RPC만 INSERT
 - `notifications` — 인플루언서 알림 (kind: deliverable_rejected/deliverable_changed/deliverable_approved, ref_table/ref_id, read_at). deliverables.status 전이 트리거로 자동 생성, 재제출 시 미읽음 알림 자동 dismiss
@@ -148,7 +150,8 @@
 - `receipts` — 구매 영수증 (application_id, user_id, campaign_id, receipt_url, purchase_date, purchase_amount)
 - `lookup_values` — 캠페인 기준 데이터 (kind: channel/category/content_type/ng_item, code, name_ko, name_ja, sort_order, active, recruit_types[]) — channel만 recruit_types 사용
 - `participation_sets` — 참여방법 번들 (name_ko/ja, recruit_types[], steps jsonb, sort_order, active). `campaigns.participation_steps jsonb` + `campaigns.participation_set_id uuid FK ON DELETE SET NULL` 로 스냅샷 저장·원본 참조
-- `brand_applications` — 광고주(브랜드) 신청 폼 제출 데이터 (form_type: reviewer|seeding, brand_name, contact_name, phone, email, billing_email, products jsonb, total_jpy/total_qty, estimated_krw, final_quote_krw, quote_sent_at, business_license_path, status: new→reviewing→quoted→paid→done/rejected, admin_memo, version 낙관적 락). 서버 트리거가 `JFUN-Q|N-YYYYMMDD-NNN` 채번 + products 재계산. anon INSERT 허용, 관리자만 SELECT/UPDATE/DELETE
+- `brand_applications` — 광고주(브랜드) 신청 폼 제출 데이터 (form_type: reviewer|seeding, brand_name, contact_name, phone, email, billing_email, products jsonb, total_jpy/total_qty, estimated_krw, final_quote_krw, quote_sent_at, business_license_path, status: new→reviewing→quoted→paid→done/rejected, admin_memo, version 낙관적 락). 서버 트리거가 `JFUN-Q|N-YYYYMMDD-NNN` 채번 + products 재계산. 관리자만 SELECT/UPDATE/DELETE. **익명 INSERT는 `submit_brand_application()` RPC(SECURITY DEFINER, BYPASSRLS) 경유 필수** — 직접 INSERT는 42501 RLS 오류 (migration 056)
+- `submit_brand_application(payload jsonb)` — sales 페이지용 익명 접수 RPC. anon/authenticated 호출 가능. 반환 `{id, application_no}`. business_license_path 별도 인자. 클라이언트는 `.insert().select()` 대신 `.rpc('submit_brand_application', {...})` 사용
 - `brand_app_daily_counter` — 일자별(JST) 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 접근 차단)
 - RLS 정책: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
 - `is_admin()` / `is_super_admin()` / `is_campaign_admin()` 함수: admins 테이블에서 auth.uid() 조회 (search_path 고정)
@@ -191,7 +194,8 @@
 - 이미지 썸네일 표시는 `imgThumb(url, width, quality)` 헬퍼 사용 (Supabase Pro 플랜 transform), `data-orig` + `onerror`로 원본 URL 폴백 필수
 - 채널 비교는 항상 `split(',')` 후 `includes()` 사용 (단일 `===` 비교 금지 — 멀티채널 캠페인 누락 위험)
 - 최소 팔로워수 정책: **primary_channel 단일 검증** (캠페인의 `primary_channel` 팔로워수만 `min_followers`와 비교, 없으면 채널 리스트 첫 번째로 폴백. `recruit_type='monitor'`는 팔로워 체크 건너뜀) — 상세는 `docs/FEATURE_SPEC.md` §10, 구현은 `dev/js/application.js`
-- **Sales(광고주) 서브도메인 규칙**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` 페이지 UI는 한국어, `<meta name="robots" content="noindex,nofollow">` 유지(검색 노출 차단). 사업자등록증 업로드는 `brand-docs` **비공개 버킷**(관리자만 signed URL로 열람). 루트에 choice landing + `/reviewer`·`/seeding` 경로는 Vercel `cleanUrls`로 HTML 확장자 제거
+- **Sales(광고주) 서브도메인 규칙**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` 페이지 UI는 한국어, `<meta name="robots" content="noindex,nofollow">` 유지(검색 노출 차단). 사업자등록증 업로드는 `brand-docs` **비공개 버킷**(관리자만 signed URL로 열람). 루트에 choice landing + `/reviewer`·`/seeding` 경로는 Vercel `cleanUrls`로 HTML 확장자 제거. 브랜드 로고는 홈으로 클릭 가능, reviewer/seeding 페이지는 샘플 이미지 + 통계 칩으로 인트로 구성(2026-04-21 리디자인)
+- **익명 폼 INSERT 패턴**: anon이 쓰는 Supabase 테이블은 `.insert().select()` 대신 **SECURITY DEFINER RPC**로 감쌀 것. RLS `WITH CHECK` + RETURNING SELECT 권한 충돌로 42501 발생 사례 있음 (`brand_applications` → `submit_brand_application()` RPC, migration 056)
 
 ## Mobile Layout Rules
 - #appShell은 position:fixed + top:0/bottom:0 (body 스크롤 차단, 뷰포트 고정)
