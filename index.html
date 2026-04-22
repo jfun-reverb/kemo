@@ -2688,32 +2688,75 @@ async function fetchBlacklistReasons() {
   } catch(e) { return []; }
 }
 
-// ── 인플루언서 위반 기록 (관리자 전용, migration 060) ──
-async function recordInfluencerViolation(targetId, reasonCode, note = null) {
+// ── 인플루언서 위반 기록 (관리자 전용, migration 060/062) ──
+// evidencePaths: Storage 경로 배열 (migration 062 추가). null이면 빈 배열로 저장.
+async function recordInfluencerViolation(targetId, reasonCode, note = null, evidencePaths = null) {
   if (!db) throw new Error('DB 미연결');
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('record_influencer_violation', {
       p_target_id: targetId,
       p_reason_code: reasonCode,
       p_note: note || null,
+      p_evidence_paths: evidencePaths || null,
     });
     if (error) throw error;
   });
 }
 
-// ── 위반 이력 수정 (관리자 전용, migration 061) ──
-// violation 행의 reason_code / note 사후 수정.
+// ── 위반 이력 수정 (관리자 전용, migration 061/062) ──
+// violation 행의 reason_code / note / evidence_paths 사후 수정.
+// evidencePaths: null=미변경, []=기존 첨부 전체 삭제, [path,...]=교체.
 // verify/blacklist 등 비-violation 행에 호출하면 DB에서 EXCEPTION 발생.
-async function updateInfluencerViolation(flagId, reasonCode, note = null) {
+async function updateInfluencerViolation(flagId, reasonCode, note = null, evidencePaths = undefined) {
   if (!db) throw new Error('DB 미연결');
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('update_influencer_violation', {
       p_flag_id: flagId,
       p_reason_code: reasonCode,
       p_note: note ?? null,
+      // undefined이면 파라미터 자체를 생략해 DB DEFAULT(NULL=미변경) 적용
+      ...(evidencePaths !== undefined ? {p_evidence_paths: evidencePaths} : {}),
     });
     if (error) throw error;
   });
+}
+
+// ── 증빙 파일 업로드 (관리자 전용, migration 062) ──
+// 버킷: influencer-flag-evidence (비공개)
+// 경로 규칙: {flagId}/{uuid}.{ext}
+// flagId: 위반 등록 전이면 'tmp/{timestamp}' 등 임시값, 등록 후 실제 flag_id로 이동 불필요
+//         (등록 전 업로드 → 경로 배열을 record RPC에 전달하면 DB가 flag_id와 연결)
+// 반환: Storage 경로 문자열 (signed URL 아님)
+async function uploadFlagEvidence(file, flagId) {
+  if (!db) throw new Error('DB 미연결');
+  const BUCKET = 'influencer-flag-evidence';
+  const ext = file.name ? file.name.split('.').pop().toLowerCase() : 'bin';
+  const uuid = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `${flagId}/${uuid}.${ext}`;
+  const {error} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type, upsert: false});
+  if (error) throw error;
+  return path;
+}
+
+// ── 증빙 파일 signed URL 조회 (관리자 전용, migration 062) ──
+// path: uploadFlagEvidence() 반환값 (Storage 경로)
+// expiresIn: 초 단위, 기본 3600 (1시간)
+// 반환: signed URL 문자열
+async function getFlagEvidenceSignedUrl(path, expiresIn = 3600) {
+  if (!db || !path) return null;
+  const BUCKET = 'influencer-flag-evidence';
+  const {data, error} = await db.storage.from(BUCKET).createSignedUrl(path, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl || null;
+}
+
+// ── 증빙 파일 삭제 (관리자 전용, migration 062) ──
+// paths: Storage 경로 배열
+async function deleteFlagEvidenceFiles(paths) {
+  if (!db || !paths || paths.length === 0) return;
+  const BUCKET = 'influencer-flag-evidence';
+  const {error} = await db.storage.from(BUCKET).remove(paths);
+  if (error) throw error;
 }
 
 // 모든 인플루언서의 위반 건수 집계 — { [influencer_id]: count }
@@ -3092,7 +3135,7 @@ async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
     const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns, line_id')
+      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, is_blacklisted')
       .in('id', userIds);
     if (error) throw error;
     const map = {};
@@ -3823,6 +3866,28 @@ function openModal(id) {
 }
 function closeModal(id) {
   $(id).classList.remove('open');
+}
+
+// ESC 키로 최상단 모달 닫기 (여러 모달이 쌓여 있으면 z-index 가장 높은 것)
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const openEls = [...document.querySelectorAll('.modal-overlay.open')];
+  if (!openEls.length) return;
+  const top = openEls.reduce((a, b) => {
+    const za = parseInt(getComputedStyle(a).zIndex, 10) || 0;
+    const zb = parseInt(getComputedStyle(b).zIndex, 10) || 0;
+    return zb > za ? b : a;
+  });
+  if (top && top.id) closeModal(top.id);
+});
+
+// 이미지 확대 라이트박스
+function openImageLightbox(url, alt) {
+  const box = $('imageLightbox');
+  if (!box) return;
+  const img = $('imageLightboxImg');
+  if (img) { img.src = url; img.alt = alt || ''; }
+  openModal('imageLightbox');
 }
 
 // ── 이미지 슬라이더 ──

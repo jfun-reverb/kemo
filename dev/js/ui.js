@@ -215,6 +215,28 @@ function closeModal(id) {
   $(id).classList.remove('open');
 }
 
+// ESC 키로 최상단 모달 닫기 (여러 모달이 쌓여 있으면 z-index 가장 높은 것)
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const openEls = [...document.querySelectorAll('.modal-overlay.open')];
+  if (!openEls.length) return;
+  const top = openEls.reduce((a, b) => {
+    const za = parseInt(getComputedStyle(a).zIndex, 10) || 0;
+    const zb = parseInt(getComputedStyle(b).zIndex, 10) || 0;
+    return zb > za ? b : a;
+  });
+  if (top && top.id) closeModal(top.id);
+});
+
+// 이미지 확대 라이트박스
+function openImageLightbox(url, alt) {
+  const box = $('imageLightbox');
+  if (!box) return;
+  const img = $('imageLightboxImg');
+  if (img) { img.src = url; img.alt = alt || ''; }
+  openModal('imageLightbox');
+}
+
 // ── 이미지 슬라이더 ──
 let _slideIdx = 0;
 function slideMove(dir) {
