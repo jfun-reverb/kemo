@@ -778,6 +778,12 @@
                 <label>신청 상태</label>
                 <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <select id="appCampFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()" style="max-width:240px">
+                  <option value="all">전체 캠페인</option>
+                </select>
+              </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
                 <button class="btn btn-ghost btn-xs" id="btnAppFilterReset" onclick="resetAppFilters()" style="display:none">초기화</button>

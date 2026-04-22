@@ -60,9 +60,6 @@ jobs:
   deploy-sales:
     name: Deploy reverb-sales (sales.globalreverb.com)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: sales
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -70,14 +67,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Debug secrets (length + prefix only)
-        working-directory: .
-        run: |
-          echo "VERCEL_TOKEN length: ${#VERCEL_TOKEN}"
-          if [ -n "$VERCEL_TOKEN" ]; then echo "VERCEL_TOKEN prefix: ${VERCEL_TOKEN:0:4}..."; else echo "VERCEL_TOKEN IS EMPTY"; fi
-          echo "VERCEL_ORG_ID length: ${#VERCEL_ORG_ID}"
-          echo "VERCEL_PROJECT_ID length: ${#VERCEL_PROJECT_ID}"
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest

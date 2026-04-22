@@ -396,6 +396,8 @@ function resetCampFilters() {
 function resetAppFilters() {
   resetMultiFilter('appTypeMulti', '전체 타입');
   resetMultiFilter('appStatusMulti', '전체 상태');
+  const cf = $('appCampFilter');
+  if (cf) { cf.value = 'all'; if (typeof highlightFilter === 'function') highlightFilter(cf); }
   const s = $('appSearch'); if (s) s.value = '';
   renderAppCampList();
 }
@@ -1949,6 +1951,20 @@ async function renderAppCampList() {
   let apps = allAppsRaw.slice();
   const users = _appListCache.users;
 
+  // 캠페인 드롭다운 옵션 동기화 (최근 생성순)
+  const campFilterEl = $('appCampFilter');
+  if (campFilterEl) {
+    const prev = campFilterEl.value || 'all';
+    const sorted = camps.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    const hasPrev = prev === 'all' || sorted.some(c => c.id === prev);
+    campFilterEl.innerHTML = '<option value="all">전체 캠페인</option>' + sorted.map(c => {
+      const label = (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)');
+      return `<option value="${esc(c.id)}">${esc(label)}</option>`;
+    }).join('');
+    campFilterEl.value = hasPrev ? prev : 'all';
+    if (typeof highlightFilter === 'function') highlightFilter(campFilterEl);
+  }
+
   // 타입 필터 (다중 선택)
   const appTypeVals = getMultiFilterValues('appTypeMulti');
   if (appTypeVals.length) {
@@ -1959,6 +1975,10 @@ async function renderAppCampList() {
   // 상태 필터 (다중 선택)
   const appStatusVals = getMultiFilterValues('appStatusMulti');
   if (appStatusVals.length) apps = apps.filter(a => appStatusVals.includes(a.status));
+
+  // 캠페인 단일 선택 필터
+  const campFilterVal = campFilterEl?.value || 'all';
+  if (campFilterVal && campFilterVal !== 'all') apps = apps.filter(a => a.campaign_id === campFilterVal);
 
   // 검색 필터
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
@@ -1974,6 +1994,9 @@ async function renderAppCampList() {
   }
 
   updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appStatusMulti'], 'appSearch');
+  // 캠페인 단일 선택 필터도 활성 조건에 포함
+  const resetBtn = $('btnAppFilterReset');
+  if (resetBtn && campFilterVal && campFilterVal !== 'all') resetBtn.style.display = '';
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
