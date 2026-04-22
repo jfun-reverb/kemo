@@ -401,20 +401,20 @@ function resetAppFilters() {
   renderAppCampList();
 }
 
-// 캠페인 다중 선택 드롭다운 — 캠페인 목록 변화 시에만 재생성, 선택 상태 보존
-function syncAppCampMulti(sortedCamps) {
-  const wrap = $('appCampMulti');
+// 캠페인 다중 선택 드롭다운 공통 헬퍼 — 옵션 리스트 변화 시에만 재생성, 이전 선택 상태 보존
+function syncCampMultiFilter(containerId, sortedCamps, onChange) {
+  const wrap = $(containerId);
   if (!wrap) return;
   const drop = wrap.querySelector('.mf-drop');
   if (!drop) return;
   const newKey = sortedCamps.map(c => c.id).join('|');
   if (wrap.dataset.optKey === newKey && drop.children.length > 0) return;
-  const prev = getMultiFilterValues('appCampMulti');
+  const prev = getMultiFilterValues(containerId);
   const options = sortedCamps.map(c => ({
     value: c.id,
     label: (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)')
   }));
-  createMultiFilter('appCampMulti', '전체 캠페인', options, () => renderAppCampList());
+  createMultiFilter(containerId, '전체 캠페인', options, onChange);
   wrap.dataset.optKey = newKey;
   if (prev.length > 0) {
     const allCb = drop.querySelector('input[value="all"]');
@@ -1987,7 +1987,7 @@ async function renderAppCampList() {
 
   // 캠페인 다중 선택 드롭다운 동기화 (최근 생성순)
   const sortedCampsForFilter = camps.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-  syncAppCampMulti(sortedCampsForFilter);
+  syncCampMultiFilter('appCampMulti', sortedCampsForFilter, () => renderAppCampList());
 
   // 타입 필터 (다중 선택)
   const appTypeVals = getMultiFilterValues('appTypeMulti');
@@ -3391,7 +3391,7 @@ function toggleDelivSort(col) {
 function resetDelivFiltersAndSort() {
   resetMultiFilter('delivKindMulti', '전체 타입');
   resetMultiFilter('delivStatusMulti', '전체 상태');
-  const c = $('delivCampFilter'); if (c) { c.value = 'all'; highlightFilter(c); }
+  resetMultiFilter('delivCampMulti', '전체 캠페인');
   const q = $('delivSearch'); if (q) q.value = '';
   _delivSort = {col: null, dir: null};
   renderDeliverablesList();
@@ -3411,17 +3411,6 @@ function applyDelivSortIndicators() {
 }
 
 async function loadDeliverables() {
-  // 캠페인 드롭다운 채우기 (첫 로드만)
-  const sel = $('delivCampFilter');
-  if (sel && sel.options.length <= 1) {
-    const camps = await fetchCampaigns().catch(() => []);
-    camps.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.title;
-      sel.appendChild(opt);
-    });
-  }
   await renderDeliverablesList();
 }
 
@@ -3432,11 +3421,16 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  // 캠페인 드롭다운 옵션 동기화 (최근 생성순)
+  const campsForFilter = await fetchCampaigns().catch(() => []);
+  const sortedCampsForFilter = campsForFilter.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  syncCampMultiFilter('delivCampMulti', sortedCampsForFilter, () => renderDeliverablesList());
   const delivStatusVals = getMultiFilterValues('delivStatusMulti');
   const delivKindVals = getMultiFilterValues('delivKindMulti');
+  const delivCampVals = getMultiFilterValues('delivCampMulti');
   const status = delivStatusVals.length === 1 ? delivStatusVals[0] : 'all';
   const kind = delivKindVals.length === 1 ? delivKindVals[0] : 'all';
-  const campId = $('delivCampFilter')?.value || 'all';
+  const campId = delivCampVals.length === 1 ? delivCampVals[0] : 'all';
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
   const rows = await fetchDeliverables({status, kind, campaign_id: campId});
   _delivCache = rows;
@@ -3444,6 +3438,7 @@ async function renderDeliverablesList() {
   let filtered = rows.slice();
   if (delivStatusVals.length > 1) filtered = filtered.filter(r => delivStatusVals.includes(r.status));
   if (delivKindVals.length > 1) filtered = filtered.filter(r => delivKindVals.includes(r.kind));
+  if (delivCampVals.length > 1) filtered = filtered.filter(r => delivCampVals.includes(r.campaign_id));
   if (search) filtered = filtered.filter(r => {
     const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
     const camp = r.campaigns || {};
@@ -3452,7 +3447,7 @@ async function renderDeliverablesList() {
       || (camp.brand || '').toLowerCase().includes(search)
       || (camp.campaign_no || '').toLowerCase().includes(search);
   });
-  updateFilterResetBtn('btnDelivFilterReset', ['delivKindMulti','delivStatusMulti'], 'delivSearch');
+  updateFilterResetBtn('btnDelivFilterReset', ['delivKindMulti','delivStatusMulti','delivCampMulti'], 'delivSearch');
   // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
   if (_delivSort.col) {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
