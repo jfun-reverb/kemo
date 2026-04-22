@@ -771,18 +771,16 @@
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
+                <label>캠페인</label>
+                <div id="appCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
+              </div>
+              <div class="admin-filter-group">
                 <label>캠페인 타입</label>
                 <div id="appTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
                 <label>신청 상태</label>
                 <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
-              </div>
-              <div class="admin-filter-group">
-                <label>캠페인</label>
-                <select id="appCampFilter" class="admin-filter" onchange="highlightFilter(this);renderAppCampList()" style="max-width:240px">
-                  <option value="all">전체 캠페인</option>
-                </select>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -822,18 +820,16 @@
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
+                <label>캠페인</label>
+                <div id="delivCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
+              </div>
+              <div class="admin-filter-group">
                 <label>결과물 타입</label>
                 <div id="delivKindMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
                 <label>검수 상태</label>
                 <div id="delivStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
-              </div>
-              <div class="admin-filter-group">
-                <label>캠페인</label>
-                <select id="delivCampFilter" class="admin-filter" onchange="highlightFilter(this);renderDeliverablesList()" style="max-width:240px">
-                  <option value="all">전체 캠페인</option>
-                </select>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
