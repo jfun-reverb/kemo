@@ -3426,6 +3426,84 @@ async function swapParticipationSetOrder(idA, idB) {
 }
 
 // ══════════════════════════════════════
+// ADMIN NOTICES (관리자 전용 공지 — migration 063)
+// ══════════════════════════════════════
+
+// 공지 목록 + 본인 읽음 여부
+async function fetchAdminNotices(filters) {
+  if (!db) return [];
+  try {
+    const uid = (await db.auth.getUser()).data?.user?.id;
+    let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
+    if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
+    q = q.order('is_pinned', {ascending: false})
+         .order('pinned_at', {ascending: false, nullsFirst: false})
+         .order('created_at', {ascending: false});
+    const {data, error} = await q;
+    if (error) throw error;
+    return (data || []).map(n => {
+      const mine = (n.admin_notice_reads || []).find(r => r.auth_id === uid);
+      return {...n, is_read: !!mine, read_at: mine?.read_at || null, admin_notice_reads: undefined};
+    });
+  } catch(e) { console.error('[fetchAdminNotices]', e); return []; }
+}
+
+async function fetchUnreadAdminNotices() {
+  const all = await fetchAdminNotices();
+  return all.filter(n => !n.is_read);
+}
+
+async function insertAdminNotice(data) {
+  if (!db) throw new Error('DB 미연결');
+  const uid = (await db.auth.getUser()).data?.user?.id;
+  const payload = {
+    title: data.title,
+    body_html: data.body_html,
+    category: data.category,
+    is_pinned: !!data.is_pinned,
+    pinned_at: data.is_pinned ? new Date().toISOString() : null,
+    created_by: uid || null,
+    created_by_name: data.created_by_name || null,
+    updated_by: uid || null,
+    updated_by_name: data.created_by_name || null,
+  };
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('admin_notices').insert(payload);
+    if (error) throw error;
+  });
+}
+
+async function updateAdminNotice(id, patch) {
+  if (!db) throw new Error('DB 미연결');
+  const uid = (await db.auth.getUser()).data?.user?.id;
+  const p = {...patch, updated_by: uid || null};
+  // is_pinned 변경 시 pinned_at 동기화
+  if (Object.prototype.hasOwnProperty.call(patch, 'is_pinned')) {
+    p.pinned_at = patch.is_pinned ? new Date().toISOString() : null;
+  }
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('admin_notices').update(p).eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function deleteAdminNotice(id) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('admin_notices').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function markAdminNoticeRead(noticeId) {
+  if (!db || !noticeId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('upsert_admin_notice_read', {p_notice_id: noticeId});
+    if (error) throw error;
+  });
+}
+
+// ══════════════════════════════════════
 // BRAND APPLICATIONS (광고주 신청 폼 — 052)
 // ══════════════════════════════════════
 
