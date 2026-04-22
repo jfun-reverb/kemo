@@ -624,7 +624,7 @@ async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
     const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, is_blacklisted')
+      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note')
       .in('id', userIds);
     if (error) throw error;
     const map = {};
@@ -760,7 +760,8 @@ async function insertLookup(row) {
       name_ko: row.name_ko,
       name_ja: row.name_ja,
       sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
-      active: row.active != null ? row.active : true
+      active: row.active != null ? row.active : true,
+      recruit_types: Array.isArray(row.recruit_types) ? row.recruit_types : []
     };
     const {data, error} = await db.from('lookup_values').insert(payload).select().maybeSingle();
     if (error) throw error;

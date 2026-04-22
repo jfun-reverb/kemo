@@ -397,6 +397,13 @@
               <div class="form-group"><label class="form-label">NG 사항</label><div class="quill-host" id="editCampNg"></div></div>
             </div>
             <div class="form-group">
+              <label class="form-label">동의 받을 주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서가 신청 시 명시적으로 동의해야 함 — 동의 시점 내용은 스냅샷으로 저장)</span></label>
+              <div id="editCampCautionCodesWrap" style="display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 0 10px"></div>
+              <label class="form-label" style="font-size:12px;color:var(--muted);margin-top:6px">캠페인 고유 주의사항 (선택)</label>
+              <div class="quill-host" id="editCampCautionCustom"></div>
+              <div class="form-hint">기준 데이터에 없는 캠페인 고유 사항을 작성. 선택 항목과 함께 인플루언서 동의 박스에 표시됩니다.</div>
+            </div>
+            <div class="form-group">
               <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
               <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
                 <select id="editCampPsetSelect" class="form-input" style="flex:1" onchange="onPsetSelectChange('edit')"><option value="">— 번들 선택 —</option></select>
@@ -623,6 +630,13 @@
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
               <div class="form-group"><label class="form-label">NG 워드/사항</label><div class="quill-host" id="newCampNg"></div></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">동의 받을 주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서가 신청 시 명시적으로 동의해야 함 — 동의 시점 내용은 스냅샷으로 저장)</span></label>
+              <div id="newCampCautionCodesWrap" style="display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 0 10px"></div>
+              <label class="form-label" style="font-size:12px;color:var(--muted);margin-top:6px">캠페인 고유 주의사항 (선택)</label>
+              <div class="quill-host" id="newCampCautionCustom"></div>
+              <div class="form-hint">기준 데이터에 없는 캠페인 고유 사항을 작성. 선택 항목과 함께 인플루언서 동의 박스에 표시됩니다.</div>
             </div>
             <div class="form-group">
               <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
@@ -1149,6 +1163,7 @@
               <button class="lookup-tab" data-kind="ng_item" onclick="switchLookupTab('ng_item',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">NG 사항</button>
               <button class="lookup-tab" data-kind="participation_set" onclick="switchLookupTab('participation_set',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">참여방법</button>
               <button class="lookup-tab" data-kind="reject_reason" onclick="switchLookupTab('reject_reason',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">반려사유</button>
+              <button class="lookup-tab" data-kind="caution" onclick="switchLookupTab('caution',this)" style="padding:10px 16px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer">주의사항</button>
             </div>
           </div>
 

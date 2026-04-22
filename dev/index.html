@@ -862,6 +862,8 @@ window._supabaseLoaded = false;
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
+      <!-- 주의사항 영역 (caution_lookup_codes / caution_custom_html이 있을 때만 동적 표시) -->
+      <div id="applyCautionBox" class="caution-box" style="display:none;margin-bottom:16px"></div>
       <div class="form-group">
         <label class="form-label">応募理由（ひとこと） *</label>
         <input type="text" id="applyMessage" class="form-input" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
@@ -875,6 +877,13 @@ window._supabaseLoaded = false;
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
           <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
           <span>投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
+        </label>
+      </div>
+      <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
+      <div id="applyCautionAgreeRow" class="form-group" style="display:none;margin-top:12px;margin-bottom:0">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--red);font-weight:600">
+          <input type="checkbox" id="applyCautionCheck" style="margin-top:2px;flex-shrink:0">
+          <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>
       <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()">今すぐ応募する →</button>

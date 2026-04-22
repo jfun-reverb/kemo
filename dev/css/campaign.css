@@ -86,3 +86,10 @@
 .apply-stat-v{font-size:18px;font-weight:800}
 .apply-stat-l{font-size:11px;color:var(--on-surface-variant);margin-top:2px}
 .apply-already{background:var(--green-l);border:1px solid rgba(14,126,74,.2);border-radius:var(--r12);padding:12px;text-align:center;font-size:13px;color:var(--green);font-weight:600}
+
+/* 신청 모달 주의사항 박스 (caution_lookup_codes / caution_custom_html) */
+.caution-box{background:#fff5f5;border:1px solid rgba(179,38,30,.25);border-left:4px solid var(--red);border-radius:var(--r12);padding:14px 16px}
+.caution-box ul{margin:8px 0 0 18px;padding:0}
+.caution-box li{font-size:13px;color:var(--on-surface);line-height:1.7}
+.caution-box .caution-custom{margin-top:10px;font-size:13px;line-height:1.7;color:var(--on-surface)}
+.caution-box .caution-custom a{color:var(--pink);text-decoration:underline}

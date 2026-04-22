@@ -161,6 +161,7 @@ window.I18N_KO = {
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
     allChannels: '전체 채널',
+    cautionAgreed: '주의사항 동의',
   },
 
   menu: {
@@ -273,6 +274,8 @@ window.I18N_KO = {
     needReason: '응모 사유를 입력해주세요',
     needAddress: '배송지 주소를 입력해주세요',
     needPrAgree: '#PR 태그 표기에 동의가 필요합니다',
+    cautionAgreeLabel: '모든 주의사항을 확인했습니다',
+    cautionRequired: '주의사항 동의가 필요합니다',
     alreadyApplied: '이미 응모한 캠페인입니다',
     slotsFull: '모집인원에 도달하여 응모할 수 없습니다',
     sessionExpired: '세션이 만료되었습니다. 다시 로그인해주세요',

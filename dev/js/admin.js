@@ -137,8 +137,10 @@ function switchAdminPane(pane, el, pushHistory) {
     applyDeadlineFieldsVisibility('new', 'monitor');
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
-      ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
+      ['newCampDesc','newCampAppeal','newCampGuide','newCampNg','newCampCautionCustom'].forEach(id => setRichValue(id, ''));
     }, 0);
+    // 주의사항 lookup 체크박스
+    renderCautionCheckboxes('new', []);
     // 참여방법 번들 초기화 (기본 recruit_type='monitor')
     _psetState.new = [];
     populateCampPsetDropdown('new', 'monitor', null);
@@ -278,7 +280,7 @@ async function loadAdminData(preloaded) {
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${users.find(u=>u.email===a.user_email)?.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(users.find(u=>u.email===a.user_email)||{})}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
-      <td>${msgCell(a.message)}</td>
+      <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
@@ -350,17 +352,66 @@ function updateCampSortResetBtn() {
 }
 
 // 신청 사유: 2줄 말줄임 + 더보기 모달
-function msgCell(text) {
-  if (!text) return '—';
+function msgCell(text, app) {
+  const consent = app ? consentBadge(app) : '';
+  if (!text) return consent || '—';
   const safe = esc(text);
   const short = `<div style="max-width:200px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--ink)">${safe}</div>`;
-  if (text.length <= 40) return short;
-  return short + `<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer" onclick="event.stopPropagation();openMsgModal(this)" data-msg="${safe}">더보기</a>`;
+  const more = text.length > 40
+    ? `<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer" onclick="event.stopPropagation();openMsgModal(this)" data-msg="${safe}">더보기</a>`
+    : '';
+  return short + more + consent;
 }
 function openMsgModal(btn) {
   const msg = btn.dataset.msg;
   const el = $('alertModalMessage');
   if (el) el.innerHTML = `<div style="font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:60vh;overflow-y:auto">${msg}</div>`;
+  openModal('alertModal');
+}
+
+// ── 주의사항 동의 정보 (신청 행 배지 + 상세 모달) ──
+const _cautionConsentCache = {};
+function consentBadge(app) {
+  if (!app || !app.caution_agreed_at) return '';
+  _cautionConsentCache[app.id] = { agreed_at: app.caution_agreed_at, snapshot: app.caution_snapshot || null };
+  const dt = formatDateTime(app.caution_agreed_at);
+  return `<div style="margin-top:6px"><a href="javascript:void(0)" onclick="event.stopPropagation();openCautionConsentModal('${esc(app.id)}')" style="font-size:10px;color:var(--green);text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>주의사항 동의 ${esc(dt)}</a></div>`;
+}
+function openCautionConsentModal(appId) {
+  const cached = _cautionConsentCache[appId];
+  const el = $('alertModalMessage');
+  if (!el) return;
+  if (!cached) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--muted)">동의 정보를 불러올 수 없습니다</div>`;
+    openModal('alertModal');
+    return;
+  }
+  const snap = cached.snapshot;
+  let html = `<div style="font-size:13px;line-height:1.7"><strong>동의 시각</strong> · ${esc(formatDateTime(cached.agreed_at))}</div>`;
+  if (snap && typeof snap === 'object') {
+    if (Array.isArray(snap.lookup_labels) && snap.lookup_labels.length) {
+      html += `<div style="margin-top:12px"><strong style="font-size:13px">표준 주의사항</strong><ul style="margin:6px 0 0 18px;padding:0;font-size:12px;line-height:1.7">` +
+        snap.lookup_labels.map(l => {
+          const ko = esc(l.name_ko || l.ko || '');
+          const ja = esc(l.name_ja || l.ja || '');
+          return `<li style="margin:2px 0"><span style="color:var(--ink)">${ko}</span> <span style="color:var(--muted);font-size:11px">/ ${ja}</span></li>`;
+        }).join('') +
+        `</ul></div>`;
+    }
+    if (snap.custom_html) {
+      const rendered = (typeof richHtml === 'function')
+        ? richHtml(snap.custom_html)
+        : esc(String(snap.custom_html || '')).replace(/\n/g, '<br>');
+      html += `<div style="margin-top:12px"><strong style="font-size:13px">캠페인 고유 주의사항</strong><div style="margin-top:6px;padding:10px 12px;background:#fff5f5;border-left:3px solid var(--red);border-radius:6px;font-size:12px;line-height:1.7">${rendered}</div></div>`;
+    }
+    if (snap.agreed_lang) {
+      const langLabel = snap.agreed_lang === 'ja' ? '日本語' : (snap.agreed_lang === 'ko' ? '한국어' : snap.agreed_lang);
+      html += `<div style="margin-top:10px;color:var(--muted);font-size:11px">동의 시점 사용자 언어: ${esc(langLabel)}</div>`;
+    }
+  } else {
+    html += `<div style="margin-top:10px;color:var(--muted);font-size:12px">동의 시점 스냅샷이 저장되지 않았습니다</div>`;
+  }
+  el.innerHTML = `<div style="max-height:60vh;overflow-y:auto">${html}</div>`;
   openModal('alertModal');
 }
 
@@ -726,7 +777,7 @@ async function loadAdminCampaigns(useCache) {
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
-const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','editCampNg','newCampDesc','newCampAppeal','newCampGuide','newCampNg'];
+const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','editCampNg','editCampCautionCustom','newCampDesc','newCampAppeal','newCampGuide','newCampNg','newCampCautionCustom'];
 const richEditors = {};
 
 function getRichEditor(id) {
@@ -820,6 +871,8 @@ async function openEditCampaign(campId) {
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
   sv('editCampNg', camp.ng||'');
+  sv('editCampCautionCustom', camp.caution_custom_html||'');
+  renderCautionCheckboxes('edit', Array.isArray(camp.caution_lookup_codes) ? camp.caution_lookup_codes : []);
   sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
@@ -990,6 +1043,8 @@ async function saveCampaignEdit() {
       appeal: gv('editCampAppeal'),
       guide: gv('editCampGuide'),
       ng: gv('editCampNg'),
+      caution_lookup_codes: collectCautionCodes('edit'),
+      caution_custom_html: gv('editCampCautionCustom') || null,
       status: gv('editCampStatus'),
       ...collectCampPsetPayload('edit'),
     };
@@ -1029,6 +1084,8 @@ async function duplicateCampaign(campId) {
       emoji: src.emoji, description: src.description,
       hashtags: src.hashtags, mentions: src.mentions,
       appeal: src.appeal, guide: src.guide, ng: src.ng,
+      caution_lookup_codes: Array.isArray(src.caution_lookup_codes) ? [...src.caution_lookup_codes] : [],
+      caution_custom_html: src.caution_custom_html || null,
       product_price: src.product_price, reward: src.reward, reward_note: src.reward_note,
       slots: src.slots, applied_count: 0,
       deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
@@ -1549,7 +1606,7 @@ async function loadCampApplicants() {
     <td>${snsCell('tiktok', _u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
     <td>${snsCell('youtube', _u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
-    <td>${msgCell(a.message)}</td>
+    <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadgeKo(a.status)}</td>
     <td>${otCell}</td>
@@ -2531,7 +2588,7 @@ async function renderAppCampList() {
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(u.line_id)}</div>`:''}
       </td>
-      <td>${msgCell(a.message)}</td>
+      <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
@@ -2647,6 +2704,8 @@ async function addCampaign() {
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
     appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
+    caution_lookup_codes: collectCautionCodes('new'),
+    caution_custom_html: getRichValue('newCampCautionCustom') || null,
     status:'draft',
     ...collectCampPsetPayload('new'),
   };
@@ -2661,14 +2720,15 @@ async function addCampaign() {
    'newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
   // 리치 에디터 초기화
-  ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
+  ['newCampDesc','newCampAppeal','newCampGuide','newCampNg','newCampCautionCustom'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
   await Promise.all([
     renderChannelCheckboxes('new', null, []),
     renderContentTypeCheckboxes('new', []),
-    renderCategorySelect('new', '')
+    renderCategorySelect('new', ''),
+    renderCautionCheckboxes('new', [])
   ]);
 
   allCampaigns = await fetchCampaigns();
@@ -2758,7 +2818,7 @@ function applyLookupMenuVisibility() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항'};
 let _currentLookupKind = 'channel';
 
 async function loadLookupsPane() {
@@ -2961,6 +3021,28 @@ async function renderCategorySelect(formMode, currentCode) {
   try { items = await fetchLookups('category'); } catch(e) { return; }
   sel.innerHTML = items.map(c => `<option value="${esc(c.code)}">${esc(c.name_ko)}</option>`).join('');
   if (currentCode && items.some(c => c.code === currentCode)) sel.value = currentCode;
+}
+
+// 주의사항(caution) 다중 체크박스 — 캠페인 폼
+async function renderCautionCheckboxes(formMode, preSelectedCodes) {
+  const wrapId = formMode === 'edit' ? 'editCampCautionCodesWrap' : 'newCampCautionCodesWrap';
+  const wrap = $(wrapId); if (!wrap) return;
+  let items = [];
+  try { items = await fetchLookups('caution'); } catch(e) { return; }
+  if (!items.length) {
+    wrap.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:6px 0">기준 데이터에 등록된 주의사항이 없습니다. <a href="#lookups" onclick="setTimeout(()=>switchLookupTab('caution', document.querySelector('[data-kind=caution]')), 50)" style="color:var(--pink);font-weight:600">기준 데이터 → 주의사항</a>에서 등록</div>`;
+    return;
+  }
+  const checked = new Set(preSelectedCodes || []);
+  const namePrefix = formMode === 'edit' ? 'editCampCaution' : 'newCampCaution';
+  wrap.innerHTML = items.map(it =>
+    `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:12px;font-weight:500"><input type="checkbox" name="${esc(namePrefix)}" value="${esc(it.code)}" ${checked.has(it.code)?'checked':''} style="margin:0">${esc(it.name_ko)}</label>`
+  ).join('');
+}
+
+function collectCautionCodes(formMode) {
+  const namePrefix = formMode === 'edit' ? 'editCampCaution' : 'newCampCaution';
+  return Array.from(document.querySelectorAll(`input[name="${namePrefix}"]:checked`)).map(c => c.value);
 }
 
 async function filterChannelsByRecruitType(formMode, recruitType) {
