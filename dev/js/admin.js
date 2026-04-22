@@ -401,20 +401,17 @@ function resetAppFilters() {
   renderAppCampList();
 }
 
-// 캠페인 다중 선택 드롭다운 공통 헬퍼 — 옵션 리스트 변화 시에만 재생성, 이전 선택 상태 보존
-function syncCampMultiFilter(containerId, sortedCamps, onChange) {
+// 다중 선택 드롭다운 공통 헬퍼 — 옵션 리스트 변화 시에만 재생성, 이전 선택 상태 보존
+// options: [{value, label}]
+function syncMultiFilter(containerId, allLabel, options, onChange) {
   const wrap = $(containerId);
   if (!wrap) return;
   const drop = wrap.querySelector('.mf-drop');
   if (!drop) return;
-  const newKey = sortedCamps.map(c => c.id).join('|');
+  const newKey = options.map(o => o.value).join('|');
   if (wrap.dataset.optKey === newKey && drop.children.length > 0) return;
   const prev = getMultiFilterValues(containerId);
-  const options = sortedCamps.map(c => ({
-    value: c.id,
-    label: (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)')
-  }));
-  createMultiFilter(containerId, '전체 캠페인', options, onChange);
+  createMultiFilter(containerId, allLabel, options, onChange);
   wrap.dataset.optKey = newKey;
   if (prev.length > 0) {
     const allCb = drop.querySelector('input[value="all"]');
@@ -434,6 +431,15 @@ function syncCampMultiFilter(containerId, sortedCamps, onChange) {
       }
     }
   }
+}
+
+// 캠페인 전용 래퍼 (label 포맷 `[CAMP-XXX] 제목`)
+function syncCampMultiFilter(containerId, sortedCamps, onChange) {
+  const options = sortedCamps.map(c => ({
+    value: c.id,
+    label: (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)')
+  }));
+  syncMultiFilter(containerId, '전체 캠페인', options, onChange);
 }
 
 // ── 다중 선택 드롭다운 필터 ──
@@ -1985,11 +1991,35 @@ async function renderAppCampList() {
   let apps = allAppsRaw.slice();
   const users = _appListCache.users;
 
-  // 캠페인 다중 선택 드롭다운 동기화 (최근 생성순)
-  const sortedCampsForFilter = camps.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-  syncCampMultiFilter('appCampMulti', sortedCampsForFilter, () => renderAppCampList());
+  // 캠페인 ↔ 타입 쌍별 연동: 현재 선택값 스냅샷
+  const typeValsRaw = getMultiFilterValues('appTypeMulti');
+  const campValsRaw = getMultiFilterValues('appCampMulti');
 
-  // 타입 필터 (다중 선택)
+  // 캠페인 옵션: 타입 제약 있으면 해당 타입 캠페인만 노출
+  const sortedCampsAll = camps.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  const campOptionsSource = typeValsRaw.length > 0
+    ? sortedCampsAll.filter(c => typeValsRaw.includes(c.recruit_type))
+    : sortedCampsAll;
+
+  // 타입 옵션: 캠페인 제약 있으면 해당 캠페인들의 타입 합집합만 노출
+  const ALL_RECRUIT_TYPES = ['monitor','gifting','visit'];
+  const availableTypes = campValsRaw.length > 0
+    ? ALL_RECRUIT_TYPES.filter(t => camps.some(c => campValsRaw.includes(c.id) && c.recruit_type === t))
+    : ALL_RECRUIT_TYPES;
+
+  // stale 선택 감지 → 경고 토스트 (자동 해제는 syncMultiFilter 복원 단계에서 자연 탈락)
+  const campStale = campValsRaw.filter(v => !campOptionsSource.some(c => c.id === v));
+  const typeStale = typeValsRaw.filter(v => !availableTypes.includes(v));
+  if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 타입 필터에 맞지 않아 해제되었습니다`, 'info');
+  if (typeStale.length > 0 && typeof toast === 'function') toast(`선택한 타입 ${typeStale.length}건이 캠페인 필터에 맞지 않아 해제되었습니다`, 'info');
+
+  // 드롭다운 동기화
+  syncCampMultiFilter('appCampMulti', campOptionsSource, () => renderAppCampList());
+  syncMultiFilter('appTypeMulti', '전체 타입',
+    availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t})),
+    () => renderAppCampList());
+
+  // 타입 필터 (다중 선택) — stale 제거 후 최종값
   const appTypeVals = getMultiFilterValues('appTypeMulti');
   if (appTypeVals.length) {
     const filteredCampIds = camps.filter(c => appTypeVals.includes(c.recruit_type)).map(c => c.id);
@@ -2000,7 +2030,7 @@ async function renderAppCampList() {
   const appStatusVals = getMultiFilterValues('appStatusMulti');
   if (appStatusVals.length) apps = apps.filter(a => appStatusVals.includes(a.status));
 
-  // 캠페인 다중 선택 필터
+  // 캠페인 다중 선택 필터 — stale 제거 후 최종값
   const campFilterVals = getMultiFilterValues('appCampMulti');
   if (campFilterVals.length) apps = apps.filter(a => campFilterVals.includes(a.campaign_id));
 
@@ -3421,10 +3451,45 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  // 캠페인 드롭다운 옵션 동기화 (최근 생성순)
+  // 캠페인 리스트 로드 + 결과물타입↔캠페인 쌍별 연동
   const campsForFilter = await fetchCampaigns().catch(() => []);
   const sortedCampsForFilter = campsForFilter.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-  syncCampMultiFilter('delivCampMulti', sortedCampsForFilter, () => renderDeliverablesList());
+
+  // recruit_type ↔ kind 매핑
+  // monitor → receipt (영수증), gifting/visit → post (게시물 URL)
+  const RECRUIT_TYPE_TO_KIND = { monitor: 'receipt', gifting: 'post', visit: 'post' };
+  const KIND_TO_RECRUIT_TYPES = { receipt: ['monitor'], post: ['gifting', 'visit'] };
+
+  const delivKindValsRaw = getMultiFilterValues('delivKindMulti');
+  const delivCampValsRaw = getMultiFilterValues('delivCampMulti');
+
+  // 캠페인 옵션: kind 필터 있으면 해당 kind의 recruit_type 캠페인만
+  const allowedRecruitTypes = delivKindValsRaw.length > 0
+    ? [...new Set(delivKindValsRaw.flatMap(k => KIND_TO_RECRUIT_TYPES[k] || []))]
+    : null; // null = 제약 없음
+  const campOptionsSource = allowedRecruitTypes
+    ? sortedCampsForFilter.filter(c => allowedRecruitTypes.includes(c.recruit_type))
+    : sortedCampsForFilter;
+
+  // kind 옵션: 캠페인 필터 있으면 선택 캠페인들의 recruit_type → 대응 kind 합집합
+  const ALL_KINDS = ['receipt', 'post'];
+  const KIND_LABEL = { receipt: '영수증', post: '게시물 URL' };
+  const availableKinds = delivCampValsRaw.length > 0
+    ? [...new Set(campsForFilter.filter(c => delivCampValsRaw.includes(c.id)).map(c => RECRUIT_TYPE_TO_KIND[c.recruit_type]).filter(Boolean))]
+    : ALL_KINDS;
+
+  // stale 감지
+  const campStale = delivCampValsRaw.filter(v => !campOptionsSource.some(c => c.id === v));
+  const kindStale = delivKindValsRaw.filter(v => !availableKinds.includes(v));
+  if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 결과물 타입 필터에 맞지 않아 해제되었습니다`, 'info');
+  if (kindStale.length > 0 && typeof toast === 'function') toast(`선택한 결과물 타입 ${kindStale.length}건이 캠페인 필터에 맞지 않아 해제되었습니다`, 'info');
+
+  // 드롭다운 동기화
+  syncCampMultiFilter('delivCampMulti', campOptionsSource, () => renderDeliverablesList());
+  syncMultiFilter('delivKindMulti', '전체 타입',
+    availableKinds.map(k => ({ value: k, label: KIND_LABEL[k] || k })),
+    () => renderDeliverablesList());
+
   const delivStatusVals = getMultiFilterValues('delivStatusMulti');
   const delivKindVals = getMultiFilterValues('delivKindMulti');
   const delivCampVals = getMultiFilterValues('delivCampMulti');
