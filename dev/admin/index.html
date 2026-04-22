@@ -657,22 +657,55 @@
         <!-- INFLUENCERS PANE -->
         <div id="adminPane-influencers" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <div style="margin-bottom:12px;font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
-            <!-- 채널별 탭 -->
-            <div style="display:flex;gap:0;border-bottom:2px solid var(--line)">
-              <button id="infTab-all" onclick="switchInfTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-              <button id="infTab-instagram" onclick="switchInfTab('instagram',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">Instagram <span id="infCnt-instagram" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-              <button id="infTab-x" onclick="switchInfTab('x',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">X(Twitter) <span id="infCnt-x" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-              <button id="infTab-tiktok" onclick="switchInfTab('tiktok',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">TikTok <span id="infCnt-tiktok" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-              <button id="infTab-youtube" onclick="switchInfTab('youtube',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">YouTube <span id="infCnt-youtube" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>SNS 채널</label>
+                <select id="infChannelFilter" class="admin-filter" onchange="switchInfTabFromSelect(this.value)">
+                  <option value="all">전체</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="x">X(Twitter)</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>인증</label>
+                <select id="infFilterVerifiedSelect" class="admin-filter" onchange="rerenderInfluencersFromCache()">
+                  <option value="all">전체</option>
+                  <option value="verified">인증됨</option>
+                  <option value="unverified">미인증</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>위반</label>
+                <select id="infFilterViolationSelect" class="admin-filter" onchange="rerenderInfluencersFromCache()">
+                  <option value="all">전체</option>
+                  <option value="clean">위반 없음</option>
+                  <option value="has">위반 있음</option>
+                  <option value="blacklist">블랙리스트</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" id="btnInfFilterReset" onclick="resetInfluencerFilters()" style="display:none">초기화</button>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="infSearch" class="admin-filter-search" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="rerenderInfluencersFromCache()">
+                </div>
+              </div>
             </div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
-              <span class="admin-card-title" id="infTableTitle">인플루언서 목록</span>
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="infTableTitle">인플루언서 목록</span><span id="infTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="btn btn-ghost btn-xs" id="btnInfSortReset" onclick="resetInfSort()" style="display:none">정렬 초기화</button>
-                <span id="infTotalCount" style="font-size:12px;color:var(--muted)">0名登録</span>
               </div>
             </div>
             <div class="admin-table-wrap">
@@ -686,47 +719,52 @@
           </div>
         </div>
 
-        <!-- INFLUENCER DETAIL PANE -->
-        <div id="adminPane-influencer-detail" class="admin-pane">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('influencers',null)">← 목록으로</button>
-            <div style="font-size:16px;font-weight:700" id="infDetailTitle">인플루언서 상세</div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <!-- 좌측: 기본정보 + SNS -->
-            <div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">기본 정보</span></div>
-                <div style="padding:16px" id="infDetailBasic"></div>
+        <!-- INFLUENCER DETAIL MODAL (목록에서 모달로 오픈) -->
+        <div class="modal-overlay" id="influencerFullDetailModal" style="z-index:500">
+          <div class="modal" style="max-width:960px;border-radius:20px;margin:auto;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
+            <div class="modal-header">
+              <div class="modal-title" id="infDetailTitle">인플루언서 상세</div>
+              <div class="modal-close" onclick="closeModal('influencerFullDetailModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;min-height:0">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">기본 정보</span></div>
+                    <div style="padding:16px" id="infDetailBasic"></div>
+                  </div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">SNS 계정</span></div>
+                    <div style="padding:16px" id="infDetailSns"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">연락처</span></div>
+                    <div style="padding:16px" id="infDetailContact"></div>
+                  </div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">배송지</span></div>
+                    <div style="padding:16px" id="infDetailAddress"></div>
+                  </div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">PayPal</span></div>
+                    <div style="padding:16px" id="infDetailPaypal"></div>
+                  </div>
+                </div>
               </div>
               <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">SNS 계정</span></div>
-                <div style="padding:16px" id="infDetailSns"></div>
+                <div class="admin-card-header"><span class="admin-card-title">상태 관리</span><span id="infDetailStatusSummary" style="font-size:12px;color:var(--muted)"></span></div>
+                <div style="padding:16px" id="infDetailStatusBody"></div>
+              </div>
+              <div class="admin-card">
+                <div class="admin-card-header"><span class="admin-card-title">신청 이력</span><span id="infDetailAppCount" style="font-size:12px;color:var(--muted)"></span></div>
+                <table class="data-table">
+                  <thead><tr><th>캠페인</th><th>타입</th><th>신청일</th><th>상태</th></tr></thead>
+                  <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
+                </table>
               </div>
             </div>
-            <!-- 우측: 연락처 + 배송지 + PayPal -->
-            <div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">연락처</span></div>
-                <div style="padding:16px" id="infDetailContact"></div>
-              </div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">배송지</span></div>
-                <div style="padding:16px" id="infDetailAddress"></div>
-              </div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">PayPal</span></div>
-                <div style="padding:16px" id="infDetailPaypal"></div>
-              </div>
-            </div>
-          </div>
-          <!-- 신청 이력 -->
-          <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">신청 이력</span><span id="infDetailAppCount" style="font-size:12px;color:var(--muted)"></span></div>
-            <table class="data-table">
-              <thead><tr><th>캠페인</th><th>타입</th><th>신청일</th><th>상태</th></tr></thead>
-              <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
-            </table>
           </div>
         </div>
 
@@ -747,6 +785,13 @@
                   <option value="approved">승인</option>
                   <option value="rejected">미승인</option>
                 </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="campAppSearch" class="admin-filter-search" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="loadCampApplicants()">
+                </div>
               </div>
             </div>
           </div>
@@ -1361,6 +1406,25 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- 위반 기록 편집 모달 -->
+<div class="modal-overlay" id="influencerFlagEditModal" style="z-index:550">
+  <div class="modal" style="max-width:480px;border-radius:16px;margin:auto;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title">위반 기록 수정</div>
+      <div class="modal-close" onclick="closeModal('influencerFlagEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
+    <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;min-height:0">
+      <div id="flagEditBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 이미지 확대 라이트박스 -->
+<div class="modal-overlay" id="imageLightbox" style="z-index:900;background:rgba(0,0,0,.88)" onclick="closeModal('imageLightbox')">
+  <img id="imageLightboxImg" alt="증빙 이미지" style="max-width:92vw;max-height:92vh;object-fit:contain;margin:auto;display:block">
+  <button onclick="event.stopPropagation();closeModal('imageLightbox')" style="position:fixed;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center" aria-label="닫기"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span></button>
 </div>
 
 <!-- 알럿 모달 (범용) -->
