@@ -420,6 +420,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-stat-v{font-size:18px;font-weight:800}
 .apply-stat-l{font-size:11px;color:var(--on-surface-variant);margin-top:2px}
 .apply-already{background:var(--green-l);border:1px solid rgba(14,126,74,.2);border-radius:var(--r12);padding:12px;text-align:center;font-size:13px;color:var(--green);font-weight:600}
+
+/* 신청 모달 주의사항 박스 (caution_lookup_codes / caution_custom_html) */
+.caution-box{background:#fff5f5;border:1px solid rgba(179,38,30,.25);border-left:4px solid var(--red);border-radius:var(--r12);padding:14px 16px}
+.caution-box ul{margin:8px 0 0 18px;padding:0}
+.caution-box li{font-size:13px;color:var(--on-surface);line-height:1.7}
+.caution-box .caution-custom{margin-top:10px;font-size:13px;line-height:1.7;color:var(--on-surface)}
+.caution-box .caution-custom a{color:var(--pink);text-decoration:underline}
 /* ══════════════════════════════════
    AUTH — 로그인, 회원가입 (Material Design 3)
 ══════════════════════════════════ */
@@ -1320,6 +1327,8 @@ textarea.form-input{resize:vertical;min-height:80px}
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
+      <!-- 주의사항 영역 (caution_lookup_codes / caution_custom_html이 있을 때만 동적 표시) -->
+      <div id="applyCautionBox" class="caution-box" style="display:none;margin-bottom:16px"></div>
       <div class="form-group">
         <label class="form-label">応募理由（ひとこと） *</label>
         <input type="text" id="applyMessage" class="form-input" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
@@ -1333,6 +1342,13 @@ textarea.form-input{resize:vertical;min-height:80px}
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
           <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
           <span>投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
+        </label>
+      </div>
+      <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
+      <div id="applyCautionAgreeRow" class="form-group" style="display:none;margin-top:12px;margin-bottom:0">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--red);font-weight:600">
+          <input type="checkbox" id="applyCautionCheck" style="margin-top:2px;flex-shrink:0">
+          <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>
       <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()">今すぐ応募する →</button>
@@ -1765,6 +1781,7 @@ window.I18N_JA = {
     emptyBtn: 'キャンペーンを見る',
     applyDate: '応募日',
     allChannels: '全チャンネル',
+    cautionAgreed: '注意事項同意',
   },
 
   // 햄버거 메뉴
@@ -1884,6 +1901,8 @@ window.I18N_JA = {
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
     needPrAgree: '#PRタグの表記に同意が必要です',
+    cautionAgreeLabel: '全ての注意事項を確認しました',
+    cautionRequired: '注意事項への同意が必要です',
     alreadyApplied: 'すでに応募済みのキャンペーンです',
     slotsFull: '募集人数に達したため、応募できません',
     sessionExpired: 'セッションの有効期限が切れました。再ログインしてください',
@@ -2178,6 +2197,7 @@ window.I18N_KO = {
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
     allChannels: '전체 채널',
+    cautionAgreed: '주의사항 동의',
   },
 
   menu: {
@@ -2290,6 +2310,8 @@ window.I18N_KO = {
     needReason: '응모 사유를 입력해주세요',
     needAddress: '배송지 주소를 입력해주세요',
     needPrAgree: '#PR 태그 표기에 동의가 필요합니다',
+    cautionAgreeLabel: '모든 주의사항을 확인했습니다',
+    cautionRequired: '주의사항 동의가 필요합니다',
     alreadyApplied: '이미 응모한 캠페인입니다',
     slotsFull: '모집인원에 도달하여 응모할 수 없습니다',
     sessionExpired: '세션이 만료되었습니다. 다시 로그인해주세요',
@@ -5334,7 +5356,76 @@ function openApplyModal(campaignId) {
   $('applyMessage').value = '';
   $('applyAddress').value = currentUserProfile?.address || '';
   $('applyPrCheck').checked = false;
+  // 주의사항 영역 초기화 + 즉시 동의 행 표시(race 방지) + 비동기로 라벨 채움
+  resetCautionUI();
+  if (camp && hasCaution(camp)) {
+    showCautionUIShell();
+    renderApplyCaution(camp).catch(()=>{});
+  }
   $('applyModal').classList.add('open');
+}
+
+function hasCaution(camp) {
+  const codes = Array.isArray(camp.caution_lookup_codes) ? camp.caution_lookup_codes : [];
+  const customHtml = (camp.caution_custom_html || '').trim();
+  return codes.length > 0 || customHtml.length > 0;
+}
+
+function resetCautionUI() {
+  const box = $('applyCautionBox');
+  const row = $('applyCautionAgreeRow');
+  const cb = $('applyCautionCheck');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  if (row) row.style.display = 'none';
+  if (cb) cb.checked = false;
+}
+
+// 라벨 fetch 완료 전이라도 동의 행을 즉시 표시해 사용자가 모달을 빠르게 제출해도 검증이 동작하도록 함
+function showCautionUIShell() {
+  const box = $('applyCautionBox');
+  const row = $('applyCautionAgreeRow');
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const titleText = lang === 'ko' ? '주의사항(필독)' : '注意事項(必読)';
+  const loadingText = lang === 'ko' ? '불러오는 중…' : '読み込み中…';
+  if (box) {
+    box.innerHTML = `<div style="font-weight:700;color:var(--red);font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">warning</span>${esc(titleText)}</div><div style="margin-top:8px;font-size:12px;color:var(--muted)">${esc(loadingText)}</div>`;
+    box.style.display = 'block';
+  }
+  if (row) row.style.display = 'block';
+}
+
+// 신청 모달의 주의사항 빨간 박스 + 동의 체크 행 렌더
+async function renderApplyCaution(camp) {
+  const codes = Array.isArray(camp.caution_lookup_codes) ? camp.caution_lookup_codes : [];
+  const customHtml = camp.caution_custom_html || '';
+  if (!codes.length && !customHtml.trim()) return; // 주의사항 없음 → 박스 숨김 유지
+  let lookupItems = [];
+  if (codes.length) {
+    try {
+      const all = (typeof fetchLookups === 'function') ? await fetchLookups('caution') : [];
+      const byCode = Object.fromEntries((all||[]).map(r => [r.code, r]));
+      lookupItems = codes.map(c => byCode[c]).filter(Boolean);
+    } catch(e) { /* lookup 조회 실패해도 customHtml만이라도 노출 */ }
+  }
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const titleText = lang === 'ko' ? '주의사항(필독)' : '注意事項(必読)';
+  const labelOf = it => lang === 'ko' ? (it.name_ko || it.name_ja) : (it.name_ja || it.name_ko);
+  const safeCustom = (typeof richHtml === 'function')
+    ? richHtml(customHtml)
+    : esc(String(customHtml || '')).replace(/\n/g, '<br>');
+  const listHtml = lookupItems.length
+    ? `<ul style="margin:8px 0 0 18px;padding:0;line-height:1.8;font-size:13px">${lookupItems.map(it => `<li>${esc(labelOf(it))}</li>`).join('')}</ul>`
+    : '';
+  const customSec = customHtml.trim()
+    ? `<div class="caution-custom" style="margin-top:10px;font-size:13px;line-height:1.7">${safeCustom}</div>`
+    : '';
+  const box = $('applyCautionBox');
+  if (box) {
+    box.innerHTML = `<div style="font-weight:700;color:var(--red);font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">warning</span>${esc(titleText)}</div>${listHtml}${customSec}`;
+    box.style.display = 'block';
+  }
+  const row = $('applyCautionAgreeRow');
+  if (row) row.style.display = 'block';
 }
 
 async function submitApplication() {
@@ -5345,6 +5436,12 @@ async function submitApplication() {
   if (!msg) { toast(t('apply.needReason'),'error'); return; }
   if (!addr) { toast(t('apply.needAddress'),'error'); return; }
   if (!prCheck) { toast(t('apply.needPrAgree'),'error'); return; }
+  // 주의사항 동의 검증 (캠페인에 caution이 있을 때만 — UI에서 행이 표시 중인지로 판단)
+  const cautionRow = $('applyCautionAgreeRow');
+  const cautionShown = cautionRow && cautionRow.style.display !== 'none';
+  if (cautionShown && !$('applyCautionCheck')?.checked) {
+    toast(t('apply.cautionRequired'),'error'); return;
+  }
 
   const app = {
     id: 'app-'+Date.now(),
@@ -5376,13 +5473,42 @@ async function submitApplication() {
     }
   }
 
+  // 주의사항 동의 시 스냅샷 빌드 (lookup 라벨 + custom html + 사용자 언어)
+  let cautionAgreedAt = null, cautionSnapshot = null;
+  if (cautionShown) {
+    cautionAgreedAt = new Date().toISOString();
+    const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
+    const codes = Array.isArray(camp.caution_lookup_codes) ? camp.caution_lookup_codes : [];
+    let lookupLabels = [];
+    if (codes.length) {
+      try {
+        const all = (typeof fetchLookups === 'function') ? await fetchLookups('caution') : [];
+        const byCode = Object.fromEntries((all||[]).map(r => [r.code, r]));
+        lookupLabels = codes.map(c => byCode[c]).filter(Boolean).map(it => ({
+          code: it.code, name_ko: it.name_ko || '', name_ja: it.name_ja || ''
+        }));
+      } catch(e) { /* lookup 실패 시 코드만 보존 */ }
+    }
+    cautionSnapshot = {
+      version: 1,
+      campaign_id: currentCampaignId,
+      agreed_lang: (typeof getLang === 'function') ? getLang() : 'ja',
+      lookup_codes: codes,
+      lookup_labels: lookupLabels,
+      custom_html: camp.caution_custom_html || null,
+      snapshot_at: cautionAgreedAt
+    };
+  }
+
   try {
     await insertApplication({
       user_id: currentUser.id, user_email: currentUser.email,
       user_name: currentUserProfile?.name || currentUser.email,
       user_followers: currentUserProfile?.followers || 0,
       user_ig: currentUserProfile?.ig || '',
-      campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
+      campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending',
+      caution_agreed_at: cautionAgreedAt,
+      caution_snapshot: cautionSnapshot
     });
     // DB 트리거(058)가 applied_count를 자동 동기화하므로 수동 UPDATE 불필요.
     // 로컬 객체만 낙관적 증가 → 다음 fetchCampaigns 시 DB 실제값으로 덮어씌워짐.
@@ -6252,12 +6378,16 @@ async function renderMyApplyList() {
       const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
       if (ds[0]?.status === 'rejected') delivBadge = `<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">${t('delivStatus.rejected')}</span>`;
     }
+    const cautionLine = a.caution_agreed_at
+      ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}</div>`
+      : '';
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
         <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
+        ${cautionLine}
       </div>
       <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
     </div>`;

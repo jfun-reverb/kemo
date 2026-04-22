@@ -289,7 +289,76 @@ function openApplyModal(campaignId) {
   $('applyMessage').value = '';
   $('applyAddress').value = currentUserProfile?.address || '';
   $('applyPrCheck').checked = false;
+  // 주의사항 영역 초기화 + 즉시 동의 행 표시(race 방지) + 비동기로 라벨 채움
+  resetCautionUI();
+  if (camp && hasCaution(camp)) {
+    showCautionUIShell();
+    renderApplyCaution(camp).catch(()=>{});
+  }
   $('applyModal').classList.add('open');
+}
+
+function hasCaution(camp) {
+  const codes = Array.isArray(camp.caution_lookup_codes) ? camp.caution_lookup_codes : [];
+  const customHtml = (camp.caution_custom_html || '').trim();
+  return codes.length > 0 || customHtml.length > 0;
+}
+
+function resetCautionUI() {
+  const box = $('applyCautionBox');
+  const row = $('applyCautionAgreeRow');
+  const cb = $('applyCautionCheck');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  if (row) row.style.display = 'none';
+  if (cb) cb.checked = false;
+}
+
+// 라벨 fetch 완료 전이라도 동의 행을 즉시 표시해 사용자가 모달을 빠르게 제출해도 검증이 동작하도록 함
+function showCautionUIShell() {
+  const box = $('applyCautionBox');
+  const row = $('applyCautionAgreeRow');
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const titleText = lang === 'ko' ? '주의사항(필독)' : '注意事項(必読)';
+  const loadingText = lang === 'ko' ? '불러오는 중…' : '読み込み中…';
+  if (box) {
+    box.innerHTML = `<div style="font-weight:700;color:var(--red);font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">warning</span>${esc(titleText)}</div><div style="margin-top:8px;font-size:12px;color:var(--muted)">${esc(loadingText)}</div>`;
+    box.style.display = 'block';
+  }
+  if (row) row.style.display = 'block';
+}
+
+// 신청 모달의 주의사항 빨간 박스 + 동의 체크 행 렌더
+async function renderApplyCaution(camp) {
+  const codes = Array.isArray(camp.caution_lookup_codes) ? camp.caution_lookup_codes : [];
+  const customHtml = camp.caution_custom_html || '';
+  if (!codes.length && !customHtml.trim()) return; // 주의사항 없음 → 박스 숨김 유지
+  let lookupItems = [];
+  if (codes.length) {
+    try {
+      const all = (typeof fetchLookups === 'function') ? await fetchLookups('caution') : [];
+      const byCode = Object.fromEntries((all||[]).map(r => [r.code, r]));
+      lookupItems = codes.map(c => byCode[c]).filter(Boolean);
+    } catch(e) { /* lookup 조회 실패해도 customHtml만이라도 노출 */ }
+  }
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const titleText = lang === 'ko' ? '주의사항(필독)' : '注意事項(必読)';
+  const labelOf = it => lang === 'ko' ? (it.name_ko || it.name_ja) : (it.name_ja || it.name_ko);
+  const safeCustom = (typeof richHtml === 'function')
+    ? richHtml(customHtml)
+    : esc(String(customHtml || '')).replace(/\n/g, '<br>');
+  const listHtml = lookupItems.length
+    ? `<ul style="margin:8px 0 0 18px;padding:0;line-height:1.8;font-size:13px">${lookupItems.map(it => `<li>${esc(labelOf(it))}</li>`).join('')}</ul>`
+    : '';
+  const customSec = customHtml.trim()
+    ? `<div class="caution-custom" style="margin-top:10px;font-size:13px;line-height:1.7">${safeCustom}</div>`
+    : '';
+  const box = $('applyCautionBox');
+  if (box) {
+    box.innerHTML = `<div style="font-weight:700;color:var(--red);font-size:13px;display:flex;align-items:center;gap:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">warning</span>${esc(titleText)}</div>${listHtml}${customSec}`;
+    box.style.display = 'block';
+  }
+  const row = $('applyCautionAgreeRow');
+  if (row) row.style.display = 'block';
 }
 
 async function submitApplication() {
@@ -300,6 +369,12 @@ async function submitApplication() {
   if (!msg) { toast(t('apply.needReason'),'error'); return; }
   if (!addr) { toast(t('apply.needAddress'),'error'); return; }
   if (!prCheck) { toast(t('apply.needPrAgree'),'error'); return; }
+  // 주의사항 동의 검증 (캠페인에 caution이 있을 때만 — UI에서 행이 표시 중인지로 판단)
+  const cautionRow = $('applyCautionAgreeRow');
+  const cautionShown = cautionRow && cautionRow.style.display !== 'none';
+  if (cautionShown && !$('applyCautionCheck')?.checked) {
+    toast(t('apply.cautionRequired'),'error'); return;
+  }
 
   const app = {
     id: 'app-'+Date.now(),
@@ -331,13 +406,42 @@ async function submitApplication() {
     }
   }
 
+  // 주의사항 동의 시 스냅샷 빌드 (lookup 라벨 + custom html + 사용자 언어)
+  let cautionAgreedAt = null, cautionSnapshot = null;
+  if (cautionShown) {
+    cautionAgreedAt = new Date().toISOString();
+    const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
+    const codes = Array.isArray(camp.caution_lookup_codes) ? camp.caution_lookup_codes : [];
+    let lookupLabels = [];
+    if (codes.length) {
+      try {
+        const all = (typeof fetchLookups === 'function') ? await fetchLookups('caution') : [];
+        const byCode = Object.fromEntries((all||[]).map(r => [r.code, r]));
+        lookupLabels = codes.map(c => byCode[c]).filter(Boolean).map(it => ({
+          code: it.code, name_ko: it.name_ko || '', name_ja: it.name_ja || ''
+        }));
+      } catch(e) { /* lookup 실패 시 코드만 보존 */ }
+    }
+    cautionSnapshot = {
+      version: 1,
+      campaign_id: currentCampaignId,
+      agreed_lang: (typeof getLang === 'function') ? getLang() : 'ja',
+      lookup_codes: codes,
+      lookup_labels: lookupLabels,
+      custom_html: camp.caution_custom_html || null,
+      snapshot_at: cautionAgreedAt
+    };
+  }
+
   try {
     await insertApplication({
       user_id: currentUser.id, user_email: currentUser.email,
       user_name: currentUserProfile?.name || currentUser.email,
       user_followers: currentUserProfile?.followers || 0,
       user_ig: currentUserProfile?.ig || '',
-      campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending'
+      campaign_id: currentCampaignId, message: msg, address: addr, status: 'pending',
+      caution_agreed_at: cautionAgreedAt,
+      caution_snapshot: cautionSnapshot
     });
     // DB 트리거(058)가 applied_count를 자동 동기화하므로 수동 UPDATE 불필요.
     // 로컬 객체만 낙관적 증가 → 다음 fetchCampaigns 시 DB 실제값으로 덮어씌워짐.

@@ -168,6 +168,7 @@ window.I18N_JA = {
     emptyBtn: 'キャンペーンを見る',
     applyDate: '応募日',
     allChannels: '全チャンネル',
+    cautionAgreed: '注意事項同意',
   },
 
   // 햄버거 메뉴
@@ -287,6 +288,8 @@ window.I18N_JA = {
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
     needPrAgree: '#PRタグの表記に同意が必要です',
+    cautionAgreeLabel: '全ての注意事項を確認しました',
+    cautionRequired: '注意事項への同意が必要です',
     alreadyApplied: 'すでに応募済みのキャンペーンです',
     slotsFull: '募集人数に達したため、応募できません',
     sessionExpired: 'セッションの有効期限が切れました。再ログインしてください',
