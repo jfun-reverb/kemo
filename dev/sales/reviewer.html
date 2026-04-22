@@ -1618,7 +1618,6 @@ async function submitApplication() {
 
     // DB INSERT — SECURITY DEFINER RPC 경유 (anon RLS 42501 우회)
     //   함수가 application_no 만 반환. estimated_krw 는 서버 트리거 재계산 사용.
-    //   p_business_license_path 는 057 마이그레이션에서 파라미터만 남기고 무시하도록 수정됨.
     const { data: applicationNo, error } = await sb.rpc('submit_brand_application', {
       p_form_type: 'reviewer',
       p_brand_name: brandName,
@@ -1626,8 +1625,7 @@ async function submitApplication() {
       p_phone: phone,
       p_email: email,
       p_products: products,
-      p_billing_email: billingEmail,
-      p_business_license_path: null
+      p_billing_email: billingEmail
     });
 
     if (error) throw error;
