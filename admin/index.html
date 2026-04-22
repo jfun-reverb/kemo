@@ -1162,14 +1162,48 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- INFLUENCERS PANE -->
         <div id="adminPane-influencers" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <div style="margin-bottom:12px;font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
-            <!-- 채널별 탭 -->
-            <div style="display:flex;gap:0;border-bottom:2px solid var(--line)">
-              <button id="infTab-all" onclick="switchInfTab('all',this)" style="padding:8px 18px;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink);margin-bottom:-2px">전체</button>
-              <button id="infTab-instagram" onclick="switchInfTab('instagram',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">Instagram <span id="infCnt-instagram" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-              <button id="infTab-x" onclick="switchInfTab('x',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">X(Twitter) <span id="infCnt-x" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-              <button id="infTab-tiktok" onclick="switchInfTab('tiktok',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">TikTok <span id="infCnt-tiktok" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
-              <button id="infTab-youtube" onclick="switchInfTab('youtube',this)" style="padding:8px 18px;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px">YouTube <span id="infCnt-youtube" style="font-size:11px;background:var(--light-pink);color:var(--pink);border-radius:20px;padding:1px 7px;margin-left:4px">0</span></button>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">인플루언서 목록</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>SNS 채널</label>
+                <select id="infChannelFilter" class="admin-filter" onchange="switchInfTabFromSelect(this.value)">
+                  <option value="all">전체</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="x">X(Twitter)</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>인증</label>
+                <select id="infFilterVerifiedSelect" class="admin-filter" onchange="rerenderInfluencersFromCache()">
+                  <option value="all">전체</option>
+                  <option value="verified">인증됨</option>
+                  <option value="unverified">미인증</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>위반</label>
+                <select id="infFilterViolationSelect" class="admin-filter" onchange="rerenderInfluencersFromCache()">
+                  <option value="all">전체</option>
+                  <option value="clean">위반 없음</option>
+                  <option value="has">위반 있음</option>
+                  <option value="blacklist">블랙리스트</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" id="btnInfFilterReset" onclick="resetInfluencerFilters()" style="display:none">초기화</button>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="text" id="infSearch" class="admin-filter-search" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="rerenderInfluencersFromCache()">
+                </div>
+              </div>
             </div>
           </div>
           <div class="admin-card">
@@ -1190,47 +1224,56 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
         </div>
 
-        <!-- INFLUENCER DETAIL PANE -->
-        <div id="adminPane-influencer-detail" class="admin-pane">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-            <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('influencers',null)">← 목록으로</button>
-            <div style="font-size:16px;font-weight:700" id="infDetailTitle">인플루언서 상세</div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <!-- 좌측: 기본정보 + SNS -->
-            <div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">기본 정보</span></div>
-                <div style="padding:16px" id="infDetailBasic"></div>
+        <!-- INFLUENCER DETAIL MODAL (목록에서 모달로 오픈) -->
+        <div class="modal-overlay" id="influencerFullDetailModal" style="z-index:500">
+          <div class="modal" style="max-width:960px;border-radius:20px;margin:auto;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
+            <div class="modal-header">
+              <div class="modal-title" id="infDetailTitle">인플루언서 상세</div>
+              <div class="modal-close" onclick="closeModal('influencerFullDetailModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;min-height:0">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">기본 정보</span></div>
+                    <div style="padding:16px" id="infDetailBasic"></div>
+                  </div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">SNS 계정</span></div>
+                    <div style="padding:16px" id="infDetailSns"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">연락처</span></div>
+                    <div style="padding:16px" id="infDetailContact"></div>
+                  </div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">배송지</span></div>
+                    <div style="padding:16px" id="infDetailAddress"></div>
+                  </div>
+                  <div class="admin-card" style="margin-bottom:16px">
+                    <div class="admin-card-header"><span class="admin-card-title">PayPal</span></div>
+                    <div style="padding:16px" id="infDetailPaypal"></div>
+                  </div>
+                </div>
               </div>
               <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">SNS 계정</span></div>
-                <div style="padding:16px" id="infDetailSns"></div>
+                <div class="admin-card-header"><span class="admin-card-title">상태 관리</span><span id="infDetailStatusSummary" style="font-size:12px;color:var(--muted)"></span></div>
+                <div style="padding:16px" id="infDetailStatusBody"></div>
+              </div>
+              <div class="admin-card" style="margin-bottom:16px">
+                <div class="admin-card-header"><span class="admin-card-title">관리자 이력</span><span id="infDetailFlagsCount" style="font-size:12px;color:var(--muted)"></span></div>
+                <div style="padding:0" id="infDetailFlagsBody"><div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">이력 없음</div></div>
+              </div>
+              <div class="admin-card">
+                <div class="admin-card-header"><span class="admin-card-title">신청 이력</span><span id="infDetailAppCount" style="font-size:12px;color:var(--muted)"></span></div>
+                <table class="data-table">
+                  <thead><tr><th>캠페인</th><th>타입</th><th>신청일</th><th>상태</th></tr></thead>
+                  <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
+                </table>
               </div>
             </div>
-            <!-- 우측: 연락처 + 배송지 + PayPal -->
-            <div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">연락처</span></div>
-                <div style="padding:16px" id="infDetailContact"></div>
-              </div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">배송지</span></div>
-                <div style="padding:16px" id="infDetailAddress"></div>
-              </div>
-              <div class="admin-card" style="margin-bottom:16px">
-                <div class="admin-card-header"><span class="admin-card-title">PayPal</span></div>
-                <div style="padding:16px" id="infDetailPaypal"></div>
-              </div>
-            </div>
-          </div>
-          <!-- 신청 이력 -->
-          <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">신청 이력</span><span id="infDetailAppCount" style="font-size:12px;color:var(--muted)"></span></div>
-            <table class="data-table">
-              <thead><tr><th>캠페인</th><th>타입</th><th>신청일</th><th>상태</th></tr></thead>
-              <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
-            </table>
           </div>
         </div>
 
@@ -1865,6 +1908,19 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- 위반 기록 편집 모달 -->
+<div class="modal-overlay" id="influencerFlagEditModal" style="z-index:550">
+  <div class="modal" style="max-width:480px;border-radius:16px;margin:auto;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title">위반 기록 수정</div>
+      <div class="modal-close" onclick="closeModal('influencerFlagEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
+    <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;min-height:0">
+      <div id="flagEditBody"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 알럿 모달 (범용) -->
 <div class="modal-overlay" id="alertModal" style="z-index:600">
   <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
@@ -2395,6 +2451,101 @@ function computePrefectureStats(users, limit) {
     .slice(0, maxTop)
     .map(([name, count]) => ({ name, count }));
   return { top, unregistered, overseas, total: rows.length };
+}
+
+// ── 인플루언서 인증/블랙리스트 (관리자 전용, migration 059) ──
+async function setInfluencerVerified(targetId, verify, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('set_influencer_verified', {
+      p_target_id: targetId, p_verify: !!verify, p_note: note || null,
+    });
+    if (error) throw error;
+  });
+}
+
+async function setInfluencerBlacklist(targetId, blacklist, reasonCode = null, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('set_influencer_blacklist', {
+      p_target_id: targetId, p_blacklist: !!blacklist,
+      p_reason_code: reasonCode || null, p_note: note || null,
+    });
+    if (error) throw error;
+  });
+}
+
+async function fetchInfluencerFlags(influencerId) {
+  if (!db || !influencerId) return [];
+  try {
+    const {data, error} = await db.from('influencer_flags')
+      .select('*').eq('influencer_id', influencerId).order('set_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+async function fetchBlacklistReasons() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('lookup_values')
+      .select('code, name_ko, name_ja').eq('kind', 'blacklist_reason')
+      .eq('active', true).order('sort_order');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// ── 인플루언서 위반 기록 (관리자 전용, migration 060) ──
+async function recordInfluencerViolation(targetId, reasonCode, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('record_influencer_violation', {
+      p_target_id: targetId,
+      p_reason_code: reasonCode,
+      p_note: note || null,
+    });
+    if (error) throw error;
+  });
+}
+
+// ── 위반 이력 수정 (관리자 전용, migration 061) ──
+// violation 행의 reason_code / note 사후 수정.
+// verify/blacklist 등 비-violation 행에 호출하면 DB에서 EXCEPTION 발생.
+async function updateInfluencerViolation(flagId, reasonCode, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('update_influencer_violation', {
+      p_flag_id: flagId,
+      p_reason_code: reasonCode,
+      p_note: note ?? null,
+    });
+    if (error) throw error;
+  });
+}
+
+// 모든 인플루언서의 위반 건수 집계 — { [influencer_id]: count }
+async function fetchViolationCountsByInfluencer() {
+  if (!db) return {};
+  try {
+    const data = await fetchAllPaged(() =>
+      db.from('influencer_flags').select('influencer_id').eq('action', 'violation')
+    );
+    const counts = {};
+    data.forEach(r => { counts[r.influencer_id] = (counts[r.influencer_id] || 0) + 1; });
+    return counts;
+  } catch(e) { return {}; }
+}
+
+async function fetchViolationReasons() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('lookup_values')
+      .select('code, name_ko, name_ja').eq('kind', 'violation_reason')
+      .eq('active', true).order('sort_order');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
 }
 
 async function upsertInfluencer(profile) {
@@ -4025,7 +4176,7 @@ function switchAdminPane(pane, el, pushHistory) {
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
     const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns','influencer-detail':'influencers'}[pane] || pane;
+      'camp-applicants':'campaigns'}[pane] || pane;
     el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
@@ -5537,9 +5688,15 @@ function isApplicationComplete(delivs, selectedChannels, channelMatch, isPostTyp
 let currentInfTab = 'all';
 
 var infUsersCache = null;
+var _infViolationCounts = {};
 
 async function loadAdminInfluencers() {
-  infUsersCache = await fetchInfluencers();
+  const [users, violations] = await Promise.all([
+    fetchInfluencers(),
+    fetchViolationCountsByInfluencer(),
+  ]);
+  infUsersCache = users;
+  _infViolationCounts = violations;
   renderInfluencersPane(infUsersCache);
 }
 
@@ -5549,22 +5706,46 @@ function rerenderInfluencersFromCache() {
 }
 
 function renderInfluencersPane(users) {
-  const cnt = ch => users.filter(u => ch==='instagram'?u.ig_followers>0:ch==='x'?u.x_followers>0:ch==='tiktok'?u.tiktok_followers>0:u.youtube_followers>0).length;
-  ['instagram','x','tiktok','youtube'].forEach(ch => {
-    const el = $('infCnt-'+ch);
-    if (el) el.textContent = cnt(ch);
+  const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
+  const violationSel = $('infFilterViolationSelect')?.value || 'all';
+  const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
+  const matchSearch = (u) => {
+    if (!searchQ) return true;
+    const bag = [
+      u.name_kanji, u.name, u.name_kana, u.email,
+      u.ig, u.x, u.tiktok, u.youtube,
+    ].filter(Boolean).join(' ').toLowerCase();
+    return bag.includes(searchQ);
+  };
+  const filtered = users.filter(u => {
+    if (verifiedSel === 'verified' && !u.is_verified) return false;
+    if (verifiedSel === 'unverified' && u.is_verified) return false;
+    const vc = (_infViolationCounts && _infViolationCounts[u.id]) || 0;
+    if (violationSel === 'clean' && (vc > 0 || u.is_blacklisted)) return false;
+    if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
+    if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
+    if (!matchSearch(u)) return false;
+    return true;
   });
   const totalEl = $('infTotalCount');
-  if (totalEl) totalEl.textContent = `${users.length}명 등록`;
-  renderInfTable(users, currentInfTab);
+  if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${users.length}명)`;
+  const resetBtn = $('btnInfFilterReset');
+  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ);
+  if (resetBtn) resetBtn.style.display = anyActive ? '' : 'none';
+  renderInfTable(filtered, currentInfTab);
 }
 
-function switchInfTab(ch, btn) {
-  currentInfTab = ch;
-  document.querySelectorAll('[id^="infTab-"]').forEach(b => {
-    b.style.color = 'var(--muted)'; b.style.borderBottomColor = 'transparent'; b.style.fontWeight = '600';
-  });
-  btn.style.color = 'var(--pink)'; btn.style.borderBottomColor = 'var(--pink)'; btn.style.fontWeight = '700';
+function resetInfluencerFilters() {
+  const v = $('infFilterVerifiedSelect'); if (v) v.value = 'all';
+  const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
+  const c = $('infChannelFilter'); if (c) c.value = 'all';
+  const s = $('infSearch'); if (s) s.value = '';
+  currentInfTab = 'all';
+  rerenderInfluencersFromCache();
+}
+
+function switchInfTabFromSelect(ch) {
+  currentInfTab = ch || 'all';
   rerenderInfluencersFromCache();
 }
 
@@ -5634,6 +5815,24 @@ function infSortTh(label, key) {
 var infLazy = null;
 const INF_PAGE_SIZE = 80;
 
+// 인증/위반/블랙 상태 배지 (목록용)
+// - 블랙리스트: 블랙 배지만 표시 (위반·인증 숨김)
+// - 외: 인증(있을 때) + 위반 N건 (항상)
+function influencerStatusBadges(u) {
+  if (u.is_blacklisted) {
+    return `<span title="블랙리스트" style="display:inline-flex;align-items:center;gap:2px;background:#FFEBEE;color:#C62828;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">block</span>블랙리스트</span>`;
+  }
+  const parts = [];
+  if (u.is_verified) {
+    parts.push(`<span title="인증됨" style="display:inline-flex;align-items:center;gap:2px;background:#E3F2FD;color:#1565C0;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">verified</span>인증</span>`);
+  }
+  const vc = (_infViolationCounts && _infViolationCounts[u.id]) || 0;
+  if (vc > 0) {
+    parts.push(`<span title="위반 기록 ${vc}건" style="display:inline-flex;align-items:center;gap:2px;background:#F5F5F5;color:#616161;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:11px">report</span>위반 ${vc}</span>`);
+  }
+  return parts.join('');
+}
+
 function buildInfRowAll(u) {
   const igF = (u.ig_followers||0).toLocaleString();
   const xF = (u.x_followers||0).toLocaleString();
@@ -5651,8 +5850,8 @@ function buildInfRowAll(u) {
     return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}">
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+  return `<tr data-id="${esc(u.id)}"${u.is_blacklisted?' style="opacity:.55"':''}>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
     <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
     <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
@@ -5674,8 +5873,8 @@ function buildInfRowChannel(u, ch, idKey, fKey) {
     ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">${idUrl ? `<a href="${idUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${esc(idVal)}</a>` : `@${esc(idVal)}`}</div>`
     : '—';
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}">
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+  return `<tr data-id="${esc(u.id)}"${u.is_blacklisted?' style="opacity:.55"':''}>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${idCell}</td>
     <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
     <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
@@ -5785,6 +5984,11 @@ async function openInfluencerDetail(userId) {
     ? row('PayPal 이메일', u.paypal_email)
     : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">PayPal 미등록</div>';
 
+  // 상태 관리 (인증 / 블랙리스트)
+  renderInfluencerStatusPanel(u);
+  // 관리자 이력
+  renderInfluencerFlagsPanel(u.id);
+
   // 신청 이력
   const apps = await fetchApplications({user_id: userId});
   const camps = await fetchCampaigns();
@@ -5800,7 +6004,251 @@ async function openInfluencerDetail(userId) {
     </tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
-  switchAdminPane('influencer-detail', null);
+  openModal('influencerFullDetailModal');
+}
+
+// 상태 관리 패널 — 인증 토글 + 블랙리스트 등록/해제 + 사유 입력
+var _currentDetailInfluencer = null;
+var _blacklistReasonsCache = null;
+var _violationReasonsCache = null;
+
+async function renderInfluencerStatusPanel(u) {
+  _currentDetailInfluencer = u;
+  const body = $('infDetailStatusBody');
+  const summary = $('infDetailStatusSummary');
+  if (!body) return;
+  if (_blacklistReasonsCache == null) _blacklistReasonsCache = await fetchBlacklistReasons();
+  if (_violationReasonsCache == null) _violationReasonsCache = await fetchViolationReasons();
+  if (summary) summary.textContent = (u.is_verified?'인증됨':'미인증') + ' · ' + (u.is_blacklisted?'블랙 등록':'정상');
+  // 위반/블랙 공유 사유 풀 — blacklist_reason + violation_reason 합집합 (code 기준 중복 제거)
+  const reasonChecks = mergedReasonList().map(r => `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:4px;cursor:pointer"><input type="checkbox" class="bl-reason-cb" value="${esc(r.code)}">${esc(r.name_ko)}</label>`).join('');
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- 인증 -->
+      <div style="padding:12px;border:1px solid var(--line);border-radius:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px">인증</div>
+        ${u.is_verified ? `
+          <div style="display:flex;align-items:center;gap:6px;color:#1565C0;font-weight:700;font-size:13px;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">verified</span>인증됨</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${u.verified_at?formatDateTime(u.verified_at):''}</div>
+          <button class="btn btn-ghost btn-xs" onclick="onInfluencerUnverify()">인증 해제</button>
+        ` : `
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px">미인증 상태</div>
+          <button class="btn btn-primary btn-xs" onclick="onInfluencerVerify()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">verified</span> 인증 처리</button>
+        `}
+      </div>
+      <!-- 위반 관리 -->
+      <div style="padding:12px;border:1px solid var(--line);border-radius:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px">위반 관리</div>
+        ${u.is_blacklisted ? `
+          <div style="padding:8px 10px;background:#FFEBEE;border-radius:6px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:6px;color:#C62828;font-weight:700;font-size:13px;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">block</span>블랙리스트 등록됨</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${u.blacklisted_at?formatDateTime(u.blacklisted_at):''}</div>
+            ${u.blacklist_reason_code?`<div style="font-size:12px;color:var(--ink);margin-bottom:2px">사유: ${esc(blacklistReasonLabel(u.blacklist_reason_code))}</div>`:''}
+            ${u.blacklist_reason_note?`<div style="font-size:11px;color:var(--muted);margin-bottom:6px;white-space:pre-wrap">${esc(u.blacklist_reason_note)}</div>`:''}
+            <button class="btn btn-ghost btn-xs" onclick="onInfluencerUnblacklist()">블랙 해제</button>
+          </div>
+        ` : ''}
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+          <div style="font-size:11px;color:var(--muted)">사유 (1개 이상 선택)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${reasonChecks}</div>
+          <textarea id="blNoteInput" class="form-input" rows="2" placeholder="자유 메모 (선택)" style="font-size:12px;padding:6px 8px;resize:vertical;margin-top:4px"></textarea>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-xs" style="background:#FB8C00;color:#fff" onclick="onInfluencerRecordViolation()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">report</span> 위반 등록</button>
+          ${!u.is_blacklisted ? `<button class="btn btn-xs" style="background:#C62828;color:#fff" onclick="onInfluencerBlacklist()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">block</span> 블랙리스트 등록</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 사유 코드 단건 조회 — blacklist/violation 양쪽 lookup 에서 검색
+function findReasonByCode(code) {
+  return (_blacklistReasonsCache||[]).find(x => x.code === code)
+      || (_violationReasonsCache||[]).find(x => x.code === code)
+      || null;
+}
+
+// 두 lookup 병합 목록 (code 기준 dedupe) — 체크박스 옵션용
+function mergedReasonList() {
+  const all = [...(_blacklistReasonsCache||[]), ...(_violationReasonsCache||[])];
+  return all.filter((r, i, arr) => arr.findIndex(x => x.code === r.code) === i);
+}
+
+// 콤마 구분 코드 문자열을 한국어 라벨로 변환 (복수 사유 지원)
+function blacklistReasonLabel(codeStr) {
+  if (!codeStr) return '';
+  return codeStr.split(',').map(c => {
+    const code = c.trim();
+    const r = findReasonByCode(code);
+    return r ? r.name_ko : code;
+  }).filter(Boolean).join(', ');
+}
+
+var _currentFlagsCache = [];
+
+async function renderInfluencerFlagsPanel(influencerId) {
+  const body = $('infDetailFlagsBody');
+  const count = $('infDetailFlagsCount');
+  if (!body) return;
+  const flags = await fetchInfluencerFlags(influencerId);
+  _currentFlagsCache = flags;
+  if (count) count.textContent = `${flags.length}건`;
+  if (!flags.length) {
+    body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">이력 없음</div>';
+    return;
+  }
+  // 사유별 누적 건수 집계 (violation + blacklist 통합, 콤마 구분 코드 각각 카운트)
+  const reasonCounts = {};
+  flags.forEach(f => {
+    if (!f.reason_code) return;
+    f.reason_code.split(',').forEach(c => {
+      const code = c.trim();
+      if (!code) return;
+      reasonCounts[code] = (reasonCounts[code] || 0) + 1;
+    });
+  });
+  const pillEntries = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]);
+  const pills = pillEntries.map(([code, n]) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:#F5F5F5;color:#616161;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(blacklistReasonLabel(code))}<strong style="color:#424242;font-weight:700">${n}</strong></span>`
+  ).join('');
+  const summaryHtml = pills
+    ? `<div style="padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center"><strong style="font-size:11px;color:var(--muted);font-weight:600;margin-right:4px">사유 누적</strong>${pills}</div>`
+    : '';
+  const actionLabel = {verify:'인증', unverify:'인증 해제', violation:'위반 기록', blacklist:'블랙 등록', unblacklist:'블랙 해제'};
+  const actionColor = {verify:'#1565C0', unverify:'var(--muted)', violation:'#FB8C00', blacklist:'#C62828', unblacklist:'var(--green)'};
+  body.innerHTML = summaryHtml + '<div style="padding:0">' + flags.map(f => {
+    const editBtn = f.action === 'violation'
+      ? `<button class="btn btn-ghost btn-xs" onclick="openEditViolationById('${esc(f.id)}')" title="수정" style="padding:2px 6px;margin-left:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">edit</span></button>`
+      : '';
+    const updatedLine = f.updated_at
+      ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">수정 ${esc(f.updated_by_name||'—')} · ${formatDateTime(f.updated_at)}</div>`
+      : '';
+    return `
+    <div style="padding:10px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start">
+      <div style="font-size:11px;font-weight:700;color:${actionColor[f.action]||'var(--muted)'};min-width:70px;padding-top:2px">${actionLabel[f.action]||esc(f.action)}</div>
+      <div style="flex:1;min-width:0">
+        ${f.reason_code?`<div style="font-size:12px;color:var(--ink)">${esc(blacklistReasonLabel(f.reason_code))}</div>`:''}
+        ${f.note?`<div style="font-size:11px;color:var(--muted);white-space:pre-wrap">${esc(f.note)}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;color:var(--muted)">${esc(f.set_by_name||'—')}</div>
+        <div style="font-size:10px;color:var(--muted)">${f.set_at?formatDateTime(f.set_at):''}</div>
+        ${updatedLine}
+        ${editBtn}
+      </div>
+    </div>
+    `;
+  }).join('') + '</div>';
+}
+
+async function onInfluencerVerify() {
+  if (!_currentDetailInfluencer) return;
+  try {
+    await setInfluencerVerified(_currentDetailInfluencer.id, true, null);
+    toast('인증 처리되었습니다', 'success');
+    infUsersCache = null;
+    _infViolationCounts = {};
+    await openInfluencerDetail(_currentDetailInfluencer.id);
+  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+}
+
+async function onInfluencerUnverify() {
+  if (!_currentDetailInfluencer) return;
+  if (!confirm('인증을 해제할까요?')) return;
+  try {
+    await setInfluencerVerified(_currentDetailInfluencer.id, false, null);
+    toast('인증이 해제되었습니다');
+    infUsersCache = null;
+    _infViolationCounts = {};
+    await openInfluencerDetail(_currentDetailInfluencer.id);
+  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+}
+
+// 위반 기록 편집 — _currentFlagsCache 에서 id로 찾아 모달 오픈
+var _editingFlagId = null;
+
+function openEditViolationById(flagId) {
+  const flag = (_currentFlagsCache || []).find(f => f.id === flagId);
+  if (!flag) { toast('이력을 찾을 수 없습니다', 'error'); return; }
+  if (flag.action !== 'violation') { toast('위반 기록만 수정 가능합니다', 'error'); return; }
+  _editingFlagId = flagId;
+  const selectedCodes = (flag.reason_code || '').split(',').map(c => c.trim()).filter(Boolean);
+  const reasons = mergedReasonList();
+  const checks = reasons.map(r =>
+    `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:4px;cursor:pointer"><input type="checkbox" class="fe-reason-cb" value="${esc(r.code)}"${selectedCodes.includes(r.code)?' checked':''}>${esc(r.name_ko)}</label>`
+  ).join('');
+  const body = $('flagEditBody');
+  if (body) {
+    body.innerHTML = `
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">사유 (1개 이상 선택)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${checks}</div>
+      <textarea id="feNoteInput" class="form-input" rows="3" placeholder="자유 메모 (선택)" style="width:100%;font-size:12px;padding:8px;resize:vertical">${esc(flag.note||'')}</textarea>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-xs" onclick="closeModal('influencerFlagEditModal')">취소</button>
+        <button class="btn btn-primary btn-xs" onclick="onSaveEditViolation()">저장</button>
+      </div>
+    `;
+  }
+  openModal('influencerFlagEditModal');
+}
+
+async function onSaveEditViolation() {
+  if (!_editingFlagId) return;
+  const modal = $('influencerFlagEditModal');
+  const codes = [...(modal || document).querySelectorAll('.fe-reason-cb:checked')].map(cb => cb.value);
+  const note = $('feNoteInput')?.value || '';
+  if (codes.length === 0) { toast('사유를 1개 이상 선택해주세요', 'error'); return; }
+  try {
+    await updateInfluencerViolation(_editingFlagId, codes.join(','), note || null);
+    toast('수정되었습니다', 'success');
+    closeModal('influencerFlagEditModal');
+    _editingFlagId = null;
+    if (_currentDetailInfluencer) await openInfluencerDetail(_currentDetailInfluencer.id);
+  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+}
+
+async function onInfluencerRecordViolation() {
+  if (!_currentDetailInfluencer) return;
+  const modal = $('influencerFullDetailModal');
+  const codes = [...(modal || document).querySelectorAll('.bl-reason-cb:checked')].map(cb => cb.value);
+  const note = $('blNoteInput')?.value || '';
+  if (codes.length === 0) { toast('위반 사유를 1개 이상 선택해주세요', 'error'); return; }
+  try {
+    await recordInfluencerViolation(_currentDetailInfluencer.id, codes.join(','), note || null);
+    toast('위반 기록이 등록되었습니다', 'success');
+    _infViolationCounts[_currentDetailInfluencer.id] = (_infViolationCounts[_currentDetailInfluencer.id] || 0) + 1;
+    rerenderInfluencersFromCache();
+    await openInfluencerDetail(_currentDetailInfluencer.id);
+  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+}
+
+async function onInfluencerBlacklist() {
+  if (!_currentDetailInfluencer) return;
+  const modal = $('influencerFullDetailModal');
+  const codes = [...(modal || document).querySelectorAll('.bl-reason-cb:checked')].map(cb => cb.value);
+  const note = $('blNoteInput')?.value || '';
+  if (codes.length === 0) { toast('블랙리스트 사유를 1개 이상 선택해주세요', 'error'); return; }
+  if (!confirm('블랙리스트에 등록할까요?')) return;
+  try {
+    await setInfluencerBlacklist(_currentDetailInfluencer.id, true, codes.join(','), note || null);
+    toast('블랙리스트에 등록되었습니다', 'success');
+    infUsersCache = null;
+    _infViolationCounts = {};
+    await openInfluencerDetail(_currentDetailInfluencer.id);
+  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+}
+
+async function onInfluencerUnblacklist() {
+  if (!_currentDetailInfluencer) return;
+  if (!confirm('블랙리스트를 해제할까요?')) return;
+  try {
+    await setInfluencerBlacklist(_currentDetailInfluencer.id, false, null, null);
+    toast('블랙리스트가 해제되었습니다');
+    infUsersCache = null;
+    _infViolationCounts = {};
+    await openInfluencerDetail(_currentDetailInfluencer.id);
+  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
 async function openInfluencerModal(userId) {

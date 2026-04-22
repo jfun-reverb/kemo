@@ -2645,6 +2645,101 @@ function computePrefectureStats(users, limit) {
   return { top, unregistered, overseas, total: rows.length };
 }
 
+// ── 인플루언서 인증/블랙리스트 (관리자 전용, migration 059) ──
+async function setInfluencerVerified(targetId, verify, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('set_influencer_verified', {
+      p_target_id: targetId, p_verify: !!verify, p_note: note || null,
+    });
+    if (error) throw error;
+  });
+}
+
+async function setInfluencerBlacklist(targetId, blacklist, reasonCode = null, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('set_influencer_blacklist', {
+      p_target_id: targetId, p_blacklist: !!blacklist,
+      p_reason_code: reasonCode || null, p_note: note || null,
+    });
+    if (error) throw error;
+  });
+}
+
+async function fetchInfluencerFlags(influencerId) {
+  if (!db || !influencerId) return [];
+  try {
+    const {data, error} = await db.from('influencer_flags')
+      .select('*').eq('influencer_id', influencerId).order('set_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+async function fetchBlacklistReasons() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('lookup_values')
+      .select('code, name_ko, name_ja').eq('kind', 'blacklist_reason')
+      .eq('active', true).order('sort_order');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
+// ── 인플루언서 위반 기록 (관리자 전용, migration 060) ──
+async function recordInfluencerViolation(targetId, reasonCode, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('record_influencer_violation', {
+      p_target_id: targetId,
+      p_reason_code: reasonCode,
+      p_note: note || null,
+    });
+    if (error) throw error;
+  });
+}
+
+// ── 위반 이력 수정 (관리자 전용, migration 061) ──
+// violation 행의 reason_code / note 사후 수정.
+// verify/blacklist 등 비-violation 행에 호출하면 DB에서 EXCEPTION 발생.
+async function updateInfluencerViolation(flagId, reasonCode, note = null) {
+  if (!db) throw new Error('DB 미연결');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('update_influencer_violation', {
+      p_flag_id: flagId,
+      p_reason_code: reasonCode,
+      p_note: note ?? null,
+    });
+    if (error) throw error;
+  });
+}
+
+// 모든 인플루언서의 위반 건수 집계 — { [influencer_id]: count }
+async function fetchViolationCountsByInfluencer() {
+  if (!db) return {};
+  try {
+    const data = await fetchAllPaged(() =>
+      db.from('influencer_flags').select('influencer_id').eq('action', 'violation')
+    );
+    const counts = {};
+    data.forEach(r => { counts[r.influencer_id] = (counts[r.influencer_id] || 0) + 1; });
+    return counts;
+  } catch(e) { return {}; }
+}
+
+async function fetchViolationReasons() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('lookup_values')
+      .select('code, name_ko, name_ja').eq('kind', 'violation_reason')
+      .eq('active', true).order('sort_order');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { return []; }
+}
+
 async function upsertInfluencer(profile) {
   if (!db) return;
   const normalized = (typeof normalizeSnsFields === 'function') ? normalizeSnsFields(profile) : profile;

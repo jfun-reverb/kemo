@@ -12,6 +12,8 @@ edit-*.png
 channel-*.png
 detail-*.png
 home-*.png
+dashboard-*.png
+reviewer-*.png
 
 # Sales 정적 이미지 assets는 QA 패턴에서 제외
 !dev/sales/images/
