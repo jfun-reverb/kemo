@@ -2593,8 +2593,11 @@ async function insertCampaign(camp) {
 
 async function updateCampaign(campId, updates) {
   if (!db) return;
+  // 관리자 편집 경로 전용 — 호출 시점에 수정일 자동 갱신
+  // (조회수/자동 종료 등 시스템 UPDATE는 이 함수를 거치지 않아 수정일 오염 없음)
+  const payload = { ...updates, updated_at: new Date().toISOString() };
   await retryWithRefresh(async () => {
-    const {error} = await db.from('campaigns').update(updates).eq('id', campId);
+    const {error} = await db.from('campaigns').update(payload).eq('id', campId);
     if (error) throw error;
   });
 }
