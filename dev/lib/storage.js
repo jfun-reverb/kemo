@@ -760,7 +760,8 @@ async function insertLookup(row) {
       name_ko: row.name_ko,
       name_ja: row.name_ja,
       sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
-      active: row.active != null ? row.active : true
+      active: row.active != null ? row.active : true,
+      recruit_types: Array.isArray(row.recruit_types) ? row.recruit_types : []
     };
     const {data, error} = await db.from('lookup_values').insert(payload).select().maybeSingle();
     if (error) throw error;
