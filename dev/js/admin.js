@@ -396,10 +396,44 @@ function resetCampFilters() {
 function resetAppFilters() {
   resetMultiFilter('appTypeMulti', '전체 타입');
   resetMultiFilter('appStatusMulti', '전체 상태');
-  const cf = $('appCampFilter');
-  if (cf) { cf.value = 'all'; if (typeof highlightFilter === 'function') highlightFilter(cf); }
+  resetMultiFilter('appCampMulti', '전체 캠페인');
   const s = $('appSearch'); if (s) s.value = '';
   renderAppCampList();
+}
+
+// 캠페인 다중 선택 드롭다운 — 캠페인 목록 변화 시에만 재생성, 선택 상태 보존
+function syncAppCampMulti(sortedCamps) {
+  const wrap = $('appCampMulti');
+  if (!wrap) return;
+  const drop = wrap.querySelector('.mf-drop');
+  if (!drop) return;
+  const newKey = sortedCamps.map(c => c.id).join('|');
+  if (wrap.dataset.optKey === newKey && drop.children.length > 0) return;
+  const prev = getMultiFilterValues('appCampMulti');
+  const options = sortedCamps.map(c => ({
+    value: c.id,
+    label: (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)')
+  }));
+  createMultiFilter('appCampMulti', '전체 캠페인', options, () => renderAppCampList());
+  wrap.dataset.optKey = newKey;
+  if (prev.length > 0) {
+    const allCb = drop.querySelector('input[value="all"]');
+    let restored = 0;
+    prev.forEach(v => {
+      const cb = drop.querySelector(`input[value="${CSS && CSS.escape ? CSS.escape(v) : v.replace(/"/g,'\\"')}"]`);
+      if (cb) { cb.checked = true; restored++; }
+    });
+    if (restored > 0 && allCb) {
+      allCb.checked = false;
+      const btn = wrap.querySelector('.mf-btn');
+      const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
+      const selected = itemCbs.filter(c => c.checked);
+      if (btn) {
+        btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
+        btn.classList.add('has-selection');
+      }
+    }
+  }
 }
 
 // ── 다중 선택 드롭다운 필터 ──
@@ -1951,19 +1985,9 @@ async function renderAppCampList() {
   let apps = allAppsRaw.slice();
   const users = _appListCache.users;
 
-  // 캠페인 드롭다운 옵션 동기화 (최근 생성순)
-  const campFilterEl = $('appCampFilter');
-  if (campFilterEl) {
-    const prev = campFilterEl.value || 'all';
-    const sorted = camps.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-    const hasPrev = prev === 'all' || sorted.some(c => c.id === prev);
-    campFilterEl.innerHTML = '<option value="all">전체 캠페인</option>' + sorted.map(c => {
-      const label = (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)');
-      return `<option value="${esc(c.id)}">${esc(label)}</option>`;
-    }).join('');
-    campFilterEl.value = hasPrev ? prev : 'all';
-    if (typeof highlightFilter === 'function') highlightFilter(campFilterEl);
-  }
+  // 캠페인 다중 선택 드롭다운 동기화 (최근 생성순)
+  const sortedCampsForFilter = camps.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  syncAppCampMulti(sortedCampsForFilter);
 
   // 타입 필터 (다중 선택)
   const appTypeVals = getMultiFilterValues('appTypeMulti');
@@ -1976,9 +2000,9 @@ async function renderAppCampList() {
   const appStatusVals = getMultiFilterValues('appStatusMulti');
   if (appStatusVals.length) apps = apps.filter(a => appStatusVals.includes(a.status));
 
-  // 캠페인 단일 선택 필터
-  const campFilterVal = campFilterEl?.value || 'all';
-  if (campFilterVal && campFilterVal !== 'all') apps = apps.filter(a => a.campaign_id === campFilterVal);
+  // 캠페인 다중 선택 필터
+  const campFilterVals = getMultiFilterValues('appCampMulti');
+  if (campFilterVals.length) apps = apps.filter(a => campFilterVals.includes(a.campaign_id));
 
   // 검색 필터
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
@@ -1993,10 +2017,7 @@ async function renderAppCampList() {
     });
   }
 
-  updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appStatusMulti'], 'appSearch');
-  // 캠페인 단일 선택 필터도 활성 조건에 포함
-  const resetBtn = $('btnAppFilterReset');
-  if (resetBtn && campFilterVal && campFilterVal !== 'all') resetBtn.style.display = '';
+  updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appStatusMulti','appCampMulti'], 'appSearch');
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
