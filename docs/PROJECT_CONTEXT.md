@@ -192,6 +192,12 @@ Brand Applications (2026-04-20 구현):
 - **배송지 도도부현 분포 도넛 (2026-04-21)**: 대시보드 Top 10 + 未登録/海外 분포 차트. 47개 현 한국어 매핑 `Chart.js` 도넛
 - **UI 라벨 `광고주 신청` → `브랜드 서베이` (2026-04-20)**: 사이드바/페인 헤더/tooltip만 교체. 내부 용어·DB(`brand_applications`)·라우트(`#brand-applications`)·함수명은 **모두 "광고주 신청" 그대로 유지**
 - **Sales 페이지 리디자인 (2026-04-20/21)**: 랜딩 hero/cards/contact/footer + stats chips 폴리시, reviewer/seeding intro 개편(샘플 이미지·통계 칩), 브랜드 로고 클릭 시 홈 이동
+- **관리자 공지사항 시스템 (2026-04-22, migration 063)**: `admin_notices` + `admin_notice_reads` 테이블 + `upsert_admin_notice_read` RPC, 사이드바 최상단 메뉴 + 미읽음 배지, 카테고리 4종(system_update/release/warning/general), 핀 고정, Quill 에디터, 로그인 시 미읽음 팝업
+- **인플루언서 verify/violation/블랙리스트 (2026-04-22, migration 059~062)**: `influencer_flags` 이력 테이블, 8종 storage API, 증빙 파일 업로드(`influencer-flag-evidence` 비공개 버킷, 10MB, image/PDF), 위반·블랙 사유 lookup 통합, 상태 관리 카드 + 관리자 이력 타임라인
+- **브랜드 서베이 9단계 파이프라인 (2026-04-22, migration 064/065)**: `new→reviewing→schedule_sent→quoted→orient_sheet_sent→campaign_registered→paid→done` / `rejected`. 대시보드 깔때기·도넛·KPI 모두 동기화. "완료" → "최종완료" 라벨링
+- **엑셀 내보내기 확장 (2026-04-22)**: 캠페인별 신청자 엑셀(17컬럼 전 상태) + 브랜드 서베이 엑셀 + `formatPhoneDisplay` KR/JP 번호 정규화
+- **관리자 리스트 캠페인 multi-select + cascade 필터 (2026-04-22)**: 신청·결과물·캠페인별 신청자 페인. 캠페인 다중 선택 드롭다운 + 타입/kind cascade
+- **Vercel Pro 업그레이드 (2026-04-22)**: Hobby 100/day → Pro Team 6,000/day, 동시 빌드 복수, Fast Data Transfer 1 TB/월, Function Duration 1000 GB-Hrs/월. 과거 Hobby Queue 경합·Disconnect 재발 우려 해소
 
 ### ⚠️ 부분 구현
 - 개인정보 양방향 암호화 (평문 저장 중)
@@ -226,3 +232,4 @@ Brand Applications (2026-04-20 구현):
 - 2026-04-20: 광고주 신청 시스템(`brand_applications`/`brand-docs`/`notify-brand-application`) 도입 — §3-4, §4, §7 반영. `reward_note`, 일본어 용어 표준화(来店→訪問, Reviewer→レビュアー) 반영. 핵심 프로세스 0번 단계 추가.
 - 2026-04-21: §7에 2026-04-20/21 배포분 반영 — (1) `CAMP-YYYY-NNNN` 캠페인 번호(migration 055), (2) 익명 접수 RPC `submit_brand_application()`(migration 056)로 anon INSERT 경로 안정화, (3) 결과물 엑셀 내보내기(ExcelJS 이미지 임베드), (4) 대시보드 배송지 도도부현 분포 도넛, (5) 광고주 신청 UI 라벨 → "브랜드 서베이"(내부 용어·DB·라우트는 그대로), (6) Sales 페이지 리디자인. `.claude/commands/배포진단.md` skill + reviewer/typo 가드 hooks도 운영 도구로 정식 등록.
 - 2026-04-21(이후): 브랜드 서베이 현황 대시보드(`/admin#brand-dashboard`) 추가 + sales 페이지 Vercel Web Analytics 연동 + **사업자등록증 수집 기능 전면 제거**(migration 057: `business_license_path` 컬럼 DROP + `brand-docs` Storage 버킷 삭제 + RPC 파라미터 하위호환 유지). PRIVACY §2.2/§5/§9에서 사업자등록증 관련 수집·보관 항목 삭제.
+- 2026-04-22: 대규모 기능 묶음 + 인프라 업그레이드 — (1) **관리자 공지사항 시스템** (`/admin#admin-notices`, migration 063 + `admin_notices`·`admin_notice_reads` 테이블, 미읽음 배지, 카테고리 4종, 핀 고정, 로그인 팝업), (2) **인플루언서 verify/violation/블랙리스트 관리** (migration 059~062, `influencer_flags` 이력 테이블, 증빙 파일 업로드 비공개 버킷 `influencer-flag-evidence`), (3) **브랜드 서베이 9단계 상태 파이프라인** (migration 064→8단계·065→9단계 orient_sheet_sent 추가), (4) **엑셀 내보내기 확장** — 캠페인별 신청자 엑셀 + 브랜드 서베이 엑셀 + `formatPhoneDisplay` 포맷 정규화, (5) **관리자 리스트 캠페인 multi-select + cascade 필터** (신청·결과물·캠페인별 신청자 페인), (6) **캠페인 신청자 목록 SNS 전체 표시**, (7) **Vercel Pro 업그레이드** — Hobby 100/day → Pro 6,000/day, 동시 빌드 제한 해소, Fast Data Transfer 1 TB/월. `.claude/commands/공지초안-관리자.md` 슬래시 커맨드(마크다운) 신설 + 기존 `/공지초안`(HTML) deprecated. CI 정리(sales deploy Root Directory 중복 제거, 디버그 step 제거).
