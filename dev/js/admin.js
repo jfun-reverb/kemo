@@ -1919,7 +1919,7 @@ async function openInfluencerDetail(userId) {
   // 연락처
   $('infDetailContact').innerHTML =
     row('LINE ID', u.line_id) +
-    row('전화번호', u.phone);
+    row('전화번호', formatPhoneDisplay(u.phone));
 
   // 배송지
   const fullAddr = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : u.address;
@@ -4402,6 +4402,92 @@ function imgToJpegArrayBuffer(url, maxW, maxH) {
   });
 }
 
+// 브랜드 서베이 신청 목록 엑셀 다운로드 (현재 필터·정렬 결과)
+async function exportBrandApplicationsExcel() {
+  try {
+    var res = getFilteredBrandApps();
+    var list = res.list;
+    if (!list || list.length === 0) { toast('내보낼 데이터가 없습니다', 'error'); return; }
+
+    toast('엑셀 생성 중...');
+    await loadExcelJS();
+
+    var wb = new ExcelJS.Workbook();
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+    var ws = wb.addWorksheet('브랜드 서베이');
+
+    ws.columns = [
+      { header: '신청일',              key: 'created',     width: 20 },
+      { header: '신청번호',            key: 'no',          width: 22 },
+      { header: '폼 종류',             key: 'form',        width: 14 },
+      { header: '업체/브랜드명',       key: 'brand',       width: 28 },
+      { header: '담당자명',            key: 'contact',     width: 14 },
+      { header: '담당자이메일',        key: 'email',       width: 28 },
+      { header: '연락처',              key: 'phone',       width: 18 },
+      { header: '세금계산서 발행주소', key: 'billing',     width: 28 },
+      { header: '예상견적',            key: 'estimated',   width: 16 },
+      { header: '상태',                key: 'status',      width: 12 }
+    ];
+
+    // 헤더 스타일
+    var header = ws.getRow(1);
+    header.font = { bold: true, color: { argb: 'FF222222' } };
+    header.alignment = { vertical: 'middle', horizontal: 'center' };
+    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+    header.height = 22;
+
+    list.forEach(function(a) {
+      var createdStr = '';
+      if (a.created_at) {
+        try { createdStr = new Date(a.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
+        catch(e) { createdStr = String(a.created_at); }
+      }
+      ws.addRow({
+        created:   createdStr,
+        no:        a.application_no || '',
+        form:      brandAppFormLabel(a.form_type),
+        brand:     a.brand_name || '',
+        contact:   a.contact_name || '',
+        email:     a.email || '',
+        phone:     formatPhoneDisplay(a.phone),
+        billing:   a.billing_email || '',
+        estimated: (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
+        status:    (BRAND_APP_STATUS[a.status]?.label) || a.status || ''
+      });
+    });
+
+    // 예상견적 통화 포맷 (열 단위)
+    ws.getColumn('estimated').numFmt = '#,##0';
+    ws.getColumn('estimated').alignment = { horizontal: 'right' };
+
+    // 모든 데이터 행 기본 정렬
+    ws.eachRow({ includeEmpty: false }, function(row, idx) {
+      if (idx === 1) return;
+      row.alignment = row.alignment || { vertical: 'middle' };
+    });
+
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var ts = new Date();
+    var yyyy = ts.getFullYear();
+    var mm = String(ts.getMonth()+1).padStart(2,'0');
+    var dd = String(ts.getDate()).padStart(2,'0');
+    a.download = `brand-survey-${yyyy}${mm}${dd}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + list.length + '건)');
+  } catch (e) {
+    console.error('[exportBrandApplicationsExcel]', e);
+    toast('엑셀 생성 실패: ' + (e?.message || e), 'error');
+  }
+}
+
 async function exportCampaignDeliverables(campId) {
   try {
     document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
@@ -4942,10 +5028,8 @@ async function refreshBrandAppBadge() {
 var brandAppLazy = null;
 var BRAND_APP_PAGE_SIZE = 50;
 
-function renderBrandApplicationsList() {
-  var tbody = $('brandAppTableBody');
-  if (!tbody) return;
-
+// 현재 UI 필터/정렬 기준으로 브랜드 서베이 리스트를 추출 (렌더·엑셀 export 공용)
+function getFilteredBrandApps() {
   var formVals = getMultiFilterValues('brandAppFormMulti');
   var statusVals = getMultiFilterValues('brandAppStatusMulti');
   var from = ($('brandAppFromDate')?.value) || '';
@@ -4953,7 +5037,6 @@ function renderBrandApplicationsList() {
   var q = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
 
   var list = _brandApps.slice();
-
   if (formVals.length > 0) list = list.filter(a => formVals.indexOf(a.form_type) >= 0);
   if (statusVals.length > 0) list = list.filter(a => statusVals.indexOf(a.status) >= 0);
   if (from) list = list.filter(a => (a.created_at || '') >= from);
@@ -4965,13 +5048,11 @@ function renderBrandApplicationsList() {
     (a.application_no || '').toLowerCase().includes(q)
   );
 
-  // 정렬
   list.sort(function(a, b) {
     var av, bv;
     if (_brandAppSort.field === 'estimated') {
       av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
     } else if (_brandAppSort.field === 'status') {
-      // 진행 순서 기반 정렬 (asc: 초기 상태부터, desc: 완료/반려부터)
       var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, done:4, rejected:5};
       av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
       bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
@@ -4983,8 +5064,17 @@ function renderBrandApplicationsList() {
     return 0;
   });
 
-  // 초기화 버튼 표시 여부
-  var filterActive = (formVals.length > 0 || statusVals.length > 0 || from || to || q);
+  var filterActive = !!(formVals.length > 0 || statusVals.length > 0 || from || to || q);
+  return { list: list, filterActive: filterActive };
+}
+
+function renderBrandApplicationsList() {
+  var tbody = $('brandAppTableBody');
+  if (!tbody) return;
+
+  var res = getFilteredBrandApps();
+  var list = res.list;
+  var filterActive = res.filterActive;
   var resetBtn = $('btnBrandAppFilterReset');
   if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
 
@@ -5010,7 +5100,7 @@ function renderBrandApplicationsList() {
         + '<div>' + esc(a.contact_name || '—') + '</div>'
         + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
       + '</td>'
-      + '<td style="font-size:12px">' + esc(a.phone || '—') + '</td>'
+      + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
       + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
@@ -5157,7 +5247,7 @@ async function openBrandAppDetail(id) {
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px">'
         + kvCard('브랜드', '<strong>' + esc(a.brand_name) + '</strong>')
         + kvCard('담당자', esc(a.contact_name))
-        + kvCard('연락처', esc(a.phone))
+        + kvCard('연락처', esc(formatPhoneDisplay(a.phone)))
         + kvCard('이메일', esc(a.email))
         + (a.billing_email ? '<div style="grid-column:1 / -1">' + kvCard('계산서 이메일', esc(a.billing_email)).replace(/^<div>/,'').replace(/<\/div>$/,'') + '</div>' : '')
       + '</div>'

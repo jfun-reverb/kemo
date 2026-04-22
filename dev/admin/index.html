@@ -1105,7 +1105,11 @@
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
-              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">신청 목록</span><span id="brandAppTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+              <div style="display:flex;align-items:center;gap:8px;flex:1"><span class="admin-card-title">신청 목록</span><span id="brandAppTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="exportBrandApplicationsExcel()" style="display:inline-flex;align-items:center;gap:4px" title="현재 필터 결과를 엑셀로 다운로드">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">download</span>
+                엑셀 다운로드
+              </button>
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
