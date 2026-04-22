@@ -1174,10 +1174,9 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
-              <span class="admin-card-title" id="infTableTitle">인플루언서 목록</span>
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="infTableTitle">인플루언서 목록</span><span id="infTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
               <div style="display:flex;align-items:center;gap:8px">
                 <button class="btn btn-ghost btn-xs" id="btnInfSortReset" onclick="resetInfSort()" style="display:none">정렬 초기화</button>
-                <span id="infTotalCount" style="font-size:12px;color:var(--muted)">0名登録</span>
               </div>
             </div>
             <div class="admin-table-wrap">
