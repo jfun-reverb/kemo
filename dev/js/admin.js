@@ -1336,6 +1336,7 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
+    <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
@@ -4400,6 +4401,143 @@ function imgToJpegArrayBuffer(url, maxW, maxH) {
     img.onerror = function() { reject(new Error('image load failed: ' + url)); };
     img.src = url;
   });
+}
+
+// 캠페인별 신청자 목록 엑셀 다운로드 (전체 상태, 4채널 SNS+팔로워 포함)
+async function exportCampaignApplicationsExcel(campId) {
+  try {
+    document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
+
+    var camp = (Array.isArray(allCampaigns) ? allCampaigns : []).find(function(c){ return c.id === campId; });
+    if (!camp && db) {
+      var res = await db?.from('campaigns').select('*').eq('id', campId).maybeSingle();
+      camp = res?.data;
+    }
+    if (!camp) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
+
+    toast('엑셀 생성 중...');
+    await loadExcelJS();
+
+    var apps = await fetchApplications({ campaign_id: campId });
+    if (!apps || apps.length === 0) { toast('신청자가 없습니다', 'error'); return; }
+
+    var users = await fetchInfluencers();
+    var userByEmail = {};
+    (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
+
+    var statusLabel = function(s) {
+      if (s === 'approved') return '승인';
+      if (s === 'pending') return '심사중';
+      if (s === 'rejected') return '미승인';
+      return s || '';
+    };
+    var snsHandleStr = function(channel, raw) {
+      if (!raw) return '';
+      if (typeof extractSnsHandle === 'function') {
+        var h = extractSnsHandle(channel, raw);
+        return h ? '@' + h : '';
+      }
+      return String(raw).trim();
+    };
+    var addrStr = function(u, fallbackAddress) {
+      if (u && u.zip) {
+        return '〒' + u.zip + ' ' + (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
+      }
+      return fallbackAddress || '';
+    };
+
+    var wb = new ExcelJS.Workbook();
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+    var sheetName = (camp.campaign_no || camp.title || '신청자').substring(0, 28);
+    var ws = wb.addWorksheet(sheetName);
+
+    ws.columns = [
+      { header: '신청일',            key: 'created',    width: 20 },
+      { header: '상태',              key: 'status',     width: 10 },
+      { header: '인플루언서명',      key: 'name',       width: 18 },
+      { header: '이메일',            key: 'email',      width: 26 },
+      { header: '연락처',            key: 'phone',      width: 16 },
+      { header: 'Instagram',         key: 'ig',         width: 22 },
+      { header: 'Instagram 팔로워', key: 'igF',        width: 14 },
+      { header: 'TikTok',            key: 'tt',         width: 22 },
+      { header: 'TikTok 팔로워',    key: 'ttF',        width: 14 },
+      { header: 'X',                 key: 'x',          width: 22 },
+      { header: 'X 팔로워',          key: 'xF',         width: 14 },
+      { header: 'YouTube',           key: 'yt',         width: 22 },
+      { header: 'YouTube 팔로워',    key: 'ytF',        width: 14 },
+      { header: '배송지',            key: 'address',    width: 40 },
+      { header: '신청 메시지',       key: 'message',    width: 40 },
+      { header: '심사일',            key: 'reviewedAt', width: 20 },
+      { header: '리뷰어',            key: 'reviewedBy', width: 16 }
+    ];
+
+    var header = ws.getRow(1);
+    header.font = { bold: true, color: { argb: 'FF222222' } };
+    header.alignment = { vertical: 'middle', horizontal: 'center' };
+    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+    header.height = 22;
+
+    apps.forEach(function(a) {
+      var u = userByEmail[a.user_email] || {};
+      var createdStr = '';
+      if (a.created_at) {
+        try { createdStr = new Date(a.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
+        catch(e) { createdStr = String(a.created_at); }
+      }
+      var reviewedStr = '';
+      if (a.reviewed_at) {
+        try { reviewedStr = new Date(a.reviewed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
+        catch(e) { reviewedStr = String(a.reviewed_at); }
+      }
+      ws.addRow({
+        created:    createdStr,
+        status:     statusLabel(a.status),
+        name:       u.name_kanji || u.name || a.user_name || '',
+        email:      a.user_email || '',
+        phone:      formatPhoneDisplay(u.phone),
+        ig:         snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        igF:        Number(u.ig_followers || 0),
+        tt:         snsHandleStr('tiktok', u.tiktok),
+        ttF:        Number(u.tiktok_followers || 0),
+        x:          snsHandleStr('x', u.x),
+        xF:         Number(u.x_followers || 0),
+        yt:         snsHandleStr('youtube', u.youtube),
+        ytF:        Number(u.youtube_followers || 0),
+        address:    addrStr(u, a.address),
+        message:    a.message || '',
+        reviewedAt: reviewedStr,
+        reviewedBy: a.reviewed_by || ''
+      });
+    });
+
+    ['igF','ttF','xF','ytF'].forEach(function(k) {
+      ws.getColumn(k).numFmt = '#,##0';
+      ws.getColumn(k).alignment = { horizontal: 'right' };
+    });
+    ws.getColumn('message').alignment = { wrapText: true, vertical: 'top' };
+    ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
+
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var ts = new Date();
+    var yyyy = ts.getFullYear();
+    var mm = String(ts.getMonth()+1).padStart(2,'0');
+    var dd = String(ts.getDate()).padStart(2,'0');
+    var safeTitle = (camp.campaign_no || camp.title || 'campaign').replace(/[\\\/:*?"<>|]/g, '_').substring(0, 40);
+    a.download = `applicants-${safeTitle}-${yyyy}${mm}${dd}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + apps.length + '건)');
+  } catch (e) {
+    console.error('[exportCampaignApplicationsExcel]', e);
+    toast('엑셀 생성 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 // 브랜드 서베이 신청 목록 엑셀 다운로드 (현재 필터·정렬 결과)
