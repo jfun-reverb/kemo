@@ -46,6 +46,25 @@ function cleanUrl(s) {
   return s.trim();
 }
 
+// 관리자 페이지 전용: 전화번호 표시 포맷 (한국/일본 규격 우선, 불일치 시 원본 유지)
+function formatPhoneDisplay(raw) {
+  if (raw == null) return '';
+  const src = String(raw).trim();
+  if (!src) return '';
+  let digits = src.replace(/[^\d+]/g, '');
+  if (/^\+?81/.test(digits)) digits = '0' + digits.replace(/^\+?81/, '');
+  else if (/^\+?82/.test(digits)) digits = '0' + digits.replace(/^\+?82/, '');
+  const nums = digits.replace(/\D/g, '');
+  if (nums.length === 11) return `${nums.slice(0,3)}-${nums.slice(3,7)}-${nums.slice(7)}`;
+  if (nums.length === 10) {
+    const p2 = nums.slice(0, 2);
+    if (['02','03','06'].includes(p2)) return `${nums.slice(0,2)}-${nums.slice(2,6)}-${nums.slice(6)}`;
+    return `${nums.slice(0,3)}-${nums.slice(3,6)}-${nums.slice(6)}`;
+  }
+  if (nums.length === 9) return `${nums.slice(0,2)}-${nums.slice(2,5)}-${nums.slice(5)}`;
+  return src;
+}
+
 // 클라이언트(인플루언서) 전용: Supabase 영어 에러 → 현재 locale(ko/ja)에 맞게 변환
 const _ERR_DICT = {
   ja: {
