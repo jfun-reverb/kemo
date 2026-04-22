@@ -114,7 +114,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'lookups': loadLookupsPane,
     'deliverables': loadDeliverables,
     'brand-applications': loadBrandApplications,
-    'brand-dashboard': loadBrandDashboard
+    'brand-dashboard': loadBrandDashboard,
+    'admin-notices': loadAdminNotices
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -222,6 +223,16 @@ async function loadAdminData(preloaded) {
   allCampaigns = camps.slice();
   // 관리자 초기 진입 시 위반 카운트도 미리 로드 — 배지 전역 노출용
   fetchViolationCountsByInfluencer().then(vc => { _infViolationCounts = vc; }).catch(()=>{});
+  // 관리자 공지 — 사이드바 배지·대시보드 최근·로그인 팝업
+  fetchAdminNotices().then(list => {
+    _adminNoticesCache = list;
+    refreshAdminNoticeBadge();
+    renderDashboardNotices();
+    if (!window._adminNoticeUnreadShown) {
+      window._adminNoticeUnreadShown = true;
+      showAdminUnreadNoticesIfAny();
+    }
+  }).catch(()=>{});
   const approved = apps.filter(a=>a.status==='approved');
   const pending = apps.filter(a=>a.status==='pending');
 
@@ -5259,4 +5270,236 @@ async function revertBrandApp() {
   toast('되돌렸습니다.');
   closeBrandAppDetail();
   await loadBrandApplications();
+}
+
+// ══════════════════════════════════════
+// ADMIN NOTICES (관리자 전용 공지 — migration 063)
+// ══════════════════════════════════════
+
+var _adminNoticesCache = [];
+var _adminNoticeCurrent = null;
+var _adminNoticeQuill = null;
+
+const ADMIN_NOTICE_CAT_LABEL = {
+  system_update: '시스템 업데이트',
+  release: '릴리스',
+  warning: '경고',
+  general: '일반',
+};
+const ADMIN_NOTICE_CAT_STYLE = {
+  system_update: 'background:#E3F2FD;color:#1565C0',
+  release: 'background:#E8F5E9;color:#2E7D32',
+  warning: 'background:#FFEBEE;color:#C62828',
+  general: 'background:#F5F5F5;color:#616161',
+};
+
+function adminNoticeCatPill(cat) {
+  const style = ADMIN_NOTICE_CAT_STYLE[cat] || ADMIN_NOTICE_CAT_STYLE.general;
+  return `<span style="display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;${style}">${esc(ADMIN_NOTICE_CAT_LABEL[cat]||cat)}</span>`;
+}
+
+async function loadAdminNotices() {
+  _adminNoticesCache = await fetchAdminNotices();
+  renderAdminNotices();
+  refreshAdminNoticeBadge();
+}
+
+function refreshAdminNoticeBadge() {
+  const badge = $('adminNoticesBadge');
+  if (!badge) return;
+  const unread = (_adminNoticesCache || []).filter(n => !n.is_read).length;
+  if (unread > 0) { badge.textContent = unread > 9 ? '9+' : unread; badge.style.display = ''; }
+  else badge.style.display = 'none';
+}
+
+function renderAdminNotices() {
+  const body = $('adminNoticeBody');
+  if (!body) return;
+  const cat = $('adminNoticeCatFilter')?.value || 'all';
+  const q = ($('adminNoticeSearch')?.value || '').trim().toLowerCase();
+  let list = (_adminNoticesCache || []).slice();
+  if (cat !== 'all') list = list.filter(n => n.category === cat);
+  if (q) list = list.filter(n => (n.title || '').toLowerCase().includes(q));
+  const total = $('adminNoticeTotal');
+  if (total) total.textContent = `${list.length}건`;
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+  const canEdit = (n) => isSuper || n.created_by === currentUser?.id;
+  body.innerHTML = list.length ? list.map(n => {
+    const unreadDot = !n.is_read ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#C62828;margin-right:4px;vertical-align:middle"></span>` : '';
+    const pinIcon = n.is_pinned ? `<span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--pink);vertical-align:-2px" title="상단 고정">push_pin</span> ` : '';
+    return `<tr data-id="${esc(n.id)}" style="cursor:pointer;${n.is_read?'':'background:#FFFBEF'}" onclick="openAdminNoticeView(this.dataset.id)">
+      <td>${unreadDot}${n.is_read?'<span style="font-size:11px;color:var(--muted)">읽음</span>':'<span style="font-size:11px;color:#C62828;font-weight:700">미읽음</span>'}</td>
+      <td>${adminNoticeCatPill(n.category)}</td>
+      <td style="font-weight:600;color:var(--ink)">${pinIcon}${esc(n.title)}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(n.created_by_name || '—')}</td>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap">${n.created_at?formatDateTime(n.created_at):''}</td>
+      <td>${canEdit(n) ? `<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openAdminNoticeEdit(this.closest('tr').dataset.id)"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>` : ''}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">공지 없음</td></tr>';
+}
+
+async function openAdminNoticeView(id) {
+  const n = (_adminNoticesCache || []).find(x => x.id === id);
+  if (!n) return;
+  $('adminNoticeViewTitle').innerHTML = esc(n.title);
+  $('adminNoticeViewMeta').innerHTML = `${adminNoticeCatPill(n.category)}<span>${esc(n.created_by_name || '—')}</span><span>${n.created_at?formatDateTime(n.created_at):''}</span>${n.is_pinned?'<span style="color:var(--pink);font-weight:700;display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">push_pin</span>상단 고정</span>':''}`;
+  const bodyEl = $('adminNoticeViewBody');
+  if (typeof renderRich === 'function') renderRich(bodyEl, n.body_html || '');
+  else if (typeof sanitizeRich === 'function') bodyEl.innerHTML = sanitizeRich(n.body_html || '');
+  else bodyEl.innerHTML = n.body_html || '';
+  openModal('adminNoticeViewModal');
+  if (!n.is_read) {
+    try { await markAdminNoticeRead(id); n.is_read = true; refreshAdminNoticeBadge(); renderAdminNotices(); } catch(e) {}
+  }
+}
+
+function openAdminNoticeEdit(id) {
+  const n = id ? (_adminNoticesCache || []).find(x => x.id === id) : null;
+  _adminNoticeCurrent = n;
+  $('adminNoticeEditTitle').textContent = n ? '공지 수정' : '공지 작성';
+  $('anEditTitle').value = n?.title || '';
+  $('anEditCategory').value = n?.category || 'system_update';
+  $('anEditPinned').checked = !!(n?.is_pinned);
+  const delBtn = $('btnDeleteAdminNotice');
+  if (delBtn) delBtn.style.display = n ? '' : 'none';
+  // HTML 모드 기본 off. 기존 공지 중 '<p>&lt;' 같이 태그가 텍스트로 저장된 케이스 감지 시 자동 HTML 모드
+  const rawHtml = n?.body_html || '';
+  const tagAsText = /&lt;\w+/.test(rawHtml);
+  $('anEditHtmlMode').checked = tagAsText;
+  $('anEditBodyRaw').value = rawHtml;
+  openModal('adminNoticeEditModal');
+  setTimeout(() => {
+    if (!_adminNoticeQuill && typeof Quill !== 'undefined') {
+      _adminNoticeQuill = new Quill('#anEditBodyQuill', {
+        theme: 'snow',
+        modules: { toolbar: [[{header:[2,3,4,false]}],['bold','italic','underline','strike'],[{list:'ordered'},{list:'bullet'}],['link','blockquote'],['clean']], clipboard:{matchVisual:false} },
+        formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+      });
+    }
+    if (_adminNoticeQuill) {
+      const initHtml = (typeof sanitizeRich === 'function') ? sanitizeRich(rawHtml) : rawHtml;
+      _adminNoticeQuill.clipboard.dangerouslyPasteHTML(initHtml, 'silent');
+    }
+    toggleNoticeHtmlMode();
+  }, 0);
+}
+
+function toggleNoticeHtmlMode() {
+  const isHtml = !!$('anEditHtmlMode')?.checked;
+  const quillHost = $('anEditBodyQuill');
+  const raw = $('anEditBodyRaw');
+  const toolbar = document.querySelector('#adminNoticeEditModal .ql-toolbar');
+  if (isHtml) {
+    if (_adminNoticeQuill && raw.value === '') raw.value = _adminNoticeQuill.root.innerHTML;
+    if (quillHost) quillHost.style.display = 'none';
+    if (toolbar) toolbar.style.display = 'none';
+    if (raw) raw.style.display = '';
+  } else {
+    if (_adminNoticeQuill && raw.value) {
+      const initHtml = (typeof sanitizeRich === 'function') ? sanitizeRich(raw.value) : raw.value;
+      _adminNoticeQuill.clipboard.dangerouslyPasteHTML(initHtml, 'silent');
+    }
+    if (raw) raw.style.display = 'none';
+    if (quillHost) quillHost.style.display = '';
+    if (toolbar) toolbar.style.display = '';
+  }
+}
+
+async function onSaveAdminNotice() {
+  const title = ($('anEditTitle')?.value || '').trim();
+  const category = $('anEditCategory')?.value || 'general';
+  const is_pinned = !!$('anEditPinned')?.checked;
+  if (!title) { toast('제목을 입력해주세요', 'error'); return; }
+  let body_html = '';
+  const isHtmlMode = !!$('anEditHtmlMode')?.checked;
+  if (isHtmlMode) {
+    const raw = $('anEditBodyRaw')?.value || '';
+    body_html = (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
+  } else if (_adminNoticeQuill) {
+    const raw = _adminNoticeQuill.root.innerHTML;
+    body_html = (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
+  }
+  const name = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
+  try {
+    if (_adminNoticeCurrent) {
+      await updateAdminNotice(_adminNoticeCurrent.id, {title, body_html, category, is_pinned, updated_by_name: name});
+      toast('공지가 수정되었습니다', 'success');
+    } else {
+      await insertAdminNotice({title, body_html, category, is_pinned, created_by_name: name});
+      toast('공지가 등록되었습니다', 'success');
+    }
+    closeModal('adminNoticeEditModal');
+    await loadAdminNotices();
+  } catch(e) { toast('저장 오류: ' + (e.message || e), 'error'); }
+}
+
+async function onDeleteAdminNotice() {
+  if (!_adminNoticeCurrent) return;
+  if (!confirm('공지를 삭제할까요? 모든 관리자의 읽음 이력도 함께 삭제됩니다.')) return;
+  try {
+    await deleteAdminNotice(_adminNoticeCurrent.id);
+    toast('삭제되었습니다');
+    closeModal('adminNoticeEditModal');
+    await loadAdminNotices();
+  } catch(e) { toast('삭제 오류: ' + (e.message || e), 'error'); }
+}
+
+// 대시보드 최근 공지 3건 렌더
+function renderDashboardNotices() {
+  const card = $('dashboardNoticesCard');
+  const body = $('dashboardNoticesBody');
+  if (!card || !body) return;
+  const list = (_adminNoticesCache || []).slice(0, 3);
+  if (!list.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  body.innerHTML = list.map(n => `
+    <div style="padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="openAdminNoticeView('${esc(n.id)}')">
+      ${!n.is_read ? '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#C62828;flex-shrink:0"></span>' : '<span style="display:inline-block;width:6px;height:6px;flex-shrink:0"></span>'}
+      ${adminNoticeCatPill(n.category)}
+      <div style="flex:1;font-size:13px;color:var(--ink);font-weight:${n.is_read?'400':'600'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.is_pinned?'<span class="material-icons-round notranslate" translate="no" style="font-size:13px;color:var(--pink);vertical-align:-2px">push_pin</span> ':''}${esc(n.title)}</div>
+      <div style="font-size:11px;color:var(--muted);flex-shrink:0">${n.created_at?formatDate(n.created_at):''}</div>
+    </div>
+  `).join('');
+}
+
+// 로그인 직후 미읽음 공지 팝업
+async function showAdminUnreadNoticesIfAny() {
+  if (!Array.isArray(_adminNoticesCache) || _adminNoticesCache.length === 0) return;
+  const unread = _adminNoticesCache.filter(n => !n.is_read);
+  if (unread.length === 0) return;
+  const countEl = $('adminNoticeUnreadCount');
+  if (countEl) countEl.textContent = `${unread.length}건`;
+  const body = $('adminNoticeUnreadBody');
+  if (body) {
+    body.innerHTML = unread.slice(0, 5).map(n => `
+      <div style="padding:14px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${adminNoticeCatPill(n.category)}<div style="font-weight:700;font-size:14px;color:var(--ink)">${n.is_pinned?'<span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--pink);vertical-align:-2px">push_pin</span> ':''}${esc(n.title)}</div></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${esc(n.created_by_name||'—')} · ${n.created_at?formatDateTime(n.created_at):''}</div>
+        <div class="rich-content" data-notice-body="${esc(n.id)}" style="font-size:12px;line-height:1.6;color:var(--ink);max-height:140px;overflow:hidden"></div>
+        <div style="text-align:right;margin-top:8px"><button class="btn btn-primary btn-xs" onclick="onMarkUnreadFromPopup('${esc(n.id)}')">확인</button></div>
+      </div>
+    `).join('');
+    // 본문 부분만 renderRich(el, raw) 시그니처로 주입
+    unread.slice(0, 5).forEach(n => {
+      const el = document.querySelector(`[data-notice-body="${n.id}"]`);
+      if (!el) return;
+      if (typeof renderRich === 'function') renderRich(el, n.body_html || '');
+      else if (typeof sanitizeRich === 'function') el.innerHTML = sanitizeRich(n.body_html || '');
+      else el.innerHTML = n.body_html || '';
+    });
+  }
+  openModal('adminNoticeUnreadModal');
+}
+
+async function onMarkUnreadFromPopup(id) {
+  try {
+    await markAdminNoticeRead(id);
+    const n = (_adminNoticesCache || []).find(x => x.id === id);
+    if (n) n.is_read = true;
+    refreshAdminNoticeBadge();
+    renderDashboardNotices();
+    const stillUnread = (_adminNoticesCache || []).some(x => !x.is_read);
+    if (!stillUnread) closeModal('adminNoticeUnreadModal');
+    else showAdminUnreadNoticesIfAny();
+  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
