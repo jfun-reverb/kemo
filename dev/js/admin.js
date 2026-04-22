@@ -1452,8 +1452,21 @@ async function loadCampApplicants() {
   const channelMatch = camp?.channel_match || 'or';
   const body = $('campApplicantsBody');
   if (!body) return;
+  const snsCell = (channel, raw) => {
+    const handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : (raw || '').replace(/^@/,'').trim();
+    if (!handle) return '—';
+    const safe = esc(handle);
+    const url = (typeof snsProfileUrl === 'function') ? snsProfileUrl(channel, handle) : '';
+    const inner = url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${safe}</a>` : `@${safe}`;
+    return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
+  };
   const renderCampApplicantRow = (a) => {
     const _u = _users.find(u=>u.email===a.user_email)||{};
+    const igF = (_u.ig_followers||0).toLocaleString();
+    const xF  = (_u.x_followers||0).toLocaleString();
+    const ttF = (_u.tiktok_followers||0).toLocaleString();
+    const ytF = (_u.youtube_followers||0).toLocaleString();
+    const totalF = ((_u.ig_followers||0)+(_u.x_followers||0)+(_u.tiktok_followers||0)+(_u.youtube_followers||0)).toLocaleString();
     const otCell = renderOtCell(a, isPostType);
     const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
     return `<tr data-id="${esc(a.id)}">
@@ -1461,8 +1474,11 @@ async function loadCampApplicants() {
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
     </td>
-    <td>${a.ig_id?`<a href="https://instagram.com/${esc(a.ig_id)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">@${esc(a.ig_id)}</a>`:esc(a.user_ig)||'—'}</td>
-    <td style="font-weight:600">${(a.user_followers||0).toLocaleString()}</td>
+    <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
+    <td>${snsCell('x', _u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
+    <td>${snsCell('tiktok', _u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
+    <td>${snsCell('youtube', _u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
+    <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td>${getStatusBadgeKo(a.status)}</td>
@@ -1481,7 +1497,7 @@ async function loadCampApplicants() {
     rows: apps,
     renderRow: renderCampApplicantRow,
     pageSize: CAMP_APPLICANTS_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
   });
 }
 
