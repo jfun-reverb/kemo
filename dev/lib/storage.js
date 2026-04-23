@@ -923,16 +923,21 @@ async function swapParticipationSetOrder(idA, idB) {
 // ══════════════════════════════════════
 
 // 캠페인 폼에서 recruit_type 필터로 active 번들만 조회
+//   서버 filter (contains) 가 recruit_types=[] 를 제외시키는 문제 때문에
+//   active 전체를 받아 클라이언트에서 필터 — 빈 배열(=전 타입 공통) 은 항상 포함
 async function fetchCautionSets(recruitType) {
   if (!db) return [];
-  let q = db?.from('caution_sets')
+  const {data, error} = await db?.from('caution_sets')
     .select('*')
     .eq('active', true)
     .order('sort_order', {ascending: true});
-  if (recruitType) q = q.contains('recruit_types', [recruitType]);
-  const {data, error} = await q;
   if (error) throw error;
-  return data || [];
+  const all = data || [];
+  if (!recruitType) return all;
+  return all.filter(s => {
+    const rts = Array.isArray(s.recruit_types) ? s.recruit_types : [];
+    return rts.length === 0 || rts.includes(recruitType);
+  });
 }
 
 // 관리자 기준 데이터 페인 — 비활성 포함 전체
