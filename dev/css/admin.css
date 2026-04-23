@@ -275,3 +275,40 @@
 }
 .mini-editor-link-popover .melp-delete{color:#B3261E}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
+
+/* ──────────────────────────────────────────
+ * Quill 리치 에디터 통합 박스 — 미니 에디터와 같은 looks
+ * getRichEditor() 에서 toolbar + host 를 .quill-wrap 으로 감쌈
+ * ────────────────────────────────────────── */
+.quill-wrap{
+  border:1px solid var(--line);
+  border-radius:8px;
+  /* overflow:visible — ql-picker-options(헤더 드롭다운)가 상위를 벗어나야 함 */
+  overflow:visible;
+  background:#fff;
+}
+.quill-wrap .ql-toolbar.ql-snow{
+  border:0;
+  border-bottom:1px solid var(--line);
+  background:#fafafa;
+  border-radius:8px 8px 0 0;
+}
+.quill-wrap .ql-container.ql-snow{
+  border:0;
+  border-radius:0 0 8px 8px;
+  font-size:13px;
+  font-family:inherit;
+}
+.quill-wrap .ql-editor{
+  min-height:96px;
+  line-height:1.65;
+}
+.quill-wrap .ql-editor a{
+  color:var(--pink);
+  text-decoration:underline;
+  cursor:pointer;
+}
+/* Quill 기본 링크 tooltip 숨김 — 커스텀 링크 팝오버 (mini-editor-link-popover) 로 대체 */
+.ql-snow .ql-tooltip,
+.ql-tooltip.ql-editing,
+.ql-tooltip.ql-flip{display:none !important}

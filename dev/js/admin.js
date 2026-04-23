@@ -798,20 +798,54 @@ function getRichEditor(id) {
   if (richEditors[id]) return richEditors[id];
   const host = document.getElementById(id);
   if (!host || typeof Quill === 'undefined') return null;
-  const q = new Quill(host, {
+  // Quill 기본 link tooltip 을 우리 커스텀 팝오버로 완전 대체하기 위해
+  // toolbar.handlers.link 를 오버라이드. 링크 생성/Ctrl+K 경로 모두 이 handler 통과.
+  let q;
+  const linkHandler = function() {
+    if (!q) return;
+    const range = q.getSelection();
+    if (!range || range.length === 0) { toast('링크로 만들 텍스트를 먼저 선택하세요','error'); return; }
+    const url = prompt('링크 URL (https:// 또는 mailto:)', 'https://');
+    if (!url) return;
+    const clean = url.trim();
+    if (!/^https?:\/\/|^mailto:/i.test(clean)) { toast('http/https/mailto URL 만 허용됩니다','error'); return; }
+    q.format('link', clean);
+    // target=_blank + rel 추가 (Quill Link Blot 기본값이 target 지정하지 않음)
+    setTimeout(() => {
+      q.root.querySelectorAll('a[href]').forEach(a => {
+        if (a.getAttribute('href') === clean) {
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener noreferrer');
+        }
+      });
+    }, 0);
+  };
+  q = new Quill(host, {
     theme: 'snow',
     modules: {
-      toolbar: [
-        [{ 'header': [2, 3, 4, false] }],
-        ['bold','italic','underline','strike'],
-        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-        ['link','blockquote'],
-        ['clean']
-      ],
+      toolbar: {
+        container: [
+          [{ 'header': [2, 3, 4, false] }],
+          ['bold','italic','underline','strike'],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          ['link','blockquote'],
+          ['clean']
+        ],
+        handlers: { link: linkHandler }
+      },
       clipboard: { matchVisual: false }
     },
     formats: ['header','bold','italic','underline','strike','list','link','blockquote']
   });
+  // 툴바+본문을 wrap 으로 감싸 미니 에디터와 같은 통합 박스 외관으로 전환
+  const toolbar = q.getModule('toolbar')?.container;
+  if (toolbar && toolbar.parentElement && !toolbar.parentElement.classList.contains('quill-wrap')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'quill-wrap';
+    host.parentElement.insertBefore(wrap, toolbar);
+    wrap.appendChild(toolbar);
+    wrap.appendChild(host);
+  }
   richEditors[id] = q;
   return q;
 }
@@ -3610,7 +3644,7 @@ function _miniEditorLinkPopoverOutside(e) {
   if (!_miniEditorLinkPopover) return;
   if (_miniEditorLinkPopover.contains(e.target)) return;
   // 다른 링크 클릭이면 팝오버 교체 (위임 핸들러에서 다시 openMiniEditorLinkPopover 호출)
-  if (e.target.closest && e.target.closest('.mini-editor-content a[href]')) return;
+  if (e.target.closest && e.target.closest('.mini-editor-content a[href], .ql-editor a[href]')) return;
   closeMiniEditorLinkPopover();
 }
 
@@ -3702,11 +3736,11 @@ function openMiniEditorLinkPopover(aEl, contentDiv) {
   input.select();
 }
 
-// 위임 핸들러 — 미니 에디터 내부 <a> 클릭 → 팝오버 (새 탭 이동 차단)
+// 위임 핸들러 — 미니 에디터 + Quill 에디터 내부 <a> 클릭 → 팝오버 (새 탭 이동 차단)
 document.addEventListener('click', function(e) {
-  const a = e.target.closest && e.target.closest('.mini-editor-content a[href]');
+  const a = e.target.closest && e.target.closest('.mini-editor-content a[href], .ql-editor a[href]');
   if (!a) return;
-  const contentDiv = a.closest('.mini-editor-content');
+  const contentDiv = a.closest('.mini-editor-content, .ql-editor');
   if (!contentDiv) return;
   e.preventDefault();
   openMiniEditorLinkPopover(a, contentDiv);
