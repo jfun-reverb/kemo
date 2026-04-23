@@ -87,6 +87,7 @@ curl -X POST http://localhost:54321/functions/v1/notify-brand-application \
       "total_jpy":53000,
       "total_qty":10,
       "estimated_krw":611000,
+      "request_note":"시작 희망 시기: 5월 초\n타겟층: 20-30대 여성\n어필 포인트: 저자극, 천연성분",
       "created_at":"2026-04-20T10:00:00Z"
     }
   }'
