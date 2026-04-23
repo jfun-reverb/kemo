@@ -1007,7 +1007,7 @@ async function fetchBrandApplications(filters) {
         brand_name, contact_name, phone, email, billing_email,
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at,
-        status, admin_memo,
+        status, admin_memo, request_note,
         reviewed_by, reviewed_at,
         version, created_at, updated_at
       `);

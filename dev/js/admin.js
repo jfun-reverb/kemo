@@ -4342,6 +4342,20 @@ function brandAppStatusBadge(status) {
   return '<span style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">'+esc(s.label)+'</span>';
 }
 
+// 요청사항 셀: 2줄 말줄임 + 더보기 모달 (msgCell 패턴 재사용)
+// openMsgModal 헬퍼 공유 — data-msg 안 HTML은 esc 후 주입
+function brandAppNoteCell(text) {
+  if (!text) return '<span style="color:var(--muted);font-size:12px">—</span>';
+  var safe = esc(text);
+  var short = '<div style="max-width:220px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--ink);line-height:1.4">' + safe + '</div>';
+  // 40자 또는 개행 포함 시 "더보기" 노출 (2줄 미리보기에서 잘릴 가능성 있음)
+  var hasMore = text.length > 40 || /\n/.test(text);
+  var more = hasMore
+    ? '<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer;margin-top:2px;display:inline-block" onclick="event.stopPropagation();openMsgModal(this)" data-msg="' + safe + '">더보기</a>'
+    : '';
+  return short + more;
+}
+
 // 뱃지 스타일 상태 select 공통 렌더러
 function brandAppStatusSelectStyled(opts) {
   var status = opts.status;
@@ -4650,7 +4664,8 @@ async function exportBrandApplicationsExcel() {
       { header: '연락처',              key: 'phone',       width: 18 },
       { header: '세금계산서 발행주소', key: 'billing',     width: 28 },
       { header: '예상견적',            key: 'estimated',   width: 16 },
-      { header: '상태',                key: 'status',      width: 12 }
+      { header: '상태',                key: 'status',      width: 12 },
+      { header: '요청사항',            key: 'requestNote', width: 40 }
     ];
 
     // 헤더 스타일
@@ -4667,16 +4682,17 @@ async function exportBrandApplicationsExcel() {
         catch(e) { createdStr = String(a.created_at); }
       }
       ws.addRow({
-        created:   createdStr,
-        no:        a.application_no || '',
-        form:      brandAppFormLabel(a.form_type),
-        brand:     a.brand_name || '',
-        contact:   a.contact_name || '',
-        email:     a.email || '',
-        phone:     formatPhoneDisplay(a.phone),
-        billing:   a.billing_email || '',
-        estimated: (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
-        status:    (BRAND_APP_STATUS[a.status]?.label) || a.status || ''
+        created:     createdStr,
+        no:          a.application_no || '',
+        form:        brandAppFormLabel(a.form_type),
+        brand:       a.brand_name || '',
+        contact:     a.contact_name || '',
+        email:       a.email || '',
+        phone:       formatPhoneDisplay(a.phone),
+        billing:     a.billing_email || '',
+        estimated:   (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
+        status:      (BRAND_APP_STATUS[a.status]?.label) || a.status || '',
+        requestNote: a.request_note || ''
       });
     });
 
@@ -4684,10 +4700,17 @@ async function exportBrandApplicationsExcel() {
     ws.getColumn('estimated').numFmt = '#,##0';
     ws.getColumn('estimated').alignment = { horizontal: 'right' };
 
-    // 모든 데이터 행 기본 정렬
+    // 데이터 행 기본 정렬. 요청사항 셀만 wrapText + top 으로 개행/장문 보존
+    // (row.alignment 을 쓰면 셀 단위 설정이 덮어씌워지므로 셀 단위로 개별 설정)
     ws.eachRow({ includeEmpty: false }, function(row, idx) {
       if (idx === 1) return;
-      row.alignment = row.alignment || { vertical: 'middle' };
+      row.eachCell({ includeEmpty: true }, function(cell) {
+        cell.alignment = Object.assign({ vertical: 'middle' }, cell.alignment || {});
+      });
+      var noteCell = row.getCell('requestNote');
+      if (noteCell) {
+        noteCell.alignment = { wrapText: true, vertical: 'top' };
+      }
     });
 
     var buf = await wb.xlsx.writeBuffer();
@@ -5241,7 +5264,7 @@ function renderBrandLongPending(apps) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -5275,7 +5298,8 @@ function getFilteredBrandApps() {
     (a.brand_name || '').toLowerCase().includes(q) ||
     (a.contact_name || '').toLowerCase().includes(q) ||
     (a.email || '').toLowerCase().includes(q) ||
-    (a.application_no || '').toLowerCase().includes(q)
+    (a.application_no || '').toLowerCase().includes(q) ||
+    (a.request_note || '').toLowerCase().includes(q)
   );
 
   list.sort(function(a, b) {
@@ -5332,6 +5356,7 @@ function renderBrandApplicationsList() {
       + '</td>'
       + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
       + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
+      + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
       + '<td>' + brandAppStatusSelect(a) + '</td>'
@@ -5346,7 +5371,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -5488,6 +5513,16 @@ async function openBrandAppDetail(id) {
       + '<div style="display:flex;align-items:baseline;margin-bottom:10px">' + sectionLabel('신청 상품') + productsSummary + '</div>'
       + productsHtml
     + '</div>'
+
+    // § 신청자 요청사항 (신청자가 직접 입력. 관리자 메모와 구분)
+    + (a.request_note ? (
+        '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
+          + sectionLabel('신청자 요청사항')
+          + '<div style="background:#FFF9F0;border:1px solid #E8D0A0;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--ink);white-space:pre-wrap;word-break:break-word;line-height:1.6">'
+          + esc(a.request_note)
+          + '</div>'
+        + '</div>'
+      ) : '')
 
     // § 관리자 처리
     + '<div style="padding-bottom:16px;margin-bottom:16px">'

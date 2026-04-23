@@ -46,6 +46,7 @@ interface BrandApplication {
   total_jpy?: number | null;
   total_qty?: number | null;
   estimated_krw?: number | null;
+  request_note?: string | null;
   created_at: string;
 }
 
@@ -166,6 +167,18 @@ function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: st
     )
     .join("");
 
+  // 신청자 자유 입력 요청사항 (선택 입력 — 있을 때만 섹션 렌더)
+  const requestNote = (row.request_note ?? "").trim();
+  const requestNoteText = requestNote
+    ? `\n기타·요청사항\n${requestNote}\n`
+    : "";
+  const requestNoteHtml = requestNote
+    ? `<div style="margin:0 0 16px;padding:12px 14px;background:#FFF9F0;border:1px solid #E8D0A0;border-radius:8px">` +
+      `<div style="font-size:12px;color:#8A6A2A;font-weight:700;margin-bottom:6px">기타·요청사항</div>` +
+      `<div style="font-size:13px;color:#222;line-height:1.6;white-space:pre-wrap;word-break:break-word">${escapeHtml(requestNote)}</div>` +
+      `</div>`
+    : "";
+
   const text =
     `신규 광고주 신청이 접수되었습니다.\n\n` +
     `신청번호: ${row.application_no}\n` +
@@ -176,6 +189,7 @@ function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: st
     `\n제품 (${row.products?.length ?? 0}개, 총 ${row.total_qty ?? 0}명, ${fmtJpy(row.total_jpy)})\n` +
     productLines +
     `\n\n예상 견적: ${fmtKrw(row.estimated_krw)}\n` +
+    requestNoteText +
     `관리자 페이지: ${deepLink}\n`;
 
   const html =
@@ -195,6 +209,7 @@ function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: st
         `<thead><tr style="background:#f5f5f5"><th style="padding:6px 8px;text-align:left">제품</th><th style="padding:6px 8px;text-align:right">가격</th><th style="padding:6px 8px;text-align:right">수량</th></tr></thead>` +
         `<tbody>${productsHtml}</tbody></table>`
       : "") +
+    requestNoteHtml +
     `<a href="${escapeHtml(deepLink)}" style="display:inline-block;background:#E8344E;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">관리자 페이지에서 확인</a>` +
     `</div>`;
 
