@@ -5945,7 +5945,7 @@ function renderCampPreview(mode) {
   const richFn = (typeof richHtml === 'function') ? richHtml : (s => esc(s).replace(/\n/g,'<br>'));
   const fmt = v => v ? (typeof formatDate === 'function' ? formatDate(v) : v) : '—';
   const rewardText = (camp.product_price>0 || camp.reward>0)
-    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 商品提供`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} 報酬`:''}`
+    ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 円相当の製品を無償提供`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} 報酬`:''}`
     : '';
 
   // 참여방법 (스냅샷 > legacy)
@@ -5972,7 +5972,7 @@ function renderCampPreview(mode) {
           ${camp.brand?`<div class="cp-brand">${esc(camp.brand)}</div>`:''}
           ${rtLabel?`<div class="cp-rt">${esc(rtLabel)}</div>`:''}
           <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
-          ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">商品提供</span></div>`:''}
+          ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">円相当の製品を無償提供</span></div>`:''}
           ${camp.reward>0?`<div class="cp-reward-cash">+ ¥${camp.reward.toLocaleString()} 報酬</div>`:''}
         </div>
         <div class="cp-info">
@@ -6009,7 +6009,7 @@ function renderCampPreview(mode) {
         ${camp.ng?`<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`:''}
       </div>
       <div class="cp-cta">
-        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 商品提供`:''}</small></div>
+        <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 円相当の製品を無償提供`:''}</small></div>
         <div class="cp-cta-btn">応募</div>
       </div>
     </div>`;
