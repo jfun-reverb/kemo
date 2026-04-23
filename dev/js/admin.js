@@ -1384,6 +1384,11 @@ function renderCampPreview(mode) {
         </div>`:''}
         ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
         ${camp.ng?`<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`:''}
+        ${(Array.isArray(camp.caution_items) && camp.caution_items.length) ? (() => {
+          const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
+          const lis = camp.caution_items.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
+          return `<div class="cp-sec"><div class="cp-section-heading">注意事項</div><ul class="cp-sec-body" style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px;line-height:1.65">${lis}</ul></div>`;
+        })() : ''}
       </div>
       <div class="cp-cta">
         <div class="cp-cta-name">${esc(camp.title||'—')}<small>${camp.product_price>0?`¥${camp.product_price.toLocaleString()} 円相当の製品を無償提供`:''}</small></div>
@@ -4075,8 +4080,15 @@ function renderCampBundleSummary(kind, formMode) {
       body.innerHTML = '<span style="color:var(--muted);font-size:12px">번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요</span>';
       return;
     }
-    const firstTitle = steps[0]?.title_ja || steps[0]?.title_ko || '—';
-    body.innerHTML = `${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span><div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">STEP 1: ${esc(firstTitle)}${steps.length > 1 ? ' …' : ''}</div>`;
+    const renderStep = (s, i, lang) => {
+      const title = lang === 'ko' ? (s.title_ko || s.title_ja || '—') : (s.title_ja || s.title_ko || '—');
+      const desc  = lang === 'ko' ? (s.desc_ko || s.desc_ja || '') : (s.desc_ja || s.desc_ko || '');
+      return `<div class="summary-step"><div class="summary-step-title">STEP ${i+1} · ${esc(title)}</div>${desc?`<div class="summary-step-desc">${esc(desc)}</div>`:''}</div>`;
+    };
+    const koCol = steps.map((s,i) => renderStep(s, i, 'ko')).join('');
+    const jaCol = steps.map((s,i) => renderStep(s, i, 'ja')).join('');
+    body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span></div>`
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div>${koCol}</div><div class="summary-lang-col"><div class="summary-lang-title">日本語</div>${jaCol}</div></div>`;
   } else {
     const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
     const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
@@ -4086,9 +4098,10 @@ function renderCampBundleSummary(kind, formMode) {
       return;
     }
     const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
-    const firstHtml = sanitize(items[0].html_ja || items[0].html_ko || '');
-    const firstPlain = firstHtml.replace(/<[^>]*>/g, '').trim() || '—';
-    body.innerHTML = `${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span><div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">· ${esc(firstPlain.slice(0,80))}${firstPlain.length>80?'…':''}${items.length>1?` (외 ${items.length-1}개)`:''}</div>`;
+    const koCol = items.map(it => `<li>${sanitize(it.html_ko || it.html_ja || '')}</li>`).join('');
+    const jaCol = items.map(it => `<li>${sanitize(it.html_ja || it.html_ko || '')}</li>`).join('');
+    body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span></div>`
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">日本語</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
   }
 }
 
