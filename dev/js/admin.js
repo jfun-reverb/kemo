@@ -4342,6 +4342,20 @@ function brandAppStatusBadge(status) {
   return '<span style="background:'+s.bg+';color:'+s.color+';font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">'+esc(s.label)+'</span>';
 }
 
+// 요청사항 셀: 2줄 말줄임 + 더보기 모달 (msgCell 패턴 재사용)
+// openMsgModal 헬퍼 공유 — data-msg 안 HTML은 esc 후 주입
+function brandAppNoteCell(text) {
+  if (!text) return '<span style="color:var(--muted);font-size:12px">—</span>';
+  var safe = esc(text);
+  var short = '<div style="max-width:220px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--ink);line-height:1.4">' + safe + '</div>';
+  // 40자 또는 개행 포함 시 "더보기" 노출 (2줄 미리보기에서 잘릴 가능성 있음)
+  var hasMore = text.length > 40 || /\n/.test(text);
+  var more = hasMore
+    ? '<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer;margin-top:2px;display:inline-block" onclick="event.stopPropagation();openMsgModal(this)" data-msg="' + safe + '">더보기</a>'
+    : '';
+  return short + more;
+}
+
 // 뱃지 스타일 상태 select 공통 렌더러
 function brandAppStatusSelectStyled(opts) {
   var status = opts.status;
@@ -5250,7 +5264,7 @@ function renderBrandLongPending(apps) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -5284,7 +5298,8 @@ function getFilteredBrandApps() {
     (a.brand_name || '').toLowerCase().includes(q) ||
     (a.contact_name || '').toLowerCase().includes(q) ||
     (a.email || '').toLowerCase().includes(q) ||
-    (a.application_no || '').toLowerCase().includes(q)
+    (a.application_no || '').toLowerCase().includes(q) ||
+    (a.request_note || '').toLowerCase().includes(q)
   );
 
   list.sort(function(a, b) {
@@ -5341,6 +5356,7 @@ function renderBrandApplicationsList() {
       + '</td>'
       + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
       + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
+      + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
       + '<td>' + brandAppStatusSelect(a) + '</td>'
@@ -5355,7 +5371,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
