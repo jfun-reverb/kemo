@@ -653,6 +653,40 @@ textarea.form-input{resize:vertical;min-height:80px}
 .ql-snow .ql-tooltip,
 .ql-tooltip.ql-editing,
 .ql-tooltip.ql-flip{display:none !important}
+
+/* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
+.bundle-summary-card{
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-rows:auto auto;
+  column-gap:14px;
+  row-gap:4px;
+  align-items:center;
+  padding:14px 16px;
+  margin-bottom:14px;
+  border:1px dashed var(--line);
+  border-radius:10px;
+  background:#fafafa;
+}
+.bundle-summary-card .bundle-summary-label{
+  grid-column:1;
+  grid-row:1;
+  font-size:13px;
+  font-weight:600;
+  color:var(--ink);
+}
+.bundle-summary-card .bundle-summary-body{
+  grid-column:1;
+  grid-row:2;
+  font-size:12px;
+  color:var(--ink);
+  line-height:1.5;
+}
+.bundle-summary-card .btn{
+  grid-column:2;
+  grid-row:1 / span 2;
+  align-self:center;
+}
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -1017,7 +1051,14 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
               <div class="form-group"><label class="form-label">NG 사항</label><div class="quill-host" id="editCampNg"></div></div>
             </div>
-            <div class="form-group">
+            <!-- 참여방법: 요약 카드 + 편집 모달로 분리 (긴 인라인 편집 UI 는 모달 안으로 이동) -->
+            <div class="bundle-summary-card" id="editCampPsetSummary" data-kind="pset" data-form-mode="edit">
+              <div class="bundle-summary-label">참여방법</div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('pset','edit')">편집</button>
+            </div>
+            <!-- 참여방법 편집 form-group (DOM 이동 대상) -->
+            <div class="form-group" id="editCampPsetGroup" style="display:none">
               <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
               <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
                 <select id="editCampPsetSelect" class="form-input" style="flex:1" onchange="onPsetSelectChange('edit')"><option value="">— 번들 선택 —</option></select>
@@ -1026,7 +1067,15 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div id="editCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('edit')" style="margin-top:8px">+ 단계 추가</button>
             </div>
-            <div class="form-group">
+
+            <!-- 주의사항: 요약 카드 + 편집 모달로 분리 -->
+            <div class="bundle-summary-card" id="editCampCsetSummary" data-kind="cset" data-form-mode="edit">
+              <div class="bundle-summary-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('cset','edit')">편집</button>
+            </div>
+            <!-- 주의사항 편집 form-group (DOM 이동 대상) -->
+            <div class="form-group" id="editCampCsetGroup" style="display:none">
               <label class="form-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨. 인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></label>
               <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
                 <select id="editCampCsetSelect" class="form-input" style="flex:1" onchange="onCsetSelectChange('edit')"><option value="">— 번들 선택 —</option></select>
@@ -1241,7 +1290,13 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
               <div class="form-group"><label class="form-label">NG 워드/사항</label><div class="quill-host" id="newCampNg"></div></div>
             </div>
-            <div class="form-group">
+            <!-- 참여방법: 요약 카드 + 편집 모달로 분리 -->
+            <div class="bundle-summary-card" id="newCampPsetSummary" data-kind="pset" data-form-mode="new">
+              <div class="bundle-summary-label">참여방법</div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('pset','new')">편집</button>
+            </div>
+            <div class="form-group" id="newCampPsetGroup" style="display:none">
               <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
               <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
                 <select id="newCampPsetSelect" class="form-input" style="flex:1" onchange="onPsetSelectChange('new')"><option value="">— 번들 선택 —</option></select>
@@ -1250,7 +1305,14 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div id="newCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('new')" style="margin-top:8px">+ 단계 추가</button>
             </div>
-            <div class="form-group">
+
+            <!-- 주의사항: 요약 카드 + 편집 모달로 분리 -->
+            <div class="bundle-summary-card" id="newCampCsetSummary" data-kind="cset" data-form-mode="new">
+              <div class="bundle-summary-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('cset','new')">편집</button>
+            </div>
+            <div class="form-group" id="newCampCsetGroup" style="display:none">
               <label class="form-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨. 인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></label>
               <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
                 <select id="newCampCsetSelect" class="form-input" style="flex:1" onchange="onCsetSelectChange('new')"><option value="">— 번들 선택 —</option></select>
@@ -2228,6 +2290,22 @@ textarea.form-input{resize:vertical;min-height:80px}
         <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
         <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- 캠페인별 번들 편집 모달 (참여방법/주의사항 공용, form-group DOM 이동) -->
+<div class="modal-overlay" id="campBundleModal" style="z-index:600">
+  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="campBundleModalTitle">편집</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeCampBundleModal()" style="padding:4px 6px;display:inline-flex;align-items:center" aria-label="닫기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
+    </div>
+    <div class="modal-body" id="campBundleModalBody" style="padding:20px 22px;overflow-y:auto;flex:1">
+      <div id="campBundleModalHost"></div>
+    </div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="btn btn-primary" onclick="closeCampBundleModal()">완료</button>
     </div>
   </div>
 </div>
@@ -4024,7 +4102,14 @@ document.addEventListener('keydown', (e) => {
     const zb = parseInt(getComputedStyle(b).zIndex, 10) || 0;
     return zb > za ? b : a;
   });
-  if (top && top.id) closeModal(top.id);
+  if (top && top.id) {
+    // campBundleModal 은 DOM 이동 복귀 로직이 있어 전용 닫기 함수로 위임
+    if (top.id === 'campBundleModal' && typeof closeCampBundleModal === 'function') {
+      closeCampBundleModal();
+    } else {
+      closeModal(top.id);
+    }
+  }
 });
 
 // 이미지 확대 라이트박스
@@ -4775,10 +4860,12 @@ function switchAdminPane(pane, el, pushHistory) {
     _psetState.new = [];
     populateCampPsetDropdown('new', 'monitor', null);
     renderCampSteps('new');
+    renderCampBundleSummary('pset', 'new');
     // 주의사항 번들 초기화 (신규는 빈 상태 — 관리자가 번들 선택 후 불러옴)
     _csetState.new = [];
     populateCampCsetDropdown('new', 'monitor', null);
     renderCampCautionItems('new');
+    renderCampBundleSummary('cset', 'new');
     setupCampPreview('new');
   }
   if (pane === 'edit-campaign') {
@@ -5594,6 +5681,7 @@ async function openEditCampaign(campId) {
     : [];
   await populateCampPsetDropdown('edit', rtVal, camp.participation_set_id || null);
   renderCampSteps('edit');
+  renderCampBundleSummary('pset', 'edit');
 
   // 주의사항 번들 복원 (migration 069 — 스냅샷 우선, 드롭다운은 recruit_type 필터)
   _csetState.edit = Array.isArray(camp.caution_items)
@@ -5601,6 +5689,7 @@ async function openEditCampaign(campId) {
     : [];
   await populateCampCsetDropdown('edit', rtVal, camp.caution_set_id || null);
   renderCampCautionItems('edit');
+  renderCampBundleSummary('cset', 'edit');
 
   switchAdminPane('edit-campaign', null);
 }
@@ -8679,6 +8768,78 @@ function collectCampCsetPayload(formMode) {
     caution_set_id: sel?.value || null,
     caution_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)
   };
+}
+
+// ══════════════════════════════════════
+// 캠페인 폼: 참여방법/주의사항을 요약 카드 + 편집 모달로 분리
+//   메인 폼이 세로로 너무 길어져서 두 섹션의 인라인 편집 UI 를 모달로 이동.
+//   편집 form-group DOM 은 숨겨둔 상태로 원위치에 유지되며, 모달 열기 시
+//   일시적으로 campBundleModalHost 로 이동하고 닫을 때 원위치 복귀.
+// ══════════════════════════════════════
+let _campBundleModalReturn = null;  // { group, parent, next, kind, formMode }
+
+function renderCampBundleSummary(kind, formMode) {
+  const summaryId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetSummary' : 'CsetSummary');
+  const summary = $(summaryId);
+  if (!summary) return;
+  const body = summary.querySelector('.bundle-summary-body');
+  if (!body) return;
+  if (kind === 'pset') {
+    const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+    const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
+    const steps = _psetState[formMode] || [];
+    if (!steps.length) {
+      body.innerHTML = '<span style="color:var(--muted);font-size:12px">번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요</span>';
+      return;
+    }
+    const firstTitle = steps[0]?.title_ja || steps[0]?.title_ko || '—';
+    body.innerHTML = `${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span><div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">STEP 1: ${esc(firstTitle)}${steps.length > 1 ? ' …' : ''}</div>`;
+  } else {
+    const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
+    const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
+    const items = _csetState[formMode] || [];
+    if (!items.length) {
+      body.innerHTML = '<span style="color:var(--muted);font-size:12px">번들 미선택 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요</span>';
+      return;
+    }
+    const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+    const firstHtml = sanitize(items[0].html_ja || items[0].html_ko || '');
+    const firstPlain = firstHtml.replace(/<[^>]*>/g, '').trim() || '—';
+    body.innerHTML = `${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span><div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">· ${esc(firstPlain.slice(0,80))}${firstPlain.length>80?'…':''}${items.length>1?` (외 ${items.length-1}개)`:''}</div>`;
+  }
+}
+
+function openCampBundleModal(kind, formMode) {
+  const groupId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetGroup' : 'CsetGroup');
+  const group = $(groupId);
+  const host = $('campBundleModalHost');
+  if (!group || !host) return;
+  // DOM 이동: 원위치 복귀를 위해 현재 부모와 다음 형제 저장
+  _campBundleModalReturn = {
+    group: group,
+    parent: group.parentNode,
+    next: group.nextSibling,
+    kind: kind,
+    formMode: formMode
+  };
+  group.style.display = '';  // 모달 안에서는 보이게
+  host.innerHTML = '';
+  host.appendChild(group);
+  const title = $('campBundleModalTitle');
+  if (title) title.textContent = (kind === 'pset' ? '참여방법' : '주의사항') + ' 편집';
+  openModal('campBundleModal');
+}
+
+function closeCampBundleModal() {
+  const ret = _campBundleModalReturn;
+  if (ret && ret.group && ret.parent) {
+    ret.group.style.display = 'none';  // 원위치에서는 숨김
+    if (ret.next) ret.parent.insertBefore(ret.group, ret.next);
+    else ret.parent.appendChild(ret.group);
+  }
+  closeModal('campBundleModal');
+  if (ret) renderCampBundleSummary(ret.kind, ret.formMode);
+  _campBundleModalReturn = null;
 }
 
 async function loadMyAdminInfo() {

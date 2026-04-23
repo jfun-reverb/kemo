@@ -143,10 +143,12 @@ function switchAdminPane(pane, el, pushHistory) {
     _psetState.new = [];
     populateCampPsetDropdown('new', 'monitor', null);
     renderCampSteps('new');
+    renderCampBundleSummary('pset', 'new');
     // 주의사항 번들 초기화 (신규는 빈 상태 — 관리자가 번들 선택 후 불러옴)
     _csetState.new = [];
     populateCampCsetDropdown('new', 'monitor', null);
     renderCampCautionItems('new');
+    renderCampBundleSummary('cset', 'new');
     setupCampPreview('new');
   }
   if (pane === 'edit-campaign') {
@@ -962,6 +964,7 @@ async function openEditCampaign(campId) {
     : [];
   await populateCampPsetDropdown('edit', rtVal, camp.participation_set_id || null);
   renderCampSteps('edit');
+  renderCampBundleSummary('pset', 'edit');
 
   // 주의사항 번들 복원 (migration 069 — 스냅샷 우선, 드롭다운은 recruit_type 필터)
   _csetState.edit = Array.isArray(camp.caution_items)
@@ -969,6 +972,7 @@ async function openEditCampaign(campId) {
     : [];
   await populateCampCsetDropdown('edit', rtVal, camp.caution_set_id || null);
   renderCampCautionItems('edit');
+  renderCampBundleSummary('cset', 'edit');
 
   switchAdminPane('edit-campaign', null);
 }
@@ -4047,6 +4051,78 @@ function collectCampCsetPayload(formMode) {
     caution_set_id: sel?.value || null,
     caution_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)
   };
+}
+
+// ══════════════════════════════════════
+// 캠페인 폼: 참여방법/주의사항을 요약 카드 + 편집 모달로 분리
+//   메인 폼이 세로로 너무 길어져서 두 섹션의 인라인 편집 UI 를 모달로 이동.
+//   편집 form-group DOM 은 숨겨둔 상태로 원위치에 유지되며, 모달 열기 시
+//   일시적으로 campBundleModalHost 로 이동하고 닫을 때 원위치 복귀.
+// ══════════════════════════════════════
+let _campBundleModalReturn = null;  // { group, parent, next, kind, formMode }
+
+function renderCampBundleSummary(kind, formMode) {
+  const summaryId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetSummary' : 'CsetSummary');
+  const summary = $(summaryId);
+  if (!summary) return;
+  const body = summary.querySelector('.bundle-summary-body');
+  if (!body) return;
+  if (kind === 'pset') {
+    const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+    const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
+    const steps = _psetState[formMode] || [];
+    if (!steps.length) {
+      body.innerHTML = '<span style="color:var(--muted);font-size:12px">번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요</span>';
+      return;
+    }
+    const firstTitle = steps[0]?.title_ja || steps[0]?.title_ko || '—';
+    body.innerHTML = `${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span><div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">STEP 1: ${esc(firstTitle)}${steps.length > 1 ? ' …' : ''}</div>`;
+  } else {
+    const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
+    const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
+    const items = _csetState[formMode] || [];
+    if (!items.length) {
+      body.innerHTML = '<span style="color:var(--muted);font-size:12px">번들 미선택 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요</span>';
+      return;
+    }
+    const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+    const firstHtml = sanitize(items[0].html_ja || items[0].html_ko || '');
+    const firstPlain = firstHtml.replace(/<[^>]*>/g, '').trim() || '—';
+    body.innerHTML = `${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span><div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">· ${esc(firstPlain.slice(0,80))}${firstPlain.length>80?'…':''}${items.length>1?` (외 ${items.length-1}개)`:''}</div>`;
+  }
+}
+
+function openCampBundleModal(kind, formMode) {
+  const groupId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetGroup' : 'CsetGroup');
+  const group = $(groupId);
+  const host = $('campBundleModalHost');
+  if (!group || !host) return;
+  // DOM 이동: 원위치 복귀를 위해 현재 부모와 다음 형제 저장
+  _campBundleModalReturn = {
+    group: group,
+    parent: group.parentNode,
+    next: group.nextSibling,
+    kind: kind,
+    formMode: formMode
+  };
+  group.style.display = '';  // 모달 안에서는 보이게
+  host.innerHTML = '';
+  host.appendChild(group);
+  const title = $('campBundleModalTitle');
+  if (title) title.textContent = (kind === 'pset' ? '참여방법' : '주의사항') + ' 편집';
+  openModal('campBundleModal');
+}
+
+function closeCampBundleModal() {
+  const ret = _campBundleModalReturn;
+  if (ret && ret.group && ret.parent) {
+    ret.group.style.display = 'none';  // 원위치에서는 숨김
+    if (ret.next) ret.parent.insertBefore(ret.group, ret.next);
+    else ret.parent.appendChild(ret.group);
+  }
+  closeModal('campBundleModal');
+  if (ret) renderCampBundleSummary(ret.kind, ret.formMode);
+  _campBundleModalReturn = null;
 }
 
 async function loadMyAdminInfo() {
