@@ -4077,7 +4077,7 @@ function renderCampBundleSummary(kind, formMode) {
     const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
     const steps = _psetState[formMode] || [];
     if (!steps.length) {
-      body.innerHTML = '<span style="color:var(--muted);font-size:12px">번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요</span>';
+      body.innerHTML = '<div class="summary-head" style="color:var(--muted)">번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요</div>';
       return;
     }
     const renderStep = (s, i, lang) => {
@@ -4094,7 +4094,7 @@ function renderCampBundleSummary(kind, formMode) {
     const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
     const items = _csetState[formMode] || [];
     if (!items.length) {
-      body.innerHTML = '<span style="color:var(--muted);font-size:12px">번들 미선택 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요</span>';
+      body.innerHTML = '<div class="summary-head" style="color:var(--muted)">번들 미선택 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요</div>';
       return;
     }
     const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));

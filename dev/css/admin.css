@@ -342,9 +342,9 @@
   font-weight:600;
   color:var(--ink);
 }
+/* body 자체는 레이아웃에서 제외, 내부 summary-head / summary-lang-grid 가 직접 grid item */
 .bundle-summary-card .bundle-summary-body{
-  grid-column:1;
-  grid-row:2;
+  display:contents;
   font-size:12px;
   color:var(--ink);
   line-height:1.5;
@@ -355,20 +355,24 @@
   align-self:center;
 }
 
-/* 요약 카드 내부 한/일 2컬럼 리스트 */
+/* 요약 카드 내부 한/일 2컬럼 리스트 — body:display:contents 덕분에 card grid 에 직접 참여 */
 .bundle-summary-card .summary-head{
+  grid-column:1;
+  grid-row:2;
   font-size:12px;
   color:var(--ink);
   line-height:1.5;
-  margin-bottom:4px;
 }
-.summary-lang-grid{
+.bundle-summary-card .summary-lang-grid{
+  /* 편집 버튼 아래에 구분선부터 시작해서 전체 폭 사용 */
+  grid-column:1 / -1;
+  grid-row:3;
+  margin-top:4px;
+  padding-top:10px;
+  border-top:1px dashed var(--line);
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:16px;
-  margin-top:8px;
-  padding-top:10px;
-  border-top:1px dashed var(--line);
 }
 .summary-lang-col{
   font-size:12px;
