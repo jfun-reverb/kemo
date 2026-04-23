@@ -452,7 +452,8 @@ body {
 .field input[type="tel"],
 .field input[type="email"],
 .field input[type="url"],
-.field input[type="number"] {
+.field input[type="number"],
+.field textarea {
   width: 100%;
   padding: 13px 14px;
   border: 1px solid var(--border-strong);
@@ -465,26 +466,51 @@ body {
   -webkit-appearance: none;
 }
 
-.field input:focus {
+.field input:focus,
+.field textarea:focus {
   outline: none;
   border-color: var(--ink);
   box-shadow: 0 0 0 3px rgba(22, 22, 24, 0.08);
 }
 
-.field input.is-invalid {
+.field input.is-invalid,
+.field textarea.is-invalid {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(232, 52, 78, 0.12);
 }
 
-.field input::placeholder {
+.field input::placeholder,
+.field textarea::placeholder {
   color: var(--ink-mute);
   font-weight: 400;
+}
+
+/* textarea: 모바일 자동 확대 방지를 위해 font-size를 16px로 상향 */
+.field textarea {
+  font-size: 16px;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.55;
+  min-height: 84px;
+  display: block;
 }
 
 .field-hint {
   font-size: 11px;
   color: var(--ink-mute);
   margin-top: 5px;
+}
+
+.field-counter {
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin-top: 5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-counter.is-over {
+  color: var(--brand);
 }
 
 /* Product item card */
@@ -1239,6 +1265,28 @@ body {
     </div>
   </div>
 
+  <!-- Group 4: Other / Request Note (optional) -->
+  <div class="field-group">
+    <div class="field-group-label">
+      <span>
+        <span class="ko-only">04 / 기타·요청사항 (선택)</span>
+        <span class="ja-only">04 / その他・ご要望（任意）</span>
+      </span>
+    </div>
+    <div class="field">
+      <label>
+        <span class="ko-only">자유 입력</span>
+        <span class="ja-only">自由入力</span>
+      </label>
+      <textarea
+        id="requestNote"
+        rows="3"
+        maxlength="1000"
+        placeholder="ご希望の開始時期、ターゲット層、訴求ポイント、参考キャンペーン等、ご自由にご記入ください。"></textarea>
+      <div class="field-counter" id="requestNoteCounter">0 / 1000</div>
+    </div>
+  </div>
+
   <!-- Quote Preview -->
   <div class="quote-box">
     <div class="quote-label">
@@ -1614,6 +1662,7 @@ async function submitApplication() {
     const phone = document.getElementById('phone')?.value.trim();
     const email = document.getElementById('email')?.value.trim();
     const billingEmail = document.getElementById('billingEmail')?.value.trim() || null;
+    const requestNote = document.getElementById('requestNote')?.value.trim() || null;
     const products = collectProducts();
 
     // DB INSERT — SECURITY DEFINER RPC 경유 (anon RLS 42501 우회)
@@ -1625,7 +1674,8 @@ async function submitApplication() {
       p_phone: phone,
       p_email: email,
       p_products: products,
-      p_billing_email: billingEmail
+      p_billing_email: billingEmail,
+      p_request_note: requestNote
     });
 
     if (error) throw error;
@@ -1768,6 +1818,29 @@ document.addEventListener('focusout', function(e) {
     el.value = 'https://' + v;
   }
 });
+
+// requestNote: 높이 auto-grow + 글자수 카운터
+(function () {
+  const el = document.getElementById('requestNote');
+  const counter = document.getElementById('requestNoteCounter');
+  if (!el) return;
+  const MAX = 1000;
+  function autoResize() {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+  function updateCounter() {
+    const n = el.value.length;
+    if (counter) {
+      counter.textContent = n + ' / ' + MAX;
+      counter.classList.toggle('is-over', n >= MAX);
+    }
+  }
+  el.addEventListener('input', function () { autoResize(); updateCounter(); });
+  window.addEventListener('load', function () { autoResize(); updateCounter(); });
+  autoResize();
+  updateCounter();
+})();
 </script>
 
 <!-- Vercel Web Analytics — page view tracking (쿠키 미사용) -->

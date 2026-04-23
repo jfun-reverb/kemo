@@ -4650,7 +4650,8 @@ async function exportBrandApplicationsExcel() {
       { header: '연락처',              key: 'phone',       width: 18 },
       { header: '세금계산서 발행주소', key: 'billing',     width: 28 },
       { header: '예상견적',            key: 'estimated',   width: 16 },
-      { header: '상태',                key: 'status',      width: 12 }
+      { header: '상태',                key: 'status',      width: 12 },
+      { header: '요청사항',            key: 'requestNote', width: 40 }
     ];
 
     // 헤더 스타일
@@ -4667,16 +4668,17 @@ async function exportBrandApplicationsExcel() {
         catch(e) { createdStr = String(a.created_at); }
       }
       ws.addRow({
-        created:   createdStr,
-        no:        a.application_no || '',
-        form:      brandAppFormLabel(a.form_type),
-        brand:     a.brand_name || '',
-        contact:   a.contact_name || '',
-        email:     a.email || '',
-        phone:     formatPhoneDisplay(a.phone),
-        billing:   a.billing_email || '',
-        estimated: (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
-        status:    (BRAND_APP_STATUS[a.status]?.label) || a.status || ''
+        created:     createdStr,
+        no:          a.application_no || '',
+        form:        brandAppFormLabel(a.form_type),
+        brand:       a.brand_name || '',
+        contact:     a.contact_name || '',
+        email:       a.email || '',
+        phone:       formatPhoneDisplay(a.phone),
+        billing:     a.billing_email || '',
+        estimated:   (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
+        status:      (BRAND_APP_STATUS[a.status]?.label) || a.status || '',
+        requestNote: a.request_note || ''
       });
     });
 
@@ -4684,10 +4686,17 @@ async function exportBrandApplicationsExcel() {
     ws.getColumn('estimated').numFmt = '#,##0';
     ws.getColumn('estimated').alignment = { horizontal: 'right' };
 
-    // 모든 데이터 행 기본 정렬
+    // 데이터 행 기본 정렬. 요청사항 셀만 wrapText + top 으로 개행/장문 보존
+    // (row.alignment 을 쓰면 셀 단위 설정이 덮어씌워지므로 셀 단위로 개별 설정)
     ws.eachRow({ includeEmpty: false }, function(row, idx) {
       if (idx === 1) return;
-      row.alignment = row.alignment || { vertical: 'middle' };
+      row.eachCell({ includeEmpty: true }, function(cell) {
+        cell.alignment = Object.assign({ vertical: 'middle' }, cell.alignment || {});
+      });
+      var noteCell = row.getCell('requestNote');
+      if (noteCell) {
+        noteCell.alignment = { wrapText: true, vertical: 'top' };
+      }
     });
 
     var buf = await wb.xlsx.writeBuffer();
@@ -5488,6 +5497,16 @@ async function openBrandAppDetail(id) {
       + '<div style="display:flex;align-items:baseline;margin-bottom:10px">' + sectionLabel('신청 상품') + productsSummary + '</div>'
       + productsHtml
     + '</div>'
+
+    // § 신청자 요청사항 (신청자가 직접 입력. 관리자 메모와 구분)
+    + (a.request_note ? (
+        '<div style="padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)">'
+          + sectionLabel('신청자 요청사항')
+          + '<div style="background:#FFF9F0;border:1px solid #E8D0A0;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--ink);white-space:pre-wrap;word-break:break-word;line-height:1.6">'
+          + esc(a.request_note)
+          + '</div>'
+        + '</div>'
+      ) : '')
 
     // § 관리자 처리
     + '<div style="padding-bottom:16px;margin-bottom:16px">'
