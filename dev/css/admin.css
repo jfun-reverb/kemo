@@ -286,18 +286,26 @@
   /* overflow:visible — ql-picker-options(헤더 드롭다운)가 상위를 벗어나야 함 */
   overflow:visible;
   background:#fff;
+  /* grid-row 내 stretch 상황에서도 container 높이가 0 되지 않도록 flex column 으로 고정 */
+  display:flex;
+  flex-direction:column;
 }
 .quill-wrap .ql-toolbar.ql-snow{
   border:0;
   border-bottom:1px solid var(--line);
   background:#fafafa;
   border-radius:8px 8px 0 0;
+  flex-shrink:0;
 }
 .quill-wrap .ql-container.ql-snow{
   border:0;
   border-radius:0 0 8px 8px;
   font-size:13px;
   font-family:inherit;
+  /* Quill 기본값 height:100% 를 덮어써 자식(.ql-editor) min-height 로 auto-grow */
+  height:auto;
+  flex:1 1 auto;
+  min-height:96px;
 }
 .quill-wrap .ql-editor{
   min-height:96px;
