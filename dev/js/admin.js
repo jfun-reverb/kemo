@@ -391,18 +391,14 @@ function openCautionConsentModal(appId) {
   const snap = cached.snapshot;
   let html = `<div style="font-size:13px;line-height:1.7"><strong>동의 시각</strong> · ${esc(formatDateTime(cached.agreed_at))}</div>`;
   if (snap && typeof snap === 'object') {
-    // v2 (migration 069 이후): items 배열 기반 스냅샷
+    // v2 (migration 069 이후): items 배열 기반 스냅샷 — html_ko/html_ja 동시 렌더 (관리자 열람 목적)
     if (snap.version === 2 && Array.isArray(snap.items) && snap.items.length) {
-      html += `<div style="margin-top:12px"><strong style="font-size:13px">주의사항 (동의 시점 스냅샷)</strong><ul style="margin:6px 0 0 18px;padding:0;font-size:12px;line-height:1.8;display:flex;flex-direction:column;gap:3px">` +
+      const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
+      html += `<div style="margin-top:12px"><strong style="font-size:13px">주의사항 (동의 시점 스냅샷)</strong><ul style="margin:6px 0 0 18px;padding:0;font-size:12px;line-height:1.8;display:flex;flex-direction:column;gap:4px">` +
         snap.items.map(it => {
-          const ko = esc(it.text_ko || '');
-          const ja = esc(it.text_ja || '');
-          const url = (it.link_url || '').trim();
-          const safeUrl = /^https?:\/\/|^mailto:/i.test(url) ? url : '';
-          const link = safeUrl
-            ? ` <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">${esc(it.link_label_ko || it.link_label_ja || url)}</a>${esc(it.text_after_ko || '')}`
-            : '';
-          return `<li><span style="color:var(--ink)">${ko}${link}</span><div style="color:var(--muted);font-size:11px;margin-top:1px">${ja}${safeUrl ? ` <a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">${esc(it.link_label_ja || it.link_label_ko || url)}</a>${esc(it.text_after_ja || '')}` : ''}</div></li>`;
+          const ko = sanitize(it.html_ko || '');
+          const ja = sanitize(it.html_ja || '');
+          return `<li><div style="color:var(--ink)">${ko}</div><div style="color:var(--muted);font-size:11px;margin-top:1px">${ja}</div></li>`;
         }).join('') +
         `</ul></div>`;
     }
@@ -935,7 +931,7 @@ async function openEditCampaign(campId) {
 
   // 주의사항 번들 복원 (migration 069 — 스냅샷 우선, 드롭다운은 recruit_type 필터)
   _csetState.edit = Array.isArray(camp.caution_items)
-    ? camp.caution_items.map(s => normalizeCsetItem(s))
+    ? camp.caution_items.map(normalizeCsetItem)
     : [];
   await populateCampCsetDropdown('edit', rtVal, camp.caution_set_id || null);
   renderCampCautionItems('edit');
@@ -3511,26 +3507,91 @@ function openCsetEditModal(row) {
 }
 
 function makeBlankCsetItem() {
-  return {text_ko:'', text_ja:'', link_url:'', link_label_ko:'', link_label_ja:'', text_after_ko:'', text_after_ja:''};
+  return {html_ko:'', html_ja:''};
 }
+// 레거시/신규 item 모두 {html_ko, html_ja} 정규화 (migration 069 전환 완료 후 v1 키 제거 예정)
 function normalizeCsetItem(s) {
-  return {
-    text_ko: s.text_ko || '',
-    text_ja: s.text_ja || '',
-    link_url: s.link_url || '',
-    link_label_ko: s.link_label_ko || '',
-    link_label_ja: s.link_label_ja || '',
-    text_after_ko: s.text_after_ko || '',
-    text_after_ja: s.text_after_ja || ''
+  if (!s) return makeBlankCsetItem();
+  // v2 (신규): html_ko / html_ja
+  if (s.html_ko != null || s.html_ja != null) {
+    return {html_ko: s.html_ko || '', html_ja: s.html_ja || ''};
+  }
+  // v1 레거시 호환 (초안 069에 남아있을 수 있는 캐시 데이터용 - 즉시 html 로 합치기)
+  const esc = v => (v == null ? '' : String(v))
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const buildLang = (lang) => {
+    const body = s['text_'+lang] || '';
+    const url = (s.link_url || '').trim();
+    if (!url) return esc(body);
+    const label = s['link_label_'+lang] || url;
+    const after = s['text_after_'+lang] || '';
+    const safeUrl = /^https?:\/\/|^mailto:/i.test(url) ? url : '';
+    if (!safeUrl) return esc(body) + esc(after);
+    return `${esc(body)}<a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>${esc(after)}`;
   };
+  return {html_ko: buildLang('ko'), html_ja: buildLang('ja')};
+}
+
+// 미니 에디터 (contenteditable + execCommand) — B/I/U/S/Link 5버튼만 제공
+function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
+  const safe = (typeof sanitizeCautionHtml === 'function')
+    ? sanitizeCautionHtml(initialHtml || '')
+    : String(initialHtml || '').replace(/<script/gi, '&lt;script');
+  const ph = esc(placeholder || '');
+  return `
+    <div class="mini-editor-wrap" style="border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff">
+      <div class="mini-editor-toolbar" style="display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:#fafafa">
+        <button type="button" onclick="miniEditorCmd(this,'bold')" title="굵게"        style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-weight:700;font-size:12px">B</button>
+        <button type="button" onclick="miniEditorCmd(this,'italic')" title="기울임"    style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-style:italic;font-size:12px">I</button>
+        <button type="button" onclick="miniEditorCmd(this,'underline')" title="밑줄"   style="border:0;background:transparent;cursor:pointer;padding:4px 8px;text-decoration:underline;font-size:12px">U</button>
+        <button type="button" onclick="miniEditorCmd(this,'strikeThrough')" title="취소선" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;text-decoration:line-through;font-size:12px">S</button>
+        <span style="width:1px;background:var(--line);margin:2px 4px"></span>
+        <button type="button" onclick="miniEditorCmd(this,'link')" title="링크" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">link</span>링크</button>
+        <button type="button" onclick="miniEditorCmd(this,'unlink')" title="링크 해제" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--muted);display:inline-flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">link_off</span></button>
+      </div>
+      <div class="mini-editor-content" contenteditable="true" data-placeholder="${ph}" style="padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none" oninput="${onChangeAttr}" onpaste="miniEditorPaste(event)">${safe}</div>
+    </div>`;
+}
+
+// 툴바 버튼 클릭 핸들러 — 현재 셀렉션에 cmd 적용
+function miniEditorCmd(btn, cmd) {
+  const wrap = btn.closest('.mini-editor-wrap');
+  const content = wrap?.querySelector('.mini-editor-content');
+  if (!content) return;
+  content.focus();
+  if (cmd === 'link') {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) { toast('링크로 만들 텍스트를 먼저 선택하세요','error'); return; }
+    const url = prompt('링크 URL (https:// 또는 mailto:)', 'https://');
+    if (!url) return;
+    const clean = url.trim();
+    if (!/^https?:\/\/|^mailto:/i.test(clean)) { toast('http/https/mailto URL 만 허용됩니다','error'); return; }
+    document.execCommand('createLink', false, clean);
+    // target=_blank + rel 추가 (execCommand 는 이 속성을 설정하지 않음)
+    content.querySelectorAll('a[href]').forEach(a => {
+      if (a.getAttribute('href') === clean) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+  } else {
+    document.execCommand(cmd, false, null);
+  }
+  // oninput 수동 트리거 (execCommand 는 input 이벤트 생성 안 하는 브라우저 대응)
+  content.dispatchEvent(new Event('input', {bubbles:true}));
+}
+
+// paste 시 서식 제거 — plain text 로만 삽입해 외부 block 태그 유입 차단
+function miniEditorPaste(e) {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData)?.getData('text/plain') || '';
+  document.execCommand('insertText', false, text);
 }
 
 function renderCsetItems() {
   const wrap = $('csetItemsWrap');
   if (!wrap) return;
-  wrap.innerHTML = _csetCurrentItems.map((s, idx) => {
-    const hasLink = !!(s.link_url || s.link_label_ko || s.link_label_ja || s.text_after_ko || s.text_after_ja);
-    return `
+  wrap.innerHTML = _csetCurrentItems.map((s, idx) => `
     <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:12px;font-weight:700;color:var(--pink)">항목 ${idx+1}</span>
@@ -3541,31 +3602,17 @@ function renderCsetItems() {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <textarea class="form-input" placeholder="본문 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_csetCurrentItems[${idx}].text_ko=this.value">${esc(s.text_ko)}</textarea>
-        <textarea class="form-input" placeholder="本文 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_csetCurrentItems[${idx}].text_ja=this.value">${esc(s.text_ja)}</textarea>
-      </div>
-      <div style="margin-top:8px">
-        ${hasLink ? `
-          <div style="display:grid;grid-template-columns:1fr;gap:6px;padding:10px;border:1px dashed var(--line);border-radius:8px;background:#fafafa">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:11px;color:var(--muted);font-weight:600">링크 (선택)</span>
-              <button type="button" class="btn btn-ghost btn-xs" onclick="csetToggleLink(${idx})" style="padding:2px 8px;font-size:11px">링크 제거</button>
-            </div>
-            <input type="url" class="form-input" placeholder="https://…" value="${esc(s.link_url)}" style="font-size:12px;padding:6px 8px" oninput="_csetCurrentItems[${idx}].link_url=this.value">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-              <input type="text" class="form-input" placeholder="링크 텍스트 (한국어)" value="${esc(s.link_label_ko)}" style="font-size:12px;padding:6px 8px" oninput="_csetCurrentItems[${idx}].link_label_ko=this.value">
-              <input type="text" class="form-input" placeholder="リンクテキスト (日本語)" value="${esc(s.link_label_ja)}" style="font-size:12px;padding:6px 8px" oninput="_csetCurrentItems[${idx}].link_label_ja=this.value">
-              <input type="text" class="form-input" placeholder="링크 뒤 텍스트 (한국어 · 예: ' 으로.')" value="${esc(s.text_after_ko)}" style="font-size:12px;padding:6px 8px" oninput="_csetCurrentItems[${idx}].text_after_ko=this.value">
-              <input type="text" class="form-input" placeholder="リンク後テキスト (日本語 · 例: ' まで。')" value="${esc(s.text_after_ja)}" style="font-size:12px;padding:6px 8px" oninput="_csetCurrentItems[${idx}].text_after_ja=this.value">
-            </div>
-          </div>
-        ` : `
-          <button type="button" class="btn btn-ghost btn-xs" onclick="csetToggleLink(${idx})" style="font-size:11px">+ 링크 추가</button>
-        `}
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (한국어)</div>
+          ${miniEditorHtml(s.html_ko, `_csetCurrentItems[${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">本文 (日本語)</div>
+          ${miniEditorHtml(s.html_ja, `_csetCurrentItems[${idx}].html_ja=this.innerHTML`, '本文 (日本語)')}
+        </div>
       </div>
     </div>
-    `;
-  }).join('');
+  `).join('');
   const addBtn = $('csetAddItemBtn');
   if (addBtn) addBtn.disabled = _csetCurrentItems.length >= MAX_CSET_ITEMS;
 }
@@ -3590,17 +3637,13 @@ function csetMoveItem(idx, dir) {
   renderCsetItems();
 }
 
-function csetToggleLink(idx) {
-  const s = _csetCurrentItems[idx];
-  if (!s) return;
-  const hasLink = !!(s.link_url || s.link_label_ko || s.link_label_ja || s.text_after_ko || s.text_after_ja);
-  if (hasLink) {
-    s.link_url = ''; s.link_label_ko = ''; s.link_label_ja = '';
-    s.text_after_ko = ''; s.text_after_ja = '';
-  } else {
-    s.link_url = 'https://';
-  }
-  renderCsetItems();
+// caution item html 이 실질적으로 비어있는지 (미니 에디터는 빈 상태에서도 <br> 같은 것을 남길 수 있음)
+function isCsetItemEmpty(htmlKo, htmlJa) {
+  const plain = String((htmlKo || '') + ' ' + (htmlJa || ''))
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+  return plain.length === 0;
 }
 
 async function saveCsetEdit() {
@@ -3612,23 +3655,14 @@ async function saveCsetEdit() {
   const name_ja = $('csetNameJa').value.trim();
   if (!name_ko || !name_ja) { show('한국어/일본어 번들 이름을 모두 입력해주세요'); return; }
   const recruit_types = Array.from(document.querySelectorAll('input[name="csetRT"]:checked')).map(cb => cb.value);
-  // 본문 한/일 둘 다 비어있지 않은 항목만 저장. 링크 필드는 있을 때만 포함.
-  // 링크 URL은 http/https/mailto만 허용 (DB 오염 + 렌더 단 우회 방지)
+  // 저장 직전 DOMPurify sanitize — DB에 안전한 HTML만 저장 (렌더 단도 2중 sanitize)
+  const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
   const items = _csetCurrentItems
-    .map(normalizeCsetItem)
-    .filter(s => (s.text_ko || s.text_ja || '').trim())
-    .map(s => {
-      const out = {text_ko: s.text_ko, text_ja: s.text_ja};
-      const rawUrl = (s.link_url||'').trim();
-      if (rawUrl && rawUrl !== 'https://' && /^https?:\/\/|^mailto:/i.test(rawUrl)) {
-        out.link_url = rawUrl;
-        if (s.link_label_ko) out.link_label_ko = s.link_label_ko;
-        if (s.link_label_ja) out.link_label_ja = s.link_label_ja;
-        if (s.text_after_ko) out.text_after_ko = s.text_after_ko;
-        if (s.text_after_ja) out.text_after_ja = s.text_after_ja;
-      }
-      return out;
-    });
+    .filter(s => !isCsetItemEmpty(s.html_ko, s.html_ja))
+    .map(s => ({
+      html_ko: sanitize(s.html_ko || ''),
+      html_ja: sanitize(s.html_ja || '')
+    }));
   if (!items.length) { show('항목을 1개 이상 입력해주세요 (본문 한국어 또는 일본어 필수)'); return; }
   if (items.length > MAX_CSET_ITEMS) { show(`항목은 최대 ${MAX_CSET_ITEMS}개까지`); return; }
   const payload = {name_ko, name_ja, recruit_types, items};
@@ -3767,9 +3801,9 @@ function onCsetSelectChange(formMode) {
   if (!sel) return;
   const set = _csetCache[formMode].find(s => s.id === sel.value);
   if (!set) return;
-  const hasContent = _csetState[formMode].some(s => (s.text_ko||s.text_ja||'').trim());
+  const hasContent = _csetState[formMode].some(s => !isCsetItemEmpty(s.html_ko, s.html_ja));
   const apply = () => {
-    _csetState[formMode] = (set.items||[]).map(s => normalizeCsetItem(s));
+    _csetState[formMode] = (set.items||[]).map(normalizeCsetItem);
     renderCampCautionItems(formMode);
   };
   if (!hasContent) { apply(); return; }
@@ -3783,7 +3817,7 @@ async function reloadCsetFromBundle(formMode) {
   if (!set) return;
   const ok = await showConfirm(`번들 "${set.name_ko}"의 현재 내용으로 덮어쓸까요?`);
   if (!ok) return;
-  _csetState[formMode] = (set.items||[]).map(s => normalizeCsetItem(s));
+  _csetState[formMode] = (set.items||[]).map(normalizeCsetItem);
   renderCampCautionItems(formMode);
 }
 
@@ -3796,9 +3830,7 @@ function renderCampCautionItems(formMode) {
     window.dispatchEvent(new Event('reverb:campFormChange'));
     return;
   }
-  wrap.innerHTML = arr.map((s, idx) => {
-    const hasLink = !!(s.link_url || s.link_label_ko || s.link_label_ja || s.text_after_ko || s.text_after_ja);
-    return `
+  wrap.innerHTML = arr.map((s, idx) => `
     <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <span style="font-size:12px;font-weight:700;color:var(--pink)">항목 ${idx+1}</span>
@@ -3809,31 +3841,17 @@ function renderCampCautionItems(formMode) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <textarea class="form-input" placeholder="본문 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_csetState['${formMode}'][${idx}].text_ko=this.value">${esc(s.text_ko||'')}</textarea>
-        <textarea class="form-input" placeholder="本文 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_csetState['${formMode}'][${idx}].text_ja=this.value">${esc(s.text_ja||'')}</textarea>
-      </div>
-      <div style="margin-top:8px">
-        ${hasLink ? `
-          <div style="display:grid;grid-template-columns:1fr;gap:6px;padding:10px;border:1px dashed var(--line);border-radius:8px;background:#fafafa">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:11px;color:var(--muted);font-weight:600">링크 (선택)</span>
-              <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampCsetItemLink('${formMode}',${idx})" style="padding:2px 8px;font-size:11px">링크 제거</button>
-            </div>
-            <input type="url" class="form-input" placeholder="https://…" value="${esc(s.link_url||'')}" style="font-size:12px;padding:6px 8px" oninput="_csetState['${formMode}'][${idx}].link_url=this.value">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-              <input type="text" class="form-input" placeholder="링크 텍스트 (한국어)" value="${esc(s.link_label_ko||'')}" style="font-size:12px;padding:6px 8px" oninput="_csetState['${formMode}'][${idx}].link_label_ko=this.value">
-              <input type="text" class="form-input" placeholder="リンクテキスト (日本語)" value="${esc(s.link_label_ja||'')}" style="font-size:12px;padding:6px 8px" oninput="_csetState['${formMode}'][${idx}].link_label_ja=this.value">
-              <input type="text" class="form-input" placeholder="링크 뒤 텍스트 (한국어)" value="${esc(s.text_after_ko||'')}" style="font-size:12px;padding:6px 8px" oninput="_csetState['${formMode}'][${idx}].text_after_ko=this.value">
-              <input type="text" class="form-input" placeholder="リンク後テキスト (日本語)" value="${esc(s.text_after_ja||'')}" style="font-size:12px;padding:6px 8px" oninput="_csetState['${formMode}'][${idx}].text_after_ja=this.value">
-            </div>
-          </div>
-        ` : `
-          <button type="button" class="btn btn-ghost btn-xs" onclick="toggleCampCsetItemLink('${formMode}',${idx})" style="font-size:11px">+ 링크 추가</button>
-        `}
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (한국어)</div>
+          ${miniEditorHtml(s.html_ko, `_csetState['${formMode}'][${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">本文 (日本語)</div>
+          ${miniEditorHtml(s.html_ja, `_csetState['${formMode}'][${idx}].html_ja=this.innerHTML`, '本文 (日本語)')}
+        </div>
       </div>
     </div>
-    `;
-  }).join('');
+  `).join('');
   window.dispatchEvent(new Event('reverb:campFormChange'));
 }
 
@@ -3857,37 +3875,16 @@ function moveCampCsetItem(formMode, idx, dir) {
   renderCampCautionItems(formMode);
 }
 
-function toggleCampCsetItemLink(formMode, idx) {
-  const s = _csetState[formMode][idx];
-  if (!s) return;
-  const hasLink = !!(s.link_url || s.link_label_ko || s.link_label_ja || s.text_after_ko || s.text_after_ja);
-  if (hasLink) {
-    s.link_url = ''; s.link_label_ko = ''; s.link_label_ja = '';
-    s.text_after_ko = ''; s.text_after_ja = '';
-  } else {
-    s.link_url = 'https://';
-  }
-  renderCampCautionItems(formMode);
-}
-
-// 저장 payload: {caution_set_id, caution_items}
+// 저장 payload: {caution_set_id, caution_items} — items 는 {html_ko, html_ja} 형식 + 저장 전 sanitize
 function collectCampCsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
+  const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
   const items = _csetState[formMode]
-    .filter(s => (s.text_ko||s.text_ja||'').trim())
-    .map(s => {
-      const out = {text_ko: s.text_ko||'', text_ja: s.text_ja||''};
-      const rawUrl = (s.link_url||'').trim();
-      // 링크 URL은 http/https/mailto만 허용 (DB 오염 + 렌더 단 우회 방지)
-      if (rawUrl && rawUrl !== 'https://' && /^https?:\/\/|^mailto:/i.test(rawUrl)) {
-        out.link_url = rawUrl;
-        if (s.link_label_ko) out.link_label_ko = s.link_label_ko;
-        if (s.link_label_ja) out.link_label_ja = s.link_label_ja;
-        if (s.text_after_ko) out.text_after_ko = s.text_after_ko;
-        if (s.text_after_ja) out.text_after_ja = s.text_after_ja;
-      }
-      return out;
-    });
+    .filter(s => !isCsetItemEmpty(s.html_ko, s.html_ja))
+    .map(s => ({
+      html_ko: sanitize(s.html_ko || ''),
+      html_ja: sanitize(s.html_ja || '')
+    }));
   return {
     caution_set_id: sel?.value || null,
     caution_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)

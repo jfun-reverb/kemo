@@ -24,10 +24,10 @@
 --   인플루언서는 campaigns.caution_items 스냅샷으로만 접근 (캠페인 공개 SELECT)
 --
 -- items jsonb 구조:
---   { text_ko, text_ja,
---     link_url?, link_label_ko?, link_label_ja?,
---     text_after_ko?, text_after_ja? }
---   링크가 필요 없는 대부분의 항목은 text_ko / text_ja 만 채운다.
+--   { html_ko, html_ja }
+--   각 언어별 HTML 조각 1개. 관리자 UI 의 미니 에디터(bold/italic/underline/
+--   strike/link 5종)로 입력받고 DOMPurify 로 sanitize 해 저장·렌더.
+--   허용 태그: b, strong, i, em, u, s, strike, a[href]
 --
 -- 롤백:
 --   ALTER TABLE public.campaigns DROP COLUMN IF EXISTS caution_items;
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS public.caution_sets (
 
 COMMENT ON TABLE  public.caution_sets                IS '주의사항 번들. 캠페인 등록 시 선택하면 items 스냅샷이 campaigns.caution_items 에 복사된다. participation_sets 패턴.';
 COMMENT ON COLUMN public.caution_sets.recruit_types  IS 'monitor | gifting | visit 복수 가능. 빈 배열이면 전 타입 공통.';
-COMMENT ON COLUMN public.caution_sets.items          IS '배열 원소: {text_ko, text_ja, link_url?, link_label_ko?, link_label_ja?, text_after_ko?, text_after_ja?}. 항목 수 상한은 앱 레벨 소프트 제약.';
+COMMENT ON COLUMN public.caution_sets.items          IS '배열 원소: {html_ko, html_ja}. 언어별 HTML 조각 (inline 서식만, DOMPurify sanitize 보장). 항목 수 상한은 앱 레벨 소프트 제약.';
 COMMENT ON COLUMN public.caution_sets.active         IS 'false면 관리 화면에서 숨김(soft delete). 기존 캠페인 스냅샷에는 영향 없음.';
 
 CREATE INDEX IF NOT EXISTS idx_caution_sets_active_sort
@@ -136,37 +136,32 @@ VALUES (
   '{}',  -- 전 타입 공통
   '[
     {
-      "text_ko": "기한 내 대응이 어려우신 분은 신청을 삼가해주세요.",
-      "text_ja": "期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。"
+      "html_ko": "기한 내 대응이 어려우신 분은 신청을 삼가해주세요.",
+      "html_ja": "期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。"
     },
     {
-      "text_ko": "게시가 기한 내에 이루어지지 않으면 원고료 지급이 불가합니다.",
-      "text_ja": "投稿が期限内に行われない場合、原稿料のお支払いはできません。"
+      "html_ko": "게시가 기한 내에 이루어지지 않으면 원고료 지급이 불가합니다.",
+      "html_ja": "投稿が期限内に行われない場合、原稿料のお支払いはできません。"
     },
     {
-      "text_ko": "가이드라인을 준수하여 작성하고, 미준수 시 수정을 요청드립니다.",
-      "text_ja": "ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。"
+      "html_ko": "가이드라인을 준수하여 작성하고, 미준수 시 수정을 요청드립니다.",
+      "html_ja": "ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。"
     },
     {
-      "text_ko": "게시된 리뷰는 브랜드 마케팅 목적으로 활용될 수 있습니다.",
-      "text_ja": "掲載されたレビューはブランドのマーケティング目的で活用される場合があります。"
+      "html_ko": "게시된 리뷰는 브랜드 마케팅 목적으로 활용될 수 있습니다.",
+      "html_ja": "掲載されたレビューはブランドのマーケティング目的で活用される場合があります。"
     },
     {
-      "text_ko": "게시물은 6개월 이상 유지가 필수입니다.",
-      "text_ja": "投稿は6ヶ月以上の掲載が必須です。"
+      "html_ko": "게시물은 6개월 이상 유지가 필수입니다.",
+      "html_ja": "投稿は6ヶ月以上の掲載が必須です。"
     },
     {
-      "text_ko": "비선정자에게는 별도 연락을 드리지 않습니다.",
-      "text_ja": "当選されなかった方への個別のご連絡は実施しておりません。"
+      "html_ko": "비선정자에게는 별도 연락을 드리지 않습니다.",
+      "html_ja": "当選されなかった方への個別のご連絡は実施しておりません。"
     },
     {
-      "text_ko":        "문의사항은 ",
-      "text_ja":        "ご不明点は ",
-      "link_url":       "https://line.me/R/ti/p/@reverb.jp",
-      "link_label_ko":  "LINE(@reverb.jp)",
-      "link_label_ja":  "LINE(@reverb.jp)",
-      "text_after_ko":  " 으로.",
-      "text_after_ja":  " まで。"
+      "html_ko": "문의사항은 <a href=\"https://line.me/R/ti/p/@reverb.jp\" target=\"_blank\" rel=\"noopener noreferrer\">LINE(@reverb.jp)</a> 으로.",
+      "html_ja": "ご不明点は <a href=\"https://line.me/R/ti/p/@reverb.jp\" target=\"_blank\" rel=\"noopener noreferrer\">LINE(@reverb.jp)</a> まで。"
     }
   ]'::jsonb,
   0,

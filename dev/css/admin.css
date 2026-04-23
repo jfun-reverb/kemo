@@ -204,3 +204,13 @@
 .camp-preview-pane.collapsed .camp-preview-pane-header button .material-icons-round{transform:rotate(180deg)}
 @media(max-width:1400px){.camp-preview-pane{width:380px}}
 @media(max-width:1200px){.camp-preview-pane{width:340px}}
+
+/* 주의사항 번들 편집 — 미니 에디터 (contenteditable + execCommand) */
+.mini-editor-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.mini-editor-toolbar{display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:#fafafa}
+.mini-editor-toolbar button{border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
+.mini-editor-toolbar button:hover{background:rgba(200,120,163,.1)}
+.mini-editor-content{padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none;word-break:break-word}
+.mini-editor-content:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
+.mini-editor-content a{color:var(--pink);text-decoration:underline}
+.mini-editor-content:focus{background:#fffdf9}

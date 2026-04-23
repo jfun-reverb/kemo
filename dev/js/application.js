@@ -303,18 +303,29 @@ function resetCautionUI() {
   if (cb) cb.checked = false;
 }
 
-// 캠페인 상세 + 신청 모달 공용 — caution_items 배열을 개행·링크 안전하게 렌더
+// 캠페인 상세 + 신청 모달 공용 — caution_items 배열(v2: html_ko/html_ja)을 sanitize 렌더
+// v1 (text_ko + link_* 분해) 스냅샷도 normalizeCautionItem 으로 html 로 합쳐 동일 경로 처리
 function renderCautionItemsHtml(items) {
   if (!Array.isArray(items) || !items.length) return '';
   const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const sanitize = (typeof sanitizeCautionHtml === 'function')
+    ? sanitizeCautionHtml
+    : (h => String(h||'').replace(/<script/gi,'&lt;script'));
   const lis = items.map(it => {
-    const body = lang === 'ko' ? (it.text_ko || it.text_ja || '') : (it.text_ja || it.text_ko || '');
-    const url = (it.link_url || '').trim();
-    const safeUrl = /^https?:\/\/|^mailto:/i.test(url) ? url : '';
-    if (!safeUrl) return `<li>${esc(body)}</li>`;
-    const label = lang === 'ko' ? (it.link_label_ko || it.link_label_ja || url) : (it.link_label_ja || it.link_label_ko || url);
-    const after = lang === 'ko' ? (it.text_after_ko || '') : (it.text_after_ja || '');
-    return `<li>${esc(body)}<a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">${esc(label)}</a>${esc(after)}</li>`;
+    const html = lang === 'ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || '');
+    // v1 레거시 스냅샷 하위호환 (text_*/link_*) — html 키 없으면 즉석 합성
+    if (!html && (it.text_ko || it.text_ja)) {
+      const body = lang === 'ko' ? (it.text_ko || it.text_ja || '') : (it.text_ja || it.text_ko || '');
+      const url = (it.link_url || '').trim();
+      const safeUrl = /^https?:\/\/|^mailto:/i.test(url) ? url : '';
+      const label = lang === 'ko' ? (it.link_label_ko || it.link_label_ja || url) : (it.link_label_ja || it.link_label_ko || url);
+      const after = lang === 'ko' ? (it.text_after_ko || '') : (it.text_after_ja || '');
+      const link = safeUrl
+        ? `<a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--pink);font-weight:600">${esc(label)}</a>`
+        : '';
+      return `<li>${esc(body)}${link}${esc(after)}</li>`;
+    }
+    return `<li>${sanitize(html)}</li>`;
   }).join('');
   return `<ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;line-height:1.8">${lis}</ul>`;
 }
