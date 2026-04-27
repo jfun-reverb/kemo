@@ -282,6 +282,9 @@
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">카테고리</label>
+                <select id="editCampCategory" class="form-input"></select>
+              </div>
               <div class="form-group"><label class="form-label">상태</label>
                 <select id="editCampStatus" class="form-input">
                   <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
@@ -362,10 +365,6 @@
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">카테고리</label>
-                <select id="editCampCategory" class="form-input"></select>
-              </div>
               <div class="form-group">
                 <label class="form-label">콘텐츠 종류 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="editCampContentTypeWrap"></div>
@@ -528,6 +527,12 @@
                 </div>
               </div>
             </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">카테고리</label>
+                <select id="newCampCategory" class="form-input"></select>
+              </div>
+            </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">제품 정보</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
@@ -604,10 +609,6 @@
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">카테고리</label>
-                <select id="newCampCategory" class="form-input"></select>
-              </div>
               <div class="form-group">
                 <label class="form-label">콘텐츠 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="newCampContentTypeWrap"></div>

@@ -981,6 +981,9 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label class="form-label">카테고리</label>
+                <select id="editCampCategory" class="form-input"></select>
+              </div>
               <div class="form-group"><label class="form-label">상태</label>
                 <select id="editCampStatus" class="form-input">
                   <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
@@ -1061,10 +1064,6 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">카테고리</label>
-                <select id="editCampCategory" class="form-input"></select>
-              </div>
               <div class="form-group">
                 <label class="form-label">콘텐츠 종류 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="editCampContentTypeWrap"></div>
@@ -1227,6 +1226,12 @@ textarea.form-input{resize:vertical;min-height:80px}
                 </div>
               </div>
             </div>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+              <div class="form-group">
+                <label class="form-label">카테고리</label>
+                <select id="newCampCategory" class="form-input"></select>
+              </div>
+            </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">제품 정보</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px">
@@ -1303,10 +1308,6 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">카테고리</label>
-                <select id="newCampCategory" class="form-input"></select>
-              </div>
               <div class="form-group">
                 <label class="form-label">콘텐츠 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 가능)</span></label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px" id="newCampContentTypeWrap"></div>
@@ -5027,7 +5028,7 @@ function switchAdminPane(pane, el, pushHistory) {
     if (defaultRt) { defaultRt.checked = true; toggleRT(defaultRt); }
     // lookup_values 동적 렌더
     renderChannelCheckboxes('new', 'monitor', []);
-    renderContentTypeCheckboxes('new', []);
+    renderContentTypeCheckboxes('new', [], 'monitor');
     renderCategorySelect('new', '');
     applyMinFollowersVisibility('new', 'monitor');
     applyDeadlineFieldsVisibility('new', 'monitor');
@@ -5837,7 +5838,7 @@ async function openEditCampaign(campId) {
   const selectedContent = (camp.content_types||'').split(',').map(t=>t.trim()).filter(Boolean);
   await Promise.all([
     renderChannelCheckboxes('edit', rtVal, selectedChannels),
-    renderContentTypeCheckboxes('edit', selectedContent),
+    renderContentTypeCheckboxes('edit', selectedContent, rtVal),
     renderCategorySelect('edit', camp.category||'')
   ]);
   // 기준 채널 선택값 복원 (없으면 첫 번째 채널)
@@ -5957,12 +5958,34 @@ function syncCampDateMinMax(prefix) {
     if (seLower) seEl.min = seLower; else seEl.removeAttribute('min');
     if (pdl) seEl.max = pdl; else seEl.removeAttribute('max');
   }
-  // 캠페인 노출 마감일: 모집 종료일 이후
+  // 캠페인 노출 마감일: 결과물 제출 마감일(우선) 또는 모집 종료일 이후
   const postEl = $(prefix+'PostDeadline');
   if (postEl) {
-    if (dl) postEl.min = dl; else postEl.removeAttribute('min');
+    const postLower = se || dl || '';
+    if (postLower) postEl.min = postLower; else postEl.removeAttribute('min');
     postEl.removeAttribute('max');
   }
+  // flatpickr range picker (구매·방문) 도 같은 경계로 비활성 날짜 처리
+  if (typeof syncCampRangePickerBounds === 'function') syncCampRangePickerBounds(prefix);
+}
+
+// flatpickr range picker 의 minDate/maxDate 를 hidden input 값에 맞춰 동적 갱신
+//   구매·방문: [recruit_start || deadline] ~ [submission_end || post_deadline]
+//   모집: 제한 없음 (관리자가 자유 입력)
+function syncCampRangePickerBounds(prefix) {
+  if (!_campRangePickers) return;
+  const rs = $(prefix+'RecruitStart')?.value || '';
+  const dl = $(prefix+'Deadline')?.value || '';
+  const pdl = $(prefix+'PostDeadline')?.value || '';
+  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const lower = rs || dl || '';
+  const upperPV = se || pdl || '';
+  ['Purchase', 'Visit'].forEach(kind => {
+    const fp = _campRangePickers[prefix + kind + 'Range'];
+    if (!fp) return;
+    fp.set('minDate', lower || null);
+    fp.set('maxDate', upperPV || null);
+  });
 }
 
 // 입력값 검증 (저장 시 + onchange 인라인 경고). 위반 메시지 배열 반환.
@@ -5995,6 +6018,7 @@ function validateCampDateRanges(prefix) {
   const upperPVLabel = se ? '결과물 제출 마감일' : '캠페인 노출 마감일';
   if (rs && dl && new Date(dl) < new Date(rs)) errs.push({kind:'recruit', msg:'모집 종료일은 모집 시작일 이후여야 합니다'});
   if (dl && pdl && new Date(pdl) < new Date(dl)) errs.push({kind:'post', msg:'캠페인 노출 마감일은 모집 종료일 이후여야 합니다'});
+  if (se && pdl && new Date(pdl) < new Date(se)) errs.push({kind:'post', msg:'캠페인 노출 마감일은 결과물 제출 마감일 이후여야 합니다'});
   if (!inPVRange(ps)) errs.push({kind:'purchase', msg:`구매 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (!inPVRange(pe)) errs.push({kind:'purchase', msg:`구매 마감일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (ps && pe && new Date(pe) < new Date(ps)) errs.push({kind:'purchase', msg:'구매 마감일은 구매 시작일 이후여야 합니다'});
@@ -7902,7 +7926,7 @@ async function addCampaign() {
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
   await Promise.all([
     renderChannelCheckboxes('new', null, []),
-    renderContentTypeCheckboxes('new', []),
+    renderContentTypeCheckboxes('new', [], null),
     renderCategorySelect('new', '')
   ]);
   // 주의사항 번들 초기화 (신규 캠페인은 빈 상태로 시작 — 관리자가 번들 선택)
@@ -8180,11 +8204,18 @@ function applyChannelMatchVisibility(formMode) {
   group.style.display = count >= 2 ? 'flex' : 'none';
 }
 
-async function renderContentTypeCheckboxes(formMode, preSelectedLabels) {
+async function renderContentTypeCheckboxes(formMode, preSelectedLabels, recruitType) {
   const cfg = _formCfg[formMode]; if (!cfg) return;
   const wrap = $(cfg.ctWrap); if (!wrap) return;
   let items = [];
   try { items = await fetchLookups('content_type'); } catch(e) { return; }
+  // 리뷰어(monitor) 캠페인은 Qoo10 리뷰 형식상 콘텐츠가 동영상·이미지 위주이므로 옵션 제한.
+  // 기존에 다른 코드(피드/릴스 등)가 저장되어 있다면 옵션 미노출이라 저장 시 자동 폐기됨 (운영 의도).
+  if (recruitType === 'monitor') {
+    const dropped = (preSelectedLabels || []).filter(lbl => !items.some(c => (c.code === 'video' || c.code === 'image') && c.name_ja === lbl));
+    if (dropped.length) console.warn('[renderContentTypeCheckboxes] monitor 캠페인이라 다음 콘텐츠 코드는 폼에서 폐기됨:', dropped);
+    items = items.filter(c => c.code === 'video' || c.code === 'image');
+  }
   const checked = new Set(preSelectedLabels || []);
   wrap.innerHTML = items.map(c =>
     `<label style="display:flex;align-items:center;gap:5px;padding:6px 13px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500;transition:.15s" id="${esc(cfg.ctPrefix+c.code)}"><input type="checkbox" name="${esc(cfg.ctName)}" value="${esc(c.name_ja)}" onchange="toggleCT(this)" style="display:none">${esc(c.name_ko)}</label>`
@@ -8213,6 +8244,9 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   // 현재 체크된 코드 보존
   const checked = Array.from(document.querySelectorAll(`input[name="${cfg.chName}"]:checked`)).map(c => c.value);
   await renderChannelCheckboxes(formMode, recruitType, checked);
+  // 콘텐츠 종류도 모집 타입에 맞춰 재렌더 (monitor=동영상·이미지만, gifting/visit=전체)
+  const checkedCT = Array.from(document.querySelectorAll(`input[name="${cfg.ctName}"]:checked`)).map(c => c.value);
+  await renderContentTypeCheckboxes(formMode, checkedCT, recruitType);
   // 참여방법 번들 드롭다운도 모집 타입에 맞춰 갱신 (선택값은 유지 시도)
   const psetSel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
   await populateCampPsetDropdown(formMode, recruitType, psetSel?.value || null);
