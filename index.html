@@ -3578,15 +3578,20 @@ async function swapCautionSetOrder(idA, idB) {
 // ADMIN NOTICES (관리자 전용 공지 — migration 063)
 // ══════════════════════════════════════
 
-// 공지 목록 + 본인 읽음 여부
+// 공지 목록 + 본인 읽음 여부 (migration 071: status·published_at 추가)
+//   filters.category : 'all' | 'system_update' | 'release' | 'warning' | 'general'
+//   filters.status   : 'all' | 'draft' | 'published'
+//   정렬: 핀 우선 → 핀일자 → published_at(없으면 created_at)
 async function fetchAdminNotices(filters) {
   if (!db) return [];
   try {
     const uid = (await db.auth.getUser()).data?.user?.id;
     let q = db.from('admin_notices').select('*, admin_notice_reads!left(read_at,auth_id)');
     if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
+    if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
     q = q.order('is_pinned', {ascending: false})
          .order('pinned_at', {ascending: false, nullsFirst: false})
+         .order('published_at', {ascending: false, nullsFirst: false})
          .order('created_at', {ascending: false});
     const {data, error} = await q;
     if (error) throw error;
@@ -3597,20 +3602,28 @@ async function fetchAdminNotices(filters) {
   } catch(e) { console.error('[fetchAdminNotices]', e); return []; }
 }
 
+// published 미읽음만 — 사이드바 배지·로그인 팝업·대시보드 카드 공용
 async function fetchUnreadAdminNotices() {
   const all = await fetchAdminNotices();
-  return all.filter(n => !n.is_read);
+  return all.filter(n => n.status === 'published' && !n.is_read);
 }
 
+// 신규 생성 — status는 'draft'(기본) 또는 'published'(즉시 게시)
 async function insertAdminNotice(data) {
   if (!db) throw new Error('DB 미연결');
   const uid = (await db.auth.getUser()).data?.user?.id;
+  const status = data.status === 'published' ? 'published' : 'draft';
+  const nowIso = new Date().toISOString();
   const payload = {
     title: data.title,
     body_html: data.body_html,
     category: data.category,
     is_pinned: !!data.is_pinned,
-    pinned_at: data.is_pinned ? new Date().toISOString() : null,
+    pinned_at: data.is_pinned ? nowIso : null,
+    status,
+    published_at: status === 'published' ? nowIso : null,
+    published_by: status === 'published' ? (uid || null) : null,
+    published_by_name: status === 'published' ? (data.created_by_name || null) : null,
     created_by: uid || null,
     created_by_name: data.created_by_name || null,
     updated_by: uid || null,
@@ -3622,18 +3635,40 @@ async function insertAdminNotice(data) {
   });
 }
 
+// 부분 갱신.
+//   patch.status === 'published' 가 들어오고 기존 published_at이 NULL이면
+//   published_at/published_by 를 자동 세팅 (최초 게시).
+//   재게시 시(이미 published_at 존재) 시각 갱신 안 함 — 미읽음 리셋 방지 정책.
 async function updateAdminNotice(id, patch) {
   if (!db) throw new Error('DB 미연결');
   const uid = (await db.auth.getUser()).data?.user?.id;
   const p = {...patch, updated_by: uid || null};
-  // is_pinned 변경 시 pinned_at 동기화
   if (Object.prototype.hasOwnProperty.call(patch, 'is_pinned')) {
     p.pinned_at = patch.is_pinned ? new Date().toISOString() : null;
+  }
+  if (patch.status === 'published') {
+    const {data: cur} = await db.from('admin_notices').select('published_at').eq('id', id).maybeSingle();
+    if (!cur?.published_at) {
+      const nowIso = new Date().toISOString();
+      p.published_at = nowIso;
+      p.published_by = uid || null;
+      if (patch.updated_by_name) p.published_by_name = patch.updated_by_name;
+    }
   }
   await retryWithRefresh(async () => {
     const {error} = await db.from('admin_notices').update(p).eq('id', id);
     if (error) throw error;
   });
+}
+
+// 게시 (draft → published). updateAdminNotice 와 동일 효과의 편의 함수
+async function publishAdminNotice(id, byName) {
+  return updateAdminNotice(id, {status: 'published', updated_by_name: byName || null});
+}
+
+// 회수 (published → draft). published_at은 유지하여 재게시 시 미읽음 리셋 안 함
+async function unpublishAdminNotice(id, byName) {
+  return updateAdminNotice(id, {status: 'draft', updated_by_name: byName || null});
 }
 
 async function deleteAdminNotice(id) {

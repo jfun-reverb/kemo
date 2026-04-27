@@ -1198,6 +1198,14 @@
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
+                <label>게시 상태</label>
+                <select id="adminNoticeStatusFilter" class="admin-filter" onchange="renderAdminNotices()">
+                  <option value="all">전체</option>
+                  <option value="published">게시</option>
+                  <option value="draft">초안</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
                 <label>카테고리</label>
                 <select id="adminNoticeCatFilter" class="admin-filter" onchange="renderAdminNotices()">
                   <option value="all">전체</option>
@@ -1222,8 +1230,8 @@
             </div>
             <div class="admin-table-wrap">
               <table class="data-table" id="adminNoticeTable">
-                <thead><tr><th style="width:70px">상태</th><th style="width:130px">카테고리</th><th>제목</th><th style="width:120px">작성자</th><th style="width:140px">작성일</th><th style="width:140px">수정</th></tr></thead>
-                <tbody id="adminNoticeBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">로드 중...</td></tr></tbody>
+                <thead><tr><th style="width:60px">읽음</th><th style="width:80px">게시</th><th style="width:130px">카테고리</th><th>제목</th><th style="width:120px">작성자</th><th style="width:140px">게시일</th><th style="width:140px">수정</th></tr></thead>
+                <tbody id="adminNoticeBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">로드 중...</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1519,10 +1527,14 @@
       </div>
       <div id="anEditBodyQuill" style="min-height:220px;background:#fff"></div>
       <textarea id="anEditBodyRaw" style="display:none;width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:6px;resize:vertical" placeholder="HTML 코드를 직접 입력하세요. 예) <p>안녕하세요</p><ul><li>항목</li></ul>"></textarea>
-      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+      <div id="adminNoticeEditFooter" style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;align-items:center">
+        <span id="adminNoticeEditStatusPill" style="margin-right:auto"></span>
         <button class="btn btn-ghost btn-xs" id="btnDeleteAdminNotice" onclick="onDeleteAdminNotice()" style="color:#C62828;display:none">삭제</button>
         <button class="btn btn-ghost btn-xs" onclick="closeModal('adminNoticeEditModal')">취소</button>
-        <button class="btn btn-primary btn-xs" onclick="onSaveAdminNotice()">저장</button>
+        <button class="btn btn-ghost btn-xs" id="btnSaveAdminNoticeKeepPublished" onclick="onSaveAdminNotice('keep_published')" style="display:none">게시 유지하며 저장</button>
+        <button class="btn btn-ghost btn-xs" id="btnSaveAdminNoticeDraft" onclick="onSaveAdminNotice('draft')" style="display:none">초안 저장</button>
+        <button class="btn btn-primary btn-xs" id="btnPublishAdminNotice" onclick="onSaveAdminNotice('publish')" style="display:none">게시하기</button>
+        <button class="btn btn-primary btn-xs" id="btnSaveAdminNoticeRevertDraft" onclick="onSaveAdminNotice('revert_draft')" style="display:none">초안으로 되돌리고 저장</button>
       </div>
     </div>
   </div>
@@ -1538,6 +1550,11 @@
     <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;min-height:0">
       <div id="adminNoticeViewMeta" style="font-size:12px;color:var(--muted);margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center"></div>
       <div id="adminNoticeViewBody" class="rich-content" style="font-size:13px;line-height:1.7;color:var(--ink)"></div>
+      <div id="adminNoticeViewFooter" style="display:none;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);justify-content:flex-end">
+        <button class="btn btn-ghost btn-xs" id="btnEditAdminNoticeFromView" onclick="onEditAdminNoticeFromView()"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>
+        <button class="btn btn-ghost btn-xs" id="btnUnpublishAdminNoticeFromView" onclick="onUnpublishFromView()" style="display:none">게시 회수</button>
+        <button class="btn btn-primary btn-xs" id="btnPublishAdminNoticeFromView" onclick="onPublishFromView()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">campaign</span> 지금 게시</button>
+      </div>
     </div>
   </div>
 </div>
