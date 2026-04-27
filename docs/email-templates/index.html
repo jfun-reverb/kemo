@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>REVERB JP · 메일 템플릿 카탈로그</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope','Pretendard Variable',Pretendard,'Noto Sans JP',sans-serif; background:#EEECE6; color:#161618; padding:48px 20px 80px; min-height:100vh; }
+  .head { max-width:1100px; margin:0 auto 36px; }
+  h1 { font-size:26px; font-weight:800; letter-spacing:-0.02em; margin-bottom:8px; }
+  .sub { font-size:13px; color:#666; line-height:1.6; max-width:720px; }
+  .legend { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .legend span { font-size:11px; padding:3px 10px; border-radius:99px; font-weight:700; letter-spacing:0.04em; }
+  .legend .auth { background:#E0DBE6; color:#5B3F66; }
+  .legend .brand { background:#FBE2E7; color:#A02038; }
+  .legend .infl { background:#E5EAE0; color:#3F5530; }
+  h2 { font-size:14px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#666; max-width:1100px; margin:32px auto 14px; }
+  .grid { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:20px; }
+  .card { background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,0.06); padding:20px 22px 18px; display:flex; flex-direction:column; transition:transform 0.15s, box-shadow 0.15s; }
+  .card:hover { transform:translateY(-2px); box-shadow:0 8px 28px rgba(0,0,0,0.08); }
+  .card.disabled { opacity:0.55; pointer-events:none; background:#F7F4EE; }
+  .card-tag { font-size:10px; padding:2px 8px; border-radius:99px; font-weight:700; letter-spacing:0.05em; align-self:flex-start; margin-bottom:10px; }
+  .tag-auth { background:#E0DBE6; color:#5B3F66; }
+  .tag-brand { background:#FBE2E7; color:#A02038; }
+  .tag-infl { background:#E5EAE0; color:#3F5530; }
+  .card-title { font-size:15px; font-weight:700; letter-spacing:-0.01em; margin-bottom:6px; line-height:1.4; }
+  .card-desc { font-size:12px; color:#666; line-height:1.6; margin-bottom:14px; flex:1; }
+  .card-meta { font-size:11px; color:#888; margin-bottom:14px; line-height:1.7; }
+  .card-meta b { color:#444; font-weight:600; }
+  .card-actions { display:flex; gap:6px; margin-top:auto; }
+  .btn { font-size:11px; padding:6px 12px; border-radius:6px; text-decoration:none; font-weight:600; letter-spacing:0.02em; flex:1; text-align:center; }
+  .btn-primary { background:#161618; color:#fff; }
+  .btn-primary:hover { background:#000; }
+  .btn-ghost { background:#F7F4EE; color:#444; border:1px solid #EAEAE4; }
+  .btn-ghost:hover { background:#EEECE6; }
+  .status-soon { font-size:10px; padding:3px 8px; border-radius:99px; background:#FFE5BA; color:#8A5A0A; font-weight:700; letter-spacing:0.04em; align-self:flex-start; margin-left:auto; }
+  .footer-note { max-width:1100px; margin:36px auto 0; padding:14px 18px; background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04); font-size:12px; color:#666; line-height:1.7; }
+  .footer-note a { color:#161618; font-weight:600; }
+  .footer-note code { font-family:monospace; background:#F7F4EE; padding:1px 6px; border-radius:4px; font-size:11px; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>REVERB JP · 메일 템플릿 카탈로그</h1>
+  <p class="sub">서비스에서 발송되는 모든 메일의 템플릿 + 미리보기. 각 카드에서 미리보기를 열어 실제 발송 시 모습을 확인할 수 있습니다.</p>
+  <div class="legend">
+    <span class="auth">Auth · Supabase 자동 발송</span>
+    <span class="brand">Brand · Edge Function</span>
+    <span class="infl">Influencer · 미구현</span>
+  </div>
+</div>
+
+<h2>현재 발송 중인 메일</h2>
+<div class="grid">
+
+  <!-- ① 회원가입 확인 -->
+  <div class="card">
+    <div class="card-tag tag-auth">Auth</div>
+    <div class="card-title">회원가입 확인 메일</div>
+    <div class="card-desc">인플루언서가 가입하면 메일 인증을 요청. 운영서버 한정 (개발서버는 Confirm email OFF).</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 회원가입</div>
+      <div><b>수신자:</b> 가입자 본인</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="confirm-signup.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="confirm-signup.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ② 비밀번호 재설정 -->
+  <div class="card">
+    <div class="card-tag tag-auth">Auth</div>
+    <div class="card-title">비밀번호 재설정 메일</div>
+    <div class="card-desc">"비밀번호 찾기" + 관리자 초대(invite_admin 후 resetPasswordForEmail) 공용. 1시간 만료.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> 비밀번호 재설정 / 관리자 초대</div>
+      <div><b>수신자:</b> 본인 / 신규 관리자</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="reset-password.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="reset-password.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ③ 광고주 신청 - 관리자 알림 -->
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">광고주 신청 — 관리자 알림</div>
+    <div class="card-desc">sales 폼 제출 시 관리자에게 신청 내용·견적·딥링크 발송.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> brand_applications INSERT</div>
+      <div><b>수신자:</b> receive_brand_notify=true 관리자 + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-admin-notify.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="brand-admin-notify.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ④ 광고주 접수 확인 (Reviewer) -->
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">광고주 접수 확인 — Qoo10 리뷰어</div>
+    <div class="card-desc">form_type='reviewer' 신청자에게 접수 확인 + 5단계 다음 절차 안내.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> brand_applications INSERT (reviewer)</div>
+      <div><b>수신자:</b> 신청자 본인</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-ack-reviewer.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="brand-ack-reviewer.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ⑤ 광고주 접수 확인 (Seeding) -->
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">광고주 접수 확인 — 나노 시딩</div>
+    <div class="card-desc">form_type='seeding' 신청자에게 접수 확인 + 6단계 다음 절차 안내.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> brand_applications INSERT (seeding)</div>
+      <div><b>수신자:</b> 신청자 본인</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="brand-ack-seeding.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="brand-ack-seeding.html">원본</a>
+    </div>
+  </div>
+
+</div>
+
+<h2>미구현 — 인플루언서 비즈니스 로직 메일 (TODO)</h2>
+<div class="grid">
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">캠페인 신청 접수 알림 (관리자)</div>
+    <div class="card-desc">인플루언서 신청 시 관리자 알림. 현재 대시보드에서 수동 확인.</div>
+    <div class="card-meta"><span class="status-soon">미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">캠페인 신청 접수 확인 (본인)</div>
+    <div class="card-desc">인플루언서 본인에게 접수 확인 메일.</div>
+    <div class="card-meta"><span class="status-soon">미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">신청 승인 알림</div>
+    <div class="card-desc">관리자가 승인 시 인플루언서에게 발송. 현재 앱 내 알림만.</div>
+    <div class="card-meta"><span class="status-soon">미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">신청 반려 알림</div>
+    <div class="card-desc">관리자가 반려 시 사유 포함 발송.</div>
+    <div class="card-meta"><span class="status-soon">미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 승인 / 반려 / 변경 요청</div>
+    <div class="card-desc">deliverables 상태 전이 시 발송. 트리거는 이미 알림 테이블에 INSERT 중.</div>
+    <div class="card-meta"><span class="status-soon">미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">OT 발송 안내</div>
+    <div class="card-desc">관리자가 OT 체크박스 활성화 시.</div>
+    <div class="card-meta"><span class="status-soon">미구현</span></div>
+  </div>
+
+  <div class="card disabled">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">마감일 임박 리마인더</div>
+    <div class="card-desc">submission_end / post_deadline 임박 시 자동 발송.</div>
+    <div class="card-meta"><span class="status-soon">미구현</span></div>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  <b>📁 폴더 구조</b><br>
+  <code>{name}.html</code> — 발송용 템플릿 (placeholder 포함, source of truth)<br>
+  <code>{name}.preview.html</code> — 메일 클라이언트 frame + 샘플 데이터로 렌더된 미리보기<br>
+  <br>
+  <b>🔄 Edge Function 동기화</b><br>
+  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code>의 미러본을 사용.
+  HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
+</div>
+
+</body>
+</html>

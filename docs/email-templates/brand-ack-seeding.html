@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!--
+  Mail: 광고주 신청 접수 확인 — 나노 인플루언서 시딩 (brand acknowledgement, seeding)
+  Trigger: brand_applications INSERT (form_type='seeding') → Edge Function notify-brand-application
+  To:      신청 폼에 입력된 브랜드 담당자 이메일
+  Lang:    KO
+
+  Placeholders:
+    {{application_no}}   신청번호 (예: JFUN-N-20260420-001)
+    {{brand_name}}       브랜드명
+
+  Note:
+    "다음 단계" 6개와 문의처(LINE/카톡/TEL)는 하드코딩 — seeding 전용 시퀀스.
+    내용 변경 시 sales/seeding.html 완료 페이지의 "다음 단계"와 같이 갱신할 것.
+-->
+<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+  <h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">신청이 접수되었습니다</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">{{brand_name}} 담당자님</p>
+  <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">
+    <div style="color:#888;font-size:11px;letter-spacing:0.08em;margin-bottom:4px;text-transform:uppercase;font-weight:700">신청번호</div>
+    <div style="font-family:monospace;font-size:16px;font-weight:700;color:#E8344E">{{application_no}}</div>
+    <div style="color:#888;font-size:11px;letter-spacing:0.08em;margin:12px 0 4px;text-transform:uppercase;font-weight:700">플랜</div>
+    <div style="font-weight:600">나노 인플루언서 시딩</div>
+  </div>
+  <h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin:22px 0 12px;text-transform:uppercase;font-weight:700">다음 단계</h3>
+  <ol style="padding:0;margin:0;font-size:13px;list-style:none">
+    <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">01</span>담당자가 신청 내역을 검토합니다 (영업일 1~2일)</li>
+    <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">02</span>전체 타임라인 공유</li>
+    <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">03</span>모집 시작</li>
+    <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">04</span>매칭 가능한 인플루언서 리스트 전달</li>
+    <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">05</span>브랜드사에서 제품 발송 (일본 현지 주소)</li>
+    <li style="margin:8px 0;color:#444;padding-left:4px"><span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">06</span>인플루언서 SNS 포스팅 진행</li>
+  </ol>
+  <div style="border-top:1px solid #EAEAE4;margin-top:26px;padding-top:18px">
+    <h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin-bottom:12px;text-transform:uppercase;font-weight:700">문의</h3>
+    <table style="border-collapse:collapse;width:100%;font-size:13px">
+      <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;width:100px">LINE</td><td style="padding:6px 0"><a href="https://line.me/R/ti/p/@reverb.jp" style="color:#E8344E;text-decoration:none;font-weight:600">@reverb.jp</a></td></tr>
+      <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">KakaoTalk</td><td style="padding:6px 0;font-weight:600">byhyunho7</td></tr>
+      <tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">TEL</td><td style="padding:6px 0;font-family:monospace;font-weight:600">010-2550-1511</td></tr>
+    </table>
+  </div>
+  <p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+</div>
