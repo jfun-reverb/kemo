@@ -71,6 +71,9 @@ async function init() {
     var _pending = preloaded[2].filter(function(a){return a.status==='pending'});
     if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>999?'999+':_pending.length)+'</span>':'');
 
+    // 결과물 관리 사이드바 배지 — 검수 대기(pending) 개수
+    if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
+
     // 광고주 신청 pending 배지 (신규 brand_applications)
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
 

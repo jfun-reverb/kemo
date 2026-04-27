@@ -261,6 +261,7 @@ async function loadAdminData(preloaded) {
   // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
   renderAddressDistribution(users);
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
+  refreshDelivSidebarBadge();
 
   // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -4866,7 +4867,17 @@ function applyDelivSortIndicators() {
 }
 
 async function loadDeliverables() {
-  await renderDeliverablesList();
+  await renderDeliverablesList();  // 끝에서 refreshDelivSidebarBadge 호출됨
+}
+
+// 사이드바 "결과물 관리" 메뉴 옆 검수 대기(pending) 배지 갱신
+async function refreshDelivSidebarBadge() {
+  const el = $('adminDelivSi');
+  if (!el) return;
+  try {
+    const n = await fetchPendingDeliverableCount();
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+  } catch(e) { /* 무시 */ }
 }
 
 var delivLazy = null;
@@ -4993,6 +5004,8 @@ async function renderDeliverablesList() {
     pageSize: DELIV_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
+  // 검수 후 사이드바 배지(검수 대기 개수) 자동 동기화
+  refreshDelivSidebarBadge();
 }
 
 function statusLabelKo(status) {
