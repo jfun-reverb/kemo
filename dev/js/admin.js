@@ -210,7 +210,7 @@ function initMultiFilters() {
     {value:'reviewer',label:'Qoo10 리뷰어'},{value:'seeding',label:'나노 시딩'}
   ], () => renderBrandApplicationsList());
   createMultiFilter('brandAppStatusMulti', '전체 상태', [
-    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'schedule_sent',label:'일정전달'},{value:'quoted',label:'견적전달'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'campaign_registered',label:'캠페인등록'},{value:'paid',label:'입금완료'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
+    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
   ], () => renderBrandApplicationsList());
 }
 
@@ -4968,17 +4968,17 @@ var _brandApps = [];          // 캐시된 전체 목록
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
-// 상태 라벨·컬러
+// 상태 라벨·컬러 (객체 키 순서가 드롭다운 옵션 순서)
 var BRAND_APP_STATUS = {
-  'new':                 {label:'신규',           color:'#C33',   bg:'#FEE'},
-  'reviewing':           {label:'검토중',         color:'#B88',   bg:'#FFE'},
-  'schedule_sent':       {label:'일정전달',       color:'#A36',   bg:'#FDEEF4'},
-  'quoted':              {label:'견적전달',       color:'#08A',   bg:'#DEF'},
-  'orient_sheet_sent':   {label:'오리엔시트 전달', color:'#735',   bg:'#F2E6F0'},
-  'campaign_registered': {label:'캠페인등록',     color:'#274',   bg:'#E6F3E8'},
-  'paid':                {label:'입금완료',       color:'#6A2',   bg:'#EFE'},
-  'done':                {label:'최종완료',       color:'#555',   bg:'#EEE'},
-  'rejected':            {label:'반려',           color:'#999',   bg:'#F5F5F5'}
+  'new':                 {label:'신규',             color:'#C33',   bg:'#FEE'},
+  'reviewing':           {label:'검토중',           color:'#B88',   bg:'#FFE'},
+  'quoted':              {label:'견적 전달',        color:'#08A',   bg:'#DEF'},
+  'paid':                {label:'입금완료',         color:'#6A2',   bg:'#EFE'},
+  'orient_sheet_sent':   {label:'오리엔시트 전달',  color:'#735',   bg:'#F2E6F0'},
+  'schedule_sent':       {label:'일정 전달',        color:'#A36',   bg:'#FDEEF4'},
+  'campaign_registered': {label:'캠페인 등록',      color:'#274',   bg:'#E6F3E8'},
+  'done':                {label:'최종완료',         color:'#555',   bg:'#EEE'},
+  'rejected':            {label:'반려',             color:'#999',   bg:'#F5F5F5'}
 };
 
 function brandAppStatusBadge(status) {
@@ -5571,33 +5571,34 @@ var _brandStatusDonut = null;
 var _brandTrendDays = 7;
 
 var BRAND_STATUS_LABEL_KO = {
-  new: '신규', reviewing: '검토중', schedule_sent: '일정전달', quoted: '견적전달',
-  orient_sheet_sent: '오리엔시트 전달', campaign_registered: '캠페인등록',
-  paid: '입금완료', done: '최종완료', rejected: '반려'
+  new: '신규', reviewing: '검토중', quoted: '견적 전달', paid: '입금완료',
+  orient_sheet_sent: '오리엔시트 전달', schedule_sent: '일정 전달',
+  campaign_registered: '캠페인 등록', done: '최종완료', rejected: '반려'
 };
+// 색상은 단계의 의미에 따라 유지 (코드 ↔ 의미 매핑 불변)
 var BRAND_STATUS_COLOR = {
   new:                 '#C878A3',   // 핑크 (대기)
   reviewing:           '#E8A355',   // 오렌지
-  schedule_sent:       '#D97AA6',   // 진한 핑크
-  quoted:              '#5B8FD6',   // 블루
-  orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
-  campaign_registered: '#4CA070',   // 연한 그린
+  quoted:              '#5B8FD6',   // 블루 (견적)
   paid:                '#6BB38E',   // 그린 (입금)
+  orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
+  schedule_sent:       '#D97AA6',   // 진한 핑크 (일정)
+  campaign_registered: '#4CA070',   // 연한 그린 (등록)
   done:                '#1F9D55',   // 짙은 그린 (최종완료)
   rejected:            '#B0B0B8'    // 회색 (종료)
 };
 var BRAND_FUNNEL_STAGES = [
   {key:'new',                 label:'접수 (new)'},
   {key:'reviewing',           label:'검토 (reviewing)'},
-  {key:'schedule_sent',       label:'일정 전달 (schedule_sent)'},
   {key:'quoted',              label:'견적 전달 (quoted)'},
-  {key:'orient_sheet_sent',   label:'오리엔시트 전달 (orient_sheet_sent)'},
-  {key:'campaign_registered', label:'캠페인 등록 (campaign_registered)'},
   {key:'paid',                label:'입금 완료 (paid)'},
+  {key:'orient_sheet_sent',   label:'오리엔시트 전달 (orient_sheet_sent)'},
+  {key:'schedule_sent',       label:'일정 전달 (schedule_sent)'},
+  {key:'campaign_registered', label:'캠페인 등록 (campaign_registered)'},
   {key:'done',                label:'최종 완료 (done)'}
 ];
 // 전환 깔때기용: status가 이 단계 이상이면 도달한 것으로 간주 (rejected 제외)
-var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, schedule_sent:2, quoted:3, orient_sheet_sent:4, campaign_registered:5, paid:6, done:7, rejected:-1};
+var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, orient_sheet_sent:4, schedule_sent:5, campaign_registered:6, done:7, rejected:-1};
 
 async function loadBrandDashboard() {
   // 로딩 표시
@@ -5658,7 +5659,7 @@ function renderBrandKPIs(apps) {
   // 견적 합계
   var estimated = apps.reduce(function(s,a){ return s + (Number(a.estimated_krw) || 0); }, 0);
   var finalSum = apps
-    .filter(function(a){ return ['quoted','orient_sheet_sent','campaign_registered','paid','done'].indexOf(a.status) !== -1; })
+    .filter(function(a){ return ['quoted','paid','orient_sheet_sent','schedule_sent','campaign_registered','done'].indexOf(a.status) !== -1; })
     .reduce(function(s,a){ return s + (Number(a.final_quote_krw) || Number(a.estimated_krw) || 0); }, 0);
 
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
@@ -5763,7 +5764,7 @@ function renderBrandStatusDonut(apps) {
   if (!canvas) return;
   if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
 
-  var keys = ['new','reviewing','schedule_sent','quoted','orient_sheet_sent','campaign_registered','paid','done','rejected'];
+  var keys = ['new','reviewing','quoted','paid','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
   var counts = keys.map(function(k){ return apps.filter(function(a){ return a.status === k; }).length; });
   var total = counts.reduce(function(s,n){ return s+n; }, 0);
   if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '건') : '';
@@ -5951,7 +5952,7 @@ function getFilteredBrandApps() {
     if (_brandAppSort.field === 'estimated') {
       av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
     } else if (_brandAppSort.field === 'status') {
-      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, schedule_sent:2, quoted:3, orient_sheet_sent:4, campaign_registered:5, paid:6, done:7, rejected:8};
+      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, orient_sheet_sent:4, schedule_sent:5, campaign_registered:6, done:7, rejected:8};
       av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
       bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
     } else {
