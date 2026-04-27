@@ -1038,20 +1038,6 @@ async function suggestSubmissionEnd(prefix) {
   }
 }
 
-// (legacy) 모집 종료일 < 노출 마감일 인라인 경고 — flatpickr range picker 도입 후엔 사실상 미사용. 호출처 호환용 stub.
-function validateDeadlines(deadlineId, postDeadlineId, warnId) {
-  const dl = $(deadlineId)?.value;
-  const pdl = $(postDeadlineId)?.value;
-  const warn = $(warnId);
-  if (!warn) return;
-  if (dl && pdl && new Date(pdl) < new Date(dl)) {
-    warn.textContent = '노출 마감일은 모집 종료일 이후여야 합니다';
-    warn.style.display = 'block';
-  } else {
-    warn.style.display = 'none';
-  }
-}
-
 // 일자 자식 input들의 min/max를 [recruit_start || deadline] ~ post_deadline 으로 동기화 (브라우저 단 차단)
 const CAMP_DATE_FIELDS = ['PurchaseStart','PurchaseEnd','VisitStart','VisitEnd','SubmissionEnd','PostDeadline'];
 function syncCampDateMinMax(prefix) {
@@ -1094,17 +1080,26 @@ function validateCampDateRanges(prefix) {
     if (pdl && new Date(val) > new Date(pdl)) return false;
     return true;
   };
-  if (rs && dl && new Date(dl) < new Date(rs)) errs.push('모집 종료일은 모집 시작일 이후여야 합니다');
-  if (dl && pdl && new Date(pdl) < new Date(dl)) errs.push('노출 마감일은 모집 종료일 이후여야 합니다');
-  if (!between(ps)) errs.push('구매 시작일은 모집 시작일~노출 마감일 사이여야 합니다');
-  if (!between(pe)) errs.push('구매 마감일은 모집 시작일~노출 마감일 사이여야 합니다');
-  if (ps && pe && new Date(pe) < new Date(ps)) errs.push('구매 마감일은 구매 시작일 이후여야 합니다');
-  if (!between(vs)) errs.push('방문 시작일은 모집 시작일~노출 마감일 사이여야 합니다');
-  if (!between(ve)) errs.push('방문 마감일은 모집 시작일~노출 마감일 사이여야 합니다');
-  if (vs && ve && new Date(ve) < new Date(vs)) errs.push('방문 마감일은 방문 시작일 이후여야 합니다');
-  if (!between(se)) errs.push('결과물 제출 마감일은 모집 시작일~노출 마감일 사이여야 합니다');
+  if (rs && dl && new Date(dl) < new Date(rs)) errs.push({kind:'recruit', msg:'모집 종료일은 모집 시작일 이후여야 합니다'});
+  if (dl && pdl && new Date(pdl) < new Date(dl)) errs.push({kind:'post', msg:'노출 마감일은 모집 종료일 이후여야 합니다'});
+  if (!between(ps)) errs.push({kind:'purchase', msg:'구매 시작일은 모집 시작일~노출 마감일 사이여야 합니다'});
+  if (!between(pe)) errs.push({kind:'purchase', msg:'구매 마감일은 모집 시작일~노출 마감일 사이여야 합니다'});
+  if (ps && pe && new Date(pe) < new Date(ps)) errs.push({kind:'purchase', msg:'구매 마감일은 구매 시작일 이후여야 합니다'});
+  if (!between(vs)) errs.push({kind:'visit', msg:'방문 시작일은 모집 시작일~노출 마감일 사이여야 합니다'});
+  if (!between(ve)) errs.push({kind:'visit', msg:'방문 마감일은 모집 시작일~노출 마감일 사이여야 합니다'});
+  if (vs && ve && new Date(ve) < new Date(vs)) errs.push({kind:'visit', msg:'방문 마감일은 방문 시작일 이후여야 합니다'});
+  if (!between(se)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 모집 시작일~노출 마감일 사이여야 합니다'});
   return errs;
 }
+
+// 종류별 row 아래 div 매핑 — 한 row에 여러 위반이 있으면 같은 div에 누적 표시
+const CAMP_DATE_WARN_TARGETS = {
+  recruit:    'RecruitWarn',
+  post:       'PostDeadlineWarn',
+  purchase:   'PurchaseWarn',
+  visit:      'VisitWarn',
+  submission: 'SubmissionWarn',
+};
 
 // ─────────────────────────────────────────────────────────────────
 // flatpickr range picker 통합 (모집·구매·방문 3개 영역)
@@ -1166,6 +1161,8 @@ function setupCampRangePickers() {
       dateFormat: 'Y-m-d',
       altInput: false,
       locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+      static: true,            // 캘린더 popup을 input의 부모(form-group)에 붙여 스크롤 시 따라다님
+      position: 'below',       // 항상 input 아래로 표시 (자동 위/아래 결정 비활성)
       onOpen: (selectedDates, _str, fpInst) => {
         if (kind !== 'recruit') return;
         // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
@@ -1210,18 +1207,24 @@ function applyCampRangeValues(prefix, values) {
   });
 }
 
-// onchange 인라인 경고 (저장 차단은 별도 체크)
+// onchange 인라인 경고 — 종류별로 분산해서 해당 row 바로 아래 div 에 출력 (저장 차단은 별도 체크)
 function validateCampDateRangesInline(prefix) {
   const errs = validateCampDateRanges(prefix);
-  const warn = $(prefix+'DateRangesWarn');
-  if (!warn) return;
-  if (errs.length === 0) {
-    warn.style.display = 'none';
-    warn.textContent = '';
-  } else {
-    warn.innerHTML = errs.map(e => `· ${e}`).join('<br>');
-    warn.style.display = 'block';
-  }
+  const groups = Object.create(null);
+  Object.keys(CAMP_DATE_WARN_TARGETS).forEach(k => { groups[k] = []; });
+  errs.forEach(e => { if (groups[e.kind]) groups[e.kind].push(e.msg); });
+  Object.keys(CAMP_DATE_WARN_TARGETS).forEach(k => {
+    const div = $(prefix + CAMP_DATE_WARN_TARGETS[k]);
+    if (!div) return;
+    const list = groups[k];
+    if (!list || list.length === 0) {
+      div.style.display = 'none';
+      div.textContent = '';
+    } else {
+      div.innerHTML = list.map(m => `· ${esc(m)}`).join('<br>');
+      div.style.display = 'block';
+    }
+  });
 }
 
 async function saveCampaignEdit() {
@@ -1243,7 +1246,7 @@ async function saveCampaignEdit() {
       return;
     }
     const editDateErrs = validateCampDateRanges('editCamp');
-    if (editDateErrs.length) { toast(editDateErrs[0], 'error'); return; }
+    if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
     const editStatus = gv('editCampStatus');
     if (editDeadline && (editStatus === 'active' || editStatus === 'scheduled')) {
       const dl = new Date(editDeadline); dl.setHours(23,59,59,999);
@@ -2914,7 +2917,7 @@ async function addCampaign() {
     return;
   }
   const newDateErrs = validateCampDateRanges('newCamp');
-  if (newDateErrs.length) { toast(newDateErrs[0], 'error'); return; }
+  if (newDateErrs.length) { toast(newDateErrs[0].msg, 'error'); validateCampDateRangesInline('newCamp'); return; }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
