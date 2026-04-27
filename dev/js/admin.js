@@ -749,7 +749,7 @@ async function loadAdminCampaigns(useCache) {
             </div>
             <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
-            ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">게시: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
+            ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">노출: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
@@ -910,6 +910,9 @@ async function openEditCampaign(campId) {
   sv('editCampVisitStart', camp.visit_start||'');
   sv('editCampVisitEnd', camp.visit_end||'');
   sv('editCampSubmissionEnd', camp.submission_end||'');
+  // 일자 입력 min/max 동기화 + 인라인 경고 초기 평가
+  syncCampDateMinMax('editCamp');
+  validateCampDateRangesInline('editCamp');
   sv('editCampWinnerAnnounce', camp.winner_announce || '選考後、LINEにてご連絡');
   sv('editCampDesc', camp.description||'');
   sv('editCampHashtags', camp.hashtags||'');
@@ -1009,7 +1012,7 @@ function resolveConfirmModal(ok) {
   if (_confirmResolver) { _confirmResolver(!!ok); _confirmResolver = null; }
 }
 
-// 모집 마감일 입력 시 게시 마감일을 +14일로 자동 채우기 (확인 모달)
+// 모집 마감일 입력 시 노출 마감일을 +14일로 자동 채우기 (확인 모달)
 async function suggestPostDeadline(deadlineId, postDeadlineId) {
   const dl = $(deadlineId)?.value;
   if (!dl) return;
@@ -1023,7 +1026,7 @@ async function suggestPostDeadline(deadlineId, postDeadlineId) {
   if (!postEl) return;
   // 이미 입력된 값이 같으면 무시
   if (postEl.value === suggested) return;
-  const ok = await showConfirm(`게시 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(모집 마감일 + 2주)`);
+  const ok = await showConfirm(`노출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(모집 마감일 + 2주)`);
   if (ok) postEl.value = suggested;
 }
 
@@ -1033,10 +1036,65 @@ function validateDeadlines(deadlineId, postDeadlineId, warnId) {
   const warn = $(warnId);
   if (!warn) return;
   if (dl && pdl && new Date(pdl) < new Date(dl)) {
-    warn.textContent = '게시 마감일은 모집 마감일 이후여야 합니다';
+    warn.textContent = '노출 마감일은 모집 마감일 이후여야 합니다';
     warn.style.display = 'block';
   } else {
     warn.style.display = 'none';
+  }
+}
+
+// 모집~노출 마감 사이로 구매·방문·결과물제출 일자 강제. prefix = 'newCamp' | 'editCamp'
+const CAMP_DATE_FIELDS = ['PurchaseStart','PurchaseEnd','VisitStart','VisitEnd','SubmissionEnd'];
+
+// HTML5 input min/max 속성을 deadline ~ post_deadline 으로 동기화 (브라우저 단 차단)
+function syncCampDateMinMax(prefix) {
+  const dl = $(prefix+'Deadline')?.value || '';
+  const pdl = $(prefix+'PostDeadline')?.value || '';
+  CAMP_DATE_FIELDS.forEach(suffix => {
+    const el = $(prefix+suffix);
+    if (!el) return;
+    if (dl) el.min = dl; else el.removeAttribute('min');
+    if (pdl) el.max = pdl; else el.removeAttribute('max');
+  });
+}
+
+// 입력값 검증 (저장 시 + onchange 인라인 경고). 위반 메시지 배열 반환.
+function validateCampDateRanges(prefix) {
+  const dl = $(prefix+'Deadline')?.value || '';
+  const pdl = $(prefix+'PostDeadline')?.value || '';
+  const ps = $(prefix+'PurchaseStart')?.value || '';
+  const pe = $(prefix+'PurchaseEnd')?.value || '';
+  const vs = $(prefix+'VisitStart')?.value || '';
+  const ve = $(prefix+'VisitEnd')?.value || '';
+  const se = $(prefix+'SubmissionEnd')?.value || '';
+  const errs = [];
+  const between = (val) => {
+    if (!val) return true;
+    if (dl && new Date(val) < new Date(dl)) return false;
+    if (pdl && new Date(val) > new Date(pdl)) return false;
+    return true;
+  };
+  if (!between(ps)) errs.push('구매 시작일은 모집 마감일~노출 마감일 사이여야 합니다');
+  if (!between(pe)) errs.push('구매 마감일은 모집 마감일~노출 마감일 사이여야 합니다');
+  if (ps && pe && new Date(pe) < new Date(ps)) errs.push('구매 마감일은 구매 시작일 이후여야 합니다');
+  if (!between(vs)) errs.push('방문 시작일은 모집 마감일~노출 마감일 사이여야 합니다');
+  if (!between(ve)) errs.push('방문 마감일은 모집 마감일~노출 마감일 사이여야 합니다');
+  if (vs && ve && new Date(ve) < new Date(vs)) errs.push('방문 마감일은 방문 시작일 이후여야 합니다');
+  if (!between(se)) errs.push('결과물 제출 마감일은 모집 마감일~노출 마감일 사이여야 합니다');
+  return errs;
+}
+
+// onchange 인라인 경고 (저장 차단은 별도 체크)
+function validateCampDateRangesInline(prefix) {
+  const errs = validateCampDateRanges(prefix);
+  const warn = $(prefix+'DateRangesWarn');
+  if (!warn) return;
+  if (errs.length === 0) {
+    warn.style.display = 'none';
+    warn.textContent = '';
+  } else {
+    warn.innerHTML = errs.map(e => `· ${e}`).join('<br>');
+    warn.style.display = 'block';
   }
 }
 
@@ -1055,9 +1113,11 @@ async function saveCampaignEdit() {
     const editDeadline = gv('editCampDeadline');
     const editPostDeadline = gv('editCampPostDeadline');
     if (editPostDeadline && editDeadline && new Date(editPostDeadline) < new Date(editDeadline)) {
-      toast('게시 마감일은 모집 마감일 이후여야 합니다','error');
+      toast('노출 마감일은 모집 마감일 이후여야 합니다','error');
       return;
     }
+    const editDateErrs = validateCampDateRanges('editCamp');
+    if (editDateErrs.length) { toast(editDateErrs[0], 'error'); return; }
     const editStatus = gv('editCampStatus');
     if (editDeadline && (editStatus === 'active' || editStatus === 'scheduled')) {
       const dl = new Date(editDeadline); dl.setHours(23,59,59,999);
@@ -1361,7 +1421,7 @@ function renderCampPreview(mode) {
           ${camp.slots?`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`:''}
           ${camp.min_followers?`<div class="cp-info-row"><div class="cp-info-key">最小フォロワー</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`:''}
           <div class="cp-info-row"><div class="cp-info-key">当選発表</div><div class="cp-info-val">${esc(camp.winner_announce||'選考後、LINEにてご連絡')}</div></div>
-          <div class="cp-info-row"><div class="cp-info-key">投稿締切</div><div class="cp-info-val" style="font-weight:600">${camp.post_deadline?fmt(camp.post_deadline):'—'}</div></div>
+          <div class="cp-info-row"><div class="cp-info-key">掲載期限</div><div class="cp-info-val" style="font-weight:600">${camp.post_deadline?fmt(camp.post_deadline):'—'}</div></div>
           ${(camp.recruit_type==='monitor'&&(camp.purchase_start||camp.purchase_end))?`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`:''}
           ${(camp.recruit_type==='visit'&&(camp.visit_start||camp.visit_end))?`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`:''}
           ${camp.submission_end?`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`:''}
@@ -2723,9 +2783,11 @@ async function addCampaign() {
   }
   const postDeadline = $('newCampPostDeadline')?.value;
   if (postDeadline && deadline && new Date(postDeadline) < new Date(deadline)) {
-    toast('게시 마감일은 모집 마감일 이후여야 합니다','error');
+    toast('노출 마감일은 모집 마감일 이후여야 합니다','error');
     return;
   }
+  const newDateErrs = validateCampDateRanges('newCamp');
+  if (newDateErrs.length) { toast(newDateErrs[0], 'error'); return; }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');

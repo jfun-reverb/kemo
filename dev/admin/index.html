@@ -362,20 +362,21 @@
             </div>
 
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input" onchange="suggestPostDeadline('editCampDeadline','editCampPostDeadline');validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"></div>
-              <div class="form-group"><label class="form-label">게시 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div></div>
+              <div class="form-group"><label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="date" id="editCampDeadline" class="form-input" onchange="suggestPostDeadline('editCampDeadline','editCampPostDeadline');validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn');syncCampDateMinMax('editCamp');validateCampDateRangesInline('editCamp')"></div>
+              <div class="form-group"><label class="form-label">노출 마감일</label><input type="date" id="editCampPostDeadline" class="form-input" onchange="validateDeadlines('editCampDeadline','editCampPostDeadline','editPostDeadlineWarn');syncCampDateMinMax('editCamp');validateCampDateRangesInline('editCamp')"><div id="editPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div><div class="form-hint">이 날짜 이후 캠페인이 인플루언서 사이트에서 숨겨집니다</div></div>
             </div>
             <div class="form-row" id="editCampPurchaseRow" style="grid-template-columns:1fr 1fr;display:none">
-              <div class="form-group"><label class="form-label">구매 시작일</label><input type="date" id="editCampPurchaseStart" class="form-input"><div class="form-hint">리뷰어용</div></div>
-              <div class="form-group"><label class="form-label">구매 마감일</label><input type="date" id="editCampPurchaseEnd" class="form-input"></div>
+              <div class="form-group"><label class="form-label">구매 시작일</label><input type="date" id="editCampPurchaseStart" class="form-input" onchange="validateCampDateRangesInline('editCamp')"><div class="form-hint">리뷰어용</div></div>
+              <div class="form-group"><label class="form-label">구매 마감일</label><input type="date" id="editCampPurchaseEnd" class="form-input" onchange="validateCampDateRangesInline('editCamp')"></div>
             </div>
             <div class="form-row" id="editCampVisitRow" style="grid-template-columns:1fr 1fr;display:none">
-              <div class="form-group"><label class="form-label">방문 시작일</label><input type="date" id="editCampVisitStart" class="form-input"><div class="form-hint">방문형용</div></div>
-              <div class="form-group"><label class="form-label">방문 마감일</label><input type="date" id="editCampVisitEnd" class="form-input"></div>
+              <div class="form-group"><label class="form-label">방문 시작일</label><input type="date" id="editCampVisitStart" class="form-input" onchange="validateCampDateRangesInline('editCamp')"><div class="form-hint">방문형용</div></div>
+              <div class="form-group"><label class="form-label">방문 마감일</label><input type="date" id="editCampVisitEnd" class="form-input" onchange="validateCampDateRangesInline('editCamp')"></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
-              <div class="form-group"><label class="form-label">결과물 제출 마감일</label><input type="date" id="editCampSubmissionEnd" class="form-input"><div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 게시 마감일로 폴백</div></div>
+              <div class="form-group"><label class="form-label">결과물 제출 마감일</label><input type="date" id="editCampSubmissionEnd" class="form-input" onchange="validateCampDateRangesInline('editCamp')"><div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 노출 마감일로 폴백</div></div>
             </div>
+            <div id="editCampDateRangesWarn" class="form-error" style="display:none;margin-top:6px"></div>
             <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin:20px 0 12px;border-bottom:2px solid var(--pink)">콘텐츠 가이드</div>
             <div class="form-group"><label class="form-label">캠페인 설명</label><div class="quill-host" id="editCampDesc"></div></div>
@@ -570,46 +571,47 @@
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">모집 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="date" id="newCampDeadline" class="form-input" onchange="suggestPostDeadline('newCampDeadline','newCampPostDeadline');validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn')">
+                <input type="date" id="newCampDeadline" class="form-input" onchange="suggestPostDeadline('newCampDeadline','newCampPostDeadline');validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn');syncCampDateMinMax('newCamp');validateCampDateRangesInline('newCamp')">
               </div>
               <div class="form-group">
-                <label class="form-label">게시 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="date" id="newCampPostDeadline" class="form-input" onchange="validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn')">
+                <label class="form-label">노출 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <input type="date" id="newCampPostDeadline" class="form-input" onchange="validateDeadlines('newCampDeadline','newCampPostDeadline','newPostDeadlineWarn');syncCampDateMinMax('newCamp');validateCampDateRangesInline('newCamp')">
                 <div id="newPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div>
-                <div class="form-hint">제품 수령 후 이 날짜까지 게시해주세요</div>
+                <div class="form-hint">이 날짜 이후 캠페인이 인플루언서 사이트에서 숨겨집니다</div>
               </div>
             </div>
 
-            <!-- 타입별 기한 (Stage 1) -->
+            <!-- 타입별 기한 (Stage 1) — 모든 일자는 모집~노출 마감 사이로 강제 -->
             <div class="form-row" id="newCampPurchaseRow" style="grid-template-columns:1fr 1fr;display:none">
               <div class="form-group">
                 <label class="form-label">구매 시작일</label>
-                <input type="date" id="newCampPurchaseStart" class="form-input">
+                <input type="date" id="newCampPurchaseStart" class="form-input" onchange="validateCampDateRangesInline('newCamp')">
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
               </div>
               <div class="form-group">
                 <label class="form-label">구매 마감일</label>
-                <input type="date" id="newCampPurchaseEnd" class="form-input">
+                <input type="date" id="newCampPurchaseEnd" class="form-input" onchange="validateCampDateRangesInline('newCamp')">
               </div>
             </div>
             <div class="form-row" id="newCampVisitRow" style="grid-template-columns:1fr 1fr;display:none">
               <div class="form-group">
                 <label class="form-label">방문 시작일</label>
-                <input type="date" id="newCampVisitStart" class="form-input">
+                <input type="date" id="newCampVisitStart" class="form-input" onchange="validateCampDateRangesInline('newCamp')">
                 <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
               </div>
               <div class="form-group">
                 <label class="form-label">방문 마감일</label>
-                <input type="date" id="newCampVisitEnd" class="form-input">
+                <input type="date" id="newCampVisitEnd" class="form-input" onchange="validateCampDateRangesInline('newCamp')">
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
                 <label class="form-label">결과물 제출 마감일</label>
-                <input type="date" id="newCampSubmissionEnd" class="form-input">
-                <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 게시 마감일로 폴백</div>
+                <input type="date" id="newCampSubmissionEnd" class="form-input" onchange="validateCampDateRangesInline('newCamp')">
+                <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 노출 마감일로 폴백</div>
               </div>
             </div>
+            <div id="newCampDateRangesWarn" class="form-error" style="display:none;margin-top:6px"></div>
             <div class="form-group">
               <label class="form-label">당선 발표 안내</label>
               <input type="text" id="newCampWinnerAnnounce" class="form-input" value="選考後、LINEにてご連絡" placeholder="選考後、LINEにてご連絡">
@@ -1766,7 +1768,7 @@
   </div>
 </div>
 
-<!-- 게시 마감일 자동 제안 confirm 모달 -->
+<!-- 노출 마감일 자동 제안 confirm 모달 -->
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
     <div class="modal-body" style="padding:28px 24px 22px">
