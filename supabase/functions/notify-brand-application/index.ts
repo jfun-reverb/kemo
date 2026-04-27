@@ -18,8 +18,21 @@
 //   2) + NOTIFY_ADMIN_EMAILS 환경변수에 나열된 이메일 (외부 수신자 병합)
 //   3) 중복 제거 후 발송. DB 조회 실패 시 env만 사용.
 //
-// 배포 명령:
-//   supabase functions deploy notify-brand-application --project-ref <ref>
+// HTML 템플릿:
+//   _templates/brand-admin-notify.html        관리자 알림
+//   _templates/brand-ack-reviewer.html        브랜드 접수 확인 (reviewer)
+//   _templates/brand-ack-seeding.html         브랜드 접수 확인 (seeding)
+//
+//   원본은 docs/email-templates/ 에 있고, scripts/sync-email-templates.sh 가
+//   _templates/ 로 복사한다. Edge Function 배포 직전 반드시 sync 실행.
+//
+// 배포 명령 (개발 → 운영 순서로 양 환경 모두 배포 필수):
+//   bash scripts/sync-email-templates.sh
+//   # 개발
+//   supabase functions deploy notify-brand-application --project-ref qysmxtipobomefudyixw
+//   # 운영
+//   supabase functions deploy notify-brand-application --project-ref twofagomeizrtkwlhsuv
+//   # 비밀값 (각 환경별로 1회)
 //   supabase secrets set BREVO_API_KEY=xxx --project-ref <ref>
 //
 // Webhook 설정 (Supabase Dashboard → Database → Webhooks):
@@ -113,6 +126,28 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// ──────────────────────────────────────────────────────────────────
+// HTML 템플릿 로딩 + placeholder 치환
+//   - 템플릿은 _templates/*.html (docs/email-templates/와 sync 스크립트로 동기화)
+//   - placeholder 문법: {{key}} (이중 중괄호, 공백 없음)
+//   - 조건부/반복 섹션은 호출 측에서 미리 빌드된 HTML 문자열로 치환
+//   - 인스턴스 메모리 캐시로 매 요청 시 디스크 읽기 회피
+// ──────────────────────────────────────────────────────────────────
+const TEMPLATE_CACHE = new Map<string, string>();
+
+async function loadTemplate(name: string): Promise<string> {
+  const cached = TEMPLATE_CACHE.get(name);
+  if (cached) return cached;
+  const url = new URL(`./_templates/${name}.html`, import.meta.url);
+  const html = await Deno.readTextFile(url);
+  TEMPLATE_CACHE.set(name, html);
+  return html;
+}
+
+function render(html: string, data: Record<string, string>): string {
+  return html.replace(/\{\{(\w+)\}\}/g, (_m, key) => data[key] ?? "");
+}
+
 async function sendBrevoEmail(params: {
   to: { email: string; name?: string }[];
   subject: string;
@@ -149,7 +184,7 @@ async function sendBrevoEmail(params: {
   }
 }
 
-function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: string; html: string; text: string } {
+async function buildAdminEmail(row: BrandApplication, adminUrl: string): Promise<{ subject: string; html: string; text: string }> {
   const label = formLabel(row.form_type);
   const deepLink = `${adminUrl.replace(/\/$/, "")}/#brand-applications?id=${row.id}`;
   const subject = `[REVERB JP] 신규 광고주 신청 — ${row.brand_name} (${label})`;
@@ -167,6 +202,12 @@ function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: st
     )
     .join("");
 
+  const productsBlock = productsHtml
+    ? `<table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:16px;border:1px solid #eee">` +
+      `<thead><tr style="background:#f5f5f5"><th style="padding:6px 8px;text-align:left">제품</th><th style="padding:6px 8px;text-align:right">가격</th><th style="padding:6px 8px;text-align:right">수량</th></tr></thead>` +
+      `<tbody>${productsHtml}</tbody></table>`
+    : "";
+
   // 신청자 자유 입력 요청사항 (선택 입력 — 있을 때만 섹션 렌더)
   const requestNote = (row.request_note ?? "").trim();
   const requestNoteText = requestNote
@@ -177,6 +218,10 @@ function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: st
       `<div style="font-size:12px;color:#8A6A2A;font-weight:700;margin-bottom:6px">기타·요청사항</div>` +
       `<div style="font-size:13px;color:#222;line-height:1.6;white-space:pre-wrap;word-break:break-word">${escapeHtml(requestNote)}</div>` +
       `</div>`
+    : "";
+
+  const billingEmailRow = row.billing_email
+    ? `<tr><td style="padding:6px 0;color:#888">계산서</td><td style="padding:6px 0">${escapeHtml(row.billing_email)}</td></tr>`
     : "";
 
   const text =
@@ -192,52 +237,46 @@ function buildAdminEmail(row: BrandApplication, adminUrl: string): { subject: st
     requestNoteText +
     `관리자 페이지: ${deepLink}\n`;
 
-  const html =
-    `<div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">` +
-    `<h2 style="color:#E8344E;margin:0 0 8px">신규 광고주 신청</h2>` +
-    `<p style="margin:0 0 16px;color:#666;font-size:13px">REVERB JP 관리자 알림</p>` +
-    `<table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px">` +
-    `<tr><td style="padding:6px 0;color:#888;width:100px">신청번호</td><td style="padding:6px 0;font-family:monospace">${escapeHtml(row.application_no)}</td></tr>` +
-    `<tr><td style="padding:6px 0;color:#888">폼 종류</td><td style="padding:6px 0">${escapeHtml(label)}</td></tr>` +
-    `<tr><td style="padding:6px 0;color:#888">브랜드</td><td style="padding:6px 0;font-weight:700">${escapeHtml(row.brand_name)}</td></tr>` +
-    `<tr><td style="padding:6px 0;color:#888">담당자</td><td style="padding:6px 0">${escapeHtml(row.contact_name)} · ${escapeHtml(row.phone)} · ${escapeHtml(row.email)}</td></tr>` +
-    (row.billing_email ? `<tr><td style="padding:6px 0;color:#888">계산서</td><td style="padding:6px 0">${escapeHtml(row.billing_email)}</td></tr>` : "") +
-    `<tr><td style="padding:6px 0;color:#888">예상 견적</td><td style="padding:6px 0;font-weight:700">${fmtKrw(row.estimated_krw)}</td></tr>` +
-    `</table>` +
-    (productsHtml
-      ? `<table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:16px;border:1px solid #eee">` +
-        `<thead><tr style="background:#f5f5f5"><th style="padding:6px 8px;text-align:left">제품</th><th style="padding:6px 8px;text-align:right">가격</th><th style="padding:6px 8px;text-align:right">수량</th></tr></thead>` +
-        `<tbody>${productsHtml}</tbody></table>`
-      : "") +
-    requestNoteHtml +
-    `<a href="${escapeHtml(deepLink)}" style="display:inline-block;background:#E8344E;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">관리자 페이지에서 확인</a>` +
-    `</div>`;
+  const tpl = await loadTemplate("brand-admin-notify");
+  const html = render(tpl, {
+    application_no: escapeHtml(row.application_no),
+    form_label: escapeHtml(label),
+    brand_name: escapeHtml(row.brand_name),
+    contact_name: escapeHtml(row.contact_name),
+    phone: escapeHtml(row.phone),
+    email: escapeHtml(row.email),
+    billing_email_row: billingEmailRow,
+    estimated_krw: fmtKrw(row.estimated_krw),
+    products_html: productsBlock,
+    request_note_html: requestNoteHtml,
+    deep_link: escapeHtml(deepLink),
+  });
 
   return { subject, html, text };
 }
 
-function buildBrandEmail(row: BrandApplication): { subject: string; html: string; text: string } {
-  const labelKo = row.form_type === "reviewer" ? "Qoo10 리뷰어 모집" : "나노 인플루언서 시딩";
+async function buildBrandEmail(row: BrandApplication): Promise<{ subject: string; html: string; text: string }> {
+  const isReviewer = row.form_type === "reviewer";
+  const labelKo = isReviewer ? "Qoo10 리뷰어 모집" : "나노 인플루언서 시딩";
   const subject = `[REVERB JP] ${labelKo} 신청이 접수되었습니다 (${row.application_no})`;
 
-  // 완료 페이지(sales/*.html)와 동일한 최신 단계
-  const nextSteps =
-    row.form_type === "reviewer"
-      ? [
-          "담당자가 신청 내역을 검토합니다 (영업일 1일 이내)",
-          "최종 견적서를 이메일로 발송합니다",
-          "입금 확인 후 메일 및 카톡으로 안내",
-          "전체 타임라인 공유",
-          "Qoo10 리뷰어 모집 시작",
-        ]
-      : [
-          "담당자가 신청 내역을 검토합니다 (영업일 1~2일)",
-          "전체 타임라인 공유",
-          "모집 시작",
-          "매칭 가능한 인플루언서 리스트 전달",
-          "브랜드사에서 제품 발송 (일본 현지 주소)",
-          "인플루언서 SNS 포스팅 진행",
-        ];
+  // text 본문은 sales 완료 페이지와 동기화. 템플릿 HTML의 "다음 단계"는 하드코딩.
+  const nextSteps = isReviewer
+    ? [
+        "담당자가 신청 내역을 검토합니다 (영업일 1일 이내)",
+        "최종 견적서를 이메일로 발송합니다",
+        "입금 확인 후 메일 및 카톡으로 안내",
+        "전체 타임라인 공유",
+        "Qoo10 리뷰어 모집 시작",
+      ]
+    : [
+        "담당자가 신청 내역을 검토합니다 (영업일 1~2일)",
+        "전체 타임라인 공유",
+        "모집 시작",
+        "매칭 가능한 인플루언서 리스트 전달",
+        "브랜드사에서 제품 발송 (일본 현지 주소)",
+        "인플루언서 SNS 포스팅 진행",
+      ];
 
   const stepsText = nextSteps.map((s, i) => `${String(i + 1).padStart(2, "0")}. ${s}`).join("\n");
 
@@ -254,37 +293,12 @@ function buildBrandEmail(row: BrandApplication): { subject: string; html: string
     `· 카카오톡 byhyunho7\n` +
     `· 연락처 010-2550-1511\n`;
 
-  const stepsHtml = nextSteps
-    .map(
-      (s, i) =>
-        `<li style="margin:8px 0;color:#444;padding-left:4px">` +
-        `<span style="color:#E8344E;font-weight:700;font-family:monospace;margin-right:6px">${String(i + 1).padStart(2, "0")}</span>` +
-        `${escapeHtml(s)}</li>`
-    )
-    .join("");
-
-  const html =
-    `<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">` +
-    `<h2 style="color:#E8344E;margin:0 0 8px;font-size:20px;font-weight:800;letter-spacing:-0.02em">신청이 접수되었습니다</h2>` +
-    `<p style="margin:0 0 18px;color:#666;font-size:13px">${escapeHtml(row.brand_name)} 담당자님</p>` +
-    `<div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px;font-size:13px">` +
-      `<div style="color:#888;font-size:11px;letter-spacing:0.08em;margin-bottom:4px;text-transform:uppercase;font-weight:700">신청번호</div>` +
-      `<div style="font-family:monospace;font-size:16px;font-weight:700;color:#E8344E">${escapeHtml(row.application_no)}</div>` +
-      `<div style="color:#888;font-size:11px;letter-spacing:0.08em;margin:12px 0 4px;text-transform:uppercase;font-weight:700">플랜</div>` +
-      `<div style="font-weight:600">${escapeHtml(labelKo)}</div>` +
-    `</div>` +
-    `<h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin:22px 0 12px;text-transform:uppercase;font-weight:700">다음 단계</h3>` +
-    `<ol style="padding:0;margin:0;font-size:13px;list-style:none">${stepsHtml}</ol>` +
-    `<div style="border-top:1px solid #EAEAE4;margin-top:26px;padding-top:18px">` +
-      `<h3 style="font-size:11px;color:#161618;letter-spacing:0.15em;margin-bottom:12px;text-transform:uppercase;font-weight:700">문의</h3>` +
-      `<table style="border-collapse:collapse;width:100%;font-size:13px">` +
-        `<tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;width:100px">LINE</td><td style="padding:6px 0"><a href="https://line.me/R/ti/p/@reverb.jp" style="color:#E8344E;text-decoration:none;font-weight:600">@reverb.jp</a></td></tr>` +
-        `<tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">KakaoTalk</td><td style="padding:6px 0;font-weight:600">byhyunho7</td></tr>` +
-        `<tr><td style="padding:6px 0;color:#888;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700">TEL</td><td style="padding:6px 0;font-family:monospace;font-weight:600">010-2550-1511</td></tr>` +
-      `</table>` +
-    `</div>` +
-    `<p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>` +
-    `</div>`;
+  const tplName = isReviewer ? "brand-ack-reviewer" : "brand-ack-seeding";
+  const tpl = await loadTemplate(tplName);
+  const html = render(tpl, {
+    application_no: escapeHtml(row.application_no),
+    brand_name: escapeHtml(row.brand_name),
+  });
 
   return { subject, html, text };
 }
@@ -335,7 +349,7 @@ Deno.serve(async (req: Request) => {
     // 1) 관리자 알림
     try {
       if (adminEmails.length > 0) {
-        const { subject, html, text } = buildAdminEmail(row, adminUrl);
+        const { subject, html, text } = await buildAdminEmail(row, adminUrl);
         console.log("[notify-brand-application] sending admin email", { to: adminEmails, subject });
         await sendBrevoEmail({
           to: adminEmails.map((e) => ({ email: e })),
@@ -357,7 +371,7 @@ Deno.serve(async (req: Request) => {
     // 2) 브랜드 접수 확인
     try {
       if (row.email) {
-        const { subject, html, text } = buildBrandEmail(row);
+        const { subject, html, text } = await buildBrandEmail(row);
         console.log("[notify-brand-application] sending brand email", { to: row.email, subject });
         await sendBrevoEmail({
           to: [{ email: row.email, name: row.brand_name }],

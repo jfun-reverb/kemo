@@ -396,14 +396,14 @@
               <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="editCampGuide"></div></div>
               <div class="form-group"><label class="form-label">NG 사항</label><div class="quill-host" id="editCampNg"></div></div>
             </div>
-            <div class="form-group">
-              <label class="form-label">동의 받을 주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서가 신청 시 명시적으로 동의해야 함 — 동의 시점 내용은 스냅샷으로 저장)</span></label>
-              <div id="editCampCautionCodesWrap" style="display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 0 10px"></div>
-              <label class="form-label" style="font-size:12px;color:var(--muted);margin-top:6px">캠페인 고유 주의사항 (선택)</label>
-              <div class="quill-host" id="editCampCautionCustom"></div>
-              <div class="form-hint">기준 데이터에 없는 캠페인 고유 사항을 작성. 선택 항목과 함께 인플루언서 동의 박스에 표시됩니다.</div>
+            <!-- 참여방법: 요약 카드 + 편집 모달로 분리 (긴 인라인 편집 UI 는 모달 안으로 이동) -->
+            <div class="bundle-summary-card" id="editCampPsetSummary" data-kind="pset" data-form-mode="edit">
+              <div class="bundle-summary-label">참여방법</div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('pset','edit')">편집</button>
             </div>
-            <div class="form-group">
+            <!-- 참여방법 편집 form-group (DOM 이동 대상) -->
+            <div class="form-group" id="editCampPsetGroup" style="display:none">
               <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
               <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
                 <select id="editCampPsetSelect" class="form-input" style="flex:1" onchange="onPsetSelectChange('edit')"><option value="">— 번들 선택 —</option></select>
@@ -412,18 +412,22 @@
               <div id="editCampParticipationSteps" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('edit')" style="margin-top:8px">+ 단계 추가</button>
             </div>
-            <!-- 고정 주의사항 -->
-            <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
-              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서에게 표시됩니다)</span></div>
-              <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
-                <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
-                <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
-                <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
-                <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
-                <li>投稿は6ヶ月以上の掲載が必須です。</li>
-                <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
-                <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
-              </ul>
+
+            <!-- 주의사항: 요약 카드 + 편집 모달로 분리 -->
+            <div class="bundle-summary-card" id="editCampCsetSummary" data-kind="cset" data-form-mode="edit">
+              <div class="bundle-summary-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('cset','edit')">편집</button>
+            </div>
+            <!-- 주의사항 편집 form-group (DOM 이동 대상) -->
+            <div class="form-group" id="editCampCsetGroup" style="display:none">
+              <label class="form-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨. 인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></label>
+              <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
+                <select id="editCampCsetSelect" class="form-input" style="flex:1" onchange="onCsetSelectChange('edit')"><option value="">— 번들 선택 —</option></select>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="reloadCsetFromBundle('edit')">번들 다시 불러오기</button>
+              </div>
+              <div id="editCampCautionItems" style="display:flex;flex-direction:column;gap:10px"></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="addCampCsetItem('edit')" style="margin-top:8px">+ 항목 추가</button>
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
@@ -631,14 +635,13 @@
               <div class="form-group"><label class="form-label">촬영 가이드</label><div class="quill-host" id="newCampGuide"></div></div>
               <div class="form-group"><label class="form-label">NG 워드/사항</label><div class="quill-host" id="newCampNg"></div></div>
             </div>
-            <div class="form-group">
-              <label class="form-label">동의 받을 주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서가 신청 시 명시적으로 동의해야 함 — 동의 시점 내용은 스냅샷으로 저장)</span></label>
-              <div id="newCampCautionCodesWrap" style="display:flex;flex-wrap:wrap;gap:6px 12px;margin:6px 0 10px"></div>
-              <label class="form-label" style="font-size:12px;color:var(--muted);margin-top:6px">캠페인 고유 주의사항 (선택)</label>
-              <div class="quill-host" id="newCampCautionCustom"></div>
-              <div class="form-hint">기준 데이터에 없는 캠페인 고유 사항을 작성. 선택 항목과 함께 인플루언서 동의 박스에 표시됩니다.</div>
+            <!-- 참여방법: 요약 카드 + 편집 모달로 분리 -->
+            <div class="bundle-summary-card" id="newCampPsetSummary" data-kind="pset" data-form-mode="new">
+              <div class="bundle-summary-label">참여방법</div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('pset','new')">편집</button>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="newCampPsetGroup" style="display:none">
               <label class="form-label">참여방법 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨)</span></label>
               <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
                 <select id="newCampPsetSelect" class="form-input" style="flex:1" onchange="onPsetSelectChange('new')"><option value="">— 번들 선택 —</option></select>
@@ -648,18 +651,20 @@
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampPsetStep('new')" style="margin-top:8px">+ 단계 추가</button>
             </div>
 
-            <!-- 고정 주의사항 -->
-            <div style="background:#FFF8F0;border:1.5px solid #F5C842;border-radius:12px;padding:18px 20px;margin-top:8px">
-              <div style="font-size:13px;font-weight:700;color:#B8860B;margin-bottom:10px">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서에게 표시됩니다)</span></div>
-              <ul style="font-size:12px;color:var(--ink);line-height:1.9;padding-left:16px">
-                <li>期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。</li>
-                <li>投稿が期限内に行われない場合、原稿料のお支払いはできません。</li>
-                <li>ガイドラインを遵守したうえで作成し、遵守されていない場合は修正をお願いします。</li>
-                <li>掲載されたレビューはブランドのマーケティング目的で活用される場合があります。</li>
-                <li>投稿は6ヶ月以上の掲載が必須です。</li>
-                <li>当選されなかった方への個別のご連絡は実施しておりません。</li>
-                <li>ご不明点は <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" style="color:var(--pink);font-weight:600">LINE(@reverb.jp)</a> まで。</li>
-              </ul>
+            <!-- 주의사항: 요약 카드 + 편집 모달로 분리 -->
+            <div class="bundle-summary-card" id="newCampCsetSummary" data-kind="cset" data-form-mode="new">
+              <div class="bundle-summary-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('cset','new')">편집</button>
+            </div>
+            <div class="form-group" id="newCampCsetGroup" style="display:none">
+              <label class="form-label">주의사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨. 인플루언서 상세 페이지와 신청 모달에 모두 노출)</span></label>
+              <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
+                <select id="newCampCsetSelect" class="form-input" style="flex:1" onchange="onCsetSelectChange('new')"><option value="">— 번들 선택 —</option></select>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="reloadCsetFromBundle('new')">번들 다시 불러오기</button>
+              </div>
+              <div id="newCampCautionItems" style="display:flex;flex-direction:column;gap:10px"></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="addCampCsetItem('new')" style="margin-top:8px">+ 항목 추가</button>
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
@@ -1631,6 +1636,58 @@
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
         <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 캠페인별 번들 편집 모달 (참여방법/주의사항 공용, form-group DOM 이동) -->
+<div class="modal-overlay" id="campBundleModal" style="z-index:600">
+  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="campBundleModalTitle">편집</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeCampBundleModal()" style="padding:4px 6px;display:inline-flex;align-items:center" aria-label="닫기"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
+    </div>
+    <div class="modal-body" id="campBundleModalBody" style="padding:20px 22px;overflow-y:auto;flex:1">
+      <div id="campBundleModalHost"></div>
+    </div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="btn btn-primary" onclick="closeCampBundleModal()">완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- 주의사항 번들 편집 모달 (migration 069 — caution_sets) -->
+<div class="modal-overlay" id="csetEditModal" style="z-index:600">
+  <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-body" style="padding:24px;overflow-y:auto">
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="csetModalTitle">주의사항 번들 추가</div>
+      <input type="hidden" id="csetEditId">
+      <div class="form-group">
+        <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
+        <input type="text" id="csetNameKo" class="form-input" placeholder="예: 기본 주의사항">
+      </div>
+      <div class="form-group">
+        <label class="form-label">번들 이름 (일본어) <span style="color:var(--red)">*</span></label>
+        <input type="text" id="csetNameJa" class="form-input" placeholder="例: デフォルト注意事項">
+      </div>
+      <div class="form-group">
+        <label class="form-label">사용 가능한 모집 타입 <span style="font-size:11px;font-weight:400;color:var(--muted)">(복수 선택 — 미선택 시 전 타입 공통)</span></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="csetRT" value="monitor" style="accent-color:var(--pink)"> 리뷰어</label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="csetRT" value="gifting" style="accent-color:var(--pink)"> 기프팅</label>
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;font-weight:500"><input type="checkbox" name="csetRT" value="visit" style="accent-color:var(--pink)"> 방문형</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">주의사항 항목 <span style="color:var(--red)">*</span> <span style="font-size:11px;font-weight:400;color:var(--muted)">(1~15개 · 필요한 항목에만 링크 추가)</span></label>
+        <div id="csetItemsWrap" style="display:flex;flex-direction:column;gap:10px;margin-top:6px"></div>
+        <button type="button" class="btn btn-ghost btn-xs" id="csetAddItemBtn" onclick="csetAddItem()" style="margin-top:8px">+ 항목 추가</button>
+      </div>
+      <div id="csetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('csetEditModal')">취소</button>
+        <button class="btn btn-primary" onclick="saveCsetEdit()">저장</button>
       </div>
     </div>
   </div>

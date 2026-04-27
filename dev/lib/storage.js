@@ -916,6 +916,95 @@ async function swapParticipationSetOrder(idA, idB) {
 }
 
 // ══════════════════════════════════════
+// CAUTION SETS (주의사항 번들 — migration 069)
+//   participation_sets 패턴과 동일. 캠페인 저장 시 items 스냅샷이
+//   campaigns.caution_items 로 복사되므로, 번들 수정 후에도 기존
+//   캠페인 상세/신청 모달에는 영향 없음.
+// ══════════════════════════════════════
+
+// 캠페인 폼에서 recruit_type 필터로 active 번들만 조회
+//   서버 filter (contains) 가 recruit_types=[] 를 제외시키는 문제 때문에
+//   active 전체를 받아 클라이언트에서 필터 — 빈 배열(=전 타입 공통) 은 항상 포함
+async function fetchCautionSets(recruitType) {
+  if (!db) return [];
+  const {data, error} = await db?.from('caution_sets')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  const all = data || [];
+  if (!recruitType) return all;
+  return all.filter(s => {
+    const rts = Array.isArray(s.recruit_types) ? s.recruit_types : [];
+    return rts.length === 0 || rts.includes(recruitType);
+  });
+}
+
+// 관리자 기준 데이터 페인 — 비활성 포함 전체
+async function fetchCautionSetsAll() {
+  if (!db) return [];
+  const {data, error} = await db?.from('caution_sets')
+    .select('*')
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+async function insertCautionSet(row) {
+  let result;
+  await retryWithRefresh(async () => {
+    const existing = await fetchCautionSetsAll();
+    const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+    const payload = {
+      name_ko: row.name_ko,
+      name_ja: row.name_ja,
+      recruit_types: row.recruit_types || [],
+      items: row.items || [],
+      sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
+      active: row.active != null ? row.active : true
+    };
+    const {data, error} = await db?.from('caution_sets').insert(payload).select().maybeSingle();
+    if (error) throw error;
+    result = data;
+  });
+  return result;
+}
+
+async function updateCautionSet(id, updates) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('caution_sets').update(updates).eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function deactivateCautionSet(id) {
+  await updateCautionSet(id, {active: false});
+}
+
+async function activateCautionSet(id) {
+  await updateCautionSet(id, {active: true});
+}
+
+// hard delete — campaigns.caution_set_id 는 ON DELETE SET NULL 이라 안전
+async function deleteCautionSet(id) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('caution_sets').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function swapCautionSetOrder(idA, idB) {
+  if (!db) return;
+  const {data: rows} = await db?.from('caution_sets').select('id, sort_order').in('id', [idA, idB]);
+  if (!rows || rows.length !== 2) return;
+  const [a, b] = rows;
+  await retryWithRefresh(async () => {
+    await db?.from('caution_sets').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db?.from('caution_sets').update({sort_order: a.sort_order}).eq('id', b.id);
+  });
+}
+
+// ══════════════════════════════════════
 // ADMIN NOTICES (관리자 전용 공지 — migration 063)
 // ══════════════════════════════════════
 

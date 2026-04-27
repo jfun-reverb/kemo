@@ -204,3 +204,197 @@
 .camp-preview-pane.collapsed .camp-preview-pane-header button .material-icons-round{transform:rotate(180deg)}
 @media(max-width:1400px){.camp-preview-pane{width:380px}}
 @media(max-width:1200px){.camp-preview-pane{width:340px}}
+
+/* 주의사항 번들 편집 — 미니 에디터 (contenteditable + execCommand) */
+.mini-editor-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.mini-editor-toolbar{display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--line);background:#fafafa}
+.mini-editor-toolbar button{border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;border-radius:4px}
+.mini-editor-toolbar button:hover{background:rgba(200,120,163,.1)}
+.mini-editor-content{padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none;word-break:break-word}
+.mini-editor-content:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
+.mini-editor-content a{color:var(--pink);text-decoration:underline}
+.mini-editor-content:focus{background:#fffdf9}
+
+/* 주의사항 번들 미니 에디터 — 링크 클릭 말풍선 팝오버 */
+.mini-editor-link-popover{
+  position:fixed;
+  z-index:9999;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:10px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.12);
+  padding:6px;
+  display:flex;
+  gap:4px;
+  align-items:center;
+  font-size:12px;
+  animation:melp-fade 0.12s ease-out;
+}
+@keyframes melp-fade{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:translateY(0)}
+}
+/* 말풍선 꼬리 */
+.mini-editor-link-popover::before{
+  content:"";
+  position:absolute;
+  top:-6px;
+  left:16px;
+  width:10px;height:10px;
+  background:#fff;
+  border-left:1px solid var(--line);
+  border-top:1px solid var(--line);
+  transform:rotate(45deg);
+}
+.mini-editor-link-popover .melp-url{
+  width:260px;
+  padding:6px 8px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  font-size:12px;
+  font-family:inherit;
+  outline:none;
+}
+.mini-editor-link-popover .melp-url:focus{
+  border-color:var(--pink);
+  box-shadow:0 0 0 2px rgba(200,120,163,0.15);
+}
+.mini-editor-link-popover .melp-btn{
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:6px;
+  border-radius:6px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--ink);
+}
+.mini-editor-link-popover .melp-btn:hover{
+  background:rgba(200,120,163,0.12);
+}
+.mini-editor-link-popover .melp-delete{color:#B3261E}
+.mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
+
+/* ──────────────────────────────────────────
+ * Quill 리치 에디터 통합 박스 — 미니 에디터와 같은 looks
+ * getRichEditor() 에서 toolbar + host 를 .quill-wrap 으로 감쌈
+ * ────────────────────────────────────────── */
+.quill-wrap{
+  border:1px solid var(--line);
+  border-radius:8px;
+  /* overflow:visible — ql-picker-options(헤더 드롭다운)가 상위를 벗어나야 함 */
+  overflow:visible;
+  background:#fff;
+  /* grid-row 내 stretch 상황에서도 container 높이가 0 되지 않도록 flex column 으로 고정 */
+  display:flex;
+  flex-direction:column;
+}
+.quill-wrap .ql-toolbar.ql-snow{
+  border:0;
+  border-bottom:1px solid var(--line);
+  background:#fafafa;
+  border-radius:8px 8px 0 0;
+  flex-shrink:0;
+}
+.quill-wrap .ql-container.ql-snow{
+  border:0;
+  border-radius:0 0 8px 8px;
+  font-size:13px;
+  font-family:inherit;
+  /* Quill 기본값 height:100% 를 덮어써 자식(.ql-editor) min-height 로 auto-grow */
+  height:auto;
+  flex:1 1 auto;
+  min-height:96px;
+}
+.quill-wrap .ql-editor{
+  min-height:96px;
+  line-height:1.65;
+}
+.quill-wrap .ql-editor a{
+  color:var(--pink);
+  text-decoration:underline;
+  cursor:pointer;
+}
+/* Quill 기본 링크 tooltip 숨김 — 커스텀 링크 팝오버 (mini-editor-link-popover) 로 대체 */
+.ql-snow .ql-tooltip,
+.ql-tooltip.ql-editing,
+.ql-tooltip.ql-flip{display:none !important}
+
+/* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
+.bundle-summary-card{
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-rows:auto auto;
+  column-gap:14px;
+  row-gap:4px;
+  align-items:center;
+  padding:14px 16px;
+  margin-bottom:14px;
+  border:1px dashed var(--line);
+  border-radius:10px;
+  background:#fafafa;
+}
+.bundle-summary-card .bundle-summary-label{
+  grid-column:1;
+  grid-row:1;
+  font-size:13px;
+  font-weight:600;
+  color:var(--ink);
+}
+/* body 자체는 레이아웃에서 제외, 내부 summary-head / summary-lang-grid 가 직접 grid item */
+.bundle-summary-card .bundle-summary-body{
+  display:contents;
+  font-size:12px;
+  color:var(--ink);
+  line-height:1.5;
+}
+.bundle-summary-card .btn{
+  grid-column:2;
+  grid-row:1 / span 2;
+  align-self:center;
+}
+
+/* 요약 카드 내부 한/일 2컬럼 리스트 — body:display:contents 덕분에 card grid 에 직접 참여 */
+.bundle-summary-card .summary-head{
+  grid-column:1;
+  grid-row:2;
+  font-size:12px;
+  color:var(--ink);
+  line-height:1.5;
+}
+.bundle-summary-card .summary-lang-grid{
+  /* 편집 버튼 아래에 구분선부터 시작해서 전체 폭 사용 */
+  grid-column:1 / -1;
+  grid-row:3;
+  margin-top:4px;
+  padding-top:10px;
+  border-top:1px dashed var(--line);
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+.summary-lang-col{
+  font-size:12px;
+  line-height:1.6;
+  color:var(--ink);
+}
+.summary-lang-title{
+  font-size:10px;
+  color:var(--muted);
+  font-weight:700;
+  letter-spacing:0.05em;
+  margin-bottom:6px;
+}
+.summary-lang-list{
+  margin:0;
+  padding-left:16px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.summary-lang-list li{line-height:1.55}
+.summary-lang-list a{color:var(--pink);text-decoration:underline}
+.summary-step{margin-bottom:6px}
+.summary-step-title{font-weight:600;color:var(--ink)}
+.summary-step-desc{color:var(--muted);font-size:11px;margin-top:1px;line-height:1.5}

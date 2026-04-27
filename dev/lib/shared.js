@@ -93,6 +93,40 @@ function sanitizeRich(html) {
   return wrapper.innerHTML;
 }
 
+// caution_items 전용 sanitize — inline 서식(B/I/U/S) + 링크만 허용.
+// <p>, <div>, <ul> 등 블록 태그는 제거(렌더는 <li> 한 칸이라 inline 만 허용해야 레이아웃 유지).
+// 관리자 미니 에디터의 contenteditable 출력이 paste 시 섞어 올 수 있는 block 태그를 정리.
+function sanitizeCautionHtml(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') {
+    console.warn('[sanitizeCautionHtml] DOMPurify not loaded');
+    return '';
+  }
+  const clean = DOMPurify.sanitize(String(html), {
+    ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br'],
+    ALLOWED_ATTR: ['href','target','rel'],
+    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg','p','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
+    FORBID_ATTR: ['style','onerror','onload','onclick','class']
+  });
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = clean;
+  // 링크 정규화: http/https/mailto 만 허용, target=_blank + rel=noopener 자동 부여
+  wrapper.querySelectorAll('a[href]').forEach(a => {
+    const href = (a.getAttribute('href') || '').trim();
+    if (!/^https?:\/\/|^mailto:/i.test(href)) {
+      // 프로토콜 없으면 https:// 자동 부여 시도
+      if (/^[\w.-]+\.[a-z]{2,}/i.test(href)) {
+        a.setAttribute('href', 'https://' + href.replace(/^\/+/, ''));
+      } else {
+        a.removeAttribute('href');
+      }
+    }
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+  });
+  return wrapper.innerHTML;
+}
+
 // 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
 function richHtml(raw) {
   const value = raw == null ? '' : String(raw);

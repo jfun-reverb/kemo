@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<!--
+  Mail: 광고주 신청 — 관리자 알림 (admin notify)
+  Trigger: brand_applications INSERT → Edge Function notify-brand-application
+  To:      admins.receive_brand_notify=true ∪ env.NOTIFY_ADMIN_EMAILS
+  Lang:    KO
+
+  Placeholders:
+    {{application_no}}      신청번호 (예: JFUN-Q-20260420-001)
+    {{form_label}}          폼 종류 라벨 (Qoo10 리뷰어 모집 | 나노 인플루언서 시딩)
+    {{brand_name}}          브랜드명
+    {{contact_name}}        담당자 이름
+    {{phone}}               연락처
+    {{email}}               담당자 이메일
+    {{billing_email_row}}   계산서 행 HTML (없으면 빈 문자열)
+    {{estimated_krw}}       예상 견적 (₩ 포맷)
+    {{products_html}}       제품 테이블 HTML (없으면 빈 문자열)
+    {{request_note_html}}   기타·요청사항 박스 HTML (없으면 빈 문자열)
+    {{deep_link}}           관리자 페이지 딥링크
+-->
+<div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+  <h2 style="color:#E8344E;margin:0 0 8px">신규 광고주 신청</h2>
+  <p style="margin:0 0 16px;color:#666;font-size:13px">REVERB JP 관리자 알림</p>
+  <table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px">
+    <tr><td style="padding:6px 0;color:#888;width:100px">신청번호</td><td style="padding:6px 0;font-family:monospace">{{application_no}}</td></tr>
+    <tr><td style="padding:6px 0;color:#888">폼 종류</td><td style="padding:6px 0">{{form_label}}</td></tr>
+    <tr><td style="padding:6px 0;color:#888">브랜드</td><td style="padding:6px 0;font-weight:700">{{brand_name}}</td></tr>
+    <tr><td style="padding:6px 0;color:#888">담당자</td><td style="padding:6px 0">{{contact_name}} · {{phone}} · {{email}}</td></tr>
+    {{billing_email_row}}
+    <tr><td style="padding:6px 0;color:#888">예상 견적</td><td style="padding:6px 0;font-weight:700">{{estimated_krw}}</td></tr>
+  </table>
+  {{products_html}}
+  {{request_note_html}}
+  <a href="{{deep_link}}" style="display:inline-block;background:#E8344E;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">관리자 페이지에서 확인</a>
+</div>

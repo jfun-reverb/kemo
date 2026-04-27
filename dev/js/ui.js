@@ -244,7 +244,14 @@ document.addEventListener('keydown', (e) => {
     const zb = parseInt(getComputedStyle(b).zIndex, 10) || 0;
     return zb > za ? b : a;
   });
-  if (top && top.id) closeModal(top.id);
+  if (top && top.id) {
+    // campBundleModal 은 DOM 이동 복귀 로직이 있어 전용 닫기 함수로 위임
+    if (top.id === 'campBundleModal' && typeof closeCampBundleModal === 'function') {
+      closeCampBundleModal();
+    } else {
+      closeModal(top.id);
+    }
+  }
 });
 
 // 이미지 확대 라이트박스

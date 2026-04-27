@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>REVERB JP · 회원가입 확인 메일 미리보기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Manrope','Pretendard Variable',Pretendard,'Noto Sans JP',sans-serif; background:#EEECE6; color:#161618; padding:40px 20px 80px; min-height:100vh; }
+  .head { max-width:640px; margin:0 auto 28px; }
+  .back-link { display:inline-block; font-size:12px; color:#666; text-decoration:none; margin-bottom:14px; letter-spacing:0.04em; }
+  .back-link:hover { color:#161618; }
+  h1 { font-size:22px; font-weight:800; letter-spacing:-0.02em; margin-bottom:6px; }
+  .sub { font-size:13px; color:#666; }
+  .mail-card { max-width:640px; margin:0 auto; background:#fff; border-radius:14px; box-shadow:0 4px 20px rgba(0,0,0,0.06); overflow:hidden; }
+  .mail-head { background:#F7F4EE; border-bottom:1px solid #EAEAE4; padding:18px 22px; }
+  .mail-from { font-size:11px; color:#888; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:6px; font-weight:700; }
+  .mail-meta { font-size:12px; color:#555; line-height:1.7; }
+  .mail-meta b { color:#161618; font-weight:600; }
+  .mail-subject { font-size:16px; font-weight:700; color:#161618; margin-top:8px; letter-spacing:-0.01em; }
+  .mail-body { padding:0; background:#fff; }
+  .mail-body iframe { width:100%; min-height:700px; border:0; display:block; }
+  details.meta { max-width:640px; margin:18px auto 0; background:#fff; border-radius:10px; padding:14px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.04); font-size:12px; color:#444; }
+  details.meta summary { cursor:pointer; font-weight:700; color:#161618; }
+  details.meta dl { margin-top:10px; display:grid; grid-template-columns:120px 1fr; gap:6px 12px; }
+  details.meta dt { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; }
+  details.meta code { font-family:monospace; background:#F7F4EE; padding:1px 6px; border-radius:4px; font-size:11px; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <a href="index.html" class="back-link">← 메일 목록</a>
+  <h1>회원가입 확인 메일</h1>
+  <p class="sub">Supabase Auth · 운영서버 가입 시 자동 발송 (개발서버는 Confirm email OFF)</p>
+</div>
+
+<div class="mail-card">
+  <div class="mail-head">
+    <div class="mail-from">Preview · Sign-up Confirmation</div>
+    <div class="mail-meta">
+      <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+      <div><b>To:</b> sakura.test@reverb.jp</div>
+    </div>
+    <div class="mail-subject">【REVERB JP】メールアドレスの認証をお願いします</div>
+  </div>
+  <div class="mail-body">
+    <iframe src="confirm-signup.html" title="confirm-signup.html"></iframe>
+  </div>
+</div>
+
+<details class="meta">
+  <summary>발송 메타</summary>
+  <dl>
+    <dt>트리거</dt><dd>인플루언서 회원가입 (운영서버 한정)</dd>
+    <dt>관리</dt><dd>Supabase 대시보드 → Authentication → Email Templates → Confirm signup 에 본 HTML을 복사·붙여넣기</dd>
+    <dt>Placeholder</dt><dd><code>{{ .ConfirmationURL }}</code> — Supabase가 자동 치환하는 인증 링크</dd>
+    <dt>원본</dt><dd><a href="confirm-signup.html">confirm-signup.html</a></dd>
+  </dl>
+</details>
+
+</body>
+</html>
