@@ -105,7 +105,7 @@ async function openCampaign(id) {
           </div>`:''}
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.recruitPeriod')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${formatDate(new Date())} 〜 ${formatDate(camp.deadline)}</div>
+            <div style="padding:10px 13px;flex:1;font-size:12px">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div>
           </div>
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.recruitSlots')}</div>
@@ -114,10 +114,6 @@ async function openCampaign(id) {
           <div style="display:flex;border-top:1px solid #faf5f9">
             <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.winnerAnnounce')}</div>
             <div style="padding:10px 13px;flex:1;font-size:12px">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div>
-          </div>
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.postDeadline')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px;font-weight:600;color:var(--ink)">${camp.post_deadline ? formatDate(camp.post_deadline) : camp.post_days ? t('detail.postDeadlineRelative').replace('{days}',camp.post_days) : t('detail.noSetting')}</div>
           </div>
           ${(camp.recruit_type==='monitor' && (camp.purchase_start||camp.purchase_end))?`
           <div style="display:flex;border-top:1px solid #faf5f9">

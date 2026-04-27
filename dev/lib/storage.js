@@ -40,11 +40,39 @@ async function fetchCampaigns() {
     const data = await fetchAllPaged(() =>
       db.from('campaigns').select('*').order('order_index', {ascending: true, nullsFirst: false})
     );
-    if (data.length > 0) { await autoCloseCampaigns(data); return data; }
+    if (data.length > 0) {
+      await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
+      await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      return data;
+    }
     return DEMO_CAMPAIGNS.slice();
   } catch(e) {
     return DEMO_CAMPAIGNS.slice();
   }
+}
+
+// 모집 시작일 도래 캠페인 자동 활성화 (scheduled → active)
+//   recruit_start 가 오늘(JST 자정 기준) 이하이고 status='scheduled' 면 active 로 전환.
+//   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
+async function autoOpenCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const toOpen = camps.filter(c => {
+    if (c.status !== 'scheduled' || !c.recruit_start) return false;
+    const rs = new Date(c.recruit_start);
+    rs.setHours(0, 0, 0, 0);
+    return now >= rs;
+  });
+  if (!toOpen.length) return camps;
+  const results = await Promise.allSettled(toOpen.map(c => {
+    c.status = 'active';
+    return db.from('campaigns').update({ status: 'active' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoOpenCampaigns 실패:', toOpen[i]?.id, r.reason);
+  });
+  return camps;
 }
 
 // 마감일 경과 캠페인 자동 상태 변경 (병렬 UPDATE)
