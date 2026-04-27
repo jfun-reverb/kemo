@@ -1421,7 +1421,6 @@ function renderCampPreview(mode) {
           ${camp.slots?`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`:''}
           ${camp.min_followers?`<div class="cp-info-row"><div class="cp-info-key">最小フォロワー</div><div class="cp-info-val">${camp.min_followers.toLocaleString()}</div></div>`:''}
           <div class="cp-info-row"><div class="cp-info-key">当選発表</div><div class="cp-info-val">${esc(camp.winner_announce||'選考後、LINEにてご連絡')}</div></div>
-          <div class="cp-info-row"><div class="cp-info-key">掲載期限</div><div class="cp-info-val" style="font-weight:600">${camp.post_deadline?fmt(camp.post_deadline):'—'}</div></div>
           ${(camp.recruit_type==='monitor'&&(camp.purchase_start||camp.purchase_end))?`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`:''}
           ${(camp.recruit_type==='visit'&&(camp.visit_start||camp.visit_end))?`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`:''}
           ${camp.submission_end?`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`:''}
