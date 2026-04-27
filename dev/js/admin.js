@@ -753,7 +753,7 @@ async function loadAdminCampaigns(useCache) {
             </div>
             <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
-            ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">노출: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
+            ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">캠페인 노출: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
@@ -1038,22 +1038,34 @@ async function suggestSubmissionEnd(prefix) {
   }
 }
 
-// 일자 자식 input들의 min/max를 [recruit_start || deadline] ~ post_deadline 으로 동기화 (브라우저 단 차단)
-const CAMP_DATE_FIELDS = ['PurchaseStart','PurchaseEnd','VisitStart','VisitEnd','SubmissionEnd','PostDeadline'];
+// 일자 자식 input들의 min/max 를 운영 흐름에 맞춰 동기화 (브라우저 단 차단)
+//   구매·방문: [recruit_start||deadline] ~ [submission_end || post_deadline]
+//   결과물 제출 마감일: max(recruit_start||deadline, purchase_end, visit_end) ~ post_deadline
+//   캠페인 노출 마감일: deadline ~ (없음)
 function syncCampDateMinMax(prefix) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
   const pdl = $(prefix+'PostDeadline')?.value || '';
-  // 자식 일자들은 모집 시작일(없으면 모집 종료일) 이후로만 입력 가능
+  const pe = $(prefix+'PurchaseEnd')?.value || '';
+  const ve = $(prefix+'VisitEnd')?.value || '';
+  const se = $(prefix+'SubmissionEnd')?.value || '';
   const lower = rs || dl || '';
-  CAMP_DATE_FIELDS.forEach(suffix => {
-    if (suffix === 'PostDeadline') return; // post_deadline 은 자식이 아니라 자체 입력
+  const upperPV = se || pdl || '';
+  // 구매·방문: lower ~ upperPV
+  ['PurchaseStart','PurchaseEnd','VisitStart','VisitEnd'].forEach(suffix => {
     const el = $(prefix+suffix);
     if (!el) return;
     if (lower) el.min = lower; else el.removeAttribute('min');
-    if (pdl) el.max = pdl; else el.removeAttribute('max');
+    if (upperPV) el.max = upperPV; else el.removeAttribute('max');
   });
-  // 노출 마감일은 모집 종료일 이후만 (range picker 가 보장하지만 native input 도 강제)
+  // 결과물 제출 마감일: 구매·방문 종료일 이후 (없으면 lower) ~ 캠페인 노출 마감일
+  const seEl = $(prefix+'SubmissionEnd');
+  if (seEl) {
+    const seLower = [lower, pe, ve].filter(Boolean).sort().pop() || '';
+    if (seLower) seEl.min = seLower; else seEl.removeAttribute('min');
+    if (pdl) seEl.max = pdl; else seEl.removeAttribute('max');
+  }
+  // 캠페인 노출 마감일: 모집 종료일 이후
   const postEl = $(prefix+'PostDeadline');
   if (postEl) {
     if (dl) postEl.min = dl; else postEl.removeAttribute('min');
@@ -1062,7 +1074,7 @@ function syncCampDateMinMax(prefix) {
 }
 
 // 입력값 검증 (저장 시 + onchange 인라인 경고). 위반 메시지 배열 반환.
-//   경계: 모집 시작일 ~ 노출 마감일 사이
+//   경계: 모집 시작일 ~ 캠페인 노출 마감일 사이
 function validateCampDateRanges(prefix) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
@@ -1080,15 +1092,28 @@ function validateCampDateRanges(prefix) {
     if (pdl && new Date(val) > new Date(pdl)) return false;
     return true;
   };
+  // 구매·방문 일자의 상한은 결과물 제출 마감일(우선) 또는 캠페인 노출 마감일(폴백)
+  const upperPV = se || pdl || '';
+  const inPVRange = (val) => {
+    if (!val) return true;
+    if (lower && new Date(val) < new Date(lower)) return false;
+    if (upperPV && new Date(val) > new Date(upperPV)) return false;
+    return true;
+  };
+  const upperPVLabel = se ? '결과물 제출 마감일' : '캠페인 노출 마감일';
   if (rs && dl && new Date(dl) < new Date(rs)) errs.push({kind:'recruit', msg:'모집 종료일은 모집 시작일 이후여야 합니다'});
-  if (dl && pdl && new Date(pdl) < new Date(dl)) errs.push({kind:'post', msg:'노출 마감일은 모집 종료일 이후여야 합니다'});
-  if (!between(ps)) errs.push({kind:'purchase', msg:'구매 시작일은 모집 시작일~노출 마감일 사이여야 합니다'});
-  if (!between(pe)) errs.push({kind:'purchase', msg:'구매 마감일은 모집 시작일~노출 마감일 사이여야 합니다'});
+  if (dl && pdl && new Date(pdl) < new Date(dl)) errs.push({kind:'post', msg:'캠페인 노출 마감일은 모집 종료일 이후여야 합니다'});
+  if (!inPVRange(ps)) errs.push({kind:'purchase', msg:`구매 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
+  if (!inPVRange(pe)) errs.push({kind:'purchase', msg:`구매 마감일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (ps && pe && new Date(pe) < new Date(ps)) errs.push({kind:'purchase', msg:'구매 마감일은 구매 시작일 이후여야 합니다'});
-  if (!between(vs)) errs.push({kind:'visit', msg:'방문 시작일은 모집 시작일~노출 마감일 사이여야 합니다'});
-  if (!between(ve)) errs.push({kind:'visit', msg:'방문 마감일은 모집 시작일~노출 마감일 사이여야 합니다'});
+  if (!inPVRange(vs)) errs.push({kind:'visit', msg:`방문 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
+  if (!inPVRange(ve)) errs.push({kind:'visit', msg:`방문 마감일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (vs && ve && new Date(ve) < new Date(vs)) errs.push({kind:'visit', msg:'방문 마감일은 방문 시작일 이후여야 합니다'});
-  if (!between(se)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 모집 시작일~노출 마감일 사이여야 합니다'});
+  // 결과물 제출 마감일: 모집 시작 ~ 캠페인 노출 마감 사이 + 구매·방문 종료일 이후
+  if (se && lower && new Date(se) < new Date(lower)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 모집 시작일 이후여야 합니다'});
+  if (se && pdl && new Date(se) > new Date(pdl)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 캠페인 노출 마감일 이전이어야 합니다'});
+  if (se && pe && new Date(se) < new Date(pe)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 구매 종료일 이후여야 합니다'});
+  if (se && ve && new Date(se) < new Date(ve)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 방문 종료일 이후여야 합니다'});
   return errs;
 }
 
@@ -1242,7 +1267,7 @@ async function saveCampaignEdit() {
     const editDeadline = gv('editCampDeadline');
     const editPostDeadline = gv('editCampPostDeadline');
     if (editPostDeadline && editDeadline && new Date(editPostDeadline) < new Date(editDeadline)) {
-      toast('노출 마감일은 모집 마감일 이후여야 합니다','error');
+      toast('캠페인 노출 마감일은 모집 종료일 이후여야 합니다','error');
       return;
     }
     const editDateErrs = validateCampDateRanges('editCamp');
@@ -2913,7 +2938,7 @@ async function addCampaign() {
   }
   const postDeadline = $('newCampPostDeadline')?.value;
   if (postDeadline && deadline && new Date(postDeadline) < new Date(deadline)) {
-    toast('노출 마감일은 모집 종료일 이후여야 합니다','error');
+    toast('캠페인 노출 마감일은 모집 종료일 이후여야 합니다','error');
     return;
   }
   const newDateErrs = validateCampDateRanges('newCamp');
