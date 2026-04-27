@@ -5989,11 +5989,23 @@ function validateCampDateRanges(prefix) {
 //   - 모집 종료일 변경 시 결과물 제출 마감일 자동 제안 + min/max 갱신 + 인라인 검증
 // ─────────────────────────────────────────────────────────────────
 const _campRangePickers = Object.create(null);
+const _pastRecruitStartWarned = Object.create(null); // prefix별 마지막으로 알린 과거 시작일 (중복 방지)
 const RANGE_KIND_HIDDEN_IDS = {
   recruit:  ['RecruitStart', 'Deadline'],
   purchase: ['PurchaseStart', 'PurchaseEnd'],
   visit:    ['VisitStart', 'VisitEnd'],
 };
+
+// 모집 시작일이 오늘 이전이면 의도 확인 알럿 1회 (차단 없음, 같은 값 재호출 안 함)
+async function maybeWarnPastRecruitStart(prefix, startStr) {
+  if (!startStr) return;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(startStr); start.setHours(0, 0, 0, 0);
+  if (start >= today) { _pastRecruitStartWarned[prefix] = null; return; }
+  if (_pastRecruitStartWarned[prefix] === startStr) return;
+  _pastRecruitStartWarned[prefix] = startStr;
+  await showConfirm(`모집 시작일(${startStr})이 오늘보다 이전입니다.\n과거 날짜로 등록하는 것이 맞나요?`);
+}
 function _fpFormatYmd(d) {
   if (!d) return '';
   const yyyy = d.getFullYear();
@@ -6023,9 +6035,11 @@ function setupCampRangePickers() {
         const endEl   = $(prefix + endSuffix);
         if (startEl) startEl.value = _fpFormatYmd(start);
         if (endEl)   endEl.value   = _fpFormatYmd(end);
-        // 모집 기간 종료일이 새로 잡힌 경우 결과물 제출 마감일 자동 제안
-        if (kind === 'recruit' && end) {
-          suggestSubmissionEnd(prefix);
+        if (kind === 'recruit') {
+          // 시작일이 오늘 이전이면 의도 확인 (차단 없음, 같은 값 재호출 안 함)
+          if (start) maybeWarnPastRecruitStart(prefix, _fpFormatYmd(start));
+          // 종료일까지 잡혔으면 결과물 제출 마감일 자동 제안
+          if (end) suggestSubmissionEnd(prefix);
         }
         syncCampDateMinMax(prefix);
         validateCampDateRangesInline(prefix);
