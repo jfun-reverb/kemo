@@ -5989,22 +5989,36 @@ function validateCampDateRanges(prefix) {
 //   - 모집 종료일 변경 시 결과물 제출 마감일 자동 제안 + min/max 갱신 + 인라인 검증
 // ─────────────────────────────────────────────────────────────────
 const _campRangePickers = Object.create(null);
-const _pastRecruitStartWarned = Object.create(null); // prefix별 마지막으로 알린 과거 시작일 (중복 방지)
 const RANGE_KIND_HIDDEN_IDS = {
   recruit:  ['RecruitStart', 'Deadline'],
   purchase: ['PurchaseStart', 'PurchaseEnd'],
   visit:    ['VisitStart', 'VisitEnd'],
 };
 
-// 모집 시작일이 오늘 이전이면 의도 확인 알럿 1회 (차단 없음, 같은 값 재호출 안 함)
-async function maybeWarnPastRecruitStart(prefix, startStr) {
-  if (!startStr) return;
+// flatpickr 캘린더 popup 하단에 추가하는 인라인 경고 div를 1회만 생성·재사용
+function _ensureFpWarnNode(fp) {
+  if (fp && fp._reverbWarnNode) return fp._reverbWarnNode;
+  if (!fp || !fp.calendarContainer) return null;
+  const node = document.createElement('div');
+  node.className = 'fp-past-warn';
+  node.style.cssText = 'display:none;padding:8px 12px;font-size:11px;font-weight:600;color:#C62828;background:#FFEBEE;border-top:1px solid #FFCDD2;text-align:center;line-height:1.5';
+  fp.calendarContainer.appendChild(node);
+  fp._reverbWarnNode = node;
+  return node;
+}
+// 모집 시작일이 오늘 이전이면 캘린더 popup 하단에 빨간 글씨 표시 (차단·모달 닫힘 없음)
+function updateRecruitPastWarn(fp, startDate) {
+  const node = _ensureFpWarnNode(fp);
+  if (!node) return;
+  if (!startDate) { node.style.display = 'none'; return; }
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const start = new Date(startStr); start.setHours(0, 0, 0, 0);
-  if (start >= today) { _pastRecruitStartWarned[prefix] = null; return; }
-  if (_pastRecruitStartWarned[prefix] === startStr) return;
-  _pastRecruitStartWarned[prefix] = startStr;
-  await showConfirm(`모집 시작일(${startStr})이 오늘보다 이전입니다.\n과거 날짜로 등록하는 것이 맞나요?`);
+  const start = new Date(startDate); start.setHours(0, 0, 0, 0);
+  if (start < today) {
+    node.textContent = '모집 시작일이 오늘보다 이전입니다. 과거 날짜로 등록하는 것이 맞는지 확인해주세요.';
+    node.style.display = 'block';
+  } else {
+    node.style.display = 'none';
+  }
 }
 function _fpFormatYmd(d) {
   if (!d) return '';
@@ -6028,7 +6042,13 @@ function setupCampRangePickers() {
       dateFormat: 'Y-m-d',
       altInput: false,
       locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
-      onChange: (selectedDates) => {
+      onOpen: (selectedDates, _str, fpInst) => {
+        if (kind !== 'recruit') return;
+        // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
+        const cur = $(prefix + startSuffix)?.value || '';
+        updateRecruitPastWarn(fpInst, cur ? new Date(cur) : null);
+      },
+      onChange: (selectedDates, _str, fpInst) => {
         const start = selectedDates[0] || null;
         const end   = selectedDates[1] || null;
         const startEl = $(prefix + startSuffix);
@@ -6036,8 +6056,8 @@ function setupCampRangePickers() {
         if (startEl) startEl.value = _fpFormatYmd(start);
         if (endEl)   endEl.value   = _fpFormatYmd(end);
         if (kind === 'recruit') {
-          // 시작일이 오늘 이전이면 의도 확인 (차단 없음, 같은 값 재호출 안 함)
-          if (start) maybeWarnPastRecruitStart(prefix, _fpFormatYmd(start));
+          // 캘린더 popup 하단 인라인 경고 갱신 (과거 시작일이면 빨간 글씨 표시, 그 외 숨김)
+          updateRecruitPastWarn(fpInst, start);
           // 종료일까지 잡혔으면 결과물 제출 마감일 자동 제안
           if (end) suggestSubmissionEnd(prefix);
         }
