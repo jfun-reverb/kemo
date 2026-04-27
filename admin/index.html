@@ -11109,7 +11109,13 @@ async function openAdminNoticeView(id) {
   else bodyEl.innerHTML = n.body_html || '';
   openModal('adminNoticeViewModal');
   if (!n.is_read) {
-    try { await markAdminNoticeRead(id); n.is_read = true; refreshAdminNoticeBadge(); renderAdminNotices(); } catch(e) {}
+    try {
+      await markAdminNoticeRead(id);
+      n.is_read = true;
+      refreshAdminNoticeBadge();
+      renderAdminNotices();
+      renderDashboardNotices();
+    } catch(e) {}
   }
 }
 
@@ -11236,7 +11242,10 @@ async function showAdminUnreadNoticesIfAny() {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${adminNoticeCatPill(n.category)}<div style="font-weight:700;font-size:14px;color:var(--ink)">${n.is_pinned?'<span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--pink);vertical-align:-2px">push_pin</span> ':''}${esc(n.title)}</div></div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${esc(n.created_by_name||'—')} · ${n.created_at?formatDateTime(n.created_at):''}</div>
         <div class="rich-content" data-notice-body="${esc(n.id)}" style="font-size:12px;line-height:1.6;color:var(--ink);max-height:140px;overflow:hidden"></div>
-        <div style="text-align:right;margin-top:8px"><button class="btn btn-primary btn-xs" onclick="onMarkUnreadFromPopup('${esc(n.id)}')">확인</button></div>
+        <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">
+          <button class="btn btn-ghost btn-xs" onclick="onShowDetailFromUnreadPopup('${esc(n.id)}')">상세 보기</button>
+          <button class="btn btn-primary btn-xs" onclick="onMarkUnreadFromPopup('${esc(n.id)}')">확인</button>
+        </div>
       </div>
     `).join('');
     // 본문 부분만 renderRich(el, raw) 시그니처로 주입
@@ -11262,6 +11271,12 @@ async function onMarkUnreadFromPopup(id) {
     if (!stillUnread) closeModal('adminNoticeUnreadModal');
     else showAdminUnreadNoticesIfAny();
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+}
+
+// 미읽음 팝업 → 상세 모달로 전환 (전환 시 자동 읽음 처리는 openAdminNoticeView가 담당)
+function onShowDetailFromUnreadPopup(id) {
+  closeModal('adminNoticeUnreadModal');
+  openAdminNoticeView(id);
 }
 // ══════════════════════════════════════
 // ADMIN APP — 관리자 페이지 초기화
