@@ -3203,6 +3203,18 @@ async function insertReceipt(receipt) {
 }
 
 // ── Deliverables (Stage 2) ──
+// 사이드바 배지용 — pending(검수 대기) 결과물 개수만 빠르게 (head:true count, draft 자동 제외)
+async function fetchPendingDeliverableCount() {
+  if (!db) return 0;
+  try {
+    const {count, error} = await db.from('deliverables')
+      .select('id', {count: 'exact', head: true})
+      .eq('status', 'pending');
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
+}
+
 // 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
 async function fetchDeliverables(filters) {
   if (!db) return [];
@@ -5154,6 +5166,7 @@ async function loadAdminData(preloaded) {
   // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
   renderAddressDistribution(users);
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
+  refreshDelivSidebarBadge();
 
   // Recent apps — 신청관리와 동일 UI
   const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
@@ -9759,7 +9772,17 @@ function applyDelivSortIndicators() {
 }
 
 async function loadDeliverables() {
-  await renderDeliverablesList();
+  await renderDeliverablesList();  // 끝에서 refreshDelivSidebarBadge 호출됨
+}
+
+// 사이드바 "결과물 관리" 메뉴 옆 검수 대기(pending) 배지 갱신
+async function refreshDelivSidebarBadge() {
+  const el = $('adminDelivSi');
+  if (!el) return;
+  try {
+    const n = await fetchPendingDeliverableCount();
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+  } catch(e) { /* 무시 */ }
 }
 
 var delivLazy = null;
@@ -9886,6 +9909,8 @@ async function renderDeliverablesList() {
     pageSize: DELIV_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
+  // 검수 후 사이드바 배지(검수 대기 개수) 자동 동기화
+  refreshDelivSidebarBadge();
 }
 
 function statusLabelKo(status) {
@@ -11838,6 +11863,9 @@ async function init() {
     // 신청 뱃지 업데이트
     var _pending = preloaded[2].filter(function(a){return a.status==='pending'});
     if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>999?'999+':_pending.length)+'</span>':'');
+
+    // 결과물 관리 사이드바 배지 — 검수 대기(pending) 개수
+    if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
 
     // 광고주 신청 pending 배지 (신규 brand_applications)
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();

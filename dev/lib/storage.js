@@ -389,6 +389,18 @@ async function insertReceipt(receipt) {
 }
 
 // ── Deliverables (Stage 2) ──
+// 사이드바 배지용 — pending(검수 대기) 결과물 개수만 빠르게 (head:true count, draft 자동 제외)
+async function fetchPendingDeliverableCount() {
+  if (!db) return 0;
+  try {
+    const {count, error} = await db.from('deliverables')
+      .select('id', {count: 'exact', head: true})
+      .eq('status', 'pending');
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
+}
+
 // 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
 async function fetchDeliverables(filters) {
   if (!db) return [];
