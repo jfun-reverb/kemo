@@ -11243,8 +11243,7 @@ async function showAdminUnreadNoticesIfAny() {
         <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${esc(n.created_by_name||'—')} · ${n.created_at?formatDateTime(n.created_at):''}</div>
         <div class="rich-content" data-notice-body="${esc(n.id)}" style="font-size:12px;line-height:1.6;color:var(--ink);max-height:140px;overflow:hidden"></div>
         <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:8px">
-          <button class="btn btn-ghost btn-xs" onclick="onShowDetailFromUnreadPopup('${esc(n.id)}')">상세 보기</button>
-          <button class="btn btn-primary btn-xs" onclick="onMarkUnreadFromPopup('${esc(n.id)}')">확인</button>
+          <button class="btn btn-primary btn-xs" onclick="onShowDetailFromUnreadPopup('${esc(n.id)}')">상세 보기</button>
         </div>
       </div>
     `).join('');
@@ -11258,19 +11257,6 @@ async function showAdminUnreadNoticesIfAny() {
     });
   }
   openModal('adminNoticeUnreadModal');
-}
-
-async function onMarkUnreadFromPopup(id) {
-  try {
-    await markAdminNoticeRead(id);
-    const n = (_adminNoticesCache || []).find(x => x.id === id);
-    if (n) n.is_read = true;
-    refreshAdminNoticeBadge();
-    renderDashboardNotices();
-    const stillUnread = (_adminNoticesCache || []).some(x => !x.is_read);
-    if (!stillUnread) closeModal('adminNoticeUnreadModal');
-    else showAdminUnreadNoticesIfAny();
-  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
 // 미읽음 팝업 → 상세 모달로 전환 (전환 시 자동 읽음 처리는 openAdminNoticeView가 담당)
