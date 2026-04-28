@@ -677,3 +677,12 @@
 .flatpickr-calendar.reverb-range-cal .fp-past-warn{
   margin-top:8px;
 }
+
+/* 단일 날짜 picker (.reverb-single-cal) — .reverb-range-cal 톤을 그대로 쓰되
+   popup 폭을 한 달 기준으로 줄이고 가운데 구분선 숨김 */
+.flatpickr-calendar.reverb-range-cal.reverb-single-cal{
+  min-width:340px;
+}
+.flatpickr-calendar.reverb-range-cal.reverb-single-cal .flatpickr-rContainer::after{
+  display:none;
+}
