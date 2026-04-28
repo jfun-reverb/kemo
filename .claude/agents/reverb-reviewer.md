@@ -36,6 +36,18 @@ model: sonnet
 - [ ] dev/ 수정 후 `cd dev && bash build.sh` 실행 여부
 - [ ] 신규 CSS/JS 파일이 build.sh에 등록됐는지
 
+### 한국어 오탈자 (자체 grep 금지 — single source of truth 사용)
+- [ ] **다음 명령으로만 검사**: `node .claude/hooks/typo-scan.js` (staged) / `node .claude/hooks/typo-scan.js --working` (uncommitted)
+- [ ] 즉흥 grep 패턴 (예: `grep "행버\|돿"`) **절대 금지** — 패턴 누락·동기화 실패의 원인
+- [ ] 패턴 출처: `.claude/hooks/typo-patterns.js` (single source of truth)
+  - `GENERAL`: 일반 한국어 오탈자 (전 프로젝트 공통)
+  - `DOMAIN_REVERB_JP`: REVERB 도메인 단어
+- [ ] 새 오탈자 발견·지적 시 **typo-patterns.js와 memory/feedback_korean_typos.md 양쪽**에 누적 (두 파일이 분기되면 안 됨)
+- [ ] PreToolUse Write/Edit hook이 1차 차단 → typo-scan은 검증 + 기존 staged 파일 안전망
+- [ ] 오탈자 발견 시 🔴 Critical, 정확한 수정 매핑 (잘못된 표기 → 올바른 표기) 그대로 보고
+
+→ reviewer는 **첫 단계**로 `node .claude/hooks/typo-scan.js` 실행 후 결과를 그대로 보고. 다른 검사보다 비용 낮음.
+
 ### 빌드 산출물 일관성 (2026-04-21 추가 — PR #96 빌드 누락 사고 방지)
 - [ ] `git diff --stat HEAD` 결과에 `dev/js/`, `dev/lib/`, `dev/css/` 변경이 있는데 **루트 `index.html` / `admin/index.html`에 대응 변경이 없으면 🔴 Critical**
 - [ ] `dev/sales/` 변경 있으면 루트 `sales/` 도 변경됐는지 (reviewer.html, seeding.html, images/)
