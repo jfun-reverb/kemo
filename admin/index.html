@@ -5460,7 +5460,7 @@ function initMultiFilters() {
     {value:'reviewer',label:'Qoo10 리뷰어'},{value:'seeding',label:'나노 시딩'}
   ], () => renderBrandApplicationsList());
   createMultiFilter('brandAppStatusMulti', '전체 상태', [
-    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
+    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'kakao_room_created',label:'카톡방 생성'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
   ], () => renderBrandApplicationsList());
 }
 
@@ -6297,15 +6297,34 @@ function applyEditFormSensitiveLocks(status) {
 // 주의사항/참여방법 변경 감지 (저장 직전 호출)
 //   editPayload: collectCampCsetPayload + collectCampPsetPayload 결과
 //   반환: {cautionChanged, participationChanged, anyChanged}
+//   주의: JSON.stringify 키 순서 false-positive 방지를 위해 양쪽을 동일 키 순서로 정규화 후 비교
+//         (DB jsonb 가 내려주는 키 순서가 collect*Payload 의 고정 순서와 다르면
+//          값 변경 없이도 stringify 결과가 달라져 불필요한 경고 모달이 뜨는 회귀)
 function detectSensitiveChange(editPayload) {
   const orig = _editCampOriginal || {};
+  const normSteps = arr => {
+    if (!Array.isArray(arr) || !arr.length) return null;
+    return arr.map(s => ({
+      title_ko: s.title_ko || '',
+      title_ja: s.title_ja || '',
+      desc_ko: s.desc_ko || '',
+      desc_ja: s.desc_ja || '',
+    }));
+  };
+  const normCautionItems = arr => {
+    if (!Array.isArray(arr) || !arr.length) return [];
+    return arr.map(s => ({
+      html_ko: s.html_ko || '',
+      html_ja: s.html_ja || '',
+    }));
+  };
   const stable = v => JSON.stringify(v ?? null);
   const cautionChanged =
     (orig.caution_set_id || null) !== (editPayload.caution_set_id || null)
-    || stable(orig.caution_items || []) !== stable(editPayload.caution_items || []);
+    || stable(normCautionItems(orig.caution_items)) !== stable(normCautionItems(editPayload.caution_items));
   const participationChanged =
     (orig.participation_set_id || null) !== (editPayload.participation_set_id || null)
-    || stable(orig.participation_steps || null) !== stable(editPayload.participation_steps || null);
+    || stable(normSteps(orig.participation_steps)) !== stable(normSteps(editPayload.participation_steps));
   return {
     cautionChanged,
     participationChanged,
@@ -10981,6 +11000,7 @@ var BRAND_APP_STATUS = {
   'reviewing':           {label:'검토중',           color:'#B88',   bg:'#FFE'},
   'quoted':              {label:'견적 전달',        color:'#08A',   bg:'#DEF'},
   'paid':                {label:'입금완료',         color:'#6A2',   bg:'#EFE'},
+  'kakao_room_created':  {label:'카톡방 생성',      color:'#A57',   bg:'#FBF2DE'},
   'orient_sheet_sent':   {label:'오리엔시트 전달',  color:'#735',   bg:'#F2E6F0'},
   'schedule_sent':       {label:'일정 전달',        color:'#A36',   bg:'#FDEEF4'},
   'campaign_registered': {label:'캠페인 등록',      color:'#274',   bg:'#E6F3E8'},
@@ -11575,6 +11595,7 @@ var _brandTrendDays = 7;
 
 var BRAND_STATUS_LABEL_KO = {
   new: '신규', reviewing: '검토중', quoted: '견적 전달', paid: '입금완료',
+  kakao_room_created: '카톡방 생성',
   orient_sheet_sent: '오리엔시트 전달', schedule_sent: '일정 전달',
   campaign_registered: '캠페인 등록', done: '최종완료', rejected: '반려'
 };
@@ -11584,6 +11605,7 @@ var BRAND_STATUS_COLOR = {
   reviewing:           '#E8A355',   // 오렌지
   quoted:              '#5B8FD6',   // 블루 (견적)
   paid:                '#6BB38E',   // 그린 (입금)
+  kakao_room_created:  '#F4C95D',   // 옐로우 (카톡)
   orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
   schedule_sent:       '#D97AA6',   // 진한 핑크 (일정)
   campaign_registered: '#4CA070',   // 연한 그린 (등록)
@@ -11595,13 +11617,14 @@ var BRAND_FUNNEL_STAGES = [
   {key:'reviewing',           label:'검토 (reviewing)'},
   {key:'quoted',              label:'견적 전달 (quoted)'},
   {key:'paid',                label:'입금 완료 (paid)'},
+  {key:'kakao_room_created',  label:'카톡방 생성 (kakao_room_created)'},
   {key:'orient_sheet_sent',   label:'오리엔시트 전달 (orient_sheet_sent)'},
   {key:'schedule_sent',       label:'일정 전달 (schedule_sent)'},
   {key:'campaign_registered', label:'캠페인 등록 (campaign_registered)'},
   {key:'done',                label:'최종 완료 (done)'}
 ];
 // 전환 깔때기용: status가 이 단계 이상이면 도달한 것으로 간주 (rejected 제외)
-var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, orient_sheet_sent:4, schedule_sent:5, campaign_registered:6, done:7, rejected:-1};
+var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:-1};
 
 async function loadBrandDashboard() {
   // 로딩 표시
@@ -11662,7 +11685,7 @@ function renderBrandKPIs(apps) {
   // 견적 합계
   var estimated = apps.reduce(function(s,a){ return s + (Number(a.estimated_krw) || 0); }, 0);
   var finalSum = apps
-    .filter(function(a){ return ['quoted','paid','orient_sheet_sent','schedule_sent','campaign_registered','done'].indexOf(a.status) !== -1; })
+    .filter(function(a){ return ['quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done'].indexOf(a.status) !== -1; })
     .reduce(function(s,a){ return s + (Number(a.final_quote_krw) || Number(a.estimated_krw) || 0); }, 0);
 
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
@@ -11767,7 +11790,7 @@ function renderBrandStatusDonut(apps) {
   if (!canvas) return;
   if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
 
-  var keys = ['new','reviewing','quoted','paid','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
+  var keys = ['new','reviewing','quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
   var counts = keys.map(function(k){ return apps.filter(function(a){ return a.status === k; }).length; });
   var total = counts.reduce(function(s,n){ return s+n; }, 0);
   if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '건') : '';
@@ -11955,7 +11978,7 @@ function getFilteredBrandApps() {
     if (_brandAppSort.field === 'estimated') {
       av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
     } else if (_brandAppSort.field === 'status') {
-      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, orient_sheet_sent:4, schedule_sent:5, campaign_registered:6, done:7, rejected:8};
+      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:9};
       av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
       bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
     } else {
