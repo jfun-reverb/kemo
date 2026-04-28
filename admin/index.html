@@ -932,9 +932,12 @@ textarea.form-input{resize:vertical;min-height:80px}
   border-radius:8px;
 }
 /* showMonths:2 시 두 dayContainer 사이 세로 구분선
-   popup의 position:absolute는 flatpickr가 inline-style로 좌표 강제 → 절대 건드리지 말 것.
-   구분선은 .flatpickr-rContainer 안에서 두 dayContainer 사이 ::after pseudo로 표시 */
+   popup 본체의 position:absolute는 flatpickr가 inline-style로 좌표 강제 → 절대 건드리지 말 것.
+   rContainer만 width 100% + position:relative 로 만들고 ::after 한 줄로 표시.
+   (헤더 weekday 영역에는 구분선 안 그림 — popup 가운데와 weekdays 가운데가 미묘하게 어긋나
+    두 줄로 겹쳐 보이는 부작용 회피) */
 .flatpickr-calendar.reverb-range-cal .flatpickr-rContainer{
+  width:100% !important;
   position:relative;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-rContainer::after{
@@ -942,20 +945,6 @@ textarea.form-input{resize:vertical;min-height:80px}
   position:absolute;
   top:0;
   bottom:0;
-  left:50%;
-  width:1px;
-  background:var(--line);
-  pointer-events:none;
-}
-/* weekday 행의 가운데 구분선도 동일 위치 */
-.flatpickr-calendar.reverb-range-cal .flatpickr-weekdays{
-  position:relative;
-}
-.flatpickr-calendar.reverb-range-cal .flatpickr-weekdays::after{
-  content:"";
-  position:absolute;
-  top:4px;
-  bottom:4px;
   left:50%;
   width:1px;
   background:var(--line);
