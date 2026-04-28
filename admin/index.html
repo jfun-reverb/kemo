@@ -6277,16 +6277,26 @@ function syncCampDateMinMax(prefix) {
   }
   // flatpickr range picker (구매·방문) 도 같은 경계로 비활성 날짜 처리
   if (typeof syncCampRangePickerBounds === 'function') syncCampRangePickerBounds(prefix);
-  // 단일 picker(SubmissionEnd / PostDeadline)도 비활성 날짜 동기화
+  // 단일 picker(SubmissionEnd / PostDeadline) 비활성 날짜 동기화
+  // flatpickr.set('minDate', ...) 는 selectedDates를 재검증하면서 input.value를
+  // selectedDates 기준으로 덮어쓸 수 있음 → 호출 직전에 input.value ↔ selectedDates 동기화 필수
   if (typeof _campSinglePickers === 'object' && _campSinglePickers) {
+    const _syncFpToInput = (fp, val) => {
+      if (!fp) return;
+      const cur = fp.selectedDates && fp.selectedDates[0] ? _fpFormatYmd(fp.selectedDates[0]) : '';
+      if (val && cur !== val) fp.setDate(val, false);
+      else if (!val && cur) fp.clear(false);
+    };
     const seFp = _campSinglePickers[prefix + 'SubmissionEnd'];
     if (seFp) {
+      _syncFpToInput(seFp, $(prefix+'SubmissionEnd')?.value || '');
       const seLower = [lower, pe, ve].filter(Boolean).sort().pop() || '';
       seFp.set('minDate', seLower || null);
       seFp.set('maxDate', pdl || null);
     }
     const postFp = _campSinglePickers[prefix + 'PostDeadline'];
     if (postFp) {
+      _syncFpToInput(postFp, $(prefix+'PostDeadline')?.value || '');
       const postLower = se || dl || '';
       postFp.set('minDate', postLower || null);
       postFp.set('maxDate', null);
