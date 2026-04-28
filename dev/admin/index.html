@@ -1823,6 +1823,22 @@
   </div>
 </div>
 
+<!-- 신청 동의 영향 영역(주의사항/참여방법) 변경 경고 모달
+     신청자 ≥1건 + 변경 감지 시 표시. 기존 신청자 효력 유지 안내 + 변경 전/후 diff -->
+<div class="modal-overlay" id="sensitiveChangeModal" style="z-index:620">
+  <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px">
+      <span class="material-icons-round notranslate" translate="no" style="color:#B3261E;font-size:22px">warning</span>
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">주의사항 / 참여방법 변경 확인</div>
+    </div>
+    <div class="modal-body" id="sensitiveChangeModalBody" style="padding:20px 22px;overflow-y:auto;flex:1"></div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" class="btn btn-ghost" onclick="resolveSensitiveChangeModal(false)" style="min-width:100px">취소</button>
+      <button type="button" class="btn btn-primary" onclick="resolveSensitiveChangeModal(true)" style="min-width:140px">확인하고 저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- 캠페인 노출 마감일 자동 제안 confirm 모달 -->
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
