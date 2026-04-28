@@ -762,11 +762,24 @@ async function loadAdminCampaigns(useCache) {
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">캠페인 노출: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
+      ${(()=>{
+        const bp = c.brand_ko || c.brand || '';
+        const bs = (c.brand_ko && c.brand && c.brand_ko !== c.brand) ? c.brand : '';
+        const pp = c.product_ko || c.product || '';
+        const ps = (c.product_ko && c.product && c.product_ko !== c.product) ? c.product : '';
+        return `<td style="font-size:12px;color:var(--ink);min-width:100px">
+          ${bp?esc(bp):'—'}
+          ${bs?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(bs)}</div>`:''}
+        </td>
+        <td style="font-size:12px;color:var(--ink);min-width:120px">
+          ${pp?esc(pp):'—'}
+          ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(ps)}</div>`:''}
+        </td>`;
+      })()}
       <td>${statusBadge(c.status)}</td>
       <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
@@ -788,7 +801,7 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  const emptyHtml = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  const emptyHtml = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
