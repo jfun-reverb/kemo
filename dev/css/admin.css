@@ -406,26 +406,46 @@
 .flatpickr-calendar.reverb-range-cal{
   border-radius:14px;
   border:1px solid var(--line);
-  box-shadow:0 8px 28px rgba(40,20,40,.16);
-  padding:10px 8px 0;
+  box-shadow:0 12px 36px rgba(40,20,40,.22);
+  padding:10px 12px 0;
   width:auto;
   background:var(--surface,#fff);
   font-family:inherit;
-  z-index:50;
+  /* 모달(.modal-mask 보통 z-index:1000)보다 위로 떠야 함 */
+  z-index:2000;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-months{
-  padding:6px 4px 8px;
+  padding:8px 4px 10px;
   align-items:center;
+  height:36px;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-month{
-  height:auto;
   color:var(--ink);
+  height:auto;
+  overflow:visible;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month{
   font-size:14px;
   font-weight:700;
-  padding-top:2px;
+  padding:2px 0 0;
   color:var(--ink);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  height:auto;
+  position:static;
+  left:auto;
+  width:auto;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-current-month input.cur-year{
+  font-size:14px;
+  font-weight:700;
+  color:var(--ink);
+  padding:0;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-current-month .numInputWrapper{
+  width:auto;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month .cur-year,
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month .cur-month{

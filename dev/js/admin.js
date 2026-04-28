@@ -100,6 +100,9 @@ function switchAdminPane(pane, el, pushHistory) {
   // 캠페인 등록·편집 진입 시 flatpickr range picker mount (idempotent)
   if (pane === 'add-campaign' || pane === 'edit-campaign') {
     if (typeof setupCampRangePickers === 'function') setupCampRangePickers();
+  } else if (typeof _campRangePickers === 'object' && _campRangePickers) {
+    // 다른 페인으로 전환 시 열린 picker 모두 닫기 (appendTo:body popup이 z:2000으로 잔존 방지)
+    Object.values(_campRangePickers).forEach(fp => { if (fp && fp.isOpen) fp.close(); });
   }
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
@@ -1183,8 +1186,9 @@ function _ensureFpWarnNode(fp) {
 }
 
 // 캘린더 popup 하단 커스텀 푸터: 좌 「YYYY-MM-DD ~ YYYY-MM-DD (N일)」 요약 + 우 「초기화 / 적용」
-// 「초기화」 = clear() 만 (popup 유지, 재선택 가능)
-// 「적용」    = close() 만 (값 저장은 onChange에서 이미 수행)
+// 「초기화」 = popup 안 선택만 비움 (hidden input·검증·minMax 그대로, 적용 누르기 전까지 미반영)
+// 「적용」    = 현재 selectedDates 를 hidden input에 반영 + 검증 + minMax + close
+//               (외부 클릭으로 popup 닫히면 hidden input 그대로 → 사용자가 의도적으로 적용 눌러야만 변경)
 function _ensureFpFooterNode(fp) {
   if (fp && fp._reverbFooterNode) return fp._reverbFooterNode;
   if (!fp || !fp.calendarContainer) return null;
@@ -1198,14 +1202,13 @@ function _ensureFpFooterNode(fp) {
     '</div>';
   fp.calendarContainer.appendChild(node);
   fp._reverbFooterNode = node;
-  // 핸들러 바인딩 (1회)
   const clearBtn = node.querySelector('.fp-btn-clear');
   const applyBtn = node.querySelector('.fp-btn-apply');
   if (clearBtn) {
     clearBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // clear()는 onChange를 트리거하므로 hidden input·검증·요약·minMax 자동 갱신
+      // popup 안의 시각 선택만 비움. hidden input은 「적용」 누르기 전까지 변경 안 됨.
       fp.clear();
       // popup 유지 — close() 호출 안 함
     });
@@ -1214,10 +1217,32 @@ function _ensureFpFooterNode(fp) {
     applyBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      _commitFpRangeToHiddenInputs(fp);
       fp.close();
     });
   }
   return node;
+}
+
+// 「적용」 클릭 시 selectedDates를 hidden input에 반영하고 검증/minMax/제안 일괄 실행.
+// fp._reverbMeta = {prefix, kind, startSuffix, endSuffix} 가 setupCampRangePickers에서 부착돼 있어야 함.
+function _commitFpRangeToHiddenInputs(fp) {
+  const meta = fp && fp._reverbMeta;
+  if (!meta) return;
+  const {prefix, kind, startSuffix, endSuffix} = meta;
+  const dates = (fp.selectedDates) || [];
+  const start = dates[0] || null;
+  const end   = dates[1] || null;
+  const startEl = $(prefix + startSuffix);
+  const endEl   = $(prefix + endSuffix);
+  if (startEl) startEl.value = _fpFormatYmd(start);
+  if (endEl)   endEl.value   = _fpFormatYmd(end);
+  if (kind === 'recruit') {
+    updateRecruitPastWarn(fp, start);
+    if (end) suggestSubmissionEnd(prefix);
+  }
+  syncCampDateMinMax(prefix);
+  validateCampDateRangesInline(prefix);
 }
 
 // 푸터 요약 텍스트 동기화 (selectedDates 기반)
@@ -1284,11 +1309,14 @@ function setupCampRangePickers() {
       altInput: false,
       locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
       showMonths: 2,           // 좌(현재월) + 우(다음월) 2개월 동시 노출
-      static: true,            // 캘린더 popup을 input의 부모(form-group)에 붙여 스크롤 시 따라다님
-      position: 'below',       // 항상 input 아래로 표시 (자동 위/아래 결정 비활성)
+      static: false,           // body에 floating으로 mount — form-group(절반 폭) 잘림 방지
+      appendTo: document.body, // 모달 z-index 위로 띄우기 위해 body에 직접 append
+      position: 'auto',        // input 기준 자동 위치 (above/below)
       onReady: (_sel, _str, fpInst) => {
         // 캠페인 폼 전용 스타일 스코핑
         if (fpInst.calendarContainer) fpInst.calendarContainer.classList.add('reverb-range-cal');
+        // 「적용」 버튼 핸들러에서 사용할 메타데이터 부착 (1회)
+        fpInst._reverbMeta = {prefix, kind, startSuffix, endSuffix};
         // 푸터(요약 + 초기화/적용) 1회 주입 + 초기 요약 텍스트 세팅
         _ensureFpFooterNode(fpInst);
         _updateFpFooterSummary(fpInst);
@@ -1301,21 +1329,21 @@ function setupCampRangePickers() {
         const cur = $(prefix + startSuffix)?.value || '';
         updateRecruitPastWarn(fpInst, cur ? new Date(cur) : null);
       },
+      // popup 안의 시각 피드백만 갱신 (hidden input은 「적용」 클릭 시까지 그대로)
       onChange: (selectedDates, _str, fpInst) => {
-        const start = selectedDates[0] || null;
-        const end   = selectedDates[1] || null;
-        const startEl = $(prefix + startSuffix);
-        const endEl   = $(prefix + endSuffix);
-        if (startEl) startEl.value = _fpFormatYmd(start);
-        if (endEl)   endEl.value   = _fpFormatYmd(end);
         if (kind === 'recruit') {
-          // 캘린더 popup 하단 인라인 경고 갱신 (과거 시작일이면 빨간 글씨 표시, 그 외 숨김)
-          updateRecruitPastWarn(fpInst, start);
-          // 종료일까지 잡혔으면 결과물 제출 마감일 자동 제안
-          if (end) suggestSubmissionEnd(prefix);
+          updateRecruitPastWarn(fpInst, selectedDates[0] || null);
         }
-        syncCampDateMinMax(prefix);
-        validateCampDateRangesInline(prefix);
+        _updateFpFooterSummary(fpInst);
+      },
+      // popup 닫힐 때 hidden input 기준으로 popup state 복원
+      // (「초기화」 후 외부 클릭으로 닫혔을 때 다음 열림 시 기존 값 보이도록)
+      onClose: (_sel, _str, fpInst) => {
+        const sv = $(prefix + startSuffix)?.value || '';
+        const ev = $(prefix + endSuffix)?.value || '';
+        if (sv && ev) fpInst.setDate([sv, ev], false);
+        else if (sv) fpInst.setDate([sv], false);
+        else fpInst.clear(false);
         _updateFpFooterSummary(fpInst);
       },
     });
