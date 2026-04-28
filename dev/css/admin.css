@@ -424,8 +424,39 @@
   width:auto !important;
   max-width:none !important;
 }
+/* 헤더·요일·날짜 3개 행 모두 동일 구조: flex + center + 12px gap, 자식 폭 308px 고정 */
+.flatpickr-calendar.reverb-range-cal .flatpickr-months{
+  padding:8px 0 10px;
+  height:36px;
+  position:relative;
+  display:flex;
+  justify-content:center;
+  gap:12px;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-month{
+  color:var(--ink);
+  height:auto;
+  overflow:visible;
+  width:308px;
+  flex:0 0 308px;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-current-month{
+  font-size:15px;
+  font-weight:800;
+  padding:2px 0 0;
+  color:var(--ink);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  height:auto;
+  position:static;
+  left:auto;
+  width:100%;
+}
 .flatpickr-calendar.reverb-range-cal .flatpickr-days{
   display:flex;
+  justify-content:center;
   gap:12px;
 }
 .flatpickr-calendar.reverb-range-cal .dayContainer{
@@ -436,31 +467,6 @@
   display:grid;
   grid-template-columns:repeat(7, 1fr);
   gap:2px 0;
-}
-.flatpickr-calendar.reverb-range-cal .flatpickr-months{
-  padding:8px 36px 10px;     /* 좌우 36px — 화살표 절대 위치 공간 확보 */
-  align-items:center;
-  height:36px;
-  position:relative;
-}
-.flatpickr-calendar.reverb-range-cal .flatpickr-month{
-  color:var(--ink);
-  height:auto;
-  overflow:visible;
-}
-.flatpickr-calendar.reverb-range-cal .flatpickr-current-month{
-  font-size:14px;
-  font-weight:700;
-  padding:2px 0 0;
-  color:var(--ink);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  height:auto;
-  position:static;
-  left:auto;
-  width:auto;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month input.cur-year{
   font-size:14px;
@@ -478,7 +484,7 @@
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-prev-month,
 .flatpickr-calendar.reverb-range-cal .flatpickr-next-month{
-  color:var(--muted);
+  color:var(--ink);
   padding:6px;
   border-radius:8px;
   transition:.15s;
@@ -491,8 +497,8 @@
   width:28px;
   height:28px;
 }
-.flatpickr-calendar.reverb-range-cal .flatpickr-prev-month{ left:8px; }
-.flatpickr-calendar.reverb-range-cal .flatpickr-next-month{ right:8px; }
+.flatpickr-calendar.reverb-range-cal .flatpickr-prev-month{ left:4px; }
+.flatpickr-calendar.reverb-range-cal .flatpickr-next-month{ right:4px; }
 .flatpickr-calendar.reverb-range-cal .flatpickr-prev-month:hover,
 .flatpickr-calendar.reverb-range-cal .flatpickr-next-month:hover{
   background:var(--light-pink);
@@ -504,12 +510,16 @@
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-weekdays{
   height:32px;
-  width:100%;
+  width:auto;
+  display:flex;
+  justify-content:center;
+  gap:12px;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-weekdaycontainer{
   display:grid !important;
   grid-template-columns:repeat(7, 1fr);
-  width:100%;
+  width:308px;
+  flex:0 0 308px;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-weekday{
   font-size:11px;
@@ -585,27 +595,36 @@
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange.endRange{
   border-radius:8px;
 }
-/* showMonths:2 시 월 사이 세로 구분선 (.flatpickr-days flex 자식 사이) */
-.flatpickr-calendar.reverb-range-cal .flatpickr-month + .flatpickr-month{
-  border-left:1px solid var(--line);
-  padding-left:12px;
+/* showMonths:2 시 두 dayContainer 사이 세로 구분선 (popup 가운데에 위치) */
+.flatpickr-calendar.reverb-range-cal{
+  position:relative;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-rContainer::before{
+  content:"";
+  position:absolute;
+  top:46px;          /* 헤더 36 + 푸터 위까지 */
+  bottom:60px;       /* 푸터 + 여백 */
+  left:50%;
+  width:1px;
+  background:var(--line);
+  pointer-events:none;
 }
 .flatpickr-calendar.reverb-range-cal .fp-custom-footer{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding:10px 12px;
-  margin-top:8px;
+  padding:12px 16px;
+  margin:10px -8px 0;          /* popup 좌우 padding 8px 상쇄 — 푸터 좌우 끝까지 확장 */
   border-top:1px solid var(--line);
   background:var(--surface-container-low,#F8F5F8);
   border-bottom-left-radius:14px;
   border-bottom-right-radius:14px;
 }
 .flatpickr-calendar.reverb-range-cal .fp-footer-summary{
-  font-size:12px;
-  color:var(--muted);
-  font-weight:500;
+  font-size:13px;
+  color:var(--ink);
+  font-weight:600;
 }
 .flatpickr-calendar.reverb-range-cal .fp-footer-summary.has-range{
   color:var(--ink);
