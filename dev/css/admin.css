@@ -398,3 +398,188 @@
 .summary-step{margin-bottom:6px}
 .summary-step-title{font-weight:600;color:var(--ink)}
 .summary-step-desc{color:var(--muted);font-size:11px;margin-top:1px;line-height:1.5}
+
+/* ══════════════════════════════════
+   캠페인 폼 flatpickr range picker (.reverb-range-cal)
+   2개월 동시 노출 + 시작·종료 칩 + 사이 라이트핑크 + 푸터(요약 + 초기화/적용)
+══════════════════════════════════ */
+.flatpickr-calendar.reverb-range-cal{
+  border-radius:14px;
+  border:1px solid var(--line);
+  box-shadow:0 8px 28px rgba(40,20,40,.16);
+  padding:10px 8px 0;
+  width:auto;
+  background:var(--surface,#fff);
+  font-family:inherit;
+  z-index:50;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-months{
+  padding:6px 4px 8px;
+  align-items:center;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-month{
+  height:auto;
+  color:var(--ink);
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-current-month{
+  font-size:14px;
+  font-weight:700;
+  padding-top:2px;
+  color:var(--ink);
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-current-month .cur-year,
+.flatpickr-calendar.reverb-range-cal .flatpickr-current-month .cur-month{
+  font-weight:700;
+  color:var(--ink);
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-prev-month,
+.flatpickr-calendar.reverb-range-cal .flatpickr-next-month{
+  color:var(--muted);
+  padding:6px;
+  border-radius:8px;
+  transition:.15s;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-prev-month:hover,
+.flatpickr-calendar.reverb-range-cal .flatpickr-next-month:hover{
+  background:var(--light-pink);
+  color:var(--pink);
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-prev-month svg,
+.flatpickr-calendar.reverb-range-cal .flatpickr-next-month svg{
+  fill:currentColor;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-weekdays{
+  height:32px;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-weekday{
+  font-size:11px;
+  font-weight:700;
+  color:var(--muted);
+  letter-spacing:0.05em;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day{
+  border-radius:8px;
+  font-size:13px;
+  color:var(--ink);
+  border:none;
+  max-width:38px;
+  height:36px;
+  line-height:36px;
+  margin:1px 0;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day:hover{
+  background:var(--light-pink);
+  color:var(--dark-pink);
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.today{
+  border:1px solid var(--pink);
+  font-weight:700;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.today:hover{
+  background:var(--light-pink);
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.prevMonthDay,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.nextMonthDay{
+  color:#C7BCC4;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.flatpickr-disabled:hover{
+  background:transparent;
+  color:#C7BCC4;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.selected,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.endRange,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.selected:hover,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange:hover,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.endRange:hover{
+  background:var(--pink);
+  color:#fff;
+  font-weight:700;
+  border:none;
+  box-shadow:none;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.inRange,
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.inRange:hover{
+  background:var(--light-pink);
+  color:var(--dark-pink);
+  border-radius:0;
+  box-shadow:none;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange{
+  border-top-right-radius:0;
+  border-bottom-right-radius:0;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.endRange{
+  border-top-left-radius:0;
+  border-bottom-left-radius:0;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange.endRange{
+  border-radius:8px;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-month + .flatpickr-month{
+  border-left:1px solid var(--line);
+  margin-left:8px;
+  padding-left:8px;
+}
+.flatpickr-calendar.reverb-range-cal .dayContainer + .dayContainer{
+  border-left:1px solid var(--line);
+  padding-left:8px;
+  margin-left:4px;
+}
+.flatpickr-calendar.reverb-range-cal .fp-custom-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  margin-top:8px;
+  border-top:1px solid var(--line);
+  background:var(--surface-container-low,#F8F5F8);
+  border-bottom-left-radius:14px;
+  border-bottom-right-radius:14px;
+}
+.flatpickr-calendar.reverb-range-cal .fp-footer-summary{
+  font-size:12px;
+  color:var(--muted);
+  font-weight:500;
+}
+.flatpickr-calendar.reverb-range-cal .fp-footer-summary.has-range{
+  color:var(--ink);
+  font-weight:700;
+}
+.flatpickr-calendar.reverb-range-cal .fp-footer-actions{
+  display:flex;
+  gap:8px;
+}
+.flatpickr-calendar.reverb-range-cal .fp-btn-clear,
+.flatpickr-calendar.reverb-range-cal .fp-btn-apply{
+  padding:6px 14px;
+  border-radius:8px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  border:1px solid transparent;
+  transition:.15s;
+  font-family:inherit;
+}
+.flatpickr-calendar.reverb-range-cal .fp-btn-clear{
+  background:#fff;
+  color:var(--muted);
+  border-color:var(--line);
+}
+.flatpickr-calendar.reverb-range-cal .fp-btn-clear:hover{
+  background:var(--light-pink);
+  color:var(--dark-pink);
+  border-color:var(--baby-pink);
+}
+.flatpickr-calendar.reverb-range-cal .fp-btn-apply{
+  background:var(--pink);
+  color:#fff;
+}
+.flatpickr-calendar.reverb-range-cal .fp-btn-apply:hover{
+  background:var(--dark-pink);
+}
+.flatpickr-calendar.reverb-range-cal .fp-past-warn{
+  margin-top:8px;
+}
