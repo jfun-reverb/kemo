@@ -1249,6 +1249,12 @@ function _ensureFpFooterNode(fp) {
     applyBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      // range는 시작일·종료일 둘 다 선택돼야 적용 가능 (시작일만으로 hidden input 부분 저장 차단)
+      const dates = fp.selectedDates || [];
+      if (!dates[0] || !dates[1]) {
+        if (typeof toast === 'function') toast('시작일과 종료일을 모두 선택해주세요','error');
+        return;
+      }
       _commitFpRangeToHiddenInputs(fp);
       fp.close();
     });
@@ -1385,7 +1391,12 @@ function _ensureFpSingleFooterNode(fp) {
     clearBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      fp.clear();   // popup 안 선택만 비움 (input은 「적용」 시까지 그대로)
+      // popup 안 시각 선택만 비움. input.value는 「적용」 누르기 전까지 그대로 유지.
+      // (fp.clear()는 input.value까지 자동으로 비우므로 호출 전후로 input.value 백업·복원 필요)
+      const savedValue = fp.input ? fp.input.value : '';
+      fp.clear(false);
+      if (fp.input) fp.input.value = savedValue;
+      _updateFpSingleFooterSummary(fp);
     });
   }
   if (applyBtn) {
