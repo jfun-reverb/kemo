@@ -1354,6 +1354,11 @@ function setupCampSinglePickers() {
         const v = el.value || '';
         if (v) fpInst.setDate(v, false);
         else fpInst.clear(false);
+        // input value 비어있고 minDate 있으면 minDate 월로 점프 (today 기준 4월에 모든 날짜 회색으로 보이는 혼란 방지)
+        if (!v) {
+          const mn = fpInst.config && fpInst.config.minDate;
+          if (mn) fpInst.jumpToDate(mn);
+        }
         _updateFpSingleFooterSummary(fpInst);
       },
       onChange: (_selectedDates, _str, fpInst) => {
@@ -1492,12 +1497,23 @@ function setupCampRangePickers() {
         Object.values(_campRangePickers).forEach(otherFp => {
           if (otherFp && otherFp !== fpInst && otherFp.isOpen) otherFp.close();
         });
+        Object.values(_campSinglePickers).forEach(otherFp => {
+          if (otherFp && otherFp !== fpInst && otherFp.isOpen) otherFp.close();
+        });
+        // 첫 표시 월을 「선택 가능한 월」로 이동
+        //   - hidden input에 값이 있으면 그 월
+        //   - 없고 minDate 있으면 minDate 월 (today 기준 회색만 가득한 혼란 방지)
+        const sv = $(prefix + startSuffix)?.value || '';
+        if (sv) fpInst.jumpToDate(sv);
+        else {
+          const mn = fpInst.config && fpInst.config.minDate;
+          if (mn) fpInst.jumpToDate(mn);
+        }
         // 외부에서 hidden input 직접 변경됐을 수 있으니 푸터 요약 재동기화
         _updateFpFooterSummary(fpInst);
         if (kind !== 'recruit') return;
         // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
-        const cur = $(prefix + startSuffix)?.value || '';
-        updateRecruitPastWarn(fpInst, cur ? new Date(cur) : null);
+        updateRecruitPastWarn(fpInst, sv ? new Date(sv) : null);
       },
       // popup 안의 시각 피드백만 갱신 (hidden input은 「적용」 클릭 시까지 그대로)
       onChange: (selectedDates, _str, fpInst) => {

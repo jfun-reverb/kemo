@@ -476,13 +476,36 @@
   gap:2px 0;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month input.cur-year{
-  font-size:14px;
-  font-weight:700;
+  font-size:15px;
+  font-weight:800;
   color:var(--ink);
   padding:0;
+  background:transparent;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month .numInputWrapper{
   width:auto;
+}
+/* 월 dropdown (단일 picker에서 노출, range는 헤더 텍스트 사용 — 둘 다 톤 일치) */
+.flatpickr-calendar.reverb-range-cal .flatpickr-monthDropdown-months{
+  font-size:15px;
+  font-weight:800;
+  color:var(--ink);
+  background:transparent;
+  border:none;
+  padding:2px 4px;
+  cursor:pointer;
+  appearance:auto;
+  font-family:inherit;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-monthDropdown-months:focus{
+  outline:none;
+  background:var(--light-pink);
+  border-radius:6px;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-monthDropdown-month{
+  background:#fff;
+  color:var(--ink);
+  font-weight:600;
 }
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month .cur-year,
 .flatpickr-calendar.reverb-range-cal .flatpickr-current-month .cur-month{
