@@ -1312,6 +1312,7 @@ function setupCampRangePickers() {
       static: false,           // body에 floating으로 mount — form-group(절반 폭) 잘림 방지
       appendTo: document.body, // 모달 z-index 위로 띄우기 위해 body에 직접 append
       position: 'auto',        // input 기준 자동 위치 (above/below)
+      closeOnSelect: false,    // 종료일 클릭 후에도 popup 유지 — 「적용」 누를 때만 close + 반영
       onReady: (_sel, _str, fpInst) => {
         // 캠페인 폼 전용 스타일 스코핑
         if (fpInst.calendarContainer) fpInst.calendarContainer.classList.add('reverb-range-cal');
