@@ -19,6 +19,15 @@
             "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/typo-check.js"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/typo-check-write.js"
+          }
+        ]
       }
     ]
   }

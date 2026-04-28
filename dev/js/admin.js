@@ -97,9 +97,18 @@ function switchAdminPane(pane, el, pushHistory) {
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
   const paneEl = $('adminPane-'+pane);
   if (paneEl) paneEl.classList.add('on');
-  // 캠페인 등록·편집 진입 시 flatpickr range picker mount (idempotent)
+  // 캠페인 등록·편집 진입 시 flatpickr range/single picker mount (idempotent)
   if (pane === 'add-campaign' || pane === 'edit-campaign') {
     if (typeof setupCampRangePickers === 'function') setupCampRangePickers();
+    if (typeof setupCampSinglePickers === 'function') setupCampSinglePickers();
+  } else {
+    // 다른 페인으로 전환 시 열린 picker 모두 닫기 (appendTo:body popup이 z:2000으로 잔존 방지)
+    if (typeof _campRangePickers === 'object' && _campRangePickers) {
+      Object.values(_campRangePickers).forEach(fp => { if (fp && fp.isOpen) fp.close(); });
+    }
+    if (typeof _campSinglePickers === 'object' && _campSinglePickers) {
+      Object.values(_campSinglePickers).forEach(fp => { if (fp && fp.isOpen) fp.close(); });
+    }
   }
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
@@ -1075,6 +1084,31 @@ function syncCampDateMinMax(prefix) {
   }
   // flatpickr range picker (구매·방문) 도 같은 경계로 비활성 날짜 처리
   if (typeof syncCampRangePickerBounds === 'function') syncCampRangePickerBounds(prefix);
+  // 단일 picker(SubmissionEnd / PostDeadline) 비활성 날짜 동기화
+  // flatpickr.set('minDate', ...) 는 selectedDates를 재검증하면서 input.value를
+  // selectedDates 기준으로 덮어쓸 수 있음 → 호출 직전에 input.value ↔ selectedDates 동기화 필수
+  if (typeof _campSinglePickers === 'object' && _campSinglePickers) {
+    const _syncFpToInput = (fp, val) => {
+      if (!fp) return;
+      const cur = fp.selectedDates && fp.selectedDates[0] ? _fpFormatYmd(fp.selectedDates[0]) : '';
+      if (val && cur !== val) fp.setDate(val, false);
+      else if (!val && cur) fp.clear(false);
+    };
+    const seFp = _campSinglePickers[prefix + 'SubmissionEnd'];
+    if (seFp) {
+      _syncFpToInput(seFp, $(prefix+'SubmissionEnd')?.value || '');
+      const seLower = [lower, pe, ve].filter(Boolean).sort().pop() || '';
+      seFp.set('minDate', seLower || null);
+      seFp.set('maxDate', pdl || null);
+    }
+    const postFp = _campSinglePickers[prefix + 'PostDeadline'];
+    if (postFp) {
+      _syncFpToInput(postFp, $(prefix+'PostDeadline')?.value || '');
+      const postLower = se || dl || '';
+      postFp.set('minDate', postLower || null);
+      postFp.set('maxDate', null);
+    }
+  }
 }
 
 // flatpickr range picker 의 minDate/maxDate 를 hidden input 값에 맞춰 동적 갱신
@@ -1157,6 +1191,7 @@ const CAMP_DATE_WARN_TARGETS = {
 //   - 모집 종료일 변경 시 결과물 제출 마감일 자동 제안 + min/max 갱신 + 인라인 검증
 // ─────────────────────────────────────────────────────────────────
 const _campRangePickers = Object.create(null);
+const _campSinglePickers = Object.create(null);
 const RANGE_KIND_HIDDEN_IDS = {
   recruit:  ['RecruitStart', 'Deadline'],
   purchase: ['PurchaseStart', 'PurchaseEnd'],
@@ -1164,15 +1199,247 @@ const RANGE_KIND_HIDDEN_IDS = {
 };
 
 // flatpickr 캘린더 popup 하단에 추가하는 인라인 경고 div를 1회만 생성·재사용
+// (경고는 푸터보다 먼저 append되어야 시각적으로 푸터 위에 위치)
 function _ensureFpWarnNode(fp) {
   if (fp && fp._reverbWarnNode) return fp._reverbWarnNode;
   if (!fp || !fp.calendarContainer) return null;
   const node = document.createElement('div');
   node.className = 'fp-past-warn';
   node.style.cssText = 'display:none;padding:8px 12px;font-size:11px;font-weight:600;color:#C62828;background:#FFEBEE;border-top:1px solid #FFCDD2;text-align:center;line-height:1.5';
-  fp.calendarContainer.appendChild(node);
+  // 푸터가 이미 있으면 그 앞에 삽입
+  const footer = fp._reverbFooterNode;
+  if (footer && footer.parentNode === fp.calendarContainer) {
+    fp.calendarContainer.insertBefore(node, footer);
+  } else {
+    fp.calendarContainer.appendChild(node);
+  }
   fp._reverbWarnNode = node;
   return node;
+}
+
+// 캘린더 popup 하단 커스텀 푸터: 좌 「YYYY-MM-DD ~ YYYY-MM-DD (N일)」 요약 + 우 「초기화 / 적용」
+// 「초기화」 = popup 안 선택만 비움 (hidden input·검증·minMax 그대로, 적용 누르기 전까지 미반영)
+// 「적용」    = 현재 selectedDates 를 hidden input에 반영 + 검증 + minMax + close
+//               (외부 클릭으로 popup 닫히면 hidden input 그대로 → 사용자가 의도적으로 적용 눌러야만 변경)
+function _ensureFpFooterNode(fp) {
+  if (fp && fp._reverbFooterNode) return fp._reverbFooterNode;
+  if (!fp || !fp.calendarContainer) return null;
+  const node = document.createElement('div');
+  node.className = 'fp-custom-footer';
+  node.innerHTML =
+    '<div class="fp-footer-summary">날짜를 선택하세요</div>' +
+    '<div class="fp-footer-actions">' +
+      '<button type="button" class="fp-btn-clear">초기화</button>' +
+      '<button type="button" class="fp-btn-apply">적용</button>' +
+    '</div>';
+  fp.calendarContainer.appendChild(node);
+  fp._reverbFooterNode = node;
+  const clearBtn = node.querySelector('.fp-btn-clear');
+  const applyBtn = node.querySelector('.fp-btn-apply');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // popup 안의 시각 선택만 비움. hidden input은 「적용」 누르기 전까지 변경 안 됨.
+      fp.clear();
+      // popup 유지 — close() 호출 안 함
+    });
+  }
+  if (applyBtn) {
+    applyBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // range는 시작일·종료일 둘 다 선택돼야 적용 가능 (시작일만으로 hidden input 부분 저장 차단)
+      const dates = fp.selectedDates || [];
+      if (!dates[0] || !dates[1]) {
+        if (typeof toast === 'function') toast('시작일과 종료일을 모두 선택해주세요','error');
+        return;
+      }
+      _commitFpRangeToHiddenInputs(fp);
+      fp.close();
+    });
+  }
+  return node;
+}
+
+// 「적용」 클릭 시 selectedDates를 hidden input에 반영하고 검증/minMax/제안 일괄 실행.
+// fp._reverbMeta = {prefix, kind, startSuffix, endSuffix} 가 setupCampRangePickers에서 부착돼 있어야 함.
+function _commitFpRangeToHiddenInputs(fp) {
+  const meta = fp && fp._reverbMeta;
+  if (!meta) return;
+  const {prefix, kind, startSuffix, endSuffix} = meta;
+  const dates = (fp.selectedDates) || [];
+  const start = dates[0] || null;
+  const end   = dates[1] || null;
+  const startEl = $(prefix + startSuffix);
+  const endEl   = $(prefix + endSuffix);
+  if (startEl) startEl.value = _fpFormatYmd(start);
+  if (endEl)   endEl.value   = _fpFormatYmd(end);
+  if (kind === 'recruit') {
+    updateRecruitPastWarn(fp, start);
+    if (end) suggestSubmissionEnd(prefix);
+  }
+  syncCampDateMinMax(prefix);
+  validateCampDateRangesInline(prefix);
+}
+
+// 푸터 요약 텍스트 동기화 (selectedDates 기반)
+function _updateFpFooterSummary(fp) {
+  const node = fp && fp._reverbFooterNode;
+  if (!node) return;
+  const summary = node.querySelector('.fp-footer-summary');
+  if (!summary) return;
+  const dates = (fp.selectedDates) || [];
+  const start = dates[0];
+  const end = dates[1];
+  if (!start) {
+    summary.textContent = '날짜를 선택하세요';
+    summary.classList.remove('has-range');
+    return;
+  }
+  const s = _fpFormatYmd(start);
+  if (!end) {
+    summary.textContent = s + ' ~ (종료일 선택)';
+    summary.classList.remove('has-range');
+    return;
+  }
+  const e = _fpFormatYmd(end);
+  // 포함식 일수 (시작일·종료일 같은 날이면 1일)
+  const MS_PER_DAY = 86400000;
+  const diffDays = Math.round((end - start) / MS_PER_DAY) + 1;
+  summary.textContent = s + ' ~ ' + e + ' (' + diffDays + '일)';
+  summary.classList.add('has-range');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 단일 날짜 picker (결과물 제출 마감일 / 캠페인 노출 마감일)
+//   - input.fp-single[data-single-prefix][data-single-target] 마크업 mount
+//   - input value를 직접 사용 (별도 hidden input 없음)
+//   - 「초기화」 = popup 안 선택만 비움 (input value는 「적용」 시까지 그대로)
+//   - 「적용」    = selectedDates → input.value 반영 + syncCampDateMinMax + validateCampDateRangesInline + close
+// ─────────────────────────────────────────────────────────────────
+function setupCampSinglePickers() {
+  if (typeof flatpickr === 'undefined') return;
+  const els = document.querySelectorAll('input.fp-single[data-single-prefix]');
+  els.forEach(el => {
+    const id = el.id;
+    if (_campSinglePickers[id]) return;
+    const prefix = el.dataset.singlePrefix;
+    const target = el.dataset.singleTarget;
+    if (!prefix || !target) return;
+    _campSinglePickers[id] = flatpickr(el, {
+      mode: 'single',
+      dateFormat: 'Y-m-d',
+      altInput: false,
+      locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+      showMonths: 1,
+      static: false,
+      appendTo: document.body,
+      position: 'auto',
+      closeOnSelect: false,
+      onReady: (_sel, _str, fpInst) => {
+        if (fpInst.calendarContainer) {
+          fpInst.calendarContainer.classList.add('reverb-range-cal');
+          fpInst.calendarContainer.classList.add('reverb-single-cal');
+        }
+        fpInst._reverbSingleMeta = {prefix, target};
+        _ensureFpSingleFooterNode(fpInst);
+        _updateFpSingleFooterSummary(fpInst);
+      },
+      onOpen: (_selectedDates, _str, fpInst) => {
+        // 다른 picker(range·single 모두) 자동 close
+        Object.values(_campRangePickers).forEach(otherFp => { if (otherFp && otherFp !== fpInst && otherFp.isOpen) otherFp.close(); });
+        Object.values(_campSinglePickers).forEach(otherFp => { if (otherFp && otherFp !== fpInst && otherFp.isOpen) otherFp.close(); });
+        // 외부에서 input.value 직접 변경됐을 수 있으니 popup state 동기화
+        const v = el.value || '';
+        if (v) fpInst.setDate(v, false);
+        else fpInst.clear(false);
+        // input value 비어있고 minDate 있으면 minDate 월로 점프 (today 기준 4월에 모든 날짜 회색으로 보이는 혼란 방지)
+        if (!v) {
+          const mn = fpInst.config && fpInst.config.minDate;
+          if (mn) fpInst.jumpToDate(mn);
+        }
+        _updateFpSingleFooterSummary(fpInst);
+      },
+      onChange: (_selectedDates, _str, fpInst) => {
+        // popup 안 시각·푸터 요약만 (input.value는 「적용」 시 commit)
+        _updateFpSingleFooterSummary(fpInst);
+      },
+      onClose: (_sel, _str, fpInst) => {
+        // 외부 클릭으로 닫혔을 때 input.value 기준 popup state 복원
+        const v = el.value || '';
+        if (v) fpInst.setDate(v, false);
+        else fpInst.clear(false);
+        _updateFpSingleFooterSummary(fpInst);
+      },
+    });
+  });
+}
+
+// 단일 picker 푸터 (요약 + 초기화/적용)
+function _ensureFpSingleFooterNode(fp) {
+  if (fp && fp._reverbFooterNode) return fp._reverbFooterNode;
+  if (!fp || !fp.calendarContainer) return null;
+  const node = document.createElement('div');
+  node.className = 'fp-custom-footer';
+  node.innerHTML =
+    '<div class="fp-footer-summary">날짜를 선택하세요</div>' +
+    '<div class="fp-footer-actions">' +
+      '<button type="button" class="fp-btn-clear">초기화</button>' +
+      '<button type="button" class="fp-btn-apply">적용</button>' +
+    '</div>';
+  fp.calendarContainer.appendChild(node);
+  fp._reverbFooterNode = node;
+  const clearBtn = node.querySelector('.fp-btn-clear');
+  const applyBtn = node.querySelector('.fp-btn-apply');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // popup 안 시각 선택만 비움. input.value는 「적용」 누르기 전까지 그대로 유지.
+      // (fp.clear()는 input.value까지 자동으로 비우므로 호출 전후로 input.value 백업·복원 필요)
+      const savedValue = fp.input ? fp.input.value : '';
+      fp.clear(false);
+      if (fp.input) fp.input.value = savedValue;
+      _updateFpSingleFooterSummary(fp);
+    });
+  }
+  if (applyBtn) {
+    applyBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      _commitFpSingleToInput(fp);
+      fp.close();
+    });
+  }
+  return node;
+}
+
+function _updateFpSingleFooterSummary(fp) {
+  const node = fp && fp._reverbFooterNode;
+  if (!node) return;
+  const summary = node.querySelector('.fp-footer-summary');
+  if (!summary) return;
+  const dates = (fp.selectedDates) || [];
+  if (!dates[0]) {
+    summary.textContent = '날짜를 선택하세요';
+    summary.classList.remove('has-range');
+    return;
+  }
+  summary.textContent = _fpFormatYmd(dates[0]);
+  summary.classList.add('has-range');
+}
+
+function _commitFpSingleToInput(fp) {
+  const meta = fp && fp._reverbSingleMeta;
+  if (!meta) return;
+  const {prefix, target} = meta;
+  const dates = (fp.selectedDates) || [];
+  const v = _fpFormatYmd(dates[0] || null);
+  const el = $(prefix + target);
+  if (el) el.value = v;
+  syncCampDateMinMax(prefix);
+  validateCampDateRangesInline(prefix);
 }
 // 모집 시작일이 오늘 이전이면 캘린더 popup 하단에 빨간 글씨 표시 (차단·모달 닫힘 없음)
 function updateRecruitPastWarn(fp, startDate) {
@@ -1210,29 +1477,60 @@ function setupCampRangePickers() {
       dateFormat: 'Y-m-d',
       altInput: false,
       locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
-      static: true,            // 캘린더 popup을 input의 부모(form-group)에 붙여 스크롤 시 따라다님
-      position: 'below',       // 항상 input 아래로 표시 (자동 위/아래 결정 비활성)
-      onOpen: (selectedDates, _str, fpInst) => {
+      showMonths: 2,           // 좌(현재월) + 우(다음월) 2개월 동시 노출
+      static: false,           // body에 floating으로 mount — form-group(절반 폭) 잘림 방지
+      appendTo: document.body, // 모달 z-index 위로 띄우기 위해 body에 직접 append
+      position: 'auto',        // input 기준 자동 위치 (above/below)
+      closeOnSelect: false,    // 종료일 클릭 후에도 popup 유지 — 「적용」 누를 때만 close + 반영
+      onReady: (_sel, _str, fpInst) => {
+        // 캠페인 폼 전용 스타일 스코핑
+        if (fpInst.calendarContainer) fpInst.calendarContainer.classList.add('reverb-range-cal');
+        // 「적용」 버튼 핸들러에서 사용할 메타데이터 부착 (1회)
+        fpInst._reverbMeta = {prefix, kind, startSuffix, endSuffix};
+        // 푸터(요약 + 초기화/적용) 1회 주입 + 초기 요약 텍스트 세팅
+        _ensureFpFooterNode(fpInst);
+        _updateFpFooterSummary(fpInst);
+      },
+      onOpen: (_selectedDates, _str, fpInst) => {
+        // 한 picker가 열릴 때 같은 폼의 다른 picker는 닫음
+        // (appendTo:body 모드라 flatpickr가 자동 close 처리하지 않음)
+        Object.values(_campRangePickers).forEach(otherFp => {
+          if (otherFp && otherFp !== fpInst && otherFp.isOpen) otherFp.close();
+        });
+        Object.values(_campSinglePickers).forEach(otherFp => {
+          if (otherFp && otherFp !== fpInst && otherFp.isOpen) otherFp.close();
+        });
+        // 첫 표시 월을 「선택 가능한 월」로 이동
+        //   - hidden input에 값이 있으면 그 월
+        //   - 없고 minDate 있으면 minDate 월 (today 기준 회색만 가득한 혼란 방지)
+        const sv = $(prefix + startSuffix)?.value || '';
+        if (sv) fpInst.jumpToDate(sv);
+        else {
+          const mn = fpInst.config && fpInst.config.minDate;
+          if (mn) fpInst.jumpToDate(mn);
+        }
+        // 외부에서 hidden input 직접 변경됐을 수 있으니 푸터 요약 재동기화
+        _updateFpFooterSummary(fpInst);
         if (kind !== 'recruit') return;
         // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
-        const cur = $(prefix + startSuffix)?.value || '';
-        updateRecruitPastWarn(fpInst, cur ? new Date(cur) : null);
+        updateRecruitPastWarn(fpInst, sv ? new Date(sv) : null);
       },
+      // popup 안의 시각 피드백만 갱신 (hidden input은 「적용」 클릭 시까지 그대로)
       onChange: (selectedDates, _str, fpInst) => {
-        const start = selectedDates[0] || null;
-        const end   = selectedDates[1] || null;
-        const startEl = $(prefix + startSuffix);
-        const endEl   = $(prefix + endSuffix);
-        if (startEl) startEl.value = _fpFormatYmd(start);
-        if (endEl)   endEl.value   = _fpFormatYmd(end);
         if (kind === 'recruit') {
-          // 캘린더 popup 하단 인라인 경고 갱신 (과거 시작일이면 빨간 글씨 표시, 그 외 숨김)
-          updateRecruitPastWarn(fpInst, start);
-          // 종료일까지 잡혔으면 결과물 제출 마감일 자동 제안
-          if (end) suggestSubmissionEnd(prefix);
+          updateRecruitPastWarn(fpInst, selectedDates[0] || null);
         }
-        syncCampDateMinMax(prefix);
-        validateCampDateRangesInline(prefix);
+        _updateFpFooterSummary(fpInst);
+      },
+      // popup 닫힐 때 hidden input 기준으로 popup state 복원
+      // (「초기화」 후 외부 클릭으로 닫혔을 때 다음 열림 시 기존 값 보이도록)
+      onClose: (_sel, _str, fpInst) => {
+        const sv = $(prefix + startSuffix)?.value || '';
+        const ev = $(prefix + endSuffix)?.value || '';
+        if (sv && ev) fpInst.setDate([sv, ev], false);
+        else if (sv) fpInst.setDate([sv], false);
+        else fpInst.clear(false);
+        _updateFpFooterSummary(fpInst);
       },
     });
   });
@@ -1252,6 +1550,8 @@ function applyCampRangeValues(prefix, values) {
       if (s && e) fp.setDate([s, e], false);
       else if (s) fp.setDate([s], false);
       else fp.clear(false);
+      // setDate는 triggerChange=false라 onChange가 안 불려 푸터가 stale → 명시적으로 동기화
+      if (typeof _updateFpFooterSummary === 'function') _updateFpFooterSummary(fp);
     }
   });
 }
