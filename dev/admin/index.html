@@ -234,6 +234,8 @@
             <table class="data-table">
               <thead id="adminCampTableHead"><tr>
   <th>캠페인</th>
+  <th>브랜드</th>
+  <th>제품</th>
   <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">▲▼</span></th>
   <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
   <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">▲▼</span></th>
@@ -241,7 +243,7 @@
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -262,7 +264,7 @@
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
-              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input"></div>
+              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)"><input type="text" id="editCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px"></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -317,7 +319,8 @@
               <div>
                 <div class="form-group">
                   <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                  <input type="text" id="editCampProduct" class="form-input">
+                  <input type="text" id="editCampProduct" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                  <input type="text" id="editCampProductKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
                 </div>
                 <div class="form-group">
                   <label class="form-label">상품 페이지 URL</label>
@@ -501,7 +504,8 @@
               </div>
               <div class="form-group">
                 <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="text" id="newCampBrand" class="form-input" placeholder="이니스프리">
+                <input type="text" id="newCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                <input type="text" id="newCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -561,7 +565,8 @@
               <div>
                 <div class="form-group">
                   <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                  <input type="text" id="newCampProduct" class="form-input" placeholder="그린티 세럼 80ml">
+                  <input type="text" id="newCampProduct" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                  <input type="text" id="newCampProductKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
                 </div>
                 <div class="form-group">
                   <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -931,8 +936,8 @@
               </div>
               <div class="admin-table-wrap">
               <table class="data-table">
-                <thead id="appTableHead"><tr><th>캠페인</th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
-                <tbody id="appTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <thead id="appTableHead"><tr><th>캠페인</th><th>브랜드</th><th>제품</th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
+                <tbody id="appTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
             </div>

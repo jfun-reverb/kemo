@@ -49,10 +49,11 @@ function listBranchDiff(base) {
 }
 
 // 검사 제외 경로 (패턴 정의 파일·메모리 등 false positive 발생 영역)
+// git diff --name-only 는 상대경로 반환 → 앞 슬래시 없이 매칭해야 함
 function shouldSkip(filePath) {
-  if (filePath.includes('/.claude/hooks/')) return true;
+  if (filePath.includes('.claude/hooks/')) return true;
   if (filePath.endsWith('feedback_korean_typos.md')) return true;
-  if (filePath.includes('/memory/') && filePath.endsWith('.md')) return true;
+  if (filePath.includes('memory/') && filePath.endsWith('.md')) return true;
   // 바이너리/이미지 등 텍스트 아닌 파일
   if (/\.(png|jpg|jpeg|gif|webp|pdf|zip|woff2?|ttf|otf|ico)$/i.test(filePath)) return true;
   return false;

@@ -1244,6 +1244,8 @@ textarea.form-input{resize:vertical;min-height:80px}
             <table class="data-table">
               <thead id="adminCampTableHead"><tr>
   <th>캠페인</th>
+  <th>브랜드</th>
+  <th>제품</th>
   <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">▲▼</span></th>
   <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
   <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">▲▼</span></th>
@@ -1251,7 +1253,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1272,7 +1274,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
-              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input"></div>
+              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)"><input type="text" id="editCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px"></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -1327,7 +1329,8 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div>
                 <div class="form-group">
                   <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                  <input type="text" id="editCampProduct" class="form-input">
+                  <input type="text" id="editCampProduct" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                  <input type="text" id="editCampProductKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
                 </div>
                 <div class="form-group">
                   <label class="form-label">상품 페이지 URL</label>
@@ -1511,7 +1514,8 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
               <div class="form-group">
                 <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="text" id="newCampBrand" class="form-input" placeholder="이니스프리">
+                <input type="text" id="newCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                <input type="text" id="newCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -1571,7 +1575,8 @@ textarea.form-input{resize:vertical;min-height:80px}
               <div>
                 <div class="form-group">
                   <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                  <input type="text" id="newCampProduct" class="form-input" placeholder="그린티 세럼 80ml">
+                  <input type="text" id="newCampProduct" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                  <input type="text" id="newCampProductKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
                 </div>
                 <div class="form-group">
                   <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
@@ -1941,8 +1946,8 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
               <div class="admin-table-wrap">
               <table class="data-table">
-                <thead id="appTableHead"><tr><th>캠페인</th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
-                <tbody id="appTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <thead id="appTableHead"><tr><th>캠페인</th><th>브랜드</th><th>제품</th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
+                <tbody id="appTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
             </div>
@@ -5832,10 +5837,13 @@ function updateCampTableHead() {
   const head = $('adminCampTableHead');
   if (!head) return;
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>상태</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
-      <th>캠페인</th><th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>캠페인</th>
+      <th>브랜드</th>
+      <th>제품</th>
+      <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
@@ -5906,7 +5914,7 @@ async function loadAdminCampaigns(useCache) {
 
   // 검색 필터
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
-  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal) || (c.campaign_no||'').toLowerCase().includes(searchVal));
+  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal) || (c.brand_ko||'').toLowerCase().includes(searchVal) || (c.product||'').toLowerCase().includes(searchVal) || (c.product_ko||'').toLowerCase().includes(searchVal) || (c.campaign_no||'').toLowerCase().includes(searchVal));
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
@@ -5966,23 +5974,36 @@ async function loadAdminCampaigns(useCache) {
           <button class="btn btn-ghost btn-xs" ${i===totalLen-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>` : ''}
-      <td>
+      <td style="max-width:280px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
             ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:160, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
-          <div style="min-width:0">
+          <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               ${typeLabel(c.recruit_type)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
-            <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.brand)}</div>
+            <strong style="cursor:pointer;color:var(--ink);display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">캠페인 노출: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
+      ${(()=>{
+        const bp = c.brand_ko || c.brand || '';
+        const bs = (c.brand_ko && c.brand && c.brand_ko !== c.brand) ? c.brand : '';
+        const pp = c.product_ko || c.product || '';
+        const ps = (c.product_ko && c.product && c.product_ko !== c.product) ? c.product : '';
+        return `<td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
+          ${bp?esc(bp):'—'}
+          ${bs?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(bs)}</div>`:''}
+        </td>
+        <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
+          ${pp?esc(pp):'—'}
+          ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(ps)}</div>`:''}
+        </td>`;
+      })()}
       <td>${statusBadge(c.status)}</td>
       <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
@@ -6004,7 +6025,7 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  const emptyHtml = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  const emptyHtml = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
@@ -6127,7 +6148,9 @@ async function openEditCampaign(campId) {
   }
   sv('editCampTitle', camp.title);
   sv('editCampBrand', camp.brand);
+  sv('editCampBrandKo', camp.brand_ko || '');
   sv('editCampProduct', camp.product);
+  sv('editCampProductKo', camp.product_ko || '');
   sv('editCampProductUrl', camp.product_url||'');
   sv('editCampSlots', camp.slots);
   sv('editCampProductPrice', camp.product_price||0);
@@ -6827,7 +6850,9 @@ async function saveCampaignEdit() {
 
     const updates = {
       title, brand,
+      brand_ko: gv('editCampBrandKo')?.trim() || null,
       product: gv('editCampProduct'),
+      product_ko: gv('editCampProductKo')?.trim() || null,
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
@@ -6890,7 +6915,9 @@ async function duplicateCampaign(campId) {
     if (!src) { toast('캠페인을 찾을 수 없습니다','error'); return; }
     const copy = {
       title: '[복사] ' + src.title,
-      brand: src.brand, product: src.product, product_url: src.product_url,
+      brand: src.brand, brand_ko: src.brand_ko || null,
+      product: src.product, product_ko: src.product_ko || null,
+      product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
       emoji: src.emoji, description: src.description,
@@ -8361,6 +8388,9 @@ async function renderAppCampList() {
       const camp = camps.find(c => c.id === a.campaign_id) || {};
       return (camp.title||'').toLowerCase().includes(searchVal)
         || (camp.brand||'').toLowerCase().includes(searchVal)
+        || (camp.brand_ko||'').toLowerCase().includes(searchVal)
+        || (camp.product||'').toLowerCase().includes(searchVal)
+        || (camp.product_ko||'').toLowerCase().includes(searchVal)
         || (camp.campaign_no||'').toLowerCase().includes(searchVal)
         || (a.user_name||'').toLowerCase().includes(searchVal)
         || (a.user_email||'').toLowerCase().includes(searchVal);
@@ -8388,19 +8418,30 @@ async function renderAppCampList() {
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
+    const brandPrimary = camp.brand_ko || camp.brand || '';
+    const brandSub     = (camp.brand_ko && camp.brand && camp.brand_ko !== camp.brand) ? camp.brand : '';
+    const productPrimary = camp.product_ko || camp.product || '';
+    const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     return `<tr data-id="${esc(a.id)}">
-      <td>
+      <td style="max-width:260px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
             ${thumbUrl ? `<img src="${imgThumb(thumbUrl,160)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
-          <div style="min-width:0">
+          <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
-            <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
+            <strong style="font-size:13px;cursor:pointer;display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
             ${camp.slots?(()=>{const _r=Math.max(camp.slots-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
+      </td>
+      <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
+        ${brandPrimary?esc(brandPrimary):'—'}
+        ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}
+      </td>
+      <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
+        ${productPrimary?esc(productPrimary):'—'}
+        ${productSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(productSub)}</div>`:''}
       </td>
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
@@ -8423,7 +8464,7 @@ async function renderAppCampList() {
     rows: apps,
     renderRow: renderAppRow,
     pageSize: APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
+    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
   });
 }
 
@@ -8464,7 +8505,9 @@ async function addCampaign() {
   try {
   const title = $('newCampTitle').value.trim();
   const brand = $('newCampBrand').value.trim();
+  const brandKo = ($('newCampBrandKo')?.value || '').trim();
   const product = $('newCampProduct').value.trim();
+  const productKo = ($('newCampProductKo')?.value || '').trim();
   const productUrl = cleanUrl($('newCampProductUrl')?.value)||'';
   const slots = parseInt($('newCampSlots').value) || parseInt($('newCampSlots').placeholder) || 20;
   const deadline = $('newCampDeadline').value;
@@ -8495,6 +8538,8 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
+    brand_ko: brandKo || null,
+    product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
