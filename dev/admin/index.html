@@ -262,7 +262,7 @@
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
-              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input"></div>
+              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)"><input type="text" id="editCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px"></div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -317,7 +317,8 @@
               <div>
                 <div class="form-group">
                   <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                  <input type="text" id="editCampProduct" class="form-input">
+                  <input type="text" id="editCampProduct" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                  <input type="text" id="editCampProductKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
                 </div>
                 <div class="form-group">
                   <label class="form-label">상품 페이지 URL</label>
@@ -501,7 +502,8 @@
               </div>
               <div class="form-group">
                 <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="text" id="newCampBrand" class="form-input" placeholder="이니스프리">
+                <input type="text" id="newCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                <input type="text" id="newCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -561,7 +563,8 @@
               <div>
                 <div class="form-group">
                   <label class="form-label">제품명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                  <input type="text" id="newCampProduct" class="form-input" placeholder="그린티 세럼 80ml">
+                  <input type="text" id="newCampProduct" class="form-input" placeholder="원본 (일본어/영문 그대로)">
+                  <input type="text" id="newCampProductKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
                 </div>
                 <div class="form-group">
                   <label class="form-label">상품 페이지 URL <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>

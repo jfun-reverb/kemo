@@ -911,7 +911,9 @@ async function openEditCampaign(campId) {
   }
   sv('editCampTitle', camp.title);
   sv('editCampBrand', camp.brand);
+  sv('editCampBrandKo', camp.brand_ko || '');
   sv('editCampProduct', camp.product);
+  sv('editCampProductKo', camp.product_ko || '');
   sv('editCampProductUrl', camp.product_url||'');
   sv('editCampSlots', camp.slots);
   sv('editCampProductPrice', camp.product_price||0);
@@ -1611,7 +1613,9 @@ async function saveCampaignEdit() {
 
     const updates = {
       title, brand,
+      brand_ko: gv('editCampBrandKo')?.trim() || null,
       product: gv('editCampProduct'),
+      product_ko: gv('editCampProductKo')?.trim() || null,
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
       recruit_type: recruitTypeEl?.value||'monitor',
@@ -1674,7 +1678,9 @@ async function duplicateCampaign(campId) {
     if (!src) { toast('캠페인을 찾을 수 없습니다','error'); return; }
     const copy = {
       title: '[복사] ' + src.title,
-      brand: src.brand, product: src.product, product_url: src.product_url,
+      brand: src.brand, brand_ko: src.brand_ko || null,
+      product: src.product, product_ko: src.product_ko || null,
+      product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
       recruit_type: src.recruit_type, content_types: src.content_types,
       emoji: src.emoji, description: src.description,
@@ -3145,6 +3151,9 @@ async function renderAppCampList() {
       const camp = camps.find(c => c.id === a.campaign_id) || {};
       return (camp.title||'').toLowerCase().includes(searchVal)
         || (camp.brand||'').toLowerCase().includes(searchVal)
+        || (camp.brand_ko||'').toLowerCase().includes(searchVal)
+        || (camp.product||'').toLowerCase().includes(searchVal)
+        || (camp.product_ko||'').toLowerCase().includes(searchVal)
         || (camp.campaign_no||'').toLowerCase().includes(searchVal)
         || (a.user_name||'').toLowerCase().includes(searchVal)
         || (a.user_email||'').toLowerCase().includes(searchVal);
@@ -3180,8 +3189,11 @@ async function renderAppCampList() {
           </div>
           <div style="min-width:0">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
-            <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
+            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+              <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
+              ${(camp.brand_ko || camp.brand)?`<span style="font-size:11px;color:var(--muted)">${esc(camp.brand_ko || camp.brand)}</span>`:''}
+              ${(camp.product_ko || camp.product)?`<span style="font-size:11px;color:var(--muted)">${esc(camp.product_ko || camp.product)}</span>`:''}
+            </div>
             ${camp.slots?(()=>{const _r=Math.max(camp.slots-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
@@ -3248,7 +3260,9 @@ async function addCampaign() {
   try {
   const title = $('newCampTitle').value.trim();
   const brand = $('newCampBrand').value.trim();
+  const brandKo = ($('newCampBrandKo')?.value || '').trim();
   const product = $('newCampProduct').value.trim();
+  const productKo = ($('newCampProductKo')?.value || '').trim();
   const productUrl = cleanUrl($('newCampProductUrl')?.value)||'';
   const slots = parseInt($('newCampSlots').value) || parseInt($('newCampSlots').placeholder) || 20;
   const deadline = $('newCampDeadline').value;
@@ -3279,6 +3293,8 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
+    brand_ko: brandKo || null,
+    product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
     recruit_type: recruitType,
     order_index: minOrder - 1,
