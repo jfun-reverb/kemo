@@ -223,7 +223,7 @@ function initMultiFilters() {
     {value:'reviewer',label:'Qoo10 리뷰어'},{value:'seeding',label:'나노 시딩'}
   ], () => renderBrandApplicationsList());
   createMultiFilter('brandAppStatusMulti', '전체 상태', [
-    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
+    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'kakao_room_created',label:'카톡방 생성'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
   ], () => renderBrandApplicationsList());
 }
 
@@ -1011,13 +1011,174 @@ async function openEditCampaign(campId) {
   renderCampCautionItems('edit');
   renderCampBundleSummary('cset', 'edit');
 
+  // 신청 동의 영향 영역(주의사항/참여방법) 변경 감지용 원본 스냅샷 보관
+  // saveCampaignEdit 에서 신청자 ≥1건일 때 변경 여부를 비교하여 경고 모달 표시
+  _editCampOriginal = {
+    id: camp.id,
+    status: camp.status || '',
+    caution_set_id: camp.caution_set_id || null,
+    caution_items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
+    participation_set_id: camp.participation_set_id || null,
+    participation_steps: Array.isArray(camp.participation_steps) ? JSON.parse(JSON.stringify(camp.participation_steps)) : [],
+  };
+  // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
+  applyEditFormSensitiveLocks(camp.status || '');
+
   switchAdminPane('edit-campaign', null);
+}
+
+// 캠페인 편집 폼: 신청 동의 영향 영역 readonly 토글
+//   대상: 주의사항(caution) / 참여방법(participation) 요약 카드의 「편집」 버튼
+//   조건: status === 'closed' 일 때 비활성화 + 잠금 메시지 노출
+function applyEditFormSensitiveLocks(status) {
+  const isClosed = status === 'closed';
+  ['Pset', 'Cset'].forEach(kind => {
+    const card = $('editCamp' + kind + 'Summary');
+    if (!card) return;
+    const editBtn = card.querySelector('button[onclick*="openCampBundleModal"]');
+    if (editBtn) {
+      editBtn.disabled = isClosed;
+      editBtn.style.opacity = isClosed ? '0.5' : '';
+      editBtn.style.cursor = isClosed ? 'not-allowed' : '';
+      editBtn.title = isClosed ? '종료된 캠페인은 수정할 수 없습니다' : '';
+    }
+    let lockMsg = card.querySelector('.bundle-lock-msg');
+    if (isClosed) {
+      if (!lockMsg) {
+        lockMsg = document.createElement('div');
+        lockMsg.className = 'bundle-lock-msg';
+        lockMsg.style.cssText = 'font-size:11px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:4px';
+        lockMsg.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">lock</span>종료된 캠페인은 수정할 수 없습니다';
+        card.appendChild(lockMsg);
+      }
+    } else if (lockMsg) {
+      lockMsg.remove();
+    }
+  });
+}
+
+// 주의사항/참여방법 변경 감지 (저장 직전 호출)
+//   editPayload: collectCampCsetPayload + collectCampPsetPayload 결과
+//   반환: {cautionChanged, participationChanged, anyChanged}
+//   주의: JSON.stringify 키 순서 false-positive 방지를 위해 양쪽을 동일 키 순서로 정규화 후 비교
+//         (DB jsonb 가 내려주는 키 순서가 collect*Payload 의 고정 순서와 다르면
+//          값 변경 없이도 stringify 결과가 달라져 불필요한 경고 모달이 뜨는 회귀)
+function detectSensitiveChange(editPayload) {
+  const orig = _editCampOriginal || {};
+  const normSteps = arr => {
+    if (!Array.isArray(arr) || !arr.length) return null;
+    return arr.map(s => ({
+      title_ko: s.title_ko || '',
+      title_ja: s.title_ja || '',
+      desc_ko: s.desc_ko || '',
+      desc_ja: s.desc_ja || '',
+    }));
+  };
+  const normCautionItems = arr => {
+    if (!Array.isArray(arr) || !arr.length) return [];
+    return arr.map(s => ({
+      html_ko: s.html_ko || '',
+      html_ja: s.html_ja || '',
+    }));
+  };
+  const stable = v => JSON.stringify(v ?? null);
+  const cautionChanged =
+    (orig.caution_set_id || null) !== (editPayload.caution_set_id || null)
+    || stable(normCautionItems(orig.caution_items)) !== stable(normCautionItems(editPayload.caution_items));
+  const participationChanged =
+    (orig.participation_set_id || null) !== (editPayload.participation_set_id || null)
+    || stable(normSteps(orig.participation_steps)) !== stable(normSteps(editPayload.participation_steps));
+  return {
+    cautionChanged,
+    participationChanged,
+    anyChanged: cautionChanged || participationChanged
+  };
+}
+
+// 신청 동의 영향 영역 변경 경고 모달 (Promise<boolean> 반환)
+//   기존 신청자 ≥1건 + caution/participation 변경 시 명시적 확인을 요구
+//   기존 신청자가 동의한 시점의 스냅샷은 applications.caution_snapshot 에 보존되어 효력 유지됨을 안내
+let _sensitiveChangeResolver = null;
+function showSensitiveChangeConfirm({appCount, cautionChanged, participationChanged, orig, next}) {
+  return new Promise(resolve => {
+    _sensitiveChangeResolver = resolve;
+    const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
+    const renderCautionItems = (arr) => {
+      if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+      return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
+    };
+    const renderPsetSteps = (arr) => {
+      if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+      return arr.map((s, i) => {
+        const t = s.title_ko || s.title_ja || '';
+        const d = s.desc_ko || s.desc_ja || '';
+        return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div style="font-size:11px;color:var(--muted)">${esc(d)}</div>` : ''}</li>`;
+      }).join('');
+    };
+    const sections = [];
+    if (cautionChanged) {
+      sections.push(`
+        <div style="margin-top:14px">
+          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">주의사항 변경</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+            <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-container-low)">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(orig?.caution_items)}</ul>
+            </div>
+            <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(next?.caution_items)}</ul>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+    if (participationChanged) {
+      sections.push(`
+        <div style="margin-top:14px">
+          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">참여방법 변경</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+            <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-container-low)">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(orig?.participation_steps)}</ul>
+            </div>
+            <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(next?.participation_steps)}</ul>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+    const body = $('sensitiveChangeModalBody');
+    if (body) {
+      body.innerHTML = `
+        <div style="font-size:13px;line-height:1.7;color:var(--ink)">
+          이 캠페인에는 이미 <b style="color:#B3261E">${appCount}명</b>의 신청자가 있습니다.<br>
+          변경 사항은 <b>이후 신규 신청자에게만 적용</b>되며, 기존 신청자가 동의한 시점의 문구는 그대로 효력을 유지합니다.
+        </div>
+        ${sections.join('')}
+        <div style="margin-top:14px;padding:10px 12px;background:var(--surface-container-low);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
+          ※ 변경 이력은 추후 별도 페이지에서 확인 가능합니다 (Phase 2 도입 예정).
+        </div>
+      `;
+    }
+    openModal('sensitiveChangeModal');
+  });
+}
+function resolveSensitiveChangeModal(ok) {
+  closeModal('sensitiveChangeModal');
+  if (_sensitiveChangeResolver) { _sensitiveChangeResolver(!!ok); _sensitiveChangeResolver = null; }
 }
 
 // ── 편집용 이미지 관리 ──
 var editCampImgData = [];
 var editCampImgChanged = false;
 registerImgList('editCampImgData', editCampImgData);
+
+// 편집 진입 시점의 신청 동의 영향 영역 스냅샷 (caution/participation)
+//   saveCampaignEdit 에서 변경 감지하여 신청자 ≥1건일 때 경고 모달 표시
+var _editCampOriginal = null;
 
 function handleEditCampImgSelect(input) {
   editCampImgChanged = true;
@@ -1664,6 +1825,29 @@ async function saveCampaignEdit() {
       ...collectCampPsetPayload('edit'),
       ...collectCampCsetPayload('edit'),
     };
+
+    // 신청 동의 영향 영역(주의사항/참여방법) 변경 게이트
+    //   1) closed 캠페인은 변경 자체 차단 (DB 트리거가 이중 차단)
+    //   2) 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
+    const change = detectSensitiveChange(updates);
+    const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
+    if (origStatus === 'closed' && change.anyChanged) {
+      toast('종료된 캠페인은 주의사항/참여방법을 수정할 수 없습니다','error');
+      return;
+    }
+    if (change.anyChanged) {
+      const appCount = await countActiveApplications(campId);
+      if (appCount >= 1) {
+        const ok = await showSensitiveChangeConfirm({
+          appCount,
+          cautionChanged: change.cautionChanged,
+          participationChanged: change.participationChanged,
+          orig: _editCampOriginal,
+          next: updates
+        });
+        if (!ok) return;
+      }
+    }
 
     // 이미지가 변경된 경우에만 업로드
     if (editCampImgChanged) {
@@ -5386,7 +5570,7 @@ async function openDelivDetail(id) {
   // 본문
   let contentHtml = '';
   if (d.kind === 'receipt') {
-    const amt = d.purchase_amount != null ? `¥${Number(d.purchase_amount).toLocaleString('ja-JP')}` : '—';
+    // 인플루언서 영수증 폼에서 구매일/구매 금액 input은 제거된 상태라 상세 페이지에도 표시 안 함
     contentHtml = `
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
@@ -5395,8 +5579,6 @@ async function openDelivDetail(id) {
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
-          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매일</span> · ${d.purchase_date ? formatDate(d.purchase_date) : '—'}</div>
-          <div style="margin-bottom:8px"><span style="color:var(--muted)">구매 금액</span> · <strong>${amt}</strong></div>
           ${d.memo ? `<div style="margin-bottom:8px"><span style="color:var(--muted)">메모</span> · ${esc(d.memo)}</div>` : ''}
           <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted)">
             제출일 · ${formatDate(d.submitted_at)}<br>
@@ -5581,6 +5763,7 @@ var BRAND_APP_STATUS = {
   'reviewing':           {label:'검토중',           color:'#B88',   bg:'#FFE'},
   'quoted':              {label:'견적 전달',        color:'#08A',   bg:'#DEF'},
   'paid':                {label:'입금완료',         color:'#6A2',   bg:'#EFE'},
+  'kakao_room_created':  {label:'카톡방 생성',      color:'#A57',   bg:'#FBF2DE'},
   'orient_sheet_sent':   {label:'오리엔시트 전달',  color:'#735',   bg:'#F2E6F0'},
   'schedule_sent':       {label:'일정 전달',        color:'#A36',   bg:'#FDEEF4'},
   'campaign_registered': {label:'캠페인 등록',      color:'#274',   bg:'#E6F3E8'},
@@ -6044,10 +6227,11 @@ async function exportCampaignDeliverables(campId) {
     m.font = {color: {argb: 'FF888888'}, size: 11};
     ws.getRow(2).height = 20;
 
-    // 컬럼 헤더 (4행)
+    // 컬럼 헤더 (4행) — 인플루언서 영수증 폼에서 구매일/구매금액 입력이 제거된 이후
+    // 엑셀에도 해당 컬럼은 항상 빈 값이 되므로 함께 제거.
     ws.getRow(4).values = [
       '인플루언서', 'SNS 아이디', '타입', '제출일', '검수일',
-      '상태', '영수증', 'URL', '구매일', '구매금액 (¥)'
+      '상태', '영수증', 'URL'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
     ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
@@ -6057,7 +6241,7 @@ async function exportCampaignDeliverables(campId) {
     // 컬럼 너비 (G=영수증 16, H=URL 40)
     ws.columns = [
       {width: 18}, {width: 20}, {width: 10}, {width: 14}, {width: 14},
-      {width: 10}, {width: 16}, {width: 40}, {width: 14}, {width: 14}
+      {width: 10}, {width: 16}, {width: 40}
     ];
 
     // 본문 행
@@ -6096,9 +6280,7 @@ async function exportCampaignDeliverables(campId) {
         d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '',
         statusLabel,
         '',
-        urlCellValue,
-        d.purchase_date || '',
-        d.purchase_amount ? Number(d.purchase_amount) : ''
+        urlCellValue
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
 
@@ -6115,9 +6297,6 @@ async function exportCampaignDeliverables(campId) {
         ws.addImage(imgId, 'G' + rowNum + ':G' + rowNum);
       }
     });
-
-    // 구매금액 숫자 포맷 (J열 = 10번째)
-    ws.getColumn(10).numFmt = '#,##0';
 
     // 5) 파일 저장
     var buffer = await wb.xlsx.writeBuffer();
@@ -6179,6 +6358,7 @@ var _brandTrendDays = 7;
 
 var BRAND_STATUS_LABEL_KO = {
   new: '신규', reviewing: '검토중', quoted: '견적 전달', paid: '입금완료',
+  kakao_room_created: '카톡방 생성',
   orient_sheet_sent: '오리엔시트 전달', schedule_sent: '일정 전달',
   campaign_registered: '캠페인 등록', done: '최종완료', rejected: '반려'
 };
@@ -6188,6 +6368,7 @@ var BRAND_STATUS_COLOR = {
   reviewing:           '#E8A355',   // 오렌지
   quoted:              '#5B8FD6',   // 블루 (견적)
   paid:                '#6BB38E',   // 그린 (입금)
+  kakao_room_created:  '#F4C95D',   // 옐로우 (카톡)
   orient_sheet_sent:   '#8C6BC0',   // 퍼플 (오리엔시트)
   schedule_sent:       '#D97AA6',   // 진한 핑크 (일정)
   campaign_registered: '#4CA070',   // 연한 그린 (등록)
@@ -6199,13 +6380,14 @@ var BRAND_FUNNEL_STAGES = [
   {key:'reviewing',           label:'검토 (reviewing)'},
   {key:'quoted',              label:'견적 전달 (quoted)'},
   {key:'paid',                label:'입금 완료 (paid)'},
+  {key:'kakao_room_created',  label:'카톡방 생성 (kakao_room_created)'},
   {key:'orient_sheet_sent',   label:'오리엔시트 전달 (orient_sheet_sent)'},
   {key:'schedule_sent',       label:'일정 전달 (schedule_sent)'},
   {key:'campaign_registered', label:'캠페인 등록 (campaign_registered)'},
   {key:'done',                label:'최종 완료 (done)'}
 ];
 // 전환 깔때기용: status가 이 단계 이상이면 도달한 것으로 간주 (rejected 제외)
-var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, orient_sheet_sent:4, schedule_sent:5, campaign_registered:6, done:7, rejected:-1};
+var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:-1};
 
 async function loadBrandDashboard() {
   // 로딩 표시
@@ -6266,7 +6448,7 @@ function renderBrandKPIs(apps) {
   // 견적 합계
   var estimated = apps.reduce(function(s,a){ return s + (Number(a.estimated_krw) || 0); }, 0);
   var finalSum = apps
-    .filter(function(a){ return ['quoted','paid','orient_sheet_sent','schedule_sent','campaign_registered','done'].indexOf(a.status) !== -1; })
+    .filter(function(a){ return ['quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done'].indexOf(a.status) !== -1; })
     .reduce(function(s,a){ return s + (Number(a.final_quote_krw) || Number(a.estimated_krw) || 0); }, 0);
 
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
@@ -6371,7 +6553,7 @@ function renderBrandStatusDonut(apps) {
   if (!canvas) return;
   if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
 
-  var keys = ['new','reviewing','quoted','paid','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
+  var keys = ['new','reviewing','quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
   var counts = keys.map(function(k){ return apps.filter(function(a){ return a.status === k; }).length; });
   var total = counts.reduce(function(s,n){ return s+n; }, 0);
   if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '건') : '';
@@ -6559,7 +6741,7 @@ function getFilteredBrandApps() {
     if (_brandAppSort.field === 'estimated') {
       av = Number(a.estimated_krw || 0); bv = Number(b.estimated_krw || 0);
     } else if (_brandAppSort.field === 'status') {
-      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, orient_sheet_sent:4, schedule_sent:5, campaign_registered:6, done:7, rejected:8};
+      var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:9};
       av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
       bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
     } else {
