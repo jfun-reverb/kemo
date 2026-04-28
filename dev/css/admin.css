@@ -595,15 +595,31 @@
 .flatpickr-calendar.reverb-range-cal .flatpickr-day.startRange.endRange{
   border-radius:8px;
 }
-/* showMonths:2 시 두 dayContainer 사이 세로 구분선 (popup 가운데에 위치) */
-.flatpickr-calendar.reverb-range-cal{
+/* showMonths:2 시 두 dayContainer 사이 세로 구분선
+   popup의 position:absolute는 flatpickr가 inline-style로 좌표 강제 → 절대 건드리지 말 것.
+   구분선은 .flatpickr-rContainer 안에서 두 dayContainer 사이 ::after pseudo로 표시 */
+.flatpickr-calendar.reverb-range-cal .flatpickr-rContainer{
   position:relative;
 }
-.flatpickr-calendar.reverb-range-cal .flatpickr-rContainer::before{
+.flatpickr-calendar.reverb-range-cal .flatpickr-rContainer::after{
   content:"";
   position:absolute;
-  top:46px;          /* 헤더 36 + 푸터 위까지 */
-  bottom:60px;       /* 푸터 + 여백 */
+  top:0;
+  bottom:0;
+  left:50%;
+  width:1px;
+  background:var(--line);
+  pointer-events:none;
+}
+/* weekday 행의 가운데 구분선도 동일 위치 */
+.flatpickr-calendar.reverb-range-cal .flatpickr-weekdays{
+  position:relative;
+}
+.flatpickr-calendar.reverb-range-cal .flatpickr-weekdays::after{
+  content:"";
+  position:absolute;
+  top:4px;
+  bottom:4px;
   left:50%;
   width:1px;
   background:var(--line);
