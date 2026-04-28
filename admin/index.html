@@ -754,11 +754,18 @@ textarea.form-input{resize:vertical;min-height:80px}
   z-index:2000;
   box-sizing:border-box;
 }
-/* showMonths:2 시 자식 wrapper들이 input width로 제한되지 않게 해제 */
+/* showMonths:2 시 자식 wrapper들이 input width로 제한되지 않게 해제
+   + flatpickr 기본 border (`.flatpickr-days { border-left/right }` 와 dayContainer 인접 보더) 제거 */
 .flatpickr-calendar.reverb-range-cal .flatpickr-rContainer,
 .flatpickr-calendar.reverb-range-cal .flatpickr-days{
   width:auto !important;
   max-width:none !important;
+  border:none !important;
+  box-shadow:none !important;
+}
+.flatpickr-calendar.reverb-range-cal .dayContainer{
+  border:none !important;
+  box-shadow:none !important;
 }
 /* 헤더·요일·날짜 3개 행 모두 동일 구조: flex + center + 12px gap, 자식 폭 308px 고정 */
 .flatpickr-calendar.reverb-range-cal .flatpickr-months{
