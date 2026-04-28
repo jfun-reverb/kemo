@@ -612,17 +612,23 @@ var adminReorderMode = false;
 
 
 
+// 캠페인 상태별 클라이언트 노출 도움말 모달 노출
+function openCampStatusHelp() {
+  if (typeof openModal === 'function') openModal('campStatusHelpModal');
+}
+
 function updateCampTableHead() {
   const head = $('adminCampTableHead');
   if (!head) return;
+  const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th>캠페인</th>
       <th>브랜드</th>
       <th>제품</th>
-      <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
