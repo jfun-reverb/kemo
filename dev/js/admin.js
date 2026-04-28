@@ -3181,6 +3181,10 @@ async function renderAppCampList() {
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
+    const brandPrimary = camp.brand_ko || camp.brand || '';
+    const brandSub     = (camp.brand_ko && camp.brand && camp.brand_ko !== camp.brand) ? camp.brand : '';
+    const productPrimary = camp.product_ko || camp.product || '';
+    const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     return `<tr data-id="${esc(a.id)}">
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -3189,14 +3193,18 @@ async function renderAppCampList() {
           </div>
           <div style="min-width:0">
             <div>${typeLabel}</div>
-            <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-              <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
-              ${(camp.brand_ko || camp.brand)?`<span style="font-size:11px;color:var(--muted)">${esc(camp.brand_ko || camp.brand)}</span>`:''}
-              ${(camp.product_ko || camp.product)?`<span style="font-size:11px;color:var(--muted)">${esc(camp.product_ko || camp.product)}</span>`:''}
-            </div>
+            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
             ${camp.slots?(()=>{const _r=Math.max(camp.slots-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
+      </td>
+      <td style="font-size:12px;color:var(--ink);min-width:100px">
+        ${brandPrimary?esc(brandPrimary):'—'}
+        ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}
+      </td>
+      <td style="font-size:12px;color:var(--ink);min-width:120px">
+        ${productPrimary?esc(productPrimary):'—'}
+        ${productSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(productSub)}</div>`:''}
       </td>
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
@@ -3219,7 +3227,7 @@ async function renderAppCampList() {
     rows: apps,
     renderRow: renderAppRow,
     pageSize: APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
+    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
   });
 }
 
