@@ -1323,6 +1323,11 @@ function setupCampRangePickers() {
         _updateFpFooterSummary(fpInst);
       },
       onOpen: (_selectedDates, _str, fpInst) => {
+        // 한 picker가 열릴 때 같은 폼의 다른 picker는 닫음
+        // (appendTo:body 모드라 flatpickr가 자동 close 처리하지 않음)
+        Object.values(_campRangePickers).forEach(otherFp => {
+          if (otherFp && otherFp !== fpInst && otherFp.isOpen) otherFp.close();
+        });
         // 외부에서 hidden input 직접 변경됐을 수 있으니 푸터 요약 재동기화
         _updateFpFooterSummary(fpInst);
         if (kind !== 'recruit') return;
