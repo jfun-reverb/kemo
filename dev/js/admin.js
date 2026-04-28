@@ -753,18 +753,18 @@ async function loadAdminCampaigns(useCache) {
           <button class="btn btn-ghost btn-xs" ${i===totalLen-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>` : ''}
-      <td>
+      <td style="max-width:280px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
             ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:160, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
-          <div style="min-width:0">
+          <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               ${typeLabel(c.recruit_type)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
-            <strong style="cursor:pointer;color:var(--ink)" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
+            <strong style="cursor:pointer;color:var(--ink);display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
             ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">캠페인 노출: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
@@ -774,11 +774,11 @@ async function loadAdminCampaigns(useCache) {
         const bs = (c.brand_ko && c.brand && c.brand_ko !== c.brand) ? c.brand : '';
         const pp = c.product_ko || c.product || '';
         const ps = (c.product_ko && c.product && c.product_ko !== c.product) ? c.product : '';
-        return `<td style="font-size:12px;color:var(--ink);min-width:100px">
+        return `<td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
           ${bp?esc(bp):'—'}
           ${bs?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(bs)}</div>`:''}
         </td>
-        <td style="font-size:12px;color:var(--ink);min-width:120px">
+        <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
           ${pp?esc(pp):'—'}
           ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(ps)}</div>`:''}
         </td>`;
@@ -3202,23 +3202,23 @@ async function renderAppCampList() {
     const productPrimary = camp.product_ko || camp.product || '';
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     return `<tr data-id="${esc(a.id)}">
-      <td>
+      <td style="max-width:260px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
             ${thumbUrl ? `<img src="${imgThumb(thumbUrl,160)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
-          <div style="min-width:0">
+          <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
+            <strong style="font-size:13px;cursor:pointer;display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
             ${camp.slots?(()=>{const _r=Math.max(camp.slots-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
       </td>
-      <td style="font-size:12px;color:var(--ink);min-width:100px">
+      <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
         ${brandPrimary?esc(brandPrimary):'—'}
         ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}
       </td>
-      <td style="font-size:12px;color:var(--ink);min-width:120px">
+      <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
         ${productPrimary?esc(productPrimary):'—'}
         ${productSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(productSub)}</div>`:''}
       </td>
