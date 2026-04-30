@@ -1909,6 +1909,21 @@
   </div>
 </div>
 
+<!-- 캠페인 변경 이력 모달 (Phase 2 — super_admin 한정)
+     campaign_caution_history 행을 시간 역순 타임라인으로 표시. 각 행 클릭 → prev/next diff 펼침 -->
+<div class="modal-overlay" id="cautionHistoryModal" style="z-index:625">
+  <div class="modal" style="max-width:820px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:var(--pink);font-size:22px">history</span>
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">주의사항 / 참여방법 변경 이력</div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeCautionHistoryModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" id="cautionHistoryModalBody" style="padding:20px 22px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <!-- 캠페인 노출 마감일 자동 제안 confirm 모달 -->
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">

@@ -107,6 +107,17 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- 주의사항 비교 모달 (Phase 2 — 인플루언서 응모이력) — 동의 시점 vs 현재 캠페인 문구 비교 -->
+<div class="modal-overlay" id="cautionCompareModal" style="z-index:610">
+  <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:85vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="mypage.caution.compareTitle">注意事項の比較</div>
+      <button onclick="closeModal('cautionCompareModal')" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div class="modal-body" id="cautionCompareModalBody" style="padding:18px 20px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">

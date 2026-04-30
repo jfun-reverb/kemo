@@ -1165,7 +1165,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
         </div>
         ${sections.join('')}
         <div style="margin-top:14px;padding:10px 12px;background:var(--surface-container-low);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
-          ※ 변경 이력은 추후 별도 페이지에서 확인 가능합니다 (Phase 2 도입 예정).
+          ※ 변경 이력은 캠페인 더보기(︙) 메뉴 → 「변경 이력」에서 확인할 수 있습니다 (super_admin 한정).
         </div>
       `;
     }
@@ -1175,6 +1175,138 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
 function resolveSensitiveChangeModal(ok) {
   closeModal('sensitiveChangeModal');
   if (_sensitiveChangeResolver) { _sensitiveChangeResolver(!!ok); _sensitiveChangeResolver = null; }
+}
+
+// ── Phase 2: 캠페인 변경 이력 모달 (super_admin 한정) ──
+//   더보기 메뉴 「변경 이력」 클릭 시 호출. campaign_caution_history 행을 시간 역순 타임라인으로 출력.
+//   각 항목 헤더 클릭 → 해당 변경의 prev/next diff 펼침/접기 (배열 인덱스로 toggle)
+const _cautionHistoryState = { list: [], openIndex: null, campId: null };
+
+async function openCautionHistoryModal(campId) {
+  if (!campId) return;
+  if (currentAdminInfo?.role !== 'super_admin') {
+    toast('변경 이력은 super_admin 만 열람할 수 있습니다','error');
+    return;
+  }
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  _cautionHistoryState.campId = campId;
+  _cautionHistoryState.openIndex = null;
+  const body = $('cautionHistoryModalBody');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+  openModal('cautionHistoryModal');
+  try {
+    const list = await fetchCautionHistory(campId);
+    _cautionHistoryState.list = Array.isArray(list) ? list : [];
+    renderCautionHistoryModal();
+  } catch(e) {
+    if (body) body.innerHTML = `<div style="padding:24px;color:#B3261E;font-size:13px">이력 불러오기 실패: ${esc(e.message||String(e))}</div>`;
+  }
+}
+
+function renderCautionHistoryModal() {
+  const body = $('cautionHistoryModalBody');
+  if (!body) return;
+  const list = _cautionHistoryState.list || [];
+  const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
+    .find(c => c.id === _cautionHistoryState.campId);
+  const headerLine = camp
+    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:14px">캠페인 · <b style="color:var(--ink)">${esc(camp.title || '')}</b>${camp.campaign_no ? ` <span style="color:var(--muted)">[${esc(camp.campaign_no)}]</span>` : ''}</div>`
+    : '';
+  if (!list.length) {
+    body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">주의사항/참여방법 변경이 발생하면 자동 기록됩니다.</span></div>`;
+    return;
+  }
+  const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
+  const renderCautionItems = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+    return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
+  };
+  const renderPsetSteps = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+    return arr.map((s, i) => {
+      const t = s.title_ko || s.title_ja || '';
+      const d = s.desc_ko || s.desc_ja || '';
+      return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div style="font-size:11px;color:var(--muted)">${esc(d)}</div>` : ''}</li>`;
+    }).join('');
+  };
+  const items = list.map((row, idx) => {
+    const cautionChanged =
+      (row.prev_caution_set_id || null) !== (row.next_caution_set_id || null)
+      || JSON.stringify(row.prev_caution_items ?? null) !== JSON.stringify(row.next_caution_items ?? null);
+    const participationChanged =
+      (row.prev_participation_set_id || null) !== (row.next_participation_set_id || null)
+      || JSON.stringify(row.prev_participation_steps ?? null) !== JSON.stringify(row.next_participation_steps ?? null);
+    const tags = [];
+    if (cautionChanged) tags.push('<span class="badge badge-pink" style="font-size:10px">주의사항</span>');
+    if (participationChanged) tags.push('<span class="badge badge-blue" style="font-size:10px">참여방법</span>');
+    const ackBadge = row.bypass_warning_ack
+      ? '<span class="badge badge-gold" style="font-size:10px" title="신청자 ≥1건 + 경고 모달 통과">경고 확인</span>'
+      : '<span class="badge badge-gray" style="font-size:10px" title="신청자 0건 — 모달 미표시">자동</span>';
+    const isOpen = _cautionHistoryState.openIndex === idx;
+    const detailHtml = !isOpen ? '' : `
+      <div style="padding:14px 16px;background:var(--surface-container-low);border-top:1px solid var(--line)">
+        ${cautionChanged ? `
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">주의사항</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.prev_caution_items)}</ul>
+              </div>
+              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.next_caution_items)}</ul>
+              </div>
+            </div>
+          </div>` : ''}
+        ${participationChanged ? `
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">참여방법</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.prev_participation_steps)}</ul>
+              </div>
+              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.next_participation_steps)}</ul>
+              </div>
+            </div>
+          </div>` : ''}
+      </div>
+    `;
+    return `
+      <div style="border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff">
+        <div style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;justify-content:space-between" onclick="toggleCautionHistoryItem(${idx})">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              ${tags.join('')} ${ackBadge}
+              <span style="font-size:11px;color:var(--muted)">신청자 ${row.app_count_at_change}명</span>
+            </div>
+            <div style="font-size:12px;color:var(--ink)">
+              <span style="font-weight:600">${esc(row.changed_by_name || '관리자')}</span>
+              <span style="color:var(--muted)"> · ${esc(formatDateTime(row.changed_at))}</span>
+            </div>
+          </div>
+          <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted);transition:transform .2s;${isOpen?'transform:rotate(180deg)':''}">expand_more</span>
+        </div>
+        ${detailHtml}
+      </div>
+    `;
+  }).join('');
+  body.innerHTML = `${headerLine}<div>${items}</div>`;
+}
+
+function toggleCautionHistoryItem(idx) {
+  _cautionHistoryState.openIndex = (_cautionHistoryState.openIndex === idx) ? null : idx;
+  renderCautionHistoryModal();
+}
+
+function closeCautionHistoryModal() {
+  closeModal('cautionHistoryModal');
+  _cautionHistoryState.list = [];
+  _cautionHistoryState.openIndex = null;
+  _cautionHistoryState.campId = null;
 }
 
 // ── 편집용 이미지 관리 ──
@@ -1835,23 +1967,27 @@ async function saveCampaignEdit() {
     // 신청 동의 영향 영역(주의사항/참여방법) 변경 게이트
     //   1) closed 캠페인은 변경 자체 차단 (DB 트리거가 이중 차단)
     //   2) 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
+    //   3) Phase 2 — 변경 감지 시 audit 이력 기록 (campaign_caution_history)
     const change = detectSensitiveChange(updates);
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
     if (origStatus === 'closed' && change.anyChanged) {
       toast('종료된 캠페인은 주의사항/참여방법을 수정할 수 없습니다','error');
       return;
     }
+    let _historyAppCount = 0;
+    let _historyBypassAck = false;
     if (change.anyChanged) {
-      const appCount = await countActiveApplications(campId);
-      if (appCount >= 1) {
+      _historyAppCount = await countActiveApplications(campId);
+      if (_historyAppCount >= 1) {
         const ok = await showSensitiveChangeConfirm({
-          appCount,
+          appCount: _historyAppCount,
           cautionChanged: change.cautionChanged,
           participationChanged: change.participationChanged,
           orig: _editCampOriginal,
           next: updates
         });
         if (!ok) return;
+        _historyBypassAck = true;
       }
     }
 
@@ -1868,6 +2004,34 @@ async function saveCampaignEdit() {
     }
 
     await updateCampaign(campId, updates);
+
+    // Phase 2 — 주의사항/참여방법 변경 감지 시 audit 이력 기록
+    //   updateCampaign 성공 직후 호출. 실패해도 캠페인 저장은 이미 완료됐으므로
+    //   사용자 흐름은 차단하지 않고 콘솔 경고만 남긴다 (audit 부재 ≠ 데이터 손상).
+    if (change.anyChanged) {
+      try {
+        await recordCautionHistory({
+          campaign_id: campId,
+          prev: {
+            caution_set_id: _editCampOriginal?.caution_set_id || null,
+            caution_items: _editCampOriginal?.caution_items || [],
+            participation_set_id: _editCampOriginal?.participation_set_id || null,
+            participation_steps: _editCampOriginal?.participation_steps || null,
+          },
+          next: {
+            caution_set_id: updates.caution_set_id || null,
+            caution_items: updates.caution_items || [],
+            participation_set_id: updates.participation_set_id || null,
+            participation_steps: updates.participation_steps || null,
+          },
+          app_count: _historyAppCount,
+          bypass_ack: _historyBypassAck,
+        });
+      } catch(histErr) {
+        console.warn('[caution-history] 기록 실패 (캠페인 저장은 정상):', histErr);
+      }
+    }
+
     allCampaigns = await fetchCampaigns();
     toast('변경 사항을 저장했습니다','success');
     switchAdminPane('campaigns', null);
@@ -2203,11 +2367,17 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const rect = btnEl.getBoundingClientRect();
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
+  // 변경 이력 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+  const historyItem = isSuper
+    ? `<div class="camp-more-item" onclick="openCautionHistoryModal('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>변경 이력</div>`
+    : '';
   menu.innerHTML = `
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
+    ${historyItem}
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);

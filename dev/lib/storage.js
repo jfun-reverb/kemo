@@ -1045,6 +1045,54 @@ async function swapCautionSetOrder(idA, idB) {
 }
 
 // ══════════════════════════════════════
+// CAMPAIGN CAUTION HISTORY (주의사항/참여방법 변경 audit — migration 077, Phase 2)
+// ══════════════════════════════════════
+
+// 변경 이력 INSERT — record_caution_history RPC (SECURITY DEFINER)
+//   호출 위치: dev/js/admin.js:saveCampaignEdit() — caution/participation 변경이 감지된 경우만
+//   args: { campaign_id, prev:{caution_set_id, caution_items, participation_set_id, participation_steps},
+//           next:{caution_set_id, caution_items, participation_set_id, participation_steps},
+//           app_count, bypass_ack }
+//   bypass_ack: 신청자 ≥1 + 사용자가 경고 모달 「확인하고 저장」을 통과했으면 true.
+//   DEMO_MODE(no db)에서는 no-op (audit 의미 없음).
+async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_ack}) {
+  if (!db || !campaign_id) return null;
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db?.rpc('record_caution_history', {
+      p_campaign_id: campaign_id,
+      p_prev_caution_set_id: prev?.caution_set_id || null,
+      p_next_caution_set_id: next?.caution_set_id || null,
+      p_prev_caution_items: prev?.caution_items ?? null,
+      p_next_caution_items: next?.caution_items ?? null,
+      p_prev_participation_set_id: prev?.participation_set_id || null,
+      p_next_participation_set_id: next?.participation_set_id || null,
+      p_prev_participation_steps: prev?.participation_steps ?? null,
+      p_next_participation_steps: next?.participation_steps ?? null,
+      p_app_count: Number.isFinite(app_count) ? app_count : 0,
+      p_bypass_ack: !!bypass_ack,
+    });
+    if (error) throw error;
+    result = data || null;
+  });
+  return result;
+}
+
+// super_admin 전용 — 캠페인 단위 변경 이력 조회 (changed_at desc)
+//   RLS 가 SELECT 를 super_admin 으로 제한하므로 그 외 역할은 빈 배열 수신.
+async function fetchCautionHistory(campaignId) {
+  if (!db || !campaignId) return [];
+  try {
+    const {data, error} = await db?.from('campaign_caution_history')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('changed_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchCautionHistory]', e); return []; }
+}
+
+// ══════════════════════════════════════
 // ADMIN NOTICES (관리자 전용 공지 — migration 063)
 // ══════════════════════════════════════
 

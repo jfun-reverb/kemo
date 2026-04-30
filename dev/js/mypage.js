@@ -109,6 +109,10 @@ let _myDelivsByApp = {};
 async function renderMyApplyList() {
   const container = $('myApplicationsList');
   let filtered = _myAppsTab === 'all' ? _myApps.slice() : _myApps.filter(a => a.status === _myAppsTab);
+  // Phase 2: 비교 캐시는 매 렌더마다 초기화 — 필터 변경/언어 전환 시 stale 데이터 방지
+  if (typeof _cautionCompareCache === 'object' && _cautionCompareCache) {
+    Object.keys(_cautionCompareCache).forEach(k => delete _cautionCompareCache[k]);
+  }
 
   // Stage 6: 결과물 상태 배지용 — 본인 결과물 전체를 application별 그룹핑
   if (currentUser) {
@@ -163,7 +167,7 @@ async function renderMyApplyList() {
       if (ds[0]?.status === 'rejected') delivBadge = `<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">${t('delivStatus.rejected')}</span>`;
     }
     const cautionLine = a.caution_agreed_at
-      ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}</div>`
+      ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
     return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
@@ -176,6 +180,66 @@ async function renderMyApplyList() {
       <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
     </div>`;
   }).join('');
+}
+
+// ── Phase 2: 주의사항 비교 (응모이력 셀 토글) ──
+//   동의 시점 스냅샷(applications.caution_snapshot) vs 현재 캠페인 문구(campaigns.caution_items) 비교
+//   동일하면 토글 자체 노출 X (변경 없을 때 노이즈 방지)
+//   v1 스냅샷(lookup_labels 기반)은 비교 대상 아님 — 자동 숨김
+const _cautionCompareCache = {};
+
+function _normCautionItems(arr) {
+  if (!Array.isArray(arr) || !arr.length) return [];
+  return arr.map(it => ({
+    html_ko: (it && it.html_ko) || '',
+    html_ja: (it && it.html_ja) || '',
+  }));
+}
+
+function cautionCompareButton(app, camp) {
+  if (!app || !camp) return '';
+  const snap = app.caution_snapshot;
+  // v2 스냅샷만 비교 가능 (v1 lookup_labels 형태는 캠페인 items 와 구조가 달라 비교 의미 없음)
+  if (!snap || snap.version !== 2 || !Array.isArray(snap.items)) return '';
+  const snapItems = _normCautionItems(snap.items);
+  const currItems = _normCautionItems(camp.caution_items);
+  if (JSON.stringify(snapItems) === JSON.stringify(currItems)) return '';  // 동일 → 토글 미노출
+  _cautionCompareCache[app.id] = { snap: snapItems, curr: currItems, agreedAt: app.caution_agreed_at };
+  // event.stopPropagation 으로 카드 onclick 차단
+  return ` <button type="button" onclick="event.stopPropagation();openCautionCompareModal('${esc(app.id)}')" style="background:#FFEFEF;color:#B3261E;border:1px solid #f5b1b1;border-radius:10px;font-size:10px;font-weight:600;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:12px">compare_arrows</span>${t('mypage.caution.compareToggle')}</button>`;
+}
+
+function openCautionCompareModal(appId) {
+  const cached = _cautionCompareCache[appId];
+  const body = $('cautionCompareModalBody');
+  if (!body) return;
+  const safe = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
+  if (!cached) {
+    body.innerHTML = `<div style="padding:24px 0;color:var(--muted);font-size:13px;text-align:center">${t('mypage.caution.empty')}</div>`;
+    openModal('cautionCompareModal');
+    return;
+  }
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const pickHtml = (it) => lang === 'ko' ? (it.html_ko || it.html_ja) : (it.html_ja || it.html_ko);
+  const agreedLabel = cached.agreedAt ? formatDate(cached.agreedAt) : '';
+  const renderList = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return `<li style="color:var(--muted)">—</li>`;
+    return arr.map(it => `<li>${safe(pickHtml(it))}</li>`).join('');
+  };
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="border:1px solid #d1e7d3;border-radius:10px;background:#f3faf4;padding:12px 14px">
+        <div style="font-size:11px;font-weight:700;color:#1f7a1f;margin-bottom:6px;display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('mypage.caution.agreedAt')} ${esc(agreedLabel)}</div>
+        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px">${renderList(cached.snap)}</ul>
+      </div>
+      <div style="border:1px solid #f5b1b1;border-radius:10px;background:#fff5f5;padding:12px 14px">
+        <div style="font-size:11px;font-weight:700;color:#B3261E;margin-bottom:6px;display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">campaign</span>${t('mypage.caution.currentNow')}</div>
+        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink);display:flex;flex-direction:column;gap:4px">${renderList(cached.curr)}</ul>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;background:var(--surface-container-low);border-radius:8px;padding:10px 12px">${t('mypage.caution.diffNote')}</div>
+    </div>
+  `;
+  openModal('cautionCompareModal');
 }
 
 async function saveProfile() {

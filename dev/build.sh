@@ -10,6 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 VERSION="v$(date +%s)"
+# 큰 CSS/JS 페이로드는 argv 길이 제한(MAX_ARG_STRLEN)에 걸릴 수 있으므로 임시 파일 경유
+BUILD_TMP="$(mktemp -d -t reverb-build-XXXXXX)"
+trap 'rm -rf "$BUILD_TMP"' EXIT
 
 echo "🔨 REVERB JP 빌드 시작..."
 
@@ -19,25 +22,30 @@ echo "🔨 REVERB JP 빌드 시작..."
 CLIENT_CSS_FILES=("css/base.css" "css/components.css" "css/campaign.css" "css/auth.css" "css/mypage.css")
 CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/storage.js" "lib/legal.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/notifications.js" "js/mypage.js" "js/app.js")
 
-CLIENT_CSS=""
+: > "$BUILD_TMP/client.css"
 for f in "${CLIENT_CSS_FILES[@]}"; do
-  if [ -f "$f" ]; then CLIENT_CSS+="$(cat "$f")"$'\n'
+  if [ -f "$f" ]; then cat "$f" >> "$BUILD_TMP/client.css"; printf '\n' >> "$BUILD_TMP/client.css"
   else echo "⚠️  $f 파일을 찾을 수 없습니다"; fi
 done
 
-CLIENT_JS=""
+: > "$BUILD_TMP/client.js"
 for f in "${CLIENT_JS_FILES[@]}"; do
-  if [ -f "$f" ]; then CLIENT_JS+="$(cat "$f")"$'\n'
+  if [ -f "$f" ]; then cat "$f" >> "$BUILD_TMP/client.js"; printf '\n' >> "$BUILD_TMP/client.js"
   else echo "⚠️  $f 파일을 찾을 수 없습니다"; fi
 done
 
-python3 - "../index.html" "$CLIENT_CSS" "$CLIENT_JS" "$VERSION" "index.html" << 'PYTHON_SCRIPT'
+python3 - "../index.html" "$BUILD_TMP/client.css" "$BUILD_TMP/client.js" "$VERSION" "index.html" << 'PYTHON_SCRIPT'
 import sys, re
 output_path = sys.argv[1]
-all_css = sys.argv[2]
-all_js = sys.argv[3]
+css_path = sys.argv[2]
+js_path = sys.argv[3]
 version = sys.argv[4]
 src_html = sys.argv[5]
+
+with open(css_path, "r", encoding="utf-8") as f:
+    all_css = f.read()
+with open(js_path, "r", encoding="utf-8") as f:
+    all_js = f.read()
 
 with open(src_html, "r", encoding="utf-8") as f:
     html = f.read()
@@ -65,25 +73,30 @@ mkdir -p ../admin
 ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
 ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "js/ui.js" "js/admin.js" "admin/app.js")
 
-ADMIN_CSS=""
+: > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do
-  if [ -f "$f" ]; then ADMIN_CSS+="$(cat "$f")"$'\n'
+  if [ -f "$f" ]; then cat "$f" >> "$BUILD_TMP/admin.css"; printf '\n' >> "$BUILD_TMP/admin.css"
   else echo "⚠️  $f 파일을 찾을 수 없습니다"; fi
 done
 
-ADMIN_JS=""
+: > "$BUILD_TMP/admin.js"
 for f in "${ADMIN_JS_FILES[@]}"; do
-  if [ -f "$f" ]; then ADMIN_JS+="$(cat "$f")"$'\n'
+  if [ -f "$f" ]; then cat "$f" >> "$BUILD_TMP/admin.js"; printf '\n' >> "$BUILD_TMP/admin.js"
   else echo "⚠️  $f 파일을 찾을 수 없습니다"; fi
 done
 
-python3 - "../admin/index.html" "$ADMIN_CSS" "$ADMIN_JS" "$VERSION" "admin/index.html" << 'PYTHON_SCRIPT'
+python3 - "../admin/index.html" "$BUILD_TMP/admin.css" "$BUILD_TMP/admin.js" "$VERSION" "admin/index.html" << 'PYTHON_SCRIPT'
 import sys, re
 output_path = sys.argv[1]
-all_css = sys.argv[2]
-all_js = sys.argv[3]
+css_path = sys.argv[2]
+js_path = sys.argv[3]
 version = sys.argv[4]
 src_html = sys.argv[5]
+
+with open(css_path, "r", encoding="utf-8") as f:
+    all_css = f.read()
+with open(js_path, "r", encoding="utf-8") as f:
+    all_js = f.read()
 
 with open(src_html, "r", encoding="utf-8") as f:
     html = f.read()

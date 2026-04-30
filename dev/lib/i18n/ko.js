@@ -144,6 +144,15 @@ window.I18N_KO = {
     withdraw: '회원 탈퇴',
     withdrawConfirm: '정말 탈퇴하시겠습니까?',
     withdrawToast: '탈퇴 요청을 접수했습니다. 운영팀에 LINE으로 연락해주세요.',
+    // 주의사항 비교 (Phase 2)
+    caution: {
+      compareToggle: '현재 문구와 비교',
+      compareTitle: '주의사항 비교',
+      agreedAt: '동의 시점',
+      currentNow: '현재',
+      diffNote: '※ 동의 시점의 문구가 계속 유효합니다. 현재 문구는 이후 신규 응모자에게 적용됩니다.',
+      empty: '주의사항 데이터가 없습니다',
+    },
   },
 
   appHistory: {

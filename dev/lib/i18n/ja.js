@@ -150,6 +150,15 @@ window.I18N_JA = {
     withdraw: '退会する',
     withdrawConfirm: '本当に退会しますか？',
     withdrawToast: '退会申請を受け付けました。運営にLINEでご連絡ください。',
+    // 주의사항 비교 (Phase 2)
+    caution: {
+      compareToggle: '現在の文言と比較',
+      compareTitle: '注意事項の比較',
+      agreedAt: '同意時点',
+      currentNow: '現在',
+      diffNote: '※ 同意時点の文言が引き続き有効です。現在の文言は今後の応募者に適用されます。',
+      empty: '注意事項データがありません',
+    },
   },
 
   // 응모이력
