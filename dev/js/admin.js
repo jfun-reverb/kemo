@@ -6879,11 +6879,13 @@ async function openBrandAppDetail(id) {
   if (Array.isArray(a.products) && a.products.length > 0) {
     productsHtml = '<table class="data-table" style="font-size:12px;margin:0;table-layout:fixed">'
       + '<thead><tr>'
-        + '<th style="width:30%">제품명</th>'
+        + '<th style="width:24%">제품명</th>'
         + '<th>URL</th>'
-        + '<th style="width:80px;text-align:right">수량</th>'
-        + '<th style="width:110px;text-align:right">가격 (¥)</th>'
-        + '<th style="width:130px;text-align:right">총액 (¥)</th>'
+        + '<th style="width:70px;text-align:right">수량</th>'
+        + '<th style="width:100px;text-align:right">가격 (¥)</th>'
+        + '<th style="width:100px;text-align:right">모집비용 (¥)</th>'
+        + '<th style="width:100px;text-align:right">이체 수수료 (¥)</th>'
+        + '<th style="width:120px;text-align:right">총액 (¥)</th>'
       + '</tr></thead>'
       + '<tbody>' + a.products.map(function(p){
         var price = Number(p.price) || 0;
@@ -6911,6 +6913,8 @@ async function openBrandAppDetail(id) {
           + '<td>' + urlCell + '</td>'
           + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + qty.toLocaleString('ja-JP') + '</td>'
           + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + price.toLocaleString('ja-JP') + '</td>'
+          + '<td style="text-align:right;color:var(--muted)">—</td>'
+          + '<td style="text-align:right;color:var(--muted)">—</td>'
           + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + lineTotal.toLocaleString('ja-JP') + '</td>'
         + '</tr>';
       }).join('') + '</tbody></table>';
