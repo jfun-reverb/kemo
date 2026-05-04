@@ -6969,7 +6969,7 @@ function renderBrandApplicationsList() {
       + '<input type="date" class="qsent-date" value="' + qDateValue + '" ' + (a.quote_sent_at && !qLocked ? '' : 'disabled') + ' onchange="updateBrandAppQuoteSentDate(\'' + esc(a.id) + '\', this)" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (a.quote_sent_at && !qLocked ? '#fff' : '#F5F5F5') + '">'
     + '</div>';
     var memoText = (a.admin_memo || '').trim();
-    var memoCell = '<textarea class="brand-app-memo" data-id="' + esc(a.id) + '" data-original="' + esc(memoText) + '" ' + (qLocked ? 'disabled' : '') + ' onblur="saveBrandAppMemo(\'' + esc(a.id) + '\', this)" placeholder="메모 입력…" style="width:100%;min-height:42px;max-height:80px;font-size:11px;line-height:1.4;padding:4px 6px;border:1px solid var(--line);border-radius:4px;resize:vertical;font-family:inherit;color:var(--ink);background:' + (qLocked ? '#F5F5F5' : '#fff') + '">' + esc(memoText) + '</textarea>';
+    var memoCell = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>';
     return '<tr data-id="' + esc(a.id) + '">'
       + '<td>'
         + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
@@ -7302,34 +7302,87 @@ async function updateBrandAppQuoteSentDate(id, dateInput) {
   toast('전달일이 저장되었습니다.');
 }
 
-async function saveBrandAppMemo(id, textareaEl) {
-  if (!currentAdminInfo) return;
+function renderMemoDisplay(memoText, locked) {
+  var safe = (memoText || '').trim();
+  var color = safe ? 'var(--ink)' : 'var(--muted)';
+  var content = safe ? esc(safe) : '—';
+  return '<div class="memo-display" style="font-size:11px;color:' + color + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;padding-right:22px;white-space:pre-wrap" title="' + esc(safe) + '">' + content + '</div>'
+    + '<button type="button" class="memo-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterMemoEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '메모 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreMemoDisplay(cell, memoText, locked) {
+  cell.innerHTML = renderMemoDisplay(memoText, locked);
+}
+
+function enterMemoEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-memo-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
   var cur = _findBrandApp(id);
   if (!cur) return;
-  if (cur.status === 'done' || cur.status === 'rejected') {
-    textareaEl.value = cur.admin_memo || '';
+  var locked = (cur.status === 'done' || cur.status === 'rejected');
+  if (locked) return;
+  var original = (cur.admin_memo || '').trim();
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<textarea class="memo-edit-input" data-original="' + esc(original) + '" onkeydown="handleMemoEditKey(event, this)" style="width:100%;min-height:60px;font-size:11px;line-height:1.4;padding:4px 6px;border:1px solid var(--pink);border-radius:4px;resize:vertical;font-family:inherit;color:var(--ink)">' + esc(original) + '</textarea>'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelMemoEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmMemoEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+  var ta = cell.querySelector('.memo-edit-input');
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+function handleMemoEditKey(ev, taEl) {
+  if (ev.key === 'Escape') {
+    ev.preventDefault();
+    cancelMemoEdit(taEl);
+  } else if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
+    ev.preventDefault();
+    confirmMemoEdit(taEl);
+  }
+}
+
+function cancelMemoEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-memo-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  var memoText = (cur?.admin_memo || '').trim();
+  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
+  _restoreMemoDisplay(cell, memoText, !!locked);
+}
+
+async function confirmMemoEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-memo-cell');
+  if (!cell) return;
+  var ta = cell.querySelector('.memo-edit-input');
+  if (!ta) return;
+  var id = cell.dataset.id;
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  var nextValue = (ta.value || '').trim();
+  var prevValue = (cur.admin_memo || '').trim();
+  if (nextValue === prevValue) {
+    _restoreMemoDisplay(cell, prevValue, false);
     return;
   }
-  var nextValue = (textareaEl.value || '').trim();
-  var prevValue = (cur.admin_memo || '').trim();
-  if (nextValue === prevValue) return; // 변동 없음
   var prevVersion = cur.version;
-  textareaEl.disabled = true;
+  ta.disabled = true;
   var result = await updateBrandApplication(id, {admin_memo: nextValue || null}, prevVersion);
-  textareaEl.disabled = false;
+  ta.disabled = false;
   if (result.conflict) {
     toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
     await loadBrandApplications();
     return;
   }
   if (!result.ok) {
-    textareaEl.value = prevValue;
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
     return;
   }
   cur.admin_memo = nextValue || null;
   cur.version = result.data?.version || (prevVersion + 1);
-  textareaEl.dataset.original = nextValue;
+  _restoreMemoDisplay(cell, nextValue, false);
   toast('메모가 저장되었습니다.');
 }
 
