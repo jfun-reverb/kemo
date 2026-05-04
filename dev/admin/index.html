@@ -266,7 +266,23 @@
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group"><label class="form-label">캠페인명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampTitle" class="form-input"></div>
-              <div class="form-group"><label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label><input type="text" id="editCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)"><input type="text" id="editCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px"></div>
+              <div class="form-group">
+                <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <div style="display:flex;gap:6px;align-items:stretch">
+                  <select id="editCampBrandId" class="form-input" style="flex:1" onchange="onCampBrandChange('edit')">
+                    <option value="">-- 브랜드 선택 --</option>
+                  </select>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="openNewBrandModal('edit')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
+                  </button>
+                </div>
+                <select id="editCampSourceAppId" class="form-input" style="margin-top:6px;display:none" onchange="onCampSourceAppChange('edit')">
+                  <option value="">선택 안 함 (외부 캠페인)</option>
+                </select>
+                <div id="editCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px;color:var(--muted)"></div>
+                <input type="hidden" id="editCampBrand">
+                <input type="hidden" id="editCampBrandKo">
+              </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
               <div class="form-group">
@@ -505,9 +521,21 @@
                 <input type="text" id="newCampTitle" class="form-input" placeholder="그린티 세럼 체험단">
               </div>
               <div class="form-group">
-                <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="text" id="newCampBrand" class="form-input" placeholder="원본 (일본어/영문 그대로)">
-                <input type="text" id="newCampBrandKo" class="form-input" placeholder="한국어 표기 (선택, 신청관리 등에서 노출)" style="margin-top:6px">
+                <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+                <div style="display:flex;gap:6px;align-items:stretch">
+                  <select id="newCampBrandId" class="form-input" style="flex:1" onchange="onCampBrandChange('new')">
+                    <option value="">-- 브랜드 선택 --</option>
+                  </select>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="openNewBrandModal('new')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
+                    <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
+                  </button>
+                </div>
+                <select id="newCampSourceAppId" class="form-input" style="margin-top:6px;display:none" onchange="onCampSourceAppChange('new')">
+                  <option value="">선택 안 함 (외부 캠페인)</option>
+                </select>
+                <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">신청 연결 시 캠페인 번호가 <code>B0001-A001-C001</code> 형식으로 채번됩니다.</div>
+                <input type="hidden" id="newCampBrand">
+                <input type="hidden" id="newCampBrandKo">
               </div>
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">

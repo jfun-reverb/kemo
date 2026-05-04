@@ -164,6 +164,8 @@ function switchAdminPane(pane, el, pushHistory) {
     renderCampCautionItems('new');
     renderCampBundleSummary('cset', 'new');
     setupCampPreview('new');
+    // brand 드롭다운 로드 (캐시는 _campBrandsCache로 재사용)
+    loadCampBrandSelect('new', '').then(() => onCampBrandChange('new'));
   }
   if (pane === 'edit-campaign') {
     setupCampPreview('edit');
@@ -944,6 +946,16 @@ async function openEditCampaign(campId) {
   sv('editCampTitle', camp.title);
   sv('editCampBrand', camp.brand);
   sv('editCampBrandKo', camp.brand_ko || '');
+  // brand 드롭다운 + 신청 cascade 로드 (camp.brand_id, camp.source_application_id)
+  loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
+    if (camp.brand_id) {
+      await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
+      var srcSel = $('editCampSourceAppId');
+      if (srcSel) srcSel.style.display = '';
+    }
+    // hint 갱신
+    onCampBrandChange('edit');
+  });
   sv('editCampProduct', camp.product);
   sv('editCampProductKo', camp.product_ko || '');
   sv('editCampProductUrl', camp.product_url||'');
@@ -1912,8 +1924,10 @@ async function saveCampaignEdit() {
       return $(id)?.value||'';
     };
     const title = gv('editCampTitle').trim();
+    const brandId = $('editCampBrandId')?.value || '';
+    if (!title || !brandId) { toast('캠페인명과 브랜드는 필수입니다','error'); return; }
+    const sourceAppId = $('editCampSourceAppId')?.value || null;
     const brand = gv('editCampBrand').trim();
-    if (!title||!brand) { toast('캠페인명과 브랜드명은 필수입니다','error'); return; }
 
     const editDeadline = gv('editCampDeadline');
     const editPostDeadline = gv('editCampPostDeadline');
@@ -1938,6 +1952,8 @@ async function saveCampaignEdit() {
 
     const updates = {
       title, brand,
+      brand_id: brandId,
+      source_application_id: sourceAppId || null,
       brand_ko: gv('editCampBrandKo')?.trim() || null,
       product: gv('editCampProduct'),
       product_ko: gv('editCampProductKo')?.trim() || null,
@@ -3653,7 +3669,12 @@ async function updateAppStatus(appId, status) {
 async function addCampaign() {
   try {
   const title = $('newCampTitle').value.trim();
-  const brand = $('newCampBrand').value.trim();
+  const brandId = $('newCampBrandId')?.value || '';
+  if (!brandId) { toast('브랜드를 선택해주세요','error'); return; }
+  const sourceAppId = $('newCampSourceAppId')?.value || null;
+  // brand 텍스트는 select 캐시에서 직접 추출 (hidden #newCampBrand가 race 시점에 비어있을 수 있어 fallback 보강)
+  const _pickedBrand = (_campBrandsCache || []).find(b => b.id === brandId);
+  const brand = (_pickedBrand?.name || $('newCampBrand').value || '').trim();
   const brandKo = ($('newCampBrandKo')?.value || '').trim();
   const product = $('newCampProduct').value.trim();
   const productKo = ($('newCampProductKo')?.value || '').trim();
@@ -3687,6 +3708,8 @@ async function addCampaign() {
 
   const camp = {
     title, brand, product,
+    brand_id: brandId,
+    source_application_id: sourceAppId || null,
     brand_ko: brandKo || null,
     product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
@@ -3730,11 +3753,13 @@ async function addCampaign() {
   campImgData.length = 0;
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
-  ['newCampTitle','newCampBrand','newCampProduct','newCampProductUrl',
+  ['newCampTitle','newCampBrand','newCampBrandKo','newCampBrandId','newCampSourceAppId',
+   'newCampProduct','newCampProductUrl',
    'newCampSlots','newCampRecruitStart','newCampDeadline','newCampPostDeadline',
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
    'newCampSubmissionEnd','newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
+  var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) newSrcSel.style.display = 'none';
   // flatpickr range picker 클리어
   applyCampRangeValues('newCamp', { recruit:[null,null], purchase:[null,null], visit:[null,null] });
   // 리치 에디터 초기화
@@ -7269,7 +7294,11 @@ async function saveBrandDetail() {
   await loadBrandsPane();
 }
 
-async function openNewBrandModal() {
+// 캠페인 폼에서 호출 시 callbackPrefix='new'|'edit' 전달 → 등록 후 해당 select 자동 갱신·선택
+var _newBrandCallbackPrefix = null;
+
+async function openNewBrandModal(callbackPrefix) {
+  _newBrandCallbackPrefix = (callbackPrefix === 'new' || callbackPrefix === 'edit') ? callbackPrefix : null;
   // 빈 brand 객체로 모달 열기
   _brandsCurrentId = null;
   var modal = $('brandDetailModal');
@@ -7301,7 +7330,101 @@ async function submitNewBrand() {
   }
   toast('브랜드가 등록되었습니다.');
   closeBrandDetailModal();
-  await loadBrandsPane();
+  // 캠페인 폼에서 호출됐으면 해당 폼의 brand select 갱신 + 신규 brand 자동 선택
+  if (_newBrandCallbackPrefix && result.data?.id) {
+    var prefix = _newBrandCallbackPrefix;
+    _newBrandCallbackPrefix = null;
+    _campBrandsCache = null;  // 신규 brand 포함하기 위해 캐시 무효화
+    await loadCampBrandSelect(prefix, result.data.id);
+    await onCampBrandChange(prefix);
+  } else {
+    await loadBrandsPane();
+  }
+}
+
+// ── 캠페인 폼 brand 드롭다운 + 신청 cascade ──
+var _campBrandsCache = null;
+var _campAppsCache = {};  // brandId → applications[]
+
+async function loadCampBrandSelect(prefix, currentBrandId) {
+  var sel = $(prefix + 'CampBrandId');
+  if (!sel) return;
+  if (!_campBrandsCache) {
+    _campBrandsCache = await fetchBrands({status: 'active'}) || [];
+  }
+  var current = currentBrandId || sel.value || '';
+  var html = '<option value="">-- 브랜드 선택 --</option>';
+  for (var i = 0; i < _campBrandsCache.length; i++) {
+    var b = _campBrandsCache[i];
+    var label = esc(b.name) + (b.brand_no ? ' [' + esc(b.brand_no) + ']' : '');
+    html += '<option value="' + esc(b.id) + '"' + (current === b.id ? ' selected' : '') + '>' + label + '</option>';
+  }
+  sel.innerHTML = html;
+}
+
+async function onCampBrandChange(prefix) {
+  var sel = $(prefix + 'CampBrandId');
+  var hiddenName = $(prefix + 'CampBrand');
+  var hiddenNameKo = $(prefix + 'CampBrandKo');
+  var sourceSel = $(prefix + 'CampSourceAppId');
+  var hint = $(prefix + 'CampBrandHint');
+  if (!sel) return;
+  var brandId = sel.value || '';
+  // hidden brand 컬럼은 legacy 호환 — 선택한 brand의 name 자동 채움
+  var picked = (_campBrandsCache || []).find(function(b){ return b.id === brandId; });
+  if (hiddenName) hiddenName.value = picked ? (picked.name || '') : '';
+  if (hiddenNameKo) hiddenNameKo.value = '';  // 086 이후 brands는 단일 name. 한국어 표기는 brand 마스터에서 관리
+  // 신청 cascade
+  if (sourceSel) {
+    if (!brandId) {
+      sourceSel.style.display = 'none';
+      sourceSel.innerHTML = '<option value="">선택 안 함 (외부 캠페인)</option>';
+      sourceSel.value = '';
+    } else {
+      sourceSel.style.display = '';
+      await loadCampSourceAppSelect(prefix, brandId);
+    }
+  }
+  if (hint) {
+    if (!brandId) {
+      hint.textContent = '브랜드를 먼저 선택해주세요.';
+    } else {
+      var seq = Number.isInteger(picked?.brand_seq) ? lpad(picked.brand_seq, 4) : '????';
+      var fmt = (sourceSel && sourceSel.value)
+        ? 'B' + seq + '-A###-C###'
+        : 'B' + seq + '-C###';
+      hint.innerHTML = '캠페인 번호: <code>' + esc(fmt) + '</code> 형식'
+        + (sourceSel && sourceSel.value ? '' : ' (외부 캠페인)');
+    }
+  }
+}
+
+async function loadCampSourceAppSelect(prefix, brandId, currentAppId) {
+  var sel = $(prefix + 'CampSourceAppId');
+  if (!sel) return;
+  if (!_campAppsCache[brandId]) {
+    _campAppsCache[brandId] = await fetchBrandApplicationsByBrand(brandId) || [];
+  }
+  var apps = _campAppsCache[brandId];
+  var current = currentAppId || sel.value || '';
+  var html = '<option value="">선택 안 함 (외부 캠페인)</option>';
+  for (var i = 0; i < apps.length; i++) {
+    var a = apps[i];
+    var label = (a.application_no || a.id.slice(0,8)) + ' · ' + (a.form_type === 'reviewer' ? '리뷰어' : '시딩') + ' · ' + (getStatusBadgeKo(a.status) || a.status);
+    html += '<option value="' + esc(a.id) + '"' + (current === a.id ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
+  sel.innerHTML = html;
+}
+
+function onCampSourceAppChange(prefix) {
+  // hint 갱신만
+  return onCampBrandChange(prefix);
+}
+
+function lpad(v, n) {
+  var s = String(v == null ? '' : v);
+  while (s.length < n) s = '0' + s;
+  return s;
 }
 
 
