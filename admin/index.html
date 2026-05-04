@@ -12727,34 +12727,27 @@ function closeBrandDetailModal() {
   _brandsCurrentId = null;
 }
 
-// 헤더 — brand_no | name | status pill (클릭 토글)
+// 헤더 — brand_no | name | status select (드롭다운, 활성/비활성 명확히 선택)
 function renderBrandDetailHeaderHtml(b) {
   var status = b.status || 'active';
-  var statusLabel = status === 'archived' ? '비활성' : '활성';
-  var statusBg = status === 'archived' ? '#F0F0F0' : '#E8F5E9';
-  var statusColor = status === 'archived' ? '#888' : '#16a34a';
-  return '<input type="hidden" id="brandFormStatus" value="' + esc(status) + '">'
-    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
-      + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px">' + esc(b.brand_no || '신규') + '</span>'
-      + '<span style="font-weight:700;color:var(--ink)">' + esc(b.name || '새 브랜드') + '</span>'
-      + '<button type="button" id="brandStatusPill" onclick="toggleBrandStatusPill()" title="클릭하여 활성/비활성 전환" style="background:' + statusBg + ';color:' + statusColor + ';font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px;border:none;cursor:pointer">' + statusLabel + '</button>'
+  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
+      + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
+      + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : '#16a34a') + '">'
+        + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
+        + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
+      + '</select>'
     + '</div>';
 }
 
-function toggleBrandStatusPill() {
-  var hidden = $('brandFormStatus');
-  var pill = $('brandStatusPill');
-  if (!hidden || !pill) return;
-  var next = hidden.value === 'archived' ? 'active' : 'archived';
-  hidden.value = next;
-  if (next === 'archived') {
-    pill.textContent = '비활성';
-    pill.style.background = '#F0F0F0';
-    pill.style.color = '#888';
+function syncBrandStatusVisual(sel) {
+  if (!sel) return;
+  if (sel.value === 'archived') {
+    sel.style.backgroundColor = '#F0F0F0';
+    sel.style.color = '#666';
   } else {
-    pill.textContent = '활성';
-    pill.style.background = '#E8F5E9';
-    pill.style.color = '#16a34a';
+    sel.style.backgroundColor = '#E8F5E9';
+    sel.style.color = '#16a34a';
   }
 }
 
@@ -12776,7 +12769,6 @@ function renderBrandDetailFormHtml(b, apps) {
       is_primary: !!c.is_primary
     };
   }) : [];
-  // legacy primary_* 가 있고 contacts 비어있으면 1개 자동 추가 (마이그레이션 호환)
   if (_brandFormContacts.length === 0 && (b.primary_contact_name || b.primary_phone || b.primary_email)) {
     _brandFormContacts.push({
       id: _genContactId(),
@@ -12787,17 +12779,31 @@ function renderBrandDetailFormHtml(b, apps) {
     });
   }
 
-  var sectionLabel = function(t){ return '<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink);margin:0 0 10px">' + esc(t) + '</div>'; };
-  var input = function(id, label, val, placeholder) {
-    return '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
+  // 공통 헬퍼
+  var section = function(title, rightHtml, contentHtml) {
+    return '<section style="padding:18px 0;border-bottom:1px solid var(--surface-dim)">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+        + '<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:14px;background:var(--pink);border-radius:2px"></span><span style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(title) + '</span></div>'
+        + (rightHtml || '')
+      + '</div>'
+      + contentHtml
+    + '</section>';
   };
-  var textarea = function(id, label, val, placeholder) {
-    return '<div style="grid-column:1 / -1"><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="2" style="resize:vertical;font-family:inherit" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
+  var labelStyle = 'color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:5px';
+  var input = function(id, label, val, placeholder) {
+    return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
+  };
+  var ta = function(id, label, val, placeholder, rows) {
+    return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="' + (rows || 3) + '" style="resize:vertical;font-family:inherit;width:100%" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
   };
 
-  var appsHtml = '<div style="color:var(--muted);font-size:12px;padding:10px">신청 내역 없음</div>';
-  if (apps && apps.length > 0) {
-    appsHtml = '<table class="data-table" style="font-size:12px;margin:0">'
+  // 신청 내역
+  var appsHtml;
+  if (!apps || apps.length === 0) {
+    appsHtml = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">신청 내역 없음</div>';
+  } else {
+    appsHtml = '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'
+      + '<table class="data-table" style="font-size:12px;margin:0;width:100%">'
       + '<thead><tr><th>신청번호</th><th>폼</th><th>상태</th><th style="text-align:right">예상 견적</th><th>신청일</th></tr></thead>'
       + '<tbody>' + apps.map(function(a){
         return '<tr>'
@@ -12805,75 +12811,72 @@ function renderBrandDetailFormHtml(b, apps) {
           + '<td>' + esc(brandAppFormLabel(a.form_type)) + '</td>'
           + '<td>' + esc((BRAND_APP_STATUS[a.status]?.label) || a.status || '—') + '</td>'
           + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
-          + '<td>' + fmtDate(a.created_at) + '</td>'
+          + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
         + '</tr>';
-      }).join('') + '</tbody></table>';
+      }).join('') + '</tbody></table></div>';
   }
 
   return ''
     // § 기본 정보
-    + '<div style="margin-bottom:18px">' + sectionLabel('기본 정보')
-      // 브랜드명 한 행 (한국어/일본어/영문)
-      + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
-        + input('brandFormName', '브랜드명 (한국어) *', b.name)
-        + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
-        + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
-      + '</div>'
-      // 사업자등록번호 / 계산서 이메일 한 행
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-        + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
-        + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
-      + '</div>'
-    + '</div>'
-
-    // § 담당자 (multi-entry)
-    + '<div style="margin-bottom:18px">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
-        + sectionLabel('담당자')
-        + '<button type="button" class="btn btn-ghost btn-xs" onclick="addBrandContact()" style="display:inline-flex;align-items:center;gap:3px;margin-bottom:10px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span> 담당자 추가</button>'
-      + '</div>'
-      + '<div id="brandContactsWrap"></div>'
-    + '</div>'
-
-    // § 브랜드 콘텐츠 (Phase 2 대비)
-    + '<div style="margin-bottom:18px">' + sectionLabel('브랜드 콘텐츠 (오리엔시트용)')
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-        + textarea('brandFormDescription', '브랜드 소개', b.description)
-        + textarea('brandFormAppealPoints', '어필 포인트', b.appeal_points)
-        + input('brandFormQoo10Url', '공식 Qoo10 URL', b.official_qoo10_url)
-        + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url)
-        + input('brandFormXUrl', '공식 X URL', b.official_x_url)
-      + '</div>'
-    + '</div>'
-
+    + section('기본 정보', '',
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+          + input('brandFormName', '브랜드명 (한국어) *', b.name)
+          + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
+          + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+          + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
+          + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
+        + '</div>'
+      )
+    // § 담당자
+    + section('담당자', '<button type="button" class="btn btn-ghost btn-xs" onclick="addBrandContact()" style="display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span> 담당자 추가</button>',
+        '<div id="brandContactsHeader" style="display:grid;grid-template-columns:1.3fr 1.3fr 2fr 110px 32px;gap:8px;margin-bottom:6px;padding:0 4px">'
+          + '<div style="' + labelStyle + ';margin:0">담당자명</div>'
+          + '<div style="' + labelStyle + ';margin:0">연락처</div>'
+          + '<div style="' + labelStyle + ';margin:0">메일주소</div>'
+          + '<div style="' + labelStyle + ';margin:0;text-align:center">대표</div>'
+          + '<div></div>'
+        + '</div>'
+        + '<div id="brandContactsWrap"></div>'
+      )
+    // § 브랜드 콘텐츠
+    + section('브랜드 콘텐츠 (오리엔시트용)', '',
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+          + ta('brandFormDescription', '브랜드 소개', b.description, '브랜드 한줄 소개·수상 이력 등', 3)
+          + ta('brandFormAppealPoints', '어필 포인트', b.appeal_points, '제품·시장에서의 강점', 3)
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
+          + input('brandFormQoo10Url', '공식 Qoo10 URL', b.official_qoo10_url, 'https://www.qoo10.jp/...')
+          + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url, 'https://www.instagram.com/...')
+          + input('brandFormXUrl', '공식 X URL', b.official_x_url, 'https://x.com/...')
+        + '</div>'
+      )
     // § 영업 메모
-    + '<div style="margin-bottom:18px">' + sectionLabel('영업 메모')
-      + '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
-    + '</div>'
-
+    + section('영업 메모', '', ta('brandFormMemo', '', b.memo, '브랜드 단위 영업 메모', 3).replace('<label style="' + labelStyle + '"></label>', ''))
     // § 신청 내역
-    + '<div style="margin-bottom:6px">' + sectionLabel('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)') + appsHtml + '</div>';
-  // 담당자 섹션 초기 렌더는 caller가 innerHTML 적용 후 직접 호출 — inline <script>는 admin.js 인라인 빌드를 깨므로 사용 금지
+    + section('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)', '', appsHtml);
 }
 
-// 담당자 행 렌더링 (한 행: 이름 / 연락처 / 이메일 / 대표 / 삭제)
+// 담당자 행 렌더링 (헤더와 동일한 grid: 이름/연락처/메일/대표/삭제)
 function renderBrandContactsRows() {
   var wrap = $('brandContactsWrap');
   if (!wrap) return;
   if (_brandFormContacts.length === 0) {
-    wrap.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:6px">담당자가 없습니다. "담당자 추가" 버튼을 눌러 등록하세요.</div>';
+    wrap.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:6px">담당자가 없습니다. "담당자 추가" 버튼을 눌러 등록하세요.</div>';
     return;
   }
-  wrap.innerHTML = _brandFormContacts.map(function(c, idx){
-    var primaryBtn = c.is_primary
-      ? '<button type="button" onclick="setBrandPrimaryContact(\'' + esc(c.id) + '\')" title="대표 담당자" style="background:#FFF8E1;color:#F57F17;border:1px solid #FFE082;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:600;white-space:nowrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:middle">star</span> 대표</button>'
-      : '<button type="button" onclick="setBrandPrimaryContact(\'' + esc(c.id) + '\')" title="대표로 설정" style="background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:500;white-space:nowrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:middle">star_outline</span> 대표 설정</button>';
-    return '<div class="brand-contact-row" data-cid="' + esc(c.id) + '" style="display:grid;grid-template-columns:1.3fr 1.3fr 2fr auto auto;gap:8px;align-items:center;margin-bottom:6px">'
+  wrap.innerHTML = _brandFormContacts.map(function(c){
+    var isPrimary = !!c.is_primary;
+    // 라디오 형태의 별 토글 — 클릭 가능 명확
+    var primaryBtn = '<button type="button" onclick="setBrandPrimaryContact(\'' + esc(c.id) + '\')" title="' + (isPrimary ? '대표 담당자' : '대표로 설정') + '" style="background:' + (isPrimary ? '#FFF8E1' : '#fff') + ';color:' + (isPrimary ? '#F57F17' : 'var(--muted)') + ';border:1px solid ' + (isPrimary ? '#FFE082' : 'var(--line)') + ';border-radius:6px;padding:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:100%;height:34px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">' + (isPrimary ? 'star' : 'star_outline') + '</span></button>';
+    var delBtn = '<button type="button" onclick="removeBrandContact(\'' + esc(c.id) + '\')" title="삭제" style="background:#fff;border:1px solid var(--line);border-radius:6px;padding:6px;cursor:pointer;color:#c0392b;display:inline-flex;align-items:center;justify-content:center;width:32px;height:34px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete_outline</span></button>';
+    return '<div class="brand-contact-row" data-cid="' + esc(c.id) + '" style="display:grid;grid-template-columns:1.3fr 1.3fr 2fr 110px 32px;gap:8px;align-items:center;margin-bottom:6px">'
       + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.name) + '" placeholder="담당자명" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'name\',this.value)">'
-      + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.phone) + '" placeholder="연락처" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'phone\',this.value)">'
-      + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.email) + '" placeholder="메일주소" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'email\',this.value)">'
+      + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.phone) + '" placeholder="010-0000-0000" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'phone\',this.value)">'
+      + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.email) + '" placeholder="example@brand.com" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'email\',this.value)">'
       + primaryBtn
-      + '<button type="button" onclick="removeBrandContact(\'' + esc(c.id) + '\')" title="삭제" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 6px;cursor:pointer;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span></button>'
+      + delBtn
     + '</div>';
   }).join('');
 }
