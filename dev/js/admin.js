@@ -6987,6 +6987,22 @@ function getFilteredBrandApps() {
       var BRAND_APP_STATUS_ORDER = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:9};
       av = BRAND_APP_STATUS_ORDER[a.status] ?? 99;
       bv = BRAND_APP_STATUS_ORDER[b.status] ?? 99;
+    } else if (_brandAppSort.field === 'brand') {
+      av = (a.brand_name || '').toLowerCase();
+      bv = (b.brand_name || '').toLowerCase();
+    } else if (_brandAppSort.field === 'quoteSent') {
+      // NULL은 항상 가장 뒤(asc/desc 무관)
+      var ax = a.quote_sent_at || ''; var bx = b.quote_sent_at || '';
+      if (!ax && !bx) return 0;
+      if (!ax) return 1;
+      if (!bx) return -1;
+      av = ax; bv = bx;
+    } else if (_brandAppSort.field === 'reviewed') {
+      var ay = a.reviewed_at || ''; var by = b.reviewed_at || '';
+      if (!ay && !by) return 0;
+      if (!ay) return 1;
+      if (!by) return -1;
+      av = ay; bv = by;
     } else {
       av = a.created_at || ''; bv = b.created_at || '';
     }
