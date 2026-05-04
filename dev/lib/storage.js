@@ -1359,12 +1359,15 @@ async function fetchBrandApplications(filters) {
     return await fetchAllPaged(() => {
       let q = db.from('brand_applications').select(`
         id, application_no, form_type,
+        brand_id, source, intake_admin_id,
+        applicant_contact_name, applicant_phone, applicant_email,
         brand_name, contact_name, phone, email, billing_email,
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at,
         status, admin_memo, request_note,
         reviewed_by, reviewed_at,
-        version, created_at, updated_at
+        version, created_at, updated_at,
+        brand:brands(id, brand_no, name, contacts, billing_email, status)
       `);
       if (filters?.form_type && filters.form_type !== 'all') q = q.eq('form_type', filters.form_type);
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);

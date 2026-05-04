@@ -7346,9 +7346,10 @@ function getFilteredBrandApps() {
   if (from) list = list.filter(a => (a.created_at || '') >= from);
   if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
   if (q) list = list.filter(a =>
-    (a.brand_name || '').toLowerCase().includes(q) ||
-    (a.contact_name || '').toLowerCase().includes(q) ||
-    (a.email || '').toLowerCase().includes(q) ||
+    (a.brand?.name || a.brand_name || '').toLowerCase().includes(q) ||
+    (a.brand?.brand_no || '').toLowerCase().includes(q) ||
+    (a.applicant_contact_name || a.contact_name || '').toLowerCase().includes(q) ||
+    (a.applicant_email || a.email || '').toLowerCase().includes(q) ||
     (a.application_no || '').toLowerCase().includes(q) ||
     (a.request_note || '').toLowerCase().includes(q)
   );
@@ -7653,17 +7654,33 @@ function renderBrandAppSummaryRow(a) {
         + '</div>'
       + '</div>'
     + '</td>'
-    // 2. 브랜드
-    + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
-    // 3. 담당자
-    + '<td>'
-      + '<div>' + esc(a.contact_name || '—') + '</div>'
-      + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
-    + '</td>'
+    // 2. 브랜드 — brands.name 우선, 클릭 시 브랜드 상세 모달
+    + (function(){
+        var brandName = a.brand?.name || a.brand_name || '—';
+        var brandNo = a.brand?.brand_no || '';
+        if (a.brand_id) {
+          return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+            + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
+          + '</td>';
+        }
+        return '<td style="font-weight:600">' + esc(brandName) + '</td>';
+      })()
+    // 3. 담당자 — applicant_* 우선 (신청 시점 스냅샷), 없으면 legacy contact
+    + (function(){
+        var name = a.applicant_contact_name || a.contact_name || '—';
+        var email = a.applicant_email || a.email || '';
+        return '<td>'
+          + '<div>' + esc(name) + '</div>'
+          + (email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(email) + '</div>' : '')
+        + '</td>';
+      })()
     // 4. 연락처
-    + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
-    // 5. 계산서 이메일
-    + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
+    + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.applicant_phone || a.phone) || '—') + '</td>'
+    // 5. 계산서 이메일 — brands.billing_email 우선, 없으면 application
+    + (function(){
+        var be = a.brand?.billing_email || a.billing_email || '';
+        return '<td style="font-size:12px;color:' + (be ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(be || '—') + '</td>';
+      })()
     // 6. 요청사항
     + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
     // 7. 제품명 (요약: 첫 제품 + N개 표시 또는 — )
