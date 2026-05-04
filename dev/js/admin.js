@@ -6959,15 +6959,8 @@ function renderBrandApplicationsList() {
       ? esc(prodCount + '종 · ' + (Number(a.total_qty) || 0) + '개')
         + '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">¥ ' + (Number(a.total_jpy) || 0).toLocaleString('ja-JP') + '</div>'
       : '<span style="color:var(--muted)">—</span>';
-    var qLocked = (a.status === 'done' || a.status === 'rejected');
-    var qDateValue = a.quote_sent_at ? new Date(a.quote_sent_at).toISOString().slice(0,10) : '';
-    var quoteSent = '<div class="brand-app-qsent" data-id="' + esc(a.id) + '" style="display:flex;flex-direction:column;gap:3px;font-size:11px">'
-      + '<label style="display:inline-flex;align-items:center;gap:5px;cursor:' + (qLocked ? 'not-allowed' : 'pointer') + ';color:' + (a.quote_sent_at ? '#16a34a' : 'var(--muted)') + ';font-weight:' + (a.quote_sent_at ? '600' : '400') + '">'
-        + '<input type="checkbox" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + (qLocked ? 'disabled' : '') + ' onchange="toggleBrandAppQuoteSent(\'' + esc(a.id) + '\', this)" style="cursor:' + (qLocked ? 'not-allowed' : 'pointer') + '">'
-        + '<span class="qsent-label">' + (a.quote_sent_at ? '전달' : '미전달') + '</span>'
-      + '</label>'
-      + '<input type="date" class="qsent-date" value="' + qDateValue + '" ' + (a.quote_sent_at && !qLocked ? '' : 'disabled') + ' onchange="updateBrandAppQuoteSentDate(\'' + esc(a.id) + '\', this)" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (a.quote_sent_at && !qLocked ? '#fff' : '#F5F5F5') + '">'
-    + '</div>';
+    var qLocked = false; // 잠금 해제 — done/rejected 상태도 인라인 편집 허용 (사용자 요청)
+    var quoteSent = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
     var memoText = (a.admin_memo || '').trim();
     var memoCell = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>';
     return '<tr data-id="' + esc(a.id) + '">'
@@ -7111,7 +7104,7 @@ async function openBrandAppDetail(id) {
   }
 
   // 편집 가능 여부 — done 또는 rejected면 읽기전용
-  var editableDisabled = (a.status === 'done' || a.status === 'rejected') ? 'disabled' : '';
+  var editableDisabled = ''; // 잠금 해제 — done/rejected 상태도 모달에서 편집 허용 (사용자 요청)
 
   // 섹션 재사용 스타일
   var sectionLabel = function(txt) {
@@ -7213,93 +7206,99 @@ function _findBrandApp(id) {
   return idx < 0 ? null : _brandApps[idx];
 }
 
-function _refreshQuoteSentCellUI(wrapEl, isoOrNull) {
-  if (!wrapEl) return;
-  var label = wrapEl.querySelector('.qsent-label');
-  var labelWrap = label?.parentElement;
-  var dateInput = wrapEl.querySelector('.qsent-date');
-  if (label) label.textContent = isoOrNull ? '전달' : '미전달';
-  if (labelWrap) {
-    labelWrap.style.color = isoOrNull ? '#16a34a' : 'var(--muted)';
-    labelWrap.style.fontWeight = isoOrNull ? '600' : '400';
-  }
-  if (dateInput) {
-    dateInput.value = isoOrNull ? new Date(isoOrNull).toISOString().slice(0,10) : '';
-    dateInput.disabled = !isoOrNull;
-    dateInput.style.background = isoOrNull ? '#fff' : '#F5F5F5';
+function renderQuoteSentDisplay(isoOrNull, locked) {
+  var hasValue = !!isoOrNull;
+  var content = hasValue
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달</span>'
+      + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
+    : '<span style="color:var(--muted);font-size:11px">미전달</span>';
+  return content
+    + '<button type="button" class="qsent-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterQuoteSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '견적서 전달 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreQuoteSentDisplay(cell, isoOrNull, locked) {
+  cell.innerHTML = renderQuoteSentDisplay(isoOrNull, locked);
+}
+
+function enterQuoteSentEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  if (!cur) return;
+  var hasValue = !!cur.quote_sent_at;
+  var dateValue = hasValue ? new Date(cur.quote_sent_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">'
+      + '<input type="checkbox" class="qsent-edit-cb" ' + (hasValue ? 'checked' : '') + ' onchange="syncQsentEditDate(this)">'
+      + '<span>전달 완료</span>'
+    + '</label>'
+    + '<input type="date" class="qsent-edit-date" value="' + dateValue + '" ' + (hasValue ? '' : 'disabled') + ' style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (hasValue ? '#fff' : '#F5F5F5') + '">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelQuoteSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmQuoteSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+}
+
+function syncQsentEditDate(cb) {
+  var cell = cb.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var dateInput = cell.querySelector('.qsent-edit-date');
+  if (!dateInput) return;
+  dateInput.disabled = !cb.checked;
+  dateInput.style.background = cb.checked ? '#fff' : '#F5F5F5';
+  if (cb.checked && !dateInput.value) {
+    dateInput.value = new Date().toISOString().slice(0,10);
   }
 }
 
-async function toggleBrandAppQuoteSent(id, checkboxEl) {
-  if (!currentAdminInfo) { toast('권한이 없습니다','error'); checkboxEl.checked = !checkboxEl.checked; return; }
+function cancelQuoteSentEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
+  _restoreQuoteSentDisplay(cell, cur?.quote_sent_at || null, !!locked);
+}
+
+async function confirmQuoteSentEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
   var cur = _findBrandApp(id);
   if (!cur) return;
-  if (cur.status === 'done' || cur.status === 'rejected') {
-    checkboxEl.checked = !!cur.quote_sent_at;
-    toast('완료/거절된 신청은 변경할 수 없습니다.', 'warn');
-    return;
+  var cb = cell.querySelector('.qsent-edit-cb');
+  var dateInput = cell.querySelector('.qsent-edit-date');
+  if (!cb || !dateInput) return;
+  var nextValue = null;
+  if (cb.checked) {
+    var raw = dateInput.value;
+    if (!raw) { toast('날짜를 선택하세요.', 'warn'); return; }
+    nextValue = new Date(raw + 'T12:00:00+09:00').toISOString();
   }
   var prevValue = cur.quote_sent_at;
+  var prevDateStr = prevValue ? new Date(prevValue).toISOString().slice(0,10) : null;
+  var nextDateStr = nextValue ? new Date(nextValue).toISOString().slice(0,10) : null;
+  if (prevDateStr === nextDateStr) {
+    _restoreQuoteSentDisplay(cell, prevValue, false);
+    return;
+  }
   var prevVersion = cur.version;
-  var nextValue = checkboxEl.checked ? new Date().toISOString() : null;
-  var wrap = checkboxEl.closest('.brand-app-qsent');
-  _refreshQuoteSentCellUI(wrap, nextValue);
-  checkboxEl.disabled = true;
+  cb.disabled = true; dateInput.disabled = true;
   var result = await updateBrandApplication(id, {quote_sent_at: nextValue}, prevVersion);
-  checkboxEl.disabled = false;
+  cb.disabled = false; dateInput.disabled = false;
   if (result.conflict) {
     toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
     await loadBrandApplications();
     return;
   }
   if (!result.ok) {
-    checkboxEl.checked = !checkboxEl.checked;
-    _refreshQuoteSentCellUI(wrap, prevValue);
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
     return;
   }
   cur.quote_sent_at = nextValue;
   cur.version = result.data?.version || (prevVersion + 1);
-}
-
-async function updateBrandAppQuoteSentDate(id, dateInput) {
-  if (!currentAdminInfo) { toast('권한이 없습니다','error'); return; }
-  var cur = _findBrandApp(id);
-  if (!cur) return;
-  if (cur.status === 'done' || cur.status === 'rejected') {
-    toast('완료/거절된 신청은 변경할 수 없습니다.', 'warn');
-    dateInput.value = cur.quote_sent_at ? new Date(cur.quote_sent_at).toISOString().slice(0,10) : '';
-    return;
-  }
-  var raw = dateInput.value;
-  if (!raw) {
-    // 날짜를 비우면 견적서 전달 자체를 해제로 간주
-    var wrap = dateInput.closest('.brand-app-qsent');
-    var cb = wrap?.querySelector('input[type="checkbox"]');
-    if (cb) { cb.checked = false; await toggleBrandAppQuoteSent(id, cb); }
-    return;
-  }
-  var prevValue = cur.quote_sent_at;
-  var prevVersion = cur.version;
-  // 입력값(YYYY-MM-DD)을 JST 정오로 저장(타임존 경계 안전)
-  var nextValue = new Date(raw + 'T12:00:00+09:00').toISOString();
-  if (prevValue && new Date(prevValue).toISOString().slice(0,10) === raw) return; // 변동 없음
-  dateInput.disabled = true;
-  var result = await updateBrandApplication(id, {quote_sent_at: nextValue}, prevVersion);
-  dateInput.disabled = false;
-  if (result.conflict) {
-    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
-    await loadBrandApplications();
-    return;
-  }
-  if (!result.ok) {
-    dateInput.value = prevValue ? new Date(prevValue).toISOString().slice(0,10) : '';
-    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
-    return;
-  }
-  cur.quote_sent_at = nextValue;
-  cur.version = result.data?.version || (prevVersion + 1);
-  toast('전달일이 저장되었습니다.');
+  _restoreQuoteSentDisplay(cell, nextValue, false);
+  toast(nextValue ? '견적서 전달일이 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
 }
 
 function renderMemoDisplay(memoText, locked) {
@@ -7320,8 +7319,6 @@ function enterMemoEdit(btnEl) {
   var id = cell.dataset.id;
   var cur = _findBrandApp(id);
   if (!cur) return;
-  var locked = (cur.status === 'done' || cur.status === 'rejected');
-  if (locked) return;
   var original = (cur.admin_memo || '').trim();
   cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
     + '<textarea class="memo-edit-input" data-original="' + esc(original) + '" onkeydown="handleMemoEditKey(event, this)" style="width:100%;min-height:60px;font-size:11px;line-height:1.4;padding:4px 6px;border:1px solid var(--pink);border-radius:4px;resize:vertical;font-family:inherit;color:var(--ink)">' + esc(original) + '</textarea>'
