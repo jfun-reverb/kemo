@@ -7291,13 +7291,13 @@ function renderBrandAppSummaryRow(a) {
     + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
     // 22. 신청일
     + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-    // 23. 처리 — 변경 이력 모달 열기 (이력 0건이면 비활성)
+    // 23. 이력 — 변경 이력 모달 (이력 0건이면 비활성, 카운트는 회색 라벨)
     + (function(){
         var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[a.id] || 0) : 0;
         if (hcnt > 0) {
-          return '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')">이력 (' + hcnt + ')</button></td>';
+          return '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button></td>';
         }
-        return '<td><button class="btn btn-ghost btn-xs" disabled style="opacity:.4;cursor:not-allowed" title="변경 이력 없음">이력</button></td>';
+        return '<td><button class="btn btn-ghost btn-xs" disabled style="opacity:.4;cursor:not-allowed;white-space:nowrap" title="변경 이력 없음">이력</button></td>';
       })()
     + '</tr>';
 }

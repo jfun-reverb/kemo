@@ -99,16 +99,52 @@ SELECT * FROM (
          'status', to_jsonb('campaign_registered'::text), to_jsonb('done'::text)
   UNION ALL
 
-  -- 신청 5: products 변경 (이체수수료 추가)
+  -- 신청 5: products 변경 (이체수수료 단일 제품 → 추가 → 인상)
   SELECT (SELECT id FROM target ORDER BY application_no LIMIT 1 OFFSET 4)::uuid,
          '김영근1', (now() - interval '4 days'),
          'products',
-         to_jsonb('[{"name":"테스트","qty":50,"price":2800}]'::jsonb),
-         to_jsonb('[{"name":"테스트","qty":50,"price":2800,"transfer_fee_krw":5000}]'::jsonb)
+         '[{"name":"하이드라 부스터 세럼 50ml","qty":50,"price":2800}]'::jsonb,
+         '[{"name":"하이드라 부스터 세럼 50ml","qty":50,"price":2800,"transfer_fee_krw":5000}]'::jsonb
   UNION ALL
   SELECT (SELECT id FROM target ORDER BY application_no LIMIT 1 OFFSET 4)::uuid,
          '김영근1', (now() - interval '4 days' + interval '5 minutes'),
          'admin_memo', 'null'::jsonb, to_jsonb('이체수수료 ₩5,000 일괄 적용'::text)
+  UNION ALL
+  SELECT (SELECT id FROM target ORDER BY application_no LIMIT 1 OFFSET 4)::uuid,
+         '박영업', (now() - interval '2 days'),
+         'products',
+         '[{"name":"하이드라 부스터 세럼 50ml","qty":50,"price":2800,"transfer_fee_krw":5000}]'::jsonb,
+         '[{"name":"하이드라 부스터 세럼 50ml","qty":50,"price":2800,"transfer_fee_krw":7500}]'::jsonb
+  UNION ALL
+
+  -- 신청 1 (다중 제품): 제품별 이체수수료 다른 시점에 변경
+  SELECT (SELECT id FROM target ORDER BY application_no LIMIT 1 OFFSET 0)::uuid,
+         '김영근1', (now() - interval '2 days' + interval '10 minutes'),
+         'products',
+         '[{"name":"유기농 견과류 믹스 200g","qty":30,"price":1500,"transfer_fee_krw":null},
+           {"name":"수제 그래놀라 250g","qty":30,"price":1800,"transfer_fee_krw":null}]'::jsonb,
+         '[{"name":"유기농 견과류 믹스 200g","qty":30,"price":1500,"transfer_fee_krw":3000},
+           {"name":"수제 그래놀라 250g","qty":30,"price":1800,"transfer_fee_krw":null}]'::jsonb
+  UNION ALL
+  SELECT (SELECT id FROM target ORDER BY application_no LIMIT 1 OFFSET 0)::uuid,
+         '박영업', (now() - interval '1 day'),
+         'products',
+         '[{"name":"유기농 견과류 믹스 200g","qty":30,"price":1500,"transfer_fee_krw":3000},
+           {"name":"수제 그래놀라 250g","qty":30,"price":1800,"transfer_fee_krw":null}]'::jsonb,
+         '[{"name":"유기농 견과류 믹스 200g","qty":30,"price":1500,"transfer_fee_krw":3000},
+           {"name":"수제 그래놀라 250g","qty":30,"price":1800,"transfer_fee_krw":3000}]'::jsonb
+  UNION ALL
+
+  -- 신청 4 (대형 신청): 수량 변경 + 이체수수료 변경 동시
+  SELECT (SELECT id FROM target ORDER BY application_no LIMIT 1 OFFSET 3)::uuid,
+         '김영근1', (now() - interval '14 days'),
+         'products',
+         '[{"name":"실리콘 주걱 3종 세트","qty":15,"price":1200,"transfer_fee_krw":5000},
+           {"name":"논스틱 프라이팬 24cm","qty":15,"price":4800,"transfer_fee_krw":5000},
+           {"name":"수제 우드 도마 L","qty":15,"price":2500,"transfer_fee_krw":5000}]'::jsonb,
+         '[{"name":"실리콘 주걱 3종 세트","qty":20,"price":1200,"transfer_fee_krw":5000},
+           {"name":"논스틱 프라이팬 24cm","qty":20,"price":4800,"transfer_fee_krw":5000},
+           {"name":"수제 우드 도마 L","qty":20,"price":2500,"transfer_fee_krw":5000}]'::jsonb
   UNION ALL
 
   -- 신청 6: rejected 후 되돌리기 흐름
