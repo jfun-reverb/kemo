@@ -7265,7 +7265,7 @@ function renderBrandAppSummaryRow(a) {
 
   return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
     // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개 (셀 전체 클릭으로 토글)
-    + '<td onclick="handleBrandAppRowClick(event)" style="cursor:pointer" title="클릭하여 ' + (isOpen ? '접기' : '펼치기') + '">'
+    + '<td onclick="handleBrandAppRowClick(event)" style="cursor:pointer">'
       + '<div style="display:flex;align-items:flex-start;gap:2px">'
         + toggleBtn
         + '<div style="flex:1;min-width:0">'
