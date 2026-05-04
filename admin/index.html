@@ -2216,13 +2216,11 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>상태</label>
                 <div id="brandAppStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>기간 (시작)</label>
-                <input type="date" id="brandAppFromDate" class="admin-filter" autocomplete="off" onchange="highlightFilter(this);renderBrandApplicationsList()">
-              </div>
-              <div class="admin-filter-group">
-                <label>기간 (종료)</label>
-                <input type="date" id="brandAppToDate" class="admin-filter" autocomplete="off" onchange="highlightFilter(this);renderBrandApplicationsList()">
+              <div class="admin-filter-group" style="min-width:240px">
+                <label>신청 기간</label>
+                <input type="text" id="brandAppDateRange" class="admin-filter" autocomplete="off" placeholder="시작일 ~ 종료일" readonly>
+                <input type="hidden" id="brandAppFromDate">
+                <input type="hidden" id="brandAppToDate">
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -12430,10 +12428,44 @@ function resetBrandAppFilters() {
   if ($('brandAppFromDate')) $('brandAppFromDate').value = '';
   if ($('brandAppToDate')) $('brandAppToDate').value = '';
   if ($('brandAppSearch')) $('brandAppSearch').value = '';
-  ['brandAppFromDate','brandAppToDate'].forEach(function(id){
+  if (window._brandAppDateFp) {
+    window._brandAppDateFp.clear();
+  } else if ($('brandAppDateRange')) {
+    $('brandAppDateRange').value = '';
+  }
+  ['brandAppFromDate','brandAppToDate','brandAppDateRange'].forEach(function(id){
     var el = $(id); if (el) el.classList.remove('filter-active');
   });
   renderBrandApplicationsList();
+}
+
+// 브랜드 서베이 신청 기간 range picker mount (캠페인 폼과 동일한 flatpickr 패턴)
+function setupBrandAppDateRange() {
+  if (typeof flatpickr === 'undefined') return;
+  var el = document.getElementById('brandAppDateRange');
+  if (!el || window._brandAppDateFp) return;
+  var fromHidden = document.getElementById('brandAppFromDate');
+  var toHidden = document.getElementById('brandAppToDate');
+  var displayEl = el;
+  window._brandAppDateFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 2,
+    onChange: function(selectedDates) {
+      var from = selectedDates[0] ? selectedDates[0].toISOString().slice(0,10) : '';
+      var to = selectedDates[1] ? selectedDates[1].toISOString().slice(0,10) : '';
+      if (fromHidden) fromHidden.value = from;
+      if (toHidden) toHidden.value = to;
+      if (displayEl) {
+        displayEl.classList.toggle('filter-active', !!(from || to));
+      }
+      // 종료일까지 선택됐을 때만 필터 즉시 반영(시작일만 있으면 사용자가 종료 클릭 중)
+      if (selectedDates.length === 0 || selectedDates.length === 2) {
+        renderBrandApplicationsList();
+      }
+    }
+  });
 }
 
 function toggleBrandAppSort(field) {
@@ -13622,8 +13654,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 새로고침 시 브라우저 폼 자동 복원으로 검색/날짜 필터에 이전 값이 남는 문제 방지
   try {
-    document.querySelectorAll('.admin-filter-search, .admin-filter[type="date"]').forEach(function(el){ el.value = ''; });
+    document.querySelectorAll('.admin-filter-search, .admin-filter[type="date"], #brandAppDateRange').forEach(function(el){ el.value = ''; });
   } catch(e) {}
+
+  // 브랜드 서베이 신청 기간 flatpickr range picker mount
+  try { if (typeof setupBrandAppDateRange === 'function') setupBrandAppDateRange(); } catch(e) {}
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || 'dashboard';

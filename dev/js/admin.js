@@ -6992,10 +6992,44 @@ function resetBrandAppFilters() {
   if ($('brandAppFromDate')) $('brandAppFromDate').value = '';
   if ($('brandAppToDate')) $('brandAppToDate').value = '';
   if ($('brandAppSearch')) $('brandAppSearch').value = '';
-  ['brandAppFromDate','brandAppToDate'].forEach(function(id){
+  if (window._brandAppDateFp) {
+    window._brandAppDateFp.clear();
+  } else if ($('brandAppDateRange')) {
+    $('brandAppDateRange').value = '';
+  }
+  ['brandAppFromDate','brandAppToDate','brandAppDateRange'].forEach(function(id){
     var el = $(id); if (el) el.classList.remove('filter-active');
   });
   renderBrandApplicationsList();
+}
+
+// 브랜드 서베이 신청 기간 range picker mount (캠페인 폼과 동일한 flatpickr 패턴)
+function setupBrandAppDateRange() {
+  if (typeof flatpickr === 'undefined') return;
+  var el = document.getElementById('brandAppDateRange');
+  if (!el || window._brandAppDateFp) return;
+  var fromHidden = document.getElementById('brandAppFromDate');
+  var toHidden = document.getElementById('brandAppToDate');
+  var displayEl = el;
+  window._brandAppDateFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 2,
+    onChange: function(selectedDates) {
+      var from = selectedDates[0] ? selectedDates[0].toISOString().slice(0,10) : '';
+      var to = selectedDates[1] ? selectedDates[1].toISOString().slice(0,10) : '';
+      if (fromHidden) fromHidden.value = from;
+      if (toHidden) toHidden.value = to;
+      if (displayEl) {
+        displayEl.classList.toggle('filter-active', !!(from || to));
+      }
+      // 종료일까지 선택됐을 때만 필터 즉시 반영(시작일만 있으면 사용자가 종료 클릭 중)
+      if (selectedDates.length === 0 || selectedDates.length === 2) {
+        renderBrandApplicationsList();
+      }
+    }
+  });
 }
 
 function toggleBrandAppSort(field) {

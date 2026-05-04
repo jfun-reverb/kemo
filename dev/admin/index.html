@@ -1159,13 +1159,11 @@
                 <label>상태</label>
                 <div id="brandAppStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>기간 (시작)</label>
-                <input type="date" id="brandAppFromDate" class="admin-filter" autocomplete="off" onchange="highlightFilter(this);renderBrandApplicationsList()">
-              </div>
-              <div class="admin-filter-group">
-                <label>기간 (종료)</label>
-                <input type="date" id="brandAppToDate" class="admin-filter" autocomplete="off" onchange="highlightFilter(this);renderBrandApplicationsList()">
+              <div class="admin-filter-group" style="min-width:240px">
+                <label>신청 기간</label>
+                <input type="text" id="brandAppDateRange" class="admin-filter" autocomplete="off" placeholder="시작일 ~ 종료일" readonly>
+                <input type="hidden" id="brandAppFromDate">
+                <input type="hidden" id="brandAppToDate">
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
