@@ -432,6 +432,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 #adminPane-brand-applications .data-table thead .col-help:hover::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:1px;border:5px solid transparent;border-bottom-color:#1A0F18;pointer-events:none;z-index:101}
 /* 호버 중인 th의 stacking context를 인접 sticky thead 셀보다 위로 끌어올림 (툴팁 가림 방지) */
 #adminPane-brand-applications .data-table thead th:has(.col-help:hover){z-index:99}
+/* 신청번호 셀 호버 — 클릭 가능 시각 피드백 */
+#adminPane-brand-applications .data-table tbody tr[data-summary="1"] td:nth-child(1):hover{background:rgba(200,120,163,.08)}
 /* 신청 그룹 시각화 — 요약 행 위에 굵은 가로선(다음 그룹 시작 = 이전 그룹 끝) */
 #adminPane-brand-applications .data-table tbody tr[data-summary="1"] td{border-top:2px solid var(--outline)}
 #adminPane-brand-applications .data-table tbody tr[data-summary="1"]:first-child td{border-top:none}
@@ -12698,7 +12700,7 @@ function renderBrandAppSummaryRow(a) {
   // 펼치기 토글 (제품 2개 이상 또는 항상 표시 — 일관성 위해 항상 표시)
   var isOpen = _brandAppExpanded.has(a.id);
   var arrowIcon = isOpen ? 'expand_more' : 'chevron_right';
-  var toggleBtn = '<button type="button" class="brand-app-expand-btn" onclick="toggleBrandAppExpand(\'' + esc(a.id) + '\', this)" title="제품 ' + prods.length + '개 ' + (isOpen ? '접기' : '펼치기') + '" style="background:none;border:none;cursor:pointer;padding:0;margin-right:2px;color:var(--muted);display:inline-flex;align-items:center;vertical-align:middle"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">' + arrowIcon + '</span></button>';
+  var toggleBtn = '<button type="button" class="brand-app-expand-btn" onclick="event.stopPropagation();toggleBrandAppExpand(\'' + esc(a.id) + '\', this)" title="제품 ' + prods.length + '개 ' + (isOpen ? '접기' : '펼치기') + '" style="background:none;border:none;cursor:pointer;padding:0;margin-right:2px;color:var(--muted);display:inline-flex;align-items:center;vertical-align:middle"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">' + arrowIcon + '</span></button>';
 
   var qLocked = false;
   var memoText = (a.admin_memo || '').trim();
@@ -12707,8 +12709,8 @@ function renderBrandAppSummaryRow(a) {
   var fqInner = '<div class="brand-app-fq-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:24px">' + renderFinalQuoteDisplay(a.final_quote_krw) + '</div>';
 
   return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
-    // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개
-    + '<td>'
+    // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개 (셀 전체 클릭으로 토글)
+    + '<td onclick="handleBrandAppRowClick(event)" style="cursor:pointer" title="클릭하여 ' + (isOpen ? '접기' : '펼치기') + '">'
       + '<div style="display:flex;align-items:flex-start;gap:2px">'
         + toggleBtn
         + '<div style="flex:1;min-width:0">'
@@ -12801,6 +12803,19 @@ function renderBrandAppDetailRow(a, p, idx) {
     + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (vatKrw > 0 ? fmtKrw(vatKrw) : dash) + '</td>'
     + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 17-24 신청 단위 비움
     + '</tr>';
+}
+
+// 신청번호 셀 클릭으로 토글
+function handleBrandAppRowClick(ev) {
+  // 토글 버튼 자체는 stopPropagation 처리되지만 안전을 위해 한 번 더 가드
+  if (ev.target.closest('button, a, input, select, textarea')) return;
+  var td = ev.currentTarget;
+  var tr = td.closest('tr');
+  if (!tr) return;
+  var id = tr.dataset.id;
+  if (!id) return;
+  var btn = tr.querySelector('.brand-app-expand-btn');
+  if (btn) toggleBrandAppExpand(id, btn);
 }
 
 // 토글: 펼침/접힘 — 같은 신청 ID의 detail 행을 동적 추가/제거
