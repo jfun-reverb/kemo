@@ -470,8 +470,8 @@ function resetMultiFilter(containerId, allLabel) {
   const btn = wrap.querySelector('.mf-btn');
   const allCb = wrap.querySelector('input[value="all"]');
   const items = wrap.querySelectorAll('.mf-drop input:not([value="all"])');
-  if (allCb) allCb.checked = true;
-  items.forEach(c => c.checked = false);
+  if (allCb) { allCb.checked = true; allCb.indeterminate = false; }
+  items.forEach(c => c.checked = true); // 전체 = 모든 항목 체크 표시
   if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
 }
 function updateFilterResetBtn(btnId, multiIds, searchId) {
@@ -508,22 +508,14 @@ function syncMultiFilter(containerId, allLabel, options, onChange) {
   createMultiFilter(containerId, allLabel, options, onChange);
   wrap.dataset.optKey = newKey;
   if (prev.length > 0) {
-    const allCb = drop.querySelector('input[value="all"]');
-    let restored = 0;
+    // 일부 선택 상태 복원 — 모두 해제 후 prev 항목만 체크
+    const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
+    itemCbs.forEach(c => c.checked = false);
     prev.forEach(v => {
       const cb = drop.querySelector(`input[value="${CSS && CSS.escape ? CSS.escape(v) : v.replace(/"/g,'\\"')}"]`);
-      if (cb) { cb.checked = true; restored++; }
+      if (cb) cb.checked = true;
     });
-    if (restored > 0 && allCb) {
-      allCb.checked = false;
-      const btn = wrap.querySelector('.mf-btn');
-      const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
-      const selected = itemCbs.filter(c => c.checked);
-      if (btn) {
-        btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
-        btn.classList.add('has-selection');
-      }
-    }
+    if (typeof wrap._mfUpdate === 'function') wrap._mfUpdate();
   }
 }
 
@@ -537,15 +529,17 @@ function syncCampMultiFilter(containerId, sortedCamps, onChange) {
 }
 
 // ── 다중 선택 드롭다운 필터 ──
+// "전체" = 모든 항목 체크 표시 (시각). 일부 해제 시 "전체"는 indeterminate.
+// 데이터 모델: 전체(모두 체크) → 빈 배열 반환(=필터 없음). 일부만 체크 → 그 배열 반환.
 function createMultiFilter(containerId, allLabel, options, onChange) {
   const wrap = $(containerId);
   if (!wrap) return;
   const btn = wrap.querySelector('.mf-btn');
   const drop = wrap.querySelector('.mf-drop');
   if (!btn || !drop) return;
-  // 드롭다운 아이템 생성
+  // 드롭다운 아이템 생성 — 초기 상태: 전체 체크 = 모든 항목 체크
   drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked> ${esc(allLabel)}</label>`
-    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}"> ${esc(o.label)}</label>`).join('');
+    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}" checked> ${esc(o.label)}</label>`).join('');
   btn.textContent = allLabel;
   // 토글
   btn.onclick = (e) => { e.stopPropagation(); drop.classList.toggle('open'); };
@@ -554,23 +548,37 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
   const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
-    if (selected.length === 0 || selected.length === itemCbs.length) {
+    if (selected.length === itemCbs.length) {
+      // 모두 체크 = 전체
       allCb.checked = true;
-      itemCbs.forEach(c => c.checked = false);
+      allCb.indeterminate = false;
+      btn.textContent = allLabel;
+      btn.classList.remove('has-selection');
+    } else if (selected.length === 0) {
+      // 모두 해제 — 자동 전체 복귀(시각적으로 모두 체크) — 필터 없음과 동일하게 취급
+      allCb.checked = true;
+      allCb.indeterminate = false;
+      itemCbs.forEach(c => c.checked = true);
       btn.textContent = allLabel;
       btn.classList.remove('has-selection');
     } else {
+      // 일부 — 전체는 indeterminate
       allCb.checked = false;
+      allCb.indeterminate = true;
       btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
       btn.classList.add('has-selection');
     }
     onChange(getMultiFilterValues(containerId));
   };
   allCb.onchange = () => {
-    if (allCb.checked) { itemCbs.forEach(c => c.checked = false); }
+    // 전체 토글 — 모든 항목을 같이 체크/해제 (해제 시 update가 자동으로 전체로 복귀)
+    itemCbs.forEach(c => c.checked = allCb.checked);
+    allCb.indeterminate = false;
     update();
   };
-  itemCbs.forEach(c => { c.onchange = () => { if (c.checked) allCb.checked = false; update(); }; });
+  itemCbs.forEach(c => { c.onchange = update; });
+  // 외부에서 prev 복원 후 다시 호출할 수 있도록 노출
+  wrap._mfUpdate = update;
   // 바깥 클릭 닫기 (wrap 당 1회만 등록)
   if (!wrap._mfClickBound) {
     wrap._mfClickBound = true;
@@ -581,8 +589,9 @@ function getMultiFilterValues(containerId) {
   const wrap = $(containerId);
   if (!wrap) return [];
   const allCb = wrap.querySelector('input[value="all"]');
-  if (allCb?.checked) return [];
-  return [...wrap.querySelectorAll('.mf-drop input:checked')].map(c => c.value);
+  // 전체(모두 체크) = 필터 없음 → 빈 배열
+  if (allCb?.checked && !allCb.indeterminate) return [];
+  return [...wrap.querySelectorAll('.mf-drop input:not([value="all"]):checked')].map(c => c.value);
 }
 
 function toggleCampSort(key) {
