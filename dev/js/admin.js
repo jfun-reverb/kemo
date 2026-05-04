@@ -470,8 +470,8 @@ function resetMultiFilter(containerId, allLabel) {
   const btn = wrap.querySelector('.mf-btn');
   const allCb = wrap.querySelector('input[value="all"]');
   const items = wrap.querySelectorAll('.mf-drop input:not([value="all"])');
-  if (allCb) allCb.checked = true;
-  items.forEach(c => c.checked = false);
+  if (allCb) { allCb.checked = true; allCb.indeterminate = false; }
+  items.forEach(c => c.checked = true); // 전체 = 모든 항목 체크 표시
   if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
 }
 function updateFilterResetBtn(btnId, multiIds, searchId) {
@@ -508,22 +508,14 @@ function syncMultiFilter(containerId, allLabel, options, onChange) {
   createMultiFilter(containerId, allLabel, options, onChange);
   wrap.dataset.optKey = newKey;
   if (prev.length > 0) {
-    const allCb = drop.querySelector('input[value="all"]');
-    let restored = 0;
+    // 일부 선택 상태 복원 — 모두 해제 후 prev 항목만 체크
+    const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
+    itemCbs.forEach(c => c.checked = false);
     prev.forEach(v => {
       const cb = drop.querySelector(`input[value="${CSS && CSS.escape ? CSS.escape(v) : v.replace(/"/g,'\\"')}"]`);
-      if (cb) { cb.checked = true; restored++; }
+      if (cb) cb.checked = true;
     });
-    if (restored > 0 && allCb) {
-      allCb.checked = false;
-      const btn = wrap.querySelector('.mf-btn');
-      const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
-      const selected = itemCbs.filter(c => c.checked);
-      if (btn) {
-        btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
-        btn.classList.add('has-selection');
-      }
-    }
+    if (typeof wrap._mfUpdate === 'function') wrap._mfUpdate();
   }
 }
 
@@ -537,15 +529,17 @@ function syncCampMultiFilter(containerId, sortedCamps, onChange) {
 }
 
 // ── 다중 선택 드롭다운 필터 ──
+// "전체" = 모든 항목 체크 표시 (시각). 일부 해제 시 "전체"는 indeterminate.
+// 데이터 모델: 전체(모두 체크) → 빈 배열 반환(=필터 없음). 일부만 체크 → 그 배열 반환.
 function createMultiFilter(containerId, allLabel, options, onChange) {
   const wrap = $(containerId);
   if (!wrap) return;
   const btn = wrap.querySelector('.mf-btn');
   const drop = wrap.querySelector('.mf-drop');
   if (!btn || !drop) return;
-  // 드롭다운 아이템 생성
+  // 드롭다운 아이템 생성 — 초기 상태: 전체 체크 = 모든 항목 체크
   drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked> ${esc(allLabel)}</label>`
-    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}"> ${esc(o.label)}</label>`).join('');
+    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}" checked> ${esc(o.label)}</label>`).join('');
   btn.textContent = allLabel;
   // 토글
   btn.onclick = (e) => { e.stopPropagation(); drop.classList.toggle('open'); };
@@ -554,23 +548,37 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
   const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
-    if (selected.length === 0 || selected.length === itemCbs.length) {
+    if (selected.length === itemCbs.length) {
+      // 모두 체크 = 전체
       allCb.checked = true;
-      itemCbs.forEach(c => c.checked = false);
+      allCb.indeterminate = false;
+      btn.textContent = allLabel;
+      btn.classList.remove('has-selection');
+    } else if (selected.length === 0) {
+      // 모두 해제 — 자동 전체 복귀(시각적으로 모두 체크) — 필터 없음과 동일하게 취급
+      allCb.checked = true;
+      allCb.indeterminate = false;
+      itemCbs.forEach(c => c.checked = true);
       btn.textContent = allLabel;
       btn.classList.remove('has-selection');
     } else {
+      // 일부 — 전체는 indeterminate
       allCb.checked = false;
+      allCb.indeterminate = true;
       btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
       btn.classList.add('has-selection');
     }
     onChange(getMultiFilterValues(containerId));
   };
   allCb.onchange = () => {
-    if (allCb.checked) { itemCbs.forEach(c => c.checked = false); }
+    // 전체 토글 — 모든 항목을 같이 체크/해제 (해제 시 update가 자동으로 전체로 복귀)
+    itemCbs.forEach(c => c.checked = allCb.checked);
+    allCb.indeterminate = false;
     update();
   };
-  itemCbs.forEach(c => { c.onchange = () => { if (c.checked) allCb.checked = false; update(); }; });
+  itemCbs.forEach(c => { c.onchange = update; });
+  // 외부에서 prev 복원 후 다시 호출할 수 있도록 노출
+  wrap._mfUpdate = update;
   // 바깥 클릭 닫기 (wrap 당 1회만 등록)
   if (!wrap._mfClickBound) {
     wrap._mfClickBound = true;
@@ -581,8 +589,9 @@ function getMultiFilterValues(containerId) {
   const wrap = $(containerId);
   if (!wrap) return [];
   const allCb = wrap.querySelector('input[value="all"]');
-  if (allCb?.checked) return [];
-  return [...wrap.querySelectorAll('.mf-drop input:checked')].map(c => c.value);
+  // 전체(모두 체크) = 필터 없음 → 빈 배열
+  if (allCb?.checked && !allCb.indeterminate) return [];
+  return [...wrap.querySelectorAll('.mf-drop input:not([value="all"]):checked')].map(c => c.value);
 }
 
 function toggleCampSort(key) {
@@ -6625,7 +6634,7 @@ function renderBrandKPIs(apps) {
   var estimated = apps.reduce(function(s,a){ return s + (Number(a.estimated_krw) || 0); }, 0);
   var finalSum = apps
     .filter(function(a){ return ['quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done'].indexOf(a.status) !== -1; })
-    .reduce(function(s,a){ return s + (Number(a.final_quote_krw) || Number(a.estimated_krw) || 0); }, 0);
+    .reduce(function(s,a){ return s + (Number(a.estimated_krw) || 0); }, 0);
 
   var fmtKRW = function(n) { return '₩ ' + Math.round(n).toLocaleString('ko-KR'); };
 
@@ -6874,7 +6883,7 @@ function renderBrandLongPending(apps) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -6941,6 +6950,8 @@ function renderBrandApplicationsList() {
   var filterActive = res.filterActive;
   var resetBtn = $('btnBrandAppFilterReset');
   if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
+  var sortResetBtn = $('btnBrandAppSortReset');
+  if (sortResetBtn) sortResetBtn.style.display = _brandAppSortIsDefault() ? 'none' : 'inline-block';
 
   var count = $('brandAppTotalCount');
   if (count) {
@@ -6953,43 +6964,16 @@ function renderBrandApplicationsList() {
       : '(' + summary + ')';
   }
 
+  // 요약 행만 렌더 (펼치기는 토글로 동적 추가)
   var renderBrandAppRow = function(a) {
-    var prodCount = Array.isArray(a.products) ? a.products.length : 0;
-    var prodSummary = prodCount > 0
-      ? esc(prodCount + '종 · ' + (Number(a.total_qty) || 0) + '개')
-        + '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">¥ ' + (Number(a.total_jpy) || 0).toLocaleString('ja-JP') + '</div>'
-      : '<span style="color:var(--muted)">—</span>';
-    var quoteSent = a.quote_sent_at
-      ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">check_circle</span>전달</span>'
-        + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(a.quote_sent_at) + '</div>'
-      : '<span style="color:var(--muted);font-size:11px">미전달</span>';
-    var memoText = (a.admin_memo || '').trim();
-    var memoCell = memoText
-      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
-      : '<span style="color:var(--muted)">—</span>';
-    return '<tr data-id="' + esc(a.id) + '">'
-      + '<td>'
-        + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-        + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
-      + '</td>'
-      + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
-      + '<td>'
-        + '<div>' + esc(a.contact_name || '—') + '</div>'
-        + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
-      + '</td>'
-      + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
-      + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
-      + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
-      + '<td style="font-size:12px">' + prodSummary + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
-      + '<td>' + quoteSent + '</td>'
-      + '<td>' + memoCell + '</td>'
-      + '<td>' + brandAppStatusSelect(a) + '</td>'
-      + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
-      + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-      + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
-      + '</tr>';
+    var html = renderBrandAppSummaryRow(a);
+    if (_brandAppExpanded.has(a.id)) {
+      var prods = Array.isArray(a.products) ? a.products : [];
+      html += prods.map(function(p, idx) {
+        return renderBrandAppDetailRow(a, p, idx);
+      }).join('');
+    }
+    return html;
   };
   if (brandAppLazy) brandAppLazy.destroy();
   brandAppLazy = mountLazyList({
@@ -6998,7 +6982,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -7020,6 +7004,16 @@ function toggleBrandAppSort(field) {
   } else {
     _brandAppSort = {field: field, dir: 'desc'};
   }
+  updateBrandAppSortIndicators();
+  renderBrandApplicationsList();
+}
+
+function _brandAppSortIsDefault() {
+  return _brandAppSort.field === 'created' && _brandAppSort.dir === 'desc';
+}
+
+function resetBrandAppSort() {
+  _brandAppSort = {field: 'created', dir: 'desc'};
   updateBrandAppSortIndicators();
   renderBrandApplicationsList();
 }
@@ -7108,7 +7102,7 @@ async function openBrandAppDetail(id) {
   }
 
   // 편집 가능 여부 — done 또는 rejected면 읽기전용
-  var editableDisabled = (a.status === 'done' || a.status === 'rejected') ? 'disabled' : '';
+  var editableDisabled = ''; // 잠금 해제 — done/rejected 상태도 모달에서 편집 허용 (사용자 요청)
 
   // 섹션 재사용 스타일
   var sectionLabel = function(txt) {
@@ -7165,9 +7159,6 @@ async function openBrandAppDetail(id) {
         + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">예상 견적 (자동)</label>'
           + '<input type="text" class="admin-filter" value="' + fmtKrw(a.estimated_krw) + '" readonly style="background:#F7F7F7;color:var(--muted)">'
         + '</div>'
-        + '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">확정 견적 (₩)</label>'
-          + '<input type="number" id="brandAppEditFinalQuote" class="admin-filter" value="' + (a.final_quote_krw || '') + '" placeholder="0" ' + editableDisabled + '>'
-        + '</div>'
         + '<div style="display:flex;flex-direction:column;justify-content:flex-end">'
           + '<label style="display:flex;align-items:center;gap:6px;color:var(--ink);font-size:13px;cursor:pointer">'
             + '<input type="checkbox" id="brandAppEditQuoteSent" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + editableDisabled + '>'
@@ -7205,17 +7196,499 @@ function closeBrandAppDetail() {
   window._brandAppCurrent = null;
 }
 
+function _findBrandApp(id) {
+  var idx = (_brandApps || []).findIndex(function(a){ return a.id === id; });
+  return idx < 0 ? null : _brandApps[idx];
+}
+
+// 환율·VAT 상수 (FX_JPY_KRW=10, VAT_RATE=10% — migration 052 트리거와 일치)
+var BRAND_QUOTE_CONST = { FX_JPY_KRW: 10, VAT_RATE: 0.1 };
+
+// 제품 URL 셀 — 안전 URL이면 클릭 링크 + 복사 버튼, 아니면 평문 표시
+function renderProductUrlCell(url) {
+  if (!url) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  var safe = (typeof safeBrandUrl === 'function') ? safeBrandUrl(url) : null;
+  if (!safe) {
+    return '<span style="color:var(--muted);word-break:break-all;font-size:11px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4">' + esc(url) + '</span>';
+  }
+  var jsSafe = safe.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return '<div style="display:flex;align-items:flex-start;gap:4px;min-width:0">'
+    + '<a href="' + esc(safe) + '" target="_blank" rel="noopener" title="' + esc(url) + '"'
+      + ' style="flex:1;min-width:0;color:var(--pink);word-break:break-all;font-size:11px;'
+      + 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;max-height:2.8em">'
+      + esc(url) + '</a>'
+    + '<button type="button" class="btn btn-ghost btn-xs" onclick="copyBrandProductUrl(\'' + jsSafe + '\')" '
+      + 'title="URL 복사" style="padding:2px 6px;flex-shrink:0">'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:middle">content_copy</span>'
+    + '</button>'
+  + '</div>';
+}
+
+// 펼친 신청 ID 집합 (메모리 — 새로고침 시 초기화)
+var _brandAppExpanded = new Set();
+
+// 모든 제품에서 동일한 값이면 그 값, 다르면 null
+function _uniformProductValue(prods, key) {
+  if (!Array.isArray(prods) || prods.length === 0) return null;
+  var first = prods[0] && prods[0][key];
+  for (var i = 1; i < prods.length; i++) {
+    if (prods[i] && prods[i][key] !== first) return null;
+  }
+  return first;
+}
+
+// 신청 1건 = 1행 (요약 행, 24컬럼). 합산 가능 컬럼은 SUM, 단가는 동일하면 그 값/다르면 "—"
+function renderBrandAppSummaryRow(a) {
+  var prods = Array.isArray(a.products) ? a.products : [];
+  var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
+  var totalLine = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0) * (Number(p.price) || 0) * BRAND_QUOTE_CONST.FX_JPY_KRW; }, 0);
+  var totalFee = prods.reduce(function(s, p){
+    var fee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? 0 : Number(p.transfer_fee_krw);
+    return s + (Number(p.qty) || 0) * fee;
+  }, 0);
+  var totalFinal = totalLine + totalFee;
+  var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+  // 단가 — 모든 제품 동일하면 그 값, 다르면 표시 안 함
+  var uPriceJpy = _uniformProductValue(prods, 'price');
+  var uTfee = _uniformProductValue(prods, 'transfer_fee_krw');
+  var uPriceKrw = (uPriceJpy != null && uPriceJpy !== '') ? Number(uPriceJpy) * BRAND_QUOTE_CONST.FX_JPY_KRW : null;
+
+  var dash = '<span style="color:var(--muted)">—</span>';
+  var multi = '<span style="color:var(--muted);font-size:10px">제품별 상이</span>';
+  var renderUnit = function(uniformVal, formatter) {
+    if (prods.length <= 1) {
+      return uniformVal != null && uniformVal !== '' ? formatter(uniformVal) : dash;
+    }
+    return uniformVal != null && uniformVal !== '' ? formatter(uniformVal) : multi;
+  };
+
+  // 펼치기 토글 (제품 2개 이상 또는 항상 표시 — 일관성 위해 항상 표시)
+  var isOpen = _brandAppExpanded.has(a.id);
+  var arrowIcon = isOpen ? 'expand_more' : 'chevron_right';
+  var toggleBtn = '<button type="button" class="brand-app-expand-btn" onclick="event.stopPropagation();toggleBrandAppExpand(\'' + esc(a.id) + '\', this)" title="제품 ' + prods.length + '개 ' + (isOpen ? '접기' : '펼치기') + '" style="background:none;border:none;cursor:pointer;padding:0;margin-right:2px;color:var(--muted);display:inline-flex;align-items:center;vertical-align:middle"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">' + arrowIcon + '</span></button>';
+
+  var qLocked = false;
+  var memoText = (a.admin_memo || '').trim();
+  var memoCellInner = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>';
+  var quoteSentInner = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
+
+  return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
+    // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개 (셀 전체 클릭으로 토글)
+    + '<td onclick="handleBrandAppRowClick(event)" style="cursor:pointer">'
+      + '<div style="display:flex;align-items:flex-start;gap:2px">'
+        + toggleBtn
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+          + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
+          + '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + prods.length + '개</div>'
+        + '</div>'
+      + '</div>'
+    + '</td>'
+    // 2. 브랜드
+    + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
+    // 3. 담당자
+    + '<td>'
+      + '<div>' + esc(a.contact_name || '—') + '</div>'
+      + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
+    + '</td>'
+    // 4. 연락처
+    + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
+    // 5. 계산서 이메일
+    + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
+    // 6. 요청사항
+    + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
+    // 7. 제품명 (요약: 첫 제품 + N개 표시 또는 — )
+    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 ? esc((prods[0].name || '—') + (prods.length > 1 ? ' 외 ' + (prods.length - 1) + '개' : '')) : '—') + '</td>'
+    // 8. URL (요약 — 첫 URL or "여러 URL")
+    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 && prods[0].url ? '<span style="word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4">' + esc(prods[0].url) + '</span>' + (prods.length > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">외 ' + (prods.length - 1) + '개</div>' : '') : '—') + '</td>'
+    // 9. 진행 수량 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : dash) + '</td>'
+    // 10. 상품 가격(엔) (단가 — 동일하면 값, 아니면 "제품별 상이")
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceJpy, function(v){ return '¥ ' + Number(v).toLocaleString('ja-JP'); }) + '</td>'
+    // 11. 상품 가격(원)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceKrw, function(v){ return fmtKrw(v); }) + '</td>'
+    // 12. 상품 최종 금액 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalLine > 0 ? fmtKrw(totalLine) : dash) + '</td>'
+    // 13. 이체수수료(건) (단가 — 요약 행에서는 read-only)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uTfee, function(v){ return fmtKrw(v); }) + '</td>'
+    // 14. 이체수수료(원) (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (totalFee > 0 ? fmtKrw(totalFee) : dash) + '</td>'
+    // 15. 최종 견적 금액 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalFinal > 0 ? fmtKrw(totalFinal) : dash) + '</td>'
+    // 16. VAT포함 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (totalVat > 0 ? fmtKrw(totalVat) : dash) + '</td>'
+    // 17. 예상 견적
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
+    // 18. 견적서 전달
+    + '<td>' + quoteSentInner + '</td>'
+    // 19. 내부 메모
+    + '<td>' + memoCellInner + '</td>'
+    // 20. 상태
+    + '<td>' + brandAppStatusSelect(a) + '</td>'
+    // 21. 검수일
+    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
+    // 22. 신청일
+    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
+    // 23. 처리
+    + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
+    + '</tr>';
+}
+
+// 펼친 상태일 때 한 제품별 행 — 신청 단위 셀은 빈 td (좌측 보더로 그룹 표시)
+function renderBrandAppDetailRow(a, p, idx) {
+  var qty = Number(p.qty) || 0;
+  var priceJpy = Number(p.price) || 0;
+  var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
+  var lineTotal = qty * priceKrw;
+  var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
+  var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
+  var finalKrw = lineTotal + feeTotalKrw;
+  var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+
+  var dash = '<span style="color:var(--muted)">—</span>';
+  var emptyApp = '<td></td>'; // 신청 단위 셀 — 펼친 행에서는 비움 (요약 행에 이미 있음)
+
+  return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-detail="1" style="background:#FBF7FA">'
+    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-6 신청 단위 비움
+    // 7. 제품명
+    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">' + (p.name ? esc(p.name) : dash) + '</td>'
+    // 8. URL
+    + '<td>' + renderProductUrlCell(p.url) + '</td>'
+    // 9-16. 제품별 8컬럼
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
+    + '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (feeTotalKrw > 0 ? fmtKrw(feeTotalKrw) : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (finalKrw > 0 ? fmtKrw(finalKrw) : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (vatKrw > 0 ? fmtKrw(vatKrw) : dash) + '</td>'
+    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 17-23 신청 단위 비움
+    + '</tr>';
+}
+
+// 신청번호 셀 클릭으로 토글
+function handleBrandAppRowClick(ev) {
+  // 토글 버튼 자체는 stopPropagation 처리되지만 안전을 위해 한 번 더 가드
+  if (ev.target.closest('button, a, input, select, textarea')) return;
+  var td = ev.currentTarget;
+  var tr = td.closest('tr');
+  if (!tr) return;
+  var id = tr.dataset.id;
+  if (!id) return;
+  var btn = tr.querySelector('.brand-app-expand-btn');
+  if (btn) toggleBrandAppExpand(id, btn);
+}
+
+// 토글: 펼침/접힘 — 같은 신청 ID의 detail 행을 동적 추가/제거
+function toggleBrandAppExpand(id, btnEl) {
+  var summaryTr = btnEl.closest('tr');
+  if (!summaryTr) return;
+  if (_brandAppExpanded.has(id)) {
+    _brandAppExpanded.delete(id);
+    var next = summaryTr.nextElementSibling;
+    while (next && next.dataset.id === id && next.dataset.detail === '1') {
+      var rm = next; next = next.nextElementSibling; rm.remove();
+    }
+    var icon = btnEl.querySelector('.material-icons-round'); if (icon) icon.textContent = 'chevron_right';
+    btnEl.title = btnEl.title.replace('접기', '펼치기');
+  } else {
+    _brandAppExpanded.add(id);
+    var cur = _findBrandApp(id);
+    if (!cur || !Array.isArray(cur.products)) return;
+    var html = cur.products.map(function(p, idx){ return renderBrandAppDetailRow(cur, p, idx); }).join('');
+    summaryTr.insertAdjacentHTML('afterend', html);
+    var icon2 = btnEl.querySelector('.material-icons-round'); if (icon2) icon2.textContent = 'expand_more';
+    btnEl.title = btnEl.title.replace('펼치기', '접기');
+  }
+}
+
+// 이체수수료(건) 셀 — display + ✎ 인라인 편집
+function renderTransferFeeDisplay(value) {
+  var hasValue = value != null && isFinite(value);
+  var display = hasValue ? fmtKrw(value) : '<span style="color:var(--muted)">—</span>';
+  return '<div class="tfee-display" style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;padding-right:22px">' + display + '</div>'
+    + '<button type="button" class="tfee-edit-btn" onclick="enterTransferFeeEdit(this)" title="이체수수료(건) 수정" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreTransferFeeDisplay(cell, value) {
+  cell.innerHTML = renderTransferFeeDisplay(value);
+}
+
+function enterTransferFeeEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-tfee-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var p = cur.products[idx];
+  var original = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? '' : String(p.transfer_fee_krw);
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<input type="number" class="tfee-edit-input" value="' + esc(original) + '" placeholder="0" min="0" step="1" onkeydown="handleTransferFeeEditKey(event, this)" style="width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--pink);border-radius:4px;text-align:right;font-variant-numeric:tabular-nums">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelTransferFeeEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmTransferFeeEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+  var input = cell.querySelector('.tfee-edit-input');
+  if (input) { input.focus(); input.select(); }
+}
+
+function handleTransferFeeEditKey(ev, inputEl) {
+  if (ev.key === 'Escape') { ev.preventDefault(); cancelTransferFeeEdit(inputEl); }
+  else if (ev.key === 'Enter') { ev.preventDefault(); confirmTransferFeeEdit(inputEl); }
+}
+
+function cancelTransferFeeEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-tfee-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !cur.products || !cur.products[idx]) return;
+  _restoreTransferFeeDisplay(cell, cur.products[idx].transfer_fee_krw);
+}
+
+async function confirmTransferFeeEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-tfee-cell');
+  if (!cell) return;
+  var input = cell.querySelector('.tfee-edit-input');
+  if (!input) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var raw = (input.value || '').trim();
+  var nextValue = raw === '' ? null : Number(raw);
+  if (nextValue !== null && (!isFinite(nextValue) || nextValue < 0)) {
+    toast('0 이상의 숫자만 입력하세요.', 'warn');
+    return;
+  }
+  var prevValue = cur.products[idx].transfer_fee_krw == null ? null : Number(cur.products[idx].transfer_fee_krw);
+  if (prevValue === nextValue) {
+    _restoreTransferFeeDisplay(cell, prevValue);
+    return;
+  }
+  // 새 products 배열 생성 (immutable patch)
+  var nextProducts = cur.products.map(function(prod, i) {
+    if (i !== idx) return prod;
+    var copy = Object.assign({}, prod);
+    if (nextValue == null) delete copy.transfer_fee_krw; else copy.transfer_fee_krw = nextValue;
+    return copy;
+  });
+  var prevVersion = cur.version;
+  input.disabled = true;
+  var result = await updateBrandApplication(id, {products: nextProducts}, prevVersion);
+  input.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.products = nextProducts;
+  cur.version = result.data?.version || (prevVersion + 1);
+  // 같은 신청의 모든 행 재렌더(이체수수료(원)/최종 견적/VAT포함 컬럼이 동기화됨)
+  renderBrandApplicationsList();
+  toast('이체수수료가 저장되었습니다.');
+}
+
+function renderQuoteSentDisplay(isoOrNull, locked) {
+  var hasValue = !!isoOrNull;
+  var content = hasValue
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달</span>'
+      + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
+    : '<span style="color:var(--muted);font-size:11px">미전달</span>';
+  return content
+    + '<button type="button" class="qsent-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterQuoteSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '견적서 전달 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreQuoteSentDisplay(cell, isoOrNull, locked) {
+  cell.innerHTML = renderQuoteSentDisplay(isoOrNull, locked);
+}
+
+function enterQuoteSentEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  if (!cur) return;
+  var hasValue = !!cur.quote_sent_at;
+  var dateValue = hasValue ? new Date(cur.quote_sent_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">'
+      + '<input type="checkbox" class="qsent-edit-cb" ' + (hasValue ? 'checked' : '') + ' onchange="syncQsentEditDate(this)">'
+      + '<span>전달 완료</span>'
+    + '</label>'
+    + '<input type="date" class="qsent-edit-date" value="' + dateValue + '" ' + (hasValue ? '' : 'disabled') + ' style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (hasValue ? '#fff' : '#F5F5F5') + '">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelQuoteSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmQuoteSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+}
+
+function syncQsentEditDate(cb) {
+  var cell = cb.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var dateInput = cell.querySelector('.qsent-edit-date');
+  if (!dateInput) return;
+  dateInput.disabled = !cb.checked;
+  dateInput.style.background = cb.checked ? '#fff' : '#F5F5F5';
+  if (cb.checked && !dateInput.value) {
+    dateInput.value = new Date().toISOString().slice(0,10);
+  }
+}
+
+function cancelQuoteSentEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
+  _restoreQuoteSentDisplay(cell, cur?.quote_sent_at || null, !!locked);
+}
+
+async function confirmQuoteSentEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-qsent-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  var cb = cell.querySelector('.qsent-edit-cb');
+  var dateInput = cell.querySelector('.qsent-edit-date');
+  if (!cb || !dateInput) return;
+  var nextValue = null;
+  if (cb.checked) {
+    var raw = dateInput.value;
+    if (!raw) { toast('날짜를 선택하세요.', 'warn'); return; }
+    nextValue = new Date(raw + 'T12:00:00+09:00').toISOString();
+  }
+  var prevValue = cur.quote_sent_at;
+  var prevDateStr = prevValue ? new Date(prevValue).toISOString().slice(0,10) : null;
+  var nextDateStr = nextValue ? new Date(nextValue).toISOString().slice(0,10) : null;
+  if (prevDateStr === nextDateStr) {
+    _restoreQuoteSentDisplay(cell, prevValue, false);
+    return;
+  }
+  var prevVersion = cur.version;
+  cb.disabled = true; dateInput.disabled = true;
+  var result = await updateBrandApplication(id, {quote_sent_at: nextValue}, prevVersion);
+  cb.disabled = false; dateInput.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.quote_sent_at = nextValue;
+  cur.version = result.data?.version || (prevVersion + 1);
+  _restoreQuoteSentDisplay(cell, nextValue, false);
+  toast(nextValue ? '견적서 전달일이 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
+}
+
+function renderMemoDisplay(memoText, locked) {
+  var safe = (memoText || '').trim();
+  var color = safe ? 'var(--ink)' : 'var(--muted)';
+  var content = safe ? esc(safe) : '—';
+  // 요청사항 셀과 동일한 기준: 40자 초과 또는 개행 포함 시 더보기 노출
+  var hasMore = !!safe && (safe.length > 40 || /\n/.test(safe));
+  var moreLink = hasMore
+    ? '<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer;margin-top:2px;display:inline-block" onclick="event.stopPropagation();openMsgModal(this)" data-msg="' + esc(safe) + '">더보기</a>'
+    : '';
+  return '<div class="memo-display" style="font-size:11px;color:' + color + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;padding-right:22px;white-space:pre-wrap" title="' + esc(safe) + '">' + content + '</div>'
+    + moreLink
+    + '<button type="button" class="memo-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterMemoEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '메모 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreMemoDisplay(cell, memoText, locked) {
+  cell.innerHTML = renderMemoDisplay(memoText, locked);
+}
+
+function enterMemoEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-memo-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  var original = (cur.admin_memo || '').trim();
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<textarea class="memo-edit-input" data-original="' + esc(original) + '" onkeydown="handleMemoEditKey(event, this)" style="width:100%;min-height:60px;font-size:11px;line-height:1.4;padding:4px 6px;border:1px solid var(--pink);border-radius:4px;resize:vertical;font-family:inherit;color:var(--ink)">' + esc(original) + '</textarea>'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelMemoEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmMemoEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+  var ta = cell.querySelector('.memo-edit-input');
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+
+function handleMemoEditKey(ev, taEl) {
+  if (ev.key === 'Escape') {
+    ev.preventDefault();
+    cancelMemoEdit(taEl);
+  } else if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
+    ev.preventDefault();
+    confirmMemoEdit(taEl);
+  }
+}
+
+function cancelMemoEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-memo-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  var memoText = (cur?.admin_memo || '').trim();
+  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
+  _restoreMemoDisplay(cell, memoText, !!locked);
+}
+
+async function confirmMemoEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-memo-cell');
+  if (!cell) return;
+  var ta = cell.querySelector('.memo-edit-input');
+  if (!ta) return;
+  var id = cell.dataset.id;
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  var nextValue = (ta.value || '').trim();
+  var prevValue = (cur.admin_memo || '').trim();
+  if (nextValue === prevValue) {
+    _restoreMemoDisplay(cell, prevValue, false);
+    return;
+  }
+  var prevVersion = cur.version;
+  ta.disabled = true;
+  var result = await updateBrandApplication(id, {admin_memo: nextValue || null}, prevVersion);
+  ta.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.admin_memo = nextValue || null;
+  cur.version = result.data?.version || (prevVersion + 1);
+  _restoreMemoDisplay(cell, nextValue, false);
+  toast('메모가 저장되었습니다.');
+}
+
 async function saveBrandAppChanges(expectedVersion) {
   var cur = window._brandAppCurrent;
   if (!cur) return;
   var status = $('brandAppEditStatus')?.value;
-  var finalQuote = $('brandAppEditFinalQuote')?.value;
   var quoteSentChecked = $('brandAppEditQuoteSent')?.checked;
   var memo = $('brandAppEditMemo')?.value || '';
 
   var patch = {
     status: status,
-    final_quote_krw: finalQuote ? Number(finalQuote) : null,
     quote_sent_at: quoteSentChecked ? (cur.quote_sent_at || new Date().toISOString()) : null,
     admin_memo: memo || null
   };

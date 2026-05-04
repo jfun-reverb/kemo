@@ -67,7 +67,12 @@
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
 /* 브랜드 서베이 페인: 좌우 스크롤 + 첫 두 컬럼 sticky-left */
 #adminPane-brand-applications .admin-table-wrap{overflow-x:auto}
-#adminPane-brand-applications .data-table{min-width:2280px}
+#adminPane-brand-applications .data-table{min-width:3420px}
+/* sticky-left 두 컬럼 폭 강제 (auto 폭이라 left 값과 어긋나서 사이에 갭 생기는 문제 방지) */
+#adminPane-brand-applications .data-table th:nth-child(1),
+#adminPane-brand-applications .data-table td:nth-child(1){width:180px;min-width:180px;max-width:180px;box-sizing:border-box}
+#adminPane-brand-applications .data-table th:nth-child(2),
+#adminPane-brand-applications .data-table td:nth-child(2){width:200px;min-width:200px;max-width:200px;box-sizing:border-box;word-break:break-word}
 #adminPane-brand-applications .data-table tbody td:nth-child(1),
 #adminPane-brand-applications .data-table tbody td:nth-child(2){position:sticky;z-index:3;background:var(--surface)}
 #adminPane-brand-applications .data-table tbody tr:hover td:nth-child(1),
@@ -80,6 +85,23 @@
 #adminPane-brand-applications .data-table thead th:nth-child(2){z-index:7}
 #adminPane-brand-applications .data-table tbody td:nth-child(2),
 #adminPane-brand-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+/* 헤더 수식 도움말 (?) — CSS-only 툴팁 */
+#adminPane-brand-applications .data-table thead .col-help{display:inline-flex;align-items:center;margin-left:3px;color:var(--muted);cursor:help;position:relative;vertical-align:middle}
+#adminPane-brand-applications .data-table thead .col-help .material-icons-round{font-size:13px}
+#adminPane-brand-applications .data-table thead .col-help:hover{color:var(--pink)}
+#adminPane-brand-applications .data-table thead .col-help:hover::after{content:attr(data-tooltip);position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;background:#1A0F18;color:#fff;font-size:11px;font-weight:400;letter-spacing:normal;text-transform:none;line-height:1.5;padding:7px 10px;border-radius:5px;white-space:pre-line;width:max-content;max-width:260px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none}
+#adminPane-brand-applications .data-table thead .col-help:hover::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:1px;border:5px solid transparent;border-bottom-color:#1A0F18;pointer-events:none;z-index:101}
+/* 호버 중인 th의 stacking context를 인접 sticky thead 셀보다 위로 끌어올림 (툴팁 가림 방지) */
+#adminPane-brand-applications .data-table thead th:has(.col-help:hover){z-index:99}
+/* 신청 그룹 시각화 — 요약 행 위에 굵은 가로선(다음 그룹 시작 = 이전 그룹 끝) */
+#adminPane-brand-applications .data-table tbody tr[data-summary="1"] td{border-top:2px solid var(--outline)}
+#adminPane-brand-applications .data-table tbody tr[data-summary="1"]:first-child td{border-top:none}
+/* 펼친 제품 행에서 신청번호 / 브랜드 컬럼은 행 구분선 제거 (그룹 영역으로 보이게) */
+#adminPane-brand-applications .data-table tbody tr[data-detail="1"] td:nth-child(1),
+#adminPane-brand-applications .data-table tbody tr[data-detail="1"] td:nth-child(2){border-bottom:none}
+/* 요약 행의 신청번호 / 브랜드 컬럼도 detail 행이 따라올 때 아래 구분선 제거 — JS로 클래스 부여 대신 :has 사용 */
+#adminPane-brand-applications .data-table tbody tr[data-summary="1"]:has(+ tr[data-detail="1"]) td:nth-child(1),
+#adminPane-brand-applications .data-table tbody tr[data-summary="1"]:has(+ tr[data-detail="1"]) td:nth-child(2){border-bottom:none}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .kpi-card{background:var(--surface);border:none;border-radius:var(--r16);padding:20px;position:relative;overflow:hidden;box-shadow:var(--elevation-1)}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
