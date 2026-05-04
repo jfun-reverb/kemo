@@ -84,6 +84,7 @@ img{display:block;max-width:100%}
 .container{max-width:480px;width:100%;margin:0 auto;padding:0 16px}
 .container-sm{max-width:480px;margin:0 auto;padding:0 16px}
 .container-md{max-width:480px;margin:0 auto;padding:0 16px}
+
 /* ══════════════════════════════════
    COMPONENTS — 상단바, 버튼, 카드, 배지, 폼 (Material Design 3)
 ══════════════════════════════════ */
@@ -334,6 +335,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
 .quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
 .quill-host .ql-editor{min-height:120px}
+
+
 /* ══════════════════════════════════
    ADMIN — 관리자 대시보드 (Material Design 3)
 ══════════════════════════════════ */
@@ -363,13 +366,19 @@ textarea.form-input{resize:vertical;min-height:80px}
 .mf-item.all-item{border-bottom:1px solid var(--surface-dim);font-weight:600}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:#1A0F18;padding:0;height:100%;overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
-.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
+.admin-side{background:#1A0F18;padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
+.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.4) transparent}
+.admin-side-scroll::-webkit-scrollbar{width:6px}
+.admin-side-scroll::-webkit-scrollbar-track{background:transparent}
+.admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.4);border-radius:3px}
+.admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.6)}
+.admin-side-foot{padding:8px 0;border-top:1px solid rgba(255,255,255,.1);flex-shrink:0;background:#1A0F18}
+.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
 .admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
-.admin-si-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.25);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.6);padding:20px 20px 6px;text-transform:none;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
-.sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0}
+.sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
 .sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:rgba(255,255,255,.6);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
 .sidebar-toggle:hover{background:rgba(255,255,255,.12);color:#fff}
 .sidebar-toggle:active{background:rgba(255,255,255,.18)}
@@ -395,6 +404,21 @@ textarea.form-input{resize:vertical;min-height:80px}
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+/* 브랜드 서베이 페인: 좌우 스크롤 + 첫 두 컬럼 sticky-left */
+#adminPane-brand-applications .admin-table-wrap{overflow-x:auto}
+#adminPane-brand-applications .data-table{min-width:2280px}
+#adminPane-brand-applications .data-table tbody td:nth-child(1),
+#adminPane-brand-applications .data-table tbody td:nth-child(2){position:sticky;z-index:3;background:var(--surface)}
+#adminPane-brand-applications .data-table tbody tr:hover td:nth-child(1),
+#adminPane-brand-applications .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
+#adminPane-brand-applications .data-table tbody td:nth-child(1),
+#adminPane-brand-applications .data-table thead th:nth-child(1){left:0}
+#adminPane-brand-applications .data-table tbody td:nth-child(2),
+#adminPane-brand-applications .data-table thead th:nth-child(2){left:180px}
+#adminPane-brand-applications .data-table thead th:nth-child(1),
+#adminPane-brand-applications .data-table thead th:nth-child(2){z-index:7}
+#adminPane-brand-applications .data-table tbody td:nth-child(2),
+#adminPane-brand-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .kpi-card{background:var(--surface);border:none;border-radius:var(--r16);padding:20px;position:relative;overflow:hidden;box-shadow:var(--elevation-1)}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
@@ -1045,6 +1069,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .flatpickr-calendar.reverb-range-cal.reverb-single-cal .flatpickr-rContainer::after{
   display:none;
 }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -1082,29 +1107,30 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span id="stagingBadgeSide" style="display:none;background:#f59e0b;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px">STAGING</span>
         </span>
       </div>
-      <div class="admin-si-lbl">공지</div>
-      <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="switchAdminPane('admin-notices',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
-      <div class="admin-si-lbl">대시보드</div>
-      <div class="admin-si" data-pane="dashboard" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
-      <div class="admin-si-lbl">캠페인</div>
-      <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
-      <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
-      <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
-      <div class="admin-si-lbl">브랜드 서베이</div>
-      <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="switchAdminPane('brand-dashboard',this)"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
-      <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="switchAdminPane('brand-applications',this)"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
-      <div class="admin-si-lbl">회원 관리</div>
-      <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
-      <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
-      <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="switchAdminPane('lookups',this)" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
-      <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
-      <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)">
-        <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
-        <span class="si-text" id="sidebarAdminName">관리자</span>
+      <div class="admin-side-scroll">
+        <div class="admin-si-lbl">공지</div>
+        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="switchAdminPane('admin-notices',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si-lbl">대시보드</div>
+        <div class="admin-si" data-pane="dashboard" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
+        <div class="admin-si-lbl">캠페인</div>
+        <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
+        <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
+        <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si-lbl">브랜드 서베이</div>
+        <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="switchAdminPane('brand-dashboard',this)"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
+        <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="switchAdminPane('brand-applications',this)"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
+        <div class="admin-si-lbl">회원 관리</div>
+        <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+        <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
+        <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="switchAdminPane('lookups',this)" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
+        <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+        <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
+          <span class="si-text" id="sidebarAdminName">관리자</span>
+        </div>
       </div>
       <!-- 사이드바 하단 — 버튼 -->
-      <div style="flex:1"></div>
-      <div style="padding:8px 0;border-top:1px solid rgba(255,255,255,.1)">
+      <div class="admin-side-foot">
         <div class="admin-si" onclick="window.location.href='/'">
           <span class="si-icon material-icons-round" style="font-size:18px">open_in_new</span>
           <span class="si-text" style="font-size:12px">인플루언서 화면</span>
@@ -2201,18 +2227,22 @@ textarea.form-input{resize:vertical;min-height:80px}
             <table class="data-table">
               <thead><tr>
                 <th style="width:180px">신청번호 / 폼 종류</th>
-                <th>브랜드</th>
+                <th style="width:200px">브랜드</th>
                 <th style="width:200px">담당자</th>
                 <th style="width:130px">연락처</th>
                 <th style="width:180px">계산서 이메일</th>
                 <th style="width:220px">요청사항</th>
+                <th style="width:180px">제품 요약</th>
                 <th style="width:120px">예상 견적 <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:120px">확정 견적</th>
+                <th style="width:130px">견적서 전달</th>
+                <th style="width:220px">내부 메모</th>
                 <th style="width:120px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleBrandAppSort('status')">▲▼</span></th>
+                <th style="width:110px">검수일</th>
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">처리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2917,6 +2947,21 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- 캠페인 변경 이력 모달 (Phase 2 — super_admin 한정)
+     campaign_caution_history 행을 시간 역순 타임라인으로 표시. 각 행 클릭 → prev/next diff 펼침 -->
+<div class="modal-overlay" id="cautionHistoryModal" style="z-index:625">
+  <div class="modal" style="max-width:820px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round notranslate" translate="no" style="color:var(--pink);font-size:22px">history</span>
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">주의사항 / 참여방법 변경 이력</div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeCautionHistoryModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" id="cautionHistoryModalBody" style="padding:20px 22px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
 <!-- 캠페인 노출 마감일 자동 제안 confirm 모달 -->
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
@@ -2977,6 +3022,7 @@ try {
     });
   }
 } catch(e) {}
+
 // ══════════════════════════════════════
 // SHARED — 클라이언트/관리자 공유 변수 및 유틸
 // ══════════════════════════════════════
@@ -3214,6 +3260,7 @@ function normalizeSnsFields(profile) {
   if ('youtube' in out) out.youtube = extractSnsHandle('youtube',   out.youtube);
   return out;
 }
+
 // ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
 // localStorage는 세션 캐시에만 사용
@@ -4261,6 +4308,54 @@ async function swapCautionSetOrder(idA, idB) {
 }
 
 // ══════════════════════════════════════
+// CAMPAIGN CAUTION HISTORY (주의사항/참여방법 변경 audit — migration 077, Phase 2)
+// ══════════════════════════════════════
+
+// 변경 이력 INSERT — record_caution_history RPC (SECURITY DEFINER)
+//   호출 위치: dev/js/admin.js:saveCampaignEdit() — caution/participation 변경이 감지된 경우만
+//   args: { campaign_id, prev:{caution_set_id, caution_items, participation_set_id, participation_steps},
+//           next:{caution_set_id, caution_items, participation_set_id, participation_steps},
+//           app_count, bypass_ack }
+//   bypass_ack: 신청자 ≥1 + 사용자가 경고 모달 「확인하고 저장」을 통과했으면 true.
+//   DEMO_MODE(no db)에서는 no-op (audit 의미 없음).
+async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_ack}) {
+  if (!db || !campaign_id) return null;
+  let result = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db?.rpc('record_caution_history', {
+      p_campaign_id: campaign_id,
+      p_prev_caution_set_id: prev?.caution_set_id || null,
+      p_next_caution_set_id: next?.caution_set_id || null,
+      p_prev_caution_items: prev?.caution_items ?? null,
+      p_next_caution_items: next?.caution_items ?? null,
+      p_prev_participation_set_id: prev?.participation_set_id || null,
+      p_next_participation_set_id: next?.participation_set_id || null,
+      p_prev_participation_steps: prev?.participation_steps ?? null,
+      p_next_participation_steps: next?.participation_steps ?? null,
+      p_app_count: Number.isFinite(app_count) ? app_count : 0,
+      p_bypass_ack: !!bypass_ack,
+    });
+    if (error) throw error;
+    result = data || null;
+  });
+  return result;
+}
+
+// super_admin 전용 — 캠페인 단위 변경 이력 조회 (changed_at desc)
+//   RLS 가 SELECT 를 super_admin 으로 제한하므로 그 외 역할은 빈 배열 수신.
+async function fetchCautionHistory(campaignId) {
+  if (!db || !campaignId) return [];
+  try {
+    const {data, error} = await db?.from('campaign_caution_history')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('changed_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchCautionHistory]', e); return []; }
+}
+
+// ══════════════════════════════════════
 // ADMIN NOTICES (관리자 전용 공지 — migration 063)
 // ══════════════════════════════════════
 
@@ -4446,6 +4541,8 @@ async function updateBrandApplication(id, patch, expectedVersion) {
     return {ok: false, error: e?.message || 'unknown'};
   }
 }
+
+
 // ══════════════════════════════════════
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
 // ══════════════════════════════════════
@@ -5305,6 +5402,7 @@ function mountLazyList({ tbody, scrollRoot, rows, renderRow, pageSize = 50, empt
     get total() { return state.rows.length; },
   };
 }
+
 // ══════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════
@@ -6472,7 +6570,7 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
         </div>
         ${sections.join('')}
         <div style="margin-top:14px;padding:10px 12px;background:var(--surface-container-low);border-radius:8px;font-size:12px;color:var(--muted);line-height:1.6">
-          ※ 변경 이력은 추후 별도 페이지에서 확인 가능합니다 (Phase 2 도입 예정).
+          ※ 변경 이력은 캠페인 더보기(︙) 메뉴 → 「변경 이력」에서 확인할 수 있습니다 (super_admin 한정).
         </div>
       `;
     }
@@ -6482,6 +6580,138 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
 function resolveSensitiveChangeModal(ok) {
   closeModal('sensitiveChangeModal');
   if (_sensitiveChangeResolver) { _sensitiveChangeResolver(!!ok); _sensitiveChangeResolver = null; }
+}
+
+// ── Phase 2: 캠페인 변경 이력 모달 (super_admin 한정) ──
+//   더보기 메뉴 「변경 이력」 클릭 시 호출. campaign_caution_history 행을 시간 역순 타임라인으로 출력.
+//   각 항목 헤더 클릭 → 해당 변경의 prev/next diff 펼침/접기 (배열 인덱스로 toggle)
+const _cautionHistoryState = { list: [], openIndex: null, campId: null };
+
+async function openCautionHistoryModal(campId) {
+  if (!campId) return;
+  if (currentAdminInfo?.role !== 'super_admin') {
+    toast('변경 이력은 super_admin 만 열람할 수 있습니다','error');
+    return;
+  }
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  _cautionHistoryState.campId = campId;
+  _cautionHistoryState.openIndex = null;
+  const body = $('cautionHistoryModalBody');
+  if (body) body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+  openModal('cautionHistoryModal');
+  try {
+    const list = await fetchCautionHistory(campId);
+    _cautionHistoryState.list = Array.isArray(list) ? list : [];
+    renderCautionHistoryModal();
+  } catch(e) {
+    if (body) body.innerHTML = `<div style="padding:24px;color:#B3261E;font-size:13px">이력 불러오기 실패: ${esc(e.message||String(e))}</div>`;
+  }
+}
+
+function renderCautionHistoryModal() {
+  const body = $('cautionHistoryModalBody');
+  if (!body) return;
+  const list = _cautionHistoryState.list || [];
+  const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
+    .find(c => c.id === _cautionHistoryState.campId);
+  const headerLine = camp
+    ? `<div style="font-size:12px;color:var(--muted);margin-bottom:14px">캠페인 · <b style="color:var(--ink)">${esc(camp.title || '')}</b>${camp.campaign_no ? ` <span style="color:var(--muted)">[${esc(camp.campaign_no)}]</span>` : ''}</div>`
+    : '';
+  if (!list.length) {
+    body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">주의사항/참여방법 변경이 발생하면 자동 기록됩니다.</span></div>`;
+    return;
+  }
+  const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
+  const renderCautionItems = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+    return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
+  };
+  const renderPsetSteps = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+    return arr.map((s, i) => {
+      const t = s.title_ko || s.title_ja || '';
+      const d = s.desc_ko || s.desc_ja || '';
+      return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div style="font-size:11px;color:var(--muted)">${esc(d)}</div>` : ''}</li>`;
+    }).join('');
+  };
+  const items = list.map((row, idx) => {
+    const cautionChanged =
+      (row.prev_caution_set_id || null) !== (row.next_caution_set_id || null)
+      || JSON.stringify(row.prev_caution_items ?? null) !== JSON.stringify(row.next_caution_items ?? null);
+    const participationChanged =
+      (row.prev_participation_set_id || null) !== (row.next_participation_set_id || null)
+      || JSON.stringify(row.prev_participation_steps ?? null) !== JSON.stringify(row.next_participation_steps ?? null);
+    const tags = [];
+    if (cautionChanged) tags.push('<span class="badge badge-pink" style="font-size:10px">주의사항</span>');
+    if (participationChanged) tags.push('<span class="badge badge-blue" style="font-size:10px">참여방법</span>');
+    const ackBadge = row.bypass_warning_ack
+      ? '<span class="badge badge-gold" style="font-size:10px" title="신청자 ≥1건 + 경고 모달 통과">경고 확인</span>'
+      : '<span class="badge badge-gray" style="font-size:10px" title="신청자 0건 — 모달 미표시">자동</span>';
+    const isOpen = _cautionHistoryState.openIndex === idx;
+    const detailHtml = !isOpen ? '' : `
+      <div style="padding:14px 16px;background:var(--surface-container-low);border-top:1px solid var(--line)">
+        ${cautionChanged ? `
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">주의사항</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.prev_caution_items)}</ul>
+              </div>
+              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderCautionItems(row.next_caution_items)}</ul>
+              </div>
+            </div>
+          </div>` : ''}
+        ${participationChanged ? `
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">참여방법</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.prev_participation_steps)}</ul>
+              </div>
+              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(row.next_participation_steps)}</ul>
+              </div>
+            </div>
+          </div>` : ''}
+      </div>
+    `;
+    return `
+      <div style="border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fff">
+        <div style="padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;justify-content:space-between" onclick="toggleCautionHistoryItem(${idx})">
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              ${tags.join('')} ${ackBadge}
+              <span style="font-size:11px;color:var(--muted)">신청자 ${row.app_count_at_change}명</span>
+            </div>
+            <div style="font-size:12px;color:var(--ink)">
+              <span style="font-weight:600">${esc(row.changed_by_name || '관리자')}</span>
+              <span style="color:var(--muted)"> · ${esc(formatDateTime(row.changed_at))}</span>
+            </div>
+          </div>
+          <span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted);transition:transform .2s;${isOpen?'transform:rotate(180deg)':''}">expand_more</span>
+        </div>
+        ${detailHtml}
+      </div>
+    `;
+  }).join('');
+  body.innerHTML = `${headerLine}<div>${items}</div>`;
+}
+
+function toggleCautionHistoryItem(idx) {
+  _cautionHistoryState.openIndex = (_cautionHistoryState.openIndex === idx) ? null : idx;
+  renderCautionHistoryModal();
+}
+
+function closeCautionHistoryModal() {
+  closeModal('cautionHistoryModal');
+  _cautionHistoryState.list = [];
+  _cautionHistoryState.openIndex = null;
+  _cautionHistoryState.campId = null;
 }
 
 // ── 편집용 이미지 관리 ──
@@ -7142,23 +7372,27 @@ async function saveCampaignEdit() {
     // 신청 동의 영향 영역(주의사항/참여방법) 변경 게이트
     //   1) closed 캠페인은 변경 자체 차단 (DB 트리거가 이중 차단)
     //   2) 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
+    //   3) Phase 2 — 변경 감지 시 audit 이력 기록 (campaign_caution_history)
     const change = detectSensitiveChange(updates);
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
     if (origStatus === 'closed' && change.anyChanged) {
       toast('종료된 캠페인은 주의사항/참여방법을 수정할 수 없습니다','error');
       return;
     }
+    let _historyAppCount = 0;
+    let _historyBypassAck = false;
     if (change.anyChanged) {
-      const appCount = await countActiveApplications(campId);
-      if (appCount >= 1) {
+      _historyAppCount = await countActiveApplications(campId);
+      if (_historyAppCount >= 1) {
         const ok = await showSensitiveChangeConfirm({
-          appCount,
+          appCount: _historyAppCount,
           cautionChanged: change.cautionChanged,
           participationChanged: change.participationChanged,
           orig: _editCampOriginal,
           next: updates
         });
         if (!ok) return;
+        _historyBypassAck = true;
       }
     }
 
@@ -7175,6 +7409,34 @@ async function saveCampaignEdit() {
     }
 
     await updateCampaign(campId, updates);
+
+    // Phase 2 — 주의사항/참여방법 변경 감지 시 audit 이력 기록
+    //   updateCampaign 성공 직후 호출. 실패해도 캠페인 저장은 이미 완료됐으므로
+    //   사용자 흐름은 차단하지 않고 콘솔 경고만 남긴다 (audit 부재 ≠ 데이터 손상).
+    if (change.anyChanged) {
+      try {
+        await recordCautionHistory({
+          campaign_id: campId,
+          prev: {
+            caution_set_id: _editCampOriginal?.caution_set_id || null,
+            caution_items: _editCampOriginal?.caution_items || [],
+            participation_set_id: _editCampOriginal?.participation_set_id || null,
+            participation_steps: _editCampOriginal?.participation_steps || null,
+          },
+          next: {
+            caution_set_id: updates.caution_set_id || null,
+            caution_items: updates.caution_items || [],
+            participation_set_id: updates.participation_set_id || null,
+            participation_steps: updates.participation_steps || null,
+          },
+          app_count: _historyAppCount,
+          bypass_ack: _historyBypassAck,
+        });
+      } catch(histErr) {
+        console.warn('[caution-history] 기록 실패 (캠페인 저장은 정상):', histErr);
+      }
+    }
+
     allCampaigns = await fetchCampaigns();
     toast('변경 사항을 저장했습니다','success');
     switchAdminPane('campaigns', null);
@@ -7510,11 +7772,17 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const rect = btnEl.getBoundingClientRect();
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
+  // 변경 이력 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
+  const isSuper = currentAdminInfo?.role === 'super_admin';
+  const historyItem = isSuper
+    ? `<div class="camp-more-item" onclick="openCautionHistoryModal('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>변경 이력</div>`
+    : '';
   menu.innerHTML = `
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
     <div class="camp-more-item" onclick="duplicateCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">content_copy</span>복제</div>
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
+    ${historyItem}
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
@@ -12011,7 +12279,7 @@ function renderBrandLongPending(apps) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -12091,6 +12359,19 @@ function renderBrandApplicationsList() {
   }
 
   var renderBrandAppRow = function(a) {
+    var prodCount = Array.isArray(a.products) ? a.products.length : 0;
+    var prodSummary = prodCount > 0
+      ? esc(prodCount + '종 · ' + (Number(a.total_qty) || 0) + '개')
+        + '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">¥ ' + (Number(a.total_jpy) || 0).toLocaleString('ja-JP') + '</div>'
+      : '<span style="color:var(--muted)">—</span>';
+    var quoteSent = a.quote_sent_at
+      ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">check_circle</span>전달</span>'
+        + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(a.quote_sent_at) + '</div>'
+      : '<span style="color:var(--muted);font-size:11px">미전달</span>';
+    var memoText = (a.admin_memo || '').trim();
+    var memoCell = memoText
+      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
+      : '<span style="color:var(--muted)">—</span>';
     return '<tr data-id="' + esc(a.id) + '">'
       + '<td>'
         + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
@@ -12104,9 +12385,13 @@ function renderBrandApplicationsList() {
       + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
       + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
       + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
+      + '<td style="font-size:12px">' + prodSummary + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
       + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + fmtKrw(a.final_quote_krw) + '</td>'
+      + '<td>' + quoteSent + '</td>'
+      + '<td>' + memoCell + '</td>'
       + '<td>' + brandAppStatusSelect(a) + '</td>'
+      + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
       + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
       + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
       + '</tr>';
@@ -12118,7 +12403,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -12186,11 +12471,13 @@ async function openBrandAppDetail(id) {
   if (Array.isArray(a.products) && a.products.length > 0) {
     productsHtml = '<table class="data-table" style="font-size:12px;margin:0;table-layout:fixed">'
       + '<thead><tr>'
-        + '<th style="width:30%">제품명</th>'
+        + '<th style="width:24%">제품명</th>'
         + '<th>URL</th>'
-        + '<th style="width:80px;text-align:right">수량</th>'
-        + '<th style="width:110px;text-align:right">가격 (¥)</th>'
-        + '<th style="width:130px;text-align:right">총액 (¥)</th>'
+        + '<th style="width:70px;text-align:right">수량</th>'
+        + '<th style="width:100px;text-align:right">가격 (¥)</th>'
+        + '<th style="width:100px;text-align:right">모집비용 (¥)</th>'
+        + '<th style="width:100px;text-align:right">이체 수수료 (¥)</th>'
+        + '<th style="width:120px;text-align:right">총액 (¥)</th>'
       + '</tr></thead>'
       + '<tbody>' + a.products.map(function(p){
         var price = Number(p.price) || 0;
@@ -12218,6 +12505,8 @@ async function openBrandAppDetail(id) {
           + '<td>' + urlCell + '</td>'
           + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + qty.toLocaleString('ja-JP') + '</td>'
           + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + price.toLocaleString('ja-JP') + '</td>'
+          + '<td style="text-align:right;color:var(--muted)">—</td>'
+          + '<td style="text-align:right;color:var(--muted)">—</td>'
           + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-weight:600">' + lineTotal.toLocaleString('ja-JP') + '</td>'
         + '</tr>';
       }).join('') + '</tbody></table>';
@@ -12721,6 +13010,7 @@ function onShowDetailFromUnreadPopup(id) {
   closeModal('adminNoticeUnreadModal');
   openAdminNoticeView(id);
 }
+
 // ══════════════════════════════════════
 // ADMIN APP — 관리자 페이지 초기화
 // ══════════════════════════════════════
@@ -12846,6 +13136,7 @@ document.addEventListener('DOMContentLoaded', function() {
   allCampaigns = typeof DEMO_CAMPAIGNS !== 'undefined' ? DEMO_CAMPAIGNS.slice() : [];
   init();
 });
+
 </script>
 </body>
 </html>

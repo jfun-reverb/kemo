@@ -27,13 +27,19 @@
 .mf-item.all-item{border-bottom:1px solid var(--surface-dim);font-weight:600}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
-.admin-side{background:#1A0F18;padding:0;height:100%;overflow-y:auto;overflow-x:hidden;flex-shrink:0;transition:width .25s ease}
-.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden}
+.admin-side{background:#1A0F18;padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
+.admin-side-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;min-height:0;padding-top:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.4) transparent}
+.admin-side-scroll::-webkit-scrollbar{width:6px}
+.admin-side-scroll::-webkit-scrollbar-track{background:transparent}
+.admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.4);border-radius:3px}
+.admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.6)}
+.admin-side-foot{padding:8px 0;border-top:1px solid rgba(255,255,255,.1);flex-shrink:0;background:#1A0F18}
+.admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
 .admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
-.admin-si-lbl{font-size:10px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.25);padding:20px 20px 6px;text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.admin-si-lbl{font-size:10px;line-height:1.8;font-weight:600;letter-spacing:0;color:rgba(255,255,255,.6);padding:20px 20px 6px;text-transform:none;white-space:nowrap;flex-shrink:0;height:auto;overflow:visible}
 .admin-si-badge{margin-left:auto;background:var(--primary);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--r-full)}
-.sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0}
+.sidebar-toggle-wrap{display:flex;align-items:center;gap:10px;padding:4px 16px 4px 12px;margin:8px 12px 8px 0;border-radius:0 var(--r-full) var(--r-full) 0;flex-shrink:0}
 .sidebar-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r8);background:transparent;color:rgba(255,255,255,.6);border:none;cursor:pointer;transition:all .15s;flex-shrink:0}
 .sidebar-toggle:hover{background:rgba(255,255,255,.12);color:#fff}
 .sidebar-toggle:active{background:rgba(255,255,255,.18)}
@@ -59,6 +65,21 @@
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+/* 브랜드 서베이 페인: 좌우 스크롤 + 첫 두 컬럼 sticky-left */
+#adminPane-brand-applications .admin-table-wrap{overflow-x:auto}
+#adminPane-brand-applications .data-table{min-width:2280px}
+#adminPane-brand-applications .data-table tbody td:nth-child(1),
+#adminPane-brand-applications .data-table tbody td:nth-child(2){position:sticky;z-index:3;background:var(--surface)}
+#adminPane-brand-applications .data-table tbody tr:hover td:nth-child(1),
+#adminPane-brand-applications .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
+#adminPane-brand-applications .data-table tbody td:nth-child(1),
+#adminPane-brand-applications .data-table thead th:nth-child(1){left:0}
+#adminPane-brand-applications .data-table tbody td:nth-child(2),
+#adminPane-brand-applications .data-table thead th:nth-child(2){left:180px}
+#adminPane-brand-applications .data-table thead th:nth-child(1),
+#adminPane-brand-applications .data-table thead th:nth-child(2){z-index:7}
+#adminPane-brand-applications .data-table tbody td:nth-child(2),
+#adminPane-brand-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .kpi-card{background:var(--surface);border:none;border-radius:var(--r16);padding:20px;position:relative;overflow:hidden;box-shadow:var(--elevation-1)}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
