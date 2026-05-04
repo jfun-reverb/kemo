@@ -1210,6 +1210,67 @@ async function markAdminNoticeRead(noticeId) {
 // ══════════════════════════════════════
 
 // 광고주 신청 목록 조회 (관리자 RLS로 전체 조회)
+// ── brands 마스터 (migration 082/083) ────────────────────────
+async function fetchBrands(filters) {
+  if (!db) return [];
+  try {
+    var q = db?.from('brands')
+      .select('id, brand_no, name, name_ja, name_en, name_normalized, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+    if (filters?.status) q = q.eq('status', filters.status);
+    var pageSize = 1000, from = 0, out = [];
+    while (true) {
+      const {data, error} = await q.range(from, from + pageSize - 1).order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
+      if (error) throw error;
+      const rows = data || [];
+      out = out.concat(rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  } catch(e) { console.error('[fetchBrands]', e); return []; }
+}
+async function fetchBrandById(id) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db?.from('brands').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch(e) { console.error('[fetchBrandById]', e); return null; }
+}
+async function updateBrand(id, patch) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brands').update(patch).eq('id', id).select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[updateBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+async function insertBrand(payload) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brands').insert(payload).select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+async function fetchBrandApplicationsByBrand(brandId) {
+  if (!db || !brandId) return [];
+  try {
+    const {data, error} = await db?.from('brand_applications')
+      .select('id, application_no, form_type, status, created_at, total_qty, total_jpy, estimated_krw, applicant_contact_name, applicant_email, source')
+      .eq('brand_id', brandId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchBrandApplicationsByBrand]', e); return []; }
+}
+
 // 광고주 신청 메모 (multi-entry, migration 080)
 async function fetchBrandAppMemos(applicationId) {
   if (!db || !applicationId) return [];

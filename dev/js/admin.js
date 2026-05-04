@@ -128,6 +128,7 @@ function switchAdminPane(pane, el, pushHistory) {
     'deliverables': loadDeliverables,
     'brand-applications': loadBrandApplications,
     'brand-dashboard': loadBrandDashboard,
+    'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
@@ -6947,6 +6948,240 @@ function _refreshBrandAppHistoryButton(id) {
   if (!lastTd) return;
   var hcnt = _brandAppHistoryCounts[id];
   lastTd.innerHTML = '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button>';
+}
+
+// ══════════════════════════════════════
+// BRANDS MASTER (브랜드 관리 페인 — migration 082/083)
+// ══════════════════════════════════════
+var _brandsCache = [];
+var _brandsCurrentId = null;
+var brandsLazy;
+var BRANDS_PAGE_SIZE = 50;
+
+async function loadBrandsPane() {
+  var tbody = $('brandsTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  _brandsCache = await fetchBrands();
+  renderBrandsList();
+}
+
+function renderBrandsList() {
+  var tbody = $('brandsTableBody');
+  if (!tbody) return;
+  var statusF = $('brandsStatusFilter')?.value || '';
+  var q = (($('brandsSearch')?.value) || '').trim().toLowerCase();
+  var list = (_brandsCache || []).filter(function(b){
+    if (statusF && b.status !== statusF) return false;
+    if (q) {
+      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
+      if (hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+  var count = $('brandsTotalCount');
+  if (count) count.textContent = '(' + list.length + ' / 전체 ' + (_brandsCache||[]).length + ')';
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>';
+    return;
+  }
+  var renderRow = function(b) {
+    var memoText = (b.memo || '').trim();
+    var memoCell = memoText
+      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
+      : '<span style="color:var(--muted)">—</span>';
+    var statusBadge = b.status === 'archived'
+      ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">archived</span>'
+      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">active</span>';
+    return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
+      + '<td style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(b.brand_no || '—') + '</td>'
+      + '<td><div style="font-weight:600;color:var(--ink)">' + esc(b.name || '—') + '</div>'
+        + (b.name_ja ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(b.name_ja) + '</div>' : '')
+      + '</td>'
+      + '<td>' + esc(b.primary_contact_name || '—') + (b.primary_phone ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(formatPhoneDisplay(b.primary_phone)) + '</div>' : '') + '</td>'
+      + '<td style="font-size:12px;word-break:break-all">' + esc(b.primary_email || '—') + '</td>'
+      + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + (b.total_applications || 0) + '</td>'
+      + '<td style="font-size:11px;color:var(--muted)">' + (b.last_applied_at ? fmtDate(b.last_applied_at) : '—') + '</td>'
+      + '<td>' + statusBadge + '</td>'
+      + '<td>' + memoCell + '</td>'
+      + '</tr>';
+  };
+  if (brandsLazy) brandsLazy.destroy();
+  brandsLazy = mountLazyList({
+    tbody: tbody,
+    scrollRoot: tbody.closest('.admin-table-wrap'),
+    rows: list,
+    renderRow: renderRow,
+    pageSize: BRANDS_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>'
+  });
+}
+
+async function openBrandDetailModal(id) {
+  _brandsCurrentId = id;
+  var modal = $('brandDetailModal');
+  var titleEl = $('brandDetailTitle');
+  var bodyEl = $('brandDetailBody');
+  var footerEl = $('brandDetailFooter');
+  if (!modal || !bodyEl) return;
+  bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  if (footerEl) footerEl.innerHTML = '';
+  modal.classList.add('open');
+  var [b, apps] = await Promise.all([fetchBrandById(id), fetchBrandApplicationsByBrand(id)]);
+  if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
+  if (titleEl) titleEl.innerHTML = '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;margin-right:8px">' + esc(b.brand_no || '—') + '</span>' + esc(b.name || '');
+  bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
+  if (footerEl) footerEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
+    + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
+}
+
+function closeBrandDetailModal() {
+  var modal = $('brandDetailModal');
+  if (modal) modal.classList.remove('open');
+  _brandsCurrentId = null;
+}
+
+function renderBrandDetailFormHtml(b, apps) {
+  var sectionLabel = function(t){ return '<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink);margin:0 0 10px">' + esc(t) + '</div>'; };
+  var input = function(id, label, val, placeholder) {
+    return '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
+  };
+  var textarea = function(id, label, val, placeholder) {
+    return '<div style="grid-column:1 / -1"><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="2" style="resize:vertical;font-family:inherit" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
+  };
+  var statusSelect = '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">상태</label>'
+    + '<select id="brandFormStatus" class="admin-filter">'
+    + '<option value="active"' + (b.status==='active'?' selected':'') + '>active</option>'
+    + '<option value="archived"' + (b.status==='archived'?' selected':'') + '>archived</option>'
+    + '</select></div>';
+
+  var appsHtml = '<div style="color:var(--muted);font-size:12px;padding:10px">신청 내역 없음</div>';
+  if (apps && apps.length > 0) {
+    appsHtml = '<table class="data-table" style="font-size:12px;margin:0">'
+      + '<thead><tr><th>신청번호</th><th>폼</th><th>상태</th><th style="text-align:right">예상 견적</th><th>신청일</th></tr></thead>'
+      + '<tbody>' + apps.map(function(a){
+        return '<tr>'
+          + '<td style="font-weight:600">' + esc(a.application_no || '—') + '</td>'
+          + '<td>' + esc(brandAppFormLabel(a.form_type)) + '</td>'
+          + '<td>' + esc((BRAND_APP_STATUS[a.status]?.label) || a.status || '—') + '</td>'
+          + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
+          + '<td>' + fmtDate(a.created_at) + '</td>'
+        + '</tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  return ''
+    + '<div style="margin-bottom:18px">' + sectionLabel('기본 정보')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+        + input('brandFormName', '브랜드명 (한국어)', b.name)
+        + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
+        + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
+        + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
+        + statusSelect
+      + '</div>'
+    + '</div>'
+
+    + '<div style="margin-bottom:18px">' + sectionLabel('대표 담당자 (브랜드 마스터)')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+        + input('brandFormPrimaryName', '담당자명', b.primary_contact_name)
+        + input('brandFormPrimaryPhone', '연락처', b.primary_phone)
+        + input('brandFormPrimaryEmail', '이메일', b.primary_email)
+        + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
+      + '</div>'
+    + '</div>'
+
+    + '<div style="margin-bottom:18px">' + sectionLabel('브랜드 콘텐츠 (오리엔시트용 — Phase 2)')
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+        + textarea('brandFormDescription', '브랜드 소개', b.description)
+        + textarea('brandFormAppealPoints', '어필 포인트', b.appeal_points)
+        + input('brandFormQoo10Url', '공식 Qoo10 URL', b.official_qoo10_url)
+        + input('brandFormInstagramUrl', '공식 Instagram URL', b.official_instagram_url)
+        + input('brandFormXUrl', '공식 X URL', b.official_x_url)
+      + '</div>'
+    + '</div>'
+
+    + '<div style="margin-bottom:18px">' + sectionLabel('영업 메모')
+      + '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
+    + '</div>'
+
+    + '<div style="margin-bottom:6px">' + sectionLabel('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)') + appsHtml + '</div>';
+}
+
+async function saveBrandDetail() {
+  if (!_brandsCurrentId) return;
+  var patch = {
+    name: ($('brandFormName')?.value || '').trim(),
+    name_ja: ($('brandFormNameJa')?.value || '').trim() || null,
+    name_en: ($('brandFormNameEn')?.value || '').trim() || null,
+    business_no: ($('brandFormBusinessNo')?.value || '').trim() || null,
+    status: $('brandFormStatus')?.value || 'active',
+    primary_contact_name: ($('brandFormPrimaryName')?.value || '').trim() || null,
+    primary_phone: ($('brandFormPrimaryPhone')?.value || '').trim() || null,
+    primary_email: ($('brandFormPrimaryEmail')?.value || '').trim() || null,
+    billing_email: ($('brandFormBillingEmail')?.value || '').trim() || null,
+    description: ($('brandFormDescription')?.value || '').trim() || null,
+    appeal_points: ($('brandFormAppealPoints')?.value || '').trim() || null,
+    official_qoo10_url: ($('brandFormQoo10Url')?.value || '').trim() || null,
+    official_instagram_url: ($('brandFormInstagramUrl')?.value || '').trim() || null,
+    official_x_url: ($('brandFormXUrl')?.value || '').trim() || null,
+    memo: ($('brandFormMemo')?.value || '').trim() || null
+  };
+  if (!patch.name) { toast('브랜드명을 입력하세요.', 'warn'); return; }
+  var result = await updateBrand(_brandsCurrentId, patch);
+  if (!result.ok) { toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  toast('저장되었습니다.');
+  closeBrandDetailModal();
+  await loadBrandsPane();
+}
+
+async function openNewBrandModal() {
+  // 빈 brand 객체로 모달 열기
+  _brandsCurrentId = null;
+  var modal = $('brandDetailModal');
+  var titleEl = $('brandDetailTitle');
+  var bodyEl = $('brandDetailBody');
+  var footerEl = $('brandDetailFooter');
+  if (!modal || !bodyEl) return;
+  if (titleEl) titleEl.textContent = '새 브랜드 등록';
+  bodyEl.innerHTML = renderBrandDetailFormHtml({}, []);
+  if (footerEl) footerEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">취소</button>'
+    + '<button class="btn btn-primary btn-sm" onclick="submitNewBrand()">등록</button>';
+  modal.classList.add('open');
+  setTimeout(function(){ $('brandFormName')?.focus(); }, 100);
+}
+
+async function submitNewBrand() {
+  var name = ($('brandFormName')?.value || '').trim();
+  if (!name) { toast('브랜드명을 입력하세요.', 'warn'); return; }
+  var payload = {
+    name: name,
+    name_ja: ($('brandFormNameJa')?.value || '').trim() || null,
+    name_en: ($('brandFormNameEn')?.value || '').trim() || null,
+    business_no: ($('brandFormBusinessNo')?.value || '').trim() || null,
+    status: $('brandFormStatus')?.value || 'active',
+    primary_contact_name: ($('brandFormPrimaryName')?.value || '').trim() || null,
+    primary_phone: ($('brandFormPrimaryPhone')?.value || '').trim() || null,
+    primary_email: ($('brandFormPrimaryEmail')?.value || '').trim() || null,
+    billing_email: ($('brandFormBillingEmail')?.value || '').trim() || null,
+    description: ($('brandFormDescription')?.value || '').trim() || null,
+    appeal_points: ($('brandFormAppealPoints')?.value || '').trim() || null,
+    official_qoo10_url: ($('brandFormQoo10Url')?.value || '').trim() || null,
+    official_instagram_url: ($('brandFormInstagramUrl')?.value || '').trim() || null,
+    official_x_url: ($('brandFormXUrl')?.value || '').trim() || null,
+    memo: ($('brandFormMemo')?.value || '').trim() || null,
+    created_by: currentUser?.id || null
+  };
+  var result = await insertBrand(payload);
+  if (!result.ok) {
+    if ((result.error || '').indexOf('duplicate') >= 0 || (result.error || '').indexOf('unique') >= 0) {
+      toast('동일한 정규화 이름의 브랜드가 이미 있습니다.', 'error');
+    } else {
+      toast('등록 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    }
+    return;
+  }
+  toast('브랜드가 등록되었습니다.');
+  closeBrandDetailModal();
+  await loadBrandsPane();
 }
 
 async function loadBrandApplications() {
