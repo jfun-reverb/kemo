@@ -6959,10 +6959,11 @@ function renderBrandApplicationsList() {
       ? esc(prodCount + '종 · ' + (Number(a.total_qty) || 0) + '개')
         + '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">¥ ' + (Number(a.total_jpy) || 0).toLocaleString('ja-JP') + '</div>'
       : '<span style="color:var(--muted)">—</span>';
-    var quoteSent = a.quote_sent_at
-      ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">check_circle</span>전달</span>'
-        + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(a.quote_sent_at) + '</div>'
-      : '<span style="color:var(--muted);font-size:11px">미전달</span>';
+    var qLocked = (a.status === 'done' || a.status === 'rejected');
+    var quoteSent = '<label class="brand-app-qsent" data-id="' + esc(a.id) + '" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;cursor:' + (qLocked ? 'not-allowed' : 'pointer') + ';color:' + (a.quote_sent_at ? '#16a34a' : 'var(--muted)') + ';font-weight:' + (a.quote_sent_at ? '600' : '400') + '" onclick="event.stopPropagation()">'
+      + '<input type="checkbox" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + (qLocked ? 'disabled' : '') + ' onchange="toggleBrandAppQuoteSent(\'' + esc(a.id) + '\', this)" style="cursor:' + (qLocked ? 'not-allowed' : 'pointer') + '">'
+      + '<span class="qsent-label">' + (a.quote_sent_at ? '전달 ' + fmtDate(a.quote_sent_at) : '미전달') + '</span>'
+    + '</label>';
     var memoText = (a.admin_memo || '').trim();
     var memoCell = memoText
       ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
@@ -7203,6 +7204,50 @@ function closeBrandAppDetail() {
   if (modal) modal.classList.remove('open');
   _brandAppCurrentId = null;
   window._brandAppCurrent = null;
+}
+
+async function toggleBrandAppQuoteSent(id, checkboxEl) {
+  if (!currentAdminInfo) { toast('권한이 없습니다','error'); checkboxEl.checked = !checkboxEl.checked; return; }
+  var idx = (_brandApps || []).findIndex(function(a){ return a.id === id; });
+  if (idx < 0) return;
+  var cur = _brandApps[idx];
+  if (cur.status === 'done' || cur.status === 'rejected') {
+    checkboxEl.checked = !!cur.quote_sent_at;
+    toast('완료/거절된 신청은 변경할 수 없습니다.', 'warn');
+    return;
+  }
+  var prevValue = cur.quote_sent_at;
+  var prevVersion = cur.version;
+  var nextValue = checkboxEl.checked ? new Date().toISOString() : null;
+  var labelEl = checkboxEl.parentElement?.querySelector('.qsent-label');
+  // 낙관적 UI 갱신
+  if (labelEl) labelEl.textContent = nextValue ? ('전달 ' + fmtDate(nextValue)) : '미전달';
+  if (checkboxEl.parentElement) {
+    checkboxEl.parentElement.style.color = nextValue ? '#16a34a' : 'var(--muted)';
+    checkboxEl.parentElement.style.fontWeight = nextValue ? '600' : '400';
+  }
+  checkboxEl.disabled = true;
+  var result = await updateBrandApplication(id, {quote_sent_at: nextValue}, prevVersion);
+  checkboxEl.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    // 원복
+    checkboxEl.checked = !checkboxEl.checked;
+    if (labelEl) labelEl.textContent = prevValue ? ('전달 ' + fmtDate(prevValue)) : '미전달';
+    if (checkboxEl.parentElement) {
+      checkboxEl.parentElement.style.color = prevValue ? '#16a34a' : 'var(--muted)';
+      checkboxEl.parentElement.style.fontWeight = prevValue ? '600' : '400';
+    }
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  // 메모리 갱신
+  cur.quote_sent_at = nextValue;
+  cur.version = result.data?.version || (prevVersion + 1);
 }
 
 async function saveBrandAppChanges(expectedVersion) {
