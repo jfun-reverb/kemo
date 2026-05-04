@@ -432,8 +432,6 @@ textarea.form-input{resize:vertical;min-height:80px}
 #adminPane-brand-applications .data-table thead .col-help:hover::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:1px;border:5px solid transparent;border-bottom-color:#1A0F18;pointer-events:none;z-index:101}
 /* 호버 중인 th의 stacking context를 인접 sticky thead 셀보다 위로 끌어올림 (툴팁 가림 방지) */
 #adminPane-brand-applications .data-table thead th:has(.col-help:hover){z-index:99}
-/* 신청번호 셀 호버 — 클릭 가능 시각 피드백 (불투명 핑크 톤으로 sticky 뒷면 비침 방지) */
-#adminPane-brand-applications .data-table tbody tr[data-summary="1"] td:nth-child(1):hover{background:#F5E0EA}
 /* 신청 그룹 시각화 — 요약 행 위에 굵은 가로선(다음 그룹 시작 = 이전 그룹 끝) */
 #adminPane-brand-applications .data-table tbody tr[data-summary="1"] td{border-top:2px solid var(--outline)}
 #adminPane-brand-applications .data-table tbody tr[data-summary="1"]:first-child td{border-top:none}
