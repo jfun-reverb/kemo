@@ -12686,13 +12686,16 @@ function _brandAppHistoryFormatValue(field, val) {
 }
 
 // 모든 제품에서 동일한 값이면 그 값, 다르면 null
+// 모든 제품에서 동일하면 {uniform:true, value} / 다르면 {uniform:false, value:null}
+// null/undefined도 "동일한 빈 값"으로 인식 (이전엔 null 반환이 다양함과 구분 불가했음)
 function _uniformProductValue(prods, key) {
-  if (!Array.isArray(prods) || prods.length === 0) return null;
-  var first = prods[0] && prods[0][key];
+  if (!Array.isArray(prods) || prods.length === 0) return {uniform: true, value: null};
+  var first = (prods[0] && prods[0][key] !== undefined) ? prods[0][key] : null;
   for (var i = 1; i < prods.length; i++) {
-    if (prods[i] && prods[i][key] !== first) return null;
+    var v = (prods[i] && prods[i][key] !== undefined) ? prods[i][key] : null;
+    if (v !== first) return {uniform: false, value: null};
   }
-  return first;
+  return {uniform: true, value: first};
 }
 
 // 신청 1건 = 1행 (요약 행, 24컬럼). 합산 가능 컬럼은 SUM, 단가는 동일하면 그 값/다르면 "—"
@@ -12706,18 +12709,18 @@ function renderBrandAppSummaryRow(a) {
   }, 0);
   var totalFinal = totalLine + totalFee;
   var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
-  // 단가 — 모든 제품 동일하면 그 값, 다르면 표시 안 함
+  // 단가 — 모든 제품 동일하면 그 값(빈 값 포함 — dash로 표시), 다르면 "제품별 상이"
   var uPriceJpy = _uniformProductValue(prods, 'price');
   var uTfee = _uniformProductValue(prods, 'transfer_fee_krw');
-  var uPriceKrw = (uPriceJpy != null && uPriceJpy !== '') ? Number(uPriceJpy) * BRAND_QUOTE_CONST.FX_JPY_KRW : null;
+  var uPriceKrw = uPriceJpy.uniform
+    ? {uniform: true, value: (uPriceJpy.value != null && uPriceJpy.value !== '') ? Number(uPriceJpy.value) * BRAND_QUOTE_CONST.FX_JPY_KRW : null}
+    : {uniform: false, value: null};
 
   var dash = '<span style="color:var(--muted)">—</span>';
   var multi = '<span style="color:var(--muted);font-size:10px">제품별 상이</span>';
-  var renderUnit = function(uniformVal, formatter) {
-    if (prods.length <= 1) {
-      return uniformVal != null && uniformVal !== '' ? formatter(uniformVal) : dash;
-    }
-    return uniformVal != null && uniformVal !== '' ? formatter(uniformVal) : multi;
+  var renderUnit = function(u, formatter) {
+    if (!u.uniform) return multi;
+    return (u.value != null && u.value !== '') ? formatter(u.value) : dash;
   };
 
   // 펼치기 토글 (제품 2개 이상 또는 항상 표시 — 일관성 위해 항상 표시)
