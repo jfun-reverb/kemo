@@ -2226,7 +2226,10 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnBrandAppFilterReset" onclick="resetBrandAppFilters()" style="display:none">초기화</button>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-ghost btn-xs" id="btnBrandAppSortReset" onclick="resetBrandAppSort()" style="display:none">정렬 초기화</button>
+                  <button class="btn btn-ghost btn-xs" id="btnBrandAppFilterReset" onclick="resetBrandAppFilters()" style="display:none">초기화</button>
+                </div>
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
@@ -12377,6 +12380,8 @@ function renderBrandApplicationsList() {
   var filterActive = res.filterActive;
   var resetBtn = $('btnBrandAppFilterReset');
   if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
+  var sortResetBtn = $('btnBrandAppSortReset');
+  if (sortResetBtn) sortResetBtn.style.display = _brandAppSortIsDefault() ? 'none' : 'inline-block';
 
   var count = $('brandAppTotalCount');
   if (count) {
@@ -12429,6 +12434,16 @@ function toggleBrandAppSort(field) {
   } else {
     _brandAppSort = {field: field, dir: 'desc'};
   }
+  updateBrandAppSortIndicators();
+  renderBrandApplicationsList();
+}
+
+function _brandAppSortIsDefault() {
+  return _brandAppSort.field === 'created' && _brandAppSort.dir === 'desc';
+}
+
+function resetBrandAppSort() {
+  _brandAppSort = {field: 'created', dir: 'desc'};
   updateBrandAppSortIndicators();
   renderBrandApplicationsList();
 }

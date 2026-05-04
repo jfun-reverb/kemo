@@ -6941,6 +6941,8 @@ function renderBrandApplicationsList() {
   var filterActive = res.filterActive;
   var resetBtn = $('btnBrandAppFilterReset');
   if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
+  var sortResetBtn = $('btnBrandAppSortReset');
+  if (sortResetBtn) sortResetBtn.style.display = _brandAppSortIsDefault() ? 'none' : 'inline-block';
 
   var count = $('brandAppTotalCount');
   if (count) {
@@ -6993,6 +6995,16 @@ function toggleBrandAppSort(field) {
   } else {
     _brandAppSort = {field: field, dir: 'desc'};
   }
+  updateBrandAppSortIndicators();
+  renderBrandApplicationsList();
+}
+
+function _brandAppSortIsDefault() {
+  return _brandAppSort.field === 'created' && _brandAppSort.dir === 'desc';
+}
+
+function resetBrandAppSort() {
+  _brandAppSort = {field: 'created', dir: 'desc'};
   updateBrandAppSortIndicators();
   renderBrandApplicationsList();
 }
