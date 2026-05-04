@@ -7028,7 +7028,7 @@ async function openBrandDetailModal(id) {
   modal.classList.add('open');
   var [b, apps] = await Promise.all([fetchBrandById(id), fetchBrandApplicationsByBrand(id)]);
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
-  if (titleEl) titleEl.innerHTML = '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;margin-right:8px">' + esc(b.brand_no || '—') + '</span>' + esc(b.name || '');
+  if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
   if (footerEl) footerEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
@@ -7040,7 +7040,66 @@ function closeBrandDetailModal() {
   _brandsCurrentId = null;
 }
 
+// 헤더 — brand_no | name | status pill (클릭 토글)
+function renderBrandDetailHeaderHtml(b) {
+  var status = b.status || 'active';
+  var statusLabel = status === 'archived' ? '비활성' : '활성';
+  var statusBg = status === 'archived' ? '#F0F0F0' : '#E8F5E9';
+  var statusColor = status === 'archived' ? '#888' : '#16a34a';
+  return '<input type="hidden" id="brandFormStatus" value="' + esc(status) + '">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px">' + esc(b.brand_no || '신규') + '</span>'
+      + '<span style="font-weight:700;color:var(--ink)">' + esc(b.name || '새 브랜드') + '</span>'
+      + '<button type="button" id="brandStatusPill" onclick="toggleBrandStatusPill()" title="클릭하여 활성/비활성 전환" style="background:' + statusBg + ';color:' + statusColor + ';font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px;border:none;cursor:pointer">' + statusLabel + '</button>'
+    + '</div>';
+}
+
+function toggleBrandStatusPill() {
+  var hidden = $('brandFormStatus');
+  var pill = $('brandStatusPill');
+  if (!hidden || !pill) return;
+  var next = hidden.value === 'archived' ? 'active' : 'archived';
+  hidden.value = next;
+  if (next === 'archived') {
+    pill.textContent = '비활성';
+    pill.style.background = '#F0F0F0';
+    pill.style.color = '#888';
+  } else {
+    pill.textContent = '활성';
+    pill.style.background = '#E8F5E9';
+    pill.style.color = '#16a34a';
+  }
+}
+
+// brands.contacts jsonb 작업용 메모리 캐시 (모달 한 인스턴스만 동시 가능)
+var _brandFormContacts = [];
+function _genContactId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+}
+
 function renderBrandDetailFormHtml(b, apps) {
+  // contacts 초기화
+  _brandFormContacts = Array.isArray(b.contacts) ? b.contacts.map(function(c){
+    return {
+      id: c.id || _genContactId(),
+      name: c.name || '',
+      phone: c.phone || '',
+      email: c.email || '',
+      is_primary: !!c.is_primary
+    };
+  }) : [];
+  // legacy primary_* 가 있고 contacts 비어있으면 1개 자동 추가 (마이그레이션 호환)
+  if (_brandFormContacts.length === 0 && (b.primary_contact_name || b.primary_phone || b.primary_email)) {
+    _brandFormContacts.push({
+      id: _genContactId(),
+      name: b.primary_contact_name || '',
+      phone: b.primary_phone || '',
+      email: b.primary_email || '',
+      is_primary: true
+    });
+  }
+
   var sectionLabel = function(t){ return '<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink);margin:0 0 10px">' + esc(t) + '</div>'; };
   var input = function(id, label, val, placeholder) {
     return '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
@@ -7048,11 +7107,6 @@ function renderBrandDetailFormHtml(b, apps) {
   var textarea = function(id, label, val, placeholder) {
     return '<div style="grid-column:1 / -1"><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="2" style="resize:vertical;font-family:inherit" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
   };
-  var statusSelect = '<div><label style="color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:4px">상태</label>'
-    + '<select id="brandFormStatus" class="admin-filter">'
-    + '<option value="active"' + (b.status==='active'?' selected':'') + '>active</option>'
-    + '<option value="archived"' + (b.status==='archived'?' selected':'') + '>archived</option>'
-    + '</select></div>';
 
   var appsHtml = '<div style="color:var(--muted);font-size:12px;padding:10px">신청 내역 없음</div>';
   if (apps && apps.length > 0) {
@@ -7070,26 +7124,32 @@ function renderBrandDetailFormHtml(b, apps) {
   }
 
   return ''
+    // § 기본 정보
     + '<div style="margin-bottom:18px">' + sectionLabel('기본 정보')
-      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-        + input('brandFormName', '브랜드명 (한국어)', b.name)
+      // 브랜드명 한 행 (한국어/일본어/영문)
+      + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+        + input('brandFormName', '브랜드명 (한국어) *', b.name)
         + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
         + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
-        + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
-        + statusSelect
       + '</div>'
-    + '</div>'
-
-    + '<div style="margin-bottom:18px">' + sectionLabel('대표 담당자 (브랜드 마스터)')
+      // 사업자등록번호 / 계산서 이메일 한 행
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-        + input('brandFormPrimaryName', '담당자명', b.primary_contact_name)
-        + input('brandFormPrimaryPhone', '연락처', b.primary_phone)
-        + input('brandFormPrimaryEmail', '이메일', b.primary_email)
+        + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
         + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
       + '</div>'
     + '</div>'
 
-    + '<div style="margin-bottom:18px">' + sectionLabel('브랜드 콘텐츠 (오리엔시트용 — Phase 2)')
+    // § 담당자 (multi-entry)
+    + '<div style="margin-bottom:18px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+        + sectionLabel('담당자')
+        + '<button type="button" class="btn btn-ghost btn-xs" onclick="addBrandContact()" style="display:inline-flex;align-items:center;gap:3px;margin-bottom:10px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span> 담당자 추가</button>'
+      + '</div>'
+      + '<div id="brandContactsWrap"></div>'
+    + '</div>'
+
+    // § 브랜드 콘텐츠 (Phase 2 대비)
+    + '<div style="margin-bottom:18px">' + sectionLabel('브랜드 콘텐츠 (오리엔시트용)')
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
         + textarea('brandFormDescription', '브랜드 소개', b.description)
         + textarea('brandFormAppealPoints', '어필 포인트', b.appeal_points)
@@ -7099,24 +7159,92 @@ function renderBrandDetailFormHtml(b, apps) {
       + '</div>'
     + '</div>'
 
+    // § 영업 메모
     + '<div style="margin-bottom:18px">' + sectionLabel('영업 메모')
       + '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
     + '</div>'
 
-    + '<div style="margin-bottom:6px">' + sectionLabel('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)') + appsHtml + '</div>';
+    // § 신청 내역
+    + '<div style="margin-bottom:6px">' + sectionLabel('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)') + appsHtml + '</div>'
+    // 담당자 섹션을 form HTML 삽입 후 초기 렌더 (setTimeout으로 DOM 마운트 보장)
+    + '<script>setTimeout(function(){renderBrandContactsRows();},0);</script>';
 }
 
-async function saveBrandDetail() {
-  if (!_brandsCurrentId) return;
-  var patch = {
+// 담당자 행 렌더링 (한 행: 이름 / 연락처 / 이메일 / 대표 / 삭제)
+function renderBrandContactsRows() {
+  var wrap = $('brandContactsWrap');
+  if (!wrap) return;
+  if (_brandFormContacts.length === 0) {
+    wrap.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:6px">담당자가 없습니다. "담당자 추가" 버튼을 눌러 등록하세요.</div>';
+    return;
+  }
+  wrap.innerHTML = _brandFormContacts.map(function(c, idx){
+    var primaryBtn = c.is_primary
+      ? '<button type="button" onclick="setBrandPrimaryContact(\'' + esc(c.id) + '\')" title="대표 담당자" style="background:#FFF8E1;color:#F57F17;border:1px solid #FFE082;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:600;white-space:nowrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:middle">star</span> 대표</button>'
+      : '<button type="button" onclick="setBrandPrimaryContact(\'' + esc(c.id) + '\')" title="대표로 설정" style="background:#fff;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:10px;font-weight:500;white-space:nowrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:middle">star_outline</span> 대표 설정</button>';
+    return '<div class="brand-contact-row" data-cid="' + esc(c.id) + '" style="display:grid;grid-template-columns:1.3fr 1.3fr 2fr auto auto;gap:8px;align-items:center;margin-bottom:6px">'
+      + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.name) + '" placeholder="담당자명" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'name\',this.value)">'
+      + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.phone) + '" placeholder="연락처" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'phone\',this.value)">'
+      + '<input type="text" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(c.email) + '" placeholder="메일주소" oninput="updateBrandContactField(\'' + esc(c.id) + '\',\'email\',this.value)">'
+      + primaryBtn
+      + '<button type="button" onclick="removeBrandContact(\'' + esc(c.id) + '\')" title="삭제" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 6px;cursor:pointer;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span></button>'
+    + '</div>';
+  }).join('');
+}
+
+function addBrandContact() {
+  _brandFormContacts.push({id: _genContactId(), name: '', phone: '', email: '', is_primary: _brandFormContacts.length === 0});
+  renderBrandContactsRows();
+}
+
+function removeBrandContact(cid) {
+  var wasPrimary = _brandFormContacts.find(function(c){ return c.id === cid; })?.is_primary;
+  _brandFormContacts = _brandFormContacts.filter(function(c){ return c.id !== cid; });
+  // 대표를 지웠으면 첫 번째를 대표로
+  if (wasPrimary && _brandFormContacts.length > 0 && !_brandFormContacts.some(function(c){return c.is_primary;})) {
+    _brandFormContacts[0].is_primary = true;
+  }
+  renderBrandContactsRows();
+}
+
+function setBrandPrimaryContact(cid) {
+  _brandFormContacts.forEach(function(c){ c.is_primary = (c.id === cid); });
+  renderBrandContactsRows();
+}
+
+function updateBrandContactField(cid, field, value) {
+  var c = _brandFormContacts.find(function(x){ return x.id === cid; });
+  if (!c) return;
+  c[field] = value;
+}
+
+function _collectBrandFormPatch() {
+  // contacts 정리 — 빈 행(이름/연락처/이메일 모두 빈 값) 제외
+  var contacts = (_brandFormContacts || [])
+    .map(function(c){
+      return {
+        id: c.id, name: (c.name || '').trim(), phone: (c.phone || '').trim(),
+        email: (c.email || '').trim(), is_primary: !!c.is_primary
+      };
+    })
+    .filter(function(c){ return c.name || c.phone || c.email; });
+  // 대표 1개 보장 (없으면 첫 번째)
+  if (contacts.length > 0 && !contacts.some(function(c){return c.is_primary;})) {
+    contacts[0].is_primary = true;
+  }
+  // legacy primary_* 컬럼 동기화 (대표 contact)
+  var primary = contacts.find(function(c){return c.is_primary;}) || {};
+  return {
     name: ($('brandFormName')?.value || '').trim(),
     name_ja: ($('brandFormNameJa')?.value || '').trim() || null,
     name_en: ($('brandFormNameEn')?.value || '').trim() || null,
     business_no: ($('brandFormBusinessNo')?.value || '').trim() || null,
     status: $('brandFormStatus')?.value || 'active',
-    primary_contact_name: ($('brandFormPrimaryName')?.value || '').trim() || null,
-    primary_phone: ($('brandFormPrimaryPhone')?.value || '').trim() || null,
-    primary_email: ($('brandFormPrimaryEmail')?.value || '').trim() || null,
+    contacts: contacts,
+    // legacy 컬럼도 동기화 (PR6 cleanup 전까지 양쪽 유지)
+    primary_contact_name: primary.name || null,
+    primary_phone: primary.phone || null,
+    primary_email: primary.email || null,
     billing_email: ($('brandFormBillingEmail')?.value || '').trim() || null,
     description: ($('brandFormDescription')?.value || '').trim() || null,
     appeal_points: ($('brandFormAppealPoints')?.value || '').trim() || null,
@@ -7125,6 +7253,11 @@ async function saveBrandDetail() {
     official_x_url: ($('brandFormXUrl')?.value || '').trim() || null,
     memo: ($('brandFormMemo')?.value || '').trim() || null
   };
+}
+
+async function saveBrandDetail() {
+  if (!_brandsCurrentId) return;
+  var patch = _collectBrandFormPatch();
   if (!patch.name) { toast('브랜드명을 입력하세요.', 'warn'); return; }
   var result = await updateBrand(_brandsCurrentId, patch);
   if (!result.ok) { toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
@@ -7141,7 +7274,7 @@ async function openNewBrandModal() {
   var bodyEl = $('brandDetailBody');
   var footerEl = $('brandDetailFooter');
   if (!modal || !bodyEl) return;
-  if (titleEl) titleEl.textContent = '새 브랜드 등록';
+  if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml({status: 'active', name: '새 브랜드'});
   bodyEl.innerHTML = renderBrandDetailFormHtml({}, []);
   if (footerEl) footerEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">취소</button>'
     + '<button class="btn btn-primary btn-sm" onclick="submitNewBrand()">등록</button>';
@@ -7150,27 +7283,10 @@ async function openNewBrandModal() {
 }
 
 async function submitNewBrand() {
-  var name = ($('brandFormName')?.value || '').trim();
-  if (!name) { toast('브랜드명을 입력하세요.', 'warn'); return; }
-  var payload = {
-    name: name,
-    name_ja: ($('brandFormNameJa')?.value || '').trim() || null,
-    name_en: ($('brandFormNameEn')?.value || '').trim() || null,
-    business_no: ($('brandFormBusinessNo')?.value || '').trim() || null,
-    status: $('brandFormStatus')?.value || 'active',
-    primary_contact_name: ($('brandFormPrimaryName')?.value || '').trim() || null,
-    primary_phone: ($('brandFormPrimaryPhone')?.value || '').trim() || null,
-    primary_email: ($('brandFormPrimaryEmail')?.value || '').trim() || null,
-    billing_email: ($('brandFormBillingEmail')?.value || '').trim() || null,
-    description: ($('brandFormDescription')?.value || '').trim() || null,
-    appeal_points: ($('brandFormAppealPoints')?.value || '').trim() || null,
-    official_qoo10_url: ($('brandFormQoo10Url')?.value || '').trim() || null,
-    official_instagram_url: ($('brandFormInstagramUrl')?.value || '').trim() || null,
-    official_x_url: ($('brandFormXUrl')?.value || '').trim() || null,
-    memo: ($('brandFormMemo')?.value || '').trim() || null,
-    created_by: currentUser?.id || null
-  };
-  var result = await insertBrand(payload);
+  var patch = _collectBrandFormPatch();
+  if (!patch.name) { toast('브랜드명을 입력하세요.', 'warn'); return; }
+  patch.created_by = currentUser?.id || null;
+  var result = await insertBrand(patch);
   if (!result.ok) {
     if ((result.error || '').indexOf('duplicate') >= 0 || (result.error || '').indexOf('unique') >= 0) {
       toast('동일한 정규화 이름의 브랜드가 이미 있습니다.', 'error');
@@ -7183,6 +7299,7 @@ async function submitNewBrand() {
   closeBrandDetailModal();
   await loadBrandsPane();
 }
+
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
