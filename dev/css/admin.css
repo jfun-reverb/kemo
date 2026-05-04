@@ -65,6 +65,21 @@
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+/* 브랜드 서베이 페인: 좌우 스크롤 + 첫 두 컬럼 sticky-left */
+#adminPane-brand-applications .admin-table-wrap{overflow-x:auto}
+#adminPane-brand-applications .data-table{min-width:2280px}
+#adminPane-brand-applications .data-table tbody td:nth-child(1),
+#adminPane-brand-applications .data-table tbody td:nth-child(2){position:sticky;z-index:3;background:var(--surface)}
+#adminPane-brand-applications .data-table tbody tr:hover td:nth-child(1),
+#adminPane-brand-applications .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
+#adminPane-brand-applications .data-table tbody td:nth-child(1),
+#adminPane-brand-applications .data-table thead th:nth-child(1){left:0}
+#adminPane-brand-applications .data-table tbody td:nth-child(2),
+#adminPane-brand-applications .data-table thead th:nth-child(2){left:180px}
+#adminPane-brand-applications .data-table thead th:nth-child(1),
+#adminPane-brand-applications .data-table thead th:nth-child(2){z-index:7}
+#adminPane-brand-applications .data-table tbody td:nth-child(2),
+#adminPane-brand-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
 .kpi-card{background:var(--surface);border:none;border-radius:var(--r16);padding:20px;position:relative;overflow:hidden;box-shadow:var(--elevation-1)}
 .kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px}
