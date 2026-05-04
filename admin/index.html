@@ -11709,18 +11709,32 @@ async function exportBrandApplicationsExcel() {
     wb.created = new Date();
     var ws = wb.addWorksheet('브랜드 서베이');
 
+    // 화면 컬럼과 동일한 순서·구조 (신청 1건 = 제품 N행으로 펼침)
     ws.columns = [
-      { header: '신청일',              key: 'created',     width: 20 },
-      { header: '신청번호',            key: 'no',          width: 22 },
-      { header: '폼 종류',             key: 'form',        width: 14 },
-      { header: '업체/브랜드명',       key: 'brand',       width: 28 },
-      { header: '담당자명',            key: 'contact',     width: 14 },
-      { header: '담당자이메일',        key: 'email',       width: 28 },
-      { header: '연락처',              key: 'phone',       width: 18 },
-      { header: '세금계산서 발행주소', key: 'billing',     width: 28 },
-      { header: '예상견적',            key: 'estimated',   width: 16 },
-      { header: '상태',                key: 'status',      width: 12 },
-      { header: '요청사항',            key: 'requestNote', width: 40 }
+      { header: '신청일',           key: 'created',     width: 20 },
+      { header: '신청번호',         key: 'no',          width: 22 },
+      { header: '폼 종류',          key: 'form',        width: 14 },
+      { header: '업체/브랜드명',    key: 'brand',       width: 24 },
+      { header: '담당자명',         key: 'contact',     width: 12 },
+      { header: '담당자이메일',     key: 'email',       width: 28 },
+      { header: '연락처',           key: 'phone',       width: 16 },
+      { header: '세금계산서 주소',  key: 'billing',     width: 24 },
+      { header: '요청사항',         key: 'requestNote', width: 36 },
+      { header: '제품명',           key: 'productName', width: 26 },
+      { header: 'URL',              key: 'productUrl',  width: 36 },
+      { header: '진행 수량',        key: 'qty',         width: 10 },
+      { header: '상품 가격(엔)',    key: 'priceJpy',    width: 14 },
+      { header: '상품 가격(원)',    key: 'priceKrw',    width: 14 },
+      { header: '상품 최종 금액',   key: 'lineTotal',   width: 16 },
+      { header: '이체수수료(건)',   key: 'transferFee', width: 14 },
+      { header: '이체수수료(원)',   key: 'feeTotal',    width: 16 },
+      { header: '최종 견적 금액',   key: 'finalKrw',    width: 16 },
+      { header: 'VAT포함',          key: 'vatKrw',      width: 16 },
+      { header: '예상 견적',        key: 'estimated',   width: 16 },
+      { header: '견적서 전달일',    key: 'quoteSent',   width: 14 },
+      { header: '내부 메모',        key: 'memo',        width: 36 },
+      { header: '상태',             key: 'status',      width: 12 },
+      { header: '검수일',           key: 'reviewed',    width: 14 }
     ];
 
     // 헤더 스타일
@@ -11730,42 +11744,88 @@ async function exportBrandApplicationsExcel() {
     header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
     header.height = 22;
 
+    var fmtDateTime = function(iso) {
+      if (!iso) return '';
+      try { return new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
+      catch(e) { return String(iso); }
+    };
+    var fmtDateOnly = function(iso) {
+      if (!iso) return '';
+      try { return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }); }
+      catch(e) { return String(iso); }
+    };
+
+    var totalProductRows = 0;
     list.forEach(function(a) {
-      var createdStr = '';
-      if (a.created_at) {
-        try { createdStr = new Date(a.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
-        catch(e) { createdStr = String(a.created_at); }
-      }
-      ws.addRow({
-        created:     createdStr,
-        no:          a.application_no || '',
-        form:        brandAppFormLabel(a.form_type),
-        brand:       a.brand_name || '',
-        contact:     a.contact_name || '',
-        email:       a.email || '',
-        phone:       formatPhoneDisplay(a.phone),
-        billing:     a.billing_email || '',
-        estimated:   (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
-        status:      (BRAND_APP_STATUS[a.status]?.label) || a.status || '',
-        requestNote: a.request_note || ''
+      var createdStr  = fmtDateTime(a.created_at);
+      var quoteSent   = fmtDateOnly(a.quote_sent_at);
+      var reviewed    = fmtDateOnly(a.reviewed_at);
+      var statusLabel = (BRAND_APP_STATUS[a.status]?.label) || a.status || '';
+      var prods = (Array.isArray(a.products) && a.products.length > 0)
+        ? a.products
+        : [{ name: '', url: '', qty: 0, price: 0, transfer_fee_krw: null }];
+
+      prods.forEach(function(p) {
+        var qty = Number(p.qty) || 0;
+        var priceJpy = Number(p.price) || 0;
+        var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
+        var lineTotal = qty * priceKrw;
+        var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
+        var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
+        var finalKrw = lineTotal + feeTotalKrw;
+        var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+        ws.addRow({
+          // 신청 단위 — 모든 행 반복 (sort/filter 친화적)
+          created:     createdStr,
+          no:          a.application_no || '',
+          form:        brandAppFormLabel(a.form_type),
+          brand:       a.brand_name || '',
+          contact:     a.contact_name || '',
+          email:       a.email || '',
+          phone:       formatPhoneDisplay(a.phone),
+          billing:     a.billing_email || '',
+          requestNote: a.request_note || '',
+          // 제품 단위
+          productName: p.name || '',
+          productUrl:  p.url || '',
+          qty:         qty || '',
+          priceJpy:    priceJpy || '',
+          priceKrw:    priceKrw || '',
+          lineTotal:   lineTotal || '',
+          transferFee: transferFeeKrw == null ? '' : transferFeeKrw,
+          feeTotal:    feeTotalKrw || '',
+          finalKrw:    finalKrw || '',
+          vatKrw:      vatKrw || '',
+          // 신청 단위 (견적/메모/상태)
+          estimated:   (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
+          quoteSent:   quoteSent,
+          memo:        a.admin_memo || '',
+          status:      statusLabel,
+          reviewed:    reviewed
+        });
+        totalProductRows++;
       });
     });
 
-    // 예상견적 통화 포맷 (열 단위)
-    ws.getColumn('estimated').numFmt = '#,##0';
-    ws.getColumn('estimated').alignment = { horizontal: 'right' };
+    // 통화·수량 컬럼 포맷
+    ['priceJpy','priceKrw','lineTotal','transferFee','feeTotal','finalKrw','vatKrw','estimated'].forEach(function(k){
+      var col = ws.getColumn(k);
+      col.numFmt = '#,##0';
+      col.alignment = { horizontal: 'right', vertical: 'middle' };
+    });
+    ws.getColumn('qty').numFmt = '#,##0';
+    ws.getColumn('qty').alignment = { horizontal: 'right', vertical: 'middle' };
 
-    // 데이터 행 기본 정렬. 요청사항 셀만 wrapText + top 으로 개행/장문 보존
-    // (row.alignment 을 쓰면 셀 단위 설정이 덮어씌워지므로 셀 단위로 개별 설정)
+    // 본문 행 정렬·줄바꿈
     ws.eachRow({ includeEmpty: false }, function(row, idx) {
       if (idx === 1) return;
       row.eachCell({ includeEmpty: true }, function(cell) {
         cell.alignment = Object.assign({ vertical: 'middle' }, cell.alignment || {});
       });
-      var noteCell = row.getCell('requestNote');
-      if (noteCell) {
-        noteCell.alignment = { wrapText: true, vertical: 'top' };
-      }
+      var noteCell = row.getCell('requestNote'); if (noteCell) noteCell.alignment = { wrapText: true, vertical: 'top' };
+      var memoCell = row.getCell('memo');        if (memoCell) memoCell.alignment = { wrapText: true, vertical: 'top' };
+      var nameCell = row.getCell('productName'); if (nameCell) nameCell.alignment = { wrapText: true, vertical: 'middle' };
+      var urlCell  = row.getCell('productUrl');  if (urlCell)  urlCell.alignment  = { wrapText: true, vertical: 'middle' };
     });
 
     var buf = await wb.xlsx.writeBuffer();
@@ -11782,7 +11842,7 @@ async function exportBrandApplicationsExcel() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast('엑셀 다운로드 완료 (' + list.length + '건)');
+    toast('엑셀 다운로드 완료 (신청 ' + list.length + '건 / 제품 ' + totalProductRows + '행)');
   } catch (e) {
     console.error('[exportBrandApplicationsExcel]', e);
     toast('엑셀 생성 실패: ' + (e?.message || e), 'error');
