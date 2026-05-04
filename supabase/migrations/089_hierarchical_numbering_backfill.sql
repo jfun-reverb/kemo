@@ -135,13 +135,16 @@ WHERE c.brand_id IS NULL
 -- ============================================================
 
 -- 5-1. 매칭 안 된 distinct brand 이름으로 brands 신규 INSERT
+--   DISTINCT ON (normalized): 같은 normalized 키 그룹에서 첫 번째 name_original만 채택
+--   ON CONFLICT (name_normalized) DO NOTHING: 동시 트리거 발동에서도 중복 INSERT 안전
 WITH unmatched AS (
-  SELECT DISTINCT
+  SELECT DISTINCT ON (lower(trim(regexp_replace(c.brand, '\s+', ' ', 'g'))))
     lower(trim(regexp_replace(c.brand, '\s+', ' ', 'g'))) AS name_normalized,
     c.brand AS name_original
   FROM public.campaigns c
   WHERE c.brand_id IS NULL
     AND COALESCE(trim(c.brand), '') <> ''
+  ORDER BY lower(trim(regexp_replace(c.brand, '\s+', ' ', 'g'))), c.created_at
 )
 INSERT INTO public.brands (name, status)
 SELECT
@@ -154,6 +157,7 @@ WHERE NOT EXISTS (
 )
 -- trg_brand_name_normalized: name_normalized 자동 계산
 -- trg_brand_no:              brand_no 자동 채번
+ON CONFLICT (name_normalized) DO NOTHING
 ;
 
 -- 5-2. 신규 INSERT된 brands에도 brand_seq 채번 (brand_seq IS NULL 조건)
