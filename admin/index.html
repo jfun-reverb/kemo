@@ -1275,7 +1275,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
+                  <input type="text" id="adminCampSearch" class="admin-filter-search" autocomplete="off" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
                 </div>
               </div>
             </div>
@@ -1840,7 +1840,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="infSearch" class="admin-filter-search" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="rerenderInfluencersFromCache()">
+                  <input type="text" id="infSearch" class="admin-filter-search" autocomplete="off" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="rerenderInfluencersFromCache()">
                 </div>
               </div>
             </div>
@@ -1934,7 +1934,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="campAppSearch" class="admin-filter-search" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="loadCampApplicants()">
+                  <input type="text" id="campAppSearch" class="admin-filter-search" autocomplete="off" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="loadCampApplicants()">
                 </div>
               </div>
             </div>
@@ -1979,7 +1979,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 · 캠페인번호 검색" oninput="renderAppCampList()">
+                  <input type="text" id="appSearch" class="admin-filter-search" autocomplete="off" placeholder="캠페인명 · 인플루언서명 · 캠페인번호 검색" oninput="renderAppCampList()">
                 </div>
               </div>
             </div>
@@ -2028,7 +2028,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 · 캠페인명 · 캠페인번호 검색" oninput="renderDeliverablesList()">
+                  <input type="text" id="delivSearch" class="admin-filter-search" autocomplete="off" placeholder="인플루언서명 · 캠페인명 · 캠페인번호 검색" oninput="renderDeliverablesList()">
                 </div>
               </div>
             </div>
@@ -2218,11 +2218,11 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
               <div class="admin-filter-group">
                 <label>기간 (시작)</label>
-                <input type="date" id="brandAppFromDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+                <input type="date" id="brandAppFromDate" class="admin-filter" autocomplete="off" onchange="highlightFilter(this);renderBrandApplicationsList()">
               </div>
               <div class="admin-filter-group">
                 <label>기간 (종료)</label>
-                <input type="date" id="brandAppToDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+                <input type="date" id="brandAppToDate" class="admin-filter" autocomplete="off" onchange="highlightFilter(this);renderBrandApplicationsList()">
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -2235,7 +2235,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="brandAppSearch" class="admin-filter-search" placeholder="브랜드명 · 담당자 · 이메일" oninput="renderBrandApplicationsList()">
+                  <input type="text" id="brandAppSearch" class="admin-filter-search" autocomplete="off" placeholder="브랜드명 · 담당자 · 이메일" oninput="renderBrandApplicationsList()">
                 </div>
               </div>
             </div>
@@ -2349,7 +2349,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="adminNoticeSearch" class="admin-filter-search" placeholder="제목 검색" oninput="renderAdminNotices()">
+                  <input type="text" id="adminNoticeSearch" class="admin-filter-search" autocomplete="off" placeholder="제목 검색" oninput="renderAdminNotices()">
                 </div>
               </div>
             </div>
@@ -13618,6 +13618,11 @@ document.addEventListener('DOMContentLoaded', function() {
       var badgeSide = document.getElementById('stagingBadgeSide');
       if (badgeSide) badgeSide.style.display = 'inline-block';
     }
+  } catch(e) {}
+
+  // 새로고침 시 브라우저 폼 자동 복원으로 검색/날짜 필터에 이전 값이 남는 문제 방지
+  try {
+    document.querySelectorAll('.admin-filter-search, .admin-filter[type="date"]').forEach(function(el){ el.value = ''; });
   } catch(e) {}
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
