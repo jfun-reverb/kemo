@@ -29,7 +29,9 @@ const GENERAL = [
   { bad: '굕이', good: '굳이' },
   { bad: '굾이', good: '굳이' },
   { bad: '주이항', good: '주의사항' },
-  { bad: '높곐널', good: '끊길' }
+  { bad: '높곐널', good: '끊길' },
+  { bad: '합컴 저장', good: '합쳐 저장' },
+  { bad: '추촜', good: '추천' }
 ];
 
 // 프로젝트 도메인 단어
