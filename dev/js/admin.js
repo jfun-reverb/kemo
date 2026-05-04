@@ -7195,7 +7195,10 @@ var BRAND_APP_HISTORY_FIELD_LABELS = {
   admin_memo: '내부 메모',
   quote_sent_at: '견적서 전달일',
   final_quote_krw: '확정 견적',
-  products: '제품 정보'
+  products: '제품 정보',
+  memo_added: '메모 추가',
+  memo_edited: '메모 수정',
+  memo_deleted: '메모 삭제'
 };
 function _brandAppHistoryFieldLabel(f) { return BRAND_APP_HISTORY_FIELD_LABELS[f] || f; }
 function _brandAppHistoryFormatValue(field, val) {
@@ -7219,6 +7222,17 @@ function _brandAppHistoryFormatValue(field, val) {
     var prods = Array.isArray(val) ? val : [];
     var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
     return esc(prods.length + '종 · ' + totalQty + '개');
+  }
+  // 메모 추가/수정/삭제 (val은 jsonb 객체 또는 문자열)
+  if (field === 'memo_added' || field === 'memo_edited' || field === 'memo_deleted') {
+    var memoText = '';
+    if (typeof val === 'object' && val !== null) {
+      memoText = val.text || '';
+    } else {
+      memoText = String(val);
+    }
+    if (memoText.length > 80) memoText = memoText.slice(0, 80) + '…';
+    return esc(memoText);
   }
   return esc(String(val));
 }
@@ -7528,6 +7542,7 @@ async function confirmBrandAppMemoEdit(memoId) {
   var result = await updateBrandAppMemo(memoId, newText);
   if (!result.ok) { toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error'); input.disabled = false; return; }
   toast('메모가 저장되었습니다.');
+  if (_brandAppMemoModalCurrentId) _refreshBrandAppHistoryButton(_brandAppMemoModalCurrentId);
   await loadBrandAppMemoList();
 }
 
@@ -7536,6 +7551,7 @@ async function deleteBrandAppMemoConfirm(memoId) {
   var result = await deleteBrandAppMemo(memoId);
   if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   toast('메모가 삭제되었습니다.');
+  if (_brandAppMemoModalCurrentId) _refreshBrandAppHistoryButton(_brandAppMemoModalCurrentId);
   await loadBrandAppMemoList();
 }
 
@@ -7553,6 +7569,7 @@ async function submitNewBrandAppMemo() {
   if (!result.ok) { toast('추가 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   input.value = '';
   toast('메모가 추가되었습니다.');
+  _refreshBrandAppHistoryButton(_brandAppMemoModalCurrentId);
   await loadBrandAppMemoList();
 }
 
