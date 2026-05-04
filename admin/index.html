@@ -406,7 +406,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
 /* 브랜드 서베이 페인: 좌우 스크롤 + 첫 두 컬럼 sticky-left */
 #adminPane-brand-applications .admin-table-wrap{overflow-x:auto}
-#adminPane-brand-applications .data-table{min-width:2280px}
+#adminPane-brand-applications .data-table{min-width:3040px}
 /* sticky-left 두 컬럼 폭 강제 (auto 폭이라 left 값과 어긋나서 사이에 갭 생기는 문제 방지) */
 #adminPane-brand-applications .data-table th:nth-child(1),
 #adminPane-brand-applications .data-table td:nth-child(1){width:180px;min-width:180px;max-width:180px;box-sizing:border-box}
@@ -2237,7 +2237,14 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:130px">연락처</th>
                 <th style="width:180px">계산서 이메일</th>
                 <th style="width:220px">요청사항</th>
-                <th style="width:180px">제품 요약</th>
+                <th style="width:80px">진행 수량</th>
+                <th style="width:100px">상품 가격(엔)</th>
+                <th style="width:100px">상품 가격(원)</th>
+                <th style="width:130px">상품 최종 금액</th>
+                <th style="width:120px">이체수수료(건)</th>
+                <th style="width:130px">이체수수료(원)</th>
+                <th style="width:130px">최종 견적 금액</th>
+                <th style="width:130px">VAT포함</th>
                 <th style="width:120px">예상 견적 <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:120px">확정 견적</th>
                 <th style="width:130px">견적서 전달</th>
@@ -2247,7 +2254,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">처리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="22" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -12284,7 +12291,7 @@ function renderBrandLongPending(apps) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="22" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandApps = await fetchBrandApplications();
   renderBrandApplicationsList();
   refreshBrandAppBadge();
@@ -12364,38 +12371,12 @@ function renderBrandApplicationsList() {
   }
 
   var renderBrandAppRow = function(a) {
-    var prodCount = Array.isArray(a.products) ? a.products.length : 0;
-    var prodSummary = prodCount > 0
-      ? esc(prodCount + '종 · ' + (Number(a.total_qty) || 0) + '개')
-        + '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">¥ ' + (Number(a.total_jpy) || 0).toLocaleString('ja-JP') + '</div>'
-      : '<span style="color:var(--muted)">—</span>';
-    var qLocked = false; // 잠금 해제 — done/rejected 상태도 인라인 편집 허용 (사용자 요청)
-    var quoteSent = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
-    var memoText = (a.admin_memo || '').trim();
-    var memoCell = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>';
-    return '<tr data-id="' + esc(a.id) + '">'
-      + '<td>'
-        + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-        + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
-      + '</td>'
-      + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
-      + '<td>'
-        + '<div>' + esc(a.contact_name || '—') + '</div>'
-        + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
-      + '</td>'
-      + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
-      + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
-      + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
-      + '<td style="font-size:12px">' + prodSummary + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
-      + '<td><div class="brand-app-fq-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:24px">' + renderFinalQuoteDisplay(a.final_quote_krw) + '</div></td>'
-      + '<td>' + quoteSent + '</td>'
-      + '<td>' + memoCell + '</td>'
-      + '<td>' + brandAppStatusSelect(a) + '</td>'
-      + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
-      + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-      + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
-      + '</tr>';
+    var prods = (Array.isArray(a.products) && a.products.length > 0)
+      ? a.products
+      : [{ name: '', qty: 0, price: 0, transfer_fee_krw: null }];
+    return prods.map(function(p, idx) {
+      return renderBrandAppProductRow(a, p, idx, prods.length);
+    }).join('');
   };
   if (brandAppLazy) brandAppLazy.destroy();
   brandAppLazy = mountLazyList({
@@ -12404,7 +12385,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="22" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -12614,6 +12595,176 @@ function closeBrandAppDetail() {
 function _findBrandApp(id) {
   var idx = (_brandApps || []).findIndex(function(a){ return a.id === id; });
   return idx < 0 ? null : _brandApps[idx];
+}
+
+// 환율·VAT 상수 (FX_JPY_KRW=10, VAT_RATE=10% — migration 052 트리거와 일치)
+var BRAND_QUOTE_CONST = { FX_JPY_KRW: 10, VAT_RATE: 0.1 };
+
+// 신청 1건의 제품 1개를 1행으로 렌더 (총 22컬럼)
+function renderBrandAppProductRow(a, p, idx, total) {
+  var isFirst = (idx === 0);
+  var qty = Number(p.qty) || 0;
+  var priceJpy = Number(p.price) || 0;
+  var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
+  var lineTotal = qty * priceKrw;
+  var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
+  var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
+  var finalKrw = lineTotal + feeTotalKrw;
+  var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+
+  // 같은 신청 그룹 시각화 — 첫 행에 강조 top border, 마지막 행은 default
+  var trStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.25)' : '';
+
+  // 신청 단위 셀 (첫 행에만 채움, 나머지는 빈 td)
+  var cellApp = function(html, style) {
+    return '<td' + (style ? ' style="' + style + '"' : '') + '>' + (isFirst ? html : '') + '</td>';
+  };
+
+  var qLocked = false;
+  var memoText = (a.admin_memo || '').trim();
+  var memoCellInner = isFirst ? '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>' : '';
+  var quoteSentInner = isFirst ? '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>' : '';
+  var fqInner = isFirst ? '<div class="brand-app-fq-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:24px">' + renderFinalQuoteDisplay(a.final_quote_krw) + '</div>' : '';
+
+  return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (trStyle ? ' style="' + trStyle + '"' : '') + '>'
+    // 1. 신청번호
+    + cellApp(
+        '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+        + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
+      )
+    // 2. 브랜드
+    + cellApp(esc(a.brand_name || '—'), 'font-weight:600')
+    // 3. 담당자
+    + cellApp(
+        '<div>' + esc(a.contact_name || '—') + '</div>'
+        + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
+      )
+    // 4. 연락처
+    + cellApp(esc(formatPhoneDisplay(a.phone) || '—'), 'font-size:12px')
+    // 5. 계산서 이메일
+    + cellApp(esc(a.billing_email || '—'), 'font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all')
+    // 6. 요청사항
+    + cellApp(brandAppNoteCell(a.request_note))
+    // 7-14. 제품별 8컬럼 (모든 행에 표시)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : '<span style="color:var(--muted)">—</span>') + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : '<span style="color:var(--muted)">—</span>') + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : '<span style="color:var(--muted)">—</span>') + '</td>'
+    + '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (feeTotalKrw > 0 ? fmtKrw(feeTotalKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (finalKrw > 0 ? fmtKrw(finalKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (vatKrw > 0 ? fmtKrw(vatKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
+    // 15. 예상 견적
+    + cellApp(fmtKrw(a.estimated_krw), 'text-align:right;font-variant-numeric:tabular-nums')
+    // 16. 확정 견적
+    + '<td>' + fqInner + '</td>'
+    // 17. 견적서 전달
+    + '<td>' + quoteSentInner + '</td>'
+    // 18. 내부 메모
+    + '<td>' + memoCellInner + '</td>'
+    // 19. 상태
+    + cellApp(brandAppStatusSelect(a))
+    // 20. 검수일
+    + cellApp(fmtDate(a.reviewed_at), 'font-size:11px;color:var(--muted)')
+    // 21. 신청일
+    + cellApp(fmtDate(a.created_at), 'font-size:11px;color:var(--muted)')
+    // 22. 처리
+    + cellApp('<button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button>')
+    + '</tr>';
+}
+
+// 이체수수료(건) 셀 — display + ✎ 인라인 편집
+function renderTransferFeeDisplay(value) {
+  var hasValue = value != null && isFinite(value);
+  var display = hasValue ? fmtKrw(value) : '<span style="color:var(--muted)">—</span>';
+  return '<div class="tfee-display" style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;padding-right:22px">' + display + '</div>'
+    + '<button type="button" class="tfee-edit-btn" onclick="enterTransferFeeEdit(this)" title="이체수수료(건) 수정" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreTransferFeeDisplay(cell, value) {
+  cell.innerHTML = renderTransferFeeDisplay(value);
+}
+
+function enterTransferFeeEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-tfee-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var p = cur.products[idx];
+  var original = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? '' : String(p.transfer_fee_krw);
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<input type="number" class="tfee-edit-input" value="' + esc(original) + '" placeholder="0" min="0" step="1" onkeydown="handleTransferFeeEditKey(event, this)" style="width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--pink);border-radius:4px;text-align:right;font-variant-numeric:tabular-nums">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelTransferFeeEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmTransferFeeEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+  var input = cell.querySelector('.tfee-edit-input');
+  if (input) { input.focus(); input.select(); }
+}
+
+function handleTransferFeeEditKey(ev, inputEl) {
+  if (ev.key === 'Escape') { ev.preventDefault(); cancelTransferFeeEdit(inputEl); }
+  else if (ev.key === 'Enter') { ev.preventDefault(); confirmTransferFeeEdit(inputEl); }
+}
+
+function cancelTransferFeeEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-tfee-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !cur.products || !cur.products[idx]) return;
+  _restoreTransferFeeDisplay(cell, cur.products[idx].transfer_fee_krw);
+}
+
+async function confirmTransferFeeEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-tfee-cell');
+  if (!cell) return;
+  var input = cell.querySelector('.tfee-edit-input');
+  if (!input) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var raw = (input.value || '').trim();
+  var nextValue = raw === '' ? null : Number(raw);
+  if (nextValue !== null && (!isFinite(nextValue) || nextValue < 0)) {
+    toast('0 이상의 숫자만 입력하세요.', 'warn');
+    return;
+  }
+  var prevValue = cur.products[idx].transfer_fee_krw == null ? null : Number(cur.products[idx].transfer_fee_krw);
+  if (prevValue === nextValue) {
+    _restoreTransferFeeDisplay(cell, prevValue);
+    return;
+  }
+  // 새 products 배열 생성 (immutable patch)
+  var nextProducts = cur.products.map(function(prod, i) {
+    if (i !== idx) return prod;
+    var copy = Object.assign({}, prod);
+    if (nextValue == null) delete copy.transfer_fee_krw; else copy.transfer_fee_krw = nextValue;
+    return copy;
+  });
+  var prevVersion = cur.version;
+  input.disabled = true;
+  var result = await updateBrandApplication(id, {products: nextProducts}, prevVersion);
+  input.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.products = nextProducts;
+  cur.version = result.data?.version || (prevVersion + 1);
+  // 같은 신청의 모든 행 재렌더(이체수수료(원)/최종 견적/VAT포함 컬럼이 동기화됨)
+  renderBrandApplicationsList();
+  toast('이체수수료가 저장되었습니다.');
 }
 
 function renderFinalQuoteDisplay(value) {
