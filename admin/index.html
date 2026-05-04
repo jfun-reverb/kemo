@@ -12370,14 +12370,16 @@ function renderBrandApplicationsList() {
         + '<div style="font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">¥ ' + (Number(a.total_jpy) || 0).toLocaleString('ja-JP') + '</div>'
       : '<span style="color:var(--muted)">—</span>';
     var qLocked = (a.status === 'done' || a.status === 'rejected');
-    var quoteSent = '<label class="brand-app-qsent" data-id="' + esc(a.id) + '" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;cursor:' + (qLocked ? 'not-allowed' : 'pointer') + ';color:' + (a.quote_sent_at ? '#16a34a' : 'var(--muted)') + ';font-weight:' + (a.quote_sent_at ? '600' : '400') + '" onclick="event.stopPropagation()">'
-      + '<input type="checkbox" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + (qLocked ? 'disabled' : '') + ' onchange="toggleBrandAppQuoteSent(\'' + esc(a.id) + '\', this)" style="cursor:' + (qLocked ? 'not-allowed' : 'pointer') + '">'
-      + '<span class="qsent-label">' + (a.quote_sent_at ? '전달 ' + fmtDate(a.quote_sent_at) : '미전달') + '</span>'
-    + '</label>';
+    var qDateValue = a.quote_sent_at ? new Date(a.quote_sent_at).toISOString().slice(0,10) : '';
+    var quoteSent = '<div class="brand-app-qsent" data-id="' + esc(a.id) + '" style="display:flex;flex-direction:column;gap:3px;font-size:11px">'
+      + '<label style="display:inline-flex;align-items:center;gap:5px;cursor:' + (qLocked ? 'not-allowed' : 'pointer') + ';color:' + (a.quote_sent_at ? '#16a34a' : 'var(--muted)') + ';font-weight:' + (a.quote_sent_at ? '600' : '400') + '">'
+        + '<input type="checkbox" ' + (a.quote_sent_at ? 'checked' : '') + ' ' + (qLocked ? 'disabled' : '') + ' onchange="toggleBrandAppQuoteSent(\'' + esc(a.id) + '\', this)" style="cursor:' + (qLocked ? 'not-allowed' : 'pointer') + '">'
+        + '<span class="qsent-label">' + (a.quote_sent_at ? '전달' : '미전달') + '</span>'
+      + '</label>'
+      + '<input type="date" class="qsent-date" value="' + qDateValue + '" ' + (a.quote_sent_at && !qLocked ? '' : 'disabled') + ' onchange="updateBrandAppQuoteSentDate(\'' + esc(a.id) + '\', this)" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (a.quote_sent_at && !qLocked ? '#fff' : '#F5F5F5') + '">'
+    + '</div>';
     var memoText = (a.admin_memo || '').trim();
-    var memoCell = memoText
-      ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
-      : '<span style="color:var(--muted)">—</span>';
+    var memoCell = '<textarea class="brand-app-memo" data-id="' + esc(a.id) + '" data-original="' + esc(memoText) + '" ' + (qLocked ? 'disabled' : '') + ' onblur="saveBrandAppMemo(\'' + esc(a.id) + '\', this)" placeholder="메모 입력…" style="width:100%;min-height:42px;max-height:80px;font-size:11px;line-height:1.4;padding:4px 6px;border:1px solid var(--line);border-radius:4px;resize:vertical;font-family:inherit;color:var(--ink);background:' + (qLocked ? '#F5F5F5' : '#fff') + '">' + esc(memoText) + '</textarea>';
     return '<tr data-id="' + esc(a.id) + '">'
       + '<td>'
         + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
@@ -12616,11 +12618,32 @@ function closeBrandAppDetail() {
   window._brandAppCurrent = null;
 }
 
+function _findBrandApp(id) {
+  var idx = (_brandApps || []).findIndex(function(a){ return a.id === id; });
+  return idx < 0 ? null : _brandApps[idx];
+}
+
+function _refreshQuoteSentCellUI(wrapEl, isoOrNull) {
+  if (!wrapEl) return;
+  var label = wrapEl.querySelector('.qsent-label');
+  var labelWrap = label?.parentElement;
+  var dateInput = wrapEl.querySelector('.qsent-date');
+  if (label) label.textContent = isoOrNull ? '전달' : '미전달';
+  if (labelWrap) {
+    labelWrap.style.color = isoOrNull ? '#16a34a' : 'var(--muted)';
+    labelWrap.style.fontWeight = isoOrNull ? '600' : '400';
+  }
+  if (dateInput) {
+    dateInput.value = isoOrNull ? new Date(isoOrNull).toISOString().slice(0,10) : '';
+    dateInput.disabled = !isoOrNull;
+    dateInput.style.background = isoOrNull ? '#fff' : '#F5F5F5';
+  }
+}
+
 async function toggleBrandAppQuoteSent(id, checkboxEl) {
   if (!currentAdminInfo) { toast('권한이 없습니다','error'); checkboxEl.checked = !checkboxEl.checked; return; }
-  var idx = (_brandApps || []).findIndex(function(a){ return a.id === id; });
-  if (idx < 0) return;
-  var cur = _brandApps[idx];
+  var cur = _findBrandApp(id);
+  if (!cur) return;
   if (cur.status === 'done' || cur.status === 'rejected') {
     checkboxEl.checked = !!cur.quote_sent_at;
     toast('완료/거절된 신청은 변경할 수 없습니다.', 'warn');
@@ -12629,13 +12652,8 @@ async function toggleBrandAppQuoteSent(id, checkboxEl) {
   var prevValue = cur.quote_sent_at;
   var prevVersion = cur.version;
   var nextValue = checkboxEl.checked ? new Date().toISOString() : null;
-  var labelEl = checkboxEl.parentElement?.querySelector('.qsent-label');
-  // 낙관적 UI 갱신
-  if (labelEl) labelEl.textContent = nextValue ? ('전달 ' + fmtDate(nextValue)) : '미전달';
-  if (checkboxEl.parentElement) {
-    checkboxEl.parentElement.style.color = nextValue ? '#16a34a' : 'var(--muted)';
-    checkboxEl.parentElement.style.fontWeight = nextValue ? '600' : '400';
-  }
+  var wrap = checkboxEl.closest('.brand-app-qsent');
+  _refreshQuoteSentCellUI(wrap, nextValue);
   checkboxEl.disabled = true;
   var result = await updateBrandApplication(id, {quote_sent_at: nextValue}, prevVersion);
   checkboxEl.disabled = false;
@@ -12645,19 +12663,84 @@ async function toggleBrandAppQuoteSent(id, checkboxEl) {
     return;
   }
   if (!result.ok) {
-    // 원복
     checkboxEl.checked = !checkboxEl.checked;
-    if (labelEl) labelEl.textContent = prevValue ? ('전달 ' + fmtDate(prevValue)) : '미전달';
-    if (checkboxEl.parentElement) {
-      checkboxEl.parentElement.style.color = prevValue ? '#16a34a' : 'var(--muted)';
-      checkboxEl.parentElement.style.fontWeight = prevValue ? '600' : '400';
-    }
+    _refreshQuoteSentCellUI(wrap, prevValue);
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
     return;
   }
-  // 메모리 갱신
   cur.quote_sent_at = nextValue;
   cur.version = result.data?.version || (prevVersion + 1);
+}
+
+async function updateBrandAppQuoteSentDate(id, dateInput) {
+  if (!currentAdminInfo) { toast('권한이 없습니다','error'); return; }
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  if (cur.status === 'done' || cur.status === 'rejected') {
+    toast('완료/거절된 신청은 변경할 수 없습니다.', 'warn');
+    dateInput.value = cur.quote_sent_at ? new Date(cur.quote_sent_at).toISOString().slice(0,10) : '';
+    return;
+  }
+  var raw = dateInput.value;
+  if (!raw) {
+    // 날짜를 비우면 견적서 전달 자체를 해제로 간주
+    var wrap = dateInput.closest('.brand-app-qsent');
+    var cb = wrap?.querySelector('input[type="checkbox"]');
+    if (cb) { cb.checked = false; await toggleBrandAppQuoteSent(id, cb); }
+    return;
+  }
+  var prevValue = cur.quote_sent_at;
+  var prevVersion = cur.version;
+  // 입력값(YYYY-MM-DD)을 JST 정오로 저장(타임존 경계 안전)
+  var nextValue = new Date(raw + 'T12:00:00+09:00').toISOString();
+  if (prevValue && new Date(prevValue).toISOString().slice(0,10) === raw) return; // 변동 없음
+  dateInput.disabled = true;
+  var result = await updateBrandApplication(id, {quote_sent_at: nextValue}, prevVersion);
+  dateInput.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    dateInput.value = prevValue ? new Date(prevValue).toISOString().slice(0,10) : '';
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.quote_sent_at = nextValue;
+  cur.version = result.data?.version || (prevVersion + 1);
+  toast('전달일이 저장되었습니다.');
+}
+
+async function saveBrandAppMemo(id, textareaEl) {
+  if (!currentAdminInfo) return;
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  if (cur.status === 'done' || cur.status === 'rejected') {
+    textareaEl.value = cur.admin_memo || '';
+    return;
+  }
+  var nextValue = (textareaEl.value || '').trim();
+  var prevValue = (cur.admin_memo || '').trim();
+  if (nextValue === prevValue) return; // 변동 없음
+  var prevVersion = cur.version;
+  textareaEl.disabled = true;
+  var result = await updateBrandApplication(id, {admin_memo: nextValue || null}, prevVersion);
+  textareaEl.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    textareaEl.value = prevValue;
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.admin_memo = nextValue || null;
+  cur.version = result.data?.version || (prevVersion + 1);
+  textareaEl.dataset.original = nextValue;
+  toast('메모가 저장되었습니다.');
 }
 
 async function saveBrandAppChanges(expectedVersion) {
