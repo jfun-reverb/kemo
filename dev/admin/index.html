@@ -1199,15 +1199,15 @@
                 <th style="width:220px">요청사항</th>
                 <th style="width:200px">제품명</th>
                 <th style="width:180px">URL</th>
-                <th style="width:80px">진행 수량</th>
+                <th style="width:80px">진행 수량 <span class="col-help" data-tooltip="∑ 수량 (전체 제품의 수량 합계)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:100px">상품 가격(엔)</th>
-                <th style="width:100px">상품 가격(원)</th>
-                <th style="width:130px">상품 최종 금액</th>
+                <th style="width:100px">상품 가격(원) <span class="col-help" data-tooltip="상품 가격(엔) × 10  (환율 ¥1 = ₩10)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:130px">상품 최종 금액 <span class="col-help" data-tooltip="진행 수량 × 상품 가격(원)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">이체수수료(건)</th>
-                <th style="width:130px">이체수수료(원)</th>
-                <th style="width:130px">최종 견적 금액</th>
-                <th style="width:130px">VAT포함</th>
-                <th style="width:120px">예상 견적 <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
+                <th style="width:130px">이체수수료(원) <span class="col-help" data-tooltip="진행 수량 × 이체수수료(건)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:130px">최종 견적 금액 <span class="col-help" data-tooltip="상품 최종 금액 + 이체수수료(원)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:130px">VAT포함 <span class="col-help" data-tooltip="최종 견적 금액 × 1.1  (VAT 10%)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:120px">확정 견적</th>
                 <th style="width:130px">견적서 전달</th>
                 <th style="width:220px">내부 메모</th>
