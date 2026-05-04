@@ -1040,7 +1040,7 @@
               <div style="font-size:10px;color:var(--muted);margin-top:2px">초기 접수 기준 추정치</div>
             </div>
             <div class="admin-card" style="padding:16px">
-              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">확정 견적 합계 (KRW)</div>
+              <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.05em">예상 견적 합계 (KRW)</div>
               <div id="brandKpiFinal" style="font-size:20px;font-weight:800;color:var(--pink);margin-top:6px;font-variant-numeric:tabular-nums">—</div>
               <div style="font-size:10px;color:var(--muted);margin-top:2px">quoted 이상 단계 합산</div>
             </div>
@@ -1211,7 +1211,6 @@
                 <th style="width:130px">최종 견적 금액 <span class="col-help" data-tooltip="상품 최종 금액 + 이체수수료(원)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:130px">VAT포함 <span class="col-help" data-tooltip="최종 견적 금액 × 1.1  (VAT 10%)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
-                <th style="width:120px">확정 견적</th>
                 <th style="width:130px">견적서 전달</th>
                 <th style="width:220px">내부 메모</th>
                 <th style="width:120px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleBrandAppSort('status')">▲▼</span></th>
@@ -1219,7 +1218,7 @@
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">처리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="24" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
