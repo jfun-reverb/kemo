@@ -91,6 +91,8 @@
 #adminPane-brand-applications .data-table thead .col-help:hover{color:var(--pink)}
 #adminPane-brand-applications .data-table thead .col-help:hover::after{content:attr(data-tooltip);position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;background:#1A0F18;color:#fff;font-size:11px;font-weight:400;letter-spacing:normal;text-transform:none;line-height:1.5;padding:7px 10px;border-radius:5px;white-space:pre-line;width:max-content;max-width:260px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none}
 #adminPane-brand-applications .data-table thead .col-help:hover::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:1px;border:5px solid transparent;border-bottom-color:#1A0F18;pointer-events:none;z-index:101}
+/* 호버 중인 th의 stacking context를 인접 sticky thead 셀보다 위로 끌어올림 (툴팁 가림 방지) */
+#adminPane-brand-applications .data-table thead th:has(.col-help:hover){z-index:99}
 /* 신청 그룹 시각화 — 요약 행 위에 굵은 가로선(다음 그룹 시작 = 이전 그룹 끝) */
 #adminPane-brand-applications .data-table tbody tr[data-summary="1"] td{border-top:2px solid var(--outline)}
 #adminPane-brand-applications .data-table tbody tr[data-summary="1"]:first-child td{border-top:none}
