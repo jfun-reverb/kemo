@@ -7305,7 +7305,13 @@ function renderMemoDisplay(memoText, locked) {
   var safe = (memoText || '').trim();
   var color = safe ? 'var(--ink)' : 'var(--muted)';
   var content = safe ? esc(safe) : '—';
+  // 요청사항 셀과 동일한 기준: 40자 초과 또는 개행 포함 시 더보기 노출
+  var hasMore = !!safe && (safe.length > 40 || /\n/.test(safe));
+  var moreLink = hasMore
+    ? '<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer;margin-top:2px;display:inline-block" onclick="event.stopPropagation();openMsgModal(this)" data-msg="' + esc(safe) + '">더보기</a>'
+    : '';
   return '<div class="memo-display" style="font-size:11px;color:' + color + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;padding-right:22px;white-space:pre-wrap" title="' + esc(safe) + '">' + content + '</div>'
+    + moreLink
     + '<button type="button" class="memo-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterMemoEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '메모 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
 }
 
