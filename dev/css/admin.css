@@ -67,7 +67,7 @@
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
 /* 브랜드 서베이 페인: 좌우 스크롤 + 첫 두 컬럼 sticky-left */
 #adminPane-brand-applications .admin-table-wrap{overflow-x:auto}
-#adminPane-brand-applications .data-table{min-width:3040px}
+#adminPane-brand-applications .data-table{min-width:3420px}
 /* sticky-left 두 컬럼 폭 강제 (auto 폭이라 left 값과 어긋나서 사이에 갭 생기는 문제 방지) */
 #adminPane-brand-applications .data-table th:nth-child(1),
 #adminPane-brand-applications .data-table td:nth-child(1){width:180px;min-width:180px;max-width:180px;box-sizing:border-box}
