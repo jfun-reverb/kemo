@@ -62,14 +62,25 @@ model: sonnet
 - [ ] RLS 정책 신규 테이블에 포함
 - [ ] 민감 정보 로그 기록 없음
 
-### 문서 동기화 (감지만, 수정은 메인이 담당)
+### 문서 동기화 (감지만, 수정은 메인이 담당) — 2026-05-04 확장
 - [ ] 새 기능/페이지 추가 시 CLAUDE.md `## Features` 섹션 업데이트 필요?
 - [ ] 새 테이블/컬럼 추가 시 CLAUDE.md `## Database Schema` 업데이트 필요?
 - [ ] 새 규칙/패턴 등장 시 `.claude/rules/` 해당 파일 업데이트 필요? (없으면 신규 파일 제안)
 - [ ] `docs/FEATURE_SPEC.md`에 반영 필요한 기능 변경인가?
 - [ ] 마이그레이션 파일에 목적/롤백 주석이 있는가?
+- [ ] **`docs/OPERATOR_GUIDE.md` 변경 시 동기화 마커 점검** — 수정한 섹션 헤더 바로 아래 `<!-- NOTION:SYNCED YYYY-MM-DD -->` 가 `<!-- NOTION:PENDING -->` 로 바뀌었는지. 안 바뀌었으면 🟡 Warning + 변경 섹션 번호 명시 (`.claude/rules/notion-sync.md` 규약)
+- [ ] **`docs/email-templates/` 변경 시 `_templates/` 미러 동기화 점검** — `git diff --stat` 에 `docs/email-templates/*.html` 변경이 있으면 `cmp -s docs/email-templates/<file> supabase/functions/notify-brand-application/_templates/<file>` 명령을 Bash로 실행해서 일치 검증. 불일치면 🔴 Critical + `bash scripts/sync-email-templates.sh` 실행 지시
+- [ ] **CLAUDE.md `## Features` 섹션 누락 감지 강화** — 신규 페인(adminPane-*) 추가 / 신규 lookup `kind` / 신규 RPC / 신규 마이그레이션이 있는데 CLAUDE.md 본문에 해당 키워드 grep 결과 0건이면 🟡 Warning
 
 → 누락 감지 시 🟡 Warning으로 보고하고 **어느 파일 어느 섹션**에 무엇을 추가해야 하는지 구체적으로 제안 (수정은 메인 Claude가 수행)
+
+### qa-tester 권장 모드 한 줄 (2026-05-04 추가)
+모든 commit 직전 보고 마지막 줄에 다음 중 하나를 명시 (메인 Claude 가 자체 판단으로 스킵하지 못하게):
+- `qa-tester 권장: light` — 관리자 페인 변경, S5+S6 만
+- `qa-tester 권장: full` — 인증/응모 플로우 변경 또는 main merge 직전
+- `qa-tester 권장: skip` — 문서/주석/CSS 미세 조정 단독
+
+판정 기준은 `.claude/agents/reverb-qa-tester.md` 의 "호출 타이밍 & 모드 분기" 섹션 참조
 
 ## 출력 형식
 - 🔴 Critical (반드시 수정) / 🟡 Warning (권장) / 🟢 OK

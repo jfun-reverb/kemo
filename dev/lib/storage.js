@@ -1210,6 +1210,20 @@ async function markAdminNoticeRead(noticeId) {
 // ══════════════════════════════════════
 
 // 광고주 신청 목록 조회 (관리자 RLS로 전체 조회)
+// 신청별 history 건수 조회 (작은 카운트 쿼리 — 1회 호출)
+async function fetchBrandAppHistoryCounts() {
+  if (!db) return {};
+  try {
+    const {data, error} = await db?.from('brand_application_history')
+      .select('application_id', {count: 'exact', head: false})
+      .limit(100000);
+    if (error) throw error;
+    const counts = {};
+    (data || []).forEach(r => { counts[r.application_id] = (counts[r.application_id] || 0) + 1; });
+    return counts;
+  } catch(e) { console.error('[fetchBrandAppHistoryCounts]', e); return {}; }
+}
+
 async function fetchBrandApplications(filters) {
   if (!db) return [];
   try {
@@ -1253,6 +1267,20 @@ async function fetchBrandApplicationById(id) {
     if (error) throw error;
     return data;
   } catch(e) { console.error('[fetchBrandApplicationById]', e); return null; }
+}
+
+// 광고주 신청 변경 이력 (migration 079 brand_application_history 트리거가 자동 기록)
+async function fetchBrandApplicationHistory(applicationId, limit) {
+  if (!db || !applicationId) return [];
+  try {
+    const {data, error} = await db?.from('brand_application_history')
+      .select('id, application_id, changed_by, changed_by_name, changed_at, field_name, old_value, new_value')
+      .eq('application_id', applicationId)
+      .order('changed_at', {ascending: false})
+      .limit(limit || 200);
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchBrandApplicationHistory]', e); return []; }
 }
 
 // 광고주 신청 상태 변경·견적 입력·메모 수정 (낙관적 락)

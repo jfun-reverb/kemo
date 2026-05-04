@@ -101,6 +101,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   } catch(e) {}
 
+  // 새로고침 시 브라우저 폼 자동 복원으로 검색/날짜 필터에 이전 값이 남는 문제 방지
+  try {
+    document.querySelectorAll('.admin-filter-search, .admin-filter[type="date"], #brandAppDateRange').forEach(function(el){ el.value = ''; });
+  } catch(e) {}
+
+  // 브랜드 서베이 신청 기간 flatpickr range picker mount
+  try { if (typeof setupBrandAppDateRange === 'function') setupBrandAppDateRange(); } catch(e) {}
+
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || 'dashboard';
   var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers'};

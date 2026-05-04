@@ -218,7 +218,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="adminCampSearch" class="admin-filter-search" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
+                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
                 </div>
               </div>
             </div>
@@ -783,7 +783,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="infSearch" class="admin-filter-search" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="rerenderInfluencersFromCache()">
+                  <input type="search" id="infSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="이름 · SNS · 메일주소" oninput="rerenderInfluencersFromCache()">
                 </div>
               </div>
             </div>
@@ -877,7 +877,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="campAppSearch" class="admin-filter-search" placeholder="이름 · 이메일 · SNS 계정명 검색" oninput="loadCampApplicants()">
+                  <input type="search" id="campAppSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="이름 · SNS · 메일주소" oninput="loadCampApplicants()">
                 </div>
               </div>
             </div>
@@ -922,7 +922,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="appSearch" class="admin-filter-search" placeholder="캠페인명 · 인플루언서명 · 캠페인번호 검색" oninput="renderAppCampList()">
+                  <input type="search" id="appSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 인플루언서명 · 캠페인번호 검색" oninput="renderAppCampList()">
                 </div>
               </div>
             </div>
@@ -971,7 +971,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="delivSearch" class="admin-filter-search" placeholder="인플루언서명 · 캠페인명 · 캠페인번호 검색" oninput="renderDeliverablesList()">
+                  <input type="search" id="delivSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 · 캠페인번호 검색" oninput="renderDeliverablesList()">
                 </div>
               </div>
             </div>
@@ -1159,13 +1159,11 @@
                 <label>상태</label>
                 <div id="brandAppStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>기간 (시작)</label>
-                <input type="date" id="brandAppFromDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
-              </div>
-              <div class="admin-filter-group">
-                <label>기간 (종료)</label>
-                <input type="date" id="brandAppToDate" class="admin-filter" onchange="highlightFilter(this);renderBrandApplicationsList()">
+              <div class="admin-filter-group" style="min-width:240px">
+                <label>신청 기간</label>
+                <input type="text" id="brandAppDateRange" class="admin-filter" autocomplete="off" placeholder="시작일 ~ 종료일" readonly>
+                <input type="hidden" id="brandAppFromDate">
+                <input type="hidden" id="brandAppToDate">
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -1178,7 +1176,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="brandAppSearch" class="admin-filter-search" placeholder="브랜드명 · 담당자 · 이메일" oninput="renderBrandApplicationsList()">
+                  <input type="search" id="brandAppSearch" name="brandapp-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드 · 담당자 · 주소 검색" oninput="renderBrandApplicationsList()">
                 </div>
               </div>
             </div>
@@ -1195,7 +1193,7 @@
             <table class="data-table">
               <thead><tr>
                 <th style="width:180px">신청번호 / 폼 종류</th>
-                <th style="width:200px">브랜드</th>
+                <th style="width:200px">브랜드 <span class="sort-arrows" data-sort="brand" onclick="toggleBrandAppSort('brand')">▲▼</span></th>
                 <th style="width:200px">담당자</th>
                 <th style="width:130px">연락처</th>
                 <th style="width:180px">계산서 이메일</th>
@@ -1211,12 +1209,12 @@
                 <th style="width:130px">최종 견적 금액 <span class="col-help" data-tooltip="상품 최종 금액 + 이체수수료(원)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:130px">VAT포함 <span class="col-help" data-tooltip="최종 견적 금액 × 1.1  (VAT 10%)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
-                <th style="width:130px">견적서 전달</th>
+                <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
                 <th style="width:220px">내부 메모</th>
                 <th style="width:120px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleBrandAppSort('status')">▲▼</span></th>
-                <th style="width:110px">검수일</th>
+                <th style="width:110px">검수일 <span class="sort-arrows" data-sort="reviewed" onclick="toggleBrandAppSort('reviewed')">▲▼</span></th>
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
-                <th style="width:80px">처리</th>
+                <th style="width:80px">이력</th>
               </tr></thead>
               <tbody id="brandAppTableBody"><tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
@@ -1292,7 +1290,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="text" id="adminNoticeSearch" class="admin-filter-search" placeholder="제목 검색" oninput="renderAdminNotices()">
+                  <input type="search" id="adminNoticeSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="제목 검색" oninput="renderAdminNotices()">
                 </div>
               </div>
             </div>
@@ -1894,20 +1892,21 @@
   </div>
 </div>
 
-<!-- 광고주 신청 상세 모달 -->
-<div class="modal-overlay" id="brandAppDetailModal" style="z-index:605">
-  <div class="modal" style="max-width:760px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="brandAppDetailTitle">브랜드 서베이 상세</div>
-      <button class="btn btn-ghost btn-xs" onclick="closeBrandAppDetail()" style="padding:4px 10px">✕</button>
+<!-- 광고주 신청 상세 모달은 제거됨 — 모든 인라인 편집은 신청 목록 행 안에서 -->
+
+<!-- 광고주 신청 변경 이력 모달 -->
+<div class="modal-overlay" id="brandAppHistoryModal" style="z-index:610">
+  <div class="modal" style="max-width:1100px;width:96vw;border-radius:16px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)" id="brandAppHistoryTitle">변경 이력</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBrandAppHistoryModal()" style="padding:4px 10px">✕</button>
     </div>
-    <div class="modal-body" style="padding:20px 22px;overflow-y:auto;flex:1" id="brandAppDetailBody">
-      <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
-    </div>
-    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap" id="brandAppDetailFooter">
+    <div class="modal-body" style="padding:0;overflow-y:auto;flex:1" id="brandAppHistoryBody">
+      <div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">이력 불러오는 중…</div>
     </div>
   </div>
 </div>
+
 
 <!-- 신청 동의 영향 영역(주의사항/참여방법) 변경 경고 모달
      신청자 ≥1건 + 변경 감지 시 표시. 기존 신청자 효력 유지 안내 + 변경 전/후 diff -->
