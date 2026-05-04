@@ -1255,6 +1255,20 @@ async function fetchBrandApplicationById(id) {
   } catch(e) { console.error('[fetchBrandApplicationById]', e); return null; }
 }
 
+// 광고주 신청 변경 이력 (migration 079 brand_application_history 트리거가 자동 기록)
+async function fetchBrandApplicationHistory(applicationId, limit) {
+  if (!db || !applicationId) return [];
+  try {
+    const {data, error} = await db?.from('brand_application_history')
+      .select('id, application_id, changed_by, changed_by_name, changed_at, field_name, old_value, new_value')
+      .eq('application_id', applicationId)
+      .order('changed_at', {ascending: false})
+      .limit(limit || 200);
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchBrandApplicationHistory]', e); return []; }
+}
+
 // 광고주 신청 상태 변경·견적 입력·메모 수정 (낙관적 락)
 // patch: {status?, final_quote_krw?, quote_sent_at?, admin_memo?, reviewed_by?, reviewed_at?}
 // expectedVersion: UPDATE 시 버전 일치 확인. 불일치면 {ok:false, conflict:true}
