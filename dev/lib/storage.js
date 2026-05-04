@@ -1210,6 +1210,20 @@ async function markAdminNoticeRead(noticeId) {
 // ══════════════════════════════════════
 
 // 광고주 신청 목록 조회 (관리자 RLS로 전체 조회)
+// 신청별 history 건수 조회 (작은 카운트 쿼리 — 1회 호출)
+async function fetchBrandAppHistoryCounts() {
+  if (!db) return {};
+  try {
+    const {data, error} = await db?.from('brand_application_history')
+      .select('application_id', {count: 'exact', head: false})
+      .limit(100000);
+    if (error) throw error;
+    const counts = {};
+    (data || []).forEach(r => { counts[r.application_id] = (counts[r.application_id] || 0) + 1; });
+    return counts;
+  } catch(e) { console.error('[fetchBrandAppHistoryCounts]', e); return {}; }
+}
+
 async function fetchBrandApplications(filters) {
   if (!db) return [];
   try {

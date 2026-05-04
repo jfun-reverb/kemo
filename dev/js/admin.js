@@ -6932,10 +6932,17 @@ function renderBrandLongPending(apps) {
   }).join('');
 }
 
+var _brandAppHistoryCounts = {};
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  _brandApps = await fetchBrandApplications();
+  // 신청 본문 + history 카운트 동시 fetch
+  var [apps, counts] = await Promise.all([
+    fetchBrandApplications(),
+    fetchBrandAppHistoryCounts()
+  ]);
+  _brandApps = apps;
+  _brandAppHistoryCounts = counts || {};
   renderBrandApplicationsList();
   refreshBrandAppBadge();
 }
@@ -7284,8 +7291,14 @@ function renderBrandAppSummaryRow(a) {
     + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
     // 22. 신청일
     + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-    // 23. 처리 — 같은 행 펼침 + 이력 탭 활성
-    + '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')">이력</button></td>'
+    // 23. 처리 — 변경 이력 모달 열기 (이력 0건이면 비활성)
+    + (function(){
+        var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[a.id] || 0) : 0;
+        if (hcnt > 0) {
+          return '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')">이력 (' + hcnt + ')</button></td>';
+        }
+        return '<td><button class="btn btn-ghost btn-xs" disabled style="opacity:.4;cursor:not-allowed" title="변경 이력 없음">이력</button></td>';
+      })()
     + '</tr>';
 }
 
@@ -7383,29 +7396,102 @@ function closeBrandAppHistoryModal() {
   if (modal) modal.classList.remove('open');
 }
 
+// 제품 jsonb 변경을 sub-field 단위로 풀어서 가상 history rows 반환
+var BRAND_APP_PRODUCT_SUBFIELDS = [
+  {key: 'transfer_fee_krw', label: '이체수수료(건)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(fmtKrw(Number(v))); }},
+  {key: 'qty',              label: '수량',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(Number(v).toLocaleString('ja-JP')); }},
+  {key: 'price',            label: '상품 가격(엔)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc('¥ ' + Number(v).toLocaleString('ja-JP')); }},
+  {key: 'name',             label: '제품명',        fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
+  {key: 'url',              label: 'URL',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }}
+];
+
+function _expandBrandAppProductsHistoryRow(h) {
+  var oldArr = Array.isArray(h.old_value) ? h.old_value : [];
+  var newArr = Array.isArray(h.new_value) ? h.new_value : [];
+  var maxLen = Math.max(oldArr.length, newArr.length);
+  var virtualRows = [];
+  for (var i = 0; i < maxLen; i++) {
+    var oldP = oldArr[i] || {};
+    var newP = newArr[i] || {};
+    var pname = newP.name || oldP.name || ('제품 ' + (i + 1));
+    BRAND_APP_PRODUCT_SUBFIELDS.forEach(function(sf){
+      var ov = oldP[sf.key];
+      var nv = newP[sf.key];
+      // null/undefined 동등 처리
+      var ovNorm = (ov === undefined ? null : ov);
+      var nvNorm = (nv === undefined ? null : nv);
+      if (JSON.stringify(ovNorm) !== JSON.stringify(nvNorm)) {
+        virtualRows.push({
+          changed_at: h.changed_at,
+          changed_by_name: h.changed_by_name,
+          _productLabel: pname,
+          _fieldLabel: sf.label,
+          _oldHtml: sf.fmt(ovNorm),
+          _newHtml: sf.fmt(nvNorm)
+        });
+      }
+    });
+    // 모든 sub-field 동일하면 (메타만 다른 경우) 가상 row 생성 안 함
+  }
+  return virtualRows;
+}
+
 function renderBrandAppHistoryTableHtml(historyArr) {
   if (!historyArr || historyArr.length === 0) {
     return '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">변경 이력이 없습니다</div>';
   }
+  // products 변경 row는 제품별 sub-field 가상 row로 펼치기
+  var rows = [];
+  historyArr.forEach(function(h){
+    if (h.field_name === 'products') {
+      var expanded = _expandBrandAppProductsHistoryRow(h);
+      if (expanded.length === 0) {
+        // sub-field 비교 결과 변경 없음 (jsonb 키 순서 등 메타 변경) — 한 행으로 요약
+        rows.push({
+          changed_at: h.changed_at,
+          changed_by_name: h.changed_by_name,
+          _productLabel: '—',
+          _fieldLabel: '제품 정보',
+          _oldHtml: '<span style="color:var(--muted)">메타 변경</span>',
+          _newHtml: '<span style="color:var(--muted)">메타 변경</span>'
+        });
+      } else {
+        rows = rows.concat(expanded);
+      }
+    } else {
+      rows.push({
+        changed_at: h.changed_at,
+        changed_by_name: h.changed_by_name,
+        _productLabel: '<span style="color:var(--muted)">공통</span>',
+        _fieldLabel: _brandAppHistoryFieldLabel(h.field_name),
+        _oldHtml: _brandAppHistoryFormatValue(h.field_name, h.old_value),
+        _newHtml: _brandAppHistoryFormatValue(h.field_name, h.new_value)
+      });
+    }
+  });
+
   return '<table style="width:100%;font-size:12px;border-collapse:collapse">'
     + '<thead><tr style="background:var(--surface-dim);color:var(--muted);font-weight:600">'
       + '<th style="text-align:left;padding:8px 10px;width:150px">시간</th>'
-      + '<th style="text-align:left;padding:8px 10px;width:100px">담당</th>'
-      + '<th style="text-align:left;padding:8px 10px;width:110px">필드</th>'
-      + '<th style="text-align:left;padding:8px 10px">변경 내용</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:90px">담당</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:140px">제품</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:120px">필드</th>'
+      + '<th style="text-align:left;padding:8px 10px">변경 전</th>'
+      + '<th style="text-align:left;padding:8px 10px">변경 후</th>'
     + '</tr></thead>'
     + '<tbody>'
-    + historyArr.map(function(h){
-      var when = h.changed_at ? new Date(h.changed_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}) : '—';
-      var who  = esc(h.changed_by_name || '시스템');
-      var label = esc(_brandAppHistoryFieldLabel(h.field_name));
-      var oldFmt = _brandAppHistoryFormatValue(h.field_name, h.old_value);
-      var newFmt = _brandAppHistoryFormatValue(h.field_name, h.new_value);
+    + rows.map(function(r){
+      var when = r.changed_at ? new Date(r.changed_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}) : '—';
+      var who  = esc(r.changed_by_name || '시스템');
+      // _productLabel 은 esc 처리된 텍스트 또는 raw HTML(공통 wrap). 단순 텍스트면 esc, "공통" wrap 은 그대로
+      var prodCell = (typeof r._productLabel === 'string' && r._productLabel.indexOf('<') === 0) ? r._productLabel : esc(r._productLabel || '—');
       return '<tr style="border-top:1px solid var(--surface-dim)">'
         + '<td style="padding:8px 10px;color:var(--muted);white-space:nowrap">' + esc(when) + '</td>'
         + '<td style="padding:8px 10px">' + who + '</td>'
-        + '<td style="padding:8px 10px;font-weight:600">' + label + '</td>'
-        + '<td style="padding:8px 10px"><span style="color:var(--muted)">' + oldFmt + '</span> <span style="color:var(--muted);margin:0 6px">→</span> <span style="color:var(--ink);font-weight:600">' + newFmt + '</span></td>'
+        + '<td style="padding:8px 10px;font-weight:500;word-break:break-word">' + prodCell + '</td>'
+        + '<td style="padding:8px 10px;font-weight:600">' + esc(r._fieldLabel) + '</td>'
+        + '<td style="padding:8px 10px;color:var(--muted);vertical-align:top;word-break:break-word">' + r._oldHtml + '</td>'
+        + '<td style="padding:8px 10px;color:var(--ink);font-weight:600;vertical-align:top;word-break:break-word">' + r._newHtml + '</td>'
       + '</tr>';
     }).join('')
     + '</tbody></table>';
