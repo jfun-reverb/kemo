@@ -1892,7 +1892,20 @@
   </div>
 </div>
 
-<!-- 광고주 신청 상세 모달은 제거됨 — 펼치기 영역의 [제품 상세][변경 이력] 탭으로 통합 -->
+<!-- 광고주 신청 상세 모달은 제거됨 — 모든 인라인 편집은 신청 목록 행 안에서 -->
+
+<!-- 광고주 신청 변경 이력 모달 -->
+<div class="modal-overlay" id="brandAppHistoryModal" style="z-index:610">
+  <div class="modal" style="max-width:760px;border-radius:16px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)" id="brandAppHistoryTitle">변경 이력</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBrandAppHistoryModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0;overflow-y:auto;flex:1" id="brandAppHistoryBody">
+      <div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">이력 불러오는 중…</div>
+    </div>
+  </div>
+</div>
 
 
 <!-- 신청 동의 영향 영역(주의사항/참여방법) 변경 경고 모달

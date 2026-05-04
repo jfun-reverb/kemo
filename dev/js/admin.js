@@ -7019,7 +7019,8 @@ function renderBrandApplicationsList() {
   var renderBrandAppRow = function(a) {
     var html = renderBrandAppSummaryRow(a);
     if (_brandAppExpanded.has(a.id)) {
-      html += renderBrandAppExpandRows(a);
+      var prods = Array.isArray(a.products) ? a.products : [];
+      html += prods.map(function(p, idx){ return renderBrandAppDetailRow(a, p, idx); }).join('');
     }
     return html;
   };
@@ -7145,9 +7146,7 @@ function renderProductUrlCell(url) {
 
 // 펼친 신청 ID 집합 (메모리 — 새로고침 시 초기화)
 var _brandAppExpanded = new Set();
-// 펼친 신청의 활성 탭 (id → 'products' | 'history')
-var _brandAppExpandedTab = new Map();
-// 신청별 이력 캐시 (id → array)
+// 신청별 이력 캐시 (id → array) — 모달 재오픈 시 fresh load이지만 cache로 보존
 var _brandAppHistoryCache = new Map();
 
 var BRAND_APP_HISTORY_FIELD_LABELS = {
@@ -7286,7 +7285,7 @@ function renderBrandAppSummaryRow(a) {
     // 22. 신청일
     + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
     // 23. 처리 — 같은 행 펼침 + 이력 탭 활성
-    + '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryFromButton(this, \'' + esc(a.id) + '\')">이력</button></td>'
+    + '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')">이력</button></td>'
     + '</tr>';
 }
 
@@ -7337,152 +7336,84 @@ function handleBrandAppRowClick(ev) {
 }
 
 // 토글: 펼침/접힘 — 같은 신청 ID의 detail 행을 동적 추가/제거
-function toggleBrandAppExpand(id, btnEl, opts) {
+function toggleBrandAppExpand(id, btnEl) {
   var summaryTr = btnEl.closest('tr');
   if (!summaryTr) return;
-  var forceTab = (opts && opts.tab) || null;
-  if (_brandAppExpanded.has(id) && !forceTab) {
+  if (_brandAppExpanded.has(id)) {
     _brandAppExpanded.delete(id);
-    _brandAppExpandedTab.delete(id);
     _removeBrandAppDetailRows(summaryTr, id);
     var icon = btnEl.querySelector('.material-icons-round'); if (icon) icon.textContent = 'chevron_right';
     btnEl.title = btnEl.title.replace('접기', '펼치기');
   } else {
     _brandAppExpanded.add(id);
-    if (forceTab) _brandAppExpandedTab.set(id, forceTab);
-    if (!_brandAppExpandedTab.has(id)) _brandAppExpandedTab.set(id, 'products');
     var cur = _findBrandApp(id);
-    if (!cur) return;
+    if (!cur || !Array.isArray(cur.products)) return;
     _removeBrandAppDetailRows(summaryTr, id);
-    summaryTr.insertAdjacentHTML('afterend', renderBrandAppExpandRows(cur));
+    var html = cur.products.map(function(p, idx){ return renderBrandAppDetailRow(cur, p, idx); }).join('');
+    summaryTr.insertAdjacentHTML('afterend', html);
     var icon2 = btnEl.querySelector('.material-icons-round'); if (icon2) icon2.textContent = 'expand_more';
     btnEl.title = btnEl.title.replace('펼치기', '접기');
-    // history 탭으로 진입했고 캐시 없으면 로드
-    if (_brandAppExpandedTab.get(id) === 'history' && !_brandAppHistoryCache.has(id)) {
-      loadBrandAppHistoryAndRender(id);
-    }
   }
 }
 
 function _removeBrandAppDetailRows(summaryTr, id) {
   var next = summaryTr.nextElementSibling;
-  while (next && next.dataset.id === id && (next.dataset.detail === '1' || next.dataset.expandTabs === '1' || next.dataset.history === '1')) {
+  while (next && next.dataset.id === id && next.dataset.detail === '1') {
     var rm = next; next = next.nextElementSibling; rm.remove();
   }
 }
 
-// 탭 헤더 row + 활성 탭 콘텐츠 rows 묶음 반환
-function renderBrandAppExpandRows(a) {
-  var tab = _brandAppExpandedTab.get(a.id) || 'products';
-  var prods = Array.isArray(a.products) ? a.products : [];
-  var historyCount = (_brandAppHistoryCache.get(a.id) || []).length;
-  var historyCountLabel = _brandAppHistoryCache.has(a.id) ? (' (' + historyCount + ')') : '';
-  var tabHeader = '<tr data-id="' + esc(a.id) + '" data-expand-tabs="1" style="background:#FBF7FA">'
-    + '<td colspan="23" style="padding:6px 14px;border-top:1px solid var(--surface-dim)">'
-      + '<div style="display:inline-flex;gap:2px;border-radius:6px;background:#fff;border:1px solid var(--line);padding:2px;font-size:11px">'
-        + _brandAppTabBtn(a.id, 'products', '제품 상세 (' + prods.length + ')', tab === 'products')
-        + _brandAppTabBtn(a.id, 'history', '변경 이력' + historyCountLabel, tab === 'history')
-      + '</div>'
-    + '</td>'
-  + '</tr>';
-  var content = (tab === 'history')
-    ? renderBrandAppHistoryRow(a)
-    : prods.map(function(p, idx){ return renderBrandAppDetailRow(a, p, idx); }).join('');
-  return tabHeader + content;
-}
-
-function _brandAppTabBtn(id, key, label, active) {
-  var bg = active ? 'var(--pink)' : 'transparent';
-  var color = active ? '#fff' : 'var(--ink)';
-  var weight = active ? '600' : '400';
-  return '<button type="button" onclick="switchBrandAppExpandTab(\'' + esc(id) + '\', \'' + esc(key) + '\')" style="background:' + bg + ';color:' + color + ';font-weight:' + weight + ';border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:11px">' + esc(label) + '</button>';
-}
-
-function switchBrandAppExpandTab(id, tab) {
-  if (!_brandAppExpanded.has(id)) return;
-  _brandAppExpandedTab.set(id, tab);
-  var summaryTr = document.querySelector('#brandAppTableBody tr[data-id="' + (CSS.escape ? CSS.escape(id) : id) + '"][data-summary="1"]');
-  if (!summaryTr) return;
+// "이력" 버튼: 변경 이력 모달 띄우기
+async function openBrandAppHistoryModal(id) {
   var cur = _findBrandApp(id);
-  if (!cur) return;
-  _removeBrandAppDetailRows(summaryTr, id);
-  summaryTr.insertAdjacentHTML('afterend', renderBrandAppExpandRows(cur));
-  if (tab === 'history' && !_brandAppHistoryCache.has(id)) {
-    loadBrandAppHistoryAndRender(id);
-  }
+  var modal = document.getElementById('brandAppHistoryModal');
+  var titleEl = document.getElementById('brandAppHistoryTitle');
+  var bodyEl  = document.getElementById('brandAppHistoryBody');
+  if (!modal || !titleEl || !bodyEl) return;
+  titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + (cur.brand_name || '') : '신청 이력') + ' — 변경 이력';
+  bodyEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
+  modal.classList.add('open');
+  var rows = await fetchBrandApplicationHistory(id);
+  _brandAppHistoryCache.set(id, rows || []);
+  bodyEl.innerHTML = renderBrandAppHistoryTableHtml(rows || []);
 }
 
-function renderBrandAppHistoryRow(a) {
-  var historyArr = _brandAppHistoryCache.get(a.id);
-  var inner;
-  if (!historyArr) {
-    inner = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>이력 불러오는 중…</div>';
-  } else if (historyArr.length === 0) {
-    inner = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">변경 이력이 없습니다</div>';
-  } else {
-    inner = '<table style="width:100%;font-size:11px;border-collapse:collapse">'
-      + '<thead><tr style="background:#FFF;color:var(--muted);font-weight:600">'
-        + '<th style="text-align:left;padding:6px 8px;width:130px">시간</th>'
-        + '<th style="text-align:left;padding:6px 8px;width:90px">담당</th>'
-        + '<th style="text-align:left;padding:6px 8px;width:100px">필드</th>'
-        + '<th style="text-align:left;padding:6px 8px">변경 내용</th>'
-      + '</tr></thead>'
-      + '<tbody>'
-      + historyArr.map(function(h){
-        var when = h.changed_at ? new Date(h.changed_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}) : '—';
-        var who  = esc(h.changed_by_name || '시스템');
-        var label = esc(_brandAppHistoryFieldLabel(h.field_name));
-        var oldFmt = _brandAppHistoryFormatValue(h.field_name, h.old_value);
-        var newFmt = _brandAppHistoryFormatValue(h.field_name, h.new_value);
-        return '<tr style="border-top:1px solid var(--surface-dim)">'
-          + '<td style="padding:6px 8px;color:var(--muted);white-space:nowrap">' + esc(when) + '</td>'
-          + '<td style="padding:6px 8px">' + who + '</td>'
-          + '<td style="padding:6px 8px;font-weight:600">' + label + '</td>'
-          + '<td style="padding:6px 8px"><span style="color:var(--muted)">' + oldFmt + '</span> <span style="color:var(--muted);margin:0 4px">→</span> <span style="color:var(--ink);font-weight:600">' + newFmt + '</span></td>'
-        + '</tr>';
-      }).join('')
-      + '</tbody></table>';
-  }
-  return '<tr data-id="' + esc(a.id) + '" data-history="1" style="background:#FBF7FA"><td colspan="23" style="padding:8px 16px 16px">' + inner + '</td></tr>';
+function closeBrandAppHistoryModal() {
+  var modal = document.getElementById('brandAppHistoryModal');
+  if (modal) modal.classList.remove('open');
 }
 
-// "이력" 버튼: 같은 행을 펼치고 history 탭 활성화 (이미 펼친 상태면 history로 전환)
-function openBrandAppHistoryFromButton(btnEl, id) {
-  var row = btnEl.closest('tr');
-  var summaryTr = row && row.dataset.summary === '1' ? row : null;
-  if (!summaryTr) return;
-  var expandBtn = summaryTr.querySelector('.brand-app-expand-btn');
-  if (!expandBtn) return;
-  if (_brandAppExpanded.has(id)) {
-    switchBrandAppExpandTab(id, 'history');
-  } else {
-    toggleBrandAppExpand(id, expandBtn, {tab: 'history'});
+function renderBrandAppHistoryTableHtml(historyArr) {
+  if (!historyArr || historyArr.length === 0) {
+    return '<div style="padding:32px;text-align:center;color:var(--muted);font-size:13px">변경 이력이 없습니다</div>';
   }
+  return '<table style="width:100%;font-size:12px;border-collapse:collapse">'
+    + '<thead><tr style="background:var(--surface-dim);color:var(--muted);font-weight:600">'
+      + '<th style="text-align:left;padding:8px 10px;width:150px">시간</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:100px">담당</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:110px">필드</th>'
+      + '<th style="text-align:left;padding:8px 10px">변경 내용</th>'
+    + '</tr></thead>'
+    + '<tbody>'
+    + historyArr.map(function(h){
+      var when = h.changed_at ? new Date(h.changed_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}) : '—';
+      var who  = esc(h.changed_by_name || '시스템');
+      var label = esc(_brandAppHistoryFieldLabel(h.field_name));
+      var oldFmt = _brandAppHistoryFormatValue(h.field_name, h.old_value);
+      var newFmt = _brandAppHistoryFormatValue(h.field_name, h.new_value);
+      return '<tr style="border-top:1px solid var(--surface-dim)">'
+        + '<td style="padding:8px 10px;color:var(--muted);white-space:nowrap">' + esc(when) + '</td>'
+        + '<td style="padding:8px 10px">' + who + '</td>'
+        + '<td style="padding:8px 10px;font-weight:600">' + label + '</td>'
+        + '<td style="padding:8px 10px"><span style="color:var(--muted)">' + oldFmt + '</span> <span style="color:var(--muted);margin:0 6px">→</span> <span style="color:var(--ink);font-weight:600">' + newFmt + '</span></td>'
+      + '</tr>';
+    }).join('')
+    + '</tbody></table>';
 }
 
-// 대시보드 최근 신청 카드 클릭 — 신청 페인으로 이동 + 자동 펼침 + 이력 탭
+// 대시보드 최근 신청 카드 — 신청 페인으로 이동 (이력은 별도 "이력" 버튼으로)
 function openBrandAppFromDashboard(id) {
-  _brandAppExpanded.add(id);
-  _brandAppExpandedTab.set(id, 'history');
   if (typeof switchAdminPane === 'function') switchAdminPane('brand-applications', null);
-  // 페인 전환 후 렌더 완료 대기 후 history 로드
-  setTimeout(function(){ loadBrandAppHistoryAndRender(id); }, 200);
-}
-
-async function loadBrandAppHistoryAndRender(id) {
-  try {
-    var rows = await fetchBrandApplicationHistory(id);
-    _brandAppHistoryCache.set(id, rows || []);
-  } catch(e) { _brandAppHistoryCache.set(id, []); }
-  // 다시 렌더 (캐시 반영)
-  if (_brandAppExpanded.has(id) && _brandAppExpandedTab.get(id) === 'history') {
-    var summaryTr = document.querySelector('#brandAppTableBody tr[data-id="' + (CSS.escape ? CSS.escape(id) : id) + '"][data-summary="1"]');
-    var cur = _findBrandApp(id);
-    if (summaryTr && cur) {
-      _removeBrandAppDetailRows(summaryTr, id);
-      summaryTr.insertAdjacentHTML('afterend', renderBrandAppExpandRows(cur));
-    }
-  }
 }
 
 // 이체수수료(건) 셀 — display + ✎ 인라인 편집
