@@ -6933,6 +6933,19 @@ function renderBrandLongPending(apps) {
 }
 
 var _brandAppHistoryCounts = {};
+
+// 인라인 편집 성공 후 카운트 즉시 +1 + 해당 row의 이력 버튼 셀만 outerHTML 갱신
+function _refreshBrandAppHistoryButton(id) {
+  _brandAppHistoryCounts[id] = (_brandAppHistoryCounts[id] || 0) + 1;
+  var sel = '#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(id) : id) + '"][data-summary="1"]';
+  var row = document.querySelector(sel);
+  if (!row) return;
+  var lastTd = row.lastElementChild;
+  if (!lastTd) return;
+  var hcnt = _brandAppHistoryCounts[id];
+  lastTd.innerHTML = '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button>';
+}
+
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
@@ -7488,12 +7501,12 @@ function renderBrandAppHistoryTableHtml(historyArr) {
 
   return '<table style="width:100%;font-size:12px;border-collapse:collapse">'
     + '<thead><tr style="background:var(--surface-dim);color:var(--muted);font-weight:600">'
-      + '<th style="text-align:left;padding:8px 10px;width:150px">시간</th>'
-      + '<th style="text-align:left;padding:8px 10px;width:90px">담당</th>'
-      + '<th style="text-align:left;padding:8px 10px;width:140px">제품</th>'
-      + '<th style="text-align:left;padding:8px 10px;width:120px">필드</th>'
-      + '<th style="text-align:left;padding:8px 10px">변경 전</th>'
-      + '<th style="text-align:left;padding:8px 10px">변경 후</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:140px">시간</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:80px">담당</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:130px">제품</th>'
+      + '<th style="text-align:left;padding:8px 10px;width:110px">필드</th>'
+      + '<th style="text-align:left;padding:8px 10px;min-width:240px">변경 전</th>'
+      + '<th style="text-align:left;padding:8px 10px;min-width:240px">변경 후</th>'
     + '</tr></thead>'
     + '<tbody>'
     + rows.map(function(r){
@@ -7607,6 +7620,7 @@ async function confirmTransferFeeEdit(anyChildEl) {
   }
   cur.products = nextProducts;
   cur.version = result.data?.version || (prevVersion + 1);
+  _refreshBrandAppHistoryButton(id);
   // 같은 신청의 모든 행 재렌더(이체수수료(원)/최종 견적/VAT포함 컬럼이 동기화됨)
   renderBrandApplicationsList();
   toast('이체수수료가 저장되었습니다.');
@@ -7704,6 +7718,7 @@ async function confirmQuoteSentEdit(anyChildEl) {
   cur.quote_sent_at = nextValue;
   cur.version = result.data?.version || (prevVersion + 1);
   _restoreQuoteSentDisplay(cell, nextValue, false);
+  _refreshBrandAppHistoryButton(id);
   toast(nextValue ? '견적서 전달일이 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
 }
 
@@ -7792,6 +7807,7 @@ async function confirmMemoEdit(anyChildEl) {
   cur.admin_memo = nextValue || null;
   cur.version = result.data?.version || (prevVersion + 1);
   _restoreMemoDisplay(cell, nextValue, false);
+  _refreshBrandAppHistoryButton(id);
   toast('메모가 저장되었습니다.');
 }
 
