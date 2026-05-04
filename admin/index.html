@@ -12372,13 +12372,16 @@ function renderBrandApplicationsList() {
       : '(' + summary + ')';
   }
 
+  // 요약 행만 렌더 (펼치기는 토글로 동적 추가)
   var renderBrandAppRow = function(a) {
-    var prods = (Array.isArray(a.products) && a.products.length > 0)
-      ? a.products
-      : [{ name: '', qty: 0, price: 0, transfer_fee_krw: null }];
-    return prods.map(function(p, idx) {
-      return renderBrandAppProductRow(a, p, idx, prods.length);
-    }).join('');
+    var html = renderBrandAppSummaryRow(a);
+    if (_brandAppExpanded.has(a.id)) {
+      var prods = Array.isArray(a.products) ? a.products : [];
+      html += prods.map(function(p, idx) {
+        return renderBrandAppDetailRow(a, p, idx);
+      }).join('');
+    }
+    return html;
   };
   if (brandAppLazy) brandAppLazy.destroy();
   brandAppLazy = mountLazyList({
@@ -12622,9 +12625,121 @@ function renderProductUrlCell(url) {
   + '</div>';
 }
 
-// 신청 1건의 제품 1개를 1행으로 렌더 (총 22컬럼)
-function renderBrandAppProductRow(a, p, idx, total) {
-  var isFirst = (idx === 0);
+// 펼친 신청 ID 집합 (메모리 — 새로고침 시 초기화)
+var _brandAppExpanded = new Set();
+
+// 모든 제품에서 동일한 값이면 그 값, 다르면 null
+function _uniformProductValue(prods, key) {
+  if (!Array.isArray(prods) || prods.length === 0) return null;
+  var first = prods[0] && prods[0][key];
+  for (var i = 1; i < prods.length; i++) {
+    if (prods[i] && prods[i][key] !== first) return null;
+  }
+  return first;
+}
+
+// 신청 1건 = 1행 (요약 행, 24컬럼). 합산 가능 컬럼은 SUM, 단가는 동일하면 그 값/다르면 "—"
+function renderBrandAppSummaryRow(a) {
+  var prods = Array.isArray(a.products) ? a.products : [];
+  var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
+  var totalLine = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0) * (Number(p.price) || 0) * BRAND_QUOTE_CONST.FX_JPY_KRW; }, 0);
+  var totalFee = prods.reduce(function(s, p){
+    var fee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? 0 : Number(p.transfer_fee_krw);
+    return s + (Number(p.qty) || 0) * fee;
+  }, 0);
+  var totalFinal = totalLine + totalFee;
+  var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+  // 단가 — 모든 제품 동일하면 그 값, 다르면 표시 안 함
+  var uPriceJpy = _uniformProductValue(prods, 'price');
+  var uTfee = _uniformProductValue(prods, 'transfer_fee_krw');
+  var uPriceKrw = (uPriceJpy != null && uPriceJpy !== '') ? Number(uPriceJpy) * BRAND_QUOTE_CONST.FX_JPY_KRW : null;
+
+  var dash = '<span style="color:var(--muted)">—</span>';
+  var multi = '<span style="color:var(--muted);font-size:10px">제품별 상이</span>';
+  var renderUnit = function(uniformVal, formatter) {
+    if (prods.length <= 1) {
+      return uniformVal != null && uniformVal !== '' ? formatter(uniformVal) : dash;
+    }
+    return uniformVal != null && uniformVal !== '' ? formatter(uniformVal) : multi;
+  };
+
+  // 펼치기 토글 (제품 2개 이상 또는 항상 표시 — 일관성 위해 항상 표시)
+  var isOpen = _brandAppExpanded.has(a.id);
+  var arrowIcon = isOpen ? 'expand_more' : 'chevron_right';
+  var toggleBtn = '<button type="button" class="brand-app-expand-btn" onclick="toggleBrandAppExpand(\'' + esc(a.id) + '\', this)" title="제품 ' + prods.length + '개 ' + (isOpen ? '접기' : '펼치기') + '" style="background:none;border:none;cursor:pointer;padding:0;margin-right:2px;color:var(--muted);display:inline-flex;align-items:center;vertical-align:middle"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">' + arrowIcon + '</span></button>';
+
+  var qLocked = false;
+  var memoText = (a.admin_memo || '').trim();
+  var memoCellInner = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>';
+  var quoteSentInner = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
+  var fqInner = '<div class="brand-app-fq-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:24px">' + renderFinalQuoteDisplay(a.final_quote_krw) + '</div>';
+
+  return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
+    // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개
+    + '<td>'
+      + '<div style="display:flex;align-items:flex-start;gap:2px">'
+        + toggleBtn
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+          + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
+          + '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + prods.length + '개</div>'
+        + '</div>'
+      + '</div>'
+    + '</td>'
+    // 2. 브랜드
+    + '<td style="font-weight:600">' + esc(a.brand_name || '—') + '</td>'
+    // 3. 담당자
+    + '<td>'
+      + '<div>' + esc(a.contact_name || '—') + '</div>'
+      + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
+    + '</td>'
+    // 4. 연락처
+    + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.phone) || '—') + '</td>'
+    // 5. 계산서 이메일
+    + '<td style="font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(a.billing_email || '—') + '</td>'
+    // 6. 요청사항
+    + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
+    // 7. 제품명 (요약: 첫 제품 + N개 표시 또는 — )
+    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 ? esc((prods[0].name || '—') + (prods.length > 1 ? ' 외 ' + (prods.length - 1) + '개' : '')) : '—') + '</td>'
+    // 8. URL (요약 — 첫 URL or "여러 URL")
+    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 && prods[0].url ? '<span style="word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4">' + esc(prods[0].url) + '</span>' + (prods.length > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">외 ' + (prods.length - 1) + '개</div>' : '') : '—') + '</td>'
+    // 9. 진행 수량 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : dash) + '</td>'
+    // 10. 상품 가격(엔) (단가 — 동일하면 값, 아니면 "제품별 상이")
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceJpy, function(v){ return '¥ ' + Number(v).toLocaleString('ja-JP'); }) + '</td>'
+    // 11. 상품 가격(원)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceKrw, function(v){ return fmtKrw(v); }) + '</td>'
+    // 12. 상품 최종 금액 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalLine > 0 ? fmtKrw(totalLine) : dash) + '</td>'
+    // 13. 이체수수료(건) (단가 — 요약 행에서는 read-only)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uTfee, function(v){ return fmtKrw(v); }) + '</td>'
+    // 14. 이체수수료(원) (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (totalFee > 0 ? fmtKrw(totalFee) : dash) + '</td>'
+    // 15. 최종 견적 금액 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalFinal > 0 ? fmtKrw(totalFinal) : dash) + '</td>'
+    // 16. VAT포함 (SUM)
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (totalVat > 0 ? fmtKrw(totalVat) : dash) + '</td>'
+    // 17. 예상 견적
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
+    // 18. 확정 견적
+    + '<td>' + fqInner + '</td>'
+    // 19. 견적서 전달
+    + '<td>' + quoteSentInner + '</td>'
+    // 20. 내부 메모
+    + '<td>' + memoCellInner + '</td>'
+    // 21. 상태
+    + '<td>' + brandAppStatusSelect(a) + '</td>'
+    // 22. 검수일
+    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
+    // 23. 신청일
+    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
+    // 24. 처리
+    + '<td><button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button></td>'
+    + '</tr>';
+}
+
+// 펼친 상태일 때 한 제품별 행 — 신청 단위 셀은 빈 td (좌측 보더로 그룹 표시)
+function renderBrandAppDetailRow(a, p, idx) {
   var qty = Number(p.qty) || 0;
   var priceJpy = Number(p.price) || 0;
   var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
@@ -12634,69 +12749,49 @@ function renderBrandAppProductRow(a, p, idx, total) {
   var finalKrw = lineTotal + feeTotalKrw;
   var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
 
-  // 같은 신청 그룹 시각화 — 첫 행에 강조 top border, 마지막 행은 default
-  var trStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.25)' : '';
+  var dash = '<span style="color:var(--muted)">—</span>';
+  var emptyApp = '<td></td>'; // 신청 단위 셀 — 펼친 행에서는 비움 (요약 행에 이미 있음)
 
-  // 신청 단위 셀 (첫 행에만 채움, 나머지는 빈 td)
-  var cellApp = function(html, style) {
-    return '<td' + (style ? ' style="' + style + '"' : '') + '>' + (isFirst ? html : '') + '</td>';
-  };
-
-  var qLocked = false;
-  var memoText = (a.admin_memo || '').trim();
-  var memoCellInner = isFirst ? '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>' : '';
-  var quoteSentInner = isFirst ? '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>' : '';
-  var fqInner = isFirst ? '<div class="brand-app-fq-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:24px">' + renderFinalQuoteDisplay(a.final_quote_krw) + '</div>' : '';
-
-  return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (trStyle ? ' style="' + trStyle + '"' : '') + '>'
-    // 1. 신청번호
-    + cellApp(
-        '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-        + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
-      )
-    // 2. 브랜드
-    + cellApp(esc(a.brand_name || '—'), 'font-weight:600')
-    // 3. 담당자
-    + cellApp(
-        '<div>' + esc(a.contact_name || '—') + '</div>'
-        + (a.email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(a.email) + '</div>' : '')
-      )
-    // 4. 연락처
-    + cellApp(esc(formatPhoneDisplay(a.phone) || '—'), 'font-size:12px')
-    // 5. 계산서 이메일
-    + cellApp(esc(a.billing_email || '—'), 'font-size:12px;color:' + (a.billing_email ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all')
-    // 6. 요청사항
-    + cellApp(brandAppNoteCell(a.request_note))
-    // 7. 제품명 (제품별 — 모든 행)
-    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4">' + (p.name ? esc(p.name) : '<span style="color:var(--muted);font-weight:400">—</span>') + '</td>'
-    // 8. URL (제품별 — 모든 행)
+  return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-detail="1" style="background:#FBF7FA">'
+    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-6 신청 단위 비움
+    // 7. 제품명
+    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">' + (p.name ? esc(p.name) : dash) + '</td>'
+    // 8. URL
     + '<td>' + renderProductUrlCell(p.url) + '</td>'
-    // 9-16. 제품별 8컬럼 (모든 행에 표시)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : '<span style="color:var(--muted)">—</span>') + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : '<span style="color:var(--muted)">—</span>') + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : '<span style="color:var(--muted)">—</span>') + '</td>'
+    // 9-16. 제품별 8컬럼
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
     + '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (feeTotalKrw > 0 ? fmtKrw(feeTotalKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (finalKrw > 0 ? fmtKrw(finalKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (vatKrw > 0 ? fmtKrw(vatKrw) : '<span style="color:var(--muted)">—</span>') + '</td>'
-    // 15. 예상 견적
-    + cellApp(fmtKrw(a.estimated_krw), 'text-align:right;font-variant-numeric:tabular-nums')
-    // 16. 확정 견적
-    + '<td>' + fqInner + '</td>'
-    // 17. 견적서 전달
-    + '<td>' + quoteSentInner + '</td>'
-    // 18. 내부 메모
-    + '<td>' + memoCellInner + '</td>'
-    // 19. 상태
-    + cellApp(brandAppStatusSelect(a))
-    // 20. 검수일
-    + cellApp(fmtDate(a.reviewed_at), 'font-size:11px;color:var(--muted)')
-    // 21. 신청일
-    + cellApp(fmtDate(a.created_at), 'font-size:11px;color:var(--muted)')
-    // 22. 처리
-    + cellApp('<button class="btn btn-ghost btn-xs" onclick="openBrandAppDetail(\'' + esc(a.id) + '\')">상세</button>')
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (feeTotalKrw > 0 ? fmtKrw(feeTotalKrw) : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (finalKrw > 0 ? fmtKrw(finalKrw) : dash) + '</td>'
+    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (vatKrw > 0 ? fmtKrw(vatKrw) : dash) + '</td>'
+    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 17-24 신청 단위 비움
     + '</tr>';
+}
+
+// 토글: 펼침/접힘 — 같은 신청 ID의 detail 행을 동적 추가/제거
+function toggleBrandAppExpand(id, btnEl) {
+  var summaryTr = btnEl.closest('tr');
+  if (!summaryTr) return;
+  if (_brandAppExpanded.has(id)) {
+    _brandAppExpanded.delete(id);
+    var next = summaryTr.nextElementSibling;
+    while (next && next.dataset.id === id && next.dataset.detail === '1') {
+      var rm = next; next = next.nextElementSibling; rm.remove();
+    }
+    var icon = btnEl.querySelector('.material-icons-round'); if (icon) icon.textContent = 'chevron_right';
+    btnEl.title = btnEl.title.replace('접기', '펼치기');
+  } else {
+    _brandAppExpanded.add(id);
+    var cur = _findBrandApp(id);
+    if (!cur || !Array.isArray(cur.products)) return;
+    var html = cur.products.map(function(p, idx){ return renderBrandAppDetailRow(cur, p, idx); }).join('');
+    summaryTr.insertAdjacentHTML('afterend', html);
+    var icon2 = btnEl.querySelector('.material-icons-round'); if (icon2) icon2.textContent = 'expand_more';
+    btnEl.title = btnEl.title.replace('펼치기', '접기');
+  }
 }
 
 // 이체수수료(건) 셀 — display + ✎ 인라인 편집
