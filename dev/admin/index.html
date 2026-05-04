@@ -1894,6 +1894,26 @@
 
 <!-- 광고주 신청 상세 모달은 제거됨 — 모든 인라인 편집은 신청 목록 행 안에서 -->
 
+<!-- 광고주 신청 내부 메모 모달 (multi-entry) -->
+<div class="modal-overlay" id="brandAppMemoModal" style="z-index:611">
+  <div class="modal" style="max-width:680px;width:96vw;border-radius:16px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)" id="brandAppMemoTitle">내부 메모</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBrandAppMemoModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;overflow-y:auto;flex:1" id="brandAppMemoBody">
+      <div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">불러오는 중…</div>
+    </div>
+    <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px">
+      <textarea id="brandAppMemoNewInput" placeholder="새 메모 입력…" style="width:100%;min-height:60px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical" onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter'){event.preventDefault();submitNewBrandAppMemo();}"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="closeBrandAppMemoModal()">닫기</button>
+        <button class="btn btn-primary btn-sm" onclick="submitNewBrandAppMemo()">메모 추가</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 광고주 신청 변경 이력 모달 -->
 <div class="modal-overlay" id="brandAppHistoryModal" style="z-index:610">
   <div class="modal" style="max-width:1100px;width:96vw;border-radius:16px;margin:auto;max-height:80vh;display:flex;flex-direction:column">

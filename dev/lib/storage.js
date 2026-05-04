@@ -1210,6 +1210,74 @@ async function markAdminNoticeRead(noticeId) {
 // ══════════════════════════════════════
 
 // 광고주 신청 목록 조회 (관리자 RLS로 전체 조회)
+// 광고주 신청 메모 (multi-entry, migration 080)
+async function fetchBrandAppMemos(applicationId) {
+  if (!db || !applicationId) return [];
+  try {
+    const {data, error} = await db?.from('brand_application_memos')
+      .select('id, application_id, author_id, author_name, text, created_at, updated_at')
+      .eq('application_id', applicationId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchBrandAppMemos]', e); return []; }
+}
+async function insertBrandAppMemo(applicationId, text, authorId, authorName) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_application_memos')
+        .insert({application_id: applicationId, text: text, author_id: authorId || null, author_name: authorName || null})
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[insertBrandAppMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+async function updateBrandAppMemo(memoId, text) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brand_application_memos')
+        .update({text: text, updated_at: new Date().toISOString()})
+        .eq('id', memoId)
+        .select('*').maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[updateBrandAppMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+async function deleteBrandAppMemo(memoId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('brand_application_memos').delete().eq('id', memoId);
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) { console.error('[deleteBrandAppMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+// 신청별 메모 카운트 + latest 텍스트 (목록 셀 표시용)
+async function fetchBrandAppMemoSummaries() {
+  if (!db) return {};
+  try {
+    const {data, error} = await db?.from('brand_application_memos')
+      .select('application_id, text, created_at')
+      .order('created_at', {ascending: false})
+      .limit(100000);
+    if (error) throw error;
+    const summary = {};
+    (data || []).forEach(r => {
+      if (!summary[r.application_id]) summary[r.application_id] = {count: 0, latest: null};
+      summary[r.application_id].count++;
+      if (!summary[r.application_id].latest) summary[r.application_id].latest = r.text;
+    });
+    return summary;
+  } catch(e) { console.error('[fetchBrandAppMemoSummaries]', e); return {}; }
+}
+
 // 신청별 history 건수 조회 (작은 카운트 쿼리 — 1회 호출)
 async function fetchBrandAppHistoryCounts() {
   if (!db) return {};

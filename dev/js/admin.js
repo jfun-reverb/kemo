@@ -6933,6 +6933,9 @@ function renderBrandLongPending(apps) {
 }
 
 var _brandAppHistoryCounts = {};
+var _brandAppMemoSummaries = {};      // {appId: {count, latest}}
+var _brandAppMemoModalCurrentId = null;
+var _brandAppMemoModalCache = [];     // open된 신청의 메모 배열 (memory)
 
 // 인라인 편집 성공 후 카운트 즉시 +1 + 해당 row의 이력 버튼 셀만 outerHTML 갱신
 function _refreshBrandAppHistoryButton(id) {
@@ -6949,13 +6952,15 @@ function _refreshBrandAppHistoryButton(id) {
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  // 신청 본문 + history 카운트 동시 fetch
-  var [apps, counts] = await Promise.all([
+  // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
+  var [apps, counts, memoSummaries] = await Promise.all([
     fetchBrandApplications(),
-    fetchBrandAppHistoryCounts()
+    fetchBrandAppHistoryCounts(),
+    fetchBrandAppMemoSummaries()
   ]);
   _brandApps = apps;
   _brandAppHistoryCounts = counts || {};
+  _brandAppMemoSummaries = memoSummaries || {};
   renderBrandApplicationsList();
   refreshBrandAppBadge();
 }
@@ -7190,7 +7195,10 @@ var BRAND_APP_HISTORY_FIELD_LABELS = {
   admin_memo: '내부 메모',
   quote_sent_at: '견적서 전달일',
   final_quote_krw: '확정 견적',
-  products: '제품 정보'
+  products: '제품 정보',
+  memo_added: '메모 추가',
+  memo_edited: '메모 수정',
+  memo_deleted: '메모 삭제'
 };
 function _brandAppHistoryFieldLabel(f) { return BRAND_APP_HISTORY_FIELD_LABELS[f] || f; }
 function _brandAppHistoryFormatValue(field, val) {
@@ -7214,6 +7222,17 @@ function _brandAppHistoryFormatValue(field, val) {
     var prods = Array.isArray(val) ? val : [];
     var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
     return esc(prods.length + '종 · ' + totalQty + '개');
+  }
+  // 메모 추가/수정/삭제 (val은 jsonb 객체 또는 문자열)
+  if (field === 'memo_added' || field === 'memo_edited' || field === 'memo_deleted') {
+    var memoText = '';
+    if (typeof val === 'object' && val !== null) {
+      memoText = val.text || '';
+    } else {
+      memoText = String(val);
+    }
+    if (memoText.length > 80) memoText = memoText.slice(0, 80) + '…';
+    return esc(memoText);
   }
   return esc(String(val));
 }
@@ -7263,7 +7282,7 @@ function renderBrandAppSummaryRow(a) {
 
   var qLocked = false;
   var memoText = (a.admin_memo || '').trim();
-  var memoCellInner = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoDisplay(memoText, qLocked) + '</div>';
+  var memoCellInner = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a.id) + '</div>';
   var quoteSentInner = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
 
   return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
@@ -7426,6 +7445,158 @@ async function openBrandAppHistoryModal(id) {
 function closeBrandAppHistoryModal() {
   var modal = document.getElementById('brandAppHistoryModal');
   if (modal) modal.classList.remove('open');
+}
+
+// ─── 내부 메모 (multi-entry) 모달 ────────────────────────────
+async function openBrandAppMemoModal(id) {
+  _brandAppMemoModalCurrentId = id;
+  var cur = _findBrandApp(id);
+  var modal = document.getElementById('brandAppMemoModal');
+  var titleEl = document.getElementById('brandAppMemoTitle');
+  var bodyEl  = document.getElementById('brandAppMemoBody');
+  var newInput = document.getElementById('brandAppMemoNewInput');
+  if (!modal || !titleEl || !bodyEl) return;
+  titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + (cur.brand_name || '') : '신청') + ' — 내부 메모';
+  bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
+  if (newInput) newInput.value = '';
+  modal.classList.add('open');
+  await loadBrandAppMemoList();
+  if (newInput) newInput.focus();
+}
+
+function closeBrandAppMemoModal() {
+  var modal = document.getElementById('brandAppMemoModal');
+  if (modal) modal.classList.remove('open');
+  _brandAppMemoModalCurrentId = null;
+}
+
+async function loadBrandAppMemoList() {
+  if (!_brandAppMemoModalCurrentId) return;
+  var rows = await fetchBrandAppMemos(_brandAppMemoModalCurrentId);
+  _brandAppMemoModalCache = rows || [];
+  renderBrandAppMemoList();
+  // 목록 셀 카운트 동기화
+  _brandAppMemoSummaries[_brandAppMemoModalCurrentId] = {
+    count: _brandAppMemoModalCache.length,
+    latest: _brandAppMemoModalCache.length > 0 ? _brandAppMemoModalCache[0].text : null
+  };
+  _refreshBrandAppMemoCell(_brandAppMemoModalCurrentId);
+}
+
+function renderBrandAppMemoList() {
+  var bodyEl = document.getElementById('brandAppMemoBody');
+  if (!bodyEl) return;
+  if (_brandAppMemoModalCache.length === 0) {
+    bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">메모가 없습니다. 아래에 새 메모를 입력하세요.</div>';
+    return;
+  }
+  bodyEl.innerHTML = _brandAppMemoModalCache.map(function(m){
+    var when = m.created_at ? new Date(m.created_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}) : '';
+    var edited = (m.updated_at && m.created_at && m.updated_at !== m.created_at)
+      ? '<span style="color:var(--muted);font-size:10px;margin-left:6px">(수정됨 ' + esc(new Date(m.updated_at).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'})) + ')</span>'
+      : '';
+    return '<div class="bam-row" data-memo-id="' + esc(m.id) + '" style="padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px;background:#fff">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:var(--muted)">'
+        + '<div><span style="font-weight:600;color:var(--ink)">' + esc(m.author_name || '시스템') + '</span> · ' + esc(when) + edited + '</div>'
+        + '<div style="display:flex;gap:4px">'
+          + '<button class="btn btn-ghost btn-xs" onclick="enterBrandAppMemoEdit(\'' + esc(m.id) + '\')" style="padding:2px 8px" title="수정"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">edit</span></button>'
+          + '<button class="btn btn-ghost btn-xs" onclick="deleteBrandAppMemoConfirm(\'' + esc(m.id) + '\')" style="padding:2px 8px;color:#c0392b" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span></button>'
+        + '</div>'
+      + '</div>'
+      + '<div class="bam-text" style="font-size:13px;color:var(--ink);white-space:pre-wrap;word-break:break-word;line-height:1.5">' + esc(m.text) + '</div>'
+    + '</div>';
+  }).join('');
+}
+
+function enterBrandAppMemoEdit(memoId) {
+  var row = document.querySelector('.bam-row[data-memo-id="' + (CSS.escape ? CSS.escape(memoId) : memoId) + '"]');
+  if (!row) return;
+  var memo = _brandAppMemoModalCache.find(function(m){ return m.id === memoId; });
+  if (!memo) return;
+  var textDiv = row.querySelector('.bam-text');
+  if (!textDiv) return;
+  textDiv.outerHTML = '<div style="display:flex;flex-direction:column;gap:6px">'
+    + '<textarea class="bam-edit-input" style="width:100%;min-height:60px;padding:6px 8px;border:1px solid var(--pink);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical">' + esc(memo.text) + '</textarea>'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button class="btn btn-ghost btn-xs" onclick="cancelBrandAppMemoEdit(\'' + esc(memoId) + '\')" style="padding:3px 10px">취소</button>'
+      + '<button class="btn btn-primary btn-xs" onclick="confirmBrandAppMemoEdit(\'' + esc(memoId) + '\')" style="padding:3px 12px">저장</button>'
+    + '</div>'
+  + '</div>';
+  var input = row.querySelector('.bam-edit-input');
+  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+}
+
+function cancelBrandAppMemoEdit(memoId) {
+  // 단순히 다시 렌더 (캐시에서)
+  renderBrandAppMemoList();
+}
+
+async function confirmBrandAppMemoEdit(memoId) {
+  var row = document.querySelector('.bam-row[data-memo-id="' + (CSS.escape ? CSS.escape(memoId) : memoId) + '"]');
+  if (!row) return;
+  var input = row.querySelector('.bam-edit-input');
+  if (!input) return;
+  var newText = (input.value || '').trim();
+  if (!newText) { toast('메모 내용을 입력하세요.', 'warn'); return; }
+  input.disabled = true;
+  var result = await updateBrandAppMemo(memoId, newText);
+  if (!result.ok) { toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error'); input.disabled = false; return; }
+  toast('메모가 저장되었습니다.');
+  if (_brandAppMemoModalCurrentId) _refreshBrandAppHistoryButton(_brandAppMemoModalCurrentId);
+  await loadBrandAppMemoList();
+}
+
+async function deleteBrandAppMemoConfirm(memoId) {
+  if (!confirm('이 메모를 삭제할까요?')) return;
+  var result = await deleteBrandAppMemo(memoId);
+  if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  toast('메모가 삭제되었습니다.');
+  if (_brandAppMemoModalCurrentId) _refreshBrandAppHistoryButton(_brandAppMemoModalCurrentId);
+  await loadBrandAppMemoList();
+}
+
+async function submitNewBrandAppMemo() {
+  if (!_brandAppMemoModalCurrentId) return;
+  var input = document.getElementById('brandAppMemoNewInput');
+  if (!input) return;
+  var text = (input.value || '').trim();
+  if (!text) { toast('메모 내용을 입력하세요.', 'warn'); return; }
+  input.disabled = true;
+  var name = currentAdminInfo?.name || currentUser?.email || '관리자';
+  var authorId = currentUser?.id || null;
+  var result = await insertBrandAppMemo(_brandAppMemoModalCurrentId, text, authorId, name);
+  input.disabled = false;
+  if (!result.ok) { toast('추가 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  input.value = '';
+  toast('메모가 추가되었습니다.');
+  _refreshBrandAppHistoryButton(_brandAppMemoModalCurrentId);
+  await loadBrandAppMemoList();
+}
+
+// 메모 셀(목록의 내부 메모 컬럼)에서 latest 메모 + 카운트 표시 갱신 (인라인)
+function _refreshBrandAppMemoCell(applicationId) {
+  var row = document.querySelector('#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(applicationId) : applicationId) + '"][data-summary="1"]');
+  if (!row) return;
+  var cell = row.querySelector('.brand-app-memo-cell');
+  if (!cell) return;
+  cell.innerHTML = renderMemoCellInner(applicationId);
+}
+
+// 메모 셀 inner HTML — latest 메모 1줄 + "외 N개" + ✎(모달 진입)
+function renderMemoCellInner(applicationId) {
+  var sum = _brandAppMemoSummaries[applicationId];
+  var count = sum ? sum.count : 0;
+  var latest = sum ? (sum.latest || '') : '';
+  var contentHtml;
+  if (count === 0) {
+    contentHtml = '<span style="color:var(--muted)">—</span>';
+  } else {
+    var safe = esc(latest);
+    var moreLabel = count > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">외 ' + (count - 1) + '개</div>' : '';
+    contentHtml = '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;padding-right:22px;white-space:pre-wrap" title="' + safe + '">' + safe + '</div>' + moreLabel;
+  }
+  return contentHtml
+    + '<button type="button" onclick="event.stopPropagation();openBrandAppMemoModal(\'' + esc(applicationId) + '\')" title="메모 보기/추가" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
 }
 
 // 제품 jsonb 변경을 sub-field 단위로 풀어서 가상 history rows 반환
