@@ -5911,7 +5911,7 @@ async function openDelivDetail(id) {
     contentHtml += events.map(e => {
       const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
       return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
-        <span><strong>${label}</strong>${e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
+        <span><strong>${esc(label)}</strong>${e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
         <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
       </div>`;
     }).join('');
@@ -6148,6 +6148,12 @@ async function renderDelivCombinedBody(applicationId) {
   const receipt = allDelivs.find(d => d.kind === 'receipt') || null;
   const result = allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null;
 
+  // 변경 이력 (제출/재제출/승인/반려/되돌리기 타임라인) — deliverable별 events fetch
+  const [receiptEvents, resultEvents] = await Promise.all([
+    receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
+    result ? fetchDeliverableEvents(result.id) : Promise.resolve([]),
+  ]);
+
   // 영수증 패널은 monitor에서만 노출. gifting/visit은 영수증 단계 없음.
   const showReceipt = rt === 'monitor';
   const resultLabel = rt === 'monitor' ? '결과물 (리뷰 캡쳐)' : '결과물 (게시 URL)';
@@ -6159,7 +6165,7 @@ async function renderDelivCombinedBody(applicationId) {
       ${showReceipt
         ? `<div class="deliv-combined-panel">
             <div class="deliv-combined-panel-header">영수증 ${stepLabel}</div>
-            <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt)}</div>
+            <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt, receiptEvents)}</div>
           </div>`
         : `<div class="deliv-combined-panel" style="opacity:.6">
             <div class="deliv-combined-panel-header" style="color:var(--muted)">영수증 (해당 없음)</div>
@@ -6167,14 +6173,15 @@ async function renderDelivCombinedBody(applicationId) {
           </div>`}
       <div class="deliv-combined-panel">
         <div class="deliv-combined-panel-header">${esc(resultLabel)} ${stepLabel2}</div>
-        <div class="deliv-combined-panel-body">${renderDelivPanelContent(result)}</div>
+        <div class="deliv-combined-panel-body">${renderDelivPanelContent(result, resultEvents)}</div>
       </div>
     </div>
   `;
 }
 
-// 합본 모달 안 한 패널의 본문 — 이미지/URL/메타/반려사유/액션버튼
-function renderDelivPanelContent(d) {
+// 합본 모달 안 한 패널의 본문 — 이미지/URL/메타/반려사유/이력 타임라인/액션버튼
+// events: deliverable_events 배열 (제출/재제출/승인/반려/되돌리기 타임라인)
+function renderDelivPanelContent(d, events) {
   if (!d) {
     return '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">아직 제출되지 않았습니다.</div>';
   }
@@ -6201,6 +6208,20 @@ function renderDelivPanelContent(d) {
       <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
       <div style="white-space:pre-wrap;color:var(--ink)">${esc(d.reject_reason)}</div>
     </div>`;
+  }
+  // 변경 이력 타임라인 (제출/재제출/승인/반려/되돌리기) — 단일 결과물 모달과 동일 패턴
+  if (Array.isArray(events) && events.length) {
+    html += '<div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">변경 이력</div><div style="font-size:11px">';
+    html += events.map(e => {
+      const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
+      const transition = e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : '';
+      const reason = e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : '';
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
+        <span><strong>${esc(label)}</strong>${transition}${reason}</span>
+        <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+      </div>`;
+    }).join('');
+    html += '</div></div>';
   }
   if (d.status === 'pending') {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
