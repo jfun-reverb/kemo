@@ -754,3 +754,45 @@
 .flatpickr-calendar.reverb-range-cal.reverb-single-cal .flatpickr-rContainer::after{
   display:none;
 }
+
+/* ═══════════════════════════════════════
+   결과물 관리 페인 — 합본 검수 모달 (Phase 2)
+   영수증·결과물 양쪽 패널을 한 화면에 나란히 노출
+   ═══════════════════════════════════════ */
+.deliv-combined-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .deliv-combined-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.deliv-combined-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.deliv-combined-panel-header {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fafafa;
+  border-bottom: 1px solid var(--line);
+}
+.deliv-combined-panel-body {
+  padding: 14px;
+  flex: 1;
+}
+
+/* 결과물 관리 페인 — 신청 단위 행 테이블 (얇은 패딩으로 8개 컬럼 안전 수용) */
+.deliv-app-table thead th {
+  white-space: nowrap;
+}
+.deliv-app-table tbody td {
+  vertical-align: middle;
+}

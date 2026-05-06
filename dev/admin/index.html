@@ -985,12 +985,23 @@
                 <div id="delivCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
               </div>
               <div class="admin-filter-group">
-                <label>결과물 타입</label>
-                <div id="delivKindMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
+                <label>모집 타입</label>
+                <div id="delivRecruitTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
-                <label>검수 상태</label>
-                <div id="delivStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
+                <label>영수증 상태</label>
+                <div id="delivReceiptStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>결과물 상태</label>
+                <div id="delivResultStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>미제출</label>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
+                  <input type="checkbox" id="delivIncludeMissing" onchange="renderDeliverablesList()" style="margin:0">
+                  <span>포함</span>
+                </label>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -1010,15 +1021,15 @@
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">결과물 목록</span><span id="delivTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
             </div>
             <div class="admin-table-wrap">
-            <table class="data-table">
+            <table class="data-table deliv-app-table">
               <thead><tr>
-                <th style="width:90px">타입 <span class="sort-arrows" data-sort="kind" onclick="toggleDelivSort('kind')">▲▼</span></th>
+                <th style="width:90px">모집 타입</th>
                 <th>캠페인</th>
                 <th>인플루언서</th>
-                <th style="width:110px">제출일 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
-                <th style="width:110px">검수일 <span class="sort-arrows" data-sort="reviewed" onclick="toggleDelivSort('reviewed')">▲▼</span></th>
-                <th style="width:90px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleDelivSort('status')">▲▼</span></th>
-                <th style="width:110px">처리</th>
+                <th style="width:170px">영수증</th>
+                <th style="width:170px">결과물</th>
+                <th style="width:120px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
+                <th style="width:90px">처리</th>
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
@@ -1958,7 +1969,7 @@
   </div>
 </div>
 
-<!-- Stage 2: 결과물 상세 모달 -->
+<!-- Stage 2: 결과물 상세 모달 (단일 deliverable — 캠페인 진행현황 페인 등에서 사용) -->
 <div class="modal-overlay" id="delivDetailModal" style="z-index:605">
   <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
@@ -1969,6 +1980,22 @@
       <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
     </div>
     <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end" id="delivDetailFooter">
+    </div>
+  </div>
+</div>
+
+<!-- 결과물 관리 페인 합본 모달 — 신청 단위로 영수증·결과물 양쪽 한 화면에서 검수 -->
+<div class="modal-overlay" id="delivCombinedModal" style="z-index:605">
+  <div class="modal" style="max-width:1080px;width:96%;border-radius:20px;margin:auto;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="delivCombinedTitle">결과물 검수</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeDelivCombined()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px 22px;overflow-y:auto;flex:1" id="delivCombinedBody">
+      <div style="text-align:center;padding:40px"><span class="spinner"></span></div>
+    </div>
+    <div class="modal-footer" style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeDelivCombined()">닫기</button>
     </div>
   </div>
 </div>
