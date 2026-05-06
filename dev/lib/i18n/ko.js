@@ -337,6 +337,15 @@ window.I18N_KO = {
     saveFail: '등록에 실패했습니다',
     unknownDate: '날짜 미입력',
     unknownAmount: '금액 미입력',
+    // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
+    receiptStepLabel: 'STEP 1: 구매 영수증',
+    reviewImageStepLabel: 'STEP 2: 게시물 캡쳐',
+    reviewImageSection: '리뷰 게시물 캡쳐 제출',
+    reviewImageHint: '게시한 리뷰 화면 캡쳐를 1장 제출해주세요',
+    reviewImageGated: 'STEP 1(영수증)이 승인되면 여기에서 캡쳐를 제출할 수 있습니다.',
+    reviewImageMaxOne: '1장만 제출 가능합니다',
+    noReviewImage: '아직 캡쳐가 추가되지 않았습니다',
+    needReviewImage: '캡쳐 이미지를 선택해주세요',
   },
 
   delivStatus: {

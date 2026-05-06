@@ -352,6 +352,15 @@ window.I18N_JA = {
     saveFail: '登録に失敗しました',
     unknownDate: '日付未入力',
     unknownAmount: '金額未入力',
+    // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
+    receiptStepLabel: 'STEP 1: 購入レシート',
+    reviewImageStepLabel: 'STEP 2: 投稿スクリーンショット',
+    reviewImageSection: '投稿スクリーンショットの提出',
+    reviewImageHint: '掲載したレビュー投稿のスクリーンショットを1枚ご提出ください',
+    reviewImageGated: 'STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。',
+    reviewImageMaxOne: '提出は1枚のみ可能です',
+    noReviewImage: 'まだスクリーンショットが追加されていません',
+    needReviewImage: 'スクリーンショット画像を選択してください',
   },
 
   // 결과물 상태 배지 (인플루언서 화면)
