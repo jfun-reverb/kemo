@@ -392,9 +392,10 @@ COMMENT ON FUNCTION public.admin_create_brand_application IS
 --   authenticated: EXECUTE 허용 + 내부 is_admin() 가드
 --   anon: 거부 (submit_brand_application이 anon용)
 -- ============================================================
--- 시그니처: 12 파라미터 (text, uuid, text(name), text(name_ja), text(business_no),
+-- 시그니처: 14 파라미터 (text(form_type), uuid(brand_id),
+--   text(company_name), text(brand_name), text(brand_name_ja), text(business_no),
 --   text(contact_name), text(phone), text(email), text(billing_email),
---   jsonb(products), text(request_note), boolean(brand_sync))
+--   jsonb(products), text(request_note), text(admin_memo), boolean(brand_sync))
 REVOKE ALL ON FUNCTION public.admin_create_brand_application(
   text, uuid, text, text, text, text, text, text, text, text, jsonb, text, text, boolean
 ) FROM PUBLIC;
