@@ -364,6 +364,13 @@ window.I18N_KO = {
     rejected: '비승인',
   },
 
+  // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
+  delivKind: {
+    receipt: '영수증 제출',
+    reviewImage: '리뷰 캡쳐',
+    post: '게시물 URL',
+  },
+
   campaign: {
     emptyState: '현재 모집 중인 캠페인이 없습니다',
     emptyStateSub: '곧 새로운 K브랜드 체험단이 등록됩니다',

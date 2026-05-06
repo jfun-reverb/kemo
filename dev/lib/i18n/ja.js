@@ -380,6 +380,13 @@ window.I18N_JA = {
     rejected: '非承認',
   },
 
+  // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
+  delivKind: {
+    receipt: 'レシート提出',
+    reviewImage: 'レビュースクショ',
+    post: '投稿URL',
+  },
+
   // 캠페인 카드
   campaign: {
     emptyState: '現在募集中のキャンペーンはありません',
