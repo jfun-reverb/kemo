@@ -7783,6 +7783,10 @@ function renderBrandAppSummaryRow(a) {
   var memoCellInner = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a.id) + '</div>';
   var quoteSentInner = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
 
+  // source='manual_admin' 인 경우 「직접등록」 배지 (UI 구분용, DB 변경 없음)
+  var manualBadge = (a.source === 'manual_admin')
+    ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:4px" title="관리자가 직접 등록한 신청">직접등록</span>'
+    : '';
   return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
     // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개 (셀 전체 클릭으로 토글)
     + '<td onclick="handleBrandAppRowClick(event)" style="cursor:pointer">'
@@ -7790,7 +7794,7 @@ function renderBrandAppSummaryRow(a) {
         + toggleBtn
         + '<div style="flex:1;min-width:0">'
           + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-          + '<div style="margin-top:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span></div>'
+          + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
           + '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + prods.length + '개</div>'
         + '</div>'
       + '</div>'
@@ -8227,6 +8231,16 @@ async function submitNewBrandApp() {
     return;
   }
   var no = result.data?.application_no || '';
+  // 등록 시점 입력한 내부메모를 누적 메모 표(brand_application_memos)에도 1건 INSERT
+  // 이렇게 해야 신청목록 셀에 메모 요약이 표시됨 (admin_memo 컬럼만 저장하면 셀에 안 보임)
+  // await로 INSERT 완료를 기다린 뒤 페인 리로드해야 새 메모가 셀에 즉시 보임 (race 방지)
+  if (adminMemo && result.data?.id) {
+    var memoAuthorName = currentAdminInfo?.name || currentUser?.email || '관리자';
+    var memoAuthorId = currentUser?.id || null;
+    await insertBrandAppMemo(result.data.id, adminMemo, memoAuthorId, memoAuthorName).catch(function(e){
+      console.warn('[adminCreateBrandApplication] memo sync failed:', e);
+    });
+  }
   toast('신청이 등록되었습니다 (' + no + ')', 'success');
   closeNewBrandAppModal();
   // brand 캐시 무효화 (신규 brand면 리스트에 추가됨)
