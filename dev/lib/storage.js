@@ -1215,7 +1215,7 @@ async function fetchBrands(filters) {
   if (!db) return [];
   try {
     var q = db?.from('brands')
-      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
     if (filters?.status) q = q.eq('status', filters.status);
     var pageSize = 1000, from = 0, out = [];
     while (true) {
@@ -1431,6 +1431,7 @@ async function fetchBrandApplicationHistory(applicationId, limit) {
 async function adminCreateBrandApplication({
   formType,
   brandId = null,
+  companyName = null,
   brandName = null,
   brandNameJa = null,
   businessNo = null,
@@ -1448,6 +1449,7 @@ async function adminCreateBrandApplication({
       const {data, error} = await db.rpc('admin_create_brand_application', {
         p_form_type:     formType,
         p_brand_id:      brandId,
+        p_company_name:  companyName,
         p_brand_name:    brandName,
         p_brand_name_ja: brandNameJa,
         p_business_no:   businessNo,

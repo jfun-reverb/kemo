@@ -3097,6 +3097,16 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
       <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="form-group">
+          <label class="form-label">회사명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaCompanyName" class="form-input" placeholder="(주)제이펀">
+        </div>
+        <div class="form-group">
+          <label class="form-label">사업자번호 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaBusinessNo" class="form-input" placeholder="123-45-67890">
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="form-group">
           <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
           <input type="text" id="nbaBrandName" class="form-input" placeholder="브랜드명 (한국어/영문 원본)">
         </div>
@@ -3105,18 +3115,12 @@ textarea.form-input{resize:vertical;min-height:80px}
           <input type="text" id="nbaBrandNameJa" class="form-input" placeholder="ブランド名 (일본어 표기)">
         </div>
       </div>
-      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
-        <div class="form-group">
-          <label class="form-label">사업자번호 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
-          <input type="text" id="nbaBusinessNo" class="form-input" placeholder="123-45-67890">
-        </div>
-        <div class="form-group">
-          <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
-          <select id="nbaContactSelect" class="form-input" style="display:none;margin-bottom:6px;font-size:12px" onchange="onNbaContactSelectChange()">
-            <option value="">-- 등록된 담당자 빠른 선택 --</option>
-          </select>
-          <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
-        </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+        <select id="nbaContactSelect" class="form-input" style="display:none;margin-bottom:6px;font-size:12px" onchange="onNbaContactSelectChange()">
+          <option value="">-- 등록된 담당자 빠른 선택 --</option>
+        </select>
+        <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
       </div>
       <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="form-group">
@@ -4757,7 +4761,7 @@ async function fetchBrands(filters) {
   if (!db) return [];
   try {
     var q = db?.from('brands')
-      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
     if (filters?.status) q = q.eq('status', filters.status);
     var pageSize = 1000, from = 0, out = [];
     while (true) {
@@ -4973,6 +4977,7 @@ async function fetchBrandApplicationHistory(applicationId, limit) {
 async function adminCreateBrandApplication({
   formType,
   brandId = null,
+  companyName = null,
   brandName = null,
   brandNameJa = null,
   businessNo = null,
@@ -4990,6 +4995,7 @@ async function adminCreateBrandApplication({
       const {data, error} = await db.rpc('admin_create_brand_application', {
         p_form_type:     formType,
         p_brand_id:      brandId,
+        p_company_name:  companyName,
         p_brand_name:    brandName,
         p_brand_name_ja: brandNameJa,
         p_business_no:   businessNo,
@@ -13857,7 +13863,7 @@ async function openNewBrandAppModal(prefilledBrandId) {
   // 폼 reset
   document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
   document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
-  ['nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  ['nbaCompanyName','nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   // 담당자 빠른 선택 드롭다운 초기화
   var contactSelReset = document.getElementById('nbaContactSelect');
   if (contactSelReset) { contactSelReset.style.display = 'none'; contactSelReset.innerHTML = '<option value="">-- 등록된 담당자 빠른 선택 --</option>'; contactSelReset.value = ''; }
@@ -13918,8 +13924,8 @@ function setNbaBrandMode(mode) {
     if (sel) sel.value = '';
     if (nameInput) { nameInput.value = ''; nameInput.readOnly = false; nameInput.focus(); }
     if (hint) hint.innerHTML = '<strong style="color:var(--pink)">신규 브랜드 입력 모드</strong> — 브랜드명·담당자·연락처·이메일 모두 새로 입력. 저장 시 브랜드 마스터에 자동 등록됨. <a href="javascript:void(0)" onclick="setNbaBrandMode(\'select\')">기존 선택으로 돌아가기</a>';
-    // 브랜드 정보 영역 초기화 (이름 영문/일본어/사업자번호 + 담당자 4종)
-    ['nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+    // 브랜드 정보 영역 초기화 (회사명·일본어명·사업자번호 + 담당자 4종)
+    ['nbaCompanyName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   } else {
     // 기존 brand 모드: 브랜드명은 드롭다운 선택으로만 갱신 (직접 편집 차단 — 마스터 동기화 혼선 방지)
     if (nameInput) nameInput.readOnly = true;
@@ -13942,6 +13948,7 @@ function onNbaBrandChange() {
   var contacts = Array.isArray(picked.contacts) ? picked.contacts.slice() : [];
   var primaryContact = contacts.find(function(c){ return c.is_primary; }) || contacts[0] || null;
   var setVal = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null) ? '' : String(v); };
+  setVal('nbaCompanyName', picked.company_name);
   setVal('nbaBrandName', picked.name);
   setVal('nbaBrandNameJa', picked.name_ja);
   setVal('nbaBusinessNo', picked.business_no);
@@ -14040,6 +14047,7 @@ async function submitNewBrandApp() {
     toast('기존 브랜드를 선택하거나 「신규」를 눌러 새 브랜드를 등록하세요', 'error');
     return;
   }
+  var companyName = (document.getElementById('nbaCompanyName')?.value || '').trim();
   var brandName = (document.getElementById('nbaBrandName')?.value || '').trim();
   var brandNameJa = (document.getElementById('nbaBrandNameJa')?.value || '').trim();
   var businessNo = (document.getElementById('nbaBusinessNo')?.value || '').trim();
@@ -14062,6 +14070,7 @@ async function submitNewBrandApp() {
   var result = await adminCreateBrandApplication({
     formType: formType,
     brandId: brandId || null,
+    companyName: companyName || null,
     brandName: brandName,
     brandNameJa: brandNameJa || null,
     businessNo: businessNo || null,

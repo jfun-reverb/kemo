@@ -2040,6 +2040,16 @@
       </div>
       <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="form-group">
+          <label class="form-label">회사명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaCompanyName" class="form-input" placeholder="(주)제이펀">
+        </div>
+        <div class="form-group">
+          <label class="form-label">사업자번호 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaBusinessNo" class="form-input" placeholder="123-45-67890">
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="form-group">
           <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
           <input type="text" id="nbaBrandName" class="form-input" placeholder="브랜드명 (한국어/영문 원본)">
         </div>
@@ -2048,18 +2058,12 @@
           <input type="text" id="nbaBrandNameJa" class="form-input" placeholder="ブランド名 (일본어 표기)">
         </div>
       </div>
-      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
-        <div class="form-group">
-          <label class="form-label">사업자번호 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
-          <input type="text" id="nbaBusinessNo" class="form-input" placeholder="123-45-67890">
-        </div>
-        <div class="form-group">
-          <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
-          <select id="nbaContactSelect" class="form-input" style="display:none;margin-bottom:6px;font-size:12px" onchange="onNbaContactSelectChange()">
-            <option value="">-- 등록된 담당자 빠른 선택 --</option>
-          </select>
-          <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
-        </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+        <select id="nbaContactSelect" class="form-input" style="display:none;margin-bottom:6px;font-size:12px" onchange="onNbaContactSelectChange()">
+          <option value="">-- 등록된 담당자 빠른 선택 --</option>
+        </select>
+        <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
       </div>
       <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="form-group">

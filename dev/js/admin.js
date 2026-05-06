@@ -7959,7 +7959,7 @@ async function openNewBrandAppModal(prefilledBrandId) {
   // 폼 reset
   document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
   document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
-  ['nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  ['nbaCompanyName','nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   // 담당자 빠른 선택 드롭다운 초기화
   var contactSelReset = document.getElementById('nbaContactSelect');
   if (contactSelReset) { contactSelReset.style.display = 'none'; contactSelReset.innerHTML = '<option value="">-- 등록된 담당자 빠른 선택 --</option>'; contactSelReset.value = ''; }
@@ -8020,8 +8020,8 @@ function setNbaBrandMode(mode) {
     if (sel) sel.value = '';
     if (nameInput) { nameInput.value = ''; nameInput.readOnly = false; nameInput.focus(); }
     if (hint) hint.innerHTML = '<strong style="color:var(--pink)">신규 브랜드 입력 모드</strong> — 브랜드명·담당자·연락처·이메일 모두 새로 입력. 저장 시 브랜드 마스터에 자동 등록됨. <a href="javascript:void(0)" onclick="setNbaBrandMode(\'select\')">기존 선택으로 돌아가기</a>';
-    // 브랜드 정보 영역 초기화 (이름 영문/일본어/사업자번호 + 담당자 4종)
-    ['nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+    // 브랜드 정보 영역 초기화 (회사명·일본어명·사업자번호 + 담당자 4종)
+    ['nbaCompanyName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   } else {
     // 기존 brand 모드: 브랜드명은 드롭다운 선택으로만 갱신 (직접 편집 차단 — 마스터 동기화 혼선 방지)
     if (nameInput) nameInput.readOnly = true;
@@ -8044,6 +8044,7 @@ function onNbaBrandChange() {
   var contacts = Array.isArray(picked.contacts) ? picked.contacts.slice() : [];
   var primaryContact = contacts.find(function(c){ return c.is_primary; }) || contacts[0] || null;
   var setVal = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null) ? '' : String(v); };
+  setVal('nbaCompanyName', picked.company_name);
   setVal('nbaBrandName', picked.name);
   setVal('nbaBrandNameJa', picked.name_ja);
   setVal('nbaBusinessNo', picked.business_no);
@@ -8142,6 +8143,7 @@ async function submitNewBrandApp() {
     toast('기존 브랜드를 선택하거나 「신규」를 눌러 새 브랜드를 등록하세요', 'error');
     return;
   }
+  var companyName = (document.getElementById('nbaCompanyName')?.value || '').trim();
   var brandName = (document.getElementById('nbaBrandName')?.value || '').trim();
   var brandNameJa = (document.getElementById('nbaBrandNameJa')?.value || '').trim();
   var businessNo = (document.getElementById('nbaBusinessNo')?.value || '').trim();
@@ -8164,6 +8166,7 @@ async function submitNewBrandApp() {
   var result = await adminCreateBrandApplication({
     formType: formType,
     brandId: brandId || null,
+    companyName: companyName || null,
     brandName: brandName,
     brandNameJa: brandNameJa || null,
     businessNo: businessNo || null,

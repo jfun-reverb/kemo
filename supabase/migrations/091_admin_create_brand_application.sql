@@ -39,17 +39,35 @@
 
 
 -- ============================================================
+-- SECTION 0. brands.company_name 컬럼 ADD (관리자 등록 폼에서 입력)
+--   사업자등록증상 회사 법인명. brand_name(브랜드)과 별개.
+--   예: company_name="(주)제이펀" / brand_name="REVERB"
+-- ============================================================
+ALTER TABLE public.brands
+  ADD COLUMN IF NOT EXISTS company_name text;
+
+COMMENT ON COLUMN public.brands.company_name IS
+  '[091] 회사 법인명. 사업자등록증상의 명칭. brand 마스터 동기화 대상.';
+
+
+-- ============================================================
 -- SECTION 1. admin_create_brand_application RPC
 -- ============================================================
 -- 시그니처 변경(파라미터 추가) 시 CREATE OR REPLACE는 에러를 발생시키므로
 -- 기존 함수 명시 DROP. 멱등 안전 (dev/운영 어느 환경에서도).
+-- v1 (10 params), v2 (12 params) 모두 정리.
 DROP FUNCTION IF EXISTS public.admin_create_brand_application(
   text, uuid, text, text, text, text, text, jsonb, text, boolean
+);
+-- v2 (12 params: name, name_ja, business_no, contact, phone, email, billing 등)
+DROP FUNCTION IF EXISTS public.admin_create_brand_application(
+  text, uuid, text, text, text, text, text, text, text, jsonb, text, boolean
 );
 
 CREATE OR REPLACE FUNCTION public.admin_create_brand_application(
   p_form_type         text,
   p_brand_id          uuid        DEFAULT NULL,
+  p_company_name      text        DEFAULT NULL,   -- 회사 법인명 (선택)
   p_brand_name        text        DEFAULT NULL,
   p_brand_name_ja     text        DEFAULT NULL,   -- 브랜드명 일본어 (선택)
   p_business_no       text        DEFAULT NULL,   -- 사업자번호 (선택)
@@ -134,6 +152,7 @@ BEGIN
       OR COALESCE(btrim(p_email), '')        <> ''
       OR COALESCE(btrim(p_brand_name_ja), '') <> ''
       OR COALESCE(btrim(p_business_no), '')   <> ''
+      OR COALESCE(btrim(p_company_name), '')  <> ''
     ) THEN
       -- 기존 contacts 중 is_primary=true 항목 확인
       SELECT elem INTO v_existing_primary
@@ -153,6 +172,7 @@ BEGIN
           billing_email        = COALESCE(NULLIF(btrim(p_billing_email), ''), billing_email),
           name_ja              = COALESCE(NULLIF(btrim(p_brand_name_ja), ''), name_ja),
           business_no          = COALESCE(NULLIF(btrim(p_business_no), ''),   business_no),
+          company_name         = COALESCE(NULLIF(btrim(p_company_name), ''),  company_name),
           contacts = (
             SELECT jsonb_agg(
               CASE
@@ -182,6 +202,7 @@ BEGIN
           billing_email        = COALESCE(NULLIF(btrim(p_billing_email), ''), billing_email),
           name_ja              = COALESCE(NULLIF(btrim(p_brand_name_ja), ''), name_ja),
           business_no          = COALESCE(NULLIF(btrim(p_business_no), ''),   business_no),
+          company_name         = COALESCE(NULLIF(btrim(p_company_name), ''),  company_name),
           contacts = contacts || jsonb_build_array(
             jsonb_build_object(
               'id',         gen_random_uuid()::text,
@@ -218,6 +239,7 @@ BEGIN
       INSERT INTO public.brands (
         name,
         name_ja,
+        company_name,
         business_no,
         primary_contact_name,
         primary_phone,
@@ -230,6 +252,7 @@ BEGIN
       VALUES (
         p_brand_name,
         NULLIF(btrim(COALESCE(p_brand_name_ja, '')), ''),
+        NULLIF(btrim(COALESCE(p_company_name, '')), ''),
         NULLIF(btrim(COALESCE(p_business_no, '')), ''),
         NULLIF(btrim(COALESCE(p_contact_name, '')), ''),
         NULLIF(btrim(COALESCE(p_phone, '')), ''),
@@ -355,14 +378,14 @@ COMMENT ON FUNCTION public.admin_create_brand_application IS
 --   text(contact_name), text(phone), text(email), text(billing_email),
 --   jsonb(products), text(request_note), boolean(brand_sync))
 REVOKE ALL ON FUNCTION public.admin_create_brand_application(
-  text, uuid, text, text, text, text, text, text, text, jsonb, text, boolean
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.admin_create_brand_application(
-  text, uuid, text, text, text, text, text, text, text, jsonb, text, boolean
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
 ) FROM anon;
 
 GRANT EXECUTE ON FUNCTION public.admin_create_brand_application(
-  text, uuid, text, text, text, text, text, text, text, jsonb, text, boolean
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
 ) TO authenticated;
 
 
