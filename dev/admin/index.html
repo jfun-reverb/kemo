@@ -2055,6 +2055,9 @@
         </div>
         <div class="form-group">
           <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <select id="nbaContactSelect" class="form-input" style="display:none;margin-bottom:6px;font-size:12px" onchange="onNbaContactSelectChange()">
+            <option value="">-- 등록된 담당자 빠른 선택 --</option>
+          </select>
           <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
         </div>
       </div>
@@ -2086,8 +2089,9 @@
           <span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>제품 추가
         </button>
       </div>
-      <div id="nbaProductHead" style="display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
+      <div id="nbaProductHead" style="display:grid;grid-template-columns:1.6fr 1.6fr 0.8fr 70px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
         <div>제품명</div>
+        <div>제품명 일본어 <span style="font-size:9px;color:var(--muted)">(선택)</span></div>
         <div>단가 (¥)</div>
         <div>수량</div>
         <div>URL</div>

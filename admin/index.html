@@ -3112,6 +3112,9 @@ textarea.form-input{resize:vertical;min-height:80px}
         </div>
         <div class="form-group">
           <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <select id="nbaContactSelect" class="form-input" style="display:none;margin-bottom:6px;font-size:12px" onchange="onNbaContactSelectChange()">
+            <option value="">-- 등록된 담당자 빠른 선택 --</option>
+          </select>
           <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
         </div>
       </div>
@@ -3143,8 +3146,9 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>제품 추가
         </button>
       </div>
-      <div id="nbaProductHead" style="display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
+      <div id="nbaProductHead" style="display:grid;grid-template-columns:1.6fr 1.6fr 0.8fr 70px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
         <div>제품명</div>
+        <div>제품명 일본어 <span style="font-size:9px;color:var(--muted)">(선택)</span></div>
         <div>단가 (¥)</div>
         <div>수량</div>
         <div>URL</div>
@@ -12196,6 +12200,7 @@ async function exportBrandApplicationsExcel() {
       { header: '세금계산서 주소',  key: 'billing',     width: 24 },
       { header: '요청사항',         key: 'requestNote', width: 36 },
       { header: '제품명',           key: 'productName', width: 26 },
+      { header: '제품명(일본어)',   key: 'productNameJa', width: 26 },
       { header: 'URL',              key: 'productUrl',  width: 36 },
       { header: '진행 수량',        key: 'qty',         width: 10 },
       { header: '상품 가격(엔)',    key: 'priceJpy',    width: 14 },
@@ -12261,8 +12266,9 @@ async function exportBrandApplicationsExcel() {
           billing:     a.billing_email || '',
           requestNote: a.request_note || '',
           // 제품 단위
-          productName: p.name || '',
-          productUrl:  p.url || '',
+          productName:   p.name || '',
+          productNameJa: p.name_ja || '',
+          productUrl:    p.url || '',
           qty:         qty || '',
           priceJpy:    priceJpy || '',
           priceKrw:    priceKrw || '',
@@ -13760,8 +13766,11 @@ function renderBrandAppDetailRow(a, p, idx) {
 
   return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-detail="1" style="background:#FBF7FA">'
     + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-6 신청 단위 비움
-    // 7. 제품명
-    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">' + (p.name ? esc(p.name) : dash) + '</td>'
+    // 7. 제품명 (name + name_ja 병기. name_ja는 작은 회색 보조 텍스트)
+    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">'
+      + (p.name ? esc(p.name) : dash)
+      + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
+    + '</td>'
     // 8. URL
     + '<td>' + renderProductUrlCell(p.url) + '</td>'
     // 9-16. 제품별 8컬럼
@@ -13849,6 +13858,9 @@ async function openNewBrandAppModal(prefilledBrandId) {
   document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
   document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
   ['nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  // 담당자 빠른 선택 드롭다운 초기화
+  var contactSelReset = document.getElementById('nbaContactSelect');
+  if (contactSelReset) { contactSelReset.style.display = 'none'; contactSelReset.innerHTML = '<option value="">-- 등록된 담당자 빠른 선택 --</option>'; contactSelReset.value = ''; }
   var sendCheck = document.getElementById('nbaSendNotification'); if (sendCheck) sendCheck.checked = false;
   var syncCheck = document.getElementById('nbaBrandSync'); if (syncCheck) syncCheck.checked = true;
   // 제품 entries 초기화 — 기본 1개 행
@@ -13919,15 +13931,16 @@ function onNbaBrandChange() {
   var sel = document.getElementById('nbaBrandSelect');
   if (!sel) return;
   var brandId = sel.value || '';
+  // 담당자 드롭다운 항상 초기화
+  var contactSel = document.getElementById('nbaContactSelect');
+  if (contactSel) { contactSel.style.display = 'none'; contactSel.innerHTML = '<option value="">-- 등록된 담당자 빠른 선택 --</option>'; contactSel.value = ''; }
   if (!brandId) return;
   _nbaBrandMode = 'select';
   var picked = (_nbaBrandsCache || []).find(function(b){ return b.id === brandId; });
   if (!picked) return;
-  // prefill
-  var primaryContact = null;
-  if (Array.isArray(picked.contacts) && picked.contacts.length > 0) {
-    primaryContact = picked.contacts.find(function(c){ return c.is_primary; }) || picked.contacts[0];
-  }
+  // contacts 배열 정리: is_primary=true 우선, 그 외 순서 유지
+  var contacts = Array.isArray(picked.contacts) ? picked.contacts.slice() : [];
+  var primaryContact = contacts.find(function(c){ return c.is_primary; }) || contacts[0] || null;
   var setVal = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null) ? '' : String(v); };
   setVal('nbaBrandName', picked.name);
   setVal('nbaBrandNameJa', picked.name_ja);
@@ -13936,8 +13949,35 @@ function onNbaBrandChange() {
   setVal('nbaPhone', primaryContact?.phone || picked.primary_phone);
   setVal('nbaEmail', primaryContact?.email || picked.primary_email);
   setVal('nbaBillingEmail', picked.billing_email);
+  // 담당자가 2명 이상이면 빠른 선택 드롭다운 노출
+  if (contactSel && contacts.length >= 2) {
+    var html = '<option value="">-- 등록된 담당자 빠른 선택 --</option>';
+    for (var i = 0; i < contacts.length; i++) {
+      var c = contacts[i];
+      var label = (c.name || '(이름 없음)') + (c.is_primary ? ' (대표)' : '') + (c.email ? ' · ' + c.email : '');
+      html += '<option value="' + i + '"' + (c === primaryContact ? ' selected' : '') + '>' + esc(label) + '</option>';
+    }
+    contactSel.innerHTML = html;
+    contactSel.style.display = '';
+    // 캐시: 변경 시 인덱스로 재참조하기 위해 dataset에 brandId 저장
+    contactSel.dataset.brandId = brandId;
+  }
   var hint = document.getElementById('nbaBrandModeHint');
   if (hint) hint.innerHTML = '<strong>' + esc(picked.brand_no || '') + '</strong> 정보가 채워졌습니다. 수정 시 「브랜드 마스터 갱신」 체크 상태에 따라 brands 테이블에도 동기 반영됩니다.';
+}
+
+function onNbaContactSelectChange() {
+  var contactSel = document.getElementById('nbaContactSelect');
+  if (!contactSel) return;
+  var brandId = contactSel.dataset.brandId || document.getElementById('nbaBrandSelect')?.value || '';
+  var picked = (_nbaBrandsCache || []).find(function(b){ return b.id === brandId; });
+  var idx = parseInt(contactSel.value, 10);
+  if (!picked || isNaN(idx) || !Array.isArray(picked.contacts) || !picked.contacts[idx]) return;
+  var c = picked.contacts[idx];
+  var setVal = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null) ? '' : String(v); };
+  setVal('nbaContactName', c.name);
+  setVal('nbaPhone', c.phone);
+  setVal('nbaEmail', c.email);
 }
 
 function addNbaProductRow() {
@@ -13947,9 +13987,10 @@ function addNbaProductRow() {
   var row = document.createElement('div');
   row.className = 'nba-product-row';
   row.dataset.idx = rowIdx;
-  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
+  row.style.cssText = 'display:grid;grid-template-columns:1.6fr 1.6fr 0.8fr 70px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
   row.innerHTML =
     '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
+    '<input type="text" class="form-input nba-prod-name-ja" placeholder="商品名 (일본어)" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="url" class="form-input nba-prod-url" placeholder="https://..." style="font-size:14px">' +
@@ -13975,14 +14016,17 @@ function _collectNbaProducts() {
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
     var name = (r.querySelector('.nba-prod-name')?.value || '').trim();
+    var nameJa = (r.querySelector('.nba-prod-name-ja')?.value || '').trim();
     var price = parseInt(r.querySelector('.nba-prod-price')?.value) || 0;
     var qty = parseInt(r.querySelector('.nba-prod-qty')?.value) || 0;
     var url = (r.querySelector('.nba-prod-url')?.value || '').trim();
-    if (!name && !price && !qty && !url) continue;  // 빈 행 스킵
+    if (!name && !nameJa && !price && !qty && !url) continue;  // 빈 행 스킵
     if (!name) { toast('제품 ' + (i + 1) + ': 이름이 비었습니다', 'error'); return null; }
     if (qty <= 0) { toast('제품 ' + (i + 1) + ': 수량은 1 이상', 'error'); return null; }
     // 트리거 trg_brand_app_recalc(052)가 price·qty 키만 읽으므로 sales 폼 패턴과 일치시킴
-    products.push({ name: name, price: price, qty: qty, url: url || null });
+    var item = { name: name, price: price, qty: qty, url: url || null };
+    if (nameJa) item.name_ja = nameJa;  // 선택 입력 시에만 저장 (sales 폼 데이터 호환)
+    products.push(item);
   }
   return products;
 }
