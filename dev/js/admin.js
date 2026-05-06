@@ -7057,6 +7057,7 @@ async function openBrandDetailModal(id) {
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
   renderBrandContactsRows();
   if (footerEl) footerEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
 }
 
@@ -7941,6 +7942,208 @@ async function openBrandAppHistoryModal(id) {
 function closeBrandAppHistoryModal() {
   var modal = document.getElementById('brandAppHistoryModal');
   if (modal) modal.classList.remove('open');
+}
+
+// ─── 관리자 직접 신청 등록 모달 (091) ───────────────────────
+var _nbaBrandMode = 'select';  // 'select' (기존 brand) | 'new' (신규 brand)
+var _nbaBrandsCache = null;
+
+async function openNewBrandAppModal(prefilledBrandId) {
+  var modal = document.getElementById('newBrandAppModal');
+  if (!modal) return;
+  // 폼 reset
+  document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
+  ['nbaBrandName','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  var sendCheck = document.getElementById('nbaSendNotification'); if (sendCheck) sendCheck.checked = false;
+  var syncCheck = document.getElementById('nbaBrandSync'); if (syncCheck) syncCheck.checked = true;
+  // 제품 entries 초기화 — 기본 1개 행
+  document.getElementById('nbaProductRows').innerHTML = '';
+  addNbaProductRow();
+  // brand 드롭다운 로드 + prefill
+  setNbaBrandMode('select');
+  await loadNbaBrandSelect(prefilledBrandId || '');
+  if (prefilledBrandId) {
+    var sel = document.getElementById('nbaBrandSelect');
+    if (sel) { sel.value = prefilledBrandId; onNbaBrandChange(); }
+  }
+  modal.classList.add('open');
+}
+
+function closeNewBrandAppModal() {
+  var modal = document.getElementById('newBrandAppModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function onNbaFormTypeChange() {
+  var picked = document.querySelector('input[name="nbaFormType"]:checked');
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){
+    var v = l.querySelector('input')?.value;
+    var on = picked && v === picked.value;
+    l.style.borderColor = on ? 'var(--pink)' : 'var(--line)';
+    l.style.background = on ? 'var(--light-pink)' : '';
+    l.style.color = on ? 'var(--pink)' : '';
+    var ic = l.querySelector('.material-icons-round');
+    if (ic) { ic.textContent = on ? 'radio_button_checked' : 'radio_button_unchecked'; ic.style.color = on ? 'var(--pink)' : 'var(--muted)'; }
+  });
+}
+
+async function loadNbaBrandSelect(currentBrandId) {
+  var sel = document.getElementById('nbaBrandSelect');
+  if (!sel) return;
+  if (!_nbaBrandsCache) {
+    _nbaBrandsCache = await fetchBrands({status: 'active'}) || [];
+  }
+  var html = '<option value="">-- 기존 브랜드 선택 --</option>';
+  for (var i = 0; i < _nbaBrandsCache.length; i++) {
+    var b = _nbaBrandsCache[i];
+    var label = esc(b.name) + (b.brand_no ? ' [' + esc(b.brand_no) + ']' : '');
+    html += '<option value="' + esc(b.id) + '"' + (currentBrandId === b.id ? ' selected' : '') + '>' + label + '</option>';
+  }
+  sel.innerHTML = html;
+}
+
+function setNbaBrandMode(mode) {
+  _nbaBrandMode = (mode === 'new') ? 'new' : 'select';
+  var sel = document.getElementById('nbaBrandSelect');
+  var hint = document.getElementById('nbaBrandModeHint');
+  var nameInput = document.getElementById('nbaBrandName');
+  if (_nbaBrandMode === 'new') {
+    if (sel) sel.value = '';
+    if (nameInput) { nameInput.value = ''; nameInput.readOnly = false; nameInput.focus(); }
+    if (hint) hint.innerHTML = '<strong style="color:var(--pink)">신규 브랜드 입력 모드</strong> — 브랜드명·담당자·연락처·이메일 모두 새로 입력. 저장 시 브랜드 마스터에 자동 등록됨. <a href="javascript:void(0)" onclick="setNbaBrandMode(\'select\')">기존 선택으로 돌아가기</a>';
+    // 담당자 영역 초기화
+    ['nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  } else {
+    // 기존 brand 모드: 브랜드명은 드롭다운 선택으로만 갱신 (직접 편집 차단 — 마스터 동기화 혼선 방지)
+    if (nameInput) nameInput.readOnly = true;
+    if (hint) hint.textContent = '기존 브랜드를 선택하거나 「신규」를 눌러 새 브랜드를 등록하세요.';
+  }
+}
+
+function onNbaBrandChange() {
+  var sel = document.getElementById('nbaBrandSelect');
+  if (!sel) return;
+  var brandId = sel.value || '';
+  if (!brandId) return;
+  _nbaBrandMode = 'select';
+  var picked = (_nbaBrandsCache || []).find(function(b){ return b.id === brandId; });
+  if (!picked) return;
+  // prefill
+  var primaryContact = null;
+  if (Array.isArray(picked.contacts) && picked.contacts.length > 0) {
+    primaryContact = picked.contacts.find(function(c){ return c.is_primary; }) || picked.contacts[0];
+  }
+  var setVal = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null) ? '' : String(v); };
+  setVal('nbaBrandName', picked.name);
+  setVal('nbaContactName', primaryContact?.name || picked.primary_contact_name);
+  setVal('nbaPhone', primaryContact?.phone || picked.primary_phone);
+  setVal('nbaEmail', primaryContact?.email || picked.primary_email);
+  setVal('nbaBillingEmail', picked.billing_email);
+  var hint = document.getElementById('nbaBrandModeHint');
+  if (hint) hint.innerHTML = '<strong>' + esc(picked.brand_no || '') + '</strong> 정보가 채워졌습니다. 수정 시 「브랜드 마스터 갱신」 체크 상태에 따라 brands 테이블에도 동기 반영됩니다.';
+}
+
+function addNbaProductRow() {
+  var wrap = document.getElementById('nbaProductRows');
+  if (!wrap) return;
+  var rowIdx = wrap.children.length;
+  var row = document.createElement('div');
+  row.className = 'nba-product-row';
+  row.dataset.idx = rowIdx;
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;align-items:end;padding:10px;background:var(--bg);border-radius:8px';
+  row.innerHTML =
+    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">제품명</label><input type="text" class="form-input nba-prod-name" placeholder="제품 이름"></div>' +
+    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">단가 (¥)</label><input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0"></div>' +
+    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">수량</label><input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0"></div>' +
+    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">URL</label><input type="url" class="form-input nba-prod-url" placeholder="https://..."></div>' +
+    '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:6px;align-self:end"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
+  wrap.appendChild(row);
+}
+
+function removeNbaProductRow(btn) {
+  var wrap = document.getElementById('nbaProductRows');
+  if (!wrap) return;
+  var row = btn.closest('.nba-product-row');
+  if (!row) return;
+  if (wrap.children.length <= 1) {
+    toast('최소 1개 제품이 필요합니다', 'warn');
+    return;
+  }
+  row.remove();
+}
+
+function _collectNbaProducts() {
+  var rows = document.querySelectorAll('#nbaProductRows .nba-product-row');
+  var products = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var name = (r.querySelector('.nba-prod-name')?.value || '').trim();
+    var price = parseInt(r.querySelector('.nba-prod-price')?.value) || 0;
+    var qty = parseInt(r.querySelector('.nba-prod-qty')?.value) || 0;
+    var url = (r.querySelector('.nba-prod-url')?.value || '').trim();
+    if (!name && !price && !qty && !url) continue;  // 빈 행 스킵
+    if (!name) { toast('제품 ' + (i + 1) + ': 이름이 비었습니다', 'error'); return null; }
+    if (qty <= 0) { toast('제품 ' + (i + 1) + ': 수량은 1 이상', 'error'); return null; }
+    // 트리거 trg_brand_app_recalc(052)가 price·qty 키만 읽으므로 sales 폼 패턴과 일치시킴
+    products.push({ name: name, price: price, qty: qty, url: url || null });
+  }
+  return products;
+}
+
+async function submitNewBrandApp() {
+  var formType = document.querySelector('input[name="nbaFormType"]:checked')?.value;
+  if (!formType) { toast('폼 종류를 선택해주세요', 'error'); return; }
+  var brandId = (_nbaBrandMode === 'select') ? (document.getElementById('nbaBrandSelect')?.value || '') : '';
+  // 'select' 모드에서 드롭다운 미선택 → 의도치 않은 신규 brand 생성 차단
+  if (_nbaBrandMode === 'select' && !brandId) {
+    toast('기존 브랜드를 선택하거나 「신규」를 눌러 새 브랜드를 등록하세요', 'error');
+    return;
+  }
+  var brandName = (document.getElementById('nbaBrandName')?.value || '').trim();
+  var contactName = (document.getElementById('nbaContactName')?.value || '').trim();
+  var phone = (document.getElementById('nbaPhone')?.value || '').trim();
+  var email = (document.getElementById('nbaEmail')?.value || '').trim();
+  var billingEmail = (document.getElementById('nbaBillingEmail')?.value || '').trim();
+  var requestNote = (document.getElementById('nbaRequestNote')?.value || '').trim();
+  var brandSync = !!document.getElementById('nbaBrandSync')?.checked;
+  if (!brandName) { toast('브랜드명을 입력해주세요', 'error'); return; }
+  if (!contactName || !phone || !email) { toast('담당자·연락처·이메일은 필수입니다', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않습니다', 'error'); return; }
+  var products = _collectNbaProducts();
+  if (!products) return;
+  if (products.length === 0) { toast('제품을 1개 이상 입력해주세요', 'error'); return; }
+  // 신규 모드면 brandId NULL 전달
+  if (_nbaBrandMode === 'new') brandId = null;
+  var btn = document.getElementById('nbaSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
+  var result = await adminCreateBrandApplication({
+    formType: formType,
+    brandId: brandId || null,
+    brandName: brandName,
+    contactName: contactName,
+    phone: phone,
+    email: email,
+    billingEmail: billingEmail || null,
+    products: products,
+    requestNote: requestNote || null,
+    brandSync: brandSync
+  });
+  if (btn) { btn.disabled = false; btn.textContent = '등록'; }
+  if (!result.ok) {
+    toast('등록 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  var no = result.data?.application_no || '';
+  toast('신청이 등록되었습니다 (' + no + ')', 'success');
+  closeNewBrandAppModal();
+  // brand 캐시 무효화 (신규 brand면 리스트에 추가됨)
+  _nbaBrandsCache = null;
+  if (typeof _campBrandsCache !== 'undefined') _campBrandsCache = null;
+  // 페인 리로드
+  if (typeof loadBrandApplications === 'function') {
+    await loadBrandApplications();
+  }
 }
 
 // ─── 내부 메모 (multi-entry) 모달 ────────────────────────────

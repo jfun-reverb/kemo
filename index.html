@@ -4025,6 +4025,56 @@ async function fetchBrandApplicationHistory(applicationId, limit) {
   } catch(e) { console.error('[fetchBrandApplicationHistory]', e); return []; }
 }
 
+// 관리자 직접 광고주 신청 등록 (migration 091 RPC)
+// params:
+//   formType      'reviewer' | 'seeding'
+//   brandId       uuid | null  — null이면 신규 brand 생성
+//   brandName     text         — 신규 시 필수, 기존 brand 선택 시 optional(brand 페인에서 직접 수정 권장)
+//   contactName   text | null
+//   phone         text | null
+//   email         text | null
+//   billingEmail  text | null
+//   products      Array<{name, url, price_jpy, qty}>  — 1개 이상 필수
+//   requestNote   text | null
+//   brandSync     boolean (default true)  — true면 기존 brand의 primary_* + contacts 동기 갱신
+// 반환: {ok: true, data: {id, application_no, brand_id, brand_no}} | {ok: false, error}
+async function adminCreateBrandApplication({
+  formType,
+  brandId = null,
+  brandName = null,
+  contactName = null,
+  phone = null,
+  email = null,
+  billingEmail = null,
+  products,
+  requestNote = null,
+  brandSync = true
+}) {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('admin_create_brand_application', {
+        p_form_type:     formType,
+        p_brand_id:      brandId,
+        p_brand_name:    brandName,
+        p_contact_name:  contactName,
+        p_phone:         phone,
+        p_email:         email,
+        p_billing_email: billingEmail,
+        p_products:      products,
+        p_request_note:  requestNote,
+        p_brand_sync:    brandSync
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) {
+    console.error('[adminCreateBrandApplication]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
 // 광고주 신청 상태 변경·견적 입력·메모 수정 (낙관적 락)
 // patch: {status?, final_quote_krw?, quote_sent_at?, admin_memo?, reviewed_by?, reviewed_at?}
 // expectedVersion: UPDATE 시 버전 일치 확인. 불일치면 {ok:false, conflict:true}
