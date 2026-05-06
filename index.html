@@ -6318,14 +6318,14 @@ async function loadDeliverablesForActivity() {
     user_id: currentUser?.id
   });
 
-  // 반려 사유 배너: 활동관리 페이지 상단에 표시되며, 영수증 흐름과 게시물 흐름은
-  // 각각 별도 섹션에서 자체 상태 배지를 표시하므로 여기서는 receipt(영수증) 또는
-  // post(게시 URL)의 최신 반려 건만 집계. review_image는 자체 섹션에서 status 배지로 노출.
+  // 반려 사유 배너: 활동관리 페이지 상단에 표시. receipt/post/review_image
+  // 모든 결과물 종류의 가장 최신 반려 1건을 후보로 집계 (각 행 안에도 사유 박스가
+  // 추가로 표시되지만, 카드를 펼쳐보기 전에 한 줄로 인지하도록 상단 배너 유지).
   const banner = $('activityRejectBanner');
   const reasonEl = $('activityRejectReason');
   if (banner && reasonEl) {
     const sorted = all
-      .filter(d => d.kind === 'receipt' || d.kind === 'post')
+      .filter(d => d.kind === 'receipt' || d.kind === 'post' || d.kind === 'review_image')
       .sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
     const latest = sorted[0];
     if (latest && latest.status === 'rejected' && latest.reject_reason) {
@@ -6383,17 +6383,24 @@ function renderActivityReceiptList(delivs) {
     const rightCol = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
+    // 반려된 결과물에는 행 하단에 사유 박스 표시 (상단 배너와는 별개로 행 단위 인지 강화)
+    const reasonBox = (r.status === 'rejected' && r.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
+      : '';
     return `
-    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-        ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
+          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+        </div>
+        <div style="flex:1;min-width:0">
+          ${stBadge}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${rightCol}
+        </div>
       </div>
-      <div style="flex:1;min-width:0">
-        ${stBadge}
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        ${rightCol}
-      </div>
+      ${reasonBox}
     </div>`;
   }).join('');
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
@@ -6430,17 +6437,23 @@ function renderActivityReviewImageList(delivs) {
     const rightCol = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
+    const reasonBox = (r.status === 'rejected' && r.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
+      : '';
     return `
-    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-        ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
+          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+        </div>
+        <div style="flex:1;min-width:0">
+          ${stBadge}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${rightCol}
+        </div>
       </div>
-      <div style="flex:1;min-width:0">
-        ${stBadge}
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        ${rightCol}
-      </div>
+      ${reasonBox}
     </div>`;
   }).join('');
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
@@ -6466,6 +6479,9 @@ function renderActivityPostList(delivs) {
     const actionBtn = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : '';
+    const reasonBox = (d.status === 'rejected' && d.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(d.reject_reason)}</div>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -6474,6 +6490,7 @@ function renderActivityPostList(delivs) {
       </div>
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
+      ${reasonBox}
     </div>`;
   }).join('');
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
