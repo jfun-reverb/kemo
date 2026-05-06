@@ -51,6 +51,17 @@ COMMENT ON COLUMN public.brands.company_name IS
 
 
 -- ============================================================
+-- SECTION 0-bis. brand_applications legacy 컬럼 NULL 허용
+--   관리자 직접 등록 폼에서 담당자명/연락처/이메일은 (선택) 항목.
+--   sales 폼은 항상 입력하므로 영향 없음.
+--   PR6에서 legacy 컬럼 자체 DROP 예정 — 그 전까지 NULL 허용으로 완화.
+-- ============================================================
+ALTER TABLE public.brand_applications ALTER COLUMN contact_name DROP NOT NULL;
+ALTER TABLE public.brand_applications ALTER COLUMN phone DROP NOT NULL;
+ALTER TABLE public.brand_applications ALTER COLUMN email DROP NOT NULL;
+
+
+-- ============================================================
 -- SECTION 1. admin_create_brand_application RPC
 -- ============================================================
 -- 시그니처 변경(파라미터 추가) 시 CREATE OR REPLACE는 에러를 발생시키므로
