@@ -1368,25 +1368,25 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="modal-close" onclick="closeModal('applyModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
     <div class="modal-body">
-      <div id="applyModalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      <div id="applyModalNotice" data-i18n-html="apply.modalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
       <!-- 주의사항 영역 (caution_items 스냅샷이 있을 때만 동적 표시 — migration 069) -->
       <div id="applyCautionBox" class="caution-box" style="display:none;margin-bottom:16px"></div>
       <div class="form-group">
-        <label class="form-label">応募理由（ひとこと） *</label>
-        <input type="text" id="applyMessage" class="form-input" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
+        <label class="form-label" data-i18n="apply.reasonRequiredLabel">応募理由（ひとこと） *</label>
+        <input type="text" id="applyMessage" class="form-input" data-i18n-attr="placeholder:apply.reasonModalPlaceholder" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
       </div>
       <div id="applyAddressWrap" class="form-group">
-        <label class="form-label">配送先確認</label>
-        <input type="text" id="applyAddress" class="form-input" placeholder="配送先住所">
-        <div class="form-hint">登録住所と異なる場合は修正してください</div>
+        <label class="form-label" data-i18n="apply.addressConfirmLabel">配送先確認</label>
+        <input type="text" id="applyAddress" class="form-input" data-i18n-attr="placeholder:apply.addressPlaceholderModal" placeholder="配送先住所">
+        <div class="form-hint" data-i18n="apply.addressHintModal">登録住所と異なる場合は修正してください</div>
       </div>
       <div class="form-group" style="margin-bottom:0">
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
           <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
-          <span>投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
+          <span data-i18n-html="apply.prAgreeFull">投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
         </label>
       </div>
       <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
@@ -1396,7 +1396,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()">今すぐ応募する →</button>
+      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()" data-i18n="apply.submitNow">今すぐ応募する →</button>
     </div>
   </div>
 </div>
@@ -1987,6 +1987,15 @@ window.I18N_JA = {
     addressLabel: '配送先住所',
     prAgreeLabel: '#PRタグ表記に同意します',
     submitBtn: '応募する',
+    // 응모 모달 (캠페인 상세 → 응모 버튼) 전용 라벨/안내
+    modalNotice: '商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>ブランドが指定するハッシュタグ・アカウントを必ず含めてください。',
+    reasonRequiredLabel: '応募理由（ひとこと） *',
+    reasonModalPlaceholder: 'このキャンペーンに応募する理由を簡単にお書きください',
+    addressConfirmLabel: '配送先確認',
+    addressPlaceholderModal: '配送先住所',
+    addressHintModal: '登録住所と異なる場合は修正してください',
+    prAgreeFull: '投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）',
+    submitNow: '今すぐ応募する →',
     needLogin: 'ログインが必要です',
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
@@ -2415,6 +2424,15 @@ window.I18N_KO = {
     addressLabel: '배송지 주소',
     prAgreeLabel: '#PR 태그 표기에 동의합니다',
     submitBtn: '응모하기',
+    // 응모 모달 (캠페인 상세 → 응모 버튼) 전용 라벨/안내
+    modalNotice: '제품 수령 후, 지정된 기한 내에 SNS에 리뷰를 게시해 주세요.<br>브랜드가 지정한 해시태그·계정을 반드시 포함해주세요.',
+    reasonRequiredLabel: '응모 사유 (한 마디) *',
+    reasonModalPlaceholder: '이 캠페인에 응모하는 이유를 간단히 적어주세요',
+    addressConfirmLabel: '배송지 확인',
+    addressPlaceholderModal: '배송지 주소',
+    addressHintModal: '등록 주소와 다른 경우 수정해주세요',
+    prAgreeFull: '게시 시 <strong>#PR</strong> 또는 <strong>#広告</strong> 태그를 반드시 표기합니다 (스텔스 마케팅 규제 준수)',
+    submitNow: '지금 응모하기 →',
     needLogin: '로그인이 필요합니다',
     needReason: '응모 사유를 입력해주세요',
     needAddress: '배송지 주소를 입력해주세요',

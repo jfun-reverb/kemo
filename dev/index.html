@@ -897,25 +897,25 @@ window._supabaseLoaded = false;
       <div class="modal-close" onclick="closeModal('applyModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
     <div class="modal-body">
-      <div id="applyModalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      <div id="applyModalNotice" data-i18n-html="apply.modalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
       <!-- 주의사항 영역 (caution_items 스냅샷이 있을 때만 동적 표시 — migration 069) -->
       <div id="applyCautionBox" class="caution-box" style="display:none;margin-bottom:16px"></div>
       <div class="form-group">
-        <label class="form-label">応募理由（ひとこと） *</label>
-        <input type="text" id="applyMessage" class="form-input" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
+        <label class="form-label" data-i18n="apply.reasonRequiredLabel">応募理由（ひとこと） *</label>
+        <input type="text" id="applyMessage" class="form-input" data-i18n-attr="placeholder:apply.reasonModalPlaceholder" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
       </div>
       <div id="applyAddressWrap" class="form-group">
-        <label class="form-label">配送先確認</label>
-        <input type="text" id="applyAddress" class="form-input" placeholder="配送先住所">
-        <div class="form-hint">登録住所と異なる場合は修正してください</div>
+        <label class="form-label" data-i18n="apply.addressConfirmLabel">配送先確認</label>
+        <input type="text" id="applyAddress" class="form-input" data-i18n-attr="placeholder:apply.addressPlaceholderModal" placeholder="配送先住所">
+        <div class="form-hint" data-i18n="apply.addressHintModal">登録住所と異なる場合は修正してください</div>
       </div>
       <div class="form-group" style="margin-bottom:0">
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
           <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
-          <span>投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
+          <span data-i18n-html="apply.prAgreeFull">投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
         </label>
       </div>
       <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
@@ -925,7 +925,7 @@ window._supabaseLoaded = false;
           <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()">今すぐ応募する →</button>
+      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()" data-i18n="apply.submitNow">今すぐ応募する →</button>
     </div>
   </div>
 </div>
