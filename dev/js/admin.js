@@ -7162,14 +7162,18 @@ function renderBrandDetailFormHtml(b, apps) {
   return ''
     // § 기본 정보
     + section('기본 정보', '',
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+          + input('brandFormCompanyName', '회사명', b.company_name, '예: (주)제이펀')
+          + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
           + input('brandFormName', '브랜드명 (한국어) *', b.name)
           + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
           + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
         + '</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-          + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
           + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
+          + '<div></div>'
         + '</div>'
       )
     // § 담당자
@@ -7270,6 +7274,7 @@ function _collectBrandFormPatch() {
     name: ($('brandFormName')?.value || '').trim(),
     name_ja: ($('brandFormNameJa')?.value || '').trim() || null,
     name_en: ($('brandFormNameEn')?.value || '').trim() || null,
+    company_name: ($('brandFormCompanyName')?.value || '').trim() || null,
     business_no: ($('brandFormBusinessNo')?.value || '').trim() || null,
     status: $('brandFormStatus')?.value || 'active',
     contacts: contacts,
