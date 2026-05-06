@@ -2033,15 +2033,10 @@
       <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink)">브랜드 정보</div>
       <div class="form-group" style="margin-bottom:12px">
         <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-        <div style="display:flex;gap:6px;align-items:stretch">
-          <select id="nbaBrandSelect" class="form-input" style="flex:1" onchange="onNbaBrandChange()">
-            <option value="">-- 기존 브랜드 선택 --</option>
-          </select>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="setNbaBrandMode('new')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px;flex-shrink:0">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
-          </button>
-        </div>
-        <div id="nbaBrandModeHint" class="form-hint" style="margin-top:4px;font-size:11px;color:var(--muted)">기존 브랜드를 선택하거나 「신규」를 눌러 새 브랜드를 등록하세요.</div>
+        <select id="nbaBrandSelect" class="form-input" onchange="onNbaBrandChange()">
+          <option value="">-- 브랜드 선택 --</option>
+        </select>
+        <div id="nbaBrandModeHint" class="form-hint" style="margin-top:4px;font-size:11px;color:var(--muted)">리스트에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」으로 새 브랜드를 등록하세요.</div>
       </div>
       <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="form-group">

@@ -8019,12 +8019,15 @@ async function loadNbaBrandSelect(currentBrandId) {
   if (!_nbaBrandsCache) {
     _nbaBrandsCache = await fetchBrands({status: 'active'}) || [];
   }
-  var html = '<option value="">-- 기존 브랜드 선택 --</option>';
+  var html = '<option value="">-- 브랜드 선택 --</option>';
   for (var i = 0; i < _nbaBrandsCache.length; i++) {
     var b = _nbaBrandsCache[i];
     var label = esc(b.name) + (b.brand_no ? ' [' + esc(b.brand_no) + ']' : '');
     html += '<option value="' + esc(b.id) + '"' + (currentBrandId === b.id ? ' selected' : '') + '>' + label + '</option>';
   }
+  // 리스트 끝에 신규 등록 옵션 (구분선 후 표시)
+  html += '<option disabled>──────────</option>';
+  html += '<option value="__new__">+ 신규 브랜드 등록</option>';
   sel.innerHTML = html;
 }
 
@@ -8034,15 +8037,16 @@ function setNbaBrandMode(mode) {
   var hint = document.getElementById('nbaBrandModeHint');
   var nameInput = document.getElementById('nbaBrandName');
   if (_nbaBrandMode === 'new') {
-    if (sel) sel.value = '';
+    // 드롭다운에 「+ 신규 브랜드 등록」 옵션이 선택된 상태로 유지 — 시각적 피드백
+    if (sel) sel.value = '__new__';
     if (nameInput) { nameInput.value = ''; nameInput.readOnly = false; nameInput.focus(); }
-    if (hint) hint.innerHTML = '<strong style="color:var(--pink)">신규 브랜드 입력 모드</strong> — 브랜드명·담당자·연락처·이메일 모두 새로 입력. 저장 시 브랜드 마스터에 자동 등록됨. <a href="javascript:void(0)" onclick="setNbaBrandMode(\'select\')">기존 선택으로 돌아가기</a>';
+    if (hint) hint.innerHTML = '<strong style="color:var(--pink)">신규 브랜드 입력</strong> — 브랜드명·회사명·담당자 모두 새로 입력. 저장 시 brands 마스터에 자동 등록됩니다.';
     // 브랜드 정보 영역 초기화 (회사명·일본어명·사업자번호 + 담당자 4종)
     ['nbaCompanyName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   } else {
     // 기존 brand 모드: 브랜드명은 드롭다운 선택으로만 갱신 (직접 편집 차단 — 마스터 동기화 혼선 방지)
     if (nameInput) nameInput.readOnly = true;
-    if (hint) hint.textContent = '기존 브랜드를 선택하거나 「신규」를 눌러 새 브랜드를 등록하세요.';
+    if (hint) hint.textContent = '리스트에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」으로 새 브랜드를 등록하세요.';
   }
 }
 
@@ -8053,7 +8057,18 @@ function onNbaBrandChange() {
   // 담당자 드롭다운 항상 초기화
   var contactSel = document.getElementById('nbaContactSelect');
   if (contactSel) { contactSel.style.display = 'none'; contactSel.innerHTML = '<option value="">-- 등록된 담당자 빠른 선택 --</option>'; contactSel.value = ''; }
-  if (!brandId) return;
+  // 「+ 신규 브랜드 등록」 옵션 선택 → 신규 모드로 전환
+  if (brandId === '__new__') {
+    setNbaBrandMode('new');
+    return;
+  }
+  if (!brandId) {
+    // 미선택 상태 (-- 브랜드 선택 -- 옵션) → select 모드 + 입력 영역 초기화
+    _nbaBrandMode = 'select';
+    var hintInit = document.getElementById('nbaBrandModeHint');
+    if (hintInit) hintInit.textContent = '리스트에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」으로 새 브랜드를 등록하세요.';
+    return;
+  }
   _nbaBrandMode = 'select';
   var picked = (_nbaBrandsCache || []).find(function(b){ return b.id === brandId; });
   if (!picked) return;
@@ -8154,10 +8169,12 @@ function _collectNbaProducts() {
 async function submitNewBrandApp() {
   var formType = document.querySelector('input[name="nbaFormType"]:checked')?.value;
   if (!formType) { toast('폼 종류를 선택해주세요', 'error'); return; }
-  var brandId = (_nbaBrandMode === 'select') ? (document.getElementById('nbaBrandSelect')?.value || '') : '';
-  // 'select' 모드에서 드롭다운 미선택 → 의도치 않은 신규 brand 생성 차단
+  var rawSel = document.getElementById('nbaBrandSelect')?.value || '';
+  // __new__는 신규 모드 — brandId는 null 전달
+  var brandId = (_nbaBrandMode === 'select' && rawSel && rawSel !== '__new__') ? rawSel : '';
+  // 미선택 + 신규 모드도 아님 → 차단
   if (_nbaBrandMode === 'select' && !brandId) {
-    toast('기존 브랜드를 선택하거나 「신규」를 눌러 새 브랜드를 등록하세요', 'error');
+    toast('드롭다운에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」을 선택하세요', 'error');
     return;
   }
   var companyName = (document.getElementById('nbaCompanyName')?.value || '').trim();
