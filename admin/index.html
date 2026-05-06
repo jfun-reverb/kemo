@@ -3100,17 +3100,17 @@ textarea.form-input{resize:vertical;min-height:80px}
           <input type="text" id="nbaBrandName" class="form-input" placeholder="브랜드명">
         </div>
         <div class="form-group">
-          <label class="form-label">담당자명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+          <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
           <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
         </div>
       </div>
       <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
         <div class="form-group">
-          <label class="form-label">연락처 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+          <label class="form-label">연락처 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
           <input type="text" id="nbaPhone" class="form-input" placeholder="010-0000-0000">
         </div>
         <div class="form-group">
-          <label class="form-label">이메일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+          <label class="form-label">이메일 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
           <input type="email" id="nbaEmail" class="form-input" placeholder="contact@brand.com">
         </div>
       </div>
@@ -13980,8 +13980,8 @@ async function submitNewBrandApp() {
   var requestNote = (document.getElementById('nbaRequestNote')?.value || '').trim();
   var brandSync = !!document.getElementById('nbaBrandSync')?.checked;
   if (!brandName) { toast('브랜드명을 입력해주세요', 'error'); return; }
-  if (!contactName || !phone || !email) { toast('담당자·연락처·이메일은 필수입니다', 'error'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않습니다', 'error'); return; }
+  // 담당자·연락처·이메일은 선택 항목 — 빈 값 허용. 단 이메일 입력했으면 형식 검증.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않습니다', 'error'); return; }
   var products = _collectNbaProducts();
   if (!products) return;
   if (products.length === 0) { toast('제품을 1개 이상 입력해주세요', 'error'); return; }

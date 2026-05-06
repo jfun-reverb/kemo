@@ -8108,8 +8108,8 @@ async function submitNewBrandApp() {
   var requestNote = (document.getElementById('nbaRequestNote')?.value || '').trim();
   var brandSync = !!document.getElementById('nbaBrandSync')?.checked;
   if (!brandName) { toast('브랜드명을 입력해주세요', 'error'); return; }
-  if (!contactName || !phone || !email) { toast('담당자·연락처·이메일은 필수입니다', 'error'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않습니다', 'error'); return; }
+  // 담당자·연락처·이메일은 선택 항목 — 빈 값 허용. 단 이메일 입력했으면 형식 검증.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않습니다', 'error'); return; }
   var products = _collectNbaProducts();
   if (!products) return;
   if (products.length === 0) { toast('제품을 1개 이상 입력해주세요', 'error'); return; }
