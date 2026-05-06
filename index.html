@@ -3977,7 +3977,7 @@ async function fetchBrandApplications(filters) {
         status, admin_memo, request_note,
         reviewed_by, reviewed_at,
         version, created_at, updated_at,
-        brand:brands(id, brand_no, name, contacts, billing_email, status)
+        brand:brands(id, brand_no, name, company_name, contacts, billing_email, status)
       `);
       if (filters?.form_type && filters.form_type !== 'all') q = q.eq('form_type', filters.form_type);
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);

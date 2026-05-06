@@ -7000,7 +7000,7 @@ function renderBrandsList() {
   var list = (_brandsCache || []).filter(function(b){
     if (statusF && b.status !== statusF) return false;
     if (q) {
-      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
+      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.company_name||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
       if (hay.indexOf(q) < 0) return false;
     }
     return true;
@@ -7021,6 +7021,7 @@ function renderBrandsList() {
       : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">active</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(b.brand_no || '—') + '</td>'
+      + '<td style="font-size:12px;color:var(--ink)">' + esc(b.company_name || '—') + '</td>'
       + '<td><div style="font-weight:600;color:var(--ink)">' + esc(b.name || '—') + '</div>'
         + (b.name_ja ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(b.name_ja) + '</div>' : '')
       + '</td>'
@@ -7780,7 +7781,9 @@ function renderBrandAppSummaryRow(a) {
         + '</div>'
       + '</div>'
     + '</td>'
-    // 2. 브랜드 — brands.name 우선, 클릭 시 브랜드 상세 모달
+    // 2. 회사명 — brands.company_name 표시 (없으면 dash)
+    + '<td style="font-size:12px;color:var(--ink)">' + esc(a.brand?.company_name || '—') + '</td>'
+    // 3. 브랜드 — brands.name 우선, 클릭 시 브랜드 상세 모달
     + (function(){
         var brandName = a.brand?.name || a.brand_name || '—';
         var brandNo = a.brand?.brand_no || '';
@@ -7867,7 +7870,7 @@ function renderBrandAppDetailRow(a, p, idx) {
   var emptyApp = '<td></td>'; // 신청 단위 셀 — 펼친 행에서는 비움 (요약 행에 이미 있음)
 
   return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-detail="1" style="background:#FBF7FA">'
-    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-6 신청 단위 비움
+    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-7 신청 단위 비움 (신청번호/회사명/브랜드/담당자/연락처/계산서/요청사항)
     // 7. 제품명 (name + name_ja 병기. name_ja는 작은 회색 보조 텍스트)
     + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">'
       + (p.name ? esc(p.name) : dash)
