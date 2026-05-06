@@ -2061,6 +2061,12 @@
         <label class="form-label">계산서 이메일 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
         <input type="email" id="nbaBillingEmail" class="form-input" placeholder="invoice@brand.com">
       </div>
+      <div class="form-group" style="margin-bottom:4px">
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+          <input type="checkbox" id="nbaBrandSync" checked style="accent-color:var(--pink)">
+          기존 브랜드 정보를 입력값으로 갱신 <span style="font-size:10px;color:var(--muted)">(담당자·연락처·이메일이 변경된 경우)</span>
+        </label>
+      </div>
 
       <!-- 섹션 3: 제품 정보 -->
       <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink);display:flex;align-items:center;justify-content:space-between">
@@ -2082,12 +2088,6 @@
           <span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">info</span>
           등록 시 접수 확인 메일이 광고주에게 자동 발송됩니다 — 발송 제어는 Phase 2 예정
         </div>
-      </div>
-      <div class="form-group">
-        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
-          <input type="checkbox" id="nbaBrandSync" checked style="accent-color:var(--pink)">
-          기존 브랜드 정보를 입력값으로 갱신 <span style="font-size:10px;color:var(--muted)">(담당자·연락처·이메일이 변경된 경우)</span>
-        </label>
       </div>
     </div>
     <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
