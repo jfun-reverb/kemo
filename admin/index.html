@@ -3055,6 +3055,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 <!-- 관리자 직접 신청 등록 모달 (091 admin_create_brand_application) -->
 <div class="modal-overlay" id="newBrandAppModal" style="z-index:612">
+  <style>#newBrandAppModal .form-input,#newBrandAppModal select.form-input,#newBrandAppModal textarea.form-input{font-size:14px}</style>
   <div class="modal" style="max-width:880px;width:96vw;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div>
@@ -3132,7 +3133,14 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>제품 추가
         </button>
       </div>
-      <div id="nbaProductRows" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="nbaProductHead" style="display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
+        <div>제품명</div>
+        <div>단가 (¥)</div>
+        <div>수량</div>
+        <div>URL</div>
+        <div></div>
+      </div>
+      <div id="nbaProductRows" style="display:flex;flex-direction:column;gap:8px"></div>
 
       <!-- 섹션 4: 추가 정보 -->
       <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink)">추가 정보</div>
@@ -13923,13 +13931,13 @@ function addNbaProductRow() {
   var row = document.createElement('div');
   row.className = 'nba-product-row';
   row.dataset.idx = rowIdx;
-  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;align-items:end;padding:10px;background:var(--bg);border-radius:8px';
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
   row.innerHTML =
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">제품명</label><input type="text" class="form-input nba-prod-name" placeholder="제품 이름"></div>' +
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">단가 (¥)</label><input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0"></div>' +
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">수량</label><input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0"></div>' +
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">URL</label><input type="url" class="form-input nba-prod-url" placeholder="https://..."></div>' +
-    '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:6px;align-self:end"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
+    '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="url" class="form-input nba-prod-url" placeholder="https://..." style="font-size:14px">' +
+    '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
   wrap.appendChild(row);
 }
 

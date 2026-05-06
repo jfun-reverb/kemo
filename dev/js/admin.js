@@ -8051,13 +8051,13 @@ function addNbaProductRow() {
   var row = document.createElement('div');
   row.className = 'nba-product-row';
   row.dataset.idx = rowIdx;
-  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;align-items:end;padding:10px;background:var(--bg);border-radius:8px';
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
   row.innerHTML =
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">제품명</label><input type="text" class="form-input nba-prod-name" placeholder="제품 이름"></div>' +
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">단가 (¥)</label><input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0"></div>' +
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">수량</label><input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0"></div>' +
-    '<div class="form-group" style="margin:0"><label class="form-label" style="font-size:11px;margin-bottom:4px">URL</label><input type="url" class="form-input nba-prod-url" placeholder="https://..."></div>' +
-    '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:6px;align-self:end"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
+    '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="url" class="form-input nba-prod-url" placeholder="https://..." style="font-size:14px">' +
+    '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
   wrap.appendChild(row);
 }
 

@@ -1998,6 +1998,7 @@
 
 <!-- 관리자 직접 신청 등록 모달 (091 admin_create_brand_application) -->
 <div class="modal-overlay" id="newBrandAppModal" style="z-index:612">
+  <style>#newBrandAppModal .form-input,#newBrandAppModal select.form-input,#newBrandAppModal textarea.form-input{font-size:14px}</style>
   <div class="modal" style="max-width:880px;width:96vw;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div>
@@ -2075,7 +2076,14 @@
           <span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>제품 추가
         </button>
       </div>
-      <div id="nbaProductRows" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="nbaProductHead" style="display:grid;grid-template-columns:2fr 1fr 80px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
+        <div>제품명</div>
+        <div>단가 (¥)</div>
+        <div>수량</div>
+        <div>URL</div>
+        <div></div>
+      </div>
+      <div id="nbaProductRows" style="display:flex;flex-direction:column;gap:8px"></div>
 
       <!-- 섹션 4: 추가 정보 -->
       <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink)">추가 정보</div>
