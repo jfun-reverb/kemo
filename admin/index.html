@@ -1122,6 +1122,10 @@ textarea.form-input{resize:vertical;min-height:80px}
   color: var(--ink);
   background: #fafafa;
   border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .deliv-combined-panel-body {
   padding: 14px;
@@ -12134,19 +12138,23 @@ async function renderDelivCombinedBody(applicationId) {
   const stepLabel = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 1</span>' : '';
   const stepLabel2 = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 2</span>' : '';
 
+  // 패널 헤더 우측에 상태 배지 노출 (deliverable 있을 때만)
+  const receiptStatusBadge = receipt ? delivStatusBadge(receipt.status) : '';
+  const resultStatusBadge = result ? delivStatusBadge(result.status) : '';
+
   body.innerHTML = `
     <div class="deliv-combined-grid">
       ${showReceipt
         ? `<div class="deliv-combined-panel">
-            <div class="deliv-combined-panel-header">영수증 ${stepLabel}</div>
+            <div class="deliv-combined-panel-header"><span>영수증 ${stepLabel}</span>${receiptStatusBadge}</div>
             <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt, receiptEvents)}</div>
           </div>`
         : `<div class="deliv-combined-panel" style="opacity:.6">
-            <div class="deliv-combined-panel-header" style="color:var(--muted)">영수증 (해당 없음)</div>
+            <div class="deliv-combined-panel-header" style="color:var(--muted)"><span>영수증 (해당 없음)</span></div>
             <div class="deliv-combined-panel-body" style="color:var(--muted);text-align:center;padding:40px;font-size:13px">이 모집 타입은 영수증 단계가 없습니다.</div>
           </div>`}
       <div class="deliv-combined-panel">
-        <div class="deliv-combined-panel-header">${esc(resultLabel)} ${stepLabel2}</div>
+        <div class="deliv-combined-panel-header"><span>${esc(resultLabel)} ${stepLabel2}</span>${resultStatusBadge}</div>
         <div class="deliv-combined-panel-body">${renderDelivPanelContent(result, resultEvents)}</div>
       </div>
     </div>
@@ -12173,10 +12181,8 @@ function renderDelivPanelContent(d, events) {
       ${(Array.isArray(d.post_submissions) && d.post_submissions.length) ? `<div style="margin-top:8px;font-size:11px;color:var(--muted)">제출 이력 ${d.post_submissions.length}건</div>` : ''}
     </div>`;
   }
-  html += `<div style="margin:10px 0;padding:10px 0;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);font-size:11px;color:var(--muted)">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">상태 · ${delivStatusBadge(d.status)}</div>
-    제출일 · ${formatDate(d.submitted_at)}${d.reviewed_at ? `<br>검수일 · ${formatDate(d.reviewed_at)}` : ''}
-  </div>`;
+  // 상태는 패널 헤더 우측에 노출되므로 여기에선 제거. 제출일·검수일만 한 줄로 압축.
+  html += `<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">제출일 ${formatDate(d.submitted_at)}${d.reviewed_at ? ` · 검수일 ${formatDate(d.reviewed_at)}` : ''}</div>`;
   if (d.status === 'rejected' && d.reject_reason) {
     html += `<div style="margin-bottom:10px;padding:10px 12px;background:#FFF5F5;border-left:3px solid #C33;border-radius:4px;font-size:12px">
       <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
