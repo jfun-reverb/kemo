@@ -5897,22 +5897,21 @@ async function openDelivDetail(id) {
       </div>`;
   }
 
-  // 반려 사유 (있을 때만)
-  if (d.status === 'rejected' && d.reject_reason) {
-    contentHtml += `<div style="margin-top:14px;padding:10px 12px;background:#FFF5F5;border-left:3px solid #C33;border-radius:4px;font-size:12px">
-      <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
-      <div style="white-space:pre-wrap;color:var(--ink)">${esc(d.reject_reason)}</div>
-    </div>`;
-  }
-
-  // 이력 타임라인
+  // 이력 타임라인 (반려 사유는 reject 이벤트 안에 줄바꿈 + 빨간색으로 노출)
   if (events.length) {
     contentHtml += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">변경 이력</div><div style="font-size:11px">';
     contentHtml += events.map(e => {
       const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
-      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
-        <span><strong>${esc(label)}</strong>${e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
-        <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+      const transition = e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : '';
+      const reasonLine = e.reason
+        ? `<div style="margin-top:4px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(e.reason)}</div>`
+        : '';
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <span><strong>${esc(label)}</strong>${transition}</span>
+          <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+        </div>
+        ${reasonLine}
       </div>`;
     }).join('');
     contentHtml += '</div></div>';
@@ -6205,22 +6204,22 @@ function renderDelivPanelContent(d, events) {
   }
   // 상태는 패널 헤더 우측에 노출되므로 여기에선 제거. 제출일·검수일만 한 줄로 압축.
   html += `<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">제출일 ${formatDate(d.submitted_at)}${d.reviewed_at ? ` · 검수일 ${formatDate(d.reviewed_at)}` : ''}</div>`;
-  if (d.status === 'rejected' && d.reject_reason) {
-    html += `<div style="margin-bottom:10px;padding:10px 12px;background:#FFF5F5;border-left:3px solid #C33;border-radius:4px;font-size:12px">
-      <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
-      <div style="white-space:pre-wrap;color:var(--ink)">${esc(d.reject_reason)}</div>
-    </div>`;
-  }
+  // 반려 사유는 변경 이력의 reject 이벤트 안에 줄바꿈 + 빨간색으로 노출 (별도 박스 제거)
   // 변경 이력 타임라인 (제출/재제출/승인/반려/되돌리기) — 단일 결과물 모달과 동일 패턴
   if (Array.isArray(events) && events.length) {
     html += '<div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">변경 이력</div><div style="font-size:11px">';
     html += events.map(e => {
       const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
       const transition = e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : '';
-      const reason = e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : '';
-      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
-        <span><strong>${esc(label)}</strong>${transition}${reason}</span>
-        <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+      const reasonLine = e.reason
+        ? `<div style="margin-top:4px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(e.reason)}</div>`
+        : '';
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <span><strong>${esc(label)}</strong>${transition}</span>
+          <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+        </div>
+        ${reasonLine}
       </div>`;
     }).join('');
     html += '</div></div>';
