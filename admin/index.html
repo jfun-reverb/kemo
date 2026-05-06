@@ -3112,7 +3112,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         </div>
         <div class="form-group">
           <label class="form-label">브랜드명 일본어 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
-          <input type="text" id="nbaBrandNameJa" class="form-input" placeholder="ブランド名 (일본어 표기)">
+          <input type="text" id="nbaBrandNameJa" class="form-input" placeholder="브랜드명 (일본어 표기)">
         </div>
       </div>
       <div class="form-group" style="margin-bottom:12px">
@@ -6211,7 +6211,7 @@ async function loadAdminData(preloaded) {
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_dRem<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
@@ -6275,6 +6275,15 @@ function resetCampSort() {
 function updateCampSortResetBtn() {
   const btn = $('btnCampSortReset');
   if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
+}
+
+// 검수자 표시 — applications.reviewed_by 컬럼 값 변환.
+// migration 049 트리거가 monitor 캠페인 자동 승인 시 '自動承認' 텍스트를 저장하지만,
+// 관리자 페이지는 한국어 UI 원칙(.claude/rules/ui.md)이라 표시 시에만 한글로 변환.
+function formatReviewer(name) {
+  if (!name) return '';
+  if (name === '自動承認') return '자동 승인';
+  return name;
 }
 
 // 신청 사유: 2줄 말줄임 + 더보기 모달
@@ -6343,7 +6352,7 @@ function openCautionConsentModal(appId) {
       html += `<div style="margin-top:12px"><strong style="font-size:13px">캠페인 고유 주의사항 <span style="font-size:10px;color:var(--muted);font-weight:400">· v1 스냅샷</span></strong><div style="margin-top:6px;padding:10px 12px;background:#fff5f5;border-left:3px solid var(--red);border-radius:6px;font-size:12px;line-height:1.7">${rendered}</div></div>`;
     }
     if (snap.agreed_lang) {
-      const langLabel = snap.agreed_lang === 'ja' ? '日本語' : (snap.agreed_lang === 'ko' ? '한국어' : snap.agreed_lang);
+      const langLabel = snap.agreed_lang === 'ja' ? '일본어' : (snap.agreed_lang === 'ko' ? '한국어' : snap.agreed_lang);
       html += `<div style="margin-top:10px;color:var(--muted);font-size:11px">동의 시점 사용자 언어: ${esc(langLabel)}</div>`;
     }
   } else {
@@ -8528,7 +8537,7 @@ async function loadCampApplicants() {
     <td>${delivCell}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-      :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
   </tr>`;
   };
@@ -8585,7 +8594,7 @@ function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPost
   if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
   const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
   const completeBadge = complete
-    ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">完了</div>'
+    ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">완료</div>'
     : '';
   const latest = list[0];
   return `<div style="font-size:10px">${parts.join(' · ')}</div>
@@ -9522,7 +9531,7 @@ async function renderAppCampList() {
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_campRemaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
   };
@@ -10292,9 +10301,9 @@ function renderPsetSteps() {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ko=this.value">
-        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
+        <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
         <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ko=this.value">${esc(s.desc_ko)}</textarea>
-        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
+        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
       </div>
     </div>
   `).join('');
@@ -10669,8 +10678,8 @@ function renderCsetItems() {
           ${miniEditorHtml(s.html_ko, `_csetCurrentItems[${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
         </div>
         <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">本文 (日本語)</div>
-          ${miniEditorHtml(s.html_ja, `_csetCurrentItems[${idx}].html_ja=this.innerHTML`, '本文 (日本語)')}
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_csetCurrentItems[${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
         </div>
       </div>
     </div>
@@ -10801,9 +10810,9 @@ function renderCampSteps(formMode) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ko=this.value">
-        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
+        <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
         <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ko=this.value">${esc(s.desc_ko||'')}</textarea>
-        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
+        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
       </div>
     </div>
   `).join('');
@@ -10908,8 +10917,8 @@ function renderCampCautionItems(formMode) {
           ${miniEditorHtml(s.html_ko, `_csetState['${formMode}'][${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
         </div>
         <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">本文 (日本語)</div>
-          ${miniEditorHtml(s.html_ja, `_csetState['${formMode}'][${idx}].html_ja=this.innerHTML`, '本文 (日本語)')}
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_csetState['${formMode}'][${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
         </div>
       </div>
     </div>
@@ -10983,7 +10992,7 @@ function renderCampBundleSummary(kind, formMode) {
     const koCol = steps.map((s,i) => renderStep(s, i, 'ko')).join('');
     const jaCol = steps.map((s,i) => renderStep(s, i, 'ja')).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span></div>`
-      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div>${koCol}</div><div class="summary-lang-col"><div class="summary-lang-title">日本語</div>${jaCol}</div></div>`;
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div>${koCol}</div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div>${jaCol}</div></div>`;
   } else {
     const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
     const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
@@ -10996,7 +11005,7 @@ function renderCampBundleSummary(kind, formMode) {
     const koCol = items.map(it => `<li>${sanitize(it.html_ko || it.html_ja || '')}</li>`).join('');
     const jaCol = items.map(it => `<li>${sanitize(it.html_ja || it.html_ko || '')}</li>`).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span></div>`
-      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">日本語</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
   }
 }
 
@@ -12147,7 +12156,7 @@ async function exportCampaignApplicationsExcel(campId) {
         address:    addrStr(u, a.address),
         message:    a.message || '',
         reviewedAt: reviewedStr,
-        reviewedBy: a.reviewed_by || ''
+        reviewedBy: formatReviewer(a.reviewed_by)
       });
     });
 
@@ -14034,7 +14043,7 @@ function addNbaProductRow() {
   row.style.cssText = 'display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
   row.innerHTML =
     '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
-    '<input type="text" class="form-input nba-prod-name-ja" placeholder="商品名 (일본어)" style="font-size:14px">' +
+    '<input type="text" class="form-input nba-prod-name-ja" placeholder="상품명 (일본어)" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-transfer-fee" placeholder="reviewer 자동 2500" min="0" style="font-size:14px" title="비워두면 reviewer는 ₩2,500 자동, seeding은 NULL">' +
