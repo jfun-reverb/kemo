@@ -186,7 +186,7 @@ async function renderMyApplyList() {
         items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       if (items.length) {
-        delivBadgeLine = `<div class="apply-item-deliv" style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${items.join('')}</div>`;
+        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">${items.join('')}</div>`;
       }
     }
     const cautionLine = a.caution_agreed_at
@@ -196,12 +196,11 @@ async function renderMyApplyList() {
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-        <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
+        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
-        ${delivBadgeLine}
       </div>
-      <div class="apply-item-status">${getStatusBadge(a.status)}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}</div>
     </div>`;
   }).join('');
 }
