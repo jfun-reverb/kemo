@@ -1441,6 +1441,7 @@ async function adminCreateBrandApplication({
   billingEmail = null,
   products,
   requestNote = null,
+  adminMemo = null,
   brandSync = true
 }) {
   if (!db) return {ok: false, error: 'no_db'};
@@ -1459,6 +1460,7 @@ async function adminCreateBrandApplication({
         p_billing_email: billingEmail,
         p_products:      products,
         p_request_note:  requestNote,
+        p_admin_memo:    adminMemo,
         p_brand_sync:    brandSync
       });
       if (error) throw error;

@@ -74,6 +74,10 @@ DROP FUNCTION IF EXISTS public.admin_create_brand_application(
 DROP FUNCTION IF EXISTS public.admin_create_brand_application(
   text, uuid, text, text, text, text, text, text, text, jsonb, text, boolean
 );
+-- v3 (13 params: company_name 추가)
+DROP FUNCTION IF EXISTS public.admin_create_brand_application(
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
+);
 
 CREATE OR REPLACE FUNCTION public.admin_create_brand_application(
   p_form_type         text,
@@ -88,6 +92,7 @@ CREATE OR REPLACE FUNCTION public.admin_create_brand_application(
   p_billing_email     text        DEFAULT NULL,
   p_products          jsonb       DEFAULT '[]'::jsonb,
   p_request_note      text        DEFAULT NULL,
+  p_admin_memo        text        DEFAULT NULL,   -- 등록 시점 내부 메모 (선택)
   p_brand_sync        boolean     DEFAULT true
 )
 RETURNS jsonb
@@ -332,6 +337,7 @@ BEGIN
     -- 공통
     products,
     request_note,
+    admin_memo,
     status
   )
   VALUES (
@@ -354,6 +360,7 @@ BEGIN
     -- 공통
     p_products,
     v_note,
+    NULLIF(btrim(COALESCE(p_admin_memo, '')), ''),       -- 등록 시점 내부 메모
     'new'
   )
   RETURNING id, application_no INTO v_app_id, v_app_no;
@@ -389,14 +396,14 @@ COMMENT ON FUNCTION public.admin_create_brand_application IS
 --   text(contact_name), text(phone), text(email), text(billing_email),
 --   jsonb(products), text(request_note), boolean(brand_sync))
 REVOKE ALL ON FUNCTION public.admin_create_brand_application(
-  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, text, boolean
 ) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.admin_create_brand_application(
-  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, text, boolean
 ) FROM anon;
 
 GRANT EXECUTE ON FUNCTION public.admin_create_brand_application(
-  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, text, boolean
 ) TO authenticated;
 
 

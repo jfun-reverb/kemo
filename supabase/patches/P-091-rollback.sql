@@ -38,6 +38,10 @@ DROP FUNCTION IF EXISTS public.admin_create_brand_application(
 );
 -- 시그니처 v3 (13 파라미터, company_name 추가)
 DROP FUNCTION IF EXISTS public.admin_create_brand_application(
+  text, uuid, text, text, text, text, text, text, text, text, jsonb, text, boolean
+);
+-- 시그니처 v4 (14 파라미터, admin_memo 추가)
+DROP FUNCTION IF EXISTS public.admin_create_brand_application(
   text,    -- p_form_type
   uuid,    -- p_brand_id
   text,    -- p_company_name
@@ -50,6 +54,7 @@ DROP FUNCTION IF EXISTS public.admin_create_brand_application(
   text,    -- p_billing_email
   jsonb,   -- p_products
   text,    -- p_request_note
+  text,    -- p_admin_memo
   boolean  -- p_brand_sync
 );
 

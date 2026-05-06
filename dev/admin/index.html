@@ -2093,11 +2093,12 @@
           <span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>제품 추가
         </button>
       </div>
-      <div id="nbaProductHead" style="display:grid;grid-template-columns:1.6fr 1.6fr 0.8fr 70px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
+      <div id="nbaProductHead" style="display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
         <div>제품명</div>
         <div>제품명 일본어 <span style="font-size:9px;color:var(--muted)">(선택)</span></div>
         <div>단가 (¥)</div>
         <div>수량</div>
+        <div>이체수수료 <span style="font-size:9px;color:var(--muted)">(원)</span></div>
         <div>URL</div>
         <div></div>
       </div>
@@ -2106,8 +2107,12 @@
       <!-- 섹션 4: 추가 정보 -->
       <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink)">추가 정보</div>
       <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label">요청사항 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+        <label class="form-label">요청사항 <span style="font-size:10px;font-weight:400;color:var(--muted)">(광고주 입력값 · 선택)</span></label>
         <textarea id="nbaRequestNote" class="form-input" rows="3" placeholder="희망 시기·타겟층·강조 포인트 등"></textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">내부 메모 <span style="font-size:10px;font-weight:400;color:var(--muted)">(관리자 전용 · 선택)</span></label>
+        <textarea id="nbaAdminMemo" class="form-input" rows="2" placeholder="검수 우선순위·진행 상황 등 영업팀 메모"></textarea>
       </div>
       <div class="form-group" style="margin-bottom:8px;padding:8px 10px;background:var(--surface-dim);border-radius:6px">
         <div style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
