@@ -881,8 +881,10 @@ textarea.form-input{resize:vertical;min-height:80px}
             <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
           </label>
         </div>
-        <button class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
+        <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
+      <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
+      <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
     </div>
 
@@ -1855,13 +1857,13 @@ window.I18N_JA = {
     },
   },
 
-  // 응모이력
+  // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)
   appHistory: {
     title: '応募履歴',
     all: 'すべて',
     pending: '審査中',
-    approved: '承認',
-    rejected: '非承認',
+    approved: '当選',
+    rejected: '落選',
     campStatus: 'キャンペーン状態',
     sortNewest: '新しい順',
     sortOldest: '古い順',
@@ -2058,6 +2060,7 @@ window.I18N_JA = {
     // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
     receiptStepLabel: 'STEP 1: 購入レシート',
     reviewImageStepLabel: 'STEP 2: 投稿スクリーンショット',
+    receiptMaxOne: '提出は1枚のみ可能です',
     reviewImageSection: '投稿スクリーンショットの提出',
     reviewImageHint: '掲載したレビュー投稿のスクリーンショットを1枚ご提出ください',
     reviewImageGated: 'STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。',
@@ -2066,11 +2069,11 @@ window.I18N_JA = {
     needReviewImage: 'スクリーンショット画像を選択してください',
   },
 
-  // 결과물 상태 배지 (인플루언서 화면)
+  // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
-    pending: '審査中',
+    pending: '検査中',
     approved: '承認',
-    rejected: '差戻',
+    rejected: '非承認',
   },
 
   // 캠페인 카드
@@ -2304,8 +2307,8 @@ window.I18N_KO = {
     title: '응모 이력',
     all: '전체',
     pending: '심사중',
-    approved: '승인',
-    rejected: '비승인',
+    approved: '당첨',
+    rejected: '낙첨',
     campStatus: '캠페인 상태',
     sortNewest: '최신순',
     sortOldest: '오래된순',
@@ -2494,6 +2497,7 @@ window.I18N_KO = {
     // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
     receiptStepLabel: 'STEP 1: 구매 영수증',
     reviewImageStepLabel: 'STEP 2: 게시물 캡쳐',
+    receiptMaxOne: '1장만 제출 가능합니다',
     reviewImageSection: '리뷰 게시물 캡쳐 제출',
     reviewImageHint: '게시한 리뷰 화면 캡쳐를 1장 제출해주세요',
     reviewImageGated: 'STEP 1(영수증)이 승인되면 여기에서 캡쳐를 제출할 수 있습니다.',
@@ -2503,9 +2507,9 @@ window.I18N_KO = {
   },
 
   delivStatus: {
-    pending: '심사중',
+    pending: '검수중',
     approved: '승인',
-    rejected: '반려',
+    rejected: '비승인',
   },
 
   campaign: {
@@ -4541,8 +4545,8 @@ function getRecruitTypeBadgeKoSm(t) {
 function getStatusBadge(s) {
   const labels = {
     pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
-    approved: (typeof t === 'function' ? t('appHistory.approved') : '承認'),
-    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '非承認')
+    approved: (typeof t === 'function' ? t('appHistory.approved') : '当選'),
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '落選')
   };
   const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
   return m[s] || s;
@@ -6338,6 +6342,18 @@ function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
   if (!container) return;
   const submitBtn = $('submitImagesBtn');
+  const formBox = $('receiptForm');
+  const addBtn = $('addReceiptBtn');
+  const maxNote = $('receiptMaxNote');
+  // monitor 캠페인은 영수증 1장만 제출 가능 (visit는 현장 사진 여러 장 가능 — 그대로 둠)
+  // active = draft|pending|approved (rejected는 제외, 재제출 가능)
+  const isMonitor = (_activityCamp?.recruit_type === 'monitor');
+  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  const reachedMax = isMonitor && activeCount >= 1;
+  if (formBox) formBox.style.display = reachedMax ? 'none' : '';
+  if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
+  if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
+
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
@@ -7045,11 +7061,23 @@ async function renderMyApplyList() {
       ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
-    // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
+    // Stage 6: 결과물 상태 배지 — 신청이 당첨(approved)된 행에 한해 최신 결과물 status 표시.
+    // 응모이력 탭의 신청 단계 카운트(심사중/당첨/낙첨)와 결과물 단계(검수중/승인/비승인)는
+    // 의미가 다르므로, 행 내부 보조 배지로 결과물 진행 상태를 가시화한다.
     let delivBadge = '';
     if (a.status === 'approved') {
       const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
-      if (ds[0]?.status === 'rejected') delivBadge = `<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">${t('delivStatus.rejected')}</span>`;
+      const latest = ds[0];
+      if (latest) {
+        const badgeStyle = 'display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px';
+        if (latest.status === 'rejected') {
+          delivBadge = `<span style="${badgeStyle};background:#FFE4E4;color:#C33">${t('delivStatus.rejected')}</span>`;
+        } else if (latest.status === 'pending') {
+          delivBadge = `<span style="${badgeStyle};background:#FFF4E4;color:#B8741A">${t('delivStatus.pending')}</span>`;
+        } else if (latest.status === 'approved') {
+          delivBadge = `<span style="${badgeStyle};background:#E4F5E8;color:#2D7A3E">${t('delivStatus.approved')}</span>`;
+        }
+      }
     }
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`

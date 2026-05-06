@@ -161,13 +161,13 @@ window.I18N_JA = {
     },
   },
 
-  // 응모이력
+  // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)
   appHistory: {
     title: '応募履歴',
     all: 'すべて',
     pending: '審査中',
-    approved: '承認',
-    rejected: '非承認',
+    approved: '当選',
+    rejected: '落選',
     campStatus: 'キャンペーン状態',
     sortNewest: '新しい順',
     sortOldest: '古い順',
@@ -364,6 +364,7 @@ window.I18N_JA = {
     // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
     receiptStepLabel: 'STEP 1: 購入レシート',
     reviewImageStepLabel: 'STEP 2: 投稿スクリーンショット',
+    receiptMaxOne: '提出は1枚のみ可能です',
     reviewImageSection: '投稿スクリーンショットの提出',
     reviewImageHint: '掲載したレビュー投稿のスクリーンショットを1枚ご提出ください',
     reviewImageGated: 'STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。',
@@ -372,11 +373,11 @@ window.I18N_JA = {
     needReviewImage: 'スクリーンショット画像を選択してください',
   },
 
-  // 결과물 상태 배지 (인플루언서 화면)
+  // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
-    pending: '審査中',
+    pending: '検査中',
     approved: '承認',
-    rejected: '差戻',
+    rejected: '非承認',
   },
 
   // 캠페인 카드

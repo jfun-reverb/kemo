@@ -690,6 +690,18 @@ function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
   if (!container) return;
   const submitBtn = $('submitImagesBtn');
+  const formBox = $('receiptForm');
+  const addBtn = $('addReceiptBtn');
+  const maxNote = $('receiptMaxNote');
+  // monitor 캠페인은 영수증 1장만 제출 가능 (visit는 현장 사진 여러 장 가능 — 그대로 둠)
+  // active = draft|pending|approved (rejected는 제외, 재제출 가능)
+  const isMonitor = (_activityCamp?.recruit_type === 'monitor');
+  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  const reachedMax = isMonitor && activeCount >= 1;
+  if (formBox) formBox.style.display = reachedMax ? 'none' : '';
+  if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
+  if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
+
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';

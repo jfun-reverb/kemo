@@ -410,8 +410,10 @@ window._supabaseLoaded = false;
             <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
           </label>
         </div>
-        <button class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
+        <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
+      <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
+      <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
     </div>
 

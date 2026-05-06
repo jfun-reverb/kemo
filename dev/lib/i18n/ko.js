@@ -159,8 +159,8 @@ window.I18N_KO = {
     title: '응모 이력',
     all: '전체',
     pending: '심사중',
-    approved: '승인',
-    rejected: '비승인',
+    approved: '당첨',
+    rejected: '낙첨',
     campStatus: '캠페인 상태',
     sortNewest: '최신순',
     sortOldest: '오래된순',
@@ -349,6 +349,7 @@ window.I18N_KO = {
     // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
     receiptStepLabel: 'STEP 1: 구매 영수증',
     reviewImageStepLabel: 'STEP 2: 게시물 캡쳐',
+    receiptMaxOne: '1장만 제출 가능합니다',
     reviewImageSection: '리뷰 게시물 캡쳐 제출',
     reviewImageHint: '게시한 리뷰 화면 캡쳐를 1장 제출해주세요',
     reviewImageGated: 'STEP 1(영수증)이 승인되면 여기에서 캡쳐를 제출할 수 있습니다.',
@@ -358,9 +359,9 @@ window.I18N_KO = {
   },
 
   delivStatus: {
-    pending: '심사중',
+    pending: '검수중',
     approved: '승인',
-    rejected: '반려',
+    rejected: '비승인',
   },
 
   campaign: {

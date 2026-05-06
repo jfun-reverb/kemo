@@ -160,11 +160,23 @@ async function renderMyApplyList() {
       ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
-    // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
+    // Stage 6: 결과물 상태 배지 — 신청이 당첨(approved)된 행에 한해 최신 결과물 status 표시.
+    // 응모이력 탭의 신청 단계 카운트(심사중/당첨/낙첨)와 결과물 단계(검수중/승인/비승인)는
+    // 의미가 다르므로, 행 내부 보조 배지로 결과물 진행 상태를 가시화한다.
     let delivBadge = '';
     if (a.status === 'approved') {
       const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
-      if (ds[0]?.status === 'rejected') delivBadge = `<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">${t('delivStatus.rejected')}</span>`;
+      const latest = ds[0];
+      if (latest) {
+        const badgeStyle = 'display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px';
+        if (latest.status === 'rejected') {
+          delivBadge = `<span style="${badgeStyle};background:#FFE4E4;color:#C33">${t('delivStatus.rejected')}</span>`;
+        } else if (latest.status === 'pending') {
+          delivBadge = `<span style="${badgeStyle};background:#FFF4E4;color:#B8741A">${t('delivStatus.pending')}</span>`;
+        } else if (latest.status === 'approved') {
+          delivBadge = `<span style="${badgeStyle};background:#E4F5E8;color:#2D7A3E">${t('delivStatus.approved')}</span>`;
+        }
+      }
     }
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
