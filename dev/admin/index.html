@@ -1218,15 +1218,18 @@
 
         <!-- BRAND DETAIL/EDIT MODAL -->
         <div class="modal-overlay" id="brandDetailModal" style="z-index:612">
+          <style>#brandDetailModal input.admin-filter,#brandDetailModal textarea.admin-filter,#brandDetailModal select.admin-filter,#brandDetailModal input.form-input,#brandDetailModal textarea.form-input,#brandDetailModal select.form-input{font-size:14px}</style>
           <div class="modal" style="max-width:900px;width:96vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
             <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-              <div style="font-size:14px;font-weight:700;color:var(--ink)" id="brandDetailTitle">브랜드 상세</div>
+              <div id="brandDetailTitle">
+                <div style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 상세</div>
+              </div>
               <button class="btn btn-ghost btn-xs" onclick="closeBrandDetailModal()" style="padding:4px 10px">✕</button>
             </div>
-            <div class="modal-body" style="padding:18px 22px;overflow-y:auto;flex:1" id="brandDetailBody">
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="brandDetailBody">
               <div style="text-align:center;padding:40px;color:var(--muted)">불러오는 중…</div>
             </div>
-            <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end" id="brandDetailFooter"></div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end" id="brandDetailFooter"></div>
           </div>
         </div>
 

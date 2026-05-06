@@ -7072,16 +7072,22 @@ function closeBrandDetailModal() {
 }
 
 // 헤더 — brand_no | name | status select (드롭다운, 활성/비활성 명확히 선택)
+//   신청 등록 모달과 동일하게 제목 + 부제(설명/상태) 2단 구조
 function renderBrandDetailHeaderHtml(b) {
   var status = b.status || 'active';
-  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+  var subtitle = b.company_name
+    ? '회사명: ' + esc(b.company_name)
+    : '브랜드 마스터 정보 · 담당자 · 콘텐츠 · 영업 메모를 한 곳에서 관리';
+  return ''
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
       + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
       + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : '#16a34a') + '">'
         + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
         + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
       + '</select>'
-    + '</div>';
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + subtitle + '</div>';
 }
 
 function syncBrandStatusVisual(sel) {
@@ -7123,17 +7129,17 @@ function renderBrandDetailFormHtml(b, apps) {
     });
   }
 
-  // 공통 헬퍼
+  // 공통 헬퍼 — 신청 등록 모달과 동일한 섹션 패턴(border-bottom:2px solid pink)
   var section = function(title, rightHtml, contentHtml) {
-    return '<section style="padding:18px 0;border-bottom:1px solid var(--surface-dim)">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-        + '<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:14px;background:var(--pink);border-radius:2px"></span><span style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(title) + '</span></div>'
+    return '<section style="margin-bottom:18px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:12px;border-bottom:2px solid var(--pink)">'
+        + '<span style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(title) + '</span>'
         + (rightHtml || '')
       + '</div>'
       + contentHtml
     + '</section>';
   };
-  var labelStyle = 'color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:5px';
+  var labelStyle = 'color:var(--ink);font-size:12px;font-weight:600;display:block;margin-bottom:5px';
   var input = function(id, label, val, placeholder) {
     return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
   };
@@ -7201,7 +7207,9 @@ function renderBrandDetailFormHtml(b, apps) {
         + '</div>'
       )
     // § 영업 메모
-    + section('영업 메모', '', ta('brandFormMemo', '', b.memo, '브랜드 단위 영업 메모', 3).replace('<label style="' + labelStyle + '"></label>', ''))
+    + section('영업 메모', '',
+        '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
+      )
     // § 신청 내역
     + section('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)', '', appsHtml);
 }
