@@ -1215,7 +1215,7 @@ async function fetchBrands(filters) {
   if (!db) return [];
   try {
     var q = db?.from('brands')
-      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
     if (filters?.status) q = q.eq('status', filters.status);
     var pageSize = 1000, from = 0, out = [];
     while (true) {
@@ -1367,7 +1367,7 @@ async function fetchBrandApplications(filters) {
         status, admin_memo, request_note,
         reviewed_by, reviewed_at,
         version, created_at, updated_at,
-        brand:brands(id, brand_no, name, contacts, billing_email, status)
+        brand:brands(id, brand_no, name, company_name, contacts, billing_email, status)
       `);
       if (filters?.form_type && filters.form_type !== 'all') q = q.eq('form_type', filters.form_type);
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
@@ -1413,6 +1413,64 @@ async function fetchBrandApplicationHistory(applicationId, limit) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchBrandApplicationHistory]', e); return []; }
+}
+
+// 관리자 직접 광고주 신청 등록 (migration 091 RPC)
+// params:
+//   formType      'reviewer' | 'seeding'
+//   brandId       uuid | null  — null이면 신규 brand 생성
+//   brandName     text         — 신규 시 필수, 기존 brand 선택 시 optional(brand 페인에서 직접 수정 권장)
+//   contactName   text | null
+//   phone         text | null
+//   email         text | null
+//   billingEmail  text | null
+//   products      Array<{name, url, price_jpy, qty}>  — 1개 이상 필수
+//   requestNote   text | null
+//   brandSync     boolean (default true)  — true면 기존 brand의 primary_* + contacts 동기 갱신
+// 반환: {ok: true, data: {id, application_no, brand_id, brand_no}} | {ok: false, error}
+async function adminCreateBrandApplication({
+  formType,
+  brandId = null,
+  companyName = null,
+  brandName = null,
+  brandNameJa = null,
+  businessNo = null,
+  contactName = null,
+  phone = null,
+  email = null,
+  billingEmail = null,
+  products,
+  requestNote = null,
+  adminMemo = null,
+  brandSync = true
+}) {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('admin_create_brand_application', {
+        p_form_type:     formType,
+        p_brand_id:      brandId,
+        p_company_name:  companyName,
+        p_brand_name:    brandName,
+        p_brand_name_ja: brandNameJa,
+        p_business_no:   businessNo,
+        p_contact_name:  contactName,
+        p_phone:         phone,
+        p_email:         email,
+        p_billing_email: billingEmail,
+        p_products:      products,
+        p_request_note:  requestNote,
+        p_admin_memo:    adminMemo,
+        p_brand_sync:    brandSync
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) {
+    console.error('[adminCreateBrandApplication]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
 }
 
 // 광고주 신청 상태 변경·견적 입력·메모 수정 (낙관적 락)

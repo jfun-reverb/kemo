@@ -2260,6 +2260,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               <table class="data-table">
                 <thead><tr>
                   <th style="width:130px">brand_no</th>
+                  <th style="width:170px">회사명</th>
                   <th style="width:200px">브랜드명</th>
                   <th style="width:160px">대표 담당자</th>
                   <th style="width:200px">대표 이메일</th>
@@ -2268,7 +2269,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <th style="width:100px">상태</th>
                   <th style="width:220px">메모</th>
                 </tr></thead>
-                <tbody id="brandsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <tbody id="brandsTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
             </div>
           </div>
@@ -2276,15 +2277,18 @@ textarea.form-input{resize:vertical;min-height:80px}
 
         <!-- BRAND DETAIL/EDIT MODAL -->
         <div class="modal-overlay" id="brandDetailModal" style="z-index:612">
+          <style>#brandDetailModal input.admin-filter,#brandDetailModal textarea.admin-filter,#brandDetailModal select.admin-filter,#brandDetailModal input.form-input,#brandDetailModal textarea.form-input,#brandDetailModal select.form-input{font-size:14px}</style>
           <div class="modal" style="max-width:900px;width:96vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
             <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-              <div style="font-size:14px;font-weight:700;color:var(--ink)" id="brandDetailTitle">브랜드 상세</div>
+              <div id="brandDetailTitle">
+                <div style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 상세</div>
+              </div>
               <button class="btn btn-ghost btn-xs" onclick="closeBrandDetailModal()" style="padding:4px 10px">✕</button>
             </div>
-            <div class="modal-body" style="padding:18px 22px;overflow-y:auto;flex:1" id="brandDetailBody">
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="brandDetailBody">
               <div style="text-align:center;padding:40px;color:var(--muted)">불러오는 중…</div>
             </div>
-            <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end" id="brandDetailFooter"></div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end" id="brandDetailFooter"></div>
           </div>
         </div>
 
@@ -2301,9 +2305,13 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <span class="material-icons-round notranslate" translate="no" style="font-size:15px">open_in_new</span>
                   설문조사 바로가기
                 </a>
-                <button type="button" class="btn btn-primary btn-sm" onclick="copyBrandSalesUrl()" style="display:inline-flex;align-items:center;gap:4px" title="광고주에게 공유할 URL을 클립보드에 복사">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="copyBrandSalesUrl()" style="display:inline-flex;align-items:center;gap:4px" title="광고주에게 공유할 URL을 클립보드에 복사">
                   <span class="material-icons-round notranslate" translate="no" style="font-size:15px">content_copy</span>
                   URL 복사
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openNewBrandAppModal()" style="display:inline-flex;align-items:center;gap:4px" title="영업팀이 받은 신청을 직접 등록">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span>
+                  신규 등록
                 </button>
               </div>
             </div>
@@ -2350,6 +2358,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <table class="data-table">
               <thead><tr>
                 <th style="width:180px">신청번호 / 폼 종류</th>
+                <th style="width:160px">회사명</th>
                 <th style="width:200px">브랜드 <span class="sort-arrows" data-sort="brand" onclick="toggleBrandAppSort('brand')">▲▼</span></th>
                 <th style="width:200px">담당자</th>
                 <th style="width:130px">연락처</th>
@@ -2373,7 +2382,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
                 <th style="width:80px">이력</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="24" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -3048,6 +3057,133 @@ textarea.form-input{resize:vertical;min-height:80px}
 </div>
 
 <!-- 광고주 신청 상세 모달은 제거됨 — 모든 인라인 편집은 신청 목록 행 안에서 -->
+
+<!-- 관리자 직접 신청 등록 모달 (091 admin_create_brand_application) -->
+<div class="modal-overlay" id="newBrandAppModal" style="z-index:612">
+  <style>#newBrandAppModal .form-input,#newBrandAppModal select.form-input,#newBrandAppModal textarea.form-input{font-size:14px}</style>
+  <div class="modal" style="max-width:880px;width:96vw;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 서베이 신청 등록</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">영업팀이 전화·메일·미팅으로 받은 신청을 관리자가 직접 등록</div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="closeNewBrandAppModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
+      <!-- 섹션 1: 기본 정보 -->
+      <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin-bottom:10px;border-bottom:2px solid var(--pink)">기본 정보</div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="form-group">
+          <label class="form-label">폼 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+          <div style="display:flex;gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaFt-reviewer">
+              <input type="radio" name="nbaFormType" value="reviewer" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> Qoo10 리뷰어
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaFt-seeding">
+              <input type="radio" name="nbaFormType" value="seeding" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 나노 시딩
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 섹션 2: 브랜드 정보 -->
+      <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink)">브랜드 정보</div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">브랜드 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+        <select id="nbaBrandSelect" class="form-input" onchange="onNbaBrandChange()">
+          <option value="">-- 브랜드 선택 --</option>
+        </select>
+        <div id="nbaBrandModeHint" class="form-hint" style="margin-top:4px;font-size:11px;color:var(--muted)">리스트에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」으로 새 브랜드를 등록하세요.</div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="form-group">
+          <label class="form-label">회사명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaCompanyName" class="form-input" placeholder="(주)제이펀">
+        </div>
+        <div class="form-group">
+          <label class="form-label">사업자번호 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaBusinessNo" class="form-input" placeholder="123-45-67890">
+        </div>
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="form-group">
+          <label class="form-label">브랜드명 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
+          <input type="text" id="nbaBrandName" class="form-input" placeholder="브랜드명 (한국어/영문 원본)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">브랜드명 일본어 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaBrandNameJa" class="form-input" placeholder="ブランド名 (일본어 표기)">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">담당자명 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+        <select id="nbaContactSelect" class="form-input" style="display:none;margin-bottom:6px;font-size:12px" onchange="onNbaContactSelectChange()">
+          <option value="">-- 등록된 담당자 빠른 선택 --</option>
+        </select>
+        <input type="text" id="nbaContactName" class="form-input" placeholder="담당자 이름">
+      </div>
+      <div class="form-row" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="form-group">
+          <label class="form-label">연락처 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="text" id="nbaPhone" class="form-input" placeholder="010-0000-0000" onblur="this.value=formatPhoneDisplay(this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">이메일 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+          <input type="email" id="nbaEmail" class="form-input" placeholder="contact@brand.com">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">계산서 이메일 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택)</span></label>
+        <input type="email" id="nbaBillingEmail" class="form-input" placeholder="invoice@brand.com">
+      </div>
+      <div class="form-group" style="margin-bottom:4px">
+        <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+          <input type="checkbox" id="nbaBrandSync" checked style="accent-color:var(--pink)">
+          기존 브랜드 정보를 입력값으로 갱신 <span style="font-size:10px;color:var(--muted)">(담당자·연락처·이메일이 변경된 경우)</span>
+        </label>
+      </div>
+
+      <!-- 섹션 3: 제품 정보 -->
+      <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink);display:flex;align-items:center;justify-content:space-between">
+        <span>제품 정보 <span style="font-size:10px;font-weight:400;color:var(--muted)">(최소 1개)</span></span>
+        <button type="button" class="btn btn-ghost btn-xs" onclick="addNbaProductRow()" style="padding:4px 10px;display:inline-flex;align-items:center;gap:4px">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>제품 추가
+        </button>
+      </div>
+      <div id="nbaProductHead" style="display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
+        <div>제품명</div>
+        <div>제품명 일본어 <span style="font-size:9px;color:var(--muted)">(선택)</span></div>
+        <div>단가 (¥)</div>
+        <div>수량</div>
+        <div>이체수수료 <span style="font-size:9px;color:var(--muted)">(원)</span></div>
+        <div>URL</div>
+        <div></div>
+      </div>
+      <div id="nbaProductRows" style="display:flex;flex-direction:column;gap:8px"></div>
+
+      <!-- 섹션 4: 추가 정보 -->
+      <div style="font-size:13px;font-weight:700;color:var(--ink);padding-bottom:6px;margin:16px 0 10px;border-bottom:2px solid var(--pink)">추가 정보</div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">요청사항 <span style="font-size:10px;font-weight:400;color:var(--muted)">(광고주 입력값 · 선택)</span></label>
+        <textarea id="nbaRequestNote" class="form-input" rows="3" placeholder="희망 시기·타겟층·강조 포인트 등"></textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">내부 메모 <span style="font-size:10px;font-weight:400;color:var(--muted)">(관리자 전용 · 선택)</span></label>
+        <textarea id="nbaAdminMemo" class="form-input" rows="2" placeholder="검수 우선순위·진행 상황 등 영업팀 메모"></textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:8px;padding:8px 10px;background:var(--surface-dim);border-radius:6px">
+        <div style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:var(--muted)">info</span>
+          등록 시 접수 확인 메일이 광고주에게 자동 발송됩니다 — 발송 제어는 Phase 2 예정
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="closeNewBrandAppModal()">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="submitNewBrandApp()" id="nbaSubmitBtn">등록</button>
+    </div>
+  </div>
+</div>
 
 <!-- 광고주 신청 내부 메모 모달 (multi-entry) -->
 <div class="modal-overlay" id="brandAppMemoModal" style="z-index:611">
@@ -4630,7 +4766,7 @@ async function fetchBrands(filters) {
   if (!db) return [];
   try {
     var q = db?.from('brands')
-      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
     if (filters?.status) q = q.eq('status', filters.status);
     var pageSize = 1000, from = 0, out = [];
     while (true) {
@@ -4782,7 +4918,7 @@ async function fetchBrandApplications(filters) {
         status, admin_memo, request_note,
         reviewed_by, reviewed_at,
         version, created_at, updated_at,
-        brand:brands(id, brand_no, name, contacts, billing_email, status)
+        brand:brands(id, brand_no, name, company_name, contacts, billing_email, status)
       `);
       if (filters?.form_type && filters.form_type !== 'all') q = q.eq('form_type', filters.form_type);
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
@@ -4828,6 +4964,64 @@ async function fetchBrandApplicationHistory(applicationId, limit) {
     if (error) throw error;
     return data || [];
   } catch(e) { console.error('[fetchBrandApplicationHistory]', e); return []; }
+}
+
+// 관리자 직접 광고주 신청 등록 (migration 091 RPC)
+// params:
+//   formType      'reviewer' | 'seeding'
+//   brandId       uuid | null  — null이면 신규 brand 생성
+//   brandName     text         — 신규 시 필수, 기존 brand 선택 시 optional(brand 페인에서 직접 수정 권장)
+//   contactName   text | null
+//   phone         text | null
+//   email         text | null
+//   billingEmail  text | null
+//   products      Array<{name, url, price_jpy, qty}>  — 1개 이상 필수
+//   requestNote   text | null
+//   brandSync     boolean (default true)  — true면 기존 brand의 primary_* + contacts 동기 갱신
+// 반환: {ok: true, data: {id, application_no, brand_id, brand_no}} | {ok: false, error}
+async function adminCreateBrandApplication({
+  formType,
+  brandId = null,
+  companyName = null,
+  brandName = null,
+  brandNameJa = null,
+  businessNo = null,
+  contactName = null,
+  phone = null,
+  email = null,
+  billingEmail = null,
+  products,
+  requestNote = null,
+  adminMemo = null,
+  brandSync = true
+}) {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('admin_create_brand_application', {
+        p_form_type:     formType,
+        p_brand_id:      brandId,
+        p_company_name:  companyName,
+        p_brand_name:    brandName,
+        p_brand_name_ja: brandNameJa,
+        p_business_no:   businessNo,
+        p_contact_name:  contactName,
+        p_phone:         phone,
+        p_email:         email,
+        p_billing_email: billingEmail,
+        p_products:      products,
+        p_request_note:  requestNote,
+        p_admin_memo:    adminMemo,
+        p_brand_sync:    brandSync
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) {
+    console.error('[adminCreateBrandApplication]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
 }
 
 // 광고주 신청 상태 변경·견적 입력·메모 수정 (낙관적 락)
@@ -12019,6 +12213,7 @@ async function exportBrandApplicationsExcel() {
       { header: '세금계산서 주소',  key: 'billing',     width: 24 },
       { header: '요청사항',         key: 'requestNote', width: 36 },
       { header: '제품명',           key: 'productName', width: 26 },
+      { header: '제품명(일본어)',   key: 'productNameJa', width: 26 },
       { header: 'URL',              key: 'productUrl',  width: 36 },
       { header: '진행 수량',        key: 'qty',         width: 10 },
       { header: '상품 가격(엔)',    key: 'priceJpy',    width: 14 },
@@ -12084,8 +12279,9 @@ async function exportBrandApplicationsExcel() {
           billing:     a.billing_email || '',
           requestNote: a.request_note || '',
           // 제품 단위
-          productName: p.name || '',
-          productUrl:  p.url || '',
+          productName:   p.name || '',
+          productNameJa: p.name_ja || '',
+          productUrl:    p.url || '',
           qty:         qty || '',
           priceJpy:    priceJpy || '',
           priceKrw:    priceKrw || '',
@@ -12702,7 +12898,7 @@ var BRANDS_PAGE_SIZE = 50;
 
 async function loadBrandsPane() {
   var tbody = $('brandsTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
   renderBrandsList();
 }
@@ -12715,7 +12911,7 @@ function renderBrandsList() {
   var list = (_brandsCache || []).filter(function(b){
     if (statusF && b.status !== statusF) return false;
     if (q) {
-      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
+      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.company_name||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
       if (hay.indexOf(q) < 0) return false;
     }
     return true;
@@ -12723,7 +12919,7 @@ function renderBrandsList() {
   var count = $('brandsTotalCount');
   if (count) count.textContent = '(' + list.length + ' / 전체 ' + (_brandsCache||[]).length + ')';
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>';
     return;
   }
   var renderRow = function(b) {
@@ -12736,6 +12932,7 @@ function renderBrandsList() {
       : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">active</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(b.brand_no || '—') + '</td>'
+      + '<td style="font-size:12px;color:var(--ink)">' + esc(b.company_name || '—') + '</td>'
       + '<td><div style="font-weight:600;color:var(--ink)">' + esc(b.name || '—') + '</div>'
         + (b.name_ja ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(b.name_ja) + '</div>' : '')
       + '</td>'
@@ -12754,7 +12951,7 @@ function renderBrandsList() {
     rows: list,
     renderRow: renderRow,
     pageSize: BRANDS_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>'
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>'
   });
 }
 
@@ -12773,7 +12970,9 @@ async function openBrandDetailModal(id) {
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
   renderBrandContactsRows();
-  if (footerEl) footerEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
+  if (footerEl) footerEl.innerHTML = ''
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
 }
 
@@ -12784,16 +12983,22 @@ function closeBrandDetailModal() {
 }
 
 // 헤더 — brand_no | name | status select (드롭다운, 활성/비활성 명확히 선택)
+//   신청 등록 모달과 동일하게 제목 + 부제(설명/상태) 2단 구조
 function renderBrandDetailHeaderHtml(b) {
   var status = b.status || 'active';
-  return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+  var subtitle = b.company_name
+    ? '회사명: ' + esc(b.company_name)
+    : '브랜드 마스터 정보 · 담당자 · 콘텐츠 · 영업 메모를 한 곳에서 관리';
+  return ''
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
       + '<span style="background:#F0F0F0;color:#555;font-size:11px;font-weight:600;padding:3px 10px;border-radius:4px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '신규') + '</span>'
       + '<span style="font-weight:700;color:var(--ink);font-size:14px">' + esc(b.name || '새 브랜드') + '</span>'
       + '<select id="brandFormStatus" onchange="syncBrandStatusVisual(this)" style="font-size:11px;font-weight:600;padding:4px 22px 4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer;background-color:' + (status === 'archived' ? '#F0F0F0' : '#E8F5E9') + ';color:' + (status === 'archived' ? '#666' : '#16a34a') + '">'
         + '<option value="active"' + (status === 'active' ? ' selected' : '') + '>● 활성</option>'
         + '<option value="archived"' + (status === 'archived' ? ' selected' : '') + '>● 비활성</option>'
       + '</select>'
-    + '</div>';
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + subtitle + '</div>';
 }
 
 function syncBrandStatusVisual(sel) {
@@ -12835,17 +13040,17 @@ function renderBrandDetailFormHtml(b, apps) {
     });
   }
 
-  // 공통 헬퍼
+  // 공통 헬퍼 — 신청 등록 모달과 동일한 섹션 패턴(border-bottom:2px solid pink)
   var section = function(title, rightHtml, contentHtml) {
-    return '<section style="padding:18px 0;border-bottom:1px solid var(--surface-dim)">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
-        + '<div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:3px;height:14px;background:var(--pink);border-radius:2px"></span><span style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(title) + '</span></div>'
+    return '<section style="margin-bottom:18px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;margin-bottom:12px;border-bottom:2px solid var(--pink)">'
+        + '<span style="font-size:13px;font-weight:700;color:var(--ink)">' + esc(title) + '</span>'
         + (rightHtml || '')
       + '</div>'
       + contentHtml
     + '</section>';
   };
-  var labelStyle = 'color:var(--muted);font-size:11px;font-weight:600;display:block;margin-bottom:5px';
+  var labelStyle = 'color:var(--ink);font-size:12px;font-weight:600;display:block;margin-bottom:5px';
   var input = function(id, label, val, placeholder) {
     return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
   };
@@ -12875,14 +13080,18 @@ function renderBrandDetailFormHtml(b, apps) {
   return ''
     // § 기본 정보
     + section('기본 정보', '',
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+          + input('brandFormCompanyName', '회사명', b.company_name, '예: (주)제이펀')
+          + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
           + input('brandFormName', '브랜드명 (한국어) *', b.name)
           + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
           + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
         + '</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-          + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
           + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
+          + '<div></div>'
         + '</div>'
       )
     // § 담당자
@@ -12909,7 +13118,9 @@ function renderBrandDetailFormHtml(b, apps) {
         + '</div>'
       )
     // § 영업 메모
-    + section('영업 메모', '', ta('brandFormMemo', '', b.memo, '브랜드 단위 영업 메모', 3).replace('<label style="' + labelStyle + '"></label>', ''))
+    + section('영업 메모', '',
+        '<textarea id="brandFormMemo" class="admin-filter" rows="3" style="resize:vertical;font-family:inherit;width:100%" placeholder="브랜드 단위 영업 메모">' + esc(b.memo || '') + '</textarea>'
+      )
     // § 신청 내역
     + section('이 브랜드의 신청 내역 (' + (apps ? apps.length : 0) + '건)', '', appsHtml);
 }
@@ -12983,6 +13194,7 @@ function _collectBrandFormPatch() {
     name: ($('brandFormName')?.value || '').trim(),
     name_ja: ($('brandFormNameJa')?.value || '').trim() || null,
     name_en: ($('brandFormNameEn')?.value || '').trim() || null,
+    company_name: ($('brandFormCompanyName')?.value || '').trim() || null,
     business_no: ($('brandFormBusinessNo')?.value || '').trim() || null,
     status: $('brandFormStatus')?.value || 'active',
     contacts: contacts,
@@ -13147,7 +13359,7 @@ function lpad(v, n) {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="24" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
   var [apps, counts, memoSummaries] = await Promise.all([
     fetchBrandApplications(),
@@ -13269,7 +13481,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="23" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="24" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -13494,7 +13706,9 @@ function renderBrandAppSummaryRow(a) {
         + '</div>'
       + '</div>'
     + '</td>'
-    // 2. 브랜드 — brands.name 우선, 클릭 시 브랜드 상세 모달
+    // 2. 회사명 — brands.company_name 표시 (없으면 dash)
+    + '<td style="font-size:12px;color:var(--ink)">' + esc(a.brand?.company_name || '—') + '</td>'
+    // 3. 브랜드 — brands.name 우선, 클릭 시 브랜드 상세 모달
     + (function(){
         var brandName = a.brand?.name || a.brand_name || '—';
         var brandNo = a.brand?.brand_no || '';
@@ -13581,9 +13795,12 @@ function renderBrandAppDetailRow(a, p, idx) {
   var emptyApp = '<td></td>'; // 신청 단위 셀 — 펼친 행에서는 비움 (요약 행에 이미 있음)
 
   return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-detail="1" style="background:#FBF7FA">'
-    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-6 신청 단위 비움
-    // 7. 제품명
-    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">' + (p.name ? esc(p.name) : dash) + '</td>'
+    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-7 신청 단위 비움 (신청번호/회사명/브랜드/담당자/연락처/계산서/요청사항)
+    // 7. 제품명 (name + name_ja 병기. name_ja는 작은 회색 보조 텍스트)
+    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">'
+      + (p.name ? esc(p.name) : dash)
+      + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
+    + '</td>'
     // 8. URL
     + '<td>' + renderProductUrlCell(p.url) + '</td>'
     // 9-16. 제품별 8컬럼
@@ -13658,6 +13875,278 @@ async function openBrandAppHistoryModal(id) {
 function closeBrandAppHistoryModal() {
   var modal = document.getElementById('brandAppHistoryModal');
   if (modal) modal.classList.remove('open');
+}
+
+// ─── 관리자 직접 신청 등록 모달 (091) ───────────────────────
+var _nbaBrandMode = 'select';  // 'select' (기존 brand) | 'new' (신규 brand)
+var _nbaBrandsCache = null;
+
+async function openNewBrandAppModal(prefilledBrandId) {
+  var modal = document.getElementById('newBrandAppModal');
+  if (!modal) return;
+  // 폼 reset
+  document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
+  ['nbaCompanyName','nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote','nbaAdminMemo'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  // 담당자 빠른 선택 드롭다운 초기화
+  var contactSelReset = document.getElementById('nbaContactSelect');
+  if (contactSelReset) { contactSelReset.style.display = 'none'; contactSelReset.innerHTML = '<option value="">-- 등록된 담당자 빠른 선택 --</option>'; contactSelReset.value = ''; }
+  var sendCheck = document.getElementById('nbaSendNotification'); if (sendCheck) sendCheck.checked = false;
+  var syncCheck = document.getElementById('nbaBrandSync'); if (syncCheck) syncCheck.checked = true;
+  // 제품 entries 초기화 — 기본 1개 행
+  document.getElementById('nbaProductRows').innerHTML = '';
+  addNbaProductRow();
+  // brand 드롭다운 로드 + prefill
+  setNbaBrandMode('select');
+  await loadNbaBrandSelect(prefilledBrandId || '');
+  if (prefilledBrandId) {
+    var sel = document.getElementById('nbaBrandSelect');
+    if (sel) { sel.value = prefilledBrandId; onNbaBrandChange(); }
+  }
+  modal.classList.add('open');
+}
+
+function closeNewBrandAppModal() {
+  var modal = document.getElementById('newBrandAppModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function onNbaFormTypeChange() {
+  var picked = document.querySelector('input[name="nbaFormType"]:checked');
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){
+    var v = l.querySelector('input')?.value;
+    var on = picked && v === picked.value;
+    l.style.borderColor = on ? 'var(--pink)' : 'var(--line)';
+    l.style.background = on ? 'var(--light-pink)' : '';
+    l.style.color = on ? 'var(--pink)' : '';
+    var ic = l.querySelector('.material-icons-round');
+    if (ic) { ic.textContent = on ? 'radio_button_checked' : 'radio_button_unchecked'; ic.style.color = on ? 'var(--pink)' : 'var(--muted)'; }
+  });
+}
+
+async function loadNbaBrandSelect(currentBrandId) {
+  var sel = document.getElementById('nbaBrandSelect');
+  if (!sel) return;
+  if (!_nbaBrandsCache) {
+    _nbaBrandsCache = await fetchBrands({status: 'active'}) || [];
+  }
+  var html = '<option value="">-- 브랜드 선택 --</option>';
+  for (var i = 0; i < _nbaBrandsCache.length; i++) {
+    var b = _nbaBrandsCache[i];
+    var label = esc(b.name) + (b.brand_no ? ' [' + esc(b.brand_no) + ']' : '');
+    html += '<option value="' + esc(b.id) + '"' + (currentBrandId === b.id ? ' selected' : '') + '>' + label + '</option>';
+  }
+  // 리스트 끝에 신규 등록 옵션 (구분선 후 표시)
+  html += '<option disabled>──────────</option>';
+  html += '<option value="__new__">+ 신규 브랜드 등록</option>';
+  sel.innerHTML = html;
+}
+
+function setNbaBrandMode(mode) {
+  _nbaBrandMode = (mode === 'new') ? 'new' : 'select';
+  var sel = document.getElementById('nbaBrandSelect');
+  var hint = document.getElementById('nbaBrandModeHint');
+  var nameInput = document.getElementById('nbaBrandName');
+  if (_nbaBrandMode === 'new') {
+    // 드롭다운에 「+ 신규 브랜드 등록」 옵션이 선택된 상태로 유지 — 시각적 피드백
+    if (sel) sel.value = '__new__';
+    if (nameInput) { nameInput.value = ''; nameInput.readOnly = false; nameInput.focus(); }
+    if (hint) hint.innerHTML = '<strong style="color:var(--pink)">신규 브랜드 입력</strong> — 브랜드명·회사명·담당자 모두 새로 입력. 저장 시 brands 마스터에 자동 등록됩니다.';
+    // 브랜드 정보 영역 초기화 (회사명·일본어명·사업자번호 + 담당자 4종)
+    ['nbaCompanyName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+  } else {
+    // 기존 brand 모드: 브랜드명은 드롭다운 선택으로만 갱신 (직접 편집 차단 — 마스터 동기화 혼선 방지)
+    if (nameInput) nameInput.readOnly = true;
+    if (hint) hint.textContent = '리스트에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」으로 새 브랜드를 등록하세요.';
+  }
+}
+
+function onNbaBrandChange() {
+  var sel = document.getElementById('nbaBrandSelect');
+  if (!sel) return;
+  var brandId = sel.value || '';
+  // 담당자 드롭다운 항상 초기화
+  var contactSel = document.getElementById('nbaContactSelect');
+  if (contactSel) { contactSel.style.display = 'none'; contactSel.innerHTML = '<option value="">-- 등록된 담당자 빠른 선택 --</option>'; contactSel.value = ''; }
+  // 「+ 신규 브랜드 등록」 옵션 선택 → 신규 모드로 전환
+  if (brandId === '__new__') {
+    setNbaBrandMode('new');
+    return;
+  }
+  if (!brandId) {
+    // 미선택 상태 (-- 브랜드 선택 -- 옵션) → select 모드 + 입력 영역 초기화
+    _nbaBrandMode = 'select';
+    var hintInit = document.getElementById('nbaBrandModeHint');
+    if (hintInit) hintInit.textContent = '리스트에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」으로 새 브랜드를 등록하세요.';
+    return;
+  }
+  _nbaBrandMode = 'select';
+  var picked = (_nbaBrandsCache || []).find(function(b){ return b.id === brandId; });
+  if (!picked) return;
+  // contacts 배열 정리: is_primary=true 우선, 그 외 순서 유지
+  var contacts = Array.isArray(picked.contacts) ? picked.contacts.slice() : [];
+  var primaryContact = contacts.find(function(c){ return c.is_primary; }) || contacts[0] || null;
+  var setVal = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null) ? '' : String(v); };
+  setVal('nbaCompanyName', picked.company_name);
+  setVal('nbaBrandName', picked.name);
+  setVal('nbaBrandNameJa', picked.name_ja);
+  setVal('nbaBusinessNo', picked.business_no);
+  setVal('nbaContactName', primaryContact?.name || picked.primary_contact_name);
+  setVal('nbaPhone', primaryContact?.phone || picked.primary_phone);
+  setVal('nbaEmail', primaryContact?.email || picked.primary_email);
+  setVal('nbaBillingEmail', picked.billing_email);
+  // 담당자가 2명 이상이면 빠른 선택 드롭다운 노출
+  if (contactSel && contacts.length >= 2) {
+    var html = '<option value="">-- 등록된 담당자 빠른 선택 --</option>';
+    for (var i = 0; i < contacts.length; i++) {
+      var c = contacts[i];
+      var label = (c.name || '(이름 없음)') + (c.is_primary ? ' (대표)' : '') + (c.email ? ' · ' + c.email : '');
+      html += '<option value="' + i + '"' + (c === primaryContact ? ' selected' : '') + '>' + esc(label) + '</option>';
+    }
+    contactSel.innerHTML = html;
+    contactSel.style.display = '';
+    // 캐시: 변경 시 인덱스로 재참조하기 위해 dataset에 brandId 저장
+    contactSel.dataset.brandId = brandId;
+  }
+  var hint = document.getElementById('nbaBrandModeHint');
+  if (hint) hint.innerHTML = '<strong>' + esc(picked.brand_no || '') + '</strong> 정보가 채워졌습니다. 수정 시 「브랜드 마스터 갱신」 체크 상태에 따라 brands 테이블에도 동기 반영됩니다.';
+}
+
+function onNbaContactSelectChange() {
+  var contactSel = document.getElementById('nbaContactSelect');
+  if (!contactSel) return;
+  var brandId = contactSel.dataset.brandId || document.getElementById('nbaBrandSelect')?.value || '';
+  var picked = (_nbaBrandsCache || []).find(function(b){ return b.id === brandId; });
+  var idx = parseInt(contactSel.value, 10);
+  if (!picked || isNaN(idx) || !Array.isArray(picked.contacts) || !picked.contacts[idx]) return;
+  var c = picked.contacts[idx];
+  var setVal = function(id, v){ var el = document.getElementById(id); if (el) el.value = (v == null) ? '' : String(v); };
+  setVal('nbaContactName', c.name);
+  setVal('nbaPhone', c.phone);
+  setVal('nbaEmail', c.email);
+}
+
+function addNbaProductRow() {
+  var wrap = document.getElementById('nbaProductRows');
+  if (!wrap) return;
+  var rowIdx = wrap.children.length;
+  var row = document.createElement('div');
+  row.className = 'nba-product-row';
+  row.dataset.idx = rowIdx;
+  row.style.cssText = 'display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
+  row.innerHTML =
+    '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
+    '<input type="text" class="form-input nba-prod-name-ja" placeholder="商品名 (일본어)" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-transfer-fee" placeholder="reviewer 자동 2500" min="0" style="font-size:14px" title="비워두면 reviewer는 ₩2,500 자동, seeding은 NULL">' +
+    '<input type="url" class="form-input nba-prod-url" placeholder="https://..." style="font-size:14px">' +
+    '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
+  wrap.appendChild(row);
+}
+
+function removeNbaProductRow(btn) {
+  var wrap = document.getElementById('nbaProductRows');
+  if (!wrap) return;
+  var row = btn.closest('.nba-product-row');
+  if (!row) return;
+  if (wrap.children.length <= 1) {
+    toast('최소 1개 제품이 필요합니다', 'warn');
+    return;
+  }
+  row.remove();
+}
+
+function _collectNbaProducts() {
+  var rows = document.querySelectorAll('#nbaProductRows .nba-product-row');
+  var products = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var name = (r.querySelector('.nba-prod-name')?.value || '').trim();
+    var nameJa = (r.querySelector('.nba-prod-name-ja')?.value || '').trim();
+    var price = parseInt(r.querySelector('.nba-prod-price')?.value) || 0;
+    var qty = parseInt(r.querySelector('.nba-prod-qty')?.value) || 0;
+    var feeRaw = (r.querySelector('.nba-prod-transfer-fee')?.value || '').trim();
+    var url = (r.querySelector('.nba-prod-url')?.value || '').trim();
+    if (!name && !nameJa && !price && !qty && !feeRaw && !url) continue;  // 빈 행 스킵
+    if (!name) { toast('제품 ' + (i + 1) + ': 이름이 비었습니다', 'error'); return null; }
+    if (qty <= 0) { toast('제품 ' + (i + 1) + ': 수량은 1 이상', 'error'); return null; }
+    // 트리거 trg_brand_app_recalc(052)가 price·qty 키만 읽으므로 sales 폼 패턴과 일치시킴
+    var item = { name: name, price: price, qty: qty, url: url || null };
+    if (nameJa) item.name_ja = nameJa;  // 선택 입력 시에만 저장 (sales 폼 데이터 호환)
+    // transfer_fee_krw: 명시 입력하면 그 값. 비우면 092 트리거가 reviewer는 2500 자동, seeding은 NULL
+    if (feeRaw !== '') {
+      var feeNum = parseInt(feeRaw);
+      if (!isNaN(feeNum) && feeNum >= 0) item.transfer_fee_krw = feeNum;
+    }
+    products.push(item);
+  }
+  return products;
+}
+
+async function submitNewBrandApp() {
+  var formType = document.querySelector('input[name="nbaFormType"]:checked')?.value;
+  if (!formType) { toast('폼 종류를 선택해주세요', 'error'); return; }
+  var rawSel = document.getElementById('nbaBrandSelect')?.value || '';
+  // __new__는 신규 모드 — brandId는 null 전달
+  var brandId = (_nbaBrandMode === 'select' && rawSel && rawSel !== '__new__') ? rawSel : '';
+  // 미선택 + 신규 모드도 아님 → 차단
+  if (_nbaBrandMode === 'select' && !brandId) {
+    toast('드롭다운에서 기존 브랜드를 선택하거나 「+ 신규 브랜드 등록」을 선택하세요', 'error');
+    return;
+  }
+  var companyName = (document.getElementById('nbaCompanyName')?.value || '').trim();
+  var brandName = (document.getElementById('nbaBrandName')?.value || '').trim();
+  var brandNameJa = (document.getElementById('nbaBrandNameJa')?.value || '').trim();
+  var businessNo = (document.getElementById('nbaBusinessNo')?.value || '').trim();
+  var contactName = (document.getElementById('nbaContactName')?.value || '').trim();
+  var phone = (document.getElementById('nbaPhone')?.value || '').trim();
+  var email = (document.getElementById('nbaEmail')?.value || '').trim();
+  var billingEmail = (document.getElementById('nbaBillingEmail')?.value || '').trim();
+  var requestNote = (document.getElementById('nbaRequestNote')?.value || '').trim();
+  var adminMemo = (document.getElementById('nbaAdminMemo')?.value || '').trim();
+  var brandSync = !!document.getElementById('nbaBrandSync')?.checked;
+  if (!brandName) { toast('브랜드명을 입력해주세요', 'error'); return; }
+  // 담당자·연락처·이메일은 선택 항목 — 빈 값 허용. 단 이메일 입력했으면 형식 검증.
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('이메일 형식이 올바르지 않습니다', 'error'); return; }
+  var products = _collectNbaProducts();
+  if (!products) return;
+  if (products.length === 0) { toast('제품을 1개 이상 입력해주세요', 'error'); return; }
+  // 신규 모드면 brandId NULL 전달
+  if (_nbaBrandMode === 'new') brandId = null;
+  var btn = document.getElementById('nbaSubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
+  var result = await adminCreateBrandApplication({
+    formType: formType,
+    brandId: brandId || null,
+    companyName: companyName || null,
+    brandName: brandName,
+    brandNameJa: brandNameJa || null,
+    businessNo: businessNo || null,
+    contactName: contactName,
+    phone: phone,
+    email: email,
+    billingEmail: billingEmail || null,
+    products: products,
+    requestNote: requestNote || null,
+    adminMemo: adminMemo || null,
+    brandSync: brandSync
+  });
+  if (btn) { btn.disabled = false; btn.textContent = '등록'; }
+  if (!result.ok) {
+    toast('등록 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  var no = result.data?.application_no || '';
+  toast('신청이 등록되었습니다 (' + no + ')', 'success');
+  closeNewBrandAppModal();
+  // brand 캐시 무효화 (신규 brand면 리스트에 추가됨)
+  _nbaBrandsCache = null;
+  if (typeof _campBrandsCache !== 'undefined') _campBrandsCache = null;
+  // 페인 리로드
+  if (typeof loadBrandApplications === 'function') {
+    await loadBrandApplications();
+  }
 }
 
 // ─── 내부 메모 (multi-entry) 모달 ────────────────────────────

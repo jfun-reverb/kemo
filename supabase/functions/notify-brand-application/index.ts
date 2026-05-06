@@ -189,14 +189,21 @@ async function buildAdminEmail(row: BrandApplication, adminUrl: string): Promise
   const deepLink = `${adminUrl.replace(/\/$/, "")}/#brand-applications?id=${row.id}`;
   const subject = `[REVERB JP] 신규 광고주 신청 — ${row.brand_name} (${label})`;
 
+  // 제품명 표시: name_ja(있으면) 병기. 한·일 양국 운영진/광고주 모두 가독성.
+  const fmtProdName = (p: any) => {
+    const ko = p.name ?? "-";
+    const ja = p.name_ja ?? "";
+    return ja && ja !== ko ? `${ko} / ${ja}` : ko;
+  };
+
   const productLines = (row.products || [])
-    .map((p, i) => `${i + 1}. ${p.name ?? "-"} · ¥${(p.price ?? 0).toLocaleString("ja-JP")} × ${p.qty ?? 0}`)
+    .map((p, i) => `${i + 1}. ${fmtProdName(p)} · ¥${(p.price ?? 0).toLocaleString("ja-JP")} × ${p.qty ?? 0}`)
     .join("\n");
 
   const productsHtml = (row.products || [])
     .map(
       (p) =>
-        `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(p.name ?? "-")}</td>` +
+        `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escapeHtml(fmtProdName(p))}</td>` +
         `<td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">¥${(p.price ?? 0).toLocaleString("ja-JP")}</td>` +
         `<td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${p.qty ?? 0}</td></tr>`
     )
