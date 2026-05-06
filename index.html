@@ -7118,7 +7118,8 @@ async function renderMyApplyList() {
         items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       if (items.length) {
-        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">${items.join('')}</div>`;
+        // 영수증 제출 / 리뷰 캡쳐 등 종류별 라벨이 둘 이상이면 세로로 쌓이도록 column 배치
+        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${items.join('')}</div>`;
       }
     }
     const cautionLine = a.caution_agreed_at
