@@ -41,10 +41,18 @@
 -- ============================================================
 -- SECTION 1. admin_create_brand_application RPC
 -- ============================================================
+-- 시그니처 변경(파라미터 추가) 시 CREATE OR REPLACE는 에러를 발생시키므로
+-- 기존 함수 명시 DROP. 멱등 안전 (dev/운영 어느 환경에서도).
+DROP FUNCTION IF EXISTS public.admin_create_brand_application(
+  text, uuid, text, text, text, text, text, jsonb, text, boolean
+);
+
 CREATE OR REPLACE FUNCTION public.admin_create_brand_application(
   p_form_type         text,
   p_brand_id          uuid        DEFAULT NULL,
   p_brand_name        text        DEFAULT NULL,
+  p_brand_name_ja     text        DEFAULT NULL,   -- 브랜드명 일본어 (선택)
+  p_business_no       text        DEFAULT NULL,   -- 사업자번호 (선택)
   p_contact_name      text        DEFAULT NULL,
   p_phone             text        DEFAULT NULL,
   p_email             text        DEFAULT NULL,
@@ -117,13 +125,15 @@ BEGIN
         USING ERRCODE = '02000';
     END IF;
 
-    -- 3-A-i. brand 마스터 동기 갱신 (p_brand_sync=true, 연락처가 입력된 경우)
-    --   primary_* 컬럼 + contacts[is_primary=true] 동시 갱신
+    -- 3-A-i. brand 마스터 동기 갱신 (p_brand_sync=true, 연락처/브랜드명_ja/사업자번호 변경 시)
+    --   primary_* 컬럼 + contacts[is_primary=true] + name_ja + business_no 동시 갱신
     --   p_brand_name은 기존 brand 이름 변경에 사용하지 않음 (brand 페인에서 직접 수정)
     IF p_brand_sync AND (
          COALESCE(btrim(p_contact_name), '') <> ''
       OR COALESCE(btrim(p_phone), '')        <> ''
       OR COALESCE(btrim(p_email), '')        <> ''
+      OR COALESCE(btrim(p_brand_name_ja), '') <> ''
+      OR COALESCE(btrim(p_business_no), '')   <> ''
     ) THEN
       -- 기존 contacts 중 is_primary=true 항목 확인
       SELECT elem INTO v_existing_primary
@@ -141,6 +151,8 @@ BEGIN
           primary_phone        = COALESCE(NULLIF(btrim(p_phone), ''),        primary_phone),
           primary_email        = COALESCE(NULLIF(btrim(p_email), ''),        primary_email),
           billing_email        = COALESCE(NULLIF(btrim(p_billing_email), ''), billing_email),
+          name_ja              = COALESCE(NULLIF(btrim(p_brand_name_ja), ''), name_ja),
+          business_no          = COALESCE(NULLIF(btrim(p_business_no), ''),   business_no),
           contacts = (
             SELECT jsonb_agg(
               CASE
@@ -168,6 +180,8 @@ BEGIN
           primary_phone        = COALESCE(NULLIF(btrim(p_phone), ''),        primary_phone),
           primary_email        = COALESCE(NULLIF(btrim(p_email), ''),        primary_email),
           billing_email        = COALESCE(NULLIF(btrim(p_billing_email), ''), billing_email),
+          name_ja              = COALESCE(NULLIF(btrim(p_brand_name_ja), ''), name_ja),
+          business_no          = COALESCE(NULLIF(btrim(p_business_no), ''),   business_no),
           contacts = contacts || jsonb_build_array(
             jsonb_build_object(
               'id',         gen_random_uuid()::text,
@@ -203,6 +217,8 @@ BEGIN
       -- trg_brand_seq (090): brand_seq 자동 채번
       INSERT INTO public.brands (
         name,
+        name_ja,
+        business_no,
         primary_contact_name,
         primary_phone,
         primary_email,
@@ -213,6 +229,8 @@ BEGIN
       )
       VALUES (
         p_brand_name,
+        NULLIF(btrim(COALESCE(p_brand_name_ja, '')), ''),
+        NULLIF(btrim(COALESCE(p_business_no, '')), ''),
         NULLIF(btrim(COALESCE(p_contact_name, '')), ''),
         NULLIF(btrim(COALESCE(p_phone, '')), ''),
         NULLIF(btrim(COALESCE(p_email, '')), ''),

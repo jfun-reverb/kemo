@@ -28,10 +28,17 @@
 
 -- STEP 1. RPC 제거
 --   파라미터 시그니처를 정확히 지정하여 오버로딩된 함수만 제거
+-- 시그니처 v1 (10 파라미터, 091 최초 버전)
+DROP FUNCTION IF EXISTS public.admin_create_brand_application(
+  text, uuid, text, text, text, text, text, jsonb, text, boolean
+);
+-- 시그니처 v2 (12 파라미터, name_ja + business_no 추가)
 DROP FUNCTION IF EXISTS public.admin_create_brand_application(
   text,    -- p_form_type
   uuid,    -- p_brand_id
   text,    -- p_brand_name
+  text,    -- p_brand_name_ja
+  text,    -- p_business_no
   text,    -- p_contact_name
   text,    -- p_phone
   text,    -- p_email
