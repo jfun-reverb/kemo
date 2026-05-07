@@ -8567,7 +8567,7 @@ function addNbaProductRow() {
     '<input type="text" class="form-input nba-prod-name-ja" placeholder="상품명 (일본어)" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
-    '<input type="number" class="form-input nba-prod-transfer-fee" placeholder="reviewer 자동 2500" min="0" style="font-size:14px" title="비워두면 reviewer는 ₩2,500 자동, seeding은 NULL">' +
+    '<input type="number" class="form-input nba-prod-transfer-fee" placeholder="리뷰어 자동 2500 / 시딩 자동 0" min="0" style="font-size:14px" title="비워두면 리뷰어는 ₩2,500, 시딩은 ₩0 자동 등록 (098 트리거)">' +
     '<input type="url" class="form-input nba-prod-url" placeholder="https://..." style="font-size:14px">' +
     '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
   wrap.appendChild(row);
@@ -8602,7 +8602,7 @@ function _collectNbaProducts() {
     // 트리거 trg_brand_app_recalc(052)가 price·qty 키만 읽으므로 sales 폼 패턴과 일치시킴
     var item = { name: name, price: price, qty: qty, url: url || null };
     if (nameJa) item.name_ja = nameJa;  // 선택 입력 시에만 저장 (sales 폼 데이터 호환)
-    // transfer_fee_krw: 명시 입력하면 그 값. 비우면 092 트리거가 reviewer는 2500 자동, seeding은 NULL
+    // transfer_fee_krw: 명시 입력하면 그 값. 비우면 098 트리거가 reviewer는 2500, seeding은 0 자동 채움
     if (feeRaw !== '') {
       var feeNum = parseInt(feeRaw);
       if (!isNaN(feeNum) && feeNum >= 0) item.transfer_fee_krw = feeNum;
