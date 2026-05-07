@@ -87,11 +87,13 @@ async function loadCampaignsPage() {
   campPageStatusFilter = 'all';
   campPageSearch = '';
   const searchEl = $('campPageSearch'); if (searchEl) searchEl.value = '';
-  // 검색 폼 초기 상태: 닫힘 (아이콘만 노출)
+  // 검색 폼 초기 상태: 닫힘 (제목 + 아이콘 노출)
   const searchWrap = $('campPageSearchWrap');
   const searchToggleBtn = $('campPageSearchToggle');
+  const searchTitle = $('campPageTitle');
   if (searchWrap) searchWrap.style.display = 'none';
   if (searchToggleBtn) searchToggleBtn.style.display = 'inline-flex';
+  if (searchTitle) searchTitle.style.display = '';
   ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
@@ -128,16 +130,20 @@ function onCampPageSearchInput(value) {
   renderCampaignGrid();
 }
 
-// 검색 폼 토글 — 제목 우측 검색 아이콘 클릭 시 입력폼 열림/닫힘
+// 검색 폼 토글 — 제목 행 자리에서 제목+🔍 ↔ 검색 input+✕ 모드 전환
 //   force=undefined: 토글, force=true/false: 명시적 열림/닫힘
+//   열림 모드: 제목/검색 아이콘 숨김, 검색 input + 닫기(✕) 노출
+//   닫힘 모드: 검색 input/닫기 숨김, 제목 + 검색 아이콘 노출 (검색어 초기화)
 function toggleCampPageSearch(force) {
   const wrap = $('campPageSearchWrap');
   const toggleBtn = $('campPageSearchToggle');
+  const titleEl = $('campPageTitle');
   if (!wrap) return;
   const isOpen = wrap.style.display !== 'none' && wrap.style.display !== '';
   const next = (typeof force === 'boolean') ? force : !isOpen;
   wrap.style.display = next ? 'flex' : 'none';
   if (toggleBtn) toggleBtn.style.display = next ? 'none' : 'inline-flex';
+  if (titleEl) titleEl.style.display = next ? 'none' : '';
   if (next) {
     const input = $('campPageSearch');
     if (input) setTimeout(() => input.focus(), 50);  // transition 후 포커스
