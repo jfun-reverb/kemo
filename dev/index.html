@@ -235,6 +235,10 @@ window._supabaseLoaded = false;
       <!-- 채널 필터 -->
       <div class="filter-row" id="filterRow" style="margin-bottom:14px"></div>
       <div class="camp-grid" id="campGrid"></div>
+      <!-- 더보기 — 홈 화면은 최대 10건, 초과분은 캠페인 페이지로 이동 -->
+      <div id="campMoreBtnWrap" style="display:none;text-align:center;margin-top:16px">
+        <button onclick="navigate('campaigns')" class="btn btn-ghost btn-block" style="font-size:13px;font-weight:600" data-i18n="campaign.moreBtn">もっと見る</button>
+      </div>
     </div>
   </section>
 
@@ -309,6 +313,17 @@ window._supabaseLoaded = false;
         <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeMonitor">レビュアー</button>
         <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeGifting">ギフティング</button>
         <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeVisit">訪問</button>
+      </div>
+      <!-- 캠페인 상태 칩 -->
+      <div class="filter-row" style="padding:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap">
+        <button id="campPageStatus-all" class="chip on" onclick="setCampPageStatus('all',this)" data-i18n="campaigns.statusAll">すべて</button>
+        <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
+        <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
+        <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
+      </div>
+      <!-- 검색 -->
+      <div style="padding:6px 0 12px">
+        <input type="search" id="campPageSearch" oninput="onCampPageSearchInput(this.value)" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
       </div>
     </div>
   </div>

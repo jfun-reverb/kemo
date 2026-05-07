@@ -76,69 +76,49 @@ async function openCampaign(id) {
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(camp.brand)}</div>
           ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
           <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
-          ${camp.product_price>0?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${t('detail.rewardProduct')}</span></div>`:''}
+          ${camp.product_price>0?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--light-pink);border-radius:8px;padding:6px 12px;margin-bottom:4px"><span style="font-size:17px;font-weight:900;color:var(--pink)">¥${camp.product_price.toLocaleString()}</span><span style="font-size:12px;color:var(--dark-pink);font-weight:600">${camp.recruit_type === 'monitor' ? t('detail.rewardPayback') : t('detail.rewardProduct')}</span></div>`:''}
           ${camp.reward>0?`<div style="font-size:12px;color:var(--green);font-weight:600;margin-top:4px">${t('detail.rewardCash').replace('{amount}',camp.reward.toLocaleString())}</div>`:''}
         </div>
-        <div style="font-size:13px">
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.productName')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${esc(camp.product)||'—'}</div>
-          </div>
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.recruitType')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">
-              ${(()=>{const t=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)','レビュアー'],gifting:['var(--gold-l)','var(--gold)','ギフティング'],visit:['#E8F7EF','#0E7E4A','訪問']};const m=map[t];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${m[2]}</span>`:'—'})()}
-            </div>
-          </div>
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.channel')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-              ${(()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join(`<span style="color:var(--muted);font-size:11px;font-weight:600">${sep}</span>`);})()}
-            </div>
-          </div>
-          ${camp.content_types?`
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.contentType')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px;display:flex;gap:4px;flex-wrap:wrap">
-              ${camp.content_types.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}
-            </div>
-          </div>`:''}
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.recruitPeriod')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div>
-          </div>
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.recruitSlots')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${camp.slots}${t('detail.peopleUnit')}</div>
-          </div>
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.winnerAnnounce')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div>
-          </div>
-          ${(camp.recruit_type==='monitor' && (camp.purchase_start||camp.purchase_end))?`
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.purchasePeriod')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div>
-          </div>`:''}
-          ${(camp.recruit_type==='visit' && (camp.visit_start||camp.visit_end))?`
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.visitPeriod')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div>
-          </div>`:''}
-          ${camp.submission_end?`
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.submissionEnd')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px;font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div>
-          </div>`:''}
-          ${(camp.product_price>0||camp.reward>0||camp.reward_note)?`
-          <div style="display:flex;border-top:1px solid #faf5f9">
-            <div style="width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0">${t('detail.reward')}</div>
-            <div style="padding:10px 13px;flex:1;font-size:12px;color:var(--pink);font-weight:600">
-              ${(camp.product_price>0||camp.reward>0)?`${camp.product_price>0?t('detail.rewardProductAmount').replace('{price}',camp.product_price.toLocaleString()):t('detail.rewardProductFree')}${camp.reward>0?` + ${t('detail.rewardCashAmount').replace('{amount}',camp.reward.toLocaleString())}`:''}`:''}
-              ${camp.reward_note?`<div style="margin-top:${(camp.product_price>0||camp.reward>0)?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>`:''}
-            </div>
-          </div>`:''}
-        </div>
+        ${(()=>{
+          // 캠페인 상세 표 — 시간 흐름 순으로 행 배치
+          // 순서: 상품명 → 모집타입 → 채널 → 콘텐츠 → 모집기간 → 구매/방문기간 → 결과물 제출 마감 → 모집인원
+          //       → (monitor 외) 당선 발표 → (monitor 외) 리워드
+          const isMonitor = camp.recruit_type === 'monitor';
+          const KEY = 'width:90px;padding:10px 14px;color:var(--dark-pink);font-weight:600;font-size:11px;background:#fdf5fb;flex-shrink:0';
+          const VAL = 'padding:10px 13px;flex:1;font-size:12px';
+          const ROW = 'display:flex;border-top:1px solid #faf5f9';
+          const rows = [];
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.productName')}</div><div style="${VAL}">${esc(camp.product)||'—'}</div></div>`);
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const t=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)','レビュアー'],gifting:['var(--gold-l)','var(--gold)','ギフティング'],visit:['#E8F7EF','#0E7E4A','訪問']};const m=map[t];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${m[2]}</span>`:'—'})()}</div></div>`);
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.channel')}</div><div style="${VAL};display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join(`<span style="color:var(--muted);font-size:11px;font-weight:600">${sep}</span>`);})()}</div></div>`);
+          if (camp.content_types) {
+            const ctList = camp.content_types.split(',').map(c => c.trim()).filter(Boolean);
+            if (ctList.length) {
+              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.contentType')}</div><div style="${VAL};display:flex;gap:4px;flex-wrap:wrap">${ctList.map(c=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px">${esc(getLookupLabel('content_type', c))}</span>`).join('')}</div></div>`);
+            }
+          }
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitPeriod')}</div><div style="${VAL}">${formatDate(camp.recruit_start || new Date())} 〜 ${formatDate(camp.deadline)}</div></div>`);
+          if (isMonitor && (camp.purchase_start || camp.purchase_end)) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.purchasePeriod')}</div><div style="${VAL}">${camp.purchase_start?formatDate(camp.purchase_start):'—'} 〜 ${camp.purchase_end?formatDate(camp.purchase_end):'—'}</div></div>`);
+          }
+          if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.visitPeriod')}</div><div style="${VAL}">${camp.visit_start?formatDate(camp.visit_start):'—'} 〜 ${camp.visit_end?formatDate(camp.visit_end):'—'}</div></div>`);
+          }
+          if (camp.submission_end) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.submissionEnd')}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
+          }
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
+          // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
+          if (!isMonitor) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.winnerAnnounce')}</div><div style="${VAL}">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div></div>`);
+            if (camp.product_price>0 || camp.reward>0 || camp.reward_note) {
+              const rewardLine = (camp.product_price>0 || camp.reward>0) ? `${camp.product_price>0?t('detail.rewardProductAmount').replace('{price}',camp.product_price.toLocaleString()):t('detail.rewardProductFree')}${camp.reward>0?` + ${t('detail.rewardCashAmount').replace('{amount}',camp.reward.toLocaleString())}`:''}` : '';
+              const noteLine = camp.reward_note ? `<div style="margin-top:${rewardLine?'6px':'0'};font-size:11px;color:var(--muted);font-weight:400;line-height:1.6;white-space:pre-wrap">${esc(camp.reward_note)}</div>` : '';
+              rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.reward')}</div><div style="${VAL};color:var(--pink);font-weight:600">${rewardLine}${noteLine}</div></div>`);
+            }
+          }
+          return `<div style="font-size:13px">${rows.join('')}</div>`;
+        })()}
       </div>
 
       ${(() => {
@@ -181,7 +161,7 @@ async function openCampaign(id) {
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">${t('detail.postGuideline')}</div>
-        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.brandAppeal')}</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:10px 12px;border-radius:8px">${richHtml(camp.appeal)}</div></div>` : ''}
+        ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.brandAppeal')}</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff5ff;padding:10px 12px;border-radius:8px;border:1px solid #f0d8e8">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredHashtag')}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.hashtags.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
         ${camp.mentions ? `<div><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredMention')}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.mentions.split(',').map(t=>`<span style="background:#f0f0ff;color:#4040cc;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
       </div>` : ''}
@@ -189,7 +169,7 @@ async function openCampaign(id) {
       ${camp.guide ? `
       <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.shootingGuide')}</div>
-        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:var(--bg);padding:12px;border-radius:8px">${richHtml(camp.guide)}</div>
+        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${camp.ng ? `
@@ -343,6 +323,14 @@ function renderApplyCaution(camp) {
 
 async function submitApplication() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
+  // 배송지 이름 누락 차단 — 한자명·가나명 둘 다 필수.
+  // 관리자 화면에서 신청자 이름이 「-」로 표시되던 케이스 방지 (마이페이지에서 등록 후 재시도)
+  const nameKanji = (currentUserProfile?.name_kanji || currentUserProfile?.name || '').trim();
+  const nameKana = (currentUserProfile?.name_kana || '').trim();
+  if (!nameKanji || nameKanji === '-' || !nameKana || nameKana === '-') {
+    toast(t('apply.needName'),'error');
+    return;
+  }
   const msg = $('applyMessage').value.trim();
   const addr = $('applyAddress').value.trim();
   const prCheck = $('applyPrCheck').checked;

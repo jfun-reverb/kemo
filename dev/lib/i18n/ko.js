@@ -61,6 +61,11 @@ window.I18N_KO = {
     typeMonitor: 'Reviewer',
     typeGifting: '기프팅',
     typeVisit: '방문형',
+    statusAll: '전체',
+    statusActive: '모집중',
+    statusScheduled: '모집예정',
+    statusClosed: '모집완료',
+    searchPlaceholder: '캠페인명·브랜드 검색',
   },
 
   status: {
@@ -228,6 +233,7 @@ window.I18N_KO = {
     appliedBtn: '응모 완료',
     manageBtn: '활동 관리',
     rewardProduct: '원 상당 제품 무상 제공',
+    rewardPayback: '원 페이백',
     rewardCash: '+ 현금 리워드 ¥{amount}',
     rewardFree: '제품 전액 무상 제공',
     rewardProductAmount: '제품 ¥{price}원 상당',
@@ -289,6 +295,7 @@ window.I18N_KO = {
     prAgreeFull: '게시 시 <strong>#PR</strong> 또는 <strong>#広告</strong> 태그를 반드시 표기합니다 (스텔스 마케팅 규제 준수)',
     submitNow: '지금 응모하기 →',
     needLogin: '로그인이 필요합니다',
+    needName: '배송을 위해 이름(한자·가나) 등록이 필요합니다. 마이페이지 기본 정보를 먼저 입력한 뒤 다시 응모해주세요.',
     needReason: '응모 사유를 입력해주세요',
     needAddress: '배송지 주소를 입력해주세요',
     needPrAgree: '#PR 태그 표기에 동의가 필요합니다',
@@ -382,6 +389,7 @@ window.I18N_KO = {
     rewardFreeStrong: '<strong>제품 무상 제공</strong>',
     rewardFreeSimple: '<strong>무상 제공</strong>',
     channelAll: '전체',
+    moreBtn: '더 보기',
   },
 
   profile: {

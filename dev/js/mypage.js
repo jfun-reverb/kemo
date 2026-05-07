@@ -88,7 +88,8 @@ async function loadMyApplications() {
     const {data} = await db.from('applications').select('*').eq('user_id', currentUser.id).order('created_at', {ascending:false});
     _myApps = data || [];
   }
-  if (!allCampaigns || !allCampaigns.length) allCampaigns = await fetchCampaigns();
+  // 캠페인 데이터도 진입 시마다 새로고침 — 응모이력 행에 노출되는 캠페인 상태/제목 stale 방지
+  allCampaigns = await fetchCampaigns();
   renderMyApplyTabs();
   renderMyApplyList();
 }

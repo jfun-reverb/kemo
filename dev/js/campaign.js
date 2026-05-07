@@ -38,6 +38,25 @@ function visibleCamps(camps) {
   });
 }
 
+// 인플루언서 노출 캠페인의 정렬: 모집중(active) > 모집예정(scheduled) > 모집완료(closed)
+// 같은 상태 안에서는 모집기간 시작~종료일 최신순.
+//   1차: recruit_start (모집 시작일) 최신순 — "가장 최근에 시작한 캠페인"이 위로
+//   2차: deadline (모집 종료일) 최신순 — recruit_start가 없을 때 fallback
+//   3차: created_at 최신순 — 둘 다 없을 때 fallback
+function sortByStatusAndDeadline(camps) {
+  const order = {active: 0, scheduled: 1, closed: 2};
+  const ts = (c) => new Date(c.recruit_start || c.deadline || c.created_at || 0).getTime();
+  return camps.slice().sort((a, b) => {
+    const sa = order[a.status] ?? 99;
+    const sb = order[b.status] ?? 99;
+    if (sa !== sb) return sa - sb;
+    return ts(b) - ts(a);  // 최신순(내림차순)
+  });
+}
+
+// 홈 화면에 노출할 카드 수 — 초과분은 「더보기」 버튼으로 캠페인 페이지로 이동
+const HOME_CAMP_LIMIT = 10;
+
 function updateStats(camps) {
   const visible = visibleCamps(camps);
   $('statCampaigns').textContent = visible.length;
@@ -56,9 +75,18 @@ function buildChannelFilters(camps) {
     channels.map(ch => `<button class="chip" onclick="filterCamps('${ch}',this)">${esc(getChannelLabel(ch))}</button>`).join('');
 }
 
+// 캠페인 페이지 — 모집 유형 + 상태 + 검색 필터
+let campPageStatusFilter = 'all';   // all | active | scheduled | closed
+let campPageSearch = '';
+
 async function loadCampaignsPage() {
-  if (!allCampaigns || allCampaigns.length === 0) await loadCampaigns();
+  // 진입할 때마다 캠페인 데이터 새로고침 — 캐시(allCampaigns)에 의존하지 않음.
+  // 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
+  await loadCampaigns();
   campPageTypeFilter = 'all';
+  campPageStatusFilter = 'all';
+  campPageSearch = '';
+  const searchEl = $('campPageSearch'); if (searchEl) searchEl.value = '';
   ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
@@ -66,6 +94,9 @@ async function loadCampaignsPage() {
     btn.style.borderBottomColor = t==='all'?'var(--pink)':'transparent';
     btn.style.fontWeight = t==='all'?'700':'600';
   });
+  // 상태 필터 칩 초기화
+  document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
+  const allChip = $('campPageStatus-all'); if (allChip) allChip.classList.add('on');
   renderCampaignGrid();
 }
 
@@ -78,15 +109,33 @@ function setCampPageType(type, el) {
   renderCampaignGrid();
 }
 
+// 상태 칩 (전체 / 모집중 / 모집예정 / 모집완료)
+function setCampPageStatus(status, el) {
+  campPageStatusFilter = status;
+  document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
+  if (el) el.classList.add('on');
+  renderCampaignGrid();
+}
+
+// 검색 입력
+function onCampPageSearchInput(value) {
+  campPageSearch = (value || '').trim().toLowerCase();
+  renderCampaignGrid();
+}
+
 function renderCampaignGrid() {
   const grid = $('campListGrid');
   if (!grid) return;
   let camps = visibleCamps(allCampaigns);
   if (campPageTypeFilter !== 'all') camps = camps.filter(c => c.recruit_type === campPageTypeFilter);
-  camps = camps.sort((a,b) => {
-    if (a.order_index != null && b.order_index != null) return a.order_index - b.order_index;
-    return new Date(b.created_at) - new Date(a.created_at);
-  });
+  if (campPageStatusFilter !== 'all') camps = camps.filter(c => c.status === campPageStatusFilter);
+  if (campPageSearch) {
+    camps = camps.filter(c => {
+      const haystack = ((c.title||'') + ' ' + (c.brand||'') + ' ' + (c.brand_ko||'') + ' ' + (c.product||'') + ' ' + (c.product_ko||'') + ' ' + (c.campaign_no||'')).toLowerCase();
+      return haystack.includes(campPageSearch);
+    });
+  }
+  camps = sortByStatusAndDeadline(camps);
   if (!camps.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
     return;
@@ -109,15 +158,13 @@ function filterCamps(filter, el) {
 
 function applyHomeFilter() {
   let camps = visibleCamps(allCampaigns);
-  camps = camps.sort((a,b) => {
-    if (a.order_index != null && b.order_index != null) return a.order_index - b.order_index;
-    return new Date(b.created_at) - new Date(a.created_at);
-  });
   if (currentTypeFilter !== 'all') camps = camps.filter(c=>c.recruit_type===currentTypeFilter);
   if (currentFilter !== 'all') camps = camps.filter(c=>{
     const chs = (c.channel||'').split(',').map(s=>s.trim());
     return chs.includes(currentFilter) || c.category===currentFilter;
   });
+  // 정렬: 모집중 > 모집예정 > 모집완료, 같은 상태 안에서는 모집기간 종료일 최신순
+  camps = sortByStatusAndDeadline(camps);
   renderCampaigns(camps);
 }
 
@@ -184,13 +231,17 @@ function buildCampCards(camps) {
 function renderCampaigns(camps) {
   const grid = $('campGrid');
   if (!grid) return;
-  const visible = visibleCamps(camps).sort((a,b)=>{
-    if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
-    return new Date(b.created_at)-new Date(a.created_at);
-  });
+  // 호출처에서 이미 visibleCamps + sortByStatusAndDeadline 한 결과를 넘기지만,
+  // applyHomeFilter 외 경로(예: 초기 home 진입)에서도 안전하도록 한 번 더 정렬한다
+  const visible = sortByStatusAndDeadline(visibleCamps(camps));
+  const moreBtnWrap = $('campMoreBtnWrap');
   if (!visible.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${t('campaign.emptyState')}</div><div class="empty-sub">${t('campaign.emptyStateSub')}</div></div>`;
+    if (moreBtnWrap) moreBtnWrap.style.display = 'none';
     return;
   }
-  grid.innerHTML = buildCampCards(visible);
+  // 홈 화면은 최대 HOME_CAMP_LIMIT(10건)만 노출 — 초과분은 「더보기」 버튼으로 캠페인 페이지 이동
+  const sliced = visible.slice(0, HOME_CAMP_LIMIT);
+  grid.innerHTML = buildCampCards(sliced);
+  if (moreBtnWrap) moreBtnWrap.style.display = visible.length > HOME_CAMP_LIMIT ? '' : 'none';
 }
