@@ -7436,11 +7436,18 @@ function resolveConfirmModal(ok) {
   if (_confirmResolver) { _confirmResolver(!!ok); _confirmResolver = null; }
 }
 
-// 모집 종료일 입력 시 결과물 제출 마감일을 +14일로 자동 제안 (확인 모달)
-async function suggestSubmissionEnd(prefix) {
-  const dl = $(prefix+'Deadline')?.value;
-  if (!dl) return;
-  const target = new Date(dl);
+// 결과물 제출 마감일을 +14일로 자동 제안 (확인 모달)
+//   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
+//   - monitor: 구매 기간 종료일 + 14일
+//   - visit:   방문 기간 종료일 + 14일
+//   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 14일
+async function suggestSubmissionEnd(prefix, baseKind) {
+  const baseSuffix = baseKind === 'purchase' ? 'PurchaseEnd'
+    : baseKind === 'visit' ? 'VisitEnd'
+    : 'Deadline';
+  const baseDate = $(prefix + baseSuffix)?.value;
+  if (!baseDate) return;
+  const target = new Date(baseDate);
   target.setDate(target.getDate() + 14);
   const yyyy = target.getFullYear();
   const mm = String(target.getMonth() + 1).padStart(2, '0');
@@ -7448,7 +7455,8 @@ async function suggestSubmissionEnd(prefix) {
   const suggested = `${yyyy}-${mm}-${dd}`;
   const seEl = $(prefix+'SubmissionEnd');
   if (!seEl || seEl.value === suggested) return;
-  const ok = await showConfirm(`결과물 제출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(모집 종료일 + 2주)`);
+  const baseLabel = {purchase: '구매 기간 종료', visit: '방문 기간 종료', recruit: '모집 종료'}[baseKind] || '기준일';
+  const ok = await showConfirm(`결과물 제출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(${baseLabel} + 2주)`);
   if (ok) {
     seEl.value = suggested;
     syncCampDateMinMax(prefix);
@@ -7685,7 +7693,14 @@ function _commitFpRangeToHiddenInputs(fp) {
   if (endEl)   endEl.value   = _fpFormatYmd(end);
   if (kind === 'recruit') {
     updateRecruitPastWarn(fp, start);
-    if (end) suggestSubmissionEnd(prefix);
+    // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +14일 fallback 제안
+    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'newRecruitType';
+    const currentRt = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
+    if (currentRt === 'gifting' && end) suggestSubmissionEnd(prefix, 'recruit');
+  }
+  // monitor=구매 종료, visit=방문 종료 기준 +14일 제안
+  if ((kind === 'purchase' || kind === 'visit') && end) {
+    suggestSubmissionEnd(prefix, kind);
   }
   syncCampDateMinMax(prefix);
   validateCampDateRangesInline(prefix);
