@@ -564,16 +564,17 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
     if (selected.length === itemCbs.length) {
-      // 모두 체크 = 전체
+      // 모두 체크 = 전체 (필터 없음)
       allCb.checked = true;
       allCb.indeterminate = false;
       btn.textContent = allLabel;
       btn.classList.remove('has-selection');
     } else if (selected.length === 0) {
-      // 모두 해제 — 자동 전체 복귀(시각적으로 모두 체크) — 필터 없음과 동일하게 취급
-      allCb.checked = true;
+      // 모두 해제 — 사용자가 「전체」 체크박스를 눌러 전체 해제한 표준 동작.
+      // 자동 복귀하지 않고 「선택 없음」 상태 유지. 데이터상으로는 「전체」와 같은
+      // 빈 배열을 반환하지만(필터 없음 = 전체 표시), 사용자가 다시 체크하면 정상 동작.
+      allCb.checked = false;
       allCb.indeterminate = false;
-      itemCbs.forEach(c => c.checked = true);
       btn.textContent = allLabel;
       btn.classList.remove('has-selection');
     } else {
