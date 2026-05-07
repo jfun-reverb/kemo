@@ -517,7 +517,8 @@ function syncMultiFilter(containerId, allLabel, options, onChange) {
   if (!wrap) return;
   const drop = wrap.querySelector('.mf-drop');
   if (!drop) return;
-  const newKey = options.map(o => o.value).join('|');
+  // 옵션 키에 count·subLabel 포함 — 카운트 변경 시 재생성되어 (NN) 라벨 즉시 반영
+  const newKey = options.map(o => `${o.value}:${o.count ?? ''}:${o.subLabel || ''}`).join('|');
   if (wrap.dataset.optKey === newKey && drop.children.length > 0) return;
   const prev = getMultiFilterValues(containerId);
   createMultiFilter(containerId, allLabel, options, onChange);
@@ -534,11 +535,14 @@ function syncMultiFilter(containerId, allLabel, options, onChange) {
   }
 }
 
-// 캠페인 전용 래퍼 (label 포맷 `[CAMP-XXX] 제목`)
-function syncCampMultiFilter(containerId, sortedCamps, onChange) {
+// 캠페인 전용 래퍼 — 라벨은 캠페인 제목, 캠페인 번호(B0019-C001 형식)는 subLabel로 분리
+//   counts: {[campaignId]: number} 형태로 옵션별 건수를 받아 옆에 (00)으로 표시
+function syncCampMultiFilter(containerId, sortedCamps, onChange, counts) {
   const options = sortedCamps.map(c => ({
     value: c.id,
-    label: (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)')
+    label: c.title || '(제목 없음)',
+    subLabel: c.campaign_no || '',
+    count: counts ? (counts[c.id] || 0) : null
   }));
   syncMultiFilter(containerId, '전체 캠페인', options, onChange);
 }
@@ -546,15 +550,25 @@ function syncCampMultiFilter(containerId, sortedCamps, onChange) {
 // ── 다중 선택 드롭다운 필터 ──
 // "전체" = 모든 항목 체크 표시 (시각). 일부 해제 시 "전체"는 indeterminate.
 // 데이터 모델: 전체(모두 체크) → 빈 배열 반환(=필터 없음). 일부만 체크 → 그 배열 반환.
+//
+// options = [{value, label, subLabel?, count?}]
+//   - subLabel(있으면): 라벨 아래 회색 작은 글씨 (예: 캠페인 번호 B0019-C001)
+//   - count(0 이상의 정수면 표시, null/undefined면 미표시): 라벨 옆 (NN) 건수
 function createMultiFilter(containerId, allLabel, options, onChange) {
   const wrap = $(containerId);
   if (!wrap) return;
   const btn = wrap.querySelector('.mf-btn');
   const drop = wrap.querySelector('.mf-drop');
   if (!btn || !drop) return;
+  // 옵션 행 렌더 — subLabel·count 지원
+  const renderOptionItem = (o) => {
+    const countHtml = (o.count != null) ? ` <span class="mf-item-count">(${o.count})</span>` : '';
+    const subHtml = o.subLabel ? `<div class="mf-item-sub">${esc(o.subLabel)}</div>` : '';
+    return `<label class="mf-item${o.subLabel ? ' has-sub' : ''}"><input type="checkbox" value="${esc(o.value)}" checked data-label="${esc(o.label)}"><div class="mf-item-text"><div class="mf-item-label">${esc(o.label)}${countHtml}</div>${subHtml}</div></label>`;
+  };
   // 드롭다운 아이템 생성 — 초기 상태: 전체 체크 = 모든 항목 체크
-  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked> ${esc(allLabel)}</label>`
-    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}" checked> ${esc(o.label)}</label>`).join('');
+  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
+    + options.map(renderOptionItem).join('');
   btn.textContent = allLabel;
   // 토글
   btn.onclick = (e) => { e.stopPropagation(); drop.classList.toggle('open'); };
@@ -581,7 +595,8 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
       // 일부 — 전체는 indeterminate
       allCb.checked = false;
       allCb.indeterminate = true;
-      btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
+      // input에 data-label 보관(subLabel/count 영향 없음)
+      btn.textContent = selected.map(c => c.dataset.label || c.parentElement.textContent.trim()).join(', ');
       btn.classList.add('has-selection');
     }
     onChange(getMultiFilterValues(containerId));
@@ -5659,8 +5674,6 @@ async function renderDeliverablesList() {
   const campStale = delivCampValsRaw.filter(v => !campOptionsSource.some(c => c.id === v));
   if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 모집 타입 필터에 맞지 않아 해제되었습니다`, 'info');
 
-  syncCampMultiFilter('delivCampMulti', campOptionsSource, () => renderDeliverablesList());
-
   const receiptStatusVals = getMultiFilterValues('delivReceiptStatusMulti');
   const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
   const delivCampVals = getMultiFilterValues('delivCampMulti');
@@ -5716,6 +5729,46 @@ async function renderDeliverablesList() {
       upsertGroup(app.id, campMap.get(app.campaign_id) || null, infMissingMap[app.user_id] || null);
     }
   }
+
+  // 옵션별 카운트 — 사용자가 「리스트에 해당하는 건수」를 미리 보고 선택할 수 있도록
+  // 다른 필터는 무시하고 「전체 데이터에서 그 옵션 만족하는 group 수」 기준
+  const allGroups = Array.from(groups.values());
+  const campCounts = {};
+  const recruitTypeCounts = {};
+  const receiptStatusCounts = {pending:0, approved:0, rejected:0, none:0};
+  const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0};
+  for (const g of allGroups) {
+    const cid = g.campaign?.id;
+    if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
+    const rt = g.campaign?.recruit_type;
+    if (rt) recruitTypeCounts[rt] = (recruitTypeCounts[rt] || 0) + 1;
+    const rs = g.receipt ? g.receipt.status : 'none';
+    if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
+    const xs = g.result ? g.result.status : 'none';
+    if (xs in resultStatusCounts) resultStatusCounts[xs]++;
+  }
+
+  // 캠페인 드롭다운 sync — 카운트 + subLabel(캠페인 번호) 포함
+  syncCampMultiFilter('delivCampMulti', campOptionsSource, () => renderDeliverablesList(), campCounts);
+  // 모집 타입 드롭다운 — 옵션 자체는 고정이지만 카운트 갱신
+  syncMultiFilter('delivRecruitTypeMulti', '전체 타입', [
+    {value:'monitor', label:'리뷰어',  count: recruitTypeCounts.monitor || 0},
+    {value:'gifting', label:'기프팅',  count: recruitTypeCounts.gifting || 0},
+    {value:'visit',   label:'방문형',  count: recruitTypeCounts.visit || 0},
+  ], () => renderDeliverablesList());
+  // 영수증·결과물 상태 드롭다운 — 카운트 갱신
+  syncMultiFilter('delivReceiptStatusMulti', '전체', [
+    {value:'pending',  label:'검수대기', count: receiptStatusCounts.pending},
+    {value:'approved', label:'승인',    count: receiptStatusCounts.approved},
+    {value:'rejected', label:'비승인',  count: receiptStatusCounts.rejected},
+    {value:'none',     label:'미제출',  count: receiptStatusCounts.none},
+  ], () => renderDeliverablesList());
+  syncMultiFilter('delivResultStatusMulti', '전체', [
+    {value:'pending',  label:'검수대기', count: resultStatusCounts.pending},
+    {value:'approved', label:'승인',    count: resultStatusCounts.approved},
+    {value:'rejected', label:'비승인',  count: resultStatusCounts.rejected},
+    {value:'none',     label:'미제출',  count: resultStatusCounts.none},
+  ], () => renderDeliverablesList());
 
   // 필터 적용
   let filtered = Array.from(groups.values());
