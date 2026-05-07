@@ -6864,7 +6864,12 @@ async function exportCampaignDeliverables(campId) {
     var delivs = await fetchDeliverables({campaign_id: campId, status: 'approved'});
     if (!delivs.length) { toast('승인된 결과물이 없습니다', 'warn'); return; }
 
-    // 3) 영수증·리뷰 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
+    // 3) 인플루언서 전체 조회 (SNS 핸들·한자 이름은 fetchDeliverables의 인플루언서 매핑에 포함되지 않음)
+    var users = await fetchInfluencers();
+    var userById = {};
+    (users || []).forEach(function(u){ if (u && u.id) userById[u.id] = u; });
+
+    // 4) 영수증·리뷰 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
     //    receipt(영수증) + review_image(monitor 2단계 리뷰 캡처) 모두 receipt_url 컬럼을 재사용
     var imgBuffers = {};
     await Promise.all(delivs.filter(function(d){
@@ -6886,68 +6891,113 @@ async function exportCampaignDeliverables(campId) {
       }
     }));
 
-    // 4) 워크북 생성
+    // 5) application_id 단위로 그룹핑 — 한 신청 = 한 행 (영수증 + 결과물 6컬럼씩 펼침)
+    //    receipt: kind='receipt' / result: kind='review_image' 또는 'post' 중 최신
+    var groups = {};
+    delivs.forEach(function(d) {
+      var key = d.application_id || ('user-' + d.user_id);  // application_id 없으면 user_id 폴백
+      if (!groups[key]) {
+        groups[key] = {key: key, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null};
+      }
+      var g = groups[key];
+      if (d.kind === 'receipt') {
+        // 동일 application에 receipt 여러 건이면 최신(updated_at 기준) 우선
+        if (!g.receipt || (d.updated_at || '') > (g.receipt.updated_at || '')) g.receipt = d;
+      } else if (d.kind === 'review_image' || d.kind === 'post') {
+        if (!g.result || (d.updated_at || '') > (g.result.updated_at || '')) g.result = d;
+      }
+    });
+    var groupList = Object.values(groups);
+    // 인플루언서 이름순 정렬 (한자 우선)
+    groupList.sort(function(a, b) {
+      var ua = userById[a.user_id] || {};
+      var ub = userById[b.user_id] || {};
+      var na = (ua.name_kanji || ua.name || '').toString();
+      var nb = (ub.name_kanji || ub.name || '').toString();
+      return na.localeCompare(nb, 'ja');
+    });
+
+    // 6) 워크북 생성
     var wb = new ExcelJS.Workbook();
     wb.creator = 'REVERB JP Admin';
     wb.created = new Date();
     var ws = wb.addWorksheet('결과물');
 
-    // 헤더 (A1:J1, A2:J2) — 총 10열
-    ws.mergeCells('A1:J1');
+    // 헤더 (A1:R1, A2:R2) — 총 18열
+    ws.mergeCells('A1:R1');
     var t = ws.getCell('A1');
     t.value = (camp.campaign_no ? camp.campaign_no + '  ' : '') + (camp.title || '');
     t.font = {bold: true, size: 14};
     t.alignment = {vertical: 'middle'};
     ws.getRow(1).height = 26;
 
-    ws.mergeCells('A2:J2');
+    ws.mergeCells('A2:R2');
     var m = ws.getCell('A2');
-    m.value = '브랜드: ' + (camp.brand || '—') + '  ·  승인 건수: ' + delivs.length + '건  ·  생성일: ' + new Date().toLocaleString('ko-KR');
+    m.value = '브랜드: ' + (camp.brand || '—')
+      + '  ·  신청 건수: ' + groupList.length + '건'
+      + '  ·  결과물 합계: ' + delivs.length + '건'
+      + '  ·  생성일: ' + new Date().toLocaleString('ko-KR');
     m.font = {color: {argb: 'FF888888'}, size: 11};
     ws.getRow(2).height = 20;
 
-    // 컬럼 헤더 (4행) — 인플루언서 영수증 폼에서 구매일/구매금액 입력이 제거된 이후
-    // 엑셀에도 해당 컬럼은 항상 빈 값이 되므로 함께 제거.
-    // G열은 영수증·리뷰 이미지 양쪽에 임베드되므로 '이미지'로 통일.
+    // 그룹 헤더 (3행) — 인플루언서 6컬럼 / 영수증 6컬럼 / 결과물 6컬럼
+    ws.mergeCells('A3:F3'); ws.getCell('A3').value = '인플루언서 정보';
+    ws.mergeCells('G3:L3'); ws.getCell('G3').value = '영수증';
+    ws.mergeCells('M3:R3'); ws.getCell('M3').value = '결과물';
+    ['A3','G3','M3'].forEach(function(addr) {
+      var c = ws.getCell(addr);
+      c.font = {bold: true, color: {argb: 'FF222222'}};
+      c.alignment = {vertical: 'middle', horizontal: 'center'};
+      c.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE8E8E8'}};
+    });
+    ws.getRow(3).height = 22;
+
+    // 컬럼 헤더 (4행)
     ws.getRow(4).values = [
-      '인플루언서', 'SNS 아이디', '타입', '제출일', '검수일',
-      '상태', '이미지', 'URL'
+      '이름(한자)', '이름(가타카나)', 'Instagram', 'TikTok', 'X', 'YouTube',
+      '타입', '제출일', '검수일', '상태', '이미지', 'URL',
+      '타입', '제출일', '검수일', '상태', '이미지', 'URL'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
     ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (G=영수증 16, H=URL 40)
+    // 컬럼 너비 (이름 18, SNS 22, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
     ws.columns = [
-      {width: 18}, {width: 20}, {width: 10}, {width: 14}, {width: 14},
-      {width: 10}, {width: 16}, {width: 40}
+      {width: 18}, {width: 18}, {width: 22}, {width: 22}, {width: 18}, {width: 22},
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
     ];
 
-    // 본문 행
-    delivs.forEach(function(d, i) {
-      var rowNum = 5 + i;
-      var inf = d.influencers || {};
-      // 결과물 종류 라벨: receipt(영수증) / review_image(리뷰 이미지, monitor 2단계) / post(게시물 URL)
+    // 헬퍼: SNS 핸들 추출 + @ 접두
+    var snsHandleStr = function(channel, raw) {
+      if (!raw) return '';
+      if (typeof extractSnsHandle === 'function') {
+        var h = extractSnsHandle(channel, raw);
+        return h ? '@' + h : '';
+      }
+      return String(raw).trim();
+    };
+    // 헬퍼: 결과물 1건의 6컬럼 값 계산 — 타입/제출일/검수일/상태/이미지(빈 셀, 임베드는 별도)/URL
+    var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
+    var renderDeliverableCells = function(d) {
+      if (!d) return ['', '', '', '', '', ''];
       var kindLabel = d.kind === 'receipt' ? '영수증'
         : d.kind === 'review_image' ? '리뷰 이미지'
         : '게시물';
-      var statusLabel = {pending:'검수대기', approved:'승인', rejected:'반려'}[d.status] || d.status;
-      var row = ws.getRow(rowNum);
-      row.height = 84;
-
-      // post_submissions 최신 URL 우선 (재제출 이력 중 마지막)
-      var postUrl = d.post_url || '';
-      if (d.kind === 'post' && Array.isArray(d.post_submissions) && d.post_submissions.length) {
-        var last = d.post_submissions[d.post_submissions.length - 1];
-        postUrl = (last && last.url) || postUrl;
-      }
-
-      // 이미지 열 (G): receipt·review_image → 이미지 임베드 / post → 공란
-      // URL 열 (H): post → 게시물 URL / receipt → '영수증 보기' / review_image → '리뷰 이미지 보기' 하이퍼링크
+      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
+      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var statusStr = statusLabelMap[d.status] || d.status || '';
+      // URL 셀: post는 게시물 URL, receipt/review_image는 receipt_url 기반 하이퍼링크
       var urlCellValue = '';
-      if (d.kind === 'post' && postUrl) {
-        urlCellValue = {text: postUrl, hyperlink: postUrl};
+      if (d.kind === 'post') {
+        var postUrl = d.post_url || '';
+        if (Array.isArray(d.post_submissions) && d.post_submissions.length) {
+          var last = d.post_submissions[d.post_submissions.length - 1];
+          postUrl = (last && last.url) || postUrl;
+        }
+        if (postUrl) urlCellValue = {text: postUrl, hyperlink: postUrl};
       } else if ((d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url) {
         var imgUrl = /^https?:\/\//.test(d.receipt_url)
           ? d.receipt_url
@@ -6955,34 +7005,55 @@ async function exportCampaignDeliverables(campId) {
         var linkText = d.kind === 'receipt' ? '영수증 보기' : '리뷰 이미지 보기';
         urlCellValue = {text: linkText, hyperlink: imgUrl};
       }
+      return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
+    };
+
+    // 본문 행 — 그룹 1개 = 1행
+    groupList.forEach(function(g, i) {
+      var rowNum = 5 + i;
+      var u = userById[g.user_id] || {};
+      var row = ws.getRow(rowNum);
+      row.height = 84;
+
+      var receiptCells = renderDeliverableCells(g.receipt);
+      var resultCells = renderDeliverableCells(g.result);
 
       row.values = [
-        inf.name || '—',
-        inf.primary_sns || '',
-        kindLabel,
-        d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '',
-        d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '',
-        statusLabel,
-        '',
-        urlCellValue
+        // 인플루언서 정보 6컬럼
+        u.name_kanji || u.name || '—',
+        u.name_kana || '',
+        snsHandleStr('instagram', u.ig),
+        snsHandleStr('tiktok', u.tiktok),
+        snsHandleStr('x', u.x),
+        snsHandleStr('youtube', u.youtube),
+        // 영수증 6컬럼
+        receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5],
+        // 결과물 6컬럼
+        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5]
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
 
-      // 하이퍼링크 셀 스타일 (H열 = URL)
-      var urlCell = row.getCell(8);
-      if (urlCell && urlCell.value && urlCell.value.hyperlink) {
-        urlCell.font = {color: {argb: 'FFE8344E'}, underline: true};
-      }
+      // 하이퍼링크 셀 스타일 (L열=영수증 URL, R열=결과물 URL)
+      [12, 18].forEach(function(colNum) {
+        var c = row.getCell(colNum);
+        if (c && c.value && c.value.hyperlink) {
+          c.font = {color: {argb: 'FFE8344E'}, underline: true};
+        }
+      });
 
-      // 이미지 셀 내부 임베드 (receipt·review_image, G열)
-      // 레인지 문자열(`G5:G5`)로 셀 경계에 정확히 앵커 — 셀 이동·크기 조정 시 따라감
-      if ((d.kind === 'receipt' || d.kind === 'review_image') && imgBuffers[d.id]) {
-        var imgId = wb.addImage({buffer: imgBuffers[d.id].buffer, extension: imgBuffers[d.id].ext});
-        ws.addImage(imgId, 'G' + rowNum + ':G' + rowNum);
+      // 영수증 이미지 임베드 (K열=11)
+      if (g.receipt && imgBuffers[g.receipt.id]) {
+        var rImgId = wb.addImage({buffer: imgBuffers[g.receipt.id].buffer, extension: imgBuffers[g.receipt.id].ext});
+        ws.addImage(rImgId, 'K' + rowNum + ':K' + rowNum);
+      }
+      // 결과물 이미지 임베드 (review_image, Q열=17). post는 이미지 없음.
+      if (g.result && g.result.kind === 'review_image' && imgBuffers[g.result.id]) {
+        var dImgId = wb.addImage({buffer: imgBuffers[g.result.id].buffer, extension: imgBuffers[g.result.id].ext});
+        ws.addImage(dImgId, 'Q' + rowNum + ':Q' + rowNum);
       }
     });
 
-    // 5) 파일 저장
+    // 7) 파일 저장
     var buffer = await wb.xlsx.writeBuffer();
     var blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
@@ -6995,7 +7066,7 @@ async function exportCampaignDeliverables(campId) {
     link.click();
     setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
 
-    toast('엑셀 다운로드 완료');
+    toast('엑셀 다운로드 완료 (' + groupList.length + '건)');
   } catch(e) {
     console.error('[exportCampaignDeliverables]', e);
     toast('엑셀 생성 실패: ' + (e.message || String(e)), 'error');
