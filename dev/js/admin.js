@@ -719,9 +719,26 @@ async function loadAdminCampaigns(useCache) {
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (!useCache) allCampaigns = camps.slice();
 
-  // 상태별 건수 요약 (필터 전 전체 기준)
+  // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
   const stCounts = {};
-  allCampaigns.forEach(c => { stCounts[c.status] = (stCounts[c.status]||0) + 1; });
+  const rtCounts = {};
+  allCampaigns.forEach(c => {
+    stCounts[c.status] = (stCounts[c.status]||0) + 1;
+    if (c.recruit_type) rtCounts[c.recruit_type] = (rtCounts[c.recruit_type]||0) + 1;
+  });
+  // 다중 선택 드롭다운에 옵션별 (NN) 건수 업데이트
+  syncMultiFilter('campTypeMulti', '전체 타입', [
+    {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
+    {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
+    {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
+  ], () => filterAdminCampaigns());
+  syncMultiFilter('campStatusMulti', '전체 상태', [
+    {value:'draft',     label:'준비',     count: stCounts.draft || 0},
+    {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
+    {value:'active',    label:'모집중',   count: stCounts.active || 0},
+    {value:'paused',    label:'일시정지', count: stCounts.paused || 0},
+    {value:'closed',    label:'종료',     count: stCounts.closed || 0},
+  ], () => filterAdminCampaigns());
   const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',paused:'일시정지',closed:'종료'};
   const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',paused:'var(--gold)',closed:'var(--muted)'};
   const el = $('adminCampStatusCounts');
@@ -3558,11 +3575,28 @@ async function renderAppCampList() {
   if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 타입 필터에 맞지 않아 해제되었습니다`, 'info');
   if (typeStale.length > 0 && typeof toast === 'function') toast(`선택한 타입 ${typeStale.length}건이 캠페인 필터에 맞지 않아 해제되었습니다`, 'info');
 
-  // 드롭다운 동기화
-  syncCampMultiFilter('appCampMulti', campOptionsSource, () => renderAppCampList());
+  // 옵션별 카운트 계산 (전체 신청 기준 — 다른 필터 무관)
+  const appCampCounts = {};
+  const appTypeCounts = {};
+  const appStatusCountsMap = {};
+  const campRtLookup = new Map(camps.map(c => [c.id, c.recruit_type]));
+  for (const a of allAppsRaw) {
+    if (a.campaign_id) appCampCounts[a.campaign_id] = (appCampCounts[a.campaign_id] || 0) + 1;
+    const rt = campRtLookup.get(a.campaign_id);
+    if (rt) appTypeCounts[rt] = (appTypeCounts[rt] || 0) + 1;
+    if (a.status) appStatusCountsMap[a.status] = (appStatusCountsMap[a.status] || 0) + 1;
+  }
+
+  // 드롭다운 동기화 — count 포함
+  syncCampMultiFilter('appCampMulti', campOptionsSource, () => renderAppCampList(), appCampCounts);
   syncMultiFilter('appTypeMulti', '전체 타입',
-    availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t})),
+    availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t, count: appTypeCounts[t] || 0})),
     () => renderAppCampList());
+  syncMultiFilter('appStatusMulti', '전체 상태', [
+    {value:'pending',  label:'심사중', count: appStatusCountsMap.pending  || 0},
+    {value:'approved', label:'승인',   count: appStatusCountsMap.approved || 0},
+    {value:'rejected', label:'미승인', count: appStatusCountsMap.rejected || 0},
+  ], () => renderAppCampList());
 
   // 타입 필터 (다중 선택) — stale 제거 후 최종값
   const appTypeVals = getMultiFilterValues('appTypeMulti');
@@ -7871,6 +7905,30 @@ function getFilteredBrandApps() {
 function renderBrandApplicationsList() {
   var tbody = $('brandAppTableBody');
   if (!tbody) return;
+
+  // 옵션별 (NN) 카운트 갱신 — 필터 적용 전 전체 신청 기준
+  var formCounts = {reviewer:0, seeding:0};
+  var brandStatusCounts = {};
+  (_brandApps || []).forEach(function(a) {
+    if (a.form_type) formCounts[a.form_type] = (formCounts[a.form_type] || 0) + 1;
+    if (a.status) brandStatusCounts[a.status] = (brandStatusCounts[a.status] || 0) + 1;
+  });
+  syncMultiFilter('brandAppFormMulti', '전체 폼', [
+    {value:'reviewer', label:'Qoo10 리뷰어', count: formCounts.reviewer || 0},
+    {value:'seeding',  label:'나노 시딩',   count: formCounts.seeding  || 0},
+  ], renderBrandApplicationsList);
+  syncMultiFilter('brandAppStatusMulti', '전체 상태', [
+    {value:'new',                 label:'신규',            count: brandStatusCounts.new || 0},
+    {value:'reviewing',           label:'검토중',          count: brandStatusCounts.reviewing || 0},
+    {value:'quoted',              label:'견적 전달',       count: brandStatusCounts.quoted || 0},
+    {value:'paid',                label:'입금완료',        count: brandStatusCounts.paid || 0},
+    {value:'kakao_room_created',  label:'카톡방 생성',     count: brandStatusCounts.kakao_room_created || 0},
+    {value:'orient_sheet_sent',   label:'오리엔시트 전달', count: brandStatusCounts.orient_sheet_sent || 0},
+    {value:'schedule_sent',       label:'일정 전달',       count: brandStatusCounts.schedule_sent || 0},
+    {value:'campaign_registered', label:'캠페인 등록',     count: brandStatusCounts.campaign_registered || 0},
+    {value:'done',                label:'최종완료',        count: brandStatusCounts.done || 0},
+    {value:'rejected',            label:'반려',            count: brandStatusCounts.rejected || 0},
+  ], renderBrandApplicationsList);
 
   var res = getFilteredBrandApps();
   var list = res.list;
