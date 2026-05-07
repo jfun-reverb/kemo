@@ -23,8 +23,13 @@
 .mf-drop.open{display:block}
 .mf-item{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:12px;color:var(--ink);transition:background .1s}
 .mf-item:hover{background:var(--surface-dim)}
-.mf-item input[type="checkbox"]{margin:0;accent-color:var(--primary)}
+.mf-item input[type="checkbox"]{margin:0;accent-color:var(--primary);flex-shrink:0}
 .mf-item.all-item{border-bottom:1px solid var(--surface-dim);font-weight:600}
+/* subLabel + count 지원 (캠페인 옵션처럼 두 줄 표시 시) */
+.mf-item-text{flex:1;min-width:0;line-height:1.3}
+.mf-item-label{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mf-item-count{color:var(--muted);font-weight:400;margin-left:2px}
+.mf-item-sub{font-size:10px;color:var(--muted);margin-top:1px;font-family:monospace}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
 .admin-side{background:#1A0F18;padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
@@ -753,4 +758,50 @@
 }
 .flatpickr-calendar.reverb-range-cal.reverb-single-cal .flatpickr-rContainer::after{
   display:none;
+}
+
+/* ═══════════════════════════════════════
+   결과물 관리 페인 — 합본 검수 모달 (Phase 2)
+   영수증·결과물 양쪽 패널을 한 화면에 나란히 노출
+   ═══════════════════════════════════════ */
+.deliv-combined-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .deliv-combined-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.deliv-combined-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.deliv-combined-panel-header {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: #fafafa;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.deliv-combined-panel-body {
+  padding: 14px;
+  flex: 1;
+}
+
+/* 결과물 관리 페인 — 신청 단위 행 테이블 (얇은 패딩으로 8개 컬럼 안전 수용) */
+.deliv-app-table thead th {
+  white-space: nowrap;
+}
+.deliv-app-table tbody td {
+  vertical-align: middle;
 }

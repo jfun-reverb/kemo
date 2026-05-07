@@ -213,8 +213,8 @@ function getRecruitTypeBadgeKoSm(t) {
 function getStatusBadge(s) {
   const labels = {
     pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
-    approved: (typeof t === 'function' ? t('appHistory.approved') : '承認'),
-    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '非承認')
+    approved: (typeof t === 'function' ? t('appHistory.approved') : '当選'),
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '落選')
   };
   const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
   return m[s] || s;

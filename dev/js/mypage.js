@@ -160,11 +160,35 @@ async function renderMyApplyList() {
       ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
-    // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
-    let delivBadge = '';
+    // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
+    // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
+    // monitor 캠페인은 영수증·리뷰 캡쳐 두 단계가 별도 진행 → 라벨도 두 줄로 표시.
+    let delivBadgeLine = '';
     if (a.status === 'approved') {
-      const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
-      if (ds[0]?.status === 'rejected') delivBadge = `<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">${t('delivStatus.rejected')}</span>`;
+      const ds = (_myDelivsByApp[a.id] || []);
+      // kind별로 가장 최신 1건만 추출 (재제출 시 더 최근 행 우선)
+      const byKind = {};
+      ds.forEach(d => {
+        const cur = byKind[d.kind];
+        if (!cur || (d.submitted_at || '') > (cur.submitted_at || '')) byKind[d.kind] = d;
+      });
+      const KIND_TO_KEY = {receipt: 'receipt', review_image: 'reviewImage', post: 'post'};
+      const order = ['receipt', 'review_image', 'post'];
+      const items = [];
+      for (const kind of order) {
+        const d = byKind[kind];
+        if (!d) continue;
+        const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
+        const statusLabel = t('delivStatus.' + d.status);
+        let bg = '#FFF4E4', color = '#B8741A';
+        if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
+        else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
+        items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
+      }
+      if (items.length) {
+        // 영수증 제출 / 리뷰 캡쳐 등 종류별 라벨이 둘 이상이면 세로로 쌓이도록 column 배치
+        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${items.join('')}</div>`;
+      }
     }
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
@@ -173,11 +197,11 @@ async function renderMyApplyList() {
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-        <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
+        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
       </div>
-      <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}</div>
     </div>`;
   }).join('');
 }

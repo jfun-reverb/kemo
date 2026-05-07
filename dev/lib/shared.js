@@ -225,6 +225,47 @@ function snsProfileUrl(channel, handle) {
   }
 }
 
+// ──────────────────────────────────────
+// 관리자 페인 자동 갱신 헬퍼
+// ──────────────────────────────────────
+// 모달에서 저장한 직후 해당 페인의 목록·집계 영역이 stale 상태로 남는 패턴을
+// 일관되게 차단한다. 모달 저장 함수 끝에서 「await refreshPane(paneId)」 한 줄만
+// 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
+// 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
+const PANE_REFRESHERS = {
+  'influencers': async () => {
+    if (typeof rerenderInfluencersFromCache === 'function') rerenderInfluencersFromCache();
+    else if (typeof loadAdminInfluencers === 'function') await loadAdminInfluencers();
+  },
+  'brand-applications': async () => {
+    if (typeof loadBrandApplications === 'function') await loadBrandApplications();
+  },
+  'admin-notices': async () => {
+    if (typeof loadAdminNotices === 'function') await loadAdminNotices();
+    if (typeof renderDashboardNotices === 'function') renderDashboardNotices();
+  },
+  'lookups': async () => {
+    if (typeof renderLookupsTable === 'function') await renderLookupsTable();
+  },
+  'admin-accounts': async () => {
+    if (typeof loadAdminAccounts === 'function') await loadAdminAccounts();
+  },
+  'camp-applicants': async () => {
+    if (typeof loadCampApplicants === 'function') await loadCampApplicants();
+  },
+  'deliverables': async () => {
+    if (typeof renderDeliverablesList === 'function') await renderDeliverablesList();
+  },
+  'campaigns': async () => {
+    if (typeof loadCampaigns === 'function') await loadCampaigns();
+  }
+};
+async function refreshPane(paneId) {
+  const fn = PANE_REFRESHERS[paneId];
+  if (!fn) { console.warn('[refreshPane] unknown paneId:', paneId); return; }
+  try { await fn(); } catch(e) { console.warn('[refreshPane]', paneId, e); }
+}
+
 // SNS 4필드를 한 번에 정규화 (저장 직전 호출용)
 function normalizeSnsFields(profile) {
   if (!profile || typeof profile !== 'object') return profile;

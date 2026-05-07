@@ -501,6 +501,7 @@ let _activityCampId = null;
 let _activityCamp = null;
 let _activityFrom = 'detail'; // 'detail' or 'mypage'
 let _receiptImgData = null;
+let _reviewImgData = null;  // monitor 2단계 — 리뷰 게시물 캡쳐 (이미지 base64)
 
 async function openActivityPage(applicationId, campaignId, from) {
   _activityAppId = applicationId;
@@ -527,8 +528,14 @@ async function openActivityPage(applicationId, campaignId, from) {
   const rt = camp.recruit_type || 'monitor';
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
+  const isMonitor = (rt === 'monitor');
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
+  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출, 그 외는 모두 숨김
+  const stepLabel = $('receiptStepLabel');
+  if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
+  const reviewSec = $('reviewImageSection');
+  if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
   const isPostType = showPost;  // 아래 마감 검사 로직용
 
   // 제출 마감일 안내 + 마감 초과 시 폼 비활성
@@ -562,6 +569,11 @@ async function openActivityPage(applicationId, campaignId, from) {
     const rp = $('receiptPreview'); if (rp) rp.innerHTML = '';
     const rf = $('receiptFile'); if (rf) rf.value = '';
     _receiptImgData = null;
+  }
+  if (isMonitor) {
+    const rp2 = $('reviewImagePreview'); if (rp2) rp2.innerHTML = '';
+    const rf2 = $('reviewImageFile'); if (rf2) rf2.value = '';
+    _reviewImgData = null;
   }
   if (showPost) {
     const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
@@ -634,16 +646,21 @@ async function loadDeliverablesForActivity() {
   const rt = camp.recruit_type || 'monitor';
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
+  const isMonitor = (rt === 'monitor');
   const all = await fetchDeliverablesForUser({
     application_id: _activityAppId,
     user_id: currentUser?.id
   });
 
-  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시
+  // 반려 사유 배너: 활동관리 페이지 상단에 표시. receipt/post/review_image
+  // 모든 결과물 종류의 가장 최신 반려 1건을 후보로 집계 (각 행 안에도 사유 박스가
+  // 추가로 표시되지만, 카드를 펼쳐보기 전에 한 줄로 인지하도록 상단 배너 유지).
   const banner = $('activityRejectBanner');
   const reasonEl = $('activityRejectReason');
   if (banner && reasonEl) {
-    const sorted = all.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
+    const sorted = all
+      .filter(d => d.kind === 'receipt' || d.kind === 'post' || d.kind === 'review_image')
+      .sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
     const latest = sorted[0];
     if (latest && latest.status === 'rejected' && latest.reject_reason) {
       banner.style.display = '';
@@ -655,12 +672,36 @@ async function loadDeliverablesForActivity() {
 
   if (showImage) renderActivityReceiptList(all.filter(d => d.kind === 'receipt'));
   if (showPost) renderActivityPostList(all.filter(d => d.kind === 'post'));
+
+  // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(리뷰 캡쳐) 영역 활성화
+  if (isMonitor) {
+    const receiptApproved = all.some(d => d.kind === 'receipt' && d.status === 'approved');
+    const gatedNote = $('reviewImageGatedNote');
+    const body = $('reviewImageBody');
+    if (gatedNote) gatedNote.style.display = receiptApproved ? 'none' : '';
+    if (body) body.style.display = receiptApproved ? '' : 'none';
+    if (receiptApproved) {
+      renderActivityReviewImageList(all.filter(d => d.kind === 'review_image'));
+    }
+  }
 }
 
 function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
   if (!container) return;
   const submitBtn = $('submitImagesBtn');
+  const formBox = $('receiptForm');
+  const addBtn = $('addReceiptBtn');
+  const maxNote = $('receiptMaxNote');
+  // monitor 캠페인은 영수증 1장만 제출 가능 (visit는 현장 사진 여러 장 가능 — 그대로 둠)
+  // active = draft|pending|approved (rejected는 제외, 재제출 가능)
+  const isMonitor = (_activityCamp?.recruit_type === 'monitor');
+  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  const reachedMax = isMonitor && activeCount >= 1;
+  if (formBox) formBox.style.display = reachedMax ? 'none' : '';
+  if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
+  if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
+
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
@@ -676,17 +717,77 @@ function renderActivityReceiptList(delivs) {
     const rightCol = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
+    // 반려된 결과물에는 행 하단에 사유 박스 표시 (상단 배너와는 별개로 행 단위 인지 강화)
+    const reasonBox = (r.status === 'rejected' && r.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
+      : '';
     return `
-    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-        ${r.receipt_url ? `<img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
+          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+        </div>
+        <div style="flex:1;min-width:0">
+          ${stBadge}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${rightCol}
+        </div>
       </div>
-      <div style="flex:1;min-width:0">
-        ${stBadge}
+      ${reasonBox}
+    </div>`;
+  }).join('');
+  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+}
+
+// monitor 2단계 — 리뷰 캡쳐 결과물 리스트 렌더 + 1장 제약(클라이언트 차단)
+function renderActivityReviewImageList(delivs) {
+  const container = $('reviewImageList');
+  if (!container) return;
+  const submitBtn = $('submitReviewImageBtn');
+  const addBtn = $('addReviewImageBtn');
+  const maxNote = $('reviewImageMaxNote');
+  const formBox = $('reviewImageForm');
+  // 1장 제약: 어떤 상태든(draft/pending/approved) 1건이라도 있으면 추가 불가
+  // — 단, rejected 1건뿐이면 재제출 가능 (active=draft|pending|approved 정의)
+  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  const reachedMax = activeCount >= 1;
+  if (formBox) formBox.style.display = reachedMax ? 'none' : '';
+  if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
+  if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
+
+  if (!delivs || !delivs.length) {
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noReviewImage')}</div>`;
+    if (submitBtn) submitBtn.style.display = 'none';
+    return;
+  }
+  let hasDraft = false;
+  container.innerHTML = delivs.map(r => {
+    const isDraft = r.status === 'draft';
+    if (isDraft) hasDraft = true;
+    const stBadge = isDraft
+      ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+      : activityStatusBadge(r.status);
+    const rightCol = isDraft
+      ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
+      : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
+    const reasonBox = (r.status === 'rejected' && r.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
+      : '';
+    return `
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
+          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+        </div>
+        <div style="flex:1;min-width:0">
+          ${stBadge}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${rightCol}
+        </div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        ${rightCol}
-      </div>
+      ${reasonBox}
     </div>`;
   }).join('');
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
@@ -712,6 +813,9 @@ function renderActivityPostList(delivs) {
     const actionBtn = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : '';
+    const reasonBox = (d.status === 'rejected' && d.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(d.reject_reason)}</div>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -720,6 +824,7 @@ function renderActivityPostList(delivs) {
       </div>
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
+      ${reasonBox}
     </div>`;
   }).join('');
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
@@ -738,6 +843,19 @@ function previewReceipt(input) {
   reader.onload = e => {
     _receiptImgData = e.target.result;
     $('receiptPreview').innerHTML = `<img src="${_receiptImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// monitor 2단계 — 리뷰 게시물 캡쳐 미리보기
+function previewReviewImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _reviewImgData = e.target.result;
+    const prev = $('reviewImagePreview');
+    if (prev) prev.innerHTML = `<img src="${_reviewImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
   };
   reader.readAsDataURL(file);
 }
@@ -803,6 +921,35 @@ async function addDraftImage() {
     _receiptImgData = null;
     $('receiptPreview').innerHTML = '';
     $('receiptFile').value = '';
+    toast(t('activity.draftAdded'), 'success');
+    await loadDeliverablesForActivity();
+  } catch(e) { toast(friendlyErrorJa(e), 'error'); }
+}
+
+// monitor 2단계 — 리뷰 게시물 캡쳐 draft 추가 (1장 제약은 UI에서 form 자체를 숨김)
+async function addDraftReviewImage() {
+  if (!_reviewImgData) { toast(t('activity.needReviewImage'),'error'); return; }
+  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || camp.post_deadline;
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+    toast(t('activity.afterDeadline'),'error'); return;
+  }
+  try {
+    toast(t('activity.uploading'),'');
+    const fileName = `review_${currentUser.id}_${Date.now()}.jpg`;
+    const imgUrl = await uploadImage(_reviewImgData, fileName, 'receipts');
+    const id = await insertDraftDeliverable({
+      application_id: _activityAppId,
+      user_id: currentUser.id,
+      campaign_id: _activityCampId,
+      kind: 'review_image',
+      receipt_url: imgUrl
+    });
+    if (!id) { toast(t('activity.saveFail'), 'error'); return; }
+    _reviewImgData = null;
+    const prev = $('reviewImagePreview'); if (prev) prev.innerHTML = '';
+    const fileEl = $('reviewImageFile'); if (fileEl) fileEl.value = '';
     toast(t('activity.draftAdded'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }

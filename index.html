@@ -496,7 +496,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-thumb{width:44px;height:44px;border-radius:8px;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;overflow:hidden}
 .apply-thumb img{width:100%;height:100%;object-fit:cover}
 .apply-item-info{flex:1;min-width:0}
-.apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apply-item-name{font-size:13px;font-weight:700;margin-bottom:2px}
 .apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
 
@@ -868,6 +868,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 
     <!-- 이미지 섹션 (monitor=영수증 / visit=현장 사진) -->
     <div id="activityReceiptSection">
+      <!-- monitor 전용 STEP 1 라벨 (visit 캠페인에선 숨김) -->
+      <div id="receiptStepLabel" style="display:none;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:6px;letter-spacing:0.5px" data-i18n="activity.receiptStepLabel">STEP 1: 購入レシート</div>
       <div style="font-size:15px;font-weight:700;margin-bottom:12px;color:var(--ink)" data-i18n="activity.imageSection">画像の提出</div>
       <div id="receiptList" style="margin-bottom:20px"></div>
       <div id="receiptForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px;margin-bottom:12px">
@@ -879,9 +881,37 @@ textarea.form-input{resize:vertical;min-height:80px}
             <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
           </label>
         </div>
-        <button class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
+        <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
+      <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->
+      <div id="receiptMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-bottom:12px" data-i18n="activity.receiptMaxOne">提出は1枚のみ可能です</div>
       <button id="submitImagesBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('receipt')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+    </div>
+
+    <!-- 리뷰 캡쳐 섹션 (monitor STEP 2 — 영수증 승인 후 노출) -->
+    <div id="reviewImageSection" style="display:none;margin-top:24px">
+      <div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:6px;letter-spacing:0.5px" data-i18n="activity.reviewImageStepLabel">STEP 2: 投稿スクリーンショット</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;color:var(--ink)" data-i18n="activity.reviewImageSection">投稿スクリーンショットの提出</div>
+      <!-- 영수증 승인 전 안내 (gated) -->
+      <div id="reviewImageGatedNote" style="display:none;background:#FFF7ED;border-left:4px solid #F59E0B;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--ink);line-height:1.5;margin-bottom:12px" data-i18n="activity.reviewImageGated">STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。</div>
+      <!-- 영수증 승인 후 본문 -->
+      <div id="reviewImageBody" style="display:none">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5" data-i18n="activity.reviewImageHint">掲載したレビュー投稿のスクリーンショットを1枚ご提出ください</div>
+        <div id="reviewImageList" style="margin-bottom:20px"></div>
+        <div id="reviewImageForm" style="background:var(--surface);border:1.5px dashed var(--outline);border-radius:16px;padding:20px;margin-bottom:12px">
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="activity.imageLabel">画像</span> <span style="color:var(--red)">*</span></label>
+            <div id="reviewImagePreview" style="margin-bottom:8px"></div>
+            <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> <span data-i18n="activity.imageBtn">画像を選択</span>
+              <input type="file" id="reviewImageFile" accept="image/*" style="display:none" onchange="previewReviewImage(this)">
+            </label>
+          </div>
+          <button id="addReviewImageBtn" class="btn btn-ghost btn-block" onclick="addDraftReviewImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
+          <div id="reviewImageMaxNote" style="display:none;font-size:11px;color:var(--muted);text-align:center;margin-top:8px" data-i18n="activity.reviewImageMaxOne">提出は1枚のみ可能です</div>
+        </div>
+        <button id="submitReviewImageBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('review_image')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
+      </div>
     </div>
 
     <!-- URL 섹션 (gifting/visit) -->
@@ -1340,25 +1370,25 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="modal-close" onclick="closeModal('applyModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
     <div class="modal-body">
-      <div id="applyModalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      <div id="applyModalNotice" data-i18n-html="apply.modalNotice" style="background:var(--bg);border-radius:var(--r8);padding:12px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">
         商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>
         ブランドが指定するハッシュタグ・アカウントを必ず含めてください。
       </div>
       <!-- 주의사항 영역 (caution_items 스냅샷이 있을 때만 동적 표시 — migration 069) -->
       <div id="applyCautionBox" class="caution-box" style="display:none;margin-bottom:16px"></div>
       <div class="form-group">
-        <label class="form-label">応募理由（ひとこと） *</label>
-        <input type="text" id="applyMessage" class="form-input" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
+        <label class="form-label" data-i18n="apply.reasonRequiredLabel">応募理由（ひとこと） *</label>
+        <input type="text" id="applyMessage" class="form-input" data-i18n-attr="placeholder:apply.reasonModalPlaceholder" placeholder="このキャンペーンに応募する理由を簡単にお書きください">
       </div>
       <div id="applyAddressWrap" class="form-group">
-        <label class="form-label">配送先確認</label>
-        <input type="text" id="applyAddress" class="form-input" placeholder="配送先住所">
-        <div class="form-hint">登録住所と異なる場合は修正してください</div>
+        <label class="form-label" data-i18n="apply.addressConfirmLabel">配送先確認</label>
+        <input type="text" id="applyAddress" class="form-input" data-i18n-attr="placeholder:apply.addressPlaceholderModal" placeholder="配送先住所">
+        <div class="form-hint" data-i18n="apply.addressHintModal">登録住所と異なる場合は修正してください</div>
       </div>
       <div class="form-group" style="margin-bottom:0">
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)">
           <input type="checkbox" id="applyPrCheck" style="margin-top:2px;flex-shrink:0">
-          <span>投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
+          <span data-i18n-html="apply.prAgreeFull">投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）</span>
         </label>
       </div>
       <!-- 주의사항 동의 체크박스 (caution이 있을 때만 동적 표시) -->
@@ -1368,7 +1398,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <span data-i18n="apply.cautionAgreeLabel">全ての注意事項を確認しました</span>
         </label>
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()">今すぐ応募する →</button>
+      <button class="btn btn-primary btn-block" style="margin-top:16px" onclick="submitApplication()" data-i18n="apply.submitNow">今すぐ応募する →</button>
     </div>
   </div>
 </div>
@@ -1653,6 +1683,47 @@ function snsProfileUrl(channel, handle) {
   }
 }
 
+// ──────────────────────────────────────
+// 관리자 페인 자동 갱신 헬퍼
+// ──────────────────────────────────────
+// 모달에서 저장한 직후 해당 페인의 목록·집계 영역이 stale 상태로 남는 패턴을
+// 일관되게 차단한다. 모달 저장 함수 끝에서 「await refreshPane(paneId)」 한 줄만
+// 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
+// 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
+const PANE_REFRESHERS = {
+  'influencers': async () => {
+    if (typeof rerenderInfluencersFromCache === 'function') rerenderInfluencersFromCache();
+    else if (typeof loadAdminInfluencers === 'function') await loadAdminInfluencers();
+  },
+  'brand-applications': async () => {
+    if (typeof loadBrandApplications === 'function') await loadBrandApplications();
+  },
+  'admin-notices': async () => {
+    if (typeof loadAdminNotices === 'function') await loadAdminNotices();
+    if (typeof renderDashboardNotices === 'function') renderDashboardNotices();
+  },
+  'lookups': async () => {
+    if (typeof renderLookupsTable === 'function') await renderLookupsTable();
+  },
+  'admin-accounts': async () => {
+    if (typeof loadAdminAccounts === 'function') await loadAdminAccounts();
+  },
+  'camp-applicants': async () => {
+    if (typeof loadCampApplicants === 'function') await loadCampApplicants();
+  },
+  'deliverables': async () => {
+    if (typeof renderDeliverablesList === 'function') await renderDeliverablesList();
+  },
+  'campaigns': async () => {
+    if (typeof loadCampaigns === 'function') await loadCampaigns();
+  }
+};
+async function refreshPane(paneId) {
+  const fn = PANE_REFRESHERS[paneId];
+  if (!fn) { console.warn('[refreshPane] unknown paneId:', paneId); return; }
+  try { await fn(); } catch(e) { console.warn('[refreshPane]', paneId, e); }
+}
+
 // SNS 4필드를 한 번에 정규화 (저장 직전 호출용)
 function normalizeSnsFields(profile) {
   if (!profile || typeof profile !== 'object') return profile;
@@ -1827,13 +1898,13 @@ window.I18N_JA = {
     },
   },
 
-  // 응모이력
+  // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)
   appHistory: {
     title: '応募履歴',
     all: 'すべて',
     pending: '審査中',
-    approved: '承認',
-    rejected: '非承認',
+    approved: '当選',
+    rejected: '落選',
     campStatus: 'キャンペーン状態',
     sortNewest: '新しい順',
     sortOldest: '古い順',
@@ -1959,6 +2030,15 @@ window.I18N_JA = {
     addressLabel: '配送先住所',
     prAgreeLabel: '#PRタグ表記に同意します',
     submitBtn: '応募する',
+    // 응모 모달 (캠페인 상세 → 응모 버튼) 전용 라벨/안내
+    modalNotice: '商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>ブランドが指定するハッシュタグ・アカウントを必ず含めてください。',
+    reasonRequiredLabel: '応募理由（ひとこと） *',
+    reasonModalPlaceholder: 'このキャンペーンに応募する理由を簡単にお書きください',
+    addressConfirmLabel: '配送先確認',
+    addressPlaceholderModal: '配送先住所',
+    addressHintModal: '登録住所と異なる場合は修正してください',
+    prAgreeFull: '投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）',
+    submitNow: '今すぐ応募する →',
     needLogin: 'ログインが必要です',
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
@@ -2018,13 +2098,30 @@ window.I18N_JA = {
     saveFail: '登録に失敗しました',
     unknownDate: '日付未入力',
     unknownAmount: '金額未入力',
+    // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
+    receiptStepLabel: 'STEP 1: 購入レシート',
+    reviewImageStepLabel: 'STEP 2: 投稿スクリーンショット',
+    receiptMaxOne: '提出は1枚のみ可能です',
+    reviewImageSection: '投稿スクリーンショットの提出',
+    reviewImageHint: '掲載したレビュー投稿のスクリーンショットを1枚ご提出ください',
+    reviewImageGated: 'STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。',
+    reviewImageMaxOne: '提出は1枚のみ可能です',
+    noReviewImage: 'まだスクリーンショットが追加されていません',
+    needReviewImage: 'スクリーンショット画像を選択してください',
   },
 
-  // 결과물 상태 배지 (인플루언서 화면)
+  // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
-    pending: '審査中',
+    pending: '検査中',
     approved: '承認',
-    rejected: '差戻',
+    rejected: '非承認',
+  },
+
+  // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
+  delivKind: {
+    receipt: 'レシート提出',
+    reviewImage: 'レビュースクショ',
+    post: '投稿URL',
   },
 
   // 캠페인 카드
@@ -2258,8 +2355,8 @@ window.I18N_KO = {
     title: '응모 이력',
     all: '전체',
     pending: '심사중',
-    approved: '승인',
-    rejected: '비승인',
+    approved: '당첨',
+    rejected: '낙첨',
     campStatus: '캠페인 상태',
     sortNewest: '최신순',
     sortOldest: '오래된순',
@@ -2378,6 +2475,15 @@ window.I18N_KO = {
     addressLabel: '배송지 주소',
     prAgreeLabel: '#PR 태그 표기에 동의합니다',
     submitBtn: '응모하기',
+    // 응모 모달 (캠페인 상세 → 응모 버튼) 전용 라벨/안내
+    modalNotice: '제품 수령 후, 지정된 기한 내에 SNS에 리뷰를 게시해 주세요.<br>브랜드가 지정한 해시태그·계정을 반드시 포함해주세요.',
+    reasonRequiredLabel: '응모 사유 (한 마디) *',
+    reasonModalPlaceholder: '이 캠페인에 응모하는 이유를 간단히 적어주세요',
+    addressConfirmLabel: '배송지 확인',
+    addressPlaceholderModal: '배송지 주소',
+    addressHintModal: '등록 주소와 다른 경우 수정해주세요',
+    prAgreeFull: '게시 시 <strong>#PR</strong> 또는 <strong>#広告</strong> 태그를 반드시 표기합니다 (스텔스 마케팅 규제 준수)',
+    submitNow: '지금 응모하기 →',
     needLogin: '로그인이 필요합니다',
     needReason: '응모 사유를 입력해주세요',
     needAddress: '배송지 주소를 입력해주세요',
@@ -2436,12 +2542,29 @@ window.I18N_KO = {
     saveFail: '등록에 실패했습니다',
     unknownDate: '날짜 미입력',
     unknownAmount: '금액 미입력',
+    // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
+    receiptStepLabel: 'STEP 1: 구매 영수증',
+    reviewImageStepLabel: 'STEP 2: 게시물 캡쳐',
+    receiptMaxOne: '1장만 제출 가능합니다',
+    reviewImageSection: '리뷰 게시물 캡쳐 제출',
+    reviewImageHint: '게시한 리뷰 화면 캡쳐를 1장 제출해주세요',
+    reviewImageGated: 'STEP 1(영수증)이 승인되면 여기에서 캡쳐를 제출할 수 있습니다.',
+    reviewImageMaxOne: '1장만 제출 가능합니다',
+    noReviewImage: '아직 캡쳐가 추가되지 않았습니다',
+    needReviewImage: '캡쳐 이미지를 선택해주세요',
   },
 
   delivStatus: {
-    pending: '심사중',
+    pending: '검수중',
     approved: '승인',
-    rejected: '반려',
+    rejected: '비승인',
+  },
+
+  // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
+  delivKind: {
+    receipt: '영수증 제출',
+    reviewImage: '리뷰 캡쳐',
+    post: '게시물 URL',
   },
 
   campaign: {
@@ -4477,8 +4600,8 @@ function getRecruitTypeBadgeKoSm(t) {
 function getStatusBadge(s) {
   const labels = {
     pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
-    approved: (typeof t === 'function' ? t('appHistory.approved') : '承認'),
-    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '非承認')
+    approved: (typeof t === 'function' ? t('appHistory.approved') : '当選'),
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '落選')
   };
   const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
   return m[s] || s;
@@ -6085,6 +6208,7 @@ let _activityCampId = null;
 let _activityCamp = null;
 let _activityFrom = 'detail'; // 'detail' or 'mypage'
 let _receiptImgData = null;
+let _reviewImgData = null;  // monitor 2단계 — 리뷰 게시물 캡쳐 (이미지 base64)
 
 async function openActivityPage(applicationId, campaignId, from) {
   _activityAppId = applicationId;
@@ -6111,8 +6235,14 @@ async function openActivityPage(applicationId, campaignId, from) {
   const rt = camp.recruit_type || 'monitor';
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
+  const isMonitor = (rt === 'monitor');
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
+  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출, 그 외는 모두 숨김
+  const stepLabel = $('receiptStepLabel');
+  if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
+  const reviewSec = $('reviewImageSection');
+  if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
   const isPostType = showPost;  // 아래 마감 검사 로직용
 
   // 제출 마감일 안내 + 마감 초과 시 폼 비활성
@@ -6146,6 +6276,11 @@ async function openActivityPage(applicationId, campaignId, from) {
     const rp = $('receiptPreview'); if (rp) rp.innerHTML = '';
     const rf = $('receiptFile'); if (rf) rf.value = '';
     _receiptImgData = null;
+  }
+  if (isMonitor) {
+    const rp2 = $('reviewImagePreview'); if (rp2) rp2.innerHTML = '';
+    const rf2 = $('reviewImageFile'); if (rf2) rf2.value = '';
+    _reviewImgData = null;
   }
   if (showPost) {
     const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
@@ -6218,16 +6353,21 @@ async function loadDeliverablesForActivity() {
   const rt = camp.recruit_type || 'monitor';
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
+  const isMonitor = (rt === 'monitor');
   const all = await fetchDeliverablesForUser({
     application_id: _activityAppId,
     user_id: currentUser?.id
   });
 
-  // 반려 사유 배너: 최신 제출 건이 rejected일 때만 표시
+  // 반려 사유 배너: 활동관리 페이지 상단에 표시. receipt/post/review_image
+  // 모든 결과물 종류의 가장 최신 반려 1건을 후보로 집계 (각 행 안에도 사유 박스가
+  // 추가로 표시되지만, 카드를 펼쳐보기 전에 한 줄로 인지하도록 상단 배너 유지).
   const banner = $('activityRejectBanner');
   const reasonEl = $('activityRejectReason');
   if (banner && reasonEl) {
-    const sorted = all.slice().sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
+    const sorted = all
+      .filter(d => d.kind === 'receipt' || d.kind === 'post' || d.kind === 'review_image')
+      .sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''));
     const latest = sorted[0];
     if (latest && latest.status === 'rejected' && latest.reject_reason) {
       banner.style.display = '';
@@ -6239,12 +6379,36 @@ async function loadDeliverablesForActivity() {
 
   if (showImage) renderActivityReceiptList(all.filter(d => d.kind === 'receipt'));
   if (showPost) renderActivityPostList(all.filter(d => d.kind === 'post'));
+
+  // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(리뷰 캡쳐) 영역 활성화
+  if (isMonitor) {
+    const receiptApproved = all.some(d => d.kind === 'receipt' && d.status === 'approved');
+    const gatedNote = $('reviewImageGatedNote');
+    const body = $('reviewImageBody');
+    if (gatedNote) gatedNote.style.display = receiptApproved ? 'none' : '';
+    if (body) body.style.display = receiptApproved ? '' : 'none';
+    if (receiptApproved) {
+      renderActivityReviewImageList(all.filter(d => d.kind === 'review_image'));
+    }
+  }
 }
 
 function renderActivityReceiptList(delivs) {
   const container = $('receiptList');
   if (!container) return;
   const submitBtn = $('submitImagesBtn');
+  const formBox = $('receiptForm');
+  const addBtn = $('addReceiptBtn');
+  const maxNote = $('receiptMaxNote');
+  // monitor 캠페인은 영수증 1장만 제출 가능 (visit는 현장 사진 여러 장 가능 — 그대로 둠)
+  // active = draft|pending|approved (rejected는 제외, 재제출 가능)
+  const isMonitor = (_activityCamp?.recruit_type === 'monitor');
+  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  const reachedMax = isMonitor && activeCount >= 1;
+  if (formBox) formBox.style.display = reachedMax ? 'none' : '';
+  if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
+  if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
+
   if (!delivs.length) {
     container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noImage')}</div>`;
     if (submitBtn) submitBtn.style.display = 'none';
@@ -6260,17 +6424,77 @@ function renderActivityReceiptList(delivs) {
     const rightCol = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
+    // 반려된 결과물에는 행 하단에 사유 박스 표시 (상단 배너와는 별개로 행 단위 인지 강화)
+    const reasonBox = (r.status === 'rejected' && r.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
+      : '';
     return `
-    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-        ${r.receipt_url ? `<img src="${esc(r.receipt_url)}" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
+          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+        </div>
+        <div style="flex:1;min-width:0">
+          ${stBadge}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${rightCol}
+        </div>
       </div>
-      <div style="flex:1;min-width:0">
-        ${stBadge}
+      ${reasonBox}
+    </div>`;
+  }).join('');
+  if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+}
+
+// monitor 2단계 — 리뷰 캡쳐 결과물 리스트 렌더 + 1장 제약(클라이언트 차단)
+function renderActivityReviewImageList(delivs) {
+  const container = $('reviewImageList');
+  if (!container) return;
+  const submitBtn = $('submitReviewImageBtn');
+  const addBtn = $('addReviewImageBtn');
+  const maxNote = $('reviewImageMaxNote');
+  const formBox = $('reviewImageForm');
+  // 1장 제약: 어떤 상태든(draft/pending/approved) 1건이라도 있으면 추가 불가
+  // — 단, rejected 1건뿐이면 재제출 가능 (active=draft|pending|approved 정의)
+  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  const reachedMax = activeCount >= 1;
+  if (formBox) formBox.style.display = reachedMax ? 'none' : '';
+  if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
+  if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
+
+  if (!delivs || !delivs.length) {
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noReviewImage')}</div>`;
+    if (submitBtn) submitBtn.style.display = 'none';
+    return;
+  }
+  let hasDraft = false;
+  container.innerHTML = delivs.map(r => {
+    const isDraft = r.status === 'draft';
+    if (isDraft) hasDraft = true;
+    const stBadge = isDraft
+      ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+      : activityStatusBadge(r.status);
+    const rightCol = isDraft
+      ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
+      : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
+    const reasonBox = (r.status === 'rejected' && r.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
+      : '';
+    return `
+    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
+          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
+        </div>
+        <div style="flex:1;min-width:0">
+          ${stBadge}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${rightCol}
+        </div>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        ${rightCol}
-      </div>
+      ${reasonBox}
     </div>`;
   }).join('');
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
@@ -6296,6 +6520,9 @@ function renderActivityPostList(delivs) {
     const actionBtn = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : '';
+    const reasonBox = (d.status === 'rejected' && d.reject_reason)
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(d.reject_reason)}</div>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -6304,6 +6531,7 @@ function renderActivityPostList(delivs) {
       </div>
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
+      ${reasonBox}
     </div>`;
   }).join('');
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
@@ -6322,6 +6550,19 @@ function previewReceipt(input) {
   reader.onload = e => {
     _receiptImgData = e.target.result;
     $('receiptPreview').innerHTML = `<img src="${_receiptImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// monitor 2단계 — 리뷰 게시물 캡쳐 미리보기
+function previewReviewImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _reviewImgData = e.target.result;
+    const prev = $('reviewImagePreview');
+    if (prev) prev.innerHTML = `<img src="${_reviewImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
   };
   reader.readAsDataURL(file);
 }
@@ -6387,6 +6628,35 @@ async function addDraftImage() {
     _receiptImgData = null;
     $('receiptPreview').innerHTML = '';
     $('receiptFile').value = '';
+    toast(t('activity.draftAdded'), 'success');
+    await loadDeliverablesForActivity();
+  } catch(e) { toast(friendlyErrorJa(e), 'error'); }
+}
+
+// monitor 2단계 — 리뷰 게시물 캡쳐 draft 추가 (1장 제약은 UI에서 form 자체를 숨김)
+async function addDraftReviewImage() {
+  if (!_reviewImgData) { toast(t('activity.needReviewImage'),'error'); return; }
+  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || camp.post_deadline;
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+    toast(t('activity.afterDeadline'),'error'); return;
+  }
+  try {
+    toast(t('activity.uploading'),'');
+    const fileName = `review_${currentUser.id}_${Date.now()}.jpg`;
+    const imgUrl = await uploadImage(_reviewImgData, fileName, 'receipts');
+    const id = await insertDraftDeliverable({
+      application_id: _activityAppId,
+      user_id: currentUser.id,
+      campaign_id: _activityCampId,
+      kind: 'review_image',
+      receipt_url: imgUrl
+    });
+    if (!id) { toast(t('activity.saveFail'), 'error'); return; }
+    _reviewImgData = null;
+    const prev = $('reviewImagePreview'); if (prev) prev.innerHTML = '';
+    const fileEl = $('reviewImageFile'); if (fileEl) fileEl.value = '';
     toast(t('activity.draftAdded'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
@@ -6528,6 +6798,9 @@ const _NOTIF_STALE_MS = 5000;  // 5초 이내 중복 요청은 스킵
 
 function startNotifPolling() {
   if (_notifPollTimer) return;
+  // 폴링 시작 직후 1회 즉시 갱신 — 30초 setInterval 때문에 첫 배지 표시가
+  // 페이지 로드/로그인 직후 늦게 뜨던 문제 방지. force=true 로 stale 가드 우회.
+  refreshNotifBadge({force: true});
   _notifPollTimer = setInterval(() => {
     if (currentUser && !document.hidden) refreshNotifBadge();
   }, 30000);
@@ -6863,11 +7136,35 @@ async function renderMyApplyList() {
       ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
     const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
-    // Stage 6: 결과물 반려 배지 (최신 제출 건이 rejected일 때만)
-    let delivBadge = '';
+    // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
+    // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
+    // monitor 캠페인은 영수증·리뷰 캡쳐 두 단계가 별도 진행 → 라벨도 두 줄로 표시.
+    let delivBadgeLine = '';
     if (a.status === 'approved') {
-      const ds = (_myDelivsByApp[a.id] || []).slice().sort((x,y) => (y.submitted_at||'').localeCompare(x.submitted_at||''));
-      if (ds[0]?.status === 'rejected') delivBadge = `<span style="display:inline-block;background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;margin-left:4px">${t('delivStatus.rejected')}</span>`;
+      const ds = (_myDelivsByApp[a.id] || []);
+      // kind별로 가장 최신 1건만 추출 (재제출 시 더 최근 행 우선)
+      const byKind = {};
+      ds.forEach(d => {
+        const cur = byKind[d.kind];
+        if (!cur || (d.submitted_at || '') > (cur.submitted_at || '')) byKind[d.kind] = d;
+      });
+      const KIND_TO_KEY = {receipt: 'receipt', review_image: 'reviewImage', post: 'post'};
+      const order = ['receipt', 'review_image', 'post'];
+      const items = [];
+      for (const kind of order) {
+        const d = byKind[kind];
+        if (!d) continue;
+        const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
+        const statusLabel = t('delivStatus.' + d.status);
+        let bg = '#FFF4E4', color = '#B8741A';
+        if (d.status === 'approved') { bg = '#E4F5E8'; color = '#2D7A3E'; }
+        else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
+        items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
+      }
+      if (items.length) {
+        // 영수증 제출 / 리뷰 캡쳐 등 종류별 라벨이 둘 이상이면 세로로 쌓이도록 column 배치
+        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${items.join('')}</div>`;
+      }
     }
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
@@ -6876,11 +7173,11 @@ async function renderMyApplyList() {
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-        <div class="apply-item-name">${esc(camp.title||a.campaign_id)}</div>
+        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
       </div>
-      <div class="apply-item-status">${getStatusBadge(a.status)}${delivBadge}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}</div>
     </div>`;
   }).join('');
 }

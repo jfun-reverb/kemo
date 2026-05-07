@@ -159,8 +159,8 @@ window.I18N_KO = {
     title: '응모 이력',
     all: '전체',
     pending: '심사중',
-    approved: '승인',
-    rejected: '비승인',
+    approved: '당첨',
+    rejected: '낙첨',
     campStatus: '캠페인 상태',
     sortNewest: '최신순',
     sortOldest: '오래된순',
@@ -279,6 +279,15 @@ window.I18N_KO = {
     addressLabel: '배송지 주소',
     prAgreeLabel: '#PR 태그 표기에 동의합니다',
     submitBtn: '응모하기',
+    // 응모 모달 (캠페인 상세 → 응모 버튼) 전용 라벨/안내
+    modalNotice: '제품 수령 후, 지정된 기한 내에 SNS에 리뷰를 게시해 주세요.<br>브랜드가 지정한 해시태그·계정을 반드시 포함해주세요.',
+    reasonRequiredLabel: '응모 사유 (한 마디) *',
+    reasonModalPlaceholder: '이 캠페인에 응모하는 이유를 간단히 적어주세요',
+    addressConfirmLabel: '배송지 확인',
+    addressPlaceholderModal: '배송지 주소',
+    addressHintModal: '등록 주소와 다른 경우 수정해주세요',
+    prAgreeFull: '게시 시 <strong>#PR</strong> 또는 <strong>#広告</strong> 태그를 반드시 표기합니다 (스텔스 마케팅 규제 준수)',
+    submitNow: '지금 응모하기 →',
     needLogin: '로그인이 필요합니다',
     needReason: '응모 사유를 입력해주세요',
     needAddress: '배송지 주소를 입력해주세요',
@@ -337,12 +346,29 @@ window.I18N_KO = {
     saveFail: '등록에 실패했습니다',
     unknownDate: '날짜 미입력',
     unknownAmount: '금액 미입력',
+    // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
+    receiptStepLabel: 'STEP 1: 구매 영수증',
+    reviewImageStepLabel: 'STEP 2: 게시물 캡쳐',
+    receiptMaxOne: '1장만 제출 가능합니다',
+    reviewImageSection: '리뷰 게시물 캡쳐 제출',
+    reviewImageHint: '게시한 리뷰 화면 캡쳐를 1장 제출해주세요',
+    reviewImageGated: 'STEP 1(영수증)이 승인되면 여기에서 캡쳐를 제출할 수 있습니다.',
+    reviewImageMaxOne: '1장만 제출 가능합니다',
+    noReviewImage: '아직 캡쳐가 추가되지 않았습니다',
+    needReviewImage: '캡쳐 이미지를 선택해주세요',
   },
 
   delivStatus: {
-    pending: '심사중',
+    pending: '검수중',
     approved: '승인',
-    rejected: '반려',
+    rejected: '비승인',
+  },
+
+  // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
+  delivKind: {
+    receipt: '영수증 제출',
+    reviewImage: '리뷰 캡쳐',
+    post: '게시물 URL',
   },
 
   campaign: {

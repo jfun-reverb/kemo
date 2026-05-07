@@ -161,13 +161,13 @@ window.I18N_JA = {
     },
   },
 
-  // 응모이력
+  // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)
   appHistory: {
     title: '応募履歴',
     all: 'すべて',
     pending: '審査中',
-    approved: '承認',
-    rejected: '非承認',
+    approved: '当選',
+    rejected: '落選',
     campStatus: 'キャンペーン状態',
     sortNewest: '新しい順',
     sortOldest: '古い順',
@@ -293,6 +293,15 @@ window.I18N_JA = {
     addressLabel: '配送先住所',
     prAgreeLabel: '#PRタグ表記に同意します',
     submitBtn: '応募する',
+    // 응모 모달 (캠페인 상세 → 응모 버튼) 전용 라벨/안내
+    modalNotice: '商品受け取り後、指定された期日内にSNSにてレビューをご投稿ください。<br>ブランドが指定するハッシュタグ・アカウントを必ず含めてください。',
+    reasonRequiredLabel: '応募理由（ひとこと） *',
+    reasonModalPlaceholder: 'このキャンペーンに応募する理由を簡単にお書きください',
+    addressConfirmLabel: '配送先確認',
+    addressPlaceholderModal: '配送先住所',
+    addressHintModal: '登録住所と異なる場合は修正してください',
+    prAgreeFull: '投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）',
+    submitNow: '今すぐ応募する →',
     needLogin: 'ログインが必要です',
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
@@ -352,13 +361,30 @@ window.I18N_JA = {
     saveFail: '登録に失敗しました',
     unknownDate: '日付未入力',
     unknownAmount: '金額未入力',
+    // monitor 캠페인 2단계 — 영수증(STEP 1) 승인 후 리뷰 캡쳐(STEP 2)
+    receiptStepLabel: 'STEP 1: 購入レシート',
+    reviewImageStepLabel: 'STEP 2: 投稿スクリーンショット',
+    receiptMaxOne: '提出は1枚のみ可能です',
+    reviewImageSection: '投稿スクリーンショットの提出',
+    reviewImageHint: '掲載したレビュー投稿のスクリーンショットを1枚ご提出ください',
+    reviewImageGated: 'STEP 1（レシート）が承認されると、こちらでスクリーンショットを提出できます。',
+    reviewImageMaxOne: '提出は1枚のみ可能です',
+    noReviewImage: 'まだスクリーンショットが追加されていません',
+    needReviewImage: 'スクリーンショット画像を選択してください',
   },
 
-  // 결과물 상태 배지 (인플루언서 화면)
+  // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
   delivStatus: {
-    pending: '審査中',
+    pending: '検査中',
     approved: '承認',
-    rejected: '差戻',
+    rejected: '非承認',
+  },
+
+  // 결과물 종류 라벨 (응모이력 행 하단 진행 라벨에 「{종류} {상태}」 형태로 결합)
+  delivKind: {
+    receipt: 'レシート提出',
+    reviewImage: 'レビュースクショ',
+    post: '投稿URL',
   },
 
   // 캠페인 카드

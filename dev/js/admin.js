@@ -214,12 +214,15 @@ function initMultiFilters() {
   createMultiFilter('appStatusMulti', '전체 상태', [
     {value:'pending',label:'심사중'},{value:'approved',label:'승인'},{value:'rejected',label:'미승인'}
   ], () => renderAppCampList());
-  // 결과물관리
-  createMultiFilter('delivKindMulti', '전체 타입', [
-    {value:'receipt',label:'영수증'},{value:'post',label:'게시물 URL'}
+  // 결과물관리 — 신청(application) 1행 단위로 영수증·결과물 양쪽 상태를 같이 표시
+  createMultiFilter('delivRecruitTypeMulti', '전체 타입', [
+    {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => renderDeliverablesList());
-  createMultiFilter('delivStatusMulti', '전체 상태', [
-    {value:'pending',label:'검수 대기'},{value:'approved',label:'승인'},{value:'rejected',label:'반려'}
+  createMultiFilter('delivReceiptStatusMulti', '전체', [
+    {value:'pending',label:'검수대기'},{value:'approved',label:'승인'},{value:'rejected',label:'비승인'},{value:'none',label:'미제출'}
+  ], () => renderDeliverablesList());
+  createMultiFilter('delivResultStatusMulti', '전체', [
+    {value:'pending',label:'검수대기'},{value:'approved',label:'승인'},{value:'rejected',label:'비승인'},{value:'none',label:'미제출'}
   ], () => renderDeliverablesList());
   // 광고주 신청
   createMultiFilter('brandAppFormMulti', '전체 폼', [
@@ -306,7 +309,7 @@ async function loadAdminData(preloaded) {
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_dRem<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>';
@@ -370,6 +373,15 @@ function resetCampSort() {
 function updateCampSortResetBtn() {
   const btn = $('btnCampSortReset');
   if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
+}
+
+// 검수자 표시 — applications.reviewed_by 컬럼 값 변환.
+// migration 049 트리거가 monitor 캠페인 자동 승인 시 '自動承認' 텍스트를 저장하지만,
+// 관리자 페이지는 한국어 UI 원칙(.claude/rules/ui.md)이라 표시 시에만 한글로 변환.
+function formatReviewer(name) {
+  if (!name) return '';
+  if (name === '自動承認') return '자동 승인';
+  return name;
 }
 
 // 신청 사유: 2줄 말줄임 + 더보기 모달
@@ -438,7 +450,7 @@ function openCautionConsentModal(appId) {
       html += `<div style="margin-top:12px"><strong style="font-size:13px">캠페인 고유 주의사항 <span style="font-size:10px;color:var(--muted);font-weight:400">· v1 스냅샷</span></strong><div style="margin-top:6px;padding:10px 12px;background:#fff5f5;border-left:3px solid var(--red);border-radius:6px;font-size:12px;line-height:1.7">${rendered}</div></div>`;
     }
     if (snap.agreed_lang) {
-      const langLabel = snap.agreed_lang === 'ja' ? '日本語' : (snap.agreed_lang === 'ko' ? '한국어' : snap.agreed_lang);
+      const langLabel = snap.agreed_lang === 'ja' ? '일본어' : (snap.agreed_lang === 'ko' ? '한국어' : snap.agreed_lang);
       html += `<div style="margin-top:10px;color:var(--muted);font-size:11px">동의 시점 사용자 언어: ${esc(langLabel)}</div>`;
     }
   } else {
@@ -505,7 +517,8 @@ function syncMultiFilter(containerId, allLabel, options, onChange) {
   if (!wrap) return;
   const drop = wrap.querySelector('.mf-drop');
   if (!drop) return;
-  const newKey = options.map(o => o.value).join('|');
+  // 옵션 키에 count·subLabel 포함 — 카운트 변경 시 재생성되어 (NN) 라벨 즉시 반영
+  const newKey = options.map(o => `${o.value}:${o.count ?? ''}:${o.subLabel || ''}`).join('|');
   if (wrap.dataset.optKey === newKey && drop.children.length > 0) return;
   const prev = getMultiFilterValues(containerId);
   createMultiFilter(containerId, allLabel, options, onChange);
@@ -522,11 +535,14 @@ function syncMultiFilter(containerId, allLabel, options, onChange) {
   }
 }
 
-// 캠페인 전용 래퍼 (label 포맷 `[CAMP-XXX] 제목`)
-function syncCampMultiFilter(containerId, sortedCamps, onChange) {
+// 캠페인 전용 래퍼 — 라벨은 캠페인 제목, 캠페인 번호(B0019-C001 형식)는 subLabel로 분리
+//   counts: {[campaignId]: number} 형태로 옵션별 건수를 받아 옆에 (00)으로 표시
+function syncCampMultiFilter(containerId, sortedCamps, onChange, counts) {
   const options = sortedCamps.map(c => ({
     value: c.id,
-    label: (c.campaign_no ? `[${c.campaign_no}] ` : '') + (c.title || '(제목 없음)')
+    label: c.title || '(제목 없음)',
+    subLabel: c.campaign_no || '',
+    count: counts ? (counts[c.id] || 0) : null
   }));
   syncMultiFilter(containerId, '전체 캠페인', options, onChange);
 }
@@ -534,15 +550,25 @@ function syncCampMultiFilter(containerId, sortedCamps, onChange) {
 // ── 다중 선택 드롭다운 필터 ──
 // "전체" = 모든 항목 체크 표시 (시각). 일부 해제 시 "전체"는 indeterminate.
 // 데이터 모델: 전체(모두 체크) → 빈 배열 반환(=필터 없음). 일부만 체크 → 그 배열 반환.
+//
+// options = [{value, label, subLabel?, count?}]
+//   - subLabel(있으면): 라벨 아래 회색 작은 글씨 (예: 캠페인 번호 B0019-C001)
+//   - count(0 이상의 정수면 표시, null/undefined면 미표시): 라벨 옆 (NN) 건수
 function createMultiFilter(containerId, allLabel, options, onChange) {
   const wrap = $(containerId);
   if (!wrap) return;
   const btn = wrap.querySelector('.mf-btn');
   const drop = wrap.querySelector('.mf-drop');
   if (!btn || !drop) return;
+  // 옵션 행 렌더 — subLabel·count 지원
+  const renderOptionItem = (o) => {
+    const countHtml = (o.count != null) ? ` <span class="mf-item-count">(${o.count})</span>` : '';
+    const subHtml = o.subLabel ? `<div class="mf-item-sub">${esc(o.subLabel)}</div>` : '';
+    return `<label class="mf-item${o.subLabel ? ' has-sub' : ''}"><input type="checkbox" value="${esc(o.value)}" checked data-label="${esc(o.label)}"><div class="mf-item-text"><div class="mf-item-label">${esc(o.label)}${countHtml}</div>${subHtml}</div></label>`;
+  };
   // 드롭다운 아이템 생성 — 초기 상태: 전체 체크 = 모든 항목 체크
-  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked> ${esc(allLabel)}</label>`
-    + options.map(o => `<label class="mf-item"><input type="checkbox" value="${esc(o.value)}" checked> ${esc(o.label)}</label>`).join('');
+  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
+    + options.map(renderOptionItem).join('');
   btn.textContent = allLabel;
   // 토글
   btn.onclick = (e) => { e.stopPropagation(); drop.classList.toggle('open'); };
@@ -552,23 +578,25 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
     if (selected.length === itemCbs.length) {
-      // 모두 체크 = 전체
+      // 모두 체크 = 전체 (필터 없음)
       allCb.checked = true;
       allCb.indeterminate = false;
       btn.textContent = allLabel;
       btn.classList.remove('has-selection');
     } else if (selected.length === 0) {
-      // 모두 해제 — 자동 전체 복귀(시각적으로 모두 체크) — 필터 없음과 동일하게 취급
-      allCb.checked = true;
+      // 모두 해제 — 사용자가 「전체」 체크박스를 눌러 전체 해제한 표준 동작.
+      // 자동 복귀하지 않고 「선택 없음」 상태 유지. 데이터상으로는 「전체」와 같은
+      // 빈 배열을 반환하지만(필터 없음 = 전체 표시), 사용자가 다시 체크하면 정상 동작.
+      allCb.checked = false;
       allCb.indeterminate = false;
-      itemCbs.forEach(c => c.checked = true);
       btn.textContent = allLabel;
       btn.classList.remove('has-selection');
     } else {
       // 일부 — 전체는 indeterminate
       allCb.checked = false;
       allCb.indeterminate = true;
-      btn.textContent = selected.map(c => c.parentElement.textContent.trim()).join(', ');
+      // input에 data-label 보관(subLabel/count 영향 없음)
+      btn.textContent = selected.map(c => c.dataset.label || c.parentElement.textContent.trim()).join(', ');
       btn.classList.add('has-selection');
     }
     onChange(getMultiFilterValues(containerId));
@@ -691,9 +719,26 @@ async function loadAdminCampaigns(useCache) {
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
   if (!useCache) allCampaigns = camps.slice();
 
-  // 상태별 건수 요약 (필터 전 전체 기준)
+  // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
   const stCounts = {};
-  allCampaigns.forEach(c => { stCounts[c.status] = (stCounts[c.status]||0) + 1; });
+  const rtCounts = {};
+  allCampaigns.forEach(c => {
+    stCounts[c.status] = (stCounts[c.status]||0) + 1;
+    if (c.recruit_type) rtCounts[c.recruit_type] = (rtCounts[c.recruit_type]||0) + 1;
+  });
+  // 다중 선택 드롭다운에 옵션별 (NN) 건수 업데이트
+  syncMultiFilter('campTypeMulti', '전체 타입', [
+    {value:'monitor', label:'리뷰어',  count: rtCounts.monitor || 0},
+    {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
+    {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
+  ], () => filterAdminCampaigns());
+  syncMultiFilter('campStatusMulti', '전체 상태', [
+    {value:'draft',     label:'준비',     count: stCounts.draft || 0},
+    {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
+    {value:'active',    label:'모집중',   count: stCounts.active || 0},
+    {value:'paused',    label:'일시정지', count: stCounts.paused || 0},
+    {value:'closed',    label:'종료',     count: stCounts.closed || 0},
+  ], () => filterAdminCampaigns());
   const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',paused:'일시정지',closed:'종료'};
   const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',paused:'var(--gold)',closed:'var(--muted)'};
   const el = $('adminCampStatusCounts');
@@ -2623,7 +2668,7 @@ async function loadCampApplicants() {
     <td>${delivCell}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-      :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+      :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
   </tr>`;
   };
@@ -2680,7 +2725,7 @@ function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPost
   if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
   const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
   const completeBadge = complete
-    ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">完了</div>'
+    ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">완료</div>'
     : '';
   const latest = list[0];
   return `<div style="font-size:10px">${parts.join(' · ')}</div>
@@ -3295,6 +3340,7 @@ async function onInfluencerVerify() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3307,6 +3353,7 @@ async function onInfluencerUnverify() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3380,6 +3427,7 @@ async function onSaveEditViolation() {
     _editingNewFiles = [];
     _editingKeptUrlMap = {};
     if (_currentDetailInfluencer) await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3418,6 +3466,7 @@ async function onInfluencerBlacklist() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3430,6 +3479,7 @@ async function onInfluencerUnblacklist() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3525,11 +3575,28 @@ async function renderAppCampList() {
   if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 타입 필터에 맞지 않아 해제되었습니다`, 'info');
   if (typeStale.length > 0 && typeof toast === 'function') toast(`선택한 타입 ${typeStale.length}건이 캠페인 필터에 맞지 않아 해제되었습니다`, 'info');
 
-  // 드롭다운 동기화
-  syncCampMultiFilter('appCampMulti', campOptionsSource, () => renderAppCampList());
+  // 옵션별 카운트 계산 (전체 신청 기준 — 다른 필터 무관)
+  const appCampCounts = {};
+  const appTypeCounts = {};
+  const appStatusCountsMap = {};
+  const campRtLookup = new Map(camps.map(c => [c.id, c.recruit_type]));
+  for (const a of allAppsRaw) {
+    if (a.campaign_id) appCampCounts[a.campaign_id] = (appCampCounts[a.campaign_id] || 0) + 1;
+    const rt = campRtLookup.get(a.campaign_id);
+    if (rt) appTypeCounts[rt] = (appTypeCounts[rt] || 0) + 1;
+    if (a.status) appStatusCountsMap[a.status] = (appStatusCountsMap[a.status] || 0) + 1;
+  }
+
+  // 드롭다운 동기화 — count 포함
+  syncCampMultiFilter('appCampMulti', campOptionsSource, () => renderAppCampList(), appCampCounts);
   syncMultiFilter('appTypeMulti', '전체 타입',
-    availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t})),
+    availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t, count: appTypeCounts[t] || 0})),
     () => renderAppCampList());
+  syncMultiFilter('appStatusMulti', '전체 상태', [
+    {value:'pending',  label:'심사중', count: appStatusCountsMap.pending  || 0},
+    {value:'approved', label:'승인',   count: appStatusCountsMap.approved || 0},
+    {value:'rejected', label:'미승인', count: appStatusCountsMap.rejected || 0},
+  ], () => renderAppCampList());
 
   // 타입 필터 (다중 선택) — stale 제거 후 최종값
   const appTypeVals = getMultiFilterValues('appTypeMulti');
@@ -3617,7 +3684,7 @@ async function renderAppCampList() {
       <td>${getStatusBadgeKo(a.status)}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_campRemaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
-        :`<div><div style="font-size:10px;color:var(--muted)">${esc(a.reviewed_by||'')} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
+        :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
   };
@@ -3845,9 +3912,10 @@ async function toggleAdminBrandNotify(adminId, checked) {
     const {error} = await db?.from('admins').update({receive_brand_notify: !!checked}).eq('id', adminId);
     if (error) throw error;
     toast(checked ? '알림 수신 켜짐' : '알림 수신 꺼짐');
+    await refreshPane('admin-accounts');
   } catch(e) {
     toast('저장 실패: ' + (e.message || '알 수 없는 오류'), 'error');
-    loadAdminAccounts();
+    await refreshPane('admin-accounts');
   }
 }
 
@@ -4387,9 +4455,9 @@ function renderPsetSteps() {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ko=this.value">
-        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
+        <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
         <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ko=this.value">${esc(s.desc_ko)}</textarea>
-        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
+        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
       </div>
     </div>
   `).join('');
@@ -4764,8 +4832,8 @@ function renderCsetItems() {
           ${miniEditorHtml(s.html_ko, `_csetCurrentItems[${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
         </div>
         <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">本文 (日本語)</div>
-          ${miniEditorHtml(s.html_ja, `_csetCurrentItems[${idx}].html_ja=this.innerHTML`, '本文 (日本語)')}
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_csetCurrentItems[${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
         </div>
       </div>
     </div>
@@ -4896,9 +4964,9 @@ function renderCampSteps(formMode) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ko=this.value">
-        <input type="text" class="form-input" placeholder="タイトル (日本語)" value="${esc(s.title_ja||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
+        <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
         <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ko=this.value">${esc(s.desc_ko||'')}</textarea>
-        <textarea class="form-input" placeholder="説明 (日本語)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
+        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
       </div>
     </div>
   `).join('');
@@ -5003,8 +5071,8 @@ function renderCampCautionItems(formMode) {
           ${miniEditorHtml(s.html_ko, `_csetState['${formMode}'][${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
         </div>
         <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">本文 (日本語)</div>
-          ${miniEditorHtml(s.html_ja, `_csetState['${formMode}'][${idx}].html_ja=this.innerHTML`, '本文 (日本語)')}
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_csetState['${formMode}'][${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
         </div>
       </div>
     </div>
@@ -5078,7 +5146,7 @@ function renderCampBundleSummary(kind, formMode) {
     const koCol = steps.map((s,i) => renderStep(s, i, 'ko')).join('');
     const jaCol = steps.map((s,i) => renderStep(s, i, 'ja')).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span></div>`
-      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div>${koCol}</div><div class="summary-lang-col"><div class="summary-lang-title">日本語</div>${jaCol}</div></div>`;
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div>${koCol}</div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div>${jaCol}</div></div>`;
   } else {
     const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
     const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
@@ -5091,7 +5159,7 @@ function renderCampBundleSummary(kind, formMode) {
     const koCol = items.map(it => `<li>${sanitize(it.html_ko || it.html_ja || '')}</li>`).join('');
     const jaCol = items.map(it => `<li>${sanitize(it.html_ja || it.html_ko || '')}</li>`).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span></div>`
-      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">日本語</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
   }
 }
 
@@ -5580,10 +5648,12 @@ function toggleDelivSort(col) {
 }
 
 function resetDelivFiltersAndSort() {
-  resetMultiFilter('delivKindMulti', '전체 타입');
-  resetMultiFilter('delivStatusMulti', '전체 상태');
+  resetMultiFilter('delivRecruitTypeMulti', '전체 타입');
+  resetMultiFilter('delivReceiptStatusMulti', '전체');
+  resetMultiFilter('delivResultStatusMulti', '전체');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
   const q = $('delivSearch'); if (q) q.value = '';
+  const cb = $('delivIncludeMissing'); if (cb) cb.checked = false;
   _delivSort = {col: null, dir: null};
   renderDeliverablesList();
 }
@@ -5622,125 +5692,237 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  // 캠페인 리스트 로드 + 결과물타입↔캠페인 쌍별 연동
+
+  // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
   const campsForFilter = await fetchCampaigns().catch(() => []);
   const sortedCampsForFilter = campsForFilter.slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
-  // recruit_type ↔ kind 매핑
-  // monitor → receipt (영수증), gifting/visit → post (게시물 URL)
-  const RECRUIT_TYPE_TO_KIND = { monitor: 'receipt', gifting: 'post', visit: 'post' };
-  const KIND_TO_RECRUIT_TYPES = { receipt: ['monitor'], post: ['gifting', 'visit'] };
-
-  const delivKindValsRaw = getMultiFilterValues('delivKindMulti');
+  const recruitTypeVals = getMultiFilterValues('delivRecruitTypeMulti');
   const delivCampValsRaw = getMultiFilterValues('delivCampMulti');
 
-  // 캠페인 옵션: kind 필터 있으면 해당 kind의 recruit_type 캠페인만
-  const allowedRecruitTypes = delivKindValsRaw.length > 0
-    ? [...new Set(delivKindValsRaw.flatMap(k => KIND_TO_RECRUIT_TYPES[k] || []))]
-    : null; // null = 제약 없음
-  const campOptionsSource = allowedRecruitTypes
-    ? sortedCampsForFilter.filter(c => allowedRecruitTypes.includes(c.recruit_type))
+  // 캠페인 옵션: 모집 타입 필터 있으면 해당 타입 캠페인만 노출
+  const campOptionsSource = recruitTypeVals.length > 0
+    ? sortedCampsForFilter.filter(c => recruitTypeVals.includes(c.recruit_type))
     : sortedCampsForFilter;
 
-  // kind 옵션: 캠페인 필터 있으면 선택 캠페인들의 recruit_type → 대응 kind 합집합
-  const ALL_KINDS = ['receipt', 'post'];
-  const KIND_LABEL = { receipt: '영수증', post: '게시물 URL' };
-  const availableKinds = delivCampValsRaw.length > 0
-    ? [...new Set(campsForFilter.filter(c => delivCampValsRaw.includes(c.id)).map(c => RECRUIT_TYPE_TO_KIND[c.recruit_type]).filter(Boolean))]
-    : ALL_KINDS;
-
-  // stale 감지
   const campStale = delivCampValsRaw.filter(v => !campOptionsSource.some(c => c.id === v));
-  const kindStale = delivKindValsRaw.filter(v => !availableKinds.includes(v));
-  if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 결과물 타입 필터에 맞지 않아 해제되었습니다`, 'info');
-  if (kindStale.length > 0 && typeof toast === 'function') toast(`선택한 결과물 타입 ${kindStale.length}건이 캠페인 필터에 맞지 않아 해제되었습니다`, 'info');
+  if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 모집 타입 필터에 맞지 않아 해제되었습니다`, 'info');
 
-  // 드롭다운 동기화
-  syncCampMultiFilter('delivCampMulti', campOptionsSource, () => renderDeliverablesList());
-  syncMultiFilter('delivKindMulti', '전체 타입',
-    availableKinds.map(k => ({ value: k, label: KIND_LABEL[k] || k })),
-    () => renderDeliverablesList());
-
-  const delivStatusVals = getMultiFilterValues('delivStatusMulti');
-  const delivKindVals = getMultiFilterValues('delivKindMulti');
+  const receiptStatusVals = getMultiFilterValues('delivReceiptStatusMulti');
+  const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
   const delivCampVals = getMultiFilterValues('delivCampMulti');
-  const status = delivStatusVals.length === 1 ? delivStatusVals[0] : 'all';
-  const kind = delivKindVals.length === 1 ? delivKindVals[0] : 'all';
-  const campId = delivCampVals.length === 1 ? delivCampVals[0] : 'all';
+  const includeMissing = !!$('delivIncludeMissing')?.checked;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
-  const rows = await fetchDeliverables({status, kind, campaign_id: campId});
-  _delivCache = rows;
-  // 다중 선택 시 클라이언트 필터링
-  let filtered = rows.slice();
-  if (delivStatusVals.length > 1) filtered = filtered.filter(r => delivStatusVals.includes(r.status));
-  if (delivKindVals.length > 1) filtered = filtered.filter(r => delivKindVals.includes(r.kind));
-  if (delivCampVals.length > 1) filtered = filtered.filter(r => delivCampVals.includes(r.campaign_id));
-  if (search) filtered = filtered.filter(r => {
-    const n = (r.influencers?.name || '') + ' ' + (r.influencers?.name_kana || '') + ' ' + (r.influencers?.email || '');
-    const camp = r.campaigns || {};
+
+  // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
+  const allDelivs = await fetchDeliverables({status: 'all', kind: 'all', campaign_id: 'all'});
+  _delivCache = allDelivs;
+
+  // 미제출 토글 ON 시 당첨된(approved) 신청도 fetch — deliverable 0건 행 노출
+  let approvedApps = [];
+  let infMissingMap = {};
+  if (includeMissing) {
+    approvedApps = await fetchApplications({status: 'approved'});
+    const userIds = [...new Set(approvedApps.map(a => a.user_id).filter(Boolean))];
+    infMissingMap = await fetchInfluencersByIds(userIds);
+  }
+
+  // 신청(application_id) 단위 group — 한 신청에 영수증·결과물 둘 다 묶음
+  // result 슬롯 = review_image (monitor) 또는 post (gifting/visit)
+  const groups = new Map();
+  const upsertGroup = (appId, camp, inf) => {
+    if (!groups.has(appId)) {
+      groups.set(appId, {
+        application_id: appId,
+        campaign: camp || null,
+        influencer: inf || null,
+        receipt: null,    // kind === 'receipt' 최신
+        result: null,     // kind === 'review_image' 또는 'post' 최신
+        latest_submitted_at: null,
+      });
+    }
+    return groups.get(appId);
+  };
+  const campMap = new Map(campsForFilter.map(c => [c.id, c]));
+  for (const d of allDelivs) {
+    if (!d.application_id) continue;
+    const camp = d.campaigns || campMap.get(d.campaign_id) || null;
+    const g = upsertGroup(d.application_id, camp, d.influencers);
+    if (!g.influencer && d.influencers) g.influencer = d.influencers;
+    const subAt = d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image' || d.kind === 'post') {
+      if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
+    }
+    if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
+  }
+  if (includeMissing) {
+    for (const app of approvedApps) {
+      if (groups.has(app.id)) continue;
+      upsertGroup(app.id, campMap.get(app.campaign_id) || null, infMissingMap[app.user_id] || null);
+    }
+  }
+
+  // 옵션별 카운트 — 사용자가 「리스트에 해당하는 건수」를 미리 보고 선택할 수 있도록
+  // 다른 필터는 무시하고 「전체 데이터에서 그 옵션 만족하는 group 수」 기준
+  const allGroups = Array.from(groups.values());
+  const campCounts = {};
+  const recruitTypeCounts = {};
+  const receiptStatusCounts = {pending:0, approved:0, rejected:0, none:0};
+  const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0};
+  for (const g of allGroups) {
+    const cid = g.campaign?.id;
+    if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
+    const rt = g.campaign?.recruit_type;
+    if (rt) recruitTypeCounts[rt] = (recruitTypeCounts[rt] || 0) + 1;
+    const rs = g.receipt ? g.receipt.status : 'none';
+    if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
+    const xs = g.result ? g.result.status : 'none';
+    if (xs in resultStatusCounts) resultStatusCounts[xs]++;
+  }
+
+  // 캠페인 드롭다운 sync — 카운트 + subLabel(캠페인 번호) 포함
+  syncCampMultiFilter('delivCampMulti', campOptionsSource, () => renderDeliverablesList(), campCounts);
+  // 모집 타입 드롭다운 — 옵션 자체는 고정이지만 카운트 갱신
+  syncMultiFilter('delivRecruitTypeMulti', '전체 타입', [
+    {value:'monitor', label:'리뷰어',  count: recruitTypeCounts.monitor || 0},
+    {value:'gifting', label:'기프팅',  count: recruitTypeCounts.gifting || 0},
+    {value:'visit',   label:'방문형',  count: recruitTypeCounts.visit || 0},
+  ], () => renderDeliverablesList());
+  // 영수증·결과물 상태 드롭다운 — 카운트 갱신
+  syncMultiFilter('delivReceiptStatusMulti', '전체', [
+    {value:'pending',  label:'검수대기', count: receiptStatusCounts.pending},
+    {value:'approved', label:'승인',    count: receiptStatusCounts.approved},
+    {value:'rejected', label:'비승인',  count: receiptStatusCounts.rejected},
+    {value:'none',     label:'미제출',  count: receiptStatusCounts.none},
+  ], () => renderDeliverablesList());
+  syncMultiFilter('delivResultStatusMulti', '전체', [
+    {value:'pending',  label:'검수대기', count: resultStatusCounts.pending},
+    {value:'approved', label:'승인',    count: resultStatusCounts.approved},
+    {value:'rejected', label:'비승인',  count: resultStatusCounts.rejected},
+    {value:'none',     label:'미제출',  count: resultStatusCounts.none},
+  ], () => renderDeliverablesList());
+
+  // 필터 적용
+  let filtered = Array.from(groups.values());
+  if (recruitTypeVals.length > 0) filtered = filtered.filter(g => g.campaign && recruitTypeVals.includes(g.campaign.recruit_type));
+  if (delivCampVals.length > 0) filtered = filtered.filter(g => g.campaign && delivCampVals.includes(g.campaign.id));
+  if (receiptStatusVals.length > 0) filtered = filtered.filter(g => {
+    const s = g.receipt ? g.receipt.status : 'none';
+    return receiptStatusVals.includes(s);
+  });
+  if (resultStatusVals.length > 0) filtered = filtered.filter(g => {
+    const s = g.result ? g.result.status : 'none';
+    return resultStatusVals.includes(s);
+  });
+  if (search) filtered = filtered.filter(g => {
+    const inf = g.influencer || {};
+    const camp = g.campaign || {};
+    const n = (inf.name || '') + ' ' + (inf.name_kana || '') + ' ' + (inf.email || '');
     return n.toLowerCase().includes(search)
       || (camp.title || '').toLowerCase().includes(search)
       || (camp.brand || '').toLowerCase().includes(search)
       || (camp.campaign_no || '').toLowerCase().includes(search);
   });
-  updateFilterResetBtn('btnDelivFilterReset', ['delivKindMulti','delivStatusMulti','delivCampMulti'], 'delivSearch');
-  // 수동 정렬 적용 (설정돼 있으면 fetchDeliverables의 order()를 덮어씀)
-  if (_delivSort.col) {
+
+  updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivCampMulti'], 'delivSearch');
+
+  // 정렬: 수동 sort 있으면 그대로, 없으면 검수대기 우선 → 최근 제출일 내림차순
+  if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
-    const statusOrder = {pending: 0, approved: 1, rejected: 2};
+    filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
+  } else {
     filtered.sort((a, b) => {
-      let av, bv;
-      switch (_delivSort.col) {
-        case 'kind':      av = a.kind || ''; bv = b.kind || ''; break;
-        case 'submitted': av = a.submitted_at || ''; bv = b.submitted_at || ''; break;
-        case 'reviewed':  av = a.reviewed_at || ''; bv = b.reviewed_at || ''; break;
-        case 'status':    av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; break;
-        default: return 0;
-      }
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
-      return 0;
+      const aPending = (a.receipt?.status === 'pending') || (a.result?.status === 'pending') ? 0 : 1;
+      const bPending = (b.receipt?.status === 'pending') || (b.result?.status === 'pending') ? 0 : 1;
+      if (aPending !== bPending) return aPending - bPending;
+      return (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || '');
     });
   }
   applyDelivSortIndicators();
+
   const cnt = $('delivTotalCount');
   if (cnt) cnt.textContent = `총 ${filtered.length}건`;
-  const renderDelivRow = (d) => {
-    const kindBadge = d.kind === 'receipt'
-      ? '<span style="display:inline-flex;align-items:center;gap:3px;background:#fdf5fb;color:var(--dark-pink);font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">receipt</span> 영수증</span>'
-      : '<span style="display:inline-flex;align-items:center;gap:3px;background:#eef5ff;color:#2c5fa8;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span> 게시물</span>';
-    const camp = d.campaigns || {};
-    const inf = d.influencers || {};
-    const stBadge = delivStatusBadge(d.status);
-    const infName = esc(inf.name || '—');
-    const infEmail = esc(inf.email || '');
-    const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
-    const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
-    const reviewedCell = d.reviewed_at
-      ? `<span style="font-size:12px">${formatDateTime(d.reviewed_at)}</span>`
-      : '<span style="font-size:11px;color:var(--muted)">—</span>';
-    return `<tr data-id="${esc(d.id)}">
-      <td>${kindBadge}</td>
-      <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${getRecruitTypeBadgeKoSm(camp.recruit_type)}${camp.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span>` : ''}</div>${esc(camp.title || '—')}<div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
-      <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${inf.id||''}')">${infName}${influencerStatusBadges(inf)}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
-      <td style="font-size:12px">${formatDateTime(d.submitted_at)}</td>
-      <td>${reviewedCell}</td>
-      <td>${stBadge}</td>
-      <td><button class="btn btn-ghost btn-xs" onclick="openDelivDetail('${d.id}')">상세</button></td>
-    </tr>`;
-  };
+
   const scrollRoot = tbody.closest('.admin-table-wrap');
   if (delivLazy) delivLazy.destroy();
   delivLazy = mountLazyList({
     tbody,
     scrollRoot,
     rows: filtered,
-    renderRow: renderDelivRow,
+    renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
-  // 검수 후 사이드바 배지(검수 대기 개수) 자동 동기화
   refreshDelivSidebarBadge();
+}
+
+// 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
+// 양쪽 모두 「승인」(또는 gifting의 경우 결과물 단독 「승인」)이면 좌측 초록 보더 = 「완료」
+function renderDelivAppRow(g) {
+  const camp = g.campaign || {};
+  const inf = g.influencer || {};
+  const rt = camp.recruit_type;
+  const rtBadge = (typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(rt) : esc(rt || '—');
+  const infName = esc(inf.name || '—');
+  const infEmail = esc(inf.email || '');
+  const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
+  const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
+
+  const receiptCell = renderDelivStatusCell(g.receipt, 'receipt', rt);
+  const resultCell = renderDelivStatusCell(g.result, 'result', rt);
+
+  // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
+  // (CLAUDE.md: monitor=영수증, gifting/visit=SNS 게시 URL)
+  const useReceipt = rt === 'monitor';
+  const completed = useReceipt
+    ? (g.receipt?.status === 'approved' && g.result?.status === 'approved')
+    : (g.result?.status === 'approved');
+  const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
+
+  const submittedCell = g.latest_submitted_at
+    ? `<span style="font-size:12px">${formatDate(g.latest_submitted_at)}</span>`
+    : '<span style="font-size:11px;color:var(--muted)">미제출</span>';
+
+  const campNoBadge = camp.campaign_no
+    ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);margin-right:6px">${esc(camp.campaign_no)}</span>`
+    : '';
+
+  return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
+    <td>${rtBadge}</td>
+    <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
+    <td>${receiptCell}</td>
+    <td>${resultCell}</td>
+    <td>${submittedCell}</td>
+    <td><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
+  </tr>`;
+}
+
+// 영수증·결과물 셀 — slot: 'receipt' | 'result', rt: campaign.recruit_type
+function renderDelivStatusCell(d, slot, rt) {
+  // 영수증은 monitor에서만 사용. gifting/visit은 영수증 단계 없음 → 「-」 표시
+  if (slot === 'receipt' && rt !== 'monitor') {
+    return '<span style="font-size:11px;color:var(--muted)">—</span>';
+  }
+  if (!d) {
+    return '<span style="display:inline-block;background:#f5f5f5;color:var(--muted);font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">미제출</span>';
+  }
+  let preview = '';
+  if (d.kind === 'receipt' || d.kind === 'review_image') {
+    if (d.receipt_url) {
+      const thumb = (typeof imgThumb === 'function') ? imgThumb(d.receipt_url, 64, 80) : d.receipt_url;
+      preview = `<img src="${esc(thumb)}" data-orig="${esc(d.receipt_url)}" loading="lazy" decoding="async" style="width:32px;height:32px;border-radius:4px;object-fit:cover;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="event.stopPropagation();openImageLightbox('${esc(d.receipt_url)}')">`;
+    }
+  } else if (d.kind === 'post') {
+    if (d.post_url) {
+      let host = '';
+      try { host = new URL(d.post_url).hostname.replace(/^www\./, ''); } catch(e) { host = d.post_url; }
+      preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
+    }
+  }
+  return `<div style="display:flex;align-items:center;gap:6px">${preview}${delivStatusBadge(d.status)}</div>`;
 }
 
 function statusLabelKo(status) {
@@ -5786,7 +5968,7 @@ async function openDelivDetail(id) {
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<a href="${esc(d.receipt_url)}" target="_blank" rel="noopener"><img src="${esc(d.receipt_url)}" alt="영수증" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in"></a>`
+            ? `<img src="${esc(d.receipt_url)}" alt="영수증" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
@@ -5809,22 +5991,21 @@ async function openDelivDetail(id) {
       </div>`;
   }
 
-  // 반려 사유 (있을 때만)
-  if (d.status === 'rejected' && d.reject_reason) {
-    contentHtml += `<div style="margin-top:14px;padding:10px 12px;background:#FFF5F5;border-left:3px solid #C33;border-radius:4px;font-size:12px">
-      <div style="font-weight:600;color:#C33;margin-bottom:4px">반려 사유</div>
-      <div style="white-space:pre-wrap;color:var(--ink)">${esc(d.reject_reason)}</div>
-    </div>`;
-  }
-
-  // 이력 타임라인
+  // 이력 타임라인 (반려 사유는 reject 이벤트 안에 줄바꿈 + 빨간색으로 노출)
   if (events.length) {
     contentHtml += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">변경 이력</div><div style="font-size:11px">';
     contentHtml += events.map(e => {
       const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
-      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;gap:10px">
-        <span><strong>${label}</strong>${e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : ''}${e.reason ? ` · ${esc(e.reason.slice(0, 60))}` : ''}</span>
-        <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+      const transition = e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : '';
+      const reasonLine = e.reason
+        ? `<div style="margin-top:4px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(e.reason)}</div>`
+        : '';
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <span><strong>${esc(label)}</strong>${transition}</span>
+          <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+        </div>
+        ${reasonLine}
       </div>`;
     }).join('');
     contentHtml += '</div></div>';
@@ -5860,11 +6041,13 @@ async function approveDeliv(id, version) {
     toast('다른 관리자가 이미 처리했습니다. 목록을 새로고침합니다.', 'warn');
     closeDelivDetail();
     await renderDeliverablesList();
+    if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
     return;
   }
   toast('승인 처리되었습니다.');
   closeDelivDetail();
   await renderDeliverablesList();
+  if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
 }
 
 async function revertDeliv(id, version) {
@@ -5875,11 +6058,13 @@ async function revertDeliv(id, version) {
     toast('다른 관리자가 이미 처리했습니다.', 'warn');
     closeDelivDetail();
     await renderDeliverablesList();
+    if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
     return;
   }
   toast('검수대기로 되돌렸습니다.');
   closeDelivDetail();
   await renderDeliverablesList();
+  if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
 }
 
 // 반려 모달 상태
@@ -5952,12 +6137,198 @@ async function submitDelivReject() {
     closeDelivRejectModal();
     closeDelivDetail();
     await renderDeliverablesList();
+    if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
     return;
   }
   toast('반려 처리되었습니다.');
   closeDelivRejectModal();
   closeDelivDetail();
   await renderDeliverablesList();
+  if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
+}
+
+// ──────────────────────────────────────
+// 이미지 라이트박스 — 결과물 이미지(영수증·리뷰 캡쳐)를 새 탭이 아닌
+// 같은 페이지 모달로 확대 노출. 인플루언서 위반 증빙 라이트박스(#imageLightbox,
+// z-index 900)를 재사용하므로 합본 검수 모달(605) 위에 자동으로 떠 있음.
+// ──────────────────────────────────────
+function openImageLightbox(url) {
+  if (!url) return;
+  const img = $('imageLightboxImg');
+  if (img) img.src = url;
+  openModal('imageLightbox');
+}
+function closeImageLightbox() {
+  closeModal('imageLightbox');
+  const img = $('imageLightboxImg');
+  if (img) img.src = '';
+}
+
+// ──────────────────────────────────────
+// 결과물 관리 페인 합본 검수 모달 (Phase 2)
+// 한 신청(application) 안의 영수증·결과물 양쪽을 한 화면에서 검수.
+// 액션 버튼은 기존 approveDeliv/revertDeliv/openDelivRejectModal을 재사용하고,
+// 처리 후 _delivCombinedRefreshAppId가 가리키는 application의 패널을 다시 렌더링.
+// ──────────────────────────────────────
+let _delivCombinedRefreshAppId = null;
+
+async function openDelivCombined(applicationId) {
+  const modal = $('delivCombinedModal');
+  if (!modal) return;
+  _delivCombinedRefreshAppId = applicationId;
+  openModal('delivCombinedModal');
+  await renderDelivCombinedBody(applicationId);
+}
+
+function closeDelivCombined() {
+  closeModal('delivCombinedModal');
+  _delivCombinedRefreshAppId = null;
+}
+
+async function renderDelivCombinedBody(applicationId) {
+  const body = $('delivCombinedBody');
+  const titleEl = $('delivCombinedTitle');
+  if (!body) return;
+  body.innerHTML = '<div style="text-align:center;padding:40px"><span class="spinner"></span></div>';
+
+  // 1차: deliverables를 캠페인 join 포함해서 fetch (가장 안정적인 정보 출처)
+  let allDelivs = [];
+  let camp = null;
+  let userId = null;
+  if (db) {
+    const delivRes = await db.from('deliverables').select(`
+      id, kind, status, version, application_id, user_id, campaign_id,
+      receipt_url, post_url, post_channel, post_submissions, memo,
+      reject_reason, reject_template_code,
+      submitted_at, reviewed_at, updated_at, reviewed_by,
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
+    `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
+    if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
+    allDelivs = delivRes?.data || [];
+    if (allDelivs[0]) {
+      camp = allDelivs[0].campaigns || null;
+      userId = allDelivs[0].user_id || null;
+    }
+  }
+
+  // 2차 fallback: deliverable이 0건(미제출 토글 ON으로 진입한 케이스)이면 applications에서 직접 fetch
+  if (!camp && db) {
+    const appRes = await db.from('applications').select('user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)').eq('id', applicationId).maybeSingle();
+    if (appRes?.error) console.error('[deliv-combined app]', appRes.error);
+    const app = appRes?.data || null;
+    if (app) {
+      camp = app.campaigns || null;
+      userId = app.user_id || null;
+    }
+  }
+
+  if (!camp) {
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">캠페인 정보를 찾을 수 없습니다.</div>';
+    return;
+  }
+
+  const rt = camp.recruit_type;
+  const infMap = userId ? await fetchInfluencersByIds([userId]) : {};
+  const inf = infMap[userId] || null;
+
+  if (titleEl) {
+    const campLabel = camp.campaign_no ? `[${esc(camp.campaign_no)}] ${esc(camp.title || '')}` : esc(camp.title || '캠페인');
+    const infLabel = inf?.name || '—';
+    titleEl.innerHTML = `${campLabel} <span style="font-size:12px;color:var(--muted);font-weight:400">· ${esc(infLabel)}</span>`;
+  }
+
+  // submitted_at 내림차순으로 정렬되어 있으므로 find = 최신 1건
+  const receipt = allDelivs.find(d => d.kind === 'receipt') || null;
+  const result = allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null;
+
+  // 변경 이력 (제출/재제출/승인/반려/되돌리기 타임라인) — deliverable별 events fetch
+  const [receiptEvents, resultEvents] = await Promise.all([
+    receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
+    result ? fetchDeliverableEvents(result.id) : Promise.resolve([]),
+  ]);
+
+  // 영수증 패널은 monitor에서만 노출. gifting/visit은 영수증 단계 없음.
+  const showReceipt = rt === 'monitor';
+  const resultLabel = rt === 'monitor' ? '결과물 (리뷰 캡쳐)' : '결과물 (게시 URL)';
+  const stepLabel = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 1</span>' : '';
+  const stepLabel2 = rt === 'monitor' ? '<span style="font-size:10px;color:var(--muted);font-weight:400">· STEP 2</span>' : '';
+
+  // 패널 헤더 우측에 상태 배지 노출 (deliverable 있을 때만)
+  const receiptStatusBadge = receipt ? delivStatusBadge(receipt.status) : '';
+  const resultStatusBadge = result ? delivStatusBadge(result.status) : '';
+
+  body.innerHTML = `
+    <div class="deliv-combined-grid">
+      ${showReceipt
+        ? `<div class="deliv-combined-panel">
+            <div class="deliv-combined-panel-header"><span>영수증 ${stepLabel}</span>${receiptStatusBadge}</div>
+            <div class="deliv-combined-panel-body">${renderDelivPanelContent(receipt, receiptEvents)}</div>
+          </div>`
+        : `<div class="deliv-combined-panel" style="opacity:.6">
+            <div class="deliv-combined-panel-header" style="color:var(--muted)"><span>영수증 (해당 없음)</span></div>
+            <div class="deliv-combined-panel-body" style="color:var(--muted);text-align:center;padding:40px;font-size:13px">이 모집 타입은 영수증 단계가 없습니다.</div>
+          </div>`}
+      <div class="deliv-combined-panel">
+        <div class="deliv-combined-panel-header"><span>${esc(resultLabel)} ${stepLabel2}</span>${resultStatusBadge}</div>
+        <div class="deliv-combined-panel-body">${renderDelivPanelContent(result, resultEvents)}</div>
+      </div>
+    </div>
+  `;
+}
+
+// 합본 모달 안 한 패널의 본문 — 이미지/URL/메타/반려사유/이력 타임라인/액션버튼
+// events: deliverable_events 배열 (제출/재제출/승인/반려/되돌리기 타임라인)
+function renderDelivPanelContent(d, events) {
+  if (!d) {
+    return '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">아직 제출되지 않았습니다.</div>';
+  }
+  let html = '';
+  if (d.kind === 'receipt' || d.kind === 'review_image') {
+    html += `<div style="text-align:center;margin-bottom:12px">
+      ${d.receipt_url
+        ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
+        : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
+    </div>`;
+  } else {
+    html += `<div style="font-size:13px;line-height:1.7;margin-bottom:10px">
+      <div><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong></div>
+      <div style="margin-top:6px"><span style="color:var(--muted)">URL</span> · ${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all">${esc(d.post_url)}</a>` : '—'}</div>
+      ${(Array.isArray(d.post_submissions) && d.post_submissions.length) ? `<div style="margin-top:8px;font-size:11px;color:var(--muted)">제출 이력 ${d.post_submissions.length}건</div>` : ''}
+    </div>`;
+  }
+  // 상태는 패널 헤더 우측에 노출되므로 여기에선 제거. 제출일·검수일만 한 줄로 압축.
+  html += `<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">제출일 ${formatDate(d.submitted_at)}${d.reviewed_at ? ` · 검수일 ${formatDate(d.reviewed_at)}` : ''}</div>`;
+  // 반려 사유는 변경 이력의 reject 이벤트 안에 줄바꿈 + 빨간색으로 노출 (별도 박스 제거)
+  // 변경 이력 타임라인 (제출/재제출/승인/반려/되돌리기) — 단일 결과물 모달과 동일 패턴
+  if (Array.isArray(events) && events.length) {
+    html += '<div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">변경 이력</div><div style="font-size:11px">';
+    html += events.map(e => {
+      const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
+      const transition = e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : '';
+      const reasonLine = e.reason
+        ? `<div style="margin-top:4px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(e.reason)}</div>`
+        : '';
+      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <span><strong>${esc(label)}</strong>${transition}</span>
+          <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
+        </div>
+        ${reasonLine}
+      </div>`;
+    }).join('');
+    html += '</div></div>';
+  }
+  if (d.status === 'pending') {
+    html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:12px;padding:6px 12px" onclick="openDelivRejectModal('${esc(d.id)}', ${d.version})">반려</button>
+      <button class="btn btn-primary btn-sm" style="font-size:12px;padding:6px 12px" onclick="approveDeliv('${esc(d.id)}', ${d.version})">승인</button>
+    </div>`;
+  } else {
+    html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" style="font-size:12px;padding:6px 12px" onclick="revertDeliv('${esc(d.id)}', ${d.version})">검수대기로 되돌리기</button>
+    </div>`;
+  }
+  return html;
 }
 
 // ══════════════════════════════════════
@@ -6242,7 +6613,7 @@ async function exportCampaignApplicationsExcel(campId) {
         address:    addrStr(u, a.address),
         message:    a.message || '',
         reviewedAt: reviewedStr,
-        reviewedBy: a.reviewed_by || ''
+        reviewedBy: formatReviewer(a.reviewed_by)
       });
     });
 
@@ -7535,6 +7906,30 @@ function renderBrandApplicationsList() {
   var tbody = $('brandAppTableBody');
   if (!tbody) return;
 
+  // 옵션별 (NN) 카운트 갱신 — 필터 적용 전 전체 신청 기준
+  var formCounts = {reviewer:0, seeding:0};
+  var brandStatusCounts = {};
+  (_brandApps || []).forEach(function(a) {
+    if (a.form_type) formCounts[a.form_type] = (formCounts[a.form_type] || 0) + 1;
+    if (a.status) brandStatusCounts[a.status] = (brandStatusCounts[a.status] || 0) + 1;
+  });
+  syncMultiFilter('brandAppFormMulti', '전체 폼', [
+    {value:'reviewer', label:'Qoo10 리뷰어', count: formCounts.reviewer || 0},
+    {value:'seeding',  label:'나노 시딩',   count: formCounts.seeding  || 0},
+  ], renderBrandApplicationsList);
+  syncMultiFilter('brandAppStatusMulti', '전체 상태', [
+    {value:'new',                 label:'신규',            count: brandStatusCounts.new || 0},
+    {value:'reviewing',           label:'검토중',          count: brandStatusCounts.reviewing || 0},
+    {value:'quoted',              label:'견적 전달',       count: brandStatusCounts.quoted || 0},
+    {value:'paid',                label:'입금완료',        count: brandStatusCounts.paid || 0},
+    {value:'kakao_room_created',  label:'카톡방 생성',     count: brandStatusCounts.kakao_room_created || 0},
+    {value:'orient_sheet_sent',   label:'오리엔시트 전달', count: brandStatusCounts.orient_sheet_sent || 0},
+    {value:'schedule_sent',       label:'일정 전달',       count: brandStatusCounts.schedule_sent || 0},
+    {value:'campaign_registered', label:'캠페인 등록',     count: brandStatusCounts.campaign_registered || 0},
+    {value:'done',                label:'최종완료',        count: brandStatusCounts.done || 0},
+    {value:'rejected',            label:'반려',            count: brandStatusCounts.rejected || 0},
+  ], renderBrandApplicationsList);
+
   var res = getFilteredBrandApps();
   var list = res.list;
   var filterActive = res.filterActive;
@@ -8129,7 +8524,7 @@ function addNbaProductRow() {
   row.style.cssText = 'display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
   row.innerHTML =
     '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
-    '<input type="text" class="form-input nba-prod-name-ja" placeholder="商品名 (일본어)" style="font-size:14px">' +
+    '<input type="text" class="form-input nba-prod-name-ja" placeholder="상품명 (일본어)" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-transfer-fee" placeholder="reviewer 자동 2500" min="0" style="font-size:14px" title="비워두면 reviewer는 ₩2,500 자동, seeding은 NULL">' +
@@ -9080,7 +9475,7 @@ async function onDeleteAdminNotice() {
     await deleteAdminNotice(_adminNoticeCurrent.id);
     toast('삭제되었습니다');
     closeModal('adminNoticeEditModal');
-    await loadAdminNotices();
+    await refreshPane('admin-notices');
   } catch(e) { toast('삭제 오류: ' + (e.message || e), 'error'); }
 }
 
