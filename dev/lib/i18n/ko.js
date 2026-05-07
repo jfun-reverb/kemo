@@ -228,6 +228,7 @@ window.I18N_KO = {
     appliedBtn: '응모 완료',
     manageBtn: '활동 관리',
     rewardProduct: '원 상당 제품 무상 제공',
+    rewardPayback: '원 페이백',
     rewardCash: '+ 현금 리워드 ¥{amount}',
     rewardFree: '제품 전액 무상 제공',
     rewardProductAmount: '제품 ¥{price}원 상당',

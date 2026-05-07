@@ -241,6 +241,7 @@ window.I18N_JA = {
     appliedBtn: '応募済み',
     manageBtn: '活動管理',
     rewardProduct: '円相当の製品を無償提供',
+    rewardPayback: '円ペイバック',
     rewardCash: '+ 現金報酬 ¥{amount}',
     rewardFree: '製品全額無償提供',
     rewardProductAmount: '製品 ¥{price}円相当',
