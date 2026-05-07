@@ -135,6 +135,10 @@ img{display:block;max-width:100%}
 .badge-gold{background:var(--gold-l);color:var(--gold)}
 .badge-blue{background:var(--blue-l);color:var(--blue)}
 .badge-gray{background:var(--surface-dim);color:var(--muted);border:1px solid var(--outline)}
+/* 캠페인 상태 노출 그룹용 — closed(모집 끝났지만 게시 기간 살아있어 인플루언서 화면에 노출 중) */
+.badge-pink{background:#FFE4EC;color:#B91C5C;border:1px solid #FFB8D0}
+/* 캠페인 상태 비노출 강조 — expired(노출마감, 영구 비노출) */
+.badge-expired{background:#EEEEEE;color:#666666;border:1.5px dashed #999999;opacity:.85}
 .badge-new{background:var(--primary);color:#fff}
 
 /* ── FORMS (Material Text Field - Outlined) ── */
@@ -1417,7 +1421,7 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
               <div class="form-group"><label class="form-label">상태</label>
                 <select id="editCampStatus" class="form-input">
-                  <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="paused">일시정지</option><option value="closed">종료</option>
+                  <option value="draft">준비</option><option value="scheduled">모집예정</option><option value="active">모집중</option><option value="closed">종료</option><option value="expired">노출마감</option>
                 </select>
               </div>
             </div>
@@ -1502,7 +1506,8 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
             </div>
 
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="editCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="recruit" readonly>
@@ -1511,15 +1516,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div class="form-hint">인플루언서를 모집하는 기간을 설정하세요</div>
                 <div id="editCampRecruitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
-                <input type="text" id="editCampSubmissionEnd" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
-                <div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 캠페인 노출 마감일로 폴백</div>
-                <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
-            </div>
-            <div class="form-row" id="editCampPurchaseRow" style="grid-template-columns:1fr 1fr;display:none">
-              <div class="form-group">
+              <div class="form-group" id="editCampPurchaseRow" style="display:none">
                 <label class="form-label">구매 기간</label>
                 <input type="text" id="editCampPurchaseRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="purchase" readonly>
                 <input type="hidden" id="editCampPurchaseStart">
@@ -1527,9 +1524,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="editCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-            </div>
-            <div class="form-row" id="editCampVisitRow" style="grid-template-columns:1fr 1fr;display:none">
-              <div class="form-group">
+              <div class="form-group" id="editCampVisitRow" style="display:none">
                 <label class="form-label">방문 기간</label>
                 <input type="text" id="editCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="visit" readonly>
                 <input type="hidden" id="editCampVisitStart">
@@ -1537,8 +1532,15 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
                 <div id="editCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
+              <div class="form-group">
+                <label class="form-label">결과물 제출 마감일</label>
+                <input type="text" id="editCampSubmissionEnd" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
+                <div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 캠페인 노출 마감일로 폴백</div>
+                <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
             </div>
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <!-- 기간 입력 2행: [캠페인 노출 마감] | -- | -- (빈 칸 자동) -->
+            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label">캠페인 노출 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="editCampPostDeadline" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="PostDeadline" placeholder="연도. 월. 일." readonly>
@@ -1760,8 +1762,8 @@ textarea.form-input{resize:vertical;min-height:80px}
               </div>
             </div>
 
-            <!-- 모집 기간 / 결과물 제출 마감일 -->
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <!-- 기간 입력 3열: [모집기간] [구매/방문기간] [결과물 제출 마감일] — 시간 흐름 순 -->
+            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label">모집 기간 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="newCampRecruitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="recruit" readonly>
@@ -1770,17 +1772,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div class="form-hint">인플루언서를 모집하는 기간을 설정하세요</div>
                 <div id="newCampRecruitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-              <div class="form-group">
-                <label class="form-label">결과물 제출 마감일</label>
-                <input type="text" id="newCampSubmissionEnd" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
-                <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 캠페인 노출 마감일로 폴백</div>
-                <div id="newCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
-            </div>
-
-            <!-- 타입별 기한 — 모든 일자는 모집 시작 ~ 노출 마감 사이로 강제 -->
-            <div class="form-row" id="newCampPurchaseRow" style="grid-template-columns:1fr 1fr;display:none">
-              <div class="form-group">
+              <div class="form-group" id="newCampPurchaseRow" style="display:none">
                 <label class="form-label">구매 기간</label>
                 <input type="text" id="newCampPurchaseRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="purchase" readonly>
                 <input type="hidden" id="newCampPurchaseStart">
@@ -1788,9 +1780,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div class="form-hint">리뷰어용. 이 기간 내 구매한 영수증만 인정</div>
                 <div id="newCampPurchaseWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
-            </div>
-            <div class="form-row" id="newCampVisitRow" style="grid-template-columns:1fr 1fr;display:none">
-              <div class="form-group">
+              <div class="form-group" id="newCampVisitRow" style="display:none">
                 <label class="form-label">방문 기간</label>
                 <input type="text" id="newCampVisitRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="visit" readonly>
                 <input type="hidden" id="newCampVisitStart">
@@ -1798,8 +1788,15 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div class="form-hint">방문형용. 이 기간 내 매장 방문 가능</div>
                 <div id="newCampVisitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
+              <div class="form-group">
+                <label class="form-label">결과물 제출 마감일</label>
+                <input type="text" id="newCampSubmissionEnd" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
+                <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 캠페인 노출 마감일로 폴백</div>
+                <div id="newCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
+              </div>
             </div>
-            <div class="form-row" style="grid-template-columns:1fr 1fr">
+            <!-- 기간 입력 2행: [캠페인 노출 마감] | -- | -- (빈 칸 자동) -->
+            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
               <div class="form-group">
                 <label class="form-label">캠페인 노출 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
                 <input type="text" id="newCampPostDeadline" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="PostDeadline" placeholder="연도. 월. 일." readonly>
@@ -2912,16 +2909,16 @@ textarea.form-input{resize:vertical;min-height:80px}
             <td style="padding:8px 10px">「모집중」 / 「募集中」 배지</td>
           </tr>
           <tr>
-            <td style="padding:8px 10px"><span style="background:#F2E6F0;color:#735;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">paused</span></td>
-            <td style="padding:8px 10px">일시정지</td>
-            <td style="padding:8px 10px;color:var(--red);font-weight:600">노출 안 됨</td>
-            <td style="padding:8px 10px;color:var(--muted)">—</td>
-          </tr>
-          <tr>
             <td style="padding:8px 10px"><span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">closed</span></td>
             <td style="padding:8px 10px">모집 종료</td>
             <td style="padding:8px 10px;color:var(--gold);font-weight:600">캠페인 노출 마감일까지 노출</td>
             <td style="padding:8px 10px">「募集締切」 오버레이 + 신청 버튼 비활성</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 10px"><span style="background:#EFEFEF;color:#888;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">expired</span></td>
+            <td style="padding:8px 10px">노출 마감 (캠페인 노출 마감일 경과)</td>
+            <td style="padding:8px 10px;color:var(--red);font-weight:600">노출 안 됨</td>
+            <td style="padding:8px 10px;color:var(--muted)">—</td>
           </tr>
         </tbody>
       </table>
@@ -2929,14 +2926,15 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div style="font-weight:700;color:var(--dark-pink);margin-bottom:6px">자동 전이 규칙</div>
         <ul style="margin:0;padding-left:18px;color:var(--ink)">
           <li><strong>모집 마감일(deadline) 경과</strong>하면 active → closed 로 자동 변경됩니다 (인플루언서 페이지 접속 시 클라이언트 측에서 처리).</li>
+          <li><strong>캠페인 노출 마감일(post_deadline) 경과</strong>하면 closed → expired 로 자동 변경됩니다. expired 상태는 사이트에서 완전히 숨겨집니다.</li>
           <li>모집 마감일이 지난 캠페인은 active / scheduled 상태로 저장·변경할 수 없습니다.</li>
-          <li>closed 라도 <strong>캠페인 노출 마감일(post_deadline)</strong>이 남아 있으면 사이트에서 보입니다 (이미 응모한 인플루언서가 캠페인 정보·결과물 제출 페이지를 열 수 있도록).</li>
+          <li>closed / expired 캠페인의 주의사항·참여방법은 수정할 수 없습니다 (DB에서 이중 차단).</li>
         </ul>
       </div>
       <div style="margin-top:14px;padding:14px;background:var(--surface-dim);border-radius:10px;font-size:12px;line-height:1.6">
-        <div style="font-weight:700;color:var(--ink);margin-bottom:6px">전이 흐름 예시</div>
-        <div style="font-family:monospace;font-size:11px;color:var(--ink)">draft → scheduled → active → closed → (post_deadline 경과 후 비노출)</div>
-        <div style="margin-top:6px;color:var(--muted)">paused 는 임시 중단용 — 작업 끝나면 active 로 복귀</div>
+        <div style="font-weight:700;color:var(--ink);margin-bottom:6px">전이 흐름</div>
+        <div style="font-family:monospace;font-size:11px;color:var(--ink)">draft → scheduled → active → closed → expired</div>
+        <div style="margin-top:6px;color:var(--muted)">closed 는 post_deadline 까지 인플루언서에게 노출(募集締切 표시). expired 는 완전 비노출.</div>
       </div>
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--line);text-align:right">
@@ -3707,6 +3705,7 @@ async function fetchCampaigns() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoExpireCampaigns(data); // closed → expired (post_deadline 경과)
       return data;
     }
     return DEMO_CAMPAIGNS.slice();
@@ -3757,6 +3756,30 @@ async function autoCloseCampaigns(camps) {
   }));
   results.forEach((r, i) => {
     if (r.status === 'rejected') console.warn('autoCloseCampaigns 실패:', toClose[i]?.id, r.reason);
+  });
+  return camps;
+}
+
+// post_deadline 경과 캠페인 자동 노출마감 전환 (closed → expired)
+//   post_deadline 당일 자정(JST) 이후 접속 시 expired로 전환.
+//   expired 캠페인은 인플루언서 화면에서 완전히 숨겨짐 (closed는 post_deadline까지 표시).
+async function autoExpireCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const toExpire = camps.filter(c => {
+    if (c.status !== 'closed' || !c.post_deadline) return false;
+    const pd = new Date(c.post_deadline);
+    pd.setHours(23, 59, 59, 999);
+    return now > pd;
+  });
+  if (!toExpire.length) return camps;
+  const results = await Promise.allSettled(toExpire.map(c => {
+    c.status = 'expired';
+    return db.from('campaigns').update({ status: 'expired' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoExpireCampaigns 실패:', toExpire[i]?.id, r.reason);
   });
   return camps;
 }
@@ -6229,7 +6252,7 @@ function initMultiFilters() {
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => filterAdminCampaigns());
   createMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'paused',label:'일시정지'},{value:'closed',label:'종료'}
+    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'종료'},{value:'expired',label:'노출마감'}
   ], () => filterAdminCampaigns());
   // 신청관리
   createMultiFilter('appTypeMulti', '전체 타입', [
@@ -6345,11 +6368,11 @@ function renderCampaignBreakdown(camps) {
   if (!statusEl || !chEl) return;
 
   const statusDef = [
-    {key:'draft', label:'준비', color:'#9aa0a6', bg:'#F1F3F4'},
+    {key:'draft',     label:'준비',     color:'#9aa0a6', bg:'#F1F3F4'},
     {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
-    {key:'active', label:'모집중', color:'#0E7E4A', bg:'#E8F7EF'},
-    {key:'paused', label:'일시정지', color:'#B26A00', bg:'#FFF4E5'},
-    {key:'closed', label:'종료', color:'#6B6B6B', bg:'#EEEEEE'},
+    {key:'active',    label:'모집중',   color:'#0E7E4A', bg:'#E8F7EF'},
+    {key:'closed',    label:'종료',     color:'#B91C5C', bg:'#FFE4EC'},
+    {key:'expired',   label:'노출마감', color:'#666666', bg:'#EEEEEE'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
@@ -6760,11 +6783,12 @@ async function loadAdminCampaigns(useCache) {
     {value:'draft',     label:'준비',     count: stCounts.draft || 0},
     {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
     {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'paused',    label:'일시정지', count: stCounts.paused || 0},
     {value:'closed',    label:'종료',     count: stCounts.closed || 0},
+    {value:'expired',   label:'노출마감', count: stCounts.expired || 0},
   ], () => filterAdminCampaigns());
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',paused:'일시정지',closed:'종료'};
-  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',paused:'var(--gold)',closed:'var(--muted)'};
+  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'종료',expired:'노출마감'};
+  // 노출 그룹(scheduled/active/closed)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
+  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',expired:'#666666'};
   const el = $('adminCampStatusCounts');
   if (el) el.innerHTML = Object.keys(stLabels).filter(k=>stCounts[k]).map(k =>
     `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
@@ -6795,7 +6819,7 @@ async function loadAdminCampaigns(useCache) {
     });
   } else if (adminCampSortKey) {
     const dir = adminCampSortDir === 'asc' ? 1 : -1;
-    const statusOrder = {draft:0,scheduled:1,active:2,paused:3,closed:4};
+    const statusOrder = {draft:0,scheduled:1,active:2,closed:3,expired:4};
     const getVal = {
       status: c => statusOrder[c.status]??99,
       created: c => new Date(c.created_at).getTime(),
@@ -6813,10 +6837,14 @@ async function loadAdminCampaigns(useCache) {
   const isFiltered = searchVal || typeVals.length > 0 || statusVals.length > 0 || !!adminCampSortKey;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
-  const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
-  const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',paused:'badge-gold',closed:'badge-gray'};
+  const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',closed:'종료',expired:'노출마감'};
+  // 노출 그룹(scheduled/active/closed)과 비노출 그룹(draft/expired)을 색·점선으로 구분
+  //   scheduled=파랑, active=초록, closed=핑크(게시 기간 살아있는 동안 노출 중)
+  //   draft=회색+점선, expired=비노출 강조 회색+점선
+  const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',closed:'badge-pink',expired:'badge-expired'};
   const statusBadge = s => {
     const cls = statusBadgeClass[s]||'badge-gray';
+    // draft만 점선 인라인 — expired는 .badge-expired 자체에 dashed 정의되어 있어 인라인 불필요
     const dashed = s==='draft' ? 'border:1.5px dashed var(--muted);' : '';
     return `<div style="position:relative;display:inline-block">
       <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
@@ -7126,28 +7154,29 @@ async function openEditCampaign(campId) {
 
 // 캠페인 편집 폼: 신청 동의 영향 영역 readonly 토글
 //   대상: 주의사항(caution) / 참여방법(participation) 요약 카드의 「편집」 버튼
-//   조건: status === 'closed' 일 때 비활성화 + 잠금 메시지 노출
+//   조건: status === 'closed' 또는 'expired' 일 때 비활성화 + 잠금 메시지 노출
 function applyEditFormSensitiveLocks(status) {
-  const isClosed = status === 'closed';
+  const isLocked = status === 'closed' || status === 'expired';
+  const lockLabel = status === 'expired' ? '노출마감' : '종료';
   ['Pset', 'Cset'].forEach(kind => {
     const card = $('editCamp' + kind + 'Summary');
     if (!card) return;
     const editBtn = card.querySelector('button[onclick*="openCampBundleModal"]');
     if (editBtn) {
-      editBtn.disabled = isClosed;
-      editBtn.style.opacity = isClosed ? '0.5' : '';
-      editBtn.style.cursor = isClosed ? 'not-allowed' : '';
-      editBtn.title = isClosed ? '종료된 캠페인은 수정할 수 없습니다' : '';
+      editBtn.disabled = isLocked;
+      editBtn.style.opacity = isLocked ? '0.5' : '';
+      editBtn.style.cursor = isLocked ? 'not-allowed' : '';
+      editBtn.title = isLocked ? `${lockLabel} 캠페인은 수정할 수 없습니다` : '';
     }
     let lockMsg = card.querySelector('.bundle-lock-msg');
-    if (isClosed) {
+    if (isLocked) {
       if (!lockMsg) {
         lockMsg = document.createElement('div');
         lockMsg.className = 'bundle-lock-msg';
         lockMsg.style.cssText = 'font-size:11px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:4px';
-        lockMsg.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">lock</span>종료된 캠페인은 수정할 수 없습니다';
         card.appendChild(lockMsg);
       }
+      lockMsg.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:14px">lock</span>${lockLabel} 캠페인은 수정할 수 없습니다`;
     } else if (lockMsg) {
       lockMsg.remove();
     }
@@ -7436,11 +7465,18 @@ function resolveConfirmModal(ok) {
   if (_confirmResolver) { _confirmResolver(!!ok); _confirmResolver = null; }
 }
 
-// 모집 종료일 입력 시 결과물 제출 마감일을 +14일로 자동 제안 (확인 모달)
-async function suggestSubmissionEnd(prefix) {
-  const dl = $(prefix+'Deadline')?.value;
-  if (!dl) return;
-  const target = new Date(dl);
+// 결과물 제출 마감일을 +14일로 자동 제안 (확인 모달)
+//   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
+//   - monitor: 구매 기간 종료일 + 14일
+//   - visit:   방문 기간 종료일 + 14일
+//   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 14일
+async function suggestSubmissionEnd(prefix, baseKind) {
+  const baseSuffix = baseKind === 'purchase' ? 'PurchaseEnd'
+    : baseKind === 'visit' ? 'VisitEnd'
+    : 'Deadline';
+  const baseDate = $(prefix + baseSuffix)?.value;
+  if (!baseDate) return;
+  const target = new Date(baseDate);
   target.setDate(target.getDate() + 14);
   const yyyy = target.getFullYear();
   const mm = String(target.getMonth() + 1).padStart(2, '0');
@@ -7448,7 +7484,8 @@ async function suggestSubmissionEnd(prefix) {
   const suggested = `${yyyy}-${mm}-${dd}`;
   const seEl = $(prefix+'SubmissionEnd');
   if (!seEl || seEl.value === suggested) return;
-  const ok = await showConfirm(`결과물 제출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(모집 종료일 + 2주)`);
+  const baseLabel = {purchase: '구매 기간 종료', visit: '방문 기간 종료', recruit: '모집 종료'}[baseKind] || '기준일';
+  const ok = await showConfirm(`결과물 제출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(${baseLabel} + 2주)`);
   if (ok) {
     seEl.value = suggested;
     syncCampDateMinMax(prefix);
@@ -7685,7 +7722,14 @@ function _commitFpRangeToHiddenInputs(fp) {
   if (endEl)   endEl.value   = _fpFormatYmd(end);
   if (kind === 'recruit') {
     updateRecruitPastWarn(fp, start);
-    if (end) suggestSubmissionEnd(prefix);
+    // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +14일 fallback 제안
+    const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'newRecruitType';
+    const currentRt = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
+    if (currentRt === 'gifting' && end) suggestSubmissionEnd(prefix, 'recruit');
+  }
+  // monitor=구매 종료, visit=방문 종료 기준 +14일 제안
+  if ((kind === 'purchase' || kind === 'visit') && end) {
+    suggestSubmissionEnd(prefix, kind);
   }
   syncCampDateMinMax(prefix);
   validateCampDateRangesInline(prefix);
@@ -8060,29 +8104,36 @@ async function saveCampaignEdit() {
     };
 
     // 신청 동의 영향 영역(주의사항/참여방법) 변경 게이트
-    //   1) closed 캠페인은 변경 자체 차단 (DB 트리거가 이중 차단)
-    //   2) 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
+    //   1) closed 캠페인: UI 카드가 lock 상태라 사용자가 직접 수정할 수 없음. collect 결과의
+    //      sanitize 한 번 더 적용 등 미세 차이로 detectSensitiveChange 가 false-positive를
+    //      잡아 「날짜만 수정해도 차단」되는 회귀가 있어, 안전하게 caution/participation
+    //      필드 4개를 updates에서 제거하고 비교 자체를 skip — db 값 그대로 유지된다.
+    //   2) draft~closed 캠페인: 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
     //   3) Phase 2 — 변경 감지 시 audit 이력 기록 (campaign_caution_history)
-    const change = detectSensitiveChange(updates);
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
-    if (origStatus === 'closed' && change.anyChanged) {
-      toast('종료된 캠페인은 주의사항/참여방법을 수정할 수 없습니다','error');
-      return;
-    }
     let _historyAppCount = 0;
     let _historyBypassAck = false;
-    if (change.anyChanged) {
-      _historyAppCount = await countActiveApplications(campId);
-      if (_historyAppCount >= 1) {
-        const ok = await showSensitiveChangeConfirm({
-          appCount: _historyAppCount,
-          cautionChanged: change.cautionChanged,
-          participationChanged: change.participationChanged,
-          orig: _editCampOriginal,
-          next: updates
-        });
-        if (!ok) return;
-        _historyBypassAck = true;
+    let change = {cautionChanged:false, participationChanged:false, anyChanged:false};
+    if (origStatus === 'closed') {
+      delete updates.caution_set_id;
+      delete updates.caution_items;
+      delete updates.participation_set_id;
+      delete updates.participation_steps;
+    } else {
+      change = detectSensitiveChange(updates);
+      if (change.anyChanged) {
+        _historyAppCount = await countActiveApplications(campId);
+        if (_historyAppCount >= 1) {
+          const ok = await showSensitiveChangeConfirm({
+            appCount: _historyAppCount,
+            cautionChanged: change.cautionChanged,
+            participationChanged: change.participationChanged,
+            orig: _editCampOriginal,
+            next: updates
+          });
+          if (!ok) return;
+          _historyBypassAck = true;
+        }
       }
     }
 
@@ -8498,11 +8549,11 @@ function toggleStatusDropdown(badgeEl) {
   if (!campId) return;
 
   const items = [
-    {val:'draft', label:'준비', cls:'badge-gray'},
+    {val:'draft',     label:'준비',     cls:'badge-gray'},
     {val:'scheduled', label:'모집예정', cls:'badge-blue'},
-    {val:'active', label:'모집중', cls:'badge-green'},
-    {val:'paused', label:'일시정지', cls:'badge-gold'},
-    {val:'closed', label:'종료', cls:'badge-gray'}
+    {val:'active',    label:'모집중',   cls:'badge-green'},
+    {val:'closed',    label:'종료',     cls:'badge-pink'},
+    {val:'expired',   label:'노출마감', cls:'badge-expired'}
   ];
 
   const dd = document.createElement('div');

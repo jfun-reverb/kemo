@@ -43,6 +43,7 @@ async function fetchCampaigns() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoExpireCampaigns(data); // closed → expired (post_deadline 경과)
       return data;
     }
     return DEMO_CAMPAIGNS.slice();
@@ -93,6 +94,30 @@ async function autoCloseCampaigns(camps) {
   }));
   results.forEach((r, i) => {
     if (r.status === 'rejected') console.warn('autoCloseCampaigns 실패:', toClose[i]?.id, r.reason);
+  });
+  return camps;
+}
+
+// post_deadline 경과 캠페인 자동 노출마감 전환 (closed → expired)
+//   post_deadline 당일 자정(JST) 이후 접속 시 expired로 전환.
+//   expired 캠페인은 인플루언서 화면에서 완전히 숨겨짐 (closed는 post_deadline까지 표시).
+async function autoExpireCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const toExpire = camps.filter(c => {
+    if (c.status !== 'closed' || !c.post_deadline) return false;
+    const pd = new Date(c.post_deadline);
+    pd.setHours(23, 59, 59, 999);
+    return now > pd;
+  });
+  if (!toExpire.length) return camps;
+  const results = await Promise.allSettled(toExpire.map(c => {
+    c.status = 'expired';
+    return db.from('campaigns').update({ status: 'expired' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoExpireCampaigns 실패:', toExpire[i]?.id, r.reason);
   });
   return camps;
 }

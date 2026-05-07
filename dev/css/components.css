@@ -48,6 +48,10 @@
 .badge-gold{background:var(--gold-l);color:var(--gold)}
 .badge-blue{background:var(--blue-l);color:var(--blue)}
 .badge-gray{background:var(--surface-dim);color:var(--muted);border:1px solid var(--outline)}
+/* 캠페인 상태 노출 그룹용 — closed(모집 끝났지만 게시 기간 살아있어 인플루언서 화면에 노출 중) */
+.badge-pink{background:#FFE4EC;color:#B91C5C;border:1px solid #FFB8D0}
+/* 캠페인 상태 비노출 강조 — expired(노출마감, 영구 비노출) */
+.badge-expired{background:#EEEEEE;color:#666666;border:1.5px dashed #999999;opacity:.85}
 .badge-new{background:var(--primary);color:#fff}
 
 /* ── FORMS (Material Text Field - Outlined) ── */

@@ -73,7 +73,7 @@ window.I18N_JA = {
       scheduled: '近日公開',
       closed: '締切',
       draft: '準備中',
-      paused: '一時停止',
+      expired: '掲載終了',
     },
   },
 
