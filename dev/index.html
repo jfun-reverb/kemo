@@ -306,7 +306,23 @@ window._supabaseLoaded = false;
 <div id="page-campaigns" class="page">
   <div style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
-      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
+      <!-- 제목 + 검색 아이콘 토글 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
+        <div id="campPageTitle" style="font-size:16px;font-weight:800;color:var(--ink)" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
+        <button id="campPageSearchToggle" onclick="toggleCampPageSearch()" aria-label="検索" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:8px">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:22px">search</span>
+        </button>
+      </div>
+      <!-- 검색 입력 폼 (토글 시 노출) — 캠페인명·브랜드명·상품·캠페인번호 매칭 -->
+      <div id="campPageSearchWrap" style="display:none;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="flex:1;position:relative">
+          <input type="search" id="campPageSearch" oninput="onCampPageSearchInput(this.value)" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 38px 8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
+          <span class="material-icons-round notranslate" translate="no" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--muted);pointer-events:none">search</span>
+        </div>
+        <button onclick="toggleCampPageSearch(false)" aria-label="閉じる" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border-radius:8px">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span>
+        </button>
+      </div>
       <!-- 모집 유형 탭 (리뷰어/기프팅) -->
       <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
         <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)" data-i18n="campaigns.typeAll">すべて</button>
@@ -320,10 +336,6 @@ window._supabaseLoaded = false;
         <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
         <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
         <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
-      </div>
-      <!-- 검색 -->
-      <div style="padding:6px 0 12px">
-        <input type="search" id="campPageSearch" oninput="onCampPageSearchInput(this.value)" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
       </div>
     </div>
   </div>

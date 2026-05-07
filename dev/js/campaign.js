@@ -87,6 +87,11 @@ async function loadCampaignsPage() {
   campPageStatusFilter = 'all';
   campPageSearch = '';
   const searchEl = $('campPageSearch'); if (searchEl) searchEl.value = '';
+  // 검색 폼 초기 상태: 닫힘 (아이콘만 노출)
+  const searchWrap = $('campPageSearchWrap');
+  const searchToggleBtn = $('campPageSearchToggle');
+  if (searchWrap) searchWrap.style.display = 'none';
+  if (searchToggleBtn) searchToggleBtn.style.display = 'inline-flex';
   ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
@@ -121,6 +126,30 @@ function setCampPageStatus(status, el) {
 function onCampPageSearchInput(value) {
   campPageSearch = (value || '').trim().toLowerCase();
   renderCampaignGrid();
+}
+
+// 검색 폼 토글 — 제목 우측 검색 아이콘 클릭 시 입력폼 열림/닫힘
+//   force=undefined: 토글, force=true/false: 명시적 열림/닫힘
+function toggleCampPageSearch(force) {
+  const wrap = $('campPageSearchWrap');
+  const toggleBtn = $('campPageSearchToggle');
+  if (!wrap) return;
+  const isOpen = wrap.style.display !== 'none' && wrap.style.display !== '';
+  const next = (typeof force === 'boolean') ? force : !isOpen;
+  wrap.style.display = next ? 'flex' : 'none';
+  if (toggleBtn) toggleBtn.style.display = next ? 'none' : 'inline-flex';
+  if (next) {
+    const input = $('campPageSearch');
+    if (input) setTimeout(() => input.focus(), 50);  // transition 후 포커스
+  } else {
+    // 닫기 시 검색어·결과 초기화
+    const input = $('campPageSearch');
+    if (input) input.value = '';
+    if (campPageSearch) {
+      campPageSearch = '';
+      renderCampaignGrid();
+    }
+  }
 }
 
 function renderCampaignGrid() {
