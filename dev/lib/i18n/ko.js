@@ -58,7 +58,7 @@ window.I18N_KO = {
   campaigns: {
     pageTitle: '캠페인 목록',
     typeAll: '전체',
-    typeMonitor: 'Reviewer',
+    typeMonitor: '리뷰어',
     typeGifting: '기프팅',
     typeVisit: '방문형',
     statusAll: '전체',
