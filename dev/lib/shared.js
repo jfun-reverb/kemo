@@ -54,6 +54,55 @@ function normalizeQuillLists(wrapper) {
     });
     parent.replaceChild(frag, ol);
   });
+
+  // 2026-05-07 추가: Quill 2.x root.innerHTML이 인접 같은-type 리스트를 분리해
+  // 출력하는 케이스 회복 (공지 모달 ol이 5개로 쪼개져 모두 "1."로 보였던 문제).
+  // wrapper 직속·중첩 어디서든 인접 동일 list는 1개로 병합.
+  mergeAdjacentLists(wrapper);
+}
+
+// 빈 블록 판정: <p></p>, <p><br></p>, <p>&nbsp;</p>, <div></div> 등
+// (Quill clipboard가 list 사이에 자동 삽입하는 placeholder)
+function isEmptyBlock(el) {
+  if (!el) return false;
+  if (!['P','DIV'].includes(el.tagName)) return false;
+  const text = (el.textContent || '').replace(/ /g, '').trim();
+  return !text;
+}
+
+// 형제 노드 중 같은 type의 list가 연속이면 1개로 병합 (재귀).
+// 사이에 빈 paragraph/div가 끼어 있어도 통과해 합친다 — Quill 2.x가
+// paste/save 과정에서 list 사이에 <p><br></p>를 자주 삽입하기 때문.
+function mergeAdjacentLists(parent) {
+  if (!parent) return;
+  let node = parent.firstElementChild;
+  while (node) {
+    let next = node.nextElementSibling;
+
+    // node 자체가 list일 때만 병합 시도
+    const isListNode = node.tagName === 'OL' || node.tagName === 'UL';
+    if (isListNode && next) {
+      // 빈 블록을 건너뛰며 다음 list 후보 탐색 (실제 제거는 병합 확정 후)
+      const skipped = [];
+      let probe = next;
+      while (probe && isEmptyBlock(probe)) {
+        skipped.push(probe);
+        probe = probe.nextElementSibling;
+      }
+      // 같은 type list 발견 → 빈 블록 제거 + 병합
+      if (probe && probe.tagName === node.tagName) {
+        skipped.forEach(el => el.remove());
+        while (probe.firstChild) node.appendChild(probe.firstChild);
+        probe.remove();
+        continue; // node 그대로 두고 다음 형제 재검사 (3개 이상 연속 대비)
+      }
+      // 다른 형제 — 빈 블록은 손대지 않고 next 그대로 진행
+    }
+
+    // 컨테이너성 자식(li, blockquote 등) 내부에도 적용
+    if (node.children && node.children.length) mergeAdjacentLists(node);
+    node = next;
+  }
 }
 
 // 링크 href에 프로토콜 없으면 https:// 자동 추가 + 보안 속성

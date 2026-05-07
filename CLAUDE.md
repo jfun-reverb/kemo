@@ -1,5 +1,15 @@
 # REVERB JP — 인플루언서 체험단 플랫폼
 
+## ⚠️ 진행 중 작업 (다른 세션은 반드시 먼저 확인)
+
+### 결과물 검수 메일 발송 — 사용자 검수 대기 (2026-05-07~)
+- **`feature/deliverable-mail` 브랜치에 격리됨** (HEAD `05e6992`)
+- 작성 완료: `supabase/migrations/096_notify_deliverable_approved.sql`, `supabase/functions/notify-deliverable-decision/`, `docs/email-templates/deliverable-*.html` (원본 6종 + 미리보기 6종)
+- **dev/main으로 cherry-pick·머지 금지** — 사용자가 메일 본문 6종을 검수 중
+- 운영 SQL Editor에서 `096_*` 적용 금지, Edge Function 배포 금지, Webhook 등록 금지
+- 검수 완료 시 절차: feature/deliverable-mail → dev → 운영 일괄 마킹 SQL → 096 적용 → 함수 배포 → Webhook (상세는 `memory/project_email_deliverable_decision_pending.md`)
+- 워킹 디렉토리에 `docs/email-templates/index.html`·`scripts/sync-email-templates.sh` 미커밋 modified 잔존 가능 — 다음 commit 시 `git add .` 광범위 스테이징 금지, 명시 파일만
+
 ## Overview
 일본 시장 대상 인플루언서 체험단(리뷰어/기프팅/방문형) 모집 플랫폼.
 브랜드가 캠페인을 등록하고, 인플루언서가 신청하는 구조.
