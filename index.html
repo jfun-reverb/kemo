@@ -1577,6 +1577,28 @@ function normalizeQuillLists(wrapper) {
     });
     parent.replaceChild(frag, ol);
   });
+
+  // 2026-05-07 추가: Quill 2.x root.innerHTML이 인접 같은-type 리스트를 분리해
+  // 출력하는 케이스 회복 (공지 모달 ol이 5개로 쪼개져 모두 "1."로 보였던 문제).
+  // wrapper 직속·중첩 어디서든 인접 동일 list는 1개로 병합.
+  mergeAdjacentLists(wrapper);
+}
+
+// 형제 노드 중 같은 type의 list가 연속이면 1개로 병합 (재귀)
+function mergeAdjacentLists(parent) {
+  if (!parent) return;
+  let node = parent.firstElementChild;
+  while (node) {
+    const next = node.nextElementSibling;
+    if (next && (node.tagName === 'OL' || node.tagName === 'UL') && node.tagName === next.tagName) {
+      while (next.firstChild) node.appendChild(next.firstChild);
+      next.remove();
+      continue; // node 그대로 두고 다음 형제 재검사 (3개 이상 연속 대비)
+    }
+    // 컨테이너성 자식(li, blockquote 등) 내부에도 적용
+    if (node.children && node.children.length) mergeAdjacentLists(node);
+    node = next;
+  }
 }
 
 // 링크 href에 프로토콜 없으면 https:// 자동 추가 + 보안 속성

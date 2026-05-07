@@ -958,10 +958,19 @@ function setRichValue(id, html) {
 function getRichValue(id) {
   const q = getRichEditor(id);
   if (!q) return '';
-  const raw = q.root.innerHTML;
   // 빈 에디터 판정: Quill의 기본 placeholder 처리
   const plain = q.getText().trim();
   if (!plain) return '';
+  // 2026-05-07: root.innerHTML이 인접 리스트를 분리해 출력하는 버그 회피.
+  // Quill 2.x getSemanticHTML 우선 사용, 미존재 시 root.innerHTML로 폴백.
+  let raw;
+  try {
+    raw = (typeof q.getSemanticHTML === 'function')
+      ? q.getSemanticHTML(0)
+      : q.root.innerHTML;
+  } catch(_) {
+    raw = q.root.innerHTML;
+  }
   return (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
 }
 
@@ -9530,7 +9539,18 @@ function toggleNoticeHtmlMode() {
   const raw = $('anEditBodyRaw');
   const toolbar = document.querySelector('#adminNoticeEditModal .ql-toolbar');
   if (isHtml) {
-    if (_adminNoticeQuill && raw.value === '') raw.value = _adminNoticeQuill.root.innerHTML;
+    if (_adminNoticeQuill && raw.value === '') {
+      // 2026-05-07: HTML source 토글 시에도 root.innerHTML 대신 getSemanticHTML 우선
+      let extracted;
+      try {
+        extracted = (typeof _adminNoticeQuill.getSemanticHTML === 'function')
+          ? _adminNoticeQuill.getSemanticHTML(0)
+          : _adminNoticeQuill.root.innerHTML;
+      } catch(_) {
+        extracted = _adminNoticeQuill.root.innerHTML;
+      }
+      raw.value = extracted;
+    }
     if (quillHost) quillHost.style.display = 'none';
     if (toolbar) toolbar.style.display = 'none';
     if (raw) raw.style.display = '';
@@ -9561,7 +9581,16 @@ async function onSaveAdminNotice(mode) {
     const raw = $('anEditBodyRaw')?.value || '';
     body_html = (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
   } else if (_adminNoticeQuill) {
-    const raw = _adminNoticeQuill.root.innerHTML;
+    // 2026-05-07: root.innerHTML은 인접 리스트를 분리해 출력하는 버그가 있어
+    // (공지 ol이 5개로 쪼개져 모두 "1."로 보임), Quill 2.x getSemanticHTML 우선 사용
+    let raw;
+    try {
+      raw = (typeof _adminNoticeQuill.getSemanticHTML === 'function')
+        ? _adminNoticeQuill.getSemanticHTML(0)
+        : _adminNoticeQuill.root.innerHTML;
+    } catch(_) {
+      raw = _adminNoticeQuill.root.innerHTML;
+    }
     body_html = (typeof sanitizeRich === 'function') ? sanitizeRich(raw) : raw;
   }
   const name = currentAdminInfo?.name || currentUserProfile?.name || '관리자';
