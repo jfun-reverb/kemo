@@ -8068,29 +8068,36 @@ async function saveCampaignEdit() {
     };
 
     // 신청 동의 영향 영역(주의사항/참여방법) 변경 게이트
-    //   1) closed 캠페인은 변경 자체 차단 (DB 트리거가 이중 차단)
-    //   2) 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
+    //   1) closed 캠페인: UI 카드가 lock 상태라 사용자가 직접 수정할 수 없음. collect 결과의
+    //      sanitize 한 번 더 적용 등 미세 차이로 detectSensitiveChange 가 false-positive를
+    //      잡아 「날짜만 수정해도 차단」되는 회귀가 있어, 안전하게 caution/participation
+    //      필드 4개를 updates에서 제거하고 비교 자체를 skip — db 값 그대로 유지된다.
+    //   2) draft~paused 캠페인: 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
     //   3) Phase 2 — 변경 감지 시 audit 이력 기록 (campaign_caution_history)
-    const change = detectSensitiveChange(updates);
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
-    if (origStatus === 'closed' && change.anyChanged) {
-      toast('종료된 캠페인은 주의사항/참여방법을 수정할 수 없습니다','error');
-      return;
-    }
     let _historyAppCount = 0;
     let _historyBypassAck = false;
-    if (change.anyChanged) {
-      _historyAppCount = await countActiveApplications(campId);
-      if (_historyAppCount >= 1) {
-        const ok = await showSensitiveChangeConfirm({
-          appCount: _historyAppCount,
-          cautionChanged: change.cautionChanged,
-          participationChanged: change.participationChanged,
-          orig: _editCampOriginal,
-          next: updates
-        });
-        if (!ok) return;
-        _historyBypassAck = true;
+    let change = {cautionChanged:false, participationChanged:false, anyChanged:false};
+    if (origStatus === 'closed') {
+      delete updates.caution_set_id;
+      delete updates.caution_items;
+      delete updates.participation_set_id;
+      delete updates.participation_steps;
+    } else {
+      change = detectSensitiveChange(updates);
+      if (change.anyChanged) {
+        _historyAppCount = await countActiveApplications(campId);
+        if (_historyAppCount >= 1) {
+          const ok = await showSensitiveChangeConfirm({
+            appCount: _historyAppCount,
+            cautionChanged: change.cautionChanged,
+            participationChanged: change.participationChanged,
+            orig: _editCampOriginal,
+            next: updates
+          });
+          if (!ok) return;
+          _historyBypassAck = true;
+        }
       }
     }
 
