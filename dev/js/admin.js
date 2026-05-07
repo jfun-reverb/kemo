@@ -3308,6 +3308,7 @@ async function onInfluencerVerify() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3320,6 +3321,7 @@ async function onInfluencerUnverify() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3393,6 +3395,7 @@ async function onSaveEditViolation() {
     _editingNewFiles = [];
     _editingKeptUrlMap = {};
     if (_currentDetailInfluencer) await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3431,6 +3434,7 @@ async function onInfluencerBlacklist() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3443,6 +3447,7 @@ async function onInfluencerUnblacklist() {
     infUsersCache = null;
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
+    await refreshPane('influencers');
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
@@ -3858,9 +3863,10 @@ async function toggleAdminBrandNotify(adminId, checked) {
     const {error} = await db?.from('admins').update({receive_brand_notify: !!checked}).eq('id', adminId);
     if (error) throw error;
     toast(checked ? '알림 수신 켜짐' : '알림 수신 꺼짐');
+    await refreshPane('admin-accounts');
   } catch(e) {
     toast('저장 실패: ' + (e.message || '알 수 없는 오류'), 'error');
-    loadAdminAccounts();
+    await refreshPane('admin-accounts');
   }
 }
 
@@ -9358,7 +9364,7 @@ async function onDeleteAdminNotice() {
     await deleteAdminNotice(_adminNoticeCurrent.id);
     toast('삭제되었습니다');
     closeModal('adminNoticeEditModal');
-    await loadAdminNotices();
+    await refreshPane('admin-notices');
   } catch(e) { toast('삭제 오류: ' + (e.message || e), 'error'); }
 }
 
