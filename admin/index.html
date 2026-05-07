@@ -12072,16 +12072,19 @@ async function openDelivDetail(id) {
 
   // 본문
   let contentHtml = '';
-  if (d.kind === 'receipt') {
+  if (d.kind === 'receipt' || d.kind === 'review_image') {
+    // receipt(영수증) + review_image(monitor 2단계 리뷰 캡처) 모두 receipt_url 컬럼을 재사용 (093 마이그레이션)
     // 인플루언서 영수증 폼에서 구매일/구매 금액 input은 제거된 상태라 상세 페이지에도 표시 안 함
+    const altText = d.kind === 'receipt' ? '영수증' : '리뷰 이미지';
     contentHtml = `
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
           ${d.receipt_url
-            ? `<img src="${esc(d.receipt_url)}" alt="영수증" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
+            ? `<img src="${esc(d.receipt_url)}" alt="${esc(altText)}" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
             : '<div style="width:100%;height:180px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px">이미지 없음</div>'}
         </div>
         <div style="font-size:13px">
+          <div style="margin-bottom:8px"><span style="color:var(--muted)">결과물 종류</span> · <strong>${esc(altText)}</strong></div>
           ${d.memo ? `<div style="margin-bottom:8px"><span style="color:var(--muted)">메모</span> · ${esc(d.memo)}</div>` : ''}
           <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted)">
             제출일 · ${formatDate(d.submitted_at)}<br>
@@ -12091,7 +12094,7 @@ async function openDelivDetail(id) {
         </div>
       </div>`;
   } else {
-    // post (Stage 3에서 본격 사용)
+    // post (gifting/visit 게시물 URL)
     const subs = Array.isArray(d.post_submissions) ? d.post_submissions : [];
     contentHtml = `
       <div style="font-size:13px">
@@ -12931,10 +12934,11 @@ async function exportCampaignDeliverables(campId) {
     var delivs = await fetchDeliverables({campaign_id: campId, status: 'approved'});
     if (!delivs.length) { toast('승인된 결과물이 없습니다', 'warn'); return; }
 
-    // 3) 영수증 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
+    // 3) 영수증·리뷰 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
+    //    receipt(영수증) + review_image(monitor 2단계 리뷰 캡처) 모두 receipt_url 컬럼을 재사용
     var imgBuffers = {};
     await Promise.all(delivs.filter(function(d){
-      return d.kind === 'receipt' && d.receipt_url;
+      return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
     }).map(async function(d) {
       try {
         var url = d.receipt_url;
@@ -12974,9 +12978,10 @@ async function exportCampaignDeliverables(campId) {
 
     // 컬럼 헤더 (4행) — 인플루언서 영수증 폼에서 구매일/구매금액 입력이 제거된 이후
     // 엑셀에도 해당 컬럼은 항상 빈 값이 되므로 함께 제거.
+    // G열은 영수증·리뷰 이미지 양쪽에 임베드되므로 '이미지'로 통일.
     ws.getRow(4).values = [
       '인플루언서', 'SNS 아이디', '타입', '제출일', '검수일',
-      '상태', '영수증', 'URL'
+      '상태', '이미지', 'URL'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
     ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
@@ -12993,7 +12998,10 @@ async function exportCampaignDeliverables(campId) {
     delivs.forEach(function(d, i) {
       var rowNum = 5 + i;
       var inf = d.influencers || {};
-      var kindLabel = d.kind === 'receipt' ? '영수증' : '게시물';
+      // 결과물 종류 라벨: receipt(영수증) / review_image(리뷰 이미지, monitor 2단계) / post(게시물 URL)
+      var kindLabel = d.kind === 'receipt' ? '영수증'
+        : d.kind === 'review_image' ? '리뷰 이미지'
+        : '게시물';
       var statusLabel = {pending:'검수대기', approved:'승인', rejected:'반려'}[d.status] || d.status;
       var row = ws.getRow(rowNum);
       row.height = 84;
@@ -13005,16 +13013,17 @@ async function exportCampaignDeliverables(campId) {
         postUrl = (last && last.url) || postUrl;
       }
 
-      // 영수증 열 (G): receipt → 이미지만 임베드 / post → 공란
-      // URL 열 (H): post → 게시물 URL / receipt → '영수증 보기' 하이퍼링크
+      // 이미지 열 (G): receipt·review_image → 이미지 임베드 / post → 공란
+      // URL 열 (H): post → 게시물 URL / receipt → '영수증 보기' / review_image → '리뷰 이미지 보기' 하이퍼링크
       var urlCellValue = '';
       if (d.kind === 'post' && postUrl) {
         urlCellValue = {text: postUrl, hyperlink: postUrl};
-      } else if (d.kind === 'receipt' && d.receipt_url) {
-        var receiptUrl = /^https?:\/\//.test(d.receipt_url)
+      } else if ((d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url) {
+        var imgUrl = /^https?:\/\//.test(d.receipt_url)
           ? d.receipt_url
           : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-        urlCellValue = {text: '영수증 보기', hyperlink: receiptUrl};
+        var linkText = d.kind === 'receipt' ? '영수증 보기' : '리뷰 이미지 보기';
+        urlCellValue = {text: linkText, hyperlink: imgUrl};
       }
 
       row.values = [
@@ -13035,9 +13044,9 @@ async function exportCampaignDeliverables(campId) {
         urlCell.font = {color: {argb: 'FFE8344E'}, underline: true};
       }
 
-      // 이미지 셀 내부 임베드 (receipt만, G열)
+      // 이미지 셀 내부 임베드 (receipt·review_image, G열)
       // 레인지 문자열(`G5:G5`)로 셀 경계에 정확히 앵커 — 셀 이동·크기 조정 시 따라감
-      if (d.kind === 'receipt' && imgBuffers[d.id]) {
+      if ((d.kind === 'receipt' || d.kind === 'review_image') && imgBuffers[d.id]) {
         var imgId = wb.addImage({buffer: imgBuffers[d.id].buffer, extension: imgBuffers[d.id].ext});
         ws.addImage(imgId, 'G' + rowNum + ':G' + rowNum);
       }
