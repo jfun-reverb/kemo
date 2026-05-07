@@ -6757,6 +6757,9 @@ const _NOTIF_STALE_MS = 5000;  // 5초 이내 중복 요청은 스킵
 
 function startNotifPolling() {
   if (_notifPollTimer) return;
+  // 폴링 시작 직후 1회 즉시 갱신 — 30초 setInterval 때문에 첫 배지 표시가
+  // 페이지 로드/로그인 직후 늦게 뜨던 문제 방지. force=true 로 stale 가드 우회.
+  refreshNotifBadge({force: true});
   _notifPollTimer = setInterval(() => {
     if (currentUser && !document.hidden) refreshNotifBadge();
   }, 30000);
