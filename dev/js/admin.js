@@ -6777,7 +6777,7 @@ async function exportBrandApplicationsExcel() {
         var lineTotal = qty * priceKrw;
         var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
         var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
-        var finalKrw = lineTotal + feeTotalKrw;
+        var finalKrw = calcBrandAppFinalKrw(a.form_type, lineTotal, feeTotalKrw);
         var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
         ws.addRow({
           // 신청 단위 — 모든 행 반복 (sort/filter 친화적)
@@ -8188,6 +8188,15 @@ function _findBrandApp(id) {
 // 환율·VAT 상수 (FX_JPY_KRW=10, VAT_RATE=10% — migration 052 트리거와 일치)
 var BRAND_QUOTE_CONST = { FX_JPY_KRW: 10, VAT_RATE: 0.1 };
 
+// 최종 견적 금액(화면·엑셀 공용 계산):
+//   reviewer: 상품 최종 금액(lineTotal) + 이체수수료(feeTotal)
+//   seeding : 이체수수료(feeTotal)만 합산 — 상품 가격은 참고용으로만 표시하고 견적에 포함 안 함
+//   그 외(미정) : reviewer와 동일하게 합산 (안전 폴백)
+function calcBrandAppFinalKrw(formType, lineTotal, feeTotal) {
+  if (formType === 'seeding') return Number(feeTotal) || 0;
+  return (Number(lineTotal) || 0) + (Number(feeTotal) || 0);
+}
+
 // 제품 URL 셀 — 안전 URL이면 클릭 링크 + 복사 버튼, 아니면 평문 표시
 function renderProductUrlCell(url) {
   if (!url) return '<span style="color:var(--muted);font-size:11px">—</span>';
@@ -8282,7 +8291,8 @@ function renderBrandAppSummaryRow(a) {
     var fee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? 0 : Number(p.transfer_fee_krw);
     return s + (Number(p.qty) || 0) * fee;
   }, 0);
-  var totalFinal = totalLine + totalFee;
+  // seeding 폼은 상품 가격이 참고용이라 최종 견적에 미포함 (calcBrandAppFinalKrw 헬퍼에 정책 일원화)
+  var totalFinal = calcBrandAppFinalKrw(a.form_type, totalLine, totalFee);
   var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
   // 단가 — 모든 제품 동일하면 그 값(빈 값 포함 — dash로 표시), 다르면 "제품별 상이"
   var uPriceJpy = _uniformProductValue(prods, 'price');
@@ -8406,7 +8416,8 @@ function renderBrandAppDetailRow(a, p, idx) {
   var lineTotal = qty * priceKrw;
   var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
   var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
-  var finalKrw = lineTotal + feeTotalKrw;
+  // seeding 폼은 상품 가격이 참고용이라 최종 견적에 미포함 (calcBrandAppFinalKrw 헬퍼)
+  var finalKrw = calcBrandAppFinalKrw(a.form_type, lineTotal, feeTotalKrw);
   var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
 
   var dash = '<span style="color:var(--muted)">—</span>';
