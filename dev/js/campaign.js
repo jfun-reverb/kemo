@@ -87,6 +87,15 @@ async function loadCampaignsPage() {
   campPageStatusFilter = 'all';
   campPageSearch = '';
   const searchEl = $('campPageSearch'); if (searchEl) searchEl.value = '';
+  // 검색 폼 초기 상태: 닫힘 (제목 + 아이콘 노출)
+  const searchWrap = $('campPageSearchWrap');
+  const searchToggleBtn = $('campPageSearchToggle');
+  const searchTitle = $('campPageTitle');
+  if (searchWrap) searchWrap.style.display = 'none';
+  if (searchToggleBtn) searchToggleBtn.style.display = 'inline-flex';
+  if (searchTitle) searchTitle.style.display = '';
+  // sticky 헤더 자동 숨김/노출 — 진입 시 노출 상태로 초기화 + 스크롤 리스너 1회 바인딩
+  setupCampPageHeaderAutoHide();
   ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
@@ -100,6 +109,13 @@ async function loadCampaignsPage() {
   renderCampaignGrid();
 }
 
+// 필터/탭 변경 시 호출 — 사용자가 페이지 중간에서 탭을 눌러도 새 그리드 첫 번째부터 보이도록 최상단 이동
+function _scrollCampPageTop() {
+  const page = $('page-campaigns');
+  if (page && typeof page.scrollTo === 'function') page.scrollTo({top: 0, behavior: 'smooth'});
+  else if (page) page.scrollTop = 0;
+}
+
 function setCampPageType(type, el) {
   campPageTypeFilter = type;
   document.querySelectorAll('[id^="campPageType-"]').forEach(b => {
@@ -107,6 +123,7 @@ function setCampPageType(type, el) {
   });
   el.style.color = 'var(--pink)'; el.style.borderBottomColor = 'var(--pink)'; el.style.fontWeight = '700';
   renderCampaignGrid();
+  _scrollCampPageTop();
 }
 
 // 상태 칩 (전체 / 모집중 / 모집예정 / 모집완료)
@@ -115,12 +132,87 @@ function setCampPageStatus(status, el) {
   document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
   if (el) el.classList.add('on');
   renderCampaignGrid();
+  _scrollCampPageTop();
 }
 
-// 검색 입력
+// 캠페인 페이지 필터 영역만 자동 숨김/노출
+//   제목/검색 행은 sticky로 항상 노출, 모집 유형 탭+상태 칩 영역만 collapse.
+//   스크롤 컨테이너(.page.active = #page-campaigns) 방향 감지:
+//     - 아래로 스크롤 → 필터 영역 max-height:0 + opacity:0 으로 접힘
+//     - 위로 스크롤 → max-height:200px + opacity:1 로 복귀
+//   loadCampaignsPage 진입 시 매번 호출되지만 데이터셋 가드로 리스너는 1회만 등록.
+function setupCampPageHeaderAutoHide() {
+  const page = $('page-campaigns');
+  const filterArea = $('campPageFilterArea');
+  if (!page || !filterArea) return;
+  // 필터 영역 노출 상태로 초기화
+  filterArea.style.maxHeight = '80px';
+  filterArea.style.opacity = '1';
+  if (page.dataset.scrollHideBound === '1') return;
+  page.dataset.scrollHideBound = '1';
+  let lastY = 0;
+  let ticking = false;
+  page.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = page.scrollTop || 0;
+      const diff = y - lastY;
+      const HIDE_THRESHOLD = 80;
+      if (y > HIDE_THRESHOLD && diff > 4) {
+        // 아래로 스크롤 — 필터 접기
+        filterArea.style.maxHeight = '0px';
+        filterArea.style.opacity = '0';
+      } else if (diff < -4 || y <= HIDE_THRESHOLD) {
+        // 위로 스크롤 — 필터 펼침
+        filterArea.style.maxHeight = '80px';
+        filterArea.style.opacity = '1';
+      }
+      lastY = y;
+      ticking = false;
+    });
+  }, { passive: true });
+}
+
+// 검색 — 검색 버튼 또는 엔터키 트리거 (실시간 검색 아님)
+function onCampPageSearchSubmit() {
+  const input = $('campPageSearch');
+  campPageSearch = ((input?.value) || '').trim().toLowerCase();
+  renderCampaignGrid();
+  _scrollCampPageTop();
+}
+// 하위호환: 외부에서 onCampPageSearchInput 호출되는 경로(혹시 모를)에 대비
 function onCampPageSearchInput(value) {
   campPageSearch = (value || '').trim().toLowerCase();
   renderCampaignGrid();
+}
+
+// 검색 폼 토글 — 제목 행 자리에서 제목+🔍 ↔ 검색 input+✕ 모드 전환
+//   force=undefined: 토글, force=true/false: 명시적 열림/닫힘
+//   열림 모드: 제목/검색 아이콘 숨김, 검색 input + 닫기(✕) 노출
+//   닫힘 모드: 검색 input/닫기 숨김, 제목 + 검색 아이콘 노출 (검색어 초기화)
+function toggleCampPageSearch(force) {
+  const wrap = $('campPageSearchWrap');
+  const toggleBtn = $('campPageSearchToggle');
+  const titleEl = $('campPageTitle');
+  if (!wrap) return;
+  const isOpen = wrap.style.display !== 'none' && wrap.style.display !== '';
+  const next = (typeof force === 'boolean') ? force : !isOpen;
+  wrap.style.display = next ? 'flex' : 'none';
+  if (toggleBtn) toggleBtn.style.display = next ? 'none' : 'inline-flex';
+  if (titleEl) titleEl.style.display = next ? 'none' : '';
+  if (next) {
+    const input = $('campPageSearch');
+    if (input) setTimeout(() => input.focus(), 50);  // transition 후 포커스
+  } else {
+    // 닫기 시 검색어·결과 초기화
+    const input = $('campPageSearch');
+    if (input) input.value = '';
+    if (campPageSearch) {
+      campPageSearch = '';
+      renderCampaignGrid();
+    }
+  }
 }
 
 function renderCampaignGrid() {

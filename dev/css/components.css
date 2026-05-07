@@ -253,3 +253,28 @@ textarea.form-input{resize:vertical;min-height:80px}
 .quill-host .ql-container{border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;min-height:120px;font-size:13px;font-family:inherit}
 .quill-host .ql-editor{min-height:120px}
 
+
+/* Pull-to-Refresh 인디케이터 — 모바일 스크롤 컨테이너 최상단에서 아래로 당길 때 노출 */
+#ptrIndicator{
+  position:fixed; top:0; left:50%;
+  transform:translate(-50%, -56px);
+  width:40px; height:40px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+  display:flex; align-items:center; justify-content:center;
+  z-index:9999;
+  pointer-events:none;
+  transition:background .2s ease;
+}
+#ptrIndicator .material-icons-round{
+  font-size:22px;
+  color:var(--muted);
+  transition:transform .15s ease, color .2s ease;
+}
+#ptrIndicator.active{ background:var(--pink); }
+#ptrIndicator.active .material-icons-round{ color:#fff; }
+#ptrIndicator.refreshing .material-icons-round{
+  animation:ptr-spin 0.8s linear infinite;
+}
+@keyframes ptr-spin{ to{ transform:rotate(360deg); } }

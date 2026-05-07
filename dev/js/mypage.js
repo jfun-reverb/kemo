@@ -1,8 +1,16 @@
 // ══════════════════════════════════════
 // MY PAGE
 // ══════════════════════════════════════
-function loadMyPage() {
+async function loadMyPage() {
   if (!currentUser) { navigate('login'); return; }
+  // 진입 시마다 인플루언서 프로필 새로고침 — 관리자 화면이나 다른 탭에서 변경된
+  // 이름·SNS·배송지·인증/위반 상태 등이 stale 상태로 남지 않도록.
+  if (db && !currentUser._isAdmin) {
+    try {
+      const {data: freshProfile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+      if (freshProfile) currentUserProfile = freshProfile;
+    } catch(e) { /* 네트워크 실패 시 stale 그대로 사용 */ }
+  }
   const p = currentUserProfile || {};
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();

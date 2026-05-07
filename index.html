@@ -339,6 +339,31 @@ textarea.form-input{resize:vertical;min-height:80px}
 .quill-host .ql-editor{min-height:120px}
 
 
+/* Pull-to-Refresh 인디케이터 — 모바일 스크롤 컨테이너 최상단에서 아래로 당길 때 노출 */
+#ptrIndicator{
+  position:fixed; top:0; left:50%;
+  transform:translate(-50%, -56px);
+  width:40px; height:40px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+  display:flex; align-items:center; justify-content:center;
+  z-index:9999;
+  pointer-events:none;
+  transition:background .2s ease;
+}
+#ptrIndicator .material-icons-round{
+  font-size:22px;
+  color:var(--muted);
+  transition:transform .15s ease, color .2s ease;
+}
+#ptrIndicator.active{ background:var(--pink); }
+#ptrIndicator.active .material-icons-round{ color:#fff; }
+#ptrIndicator.refreshing .material-icons-round{
+  animation:ptr-spin 0.8s linear infinite;
+}
+@keyframes ptr-spin{ to{ transform:rotate(360deg); } }
+
 /* ══════════════════════════════════
    CAMPAIGN — 랜딩, 목록, 상세 (Material Design 3)
 ══════════════════════════════════ */
@@ -518,6 +543,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- ── GLOBAL ELEMENTS ── -->
 <div id="toast"></div>
 <div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></div></div>
+<!-- Pull-to-Refresh 인디케이터 — 스크롤 컨테이너 최상단에서 아래로 당길 때 노출 -->
+<div id="ptrIndicator" aria-hidden="true">
+  <span class="material-icons-round notranslate" translate="no">refresh</span>
+</div>
 
 <!-- ── DETAIL FLOATING BAR ── -->
 <div id="detailFloatBar">
@@ -526,8 +555,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px"></div>
     </div>
-    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()">商品ページ</button>
-    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()">申請</button>
+    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
+    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
   </div>
 </div>
 
@@ -609,7 +638,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- ── GNB ── -->
 <nav class="gnb">
   <div class="gnb-inner">
-    <div class="gnb-logo" onclick="navigate('home')">
+    <div class="gnb-logo" onclick="window.location.href='/'">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
     <div class="gnb-right" id="gnbRight"></div>
@@ -681,21 +710,21 @@ textarea.form-input{resize:vertical;min-height:80px}
 
   <section style="background:#fff;padding:32px 0;border-bottom:1px solid var(--line)">
     <div class="container">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
-        <div style="padding:20px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;text-align:center">
+        <div style="padding:16px 6px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
-        <div style="padding:20px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
+        <div style="padding:16px 6px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.freeTitle">完全無償提供</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.freeTitle">完全無償提供</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
         </div>
-        <div style="padding:20px">
+        <div style="padding:16px 6px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
       </div>
     </div>
@@ -779,26 +808,42 @@ textarea.form-input{resize:vertical;min-height:80px}
      PAGE: CAMPAIGNS LIST
 ══════════════════════════════════ -->
 <div id="page-campaigns" class="page">
-  <div style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
+  <div id="campPageStickyHeader" style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
-      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
-      <!-- 모집 유형 탭 (리뷰어/기프팅) -->
+      <!-- 제목 행 — 닫힘 모드(제목+🔍) / 열림 모드(검색 input+✕) 가 같은 row 자리를 토글로 차지 -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
+        <div id="campPageTitle" style="flex:1;font-size:16px;font-weight:800;color:var(--ink)" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
+        <button id="campPageSearchToggle" onclick="toggleCampPageSearch(true)" aria-label="検索" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:8px;flex-shrink:0">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:22px">search</span>
+        </button>
+        <!-- 검색 입력 폼 (열림 모드) — 캠페인명·브랜드명·상품·캠페인번호 매칭 -->
+        <div id="campPageSearchWrap" style="display:none;flex:1;align-items:center;gap:8px">
+          <div style="flex:1;position:relative">
+            <input type="search" id="campPageSearch" onkeydown="if(event.key==='Enter'){event.preventDefault();onCampPageSearchSubmit();}" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 38px 8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
+            <button onclick="onCampPageSearchSubmit()" aria-label="検索実行" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px 6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:6px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:18px">search</span>
+            </button>
+          </div>
+          <button onclick="toggleCampPageSearch(false)" aria-label="閉じる" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border-radius:8px;flex-shrink:0">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span>
+          </button>
+        </div>
+      </div>
+      <!-- 모집 유형 탭 — 고정 (스크롤 영향 없음) -->
       <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
         <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)" data-i18n="campaigns.typeAll">すべて</button>
         <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeMonitor">レビュアー</button>
         <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeGifting">ギフティング</button>
         <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeVisit">訪問</button>
       </div>
-      <!-- 캠페인 상태 칩 -->
-      <div class="filter-row" style="padding:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap">
-        <button id="campPageStatus-all" class="chip on" onclick="setCampPageStatus('all',this)" data-i18n="campaigns.statusAll">すべて</button>
-        <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
-        <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
-        <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
-      </div>
-      <!-- 검색 -->
-      <div style="padding:6px 0 12px">
-        <input type="search" id="campPageSearch" oninput="onCampPageSearchInput(this.value)" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
+      <!-- 상태 칩 영역 — 스크롤 시 자동 숨김/노출 대상 -->
+      <div id="campPageFilterArea" style="overflow:hidden;transition:max-height .25s ease,opacity .2s ease;max-height:80px;opacity:1">
+        <div class="filter-row" style="padding:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap">
+          <button id="campPageStatus-all" class="chip on" onclick="setCampPageStatus('all',this)" data-i18n="campaigns.statusAll">すべて</button>
+          <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
+          <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
+          <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2021,6 +2066,7 @@ window.I18N_JA = {
     shootingGuide: '撮影ガイド',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
+    productPageShort: '商品ページ',
     noticeTitle: '注意事項',
     notice1: '期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。',
     notice2: '投稿が期限内に行われない場合、原稿料のお支払いはできません。',
@@ -2281,7 +2327,7 @@ window.I18N_KO = {
   campaigns: {
     pageTitle: '캠페인 목록',
     typeAll: '전체',
-    typeMonitor: 'Reviewer',
+    typeMonitor: '리뷰어',
     typeGifting: '기프팅',
     typeVisit: '방문형',
     statusAll: '전체',
@@ -2455,11 +2501,11 @@ window.I18N_KO = {
     fullBtn: '모집 종료',
     appliedBtn: '응모 완료',
     manageBtn: '활동 관리',
-    rewardProduct: '원 상당 제품 무상 제공',
-    rewardPayback: '원 페이백',
+    rewardProduct: '엔 상당 제품 무상 제공',
+    rewardPayback: '엔 페이백',
     rewardCash: '+ 현금 리워드 ¥{amount}',
     rewardFree: '제품 전액 무상 제공',
-    rewardProductAmount: '제품 ¥{price}원 상당',
+    rewardProductAmount: '제품 ¥{price}엔 상당',
     rewardProductFree: '제품 무상 제공',
     rewardCashAmount: '현금 ¥{amount}',
     productName: '상품명',
@@ -2475,6 +2521,7 @@ window.I18N_KO = {
     shootingGuide: '촬영 가이드',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
+    productPageShort: '상품 페이지',
     noticeTitle: '주의 사항',
     notice1: '기한 내 대응이 어려우신 분은 신청을 삼가해주세요.',
     notice2: '게시가 기한 내에 이루어지지 않으면 원고료 지급이 불가합니다.',
@@ -5394,6 +5441,15 @@ async function loadCampaignsPage() {
   campPageStatusFilter = 'all';
   campPageSearch = '';
   const searchEl = $('campPageSearch'); if (searchEl) searchEl.value = '';
+  // 검색 폼 초기 상태: 닫힘 (제목 + 아이콘 노출)
+  const searchWrap = $('campPageSearchWrap');
+  const searchToggleBtn = $('campPageSearchToggle');
+  const searchTitle = $('campPageTitle');
+  if (searchWrap) searchWrap.style.display = 'none';
+  if (searchToggleBtn) searchToggleBtn.style.display = 'inline-flex';
+  if (searchTitle) searchTitle.style.display = '';
+  // sticky 헤더 자동 숨김/노출 — 진입 시 노출 상태로 초기화 + 스크롤 리스너 1회 바인딩
+  setupCampPageHeaderAutoHide();
   ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
@@ -5407,6 +5463,13 @@ async function loadCampaignsPage() {
   renderCampaignGrid();
 }
 
+// 필터/탭 변경 시 호출 — 사용자가 페이지 중간에서 탭을 눌러도 새 그리드 첫 번째부터 보이도록 최상단 이동
+function _scrollCampPageTop() {
+  const page = $('page-campaigns');
+  if (page && typeof page.scrollTo === 'function') page.scrollTo({top: 0, behavior: 'smooth'});
+  else if (page) page.scrollTop = 0;
+}
+
 function setCampPageType(type, el) {
   campPageTypeFilter = type;
   document.querySelectorAll('[id^="campPageType-"]').forEach(b => {
@@ -5414,6 +5477,7 @@ function setCampPageType(type, el) {
   });
   el.style.color = 'var(--pink)'; el.style.borderBottomColor = 'var(--pink)'; el.style.fontWeight = '700';
   renderCampaignGrid();
+  _scrollCampPageTop();
 }
 
 // 상태 칩 (전체 / 모집중 / 모집예정 / 모집완료)
@@ -5422,12 +5486,87 @@ function setCampPageStatus(status, el) {
   document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
   if (el) el.classList.add('on');
   renderCampaignGrid();
+  _scrollCampPageTop();
 }
 
-// 검색 입력
+// 캠페인 페이지 필터 영역만 자동 숨김/노출
+//   제목/검색 행은 sticky로 항상 노출, 모집 유형 탭+상태 칩 영역만 collapse.
+//   스크롤 컨테이너(.page.active = #page-campaigns) 방향 감지:
+//     - 아래로 스크롤 → 필터 영역 max-height:0 + opacity:0 으로 접힘
+//     - 위로 스크롤 → max-height:200px + opacity:1 로 복귀
+//   loadCampaignsPage 진입 시 매번 호출되지만 데이터셋 가드로 리스너는 1회만 등록.
+function setupCampPageHeaderAutoHide() {
+  const page = $('page-campaigns');
+  const filterArea = $('campPageFilterArea');
+  if (!page || !filterArea) return;
+  // 필터 영역 노출 상태로 초기화
+  filterArea.style.maxHeight = '80px';
+  filterArea.style.opacity = '1';
+  if (page.dataset.scrollHideBound === '1') return;
+  page.dataset.scrollHideBound = '1';
+  let lastY = 0;
+  let ticking = false;
+  page.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = page.scrollTop || 0;
+      const diff = y - lastY;
+      const HIDE_THRESHOLD = 80;
+      if (y > HIDE_THRESHOLD && diff > 4) {
+        // 아래로 스크롤 — 필터 접기
+        filterArea.style.maxHeight = '0px';
+        filterArea.style.opacity = '0';
+      } else if (diff < -4 || y <= HIDE_THRESHOLD) {
+        // 위로 스크롤 — 필터 펼침
+        filterArea.style.maxHeight = '80px';
+        filterArea.style.opacity = '1';
+      }
+      lastY = y;
+      ticking = false;
+    });
+  }, { passive: true });
+}
+
+// 검색 — 검색 버튼 또는 엔터키 트리거 (실시간 검색 아님)
+function onCampPageSearchSubmit() {
+  const input = $('campPageSearch');
+  campPageSearch = ((input?.value) || '').trim().toLowerCase();
+  renderCampaignGrid();
+  _scrollCampPageTop();
+}
+// 하위호환: 외부에서 onCampPageSearchInput 호출되는 경로(혹시 모를)에 대비
 function onCampPageSearchInput(value) {
   campPageSearch = (value || '').trim().toLowerCase();
   renderCampaignGrid();
+}
+
+// 검색 폼 토글 — 제목 행 자리에서 제목+🔍 ↔ 검색 input+✕ 모드 전환
+//   force=undefined: 토글, force=true/false: 명시적 열림/닫힘
+//   열림 모드: 제목/검색 아이콘 숨김, 검색 input + 닫기(✕) 노출
+//   닫힘 모드: 검색 input/닫기 숨김, 제목 + 검색 아이콘 노출 (검색어 초기화)
+function toggleCampPageSearch(force) {
+  const wrap = $('campPageSearchWrap');
+  const toggleBtn = $('campPageSearchToggle');
+  const titleEl = $('campPageTitle');
+  if (!wrap) return;
+  const isOpen = wrap.style.display !== 'none' && wrap.style.display !== '';
+  const next = (typeof force === 'boolean') ? force : !isOpen;
+  wrap.style.display = next ? 'flex' : 'none';
+  if (toggleBtn) toggleBtn.style.display = next ? 'none' : 'inline-flex';
+  if (titleEl) titleEl.style.display = next ? 'none' : '';
+  if (next) {
+    const input = $('campPageSearch');
+    if (input) setTimeout(() => input.focus(), 50);  // transition 후 포커스
+  } else {
+    // 닫기 시 검색어·결과 초기화
+    const input = $('campPageSearch');
+    if (input) input.value = '';
+    if (campPageSearch) {
+      campPageSearch = '';
+      renderCampaignGrid();
+    }
+  }
 }
 
 function renderCampaignGrid() {
@@ -5892,7 +6031,7 @@ async function openCampaign(id) {
       ${slideHtml}
 
       <div style="background:#fff;border-bottom:1px solid var(--line);margin-bottom:10px">
-        <div style="padding:16px 16px 12px">
+        <div style="padding:16px 0 12px">
           <div style="font-size:11px;color:var(--pink);font-weight:700;letter-spacing:.06em;margin-bottom:5px">${esc(camp.brand)}</div>
           ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:4px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
           <div style="font-size:18px;font-weight:800;color:var(--ink);line-height:1.3;margin-bottom:10px">${esc(camp.title)}</div>
@@ -5952,7 +6091,7 @@ async function openCampaign(id) {
           ? camp.participation_steps
           : legacy;
         return `
-      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
         <div style="display:flex;flex-direction:column;gap:14px">
           ${steps.map((s,i)=>{
@@ -5973,13 +6112,13 @@ async function openCampaign(id) {
       })()}
 
       ${camp.description ? `
-      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.campaignDesc')}</div>
         <div class="rich-content" style="font-size:13px;color:var(--ink);line-height:1.7">${richHtml(camp.description)}</div>
       </div>` : ''}
 
       ${(camp.hashtags||camp.mentions||camp.appeal) ? `
-      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--ink)">${t('detail.postGuideline')}</div>
         ${camp.appeal ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.brandAppeal')}</div><div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff5ff;padding:10px 12px;border-radius:8px;border:1px solid #f0d8e8">${richHtml(camp.appeal)}</div></div>` : ''}
         ${camp.hashtags ? `<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:var(--pink);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em">${t('detail.requiredHashtag')}</div><div style="display:flex;flex-wrap:wrap;gap:5px">${camp.hashtags.split(',').map(t=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px">${esc(t.trim())}</span>`).join('')}</div></div>` : ''}
@@ -5987,26 +6126,26 @@ async function openCampaign(id) {
       </div>` : ''}
 
       ${camp.guide ? `
-      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.shootingGuide')}</div>
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
       ${camp.ng ? `
-      <div style="background:#fff;padding:16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.ngItems')}</div>
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>
       </div>` : ''}
 
       ${camp.product_url ? `
-      <div style="background:#fff;padding:12px 16px;margin-bottom:10px;border-bottom:8px solid var(--bg)">
+      <div style="background:#fff;padding:12px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <a href="${esc(cleanUrl(camp.product_url))}" target="_blank" style="display:flex;align-items:center;gap:8px;color:var(--pink);font-size:13px;font-weight:600;text-decoration:none">
           <span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> ${t('detail.productPage')}
         </a>
       </div>` : ''}
 
       ${Array.isArray(camp.caution_items) && camp.caution_items.length ? `
-      <div style="background:#fff;padding:16px;">
+      <div style="background:#fff;padding:16px 0;">
         <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.noticeTitle')}</div>
         <div style="font-size:12px;color:var(--muted)">${renderCautionItemsHtml(camp.caution_items)}</div>
       </div>` : ''}
@@ -6043,9 +6182,12 @@ async function openCampaign(id) {
   const floatApplyBtn = $('floatApplyBtn');
   const floatProductPageBtn = $('floatProductPageBtn');
   if (floatName) floatName.textContent = camp.title;
-  if (floatReward) floatReward.textContent = camp.product_price>0
-    ? `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`
-    : t('detail.rewardFree');
+  if (floatReward) {
+    const isMonitor = camp.recruit_type === 'monitor';
+    floatReward.textContent = camp.product_price>0
+      ? `¥${camp.product_price.toLocaleString()}${isMonitor ? t('detail.rewardPayback') : t('detail.rewardProduct')}`
+      : t('detail.rewardFree');
+  }
   if (floatProductPageBtn) {
     floatProductPageBtn.style.display = camp.product_url ? 'inline-flex' : 'none';
     floatProductPageBtn.dataset.url = cleanUrl(camp.product_url)||'';
@@ -7078,8 +7220,16 @@ async function markAllNotifRead() {
 // ══════════════════════════════════════
 // MY PAGE
 // ══════════════════════════════════════
-function loadMyPage() {
+async function loadMyPage() {
   if (!currentUser) { navigate('login'); return; }
+  // 진입 시마다 인플루언서 프로필 새로고침 — 관리자 화면이나 다른 탭에서 변경된
+  // 이름·SNS·배송지·인증/위반 상태 등이 stale 상태로 남지 않도록.
+  if (db && !currentUser._isAdmin) {
+    try {
+      const {data: freshProfile} = await db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle();
+      if (freshProfile) currentUserProfile = freshProfile;
+    } catch(e) { /* 네트워크 실패 시 stale 그대로 사용 */ }
+  }
   const p = currentUserProfile || {};
   const displayName = p.name_kanji || p.name || currentUser.email;
   $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
@@ -7582,6 +7732,90 @@ function updateActiveNav(page) {
 }
 
 // ══════════════════════════════════════
+// Pull-to-Refresh — 모바일 네이티브 앱처럼 페이지 최상단에서 아래로 당기면 새로고침
+//   #appShell 내부 .page.active(스크롤 컨테이너) 의 touch 이벤트로 작동.
+//   인증 페이지(login/signup/forgot/reset-pw)는 비활성. activity 등 기타 페이지 모두 허용.
+//   임계값 80px 충족 후 손 놓으면 location.reload() 로 진짜 페이지 새로고침.
+// ══════════════════════════════════════
+function setupPTR() {
+  const appShell = $('appShell');
+  const indicator = $('ptrIndicator');
+  if (!appShell || !indicator) return;
+  if (appShell.dataset.ptrBound === '1') return;
+  appShell.dataset.ptrBound = '1';
+
+  const PTR_BLOCKLIST = ['page-login','page-signup','page-forgot','page-reset-pw'];
+  const RESISTANCE = 0.5;     // 당기는 거리에 0.5 곱해 자연스러운 저항감
+  const TRIGGER_AT = 90;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
+                              // — 실제 손가락 이동 거리 약 180px
+  const MAX_PULL = 130;       // 최대 당김 거리 클램프
+
+  let startY = 0;
+  let pullY = 0;
+  let pulling = false;
+  let activePage = null;
+  let isRefreshing = false;
+
+  const reset = () => {
+    indicator.style.transform = 'translate(-50%, -56px)';
+    indicator.classList.remove('active');
+    if (activePage) {
+      activePage.style.transition = 'transform .25s ease';
+      activePage.style.transform = '';
+      setTimeout(() => { if (activePage) activePage.style.transition = ''; }, 250);
+    }
+    pulling = false;
+    activePage = null;
+    pullY = 0;
+  };
+
+  appShell.addEventListener('touchstart', (e) => {
+    if (isRefreshing) return;
+    const page = document.querySelector('#appShell .page.active');
+    if (!page) return;
+    if (PTR_BLOCKLIST.includes(page.id)) return;
+    if ((page.scrollTop || 0) > 0) return;
+    activePage = page;
+    startY = e.touches[0].clientY;
+    pullY = 0;
+    pulling = true;
+  }, { passive: true });
+
+  appShell.addEventListener('touchmove', (e) => {
+    if (!pulling || !activePage || isRefreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy < 0) { reset(); return; }
+    // 컨테이너가 다시 스크롤된 상태로 바뀌면 PTR 종료
+    if ((activePage.scrollTop || 0) > 0) { reset(); return; }
+    pullY = dy;
+    const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
+    indicator.style.transform = `translate(-50%, ${Math.min(adjusted - 16, 40)}px)`;
+    activePage.style.transform = `translateY(${adjusted}px)`;
+    if (adjusted >= TRIGGER_AT) indicator.classList.add('active');
+    else indicator.classList.remove('active');
+  }, { passive: true });
+
+  appShell.addEventListener('touchend', () => {
+    if (!pulling || !activePage || isRefreshing) return;
+    const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
+    if (adjusted >= TRIGGER_AT) {
+      // 새로고침 실행 — 인디케이터를 임계 위치에 고정하고 회전 애니메이션
+      isRefreshing = true;
+      indicator.style.transform = `translate(-50%, 24px)`;
+      indicator.classList.add('refreshing');
+      // location.reload() 직전에 약간 지연을 두어 사용자에게 회전 애니메이션 노출
+      setTimeout(() => { window.location.reload(); }, 250);
+    } else {
+      reset();
+    }
+  });
+  // 시스템 인터럽트(전화·알림·멀티터치) 시에도 페이지가 들뜬 상태로 남지 않도록 reset
+  appShell.addEventListener('touchcancel', () => {
+    if (pulling) reset();
+  });
+}
+
+// ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
 async function init() {
@@ -7747,6 +7981,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateStats(allCampaigns);
   }
   await init();
+  // Pull-to-Refresh 등록 (1회) — appShell 단일 리스너
+  if (typeof setupPTR === 'function') setupPTR();
 
   // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절
   if (window.visualViewport) {

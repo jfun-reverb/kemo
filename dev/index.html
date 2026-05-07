@@ -43,6 +43,10 @@ window._supabaseLoaded = false;
 <!-- ── GLOBAL ELEMENTS ── -->
 <div id="toast"></div>
 <div class="loading-overlay" id="loadingOverlay"><div class="spinner" style="width:32px;height:32px;border-width:3px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></div></div>
+<!-- Pull-to-Refresh 인디케이터 — 스크롤 컨테이너 최상단에서 아래로 당길 때 노출 -->
+<div id="ptrIndicator" aria-hidden="true">
+  <span class="material-icons-round notranslate" translate="no">refresh</span>
+</div>
 
 <!-- ── DETAIL FLOATING BAR ── -->
 <div id="detailFloatBar">
@@ -51,8 +55,8 @@ window._supabaseLoaded = false;
       <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px"></div>
     </div>
-    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()">商品ページ</button>
-    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()">申請</button>
+    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
+    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
   </div>
 </div>
 
@@ -134,7 +138,7 @@ window._supabaseLoaded = false;
 <!-- ── GNB ── -->
 <nav class="gnb">
   <div class="gnb-inner">
-    <div class="gnb-logo" onclick="navigate('home')">
+    <div class="gnb-logo" onclick="window.location.href='/'">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
     <div class="gnb-right" id="gnbRight"></div>
@@ -206,21 +210,21 @@ window._supabaseLoaded = false;
 
   <section style="background:#fff;padding:32px 0;border-bottom:1px solid var(--line)">
     <div class="container">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
-        <div style="padding:20px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;text-align:center">
+        <div style="padding:16px 6px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
-        <div style="padding:20px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
+        <div style="padding:16px 6px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.freeTitle">完全無償提供</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.freeTitle">完全無償提供</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
         </div>
-        <div style="padding:20px">
+        <div style="padding:16px 6px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
       </div>
     </div>
@@ -304,26 +308,42 @@ window._supabaseLoaded = false;
      PAGE: CAMPAIGNS LIST
 ══════════════════════════════════ -->
 <div id="page-campaigns" class="page">
-  <div style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
+  <div id="campPageStickyHeader" style="background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50">
     <div class="container" style="padding-top:14px;padding-bottom:0">
-      <div style="font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
-      <!-- 모집 유형 탭 (리뷰어/기프팅) -->
+      <!-- 제목 행 — 닫힘 모드(제목+🔍) / 열림 모드(검색 input+✕) 가 같은 row 자리를 토글로 차지 -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;min-height:36px">
+        <div id="campPageTitle" style="flex:1;font-size:16px;font-weight:800;color:var(--ink)" data-i18n="campaigns.pageTitle">キャンペーン一覧</div>
+        <button id="campPageSearchToggle" onclick="toggleCampPageSearch(true)" aria-label="検索" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:8px;flex-shrink:0">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:22px">search</span>
+        </button>
+        <!-- 검색 입력 폼 (열림 모드) — 캠페인명·브랜드명·상품·캠페인번호 매칭 -->
+        <div id="campPageSearchWrap" style="display:none;flex:1;align-items:center;gap:8px">
+          <div style="flex:1;position:relative">
+            <input type="search" id="campPageSearch" onkeydown="if(event.key==='Enter'){event.preventDefault();onCampPageSearchSubmit();}" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 38px 8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
+            <button onclick="onCampPageSearchSubmit()" aria-label="検索実行" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px 6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:6px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:18px">search</span>
+            </button>
+          </div>
+          <button onclick="toggleCampPageSearch(false)" aria-label="閉じる" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border-radius:8px;flex-shrink:0">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span>
+          </button>
+        </div>
+      </div>
+      <!-- 모집 유형 탭 — 고정 (스크롤 영향 없음) -->
       <div style="display:flex;gap:0;border-bottom:1px solid var(--line)">
         <button id="campPageType-all" onclick="setCampPageType('all',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:700;color:var(--pink);border:none;background:none;cursor:pointer;border-bottom:2px solid var(--pink)" data-i18n="campaigns.typeAll">すべて</button>
         <button id="campPageType-monitor" onclick="setCampPageType('monitor',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeMonitor">レビュアー</button>
         <button id="campPageType-gifting" onclick="setCampPageType('gifting',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeGifting">ギフティング</button>
         <button id="campPageType-visit" onclick="setCampPageType('visit',this)" style="flex:1;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent" data-i18n="campaigns.typeVisit">訪問</button>
       </div>
-      <!-- 캠페인 상태 칩 -->
-      <div class="filter-row" style="padding:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap">
-        <button id="campPageStatus-all" class="chip on" onclick="setCampPageStatus('all',this)" data-i18n="campaigns.statusAll">すべて</button>
-        <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
-        <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
-        <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
-      </div>
-      <!-- 검색 -->
-      <div style="padding:6px 0 12px">
-        <input type="search" id="campPageSearch" oninput="onCampPageSearchInput(this.value)" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
+      <!-- 상태 칩 영역 — 스크롤 시 자동 숨김/노출 대상 -->
+      <div id="campPageFilterArea" style="overflow:hidden;transition:max-height .25s ease,opacity .2s ease;max-height:80px;opacity:1">
+        <div class="filter-row" style="padding:10px 0 4px;display:flex;gap:6px;flex-wrap:wrap">
+          <button id="campPageStatus-all" class="chip on" onclick="setCampPageStatus('all',this)" data-i18n="campaigns.statusAll">すべて</button>
+          <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
+          <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
+          <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
+        </div>
       </div>
     </div>
   </div>
