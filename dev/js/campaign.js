@@ -94,6 +94,8 @@ async function loadCampaignsPage() {
   if (searchWrap) searchWrap.style.display = 'none';
   if (searchToggleBtn) searchToggleBtn.style.display = 'inline-flex';
   if (searchTitle) searchTitle.style.display = '';
+  // sticky 헤더 자동 숨김/노출 — 진입 시 노출 상태로 초기화 + 스크롤 리스너 1회 바인딩
+  setupCampPageHeaderAutoHide();
   ['all','monitor','gifting','visit'].forEach(t => {
     const btn = $('campPageType-'+t);
     if (!btn) return;
@@ -122,6 +124,39 @@ function setCampPageStatus(status, el) {
   document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
   if (el) el.classList.add('on');
   renderCampaignGrid();
+}
+
+// 캠페인 페이지 sticky 헤더 자동 숨김/노출
+//   스크롤 컨테이너(.page.active = #page-campaigns)에서 스크롤 방향을 감지해
+//   아래로 내릴 땐 헤더를 translateY(-100%)로 숨기고, 위로 올릴 땐 0으로 복귀.
+//   loadCampaignsPage 진입 시 매번 호출되지만 데이터셋 가드로 리스너는 1회만 등록.
+function setupCampPageHeaderAutoHide() {
+  const page = $('page-campaigns');
+  const header = $('campPageStickyHeader');
+  if (!page || !header) return;
+  // 헤더 노출 상태로 초기화 (이전 페이지에서 숨겨진 상태 잔존 방지)
+  header.style.transform = 'translateY(0)';
+  if (page.dataset.scrollHideBound === '1') return;
+  page.dataset.scrollHideBound = '1';
+  let lastY = 0;
+  let ticking = false;
+  page.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = page.scrollTop || 0;
+      const diff = y - lastY;
+      // 헤더 높이 이하 영역에서는 헤더 항상 노출 (헤더가 가려져도 의미 없음)
+      const HIDE_THRESHOLD = 80;
+      if (y > HIDE_THRESHOLD && diff > 4) {
+        header.style.transform = 'translateY(-100%)';
+      } else if (diff < -4 || y <= HIDE_THRESHOLD) {
+        header.style.transform = 'translateY(0)';
+      }
+      lastY = y;
+      ticking = false;
+    });
+  }, { passive: true });
 }
 
 // 검색 — 검색 버튼 또는 엔터키 트리거 (실시간 검색 아님)
