@@ -62,12 +62,18 @@ async function loadMyPage() {
   setVal('paypalEmailConfirm', p.paypal_email);
 
   // 미등록 배지 표시
+  // 이름은 한자·가나 둘 다 채워져야 등록으로 간주 ("-"는 미등록)
+  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
+  const nameKana = ((p.name_kana || '') + '').trim();
+  const hasName = nameKanji && nameKanji !== '-' && nameKana && nameKana !== '-';
   const hasSns = p.ig || p.x || p.tiktok || p.youtube;
   const hasAddress = p.zip && p.prefecture && p.city && p.phone;
   const hasPaypal = !!p.paypal_email;
+  const badgeName = $('menuBadgeName');
   const badgeSns = $('menuBadgeSns');
   const badgeAddr = $('menuBadgeAddress');
   const badgePaypal = $('menuBadgePaypal');
+  if (badgeName) badgeName.style.display = hasName ? 'none' : '';
   if (badgeSns) badgeSns.style.display = hasSns ? 'none' : '';
   if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
   if (badgePaypal) badgePaypal.style.display = hasPaypal ? 'none' : '';
