@@ -323,10 +323,11 @@ function renderApplyCaution(camp) {
 
 async function submitApplication() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
-  // 배송지 이름 누락 차단 — 한자명/일반 이름 둘 다 비어 있으면 신청 자체 불가
+  // 배송지 이름 누락 차단 — 한자명·가나명 둘 다 필수.
   // 관리자 화면에서 신청자 이름이 「-」로 표시되던 케이스 방지 (마이페이지에서 등록 후 재시도)
-  const profileName = ((currentUserProfile?.name_kanji || currentUserProfile?.name) || '').trim();
-  if (!profileName || profileName === '-') {
+  const nameKanji = (currentUserProfile?.name_kanji || currentUserProfile?.name || '').trim();
+  const nameKana = (currentUserProfile?.name_kana || '').trim();
+  if (!nameKanji || nameKanji === '-' || !nameKana || nameKana === '-') {
     toast(t('apply.needName'),'error');
     return;
   }

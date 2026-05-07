@@ -309,7 +309,7 @@ window.I18N_JA = {
     prAgreeFull: '投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）',
     submitNow: '今すぐ応募する →',
     needLogin: 'ログインが必要です',
-    needName: '配送のため、お名前(漢字)の登録が必要です。マイページで基本情報を入力してから再度ご応募ください。',
+    needName: '配送のため、お名前(漢字とカナ)の登録が必要です。マイページで基本情報を入力してから再度ご応募ください。',
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
     needPrAgree: '#PRタグの表記に同意が必要です',

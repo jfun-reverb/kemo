@@ -2065,7 +2065,7 @@ window.I18N_JA = {
     prAgreeFull: '投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）',
     submitNow: '今すぐ応募する →',
     needLogin: 'ログインが必要です',
-    needName: '配送のため、お名前(漢字)の登録が必要です。マイページで基本情報を入力してから再度ご応募ください。',
+    needName: '配送のため、お名前(漢字とカナ)の登録が必要です。マイページで基本情報を入力してから再度ご応募ください。',
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
     needPrAgree: '#PRタグの表記に同意が必要です',
@@ -2518,7 +2518,7 @@ window.I18N_KO = {
     prAgreeFull: '게시 시 <strong>#PR</strong> 또는 <strong>#広告</strong> 태그를 반드시 표기합니다 (스텔스 마케팅 규제 준수)',
     submitNow: '지금 응모하기 →',
     needLogin: '로그인이 필요합니다',
-    needName: '배송을 위해 이름(한자) 등록이 필요합니다. 마이페이지 기본 정보를 먼저 입력한 뒤 다시 응모해주세요.',
+    needName: '배송을 위해 이름(한자·가나) 등록이 필요합니다. 마이페이지 기본 정보를 먼저 입력한 뒤 다시 응모해주세요.',
     needReason: '응모 사유를 입력해주세요',
     needAddress: '배송지 주소를 입력해주세요',
     needPrAgree: '#PR 태그 표기에 동의가 필요합니다',
@@ -6141,10 +6141,11 @@ function renderApplyCaution(camp) {
 
 async function submitApplication() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
-  // 배송지 이름 누락 차단 — 한자명/일반 이름 둘 다 비어 있으면 신청 자체 불가
+  // 배송지 이름 누락 차단 — 한자명·가나명 둘 다 필수.
   // 관리자 화면에서 신청자 이름이 「-」로 표시되던 케이스 방지 (마이페이지에서 등록 후 재시도)
-  const profileName = ((currentUserProfile?.name_kanji || currentUserProfile?.name) || '').trim();
-  if (!profileName || profileName === '-') {
+  const nameKanji = (currentUserProfile?.name_kanji || currentUserProfile?.name || '').trim();
+  const nameKana = (currentUserProfile?.name_kana || '').trim();
+  if (!nameKanji || nameKanji === '-' || !nameKana || nameKana === '-') {
     toast(t('apply.needName'),'error');
     return;
   }
