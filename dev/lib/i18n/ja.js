@@ -64,6 +64,11 @@ window.I18N_JA = {
     typeMonitor: 'レビュアー',
     typeGifting: 'ギフティング',
     typeVisit: '訪問',
+    statusAll: 'すべて',
+    statusActive: '募集中',
+    statusScheduled: '近日公開',
+    statusClosed: '募集締切',
+    searchPlaceholder: 'キャンペーン名・ブランド検索',
   },
 
   // 캠페인 상태
@@ -304,6 +309,7 @@ window.I18N_JA = {
     prAgreeFull: '投稿時に<strong>#PR</strong>または<strong>#広告</strong>タグを必ず表記します（ステルスマーケティング規制準拠）',
     submitNow: '今すぐ応募する →',
     needLogin: 'ログインが必要です',
+    needName: '配送のため、お名前(漢字)の登録が必要です。マイページで基本情報を入力してから再度ご応募ください。',
     needReason: '応募理由を入力してください',
     needAddress: '配送先住所を入力してください',
     needPrAgree: '#PRタグの表記に同意が必要です',
@@ -400,6 +406,7 @@ window.I18N_JA = {
     rewardFreeStrong: '<strong>製品無償提供</strong>',
     rewardFreeSimple: '<strong>無償提供</strong>',
     channelAll: 'すべて',
+    moreBtn: 'もっと見る',
   },
 
   // 프로필 라벨
