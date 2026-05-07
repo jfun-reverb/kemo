@@ -24,6 +24,7 @@ async function loadCampaigns() {
 }
 
 // 인플루언서에게 보이는 캠페인: 모집중 + 모집예정 + 모집마감(게시기한 남음)
+// expired(노출마감) 는 post_deadline 경과 후 서버가 자동 전환한 상태 — 완전 비노출
 function visibleCamps(camps) {
   const now = new Date(); now.setHours(0,0,0,0);
   return camps.filter(c => {
@@ -32,6 +33,7 @@ function visibleCamps(camps) {
       const pd = new Date(c.post_deadline); pd.setHours(23,59,59,999);
       return now <= pd;
     }
+    // draft / expired / (closed without post_deadline) → 비노출
     return false;
   });
 }

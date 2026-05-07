@@ -115,7 +115,7 @@
 - **콘텐츠 가이드 4개 필드(설명/어필 포인트/촬영 가이드/NG사항) 리치 텍스트 에디터** (Quill v2) — 볼드/이탤릭/리스트/링크/헤더/인용 지원. Notion 복사·붙여넣기로 서식 유지. 이미지 태그는 저장 시 제거(base64 폭증 방지). 저장 포맷은 sanitize된 HTML 문자열, 기존 `text` 컬럼 그대로 사용. 평문(legacy) 데이터는 렌더 시 자동 `<br>` 변환으로 하위호환. XSS 방어: DOMPurify 저장+렌더 이중 sanitize. 공통 헬퍼는 `dev/lib/shared.js`의 `sanitizeRich/richHtml/renderRich`
 - 캠페인 목록: 썸네일+이미지수 표시, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨(게시마감/모집마감), 타입 라벨 통일([타입] 제목 형식), 승인수/모집수 표시 + 대기 배지
 - 캠페인 미리보기: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
-- 캠페인 상태: draft(준비) → scheduled(모집예정) → active(모집중) → paused(일시정지) → closed(종료), 드롭다운으로 변경
+- 캠페인 상태: draft(준비) → scheduled(모집예정) → active(모집중) → closed(종료) → expired(노출마감), 드롭다운으로 변경. **migration 097(2026-05-07)에서 paused 제거 + expired 신규**. closed = 모집 종료지만 post_deadline까지 인플루언서 화면에 카드 노출(募集締切 오버레이) / expired = post_deadline 경과로 완전 비노출. 시각 분류: 노출 그룹(scheduled/active/closed)은 컬러 배지(파랑/초록/핑크), 비노출 그룹(draft/expired)은 회색·점선
 - 캠페인 자동 종료: deadline 경과 시 active → closed 자동 변경 (클라이언트 체크)
 - **캠페인 자동 시작**(2026-04-27 migration 072): scheduled 캠페인의 `recruit_start` 가 도래하면 active 로 자동 전환. `fetchCampaigns` 호출 시 `autoOpenCampaigns()` → `autoCloseCampaigns()` 순서로 실행되어 시작·종료를 한 번에 처리
 - 마감일 검증: post_deadline >= deadline 필수, 인라인 경고 + 저장 차단
@@ -152,7 +152,7 @@
 - **캠페인 신청자 목록 SNS 전체 표시**(2026-04-22): `renderAppCampList` 행에 IG/TT/X/YT 4개 채널 핸들+팔로워 모두 표시(이전: primary_channel만)
 - **전화번호 표시 포맷 정규화**(`formatPhoneDisplay` in ui.js, 2026-04-22): KR/JP 번호 정규화(11자리 3-4-4, 10자리 02/03/06 → 2-4-4 else 3-3-4, `+81`/`+82` 지원). 적용처: 인플루언서 상세 모달·브랜드 앱 리스트·상세. 매칭 실패 시 원문 폴백
 - **캠페인·신청·결과물 표 brand_ko/product_ko 컬럼 분리**(2026-04-30, 02c432f / 56dcfd4 / 231a638): 기존 단일 "브랜드/상품" 라인이었던 캠페인 관리·신청 관리·캠페인별 신청자 페인 표가 `brand_ko`(브랜드 한국어명)·`product_ko`(상품 한국어명) 컬럼으로 분리. 검색창은 두 컬럼 모두 매칭. 컬럼 폭은 다른 컬럼이 좁아지지 않게 일정 너비 캡 적용. dynamic thead 도 분리 컬럼으로 갱신
-- **캠페인 상태 도움말 모달**(2026-04-30, cdaa146): 캠페인 관리 표 헤더 「상태」 옆 `info` Material Icon 클릭 시 5단계(`draft`/`scheduled`/`active`/`paused`/`closed`) 의미와 자동 전이 규칙(예: `recruit_start` 도래 시 `scheduled→active`, `deadline` 경과 시 `active→closed`)을 모달로 안내. 담당자가 상태 의미를 헷갈리던 문제 해결
+- **캠페인 상태 도움말 모달**(2026-04-30, cdaa146): 캠페인 관리 표 헤더 「상태」 옆 `info` Material Icon 클릭 시 5단계(`draft`/`scheduled`/`active`/`closed`/`expired`, **migration 097에서 paused 제거 + expired 추가**) 의미와 자동 전이 규칙(`recruit_start` 도래 시 `scheduled→active`, `deadline` 경과 시 `active→closed`, `post_deadline` 경과 시 `closed→expired`)을 모달로 안내. 담당자가 상태 의미를 헷갈리던 문제 해결
 - **민감 항목 변경 모달 + 변경 이력 추적**(2026-04-29 migration 077, d79ad39): 캠페인 편집 폼에서 `caution_items`/`participation_steps` 같은 민감 항목 변경 시 신청자에게 영향이 있을 수 있다는 경고 모달(`#sensitiveChangeModal`)을 dev 소스에 정식 연결. 변경은 `campaign_caution_history` 테이블에 audit 트리거로 자동 기록(누가/언제/어느 필드/이전·이후 값). SELECT는 super_admin 한정 (`is_super_admin()` RLS), INSERT는 트리거만. 함께 도입된 DB 잠금 마이그레이션은 동시 편집 시 마지막 쓰기가 이전 변경을 덮어쓰는 사고 방지
 - **참여방법/주의사항 편집 모달 분리**(2026-04-26, eb78c98 / c5e2cef / 6be9c19): 기존 캠페인 폼 inline 편집을 별도 편집 모달로 분리. 카드 헤더에 「편집」 버튼 1개로 정리, bundle summary 카드는 한·일 양언어 풀 노출, 미리보기는 `注意事項` 한·일 토글 추가
 - **결과물 영수증 구매정보 마스킹**(2026-04-30, 0d2b599): 관리자 결과물 검수 모달에서 영수증의 `purchase_date`(구매일)·`purchase_amount`(구매금액) 노출 제거. 인플루언서 본인 화면(재제출 폼)에서는 그대로 유지. 개인정보 최소 노출 정책에 부합

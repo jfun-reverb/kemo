@@ -205,7 +205,7 @@ function initMultiFilters() {
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => filterAdminCampaigns());
   createMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'paused',label:'일시정지'},{value:'closed',label:'종료'}
+    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'종료'},{value:'expired',label:'노출마감'}
   ], () => filterAdminCampaigns());
   // 신청관리
   createMultiFilter('appTypeMulti', '전체 타입', [
@@ -321,11 +321,11 @@ function renderCampaignBreakdown(camps) {
   if (!statusEl || !chEl) return;
 
   const statusDef = [
-    {key:'draft', label:'준비', color:'#9aa0a6', bg:'#F1F3F4'},
+    {key:'draft',     label:'준비',     color:'#9aa0a6', bg:'#F1F3F4'},
     {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
-    {key:'active', label:'모집중', color:'#0E7E4A', bg:'#E8F7EF'},
-    {key:'paused', label:'일시정지', color:'#B26A00', bg:'#FFF4E5'},
-    {key:'closed', label:'종료', color:'#6B6B6B', bg:'#EEEEEE'},
+    {key:'active',    label:'모집중',   color:'#0E7E4A', bg:'#E8F7EF'},
+    {key:'closed',    label:'종료',     color:'#B91C5C', bg:'#FFE4EC'},
+    {key:'expired',   label:'노출마감', color:'#666666', bg:'#EEEEEE'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
@@ -736,11 +736,12 @@ async function loadAdminCampaigns(useCache) {
     {value:'draft',     label:'준비',     count: stCounts.draft || 0},
     {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
     {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'paused',    label:'일시정지', count: stCounts.paused || 0},
     {value:'closed',    label:'종료',     count: stCounts.closed || 0},
+    {value:'expired',   label:'노출마감', count: stCounts.expired || 0},
   ], () => filterAdminCampaigns());
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',paused:'일시정지',closed:'종료'};
-  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',paused:'var(--gold)',closed:'var(--muted)'};
+  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'종료',expired:'노출마감'};
+  // 노출 그룹(scheduled/active/closed)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
+  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',expired:'#666666'};
   const el = $('adminCampStatusCounts');
   if (el) el.innerHTML = Object.keys(stLabels).filter(k=>stCounts[k]).map(k =>
     `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
@@ -771,7 +772,7 @@ async function loadAdminCampaigns(useCache) {
     });
   } else if (adminCampSortKey) {
     const dir = adminCampSortDir === 'asc' ? 1 : -1;
-    const statusOrder = {draft:0,scheduled:1,active:2,paused:3,closed:4};
+    const statusOrder = {draft:0,scheduled:1,active:2,closed:3,expired:4};
     const getVal = {
       status: c => statusOrder[c.status]??99,
       created: c => new Date(c.created_at).getTime(),
@@ -789,10 +790,14 @@ async function loadAdminCampaigns(useCache) {
   const isFiltered = searchVal || typeVals.length > 0 || statusVals.length > 0 || !!adminCampSortKey;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
-  const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',paused:'일시정지',closed:'종료'};
-  const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',paused:'badge-gold',closed:'badge-gray'};
+  const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',closed:'종료',expired:'노출마감'};
+  // 노출 그룹(scheduled/active/closed)과 비노출 그룹(draft/expired)을 색·점선으로 구분
+  //   scheduled=파랑, active=초록, closed=핑크(게시 기간 살아있는 동안 노출 중)
+  //   draft=회색+점선, expired=비노출 강조 회색+점선
+  const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',closed:'badge-pink',expired:'badge-expired'};
   const statusBadge = s => {
     const cls = statusBadgeClass[s]||'badge-gray';
+    // draft만 점선 인라인 — expired는 .badge-expired 자체에 dashed 정의되어 있어 인라인 불필요
     const dashed = s==='draft' ? 'border:1.5px dashed var(--muted);' : '';
     return `<div style="position:relative;display:inline-block">
       <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
@@ -1102,28 +1107,29 @@ async function openEditCampaign(campId) {
 
 // 캠페인 편집 폼: 신청 동의 영향 영역 readonly 토글
 //   대상: 주의사항(caution) / 참여방법(participation) 요약 카드의 「편집」 버튼
-//   조건: status === 'closed' 일 때 비활성화 + 잠금 메시지 노출
+//   조건: status === 'closed' 또는 'expired' 일 때 비활성화 + 잠금 메시지 노출
 function applyEditFormSensitiveLocks(status) {
-  const isClosed = status === 'closed';
+  const isLocked = status === 'closed' || status === 'expired';
+  const lockLabel = status === 'expired' ? '노출마감' : '종료';
   ['Pset', 'Cset'].forEach(kind => {
     const card = $('editCamp' + kind + 'Summary');
     if (!card) return;
     const editBtn = card.querySelector('button[onclick*="openCampBundleModal"]');
     if (editBtn) {
-      editBtn.disabled = isClosed;
-      editBtn.style.opacity = isClosed ? '0.5' : '';
-      editBtn.style.cursor = isClosed ? 'not-allowed' : '';
-      editBtn.title = isClosed ? '종료된 캠페인은 수정할 수 없습니다' : '';
+      editBtn.disabled = isLocked;
+      editBtn.style.opacity = isLocked ? '0.5' : '';
+      editBtn.style.cursor = isLocked ? 'not-allowed' : '';
+      editBtn.title = isLocked ? `${lockLabel} 캠페인은 수정할 수 없습니다` : '';
     }
     let lockMsg = card.querySelector('.bundle-lock-msg');
-    if (isClosed) {
+    if (isLocked) {
       if (!lockMsg) {
         lockMsg = document.createElement('div');
         lockMsg.className = 'bundle-lock-msg';
         lockMsg.style.cssText = 'font-size:11px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:4px';
-        lockMsg.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">lock</span>종료된 캠페인은 수정할 수 없습니다';
         card.appendChild(lockMsg);
       }
+      lockMsg.innerHTML = `<span class="material-icons-round notranslate" translate="no" style="font-size:14px">lock</span>${lockLabel} 캠페인은 수정할 수 없습니다`;
     } else if (lockMsg) {
       lockMsg.remove();
     }
@@ -2055,7 +2061,7 @@ async function saveCampaignEdit() {
     //      sanitize 한 번 더 적용 등 미세 차이로 detectSensitiveChange 가 false-positive를
     //      잡아 「날짜만 수정해도 차단」되는 회귀가 있어, 안전하게 caution/participation
     //      필드 4개를 updates에서 제거하고 비교 자체를 skip — db 값 그대로 유지된다.
-    //   2) draft~paused 캠페인: 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
+    //   2) draft~closed 캠페인: 신청자 ≥1건 + 변경 감지 시 경고 모달로 명시적 확인 요구
     //   3) Phase 2 — 변경 감지 시 audit 이력 기록 (campaign_caution_history)
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
     let _historyAppCount = 0;
@@ -2496,11 +2502,11 @@ function toggleStatusDropdown(badgeEl) {
   if (!campId) return;
 
   const items = [
-    {val:'draft', label:'준비', cls:'badge-gray'},
+    {val:'draft',     label:'준비',     cls:'badge-gray'},
     {val:'scheduled', label:'모집예정', cls:'badge-blue'},
-    {val:'active', label:'모집중', cls:'badge-green'},
-    {val:'paused', label:'일시정지', cls:'badge-gold'},
-    {val:'closed', label:'종료', cls:'badge-gray'}
+    {val:'active',    label:'모집중',   cls:'badge-green'},
+    {val:'closed',    label:'종료',     cls:'badge-pink'},
+    {val:'expired',   label:'노출마감', cls:'badge-expired'}
   ];
 
   const dd = document.createElement('div');

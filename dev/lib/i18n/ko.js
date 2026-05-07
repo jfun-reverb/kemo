@@ -69,7 +69,7 @@ window.I18N_KO = {
       scheduled: '공개 예정',
       closed: '마감',
       draft: '준비중',
-      paused: '일시정지',
+      expired: '노출마감',
     },
   },
 
