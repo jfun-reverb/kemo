@@ -3522,17 +3522,44 @@ function normalizeQuillLists(wrapper) {
   mergeAdjacentLists(wrapper);
 }
 
-// 형제 노드 중 같은 type의 list가 연속이면 1개로 병합 (재귀)
+// 빈 블록 판정: <p></p>, <p><br></p>, <p>&nbsp;</p>, <div></div> 등
+// (Quill clipboard가 list 사이에 자동 삽입하는 placeholder)
+function isEmptyBlock(el) {
+  if (!el) return false;
+  if (!['P','DIV'].includes(el.tagName)) return false;
+  const text = (el.textContent || '').replace(/ /g, '').trim();
+  return !text;
+}
+
+// 형제 노드 중 같은 type의 list가 연속이면 1개로 병합 (재귀).
+// 사이에 빈 paragraph/div가 끼어 있어도 통과해 합친다 — Quill 2.x가
+// paste/save 과정에서 list 사이에 <p><br></p>를 자주 삽입하기 때문.
 function mergeAdjacentLists(parent) {
   if (!parent) return;
   let node = parent.firstElementChild;
   while (node) {
-    const next = node.nextElementSibling;
-    if (next && (node.tagName === 'OL' || node.tagName === 'UL') && node.tagName === next.tagName) {
-      while (next.firstChild) node.appendChild(next.firstChild);
-      next.remove();
-      continue; // node 그대로 두고 다음 형제 재검사 (3개 이상 연속 대비)
+    let next = node.nextElementSibling;
+
+    // node 자체가 list일 때만 병합 시도
+    const isListNode = node.tagName === 'OL' || node.tagName === 'UL';
+    if (isListNode && next) {
+      // 빈 블록을 건너뛰며 다음 list 후보 탐색 (실제 제거는 병합 확정 후)
+      const skipped = [];
+      let probe = next;
+      while (probe && isEmptyBlock(probe)) {
+        skipped.push(probe);
+        probe = probe.nextElementSibling;
+      }
+      // 같은 type list 발견 → 빈 블록 제거 + 병합
+      if (probe && probe.tagName === node.tagName) {
+        skipped.forEach(el => el.remove());
+        while (probe.firstChild) node.appendChild(probe.firstChild);
+        probe.remove();
+        continue; // node 그대로 두고 다음 형제 재검사 (3개 이상 연속 대비)
+      }
+      // 다른 형제 — 빈 블록은 손대지 않고 next 그대로 진행
     }
+
     // 컨테이너성 자식(li, blockquote 등) 내부에도 적용
     if (node.children && node.children.length) mergeAdjacentLists(node);
     node = next;
@@ -15566,6 +15593,14 @@ async function openAdminNoticeView(id) {
   if (typeof renderRich === 'function') renderRich(bodyEl, n.body_html || '');
   else if (typeof sanitizeRich === 'function') bodyEl.innerHTML = sanitizeRich(n.body_html || '');
   else bodyEl.innerHTML = n.body_html || '';
+  // 2026-05-07 임시 디버그: ol 분리 문제 추적용. 보기 모달 열 때 raw·rendered HTML을 콘솔에 덤프
+  try {
+    console.group('[adminNotice debug] ' + (n.title || '(no title)'));
+    console.log('raw body_html:', n.body_html);
+    console.log('rendered innerHTML:', bodyEl.innerHTML);
+    console.log('ol count in rendered:', bodyEl.querySelectorAll('ol').length);
+    console.groupEnd();
+  } catch(_) {}
   // 푸터: 작성자/super 만 표시
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const canEdit = isSuper || n.created_by === currentUser?.id;

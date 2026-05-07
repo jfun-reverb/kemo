@@ -9419,6 +9419,14 @@ async function openAdminNoticeView(id) {
   if (typeof renderRich === 'function') renderRich(bodyEl, n.body_html || '');
   else if (typeof sanitizeRich === 'function') bodyEl.innerHTML = sanitizeRich(n.body_html || '');
   else bodyEl.innerHTML = n.body_html || '';
+  // 2026-05-07 임시 디버그: ol 분리 문제 추적용. 보기 모달 열 때 raw·rendered HTML을 콘솔에 덤프
+  try {
+    console.group('[adminNotice debug] ' + (n.title || '(no title)'));
+    console.log('raw body_html:', n.body_html);
+    console.log('rendered innerHTML:', bodyEl.innerHTML);
+    console.log('ol count in rendered:', bodyEl.querySelectorAll('ol').length);
+    console.groupEnd();
+  } catch(_) {}
   // 푸터: 작성자/super 만 표시
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const canEdit = isSuper || n.created_by === currentUser?.id;
