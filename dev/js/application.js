@@ -434,19 +434,25 @@ function handleFloatApply() {
     toast(t('apply.emailUnverified'),'error');
     return;
   }
-  // 필수 정보 체크: 캠페인 채널에 맞는 SNS 계정 + 배송지
+  // 필수 정보 체크: 이름(한자·가나) + 캠페인 채널에 맞는 SNS 계정 + 배송지
   const p = currentUserProfile || {};
   const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
-  const ch = (camp.channel || '').toLowerCase();
+  // 채널 비교는 항상 split(',').includes() 패턴 — 단순 includes는 부분 문자열 오탐 위험
+  const chList = (camp.channel || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
   const missing = [];
+  // 이름(한자·가나) — 한자명은 name_kanji 우선, 폴백 name. "-" 도 미등록으로 간주
+  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
+  const nameKana = ((p.name_kana || '') + '').trim();
+  if (!nameKanji || nameKanji === '-') missing.push(t('profile.nameKanji'));
+  if (!nameKana || nameKana === '-') missing.push(t('profile.nameKana'));
   // 캠페인 채널에 맞는 SNS 계정 체크
-  if (ch.includes('instagram') && !p.ig) missing.push('Instagram ID');
-  if (ch.includes('x') && !p.x) missing.push('X(Twitter) ID');
-  if (ch.includes('tiktok') && !p.tiktok) missing.push('TikTok ID');
-  if (ch.includes('youtube') && !p.youtube) missing.push('YouTube ID');
-  if (ch.includes('qoo10') && !p.ig) missing.push('Instagram ID');
+  if (chList.includes('instagram') && !p.ig) missing.push('Instagram ID');
+  if (chList.includes('x') && !p.x) missing.push('X(Twitter) ID');
+  if (chList.includes('tiktok') && !p.tiktok) missing.push('TikTok ID');
+  if (chList.includes('youtube') && !p.youtube) missing.push('YouTube ID');
+  if (chList.includes('qoo10') && !p.ig) missing.push('Instagram ID');
   // SNS 계정이 하나도 없으면 기본적으로 Instagram 체크
-  if (!ch && !p.ig) missing.push('Instagram ID');
+  if (chList.length === 0 && !p.ig) missing.push('Instagram ID');
   if (!p.zip) missing.push(t('profile.zip'));
   if (!p.prefecture) missing.push(t('profile.prefecture'));
   if (!p.city) missing.push(t('profile.city'));
@@ -455,7 +461,7 @@ function handleFloatApply() {
   if (missing.length > 0) {
     $('profileAlertMissing').innerHTML = missing.map(m =>
       `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;background:var(--light-pink);border-radius:10px;font-size:13px;color:var(--dark-pink);font-weight:600">
-        <span class="material-icons-round" style="font-size:18px;color:var(--pink)">warning</span>${m}
+        <span class="material-icons-round" style="font-size:18px;color:var(--pink)">warning</span>${esc(m)}
       </div>`
     ).join('');
     $('profileAlertOverlay').style.display = 'flex';
