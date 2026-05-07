@@ -138,6 +138,102 @@
     </div>
   </div>
 
+  <!-- ⑥ 결과물 — 영수증 승인 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 — 영수증 승인</div>
+    <div class="card-desc">monitor 1단계 영수증 승인 시 발송. STEP 2(리뷰 이미지 제출) 안내 포함.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=receipt)</div>
+      <div><b>수신자:</b> 인플루언서 본인</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="deliverable-receipt-approved.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="deliverable-receipt-approved.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ⑦ 결과물 — 영수증 비승인 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 — 영수증 비승인</div>
+    <div class="card-desc">영수증 반려 시 사유 포함 발송. 활동관리에서 재제출 안내.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=receipt)</div>
+      <div><b>수신자:</b> 인플루언서 본인</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="deliverable-receipt-rejected.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="deliverable-receipt-rejected.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ⑧ 결과물 — 리뷰 이미지 승인 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 — 리뷰 이미지 승인</div>
+    <div class="card-desc">monitor 2단계 리뷰 캡처 승인 시 발송. 보상 지급 대기 안내 포함.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=review_image)</div>
+      <div><b>수신자:</b> 인플루언서 본인</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="deliverable-review-image-approved.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="deliverable-review-image-approved.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ⑨ 결과물 — 리뷰 이미지 비승인 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 — 리뷰 이미지 비승인</div>
+    <div class="card-desc">리뷰 캡처 반려 시 사유 포함 발송.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=review_image)</div>
+      <div><b>수신자:</b> 인플루언서 본인</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="deliverable-review-image-rejected.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="deliverable-review-image-rejected.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ⑩ 결과물 — 게시 URL 승인 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 — 게시 URL 승인</div>
+    <div class="card-desc">gifting/visit 게시물 URL 승인 시 발송. 보상 지급 대기 안내 포함.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=post)</div>
+      <div><b>수신자:</b> 인플루언서 본인</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="deliverable-post-approved.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="deliverable-post-approved.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ⑪ 결과물 — 게시 URL 비승인 -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">결과물 — 게시 URL 비승인</div>
+    <div class="card-desc">게시물 URL 반려 시 사유 + 제출 URL 함께 노출, 재제출 안내.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=post)</div>
+      <div><b>수신자:</b> 인플루언서 본인</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="deliverable-post-rejected.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="deliverable-post-rejected.html">원본</a>
+    </div>
+  </div>
+
 </div>
 
 <h2>미구현 — 인플루언서 비즈니스 로직 메일 (TODO)</h2>
@@ -168,13 +264,6 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">신청 반려 알림</div>
     <div class="card-desc">관리자가 반려 시 사유 포함 발송.</div>
-    <div class="card-meta"><span class="status-soon">미구현</span></div>
-  </div>
-
-  <div class="card disabled">
-    <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">결과물 승인 / 반려 / 변경 요청</div>
-    <div class="card-desc">deliverables 상태 전이 시 발송. 트리거는 이미 알림 테이블에 INSERT 중.</div>
     <div class="card-meta"><span class="status-soon">미구현</span></div>
   </div>
 
