@@ -109,6 +109,13 @@ async function loadCampaignsPage() {
   renderCampaignGrid();
 }
 
+// 필터/탭 변경 시 호출 — 사용자가 페이지 중간에서 탭을 눌러도 새 그리드 첫 번째부터 보이도록 최상단 이동
+function _scrollCampPageTop() {
+  const page = $('page-campaigns');
+  if (page && typeof page.scrollTo === 'function') page.scrollTo({top: 0, behavior: 'smooth'});
+  else if (page) page.scrollTop = 0;
+}
+
 function setCampPageType(type, el) {
   campPageTypeFilter = type;
   document.querySelectorAll('[id^="campPageType-"]').forEach(b => {
@@ -116,6 +123,7 @@ function setCampPageType(type, el) {
   });
   el.style.color = 'var(--pink)'; el.style.borderBottomColor = 'var(--pink)'; el.style.fontWeight = '700';
   renderCampaignGrid();
+  _scrollCampPageTop();
 }
 
 // 상태 칩 (전체 / 모집중 / 모집예정 / 모집완료)
@@ -124,6 +132,7 @@ function setCampPageStatus(status, el) {
   document.querySelectorAll('[id^="campPageStatus-"]').forEach(c => c.classList.remove('on'));
   if (el) el.classList.add('on');
   renderCampaignGrid();
+  _scrollCampPageTop();
 }
 
 // 캠페인 페이지 필터 영역만 자동 숨김/노출
@@ -170,6 +179,7 @@ function onCampPageSearchSubmit() {
   const input = $('campPageSearch');
   campPageSearch = ((input?.value) || '').trim().toLowerCase();
   renderCampaignGrid();
+  _scrollCampPageTop();
 }
 // 하위호환: 외부에서 onCampPageSearchInput 호출되는 경로(혹시 모를)에 대비
 function onCampPageSearchInput(value) {
