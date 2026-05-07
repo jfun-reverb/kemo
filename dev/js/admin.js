@@ -6923,15 +6923,15 @@ async function exportCampaignDeliverables(campId) {
     wb.created = new Date();
     var ws = wb.addWorksheet('결과물');
 
-    // 헤더 (A1:R1, A2:R2) — 총 18열
-    ws.mergeCells('A1:R1');
+    // 헤더 (A1:S1, A2:S2) — 총 19열
+    ws.mergeCells('A1:S1');
     var t = ws.getCell('A1');
     t.value = (camp.campaign_no ? camp.campaign_no + '  ' : '') + (camp.title || '');
     t.font = {bold: true, size: 14};
     t.alignment = {vertical: 'middle'};
     ws.getRow(1).height = 26;
 
-    ws.mergeCells('A2:R2');
+    ws.mergeCells('A2:S2');
     var m = ws.getCell('A2');
     m.value = '브랜드: ' + (camp.brand || '—')
       + '  ·  신청 건수: ' + groupList.length + '건'
@@ -6940,11 +6940,11 @@ async function exportCampaignDeliverables(campId) {
     m.font = {color: {argb: 'FF888888'}, size: 11};
     ws.getRow(2).height = 20;
 
-    // 그룹 헤더 (3행) — 인플루언서 6컬럼 / 영수증 6컬럼 / 결과물 6컬럼
-    ws.mergeCells('A3:F3'); ws.getCell('A3').value = '인플루언서 정보';
-    ws.mergeCells('G3:L3'); ws.getCell('G3').value = '영수증';
-    ws.mergeCells('M3:R3'); ws.getCell('M3').value = '결과물';
-    ['A3','G3','M3'].forEach(function(addr) {
+    // 그룹 헤더 (3행) — 인플루언서 7컬럼 / 영수증 6컬럼 / 결과물 6컬럼
+    ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
+    ws.mergeCells('H3:M3'); ws.getCell('H3').value = '영수증';
+    ws.mergeCells('N3:S3'); ws.getCell('N3').value = '결과물';
+    ['A3','H3','N3'].forEach(function(addr) {
       var c = ws.getCell(addr);
       c.font = {bold: true, color: {argb: 'FF222222'}};
       c.alignment = {vertical: 'middle', horizontal: 'center'};
@@ -6954,7 +6954,7 @@ async function exportCampaignDeliverables(campId) {
 
     // 컬럼 헤더 (4행)
     ws.getRow(4).values = [
-      '이름(한자)', '이름(가타카나)', 'Instagram', 'TikTok', 'X', 'YouTube',
+      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram', 'TikTok', 'X', 'YouTube',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL'
     ];
@@ -6963,9 +6963,9 @@ async function exportCampaignDeliverables(campId) {
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (이름 18, SNS 22, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
+    // 컬럼 너비 (이름 18·이메일 28·SNS 22, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
     ws.columns = [
-      {width: 18}, {width: 18}, {width: 22}, {width: 22}, {width: 18}, {width: 22},
+      {width: 18}, {width: 18}, {width: 28}, {width: 22}, {width: 22}, {width: 18}, {width: 22},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
     ];
@@ -7019,9 +7019,10 @@ async function exportCampaignDeliverables(campId) {
       var resultCells = renderDeliverableCells(g.result);
 
       row.values = [
-        // 인플루언서 정보 6컬럼
+        // 인플루언서 정보 7컬럼
         u.name_kanji || u.name || '—',
         u.name_kana || '',
+        u.email || '',
         snsHandleStr('instagram', u.ig),
         snsHandleStr('tiktok', u.tiktok),
         snsHandleStr('x', u.x),
@@ -7033,23 +7034,23 @@ async function exportCampaignDeliverables(campId) {
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
 
-      // 하이퍼링크 셀 스타일 (L열=영수증 URL, R열=결과물 URL)
-      [12, 18].forEach(function(colNum) {
+      // 하이퍼링크 셀 스타일 (M열=13 영수증 URL, S열=19 결과물 URL)
+      [13, 19].forEach(function(colNum) {
         var c = row.getCell(colNum);
         if (c && c.value && c.value.hyperlink) {
           c.font = {color: {argb: 'FFE8344E'}, underline: true};
         }
       });
 
-      // 영수증 이미지 임베드 (K열=11)
+      // 영수증 이미지 임베드 (L열=12)
       if (g.receipt && imgBuffers[g.receipt.id]) {
         var rImgId = wb.addImage({buffer: imgBuffers[g.receipt.id].buffer, extension: imgBuffers[g.receipt.id].ext});
-        ws.addImage(rImgId, 'K' + rowNum + ':K' + rowNum);
+        ws.addImage(rImgId, 'L' + rowNum + ':L' + rowNum);
       }
-      // 결과물 이미지 임베드 (review_image, Q열=17). post는 이미지 없음.
+      // 결과물 이미지 임베드 (review_image, R열=18). post는 이미지 없음.
       if (g.result && g.result.kind === 'review_image' && imgBuffers[g.result.id]) {
         var dImgId = wb.addImage({buffer: imgBuffers[g.result.id].buffer, extension: imgBuffers[g.result.id].ext});
-        ws.addImage(dImgId, 'Q' + rowNum + ':Q' + rowNum);
+        ws.addImage(dImgId, 'R' + rowNum + ':R' + rowNum);
       }
     });
 
