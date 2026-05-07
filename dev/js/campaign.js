@@ -137,7 +137,7 @@ function setupCampPageHeaderAutoHide() {
   const filterArea = $('campPageFilterArea');
   if (!page || !filterArea) return;
   // 필터 영역 노출 상태로 초기화
-  filterArea.style.maxHeight = '200px';
+  filterArea.style.maxHeight = '80px';
   filterArea.style.opacity = '1';
   if (page.dataset.scrollHideBound === '1') return;
   page.dataset.scrollHideBound = '1';
@@ -156,7 +156,7 @@ function setupCampPageHeaderAutoHide() {
         filterArea.style.opacity = '0';
       } else if (diff < -4 || y <= HIDE_THRESHOLD) {
         // 위로 스크롤 — 필터 펼침
-        filterArea.style.maxHeight = '200px';
+        filterArea.style.maxHeight = '80px';
         filterArea.style.opacity = '1';
       }
       lastY = y;

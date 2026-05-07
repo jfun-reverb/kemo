@@ -111,6 +111,85 @@ function updateActiveNav(page) {
 }
 
 // ══════════════════════════════════════
+// Pull-to-Refresh — 모바일 네이티브 앱처럼 페이지 최상단에서 아래로 당기면 새로고침
+//   #appShell 내부 .page.active(스크롤 컨테이너) 의 touch 이벤트로 작동.
+//   인증 페이지(login/signup/forgot/reset-pw)는 비활성. activity 등 기타 페이지 모두 허용.
+//   임계값 80px 충족 후 손 놓으면 location.reload() 로 진짜 페이지 새로고침.
+// ══════════════════════════════════════
+function setupPTR() {
+  const appShell = $('appShell');
+  const indicator = $('ptrIndicator');
+  if (!appShell || !indicator) return;
+  if (appShell.dataset.ptrBound === '1') return;
+  appShell.dataset.ptrBound = '1';
+
+  const PTR_BLOCKLIST = ['page-login','page-signup','page-forgot','page-reset-pw'];
+  const RESISTANCE = 0.5;     // 당기는 거리에 0.5 곱해 자연스러운 저항감
+  const TRIGGER_AT = 60;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
+  const MAX_PULL = 100;       // 최대 당김 거리 클램프
+
+  let startY = 0;
+  let pullY = 0;
+  let pulling = false;
+  let activePage = null;
+  let isRefreshing = false;
+
+  const reset = () => {
+    indicator.style.transform = 'translate(-50%, -56px)';
+    indicator.classList.remove('active');
+    if (activePage) {
+      activePage.style.transition = 'transform .25s ease';
+      activePage.style.transform = '';
+      setTimeout(() => { if (activePage) activePage.style.transition = ''; }, 250);
+    }
+    pulling = false;
+    activePage = null;
+    pullY = 0;
+  };
+
+  appShell.addEventListener('touchstart', (e) => {
+    if (isRefreshing) return;
+    const page = document.querySelector('#appShell .page.active');
+    if (!page) return;
+    if (PTR_BLOCKLIST.includes(page.id)) return;
+    if ((page.scrollTop || 0) > 0) return;
+    activePage = page;
+    startY = e.touches[0].clientY;
+    pullY = 0;
+    pulling = true;
+  }, { passive: true });
+
+  appShell.addEventListener('touchmove', (e) => {
+    if (!pulling || !activePage || isRefreshing) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy < 0) { reset(); return; }
+    // 컨테이너가 다시 스크롤된 상태로 바뀌면 PTR 종료
+    if ((activePage.scrollTop || 0) > 0) { reset(); return; }
+    pullY = dy;
+    const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
+    indicator.style.transform = `translate(-50%, ${Math.min(adjusted - 16, 40)}px)`;
+    activePage.style.transform = `translateY(${adjusted}px)`;
+    if (adjusted >= TRIGGER_AT) indicator.classList.add('active');
+    else indicator.classList.remove('active');
+  }, { passive: true });
+
+  appShell.addEventListener('touchend', () => {
+    if (!pulling || !activePage || isRefreshing) return;
+    const adjusted = Math.min(pullY * RESISTANCE, MAX_PULL);
+    if (adjusted >= TRIGGER_AT) {
+      // 새로고침 실행 — 인디케이터를 임계 위치에 고정하고 회전 애니메이션
+      isRefreshing = true;
+      indicator.style.transform = `translate(-50%, 24px)`;
+      indicator.classList.add('refreshing');
+      // location.reload() 직전에 약간 지연을 두어 사용자에게 회전 애니메이션 노출
+      setTimeout(() => { window.location.reload(); }, 250);
+    } else {
+      reset();
+    }
+  });
+}
+
+// ══════════════════════════════════════
 // INIT
 // ══════════════════════════════════════
 async function init() {
@@ -276,6 +355,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     updateStats(allCampaigns);
   }
   await init();
+  // Pull-to-Refresh 등록 (1회) — appShell 단일 리스너
+  if (typeof setupPTR === 'function') setupPTR();
 
   // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절
   if (window.visualViewport) {
