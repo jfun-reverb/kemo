@@ -126,16 +126,19 @@ function setCampPageStatus(status, el) {
   renderCampaignGrid();
 }
 
-// 캠페인 페이지 sticky 헤더 자동 숨김/노출
-//   스크롤 컨테이너(.page.active = #page-campaigns)에서 스크롤 방향을 감지해
-//   아래로 내릴 땐 헤더를 translateY(-100%)로 숨기고, 위로 올릴 땐 0으로 복귀.
+// 캠페인 페이지 필터 영역만 자동 숨김/노출
+//   제목/검색 행은 sticky로 항상 노출, 모집 유형 탭+상태 칩 영역만 collapse.
+//   스크롤 컨테이너(.page.active = #page-campaigns) 방향 감지:
+//     - 아래로 스크롤 → 필터 영역 max-height:0 + opacity:0 으로 접힘
+//     - 위로 스크롤 → max-height:200px + opacity:1 로 복귀
 //   loadCampaignsPage 진입 시 매번 호출되지만 데이터셋 가드로 리스너는 1회만 등록.
 function setupCampPageHeaderAutoHide() {
   const page = $('page-campaigns');
-  const header = $('campPageStickyHeader');
-  if (!page || !header) return;
-  // 헤더 노출 상태로 초기화 (이전 페이지에서 숨겨진 상태 잔존 방지)
-  header.style.transform = 'translateY(0)';
+  const filterArea = $('campPageFilterArea');
+  if (!page || !filterArea) return;
+  // 필터 영역 노출 상태로 초기화
+  filterArea.style.maxHeight = '200px';
+  filterArea.style.opacity = '1';
   if (page.dataset.scrollHideBound === '1') return;
   page.dataset.scrollHideBound = '1';
   let lastY = 0;
@@ -146,12 +149,15 @@ function setupCampPageHeaderAutoHide() {
     requestAnimationFrame(() => {
       const y = page.scrollTop || 0;
       const diff = y - lastY;
-      // 헤더 높이 이하 영역에서는 헤더 항상 노출 (헤더가 가려져도 의미 없음)
       const HIDE_THRESHOLD = 80;
       if (y > HIDE_THRESHOLD && diff > 4) {
-        header.style.transform = 'translateY(-100%)';
+        // 아래로 스크롤 — 필터 접기
+        filterArea.style.maxHeight = '0px';
+        filterArea.style.opacity = '0';
       } else if (diff < -4 || y <= HIDE_THRESHOLD) {
-        header.style.transform = 'translateY(0)';
+        // 위로 스크롤 — 필터 펼침
+        filterArea.style.maxHeight = '200px';
+        filterArea.style.opacity = '1';
       }
       lastY = y;
       ticking = false;
