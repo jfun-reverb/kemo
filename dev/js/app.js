@@ -188,6 +188,10 @@ function setupPTR() {
       reset();
     }
   });
+  // 시스템 인터럽트(전화·알림·멀티터치) 시에도 페이지가 들뜬 상태로 남지 않도록 reset
+  appShell.addEventListener('touchcancel', () => {
+    if (pulling) reset();
+  });
 }
 
 // ══════════════════════════════════════

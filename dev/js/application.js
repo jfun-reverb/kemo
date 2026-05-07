@@ -223,9 +223,12 @@ async function openCampaign(id) {
   const floatApplyBtn = $('floatApplyBtn');
   const floatProductPageBtn = $('floatProductPageBtn');
   if (floatName) floatName.textContent = camp.title;
-  if (floatReward) floatReward.textContent = camp.product_price>0
-    ? `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`
-    : t('detail.rewardFree');
+  if (floatReward) {
+    const isMonitor = camp.recruit_type === 'monitor';
+    floatReward.textContent = camp.product_price>0
+      ? `¥${camp.product_price.toLocaleString()}${isMonitor ? t('detail.rewardPayback') : t('detail.rewardProduct')}`
+      : t('detail.rewardFree');
+  }
   if (floatProductPageBtn) {
     floatProductPageBtn.style.display = camp.product_url ? 'inline-flex' : 'none';
     floatProductPageBtn.dataset.url = cleanUrl(camp.product_url)||'';

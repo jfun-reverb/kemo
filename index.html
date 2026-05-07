@@ -555,8 +555,8 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="floatProductName" style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
       <div id="floatProductReward" style="font-size:11px;color:var(--pink);font-weight:600;margin-top:1px"></div>
     </div>
-    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()">商品ページ</button>
-    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()">申請</button>
+    <button id="floatProductPageBtn" class="btn btn-ghost btn-sm" style="white-space:nowrap;display:none;font-size:12px" onclick="openProductPage()" data-i18n="detail.productPageShort">商品ページ</button>
+    <button id="floatApplyBtn" class="btn btn-primary btn-sm" style="white-space:nowrap;min-width:80px" onclick="handleFloatApply()" data-i18n="detail.applyBtn">申請</button>
   </div>
 </div>
 
@@ -710,21 +710,21 @@ textarea.form-input{resize:vertical;min-height:80px}
 
   <section style="background:#fff;padding:32px 0;border-bottom:1px solid var(--line)">
     <div class="container">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;text-align:center">
-        <div style="padding:20px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;text-align:center">
+        <div style="padding:16px 6px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">local_shipping</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.shippingTitle">韓国直送・新商品</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.shippingDesc">日本未発売のKブランド新商品を<br>いち早く体験できます</div>
         </div>
-        <div style="padding:20px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
+        <div style="padding:16px 6px;border-left:1px solid var(--line);border-right:1px solid var(--line)">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">volunteer_activism</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.freeTitle">完全無償提供</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.freeTitle">完全無償提供</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.freeDesc">製品代・送料すべて無料<br>報酬付きキャンペーンも</div>
         </div>
-        <div style="padding:20px">
+        <div style="padding:16px 6px">
           <div style="margin-bottom:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:28px;color:var(--pink)">auto_awesome</span></div>
-          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;word-break:keep-all" data-i18n="home.feature.chosenTitle">あなたが選ばれる</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.55;word-break:keep-all" data-i18n-html="home.feature.chosenDesc">フォロワー数より「届ける力」<br>ナノインフルエンサー大歓迎</div>
         </div>
       </div>
     </div>
@@ -2066,6 +2066,7 @@ window.I18N_JA = {
     shootingGuide: '撮影ガイド',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
+    productPageShort: '商品ページ',
     noticeTitle: '注意事項',
     notice1: '期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。',
     notice2: '投稿が期限内に行われない場合、原稿料のお支払いはできません。',
@@ -2520,6 +2521,7 @@ window.I18N_KO = {
     shootingGuide: '촬영 가이드',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
+    productPageShort: '상품 페이지',
     noticeTitle: '주의 사항',
     notice1: '기한 내 대응이 어려우신 분은 신청을 삼가해주세요.',
     notice2: '게시가 기한 내에 이루어지지 않으면 원고료 지급이 불가합니다.',
@@ -6180,9 +6182,12 @@ async function openCampaign(id) {
   const floatApplyBtn = $('floatApplyBtn');
   const floatProductPageBtn = $('floatProductPageBtn');
   if (floatName) floatName.textContent = camp.title;
-  if (floatReward) floatReward.textContent = camp.product_price>0
-    ? `¥${camp.product_price.toLocaleString()}${t('detail.rewardProduct')}`
-    : t('detail.rewardFree');
+  if (floatReward) {
+    const isMonitor = camp.recruit_type === 'monitor';
+    floatReward.textContent = camp.product_price>0
+      ? `¥${camp.product_price.toLocaleString()}${isMonitor ? t('detail.rewardPayback') : t('detail.rewardProduct')}`
+      : t('detail.rewardFree');
+  }
   if (floatProductPageBtn) {
     floatProductPageBtn.style.display = camp.product_url ? 'inline-flex' : 'none';
     floatProductPageBtn.dataset.url = cleanUrl(camp.product_url)||'';
@@ -7803,6 +7808,10 @@ function setupPTR() {
     } else {
       reset();
     }
+  });
+  // 시스템 인터럽트(전화·알림·멀티터치) 시에도 페이지가 들뜬 상태로 남지 않도록 reset
+  appShell.addEventListener('touchcancel', () => {
+    if (pulling) reset();
   });
 }
 

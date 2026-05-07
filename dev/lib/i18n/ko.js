@@ -252,6 +252,7 @@ window.I18N_KO = {
     shootingGuide: '촬영 가이드',
     ngItems: 'NG 사항',
     productPage: '상품 페이지 보기 →',
+    productPageShort: '상품 페이지',
     noticeTitle: '주의 사항',
     notice1: '기한 내 대응이 어려우신 분은 신청을 삼가해주세요.',
     notice2: '게시가 기한 내에 이루어지지 않으면 원고료 지급이 불가합니다.',

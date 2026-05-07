@@ -265,6 +265,7 @@ window.I18N_JA = {
     shootingGuide: '撮影ガイド',
     ngItems: 'NG事項',
     productPage: '商品ページを見る →',
+    productPageShort: '商品ページ',
     noticeTitle: '注意事項',
     notice1: '期限内での対応が難しい方は、申請をご遠慮いただくようお願いいたします。',
     notice2: '投稿が期限内に行われない場合、原稿料のお支払いはできません。',
