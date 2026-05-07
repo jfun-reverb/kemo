@@ -80,7 +80,9 @@ let campPageStatusFilter = 'all';   // all | active | scheduled | closed
 let campPageSearch = '';
 
 async function loadCampaignsPage() {
-  if (!allCampaigns || allCampaigns.length === 0) await loadCampaigns();
+  // 진입할 때마다 캠페인 데이터 새로고침 — 캐시(allCampaigns)에 의존하지 않음.
+  // 사용자가 로고 클릭/화면 전환 시 새 데이터를 보고 싶다고 해서 도입.
+  await loadCampaigns();
   campPageTypeFilter = 'all';
   campPageStatusFilter = 'all';
   campPageSearch = '';
