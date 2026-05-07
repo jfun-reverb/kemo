@@ -125,8 +125,9 @@ function setupPTR() {
 
   const PTR_BLOCKLIST = ['page-login','page-signup','page-forgot','page-reset-pw'];
   const RESISTANCE = 0.5;     // 당기는 거리에 0.5 곱해 자연스러운 저항감
-  const TRIGGER_AT = 60;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
-  const MAX_PULL = 100;       // 최대 당김 거리 클램프
+  const TRIGGER_AT = 90;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
+                              // — 실제 손가락 이동 거리 약 180px
+  const MAX_PULL = 130;       // 최대 당김 거리 클램프
 
   let startY = 0;
   let pullY = 0;
