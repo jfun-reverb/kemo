@@ -38,7 +38,6 @@
 .admin-side-scroll::-webkit-scrollbar-track{background:transparent}
 .admin-side-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.4);border-radius:3px}
 .admin-side-scroll::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.6)}
-.admin-side-foot{padding:8px 0;border-top:1px solid rgba(255,255,255,.1);flex-shrink:0;background:#1A0F18}
 .admin-si{display:flex;align-items:center;gap:10px;padding:12px 20px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s cubic-bezier(.2,0,0,1);border-radius:0 var(--r-full) var(--r-full) 0;margin-right:12px;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;flex-shrink:0}
 .admin-si:hover{color:#fff;background:rgba(255,255,255,.08)}
 .admin-si.on{color:#fff;background:rgba(200,120,163,.18);border-left-color:var(--primary);font-weight:600}
