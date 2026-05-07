@@ -462,6 +462,58 @@ textarea.form-input{resize:vertical;min-height:80px}
 #adminPane-brand-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 /* 헤더 텍스트 줄바꿈 방지 — ? 아이콘과 함께 한 줄로 */
 #adminPane-brand-applications .data-table thead th{white-space:nowrap}
+
+/* ─── 캠페인/신청/결과물/브랜드 관리 페인: 가로 스크롤 + 첫 컬럼 sticky-left
+   브랜드 서베이 패턴(75~96)과 동일 구조. 결과물 관리는 첫 컬럼이 모집 타입 칩(좁음)이라
+   sticky 가치가 낮아 두 번째 컬럼(캠페인) 고정. */
+
+/* 캠페인 관리 — 첫 컬럼(캠페인 셀: 이미지+번호+제목) 좌측 고정 */
+#adminPane-campaigns .admin-table-wrap{overflow-x:auto}
+#adminPane-campaigns .data-table{min-width:1400px}
+#adminPane-campaigns .data-table th:nth-child(1),
+#adminPane-campaigns .data-table td:nth-child(1){width:280px;min-width:280px;max-width:280px;box-sizing:border-box}
+#adminPane-campaigns .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
+#adminPane-campaigns .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
+#adminPane-campaigns .data-table thead th:nth-child(1){left:0;z-index:7}
+#adminPane-campaigns .data-table tbody td:nth-child(1),
+#adminPane-campaigns .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-campaigns .data-table thead th{white-space:nowrap}
+
+/* 신청 관리 — 첫 컬럼(캠페인) 좌측 고정 */
+#adminPane-applications .admin-table-wrap{overflow-x:auto}
+#adminPane-applications .data-table{min-width:1400px}
+#adminPane-applications .data-table th:nth-child(1),
+#adminPane-applications .data-table td:nth-child(1){width:240px;min-width:240px;max-width:240px;box-sizing:border-box}
+#adminPane-applications .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
+#adminPane-applications .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
+#adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7}
+#adminPane-applications .data-table tbody td:nth-child(1),
+#adminPane-applications .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-applications .data-table thead th{white-space:nowrap}
+
+/* 결과물 관리 — 첫 컬럼은 모집 타입(좁은 칩)이라 두 번째 컬럼(캠페인) 고정 */
+#adminPane-deliverables .admin-table-wrap{overflow-x:auto}
+#adminPane-deliverables .data-table{min-width:1200px}
+#adminPane-deliverables .data-table th:nth-child(1),
+#adminPane-deliverables .data-table td:nth-child(1){width:90px;min-width:90px;max-width:90px;box-sizing:border-box}
+#adminPane-deliverables .data-table th:nth-child(2),
+#adminPane-deliverables .data-table td:nth-child(2){width:240px;min-width:240px;max-width:240px;box-sizing:border-box}
+#adminPane-deliverables .data-table tbody td:nth-child(2){position:sticky;left:90px;z-index:3;background:var(--surface)}
+#adminPane-deliverables .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
+#adminPane-deliverables .data-table thead th:nth-child(2){left:90px;z-index:7}
+#adminPane-deliverables .data-table tbody td:nth-child(2),
+#adminPane-deliverables .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-deliverables .data-table thead th{white-space:nowrap}
+
+/* 브랜드 관리 — 첫 컬럼(brand_no) 좌측 고정. 컬럼 폭은 inline style로 이미 명시됨 */
+#adminPane-brands .admin-table-wrap{overflow-x:auto}
+#adminPane-brands .data-table{min-width:1500px}
+#adminPane-brands .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
+#adminPane-brands .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
+#adminPane-brands .data-table thead th:nth-child(1){left:0;z-index:7}
+#adminPane-brands .data-table tbody td:nth-child(1),
+#adminPane-brands .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-brands .data-table thead th{white-space:nowrap}
 /* 헤더 수식 도움말 (?) — CSS-only 툴팁 */
 #adminPane-brand-applications .data-table thead .col-help{display:inline-flex;align-items:center;margin-left:3px;color:var(--muted);cursor:help;position:relative;vertical-align:middle}
 #adminPane-brand-applications .data-table thead .col-help .material-icons-round{font-size:13px}
