@@ -68,29 +68,29 @@
           <span class="material-icons-round" style="font-size:20px">menu</span>
         </button>
         <span class="sidebar-toggle-label" style="display:flex;align-items:center;gap:8px">
-          <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;cursor:pointer" onclick="switchAdminPane('dashboard',document.querySelector('.admin-si'))">Reverb</span>
+          <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;cursor:pointer" onclick="navAdminPaneReload('dashboard')">Reverb</span>
           <span id="stagingBadgeSide" style="display:none;background:#f59e0b;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px">STAGING</span>
         </span>
       </div>
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
-        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="switchAdminPane('admin-notices',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si-lbl">대시보드</div>
-        <div class="admin-si" data-pane="dashboard" onclick="switchAdminPane('dashboard',this)"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
+        <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
         <div class="admin-si-lbl">캠페인</div>
-        <div class="admin-si" data-pane="campaigns" onclick="switchAdminPane('campaigns',this)"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
-        <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="switchAdminPane('applications',this)"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
-        <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="switchAdminPane('deliverables',this)"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
+        <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
+        <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
         <div class="admin-si-lbl">브랜드 서베이</div>
-        <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="switchAdminPane('brand-dashboard',this)"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
-        <div class="admin-si" data-pane="brands" id="adminBrandsSi" onclick="switchAdminPane('brands',this)"><span class="si-icon material-icons-round">business</span><span class="si-text">브랜드 관리</span></div>
-        <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="switchAdminPane('brand-applications',this)"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
+        <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
+        <div class="admin-si" data-pane="brands" id="adminBrandsSi" onclick="navAdminPaneReload('brands')"><span class="si-icon material-icons-round">business</span><span class="si-text">브랜드 관리</span></div>
+        <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
-        <div class="admin-si" data-pane="influencers" onclick="switchAdminPane('influencers',this)"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+        <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
-        <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="switchAdminPane('lookups',this)" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
-        <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="switchAdminPane('admin-accounts',this)"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
-        <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="switchAdminPane('my-account',this)">
+        <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
+        <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+        <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
         </div>

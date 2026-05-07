@@ -10,6 +10,20 @@ function toggleAdminSidebar() {
   icon.textContent = layout.classList.contains('collapsed') ? 'menu_open' : 'menu';
 }
 
+// 사이드바 메뉴 클릭 — 풀 브라우저 새로고침으로 페인 전환
+// (운영팀 요청: 데이터가 항상 최신으로 갱신되도록 stale 화면 이슈 해결)
+// 내부 점프(대시보드 카드의 「전체 보기」, 캠페인 저장 후 목록 복귀, 신청 행 클릭 → 캠페인별 신청자 등)는
+// 작업 흐름·토스트 메시지 보존을 위해 기존 switchAdminPane(SPA)을 그대로 사용한다.
+function navAdminPaneReload(pane) {
+  const target = '#' + (pane || 'dashboard');
+  if (location.hash === target) {
+    location.reload();
+  } else {
+    location.hash = target;
+    location.reload();
+  }
+}
+
 // 관리자 페이지 네비게이션 (사이드바 패널 전환)
 function navigate(page) {
   // admin 페이지 내에서는 사이드바 패널만 전환
