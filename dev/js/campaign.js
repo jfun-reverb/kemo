@@ -124,7 +124,13 @@ function setCampPageStatus(status, el) {
   renderCampaignGrid();
 }
 
-// 검색 입력
+// 검색 — 검색 버튼 또는 엔터키 트리거 (실시간 검색 아님)
+function onCampPageSearchSubmit() {
+  const input = $('campPageSearch');
+  campPageSearch = ((input?.value) || '').trim().toLowerCase();
+  renderCampaignGrid();
+}
+// 하위호환: 외부에서 onCampPageSearchInput 호출되는 경로(혹시 모를)에 대비
 function onCampPageSearchInput(value) {
   campPageSearch = (value || '').trim().toLowerCase();
   renderCampaignGrid();

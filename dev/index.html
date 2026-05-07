@@ -315,8 +315,10 @@ window._supabaseLoaded = false;
         <!-- 검색 입력 폼 (열림 모드) — 캠페인명·브랜드명·상품·캠페인번호 매칭 -->
         <div id="campPageSearchWrap" style="display:none;flex:1;align-items:center;gap:8px">
           <div style="flex:1;position:relative">
-            <input type="search" id="campPageSearch" oninput="onCampPageSearchInput(this.value)" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 38px 8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
-            <span class="material-icons-round notranslate" translate="no" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--muted);pointer-events:none">search</span>
+            <input type="search" id="campPageSearch" onkeydown="if(event.key==='Enter'){event.preventDefault();onCampPageSearchSubmit();}" placeholder="キャンペーン名・ブランド検索" data-i18n-attr="placeholder:campaigns.searchPlaceholder" autocomplete="off" style="width:100%;padding:8px 38px 8px 12px;border:1px solid var(--line);border-radius:8px;font-size:16px;color:var(--ink);background:#fff">
+            <button onclick="onCampPageSearchSubmit()" aria-label="検索実行" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px 6px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink);border-radius:6px">
+              <span class="material-icons-round notranslate" translate="no" style="font-size:18px">search</span>
+            </button>
           </div>
           <button onclick="toggleCampPageSearch(false)" aria-label="閉じる" style="background:none;border:none;cursor:pointer;padding:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);border-radius:8px;flex-shrink:0">
             <span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span>
