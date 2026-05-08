@@ -6552,14 +6552,10 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
   }
   cur.products = nextProducts;
   cur.version = result.data?.version || (expectedVersion + 1);
-  // 해당 행의 상태 셀만 재렌더 (다른 셀의 편집 상태 보존)
-  var rowSel = '#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(id) : id) + '"][data-product-idx="' + idx + '"]';
-  var row = document.querySelector(rowSel);
-  if (row) {
-    var statusCell = row.children[2]; // 0:신청번호 1:브랜드 2:상태
-    if (statusCell) statusCell.innerHTML = brandAppStatusSelectForProduct(cur, nextProducts[idx], idx);
-  }
   _refreshBrandAppHistoryButton(id);
+  // 상태 변경은 필터 (NN)건 카운트와 매칭 행 노출에 즉시 영향 — 목록 전체 재렌더
+  // 일정 인라인 편집과는 다른 흐름이라 의도적으로 셀-only 재렌더 미사용
+  renderBrandApplicationsList();
   toast('상태가 ' + (BRAND_APP_STATUS[newStatus]?.label || newStatus) + '(으)로 변경됨');
 }
 
