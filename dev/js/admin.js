@@ -6767,7 +6767,7 @@ async function exportBrandApplicationsExcel() {
     wb.created = new Date();
     var ws = wb.addWorksheet('브랜드 서베이');
 
-    // 화면 컬럼과 동일한 순서·구조 (신청 1건 = 제품 N행으로 펼침). 화면 25열 중 「이력」은 액션이라 엑셀 제외.
+    // 신청 1건 = 제품 N행으로 펼침. 화면(21컬럼)에서 제거한 합산 컬럼(상품 최종 금액·이체수수료(원)·최종 견적·VAT포함)은 엑셀에는 유지 — 데이터 추출은 풀 컬럼 정책. 화면 액션 컬럼(이력)은 엑셀에서 제외.
     ws.columns = [
       { header: '신청번호',         key: 'no',          width: 22 },
       { header: '폼 종류',          key: 'form',        width: 14 },
@@ -7531,7 +7531,7 @@ var _brandAppMemoModalCache = [];     // open된 신청의 메모 배열 (memory
 // 인라인 편집 성공 후 카운트 즉시 +1 + 해당 row의 이력 버튼 셀만 outerHTML 갱신
 function _refreshBrandAppHistoryButton(id) {
   _brandAppHistoryCounts[id] = (_brandAppHistoryCounts[id] || 0) + 1;
-  var sel = '#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(id) : id) + '"][data-summary="1"]';
+  var sel = '#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(id) : id) + '"][data-first="1"]';
   var row = document.querySelector(sel);
   if (!row) return;
   var lastTd = row.lastElementChild;
@@ -7671,6 +7671,112 @@ function _genContactId() {
   return 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
 }
 
+// 브랜드 상세 모달 「이 브랜드의 신청 내역」 전용 — 신청별 펼침 카드 (조회 전용)
+//   카드 헤더: 신청번호·폼·상태·신청일 + 합산(제품수·총수량·최종 견적·VAT·예상 견적)
+//   카드 본문(펼치면): 제품 N행 표(제품명·URL·수량·단가엔/원·모집비·이체수수료·소계)
+function renderBrandAppsBundledView(apps) {
+  if (!apps || apps.length === 0) {
+    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">신청 내역 없음</div>';
+  }
+  return '<div style="display:flex;flex-direction:column;gap:8px">'
+    + apps.map(renderBrandAppBundleCard).join('')
+    + '</div>';
+}
+
+function renderBrandAppBundleCard(a) {
+  var prods = Array.isArray(a.products) ? a.products : [];
+  var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
+  var totalLine = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0) * (Number(p.price) || 0) * BRAND_QUOTE_CONST.FX_JPY_KRW; }, 0);
+  var totalFee = prods.reduce(function(s, p){
+    var fee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? 0 : Number(p.transfer_fee_krw);
+    return s + (Number(p.qty) || 0) * fee;
+  }, 0);
+  var totalRecruitFee = prods.reduce(function(s, p){
+    var rf = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? 0 : Number(p.recruit_fee_krw);
+    return s + (Number(p.qty) || 0) * rf;
+  }, 0);
+  var totalFinal = calcBrandAppFinalKrw(a.form_type, totalLine, totalFee, totalRecruitFee);
+  var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+
+  var statusInfo = BRAND_APP_STATUS[a.status] || {label: a.status || '—', color:'#666', bg:'#EEE'};
+
+  var headerHtml = '<div onclick="toggleBrandAppBundleCard(this)" style="cursor:pointer;background:var(--surface-dim);padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<span class="material-icons-round notranslate" translate="no" data-bundle-arrow style="font-size:18px;color:var(--muted)">chevron_right</span>'
+    + '<span style="font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums">' + esc(a.application_no || '—') + '</span>'
+    + '<span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>'
+    + '<span style="background:' + esc(statusInfo.bg) + ';color:' + esc(statusInfo.color) + ';font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(statusInfo.label) + '</span>'
+    + '<span style="font-size:11px;color:var(--muted);margin-left:auto">' + esc(fmtDate(a.created_at)) + '</span>'
+  + '</div>'
+  + '<div style="background:#fff;padding:8px 12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px">'
+    + '<span style="color:var(--muted)">제품 <strong style="color:var(--ink)">' + prods.length + '개</strong></span>'
+    + '<span style="color:var(--muted)">총 수량 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : '—') + '</strong></span>'
+    + (totalFinal > 0 ? '<span style="color:var(--muted)">최종 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(totalFinal) + '</strong></span>' : '')
+    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:#16a34a;font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
+    + '<span style="color:var(--muted);margin-left:auto">예상 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</strong></span>'
+  + '</div>';
+
+  var dash = '<span style="color:var(--muted)">—</span>';
+  var bodyRows = prods.map(function(p){
+    var qty = Number(p.qty) || 0;
+    var priceJpy = Number(p.price) || 0;
+    var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
+    var lineTotal = qty * priceKrw;
+    var rfee = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
+    var tfee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
+    var urlSafe = (typeof safeBrandUrl === 'function') ? safeBrandUrl(p.url) : null;
+    var urlCell = p.url
+      ? (urlSafe
+          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" style="color:var(--pink);text-decoration:none;word-break:break-all">' + esc(p.url) + '</a>'
+          : '<span style="color:var(--muted);word-break:break-all">' + esc(p.url) + '</span>')
+      : dash;
+    return '<tr>'
+      + '<td style="font-weight:600;font-size:11px;padding:6px 8px">' + (p.name ? esc(p.name) : dash)
+        + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
+      + '</td>'
+      + '<td style="font-size:10px;padding:6px 8px;max-width:220px;line-height:1.4">' + urlCell + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (rfee != null ? fmtKrw(rfee) : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (tfee != null ? fmtKrw(tfee) : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;font-weight:600;padding:6px 8px">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
+    + '</tr>';
+  }).join('');
+
+  var bodyHtml = '<div data-bundle-body style="display:none;background:#fff;border-top:1px solid var(--line)">'
+    + '<table class="data-table" style="width:100%;font-size:11px;margin:0">'
+      + '<thead><tr style="background:var(--surface-dim)">'
+        + '<th style="padding:6px 8px;text-align:left">제품명</th>'
+        + '<th style="padding:6px 8px;text-align:left">URL</th>'
+        + '<th style="text-align:right;padding:6px 8px">수량</th>'
+        + '<th style="text-align:right;padding:6px 8px">가격(엔)</th>'
+        + '<th style="text-align:right;padding:6px 8px">가격(원)</th>'
+        + '<th style="text-align:right;padding:6px 8px">모집비</th>'
+        + '<th style="text-align:right;padding:6px 8px">이체수수료</th>'
+        + '<th style="text-align:right;padding:6px 8px">소계</th>'
+      + '</tr></thead>'
+      + '<tbody>' + (bodyRows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:14px">제품 정보 없음</td></tr>') + '</tbody>'
+    + '</table>'
+  + '</div>';
+
+  return '<div data-bundle-card="' + esc(a.id) + '" style="border:1px solid var(--line);border-radius:6px;overflow:hidden">'
+    + headerHtml
+    + bodyHtml
+  + '</div>';
+}
+
+// 카드 헤더 클릭 시 본문 펼침/접힘 토글
+function toggleBrandAppBundleCard(headerEl) {
+  var card = headerEl.closest('[data-bundle-card]');
+  if (!card) return;
+  var body = card.querySelector('[data-bundle-body]');
+  var arrow = headerEl.querySelector('[data-bundle-arrow]');
+  if (!body) return;
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  if (arrow) arrow.textContent = isOpen ? 'chevron_right' : 'expand_more';
+}
+
 function renderBrandDetailFormHtml(b, apps) {
   // contacts 초기화
   _brandFormContacts = Array.isArray(b.contacts) ? b.contacts.map(function(c){
@@ -7710,24 +7816,8 @@ function renderBrandDetailFormHtml(b, apps) {
     return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="' + (rows || 3) + '" style="resize:vertical;font-family:inherit;width:100%" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
   };
 
-  // 신청 내역
-  var appsHtml;
-  if (!apps || apps.length === 0) {
-    appsHtml = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">신청 내역 없음</div>';
-  } else {
-    appsHtml = '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'
-      + '<table class="data-table" style="font-size:12px;margin:0;width:100%">'
-      + '<thead><tr><th>신청번호</th><th>폼</th><th>상태</th><th style="text-align:right">예상 견적</th><th>신청일</th></tr></thead>'
-      + '<tbody>' + apps.map(function(a){
-        return '<tr>'
-          + '<td style="font-weight:600">' + esc(a.application_no || '—') + '</td>'
-          + '<td>' + esc(brandAppFormLabel(a.form_type)) + '</td>'
-          + '<td>' + esc((BRAND_APP_STATUS[a.status]?.label) || a.status || '—') + '</td>'
-          + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
-          + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-        + '</tr>';
-      }).join('') + '</tbody></table></div>';
-  }
+  // 신청 내역 — 신청별 펼침 카드 (헤더에 합산, 펼치면 제품 N행 표)
+  var appsHtml = renderBrandAppsBundledView(apps);
 
   return ''
     // § 기본 정보
@@ -8141,14 +8231,13 @@ function renderBrandApplicationsList() {
       : '(' + summary + ')';
   }
 
-  // 요약 행 + (펼친 경우) 탭 헤더 + 탭 콘텐츠
+  // 신청 1건 = 제품 N행 평탄화 (제품이 0개면 placeholder 1행)
   var renderBrandAppRow = function(a) {
-    var html = renderBrandAppSummaryRow(a);
-    if (_brandAppExpanded.has(a.id)) {
-      var prods = Array.isArray(a.products) ? a.products : [];
-      html += prods.map(function(p, idx){ return renderBrandAppDetailRow(a, p, idx); }).join('');
+    var prods = Array.isArray(a.products) ? a.products : [];
+    if (prods.length === 0) {
+      return renderBrandAppFlatRow(a, {}, 0, 0);
     }
-    return html;
+    return prods.map(function(p, idx){ return renderBrandAppFlatRow(a, p, idx, prods.length); }).join('');
   };
   if (brandAppLazy) brandAppLazy.destroy();
   brandAppLazy = mountLazyList({
@@ -8157,7 +8246,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="25" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="21" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -8282,8 +8371,6 @@ function renderProductUrlCell(url) {
   + '</div>';
 }
 
-// 펼친 신청 ID 집합 (메모리 — 새로고침 시 초기화)
-var _brandAppExpanded = new Set();
 // 신청별 이력 캐시 (id → array) — 모달 재오픈 시 fresh load이지만 cache로 보존
 var _brandAppHistoryCache = new Map();
 
@@ -8347,230 +8434,137 @@ function _uniformProductValue(prods, key) {
   return {uniform: true, value: first};
 }
 
-// 신청 1건 = 1행 (요약 행, 25컬럼). 합산 가능 컬럼은 SUM, 단가는 동일하면 그 값/다르면 "—"
-function renderBrandAppSummaryRow(a) {
-  var prods = Array.isArray(a.products) ? a.products : [];
-  var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
-  var totalLine = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0) * (Number(p.price) || 0) * BRAND_QUOTE_CONST.FX_JPY_KRW; }, 0);
-  var totalFee = prods.reduce(function(s, p){
-    var fee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? 0 : Number(p.transfer_fee_krw);
-    return s + (Number(p.qty) || 0) * fee;
-  }, 0);
-  var totalRecruitFee = prods.reduce(function(s, p){
-    var rf = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? 0 : Number(p.recruit_fee_krw);
-    return s + (Number(p.qty) || 0) * rf;
-  }, 0);
-  // seeding 폼은 상품 가격이 참고용이라 최종 견적에 미포함 (calcBrandAppFinalKrw 헬퍼에 정책 일원화)
-  var totalFinal = calcBrandAppFinalKrw(a.form_type, totalLine, totalFee, totalRecruitFee);
-  var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
-  // 단가 — 모든 제품 동일하면 그 값(빈 값 포함 — dash로 표시), 다르면 "제품별 상이"
-  var uPriceJpy = _uniformProductValue(prods, 'price');
-  var uTfee = _uniformProductValue(prods, 'transfer_fee_krw');
-  var uRfee = _uniformProductValue(prods, 'recruit_fee_krw');
-  var uPriceKrw = uPriceJpy.uniform
-    ? {uniform: true, value: (uPriceJpy.value != null && uPriceJpy.value !== '') ? Number(uPriceJpy.value) * BRAND_QUOTE_CONST.FX_JPY_KRW : null}
-    : {uniform: false, value: null};
+// 신청 1건 = 제품 N행 평탄화 (21컬럼). 같은 신청의 제품 행은 인접 배치.
+//   isFirst: 첫 제품 행 — 위쪽 보더로 신청 경계 표시, 액션 셀(상태/메모/견적서/이력) 채움
+//   !isFirst: 신청 정보 셀은 같은 값 반복(가독성 위해 회색 톤), 액션 셀은 빈 td
+function renderBrandAppFlatRow(a, p, idx, count) {
+  var isFirst = idx === 0;
+  var qty = Number(p && p.qty) || 0;
+  var priceJpy = Number(p && p.price) || 0;
+  var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
+  var transferFeeKrw = (!p || p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
+  var recruitFeeKrw = (!p || p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
 
   var dash = '<span style="color:var(--muted)">—</span>';
-  var multi = '<span style="color:var(--muted);font-size:10px">제품별 상이</span>';
-  var renderUnit = function(u, formatter) {
-    if (!u.uniform) return multi;
-    return (u.value != null && u.value !== '') ? formatter(u.value) : dash;
-  };
+  var emptyAction = '<td></td>';
+  // !isFirst 행의 신청 정보 셀은 회색 톤으로 노이즈 완화
+  var infoTone = isFirst ? '' : 'color:var(--muted);';
+  var dateTone = isFirst ? 'color:var(--muted)' : 'color:#bbb';
 
-  // 펼치기 토글 (제품 2개 이상 또는 항상 표시 — 일관성 위해 항상 표시)
-  var isOpen = _brandAppExpanded.has(a.id);
-  var arrowIcon = isOpen ? 'expand_more' : 'chevron_right';
-  var toggleBtn = '<button type="button" class="brand-app-expand-btn" onclick="event.stopPropagation();toggleBrandAppExpand(\'' + esc(a.id) + '\', this)" title="제품 ' + prods.length + '개 ' + (isOpen ? '접기' : '펼치기') + '" style="background:none;border:none;cursor:pointer;padding:0;margin-right:2px;color:var(--muted);display:inline-flex;align-items:center;vertical-align:middle"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">' + arrowIcon + '</span></button>';
+  // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시
+  var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
 
-  var qLocked = false;
-  var memoText = (a.admin_memo || '').trim();
-  var memoCellInner = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a.id) + '</div>';
-  var quoteSentInner = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
-
-  // source='manual_admin' 인 경우 「직접등록」 배지 (UI 구분용, DB 변경 없음)
   var manualBadge = (a.source === 'manual_admin')
     ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:4px" title="관리자가 직접 등록한 신청">직접등록</span>'
     : '';
-  return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
-    // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개 (셀 전체 클릭으로 토글)
-    + '<td onclick="handleBrandAppRowClick(event)" style="cursor:pointer">'
-      + '<div style="display:flex;align-items:flex-start;gap:2px">'
-        + toggleBtn
-        + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-          + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
-          + '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + prods.length + '개</div>'
-        + '</div>'
-      + '</div>'
-    + '</td>'
-    // 2. 브랜드 — brands.name 우선, 클릭 시 브랜드 상세 모달
-    + (function(){
-        var brandName = a.brand?.name || a.brand_name || '—';
-        var brandNo = a.brand?.brand_no || '';
-        if (a.brand_id) {
-          return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
-            + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
-          + '</td>';
-        }
-        return '<td style="font-weight:600">' + esc(brandName) + '</td>';
-      })()
-    // 3. 상태
-    + '<td>' + brandAppStatusSelect(a) + '</td>'
-    // 4. 검수일
-    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
-    // 5. 신청일
-    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-    // 6. 회사명 — brands.company_name 표시 (없으면 dash)
-    + '<td style="font-size:12px;color:var(--ink)">' + esc(a.brand?.company_name || '—') + '</td>'
-    // 7. 담당자 — applicant_* 우선 (신청 시점 스냅샷), 없으면 legacy contact
-    + (function(){
-        var name = a.applicant_contact_name || a.contact_name || '—';
-        var email = a.applicant_email || a.email || '';
-        return '<td>'
-          + '<div>' + esc(name) + '</div>'
-          + (email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(email) + '</div>' : '')
-        + '</td>';
-      })()
-    // 8. 연락처
-    + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.applicant_phone || a.phone) || '—') + '</td>'
-    // 9. 계산서 이메일 — brands.billing_email 우선, 없으면 application
-    + (function(){
-        var be = a.brand?.billing_email || a.billing_email || '';
-        return '<td style="font-size:12px;color:' + (be ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(be || '—') + '</td>';
-      })()
-    // 10. 요청사항
-    + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
-    // 11. 제품명 (요약: 첫 제품 + N개 표시 또는 — )
-    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 ? esc((prods[0].name || '—') + (prods.length > 1 ? ' 외 ' + (prods.length - 1) + '개' : '')) : '—') + '</td>'
-    // 12. URL (요약 — 첫 URL or "여러 URL")
-    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 && prods[0].url ? '<span style="word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4">' + esc(prods[0].url) + '</span>' + (prods.length > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">외 ' + (prods.length - 1) + '개</div>' : '') : '—') + '</td>'
-    // 13. 내부 메모
-    + '<td>' + memoCellInner + '</td>'
-    // 14. 진행 수량 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : dash) + '</td>'
-    // 15. 상품 가격(엔) (단가 — 동일하면 값, 아니면 "제품별 상이")
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceJpy, function(v){ return '¥ ' + Number(v).toLocaleString('ja-JP'); }) + '</td>'
-    // 16. 상품 가격(원)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceKrw, function(v){ return fmtKrw(v); }) + '</td>'
-    // 17. 상품 최종 금액 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalLine > 0 ? fmtKrw(totalLine) : dash) + '</td>'
-    // 18. 모집비 (단가 동일하면 값, 다르면 "제품별 상이")
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uRfee, function(v){ return fmtKrw(v); }) + '</td>'
-    // 19. 이체수수료(건) (단가 — 요약 행에서는 read-only)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uTfee, function(v){ return fmtKrw(v); }) + '</td>'
-    // 20. 이체수수료(원) (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (totalFee > 0 ? fmtKrw(totalFee) : dash) + '</td>'
-    // 21. 최종 견적 금액 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalFinal > 0 ? fmtKrw(totalFinal) : dash) + '</td>'
-    // 22. VAT포함 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (totalVat > 0 ? fmtKrw(totalVat) : dash) + '</td>'
-    // 23. 예상 견적
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
-    // 24. 견적서 전달
-    + '<td>' + quoteSentInner + '</td>'
-    // 25. 이력 — 변경 이력 모달 (이력 0건이면 비활성, 카운트는 회색 라벨)
-    + (function(){
+
+  var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
+
+  // 1. 신청번호 + 폼 (첫 행만 폼 배지·제품 N개)
+  html += '<td style="' + infoTone + '">'
+    + '<div style="font-size:11px;font-weight:600;color:' + (isFirst ? 'var(--ink)' : 'var(--muted)') + '">' + esc(a.application_no || '—') + '</div>'
+    + (isFirst
+        ? '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
+          + (count > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + count + '개</div>' : '')
+        : '')
+    + '</td>';
+
+  // 2. 브랜드
+  html += (function(){
+    var brandName = a.brand?.name || a.brand_name || '—';
+    var brandNo = a.brand?.brand_no || '';
+    if (a.brand_id) {
+      return '<td style="' + infoTone + '"><div style="font-weight:600;cursor:pointer;color:' + (isFirst ? 'var(--pink)' : 'rgba(200,120,163,.6)') + '" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+        + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
+      + '</td>';
+    }
+    return '<td style="font-weight:600;' + infoTone + '">' + esc(brandName) + '</td>';
+  })();
+
+  // 3. 상태 (액션 — 첫 행만)
+  html += isFirst ? '<td>' + brandAppStatusSelect(a) + '</td>' : emptyAction;
+
+  // 4. 검수일
+  html += '<td style="font-size:11px;' + dateTone + '">' + fmtDate(a.reviewed_at) + '</td>';
+
+  // 5. 신청일
+  html += '<td style="font-size:11px;' + dateTone + '">' + fmtDate(a.created_at) + '</td>';
+
+  // 6. 회사명
+  html += '<td style="font-size:12px;color:' + (isFirst ? 'var(--ink)' : 'var(--muted)') + '">' + esc(a.brand?.company_name || '—') + '</td>';
+
+  // 7. 담당자
+  html += (function(){
+    var name = a.applicant_contact_name || a.contact_name || '—';
+    var email = a.applicant_email || a.email || '';
+    return '<td style="' + infoTone + '">'
+      + '<div>' + esc(name) + '</div>'
+      + (email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(email) + '</div>' : '')
+    + '</td>';
+  })();
+
+  // 8. 연락처
+  html += '<td style="font-size:12px;' + infoTone + '">' + esc(formatPhoneDisplay(a.applicant_phone || a.phone) || '—') + '</td>';
+
+  // 9. 계산서 이메일
+  html += (function(){
+    var be = a.brand?.billing_email || a.billing_email || '';
+    return '<td style="font-size:12px;color:' + (be ? (isFirst ? 'var(--ink)' : 'var(--muted)') : 'var(--muted)') + ';word-break:break-all">' + esc(be || '—') + '</td>';
+  })();
+
+  // 10. 요청사항
+  html += '<td style="' + infoTone + '">' + brandAppNoteCell(a.request_note) + '</td>';
+
+  // 11. 제품명 (제품 단위)
+  html += '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4">'
+    + (p && p.name ? esc(p.name) : dash)
+    + (p && p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
+    + '</td>';
+
+  // 12. URL (제품 단위)
+  html += '<td>' + renderProductUrlCell(p && p.url) + '</td>';
+
+  // 13. 내부 메모 (액션 — 첫 행만)
+  html += isFirst
+    ? '<td><div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a.id) + '</div></td>'
+    : emptyAction;
+
+  // 14. 진행 수량 (제품 단위)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>';
+
+  // 15. 상품 가격(엔) (제품 단위)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>';
+
+  // 16. 상품 가격(원) (제품 단위)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>';
+
+  // 17. 모집비 (제품 단가 — 인라인 편집 가능)
+  html += '<td><div class="brand-app-rfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderRecruitFeeDisplay(recruitFeeKrw) + '</div></td>';
+
+  // 18. 이체수수료(건) (제품 단가 — 인라인 편집 가능)
+  html += '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>';
+
+  // 19. 예상 견적 (신청 단위 — 모든 행에 같은 값, !isFirst는 회색 톤)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;color:' + (isFirst ? 'var(--ink)' : 'var(--muted)') + '">' + fmtKrw(a.estimated_krw) + '</td>';
+
+  // 20. 견적서 전달 (액션 — 첫 행만)
+  html += isFirst
+    ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, false) + '</div></td>'
+    : emptyAction;
+
+  // 21. 이력 (액션 — 첫 행만)
+  html += isFirst
+    ? (function(){
         var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[a.id] || 0) : 0;
         if (hcnt > 0) {
           return '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button></td>';
         }
         return '<td><button class="btn btn-ghost btn-xs" disabled style="opacity:.4;cursor:not-allowed;white-space:nowrap" title="변경 이력 없음">이력</button></td>';
       })()
-    + '</tr>';
-}
+    : emptyAction;
 
-// 펼친 상태일 때 한 제품별 행 — 신청 단위 셀은 빈 td (좌측 보더로 그룹 표시)
-function renderBrandAppDetailRow(a, p, idx) {
-  var qty = Number(p.qty) || 0;
-  var priceJpy = Number(p.price) || 0;
-  var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
-  var lineTotal = qty * priceKrw;
-  var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
-  var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
-  var recruitFeeKrw = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
-  var recruitFeeTotalKrw = recruitFeeKrw == null ? 0 : qty * recruitFeeKrw;
-  // seeding 폼은 상품 가격이 참고용이라 최종 견적에 미포함 (calcBrandAppFinalKrw 헬퍼)
-  var finalKrw = calcBrandAppFinalKrw(a.form_type, lineTotal, feeTotalKrw, recruitFeeTotalKrw);
-  var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
-
-  var dash = '<span style="color:var(--muted)">—</span>';
-  var emptyApp = '<td></td>'; // 신청 단위 셀 — 펼친 행에서는 비움 (요약 행에 이미 있음)
-
-  return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-detail="1" style="background:#FBF7FA">'
-    // 1~10. 신청 단위 비움 (신청번호/브랜드/상태/검수일/신청일/회사명/담당자/연락처/계산서/요청사항)
-    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp
-    // 11. 제품명 (name + name_ja 병기. name_ja는 작은 회색 보조 텍스트)
-    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">'
-      + (p.name ? esc(p.name) : dash)
-      + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
-    + '</td>'
-    // 12. URL
-    + '<td>' + renderProductUrlCell(p.url) + '</td>'
-    // 13. 내부 메모 (신청 단위 — 펼친 행에서는 비움)
-    + emptyApp
-    // 14. 진행 수량
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
-    // 15. 상품 가격(엔)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
-    // 16. 상품 가격(원)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
-    // 17. 상품 최종 금액
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
-    // 18. 모집비 (단가 — 인라인 편집)
-    + '<td><div class="brand-app-rfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderRecruitFeeDisplay(recruitFeeKrw) + '</div></td>'
-    // 19. 이체수수료(건) (단가 — 인라인 편집)
-    + '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>'
-    // 20. 이체수수료(원)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (feeTotalKrw > 0 ? fmtKrw(feeTotalKrw) : dash) + '</td>'
-    // 21. 최종 견적 금액
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (finalKrw > 0 ? fmtKrw(finalKrw) : dash) + '</td>'
-    // 22. VAT포함
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (vatKrw > 0 ? fmtKrw(vatKrw) : dash) + '</td>'
-    // 23~25. 신청 단위 비움 (예상 견적/견적서 전달/이력)
-    + emptyApp + emptyApp + emptyApp
-    + '</tr>';
-}
-
-// 신청번호 셀 클릭으로 토글
-function handleBrandAppRowClick(ev) {
-  // 토글 버튼 자체는 stopPropagation 처리되지만 안전을 위해 한 번 더 가드
-  if (ev.target.closest('button, a, input, select, textarea')) return;
-  var td = ev.currentTarget;
-  var tr = td.closest('tr');
-  if (!tr) return;
-  var id = tr.dataset.id;
-  if (!id) return;
-  var btn = tr.querySelector('.brand-app-expand-btn');
-  if (btn) toggleBrandAppExpand(id, btn);
-}
-
-// 토글: 펼침/접힘 — 같은 신청 ID의 detail 행을 동적 추가/제거
-function toggleBrandAppExpand(id, btnEl) {
-  var summaryTr = btnEl.closest('tr');
-  if (!summaryTr) return;
-  if (_brandAppExpanded.has(id)) {
-    _brandAppExpanded.delete(id);
-    _removeBrandAppDetailRows(summaryTr, id);
-    var icon = btnEl.querySelector('.material-icons-round'); if (icon) icon.textContent = 'chevron_right';
-    btnEl.title = btnEl.title.replace('접기', '펼치기');
-  } else {
-    _brandAppExpanded.add(id);
-    var cur = _findBrandApp(id);
-    if (!cur || !Array.isArray(cur.products)) return;
-    _removeBrandAppDetailRows(summaryTr, id);
-    var html = cur.products.map(function(p, idx){ return renderBrandAppDetailRow(cur, p, idx); }).join('');
-    summaryTr.insertAdjacentHTML('afterend', html);
-    var icon2 = btnEl.querySelector('.material-icons-round'); if (icon2) icon2.textContent = 'expand_more';
-    btnEl.title = btnEl.title.replace('펼치기', '접기');
-  }
-}
-
-function _removeBrandAppDetailRows(summaryTr, id) {
-  var next = summaryTr.nextElementSibling;
-  while (next && next.dataset.id === id && next.dataset.detail === '1') {
-    var rm = next; next = next.nextElementSibling; rm.remove();
-  }
+  html += '</tr>';
+  return html;
 }
 
 // "이력" 버튼: 변경 이력 모달 띄우기
@@ -9003,7 +8997,7 @@ async function submitNewBrandAppMemo() {
 
 // 메모 셀(목록의 내부 메모 컬럼)에서 latest 메모 + 카운트 표시 갱신 (인라인)
 function _refreshBrandAppMemoCell(applicationId) {
-  var row = document.querySelector('#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(applicationId) : applicationId) + '"][data-summary="1"]');
+  var row = document.querySelector('#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(applicationId) : applicationId) + '"][data-first="1"]');
   if (!row) return;
   var cell = row.querySelector('.brand-app-memo-cell');
   if (!cell) return;

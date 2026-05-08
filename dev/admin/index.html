@@ -1312,20 +1312,16 @@
                 <th style="width:200px">제품명</th>
                 <th style="width:180px">URL</th>
                 <th style="width:220px">내부 메모</th>
-                <th style="width:80px">진행 수량 <span class="col-help" data-tooltip="∑ 수량 (전체 제품의 수량 합계)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:80px">진행 수량 <span class="col-help" data-tooltip="이 제품의 수량"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:100px">상품 가격(엔)</th>
                 <th style="width:100px">상품 가격(원) <span class="col-help" data-tooltip="상품 가격(엔) × 10  (환율 ¥1 = ₩10)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:130px">상품 최종 금액 <span class="col-help" data-tooltip="진행 수량 × 상품 가격(원)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:130px">모집비 <span class="col-help" data-tooltip="제품별 단가 직접 입력&#10;∑ (진행 수량 × 모집비 단가)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:130px">모집비 <span class="col-help" data-tooltip="제품별 단가 직접 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">이체수수료(건)</th>
-                <th style="width:130px">이체수수료(원) <span class="col-help" data-tooltip="진행 수량 × 이체수수료(건)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:130px">최종 견적 금액 <span class="col-help" data-tooltip="상품 최종 금액 + 모집비 + 이체수수료(원)&#10;(seeding 폼은 상품 최종 금액 제외)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:130px">VAT포함 <span class="col-help" data-tooltip="최종 견적 금액 × 1.1  (VAT 10%)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비는 미포함"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
+                <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비는 미포함&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
                 <th style="width:80px">이력</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="25" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="21" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
