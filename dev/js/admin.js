@@ -8246,7 +8246,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="21" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="25" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -8519,7 +8519,17 @@ function renderBrandAppFlatRow(a, p, idx, count) {
   // 12. URL (제품 단위)
   html += '<td>' + renderProductUrlCell(p && p.url) + '</td>';
 
-  // 13. 내부 메모 (액션 — 첫 행만)
+  // 13~16. 신규 4 일정 컬럼 (제품 단위 — 인라인 날짜 편집)
+  // 모집기간 (range): products[i].recruit_start ~ products[i].recruit_end
+  html += '<td><div class="brand-app-rperiod-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderDateRangeDisplay(p && p.recruit_start, p && p.recruit_end) + '</div></td>';
+  // 선정날짜 (single, 시딩만)
+  html += '<td><div class="brand-app-seldate-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-form-type="' + esc(a.form_type || '') + '" style="position:relative;min-height:24px">' + (a.form_type === 'seeding' ? renderDateSingleDisplay(p && p.selection_date) : '<span style="color:var(--muted);font-size:10px">—</span>') + '</div></td>';
+  // 배송기간 (range, 시딩만)
+  html += '<td><div class="brand-app-dperiod-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-form-type="' + esc(a.form_type || '') + '" style="position:relative;min-height:24px">' + (a.form_type === 'seeding' ? renderDateRangeDisplay(p && p.delivery_start, p && p.delivery_end) : '<span style="color:var(--muted);font-size:10px">—</span>') + '</div></td>';
+  // 결과물 제출 마감일 (single)
+  html += '<td><div class="brand-app-subdeadline-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderDateSingleDisplay(p && p.submission_deadline) + '</div></td>';
+
+  // 17. 내부 메모 (액션 — 첫 행만)
   html += isFirst
     ? '<td><div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a.id) + '</div></td>'
     : emptyAction;
@@ -9120,6 +9130,44 @@ function renderBrandAppHistoryTableHtml(historyArr) {
 // 대시보드 최근 신청 카드 — 신청 페인으로 이동 (이력은 별도 "이력" 버튼으로)
 function openBrandAppFromDashboard(id) {
   if (typeof switchAdminPane === 'function') switchAdminPane('brand-applications', null);
+}
+
+// 일정 셀용 짧은 날짜 포맷 ("2026/5/1") — 표 폭 절약
+function fmtDateShort(d) {
+  if (!d) return '';
+  var dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt.getTime())) return String(d);
+  return dt.getFullYear() + '/' + (dt.getMonth() + 1) + '/' + dt.getDate();
+}
+
+// 모집기간·배송기간 셀 (range) — display + ✎ 인라인 편집
+function renderDateRangeDisplay(start, end) {
+  if (!start && !end) {
+    return '<div class="dr-display" style="font-size:11px;color:var(--muted);padding-right:22px">—</div>'
+      + '<button type="button" class="dr-edit-btn" onclick="enterDateRangeEdit(this)" title="기간 입력" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_calendar</span></button>';
+  }
+  var s = start ? fmtDateShort(start) : '?';
+  var e = end ? fmtDateShort(end) : '?';
+  return '<div class="dr-display" style="font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums;padding-right:22px;line-height:1.4">' + esc(s) + ' ~ ' + esc(e) + '</div>'
+    + '<button type="button" class="dr-edit-btn" onclick="enterDateRangeEdit(this)" title="기간 수정" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_calendar</span></button>';
+}
+
+// 선정날짜·결과물 제출 마감일 셀 (single) — display + ✎ 인라인 편집
+function renderDateSingleDisplay(date) {
+  var hasValue = !!date;
+  var display = hasValue
+    ? '<div class="ds-display" style="font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums;padding-right:22px;line-height:1.4">' + esc(fmtDateShort(date)) + '</div>'
+    : '<div class="ds-display" style="font-size:11px;color:var(--muted);padding-right:22px">—</div>';
+  return display
+    + '<button type="button" class="ds-edit-btn" onclick="enterDateSingleEdit(this)" title="' + (hasValue ? '날짜 수정' : '날짜 입력') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_calendar</span></button>';
+}
+
+// ✎ 클릭 시 임시 알림 (인라인 편집은 다음 commit에서 flatpickr 도입 예정)
+function enterDateRangeEdit() {
+  toast('일정 인라인 편집은 다음 단계에서 추가됩니다. 임시로 SQL로 입력 가능.', 'info');
+}
+function enterDateSingleEdit() {
+  toast('일정 인라인 편집은 다음 단계에서 추가됩니다. 임시로 SQL로 입력 가능.', 'info');
 }
 
 // 이체수수료(건) 셀 — display + ✎ 인라인 편집
