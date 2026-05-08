@@ -101,16 +101,15 @@ function fmtDateJa(iso?: string | null): string {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// HTML 템플릿 로딩 + placeholder 치환 (notify-brand-application 패턴 동일)
+// HTML 템플릿 로딩 + placeholder 치환
+// _templates/*.html이 Edge Function 번들에 포함되지 않는 supabase CLI 동작 때문에
+// templates.ts에 ES 모듈로 인라인 (번들러가 자동 dependency 포함)
 // ──────────────────────────────────────────────────────────────────
-const TEMPLATE_CACHE = new Map<string, string>();
+import { TEMPLATES } from "./templates.ts";
 
 async function loadTemplate(name: string): Promise<string> {
-  const cached = TEMPLATE_CACHE.get(name);
-  if (cached) return cached;
-  const url = new URL(`./_templates/${name}.html`, import.meta.url);
-  const html = await Deno.readTextFile(url);
-  TEMPLATE_CACHE.set(name, html);
+  const html = TEMPLATES[name];
+  if (!html) throw new Error(`template not registered: ${name}`);
   return html;
 }
 
