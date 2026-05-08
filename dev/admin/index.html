@@ -1323,7 +1323,7 @@
                 <th style="width:120px">이체수수료(건)</th>
                 <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비는 미포함&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
-                <th style="width:80px">이력</th>
+                <th style="width:80px">관리</th>
               </tr></thead>
               <tbody id="brandAppTableBody"><tr><td colspan="25" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
@@ -2026,8 +2026,8 @@
   <div class="modal" style="max-width:880px;width:96vw;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 서베이 신청 등록</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">영업팀이 전화·메일·미팅으로 받은 신청을 관리자가 직접 등록</div>
+        <div id="nbaModalTitle" style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 서베이 신청 등록</div>
+        <div id="nbaModalSubtitle" style="font-size:11px;color:var(--muted);margin-top:2px">영업팀이 전화·메일·미팅으로 받은 신청을 관리자가 직접 등록</div>
       </div>
       <button class="btn btn-ghost btn-xs" onclick="closeNewBrandAppModal()" style="padding:4px 10px">✕</button>
     </div>

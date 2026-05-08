@@ -7616,7 +7616,7 @@ var _brandAppMemoSummaries = {};      // {appId: {count, latest}}
 var _brandAppMemoModalCurrentId = null;
 var _brandAppMemoModalCache = [];     // open된 신청의 메모 배열 (memory)
 
-// 인라인 편집 성공 후 카운트 즉시 +1 + 해당 row의 이력 버튼 셀만 outerHTML 갱신
+// 인라인 편집 성공 후 카운트 즉시 +1 + 해당 row의 「관리」 셀(더보기 버튼) 우상단 배지 갱신
 function _refreshBrandAppHistoryButton(id) {
   _brandAppHistoryCounts[id] = (_brandAppHistoryCounts[id] || 0) + 1;
   var sel = '#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(id) : id) + '"][data-first="1"]';
@@ -7625,7 +7625,41 @@ function _refreshBrandAppHistoryButton(id) {
   var lastTd = row.lastElementChild;
   if (!lastTd) return;
   var hcnt = _brandAppHistoryCounts[id];
-  lastTd.innerHTML = '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button>';
+  var badge = hcnt > 0
+    ? '<span style="position:absolute;top:-2px;right:-2px;background:var(--pink);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;line-height:14px;border-radius:7px;padding:0 4px;text-align:center">' + hcnt + '</span>'
+    : '';
+  lastTd.innerHTML = '<div style="position:relative;display:inline-block">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(id) + '\')">more_vert</span>'
+    + badge
+    + '</div>';
+}
+
+// 신청 행 더보기 메뉴 — 캠페인 더보기 패턴(camp-more-menu) 재사용
+function toggleBrandAppRowMenu(e, btnEl, appId) {
+  e.stopPropagation();
+  document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
+
+  var rect = btnEl.getBoundingClientRect();
+  var menu = document.createElement('div');
+  menu.className = 'camp-more-menu';
+  var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[appId] || 0) : 0;
+  var historyItem = hcnt > 0
+    ? '<div class="camp-more-item" onclick="openBrandAppHistoryModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>이력 (' + hcnt + ')</div>'
+    : '<div class="camp-more-item" style="opacity:.4;cursor:not-allowed" title="변경 이력 없음"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>이력 (0)</div>';
+  menu.innerHTML = ''
+    + '<div class="camp-more-item" onclick="openBrandAppEditModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>수정</div>'
+    + historyItem;
+  document.body.appendChild(menu);
+  _positionMenuInViewport(menu, rect, {placement: 'left-of'});
+
+  setTimeout(function() {
+    document.addEventListener('click', function _close(ev) {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 0);
 }
 
 // ══════════════════════════════════════
@@ -8683,14 +8717,17 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
     ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, false) + '</div></td>'
     : emptyAction;
 
-  // 21. 이력 (액션 — 첫 행만)
+  // 21. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 우상단 이력 카운트 배지로 보존
   html += isFirst
     ? (function(){
         var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[a.id] || 0) : 0;
-        if (hcnt > 0) {
-          return '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button></td>';
-        }
-        return '<td><button class="btn btn-ghost btn-xs" disabled style="opacity:.4;cursor:not-allowed;white-space:nowrap" title="변경 이력 없음">이력</button></td>';
+        var badge = hcnt > 0
+          ? '<span style="position:absolute;top:-2px;right:-2px;background:var(--pink);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;line-height:14px;border-radius:7px;padding:0 4px;text-align:center">' + hcnt + '</span>'
+          : '';
+        return '<td><div style="position:relative;display:inline-block">'
+          + '<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span>'
+          + badge
+        + '</div></td>';
       })()
     : emptyAction;
 
@@ -8718,13 +8755,77 @@ function closeBrandAppHistoryModal() {
   if (modal) modal.classList.remove('open');
 }
 
-// ─── 관리자 직접 신청 등록 모달 (091) ───────────────────────
+// ─── 관리자 직접 신청 등록·수정 모달 (091) ───────────────────────
 var _nbaBrandMode = 'select';  // 'select' (기존 brand) | 'new' (신규 brand)
 var _nbaBrandsCache = null;
+// edit 모드 시 신청 ID. null이면 신규 등록 모드. 저장 시 분기 + 낙관적 락 expectedVersion 추출
+var _editingBrandAppId = null;
+
+// 더보기 메뉴 「수정」 진입점 — 캐시된 신청 데이터로 prefill
+async function openBrandAppEditModal(applicationId) {
+  var cur = _findBrandApp(applicationId);
+  if (!cur) { toast('신청 데이터를 찾을 수 없습니다', 'error'); return; }
+  _editingBrandAppId = applicationId;
+  await openNewBrandAppModal(cur.brand_id || null);
+  // 모달 헤더·버튼 라벨 변경
+  var titleEl = document.getElementById('nbaModalTitle');
+  var subtitleEl = document.getElementById('nbaModalSubtitle');
+  var submitBtn = document.getElementById('nbaSubmitBtn');
+  if (titleEl) titleEl.textContent = '브랜드 서베이 신청 수정';
+  if (subtitleEl) subtitleEl.textContent = (cur.application_no || '') + ' · 직접 등록 신청 수정';
+  if (submitBtn) submitBtn.textContent = '저장';
+  // 폼 prefill
+  document.querySelector('input[name="nbaFormType"][value="' + cur.form_type + '"]').checked = true;
+  onNbaFormTypeChange();
+  // 수정 모드에서 폼 종류 변경 불가 — 라디오 잠금 (제출 가드 + 시각적 lock)
+  document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.disabled = true; });
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.opacity = '.6'; l.style.cursor = 'not-allowed'; l.title = '수정 모드에서는 폼 종류를 변경할 수 없습니다'; });
+  if (cur.form_type === 'reviewer' && Array.isArray(cur.reviewer_channels)) {
+    cur.reviewer_channels.forEach(function(ch){
+      var cb = document.querySelector('input[name="nbaReviewerChannels"][value="' + ch + '"]');
+      if (cb) cb.checked = true;
+    });
+  }
+  var setVal = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+  setVal('nbaCompanyName',  cur.brand?.company_name || '');
+  setVal('nbaBrandName',    cur.brand?.name || cur.brand_name || '');
+  setVal('nbaBrandNameJa',  cur.brand?.name_ja || '');
+  setVal('nbaBusinessNo',   cur.brand?.business_no || '');
+  setVal('nbaContactName',  cur.applicant_contact_name || cur.contact_name || '');
+  setVal('nbaPhone',        cur.applicant_phone || cur.phone || '');
+  setVal('nbaEmail',        cur.applicant_email || cur.email || '');
+  setVal('nbaBillingEmail', cur.billing_email || cur.brand?.billing_email || '');
+  setVal('nbaRequestNote',  cur.request_note || '');
+  setVal('nbaAdminMemo',    cur.admin_memo || '');
+  // products 행 재구성
+  var wrap = document.getElementById('nbaProductRows');
+  if (wrap) wrap.innerHTML = '';
+  var prods = Array.isArray(cur.products) ? cur.products : [];
+  if (prods.length === 0) prods = [{}];
+  prods.forEach(function(p) {
+    addNbaProductRow();
+    var lastRow = wrap.lastElementChild;
+    if (!lastRow) return;
+    var setRowVal = function(cls, v) { var el = lastRow.querySelector('.' + cls); if (el) el.value = (v == null ? '' : String(v)); };
+    setRowVal('nba-prod-name',         p.name);
+    setRowVal('nba-prod-name-ja',      p.name_ja);
+    setRowVal('nba-prod-price',        p.price);
+    setRowVal('nba-prod-qty',          p.qty);
+    setRowVal('nba-prod-transfer-fee', p.transfer_fee_krw);
+    setRowVal('nba-prod-url',          p.url);
+  });
+}
 
 async function openNewBrandAppModal(prefilledBrandId) {
   var modal = document.getElementById('newBrandAppModal');
   if (!modal) return;
+  // 헤더·버튼을 신규 등록 기본값으로 원복 (edit 진입자가 후속 갱신)
+  var titleEl = document.getElementById('nbaModalTitle');
+  var subtitleEl = document.getElementById('nbaModalSubtitle');
+  var submitBtnReset = document.getElementById('nbaSubmitBtn');
+  if (titleEl) titleEl.textContent = '브랜드 서베이 신청 등록';
+  if (subtitleEl) subtitleEl.textContent = '영업팀이 전화·메일·미팅으로 받은 신청을 관리자가 직접 등록';
+  if (submitBtnReset) submitBtnReset.textContent = '등록';
   // 폼 reset
   document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
   document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
@@ -8754,6 +8855,10 @@ async function openNewBrandAppModal(prefilledBrandId) {
 function closeNewBrandAppModal() {
   var modal = document.getElementById('newBrandAppModal');
   if (modal) modal.classList.remove('open');
+  _editingBrandAppId = null;  // edit 모드 종료
+  // 폼 종류 라디오 잠금 해제 (다음 신규 등록 시 정상 동작 위해)
+  document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.disabled = false; });
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.opacity = ''; l.style.cursor = ''; l.title = ''; });
 }
 
 function onNbaFormTypeChange() {
@@ -8976,7 +9081,52 @@ async function submitNewBrandApp() {
   }
   var btn = document.getElementById('nbaSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
-  var result = await adminCreateBrandApplication({
+  var isEdit = !!_editingBrandAppId;
+  var result;
+  if (isEdit) {
+    // 수정 모드 — 신청 본체 컬럼 patch + 낙관적 락
+    var cur = _findBrandApp(_editingBrandAppId);
+    if (!cur) {
+      if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+      toast('신청 데이터를 찾을 수 없습니다 — 새로고침 후 다시 시도해주세요', 'error');
+      return;
+    }
+    // 폼 종류 변경은 채번·트리거 영향이 있어 막음 (편집 모달 라디오는 그대로 두지만 제출 시 검증)
+    if (formType !== cur.form_type) {
+      if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+      toast('폼 종류는 수정할 수 없습니다 (신청번호 채번 영향)', 'warn');
+      return;
+    }
+    var patch = {
+      contact_name:             contactName || null,
+      phone:                    phone || null,
+      email:                    email || null,
+      billing_email:            billingEmail || null,
+      products:                 products,
+      request_note:             requestNote || null,
+      admin_memo:               adminMemo || null,
+      reviewer_channels:        reviewerChannels,
+      // brand_name은 brand 마스터에서 보통 표시되지만 신청 시점 스냅샷도 갱신
+      brand_name:               brandName || null
+    };
+    result = await updateBrandApplication(_editingBrandAppId, patch, cur.version);
+    if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+    if (result.conflict) {
+      toast('다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도해주세요', 'warn');
+      await loadBrandApplications();
+      return;
+    }
+    if (!result.ok) {
+      toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+      return;
+    }
+    toast('수정 완료');
+    closeNewBrandAppModal();
+    await loadBrandApplications();
+    return;
+  }
+  // 신규 등록 모드 (기존 흐름)
+  result = await adminCreateBrandApplication({
     formType: formType,
     brandId: brandId || null,
     companyName: companyName || null,
