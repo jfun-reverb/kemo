@@ -13,10 +13,8 @@ globs: "dev/**/*.js,dev/**/*.html,supabase/**/*.sql"
 - SECURITY DEFINER 함수는 `SET search_path = ''` 필수 (search_path 탈취 방어)
 
 ## 관리자 생성/삭제
-- 관리자 추가는 **초대 방식만** 사용 (`invite_admin` RPC + `resetPasswordForEmail`)
-- super_admin이 비밀번호 직접 지정 금지 (이메일 유효성 미검증 + 비번 누출 위험)
-- 관리자 삭제는 2택 모달로 실수 방지 (권한 해제 vs 완전 삭제)
-- 자기 자신 삭제는 DB 함수에서 차단
+- 초대 방식 (`invite_admin` 원격 호출 함수(RPC) + `resetPasswordForEmail`) + 2택 삭제 모달 + 자기 삭제 차단
+- 상세 RPC·deprecated 함수 목록은 `.claude/rules/supabase.md` 「관리자 추가 (필수)」/「관리자 삭제 (2택)」 섹션 참조
 
 ## Supabase / RLS
 - anon key는 공개 전제 (클라이언트 노출 OK) → **RLS가 유일한 방어선**
@@ -51,6 +49,6 @@ globs: "dev/**/*.js,dev/**/*.html,supabase/**/*.sql"
 - Redirect URLs에는 와일드카드 사용 가능 (`https://globalreverb.com/**`)
 
 ## 마이그레이션 / DB 조작
-- 운영 DB 수정은 항상 개발서버 먼저 → 검증 → 운영 적용
+- 배포 워크플로(개발서버 먼저 → 검증 → 운영 적용)는 `.claude/rules/git.md` 「배포 워크플로 (필수)」 정의처 참조
 - 직접 `auth.users` UPDATE는 최후 수단 (메타데이터 누락 주의)
-- 관리자 삭제는 반드시 RPC 통해서 (고아 데이터 방지)
+- 관리자 삭제는 반드시 원격 호출 함수(RPC) 통해서 (고아 데이터 방지)

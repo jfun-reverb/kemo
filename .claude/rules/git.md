@@ -29,7 +29,7 @@ globs: "*"
 8. 운영서버 실데이터/환경에서 최종 검증
 
 ## 빌드 필수
-- dev/ 수정 후 반드시 `cd dev && bash build.sh` 실행
+- 빌드 명령·순서·새 파일 추가 절차는 `.claude/rules/build.md` 정의처 참조
 - 루트 `index.html`, `admin/index.html`는 빌드 산출물 (직접 수정 금지)
 - 루트 `js/`, `css/`, `lib/` 폴더는 **존재하지 않음** (2026-04-14 정리 완료)
 
