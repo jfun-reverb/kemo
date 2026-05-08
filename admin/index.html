@@ -8654,6 +8654,61 @@ function openCampPreviewModal(campId) {
   openModal('campPreviewModal');
 }
 
+// position:fixed 로 body 에 append 된 팝오버/드롭다운을 anchor 위치에 배치하되 viewport 안에 머무르게 보정.
+//   menuEl       : 이미 body 에 append 되어 offsetWidth/offsetHeight 측정 가능한 상태여야 함
+//   anchorRect   : anchor 의 getBoundingClientRect() 결과
+//   opts.placement
+//     'left-of' — anchor 왼쪽에 띄움 (캠페인 더보기 ⋮ 패턴). 좌측 공간 부족 시 우측으로 폴백.
+//     'below'   — anchor 아래에 띄움 (상태 드롭다운·링크 팝오버 패턴). 하단 공간 부족 시 위로 폴백.
+//   opts.gap     : anchor 와 메뉴 사이 간격 (px, 기본 4)
+//   opts.margin  : viewport 가장자리 여백 (px, 기본 8)
+function _positionMenuInViewport(menuEl, anchorRect, opts) {
+  opts = opts || {};
+  var placement = opts.placement || 'below';
+  var gap = (opts.gap != null) ? opts.gap : 4;
+  var margin = (opts.margin != null) ? opts.margin : 8;
+  var vw = window.innerWidth;
+  var vh = window.innerHeight;
+  var mw = menuEl.offsetWidth;
+  var mh = menuEl.offsetHeight;
+
+  // 좌우 위치 결정
+  var left;
+  if (placement === 'left-of') {
+    left = anchorRect.left - mw - gap;
+    // 좌측 공간 부족하면 우측으로 폴백 (anchor 우측에 띄움)
+    if (left < margin) left = anchorRect.right + gap;
+  } else {
+    left = anchorRect.left;
+  }
+  // viewport 가로 클램프
+  if (left + mw > vw - margin) left = vw - mw - margin;
+  if (left < margin) left = margin;
+
+  // 상하 위치 결정
+  var top;
+  if (placement === 'left-of') {
+    // 기본은 anchor 상단에 맞춤. 하단 넘치면 anchor 하단에 메뉴 하단 정렬 (사용자 요청 — 더보기 버튼 화면 끝에서 메뉴 위로 펼치기)
+    top = anchorRect.top;
+    if (top + mh > vh - margin) top = anchorRect.bottom - mh;
+  } else {
+    // 'below' — anchor 아래 우선, 부족하면 위로
+    top = anchorRect.bottom + gap;
+    if (top + mh > vh - margin) {
+      var aboveTop = anchorRect.top - mh - gap;
+      if (aboveTop >= margin) {
+        top = aboveTop;
+      } else {
+        top = vh - mh - margin;
+      }
+    }
+  }
+  if (top < margin) top = margin;
+
+  menuEl.style.top = top + 'px';
+  menuEl.style.left = left + 'px';
+}
+
 function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   e.stopPropagation();
   document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
@@ -8675,8 +8730,8 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
-  menu.style.left = (rect.left - menu.offsetWidth) + 'px';
-  menu.style.top = rect.top + 'px';
+  // 더보기 버튼 왼쪽에 펼침 + viewport 경계 자동 보정 (하단 넘치면 메뉴 하단을 버튼 하단에 정렬)
+  _positionMenuInViewport(menu, rect, {placement: 'left-of'});
 
   setTimeout(() => {
     document.addEventListener('click', function _close(ev) {
@@ -8715,8 +8770,8 @@ function toggleStatusDropdown(badgeEl) {
   document.body.appendChild(dd);
   const rect = badgeEl.getBoundingClientRect();
   dd.style.position = 'fixed';
-  dd.style.top = (rect.bottom + 4) + 'px';
-  dd.style.left = rect.left + 'px';
+  // viewport 경계 자동 보정 (하단 넘치면 위로 폴백)
+  _positionMenuInViewport(dd, rect, {placement: 'below', gap: 4});
 
   // 외부 클릭 시 닫기
   setTimeout(() => {
@@ -10948,9 +11003,6 @@ function openMiniEditorLinkPopover(aEl, contentDiv) {
   const pop = document.createElement('div');
   pop.className = 'mini-editor-link-popover';
   const href = aEl.getAttribute('href') || '';
-  // position:fixed 기반 — viewport 좌표 그대로 사용 (CSS 에서 position:fixed 지정)
-  pop.style.top = (rect.bottom + 6) + 'px';
-  pop.style.left = Math.max(8, rect.left) + 'px';
   pop.innerHTML = `
     <input type="url" class="melp-url" value="${esc(href)}" placeholder="https:// 또는 mailto:" spellcheck="false">
     <button type="button" class="melp-btn melp-copy" title="링크 URL 복사"><span class="material-icons-round notranslate" translate="no">content_copy</span></button>
@@ -10958,6 +11010,8 @@ function openMiniEditorLinkPopover(aEl, contentDiv) {
     <button type="button" class="melp-btn melp-delete" title="링크 제거"><span class="material-icons-round notranslate" translate="no">link_off</span></button>
   `;
   document.body.appendChild(pop);
+  // CSS 에서 position:fixed 지정. viewport 경계 자동 보정 (하단 넘치면 위로 폴백)
+  _positionMenuInViewport(pop, rect, {placement: 'below', gap: 6});
   _miniEditorLinkPopover = pop;
 
   const input = pop.querySelector('.melp-url');
