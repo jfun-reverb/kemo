@@ -8574,10 +8574,19 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
 
   var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
-  // 1. 신청번호 + 폼 종류 + 제품 N개 (모든 행에 동일 표시)
+  // 1. 신청번호 + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) + 제품 N개 (모든 행에 동일 표시)
+  // reviewer_channels는 form_type='reviewer'일 때만 의미 (시딩은 항상 NULL — DB CHECK 제약)
+  var channelBadges = '';
+  if (a.form_type === 'reviewer' && Array.isArray(a.reviewer_channels) && a.reviewer_channels.length > 0) {
+    var CH_LABEL = {qoo10: '큐텐', atcosme: '엣코스메'};
+    channelBadges = a.reviewer_channels.map(function(c){
+      var label = CH_LABEL[c] || c;
+      return '<span style="border:1px solid var(--pink);color:var(--pink);background:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px">' + esc(label) + '</span>';
+    }).join('');
+  }
   html += '<td>'
     + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
+    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + manualBadge + '</div>'
     + (count > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + count + '개</div>' : '')
     + '</td>';
 
@@ -8719,6 +8728,10 @@ async function openNewBrandAppModal(prefilledBrandId) {
   // 폼 reset
   document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
   document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
+  // 리뷰어 채널 체크박스 + 그룹 hide reset
+  document.querySelectorAll('input[name="nbaReviewerChannels"]').forEach(function(cb){ cb.checked = false; });
+  var nbaChGrp = document.getElementById('nbaReviewerChannelsGroup');
+  if (nbaChGrp) nbaChGrp.style.display = 'none';
   ['nbaCompanyName','nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote','nbaAdminMemo'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   // 담당자 빠른 선택 드롭다운 초기화
   var contactSelReset = document.getElementById('nbaContactSelect');
@@ -8754,6 +8767,15 @@ function onNbaFormTypeChange() {
     var ic = l.querySelector('.material-icons-round');
     if (ic) { ic.textContent = on ? 'radio_button_checked' : 'radio_button_unchecked'; ic.style.color = on ? 'var(--pink)' : 'var(--muted)'; }
   });
+  // 리뷰어 채널 영역(큐텐/엣코스메 다중 선택)은 reviewer 폼일 때만 노출. seeding이면 hide + 값 reset
+  var ch = document.getElementById('nbaReviewerChannelsGroup');
+  if (ch) {
+    var isReviewer = picked && picked.value === 'reviewer';
+    ch.style.display = isReviewer ? '' : 'none';
+    if (!isReviewer) {
+      document.querySelectorAll('input[name="nbaReviewerChannels"]').forEach(function(cb){ cb.checked = false; });
+    }
+  }
 }
 
 async function loadNbaBrandSelect(currentBrandId) {
@@ -8946,6 +8968,12 @@ async function submitNewBrandApp() {
   if (products.length === 0) { toast('제품을 1개 이상 입력해주세요', 'error'); return; }
   // 신규 모드면 brandId NULL 전달
   if (_nbaBrandMode === 'new') brandId = null;
+  // 리뷰어 채널 수집 — reviewer 폼일 때만 의미. 시딩이면 NULL (RPC에서 자동 NULL 강제됨)
+  var reviewerChannels = null;
+  if (formType === 'reviewer') {
+    var checkedChannels = Array.from(document.querySelectorAll('input[name="nbaReviewerChannels"]:checked')).map(function(cb){ return cb.value; });
+    reviewerChannels = checkedChannels.length > 0 ? checkedChannels : null;
+  }
   var btn = document.getElementById('nbaSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
   var result = await adminCreateBrandApplication({
@@ -8962,7 +8990,8 @@ async function submitNewBrandApp() {
     products: products,
     requestNote: requestNote || null,
     adminMemo: adminMemo || null,
-    brandSync: brandSync
+    brandSync: brandSync,
+    reviewerChannels: reviewerChannels
   });
   if (btn) { btn.disabled = false; btn.textContent = '등록'; }
   if (!result.ok) {
