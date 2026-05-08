@@ -8447,11 +8447,8 @@ function renderBrandAppFlatRow(a, p, idx, count) {
 
   var dash = '<span style="color:var(--muted)">—</span>';
   var emptyAction = '<td></td>';
-  // !isFirst 행의 신청 정보 셀은 회색 톤으로 노이즈 완화
-  var infoTone = isFirst ? '' : 'color:var(--muted);';
-  var dateTone = isFirst ? 'color:var(--muted)' : 'color:#bbb';
 
-  // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시
+  // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시 (행 차등 색상은 모두 제거 — 모든 행에 동일하게 표시)
   var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
 
   var manualBadge = (a.source === 'manual_admin')
@@ -8460,60 +8457,60 @@ function renderBrandAppFlatRow(a, p, idx, count) {
 
   var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
-  // 1. 신청번호 + 폼 (첫 행만 폼 배지·제품 N개)
-  html += '<td style="' + infoTone + '">'
-    + '<div style="font-size:11px;font-weight:600;color:' + (isFirst ? 'var(--ink)' : 'var(--muted)') + '">' + esc(a.application_no || '—') + '</div>'
+  // 1. 신청번호 + 폼 (첫 행만 폼 배지·제품 N개. 신청번호는 모든 행에 동일 색상)
+  html += '<td>'
+    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
     + (isFirst
         ? '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
           + (count > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + count + '개</div>' : '')
         : '')
     + '</td>';
 
-  // 2. 브랜드
+  // 2. 브랜드 (모든 행에 동일 색상)
   html += (function(){
     var brandName = a.brand?.name || a.brand_name || '—';
     var brandNo = a.brand?.brand_no || '';
     if (a.brand_id) {
-      return '<td style="' + infoTone + '"><div style="font-weight:600;cursor:pointer;color:' + (isFirst ? 'var(--pink)' : 'rgba(200,120,163,.6)') + '" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+      return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
         + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
       + '</td>';
     }
-    return '<td style="font-weight:600;' + infoTone + '">' + esc(brandName) + '</td>';
+    return '<td style="font-weight:600">' + esc(brandName) + '</td>';
   })();
 
   // 3. 상태 (액션 — 첫 행만)
   html += isFirst ? '<td>' + brandAppStatusSelect(a) + '</td>' : emptyAction;
 
   // 4. 검수일
-  html += '<td style="font-size:11px;' + dateTone + '">' + fmtDate(a.reviewed_at) + '</td>';
+  html += '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>';
 
   // 5. 신청일
-  html += '<td style="font-size:11px;' + dateTone + '">' + fmtDate(a.created_at) + '</td>';
+  html += '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>';
 
   // 6. 회사명
-  html += '<td style="font-size:12px;color:' + (isFirst ? 'var(--ink)' : 'var(--muted)') + '">' + esc(a.brand?.company_name || '—') + '</td>';
+  html += '<td style="font-size:12px;color:var(--ink)">' + esc(a.brand?.company_name || '—') + '</td>';
 
   // 7. 담당자
   html += (function(){
     var name = a.applicant_contact_name || a.contact_name || '—';
     var email = a.applicant_email || a.email || '';
-    return '<td style="' + infoTone + '">'
+    return '<td>'
       + '<div>' + esc(name) + '</div>'
       + (email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(email) + '</div>' : '')
     + '</td>';
   })();
 
   // 8. 연락처
-  html += '<td style="font-size:12px;' + infoTone + '">' + esc(formatPhoneDisplay(a.applicant_phone || a.phone) || '—') + '</td>';
+  html += '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.applicant_phone || a.phone) || '—') + '</td>';
 
   // 9. 계산서 이메일
   html += (function(){
     var be = a.brand?.billing_email || a.billing_email || '';
-    return '<td style="font-size:12px;color:' + (be ? (isFirst ? 'var(--ink)' : 'var(--muted)') : 'var(--muted)') + ';word-break:break-all">' + esc(be || '—') + '</td>';
+    return '<td style="font-size:12px;color:' + (be ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(be || '—') + '</td>';
   })();
 
   // 10. 요청사항
-  html += '<td style="' + infoTone + '">' + brandAppNoteCell(a.request_note) + '</td>';
+  html += '<td>' + brandAppNoteCell(a.request_note) + '</td>';
 
   // 11. 제품명 (제품 단위)
   html += '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4">'
@@ -8544,8 +8541,8 @@ function renderBrandAppFlatRow(a, p, idx, count) {
   // 18. 이체수수료(건) (제품 단가 — 인라인 편집 가능)
   html += '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>';
 
-  // 19. 예상 견적 (신청 단위 — 모든 행에 같은 값, !isFirst는 회색 톤)
-  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;color:' + (isFirst ? 'var(--ink)' : 'var(--muted)') + '">' + fmtKrw(a.estimated_krw) + '</td>';
+  // 19. 예상 견적 (신청 단위 — 모든 행에 같은 값을 동일 색상으로)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>';
 
   // 20. 견적서 전달 (액션 — 첫 행만)
   html += isFirst
