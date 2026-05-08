@@ -8457,13 +8457,11 @@ function renderBrandAppFlatRow(a, p, idx, count) {
 
   var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
-  // 1. 신청번호 + 폼 (첫 행만 폼 배지·제품 N개. 신청번호는 모든 행에 동일 색상)
+  // 1. 신청번호 + 폼 종류 + 제품 N개 (모든 행에 동일 표시)
   html += '<td>'
     + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-    + (isFirst
-        ? '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
-          + (count > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + count + '개</div>' : '')
-        : '')
+    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
+    + (count > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + count + '개</div>' : '')
     + '</td>';
 
   // 2. 브랜드 (모든 행에 동일 색상)
@@ -8478,8 +8476,8 @@ function renderBrandAppFlatRow(a, p, idx, count) {
     return '<td style="font-weight:600">' + esc(brandName) + '</td>';
   })();
 
-  // 3. 상태 (액션 — 첫 행만)
-  html += isFirst ? '<td>' + brandAppStatusSelect(a) + '</td>' : emptyAction;
+  // 3. 상태 (모든 행에 표시 — quickChangeBrandAppStatus는 신청 전체 갱신이므로 어느 행 select에서 변경해도 동일 동작)
+  html += '<td>' + brandAppStatusSelect(a) + '</td>';
 
   // 4. 검수일
   html += '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>';
