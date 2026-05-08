@@ -226,7 +226,7 @@ function initMultiFilters() {
   ], () => renderDeliverablesList());
   // 광고주 신청
   createMultiFilter('brandAppFormMulti', '전체 폼', [
-    {value:'reviewer',label:'Qoo10 리뷰어'},{value:'seeding',label:'나노 시딩'}
+    {value:'reviewer',label:'리뷰어'},{value:'seeding',label:'나노 시딩'}
   ], () => renderBrandApplicationsList());
   createMultiFilter('brandAppStatusMulti', '전체 상태', [
     {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'kakao_room_created',label:'카톡방 생성'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
@@ -6513,6 +6513,52 @@ function brandAppStatusSelect(a) {
   });
 }
 
+// 제품 단위 상태 select — products[idx].status 우선, 없으면 신청 단위 a.status 폴백
+// onchange에 version 인자를 박지 않음 — 같은 신청의 다른 셀들이 stale 문자열을 갖지 않도록 함수 내부에서 cur.version 동적 읽기
+function brandAppStatusSelectForProduct(a, p, idx) {
+  var effective = (p && p.status) || a.status;
+  return brandAppStatusSelectStyled({
+    status: effective,
+    size: 'sm',
+    onchange: 'quickChangeBrandAppProductStatus(\''+esc(a.id)+'\', '+idx+', this.value)',
+    onclick: 'event.stopPropagation()'
+  });
+}
+
+// 제품 단위 상태 변경 — products jsonb patch (낙관적 락) + 해당 셀만 재렌더 (다른 셀 편집 보존)
+async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
+  var cur = _brandApps.find(function(a){ return a.id === id; });
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var p = cur.products[idx];
+  var prevStatus = p.status || cur.status;
+  if (prevStatus === newStatus) return;
+  var nextProducts = cur.products.map(function(prod, i) {
+    if (i !== idx) return prod;
+    var copy = Object.assign({}, prod);
+    copy.status = newStatus;
+    return copy;
+  });
+  var expectedVersion = cur.version;
+  var result = await updateBrandApplication(id, {products: nextProducts}, expectedVersion);
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 처리했습니다. 목록을 새로고침합니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('상태 변경 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    await loadBrandApplications();
+    return;
+  }
+  cur.products = nextProducts;
+  cur.version = result.data?.version || (expectedVersion + 1);
+  _refreshBrandAppHistoryButton(id);
+  // 상태 변경은 필터 (NN)건 카운트와 매칭 행 노출에 즉시 영향 — 목록 전체 재렌더
+  // 일정 인라인 편집과는 다른 흐름이라 의도적으로 셀-only 재렌더 미사용
+  renderBrandApplicationsList();
+  toast('상태가 ' + (BRAND_APP_STATUS[newStatus]?.label || newStatus) + '(으)로 변경됨');
+}
+
 // 리스트에서 즉시 상태 변경 (낙관적 락 체크)
 async function quickChangeBrandAppStatus(id, newStatus, expectedVersion) {
   var cur = _brandApps.find(function(a){ return a.id === id; });
@@ -6540,7 +6586,8 @@ async function quickChangeBrandAppStatus(id, newStatus, expectedVersion) {
 }
 
 function brandAppFormLabel(formType) {
-  return formType === 'reviewer' ? 'Qoo10 리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
+  // 「리뷰어」 → 「리뷰어」로 단순화 — Qoo10/엣코스메 분기는 reviewer_channels 채널 배지로 분리
+  return formType === 'reviewer' ? '리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
 }
 
 // 광고주가 입력한 URL을 http/https만 허용 (javascript:, data: 스킴 차단)
@@ -6767,12 +6814,15 @@ async function exportBrandApplicationsExcel() {
     wb.created = new Date();
     var ws = wb.addWorksheet('브랜드 서베이');
 
-    // 화면 컬럼과 동일한 순서·구조 (신청 1건 = 제품 N행으로 펼침)
+    // 신청 1건 = 제품 N행으로 펼침. 화면(21컬럼)에서 제거한 합산 컬럼(상품 최종 금액·이체수수료(원)·최종 견적·VAT포함)은 엑셀에는 유지 — 데이터 추출은 풀 컬럼 정책. 화면 액션 컬럼(이력)은 엑셀에서 제외.
     ws.columns = [
-      { header: '신청일',           key: 'created',     width: 20 },
       { header: '신청번호',         key: 'no',          width: 22 },
       { header: '폼 종류',          key: 'form',        width: 14 },
-      { header: '업체/브랜드명',    key: 'brand',       width: 24 },
+      { header: '브랜드',           key: 'brand',       width: 24 },
+      { header: '상태',             key: 'status',      width: 12 },
+      { header: '검수일',           key: 'reviewed',    width: 14 },
+      { header: '신청일',           key: 'created',     width: 20 },
+      { header: '회사명',           key: 'company',     width: 24 },
       { header: '담당자명',         key: 'contact',     width: 12 },
       { header: '담당자이메일',     key: 'email',       width: 28 },
       { header: '연락처',           key: 'phone',       width: 16 },
@@ -6781,19 +6831,19 @@ async function exportBrandApplicationsExcel() {
       { header: '제품명',           key: 'productName', width: 26 },
       { header: '제품명(일본어)',   key: 'productNameJa', width: 26 },
       { header: 'URL',              key: 'productUrl',  width: 36 },
+      { header: '내부 메모',        key: 'memo',        width: 36 },
       { header: '진행 수량',        key: 'qty',         width: 10 },
       { header: '상품 가격(엔)',    key: 'priceJpy',    width: 14 },
       { header: '상품 가격(원)',    key: 'priceKrw',    width: 14 },
       { header: '상품 최종 금액',   key: 'lineTotal',   width: 16 },
+      { header: '모집비(건)',       key: 'recruitFee',  width: 14 },
+      { header: '모집비(원)',       key: 'recruitFeeTotal', width: 16 },
       { header: '이체수수료(건)',   key: 'transferFee', width: 14 },
       { header: '이체수수료(원)',   key: 'feeTotal',    width: 16 },
       { header: '최종 견적 금액',   key: 'finalKrw',    width: 16 },
       { header: 'VAT포함',          key: 'vatKrw',      width: 16 },
       { header: '예상 견적',        key: 'estimated',   width: 16 },
-      { header: '견적서 전달일',    key: 'quoteSent',   width: 14 },
-      { header: '내부 메모',        key: 'memo',        width: 36 },
-      { header: '상태',             key: 'status',      width: 12 },
-      { header: '검수일',           key: 'reviewed',    width: 14 }
+      { header: '견적서 전달일',    key: 'quoteSent',   width: 14 }
     ];
 
     // 헤더 스타일
@@ -6819,56 +6869,63 @@ async function exportBrandApplicationsExcel() {
       var createdStr  = fmtDateTime(a.created_at);
       var quoteSent   = fmtDateOnly(a.quote_sent_at);
       var reviewed    = fmtDateOnly(a.reviewed_at);
-      var statusLabel = (BRAND_APP_STATUS[a.status]?.label) || a.status || '';
       var prods = (Array.isArray(a.products) && a.products.length > 0)
         ? a.products
         : [{ name: '', url: '', qty: 0, price: 0, transfer_fee_krw: null }];
 
       prods.forEach(function(p) {
+        // Phase B: 상태는 제품 단위 — products[i].status 우선, 없으면 신청 단위 a.status 폴백
+        var rowStatus = (p && p.status) || a.status;
+        var statusLabel = (BRAND_APP_STATUS[rowStatus]?.label) || rowStatus || '';
         var qty = Number(p.qty) || 0;
         var priceJpy = Number(p.price) || 0;
         var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
         var lineTotal = qty * priceKrw;
         var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
         var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
-        var finalKrw = calcBrandAppFinalKrw(a.form_type, lineTotal, feeTotalKrw);
+        var recruitFeeKrw = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
+        var recruitFeeTotalKrw = recruitFeeKrw == null ? 0 : qty * recruitFeeKrw;
+        var finalKrw = calcBrandAppFinalKrw(a.form_type, lineTotal, feeTotalKrw, recruitFeeTotalKrw);
         var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
         ws.addRow({
-          // 신청 단위 — 모든 행 반복 (sort/filter 친화적)
-          created:     createdStr,
+          // 신청 단위 — 모든 행 반복 (정렬·필터 친화적). 화면과 동일하게 brand?.* / applicant_* 우선
           no:          a.application_no || '',
           form:        brandAppFormLabel(a.form_type),
-          brand:       a.brand_name || '',
-          contact:     a.contact_name || '',
-          email:       a.email || '',
-          phone:       formatPhoneDisplay(a.phone),
-          billing:     a.billing_email || '',
+          brand:       (a.brand && a.brand.name) || a.brand_name || '',
+          status:      statusLabel,
+          reviewed:    reviewed,
+          created:     createdStr,
+          company:     (a.brand && a.brand.company_name) || '',
+          contact:     a.applicant_contact_name || a.contact_name || '',
+          email:       a.applicant_email || a.email || '',
+          phone:       formatPhoneDisplay(a.applicant_phone || a.phone),
+          billing:     (a.brand && a.brand.billing_email) || a.billing_email || '',
           requestNote: a.request_note || '',
           // 제품 단위
           productName:   p.name || '',
           productNameJa: p.name_ja || '',
           productUrl:    p.url || '',
-          qty:         qty || '',
-          priceJpy:    priceJpy || '',
-          priceKrw:    priceKrw || '',
-          lineTotal:   lineTotal || '',
-          transferFee: transferFeeKrw == null ? '' : transferFeeKrw,
-          feeTotal:    feeTotalKrw || '',
-          finalKrw:    finalKrw || '',
-          vatKrw:      vatKrw || '',
-          // 신청 단위 (견적/메모/상태)
+          memo:          a.admin_memo || '',
+          qty:           qty || '',
+          priceJpy:      priceJpy || '',
+          priceKrw:      priceKrw || '',
+          lineTotal:     lineTotal || '',
+          recruitFee:    recruitFeeKrw == null ? '' : recruitFeeKrw,
+          recruitFeeTotal: recruitFeeTotalKrw || '',
+          transferFee:   transferFeeKrw == null ? '' : transferFeeKrw,
+          feeTotal:      feeTotalKrw || '',
+          finalKrw:      finalKrw || '',
+          vatKrw:        vatKrw || '',
+          // 신청 단위 (예상 견적/견적서 전달일)
           estimated:   (a.estimated_krw == null || a.estimated_krw === '') ? '' : Number(a.estimated_krw),
-          quoteSent:   quoteSent,
-          memo:        a.admin_memo || '',
-          status:      statusLabel,
-          reviewed:    reviewed
+          quoteSent:   quoteSent
         });
         totalProductRows++;
       });
     });
 
     // 통화·수량 컬럼 포맷
-    ['priceJpy','priceKrw','lineTotal','transferFee','feeTotal','finalKrw','vatKrw','estimated'].forEach(function(k){
+    ['priceJpy','priceKrw','lineTotal','recruitFee','recruitFeeTotal','transferFee','feeTotal','finalKrw','vatKrw','estimated'].forEach(function(k){
       var col = ws.getColumn(k);
       col.numFmt = '#,##0';
       col.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -7195,15 +7252,15 @@ var BRAND_STATUS_COLOR = {
   rejected:            '#B0B0B8'    // 회색 (종료)
 };
 var BRAND_FUNNEL_STAGES = [
-  {key:'new',                 label:'접수 (new)'},
-  {key:'reviewing',           label:'검토 (reviewing)'},
-  {key:'quoted',              label:'견적 전달 (quoted)'},
-  {key:'paid',                label:'입금 완료 (paid)'},
-  {key:'kakao_room_created',  label:'카톡방 생성 (kakao_room_created)'},
-  {key:'orient_sheet_sent',   label:'오리엔시트 전달 (orient_sheet_sent)'},
-  {key:'schedule_sent',       label:'일정 전달 (schedule_sent)'},
-  {key:'campaign_registered', label:'캠페인 등록 (campaign_registered)'},
-  {key:'done',                label:'최종 완료 (done)'}
+  {key:'new',                 nameKo:'접수',          nameEn:'new'},
+  {key:'reviewing',           nameKo:'검토',          nameEn:'reviewing'},
+  {key:'quoted',              nameKo:'견적 전달',     nameEn:'quoted'},
+  {key:'paid',                nameKo:'입금 완료',     nameEn:'paid'},
+  {key:'kakao_room_created',  nameKo:'카톡방 생성',   nameEn:'kakao_room_created'},
+  {key:'orient_sheet_sent',   nameKo:'오리엔시트 전달', nameEn:'orient_sheet_sent'},
+  {key:'schedule_sent',       nameKo:'일정 전달',     nameEn:'schedule_sent'},
+  {key:'campaign_registered', nameKo:'캠페인 등록',   nameEn:'campaign_registered'},
+  {key:'done',                nameKo:'최종 완료',     nameEn:'done'}
 ];
 // 전환 깔때기용: status가 이 단계 이상이면 도달한 것으로 간주 (rejected 제외)
 var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:-1};
@@ -7239,15 +7296,35 @@ function renderBrandDashboard() {
   renderBrandLongPending(apps);
 }
 
+// 신청 배열을 제품 단위로 평탄화 — Phase B 통계용
+// 각 항목 = {app, product, idx, status} 형태. products 비어있으면 1행 placeholder
+function _flattenAppsToProducts(apps) {
+  var flat = [];
+  (apps || []).forEach(function(a) {
+    var prods = Array.isArray(a.products) ? a.products : [];
+    if (prods.length === 0) {
+      flat.push({app: a, product: null, idx: 0, status: a.status || null});
+    } else {
+      prods.forEach(function(p, idx) {
+        var s = (p && p.status) || a.status || null;
+        flat.push({app: a, product: p, idx: idx, status: s});
+      });
+    }
+  });
+  return flat;
+}
+
 function renderBrandKPIs(apps) {
   var now = new Date();
   var thisMonth = now.toISOString().slice(0,7); // 'YYYY-MM'
   var reviewerN = apps.filter(function(a){ return a.form_type === 'reviewer'; }).length;
   var seedingN  = apps.filter(function(a){ return a.form_type === 'seeding'; }).length;
   var thisMonthN = apps.filter(function(a){ return (a.created_at||'').slice(0,7) === thisMonth; }).length;
-  var pendingN = apps.filter(function(a){ return a.status === 'new' || a.status === 'reviewing'; }).length;
-  var quotedN  = apps.filter(function(a){ return a.status === 'quoted'; }).length;
-  var doneN    = apps.filter(function(a){ return a.status === 'done'; }).length;
+  // status 단위 카운트는 제품 단위로 (Phase B). 합계·avgLead·estimated/finalSum은 신청 단위 유지(평탄화 시 X배 부풀림 방지)
+  var flat = _flattenAppsToProducts(apps);
+  var pendingN = flat.filter(function(f){ return f.status === 'new' || f.status === 'reviewing'; }).length;
+  var quotedN  = flat.filter(function(f){ return f.status === 'quoted'; }).length;
+  var doneN    = flat.filter(function(f){ return f.status === 'done'; }).length;
 
   // 평균 처리일: done 건만 대상, created_at -> reviewed_at 차이(폴백 updated_at)
   var leadDays = [];
@@ -7287,35 +7364,53 @@ function renderBrandKPIs(apps) {
 function renderBrandFunnel(apps) {
   var host = $('brandFunnel');
   if (!host) return;
-  if (!apps.length) {
+  // Phase B: 제품 단위 카운트 — 같은 신청에 제품 N개면 N번 카운트
+  var flat = _flattenAppsToProducts(apps);
+  if (!flat.length) {
     host.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">데이터 없음</div>';
     return;
   }
-  // rejected 제외한 총 접수 건수 (깔때기 분모)
-  var activeTotal = apps.filter(function(a){ return a.status !== 'rejected'; }).length;
-  var html = BRAND_FUNNEL_STAGES.map(function(stage, idx) {
+  // rejected 제외한 총 접수 제품 수 (깔때기 분모)
+  var activeTotal = flat.filter(function(f){ return f.status !== 'rejected'; }).length;
+
+  // 컬럼 폭: 라벨 200 / 진행률 1fr / 도달 70 / 전환 110
+  var GRID = 'grid-template-columns:200px 1fr 70px 110px;gap:10px;align-items:center';
+
+  // 헤더 행 (각 컬럼 제목)
+  var header = '<div style="display:grid;' + GRID + ';padding:0 0 8px;border-bottom:1px solid var(--line);margin-bottom:8px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase">단계</div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase">진행률</div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;text-align:right">도달</div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;text-align:right">전체비 · 전환율</div>'
+  + '</div>';
+
+  var rows = BRAND_FUNNEL_STAGES.map(function(stage, idx) {
     var threshold = BRAND_STATUS_ORDER_FOR_FUNNEL[stage.key];
-    var reached = apps.filter(function(a){
-      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[a.status];
+    var reached = flat.filter(function(f){
+      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[f.status];
       return ord !== -1 && ord >= threshold;
     }).length;
     var ratio = activeTotal ? Math.round((reached / activeTotal) * 100) : 0;
-    var prev = idx === 0 ? activeTotal : apps.filter(function(a){
-      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[a.status];
+    var prev = idx === 0 ? activeTotal : flat.filter(function(f){
+      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[f.status];
       var prevThreshold = BRAND_STATUS_ORDER_FOR_FUNNEL[BRAND_FUNNEL_STAGES[idx-1].key];
       return ord !== -1 && ord >= prevThreshold;
     }).length;
     var stepConv = prev ? Math.round((reached / prev) * 100) : 0;
-    return '<div style="display:grid;grid-template-columns:160px 1fr 80px 70px;gap:10px;align-items:center">'
-      + '<div style="font-size:12px;font-weight:600;color:var(--ink)">' + esc(stage.label) + '</div>'
+    var isLast = idx === BRAND_FUNNEL_STAGES.length - 1;
+    return '<div style="display:grid;' + GRID + ';padding:8px 0' + (isLast ? '' : ';border-bottom:1px dashed rgba(0,0,0,0.06)') + '">'
+      + '<div style="font-size:12px;font-weight:600;color:var(--ink);line-height:1.4">'
+        + esc(stage.nameKo)
+        + ' <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:4px">' + esc(stage.nameEn) + '</span>'
+      + '</div>'
       + '<div style="height:22px;background:rgba(200,120,163,.08);border-radius:100px;overflow:hidden;position:relative">'
       + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
       + '</div>'
-      + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '건</div>'
-      + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
+      + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '개</div>'
+      + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
       + '</div>';
   }).join('');
-  host.innerHTML = html;
+  host.innerHTML = header + rows;
 }
 
 function renderBrandFormDonut(apps) {
@@ -7340,7 +7435,7 @@ function renderBrandFormDonut(apps) {
   _brandFormDonut = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['Qoo10 리뷰어', '나노 시딩'],
+      labels: ['리뷰어', '나노 시딩'],
       datasets: [{
         data: [reviewerN, seedingN],
         backgroundColor: ['#C878A3', '#5B8FD6'],
@@ -7372,10 +7467,12 @@ function renderBrandStatusDonut(apps) {
   if (!canvas) return;
   if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
 
+  // Phase B: 제품 단위 카운트
+  var flat = _flattenAppsToProducts(apps);
   var keys = ['new','reviewing','quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
-  var counts = keys.map(function(k){ return apps.filter(function(a){ return a.status === k; }).length; });
+  var counts = keys.map(function(k){ return flat.filter(function(f){ return f.status === k; }).length; });
   var total = counts.reduce(function(s,n){ return s+n; }, 0);
-  if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '건') : '';
+  if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '개') : '';
   if (!total) {
     canvas.style.display = 'none';
     if (empty) empty.style.display = 'flex';
@@ -7403,7 +7500,7 @@ function renderBrandStatusDonut(apps) {
           callbacks: {
             label: function(ctx) {
               var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
-              return ctx.label + ': ' + ctx.parsed + '건 (' + pct + '%)';
+              return ctx.label + ': ' + ctx.parsed + '개 (' + pct + '%)';
             }
           }
         }
@@ -7435,7 +7532,7 @@ function renderBrandTrendChart(apps, days) {
     data: {
       labels: labels,
       datasets: [
-        { label: 'Qoo10 리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
+        { label: '리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
         { label: '나노 시딩',    data: seedingData,  backgroundColor: '#5B8FD6', borderRadius: 3, stack: 'applications' }
       ]
     },
@@ -7470,7 +7567,7 @@ function renderBrandRecent(apps) {
     return;
   }
   host.innerHTML = top5.map(function(a){
-    var formLabel = a.form_type === 'reviewer' ? 'Qoo10 리뷰어' : (a.form_type === 'seeding' ? '나노 시딩' : a.form_type);
+    var formLabel = a.form_type === 'reviewer' ? '리뷰어' : (a.form_type === 'seeding' ? '나노 시딩' : a.form_type);
     var dateStr = (a.created_at || '').slice(0,10);
     var statusColor = BRAND_STATUS_COLOR[a.status] || '#888';
     var statusLabel = BRAND_STATUS_LABEL_KO[a.status] || a.status;
@@ -7502,7 +7599,7 @@ function renderBrandLongPending(apps) {
     return;
   }
   host.innerHTML = longPending.slice(0,5).map(function(a){
-    var formLabel = a.form_type === 'reviewer' ? 'Qoo10 리뷰어' : '나노 시딩';
+    var formLabel = a.form_type === 'reviewer' ? '리뷰어' : '나노 시딩';
     var dateStr = (a.created_at || '').slice(0,10);
     var waitDays = Math.floor((Date.now() - new Date(a.created_at).getTime()) / (1000*60*60*24));
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #E8A355;border-radius:8px;cursor:pointer;transition:background 0.15s;background:rgba(232,163,85,.04)" onmouseover="this.style.background=\'rgba(232,163,85,.1)\'" onmouseout="this.style.background=\'rgba(232,163,85,.04)\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
@@ -7520,16 +7617,37 @@ var _brandAppMemoSummaries = {};      // {appId: {count, latest}}
 var _brandAppMemoModalCurrentId = null;
 var _brandAppMemoModalCache = [];     // open된 신청의 메모 배열 (memory)
 
-// 인라인 편집 성공 후 카운트 즉시 +1 + 해당 row의 이력 버튼 셀만 outerHTML 갱신
+// 인라인 편집 성공 후 카운트 캐시만 +1 (배지 미표시. 다음 더보기 메뉴 열 때 새 카운트 반영)
 function _refreshBrandAppHistoryButton(id) {
   _brandAppHistoryCounts[id] = (_brandAppHistoryCounts[id] || 0) + 1;
-  var sel = '#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(id) : id) + '"][data-summary="1"]';
-  var row = document.querySelector(sel);
-  if (!row) return;
-  var lastTd = row.lastElementChild;
-  if (!lastTd) return;
-  var hcnt = _brandAppHistoryCounts[id];
-  lastTd.innerHTML = '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button>';
+}
+
+// 신청 행 더보기 메뉴 — 캠페인 더보기 패턴(camp-more-menu) 재사용
+function toggleBrandAppRowMenu(e, btnEl, appId) {
+  e.stopPropagation();
+  document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
+
+  var rect = btnEl.getBoundingClientRect();
+  var menu = document.createElement('div');
+  menu.className = 'camp-more-menu';
+  var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[appId] || 0) : 0;
+  var historyItem = hcnt > 0
+    ? '<div class="camp-more-item" onclick="openBrandAppHistoryModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>이력 (' + hcnt + ')</div>'
+    : '<div class="camp-more-item" style="opacity:.4;cursor:not-allowed" title="변경 이력 없음"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>이력 (0)</div>';
+  menu.innerHTML = ''
+    + '<div class="camp-more-item" onclick="openBrandAppEditModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>수정</div>'
+    + historyItem;
+  document.body.appendChild(menu);
+  _positionMenuInViewport(menu, rect, {placement: 'left-of'});
+
+  setTimeout(function() {
+    document.addEventListener('click', function _close(ev) {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener('click', _close);
+      }
+    });
+  }, 0);
 }
 
 // ══════════════════════════════════════
@@ -7663,6 +7781,112 @@ function _genContactId() {
   return 'c-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
 }
 
+// 브랜드 상세 모달 「이 브랜드의 신청 내역」 전용 — 신청별 펼침 카드 (조회 전용)
+//   카드 헤더: 신청번호·폼·상태·신청일 + 합산(제품수·총수량·최종 견적·VAT·예상 견적)
+//   카드 본문(펼치면): 제품 N행 표(제품명·URL·수량·단가엔/원·모집비·이체수수료·소계)
+function renderBrandAppsBundledView(apps) {
+  if (!apps || apps.length === 0) {
+    return '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">신청 내역 없음</div>';
+  }
+  return '<div style="display:flex;flex-direction:column;gap:8px">'
+    + apps.map(renderBrandAppBundleCard).join('')
+    + '</div>';
+}
+
+function renderBrandAppBundleCard(a) {
+  var prods = Array.isArray(a.products) ? a.products : [];
+  var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
+  var totalLine = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0) * (Number(p.price) || 0) * BRAND_QUOTE_CONST.FX_JPY_KRW; }, 0);
+  var totalFee = prods.reduce(function(s, p){
+    var fee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? 0 : Number(p.transfer_fee_krw);
+    return s + (Number(p.qty) || 0) * fee;
+  }, 0);
+  var totalRecruitFee = prods.reduce(function(s, p){
+    var rf = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? 0 : Number(p.recruit_fee_krw);
+    return s + (Number(p.qty) || 0) * rf;
+  }, 0);
+  var totalFinal = calcBrandAppFinalKrw(a.form_type, totalLine, totalFee, totalRecruitFee);
+  var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+
+  var statusInfo = BRAND_APP_STATUS[a.status] || {label: a.status || '—', color:'#666', bg:'#EEE'};
+
+  var headerHtml = '<div onclick="toggleBrandAppBundleCard(this)" style="cursor:pointer;background:var(--surface-dim);padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<span class="material-icons-round notranslate" translate="no" data-bundle-arrow style="font-size:18px;color:var(--muted)">chevron_right</span>'
+    + '<span style="font-size:12px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums">' + esc(a.application_no || '—') + '</span>'
+    + '<span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>'
+    + '<span style="background:' + esc(statusInfo.bg) + ';color:' + esc(statusInfo.color) + ';font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(statusInfo.label) + '</span>'
+    + '<span style="font-size:11px;color:var(--muted);margin-left:auto">' + esc(fmtDate(a.created_at)) + '</span>'
+  + '</div>'
+  + '<div style="background:#fff;padding:8px 12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px">'
+    + '<span style="color:var(--muted)">제품 <strong style="color:var(--ink)">' + prods.length + '개</strong></span>'
+    + '<span style="color:var(--muted)">총 수량 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : '—') + '</strong></span>'
+    + (totalFinal > 0 ? '<span style="color:var(--muted)">최종 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(totalFinal) + '</strong></span>' : '')
+    + (totalVat > 0 ? '<span style="color:var(--muted)">VAT포함 <strong style="color:#16a34a;font-variant-numeric:tabular-nums">' + fmtKrw(totalVat) + '</strong></span>' : '')
+    + '<span style="color:var(--muted);margin-left:auto">예상 견적 <strong style="color:var(--ink);font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</strong></span>'
+  + '</div>';
+
+  var dash = '<span style="color:var(--muted)">—</span>';
+  var bodyRows = prods.map(function(p){
+    var qty = Number(p.qty) || 0;
+    var priceJpy = Number(p.price) || 0;
+    var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
+    var lineTotal = qty * priceKrw;
+    var rfee = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
+    var tfee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
+    var urlSafe = (typeof safeBrandUrl === 'function') ? safeBrandUrl(p.url) : null;
+    var urlCell = p.url
+      ? (urlSafe
+          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" style="color:var(--pink);text-decoration:none;word-break:break-all">' + esc(p.url) + '</a>'
+          : '<span style="color:var(--muted);word-break:break-all">' + esc(p.url) + '</span>')
+      : dash;
+    return '<tr>'
+      + '<td style="font-weight:600;font-size:11px;padding:6px 8px">' + (p.name ? esc(p.name) : dash)
+        + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
+      + '</td>'
+      + '<td style="font-size:10px;padding:6px 8px;max-width:220px;line-height:1.4">' + urlCell + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (rfee != null ? fmtKrw(rfee) : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (tfee != null ? fmtKrw(tfee) : dash) + '</td>'
+      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;font-weight:600;padding:6px 8px">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
+    + '</tr>';
+  }).join('');
+
+  var bodyHtml = '<div data-bundle-body style="display:none;background:#fff;border-top:1px solid var(--line)">'
+    + '<table class="data-table" style="width:100%;font-size:11px;margin:0">'
+      + '<thead><tr style="background:var(--surface-dim)">'
+        + '<th style="padding:6px 8px;text-align:left">제품명</th>'
+        + '<th style="padding:6px 8px;text-align:left">URL</th>'
+        + '<th style="text-align:right;padding:6px 8px">수량</th>'
+        + '<th style="text-align:right;padding:6px 8px">가격(엔)</th>'
+        + '<th style="text-align:right;padding:6px 8px">가격(원)</th>'
+        + '<th style="text-align:right;padding:6px 8px">모집비</th>'
+        + '<th style="text-align:right;padding:6px 8px">이체수수료</th>'
+        + '<th style="text-align:right;padding:6px 8px">소계</th>'
+      + '</tr></thead>'
+      + '<tbody>' + (bodyRows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:14px">제품 정보 없음</td></tr>') + '</tbody>'
+    + '</table>'
+  + '</div>';
+
+  return '<div data-bundle-card="' + esc(a.id) + '" style="border:1px solid var(--line);border-radius:6px;overflow:hidden">'
+    + headerHtml
+    + bodyHtml
+  + '</div>';
+}
+
+// 카드 헤더 클릭 시 본문 펼침/접힘 토글
+function toggleBrandAppBundleCard(headerEl) {
+  var card = headerEl.closest('[data-bundle-card]');
+  if (!card) return;
+  var body = card.querySelector('[data-bundle-body]');
+  var arrow = headerEl.querySelector('[data-bundle-arrow]');
+  if (!body) return;
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : '';
+  if (arrow) arrow.textContent = isOpen ? 'chevron_right' : 'expand_more';
+}
+
 function renderBrandDetailFormHtml(b, apps) {
   // contacts 초기화
   _brandFormContacts = Array.isArray(b.contacts) ? b.contacts.map(function(c){
@@ -7702,24 +7926,8 @@ function renderBrandDetailFormHtml(b, apps) {
     return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="' + (rows || 3) + '" style="resize:vertical;font-family:inherit;width:100%" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
   };
 
-  // 신청 내역
-  var appsHtml;
-  if (!apps || apps.length === 0) {
-    appsHtml = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px;background:var(--surface-dim);border-radius:6px">신청 내역 없음</div>';
-  } else {
-    appsHtml = '<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden">'
-      + '<table class="data-table" style="font-size:12px;margin:0;width:100%">'
-      + '<thead><tr><th>신청번호</th><th>폼</th><th>상태</th><th style="text-align:right">예상 견적</th><th>신청일</th></tr></thead>'
-      + '<tbody>' + apps.map(function(a){
-        return '<tr>'
-          + '<td style="font-weight:600">' + esc(a.application_no || '—') + '</td>'
-          + '<td>' + esc(brandAppFormLabel(a.form_type)) + '</td>'
-          + '<td>' + esc((BRAND_APP_STATUS[a.status]?.label) || a.status || '—') + '</td>'
-          + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
-          + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-        + '</tr>';
-      }).join('') + '</tbody></table></div>';
-  }
+  // 신청 내역 — 신청별 펼침 카드 (헤더에 합산, 펼치면 제품 N행 표)
+  var appsHtml = renderBrandAppsBundledView(apps);
 
   return ''
     // § 기본 정보
@@ -8038,7 +8246,17 @@ function getFilteredBrandApps() {
 
   var list = _brandApps.slice();
   if (formVals.length > 0) list = list.filter(a => formVals.indexOf(a.form_type) >= 0);
-  if (statusVals.length > 0) list = list.filter(a => statusVals.indexOf(a.status) >= 0);
+  // Phase B: status 필터는 제품 단위 — 매칭 제품이 1개라도 있는 신청 통과. render 시 행 단위 필터로 매칭 제품만 노출
+  if (statusVals.length > 0) {
+    list = list.filter(function(a) {
+      var prods = Array.isArray(a.products) ? a.products : [];
+      if (prods.length === 0) return statusVals.indexOf(a.status) >= 0;
+      return prods.some(function(p) {
+        var s = (p && p.status) || a.status;
+        return statusVals.indexOf(s) >= 0;
+      });
+    });
+  }
   if (from) list = list.filter(a => (a.created_at || '') >= from);
   if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
   if (q) list = list.filter(a =>
@@ -8091,14 +8309,17 @@ function renderBrandApplicationsList() {
   if (!tbody) return;
 
   // 옵션별 (NN) 카운트 갱신 — 필터 적용 전 전체 신청 기준
+  // form은 신청 단위, status는 Phase B에 따라 제품 단위 카운트
   var formCounts = {reviewer:0, seeding:0};
   var brandStatusCounts = {};
   (_brandApps || []).forEach(function(a) {
     if (a.form_type) formCounts[a.form_type] = (formCounts[a.form_type] || 0) + 1;
-    if (a.status) brandStatusCounts[a.status] = (brandStatusCounts[a.status] || 0) + 1;
+  });
+  _flattenAppsToProducts(_brandApps).forEach(function(f) {
+    if (f.status) brandStatusCounts[f.status] = (brandStatusCounts[f.status] || 0) + 1;
   });
   syncMultiFilter('brandAppFormMulti', '전체 폼', [
-    {value:'reviewer', label:'Qoo10 리뷰어', count: formCounts.reviewer || 0},
+    {value:'reviewer', label:'리뷰어', count: formCounts.reviewer || 0},
     {value:'seeding',  label:'나노 시딩',   count: formCounts.seeding  || 0},
   ], renderBrandApplicationsList);
   syncMultiFilter('brandAppStatusMulti', '전체 상태', [
@@ -8133,14 +8354,27 @@ function renderBrandApplicationsList() {
       : '(' + summary + ')';
   }
 
-  // 요약 행 + (펼친 경우) 탭 헤더 + 탭 콘텐츠
+  // Phase B: status 필터가 켜지면 매칭 제품 행만 노출 (행 단위 필터)
+  // 「제품 N개」 라벨은 항상 원본 전체 개수. idx는 원본 인덱스 유지(cur.products[idx] 매핑 정확성).
+  // 「첫 행」 시각 표시는 화면 첫 행(displayIdx === 0) 기준
+  var statusFilter = getMultiFilterValues('brandAppStatusMulti');
   var renderBrandAppRow = function(a) {
-    var html = renderBrandAppSummaryRow(a);
-    if (_brandAppExpanded.has(a.id)) {
-      var prods = Array.isArray(a.products) ? a.products : [];
-      html += prods.map(function(p, idx){ return renderBrandAppDetailRow(a, p, idx); }).join('');
+    var allProds = Array.isArray(a.products) ? a.products : [];
+    var totalCount = allProds.length;
+    var pairs = allProds.map(function(p, originalIdx) { return {p: p, idx: originalIdx}; });
+    if (statusFilter.length > 0) {
+      pairs = pairs.filter(function(pair) {
+        var s = (pair.p && pair.p.status) || a.status;
+        return statusFilter.indexOf(s) >= 0;
+      });
+      if (pairs.length === 0) return ''; // 매칭 제품 없으면 신청 자체 미노출
     }
-    return html;
+    if (pairs.length === 0) {
+      return renderBrandAppFlatRow(a, {}, 0, 0, true);
+    }
+    return pairs.map(function(pair, displayIdx) {
+      return renderBrandAppFlatRow(a, pair.p, pair.idx, totalCount, displayIdx === 0);
+    }).join('');
   };
   if (brandAppLazy) brandAppLazy.destroy();
   brandAppLazy = mountLazyList({
@@ -8149,7 +8383,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="24" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="25" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -8243,12 +8477,15 @@ function _findBrandApp(id) {
 var BRAND_QUOTE_CONST = { FX_JPY_KRW: 10, VAT_RATE: 0.1 };
 
 // 최종 견적 금액(화면·엑셀 공용 계산):
-//   reviewer: 상품 최종 금액(lineTotal) + 이체수수료(feeTotal)
-//   seeding : 이체수수료(feeTotal)만 합산 — 상품 가격은 참고용으로만 표시하고 견적에 포함 안 함
+//   reviewer: 상품 최종 금액(lineTotal) + 모집비(recruitFeeTotal) + 이체수수료(feeTotal)
+//   seeding : 모집비(recruitFeeTotal) + 이체수수료(feeTotal)만 합산 — 상품 가격은 참고용
 //   그 외(미정) : reviewer와 동일하게 합산 (안전 폴백)
-function calcBrandAppFinalKrw(formType, lineTotal, feeTotal) {
-  if (formType === 'seeding') return Number(feeTotal) || 0;
-  return (Number(lineTotal) || 0) + (Number(feeTotal) || 0);
+//   모집비는 관리자 수동 입력 단가(products[i].recruit_fee_krw). 미입력은 0으로 처리.
+function calcBrandAppFinalKrw(formType, lineTotal, feeTotal, recruitFeeTotal) {
+  var fee = Number(feeTotal) || 0;
+  var rfee = Number(recruitFeeTotal) || 0;
+  if (formType === 'seeding') return fee + rfee;
+  return (Number(lineTotal) || 0) + fee + rfee;
 }
 
 // 제품 URL 셀 — 안전 URL이면 클릭 링크 + 복사 버튼, 아니면 평문 표시
@@ -8271,8 +8508,6 @@ function renderProductUrlCell(url) {
   + '</div>';
 }
 
-// 펼친 신청 ID 집합 (메모리 — 새로고침 시 초기화)
-var _brandAppExpanded = new Set();
 // 신청별 이력 캐시 (id → array) — 모달 재오픈 시 fresh load이지만 cache로 보존
 var _brandAppHistoryCache = new Map();
 
@@ -8336,208 +8571,148 @@ function _uniformProductValue(prods, key) {
   return {uniform: true, value: first};
 }
 
-// 신청 1건 = 1행 (요약 행, 24컬럼). 합산 가능 컬럼은 SUM, 단가는 동일하면 그 값/다르면 "—"
-function renderBrandAppSummaryRow(a) {
-  var prods = Array.isArray(a.products) ? a.products : [];
-  var totalQty = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0); }, 0);
-  var totalLine = prods.reduce(function(s, p){ return s + (Number(p.qty) || 0) * (Number(p.price) || 0) * BRAND_QUOTE_CONST.FX_JPY_KRW; }, 0);
-  var totalFee = prods.reduce(function(s, p){
-    var fee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? 0 : Number(p.transfer_fee_krw);
-    return s + (Number(p.qty) || 0) * fee;
-  }, 0);
-  // seeding 폼은 상품 가격이 참고용이라 최종 견적에 미포함 (calcBrandAppFinalKrw 헬퍼에 정책 일원화)
-  var totalFinal = calcBrandAppFinalKrw(a.form_type, totalLine, totalFee);
-  var totalVat = Math.floor(totalFinal * (1 + BRAND_QUOTE_CONST.VAT_RATE));
-  // 단가 — 모든 제품 동일하면 그 값(빈 값 포함 — dash로 표시), 다르면 "제품별 상이"
-  var uPriceJpy = _uniformProductValue(prods, 'price');
-  var uTfee = _uniformProductValue(prods, 'transfer_fee_krw');
-  var uPriceKrw = uPriceJpy.uniform
-    ? {uniform: true, value: (uPriceJpy.value != null && uPriceJpy.value !== '') ? Number(uPriceJpy.value) * BRAND_QUOTE_CONST.FX_JPY_KRW : null}
-    : {uniform: false, value: null};
+// 신청 1건 = 제품 N행 평탄화 (21컬럼). 같은 신청의 제품 행은 인접 배치.
+//   idx: 원본 a.products 배열 내 인덱스 (cur.products[idx] 매핑용)
+//   count: 신청 전체 제품 수 (필터 무관 — 「제품 N개」 라벨에 사용)
+//   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
+//            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
+function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
+  if (typeof isFirst === 'undefined') isFirst = (idx === 0);
+  var qty = Number(p && p.qty) || 0;
+  var priceJpy = Number(p && p.price) || 0;
+  var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
+  var transferFeeKrw = (!p || p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
+  var recruitFeeKrw = (!p || p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
 
   var dash = '<span style="color:var(--muted)">—</span>';
-  var multi = '<span style="color:var(--muted);font-size:10px">제품별 상이</span>';
-  var renderUnit = function(u, formatter) {
-    if (!u.uniform) return multi;
-    return (u.value != null && u.value !== '') ? formatter(u.value) : dash;
-  };
+  var emptyAction = '<td></td>';
 
-  // 펼치기 토글 (제품 2개 이상 또는 항상 표시 — 일관성 위해 항상 표시)
-  var isOpen = _brandAppExpanded.has(a.id);
-  var arrowIcon = isOpen ? 'expand_more' : 'chevron_right';
-  var toggleBtn = '<button type="button" class="brand-app-expand-btn" onclick="event.stopPropagation();toggleBrandAppExpand(\'' + esc(a.id) + '\', this)" title="제품 ' + prods.length + '개 ' + (isOpen ? '접기' : '펼치기') + '" style="background:none;border:none;cursor:pointer;padding:0;margin-right:2px;color:var(--muted);display:inline-flex;align-items:center;vertical-align:middle"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">' + arrowIcon + '</span></button>';
+  // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시 (행 차등 색상은 모두 제거 — 모든 행에 동일하게 표시)
+  var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
 
-  var qLocked = false;
-  var memoText = (a.admin_memo || '').trim();
-  var memoCellInner = '<div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a.id) + '</div>';
-  var quoteSentInner = '<div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, qLocked) + '</div>';
-
-  // source='manual_admin' 인 경우 「직접등록」 배지 (UI 구분용, DB 변경 없음)
   var manualBadge = (a.source === 'manual_admin')
     ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:4px" title="관리자가 직접 등록한 신청">직접등록</span>'
     : '';
-  return '<tr data-id="' + esc(a.id) + '" data-summary="1">'
-    // 1. 신청번호 + 폼 종류 + 토글 + 제품 N개 (셀 전체 클릭으로 토글)
-    + '<td onclick="handleBrandAppRowClick(event)" style="cursor:pointer">'
-      + '<div style="display:flex;align-items:flex-start;gap:2px">'
-        + toggleBtn
-        + '<div style="flex:1;min-width:0">'
-          + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
-          + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + manualBadge + '</div>'
-          + '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + prods.length + '개</div>'
-        + '</div>'
-      + '</div>'
-    + '</td>'
-    // 2. 회사명 — brands.company_name 표시 (없으면 dash)
-    + '<td style="font-size:12px;color:var(--ink)">' + esc(a.brand?.company_name || '—') + '</td>'
-    // 3. 브랜드 — brands.name 우선, 클릭 시 브랜드 상세 모달
-    + (function(){
-        var brandName = a.brand?.name || a.brand_name || '—';
-        var brandNo = a.brand?.brand_no || '';
-        if (a.brand_id) {
-          return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
-            + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
-          + '</td>';
-        }
-        return '<td style="font-weight:600">' + esc(brandName) + '</td>';
-      })()
-    // 3. 담당자 — applicant_* 우선 (신청 시점 스냅샷), 없으면 legacy contact
-    + (function(){
-        var name = a.applicant_contact_name || a.contact_name || '—';
-        var email = a.applicant_email || a.email || '';
-        return '<td>'
-          + '<div>' + esc(name) + '</div>'
-          + (email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(email) + '</div>' : '')
-        + '</td>';
-      })()
-    // 4. 연락처
-    + '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.applicant_phone || a.phone) || '—') + '</td>'
-    // 5. 계산서 이메일 — brands.billing_email 우선, 없으면 application
-    + (function(){
-        var be = a.brand?.billing_email || a.billing_email || '';
-        return '<td style="font-size:12px;color:' + (be ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(be || '—') + '</td>';
-      })()
-    // 6. 요청사항
-    + '<td>' + brandAppNoteCell(a.request_note) + '</td>'
-    // 7. 제품명 (요약: 첫 제품 + N개 표시 또는 — )
-    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 ? esc((prods[0].name || '—') + (prods.length > 1 ? ' 외 ' + (prods.length - 1) + '개' : '')) : '—') + '</td>'
-    // 8. URL (요약 — 첫 URL or "여러 URL")
-    + '<td style="font-size:11px;color:var(--muted)">' + (prods.length > 0 && prods[0].url ? '<span style="word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4">' + esc(prods[0].url) + '</span>' + (prods.length > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:2px">외 ' + (prods.length - 1) + '개</div>' : '') : '—') + '</td>'
-    // 9. 진행 수량 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalQty > 0 ? totalQty.toLocaleString('ja-JP') : dash) + '</td>'
-    // 10. 상품 가격(엔) (단가 — 동일하면 값, 아니면 "제품별 상이")
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceJpy, function(v){ return '¥ ' + Number(v).toLocaleString('ja-JP'); }) + '</td>'
-    // 11. 상품 가격(원)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uPriceKrw, function(v){ return fmtKrw(v); }) + '</td>'
-    // 12. 상품 최종 금액 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalLine > 0 ? fmtKrw(totalLine) : dash) + '</td>'
-    // 13. 이체수수료(건) (단가 — 요약 행에서는 read-only)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + renderUnit(uTfee, function(v){ return fmtKrw(v); }) + '</td>'
-    // 14. 이체수수료(원) (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (totalFee > 0 ? fmtKrw(totalFee) : dash) + '</td>'
-    // 15. 최종 견적 금액 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (totalFinal > 0 ? fmtKrw(totalFinal) : dash) + '</td>'
-    // 16. VAT포함 (SUM)
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (totalVat > 0 ? fmtKrw(totalVat) : dash) + '</td>'
-    // 17. 예상 견적
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>'
-    // 18. 견적서 전달
-    + '<td>' + quoteSentInner + '</td>'
-    // 19. 내부 메모
-    + '<td>' + memoCellInner + '</td>'
-    // 20. 상태
-    + '<td>' + brandAppStatusSelect(a) + '</td>'
-    // 21. 검수일
-    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>'
-    // 22. 신청일
-    + '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>'
-    // 23. 이력 — 변경 이력 모달 (이력 0건이면 비활성, 카운트는 회색 라벨)
-    + (function(){
-        var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[a.id] || 0) : 0;
-        if (hcnt > 0) {
-          return '<td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openBrandAppHistoryModal(\'' + esc(a.id) + '\')" style="white-space:nowrap;display:inline-flex;align-items:center;gap:4px">이력<span style="display:inline-block;background:var(--surface-dim);color:var(--muted);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;line-height:1.4">' + hcnt + '</span></button></td>';
-        }
-        return '<td><button class="btn btn-ghost btn-xs" disabled style="opacity:.4;cursor:not-allowed;white-space:nowrap" title="변경 이력 없음">이력</button></td>';
-      })()
-    + '</tr>';
-}
 
-// 펼친 상태일 때 한 제품별 행 — 신청 단위 셀은 빈 td (좌측 보더로 그룹 표시)
-function renderBrandAppDetailRow(a, p, idx) {
-  var qty = Number(p.qty) || 0;
-  var priceJpy = Number(p.price) || 0;
-  var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
-  var lineTotal = qty * priceKrw;
-  var transferFeeKrw = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
-  var feeTotalKrw = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
-  // seeding 폼은 상품 가격이 참고용이라 최종 견적에 미포함 (calcBrandAppFinalKrw 헬퍼)
-  var finalKrw = calcBrandAppFinalKrw(a.form_type, lineTotal, feeTotalKrw);
-  var vatKrw = Math.floor(finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
+  var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
-  var dash = '<span style="color:var(--muted)">—</span>';
-  var emptyApp = '<td></td>'; // 신청 단위 셀 — 펼친 행에서는 비움 (요약 행에 이미 있음)
-
-  return '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-detail="1" style="background:#FBF7FA">'
-    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 1-7 신청 단위 비움 (신청번호/회사명/브랜드/담당자/연락처/계산서/요청사항)
-    // 7. 제품명 (name + name_ja 병기. name_ja는 작은 회색 보조 텍스트)
-    + '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4;border-left:3px solid rgba(200,120,163,.4);padding-left:8px">'
-      + (p.name ? esc(p.name) : dash)
-      + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
-    + '</td>'
-    // 8. URL
-    + '<td>' + renderProductUrlCell(p.url) + '</td>'
-    // 9-16. 제품별 8컬럼
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
-    + '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (feeTotalKrw > 0 ? fmtKrw(feeTotalKrw) : dash) + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;font-weight:600">' + (finalKrw > 0 ? fmtKrw(finalKrw) : dash) + '</td>'
-    + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;color:#16a34a;font-weight:600">' + (vatKrw > 0 ? fmtKrw(vatKrw) : dash) + '</td>'
-    + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp + emptyApp // 17-23 신청 단위 비움
-    + '</tr>';
-}
-
-// 신청번호 셀 클릭으로 토글
-function handleBrandAppRowClick(ev) {
-  // 토글 버튼 자체는 stopPropagation 처리되지만 안전을 위해 한 번 더 가드
-  if (ev.target.closest('button, a, input, select, textarea')) return;
-  var td = ev.currentTarget;
-  var tr = td.closest('tr');
-  if (!tr) return;
-  var id = tr.dataset.id;
-  if (!id) return;
-  var btn = tr.querySelector('.brand-app-expand-btn');
-  if (btn) toggleBrandAppExpand(id, btn);
-}
-
-// 토글: 펼침/접힘 — 같은 신청 ID의 detail 행을 동적 추가/제거
-function toggleBrandAppExpand(id, btnEl) {
-  var summaryTr = btnEl.closest('tr');
-  if (!summaryTr) return;
-  if (_brandAppExpanded.has(id)) {
-    _brandAppExpanded.delete(id);
-    _removeBrandAppDetailRows(summaryTr, id);
-    var icon = btnEl.querySelector('.material-icons-round'); if (icon) icon.textContent = 'chevron_right';
-    btnEl.title = btnEl.title.replace('접기', '펼치기');
-  } else {
-    _brandAppExpanded.add(id);
-    var cur = _findBrandApp(id);
-    if (!cur || !Array.isArray(cur.products)) return;
-    _removeBrandAppDetailRows(summaryTr, id);
-    var html = cur.products.map(function(p, idx){ return renderBrandAppDetailRow(cur, p, idx); }).join('');
-    summaryTr.insertAdjacentHTML('afterend', html);
-    var icon2 = btnEl.querySelector('.material-icons-round'); if (icon2) icon2.textContent = 'expand_more';
-    btnEl.title = btnEl.title.replace('펼치기', '접기');
+  // 1. 신청번호(-N) + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) — 모든 행에 동일 표시
+  // 신청번호 끝에 -1·-2 인덱스 부착(원본 idx+1)으로 행 식별. 「제품 N개」 별도 라벨 불필요
+  // reviewer_channels는 form_type='reviewer'일 때만 의미 (시딩은 항상 NULL — DB CHECK 제약)
+  var channelBadges = '';
+  if (a.form_type === 'reviewer' && Array.isArray(a.reviewer_channels) && a.reviewer_channels.length > 0) {
+    var CH_LABEL = {qoo10: '큐텐', atcosme: '엣코스메'};
+    channelBadges = a.reviewer_channels.map(function(c){
+      var label = CH_LABEL[c] || c;
+      return '<span style="border:1px solid var(--pink);color:var(--pink);background:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px">' + esc(label) + '</span>';
+    }).join('');
   }
-}
+  var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
+  html += '<td>'
+    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + '</div>'
+    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + manualBadge + '</div>'
+    + '</td>';
 
-function _removeBrandAppDetailRows(summaryTr, id) {
-  var next = summaryTr.nextElementSibling;
-  while (next && next.dataset.id === id && next.dataset.detail === '1') {
-    var rm = next; next = next.nextElementSibling; rm.remove();
-  }
+  // 2. 브랜드 (모든 행에 동일 색상)
+  html += (function(){
+    var brandName = a.brand?.name || a.brand_name || '—';
+    var brandNo = a.brand?.brand_no || '';
+    if (a.brand_id) {
+      return '<td><div style="font-weight:600;cursor:pointer;color:var(--pink)" onclick="event.stopPropagation();openBrandDetailModal(\'' + esc(a.brand_id) + '\')" title="브랜드 상세">' + esc(brandName) + '</div>'
+        + (brandNo ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums">' + esc(brandNo) + '</div>' : '')
+      + '</td>';
+    }
+    return '<td style="font-weight:600">' + esc(brandName) + '</td>';
+  })();
+
+  // 3. 상태 (제품 단위 — products[idx].status 우선, 미설정 시 신청 단위 a.status 폴백. 변경 시 그 셀만 갱신)
+  html += '<td>' + brandAppStatusSelectForProduct(a, p, idx) + '</td>';
+
+  // 4. 검수일
+  html += '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.reviewed_at) + '</td>';
+
+  // 5. 신청일
+  html += '<td style="font-size:11px;color:var(--muted)">' + fmtDate(a.created_at) + '</td>';
+
+  // 6. 회사명
+  html += '<td style="font-size:12px;color:var(--ink)">' + esc(a.brand?.company_name || '—') + '</td>';
+
+  // 7. 담당자
+  html += (function(){
+    var name = a.applicant_contact_name || a.contact_name || '—';
+    var email = a.applicant_email || a.email || '';
+    return '<td>'
+      + '<div>' + esc(name) + '</div>'
+      + (email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(email) + '</div>' : '')
+    + '</td>';
+  })();
+
+  // 8. 연락처
+  html += '<td style="font-size:12px">' + esc(formatPhoneDisplay(a.applicant_phone || a.phone) || '—') + '</td>';
+
+  // 9. 계산서 이메일
+  html += (function(){
+    var be = a.brand?.billing_email || a.billing_email || '';
+    return '<td style="font-size:12px;color:' + (be ? 'var(--ink)' : 'var(--muted)') + ';word-break:break-all">' + esc(be || '—') + '</td>';
+  })();
+
+  // 10. 요청사항
+  html += '<td>' + brandAppNoteCell(a.request_note) + '</td>';
+
+  // 11. 제품명 (제품 단위)
+  html += '<td style="font-weight:600;color:var(--ink);font-size:11px;word-break:break-word;line-height:1.4">'
+    + (p && p.name ? esc(p.name) : dash)
+    + (p && p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
+    + '</td>';
+
+  // 12. URL (제품 단위)
+  html += '<td>' + renderProductUrlCell(p && p.url) + '</td>';
+
+  // 13~16. 신규 4 일정 컬럼 (제품 단위 — 인라인 날짜 편집)
+  // 모집기간 (range): products[i].recruit_start ~ products[i].recruit_end
+  html += '<td><div class="brand-app-rperiod-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderDateRangeDisplay(p && p.recruit_start, p && p.recruit_end) + '</div></td>';
+  // 선정날짜 (single, 시딩만)
+  html += '<td><div class="brand-app-seldate-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-form-type="' + esc(a.form_type || '') + '" style="position:relative;min-height:24px">' + (a.form_type === 'seeding' ? renderDateSingleDisplay(p && p.selection_date) : '<span style="color:var(--muted);font-size:10px">—</span>') + '</div></td>';
+  // 배송기간 (range, 시딩만)
+  html += '<td><div class="brand-app-dperiod-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" data-form-type="' + esc(a.form_type || '') + '" style="position:relative;min-height:24px">' + (a.form_type === 'seeding' ? renderDateRangeDisplay(p && p.delivery_start, p && p.delivery_end) : '<span style="color:var(--muted);font-size:10px">—</span>') + '</div></td>';
+  // 결과물 제출 마감일 (single)
+  html += '<td><div class="brand-app-subdeadline-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderDateSingleDisplay(p && p.submission_deadline) + '</div></td>';
+
+  // 17. 내부 메모 (액션 — 첫 행만)
+  html += isFirst
+    ? '<td><div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a.id) + '</div></td>'
+    : emptyAction;
+
+  // 14. 진행 수량 (제품 단위)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>';
+
+  // 15. 상품 가격(엔) (제품 단위)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>';
+
+  // 16. 상품 가격(원) (제품 단위)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>';
+
+  // 17. 모집비 (제품 단가 — 인라인 편집 가능)
+  html += '<td><div class="brand-app-rfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderRecruitFeeDisplay(recruitFeeKrw) + '</div></td>';
+
+  // 18. 이체수수료(건) (제품 단가 — 인라인 편집 가능)
+  html += '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>';
+
+  // 19. 예상 견적 (신청 단위 — 모든 행에 같은 값을 동일 색상으로)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>';
+
+  // 20. 견적서 전달 (액션 — 첫 행만)
+  html += isFirst
+    ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, false) + '</div></td>'
+    : emptyAction;
+
+  // 21. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
+  html += isFirst
+    ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
+    : emptyAction;
+
+  html += '</tr>';
+  return html;
 }
 
 // "이력" 버튼: 변경 이력 모달 띄우기
@@ -8560,16 +8735,84 @@ function closeBrandAppHistoryModal() {
   if (modal) modal.classList.remove('open');
 }
 
-// ─── 관리자 직접 신청 등록 모달 (091) ───────────────────────
+// ─── 관리자 직접 신청 등록·수정 모달 (091) ───────────────────────
 var _nbaBrandMode = 'select';  // 'select' (기존 brand) | 'new' (신규 brand)
 var _nbaBrandsCache = null;
+// edit 모드 시 신청 ID. null이면 신규 등록 모드. 저장 시 분기 + 낙관적 락 expectedVersion 추출
+var _editingBrandAppId = null;
+
+// 더보기 메뉴 「수정」 진입점 — 캐시된 신청 데이터로 prefill
+async function openBrandAppEditModal(applicationId) {
+  var cur = _findBrandApp(applicationId);
+  if (!cur) { toast('신청 데이터를 찾을 수 없습니다', 'error'); return; }
+  _editingBrandAppId = applicationId;
+  await openNewBrandAppModal(cur.brand_id || null);
+  // 모달 헤더·버튼 라벨 변경
+  var titleEl = document.getElementById('nbaModalTitle');
+  var subtitleEl = document.getElementById('nbaModalSubtitle');
+  var submitBtn = document.getElementById('nbaSubmitBtn');
+  if (titleEl) titleEl.textContent = '브랜드 서베이 신청 수정';
+  if (subtitleEl) subtitleEl.textContent = (cur.application_no || '') + ' · 직접 등록 신청 수정';
+  if (submitBtn) submitBtn.textContent = '저장';
+  // 폼 prefill
+  document.querySelector('input[name="nbaFormType"][value="' + cur.form_type + '"]').checked = true;
+  onNbaFormTypeChange();
+  // 수정 모드에서 폼 종류 변경 불가 — 라디오 잠금 (제출 가드 + 시각적 lock)
+  document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.disabled = true; });
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.opacity = '.6'; l.style.cursor = 'not-allowed'; l.title = '수정 모드에서는 폼 종류를 변경할 수 없습니다'; });
+  if (cur.form_type === 'reviewer' && Array.isArray(cur.reviewer_channels)) {
+    cur.reviewer_channels.forEach(function(ch){
+      var cb = document.querySelector('input[name="nbaReviewerChannels"][value="' + ch + '"]');
+      if (cb) cb.checked = true;
+    });
+  }
+  var setVal = function(id, val) { var el = document.getElementById(id); if (el) el.value = val || ''; };
+  setVal('nbaCompanyName',  cur.brand?.company_name || '');
+  setVal('nbaBrandName',    cur.brand?.name || cur.brand_name || '');
+  setVal('nbaBrandNameJa',  cur.brand?.name_ja || '');
+  setVal('nbaBusinessNo',   cur.brand?.business_no || '');
+  setVal('nbaContactName',  cur.applicant_contact_name || cur.contact_name || '');
+  setVal('nbaPhone',        cur.applicant_phone || cur.phone || '');
+  setVal('nbaEmail',        cur.applicant_email || cur.email || '');
+  setVal('nbaBillingEmail', cur.billing_email || cur.brand?.billing_email || '');
+  setVal('nbaRequestNote',  cur.request_note || '');
+  setVal('nbaAdminMemo',    cur.admin_memo || '');
+  // products 행 재구성
+  var wrap = document.getElementById('nbaProductRows');
+  if (wrap) wrap.innerHTML = '';
+  var prods = Array.isArray(cur.products) ? cur.products : [];
+  if (prods.length === 0) prods = [{}];
+  prods.forEach(function(p) {
+    addNbaProductRow();
+    var lastRow = wrap.lastElementChild;
+    if (!lastRow) return;
+    var setRowVal = function(cls, v) { var el = lastRow.querySelector('.' + cls); if (el) el.value = (v == null ? '' : String(v)); };
+    setRowVal('nba-prod-name',         p.name);
+    setRowVal('nba-prod-name-ja',      p.name_ja);
+    setRowVal('nba-prod-price',        p.price);
+    setRowVal('nba-prod-qty',          p.qty);
+    setRowVal('nba-prod-transfer-fee', p.transfer_fee_krw);
+    setRowVal('nba-prod-url',          p.url);
+  });
+}
 
 async function openNewBrandAppModal(prefilledBrandId) {
   var modal = document.getElementById('newBrandAppModal');
   if (!modal) return;
+  // 헤더·버튼을 신규 등록 기본값으로 원복 (edit 진입자가 후속 갱신)
+  var titleEl = document.getElementById('nbaModalTitle');
+  var subtitleEl = document.getElementById('nbaModalSubtitle');
+  var submitBtnReset = document.getElementById('nbaSubmitBtn');
+  if (titleEl) titleEl.textContent = '브랜드 서베이 신청 등록';
+  if (subtitleEl) subtitleEl.textContent = '영업팀이 전화·메일·미팅으로 받은 신청을 관리자가 직접 등록';
+  if (submitBtnReset) submitBtnReset.textContent = '등록';
   // 폼 reset
   document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.checked = false; });
   document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.borderColor = 'var(--line)'; l.style.background = ''; l.style.color = ''; var ic = l.querySelector('.material-icons-round'); if (ic) { ic.textContent = 'radio_button_unchecked'; ic.style.color = 'var(--muted)'; } });
+  // 리뷰어 채널 체크박스 + 그룹 hide reset
+  document.querySelectorAll('input[name="nbaReviewerChannels"]').forEach(function(cb){ cb.checked = false; });
+  var nbaChGrp = document.getElementById('nbaReviewerChannelsGroup');
+  if (nbaChGrp) nbaChGrp.style.display = 'none';
   ['nbaCompanyName','nbaBrandName','nbaBrandNameJa','nbaBusinessNo','nbaContactName','nbaPhone','nbaEmail','nbaBillingEmail','nbaRequestNote','nbaAdminMemo'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
   // 담당자 빠른 선택 드롭다운 초기화
   var contactSelReset = document.getElementById('nbaContactSelect');
@@ -8592,6 +8835,10 @@ async function openNewBrandAppModal(prefilledBrandId) {
 function closeNewBrandAppModal() {
   var modal = document.getElementById('newBrandAppModal');
   if (modal) modal.classList.remove('open');
+  _editingBrandAppId = null;  // edit 모드 종료
+  // 폼 종류 라디오 잠금 해제 (다음 신규 등록 시 정상 동작 위해)
+  document.querySelectorAll('input[name="nbaFormType"]').forEach(function(r){ r.disabled = false; });
+  document.querySelectorAll('[id^="nbaFt-"]').forEach(function(l){ l.style.opacity = ''; l.style.cursor = ''; l.title = ''; });
 }
 
 function onNbaFormTypeChange() {
@@ -8605,6 +8852,15 @@ function onNbaFormTypeChange() {
     var ic = l.querySelector('.material-icons-round');
     if (ic) { ic.textContent = on ? 'radio_button_checked' : 'radio_button_unchecked'; ic.style.color = on ? 'var(--pink)' : 'var(--muted)'; }
   });
+  // 리뷰어 채널 영역(큐텐/엣코스메 다중 선택)은 reviewer 폼일 때만 노출. seeding이면 hide + 값 reset
+  var ch = document.getElementById('nbaReviewerChannelsGroup');
+  if (ch) {
+    var isReviewer = picked && picked.value === 'reviewer';
+    ch.style.display = isReviewer ? '' : 'none';
+    if (!isReviewer) {
+      document.querySelectorAll('input[name="nbaReviewerChannels"]').forEach(function(cb){ cb.checked = false; });
+    }
+  }
 }
 
 async function loadNbaBrandSelect(currentBrandId) {
@@ -8797,9 +9053,60 @@ async function submitNewBrandApp() {
   if (products.length === 0) { toast('제품을 1개 이상 입력해주세요', 'error'); return; }
   // 신규 모드면 brandId NULL 전달
   if (_nbaBrandMode === 'new') brandId = null;
+  // 리뷰어 채널 수집 — reviewer 폼일 때만 의미. 시딩이면 NULL (RPC에서 자동 NULL 강제됨)
+  var reviewerChannels = null;
+  if (formType === 'reviewer') {
+    var checkedChannels = Array.from(document.querySelectorAll('input[name="nbaReviewerChannels"]:checked')).map(function(cb){ return cb.value; });
+    reviewerChannels = checkedChannels.length > 0 ? checkedChannels : null;
+  }
   var btn = document.getElementById('nbaSubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
-  var result = await adminCreateBrandApplication({
+  var isEdit = !!_editingBrandAppId;
+  var result;
+  if (isEdit) {
+    // 수정 모드 — 신청 본체 컬럼 patch + 낙관적 락
+    var cur = _findBrandApp(_editingBrandAppId);
+    if (!cur) {
+      if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+      toast('신청 데이터를 찾을 수 없습니다 — 새로고침 후 다시 시도해주세요', 'error');
+      return;
+    }
+    // 폼 종류 변경은 채번·트리거 영향이 있어 막음 (편집 모달 라디오는 그대로 두지만 제출 시 검증)
+    if (formType !== cur.form_type) {
+      if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+      toast('폼 종류는 수정할 수 없습니다 (신청번호 채번 영향)', 'warn');
+      return;
+    }
+    var patch = {
+      contact_name:             contactName || null,
+      phone:                    phone || null,
+      email:                    email || null,
+      billing_email:            billingEmail || null,
+      products:                 products,
+      request_note:             requestNote || null,
+      admin_memo:               adminMemo || null,
+      reviewer_channels:        reviewerChannels,
+      // brand_name은 brand 마스터에서 보통 표시되지만 신청 시점 스냅샷도 갱신
+      brand_name:               brandName || null
+    };
+    result = await updateBrandApplication(_editingBrandAppId, patch, cur.version);
+    if (btn) { btn.disabled = false; btn.textContent = '저장'; }
+    if (result.conflict) {
+      toast('다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도해주세요', 'warn');
+      await loadBrandApplications();
+      return;
+    }
+    if (!result.ok) {
+      toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+      return;
+    }
+    toast('수정 완료');
+    closeNewBrandAppModal();
+    await loadBrandApplications();
+    return;
+  }
+  // 신규 등록 모드 (기존 흐름)
+  result = await adminCreateBrandApplication({
     formType: formType,
     brandId: brandId || null,
     companyName: companyName || null,
@@ -8813,7 +9120,8 @@ async function submitNewBrandApp() {
     products: products,
     requestNote: requestNote || null,
     adminMemo: adminMemo || null,
-    brandSync: brandSync
+    brandSync: brandSync,
+    reviewerChannels: reviewerChannels
   });
   if (btn) { btn.disabled = false; btn.textContent = '등록'; }
   if (!result.ok) {
@@ -8970,7 +9278,7 @@ async function submitNewBrandAppMemo() {
 
 // 메모 셀(목록의 내부 메모 컬럼)에서 latest 메모 + 카운트 표시 갱신 (인라인)
 function _refreshBrandAppMemoCell(applicationId) {
-  var row = document.querySelector('#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(applicationId) : applicationId) + '"][data-summary="1"]');
+  var row = document.querySelector('#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(applicationId) : applicationId) + '"][data-first="1"]');
   if (!row) return;
   var cell = row.querySelector('.brand-app-memo-cell');
   if (!cell) return;
@@ -9100,6 +9408,222 @@ function openBrandAppFromDashboard(id) {
   if (typeof switchAdminPane === 'function') switchAdminPane('brand-applications', null);
 }
 
+// 일정 셀용 짧은 날짜 포맷 ("2026/5/1") — 표 폭 절약
+function fmtDateShort(d) {
+  if (!d) return '';
+  var dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt.getTime())) return String(d);
+  return dt.getFullYear() + '/' + (dt.getMonth() + 1) + '/' + dt.getDate();
+}
+
+// 모집기간·배송기간 셀 (range) — display + ✎ 인라인 편집
+function renderDateRangeDisplay(start, end) {
+  if (!start && !end) {
+    return '<div class="dr-display" style="font-size:11px;color:var(--muted);padding-right:22px">—</div>'
+      + '<button type="button" class="dr-edit-btn" onclick="enterDateRangeEdit(this)" title="기간 입력" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_calendar</span></button>';
+  }
+  var s = start ? fmtDateShort(start) : '?';
+  var e = end ? fmtDateShort(end) : '?';
+  return '<div class="dr-display" style="font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums;padding-right:22px;line-height:1.4">' + esc(s) + ' ~ ' + esc(e) + '</div>'
+    + '<button type="button" class="dr-edit-btn" onclick="enterDateRangeEdit(this)" title="기간 수정" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_calendar</span></button>';
+}
+
+// 선정날짜·결과물 제출 마감일 셀 (single) — display + ✎ 인라인 편집
+function renderDateSingleDisplay(date) {
+  var hasValue = !!date;
+  var display = hasValue
+    ? '<div class="ds-display" style="font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums;padding-right:22px;line-height:1.4">' + esc(fmtDateShort(date)) + '</div>'
+    : '<div class="ds-display" style="font-size:11px;color:var(--muted);padding-right:22px">—</div>';
+  return display
+    + '<button type="button" class="ds-edit-btn" onclick="enterDateSingleEdit(this)" title="' + (hasValue ? '날짜 수정' : '날짜 입력') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_calendar</span></button>';
+}
+
+// 일정 인라인 편집 — 4종 셀 통합 매핑
+var DATE_CELL_CONFIG = {
+  'brand-app-rperiod-cell':    {kind: 'range',  startKey: 'recruit_start',  endKey: 'recruit_end',   label: '모집기간'},
+  'brand-app-dperiod-cell':    {kind: 'range',  startKey: 'delivery_start', endKey: 'delivery_end',  label: '배송 기간'},
+  'brand-app-seldate-cell':    {kind: 'single', dateKey: 'selection_date',                            label: '선정날짜'},
+  'brand-app-subdeadline-cell':{kind: 'single', dateKey: 'submission_deadline',                       label: '결과물 제출 마감일'}
+};
+
+function _findDateCell(anyChildEl) {
+  for (var cls in DATE_CELL_CONFIG) {
+    var cell = anyChildEl.closest('.' + cls);
+    if (cell) return {cell: cell, cfg: DATE_CELL_CONFIG[cls]};
+  }
+  return null;
+}
+
+function _restoreDateDisplay(cell, cfg, p) {
+  if (cfg.kind === 'range') {
+    cell.innerHTML = renderDateRangeDisplay(p && p[cfg.startKey], p && p[cfg.endKey]);
+  } else {
+    cell.innerHTML = renderDateSingleDisplay(p && p[cfg.dateKey]);
+  }
+}
+
+function enterDateRangeEdit(btnEl) {
+  if (typeof flatpickr === 'undefined') { toast('flatpickr 라이브러리 로드 실패', 'error'); return; }
+  var found = _findDateCell(btnEl);
+  if (!found) return;
+  var cell = found.cell, cfg = found.cfg;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var p = cur.products[idx];
+  var startVal = p[cfg.startKey] || '';
+  var endVal = p[cfg.endKey] || '';
+
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<input type="text" class="dr-edit-input" placeholder="시작 ~ 종료" readonly style="width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--pink);border-radius:4px;background:#fff;cursor:pointer">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelDateEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmDateRangeEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+  var input = cell.querySelector('.dr-edit-input');
+  if (!input) return;
+  var defaults = (startVal && endVal) ? [startVal, endVal] : (startVal ? [startVal] : []);
+  cell._fp = flatpickr(input, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    defaultDate: defaults,
+    allowInput: false,
+    disableMobile: true,
+  });
+  setTimeout(function(){ if (cell._fp) cell._fp.open(); }, 50);
+}
+
+function enterDateSingleEdit(btnEl) {
+  if (typeof flatpickr === 'undefined') { toast('flatpickr 라이브러리 로드 실패', 'error'); return; }
+  var found = _findDateCell(btnEl);
+  if (!found) return;
+  var cell = found.cell, cfg = found.cfg;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var p = cur.products[idx];
+  var val = p[cfg.dateKey] || '';
+
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<input type="text" class="ds-edit-input" placeholder="날짜 선택" readonly style="width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--pink);border-radius:4px;background:#fff;cursor:pointer">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelDateEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmDateSingleEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+  var input = cell.querySelector('.ds-edit-input');
+  if (!input) return;
+  cell._fp = flatpickr(input, {
+    mode: 'single',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    defaultDate: val || null,
+    allowInput: false,
+    disableMobile: true,
+  });
+  setTimeout(function(){ if (cell._fp) cell._fp.open(); }, 50);
+}
+
+function cancelDateEdit(anyChildEl) {
+  var found = _findDateCell(anyChildEl);
+  if (!found) return;
+  var cell = found.cell, cfg = found.cfg;
+  if (cell._fp) { cell._fp.destroy(); cell._fp = null; }
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !cur.products || !cur.products[idx]) return;
+  _restoreDateDisplay(cell, cfg, cur.products[idx]);
+}
+
+async function confirmDateRangeEdit(anyChildEl) {
+  var found = _findDateCell(anyChildEl);
+  if (!found) return;
+  var cell = found.cell;
+  var picked = cell._fp ? cell._fp.selectedDates : [];
+  if (picked.length === 0) {
+    // 둘 다 비우기로 간주
+    await _saveDateEdit(anyChildEl, null, null);
+    return;
+  }
+  if (picked.length === 1) {
+    toast('시작일과 종료일을 모두 선택해주세요. (또는 종료일을 시작일과 같이 선택)', 'warn');
+    return;
+  }
+  var fmt = function(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + dd;
+  };
+  await _saveDateEdit(anyChildEl, fmt(picked[0]), fmt(picked[1]));
+}
+
+async function confirmDateSingleEdit(anyChildEl) {
+  var found = _findDateCell(anyChildEl);
+  if (!found) return;
+  var cell = found.cell;
+  var picked = cell._fp ? cell._fp.selectedDates : [];
+  if (picked.length === 0) {
+    await _saveDateEdit(anyChildEl, null, null);
+    return;
+  }
+  var d = picked[0];
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  await _saveDateEdit(anyChildEl, y + '-' + m + '-' + dd, null);
+}
+
+async function _saveDateEdit(anyChildEl, primaryVal, endVal) {
+  var found = _findDateCell(anyChildEl);
+  if (!found) return;
+  var cell = found.cell, cfg = found.cfg;
+  if (cell._fp) { cell._fp.destroy(); cell._fp = null; }
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+
+  var nextProducts = cur.products.map(function(prod, i) {
+    if (i !== idx) return prod;
+    var copy = Object.assign({}, prod);
+    if (cfg.kind === 'range') {
+      if (primaryVal == null) { delete copy[cfg.startKey]; delete copy[cfg.endKey]; }
+      else { copy[cfg.startKey] = primaryVal; copy[cfg.endKey] = endVal; }
+    } else {
+      if (primaryVal == null) delete copy[cfg.dateKey];
+      else copy[cfg.dateKey] = primaryVal;
+    }
+    return copy;
+  });
+  var prevVersion = cur.version;
+  var saveBtn = cell.querySelector('button[onclick^="confirm"]');
+  if (saveBtn) saveBtn.disabled = true;
+  var result = await updateBrandApplication(id, {products: nextProducts}, prevVersion);
+  if (result.conflict) {
+    if (saveBtn) saveBtn.disabled = false;
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    if (saveBtn) saveBtn.disabled = false;
+    return;
+  }
+  cur.products = nextProducts;
+  cur.version = result.data?.version || (prevVersion + 1);
+  _refreshBrandAppHistoryButton(id);
+  // 해당 셀만 재렌더 — 같은 페이지에서 편집 중인 다른 셀들의 입력 상태가 사라지지 않도록 전체 재렌더 회피
+  _restoreDateDisplay(cell, cfg, nextProducts[idx]);
+  toast(cfg.label + ' 저장 완료');
+}
+
 // 이체수수료(건) 셀 — display + ✎ 인라인 편집
 function renderTransferFeeDisplay(value) {
   var hasValue = value != null && isFinite(value);
@@ -9193,6 +9717,101 @@ async function confirmTransferFeeEdit(anyChildEl) {
   // 같은 신청의 모든 행 재렌더(이체수수료(원)/최종 견적/VAT포함 컬럼이 동기화됨)
   renderBrandApplicationsList();
   toast('이체수수료가 저장되었습니다.');
+}
+
+// 모집비 셀 — display + ✎ 인라인 편집 (이체수수료 패턴 미러링)
+function renderRecruitFeeDisplay(value) {
+  var hasValue = value != null && isFinite(value);
+  var display = hasValue ? fmtKrw(value) : '<span style="color:var(--muted)">—</span>';
+  return '<div class="rfee-display" style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px;padding-right:22px">' + display + '</div>'
+    + '<button type="button" class="rfee-edit-btn" onclick="enterRecruitFeeEdit(this)" title="모집비(단가) 수정" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreRecruitFeeDisplay(cell, value) {
+  cell.innerHTML = renderRecruitFeeDisplay(value);
+}
+
+function enterRecruitFeeEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-rfee-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var p = cur.products[idx];
+  var original = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? '' : String(p.recruit_fee_krw);
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<input type="number" class="rfee-edit-input" value="' + esc(original) + '" placeholder="0" min="0" step="1" onkeydown="handleRecruitFeeEditKey(event, this)" style="width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--pink);border-radius:4px;text-align:right;font-variant-numeric:tabular-nums">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelRecruitFeeEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmRecruitFeeEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+  var input = cell.querySelector('.rfee-edit-input');
+  if (input) { input.focus(); input.select(); }
+}
+
+function handleRecruitFeeEditKey(ev, inputEl) {
+  if (ev.key === 'Escape') { ev.preventDefault(); cancelRecruitFeeEdit(inputEl); }
+  else if (ev.key === 'Enter') { ev.preventDefault(); confirmRecruitFeeEdit(inputEl); }
+}
+
+function cancelRecruitFeeEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-rfee-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !cur.products || !cur.products[idx]) return;
+  _restoreRecruitFeeDisplay(cell, cur.products[idx].recruit_fee_krw);
+}
+
+async function confirmRecruitFeeEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-rfee-cell');
+  if (!cell) return;
+  var input = cell.querySelector('.rfee-edit-input');
+  if (!input) return;
+  var id = cell.dataset.id;
+  var idx = Number(cell.dataset.productIdx);
+  var cur = _findBrandApp(id);
+  if (!cur || !Array.isArray(cur.products) || !cur.products[idx]) return;
+  var raw = (input.value || '').trim();
+  var nextValue = raw === '' ? null : Number(raw);
+  if (nextValue !== null && (!isFinite(nextValue) || nextValue < 0)) {
+    toast('0 이상의 숫자만 입력하세요.', 'warn');
+    return;
+  }
+  var prevValue = cur.products[idx].recruit_fee_krw == null ? null : Number(cur.products[idx].recruit_fee_krw);
+  if (prevValue === nextValue) {
+    _restoreRecruitFeeDisplay(cell, prevValue);
+    return;
+  }
+  // 새 products 배열 생성 (immutable patch)
+  var nextProducts = cur.products.map(function(prod, i) {
+    if (i !== idx) return prod;
+    var copy = Object.assign({}, prod);
+    if (nextValue == null) delete copy.recruit_fee_krw; else copy.recruit_fee_krw = nextValue;
+    return copy;
+  });
+  var prevVersion = cur.version;
+  input.disabled = true;
+  var result = await updateBrandApplication(id, {products: nextProducts}, prevVersion);
+  input.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.products = nextProducts;
+  cur.version = result.data?.version || (prevVersion + 1);
+  _refreshBrandAppHistoryButton(id);
+  // 같은 신청의 모든 행 재렌더(모집비/최종 견적/VAT포함 컬럼이 동기화됨)
+  renderBrandApplicationsList();
+  toast('모집비가 저장되었습니다.');
 }
 
 function renderQuoteSentDisplay(isoOrNull, locked) {

@@ -1390,6 +1390,7 @@ async function fetchBrandApplications(filters) {
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at,
         status, admin_memo, request_note,
+        reviewer_channels,
         reviewed_by, reviewed_at,
         version, created_at, updated_at,
         brand:brands(id, brand_no, name, company_name, contacts, billing_email, status)
@@ -1467,26 +1468,28 @@ async function adminCreateBrandApplication({
   products,
   requestNote = null,
   adminMemo = null,
-  brandSync = true
+  brandSync = true,
+  reviewerChannels = null
 }) {
   if (!db) return {ok: false, error: 'no_db'};
   try {
     const result = await retryWithRefresh(async () => {
       const {data, error} = await db.rpc('admin_create_brand_application', {
-        p_form_type:     formType,
-        p_brand_id:      brandId,
-        p_company_name:  companyName,
-        p_brand_name:    brandName,
-        p_brand_name_ja: brandNameJa,
-        p_business_no:   businessNo,
-        p_contact_name:  contactName,
-        p_phone:         phone,
-        p_email:         email,
-        p_billing_email: billingEmail,
-        p_products:      products,
-        p_request_note:  requestNote,
-        p_admin_memo:    adminMemo,
-        p_brand_sync:    brandSync
+        p_form_type:         formType,
+        p_brand_id:          brandId,
+        p_company_name:      companyName,
+        p_brand_name:        brandName,
+        p_brand_name_ja:     brandNameJa,
+        p_business_no:       businessNo,
+        p_contact_name:      contactName,
+        p_phone:             phone,
+        p_email:             email,
+        p_billing_email:     billingEmail,
+        p_products:          products,
+        p_request_note:      requestNote,
+        p_admin_memo:        adminMemo,
+        p_brand_sync:        brandSync,
+        p_reviewer_channels: reviewerChannels
       });
       if (error) throw error;
       return data;

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!--
+  Mail: 결과물 검수 — 게시 URL 비승인 (인플루언서용)
+  Trigger: deliverables UPDATE (kind='post', status pending→rejected)
+           → Webhook → Edge Function notify-deliverable-decision
+  To:      인플루언서 본인 (auth.users.email)
+  Lang:    JA
+
+  Placeholders:
+    {{influencer_name}}     인플루언서 이름 (name_kanji || name)
+    {{campaign_title}}      캠페인 제목
+    {{campaign_brand}}      브랜드명
+    {{submitted_at}}        제출 일자 (YYYY/MM/DD)
+    {{reviewed_at}}         검수 일자 (YYYY/MM/DD)
+    {{reject_reason_block}} 반려 사유 박스 HTML (Edge Function이 빌드. 없으면 빈 문자열)
+    {{post_url}}            제출된 게시 URL (인플루언서가 다시 확인할 수 있게 본문에 노출)
+    {{activity_link}}       활동관리 화면 URL
+    {{site_url}}            사이트 루트 URL
+    {{help_line_url}}       LINE 문의 URL
+
+  Note:
+    receipt-rejected와 동일한 디자인 패턴. post는 영수증 이미지가 없는 대신 게시 URL 자체를 본문에 노출.
+    reject_reason_block — 빨간 좌측 보더 박스로 Edge Function이 생성. 빈 문자열이면 블록 자체가 렌더되지 않음.
+-->
+<div style="font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Manrope',Arial,sans-serif;color:#222;max-width:600px">
+
+  <!-- 헤더 -->
+  <div style="background:#161618;border-radius:12px 12px 0 0;padding:28px 32px 24px">
+    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">REVERB JP</div>
+    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.3">投稿URLが差し戻されました</div>
+  </div>
+
+  <!-- 본문 -->
+  <div style="background:#fff;border:1px solid #EAEAE4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px 24px">
+
+    <p style="margin:0 0 20px;font-size:14px;color:#444;line-height:1.7">{{influencer_name}} 様<br>
+    ご投稿いただいたSNS投稿URLを確認したところ、以下の理由により差し戻しとさせていただきました。<br>
+    投稿内容を修正のうえ、再度ご提出をお願いします。</p>
+
+    <!-- 캠페인 정보 박스 -->
+    <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:10px;padding:16px 18px;margin-bottom:22px;font-size:13px">
+      <div style="color:#888;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;margin-bottom:3px">キャンペーン</div>
+      <div style="font-weight:700;font-size:15px;color:#161618;margin-bottom:10px">{{campaign_title}}</div>
+      <table style="border-collapse:collapse;width:100%">
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;width:90px">ブランド</td>
+          <td style="padding:3px 0;font-size:13px">{{campaign_brand}}</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">提出日</td>
+          <td style="padding:3px 0;font-size:13px">{{submitted_at}}</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">差し戻し日</td>
+          <td style="padding:3px 0;font-size:13px">{{reviewed_at}}</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;vertical-align:top">投稿URL</td>
+          <td style="padding:3px 0;font-size:12px;word-break:break-all"><a href="{{post_url}}" style="color:#E8344E;text-decoration:none">{{post_url}}</a></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 검수 결과 배지 -->
+    <div style="display:inline-block;background:#FBE2E7;border:1px solid #F4B8C4;border-radius:99px;padding:6px 16px;font-size:12px;font-weight:700;color:#A02038;letter-spacing:0.06em;margin-bottom:22px">
+      差し戻し
+    </div>
+
+    <!-- 반려 사유 박스 (Edge Function이 reject_reason_block으로 치환) -->
+    {{reject_reason_block}}
+
+    <!-- 재제출 안내 -->
+    <div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:14px 16px;margin-bottom:22px;font-size:13px;color:#5D4037;line-height:1.7">
+      <div style="font-weight:700;margin-bottom:6px">再提出の手順</div>
+      <ol style="margin:0;padding-left:18px">
+        <li style="margin-bottom:4px">活動管理ページにアクセスしてください</li>
+        <li style="margin-bottom:4px">上記の理由をご確認のうえ、投稿内容を修正してください</li>
+        <li>「再提出」ボタンから新しい投稿URLを入力してください</li>
+      </ol>
+    </div>
+
+    <!-- 활동관리 버튼 -->
+    <div style="text-align:center;margin:26px 0 20px">
+      <a href="{{activity_link}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 36px;border-radius:8px;letter-spacing:0.02em">活動管理で再提出する</a>
+    </div>
+
+    <!-- 구분선 -->
+    <hr style="border:none;border-top:1px solid #EAEAE4;margin:24px 0">
+
+    <!-- 문의 -->
+    <div style="font-size:12px;color:#666;line-height:1.8">
+      <div style="font-weight:700;color:#444;margin-bottom:6px">お問い合わせ</div>
+      <div>LINE: <a href="{{help_line_url}}" style="color:#E8344E;text-decoration:none;font-weight:600">@reverb.jp</a></div>
+      <div style="margin-top:4px;font-size:11px;color:#888">このメールへの返信は受け付けておりません。<br>ご不明な点は上記 LINE よりお問い合わせください。</div>
+    </div>
+
+  </div>
+
+  <!-- 푸터 -->
+  <p style="margin:16px 0 0;font-size:11px;color:#999;text-align:center;letter-spacing:0.02em">
+    © JFUN Corp. · 株式会社ジェイファン<br>
+    <a href="{{site_url}}" style="color:#999;text-decoration:none">{{site_url}}</a>
+  </p>
+
+</div>

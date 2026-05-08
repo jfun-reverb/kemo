@@ -1240,7 +1240,7 @@
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px">Qoo10 리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
                 <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 브랜드 서베이 페이지 열기">
@@ -1300,31 +1300,32 @@
             <table class="data-table">
               <thead><tr>
                 <th style="width:180px">신청번호 / 폼 종류</th>
-                <th style="width:160px">회사명</th>
                 <th style="width:200px">브랜드 <span class="sort-arrows" data-sort="brand" onclick="toggleBrandAppSort('brand')">▲▼</span></th>
+                <th style="width:120px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleBrandAppSort('status')">▲▼</span></th>
+                <th style="width:110px">검수일 <span class="sort-arrows" data-sort="reviewed" onclick="toggleBrandAppSort('reviewed')">▲▼</span></th>
+                <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
+                <th style="width:160px">회사명</th>
                 <th style="width:200px">담당자</th>
                 <th style="width:130px">연락처</th>
                 <th style="width:180px">계산서 이메일</th>
                 <th style="width:220px">요청사항</th>
                 <th style="width:200px">제품명</th>
                 <th style="width:180px">URL</th>
-                <th style="width:80px">진행 수량 <span class="col-help" data-tooltip="∑ 수량 (전체 제품의 수량 합계)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:170px">모집기간 <span class="col-help" data-tooltip="이 제품의 모집 시작일 ~ 종료일&#10;직접 입력 (시작과 종료일 모두 선택)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:110px">선정날짜 <span class="col-help" data-tooltip="시딩 폼에만 적용&#10;인플루언서 선정일 직접 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:170px">배송 기간 <span class="col-help" data-tooltip="시딩 폼에만 적용&#10;제품 발송 시작일 ~ 종료일 직접 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:130px">결과물 제출 마감일 <span class="col-help" data-tooltip="이 제품의 결과물 제출 마감일 직접 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:220px">내부 메모</th>
+                <th style="width:80px">진행 수량 <span class="col-help" data-tooltip="이 제품의 수량"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:100px">상품 가격(엔)</th>
                 <th style="width:100px">상품 가격(원) <span class="col-help" data-tooltip="상품 가격(엔) × 10  (환율 ¥1 = ₩10)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:130px">상품 최종 금액 <span class="col-help" data-tooltip="진행 수량 × 상품 가격(원)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:130px">모집비 <span class="col-help" data-tooltip="제품별 단가 직접 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">이체수수료(건)</th>
-                <th style="width:130px">이체수수료(원) <span class="col-help" data-tooltip="진행 수량 × 이체수수료(건)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:130px">최종 견적 금액 <span class="col-help" data-tooltip="상품 최종 금액 + 이체수수료(원)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:130px">VAT포함 <span class="col-help" data-tooltip="최종 견적 금액 × 1.1  (VAT 10%)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
-                <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
+                <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비는 미포함&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
-                <th style="width:220px">내부 메모</th>
-                <th style="width:120px">상태 <span class="sort-arrows" data-sort="status" onclick="toggleBrandAppSort('status')">▲▼</span></th>
-                <th style="width:110px">검수일 <span class="sort-arrows" data-sort="reviewed" onclick="toggleBrandAppSort('reviewed')">▲▼</span></th>
-                <th style="width:110px">신청일 <span class="sort-arrows" data-sort="created" onclick="toggleBrandAppSort('created')">▲▼</span></th>
-                <th style="width:80px">이력</th>
+                <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="24" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="25" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2025,8 +2026,8 @@
   <div class="modal" style="max-width:880px;width:96vw;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 서베이 신청 등록</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">영업팀이 전화·메일·미팅으로 받은 신청을 관리자가 직접 등록</div>
+        <div id="nbaModalTitle" style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 서베이 신청 등록</div>
+        <div id="nbaModalSubtitle" style="font-size:11px;color:var(--muted);margin-top:2px">영업팀이 전화·메일·미팅으로 받은 신청을 관리자가 직접 등록</div>
       </div>
       <button class="btn btn-ghost btn-xs" onclick="closeNewBrandAppModal()" style="padding:4px 10px">✕</button>
     </div>
@@ -2038,10 +2039,22 @@
           <label class="form-label">폼 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
           <div style="display:flex;gap:8px">
             <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaFt-reviewer">
-              <input type="radio" name="nbaFormType" value="reviewer" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> Qoo10 리뷰어
+              <input type="radio" name="nbaFormType" value="reviewer" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
             </label>
             <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaFt-seeding">
               <input type="radio" name="nbaFormType" value="seeding" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 나노 시딩
+            </label>
+          </div>
+        </div>
+        <!-- 리뷰어 폼 서브타입 (큐텐/엣코스메 다중 선택). 시딩 선택 시 hide -->
+        <div class="form-group" id="nbaReviewerChannelsGroup" style="display:none">
+          <label class="form-label">리뷰어 채널 <span style="font-size:10px;font-weight:400;color:var(--muted)">(선택, 다중)</span></label>
+          <div style="display:flex;gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaCh-qoo10">
+              <input type="checkbox" name="nbaReviewerChannels" value="qoo10" style="margin:0">큐텐 (Qoo10)
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaCh-atcosme">
+              <input type="checkbox" name="nbaReviewerChannels" value="atcosme" style="margin:0">엣코스메 (@cosme)
             </label>
           </div>
         </div>
