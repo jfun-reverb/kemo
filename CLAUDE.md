@@ -2,13 +2,17 @@
 
 ## ⚠️ 진행 중 작업 (다른 세션은 반드시 먼저 확인)
 
-### 결과물 검수 메일 발송 — 사용자 검수 대기 (2026-05-07~)
-- **`feature/deliverable-mail` 브랜치에 격리됨** (HEAD `05e6992`)
-- 작성 완료: `supabase/migrations/096_notify_deliverable_approved.sql`, `supabase/functions/notify-deliverable-decision/`, `docs/email-templates/deliverable-*.html` (원본 6종 + 미리보기 6종)
-- **dev/main으로 cherry-pick·머지 금지** — 사용자가 메일 본문 6종을 검수 중
-- 운영 SQL Editor에서 `096_*` 적용 금지, Edge Function 배포 금지, Webhook 등록 금지
-- 검수 완료 시 절차: feature/deliverable-mail → dev → 운영 일괄 마킹 SQL → 096 적용 → 함수 배포 → Webhook (상세는 `memory/project_email_deliverable_decision_pending.md`)
-- 워킹 디렉토리에 `docs/email-templates/index.html`·`scripts/sync-email-templates.sh` 미커밋 modified 잔존 가능 — 다음 commit 시 `git add .` 광범위 스테이징 금지, 명시 파일만
+### 결과물 검수 메일 — dev 통합 완료, 운영 적용 대기 (2026-05-08)
+- 사용자 메일 본문 검수 완료. 「재제출 절차」 박스 제거 결정 반영. feature/deliverable-mail 격리 종료
+- dev에 코드 통합 완료: `supabase/migrations/096_notify_deliverable_approved.sql`, `supabase/functions/notify-deliverable-decision/`, `docs/email-templates/deliverable-*` (원본·미리보기·_templates 미러)
+- **운영 적용 전 필수 단계** (사용자 SQL Editor·CLI 실행):
+  1. 🚨 **누적 알림 일괄 마킹 SQL** (Webhook 등록 직전 — 폭주 차단): `UPDATE public.notifications SET mail_sent_at = now() WHERE mail_sent_at IS NULL;`
+  2. `096_notify_deliverable_approved.sql` 운영 적용
+  3. Edge Function 배포: `supabase functions deploy notify-deliverable-decision --project-ref twofagomeizrtkwlhsuv`
+  4. 운영 secrets에 `PUBLIC_SITE_URL=https://globalreverb.com` 추가
+  5. Database Webhook 등록: notifications INSERT → notify-deliverable-decision Edge Function
+  6. 운영 더미 검수 1건으로 메일 수신 + `notifications.mail_sent_at` 갱신 확인
+- 상세 절차·결정 사항은 `memory/project_email_deliverable_decision_pending.md` 참조
 
 ## Overview
 일본 시장 대상 인플루언서 체험단(리뷰어/기프팅/방문형) 모집 플랫폼.
