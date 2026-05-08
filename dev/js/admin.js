@@ -8333,20 +8333,26 @@ function renderBrandApplicationsList() {
   }
 
   // Phase B: status 필터가 켜지면 매칭 제품 행만 노출 (행 단위 필터)
+  // 「제품 N개」 라벨은 항상 원본 전체 개수. idx는 원본 인덱스 유지(cur.products[idx] 매핑 정확성).
+  // 「첫 행」 시각 표시는 화면 첫 행(displayIdx === 0) 기준
   var statusFilter = getMultiFilterValues('brandAppStatusMulti');
   var renderBrandAppRow = function(a) {
-    var prods = Array.isArray(a.products) ? a.products : [];
+    var allProds = Array.isArray(a.products) ? a.products : [];
+    var totalCount = allProds.length;
+    var pairs = allProds.map(function(p, originalIdx) { return {p: p, idx: originalIdx}; });
     if (statusFilter.length > 0) {
-      prods = prods.filter(function(p) {
-        var s = (p && p.status) || a.status;
+      pairs = pairs.filter(function(pair) {
+        var s = (pair.p && pair.p.status) || a.status;
         return statusFilter.indexOf(s) >= 0;
       });
-      if (prods.length === 0) return ''; // 매칭 제품 없으면 신청 자체 미노출
+      if (pairs.length === 0) return ''; // 매칭 제품 없으면 신청 자체 미노출
     }
-    if (prods.length === 0) {
-      return renderBrandAppFlatRow(a, {}, 0, 0);
+    if (pairs.length === 0) {
+      return renderBrandAppFlatRow(a, {}, 0, 0, true);
     }
-    return prods.map(function(p, idx){ return renderBrandAppFlatRow(a, p, idx, prods.length); }).join('');
+    return pairs.map(function(pair, displayIdx) {
+      return renderBrandAppFlatRow(a, pair.p, pair.idx, totalCount, displayIdx === 0);
+    }).join('');
   };
   if (brandAppLazy) brandAppLazy.destroy();
   brandAppLazy = mountLazyList({
@@ -8544,10 +8550,12 @@ function _uniformProductValue(prods, key) {
 }
 
 // 신청 1건 = 제품 N행 평탄화 (21컬럼). 같은 신청의 제품 행은 인접 배치.
-//   isFirst: 첫 제품 행 — 위쪽 보더로 신청 경계 표시, 액션 셀(상태/메모/견적서/이력) 채움
-//   !isFirst: 신청 정보 셀은 같은 값 반복(가독성 위해 회색 톤), 액션 셀은 빈 td
-function renderBrandAppFlatRow(a, p, idx, count) {
-  var isFirst = idx === 0;
+//   idx: 원본 a.products 배열 내 인덱스 (cur.products[idx] 매핑용)
+//   count: 신청 전체 제품 수 (필터 무관 — 「제품 N개」 라벨에 사용)
+//   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
+//            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
+function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
+  if (typeof isFirst === 'undefined') isFirst = (idx === 0);
   var qty = Number(p && p.qty) || 0;
   var priceJpy = Number(p && p.price) || 0;
   var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
