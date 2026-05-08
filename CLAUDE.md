@@ -1,19 +1,5 @@
 # REVERB JP — 인플루언서 체험단 플랫폼
 
-## ⚠️ 진행 중 작업 (다른 세션은 반드시 먼저 확인)
-
-### 결과물 검수 메일 — dev 통합 완료, 운영 적용 대기 (2026-05-08)
-- 사용자 메일 본문 검수 완료. 「재제출 절차」 박스 제거 결정 반영. feature/deliverable-mail 격리 종료
-- dev에 코드 통합 완료: `supabase/migrations/096_notify_deliverable_approved.sql`, `supabase/functions/notify-deliverable-decision/`, `docs/email-templates/deliverable-*` (원본·미리보기·_templates 미러)
-- **운영 적용 전 필수 단계** (사용자 SQL Editor·CLI 실행):
-  1. 🚨 **누적 알림 일괄 마킹 SQL** (Webhook 등록 직전 — 폭주 차단): `UPDATE public.notifications SET mail_sent_at = now() WHERE mail_sent_at IS NULL;`
-  2. `096_notify_deliverable_approved.sql` 운영 적용
-  3. Edge Function 배포: `supabase functions deploy notify-deliverable-decision --project-ref twofagomeizrtkwlhsuv`
-  4. 운영 secrets에 `PUBLIC_SITE_URL=https://globalreverb.com` 추가
-  5. Database Webhook 등록: notifications INSERT → notify-deliverable-decision Edge Function
-  6. 운영 더미 검수 1건으로 메일 수신 + `notifications.mail_sent_at` 갱신 확인
-- 상세 절차·결정 사항은 `memory/project_email_deliverable_decision_pending.md` 참조
-
 ## Overview
 일본 시장 대상 인플루언서 체험단(리뷰어/기프팅/방문형) 모집 플랫폼.
 브랜드가 캠페인을 등록하고, 인플루언서가 신청하는 구조.
