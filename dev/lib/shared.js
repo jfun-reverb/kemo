@@ -306,7 +306,8 @@ const PANE_REFRESHERS = {
     if (typeof renderDeliverablesList === 'function') await renderDeliverablesList();
   },
   'campaigns': async () => {
-    if (typeof loadCampaigns === 'function') await loadCampaigns();
+    // 관리자 캠페인 목록 갱신 — `loadCampaigns`(인플루언서 함수) 오참조 버그 수정
+    if (typeof loadAdminCampaigns === 'function') await loadAdminCampaigns();
   }
 };
 async function refreshPane(paneId) {
