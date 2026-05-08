@@ -28,6 +28,12 @@
   details.meta dt { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; }
   details.meta code { font-family:monospace; background:#F7F4EE; padding:1px 6px; border-radius:4px; font-size:11px; }
   .sample-note { max-width:640px; margin:0 auto 12px; padding:10px 14px; background:#FFF6E5; border:1px solid #F0D6A0; border-radius:8px; font-size:11px; color:#8A6A2A; }
+  .lang-toggle { max-width:640px; margin:0 auto 12px; display:flex; gap:6px; background:#fff; padding:6px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  .lang-toggle button { flex:1; font-family:inherit; font-size:12px; font-weight:600; letter-spacing:0.02em; padding:8px 10px; border:0; border-radius:6px; background:transparent; color:#666; cursor:pointer; transition:background 0.15s, color 0.15s; }
+  .lang-toggle button:hover { background:#F7F4EE; color:#161618; }
+  .lang-toggle button.active { background:#161618; color:#fff; }
+  .lang-toggle button.active:hover { background:#000; color:#fff; }
+  .lang-note { max-width:640px; margin:0 auto 14px; font-size:11px; color:#888; text-align:right; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -38,6 +44,12 @@
   <p class="sub">gifting/visit 게시물 URL 승인 시 인플루언서에게 발송. 게시 검수 완료 + 보상 지급 대기 안내 박스 포함.</p>
 </div>
 
+<div class="lang-toggle" role="tablist" aria-label="미리보기 언어 선택">
+  <button type="button" data-lang="ja" class="active" role="tab" aria-selected="true">일본어 (실제 발송)</button>
+  <button type="button" data-lang="ko" role="tab" aria-selected="false">한국어 (검수용)</button>
+</div>
+<p class="lang-note">※ 한국어 미리보기는 검수용 번역입니다. 실제 메일은 일본어로만 발송됩니다.</p>
+
 <p class="sample-note">📌 본문은 샘플 데이터로 placeholder 치환된 결과입니다.</p>
 
 <div class="mail-card">
@@ -47,11 +59,13 @@
       <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
       <div><b>To:</b> 鈴木 美咲 &lt;misaki.suzuki@example.com&gt;</div>
     </div>
-    <div class="mail-subject">PDRNリバリバ弾力クリーム ギフティング — 投稿URLが承認されました</div>
+    <div class="mail-subject"
+         data-subject-ja="PDRNリバリバ弾力クリーム ギフティング — 投稿URLが承認されました"
+         data-subject-ko="PDRN 리바리바 탄력 크림 기프팅 — 게시물 URL이 승인됐습니다">PDRNリバリバ弾力クリーム ギフティング — 投稿URLが承認されました</div>
   </div>
   <div class="mail-body">
 
-<div style="font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Manrope',Arial,sans-serif;color:#222;max-width:600px">
+<div class="lang-ja" style="font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP','Manrope',Arial,sans-serif;color:#222;max-width:600px">
 
   <div style="background:#161618;border-radius:12px 12px 0 0;padding:28px 32px 24px">
     <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">REVERB JP</div>
@@ -110,6 +124,65 @@
 
 </div>
 
+<div class="lang-ko" style="display:none;font-family:'Apple SD Gothic Neo','Noto Sans KR','Manrope',Arial,sans-serif;color:#222;max-width:600px">
+
+  <div style="background:#161618;border-radius:12px 12px 0 0;padding:28px 32px 24px">
+    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.5);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px">REVERB JP</div>
+    <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.3">게시물 URL이 승인됐습니다</div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #EAEAE4;border-top:none;border-radius:0 0 12px 12px;padding:28px 32px 24px">
+
+    <p style="margin:0 0 20px;font-size:14px;color:#444;line-height:1.7">스즈키 미사키 님<br>
+    올려주신 SNS 게시물 URL 확인이 완료되어 승인 처리됐습니다.<br>
+    이어서 보상 지급 준비를 진행합니다.</p>
+
+    <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:10px;padding:16px 18px;margin-bottom:22px;font-size:13px">
+      <div style="color:#888;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:700;margin-bottom:3px">캠페인</div>
+      <div style="font-weight:700;font-size:15px;color:#161618;margin-bottom:10px">PDRN 리바리바 탄력 크림 기프팅</div>
+      <table style="border-collapse:collapse;width:100%">
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;width:90px">브랜드</td>
+          <td style="padding:3px 0;font-size:13px">Dr.Deep</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">제출일</td>
+          <td style="padding:3px 0;font-size:13px">2026/05/02</td>
+        </tr>
+        <tr>
+          <td style="padding:3px 0;color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">승인일</td>
+          <td style="padding:3px 0;font-size:13px">2026/05/07</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="display:inline-block;background:#DCFCE7;border:1px solid #86EFAC;border-radius:99px;padding:6px 16px;font-size:12px;font-weight:700;color:#15803D;letter-spacing:0.06em;margin-bottom:22px">
+      승인
+    </div>
+
+    <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:16px 18px;margin-bottom:22px"><div style="font-size:11px;font-weight:700;color:#166534;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">다음 단계</div><div style="font-size:13px;color:#222;line-height:1.7"><strong>게시물 URL 검수가 완료됐습니다.</strong> 담당자 최종 확인 후 보상을 지급해 드립니다. 잠시만 기다려 주세요.</div></div>
+
+    <div style="text-align:center;margin:26px 0 20px">
+      <a href="https://globalreverb.com/#mypage-applications" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 36px;border-radius:8px;letter-spacing:0.02em">활동관리 보기</a>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #EAEAE4;margin:24px 0">
+
+    <div style="font-size:12px;color:#666;line-height:1.8">
+      <div style="font-weight:700;color:#444;margin-bottom:6px">문의</div>
+      <div>LINE: <a href="https://line.me/R/ti/p/@reverb.jp" style="color:#E8344E;text-decoration:none;font-weight:600">@reverb.jp</a></div>
+      <div style="margin-top:4px;font-size:11px;color:#888">본 메일로 회신은 받지 않습니다.<br>문의는 위 LINE으로 부탁드립니다.</div>
+    </div>
+
+  </div>
+
+  <p style="margin:16px 0 0;font-size:11px;color:#999;text-align:center;letter-spacing:0.02em">
+    © JFUN Corp. · 株式会社ジェイファン<br>
+    <a href="https://globalreverb.com" style="color:#999;text-decoration:none">https://globalreverb.com</a>
+  </p>
+
+</div>
+
   </div>
 </div>
 
@@ -119,10 +192,32 @@
     <dt>트리거</dt><dd><code>notifications INSERT</code> · kind=<code>deliverable_approved</code> · deliv.kind=<code>post</code></dd>
     <dt>Edge Function</dt><dd><code>notify-deliverable-decision</code></dd>
     <dt>수신자</dt><dd>인플루언서 본인 (<code>influencers.email</code>)</dd>
-    <dt>언어</dt><dd>JA (일본어 단일)</dd>
+    <dt>언어</dt><dd>JA (일본어 단일 — 한국어는 미리보기 검수용)</dd>
     <dt>placeholder</dt><dd><code>{{influencer_name}}</code> <code>{{campaign_title}}</code> <code>{{campaign_brand}}</code> <code>{{submitted_at}}</code> <code>{{reviewed_at}}</code> <code>{{next_step_block}}</code> <code>{{activity_link}}</code> <code>{{site_url}}</code> <code>{{help_line_url}}</code></dd>
   </dl>
 </details>
+
+<script>
+(function() {
+  const buttons = document.querySelectorAll('.lang-toggle button');
+  const subject = document.querySelector('.mail-subject');
+  const ja = document.querySelector('.lang-ja');
+  const ko = document.querySelector('.lang-ko');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lang = btn.dataset.lang;
+      buttons.forEach(b => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      ja.style.display = lang === 'ja' ? '' : 'none';
+      ko.style.display = lang === 'ko' ? '' : 'none';
+      subject.textContent = subject.dataset['subject' + (lang === 'ko' ? 'Ko' : 'Ja')];
+    });
+  });
+})();
+</script>
 
 </body>
 </html>
