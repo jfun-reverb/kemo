@@ -163,10 +163,12 @@ function kindLabelJa(kind: string): string {
 }
 
 // 템플릿 파일명: kind + decision (approved/rejected)
+// kind는 DB 컬럼값(review_image — underscore)이지만 파일명은 review-image(hyphen) 컨벤션
 function templateName(kind: string, decision: "approved" | "rejected"): string {
-  // receipt / review_image / post 외 kind 는 fallback (review_image 템플릿 사용)
+  // receipt / review_image / post 외 kind 는 fallback (receipt 템플릿 사용)
   const k = kind === "receipt" || kind === "review_image" || kind === "post" ? kind : "receipt";
-  return `deliverable-${k}-${decision}`;
+  const kHyphen = k.replace(/_/g, "-");
+  return `deliverable-${kHyphen}-${decision}`;
 }
 
 // 사용자 입력 URL을 href 에 안전하게 삽입하기 위한 검증.
