@@ -9236,7 +9236,6 @@ function enterDateSingleEdit(btnEl) {
     + '<input type="text" class="ds-edit-input" placeholder="날짜 선택" readonly style="width:100%;font-size:11px;padding:3px 6px;border:1px solid var(--pink);border-radius:4px;background:#fff;cursor:pointer">'
     + '<div style="display:flex;gap:4px;justify-content:flex-end">'
       + '<button type="button" onclick="cancelDateEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
-      + '<button type="button" onclick="clearDateEdit(this)" title="값 비우기" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">비움</button>'
       + '<button type="button" onclick="confirmDateSingleEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
     + '</div>'
   + '</div>';
@@ -9263,11 +9262,6 @@ function cancelDateEdit(anyChildEl) {
   var cur = _findBrandApp(id);
   if (!cur || !cur.products || !cur.products[idx]) return;
   _restoreDateDisplay(cell, cfg, cur.products[idx]);
-}
-
-function clearDateEdit(anyChildEl) {
-  // 단일 날짜 셀에서 "비움" 클릭 시: 빈 값으로 저장
-  _saveDateEdit(anyChildEl, null, null);
 }
 
 async function confirmDateRangeEdit(anyChildEl) {
@@ -9349,7 +9343,8 @@ async function _saveDateEdit(anyChildEl, primaryVal, endVal) {
   cur.products = nextProducts;
   cur.version = result.data?.version || (prevVersion + 1);
   _refreshBrandAppHistoryButton(id);
-  renderBrandApplicationsList();
+  // 해당 셀만 재렌더 — 같은 페이지에서 편집 중인 다른 셀들의 입력 상태가 사라지지 않도록 전체 재렌더 회피
+  _restoreDateDisplay(cell, cfg, nextProducts[idx]);
   toast(cfg.label + ' 저장 완료');
 }
 
