@@ -28,6 +28,12 @@
   details.meta dl { margin-top:10px; display:grid; grid-template-columns:120px 1fr; gap:6px 12px; }
   details.meta dt { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; }
   details.meta code { font-family:monospace; background:#F7F4EE; padding:1px 6px; border-radius:4px; font-size:11px; }
+  .lang-toggle { max-width:640px; margin:0 auto 12px; display:flex; gap:6px; background:#fff; padding:6px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
+  .lang-toggle button { flex:1; font-family:inherit; font-size:12px; font-weight:600; letter-spacing:0.02em; padding:8px 10px; border:0; border-radius:6px; background:transparent; color:#666; cursor:pointer; transition:background 0.15s, color 0.15s; }
+  .lang-toggle button:hover { background:#F7F4EE; color:#161618; }
+  .lang-toggle button.active { background:#161618; color:#fff; }
+  .lang-toggle button.active:hover { background:#000; color:#fff; }
+  .lang-note { max-width:640px; margin:0 auto 14px; font-size:11px; color:#888; text-align:right; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -38,6 +44,12 @@
   <p class="sub">Supabase Auth · 운영서버 가입 시 자동 발송 (개발서버는 Confirm email OFF)</p>
 </div>
 
+<div class="lang-toggle" role="tablist" aria-label="미리보기 언어 선택">
+  <button type="button" data-lang="ja" class="active" role="tab" aria-selected="true">일본어 (실제 발송)</button>
+  <button type="button" data-lang="ko" role="tab" aria-selected="false">한국어 (검수용)</button>
+</div>
+<p class="lang-note">※ 한국어 미리보기는 검수용 번역입니다. 실제 메일은 일본어로만 발송됩니다.</p>
+
 <div class="mail-card">
   <div class="mail-head">
     <div class="mail-from">Preview · Sign-up Confirmation</div>
@@ -45,12 +57,32 @@
       <div><b>From:</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
       <div><b>To:</b> sakura.test@reverb.jp</div>
     </div>
-    <div class="mail-subject">【REVERB JP】メールアドレスの認証をお願いします</div>
+    <div class="mail-subject" data-subject-ja="【REVERB JP】メールアドレスの認証をお願いします" data-subject-ko="【REVERB JP】 이메일 주소 인증을 부탁드립니다">【REVERB JP】メールアドレスの認証をお願いします</div>
   </div>
   <div class="mail-body">
-    <iframe src="confirm-signup.html" title="confirm-signup.html"></iframe>
+    <iframe src="confirm-signup.html" title="confirm-signup.html" data-src-ja="confirm-signup.html" data-src-ko="confirm-signup.ko.preview.html"></iframe>
   </div>
 </div>
+
+<script>
+(function() {
+  const buttons = document.querySelectorAll('.lang-toggle button');
+  const iframe = document.querySelector('.mail-body iframe');
+  const subject = document.querySelector('.mail-subject');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lang = btn.dataset.lang;
+      buttons.forEach(b => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      iframe.src = iframe.dataset['src' + (lang === 'ko' ? 'Ko' : 'Ja')];
+      subject.textContent = subject.dataset['subject' + (lang === 'ko' ? 'Ko' : 'Ja')];
+    });
+  });
+})();
+</script>
 
 <details class="meta">
   <summary>발송 메타</summary>
