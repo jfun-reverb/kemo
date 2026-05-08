@@ -8596,7 +8596,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
 
   var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
-  // 1. 신청번호 + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) + 제품 N개 (모든 행에 동일 표시)
+  // 1. 신청번호(-N) + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) — 모든 행에 동일 표시
+  // 신청번호 끝에 -1·-2 인덱스 부착(원본 idx+1)으로 행 식별. 「제품 N개」 별도 라벨 불필요
   // reviewer_channels는 form_type='reviewer'일 때만 의미 (시딩은 항상 NULL — DB CHECK 제약)
   var channelBadges = '';
   if (a.form_type === 'reviewer' && Array.isArray(a.reviewer_channels) && a.reviewer_channels.length > 0) {
@@ -8606,10 +8607,10 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
       return '<span style="border:1px solid var(--pink);color:var(--pink);background:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px">' + esc(label) + '</span>';
     }).join('');
   }
+  var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
   html += '<td>'
-    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(a.application_no || '—') + '</div>'
+    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + '</div>'
     + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + manualBadge + '</div>'
-    + (count > 1 ? '<div style="font-size:10px;color:var(--muted);margin-top:3px">제품 ' + count + '개</div>' : '')
     + '</td>';
 
   // 2. 브랜드 (모든 행에 동일 색상)
