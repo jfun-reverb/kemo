@@ -13425,15 +13425,15 @@ var BRAND_STATUS_COLOR = {
   rejected:            '#B0B0B8'    // 회색 (종료)
 };
 var BRAND_FUNNEL_STAGES = [
-  {key:'new',                 label:'접수 (new)'},
-  {key:'reviewing',           label:'검토 (reviewing)'},
-  {key:'quoted',              label:'견적 전달 (quoted)'},
-  {key:'paid',                label:'입금 완료 (paid)'},
-  {key:'kakao_room_created',  label:'카톡방 생성 (kakao_room_created)'},
-  {key:'orient_sheet_sent',   label:'오리엔시트 전달 (orient_sheet_sent)'},
-  {key:'schedule_sent',       label:'일정 전달 (schedule_sent)'},
-  {key:'campaign_registered', label:'캠페인 등록 (campaign_registered)'},
-  {key:'done',                label:'최종 완료 (done)'}
+  {key:'new',                 nameKo:'접수',          nameEn:'new'},
+  {key:'reviewing',           nameKo:'검토',          nameEn:'reviewing'},
+  {key:'quoted',              nameKo:'견적 전달',     nameEn:'quoted'},
+  {key:'paid',                nameKo:'입금 완료',     nameEn:'paid'},
+  {key:'kakao_room_created',  nameKo:'카톡방 생성',   nameEn:'kakao_room_created'},
+  {key:'orient_sheet_sent',   nameKo:'오리엔시트 전달', nameEn:'orient_sheet_sent'},
+  {key:'schedule_sent',       nameKo:'일정 전달',     nameEn:'schedule_sent'},
+  {key:'campaign_registered', nameKo:'캠페인 등록',   nameEn:'campaign_registered'},
+  {key:'done',                nameKo:'최종 완료',     nameEn:'done'}
 ];
 // 전환 깔때기용: status가 이 단계 이상이면 도달한 것으로 간주 (rejected 제외)
 var BRAND_STATUS_ORDER_FOR_FUNNEL = {new:0, reviewing:1, quoted:2, paid:3, kakao_room_created:4, orient_sheet_sent:5, schedule_sent:6, campaign_registered:7, done:8, rejected:-1};
@@ -13545,7 +13545,19 @@ function renderBrandFunnel(apps) {
   }
   // rejected 제외한 총 접수 제품 수 (깔때기 분모)
   var activeTotal = flat.filter(function(f){ return f.status !== 'rejected'; }).length;
-  var html = BRAND_FUNNEL_STAGES.map(function(stage, idx) {
+
+  // 컬럼 폭: 라벨 200 / 진행률 1fr / 도달 70 / 전환 110
+  var GRID = 'grid-template-columns:200px 1fr 70px 110px;gap:10px;align-items:center';
+
+  // 헤더 행 (각 컬럼 제목)
+  var header = '<div style="display:grid;' + GRID + ';padding:0 0 8px;border-bottom:1px solid var(--line);margin-bottom:8px">'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase">단계</div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase">진행률</div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;text-align:right">도달</div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;text-align:right">전체비 · 전환율</div>'
+  + '</div>';
+
+  var rows = BRAND_FUNNEL_STAGES.map(function(stage, idx) {
     var threshold = BRAND_STATUS_ORDER_FOR_FUNNEL[stage.key];
     var reached = flat.filter(function(f){
       var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[f.status];
@@ -13558,16 +13570,20 @@ function renderBrandFunnel(apps) {
       return ord !== -1 && ord >= prevThreshold;
     }).length;
     var stepConv = prev ? Math.round((reached / prev) * 100) : 0;
-    return '<div style="display:grid;grid-template-columns:160px 1fr 80px 70px;gap:10px;align-items:center">'
-      + '<div style="font-size:12px;font-weight:600;color:var(--ink)">' + esc(stage.label) + '</div>'
+    var isLast = idx === BRAND_FUNNEL_STAGES.length - 1;
+    return '<div style="display:grid;' + GRID + ';padding:8px 0' + (isLast ? '' : ';border-bottom:1px dashed rgba(0,0,0,0.06)') + '">'
+      + '<div style="font-size:12px;font-weight:600;color:var(--ink);line-height:1.4">'
+        + esc(stage.nameKo)
+        + ' <span style="font-size:10px;font-weight:400;color:var(--muted);margin-left:4px">' + esc(stage.nameEn) + '</span>'
+      + '</div>'
       + '<div style="height:22px;background:rgba(200,120,163,.08);border-radius:100px;overflow:hidden;position:relative">'
       + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
       + '</div>'
       + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '개</div>'
-      + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
       + '</div>';
   }).join('');
-  host.innerHTML = html;
+  host.innerHTML = header + rows;
 }
 
 function renderBrandFormDonut(apps) {
