@@ -10,7 +10,7 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 - **개발서버**: `qysmxtipobomefudyixw.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / MICRO compute) — Org 레벨 PRO라 양 프로젝트 모두 Pro 혜택
 - URL/Key 관리는 `dev/lib/supabase.js`의 `SUPABASE_ENVS`에서만 (하드코딩 금지)
 - 도메인 분기: `globalreverb.com` / `www.globalreverb.com` → 운영, 나머지 → 개발
-- **DB 변경은 항상 개발서버 먼저 적용 → 검증 → 운영 적용**
+- DB 변경 흐름(개발서버 먼저 → 검증 → 운영 적용)은 `.claude/rules/git.md` 「배포 워크플로 (필수)」 정의처 참조
 
 ## DB 접근 패턴
 - DB 참조 시 항상 `db?.from()` 사용 (null-safe, DEMO_MODE 대응)
@@ -89,9 +89,8 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 - `supabase/seed/*.sql` — 초기 데이터 투입용 (lookup_values, test_influencers 등)
 - Supabase 대시보드 SQL Editor의 저장된 스니펫은 삭제 무관 (repo 파일이 source of truth)
 
-## 계정 열거 방지 (보안)
-- 비밀번호 찾기 성공 메시지는 조건부 표현 (`"등록된 계정이면 메일 발송"`)
-- 회원가입/로그인 에러도 이메일 존재 여부 직접 노출 금지
+## 계정 열거 방지
+- 정의·구현 패턴(비밀번호 찾기 조건부 메시지 등)은 `.claude/rules/security.md` 「계정 열거 방지 (Account Enumeration)」 정의처 참조
 
 ## localStorage 폴백 (DEMO_MODE)
 - Supabase 미연결 시 자동으로 localStorage 동작
