@@ -71,7 +71,7 @@ PYTHON_SCRIPT
 mkdir -p ../admin
 
 ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "js/ui.js" "js/admin.js" "admin/app.js")
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "js/ui.js" "js/admin-brand.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do

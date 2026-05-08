@@ -68,7 +68,7 @@
 - **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — 별도 Vercel 프로젝트 `reverb-sales`(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com` 서브도메인, 루트 랜딩에서 `/reviewer`(Qoo10 리뷰어 모집) 또는 `/seeding`(나노 인플루언서 시딩) 폼 선택. anon으로 `submit_brand_application` RPC 경유 `brand_applications` INSERT. Vercel `cleanUrls`+catch-all rewrite로 `/reviewer` → `reviewer.html` 라우팅. (migration 057에서 사업자등록증 수집 기능 제거 — `brand-docs` 버킷·`business_license_path` 컬럼 모두 삭제). **2026-04-27**: reviewer 신청 완료 화면(Page 3) 입금 계좌가 placeholder `우리은행 1005-XXX-XXXXXX` → 실 계좌 **`기업은행 077-156976-01-055`**(예금주: (주)제이펀)로 교체. 은행/계좌번호/예금주 라벨은 한·일 양언어 유지, 값은 KO-only(`<span class="ko-only">`만 노출). 시딩 폼은 종전대로 계좌 표시 없음(별도 정산 흐름)
 - 배포용: 루트 index.html (build.sh로 생성)
 - 개발 폴더 구조:
-  - dev/js/ — app, ui, campaign, application, auth, mypage, admin
+  - dev/js/ — app, ui, campaign, application, auth, mypage, admin, admin-brand
   - dev/css/ — base, components, campaign, auth, mypage, admin
   - dev/lib/ — supabase(설정), shared(전역변수), storage(DB/Storage API)
   - dev/build.sh — dev/ → 루트 index.html 빌드
