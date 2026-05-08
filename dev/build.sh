@@ -10,6 +10,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 VERSION="v$(date +%s)"
+# 관리자 사이드바 최하단 버전 표시용 — KST(UTC+9) 사람이 읽기 쉬운 일시 + 7자리 git 커밋 ID
+# git 디렉터리가 없거나(배포 환경) 커밋이 없으면 'local' 폴백
+BUILD_DATETIME_KST="$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M')"
+GIT_SHA_SHORT="$(git rev-parse --short=7 HEAD 2>/dev/null || echo 'local')"
 # 큰 CSS/JS 페이로드는 argv 길이 제한(MAX_ARG_STRLEN)에 걸릴 수 있으므로 임시 파일 경유
 BUILD_TMP="$(mktemp -d -t reverb-build-XXXXXX)"
 trap 'rm -rf "$BUILD_TMP"' EXIT
@@ -85,13 +89,15 @@ for f in "${ADMIN_JS_FILES[@]}"; do
   else echo "⚠️  $f 파일을 찾을 수 없습니다"; fi
 done
 
-python3 - "../admin/index.html" "$BUILD_TMP/admin.css" "$BUILD_TMP/admin.js" "$VERSION" "admin/index.html" << 'PYTHON_SCRIPT'
+python3 - "../admin/index.html" "$BUILD_TMP/admin.css" "$BUILD_TMP/admin.js" "$VERSION" "admin/index.html" "$BUILD_DATETIME_KST" "$GIT_SHA_SHORT" << 'PYTHON_SCRIPT'
 import sys, re
 output_path = sys.argv[1]
 css_path = sys.argv[2]
 js_path = sys.argv[3]
 version = sys.argv[4]
 src_html = sys.argv[5]
+build_datetime_kst = sys.argv[6]
+git_sha_short = sys.argv[7]
 
 with open(css_path, "r", encoding="utf-8") as f:
     all_css = f.read()
@@ -105,6 +111,10 @@ with open(src_html, "r", encoding="utf-8") as f:
 html = re.sub(r'<link\s+rel="stylesheet"\s+href="\.\./css/[^"]+"\s*/?>\n?', '', html)
 html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|storage|ui|admin|app)\.js"\s*></script>\n?', '', html)
 
+# 사이드바 최하단 빌드 버전 placeholder 치환
+html = html.replace("__BUILD_DATETIME_KST__", build_datetime_kst)
+html = html.replace("__GIT_SHA_SHORT__", git_sha_short)
+
 version_comment = f"<!-- {version} -->"
 style_block = f"<style>\n{all_css}</style>\n"
 html = html.replace("</head>", f"{style_block}</head>", 1)
@@ -114,7 +124,7 @@ html = html.replace("</body>", f"{script_block}</body>", 1)
 with open(output_path, "w", encoding="utf-8") as f:
     f.write(html)
 
-print(f"  ✅ Admin 빌드 완료 → {output_path}")
+print(f"  ✅ Admin 빌드 완료 → {output_path} (build {build_datetime_kst} · {git_sha_short})")
 PYTHON_SCRIPT
 
 # ══════════════════════════════════════

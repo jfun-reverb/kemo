@@ -428,6 +428,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 .admin-layout.collapsed .admin-si-lbl{font-size:0;padding:8px 0;height:0;overflow:hidden}
 .admin-layout.collapsed .admin-si{position:relative}
 .admin-layout.collapsed .admin-si-badge{position:absolute;top:4px;left:50%;margin-left:-2px;min-width:16px;height:16px;padding:0 4px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #1A0F18;border-radius:10px;box-sizing:content-box}
+/* 사이드바 최하단 빌드 버전 — 펼친 상태에서만 노출, 접힌 상태에선 숨김 */
+.admin-build-info{padding:10px 20px 14px;font-size:10px;line-height:1.4;color:rgba(255,255,255,.35);font-variant-numeric:tabular-nums;border-top:1px solid rgba(255,255,255,.06);margin-top:6px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:default}
+.admin-build-info .admin-build-text{vertical-align:middle}
+.admin-layout.collapsed .admin-build-info{display:none}
 .admin-main{background:var(--surface-container-low);height:100%;overflow:hidden}
 
 .admin-body{padding:24px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}
@@ -1291,6 +1295,11 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="admin-si" onclick="adminLogout()">
           <span class="si-icon material-icons-round" style="font-size:18px">logout</span>
           <span class="si-text" style="font-size:12px">로그아웃</span>
+        </div>
+        <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
+        <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
+          <span class="admin-build-text">2026-05-08 19:19 · 0f69792</span>
         </div>
       </div>
     </aside>
