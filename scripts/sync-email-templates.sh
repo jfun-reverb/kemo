@@ -70,6 +70,28 @@ for group in "${SYNC_GROUPS[@]}"; do
     total_changed=$((total_changed + group_changed))
     changed_fns+=("$fn_name")
   fi
+
+  # notify-deliverable-decision은 _templates를 ts 모듈로도 자동 생성
+  # (supabase CLI가 _templates 디렉토리를 함수 번들에 포함 안 시키는 동작 회피)
+  if [[ "$fn_name" == "notify-deliverable-decision" ]]; then
+    ts_path="$REPO_ROOT/supabase/functions/$fn_name/templates.ts"
+    {
+      echo "// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지"
+      echo "// docs/email-templates/ 변경 후 sync 스크립트 실행 시 자동 갱신"
+      echo "//"
+      echo "// 백틱·\${...} 패턴은 sed로 escape 처리. 새 템플릿 추가 시 패턴 점검 필요"
+      echo ""
+      echo "export const TEMPLATES: Record<string, string> = {"
+      for f in "${files[@]}"; do
+        name="${f%.html}"
+        # 백슬래시 → 이중 백슬래시 / 백틱·달러 escape (template literal 안전)
+        content=$(sed 's/\\/\\\\/g; s/`/\\`/g; s/\$/\\$/g' "$dst_dir/$f")
+        echo "  \"$name\": \`$content\`,"
+      done
+      echo "};"
+    } > "$ts_path"
+    echo "  ✓ generated: templates.ts (${#files[@]} templates inlined)"
+  fi
 done
 
 echo ""

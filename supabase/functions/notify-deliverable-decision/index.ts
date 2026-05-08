@@ -339,10 +339,18 @@ Deno.serve(async (req: Request) => {
     .select("id, email, name, name_kanji")
     .eq("id", note.user_id)
     .maybeSingle();
+  // 인플루언서 행 누락(legacy id 어긋남·탈퇴) 또는 이메일 없음 → graceful skip
+  // 알림은 "처리됨"으로 마킹해 같은 알림에 대한 Webhook 재시도 차단
   if (infErr || !inf?.email) {
-    console.error("[notify-deliverable-decision] influencer fetch failed", infErr);
-    return new Response(JSON.stringify({ error: "influencer not found or email missing" }), {
-      status: 500,
+    console.warn("[notify-deliverable-decision] influencer not found or no email — graceful skip", {
+      record_id: note.id,
+      user_id: note.user_id,
+      reason: infErr ? "fetch_error" : (!inf ? "no_row" : "no_email"),
+    });
+    await sb.from("notifications").update({ mail_sent_at: new Date().toISOString() })
+      .eq("id", note.id).is("mail_sent_at", null);
+    return new Response(JSON.stringify({ skipped: "influencer not found or email missing" }), {
+      status: 200,
       headers: { "content-type": "application/json" },
     });
   }
