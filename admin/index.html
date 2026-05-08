@@ -13801,22 +13801,9 @@ var _brandAppMemoSummaries = {};      // {appId: {count, latest}}
 var _brandAppMemoModalCurrentId = null;
 var _brandAppMemoModalCache = [];     // open된 신청의 메모 배열 (memory)
 
-// 인라인 편집 성공 후 카운트 즉시 +1 + 해당 row의 「관리」 셀(더보기 버튼) 우상단 배지 갱신
+// 인라인 편집 성공 후 카운트 캐시만 +1 (배지 미표시. 다음 더보기 메뉴 열 때 새 카운트 반영)
 function _refreshBrandAppHistoryButton(id) {
   _brandAppHistoryCounts[id] = (_brandAppHistoryCounts[id] || 0) + 1;
-  var sel = '#brandAppTableBody tr[data-id="' + (CSS && CSS.escape ? CSS.escape(id) : id) + '"][data-first="1"]';
-  var row = document.querySelector(sel);
-  if (!row) return;
-  var lastTd = row.lastElementChild;
-  if (!lastTd) return;
-  var hcnt = _brandAppHistoryCounts[id];
-  var badge = hcnt > 0
-    ? '<span style="position:absolute;top:-2px;right:-2px;background:var(--pink);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;line-height:14px;border-radius:7px;padding:0 4px;text-align:center">' + hcnt + '</span>'
-    : '';
-  lastTd.innerHTML = '<div style="position:relative;display:inline-block">'
-    + '<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(id) + '\')">more_vert</span>'
-    + badge
-    + '</div>';
 }
 
 // 신청 행 더보기 메뉴 — 캠페인 더보기 패턴(camp-more-menu) 재사용
@@ -14902,18 +14889,9 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
     ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, false) + '</div></td>'
     : emptyAction;
 
-  // 21. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 우상단 이력 카운트 배지로 보존
+  // 21. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
-    ? (function(){
-        var hcnt = (typeof _brandAppHistoryCounts !== 'undefined' && _brandAppHistoryCounts) ? (_brandAppHistoryCounts[a.id] || 0) : 0;
-        var badge = hcnt > 0
-          ? '<span style="position:absolute;top:-2px;right:-2px;background:var(--pink);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;line-height:14px;border-radius:7px;padding:0 4px;text-align:center">' + hcnt + '</span>'
-          : '';
-        return '<td><div style="position:relative;display:inline-block">'
-          + '<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span>'
-          + badge
-        + '</div></td>';
-      })()
+    ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
 
   html += '</tr>';
