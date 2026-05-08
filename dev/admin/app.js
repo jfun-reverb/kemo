@@ -10,17 +10,15 @@ function toggleAdminSidebar() {
   icon.textContent = layout.classList.contains('collapsed') ? 'menu_open' : 'menu';
 }
 
-// 사이드바 메뉴 클릭 — 풀 브라우저 새로고침으로 페인 전환
-// (운영팀 요청: 데이터가 항상 최신으로 갱신되도록 stale 화면 이슈 해결)
-// 내부 점프(대시보드 카드의 「전체 보기」, 캠페인 저장 후 목록 복귀, 신청 행 클릭 → 캠페인별 신청자 등)는
-// 작업 흐름·토스트 메시지 보존을 위해 기존 switchAdminPane(SPA)을 그대로 사용한다.
+// 사이드바 메뉴 클릭 — SPA 페인 전환 (전체 페이지 reload 제거).
+// switchAdminPane이 페인별 loader를 호출해 fresh load 보장하므로 stale 이슈 없음.
+// 같은 페인 재클릭 시엔 loader만 다시 호출해 강제 갱신.
 function navAdminPaneReload(pane) {
-  const target = '#' + (pane || 'dashboard');
-  if (location.hash === target) {
-    location.reload();
+  pane = pane || 'dashboard';
+  if (typeof switchAdminPane === 'function') {
+    switchAdminPane(pane, null, true);
   } else {
-    location.hash = target;
-    location.reload();
+    location.hash = '#' + pane;
   }
 }
 
