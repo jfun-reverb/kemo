@@ -13042,12 +13042,14 @@ async function exportBrandApplicationsExcel() {
       var createdStr  = fmtDateTime(a.created_at);
       var quoteSent   = fmtDateOnly(a.quote_sent_at);
       var reviewed    = fmtDateOnly(a.reviewed_at);
-      var statusLabel = (BRAND_APP_STATUS[a.status]?.label) || a.status || '';
       var prods = (Array.isArray(a.products) && a.products.length > 0)
         ? a.products
         : [{ name: '', url: '', qty: 0, price: 0, transfer_fee_krw: null }];
 
       prods.forEach(function(p) {
+        // Phase B: 상태는 제품 단위 — products[i].status 우선, 없으면 신청 단위 a.status 폴백
+        var rowStatus = (p && p.status) || a.status;
+        var statusLabel = (BRAND_APP_STATUS[rowStatus]?.label) || rowStatus || '';
         var qty = Number(p.qty) || 0;
         var priceJpy = Number(p.price) || 0;
         var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
@@ -13467,15 +13469,35 @@ function renderBrandDashboard() {
   renderBrandLongPending(apps);
 }
 
+// 신청 배열을 제품 단위로 평탄화 — Phase B 통계용
+// 각 항목 = {app, product, idx, status} 형태. products 비어있으면 1행 placeholder
+function _flattenAppsToProducts(apps) {
+  var flat = [];
+  (apps || []).forEach(function(a) {
+    var prods = Array.isArray(a.products) ? a.products : [];
+    if (prods.length === 0) {
+      flat.push({app: a, product: null, idx: 0, status: a.status || null});
+    } else {
+      prods.forEach(function(p, idx) {
+        var s = (p && p.status) || a.status || null;
+        flat.push({app: a, product: p, idx: idx, status: s});
+      });
+    }
+  });
+  return flat;
+}
+
 function renderBrandKPIs(apps) {
   var now = new Date();
   var thisMonth = now.toISOString().slice(0,7); // 'YYYY-MM'
   var reviewerN = apps.filter(function(a){ return a.form_type === 'reviewer'; }).length;
   var seedingN  = apps.filter(function(a){ return a.form_type === 'seeding'; }).length;
   var thisMonthN = apps.filter(function(a){ return (a.created_at||'').slice(0,7) === thisMonth; }).length;
-  var pendingN = apps.filter(function(a){ return a.status === 'new' || a.status === 'reviewing'; }).length;
-  var quotedN  = apps.filter(function(a){ return a.status === 'quoted'; }).length;
-  var doneN    = apps.filter(function(a){ return a.status === 'done'; }).length;
+  // status 단위 카운트는 제품 단위로 (Phase B). 합계·avgLead·estimated/finalSum은 신청 단위 유지(평탄화 시 X배 부풀림 방지)
+  var flat = _flattenAppsToProducts(apps);
+  var pendingN = flat.filter(function(f){ return f.status === 'new' || f.status === 'reviewing'; }).length;
+  var quotedN  = flat.filter(function(f){ return f.status === 'quoted'; }).length;
+  var doneN    = flat.filter(function(f){ return f.status === 'done'; }).length;
 
   // 평균 처리일: done 건만 대상, created_at -> reviewed_at 차이(폴백 updated_at)
   var leadDays = [];
@@ -13515,21 +13537,23 @@ function renderBrandKPIs(apps) {
 function renderBrandFunnel(apps) {
   var host = $('brandFunnel');
   if (!host) return;
-  if (!apps.length) {
+  // Phase B: 제품 단위 카운트 — 같은 신청에 제품 N개면 N번 카운트
+  var flat = _flattenAppsToProducts(apps);
+  if (!flat.length) {
     host.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">데이터 없음</div>';
     return;
   }
-  // rejected 제외한 총 접수 건수 (깔때기 분모)
-  var activeTotal = apps.filter(function(a){ return a.status !== 'rejected'; }).length;
+  // rejected 제외한 총 접수 제품 수 (깔때기 분모)
+  var activeTotal = flat.filter(function(f){ return f.status !== 'rejected'; }).length;
   var html = BRAND_FUNNEL_STAGES.map(function(stage, idx) {
     var threshold = BRAND_STATUS_ORDER_FOR_FUNNEL[stage.key];
-    var reached = apps.filter(function(a){
-      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[a.status];
+    var reached = flat.filter(function(f){
+      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[f.status];
       return ord !== -1 && ord >= threshold;
     }).length;
     var ratio = activeTotal ? Math.round((reached / activeTotal) * 100) : 0;
-    var prev = idx === 0 ? activeTotal : apps.filter(function(a){
-      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[a.status];
+    var prev = idx === 0 ? activeTotal : flat.filter(function(f){
+      var ord = BRAND_STATUS_ORDER_FOR_FUNNEL[f.status];
       var prevThreshold = BRAND_STATUS_ORDER_FOR_FUNNEL[BRAND_FUNNEL_STAGES[idx-1].key];
       return ord !== -1 && ord >= prevThreshold;
     }).length;
@@ -13539,7 +13563,7 @@ function renderBrandFunnel(apps) {
       + '<div style="height:22px;background:rgba(200,120,163,.08);border-radius:100px;overflow:hidden;position:relative">'
       + '  <div style="height:100%;width:' + ratio + '%;background:linear-gradient(90deg,var(--pink),#E8A355);transition:width 0.4s"></div>'
       + '</div>'
-      + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '건</div>'
+      + '<div style="font-size:12px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums">' + reached + '개</div>'
       + '<div style="font-size:11px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums">' + ratio + '% · ' + (idx === 0 ? '—' : ('→' + stepConv + '%')) + '</div>'
       + '</div>';
   }).join('');
@@ -13600,10 +13624,12 @@ function renderBrandStatusDonut(apps) {
   if (!canvas) return;
   if (_brandStatusDonut) { _brandStatusDonut.destroy(); _brandStatusDonut = null; }
 
+  // Phase B: 제품 단위 카운트
+  var flat = _flattenAppsToProducts(apps);
   var keys = ['new','reviewing','quoted','paid','kakao_room_created','orient_sheet_sent','schedule_sent','campaign_registered','done','rejected'];
-  var counts = keys.map(function(k){ return apps.filter(function(a){ return a.status === k; }).length; });
+  var counts = keys.map(function(k){ return flat.filter(function(f){ return f.status === k; }).length; });
   var total = counts.reduce(function(s,n){ return s+n; }, 0);
-  if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '건') : '';
+  if (totalLabel) totalLabel.textContent = total ? ('전체 ' + total + '개') : '';
   if (!total) {
     canvas.style.display = 'none';
     if (empty) empty.style.display = 'flex';
@@ -13631,7 +13657,7 @@ function renderBrandStatusDonut(apps) {
           callbacks: {
             label: function(ctx) {
               var pct = total ? Math.round((ctx.parsed / total) * 100) : 0;
-              return ctx.label + ': ' + ctx.parsed + '건 (' + pct + '%)';
+              return ctx.label + ': ' + ctx.parsed + '개 (' + pct + '%)';
             }
           }
         }
@@ -14356,7 +14382,17 @@ function getFilteredBrandApps() {
 
   var list = _brandApps.slice();
   if (formVals.length > 0) list = list.filter(a => formVals.indexOf(a.form_type) >= 0);
-  if (statusVals.length > 0) list = list.filter(a => statusVals.indexOf(a.status) >= 0);
+  // Phase B: status 필터는 제품 단위 — 매칭 제품이 1개라도 있는 신청 통과. render 시 행 단위 필터로 매칭 제품만 노출
+  if (statusVals.length > 0) {
+    list = list.filter(function(a) {
+      var prods = Array.isArray(a.products) ? a.products : [];
+      if (prods.length === 0) return statusVals.indexOf(a.status) >= 0;
+      return prods.some(function(p) {
+        var s = (p && p.status) || a.status;
+        return statusVals.indexOf(s) >= 0;
+      });
+    });
+  }
   if (from) list = list.filter(a => (a.created_at || '') >= from);
   if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
   if (q) list = list.filter(a =>
@@ -14409,11 +14445,14 @@ function renderBrandApplicationsList() {
   if (!tbody) return;
 
   // 옵션별 (NN) 카운트 갱신 — 필터 적용 전 전체 신청 기준
+  // form은 신청 단위, status는 Phase B에 따라 제품 단위 카운트
   var formCounts = {reviewer:0, seeding:0};
   var brandStatusCounts = {};
   (_brandApps || []).forEach(function(a) {
     if (a.form_type) formCounts[a.form_type] = (formCounts[a.form_type] || 0) + 1;
-    if (a.status) brandStatusCounts[a.status] = (brandStatusCounts[a.status] || 0) + 1;
+  });
+  _flattenAppsToProducts(_brandApps).forEach(function(f) {
+    if (f.status) brandStatusCounts[f.status] = (brandStatusCounts[f.status] || 0) + 1;
   });
   syncMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer', label:'Qoo10 리뷰어', count: formCounts.reviewer || 0},
@@ -14451,9 +14490,17 @@ function renderBrandApplicationsList() {
       : '(' + summary + ')';
   }
 
-  // 신청 1건 = 제품 N행 평탄화 (제품이 0개면 placeholder 1행)
+  // Phase B: status 필터가 켜지면 매칭 제품 행만 노출 (행 단위 필터)
+  var statusFilter = getMultiFilterValues('brandAppStatusMulti');
   var renderBrandAppRow = function(a) {
     var prods = Array.isArray(a.products) ? a.products : [];
+    if (statusFilter.length > 0) {
+      prods = prods.filter(function(p) {
+        var s = (p && p.status) || a.status;
+        return statusFilter.indexOf(s) >= 0;
+      });
+      if (prods.length === 0) return ''; // 매칭 제품 없으면 신청 자체 미노출
+    }
     if (prods.length === 0) {
       return renderBrandAppFlatRow(a, {}, 0, 0);
     }
