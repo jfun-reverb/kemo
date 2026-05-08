@@ -2430,7 +2430,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
                 <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px">Qoo10 리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
                 <a href="https://sales.globalreverb.com/" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:4px" title="새 탭에서 브랜드 서베이 페이지 열기">
@@ -3227,7 +3227,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <label class="form-label">폼 종류 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
           <div style="display:flex;gap:8px">
             <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaFt-reviewer">
-              <input type="radio" name="nbaFormType" value="reviewer" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> Qoo10 리뷰어
+              <input type="radio" name="nbaFormType" value="reviewer" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 리뷰어
             </label>
             <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;flex:1;justify-content:center" id="nbaFt-seeding">
               <input type="radio" name="nbaFormType" value="seeding" onchange="onNbaFormTypeChange()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">radio_button_unchecked</span> 나노 시딩
@@ -6411,7 +6411,7 @@ function initMultiFilters() {
   ], () => renderDeliverablesList());
   // 광고주 신청
   createMultiFilter('brandAppFormMulti', '전체 폼', [
-    {value:'reviewer',label:'Qoo10 리뷰어'},{value:'seeding',label:'나노 시딩'}
+    {value:'reviewer',label:'리뷰어'},{value:'seeding',label:'나노 시딩'}
   ], () => renderBrandApplicationsList());
   createMultiFilter('brandAppStatusMulti', '전체 상태', [
     {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'kakao_room_created',label:'카톡방 생성'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
@@ -12771,7 +12771,8 @@ async function quickChangeBrandAppStatus(id, newStatus, expectedVersion) {
 }
 
 function brandAppFormLabel(formType) {
-  return formType === 'reviewer' ? 'Qoo10 리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
+  // 「리뷰어」 → 「리뷰어」로 단순화 — Qoo10/엣코스메 분기는 reviewer_channels 채널 배지로 분리
+  return formType === 'reviewer' ? '리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
 }
 
 // 광고주가 입력한 URL을 http/https만 허용 (javascript:, data: 스킴 차단)
@@ -13619,7 +13620,7 @@ function renderBrandFormDonut(apps) {
   _brandFormDonut = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['Qoo10 리뷰어', '나노 시딩'],
+      labels: ['리뷰어', '나노 시딩'],
       datasets: [{
         data: [reviewerN, seedingN],
         backgroundColor: ['#C878A3', '#5B8FD6'],
@@ -13716,7 +13717,7 @@ function renderBrandTrendChart(apps, days) {
     data: {
       labels: labels,
       datasets: [
-        { label: 'Qoo10 리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
+        { label: '리뷰어', data: reviewerData, backgroundColor: '#C878A3', borderRadius: 3, stack: 'applications' },
         { label: '나노 시딩',    data: seedingData,  backgroundColor: '#5B8FD6', borderRadius: 3, stack: 'applications' }
       ]
     },
@@ -13751,7 +13752,7 @@ function renderBrandRecent(apps) {
     return;
   }
   host.innerHTML = top5.map(function(a){
-    var formLabel = a.form_type === 'reviewer' ? 'Qoo10 리뷰어' : (a.form_type === 'seeding' ? '나노 시딩' : a.form_type);
+    var formLabel = a.form_type === 'reviewer' ? '리뷰어' : (a.form_type === 'seeding' ? '나노 시딩' : a.form_type);
     var dateStr = (a.created_at || '').slice(0,10);
     var statusColor = BRAND_STATUS_COLOR[a.status] || '#888';
     var statusLabel = BRAND_STATUS_LABEL_KO[a.status] || a.status;
@@ -13783,7 +13784,7 @@ function renderBrandLongPending(apps) {
     return;
   }
   host.innerHTML = longPending.slice(0,5).map(function(a){
-    var formLabel = a.form_type === 'reviewer' ? 'Qoo10 리뷰어' : '나노 시딩';
+    var formLabel = a.form_type === 'reviewer' ? '리뷰어' : '나노 시딩';
     var dateStr = (a.created_at || '').slice(0,10);
     var waitDays = Math.floor((Date.now() - new Date(a.created_at).getTime()) / (1000*60*60*24));
     return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #E8A355;border-radius:8px;cursor:pointer;transition:background 0.15s;background:rgba(232,163,85,.04)" onmouseover="this.style.background=\'rgba(232,163,85,.1)\'" onmouseout="this.style.background=\'rgba(232,163,85,.04)\'" onclick=\"openBrandAppFromDashboard(\'' + esc(a.id) + '\')">'
@@ -14503,7 +14504,7 @@ function renderBrandApplicationsList() {
     if (f.status) brandStatusCounts[f.status] = (brandStatusCounts[f.status] || 0) + 1;
   });
   syncMultiFilter('brandAppFormMulti', '전체 폼', [
-    {value:'reviewer', label:'Qoo10 리뷰어', count: formCounts.reviewer || 0},
+    {value:'reviewer', label:'리뷰어', count: formCounts.reviewer || 0},
     {value:'seeding',  label:'나노 시딩',   count: formCounts.seeding  || 0},
   ], renderBrandApplicationsList);
   syncMultiFilter('brandAppStatusMulti', '전체 상태', [
