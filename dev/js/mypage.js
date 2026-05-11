@@ -513,30 +513,38 @@ function closeApplyActionModal() {
   _applyActionTargetAppId = null;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 응모 취소 페이지 (#page-app-cancel) — 2026-05-11 모달→페이지 전환
+// 이전 cancelModal 의 UI/로직을 그대로 페이지로 이전. 모바일에서 모달이
+// 키보드 위로 잘리는 문제가 일반 페이지(.page.active 자연 스크롤)에선
+// 자동 해결됨.
+// ════════════════════════════════════════════════════════════════════
+
+// 함수명 openCancelModalFor 는 응모이력 ⋮ 액션 모달과 활동관리 헤더 버튼
+// 양쪽이 호출하므로 인터페이스 호환을 위해 이름 유지. 내부 동작만 페이지
+// navigate 로 변경.
 async function openCancelModalFor(appId) {
   const app = _myApps.find(a => a.id === appId);
   if (!app) return;
   const camp = allCampaigns.find(c => c.id === app.campaign_id) || {};
   _cancelTargetAppId = appId;
   const phase = _computeCancelPhase(camp);
-  const titleEl = $('cancelModalTitle');
-  if (titleEl) titleEl.textContent = t('appHistory.cancel.title');
-  const campNameEl = $('cancelModalCampaign');
+  // 페이지 안 input/표시 영역에 state 채움
+  const campNameEl = $('cancelPageCampaign');
   if (campNameEl) campNameEl.textContent = camp.title || app.campaign_id || '';
-  // recruit 단계: 단순형 — 경고/사유/동의 영역 숨김
   const isSimple = phase === 'recruit';
-  const warnBox  = $('cancelModalWarning');
-  const reasonBox = $('cancelModalReason');
-  const noteBox  = $('cancelModalNoteWrap');
-  const ackBox   = $('cancelModalAckWrap');
-  const simpleBody = $('cancelModalSimpleBody');
+  const warnBox   = $('cancelPageWarning');
+  const reasonBox = $('cancelPageReason');
+  const noteBox   = $('cancelPageNoteWrap');
+  const ackBox    = $('cancelPageAckWrap');
+  const simpleBody = $('cancelPageSimpleBody');
   if (warnBox)   warnBox.style.display   = isSimple ? 'none' : 'block';
   if (reasonBox) reasonBox.style.display = isSimple ? 'none' : 'block';
   if (noteBox)   noteBox.style.display   = isSimple ? 'none' : 'block';
   if (ackBox)    ackBox.style.display    = isSimple ? 'none' : 'block';
   if (simpleBody) simpleBody.style.display = isSimple ? 'block' : 'none';
   // 경고 카피
-  const warnTextEl = $('cancelModalWarningText');
+  const warnTextEl = $('cancelPageWarningText');
   if (warnTextEl && !isSimple) {
     const key = `appHistory.cancel.warning${phase.charAt(0).toUpperCase()}${phase.slice(1)}`;
     warnTextEl.textContent = t(key);
@@ -544,9 +552,8 @@ async function openCancelModalFor(appId) {
   // 사유 셀렉트: 카탈로그 캐시
   if (!isSimple) {
     if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
-    const sel = $('cancelModalReasonSelect');
+    const sel = $('cancelPageReasonSelect');
     if (sel) {
-      // 현재 언어 토글에 맞춰 카테고리 라벨 선택 (ko 모드에서 한국어, 그 외 일본어)
       const lang = (typeof getLang === 'function') ? getLang() : 'ja';
       const pickLabel = (r) => (lang === 'ko' ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko));
       const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
@@ -554,111 +561,50 @@ async function openCancelModalFor(appId) {
       sel.innerHTML = placeholder + opts;
       sel.value = '';
     }
-    const note = $('cancelModalNote');
+    const note = $('cancelPageNote');
     if (note) note.value = '';
-    const ack = $('cancelModalAck');
+    const ack = $('cancelPageAck');
     if (ack) ack.checked = false;
   }
-  // phase 정보 hidden
-  const phaseEl = $('cancelModalPhase');
+  // phase + appId hidden
+  const phaseEl = $('cancelPagePhase');
   if (phaseEl) phaseEl.value = phase;
-  // 에러 메시지 영역 초기화
-  const errEl = $('cancelModalError');
+  const appIdEl = $('cancelPageAppId');
+  if (appIdEl) appIdEl.value = appId;
+  // 에러 영역 초기화
+  const errEl = $('cancelPageError');
   if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
-  openModal('cancelModal');
-  // 모바일 키보드 대응: visualViewport 가 줄어들면 modal max-height 도
-  // 그만큼 줄여 textarea 가 키보드 위로 보이도록.
-  _attachCancelModalKeyboardSync();
+  // 진입 출처 기록 (mypage 응모이력 vs 활동관리). 성공 시 응모이력으로 이동.
+  const activeIsActivity = document.getElementById('page-activity')?.classList?.contains('active');
+  _cancelPageFrom = activeIsActivity ? 'activity' : 'mypage';
+  // 페이지 전환
+  if (typeof navigate === 'function') navigate('app-cancel');
+  if (typeof applyI18n === 'function') applyI18n();
 }
 
-function closeCancelModal() {
-  _detachCancelModalKeyboardSync();
-  closeModal('cancelModal');
-  _cancelTargetAppId = null;
-}
+// 페이지 진입 출처 — 뒤로가기 동선 결정.
+let _cancelPageFrom = 'mypage';
 
-// ── 모바일 키보드 대응 ─────────────────────────────────────────
-//   modal-overlay 가 position:fixed;inset:0 라 키보드가 올라와도 자동 보정
-//   안 됨. visualViewport.height 로 modal max-height 동적 갱신 + textarea
-//   focus 시 textarea 를 modal-body 안에서 중앙으로 스크롤.
-let _cancelModalVvHandler = null;
-let _cancelModalTextareaFocusHandler = null;
-
-// 모달이 열린 시점의 visualViewport.height — 키보드 검출 임계값 기준.
-// 키보드가 올라오면 visualViewport.height 가 150px 이상 줄어든다.
-let _cancelModalBaseVvHeight = 0;
-
-function _attachCancelModalKeyboardSync() {
-  if (!window.visualViewport) return;
-  if (_cancelModalVvHandler) return;
-  const overlay = document.getElementById('cancelModal');
-  const modalEl = overlay?.querySelector('.modal');
-  _cancelModalBaseVvHeight = window.visualViewport.height;
-  _cancelModalVvHandler = () => {
-    if (!overlay || !overlay.classList.contains('open')) return;
-    const vh = window.visualViewport.height;
-    const diff = _cancelModalBaseVvHeight - vh;
-    if (diff > 150) {
-      // 키보드 올라옴 → overlay/modal 을 visualViewport 안으로 옮겨
-      // align-items:flex-end 가 모달을 키보드 바로 위에 깔도록 한다.
-      const offsetTop = window.visualViewport.offsetTop;
-      overlay.style.height = vh + 'px';
-      overlay.style.top = offsetTop + 'px';
-      overlay.style.bottom = 'auto';
-      if (modalEl) modalEl.style.maxHeight = Math.max(240, vh - 16) + 'px';
-    } else {
-      // 키보드 내려감 또는 처음(임계 미만) → 기본 CSS 그대로 (inset:0,
-      // max-height:90vh) 사용해 backdrop·z-index 가 정상 동작.
-      overlay.style.height = '';
-      overlay.style.top = '';
-      overlay.style.bottom = '';
-      if (modalEl) modalEl.style.maxHeight = '';
+function navigateBackFromCancelApp() {
+  if (typeof navigate === 'function') {
+    if (_cancelPageFrom === 'activity' && _cancelTargetAppId) {
+      const app = _myApps.find(a => a.id === _cancelTargetAppId);
+      if (app && typeof openActivityPage === 'function') {
+        openActivityPage(app.id, app.campaign_id, 'mypage');
+        return;
+      }
     }
-  };
-  window.visualViewport.addEventListener('resize', _cancelModalVvHandler);
-  window.visualViewport.addEventListener('scroll', _cancelModalVvHandler);
-  // 초기 1회 호출 안 함 — 키보드 안 올라온 상태에서 inline style 박지 않음
-
-  // textarea focus 시 0.3s 후 modal-body 안에서 중앙으로 스크롤
-  const ta = document.getElementById('cancelModalNote');
-  if (ta) {
-    _cancelModalTextareaFocusHandler = () => {
-      setTimeout(() => {
-        try { ta.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch(_e) {}
-      }, 300);
-    };
-    ta.addEventListener('focus', _cancelModalTextareaFocusHandler);
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
 }
 
-function _detachCancelModalKeyboardSync() {
-  if (window.visualViewport && _cancelModalVvHandler) {
-    window.visualViewport.removeEventListener('resize', _cancelModalVvHandler);
-    window.visualViewport.removeEventListener('scroll', _cancelModalVvHandler);
-    _cancelModalVvHandler = null;
-  }
-  const ta = document.getElementById('cancelModalNote');
-  if (ta && _cancelModalTextareaFocusHandler) {
-    ta.removeEventListener('focus', _cancelModalTextareaFocusHandler);
-    _cancelModalTextareaFocusHandler = null;
-  }
-  // overlay 위치 + 모달 max-height 원복
-  const overlay = document.getElementById('cancelModal');
-  if (overlay) {
-    overlay.style.height = '';
-    overlay.style.top = '';
-    overlay.style.bottom = '';
-  }
-  const modalEl = document.querySelector('#cancelModal .modal');
-  if (modalEl) modalEl.style.maxHeight = '';
-  _cancelModalBaseVvHeight = 0;
-}
-
-async function submitCancelApplication() {
-  if (!_cancelTargetAppId) return;
-  const phase = $('cancelModalPhase')?.value || 'other';
+async function submitCancelApplicationFromPage() {
+  const appId = $('cancelPageAppId')?.value || _cancelTargetAppId;
+  if (!appId) return;
+  const phase = $('cancelPagePhase')?.value || 'other';
   const isSimple = phase === 'recruit';
-  const errEl = $('cancelModalError');
+  const errEl = $('cancelPageError');
   const showErr = (msg) => {
     if (!errEl) { toast(msg, 'error'); return; }
     errEl.textContent = msg;
@@ -666,16 +612,16 @@ async function submitCancelApplication() {
   };
   let reasonCode = null, reasonNote = null, acknowledged = false;
   if (!isSimple) {
-    reasonCode = $('cancelModalReasonSelect')?.value || '';
-    reasonNote = $('cancelModalNote')?.value || '';
-    acknowledged = !!$('cancelModalAck')?.checked;
+    reasonCode = $('cancelPageReasonSelect')?.value || '';
+    reasonNote = $('cancelPageNote')?.value || '';
+    acknowledged = !!$('cancelPageAck')?.checked;
     if (!reasonCode) { showErr(t('appHistory.cancel.errorReason')); return; }
     if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
     if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
   }
-  const submitBtn = $('cancelModalSubmitBtn');
+  const submitBtn = $('cancelPageSubmitBtn');
   if (submitBtn) submitBtn.disabled = true;
-  const res = await cancelApplication(_cancelTargetAppId, {
+  const res = await cancelApplication(appId, {
     reasonCode: reasonCode || null,
     reasonNote: reasonNote || null,
     acknowledged
@@ -692,23 +638,24 @@ async function submitCancelApplication() {
     showErr(t(errKey));
     return;
   }
-  // 성공 — 캠페인 정보로 알림 생성, 토스트, 닫기, 응모이력 새로고침
-  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === _cancelTargetAppId)?.campaign_id)) || {};
+  // 성공 — 알림 생성, 토스트, 응모이력 새로고침 후 응모이력 「取消」 탭으로
+  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === appId)?.campaign_id)) || {};
   try {
     if (typeof insertApplicationCancelledNotification === 'function') {
-      await insertApplicationCancelledNotification(_cancelTargetAppId, camp.title || '');
+      await insertApplicationCancelledNotification(appId, camp.title || '');
     }
   } catch(_e) { /* 알림 실패는 사용자 흐름 차단 안 함 */ }
   toast(t('appHistory.cancel.success'));
-  closeCancelModal();
+  _cancelTargetAppId = null;
   await loadMyApplications();
-  // 활동관리 페이지에서 취소한 경우 응모이력으로 이동 (cancelled 상태는
-  // 활동관리 진입 차단 대상이라 현재 페이지에 머물면 안 됨).
-  const activeIsActivity = document.getElementById('page-activity')?.classList?.contains('active');
-  if (activeIsActivity && typeof navigate === 'function') {
+  if (typeof navigate === 'function') {
     navigate('mypage');
     if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
+  // cancelled 탭으로 자동 이동해 사용자가 결과 즉시 확인
+  _myAppsTab = 'cancelled';
+  if (typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+  if (typeof renderMyApplyList === 'function') renderMyApplyList();
 }
 
 async function openCancelDetailModal(appId) {
