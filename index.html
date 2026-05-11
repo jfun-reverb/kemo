@@ -4023,7 +4023,8 @@ async function isLookupInUse(row) {
     const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('content_types', `%${row.name_ja}%`);
     return (count || 0) > 0;
   }
-  // ng_item은 textarea 자유 입력이라 사용 여부 추적 불가 → 항상 false
+  // ng_item lookup은 비활성(active=false) 처리됨 — ng_sets 번들로 대체 (migration 107)
+  // 사용 여부 추적 불가이므로 항상 false 반환 (비활성 처리로 hard delete 차단됨)
   return false;
 }
 

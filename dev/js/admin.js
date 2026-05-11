@@ -4537,7 +4537,7 @@ function applyLookupMenuVisibility() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항'};
 let _currentLookupKind = 'channel';
 
 // ════════════════════════════════════════════════════════════════════
@@ -4583,6 +4583,7 @@ async function renderLookupsTable() {
   if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
   if (_currentLookupKind === 'participation_set') { await renderPsetTable(); return; }
   if (_currentLookupKind === 'caution') { await renderCsetTable(); return; }
+  if (_currentLookupKind === 'ng_set') { await renderNgSetTable(); return; }
   const isChannel = _currentLookupKind === 'channel';
   const showRt = isChannel || _currentLookupKind === 'reject_reason';
   // 헤더 렌더
@@ -4837,6 +4838,7 @@ function openLookupAddModal() {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetAddModal(); return; }
   if (_currentLookupKind === 'caution') { openCsetAddModal(); return; }
+  if (_currentLookupKind === 'ng_set') { openNgSetAddModal(); return; }
   $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 추가';
   $('lookupEditId').value = '';
   $('lookupEditKind').value = _currentLookupKind;
@@ -4853,6 +4855,7 @@ function openLookupEditModal(row) {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetEditModal(row); return; }
   if (_currentLookupKind === 'caution') { openCsetEditModal(row); return; }
+  if (_currentLookupKind === 'ng_set') { openNgSetEditModal(row); return; }
   $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + ' 편집';
   $('lookupEditId').value = row.id;
   $('lookupEditKind').value = row.kind;
@@ -4912,6 +4915,7 @@ async function moveLookup(idA, idB) {
   try {
     if (_currentLookupKind === 'participation_set') await swapParticipationSetOrder(idA, idB);
     else if (_currentLookupKind === 'caution') await swapCautionSetOrder(idA, idB);
+    else if (_currentLookupKind === 'ng_set') await swapNgSetOrder(idA, idB);
     else await swapLookupOrder(idA, idB);
     renderLookupsTable();
   } catch(e) {
@@ -4925,6 +4929,8 @@ async function toggleLookupActive(id, nextActive) {
       if (nextActive) await activateParticipationSet(id); else await deactivateParticipationSet(id);
     } else if (_currentLookupKind === 'caution') {
       if (nextActive) await activateCautionSet(id); else await deactivateCautionSet(id);
+    } else if (_currentLookupKind === 'ng_set') {
+      if (nextActive) await activateNgSet(id); else await deactivateNgSet(id);
     } else {
       if (nextActive) await activateLookup(id); else await deactivateLookup(id);
     }
@@ -4935,12 +4941,13 @@ async function toggleLookupActive(id, nextActive) {
 }
 
 async function handleLookupDelete(row) {
-  // 번들(caution_sets / participation_sets) 여부 판별: row.kind 미존재 또는 현재 kind가 번들 탭
-  if (_currentLookupKind === 'caution' || (_currentLookupKind === 'participation_set') || row.kind === undefined) {
+  // 번들(ng_sets / caution_sets / participation_sets) 여부 판별: row.kind 미존재 또는 현재 kind가 번들 탭
+  if (_currentLookupKind === 'ng_set' || _currentLookupKind === 'caution' || (_currentLookupKind === 'participation_set') || row.kind === undefined) {
     const ok = await showConfirm(`'${row.name_ko}' 번들을 영구 삭제하시겠습니까?\n이미 해당 번들을 쓴 캠페인은 스냅샷이 저장돼 영향 없습니다.`);
     if (!ok) return;
     try {
-      if (_currentLookupKind === 'caution') await deleteCautionSet(row.id);
+      if (_currentLookupKind === 'ng_set') await deleteNgSet(row.id);
+      else if (_currentLookupKind === 'caution') await deleteCautionSet(row.id);
       else await deleteParticipationSet(row.id);
       toast('삭제했습니다','success');
       renderLookupsTable();
@@ -5530,6 +5537,182 @@ async function saveCsetEdit() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// SECTION: NG-SETS — NG 사항 번들 기준 데이터 페인 (migration 107)
+//   caution_sets(cset) 패턴 완전 미러링. 캠페인 폼의 editModal 과
+//   동일 nset 헬퍼를 재활용. 번들 자체 편집이므로 "번들 다시 불러오기" 없음.
+// ══════════════════════════════════════════════════════════════════════
+let _nsetCurrentItems = []; // 기준 데이터 페인 편집 중 items 상태
+const MAX_NSET_ITEMS = 20;
+
+async function renderNgSetTable() {
+  const tbody = $('lookupsTableBody');
+  const thead = $('lookupTableHead');
+  if (!tbody) return;
+  if (thead) {
+    thead.innerHTML = `<tr>
+      <th style="width:40px"></th>
+      ${_lookupReorderMode ? '<th style="width:80px">순서</th>' : ''}
+      <th>번들 이름 (한국어 / 일본어)</th>
+      <th style="width:140px">모집 타입</th>
+      <th style="width:80px">항목 수</th>
+      <th style="width:80px">상태</th>
+      ${_lookupReorderMode ? '' : '<th style="width:160px"></th>'}
+    </tr>`;
+  }
+  const colspan = _lookupReorderMode ? 5 : 6;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  let rows = [];
+  try { rows = await fetchNgSetsAll(); } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    return;
+  }
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">등록된 번들이 없습니다</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => {
+    const isFirst = i === 0;
+    const isLast = i === rows.length - 1;
+    const upId = isFirst ? '' : rows[i-1].id;
+    const downId = isLast ? '' : rows[i+1].id;
+    const activeToggle = `<label class="lookup-toggle" title="${r.active?'활성':'비활성'}" onclick="event.stopPropagation()">
+      <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
+      <span class="lookup-toggle-slider"></span>
+    </label>`;
+    const rtBadges = (r.recruit_types||[]).length
+      ? (r.recruit_types||[]).map(t => {
+          const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+          return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+        }).join(' ')
+      : '<span style="font-size:10px;color:var(--muted)">공통</span>';
+    const itemCount = Array.isArray(r.items) ? r.items.length : 0;
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      ${_lookupReorderMode ? `<td><div style="display:flex;gap:3px">
+        <button class="btn btn-ghost btn-xs" ${isFirst?'disabled':''} onclick="moveLookup('${r.id}','${upId}')" style="padding:2px 6px;font-size:13px">↑</button>
+        <button class="btn btn-ghost btn-xs" ${isLast?'disabled':''} onclick="moveLookup('${r.id}','${downId}')" style="padding:2px 6px;font-size:13px">↓</button>
+      </div></td>` : ''}
+      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong><div style="color:var(--muted);font-size:11px;margin-top:2px">${esc(r.name_ja)}</div></td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap">${rtBadges}</div></td>
+      <td style="font-size:12px;color:var(--ink)">${itemCount}개</td>
+      <td>${activeToggle}</td>
+      ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick='openNgSetEditModal(${JSON.stringify(r)})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+      </td>`}
+    </tr>`;
+  }).join('');
+}
+
+function openNgSetAddModal() {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('nsetModalTitle').textContent = 'NG 사항 번들 추가';
+  $('nsetEditId').value = '';
+  $('nsetNameKo').value = '';
+  $('nsetNameJa').value = '';
+  document.querySelectorAll('input[name="nsetRT"]').forEach(cb => cb.checked = false);
+  _nsetCurrentItems = [{html_ko:'', html_ja:''}];
+  renderNgSetItems();
+  $('nsetEditError').style.display = 'none';
+  openModal('nsetEditModal');
+}
+
+function openNgSetEditModal(row) {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('nsetModalTitle').textContent = 'NG 사항 번들 편집';
+  $('nsetEditId').value = row.id;
+  $('nsetNameKo').value = row.name_ko || '';
+  $('nsetNameJa').value = row.name_ja || '';
+  const rtSet = new Set(row.recruit_types || []);
+  document.querySelectorAll('input[name="nsetRT"]').forEach(cb => cb.checked = rtSet.has(cb.value));
+  _nsetCurrentItems = Array.isArray(row.items) && row.items.length
+    ? row.items.map(normalizeNgItem)
+    : [{html_ko:'', html_ja:''}];
+  renderNgSetItems();
+  $('nsetEditError').style.display = 'none';
+  openModal('nsetEditModal');
+}
+
+function renderNgSetItems() {
+  const wrap = $('nsetItemsWrap');
+  if (!wrap) return;
+  wrap.innerHTML = _nsetCurrentItems.map((s, idx) => `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="nsetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===_nsetCurrentItems.length-1?'disabled':''} onclick="nsetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (한국어)</div>
+          ${miniEditorHtml(s.html_ko, `_nsetCurrentItems[${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_nsetCurrentItems[${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+  const addBtn = $('nsetAddItemBtn');
+  if (addBtn) addBtn.disabled = _nsetCurrentItems.length >= MAX_NSET_ITEMS;
+}
+
+function nsetAddItem() {
+  if (_nsetCurrentItems.length >= MAX_NSET_ITEMS) { toast(`NG 항목은 최대 ${MAX_NSET_ITEMS}개까지`,'error'); return; }
+  _nsetCurrentItems.push({html_ko:'', html_ja:''});
+  renderNgSetItems();
+}
+
+function nsetRemoveItem(idx) {
+  if (_nsetCurrentItems.length <= 1) return;
+  _nsetCurrentItems.splice(idx, 1);
+  renderNgSetItems();
+}
+
+function nsetMoveItem(idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= _nsetCurrentItems.length) return;
+  const [s] = _nsetCurrentItems.splice(idx, 1);
+  _nsetCurrentItems.splice(j, 0, s);
+  renderNgSetItems();
+}
+
+async function saveNgSetEdit() {
+  const errEl = $('nsetEditError');
+  const show = m => { errEl.textContent = m; errEl.style.display = 'block'; };
+  errEl.style.display = 'none';
+  const id = $('nsetEditId').value;
+  const name_ko = $('nsetNameKo').value.trim();
+  const name_ja = $('nsetNameJa').value.trim();
+  if (!name_ko || !name_ja) { show('한국어/일본어 번들 이름을 모두 입력해주세요'); return; }
+  const recruit_types = Array.from(document.querySelectorAll('input[name="nsetRT"]:checked')).map(cb => cb.value);
+  const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+  const items = _nsetCurrentItems
+    .filter(s => !isNgItemEmpty(s.html_ko, s.html_ja))
+    .map(s => ({
+      html_ko: sanitize(s.html_ko || ''),
+      html_ja: sanitize(s.html_ja || '')
+    }));
+  if (!items.length) { show('항목을 1개 이상 입력해주세요 (본문 한국어 또는 일본어 필수)'); return; }
+  if (items.length > MAX_NSET_ITEMS) { show(`NG 항목은 최대 ${MAX_NSET_ITEMS}개까지`); return; }
+  const payload = {name_ko, name_ja, recruit_types, items};
+  try {
+    if (id) await updateNgSet(id, payload);
+    else await insertNgSet(payload);
+    closeModal('nsetEditModal');
+    toast('저장했습니다','success');
+    renderLookupsTable();
+  } catch(e) {
+    show('저장 실패: ' + (e.message||String(e)));
+  }
+}
+
 // ══════════════════════════════════════
 // 캠페인 폼: 참여방법 번들 + 인라인 단계 편집
 // ══════════════════════════════════════
@@ -5547,8 +5730,30 @@ async function populateCampPsetDropdown(formMode, recruitType, selectedSetId) {
   let sets = [];
   try { sets = await fetchParticipationSets(recruitType); } catch(e) { sets = []; }
   _psetCache[formMode] = sets;
-  sel.innerHTML = `<option value="">— 번들 선택 —</option>` +
-    sets.map(s => `<option value="${esc(s.id)}" ${selectedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+
+  // 운영 캠페인 보호 안전망:
+  //   participation_set_id=NULL이지만 participation_steps가 존재할 때
+  //   — 활성 번들 중 steps 완전 일치 번들을 자동 매칭 (UI 선택 표시만, DB는 NULL 유지)
+  //   — 일치 없으면 가상 옵션 「(현재 캠페인 항목 — 번들 미선택)」 추가
+  let resolvedSetId = selectedSetId;
+  let showInlineOption = false;
+  if (!selectedSetId && formMode === 'edit' && _editCampOriginal) {
+    const currentSteps = Array.isArray(_editCampOriginal.participation_steps) ? _editCampOriginal.participation_steps : [];
+    if (currentSteps.length > 0) {
+      const matchedBundle = sets.find(s => JSON.stringify(s.steps) === JSON.stringify(currentSteps));
+      if (matchedBundle) {
+        resolvedSetId = matchedBundle.id;
+      } else {
+        showInlineOption = true;
+      }
+    }
+  }
+
+  const inlineOpt = showInlineOption
+    ? `<option value="__INLINE__" selected>(현재 캠페인 항목 — 번들 미선택)</option>`
+    : '';
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>${inlineOpt}` +
+    sets.map(s => `<option value="${esc(s.id)}" ${resolvedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
 }
 
 function onPsetSelectChange(formMode) {
@@ -5627,12 +5832,14 @@ function moveCampPsetStep(formMode, idx, dir) {
   renderCampSteps(formMode);
 }
 
+// __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, steps 변동 없음)
 function collectCampPsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+  const rawSetId = sel?.value || '';
   const steps = _psetState[formMode].filter(s => (s.title_ja||s.title_ko||'').trim())
     .map(s => ({title_ko:s.title_ko||'', title_ja:s.title_ja||'', desc_ko:s.desc_ko||'', desc_ja:s.desc_ja||''}));
   return {
-    participation_set_id: sel?.value || null,
+    participation_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
     participation_steps: steps.length ? steps : null
   };
 }
@@ -5650,8 +5857,30 @@ async function populateCampCsetDropdown(formMode, recruitType, selectedSetId) {
   let sets = [];
   try { sets = await fetchCautionSets(recruitType); } catch(e) { sets = []; }
   _csetCache[formMode] = sets;
-  sel.innerHTML = `<option value="">— 번들 선택 —</option>` +
-    sets.map(s => `<option value="${esc(s.id)}" ${selectedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+
+  // 운영 캠페인 보호 안전망:
+  //   caution_set_id=NULL이지만 caution_items가 존재할 때
+  //   — 활성 번들 중 items 완전 일치 번들을 자동 매칭 (UI 선택 표시만, DB는 NULL 유지)
+  //   — 일치 없으면 가상 옵션 「(현재 캠페인 항목 — 번들 미선택)」 추가
+  let resolvedSetId = selectedSetId;
+  let showInlineOption = false;
+  if (!selectedSetId && formMode === 'edit' && _editCampOriginal) {
+    const currentItems = Array.isArray(_editCampOriginal.caution_items) ? _editCampOriginal.caution_items : [];
+    if (currentItems.length > 0) {
+      const matchedBundle = sets.find(s => JSON.stringify(s.items) === JSON.stringify(currentItems));
+      if (matchedBundle) {
+        resolvedSetId = matchedBundle.id; // UI 선택 표시 (DB set_id는 NULL 유지)
+      } else {
+        showInlineOption = true;
+      }
+    }
+  }
+
+  const inlineOpt = showInlineOption
+    ? `<option value="__INLINE__" selected>(현재 캠페인 항목 — 번들 미선택)</option>`
+    : '';
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>${inlineOpt}` +
+    sets.map(s => `<option value="${esc(s.id)}" ${resolvedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
 }
 
 function onCsetSelectChange(formMode) {
@@ -5734,8 +5963,10 @@ function moveCampCsetItem(formMode, idx, dir) {
 }
 
 // 저장 payload: {caution_set_id, caution_items} — items 는 {html_ko, html_ja} 형식 + 저장 전 sanitize
+// __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, items 변동 없음)
 function collectCampCsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
+  const rawSetId = sel?.value || '';
   const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
   const items = _csetState[formMode]
     .filter(s => !isCsetItemEmpty(s.html_ko, s.html_ja))
@@ -5744,7 +5975,7 @@ function collectCampCsetPayload(formMode) {
       html_ja: sanitize(s.html_ja || '')
     }));
   return {
-    caution_set_id: sel?.value || null,
+    caution_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
     caution_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)
   };
 }
@@ -5755,7 +5986,6 @@ function collectCampCsetPayload(formMode) {
 // ══════════════════════════════════════
 const _nsetState = { new: [], edit: [] }; // 모드별 현재 items 배열
 const _nsetCache = { new: [], edit: [] }; // 모드별 드롭다운 원본 번들 리스트
-const MAX_NSET_ITEMS = 20;
 
 async function populateCampNsetDropdown(formMode, recruitType, selectedSetId) {
   const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
@@ -5763,8 +5993,30 @@ async function populateCampNsetDropdown(formMode, recruitType, selectedSetId) {
   let sets = [];
   try { sets = await fetchNgSets(recruitType); } catch(e) { sets = []; }
   _nsetCache[formMode] = sets;
-  sel.innerHTML = `<option value="">— 번들 선택 —</option>` +
-    sets.map(s => `<option value="${esc(s.id)}" ${selectedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+
+  // 운영 캠페인 보호 안전망:
+  //   ng_set_id=NULL이지만 ng_items가 존재할 때
+  //   — 활성 번들 중 items 완전 일치 번들을 자동 매칭 (UI 선택 표시만, DB는 NULL 유지)
+  //   — 일치 없으면 가상 옵션 「(현재 캠페인 항목 — 번들 미선택)」 추가
+  let resolvedSetId = selectedSetId;
+  let showInlineOption = false;
+  if (!selectedSetId && formMode === 'edit' && _editCampOriginal) {
+    const currentItems = Array.isArray(_editCampOriginal.ng_items) ? _editCampOriginal.ng_items : [];
+    if (currentItems.length > 0) {
+      const matchedBundle = sets.find(s => JSON.stringify(s.items) === JSON.stringify(currentItems));
+      if (matchedBundle) {
+        resolvedSetId = matchedBundle.id;
+      } else {
+        showInlineOption = true;
+      }
+    }
+  }
+
+  const inlineOpt = showInlineOption
+    ? `<option value="__INLINE__" selected>(현재 캠페인 항목 — 번들 미선택)</option>`
+    : '';
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>${inlineOpt}` +
+    sets.map(s => `<option value="${esc(s.id)}" ${resolvedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
 }
 
 function onNsetSelectChange(formMode) {
@@ -5858,8 +6110,10 @@ function normalizeNgItem(s) {
 }
 
 // 저장 payload: {ng_set_id, ng_items} — items 는 {html_ko, html_ja} 형식 + 저장 전 sanitize
+// __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, items 변동 없음)
 function collectCampNsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  const rawSetId = sel?.value || '';
   const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
   const items = _nsetState[formMode]
     .filter(s => !isNgItemEmpty(s.html_ko, s.html_ja))
@@ -5868,7 +6122,7 @@ function collectCampNsetPayload(formMode) {
       html_ja: sanitize(s.html_ja || '')
     }));
   return {
-    ng_set_id: sel?.value || null,
+    ng_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
     ng_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)
   };
 }
