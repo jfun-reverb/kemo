@@ -566,11 +566,78 @@ async function openCancelModalFor(appId) {
   const errEl = $('cancelModalError');
   if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
   openModal('cancelModal');
+  // 모바일 키보드 대응: visualViewport 가 줄어들면 modal max-height 도
+  // 그만큼 줄여 textarea 가 키보드 위로 보이도록.
+  _attachCancelModalKeyboardSync();
 }
 
 function closeCancelModal() {
+  _detachCancelModalKeyboardSync();
   closeModal('cancelModal');
   _cancelTargetAppId = null;
+}
+
+// ── 모바일 키보드 대응 ─────────────────────────────────────────
+//   modal-overlay 가 position:fixed;inset:0 라 키보드가 올라와도 자동 보정
+//   안 됨. visualViewport.height 로 modal max-height 동적 갱신 + textarea
+//   focus 시 textarea 를 modal-body 안에서 중앙으로 스크롤.
+let _cancelModalVvHandler = null;
+let _cancelModalTextareaFocusHandler = null;
+
+function _attachCancelModalKeyboardSync() {
+  if (!window.visualViewport) return;
+  if (_cancelModalVvHandler) return;
+  const overlay = document.getElementById('cancelModal');
+  const modalEl = overlay?.querySelector('.modal');
+  _cancelModalVvHandler = () => {
+    if (!overlay || !overlay.classList.contains('open')) return;
+    const vh = window.visualViewport.height;
+    const offsetTop = window.visualViewport.offsetTop;
+    // overlay 가 position:fixed;inset:0 라 키보드와 무관하게 window 전체를
+    // 차지. app.js 의 appShell 보정 패턴을 그대로 적용해 overlay 를
+    // visualViewport 안으로 옮긴다 → 모달이 키보드 위에 떠 있게 됨.
+    overlay.style.height = vh + 'px';
+    overlay.style.top = offsetTop + 'px';
+    overlay.style.bottom = 'auto';
+    // 모달 자체도 visualViewport 안에 fit. 32px 여백 (상하 16px 씩).
+    if (modalEl) modalEl.style.maxHeight = Math.max(240, vh - 32) + 'px';
+  };
+  window.visualViewport.addEventListener('resize', _cancelModalVvHandler);
+  window.visualViewport.addEventListener('scroll', _cancelModalVvHandler);
+  _cancelModalVvHandler();
+
+  // textarea focus 시 0.3s 후 modal-body 안에서 중앙으로 스크롤
+  const ta = document.getElementById('cancelModalNote');
+  if (ta) {
+    _cancelModalTextareaFocusHandler = () => {
+      setTimeout(() => {
+        try { ta.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch(_e) {}
+      }, 300);
+    };
+    ta.addEventListener('focus', _cancelModalTextareaFocusHandler);
+  }
+}
+
+function _detachCancelModalKeyboardSync() {
+  if (window.visualViewport && _cancelModalVvHandler) {
+    window.visualViewport.removeEventListener('resize', _cancelModalVvHandler);
+    window.visualViewport.removeEventListener('scroll', _cancelModalVvHandler);
+    _cancelModalVvHandler = null;
+  }
+  const ta = document.getElementById('cancelModalNote');
+  if (ta && _cancelModalTextareaFocusHandler) {
+    ta.removeEventListener('focus', _cancelModalTextareaFocusHandler);
+    _cancelModalTextareaFocusHandler = null;
+  }
+  // overlay 위치 + 모달 max-height 원복
+  const overlay = document.getElementById('cancelModal');
+  if (overlay) {
+    overlay.style.height = '';
+    overlay.style.top = '';
+    overlay.style.bottom = '';
+  }
+  const modalEl = document.querySelector('#cancelModal .modal');
+  if (modalEl) modalEl.style.maxHeight = '';
 }
 
 async function submitCancelApplication() {
