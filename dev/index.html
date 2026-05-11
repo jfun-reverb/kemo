@@ -122,6 +122,35 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- 응모이력 ⋮ 액션 선택 모달 (결과물 제출 / 응모 취소) — 모바일 큰 터치 영역 -->
+<div class="modal-overlay" id="applyActionModal" style="z-index:613">
+  <div class="modal" style="max-width:420px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.title">アクションを選択</div>
+      <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
+    </div>
+    <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
+      <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.submit">結果物を提出</span>
+          <span id="applyActionSubmitHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+        </span>
+      </button>
+      <button type="button" id="applyActionCancelBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:14px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:#C33;flex-shrink:0">cancel</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.cancel">応募を取り消す</span>
+          <span id="applyActionCancelHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
+        </span>
+      </button>
+      <div style="text-align:center;margin-top:4px">
+        <button class="btn btn-ghost" onclick="closeApplyActionModal()" style="min-width:120px;min-height:44px" data-i18n="appHistory.action.close">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 응모 취소 모달 (migration 104 / 사양 §4-2·§4-3) — 단순형/사유 입력형 통합 -->
 <div class="modal-overlay" id="cancelModal" style="z-index:615">
   <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
