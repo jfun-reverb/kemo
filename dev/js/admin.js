@@ -1726,6 +1726,34 @@ function _updateFpFooterSummary(fp) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// flatpickr appendTo:body 모드 viewport 좌우 경계 보정
+//   - flatpickr position:'auto'는 위/아래만 자동 결정. 좌우는 input
+//     의 left 좌표를 그대로 따라가 viewport 밖으로 잘리는 사고 발생.
+//   - 캘린더가 우측 viewport를 넘으면 left를 줄여 안으로 이동.
+//   - 캘린더가 좌측 viewport를 넘으면 left를 늘려 안으로 이동.
+//   - 위치 계산이 끝난 뒤 다음 프레임에 보정 (race 회피).
+// ─────────────────────────────────────────────────────────────────
+function _clampFpToViewport(fpInst) {
+  if (!fpInst || !fpInst.calendarContainer) return;
+  const cal = fpInst.calendarContainer;
+  requestAnimationFrame(() => {
+    const margin = 8;
+    const vw = document.documentElement.clientWidth;
+    let rect = cal.getBoundingClientRect();
+    let currLeft = parseFloat(cal.style.left) || 0;
+    if (rect.right > vw - margin) {
+      currLeft -= (rect.right - (vw - margin));
+      cal.style.left = currLeft + 'px';
+    }
+    rect = cal.getBoundingClientRect();
+    if (rect.left < margin) {
+      currLeft += (margin - rect.left);
+      cal.style.left = currLeft + 'px';
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
 // 단일 날짜 picker (결과물 제출 마감일 / 캠페인 노출 마감일)
 //   - input.fp-single[data-single-prefix][data-single-target] 마크업 mount
 //   - input value를 직접 사용 (별도 hidden input 없음)
@@ -1774,6 +1802,7 @@ function setupCampSinglePickers() {
           if (mn) fpInst.jumpToDate(mn);
         }
         _updateFpSingleFooterSummary(fpInst);
+        _clampFpToViewport(fpInst);
       },
       onChange: (_selectedDates, _str, fpInst) => {
         // popup 안 시각·푸터 요약만 (input.value는 「적용」 시 commit)
@@ -1925,6 +1954,8 @@ function setupCampRangePickers() {
         }
         // 외부에서 hidden input 직접 변경됐을 수 있으니 푸터 요약 재동기화
         _updateFpFooterSummary(fpInst);
+        // viewport 좌우 보정 (recruit 조기 반환 전에 호출해 모든 range picker 적용)
+        _clampFpToViewport(fpInst);
         if (kind !== 'recruit') return;
         // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
         updateRecruitPastWarn(fpInst, sv ? new Date(sv) : null);
