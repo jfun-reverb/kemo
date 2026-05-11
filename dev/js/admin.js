@@ -223,6 +223,11 @@ function switchAdminPane(pane, el, pushHistory) {
     populateCampCsetDropdown('new', 'monitor', null);
     renderCampCautionItems('new');
     renderCampBundleSummary('cset', 'new');
+    // NG 사항 번들 초기화 (migration 107 — caution_sets 패턴 미러)
+    _nsetState.new = [];
+    populateCampNsetDropdown('new', 'monitor', null);
+    renderCampNgItems('new');
+    renderCampBundleSummary('nset', 'new');
     setupCampPreview('new');
     // brand 드롭다운 로드 (캐시는 _campBrandsCache로 재사용)
     loadCampBrandSelect('new', '').then(() => onCampBrandChange('new'));
@@ -1197,6 +1202,14 @@ async function openEditCampaign(campId) {
   renderCampCautionItems('edit');
   renderCampBundleSummary('cset', 'edit');
 
+  // NG 사항 번들 복원 (migration 107 — 스냅샷 우선, 드롭다운은 recruit_type 필터)
+  _nsetState.edit = Array.isArray(camp.ng_items)
+    ? camp.ng_items.map(normalizeNgItem)
+    : [];
+  await populateCampNsetDropdown('edit', rtVal, camp.ng_set_id || null);
+  renderCampNgItems('edit');
+  renderCampBundleSummary('nset', 'edit');
+
   // 신청 동의 영향 영역(주의사항/참여방법) 변경 감지용 원본 스냅샷 보관
   // saveCampaignEdit 에서 신청자 ≥1건일 때 변경 여부를 비교하여 경고 모달 표시
   _editCampOriginal = {
@@ -1206,6 +1219,8 @@ async function openEditCampaign(campId) {
     caution_items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
     participation_set_id: camp.participation_set_id || null,
     participation_steps: Array.isArray(camp.participation_steps) ? JSON.parse(JSON.stringify(camp.participation_steps)) : [],
+    ng_set_id: camp.ng_set_id || null,
+    ng_items: Array.isArray(camp.ng_items) ? JSON.parse(JSON.stringify(camp.ng_items)) : [],
   };
   // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
   applyEditFormSensitiveLocks(camp.status || '');
@@ -1219,7 +1234,7 @@ async function openEditCampaign(campId) {
 function applyEditFormSensitiveLocks(status) {
   const isLocked = status === 'closed' || status === 'expired';
   const lockLabel = status === 'expired' ? '노출마감' : '종료';
-  ['Pset', 'Cset'].forEach(kind => {
+  ['Pset', 'Cset', 'Nset'].forEach(kind => {
     const card = $('editCamp' + kind + 'Summary');
     if (!card) return;
     const editBtn = card.querySelector('button[onclick*="openCampBundleModal"]');
@@ -1268,6 +1283,13 @@ function detectSensitiveChange(editPayload) {
       html_ja: s.html_ja || '',
     }));
   };
+  const normNgItems = arr => {
+    if (!Array.isArray(arr) || !arr.length) return [];
+    return arr.map(s => ({
+      html_ko: s.html_ko || '',
+      html_ja: s.html_ja || '',
+    }));
+  };
   const stable = v => JSON.stringify(v ?? null);
   const cautionChanged =
     (orig.caution_set_id || null) !== (editPayload.caution_set_id || null)
@@ -1275,10 +1297,14 @@ function detectSensitiveChange(editPayload) {
   const participationChanged =
     (orig.participation_set_id || null) !== (editPayload.participation_set_id || null)
     || stable(normSteps(orig.participation_steps)) !== stable(normSteps(editPayload.participation_steps));
+  const ngChanged =
+    (orig.ng_set_id || null) !== (editPayload.ng_set_id || null)
+    || stable(normNgItems(orig.ng_items)) !== stable(normNgItems(editPayload.ng_items));
   return {
     cautionChanged,
     participationChanged,
-    anyChanged: cautionChanged || participationChanged
+    ngChanged,
+    anyChanged: cautionChanged || participationChanged || ngChanged
   };
 }
 
@@ -1286,13 +1312,17 @@ function detectSensitiveChange(editPayload) {
 //   기존 신청자 ≥1건 + caution/participation 변경 시 명시적 확인을 요구
 //   기존 신청자가 동의한 시점의 스냅샷은 applications.caution_snapshot 에 보존되어 효력 유지됨을 안내
 let _sensitiveChangeResolver = null;
-function showSensitiveChangeConfirm({appCount, cautionChanged, participationChanged, orig, next}) {
+function showSensitiveChangeConfirm({appCount, cautionChanged, participationChanged, ngChanged, orig, next}) {
   return new Promise(resolve => {
     _sensitiveChangeResolver = resolve;
     const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
     const renderCautionItems = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
       return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
+    };
+    const renderNgItemsForModal = (arr) => {
+      if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+      return arr.map(it => `<li>${safeRich(it.html_ko || it.html_ja || '')}</li>`).join('');
     };
     const renderPsetSteps = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
@@ -1332,6 +1362,23 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
               <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(next?.participation_steps)}</ul>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+    if (ngChanged) {
+      sections.push(`
+        <div style="margin-top:14px">
+          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">NG 사항 변경</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+            <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-container-low)">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(orig?.ng_items)}</ul>
+            </div>
+            <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(next?.ng_items)}</ul>
             </div>
           </div>
         </div>
@@ -2274,6 +2321,7 @@ async function saveCampaignEdit() {
       status: gv('editCampStatus'),
       ...collectCampPsetPayload('edit'),
       ...collectCampCsetPayload('edit'),
+      ...collectCampNsetPayload('edit'),
     };
 
     // 신청 동의 영향 영역(주의사항/참여방법) 변경 게이트
@@ -2286,12 +2334,14 @@ async function saveCampaignEdit() {
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
     let _historyAppCount = 0;
     let _historyBypassAck = false;
-    let change = {cautionChanged:false, participationChanged:false, anyChanged:false};
+    let change = {cautionChanged:false, participationChanged:false, ngChanged:false, anyChanged:false};
     if (origStatus === 'closed') {
       delete updates.caution_set_id;
       delete updates.caution_items;
       delete updates.participation_set_id;
       delete updates.participation_steps;
+      delete updates.ng_set_id;
+      delete updates.ng_items;
     } else {
       change = detectSensitiveChange(updates);
       if (change.anyChanged) {
@@ -2301,6 +2351,7 @@ async function saveCampaignEdit() {
             appCount: _historyAppCount,
             cautionChanged: change.cautionChanged,
             participationChanged: change.participationChanged,
+            ngChanged: change.ngChanged,
             orig: _editCampOriginal,
             next: updates
           });
@@ -2336,12 +2387,16 @@ async function saveCampaignEdit() {
             caution_items: _editCampOriginal?.caution_items || [],
             participation_set_id: _editCampOriginal?.participation_set_id || null,
             participation_steps: _editCampOriginal?.participation_steps || null,
+            ng_set_id: _editCampOriginal?.ng_set_id || null,
+            ng_items: _editCampOriginal?.ng_items || [],
           },
           next: {
             caution_set_id: updates.caution_set_id || null,
             caution_items: updates.caution_items || [],
             participation_set_id: updates.participation_set_id || null,
             participation_steps: updates.participation_steps || null,
+            ng_set_id: updates.ng_set_id || null,
+            ng_items: updates.ng_items || [],
           },
           app_count: _historyAppCount,
           bypass_ack: _historyBypassAck,
@@ -2382,6 +2437,9 @@ async function duplicateCampaign(campId) {
       // 주의사항 번들 스냅샷도 함께 복제 (번들 원본은 참조만, items는 deep copy)
       caution_set_id: src.caution_set_id || null,
       caution_items: Array.isArray(src.caution_items) ? JSON.parse(JSON.stringify(src.caution_items)) : [],
+      // NG 사항 번들 스냅샷도 함께 복제 (migration 107)
+      ng_set_id: src.ng_set_id || null,
+      ng_items: Array.isArray(src.ng_items) ? JSON.parse(JSON.stringify(src.ng_items)) : [],
       product_price: src.product_price, reward: src.reward, reward_note: src.reward_note,
       slots: src.slots, applied_count: 0,
       recruit_start: src.recruit_start, deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
@@ -2633,7 +2691,19 @@ function renderCampPreview(mode) {
           ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
         ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
-        ${camp.ng?`<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`:''}
+        ${(() => {
+          // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
+          const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
+          const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
+          if (ngItems.length) {
+            const lis = ngItems.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
+            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><ul class="cp-sec-body cp-sec-bg-ng" style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px;line-height:1.65">${lis}</ul></div>`;
+          }
+          if (camp.ng) {
+            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`;
+          }
+          return '';
+        })()}
         ${(Array.isArray(camp.caution_items) && camp.caution_items.length) ? (() => {
           const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
           const lis = camp.caution_items.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
@@ -4152,6 +4222,7 @@ async function addCampaign() {
     status:'draft',
     ...collectCampPsetPayload('new'),
     ...collectCampCsetPayload('new'),
+    ...collectCampNsetPayload('new'),
   };
 
   await insertCampaign(camp);
@@ -4182,6 +4253,10 @@ async function addCampaign() {
   _csetState.new = [];
   await populateCampCsetDropdown('new', null, null);
   renderCampCautionItems('new');
+  // NG 사항 번들 초기화 (migration 107)
+  _nsetState.new = [];
+  await populateCampNsetDropdown('new', null, null);
+  renderCampNgItems('new');
 
   allCampaigns = await fetchCampaigns();
 
@@ -4598,6 +4673,9 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   // 주의사항 번들 드롭다운도 동일 패턴으로 필터링 (migration 069)
   const csetSel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
   await populateCampCsetDropdown(formMode, recruitType, csetSel?.value || null);
+  // NG 사항 번들 드롭다운도 동일 패턴으로 필터링 (migration 107)
+  const nsetSel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  await populateCampNsetDropdown(formMode, recruitType, nsetSel?.value || null);
   // 타입별 기한 필드 표시/숨김
   applyDeadlineFieldsVisibility(formMode, recruitType);
 }
@@ -5567,6 +5645,130 @@ function collectCampCsetPayload(formMode) {
 }
 
 // ══════════════════════════════════════
+// 캠페인 폼: NG 사항 번들 + 인라인 items 편집 (migration 107)
+//   caution_sets(_csetState) 패턴 완전 미러링
+// ══════════════════════════════════════
+const _nsetState = { new: [], edit: [] }; // 모드별 현재 items 배열
+const _nsetCache = { new: [], edit: [] }; // 모드별 드롭다운 원본 번들 리스트
+const MAX_NSET_ITEMS = 20;
+
+async function populateCampNsetDropdown(formMode, recruitType, selectedSetId) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  if (!sel) return;
+  let sets = [];
+  try { sets = await fetchNgSets(recruitType); } catch(e) { sets = []; }
+  _nsetCache[formMode] = sets;
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>` +
+    sets.map(s => `<option value="${esc(s.id)}" ${selectedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+}
+
+function onNsetSelectChange(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  if (!sel) return;
+  const set = _nsetCache[formMode].find(s => s.id === sel.value);
+  if (!set) return;
+  const hasContent = _nsetState[formMode].some(s => !isNgItemEmpty(s.html_ko, s.html_ja));
+  const apply = () => {
+    _nsetState[formMode] = (set.items||[]).map(normalizeNgItem);
+    renderCampNgItems(formMode);
+  };
+  if (!hasContent) { apply(); return; }
+  showConfirm('현재 입력된 NG 사항을 덮어쓸까요?').then(ok => { if (ok) apply(); else sel.value = ''; });
+}
+
+async function reloadNsetFromBundle(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  if (!sel || !sel.value) { toast('먼저 번들을 선택하세요','error'); return; }
+  const set = _nsetCache[formMode].find(s => s.id === sel.value);
+  if (!set) return;
+  const ok = await showConfirm(`번들 "${set.name_ko}"의 현재 내용으로 덮어쓸까요?`);
+  if (!ok) return;
+  _nsetState[formMode] = (set.items||[]).map(normalizeNgItem);
+  renderCampNgItems(formMode);
+}
+
+function renderCampNgItems(formMode) {
+  const wrap = $(formMode === 'edit' ? 'editCampNgItems' : 'newCampNgItems');
+  if (!wrap) return;
+  const arr = _nsetState[formMode];
+  if (!arr.length) {
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 0">NG 항목이 없습니다. 번들을 선택하거나 항목을 추가하세요.</div>`;
+    window.dispatchEvent(new Event('reverb:campFormChange'));
+    return;
+  }
+  wrap.innerHTML = arr.map((s, idx) => `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampNsetItem('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (한국어)</div>
+          ${miniEditorHtml(s.html_ko, `_nsetState['${formMode}'][${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_nsetState['${formMode}'][${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+  window.dispatchEvent(new Event('reverb:campFormChange'));
+}
+
+function addCampNsetItem(formMode) {
+  if (_nsetState[formMode].length >= MAX_NSET_ITEMS) { toast(`NG 항목은 최대 ${MAX_NSET_ITEMS}개까지`,'error'); return; }
+  _nsetState[formMode].push({html_ko:'', html_ja:''});
+  renderCampNgItems(formMode);
+}
+
+function removeCampNsetItem(formMode, idx) {
+  _nsetState[formMode].splice(idx, 1);
+  renderCampNgItems(formMode);
+}
+
+function moveCampNsetItem(formMode, idx, dir) {
+  const arr = _nsetState[formMode];
+  const j = idx + dir;
+  if (j < 0 || j >= arr.length) return;
+  const [s] = arr.splice(idx, 1);
+  arr.splice(j, 0, s);
+  renderCampNgItems(formMode);
+}
+
+function isNgItemEmpty(htmlKo, htmlJa) {
+  const strip = h => (h||'').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').trim();
+  return !strip(htmlKo) && !strip(htmlJa);
+}
+
+// ng_item 정규화 — {html_ko, html_ja} 구조 보장
+function normalizeNgItem(s) {
+  if (!s) return {html_ko:'', html_ja:''};
+  return { html_ko: s.html_ko || '', html_ja: s.html_ja || '' };
+}
+
+// 저장 payload: {ng_set_id, ng_items} — items 는 {html_ko, html_ja} 형식 + 저장 전 sanitize
+function collectCampNsetPayload(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+  const items = _nsetState[formMode]
+    .filter(s => !isNgItemEmpty(s.html_ko, s.html_ja))
+    .map(s => ({
+      html_ko: sanitize(s.html_ko || ''),
+      html_ja: sanitize(s.html_ja || '')
+    }));
+  return {
+    ng_set_id: sel?.value || null,
+    ng_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)
+  };
+}
+
+// ══════════════════════════════════════
 // 캠페인 폼: 참여방법/주의사항을 요약 카드 + 편집 모달로 분리
 //   메인 폼이 세로로 너무 길어져서 두 섹션의 인라인 편집 UI 를 모달로 이동.
 //   편집 form-group DOM 은 숨겨둔 상태로 원위치에 유지되며, 모달 열기 시
@@ -5575,7 +5777,11 @@ function collectCampCsetPayload(formMode) {
 let _campBundleModalReturn = null;  // { group, parent, next, kind, formMode }
 
 function renderCampBundleSummary(kind, formMode) {
-  const summaryId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetSummary' : 'CsetSummary');
+  let summarySuffix;
+  if (kind === 'pset') summarySuffix = 'PsetSummary';
+  else if (kind === 'cset') summarySuffix = 'CsetSummary';
+  else summarySuffix = 'NsetSummary'; // nset
+  const summaryId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + summarySuffix;
   const summary = $(summaryId);
   if (!summary) return;
   const body = summary.querySelector('.bundle-summary-body');
@@ -5597,7 +5803,7 @@ function renderCampBundleSummary(kind, formMode) {
     const jaCol = steps.map((s,i) => renderStep(s, i, 'ja')).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span></div>`
       + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div>${koCol}</div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div>${jaCol}</div></div>`;
-  } else {
+  } else if (kind === 'cset') {
     const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
     const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
     const items = _csetState[formMode] || [];
@@ -5610,11 +5816,29 @@ function renderCampBundleSummary(kind, formMode) {
     const jaCol = items.map(it => `<li>${sanitize(it.html_ja || it.html_ko || '')}</li>`).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span></div>`
       + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
+  } else {
+    // nset — NG 사항 번들 요약 카드 (caution 패턴 완전 미러링)
+    const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+    const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
+    const items = _nsetState[formMode] || [];
+    if (!items.length) {
+      body.innerHTML = '<div class="summary-head" style="color:var(--muted)">번들 미선택 또는 항목 없음 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요</div>';
+      return;
+    }
+    const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+    const koCol = items.map(it => `<li>${sanitize(it.html_ko || it.html_ja || '')}</li>`).join('');
+    const jaCol = items.map(it => `<li>${sanitize(it.html_ja || it.html_ko || '')}</li>`).join('');
+    body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span></div>`
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
   }
 }
 
 function openCampBundleModal(kind, formMode) {
-  const groupId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetGroup' : 'CsetGroup');
+  let groupSuffix;
+  if (kind === 'pset') groupSuffix = 'PsetGroup';
+  else if (kind === 'cset') groupSuffix = 'CsetGroup';
+  else groupSuffix = 'NsetGroup';  // nset
+  const groupId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + groupSuffix;
   const group = $(groupId);
   const host = $('campBundleModalHost');
   if (!group || !host) return;
@@ -5630,7 +5854,10 @@ function openCampBundleModal(kind, formMode) {
   host.innerHTML = '';
   host.appendChild(group);
   const title = $('campBundleModalTitle');
-  if (title) title.textContent = (kind === 'pset' ? '참여방법' : '주의사항') + ' 편집';
+  if (title) {
+    const titleMap = { pset: '참여방법', cset: '주의사항', nset: 'NG 사항' };
+    title.textContent = (titleMap[kind] || kind) + ' 편집';
+  }
   openModal('campBundleModal');
 }
 

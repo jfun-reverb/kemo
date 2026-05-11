@@ -189,11 +189,18 @@ async function openCampaign(id) {
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
-      ${camp.ng ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.ngItems')}</div>
-        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>
-      </div>` : ''}
+      ${(() => {
+        // ng_items (jsonb 번들 스냅샷) 우선 렌더, 없으면 legacy campaigns.ng 폴백
+        const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
+        const hasJsonb = ngItems.length > 0;
+        const hasLegacy = !!camp.ng;
+        if (!hasJsonb && !hasLegacy) return '';
+        const ngHeader = `<div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.ngItems')}</div>`;
+        const ngBody = hasJsonb
+          ? `<div style="font-size:12px;color:var(--ink);line-height:1.7;padding:12px;border-radius:8px;background:#fff8f8;border:1px solid #fdd">${renderNgItemsHtml(ngItems)}</div>`
+          : `<div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>`;
+        return `<div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">${ngHeader}${ngBody}</div>`;
+      })()}
 
       ${camp.product_url ? `
       <div style="background:#fff;padding:12px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
@@ -341,6 +348,21 @@ function renderCautionItemsHtml(items) {
         : '';
       return `<li>${esc(body)}${link}${esc(after)}</li>`;
     }
+    return `<li>${sanitize(html)}</li>`;
+  }).join('');
+  return `<ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;line-height:1.8">${lis}</ul>`;
+}
+
+// ng_items 배열(v2: html_ko/html_ja) 렌더 — 저장 전 DOMPurify 통과한 인라인 서식 허용
+// caution 과 달리 NG 는 동의 항목 아니므로 신청 모달 미노출, 상세 페이지만 렌더.
+function renderNgItemsHtml(items) {
+  if (!Array.isArray(items) || !items.length) return '';
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const sanitize = (typeof sanitizeCautionHtml === 'function')
+    ? sanitizeCautionHtml
+    : (h => String(h||'').replace(/<script/gi,'&lt;script'));
+  const lis = items.map(it => {
+    const html = lang === 'ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || '');
     return `<li>${sanitize(html)}</li>`;
   }).join('');
   return `<ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;line-height:1.8">${lis}</ul>`;

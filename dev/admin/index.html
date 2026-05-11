@@ -490,6 +490,24 @@
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampCsetItem('edit')" style="margin-top:8px">+ 항목 추가</button>
             </div>
 
+            <!-- NG 사항: 요약 카드 + 편집 모달로 분리 (migration 107) -->
+            <div class="bundle-summary-card" id="editCampNsetSummary" data-kind="nset" data-form-mode="edit">
+              <div class="bundle-summary-label">NG 사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서 상세 페이지에 노출 — 신청 모달 미노출)</span></div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('nset','edit')">편집</button>
+            </div>
+            <!-- NG 사항 편집 form-group (DOM 이동 대상) -->
+            <div class="form-group" id="editCampNsetGroup" style="display:none">
+              <label class="form-label">NG 사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨. 인플루언서 상세 페이지에 노출)</span></label>
+              <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
+                <select id="editCampNsetSelect" class="form-input" style="flex:1" onchange="onNsetSelectChange('edit')"><option value="">— 번들 선택 —</option></select>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="reloadNsetFromBundle('edit')">번들 다시 불러오기</button>
+              </div>
+              <div id="editCampNgItems" style="display:flex;flex-direction:column;gap:10px"></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="addCampNsetItem('edit')" style="margin-top:8px">+ 항목 추가</button>
+            </div>
+
+
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
               <button type="button" class="btn btn-ghost" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">취소</button>
               <button type="button" class="btn btn-primary" onclick="saveCampaignEdit()">변경 저장</button>
@@ -747,6 +765,22 @@
               </div>
               <div id="newCampCautionItems" style="display:flex;flex-direction:column;gap:10px"></div>
               <button type="button" class="btn btn-ghost btn-xs" onclick="addCampCsetItem('new')" style="margin-top:8px">+ 항목 추가</button>
+            </div>
+
+            <!-- NG 사항: 요약 카드 + 편집 모달로 분리 (migration 107) -->
+            <div class="bundle-summary-card" id="newCampNsetSummary" data-kind="nset" data-form-mode="new">
+              <div class="bundle-summary-label">NG 사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(인플루언서 상세 페이지에 노출 — 신청 모달 미노출)</span></div>
+              <div class="bundle-summary-body">번들 미선택</div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="openCampBundleModal('nset','new')">편집</button>
+            </div>
+            <div class="form-group" id="newCampNsetGroup" style="display:none">
+              <label class="form-label">NG 사항 <span style="font-size:11px;font-weight:400;color:var(--muted)">(번들 선택 후 필요시 개별 수정 — 저장 시 이 캠페인에 복사됨. 인플루언서 상세 페이지에 노출)</span></label>
+              <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
+                <select id="newCampNsetSelect" class="form-input" style="flex:1" onchange="onNsetSelectChange('new')"><option value="">— 번들 선택 —</option></select>
+                <button type="button" class="btn btn-ghost btn-xs" onclick="reloadNsetFromBundle('new')">번들 다시 불러오기</button>
+              </div>
+              <div id="newCampNgItems" style="display:flex;flex-direction:column;gap:10px"></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="addCampNsetItem('new')" style="margin-top:8px">+ 항목 추가</button>
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
