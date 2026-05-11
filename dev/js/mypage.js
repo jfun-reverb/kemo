@@ -566,11 +566,66 @@ async function openCancelModalFor(appId) {
   const errEl = $('cancelModalError');
   if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
   openModal('cancelModal');
+  // 모바일 키보드 대응: visualViewport 가 줄어들면 modal max-height 도
+  // 그만큼 줄여 textarea 가 키보드 위로 보이도록.
+  _attachCancelModalKeyboardSync();
 }
 
 function closeCancelModal() {
+  _detachCancelModalKeyboardSync();
   closeModal('cancelModal');
   _cancelTargetAppId = null;
+}
+
+// ── 모바일 키보드 대응 ─────────────────────────────────────────
+//   modal-overlay 가 position:fixed;inset:0 라 키보드가 올라와도 자동 보정
+//   안 됨. visualViewport.height 로 modal max-height 동적 갱신 + textarea
+//   focus 시 textarea 를 modal-body 안에서 중앙으로 스크롤.
+let _cancelModalVvHandler = null;
+let _cancelModalTextareaFocusHandler = null;
+
+function _attachCancelModalKeyboardSync() {
+  if (!window.visualViewport) return;
+  if (_cancelModalVvHandler) return;
+  const modalEl = document.querySelector('#cancelModal .modal');
+  _cancelModalVvHandler = () => {
+    const overlay = document.getElementById('cancelModal');
+    if (!overlay || !overlay.classList.contains('open')) return;
+    if (!modalEl) return;
+    const vh = window.visualViewport.height;
+    // 상하 16px 여백
+    modalEl.style.maxHeight = Math.max(240, vh - 16) + 'px';
+  };
+  window.visualViewport.addEventListener('resize', _cancelModalVvHandler);
+  window.visualViewport.addEventListener('scroll', _cancelModalVvHandler);
+  _cancelModalVvHandler();
+
+  // textarea focus 시 0.3s 후 modal-body 안에서 중앙으로 스크롤
+  const ta = document.getElementById('cancelModalNote');
+  if (ta) {
+    _cancelModalTextareaFocusHandler = () => {
+      setTimeout(() => {
+        try { ta.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch(_e) {}
+      }, 300);
+    };
+    ta.addEventListener('focus', _cancelModalTextareaFocusHandler);
+  }
+}
+
+function _detachCancelModalKeyboardSync() {
+  if (window.visualViewport && _cancelModalVvHandler) {
+    window.visualViewport.removeEventListener('resize', _cancelModalVvHandler);
+    window.visualViewport.removeEventListener('scroll', _cancelModalVvHandler);
+    _cancelModalVvHandler = null;
+  }
+  const ta = document.getElementById('cancelModalNote');
+  if (ta && _cancelModalTextareaFocusHandler) {
+    ta.removeEventListener('focus', _cancelModalTextareaFocusHandler);
+    _cancelModalTextareaFocusHandler = null;
+  }
+  // modal max-height 원복
+  const modalEl = document.querySelector('#cancelModal .modal');
+  if (modalEl) modalEl.style.maxHeight = '';
 }
 
 async function submitCancelApplication() {
