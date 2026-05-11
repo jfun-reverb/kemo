@@ -8359,14 +8359,20 @@ let _cancelModalTextareaFocusHandler = null;
 function _attachCancelModalKeyboardSync() {
   if (!window.visualViewport) return;
   if (_cancelModalVvHandler) return;
-  const modalEl = document.querySelector('#cancelModal .modal');
+  const overlay = document.getElementById('cancelModal');
+  const modalEl = overlay?.querySelector('.modal');
   _cancelModalVvHandler = () => {
-    const overlay = document.getElementById('cancelModal');
     if (!overlay || !overlay.classList.contains('open')) return;
-    if (!modalEl) return;
     const vh = window.visualViewport.height;
-    // 상하 16px 여백
-    modalEl.style.maxHeight = Math.max(240, vh - 16) + 'px';
+    const offsetTop = window.visualViewport.offsetTop;
+    // overlay 가 position:fixed;inset:0 라 키보드와 무관하게 window 전체를
+    // 차지. app.js 의 appShell 보정 패턴을 그대로 적용해 overlay 를
+    // visualViewport 안으로 옮긴다 → 모달이 키보드 위에 떠 있게 됨.
+    overlay.style.height = vh + 'px';
+    overlay.style.top = offsetTop + 'px';
+    overlay.style.bottom = 'auto';
+    // 모달 자체도 visualViewport 안에 fit. 32px 여백 (상하 16px 씩).
+    if (modalEl) modalEl.style.maxHeight = Math.max(240, vh - 32) + 'px';
   };
   window.visualViewport.addEventListener('resize', _cancelModalVvHandler);
   window.visualViewport.addEventListener('scroll', _cancelModalVvHandler);
@@ -8395,7 +8401,13 @@ function _detachCancelModalKeyboardSync() {
     ta.removeEventListener('focus', _cancelModalTextareaFocusHandler);
     _cancelModalTextareaFocusHandler = null;
   }
-  // modal max-height 원복
+  // overlay 위치 + 모달 max-height 원복
+  const overlay = document.getElementById('cancelModal');
+  if (overlay) {
+    overlay.style.height = '';
+    overlay.style.top = '';
+    overlay.style.bottom = '';
+  }
   const modalEl = document.querySelector('#cancelModal .modal');
   if (modalEl) modalEl.style.maxHeight = '';
 }
