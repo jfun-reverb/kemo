@@ -36,6 +36,11 @@
 
 BEGIN;
 
+-- 잠금 트리거 일시 비활성 (migration 075/108)
+--   closed 캠페인의 participation_steps 변경을 막는 트리거가 시스템 백필도 차단함.
+--   백필은 시스템 마이그레이션이라 변경 의도가 안전하므로 우회. 운영자 수동 편집은 여전히 보호됨.
+ALTER TABLE public.campaigns DISABLE TRIGGER trg_block_closed_caution_participation;
+
 UPDATE public.campaigns
 SET participation_steps = '[
   {
@@ -58,6 +63,9 @@ SET participation_steps = '[
   }
 ]'::jsonb
 WHERE (participation_steps IS NULL OR participation_steps = '[]'::jsonb);
+
+-- 잠금 트리거 재활성
+ALTER TABLE public.campaigns ENABLE TRIGGER trg_block_closed_caution_participation;
 
 -- 영향 행 확인용 (적용 직후 실행)
 -- SELECT id, title, participation_steps
