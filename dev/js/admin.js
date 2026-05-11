@@ -211,7 +211,7 @@ function switchAdminPane(pane, el, pushHistory) {
     applyDeadlineFieldsVisibility('new', 'monitor');
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
-      ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
+      ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
     }, 0);
     // 참여방법 번들 초기화 (기본 recruit_type='monitor')
     _psetState.new = [];
@@ -987,7 +987,7 @@ async function loadAdminCampaigns(useCache) {
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
-const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','editCampNg','newCampDesc','newCampAppeal','newCampGuide','newCampNg'];
+const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','newCampDesc','newCampAppeal','newCampGuide'];
 const richEditors = {};
 
 // ════════════════════════════════════════════════════════════════════
@@ -1148,7 +1148,6 @@ async function openEditCampaign(campId) {
   loadTagsFromValue('tagWrap_editCampMentions', 'editCampMentions', '@', camp.mentions||'');
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
-  sv('editCampNg', camp.ng||'');
   sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
@@ -2316,8 +2315,8 @@ async function saveCampaignEdit() {
       mentions: gv('editCampMentions'),
       appeal: gv('editCampAppeal'),
       guide: gv('editCampGuide'),
-      ng: gv('editCampNg'),
       // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
+      // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
       status: gv('editCampStatus'),
       ...collectCampPsetPayload('edit'),
       ...collectCampCsetPayload('edit'),
@@ -2335,7 +2334,7 @@ async function saveCampaignEdit() {
     let _historyAppCount = 0;
     let _historyBypassAck = false;
     let change = {cautionChanged:false, participationChanged:false, ngChanged:false, anyChanged:false};
-    if (origStatus === 'closed') {
+    if (origStatus === 'closed' || origStatus === 'expired') {
       delete updates.caution_set_id;
       delete updates.caution_items;
       delete updates.participation_set_id;
@@ -4217,8 +4216,9 @@ async function addCampaign() {
     winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、LINEにてご連絡',
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
-    appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
+    appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'),
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
+    // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
     ...collectCampPsetPayload('new'),
     ...collectCampCsetPayload('new'),
@@ -4240,7 +4240,7 @@ async function addCampaign() {
   // flatpickr range picker 클리어
   applyCampRangeValues('newCamp', { recruit:[null,null], purchase:[null,null], visit:[null,null] });
   // 리치 에디터 초기화
-  ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
+  ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
@@ -7647,14 +7647,6 @@ async function openAdminNoticeView(id) {
   if (typeof renderRich === 'function') renderRich(bodyEl, n.body_html || '');
   else if (typeof sanitizeRich === 'function') bodyEl.innerHTML = sanitizeRich(n.body_html || '');
   else bodyEl.innerHTML = n.body_html || '';
-  // 2026-05-07 임시 디버그: ol 분리 문제 추적용. 보기 모달 열 때 raw·rendered HTML을 콘솔에 덤프
-  try {
-    console.group('[adminNotice debug] ' + (n.title || '(no title)'));
-    console.log('raw body_html:', n.body_html);
-    console.log('rendered innerHTML:', bodyEl.innerHTML);
-    console.log('ol count in rendered:', bodyEl.querySelectorAll('ol').length);
-    console.groupEnd();
-  } catch(_) {}
   // 푸터: 작성자/super 만 표시
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const canEdit = isSuper || n.created_by === currentUser?.id;
