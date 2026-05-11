@@ -1299,7 +1299,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-11 17:29 · 6c45127</span>
+          <span class="admin-build-text">2026-05-11 17:33 · ea43999</span>
         </div>
       </div>
     </aside>
@@ -2117,6 +2117,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <option value="pending">심사중</option>
                   <option value="approved">승인</option>
                   <option value="rejected">미승인</option>
+                  <option value="cancelled">취소</option>
                 </select>
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
@@ -12650,11 +12651,12 @@ async function loadCampApplicants() {
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-    <td>${getStatusBadgeKo(a.status)}</td>
+    <td>${getStatusBadgeKo(a.status)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
     <td>${otCell}</td>
     <td>${delivCell}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+      :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
   </tr>`;
@@ -13050,16 +13052,39 @@ async function openInfluencerDetail(userId) {
   // 신청 이력
   const apps = await fetchApplications({user_id: userId});
   const camps = await fetchCampaigns();
+  await ensureCancelReasonsCache();
   $('infDetailAppCount').textContent = `${apps.length}건`;
   $('infDetailAppsBody').innerHTML = apps.length ? apps.map(a => {
     const camp = camps.find(c=>c.id===a.campaign_id) || {};
     const typeLabel = getRecruitTypeBadgeKo(camp.recruit_type);
-    return `<tr>
+    const mainRow = `<tr>
       <td style="font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td>
       <td>${typeLabel}</td>
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status)}</td>
+      <td>${getStatusBadgeKo(a.status)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
     </tr>`;
+    if (a.status !== 'cancelled') return mainRow;
+    // 취소 사유 보조 행
+    const catLabel = a.cancel_reason_code ? esc(cancelReasonLabelKo(a.cancel_reason_code)) : '—';
+    const noteHtml = a.cancel_reason ? `<div style="font-size:12px;color:var(--ink);margin-top:4px;white-space:pre-wrap"><strong style="font-weight:700">보충</strong> · ${esc(a.cancel_reason)}</div>` : '';
+    const phaseLabel = esc(cancelPhaseLabelKo(a.cancel_phase));
+    const whenStr = a.cancelled_at ? formatDateTime(a.cancelled_at) : '—';
+    const appPayload = esc(JSON.stringify({
+      id: a.id,
+      cancel_reason: a.cancel_reason || '',
+      cancel_reason_code: a.cancel_reason_code || '',
+      cancel_phase: a.cancel_phase || '',
+      cancel_category_ko: a.cancel_reason_code ? cancelReasonLabelKo(a.cancel_reason_code) : ''
+    }));
+    return mainRow + `<tr><td colspan="4" style="padding:0">
+      <div style="background:#FFF5F5;border-left:3px solid #C62828;padding:10px 14px;margin:0 0 4px;border-radius:0 6px 6px 0">
+        <div style="font-size:11px;font-weight:700;color:#C62828;margin-bottom:6px">취소 사유</div>
+        <div style="font-size:12px;color:var(--ink)"><strong style="font-weight:700">카테고리</strong> · ${catLabel}</div>
+        ${noteHtml}
+        <div style="font-size:11px;color:var(--muted);margin-top:6px"><strong style="font-weight:700">시점</strong> · ${phaseLabel} <span style="margin:0 4px;color:var(--line)">|</span> <strong style="font-weight:700">일시</strong> · ${whenStr}</div>
+        <div style="margin-top:8px"><button class="btn btn-xs status-btn-orange" onclick='prefillViolationFromCancel(${appPayload})'>이 취소 건으로 위반 등록</button></div>
+      </div>
+    </td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
   openModal('influencerFullDetailModal');
@@ -13069,6 +13094,31 @@ async function openInfluencerDetail(userId) {
 var _currentDetailInfluencer = null;
 var _blacklistReasonsCache = null;
 var _violationReasonsCache = null;
+var _cancelReasonsCache = null;
+
+// 취소 시점(cancel_phase) → 한국어 라벨
+const CANCEL_PHASE_LABEL_KO = {
+  recruit: '모집기간',
+  purchase: '구매기간',
+  visit: '방문기간',
+  post: '결과물 제출기간',
+  other: '기타'
+};
+function cancelPhaseLabelKo(phase) {
+  return CANCEL_PHASE_LABEL_KO[phase] || phase || '—';
+}
+
+// cancel_reason 카테고리 캐시 lazy load
+async function ensureCancelReasonsCache() {
+  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons();
+  return _cancelReasonsCache;
+}
+function cancelReasonLabelKo(code) {
+  if (!code) return '';
+  const r = (_cancelReasonsCache || []).find(x => x.code === code);
+  return r?.name_ko || code;
+}
+
 // 증빙 파일: 등록 폼 ({file, previewUrl}[]) / 편집 모달 ({file, previewUrl}[] + keptPaths[])
 var _pendingFlagFiles = [];
 var _editingKeptPaths = [];
@@ -13426,6 +13476,50 @@ async function onSaveEditViolation() {
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
+// 신청 이력의 cancelled 보조 행에서 호출 — 위반 등록 폼에 자동 prefill
+// payload = {id, cancel_reason, cancel_reason_code, cancel_phase, cancel_category_ko}
+function prefillViolationFromCancel(payload) {
+  if (!payload) return;
+  const modal = $('influencerFullDetailModal');
+  if (!modal) return;
+  const cancelCode = 'cancel_after_purchase_start';
+  const cancelLookup = (_violationReasonsCache || []).find(r => r.code === cancelCode);
+
+  // 사유 체크박스 컨테이너 — reasonChecks 영역
+  const cbContainer = modal.querySelector('.status-chip')?.parentElement;
+  if (cbContainer) {
+    // 모든 체크 해제
+    cbContainer.querySelectorAll('input.bl-reason-cb').forEach(cb => { cb.checked = false; });
+    // cancel_after_purchase_start 체크박스가 이미 있는지
+    let cancelCb = cbContainer.querySelector('input.bl-reason-cb[value="' + cancelCode + '"]');
+    if (!cancelCb && cancelLookup) {
+      // 동적으로 맨 앞에 추가
+      const wrapper = document.createElement('label');
+      wrapper.className = 'status-chip';
+      wrapper.innerHTML = `<input type="checkbox" class="bl-reason-cb" value="${esc(cancelLookup.code)}"><span>${esc(cancelLookup.name_ko)}</span>`;
+      cbContainer.insertBefore(wrapper, cbContainer.firstChild);
+      cancelCb = wrapper.querySelector('input.bl-reason-cb');
+    }
+    if (cancelCb) cancelCb.checked = true;
+  }
+
+  // 메모 prefill — 기존 값 비어 있을 때만 (사용자 입력 덮어쓰기 방지)
+  const noteInput = $('blNoteInput');
+  if (noteInput && !(noteInput.value || '').trim()) {
+    const lines = ['[취소 사유]'];
+    if (payload.cancel_category_ko) lines.push(`카테고리: ${payload.cancel_category_ko}`);
+    if (payload.cancel_reason) lines.push(`보충: ${payload.cancel_reason}`);
+    if (payload.cancel_phase) lines.push(`시점: ${cancelPhaseLabelKo(payload.cancel_phase)}`);
+    noteInput.value = lines.join('\n');
+  }
+
+  // 상태 관리 영역으로 스크롤 + 메모 포커스
+  const targetCard = $('infDetailStatusBody');
+  if (targetCard) targetCard.scrollIntoView({behavior:'smooth', block:'start'});
+  setTimeout(() => { noteInput?.focus(); }, 400);
+  if (typeof toast === 'function') toast('위반 등록 폼에 사유·메모 prefill 됨', 'info');
+}
+
 async function onInfluencerRecordViolation() {
   if (!_currentDetailInfluencer) return;
   const modal = $('influencerFullDetailModal');
@@ -13592,9 +13686,10 @@ async function renderAppCampList() {
     availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t, count: appTypeCounts[t] || 0})),
     () => renderAppCampList());
   syncMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',  label:'심사중', count: appStatusCountsMap.pending  || 0},
-    {value:'approved', label:'승인',   count: appStatusCountsMap.approved || 0},
-    {value:'rejected', label:'미승인', count: appStatusCountsMap.rejected || 0},
+    {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
+    {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
+    {value:'rejected',  label:'미승인', count: appStatusCountsMap.rejected  || 0},
+    {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
   ], () => renderAppCampList());
 
   // 타입 필터 (다중 선택) — stale 제거 후 최종값
@@ -13624,7 +13719,9 @@ async function renderAppCampList() {
         || (camp.product_ko||'').toLowerCase().includes(searchVal)
         || (camp.campaign_no||'').toLowerCase().includes(searchVal)
         || (a.user_name||'').toLowerCase().includes(searchVal)
-        || (a.user_email||'').toLowerCase().includes(searchVal);
+        || (a.user_email||'').toLowerCase().includes(searchVal)
+        || (a.cancel_reason||'').toLowerCase().includes(searchVal)
+        || (a.cancel_reason_code||'').toLowerCase().includes(searchVal);
     });
   }
 
@@ -13632,7 +13729,7 @@ async function renderAppCampList() {
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
-    const statusOrder = {pending:0, approved:1, rejected:2};
+    const statusOrder = {pending:0, approved:1, rejected:2, cancelled:3};
     apps.sort((a,b) => ((statusOrder[a.status]??9) - (statusOrder[b.status]??9)) * appDir);
   } else if (appSortKey === 'name') {
     apps.sort((a,b) => (a.user_name||'').localeCompare(b.user_name||'', 'ja') * appDir);
@@ -13680,9 +13777,10 @@ async function renderAppCampList() {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status)}</td>
+      <td>${getStatusBadgeKo(a.status)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_campRemaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
@@ -13697,6 +13795,8 @@ async function renderAppCampList() {
     pageSize: APP_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
   });
+  // cancel_reason 캐시 미리 채움 — 상세 모달에서 카테고리 라벨 즉시 표시
+  ensureCancelReasonsCache();
 }
 
 async function updateAppStatus(appId, status) {
@@ -16701,8 +16801,11 @@ async function exportCampaignApplicationsExcel(campId) {
       if (s === 'approved') return '승인';
       if (s === 'pending') return '심사중';
       if (s === 'rejected') return '미승인';
+      if (s === 'cancelled') return '취소';
       return s || '';
     };
+    // 취소 카테고리 라벨 캐시 (cancelled 행 있으면 미리 채움)
+    await ensureCancelReasonsCache();
     var snsHandleStr = function(channel, raw) {
       if (!raw) return '';
       if (typeof extractSnsHandle === 'function') {
@@ -16741,7 +16844,11 @@ async function exportCampaignApplicationsExcel(campId) {
       { header: '배송지',            key: 'address',    width: 40 },
       { header: '신청 메시지',       key: 'message',    width: 40 },
       { header: '심사일',            key: 'reviewedAt', width: 20 },
-      { header: '리뷰어',            key: 'reviewedBy', width: 16 }
+      { header: '리뷰어',            key: 'reviewedBy', width: 16 },
+      { header: '취소일',            key: 'cancelledAt',    width: 20 },
+      { header: '취소 사유(보충)',   key: 'cancelReason',   width: 30 },
+      { header: '취소 카테고리',     key: 'cancelCategory', width: 22 },
+      { header: '취소 시점',         key: 'cancelPhase',    width: 14 }
     ];
 
     var header = ws.getRow(1);
@@ -16762,24 +16869,33 @@ async function exportCampaignApplicationsExcel(campId) {
         try { reviewedStr = new Date(a.reviewed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
         catch(e) { reviewedStr = String(a.reviewed_at); }
       }
+      var cancelledStr = '';
+      if (a.cancelled_at) {
+        try { cancelledStr = new Date(a.cancelled_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
+        catch(e) { cancelledStr = String(a.cancelled_at); }
+      }
       ws.addRow({
-        created:    createdStr,
-        status:     statusLabel(a.status),
-        name:       u.name_kanji || u.name || a.user_name || '',
-        email:      a.user_email || '',
-        phone:      formatPhoneDisplay(u.phone),
-        ig:         snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
-        igF:        Number(u.ig_followers || 0),
-        tt:         snsHandleStr('tiktok', u.tiktok),
-        ttF:        Number(u.tiktok_followers || 0),
-        x:          snsHandleStr('x', u.x),
-        xF:         Number(u.x_followers || 0),
-        yt:         snsHandleStr('youtube', u.youtube),
-        ytF:        Number(u.youtube_followers || 0),
-        address:    addrStr(u, a.address),
-        message:    a.message || '',
-        reviewedAt: reviewedStr,
-        reviewedBy: formatReviewer(a.reviewed_by)
+        created:        createdStr,
+        status:         statusLabel(a.status),
+        name:           u.name_kanji || u.name || a.user_name || '',
+        email:          a.user_email || '',
+        phone:          formatPhoneDisplay(u.phone),
+        ig:             snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        igF:            Number(u.ig_followers || 0),
+        tt:             snsHandleStr('tiktok', u.tiktok),
+        ttF:            Number(u.tiktok_followers || 0),
+        x:              snsHandleStr('x', u.x),
+        xF:             Number(u.x_followers || 0),
+        yt:             snsHandleStr('youtube', u.youtube),
+        ytF:            Number(u.youtube_followers || 0),
+        address:        addrStr(u, a.address),
+        message:        a.message || '',
+        reviewedAt:     reviewedStr,
+        reviewedBy:     formatReviewer(a.reviewed_by),
+        cancelledAt:    cancelledStr,
+        cancelReason:   a.cancel_reason || '',
+        cancelCategory: a.cancel_reason_code ? cancelReasonLabelKo(a.cancel_reason_code) : '',
+        cancelPhase:    a.cancel_phase ? cancelPhaseLabelKo(a.cancel_phase) : ''
       });
     });
 
@@ -16789,6 +16905,7 @@ async function exportCampaignApplicationsExcel(campId) {
     });
     ws.getColumn('message').alignment = { wrapText: true, vertical: 'top' };
     ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
+    ws.getColumn('cancelReason').alignment = { wrapText: true, vertical: 'top' };
 
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
