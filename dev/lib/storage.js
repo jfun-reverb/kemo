@@ -1110,16 +1110,119 @@ async function swapCautionSetOrder(idA, idB) {
 }
 
 // ══════════════════════════════════════
-// CAMPAIGN CAUTION HISTORY (주의사항/참여방법 변경 audit — migration 077, Phase 2)
+// NG SETS (NG 사항 번들 — migration 107)
+//   caution_sets 패턴 완전 미러링.
+//   캠페인 저장 시 items 스냅샷이 campaigns.ng_items 로 복사되므로
+//   번들 수정 후에도 기존 캠페인 상세에는 영향 없음.
+// ══════════════════════════════════════
+
+// 캠페인 폼에서 recruit_type 필터로 active 번들만 조회
+//   서버 filter(contains)가 recruit_types=[] 를 제외시키는 문제로 클라이언트 필터 사용.
+//   빈 배열(= 전 타입 공통)은 항상 포함.
+async function fetchNgSets(recruitType) {
+  if (!db) return [];
+  const {data, error} = await db?.from('ng_sets')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  const all = data || [];
+  if (!recruitType) return all;
+  return all.filter(s => {
+    const rts = Array.isArray(s.recruit_types) ? s.recruit_types : [];
+    return rts.length === 0 || rts.includes(recruitType);
+  });
+}
+
+// 관리자 기준 데이터 페인 — 비활성 포함 전체
+async function fetchNgSetsAll() {
+  if (!db) return [];
+  const {data, error} = await db?.from('ng_sets')
+    .select('*')
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+async function insertNgSet(row) {
+  let result;
+  await retryWithRefresh(async () => {
+    const existing = await fetchNgSetsAll();
+    const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+    const payload = {
+      name_ko: row.name_ko,
+      name_ja: row.name_ja,
+      recruit_types: row.recruit_types || [],
+      items: row.items || [],
+      sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
+      active: row.active != null ? row.active : true
+    };
+    const {data, error} = await db?.from('ng_sets').insert(payload).select().maybeSingle();
+    if (error) throw error;
+    result = data;
+  });
+  return result;
+}
+
+async function updateNgSet(id, updates) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('ng_sets').update(updates).eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function deactivateNgSet(id) {
+  await updateNgSet(id, {active: false});
+}
+
+async function activateNgSet(id) {
+  await updateNgSet(id, {active: true});
+}
+
+// hard delete — campaigns.ng_set_id 는 ON DELETE SET NULL 이라 안전.
+// 단, 사용 중인 번들(campaigns.ng_set_id 참조 있음)은 hard delete 차단 → soft delete만 허용.
+async function deleteNgSet(id) {
+  await retryWithRefresh(async () => {
+    // 사용 중 여부 확인 (campaigns.ng_set_id 참조)
+    const {count} = await db?.from('campaigns')
+      .select('id', {count: 'exact', head: true})
+      .eq('ng_set_id', id);
+    if ((count || 0) > 0) {
+      // 사용 중이면 hard delete 차단 — soft delete(비활성)만 허용
+      const {error} = await db?.from('ng_sets').update({active: false}).eq('id', id);
+      if (error) throw error;
+      return;
+    }
+    // 미사용이면 hard delete
+    const {error} = await db?.from('ng_sets').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function swapNgSetOrder(idA, idB) {
+  if (!db) return;
+  const {data: rows} = await db?.from('ng_sets').select('id, sort_order').in('id', [idA, idB]);
+  if (!rows || rows.length !== 2) return;
+  const [a, b] = rows;
+  await retryWithRefresh(async () => {
+    await db?.from('ng_sets').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db?.from('ng_sets').update({sort_order: a.sort_order}).eq('id', b.id);
+  });
+}
+
+// ══════════════════════════════════════
+// CAMPAIGN CAUTION HISTORY (주의사항/참여방법/NG 변경 audit — migration 077+109)
 // ══════════════════════════════════════
 
 // 변경 이력 INSERT — record_caution_history RPC (SECURITY DEFINER)
-//   호출 위치: dev/js/admin.js:saveCampaignEdit() — caution/participation 변경이 감지된 경우만
-//   args: { campaign_id, prev:{caution_set_id, caution_items, participation_set_id, participation_steps},
-//           next:{caution_set_id, caution_items, participation_set_id, participation_steps},
+//   호출 위치: dev/js/admin.js:saveCampaignEdit() — caution/participation/ng 변경이 감지된 경우만
+//   args: { campaign_id,
+//           prev:{caution_set_id, caution_items, participation_set_id, participation_steps, ng_set_id, ng_items},
+//           next:{caution_set_id, caution_items, participation_set_id, participation_steps, ng_set_id, ng_items},
 //           app_count, bypass_ack }
 //   bypass_ack: 신청자 ≥1 + 사용자가 경고 모달 「확인하고 저장」을 통과했으면 true.
 //   DEMO_MODE(no db)에서는 no-op (audit 의미 없음).
+//   migration 109: NG 파라미터 4개 추가 (기존 호출처는 DEFAULT NULL이라 호환 유지).
 async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_ack}) {
   if (!db || !campaign_id) return null;
   let result = null;
@@ -1136,6 +1239,11 @@ async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_
       p_next_participation_steps: next?.participation_steps ?? null,
       p_app_count: Number.isFinite(app_count) ? app_count : 0,
       p_bypass_ack: !!bypass_ack,
+      // migration 109: NG 사항 파라미터 (미전달 시 RPC 기본값 NULL)
+      p_prev_ng_set_id: prev?.ng_set_id || null,
+      p_next_ng_set_id: next?.ng_set_id || null,
+      p_prev_ng_items: prev?.ng_items ?? null,
+      p_next_ng_items: next?.ng_items ?? null,
     });
     if (error) throw error;
     result = data || null;
