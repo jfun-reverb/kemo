@@ -2630,13 +2630,8 @@ function renderCampPreview(mode) {
     ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} 報酬`:''}`
     : '';
 
-  // 참여방법 (스냅샷 > legacy)
-  const legacySteps = [
-    {title_ja:'応募フォームを提出', desc_ja:'当選された方には当選日にLINEにてご連絡いたします。'},
-    {title_ja:'製品を使用してSNSにレビューを投稿', desc_ja:'① 投稿ガイドを確認 ② SNSにレビューを投稿'},
-    {title_ja:'LINEで投稿リンクを送る', desc_ja:'SNSの投稿リンクをコピーして、LINEで送信してください。'}
-  ];
-  const steps = (Array.isArray(camp.participation_steps) && camp.participation_steps.length) ? camp.participation_steps : legacySteps;
+  // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
+  const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
 
   el.innerHTML = `
     <div class="cp-frame">
@@ -2680,14 +2675,14 @@ function renderCampPreview(mode) {
             return rows.join('');
           })()}
         </div>
-        <div class="cp-participation">
+        ${steps.length ? `<div class="cp-participation">
           <div class="cp-section-heading">参加方法</div>
           ${steps.map((s,i)=>{
             const title = s.title_ja || s.title_ko || '';
             const desc = s.desc_ja || s.desc_ko || '';
             return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
           }).join('')}
-        </div>
+        </div>` : ''}
         ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
         ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
@@ -2702,7 +2697,7 @@ function renderCampPreview(mode) {
           const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
           if (ngItems.length) {
             const lis = ngItems.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
-            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><ul class="cp-sec-body cp-sec-bg-ng" style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px;line-height:1.65">${lis}</ul></div>`;
+            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
           }
           if (camp.ng) {
             return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`;
@@ -2712,7 +2707,7 @@ function renderCampPreview(mode) {
         ${(Array.isArray(camp.caution_items) && camp.caution_items.length) ? (() => {
           const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
           const lis = camp.caution_items.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
-          return `<div class="cp-sec"><div class="cp-section-heading">注意事項</div><ul class="cp-sec-body" style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px;line-height:1.65">${lis}</ul></div>`;
+          return `<div class="cp-sec"><div class="cp-section-heading">注意事項</div><div class="cp-sec-body"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
         })() : ''}
       </div>
       <div class="cp-cta">

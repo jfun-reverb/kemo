@@ -6671,15 +6671,9 @@ async function openCampaign(id) {
       </div>
 
       ${(() => {
-        // 캠페인별 참여방법 스냅샷 우선, 없으면 legacy 하드코딩 fallback
-        const legacy = [
-          {title_ja:'応募フォームを提出', desc_ja:'当選された方には当選日にLINEにてご連絡いたします。'},
-          {title_ja:'製品を使用してSNSにレビューを投稿', desc_ja:'① 投稿ガイドを確認 ② SNSにレビューを投稿'},
-          {title_ja:'LINEで投稿リンクを送る', desc_ja:'SNSの投稿リンクをコピーして、LINEで送信してください。'}
-        ];
-        const steps = (Array.isArray(camp.participation_steps) && camp.participation_steps.length)
-          ? camp.participation_steps
-          : legacy;
+        // 참여방법: 스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료
+        const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
+        if (!steps.length) return '';
         return `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
