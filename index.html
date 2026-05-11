@@ -3253,7 +3253,14 @@ async function updateApplication(appId, updates) {
 
 async function checkDuplicateApplication(userId, campaignId) {
   if (!db) return false;
-  const {data} = await db.from('applications').select('id').eq('user_id', userId).eq('campaign_id', campaignId).maybeSingle();
+  // cancelled 행은 재응모 허용을 위해 중복으로 보지 않는다 (migration 104,
+  // partial unique index `applications_user_camp_active_uidx` 와 일치).
+  const {data} = await db.from('applications')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('campaign_id', campaignId)
+    .neq('status', 'cancelled')
+    .maybeSingle();
   return !!data;
 }
 
@@ -4424,6 +4431,54 @@ async function fetchAdminEmailKinds() {
     .order('sort_order');
   if (error) { console.error('[fetchAdminEmailKinds]', error); return []; }
   return data || [];
+}
+
+// ──────────────────────────────────────
+// 캠페인 신청 본인 취소 (cancel_application RPC)
+// 사양: docs/specs/2026-05-11-application-cancel.md
+// ──────────────────────────────────────
+
+// 취소 사유 카테고리 목록 (lookup_values kind='cancel_reason')
+// 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
+async function fetchCancelReasons() {
+  if (!db) return [];
+  const {data, error} = await db.from('lookup_values')
+    .select('code, name_ko, name_ja, sort_order')
+    .eq('kind', 'cancel_reason')
+    .eq('active', true)
+    .order('sort_order');
+  if (error) { console.error('[fetchCancelReasons]', error); return []; }
+  return data || [];
+}
+
+// 본인 취소 RPC 호출.
+// 반환: { ok: true, data: { cancel_phase, cancelled_at, previous_status } }
+//      | { ok: false, error: 'application_not_found' | 'not_owner'
+//                          | 'invalid_status' | 'deliverable_already_approved'
+//                          | 'acknowledgement_required' | 'reason_required'
+//                          | (그 외 메시지) }
+// 호출 측에서 error 코드로 분기해 사용자 친화 메시지 표시.
+async function cancelApplication(applicationId, opts) {
+  if (!db) return {ok: false, error: 'no_db'};
+  const payload = {
+    p_application_id: applicationId,
+    p_reason_code:    opts?.reasonCode || null,
+    p_reason_note:    opts?.reasonNote || null,
+    p_acknowledged:   !!opts?.acknowledged
+  };
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('cancel_application', payload);
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) {
+    // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
+    const msg = e?.message || 'unknown';
+    console.error('[cancelApplication]', e);
+    return {ok: false, error: msg};
+  }
 }
 
 // 한 관리자의 메일 구독 일괄 저장 (UPSERT)
