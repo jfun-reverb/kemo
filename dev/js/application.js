@@ -12,10 +12,27 @@ async function openCampaign(id) {
 
   let alreadyApplied = false;
   let _myApp = null;
+  let hasCancelledHistory = false;
   if (currentUser) {
-    const {data:_appData} = await (db?.from('applications').select('*').eq('user_id', currentUser.id).eq('campaign_id', id).maybeSingle() || {data:null});
+    // partial unique index 가 cancelled 가 아닌 행 1개만 보장하므로
+    // .neq('status', 'cancelled') 로 활성 행만 단일 조회. cancelled 이력은 별도 확인.
+    const {data:_appData} = await (db?.from('applications').select('*')
+      .eq('user_id', currentUser.id)
+      .eq('campaign_id', id)
+      .neq('status', 'cancelled')
+      .maybeSingle() || {data:null});
     _myApp = _appData;
     alreadyApplied = !!_myApp;
+    if (!alreadyApplied) {
+      // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 확인 → 재응모 동선
+      const {data:_cancelled} = await (db?.from('applications').select('id')
+        .eq('user_id', currentUser.id)
+        .eq('campaign_id', id)
+        .eq('status', 'cancelled')
+        .limit(1)
+        .maybeSingle() || {data:null});
+      hasCancelledHistory = !!_cancelled;
+    }
   }
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
@@ -240,7 +257,27 @@ async function openCampaign(id) {
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='closed') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (isFull) { floatApplyBtn.textContent=t('detail.fullBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (hasCancelledHistory) {
+      // 사양 §4-9: 본인이 과거 취소한 캠페인 → 「再応募する」 라벨 + 안내 박스
+      floatApplyBtn.textContent=t('detail.reapplyBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
+      floatApplyBtn.onclick=()=>handleFloatApply();
+    }
     else { floatApplyBtn.textContent=t('detail.applyBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    // 재응모 안내 박스 (버튼 위에 회색 한 줄)
+    const reapplyNoticeId = 'detailReapplyNotice';
+    let reapplyNotice = document.getElementById(reapplyNoticeId);
+    if (hasCancelledHistory && !alreadyApplied && _myApp?.status !== 'approved' && camp.status !== 'closed' && !isFull) {
+      if (!reapplyNotice) {
+        reapplyNotice = document.createElement('div');
+        reapplyNotice.id = reapplyNoticeId;
+        reapplyNotice.style.cssText = 'background:#F5F5F5;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center';
+        floatApplyBtn.parentNode?.insertBefore(reapplyNotice, floatApplyBtn);
+      }
+      reapplyNotice.textContent = t('detail.reapplyNotice');
+      reapplyNotice.style.display = '';
+    } else if (reapplyNotice) {
+      reapplyNotice.style.display = 'none';
+    }
   }
   if (fb) fb.style.display='block';
 
@@ -506,6 +543,44 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityFrom = from || 'detail';
   const camp = allCampaigns.find(c=>c.id===campaignId) || {};
   _activityCamp = camp;
+  // 사양 §4-8: cancelled 신청은 활동관리 진입 자체 차단.
+  // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
+  // 진입한 경우에도 동일 분기.
+  const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  if (typeof navigate === 'function') navigate('activity');
+  if (isCancelled) {
+    const root = $('page-activity');
+    if (root) {
+      // 첫 차단 진입일 때만 안내 패널 삽입. 이후 다른 신청 열면 원래 폼이 다시 표시되어야 하므로 plain 패널만 추가.
+      let blocked = $('activityCancelledNotice');
+      if (!blocked) {
+        blocked = document.createElement('div');
+        blocked.id = 'activityCancelledNotice';
+        blocked.style.cssText = 'padding:40px 20px;text-align:center;background:#F5F5F5;border-radius:14px;margin:20px';
+        blocked.innerHTML = `
+          <div style="font-size:36px;color:var(--muted);margin-bottom:12px"><span class="material-icons-round notranslate" translate="no" style="font-size:48px">cancel</span></div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="appHistory.cancelBlocked.title">この応募はキャンセルされました</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7" data-i18n="appHistory.cancelBlocked.body">応募履歴に戻る場合は下のボタンをタップ</div>
+          <button class="btn btn-primary" onclick="navigate('mypage');openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
+        // 페이지 헤더 + 안내. 다른 폼/섹션은 모두 가린다.
+        const main = root.querySelector('.page-content') || root;
+        // 기존 자식 모두 숨김 후 안내만 노출
+        Array.from(main.children).forEach(ch => { ch.style.display = 'none'; });
+        main.appendChild(blocked);
+      } else {
+        blocked.style.display = '';
+      }
+      if (typeof applyI18n === 'function') applyI18n();
+    }
+    return;
+  }
+  // cancelled 가 아닌 정상 진입 — 차단 패널이 이전에 삽입되어 있으면 숨기고 폼을 복원
+  const prevBlocked = $('activityCancelledNotice');
+  if (prevBlocked && prevBlocked.parentNode) {
+    const main = prevBlocked.parentNode;
+    Array.from(main.children).forEach(ch => { ch.style.display = ''; });
+    prevBlocked.style.display = 'none';
+  }
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
   const rtLabel = $('activityRecruitLabel');

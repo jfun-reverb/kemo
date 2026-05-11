@@ -111,9 +111,15 @@ async function loadMyApplications() {
 function renderMyApplyTabs() {
   const tabs = $('myApplyTabs');
   if (!tabs) return;
-  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0};
+  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0, cancelled: 0};
   _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
-  const labels = {all: t('appHistory.all'), pending: t('appHistory.pending'), approved: t('appHistory.approved'), rejected: t('appHistory.rejected')};
+  const labels = {
+    all:       t('appHistory.all'),
+    pending:   t('appHistory.pending'),
+    approved:  t('appHistory.approved'),
+    rejected:  t('appHistory.rejected'),
+    cancelled: t('appHistory.cancelled')
+  };
   tabs.innerHTML = Object.keys(labels).map(k =>
     `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
   ).join('');
@@ -174,7 +180,31 @@ async function renderMyApplyList() {
     const thumb = imgs[0]
       ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
-    const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
+    // 카드 클릭 동선:
+    //   - cancelled: 사유 확인 모달 (openCancelDetailModal)
+    //   - approved: 활동관리 페이지 (단, cancelled 였다가 재진입이라면 사양 §4-8에 따라 차단)
+    //   - 그 외: 캠페인 상세
+    const clickAction = a.status==='cancelled'
+      ? `onclick="openCancelDetailModal('${a.id}')"`
+      : (a.status==='approved'
+          ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"`
+          : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`);
+    // ⋮ 메뉴: 본인 취소 가능 여부 판단
+    //   - pending/approved 만 후보
+    //   - 결과물 1건이라도 approved 면 비활성 (DB 트리거가 차단하지만 UX 차원에서 미리 막음)
+    //   - cancelled/rejected 는 메뉴 자체 비표시
+    let menuHtml = '';
+    if (a.status === 'pending' || a.status === 'approved') {
+      const ds = (_myDelivsByApp[a.id] || []);
+      const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+      menuHtml = hasApprovedDeliv
+        ? `<button type="button" class="apply-card-menu-btn" disabled title="${esc(t('appHistory.cancelDisabledDeliv'))}" onclick="event.stopPropagation()" aria-label="${esc(t('appHistory.cancelMenu'))}" style="opacity:.4;cursor:not-allowed"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`
+        : `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openCancelModalFor('${a.id}')" aria-label="${esc(t('appHistory.cancelMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`;
+    }
+    // cancelled 행: 취소일 표시
+    const cancelledLine = a.status === 'cancelled' && a.cancelled_at
+      ? `<div class="apply-item-cancelled-at" style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('appHistory.cancelDetail.datetime'))}: ${formatDate(a.cancelled_at)}</div>`
+      : '';
     // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
     // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
     // monitor 캠페인은 영수증·리뷰 캡쳐 두 단계가 별도 진행 → 라벨도 두 줄로 표시.
@@ -208,15 +238,16 @@ async function renderMyApplyList() {
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
-    return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
+    return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
         <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
+        ${cancelledLine}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}${menuHtml ? `<div class="apply-item-menu">${menuHtml}</div>` : ''}</div>
     </div>`;
   }).join('');
 }
@@ -405,3 +436,171 @@ function populateMyApplyChannelOptions() {
   if (prev && channels.includes(prev)) sel.value = prev;
 }
 // Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨
+
+// ════════════════════════════════════════════════════════════════════
+// 신청 본인 취소 (migration 104, 사양 docs/specs/2026-05-11-application-cancel.md §4)
+// ════════════════════════════════════════════════════════════════════
+
+let _cancelTargetAppId = null;
+let _cancelReasonsCache = null;
+
+// 클라이언트측 cancel_phase 계산 — 서버 RPC 의 CASE 와 동일 우선순위.
+// 모달 분기(단순 vs 사유 입력)와 phase 라벨 표시에 사용. 서버가 최종 검증.
+function _computeCancelPhase(camp) {
+  if (!camp) return 'other';
+  const now = Date.now();
+  const toMs = (d) => d ? Date.parse(d) : null;
+  const recruitDeadline = toMs(camp.deadline);
+  const purchaseStart = toMs(camp.purchase_start);
+  const purchaseEnd   = toMs(camp.purchase_end);
+  const visitStart    = toMs(camp.visit_start);
+  const visitEnd      = toMs(camp.visit_end);
+  const submissionEnd = toMs(camp.submission_end);
+  if (purchaseStart && now >= purchaseStart && (!purchaseEnd || now <= purchaseEnd)) return 'purchase';
+  if (visitStart    && now >= visitStart    && (!visitEnd    || now <= visitEnd))    return 'visit';
+  if (submissionEnd && now > submissionEnd) return 'post';
+  if (purchaseEnd   && now > purchaseEnd)   return 'post';
+  if (visitEnd      && now > visitEnd)      return 'post';
+  if (recruitDeadline && now <= recruitDeadline) return 'recruit';
+  return 'other';
+}
+
+async function openCancelModalFor(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  const camp = allCampaigns.find(c => c.id === app.campaign_id) || {};
+  _cancelTargetAppId = appId;
+  const phase = _computeCancelPhase(camp);
+  const titleEl = $('cancelModalTitle');
+  if (titleEl) titleEl.textContent = t('appHistory.cancel.title');
+  const campNameEl = $('cancelModalCampaign');
+  if (campNameEl) campNameEl.textContent = camp.title || app.campaign_id || '';
+  // recruit 단계: 단순형 — 경고/사유/동의 영역 숨김
+  const isSimple = phase === 'recruit';
+  const warnBox  = $('cancelModalWarning');
+  const reasonBox = $('cancelModalReason');
+  const noteBox  = $('cancelModalNoteWrap');
+  const ackBox   = $('cancelModalAckWrap');
+  const simpleBody = $('cancelModalSimpleBody');
+  if (warnBox)   warnBox.style.display   = isSimple ? 'none' : 'block';
+  if (reasonBox) reasonBox.style.display = isSimple ? 'none' : 'block';
+  if (noteBox)   noteBox.style.display   = isSimple ? 'none' : 'block';
+  if (ackBox)    ackBox.style.display    = isSimple ? 'none' : 'block';
+  if (simpleBody) simpleBody.style.display = isSimple ? 'block' : 'none';
+  // 경고 카피
+  const warnTextEl = $('cancelModalWarningText');
+  if (warnTextEl && !isSimple) {
+    const key = `appHistory.cancel.warning${phase.charAt(0).toUpperCase()}${phase.slice(1)}`;
+    warnTextEl.textContent = t(key);
+  }
+  // 사유 셀렉트: 카탈로그 캐시
+  if (!isSimple) {
+    if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
+    const sel = $('cancelModalReasonSelect');
+    if (sel) {
+      const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
+      const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(r.name_ja || r.name_ko)}</option>`).join('');
+      sel.innerHTML = placeholder + opts;
+      sel.value = '';
+    }
+    const note = $('cancelModalNote');
+    if (note) note.value = '';
+    const ack = $('cancelModalAck');
+    if (ack) ack.checked = false;
+  }
+  // phase 정보 hidden
+  const phaseEl = $('cancelModalPhase');
+  if (phaseEl) phaseEl.value = phase;
+  // 에러 메시지 영역 초기화
+  const errEl = $('cancelModalError');
+  if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+  openModal('cancelModal');
+}
+
+function closeCancelModal() {
+  closeModal('cancelModal');
+  _cancelTargetAppId = null;
+}
+
+async function submitCancelApplication() {
+  if (!_cancelTargetAppId) return;
+  const phase = $('cancelModalPhase')?.value || 'other';
+  const isSimple = phase === 'recruit';
+  const errEl = $('cancelModalError');
+  const showErr = (msg) => {
+    if (!errEl) { toast(msg, 'error'); return; }
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+  };
+  let reasonCode = null, reasonNote = null, acknowledged = false;
+  if (!isSimple) {
+    reasonCode = $('cancelModalReasonSelect')?.value || '';
+    reasonNote = $('cancelModalNote')?.value || '';
+    acknowledged = !!$('cancelModalAck')?.checked;
+    if (!reasonCode) { showErr(t('appHistory.cancel.errorReason')); return; }
+    if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
+    if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
+  }
+  const submitBtn = $('cancelModalSubmitBtn');
+  if (submitBtn) submitBtn.disabled = true;
+  const res = await cancelApplication(_cancelTargetAppId, {
+    reasonCode: reasonCode || null,
+    reasonNote: reasonNote || null,
+    acknowledged
+  });
+  if (submitBtn) submitBtn.disabled = false;
+  if (!res.ok) {
+    const errKey = {
+      'not_owner':                    'appHistory.cancel.errorOwner',
+      'invalid_status':               'appHistory.cancel.errorStatus',
+      'deliverable_already_approved': 'appHistory.cancel.errorDeliverable',
+      'reason_required':              'appHistory.cancel.errorReason',
+      'acknowledgement_required':     'appHistory.cancel.errorAck'
+    }[res.error] || 'appHistory.cancel.errorGeneric';
+    showErr(t(errKey));
+    return;
+  }
+  // 성공 — 캠페인 정보로 알림 생성, 토스트, 닫기, 응모이력 새로고침
+  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === _cancelTargetAppId)?.campaign_id)) || {};
+  try {
+    if (typeof insertApplicationCancelledNotification === 'function') {
+      await insertApplicationCancelledNotification(_cancelTargetAppId, camp.title || '');
+    }
+  } catch(_e) { /* 알림 실패는 사용자 흐름 차단 안 함 */ }
+  toast(t('appHistory.cancel.success'));
+  closeCancelModal();
+  await loadMyApplications();
+}
+
+async function openCancelDetailModal(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
+  const reason = _cancelReasonsCache.find(r => r.code === app.cancel_reason_code);
+  const setText = (id, text) => { const el = $(id); if (el) el.textContent = text || ''; };
+  setText('cancelDetailDatetime', app.cancelled_at ? formatDate(app.cancelled_at) : '—');
+  setText('cancelDetailCategory', reason ? (reason.name_ja || reason.name_ko) : '—');
+  setText('cancelDetailPhase', t(`appHistory.cancelPhase.${app.cancel_phase || 'other'}`));
+  // 보충 텍스트는 있을 때만 행 노출.
+  // noteRow 는 display:contents 로 grid 가상 행이라 'none'↔'contents' 로 명시 복원.
+  const noteRow = $('cancelDetailNoteRow');
+  const noteEl  = $('cancelDetailNote');
+  if (app.cancel_reason && app.cancel_reason.trim()) {
+    if (noteEl) noteEl.textContent = app.cancel_reason;
+    if (noteRow) noteRow.style.display = 'contents';
+  } else {
+    if (noteRow) noteRow.style.display = 'none';
+  }
+  openModal('cancelDetailModal');
+}
+
+function closeCancelDetailModal() {
+  closeModal('cancelDetailModal');
+}
+
+// 활동관리 페이지 진입 시 호출 — cancelled 신청이면 회색 안내 화면으로 차단
+// dev/js/application.js 의 openActivityPage / 활동관리 라우팅에서 사용
+function isApplicationCancelled(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  return !!(app && app.status === 'cancelled');
+}
