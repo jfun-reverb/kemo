@@ -462,7 +462,9 @@ window._supabaseLoaded = false;
 재사용한다.
 ══════════════════════════════════ -->
 <div id="page-app-cancel" class="page">
-  <div class="container" style="padding:16px 16px 32px">
+  <!-- padding-bottom 을 크게 잡아 모바일 키보드가 올라와도 input/textarea
+       가 .page.active 자연 스크롤로 키보드 위로 올라올 여유 확보 -->
+  <div class="container" style="padding:16px 16px 50vh">
     <div class="detail-back" onclick="navigateBackFromCancelApp()" style="font-size:13px;margin-bottom:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="appHistory.cancel.cancelBtn">戻る</span></div>
     <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:18px">
