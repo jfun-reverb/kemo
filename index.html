@@ -651,47 +651,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
-<!-- 응모 취소 모달 (migration 104 / 사양 §4-2·§4-3) — 단순형/사유 입력형 통합 -->
-<div class="modal-overlay" id="cancelModal" style="z-index:615">
-  <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
-    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
-      <div id="cancelModalTitle" style="font-size:15px;font-weight:700;color:var(--ink)">応募を取り消しますか？</div>
-      <button onclick="closeCancelModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
-    </div>
-    <div class="modal-body" style="padding:18px 20px;overflow-y:auto;flex:1">
-      <input type="hidden" id="cancelModalPhase" value="recruit">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">
-        <span data-i18n="appHistory.title">応募履歴</span>: <strong id="cancelModalCampaign" style="color:var(--ink)"></strong>
-      </div>
-      <!-- 단순형 본문 (cancel_phase = 'recruit') -->
-      <div id="cancelModalSimpleBody" style="font-size:13px;color:var(--ink);line-height:1.7;margin-bottom:14px" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
-      <!-- 사유 입력형 (cancel_phase != 'recruit') -->
-      <div id="cancelModalWarning" style="display:none;background:#FFE9E9;border:1px solid #F5B0B0;border-radius:10px;padding:10px 12px;font-size:12px;color:#9B1C1C;line-height:1.7;margin-bottom:12px">
-        <div style="font-weight:700;margin-bottom:4px">⚠ <span data-i18n="appHistory.cancel.warningOther">注意</span></div>
-        <div id="cancelModalWarningText"></div>
-      </div>
-      <div id="cancelModalReason" style="display:none;margin-bottom:12px">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
-        <select id="cancelModalReasonSelect" class="form-input" style="font-size:14px"></select>
-      </div>
-      <div id="cancelModalNoteWrap" style="display:none;margin-bottom:12px">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
-        <textarea id="cancelModalNote" class="form-input" rows="3" maxlength="500" style="font-size:16px;resize:vertical;line-height:1.5"></textarea>
-      </div>
-      <div id="cancelModalAckWrap" style="display:none;margin-bottom:12px">
-        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">
-          <input type="checkbox" id="cancelModalAck" style="margin-top:3px">
-          <span data-i18n="appHistory.cancel.acknowledge">上記の不利益の可能性を理解しました</span>
-        </label>
-      </div>
-      <div id="cancelModalError" class="form-error" style="display:none;margin-bottom:10px"></div>
-      <div style="display:flex;gap:10px;margin-top:10px">
-        <button class="btn btn-ghost" onclick="closeCancelModal()" style="flex:1" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
-        <button class="btn btn-primary" id="cancelModalSubmitBtn" onclick="submitCancelApplication()" style="flex:1" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- 응모 취소 모달 → 페이지로 대체됨 (2026-05-11): #page-app-cancel 참조 -->
 
 <!-- 취소 사유 확인 모달 (취소된 응모이력 카드 클릭 시) -->
 <div class="modal-overlay" id="cancelDetailModal" style="z-index:614">
@@ -993,6 +953,54 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
   </div>
   <div class="container legal-page-body" id="legalPageBody"></div>
+</div>
+
+<!-- ══════════════════════════════════
+응모 취소 페이지 (사양 §4-2/§4-3, 2026-05-11 모달→페이지 전환)
+이전 cancelModal 을 그대로 페이지로 옮김. 모바일 키보드와 안전하게
+공존하기 위해 일반 페이지 스크롤(.page.active overflow-y:auto)을
+재사용한다.
+══════════════════════════════════ -->
+<div id="page-app-cancel" class="page">
+  <div class="container" style="padding:16px 16px 32px">
+    <div class="detail-back" onclick="navigateBackFromCancelApp()" style="font-size:13px;margin-bottom:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="appHistory.cancel.cancelBtn">戻る</span></div>
+    <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:18px">
+      <span data-i18n="appHistory.title">応募履歴</span>: <strong id="cancelPageCampaign" style="color:var(--ink)"></strong>
+    </div>
+    <input type="hidden" id="cancelPagePhase" value="recruit">
+    <input type="hidden" id="cancelPageAppId" value="">
+
+    <!-- 단순형 본문 (cancel_phase = 'recruit') -->
+    <div id="cancelPageSimpleBody" style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:18px" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
+
+    <!-- 사유 입력형 (cancel_phase != 'recruit') -->
+    <div id="cancelPageWarning" style="display:none;background:#FFE9E9;border:1px solid #F5B0B0;border-radius:10px;padding:12px 14px;font-size:13px;color:#9B1C1C;line-height:1.7;margin-bottom:16px">
+      <div style="font-weight:700;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">warning</span> <span data-i18n="appHistory.cancel.warningOther">注意</span></div>
+      <div id="cancelPageWarningText"></div>
+    </div>
+    <div id="cancelPageReason" style="display:none;margin-bottom:16px">
+      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
+      <select id="cancelPageReasonSelect" class="form-input" style="font-size:16px"></select>
+    </div>
+    <div id="cancelPageNoteWrap" style="display:none;margin-bottom:16px">
+      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
+      <textarea id="cancelPageNote" class="form-input" rows="4" maxlength="500" style="font-size:16px;resize:vertical;line-height:1.5;width:100%"></textarea>
+    </div>
+    <div id="cancelPageAckWrap" style="display:none;margin-bottom:24px">
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--ink);cursor:pointer">
+        <input type="checkbox" id="cancelPageAck" style="margin-top:4px;width:18px;height:18px">
+        <span data-i18n="appHistory.cancel.acknowledge">上記の不利益の可能性を理解しました</span>
+      </label>
+    </div>
+
+    <div id="cancelPageError" class="form-error" style="display:none;margin-bottom:12px"></div>
+
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="navigateBackFromCancelApp()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
+      <button class="btn btn-primary" id="cancelPageSubmitBtn" onclick="submitCancelApplicationFromPage()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════
@@ -8285,30 +8293,38 @@ function closeApplyActionModal() {
   _applyActionTargetAppId = null;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 응모 취소 페이지 (#page-app-cancel) — 2026-05-11 모달→페이지 전환
+// 이전 cancelModal 의 UI/로직을 그대로 페이지로 이전. 모바일에서 모달이
+// 키보드 위로 잘리는 문제가 일반 페이지(.page.active 자연 스크롤)에선
+// 자동 해결됨.
+// ════════════════════════════════════════════════════════════════════
+
+// 함수명 openCancelModalFor 는 응모이력 ⋮ 액션 모달과 활동관리 헤더 버튼
+// 양쪽이 호출하므로 인터페이스 호환을 위해 이름 유지. 내부 동작만 페이지
+// navigate 로 변경.
 async function openCancelModalFor(appId) {
   const app = _myApps.find(a => a.id === appId);
   if (!app) return;
   const camp = allCampaigns.find(c => c.id === app.campaign_id) || {};
   _cancelTargetAppId = appId;
   const phase = _computeCancelPhase(camp);
-  const titleEl = $('cancelModalTitle');
-  if (titleEl) titleEl.textContent = t('appHistory.cancel.title');
-  const campNameEl = $('cancelModalCampaign');
+  // 페이지 안 input/표시 영역에 state 채움
+  const campNameEl = $('cancelPageCampaign');
   if (campNameEl) campNameEl.textContent = camp.title || app.campaign_id || '';
-  // recruit 단계: 단순형 — 경고/사유/동의 영역 숨김
   const isSimple = phase === 'recruit';
-  const warnBox  = $('cancelModalWarning');
-  const reasonBox = $('cancelModalReason');
-  const noteBox  = $('cancelModalNoteWrap');
-  const ackBox   = $('cancelModalAckWrap');
-  const simpleBody = $('cancelModalSimpleBody');
+  const warnBox   = $('cancelPageWarning');
+  const reasonBox = $('cancelPageReason');
+  const noteBox   = $('cancelPageNoteWrap');
+  const ackBox    = $('cancelPageAckWrap');
+  const simpleBody = $('cancelPageSimpleBody');
   if (warnBox)   warnBox.style.display   = isSimple ? 'none' : 'block';
   if (reasonBox) reasonBox.style.display = isSimple ? 'none' : 'block';
   if (noteBox)   noteBox.style.display   = isSimple ? 'none' : 'block';
   if (ackBox)    ackBox.style.display    = isSimple ? 'none' : 'block';
   if (simpleBody) simpleBody.style.display = isSimple ? 'block' : 'none';
   // 경고 카피
-  const warnTextEl = $('cancelModalWarningText');
+  const warnTextEl = $('cancelPageWarningText');
   if (warnTextEl && !isSimple) {
     const key = `appHistory.cancel.warning${phase.charAt(0).toUpperCase()}${phase.slice(1)}`;
     warnTextEl.textContent = t(key);
@@ -8316,9 +8332,8 @@ async function openCancelModalFor(appId) {
   // 사유 셀렉트: 카탈로그 캐시
   if (!isSimple) {
     if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
-    const sel = $('cancelModalReasonSelect');
+    const sel = $('cancelPageReasonSelect');
     if (sel) {
-      // 현재 언어 토글에 맞춰 카테고리 라벨 선택 (ko 모드에서 한국어, 그 외 일본어)
       const lang = (typeof getLang === 'function') ? getLang() : 'ja';
       const pickLabel = (r) => (lang === 'ko' ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko));
       const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
@@ -8326,111 +8341,50 @@ async function openCancelModalFor(appId) {
       sel.innerHTML = placeholder + opts;
       sel.value = '';
     }
-    const note = $('cancelModalNote');
+    const note = $('cancelPageNote');
     if (note) note.value = '';
-    const ack = $('cancelModalAck');
+    const ack = $('cancelPageAck');
     if (ack) ack.checked = false;
   }
-  // phase 정보 hidden
-  const phaseEl = $('cancelModalPhase');
+  // phase + appId hidden
+  const phaseEl = $('cancelPagePhase');
   if (phaseEl) phaseEl.value = phase;
-  // 에러 메시지 영역 초기화
-  const errEl = $('cancelModalError');
+  const appIdEl = $('cancelPageAppId');
+  if (appIdEl) appIdEl.value = appId;
+  // 에러 영역 초기화
+  const errEl = $('cancelPageError');
   if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
-  openModal('cancelModal');
-  // 모바일 키보드 대응: visualViewport 가 줄어들면 modal max-height 도
-  // 그만큼 줄여 textarea 가 키보드 위로 보이도록.
-  _attachCancelModalKeyboardSync();
+  // 진입 출처 기록 (mypage 응모이력 vs 활동관리). 성공 시 응모이력으로 이동.
+  const activeIsActivity = document.getElementById('page-activity')?.classList?.contains('active');
+  _cancelPageFrom = activeIsActivity ? 'activity' : 'mypage';
+  // 페이지 전환
+  if (typeof navigate === 'function') navigate('app-cancel');
+  if (typeof applyI18n === 'function') applyI18n();
 }
 
-function closeCancelModal() {
-  _detachCancelModalKeyboardSync();
-  closeModal('cancelModal');
-  _cancelTargetAppId = null;
-}
+// 페이지 진입 출처 — 뒤로가기 동선 결정.
+let _cancelPageFrom = 'mypage';
 
-// ── 모바일 키보드 대응 ─────────────────────────────────────────
-//   modal-overlay 가 position:fixed;inset:0 라 키보드가 올라와도 자동 보정
-//   안 됨. visualViewport.height 로 modal max-height 동적 갱신 + textarea
-//   focus 시 textarea 를 modal-body 안에서 중앙으로 스크롤.
-let _cancelModalVvHandler = null;
-let _cancelModalTextareaFocusHandler = null;
-
-// 모달이 열린 시점의 visualViewport.height — 키보드 검출 임계값 기준.
-// 키보드가 올라오면 visualViewport.height 가 150px 이상 줄어든다.
-let _cancelModalBaseVvHeight = 0;
-
-function _attachCancelModalKeyboardSync() {
-  if (!window.visualViewport) return;
-  if (_cancelModalVvHandler) return;
-  const overlay = document.getElementById('cancelModal');
-  const modalEl = overlay?.querySelector('.modal');
-  _cancelModalBaseVvHeight = window.visualViewport.height;
-  _cancelModalVvHandler = () => {
-    if (!overlay || !overlay.classList.contains('open')) return;
-    const vh = window.visualViewport.height;
-    const diff = _cancelModalBaseVvHeight - vh;
-    if (diff > 150) {
-      // 키보드 올라옴 → overlay/modal 을 visualViewport 안으로 옮겨
-      // align-items:flex-end 가 모달을 키보드 바로 위에 깔도록 한다.
-      const offsetTop = window.visualViewport.offsetTop;
-      overlay.style.height = vh + 'px';
-      overlay.style.top = offsetTop + 'px';
-      overlay.style.bottom = 'auto';
-      if (modalEl) modalEl.style.maxHeight = Math.max(240, vh - 16) + 'px';
-    } else {
-      // 키보드 내려감 또는 처음(임계 미만) → 기본 CSS 그대로 (inset:0,
-      // max-height:90vh) 사용해 backdrop·z-index 가 정상 동작.
-      overlay.style.height = '';
-      overlay.style.top = '';
-      overlay.style.bottom = '';
-      if (modalEl) modalEl.style.maxHeight = '';
+function navigateBackFromCancelApp() {
+  if (typeof navigate === 'function') {
+    if (_cancelPageFrom === 'activity' && _cancelTargetAppId) {
+      const app = _myApps.find(a => a.id === _cancelTargetAppId);
+      if (app && typeof openActivityPage === 'function') {
+        openActivityPage(app.id, app.campaign_id, 'mypage');
+        return;
+      }
     }
-  };
-  window.visualViewport.addEventListener('resize', _cancelModalVvHandler);
-  window.visualViewport.addEventListener('scroll', _cancelModalVvHandler);
-  // 초기 1회 호출 안 함 — 키보드 안 올라온 상태에서 inline style 박지 않음
-
-  // textarea focus 시 0.3s 후 modal-body 안에서 중앙으로 스크롤
-  const ta = document.getElementById('cancelModalNote');
-  if (ta) {
-    _cancelModalTextareaFocusHandler = () => {
-      setTimeout(() => {
-        try { ta.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch(_e) {}
-      }, 300);
-    };
-    ta.addEventListener('focus', _cancelModalTextareaFocusHandler);
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
 }
 
-function _detachCancelModalKeyboardSync() {
-  if (window.visualViewport && _cancelModalVvHandler) {
-    window.visualViewport.removeEventListener('resize', _cancelModalVvHandler);
-    window.visualViewport.removeEventListener('scroll', _cancelModalVvHandler);
-    _cancelModalVvHandler = null;
-  }
-  const ta = document.getElementById('cancelModalNote');
-  if (ta && _cancelModalTextareaFocusHandler) {
-    ta.removeEventListener('focus', _cancelModalTextareaFocusHandler);
-    _cancelModalTextareaFocusHandler = null;
-  }
-  // overlay 위치 + 모달 max-height 원복
-  const overlay = document.getElementById('cancelModal');
-  if (overlay) {
-    overlay.style.height = '';
-    overlay.style.top = '';
-    overlay.style.bottom = '';
-  }
-  const modalEl = document.querySelector('#cancelModal .modal');
-  if (modalEl) modalEl.style.maxHeight = '';
-  _cancelModalBaseVvHeight = 0;
-}
-
-async function submitCancelApplication() {
-  if (!_cancelTargetAppId) return;
-  const phase = $('cancelModalPhase')?.value || 'other';
+async function submitCancelApplicationFromPage() {
+  const appId = $('cancelPageAppId')?.value || _cancelTargetAppId;
+  if (!appId) return;
+  const phase = $('cancelPagePhase')?.value || 'other';
   const isSimple = phase === 'recruit';
-  const errEl = $('cancelModalError');
+  const errEl = $('cancelPageError');
   const showErr = (msg) => {
     if (!errEl) { toast(msg, 'error'); return; }
     errEl.textContent = msg;
@@ -8438,16 +8392,16 @@ async function submitCancelApplication() {
   };
   let reasonCode = null, reasonNote = null, acknowledged = false;
   if (!isSimple) {
-    reasonCode = $('cancelModalReasonSelect')?.value || '';
-    reasonNote = $('cancelModalNote')?.value || '';
-    acknowledged = !!$('cancelModalAck')?.checked;
+    reasonCode = $('cancelPageReasonSelect')?.value || '';
+    reasonNote = $('cancelPageNote')?.value || '';
+    acknowledged = !!$('cancelPageAck')?.checked;
     if (!reasonCode) { showErr(t('appHistory.cancel.errorReason')); return; }
     if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
     if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
   }
-  const submitBtn = $('cancelModalSubmitBtn');
+  const submitBtn = $('cancelPageSubmitBtn');
   if (submitBtn) submitBtn.disabled = true;
-  const res = await cancelApplication(_cancelTargetAppId, {
+  const res = await cancelApplication(appId, {
     reasonCode: reasonCode || null,
     reasonNote: reasonNote || null,
     acknowledged
@@ -8464,23 +8418,24 @@ async function submitCancelApplication() {
     showErr(t(errKey));
     return;
   }
-  // 성공 — 캠페인 정보로 알림 생성, 토스트, 닫기, 응모이력 새로고침
-  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === _cancelTargetAppId)?.campaign_id)) || {};
+  // 성공 — 알림 생성, 토스트, 응모이력 새로고침 후 응모이력 「取消」 탭으로
+  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === appId)?.campaign_id)) || {};
   try {
     if (typeof insertApplicationCancelledNotification === 'function') {
-      await insertApplicationCancelledNotification(_cancelTargetAppId, camp.title || '');
+      await insertApplicationCancelledNotification(appId, camp.title || '');
     }
   } catch(_e) { /* 알림 실패는 사용자 흐름 차단 안 함 */ }
   toast(t('appHistory.cancel.success'));
-  closeCancelModal();
+  _cancelTargetAppId = null;
   await loadMyApplications();
-  // 활동관리 페이지에서 취소한 경우 응모이력으로 이동 (cancelled 상태는
-  // 활동관리 진입 차단 대상이라 현재 페이지에 머물면 안 됨).
-  const activeIsActivity = document.getElementById('page-activity')?.classList?.contains('active');
-  if (activeIsActivity && typeof navigate === 'function') {
+  if (typeof navigate === 'function') {
     navigate('mypage');
     if (typeof openMypageSub === 'function') openMypageSub('applications');
   }
+  // cancelled 탭으로 자동 이동해 사용자가 결과 즉시 확인
+  _myAppsTab = 'cancelled';
+  if (typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+  if (typeof renderMyApplyList === 'function') renderMyApplyList();
 }
 
 async function openCancelDetailModal(appId) {
@@ -8624,7 +8579,7 @@ window.addEventListener('langchange', function() {
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', 'app-cancel':'mypage'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
