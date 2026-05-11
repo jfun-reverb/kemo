@@ -1299,7 +1299,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-11 11:51 · 0bdac43</span>
+          <span class="admin-build-text">2026-05-11 11:59 · 27bbe8b</span>
         </div>
       </div>
     </aside>
@@ -11140,6 +11140,68 @@ function _clampFpToViewport(fpInst) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// 캘린더를 input 위치에 맞춰 재정렬 (스크롤 동기화용)
+//   - appendTo:document.body 모드라 캘린더는 페이지 좌표 기준 absolute
+//   - 관리자 메인 영역 스크롤은 body 스크롤이 아니라 input의 viewport
+//     rect가 변경됨 → 캘린더는 그 자리에 남아 input과 따로 놀게 됨
+//   - 캘린더 top/left를 input.getBoundingClientRect() + 페이지 스크롤
+//     offset 으로 재계산해서 input 바로 아래(또는 viewport 하단 잘림
+//     시 위)에 다시 붙임
+//   - viewport 우/좌 잘림은 _clampFpToViewport 재사용
+// ─────────────────────────────────────────────────────────────────
+function _repositionFpAtInput(fpInst) {
+  if (!fpInst || !fpInst.isOpen || !fpInst.calendarContainer || !fpInst.input) return;
+  const cal = fpInst.calendarContainer;
+  const inputRect = fpInst.input.getBoundingClientRect();
+  const margin = 4;
+  const calHeight = cal.offsetHeight;
+  const vh = document.documentElement.clientHeight;
+  const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  const scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+  // 기본: input 아래
+  let top = inputRect.bottom + margin;
+  // viewport 하단을 넘고 위쪽 공간이 충분하면 input 위로 flip
+  if (top + calHeight > vh - margin && inputRect.top - margin - calHeight > 0) {
+    top = inputRect.top - margin - calHeight;
+  }
+  // 페이지 스크롤 좌표로 환산 (body가 스크롤 안 되면 0)
+  cal.style.top = (top + scrollY) + 'px';
+  cal.style.left = (inputRect.left + scrollX) + 'px';
+  // 좌우 viewport 보정 (다음 프레임)
+  _clampFpToViewport(fpInst);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 스크롤 시 캘린더가 input 위치를 따라오도록 listener 부착/해제
+//   - capture:true 로 등록해 관리자 메인 영역의 스크롤까지 잡음
+//     (메인 영역은 body 가 아닌 자체 overflow:auto 컨테이너로 스크롤됨)
+//   - passive:true 로 스크롤 성능 영향 최소화
+//   - onOpen 시 부착, onClose 시 해제 (메모리 누수 방지)
+// ─────────────────────────────────────────────────────────────────
+function _attachFpScrollSync(fpInst) {
+  if (!fpInst || fpInst._reverbScrollHandler) return;
+  // requestAnimationFrame throttle: 빠른 스크롤 중 rAF 콜백이 누적되지 않도록
+  // 1프레임 동안 한 번만 reposition 호출. 관리자 PC 환경에서 실측 부하는 낮으나
+  // 안전망 차원에서 적용.
+  let rafId = null;
+  fpInst._reverbScrollHandler = () => {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      _repositionFpAtInput(fpInst);
+    });
+  };
+  window.addEventListener('scroll', fpInst._reverbScrollHandler, { passive: true, capture: true });
+  window.addEventListener('resize', fpInst._reverbScrollHandler, { passive: true });
+}
+function _detachFpScrollSync(fpInst) {
+  if (!fpInst || !fpInst._reverbScrollHandler) return;
+  window.removeEventListener('scroll', fpInst._reverbScrollHandler, { capture: true });
+  window.removeEventListener('resize', fpInst._reverbScrollHandler);
+  fpInst._reverbScrollHandler = null;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // 단일 날짜 picker (결과물 제출 마감일 / 캠페인 노출 마감일)
 //   - input.fp-single[data-single-prefix][data-single-target] 마크업 mount
 //   - input value를 직접 사용 (별도 hidden input 없음)
@@ -11189,6 +11251,7 @@ function setupCampSinglePickers() {
         }
         _updateFpSingleFooterSummary(fpInst);
         _clampFpToViewport(fpInst);
+        _attachFpScrollSync(fpInst);
       },
       onChange: (_selectedDates, _str, fpInst) => {
         // popup 안 시각·푸터 요약만 (input.value는 「적용」 시 commit)
@@ -11200,6 +11263,7 @@ function setupCampSinglePickers() {
         if (v) fpInst.setDate(v, false);
         else fpInst.clear(false);
         _updateFpSingleFooterSummary(fpInst);
+        _detachFpScrollSync(fpInst);
       },
     });
   });
@@ -11342,6 +11406,8 @@ function setupCampRangePickers() {
         _updateFpFooterSummary(fpInst);
         // viewport 좌우 보정 (recruit 조기 반환 전에 호출해 모든 range picker 적용)
         _clampFpToViewport(fpInst);
+        // 페이지·메인 영역 스크롤 시 캘린더가 input 위치를 따라가도록 listener 부착
+        _attachFpScrollSync(fpInst);
         if (kind !== 'recruit') return;
         // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
         updateRecruitPastWarn(fpInst, sv ? new Date(sv) : null);
@@ -11362,6 +11428,7 @@ function setupCampRangePickers() {
         else if (sv) fpInst.setDate([sv], false);
         else fpInst.clear(false);
         _updateFpFooterSummary(fpInst);
+        _detachFpScrollSync(fpInst);
       },
     });
   });
