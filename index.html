@@ -8356,27 +8356,40 @@ function closeCancelModal() {
 let _cancelModalVvHandler = null;
 let _cancelModalTextareaFocusHandler = null;
 
+// 모달이 열린 시점의 visualViewport.height — 키보드 검출 임계값 기준.
+// 키보드가 올라오면 visualViewport.height 가 150px 이상 줄어든다.
+let _cancelModalBaseVvHeight = 0;
+
 function _attachCancelModalKeyboardSync() {
   if (!window.visualViewport) return;
   if (_cancelModalVvHandler) return;
   const overlay = document.getElementById('cancelModal');
   const modalEl = overlay?.querySelector('.modal');
+  _cancelModalBaseVvHeight = window.visualViewport.height;
   _cancelModalVvHandler = () => {
     if (!overlay || !overlay.classList.contains('open')) return;
     const vh = window.visualViewport.height;
-    const offsetTop = window.visualViewport.offsetTop;
-    // overlay 가 position:fixed;inset:0 라 키보드와 무관하게 window 전체를
-    // 차지. app.js 의 appShell 보정 패턴을 그대로 적용해 overlay 를
-    // visualViewport 안으로 옮긴다 → 모달이 키보드 위에 떠 있게 됨.
-    overlay.style.height = vh + 'px';
-    overlay.style.top = offsetTop + 'px';
-    overlay.style.bottom = 'auto';
-    // 모달 자체도 visualViewport 안에 fit. 32px 여백 (상하 16px 씩).
-    if (modalEl) modalEl.style.maxHeight = Math.max(240, vh - 32) + 'px';
+    const diff = _cancelModalBaseVvHeight - vh;
+    if (diff > 150) {
+      // 키보드 올라옴 → overlay/modal 을 visualViewport 안으로 옮겨
+      // align-items:flex-end 가 모달을 키보드 바로 위에 깔도록 한다.
+      const offsetTop = window.visualViewport.offsetTop;
+      overlay.style.height = vh + 'px';
+      overlay.style.top = offsetTop + 'px';
+      overlay.style.bottom = 'auto';
+      if (modalEl) modalEl.style.maxHeight = Math.max(240, vh - 16) + 'px';
+    } else {
+      // 키보드 내려감 또는 처음(임계 미만) → 기본 CSS 그대로 (inset:0,
+      // max-height:90vh) 사용해 backdrop·z-index 가 정상 동작.
+      overlay.style.height = '';
+      overlay.style.top = '';
+      overlay.style.bottom = '';
+      if (modalEl) modalEl.style.maxHeight = '';
+    }
   };
   window.visualViewport.addEventListener('resize', _cancelModalVvHandler);
   window.visualViewport.addEventListener('scroll', _cancelModalVvHandler);
-  _cancelModalVvHandler();
+  // 초기 1회 호출 안 함 — 키보드 안 올라온 상태에서 inline style 박지 않음
 
   // textarea focus 시 0.3s 후 modal-body 안에서 중앙으로 스크롤
   const ta = document.getElementById('cancelModalNote');
@@ -8410,6 +8423,7 @@ function _detachCancelModalKeyboardSync() {
   }
   const modalEl = document.querySelector('#cancelModal .modal');
   if (modalEl) modalEl.style.maxHeight = '';
+  _cancelModalBaseVvHeight = 0;
 }
 
 async function submitCancelApplication() {
