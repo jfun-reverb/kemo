@@ -175,9 +175,12 @@ flowchart TB
     M4 --> M5[final_quote_krw 수동 입력<br/>admin_memo 작성]
     M5 --> M6[견적서 발송<br/>quote_sent_at 체크]
     M6 --> M7[quoted]
-    M7 --> M8{계약 체결?}
-    M8 -->|성공| M9[paid → done]
-    M8 -->|거절/무응답| M10[rejected]
+    M7 --> M7P[paid<br/>입금 확인]
+    M7P --> M7O[orient_sheet_sent<br/>오리엔시트 발송]
+    M7O --> M7S[schedule_sent<br/>일정 전달]
+    M7S --> M7C[campaign_registered<br/>캠페인 등록]
+    M7C --> M9[done<br/>최종완료]
+    M3 -->|거절/무응답| M10[rejected]
     M3 -->|되돌리기| M0[new 복귀]
     M9 --> NEXT[[§1 캠페인 등록으로 연결]]
   end
@@ -200,7 +203,7 @@ flowchart TB
       <li>Migrations: <code>052_create_brand_applications.sql</code>, <code>053_brand_docs_storage.sql</code>, <code>054_admin_receive_brand_notify.sql</code></li>
       <li>Edge Function: <code>supabase/functions/notify-brand-application/</code></li>
       <li>Sales 앱: <code>sales/{index,reviewer,seeding}.html</code> (별도 Vercel 프로젝트 <code>reverb-sales</code>)</li>
-      <li>관리자 페인: <code>/admin#brand-applications</code> (낙관적 락 <code>version</code>, 상태 전이 new→reviewing→quoted→paid→done/rejected)</li>
+      <li>관리자 페인: <code>/admin#brand-applications</code> (낙관적 락 <code>version</code>, 9단계 상태 전이 — 2026-04-27 표시 순서: new→reviewing→quoted→paid→orient_sheet_sent→schedule_sent→campaign_registered→done/rejected)</li>
       <li>PRIVACY 반영: <code>docs/PRIVACY_{kr,ja}.md</code> §2.2 / §5 / §6.1 / §7 / §9</li>
     </ul>
   </div>
@@ -331,7 +334,7 @@ stateDiagram-v2
   draft --> scheduled: 관리자 상태 변경
   draft --> active: 관리자 상태 변경 (deadline 유효시)
 
-  scheduled --> active: 관리자 상태 변경
+  scheduled --> active: 관리자 수동 변경 또는 recruit_start 도래 (자동, 2026-04-27)
   scheduled --> draft: 관리자 상태 변경
 
   active --> paused: 관리자 일시정지
@@ -350,6 +353,8 @@ stateDiagram-v2
   note right of scheduled
     공개예정 — 목록 노출
     신청 불가
+    recruit_start 도래 시 active 자동 전환
+    (autoOpenCampaigns)
   end note
   note right of active
     모집중 — 목록 노출
@@ -366,6 +371,9 @@ stateDiagram-v2
     post_deadline 경과 → 완전 비노출
   end note
     </pre>
+    <div class="chart-desc" style="margin-top:8px; font-size:13px;">
+      <strong>2026-04-27 변경 (PR #129, migration 072)</strong>: <code>campaigns.recruit_start date NULL</code> 신규 컬럼 추가. <code>fetchCampaigns()</code> 호출 시 <code>autoOpenCampaigns()</code> → <code>autoCloseCampaigns()</code> 순차 실행 — scheduled 캠페인의 <code>recruit_start ≤ now()</code> 이면 active 로 자동 전환. 기존 행 <code>recruit_start IS NULL</code> 은 자동 전환 대상 아님(인플루언서 화면에서는 "오늘 ~ deadline" 폴백 렌더).
+    </div>
   </div>
 </div>
 
