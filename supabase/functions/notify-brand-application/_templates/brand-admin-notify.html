@@ -2,7 +2,7 @@
 <!--
   Mail: 광고주 신청 — 관리자 알림 (admin notify)
   Trigger: brand_applications INSERT → Edge Function notify-brand-application
-  To:      admins.receive_brand_notify=true ∪ env.NOTIFY_ADMIN_EMAILS
+  To:      get_subscribed_admin_emails('brand_notify') ∪ env.NOTIFY_ADMIN_EMAILS
   Lang:    KO
 
   Placeholders:
