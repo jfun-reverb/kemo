@@ -2541,6 +2541,10 @@ function buildPreviewCamp(mode) {
   const imgUrls = imgList.map(x => x?.url || x?.data || x).filter(Boolean);
   const crops = (typeof buildImageCrops === 'function') ? buildImageCrops(imgList) : {};
   const pset = (typeof collectCampPsetPayload === 'function') ? collectCampPsetPayload(mode) : {};
+  const cset = (typeof collectCampCsetPayload === 'function') ? collectCampCsetPayload(mode) : {};
+  const nset = (typeof collectCampNsetPayload === 'function') ? collectCampNsetPayload(mode) : {};
+  // edit 모드: NG legacy(`camp.ng`) 폴백을 _editCampOriginal에서 가져옴 (폼에 더 이상 NG Quill 없음)
+  const ngLegacy = (mode === 'edit' && typeof _editCampOriginal !== 'undefined') ? (_editCampOriginal?.ng || '') : '';
   return {
     id: '__preview__',
     title: val(g+'Title') || '(캠페인명)',
@@ -2570,7 +2574,7 @@ function buildPreviewCamp(mode) {
     description: typeof getRichValue === 'function' ? getRichValue(g+'Desc') : '',
     appeal: typeof getRichValue === 'function' ? getRichValue(g+'Appeal') : '',
     guide: typeof getRichValue === 'function' ? getRichValue(g+'Guide') : '',
-    ng: typeof getRichValue === 'function' ? getRichValue(g+'Ng') : '',
+    ng: ngLegacy,
     hashtags: val(g+'Hashtags'),
     mentions: val(g+'Mentions'),
     image_url: imgUrls[0]||null,
@@ -2582,6 +2586,8 @@ function buildPreviewCamp(mode) {
     view_count: 0,
     created_at: new Date().toISOString(),
     ...pset,
+    ...cset,
+    ...nset,
   };
 }
 
