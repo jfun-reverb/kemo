@@ -8318,8 +8318,11 @@ async function openCancelModalFor(appId) {
     if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
     const sel = $('cancelModalReasonSelect');
     if (sel) {
+      // 현재 언어 토글에 맞춰 카테고리 라벨 선택 (ko 모드에서 한국어, 그 외 일본어)
+      const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+      const pickLabel = (r) => (lang === 'ko' ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko));
       const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
-      const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(r.name_ja || r.name_ko)}</option>`).join('');
+      const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(pickLabel(r))}</option>`).join('');
       sel.innerHTML = placeholder + opts;
       sel.value = '';
     }
@@ -8406,7 +8409,10 @@ async function openCancelDetailModal(appId) {
   const reason = _cancelReasonsCache.find(r => r.code === app.cancel_reason_code);
   const setText = (id, text) => { const el = $(id); if (el) el.textContent = text || ''; };
   setText('cancelDetailDatetime', app.cancelled_at ? formatDate(app.cancelled_at) : '—');
-  setText('cancelDetailCategory', reason ? (reason.name_ja || reason.name_ko) : '—');
+  // 현재 언어 토글에 맞춰 카테고리 라벨 표시
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const reasonLabel = reason ? (lang === 'ko' ? (reason.name_ko || reason.name_ja) : (reason.name_ja || reason.name_ko)) : '—';
+  setText('cancelDetailCategory', reasonLabel);
   setText('cancelDetailPhase', t(`appHistory.cancelPhase.${app.cancel_phase || 'other'}`));
   // 보충 텍스트는 있을 때만 행 노출.
   // noteRow 는 display:contents 로 grid 가상 행이라 'none'↔'contents' 로 명시 복원.
