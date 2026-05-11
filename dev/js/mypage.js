@@ -580,6 +580,28 @@ async function openCancelModalFor(appId) {
   // 페이지 전환
   if (typeof navigate === 'function') navigate('app-cancel');
   if (typeof applyI18n === 'function') applyI18n();
+  // 모바일 키보드 대응: input/select/textarea focus 시 명시적 scrollIntoView.
+  // #appShell 이 position:fixed + overflow:hidden 이라 iOS Safari 의 자동
+  // 스크롤이 .page.active 내부 컨테이너에서 작동하지 않으므로 직접 처리.
+  _attachCancelPageFocusScroll();
+}
+
+// 이미 등록됐는지 플래그 — 페이지 재진입 시 listener 중복 부착 방지
+let _cancelPageFocusScrollBound = false;
+function _attachCancelPageFocusScroll() {
+  if (_cancelPageFocusScrollBound) return;
+  const page = document.getElementById('page-app-cancel');
+  if (!page) return;
+  const targets = page.querySelectorAll('select, textarea, input[type="text"], input[type="number"]');
+  targets.forEach(el => {
+    el.addEventListener('focus', () => {
+      // 0.3s 후 — 키보드/picker 슬라이드-업이 끝나 visualViewport 가 안정된 뒤
+      setTimeout(() => {
+        try { el.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch(_e) {}
+      }, 300);
+    });
+  });
+  _cancelPageFocusScrollBound = true;
 }
 
 // 페이지 진입 출처 — 뒤로가기 동선 결정.

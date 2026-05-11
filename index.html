@@ -962,7 +962,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 재사용한다.
 ══════════════════════════════════ -->
 <div id="page-app-cancel" class="page">
-  <div class="container" style="padding:16px 16px 32px">
+  <!-- padding-bottom 을 크게 잡아 모바일 키보드가 올라와도 input/textarea
+       가 .page.active 자연 스크롤로 키보드 위로 올라올 여유 확보 -->
+  <div class="container" style="padding:16px 16px 50vh">
     <div class="detail-back" onclick="navigateBackFromCancelApp()" style="font-size:13px;margin-bottom:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="appHistory.cancel.cancelBtn">戻る</span></div>
     <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:18px">
@@ -8360,6 +8362,28 @@ async function openCancelModalFor(appId) {
   // 페이지 전환
   if (typeof navigate === 'function') navigate('app-cancel');
   if (typeof applyI18n === 'function') applyI18n();
+  // 모바일 키보드 대응: input/select/textarea focus 시 명시적 scrollIntoView.
+  // #appShell 이 position:fixed + overflow:hidden 이라 iOS Safari 의 자동
+  // 스크롤이 .page.active 내부 컨테이너에서 작동하지 않으므로 직접 처리.
+  _attachCancelPageFocusScroll();
+}
+
+// 이미 등록됐는지 플래그 — 페이지 재진입 시 listener 중복 부착 방지
+let _cancelPageFocusScrollBound = false;
+function _attachCancelPageFocusScroll() {
+  if (_cancelPageFocusScrollBound) return;
+  const page = document.getElementById('page-app-cancel');
+  if (!page) return;
+  const targets = page.querySelectorAll('select, textarea, input[type="text"], input[type="number"]');
+  targets.forEach(el => {
+    el.addEventListener('focus', () => {
+      // 0.3s 후 — 키보드/picker 슬라이드-업이 끝나 visualViewport 가 안정된 뒤
+      setTimeout(() => {
+        try { el.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch(_e) {}
+      }, 300);
+    });
+  });
+  _cancelPageFocusScrollBound = true;
 }
 
 // 페이지 진입 출처 — 뒤로가기 동선 결정.
@@ -8573,6 +8597,15 @@ window.addEventListener('langchange', function() {
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
   else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
   else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+  else if (page === 'app-cancel') {
+    // 응모 취소 페이지: data-i18n 정적 텍스트는 applyI18n 가 처리하지만
+    // JS 로 동적 채운 영역(경고 메시지, 카테고리 select)은 stale.
+    // 현재 대상 신청 ID 가 있으면 페이지 데이터 재렌더.
+    if (typeof _cancelTargetAppId !== 'undefined' && _cancelTargetAppId
+        && typeof openCancelModalFor === 'function') {
+      openCancelModalFor(_cancelTargetAppId);
+    }
+  }
   // 햄버거 메뉴 재렌더 (언어에 따라 라벨 갱신)
   if (typeof renderNavMenu === 'function') renderNavMenu();
 });
