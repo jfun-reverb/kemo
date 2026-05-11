@@ -622,6 +622,35 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- 응모이력 ⋮ 액션 선택 모달 (결과물 제출 / 응모 취소) — 모바일 큰 터치 영역 -->
+<div class="modal-overlay" id="applyActionModal" style="z-index:613">
+  <div class="modal" style="max-width:420px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.title">アクションを選択</div>
+      <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
+    </div>
+    <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
+      <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.submit">結果物を提出</span>
+          <span id="applyActionSubmitHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+        </span>
+      </button>
+      <button type="button" id="applyActionCancelBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:14px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:#C33;flex-shrink:0">cancel</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.cancel">応募を取り消す</span>
+          <span id="applyActionCancelHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
+        </span>
+      </button>
+      <div style="text-align:center;margin-top:4px">
+        <button class="btn btn-ghost" onclick="closeApplyActionModal()" style="min-width:120px;min-height:44px" data-i18n="appHistory.action.close">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 응모 취소 모달 (migration 104 / 사양 §4-2·§4-3) — 단순형/사유 입력형 통합 -->
 <div class="modal-overlay" id="cancelModal" style="z-index:615">
   <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
@@ -983,7 +1012,10 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div class="container" style="padding:16px 16px calc(var(--tab-h) + 16px)">
     <div class="detail-back" onclick="navigateBackFromActivity()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="common.back">戻る</span></div>
     <div id="activityRecruitLabel" style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px;display:none"></div>
-    <div id="activityCampTitle" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
+      <div id="activityCampTitle" style="font-size:18px;font-weight:800;flex:1;min-width:0"></div>
+      <button type="button" id="activityCancelBtn" onclick="onActivityCancelClick()" style="display:none;flex-shrink:0;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--muted);cursor:pointer" data-i18n="appHistory.cancelMenu">取消</button>
+    </div>
     <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
 
     <!-- 반려 사유 배너 (결과물 반려 시 노출) -->
@@ -2098,6 +2130,15 @@ window.I18N_JA = {
     cancelledBadge: '取消済',
     cancelMenu: '取消',
     cancelDisabledDeliv: '承認済みの結果物があるため、ご自身で取消できません。管理者にお問い合わせください。',
+    action: {
+      title: 'アクションを選択',
+      submit: '結果物を提出',
+      submitHintApproved: '承認されたキャンペーンの結果物（領収書·投稿URL）を提出します',
+      submitHintPending: '審査中のため、承認後に提出できます',
+      cancel: '応募を取り消す',
+      cancelHint: '不利益の可能性があります',
+      close: '閉じる',
+    },
     campStatus: 'キャンペーン状態',
     sortNewest: '新しい順',
     sortOldest: '古い順',
@@ -2605,8 +2646,17 @@ window.I18N_KO = {
     rejected: '낙첨',
     cancelled: '취소',
     cancelledBadge: '취소됨',
-    cancelMenu: '취소',
+    cancelMenu: '응모 취소',
     cancelDisabledDeliv: '승인된 결과물이 있어 본인 취소가 불가합니다. 관리자에게 문의하세요.',
+    action: {
+      title: '작업 선택',
+      submit: '결과물 제출',
+      submitHintApproved: '승인된 캠페인의 결과물(영수증·게시 URL)을 제출합니다',
+      submitHintPending: '심사중이라 승인 후에 제출할 수 있습니다',
+      cancel: '응모 취소',
+      cancelHint: '불이익 가능성이 있습니다',
+      close: '닫기',
+    },
     campStatus: '캠페인 상태',
     sortNewest: '최신순',
     sortOldest: '오래된순',
@@ -2628,7 +2678,7 @@ window.I18N_KO = {
       reasonSelect: '카테고리 선택',
       noteLabel: '추가 설명 (선택, 최대 500자)',
       acknowledge: '위 불이익 가능성을 확인했습니다',
-      confirmBtn: '취소',
+      confirmBtn: '응모 취소',
       cancelBtn: '돌아가기',
       success: '응모를 취소했습니다',
       errorOwner: '이 캠페인의 응모자가 아닙니다',
@@ -6934,6 +6984,28 @@ async function openActivityPage(applicationId, campaignId, from) {
     }
   }
 
+  // 사양 §4-1 추가 진입점: 활동관리 페이지 상단 「取消」 버튼.
+  // 표시 조건은 응모이력 ⋮ 메뉴와 동일 — pending/approved 이면서
+  // 결과물 1건도 approved 아닐 때만. fetchDeliverablesForUser 로 본인
+  // 결과물 조회 후 판단.
+  const cancelBtnEl = $('activityCancelBtn');
+  if (cancelBtnEl) {
+    let canCancel = false;
+    try {
+      const app = (typeof _myApps !== 'undefined' && Array.isArray(_myApps))
+        ? _myApps.find(a => a.id === applicationId)
+        : null;
+      const appStatus = app?.status;
+      if (appStatus === 'pending' || appStatus === 'approved') {
+        const ds = await fetchDeliverablesForUser({user_id: currentUser?.id, application_id: applicationId});
+        const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+        canCancel = !hasApprovedDeliv;
+      }
+    } catch(_e) { canCancel = false; }
+    cancelBtnEl.style.display = canCancel ? '' : 'none';
+    cancelBtnEl.dataset.appId = applicationId;
+  }
+
   // 타입별 섹션 표시
   //   monitor: 영수증 이미지만 (receiptSection) — 자비 구매 증빙
   //   gifting: 게시 URL만 (postSection) — 무료 제품 + SNS 포스트
@@ -7049,6 +7121,24 @@ function navigateBackFromActivity() {
   } else {
     openCampaign(_activityCampId);
   }
+}
+
+// 활동관리 페이지 상단 「取消」 버튼 클릭 핸들러 (사양 §4-1).
+// 응모이력 ⋮ 메뉴와 동일하게 openCancelModalFor 재사용. _myApps 캐시가
+// 이 시점에 없을 수 있으므로 (응모이력을 거치지 않고 직접 진입한 케이스)
+// loadMyApplications 로 캐시를 보장하고 모달을 연다.
+async function onActivityCancelClick() {
+  const appId = $('activityCancelBtn')?.dataset?.appId || _activityAppId;
+  if (!appId) return;
+  // _myApps 캐시에 대상 행이 있는지로 검사 — 응모이력 거치지 않고 직접 진입
+  // (예: 알림 클릭 등) 케이스 모두 커버.
+  const cacheReady = typeof _myApps !== 'undefined'
+    && Array.isArray(_myApps)
+    && !!_myApps.find(a => a.id === appId);
+  if (!cacheReady && typeof loadMyApplications === 'function') {
+    try { await loadMyApplications(); } catch(_e) { /* 캐시 실패해도 모달은 시도 */ }
+  }
+  if (typeof openCancelModalFor === 'function') openCancelModalFor(appId);
 }
 
 async function loadReceipts() { return loadDeliverablesForActivity(); }
@@ -7871,17 +7961,15 @@ async function renderMyApplyList() {
       : (a.status==='approved'
           ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"`
           : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`);
-    // ⋮ 메뉴: 본인 취소 가능 여부 판단
-    //   - pending/approved 만 후보
-    //   - 결과물 1건이라도 approved 면 비활성 (DB 트리거가 차단하지만 UX 차원에서 미리 막음)
-    //   - cancelled/rejected 는 메뉴 자체 비표시
+    // ⋮ 메뉴: pending/approved 카드에 표시.
+    //   클릭 시 액션 모달(applyActionModal) — 「결과물 제출」/「응모 취소」 선택.
+    //   결과물 제출 옵션: status=approved 일 때만 활성 (pending 은 안내문만).
+    //   응모 취소 옵션: 결과물 1건이라도 approved 면 비활성 (모달 내부에서 비활성 처리).
+    //   cancelled/rejected 카드는 메뉴 자체 비표시.
+    //   모바일 터치 영역 보강: 버튼 최소 44×44px (애플 HIG / 머티리얼 권장).
     let menuHtml = '';
     if (a.status === 'pending' || a.status === 'approved') {
-      const ds = (_myDelivsByApp[a.id] || []);
-      const hasApprovedDeliv = ds.some(d => d.status === 'approved');
-      menuHtml = hasApprovedDeliv
-        ? `<button type="button" class="apply-card-menu-btn" disabled title="${esc(t('appHistory.cancelDisabledDeliv'))}" onclick="event.stopPropagation()" aria-label="${esc(t('appHistory.cancelMenu'))}" style="opacity:.4;cursor:not-allowed"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`
-        : `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openCancelModalFor('${a.id}')" aria-label="${esc(t('appHistory.cancelMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`;
+      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span></button>`;
     }
     // cancelled 행: 취소일 표시
     const cancelledLine = a.status === 'cancelled' && a.cancelled_at
@@ -8147,6 +8235,56 @@ function _computeCancelPhase(camp) {
   return 'other';
 }
 
+// ⋮ 메뉴 액션 모달: 「결과물 제출」 / 「응모 취소」 선택.
+//   pending 상태:  결과물 제출 옵션 비활성(안내 텍스트만), 응모 취소 활성
+//   approved 상태: 결과물 제출 옵션 활성 → 활동관리 페이지 이동
+//                  응모 취소 옵션 — 결과물 1건이라도 approved 면 비활성 + tooltip
+let _applyActionTargetAppId = null;
+
+function openApplyActionModal(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  _applyActionTargetAppId = appId;
+  const isApproved = app.status === 'approved';
+  const ds = (_myDelivsByApp[appId] || []);
+  const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+  // 결과물 제출 버튼: approved 만 활성. pending 은 비활성 + 안내 텍스트
+  const submitBtn = $('applyActionSubmitBtn');
+  const submitHint = $('applyActionSubmitHint');
+  if (submitBtn && submitHint) {
+    submitBtn.disabled = !isApproved;
+    submitBtn.style.opacity = isApproved ? '1' : '.5';
+    submitBtn.style.cursor = isApproved ? 'pointer' : 'not-allowed';
+    submitBtn.onclick = isApproved
+      ? () => { closeApplyActionModal(); if (typeof openActivityPage === 'function') openActivityPage(app.id, app.campaign_id, 'mypage'); }
+      : null;
+    submitHint.textContent = isApproved
+      ? t('appHistory.action.submitHintApproved')
+      : t('appHistory.action.submitHintPending');
+  }
+  // 응모 취소 버튼: 결과물 approved 있으면 비활성 + tooltip, 없으면 활성
+  const cancelBtn = $('applyActionCancelBtn');
+  const cancelHint = $('applyActionCancelHint');
+  if (cancelBtn && cancelHint) {
+    cancelBtn.disabled = hasApprovedDeliv;
+    cancelBtn.style.opacity = hasApprovedDeliv ? '.5' : '1';
+    cancelBtn.style.cursor = hasApprovedDeliv ? 'not-allowed' : 'pointer';
+    cancelBtn.title = hasApprovedDeliv ? t('appHistory.cancelDisabledDeliv') : '';
+    cancelBtn.onclick = hasApprovedDeliv
+      ? null
+      : () => { closeApplyActionModal(); openCancelModalFor(app.id); };
+    cancelHint.textContent = hasApprovedDeliv
+      ? t('appHistory.cancelDisabledDeliv')
+      : t('appHistory.action.cancelHint');
+  }
+  openModal('applyActionModal');
+}
+
+function closeApplyActionModal() {
+  closeModal('applyActionModal');
+  _applyActionTargetAppId = null;
+}
+
 async function openCancelModalFor(appId) {
   const app = _myApps.find(a => a.id === appId);
   if (!app) return;
@@ -8252,6 +8390,13 @@ async function submitCancelApplication() {
   toast(t('appHistory.cancel.success'));
   closeCancelModal();
   await loadMyApplications();
+  // 활동관리 페이지에서 취소한 경우 응모이력으로 이동 (cancelled 상태는
+  // 활동관리 진입 차단 대상이라 현재 페이지에 머물면 안 됨).
+  const activeIsActivity = document.getElementById('page-activity')?.classList?.contains('active');
+  if (activeIsActivity && typeof navigate === 'function') {
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  }
 }
 
 async function openCancelDetailModal(appId) {

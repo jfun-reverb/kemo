@@ -189,17 +189,15 @@ async function renderMyApplyList() {
       : (a.status==='approved'
           ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"`
           : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`);
-    // ⋮ 메뉴: 본인 취소 가능 여부 판단
-    //   - pending/approved 만 후보
-    //   - 결과물 1건이라도 approved 면 비활성 (DB 트리거가 차단하지만 UX 차원에서 미리 막음)
-    //   - cancelled/rejected 는 메뉴 자체 비표시
+    // ⋮ 메뉴: pending/approved 카드에 표시.
+    //   클릭 시 액션 모달(applyActionModal) — 「결과물 제출」/「응모 취소」 선택.
+    //   결과물 제출 옵션: status=approved 일 때만 활성 (pending 은 안내문만).
+    //   응모 취소 옵션: 결과물 1건이라도 approved 면 비활성 (모달 내부에서 비활성 처리).
+    //   cancelled/rejected 카드는 메뉴 자체 비표시.
+    //   모바일 터치 영역 보강: 버튼 최소 44×44px (애플 HIG / 머티리얼 권장).
     let menuHtml = '';
     if (a.status === 'pending' || a.status === 'approved') {
-      const ds = (_myDelivsByApp[a.id] || []);
-      const hasApprovedDeliv = ds.some(d => d.status === 'approved');
-      menuHtml = hasApprovedDeliv
-        ? `<button type="button" class="apply-card-menu-btn" disabled title="${esc(t('appHistory.cancelDisabledDeliv'))}" onclick="event.stopPropagation()" aria-label="${esc(t('appHistory.cancelMenu'))}" style="opacity:.4;cursor:not-allowed"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`
-        : `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openCancelModalFor('${a.id}')" aria-label="${esc(t('appHistory.cancelMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`;
+      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span></button>`;
     }
     // cancelled 행: 취소일 표시
     const cancelledLine = a.status === 'cancelled' && a.cancelled_at
@@ -465,6 +463,56 @@ function _computeCancelPhase(camp) {
   return 'other';
 }
 
+// ⋮ 메뉴 액션 모달: 「결과물 제출」 / 「응모 취소」 선택.
+//   pending 상태:  결과물 제출 옵션 비활성(안내 텍스트만), 응모 취소 활성
+//   approved 상태: 결과물 제출 옵션 활성 → 활동관리 페이지 이동
+//                  응모 취소 옵션 — 결과물 1건이라도 approved 면 비활성 + tooltip
+let _applyActionTargetAppId = null;
+
+function openApplyActionModal(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  _applyActionTargetAppId = appId;
+  const isApproved = app.status === 'approved';
+  const ds = (_myDelivsByApp[appId] || []);
+  const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+  // 결과물 제출 버튼: approved 만 활성. pending 은 비활성 + 안내 텍스트
+  const submitBtn = $('applyActionSubmitBtn');
+  const submitHint = $('applyActionSubmitHint');
+  if (submitBtn && submitHint) {
+    submitBtn.disabled = !isApproved;
+    submitBtn.style.opacity = isApproved ? '1' : '.5';
+    submitBtn.style.cursor = isApproved ? 'pointer' : 'not-allowed';
+    submitBtn.onclick = isApproved
+      ? () => { closeApplyActionModal(); if (typeof openActivityPage === 'function') openActivityPage(app.id, app.campaign_id, 'mypage'); }
+      : null;
+    submitHint.textContent = isApproved
+      ? t('appHistory.action.submitHintApproved')
+      : t('appHistory.action.submitHintPending');
+  }
+  // 응모 취소 버튼: 결과물 approved 있으면 비활성 + tooltip, 없으면 활성
+  const cancelBtn = $('applyActionCancelBtn');
+  const cancelHint = $('applyActionCancelHint');
+  if (cancelBtn && cancelHint) {
+    cancelBtn.disabled = hasApprovedDeliv;
+    cancelBtn.style.opacity = hasApprovedDeliv ? '.5' : '1';
+    cancelBtn.style.cursor = hasApprovedDeliv ? 'not-allowed' : 'pointer';
+    cancelBtn.title = hasApprovedDeliv ? t('appHistory.cancelDisabledDeliv') : '';
+    cancelBtn.onclick = hasApprovedDeliv
+      ? null
+      : () => { closeApplyActionModal(); openCancelModalFor(app.id); };
+    cancelHint.textContent = hasApprovedDeliv
+      ? t('appHistory.cancelDisabledDeliv')
+      : t('appHistory.action.cancelHint');
+  }
+  openModal('applyActionModal');
+}
+
+function closeApplyActionModal() {
+  closeModal('applyActionModal');
+  _applyActionTargetAppId = null;
+}
+
 async function openCancelModalFor(appId) {
   const app = _myApps.find(a => a.id === appId);
   if (!app) return;
@@ -570,6 +618,13 @@ async function submitCancelApplication() {
   toast(t('appHistory.cancel.success'));
   closeCancelModal();
   await loadMyApplications();
+  // 활동관리 페이지에서 취소한 경우 응모이력으로 이동 (cancelled 상태는
+  // 활동관리 진입 차단 대상이라 현재 페이지에 머물면 안 됨).
+  const activeIsActivity = document.getElementById('page-activity')?.classList?.contains('active');
+  if (activeIsActivity && typeof navigate === 'function') {
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  }
 }
 
 async function openCancelDetailModal(appId) {
