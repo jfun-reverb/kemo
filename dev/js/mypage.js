@@ -560,9 +560,16 @@ async function openCancelModalFor(appId) {
       const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(pickLabel(r))}</option>`).join('');
       sel.innerHTML = placeholder + opts;
       sel.value = '';
+      // 카테고리 선택 시 textarea placeholder 를 카테고리별 가이드로 갱신.
+      // 사용자가 어떤 내용을 입력해야 하는지 안내.
+      sel.onchange = () => _syncCancelNotePlaceholder(sel.value);
     }
     const note = $('cancelPageNote');
-    if (note) note.value = '';
+    if (note) {
+      note.value = '';
+      // 초기 placeholder: 기본 가이드 (카테고리 미선택 상태)
+      note.placeholder = t('appHistory.cancel.notePlaceholderDefault');
+    }
     const ack = $('cancelPageAck');
     if (ack) ack.checked = false;
   }
@@ -584,6 +591,21 @@ async function openCancelModalFor(appId) {
   // #appShell 이 position:fixed + overflow:hidden 이라 iOS Safari 의 자동
   // 스크롤이 .page.active 내부 컨테이너에서 작동하지 않으므로 직접 처리.
   _attachCancelPageFocusScroll();
+}
+
+// 카테고리 코드별 textarea placeholder 동기화
+function _syncCancelNotePlaceholder(reasonCode) {
+  const note = $('cancelPageNote');
+  if (!note) return;
+  // i18n notePlaceholder.<code> 우선, 없으면 default
+  let placeholder = '';
+  if (reasonCode) {
+    placeholder = t('appHistory.cancel.notePlaceholder.' + reasonCode);
+    // t() 가 키를 그대로 반환하면 매핑 없는 코드 → default 사용
+    if (placeholder === 'appHistory.cancel.notePlaceholder.' + reasonCode) placeholder = '';
+  }
+  if (!placeholder) placeholder = t('appHistory.cancel.notePlaceholderDefault');
+  note.placeholder = placeholder;
 }
 
 // 이미 등록됐는지 플래그 — 페이지 재진입 시 listener 중복 부착 방지
@@ -635,9 +657,13 @@ async function submitCancelApplicationFromPage() {
   let reasonCode = null, reasonNote = null, acknowledged = false;
   if (!isSimple) {
     reasonCode = $('cancelPageReasonSelect')?.value || '';
-    reasonNote = $('cancelPageNote')?.value || '';
+    reasonNote = ($('cancelPageNote')?.value || '').trim();
     acknowledged = !!$('cancelPageAck')?.checked;
     if (!reasonCode) { showErr(t('appHistory.cancel.errorReason')); return; }
+    // 추가 설명 필수화 — 사용자 요청 (2026-05-11). 사양 §3-2 매트릭스도
+    // 같이 갱신 권장 (지금은 코드만 필수, 서버 RPC 는 선택 — RPC 검증은
+    // 후속 마이그레이션에서 강화 가능).
+    if (!reasonNote) { showErr(t('appHistory.cancel.errorNoteRequired')); return; }
     if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
     if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
   }

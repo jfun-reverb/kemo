@@ -978,7 +978,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
     <!-- 사유 입력형 (cancel_phase != 'recruit') -->
     <div id="cancelPageWarning" style="display:none;background:#FFE9E9;border:1px solid #F5B0B0;border-radius:10px;padding:12px 14px;font-size:13px;color:#9B1C1C;line-height:1.7;margin-bottom:16px">
-      <div style="font-weight:700;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">warning</span> <span data-i18n="appHistory.cancel.warningOther">注意</span></div>
+      <div style="font-weight:700;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">warning</span> <span data-i18n="appHistory.cancel.warningLabel">注意</span></div>
       <div id="cancelPageWarningText"></div>
     </div>
     <div id="cancelPageReason" style="display:none;margin-bottom:16px">
@@ -2162,13 +2162,23 @@ window.I18N_JA = {
     cancel: {
       title: '応募を取り消しますか？',
       simpleBody: 'この応募を取り消します。よろしいですか？',
+      warningLabel: '注意',
       warningPurchase: '購入期間が開始しているため、取消すと違反記録など不利益を受ける可能性があります。',
       warningVisit: '訪問期間が開始しているため、取消すと違反記録など不利益を受ける可能性があります。',
       warningPost: '結果物提出期間または期限が経過しているため、取消すと違反記録など不利益を受ける可能性があります。',
       warningOther: '現在のキャンペーン状態では取消すと違反記録など不利益を受ける可能性があります。',
       reasonLabel: '取消理由 (必須)',
       reasonSelect: 'カテゴリを選択',
-      noteLabel: '補足説明 (任意・最大500文字)',
+      noteLabel: '補足説明 (必須・最大500文字)',
+      notePlaceholderDefault: '具体的な理由を入力してください',
+      notePlaceholder: {
+        schedule_unavailable: '例：他のスケジュールが入った、急に出張が決まった など',
+        personal_reason: '例：体調の変化、家族の事情 など',
+        product_mismatch: '例：商品ページの説明と実際の内容が違う、確認したい点がある など',
+        delivery_issue: '例：注文した商品が届かない、配送中の破損 など',
+        account_change: '例：SNSアカウントの停止、運用方針の変更 など',
+        other: '具体的な理由を入力してください',
+      },
       acknowledge: '上記の不利益の可能性を理解しました',
       confirmBtn: '取り消す',
       cancelBtn: '戻る',
@@ -2177,6 +2187,7 @@ window.I18N_JA = {
       errorStatus: 'すでに取り消されているか、取消できない状態です',
       errorDeliverable: '承認済みの結果物があるため、ご自身で取消できません',
       errorReason: '取消理由を選択してください',
+      errorNoteRequired: '補足説明を入力してください',
       errorAck: '同意のチェックが必要です',
       errorGeneric: '取消に失敗しました。再度お試しください',
     },
@@ -2680,13 +2691,23 @@ window.I18N_KO = {
     cancel: {
       title: '응모를 취소하시겠습니까?',
       simpleBody: '이 응모를 취소합니다. 진행할까요?',
+      warningLabel: '주의',
       warningPurchase: '구매 기간이 시작되어 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
       warningVisit: '방문 기간이 시작되어 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
       warningPost: '결과물 제출 기간 또는 기한이 경과되어 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
       warningOther: '현재 캠페인 상태에서는 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
       reasonLabel: '취소 사유 (필수)',
       reasonSelect: '카테고리 선택',
-      noteLabel: '추가 설명 (선택, 최대 500자)',
+      noteLabel: '추가 설명 (필수, 최대 500자)',
+      notePlaceholderDefault: '구체적인 사유를 입력해주세요',
+      notePlaceholder: {
+        schedule_unavailable: '예: 일정이 겹쳐서 참여가 어렵습니다, 급한 출장이 잡혔습니다 등',
+        personal_reason: '예: 건강 문제, 가족 사정 등',
+        product_mismatch: '예: 제품 페이지 설명과 실제 내용이 다릅니다, 확인이 필요한 부분이 있습니다 등',
+        delivery_issue: '예: 주문한 제품이 도착하지 않습니다, 배송 중 파손 등',
+        account_change: '예: SNS 계정 정지, 운영 방침 변경 등',
+        other: '구체적인 사유를 입력해주세요',
+      },
       acknowledge: '위 불이익 가능성을 확인했습니다',
       confirmBtn: '응모 취소',
       cancelBtn: '돌아가기',
@@ -2695,6 +2716,7 @@ window.I18N_KO = {
       errorStatus: '이미 취소되었거나 취소 불가 상태입니다',
       errorDeliverable: '승인된 결과물이 있어 본인 취소가 불가합니다',
       errorReason: '취소 사유를 선택해주세요',
+      errorNoteRequired: '추가 설명을 입력해주세요',
       errorAck: '동의 체크가 필요합니다',
       errorGeneric: '취소에 실패했습니다. 다시 시도해주세요',
     },
@@ -8342,9 +8364,16 @@ async function openCancelModalFor(appId) {
       const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(pickLabel(r))}</option>`).join('');
       sel.innerHTML = placeholder + opts;
       sel.value = '';
+      // 카테고리 선택 시 textarea placeholder 를 카테고리별 가이드로 갱신.
+      // 사용자가 어떤 내용을 입력해야 하는지 안내.
+      sel.onchange = () => _syncCancelNotePlaceholder(sel.value);
     }
     const note = $('cancelPageNote');
-    if (note) note.value = '';
+    if (note) {
+      note.value = '';
+      // 초기 placeholder: 기본 가이드 (카테고리 미선택 상태)
+      note.placeholder = t('appHistory.cancel.notePlaceholderDefault');
+    }
     const ack = $('cancelPageAck');
     if (ack) ack.checked = false;
   }
@@ -8366,6 +8395,21 @@ async function openCancelModalFor(appId) {
   // #appShell 이 position:fixed + overflow:hidden 이라 iOS Safari 의 자동
   // 스크롤이 .page.active 내부 컨테이너에서 작동하지 않으므로 직접 처리.
   _attachCancelPageFocusScroll();
+}
+
+// 카테고리 코드별 textarea placeholder 동기화
+function _syncCancelNotePlaceholder(reasonCode) {
+  const note = $('cancelPageNote');
+  if (!note) return;
+  // i18n notePlaceholder.<code> 우선, 없으면 default
+  let placeholder = '';
+  if (reasonCode) {
+    placeholder = t('appHistory.cancel.notePlaceholder.' + reasonCode);
+    // t() 가 키를 그대로 반환하면 매핑 없는 코드 → default 사용
+    if (placeholder === 'appHistory.cancel.notePlaceholder.' + reasonCode) placeholder = '';
+  }
+  if (!placeholder) placeholder = t('appHistory.cancel.notePlaceholderDefault');
+  note.placeholder = placeholder;
 }
 
 // 이미 등록됐는지 플래그 — 페이지 재진입 시 listener 중복 부착 방지
@@ -8417,9 +8461,13 @@ async function submitCancelApplicationFromPage() {
   let reasonCode = null, reasonNote = null, acknowledged = false;
   if (!isSimple) {
     reasonCode = $('cancelPageReasonSelect')?.value || '';
-    reasonNote = $('cancelPageNote')?.value || '';
+    reasonNote = ($('cancelPageNote')?.value || '').trim();
     acknowledged = !!$('cancelPageAck')?.checked;
     if (!reasonCode) { showErr(t('appHistory.cancel.errorReason')); return; }
+    // 추가 설명 필수화 — 사용자 요청 (2026-05-11). 사양 §3-2 매트릭스도
+    // 같이 갱신 권장 (지금은 코드만 필수, 서버 RPC 는 선택 — RPC 검증은
+    // 후속 마이그레이션에서 강화 가능).
+    if (!reasonNote) { showErr(t('appHistory.cancel.errorNoteRequired')); return; }
     if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
     if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
   }
