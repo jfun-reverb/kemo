@@ -599,20 +599,29 @@ function _attachCancelModalKeyboardSync() {
     const vh = window.visualViewport.height;
     const diff = _cancelModalBaseVvHeight - vh;
     if (diff > 150) {
-      // 키보드 올라옴 → overlay/modal 을 visualViewport 안으로 옮겨
-      // align-items:flex-end 가 모달을 키보드 바로 위에 깔도록 한다.
+      // 키보드 올라옴 → overlay 를 visualViewport 안으로 옮기고 모달이
+      // 그 영역 가득 차도록 height/min-height 를 강제. 콘텐츠가 작아도
+      // 모달이 viewport 위쪽까지 채워서 응모이력 페이지가 모달 위로
+      // 비치지 않게 한다.
       const offsetTop = window.visualViewport.offsetTop;
       overlay.style.height = vh + 'px';
       overlay.style.top = offsetTop + 'px';
       overlay.style.bottom = 'auto';
-      if (modalEl) modalEl.style.maxHeight = Math.max(240, vh - 16) + 'px';
+      if (modalEl) {
+        const targetH = Math.max(240, vh - 16);
+        modalEl.style.maxHeight = targetH + 'px';
+        modalEl.style.height = targetH + 'px';
+      }
     } else {
       // 키보드 내려감 또는 처음(임계 미만) → 기본 CSS 그대로 (inset:0,
       // max-height:90vh) 사용해 backdrop·z-index 가 정상 동작.
       overlay.style.height = '';
       overlay.style.top = '';
       overlay.style.bottom = '';
-      if (modalEl) modalEl.style.maxHeight = '';
+      if (modalEl) {
+        modalEl.style.maxHeight = '';
+        modalEl.style.height = '';
+      }
     }
   };
   window.visualViewport.addEventListener('resize', _cancelModalVvHandler);
@@ -650,7 +659,10 @@ function _detachCancelModalKeyboardSync() {
     overlay.style.bottom = '';
   }
   const modalEl = document.querySelector('#cancelModal .modal');
-  if (modalEl) modalEl.style.maxHeight = '';
+  if (modalEl) {
+    modalEl.style.maxHeight = '';
+    modalEl.style.height = '';
+  }
   _cancelModalBaseVvHeight = 0;
 }
 
