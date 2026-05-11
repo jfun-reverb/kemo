@@ -4218,6 +4218,14 @@ function updateSidebarProfile() {
 //   isCampaignAdminOrAbove / applyLookupMenuVisibility 도 함께 이동
 // ════════════════════════════════════════════════════════════════════
 
+// 메일 종류 카탈로그 캐시 (모달 + 칩 라벨 양쪽에서 재사용)
+let _adminEmailKindsCache = null;
+async function _getAdminEmailKinds() {
+  if (_adminEmailKindsCache) return _adminEmailKindsCache;
+  _adminEmailKindsCache = await fetchAdminEmailKinds();
+  return _adminEmailKindsCache;
+}
+
 async function loadAdminAccounts() {
   if (!db) return;
   const {data} = await db?.from('admins').select('*').order('created_at');
@@ -4226,22 +4234,39 @@ async function loadAdminAccounts() {
   currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
   const isSuper = currentAdminInfo?.role === 'super_admin';
 
+  // 구독 상태 + 메일 종류 카탈로그 일괄 로드
+  const adminIds = admins.map(a => a.id);
+  const [subs, kinds] = await Promise.all([
+    fetchAdminEmailSubscriptions(adminIds),
+    _getAdminEmailKinds()
+  ]);
+  const kindLabel = code => (kinds.find(k => k.code === code) || {}).name_ko || code;
+
   const roleLabel = r => r === 'super_admin'
     ? '<span class="badge badge-red">슈퍼관리자</span>'
     : r === 'campaign_admin'
     ? '<span class="badge badge-blue">캠페인관리자</span>'
     : '<span class="badge badge-gray">캠페인매니저</span>';
 
+  // 메일받기 셀: 켜진 종류 회색 칩 나열 + 「설정」 버튼.
+  // 본인 행은 항상 편집 가능. 다른 관리자 행은 super_admin 만 편집 가능.
+  const renderMailCell = a => {
+    const codes = subs[a.id] || [];
+    const chips = codes.length
+      ? codes.map(c => `<span class="badge badge-gray" style="font-size:11px;padding:2px 8px;border-radius:10px">${esc(kindLabel(c))}</span>`).join(' ')
+      : '<span style="color:var(--muted);font-size:12px">—</span>';
+    const canEdit = isSuper || a.auth_id === currentUser?.id;
+    const btn = canEdit
+      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)" style="margin-left:6px">설정</button>`
+      : '';
+    return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">${chips}${btn}</div>`;
+  };
+
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>
     <td style="font-weight:600">${esc(a.name)||'—'}</td>
     <td>${esc(a.email)}</td>
     <td>${roleLabel(a.role)}</td>
-    <td style="text-align:center">
-      <label class="lookup-toggle" title="브랜드 서베이 접수 시 알림 메일 수신" onclick="event.stopPropagation()">
-        <input type="checkbox" ${a.receive_brand_notify ? 'checked' : ''} onchange="toggleAdminBrandNotify('${a.id}', this.checked)">
-        <span class="lookup-toggle-slider"></span>
-      </label>
-    </td>
+    <td>${renderMailCell(a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
@@ -4253,18 +4278,70 @@ async function loadAdminAccounts() {
   applyLookupMenuVisibility();
 }
 
-// 광고주 신청 알림 수신 토글 (admins.receive_brand_notify)
-async function toggleAdminBrandNotify(adminId, checked) {
+// ──────────────────────────────────────
+// 「메일 받기 설정」 모달 (admin_email_subscriptions)
+// ──────────────────────────────────────
+// 현재 편집 중인 관리자 id (저장 시 사용)
+let _adminEmailSubsEditingId = null;
+// 모달 안의 메일 종류 목록 (저장 시 사용)
+let _adminEmailSubsModalKinds = [];
+
+async function openAdminEmailSubsModal(adminId, adminName, adminEmail) {
   if (!db) return;
-  try {
-    const {error} = await db?.from('admins').update({receive_brand_notify: !!checked}).eq('id', adminId);
-    if (error) throw error;
-    toast(checked ? '알림 수신 켜짐' : '알림 수신 꺼짐');
-    await refreshPane('admin-accounts');
-  } catch(e) {
-    toast('저장 실패: ' + (e.message || '알 수 없는 오류'), 'error');
-    await refreshPane('admin-accounts');
+  _adminEmailSubsEditingId = adminId;
+  // 헤더에 관리자 정보 + 안내문
+  const hdr = $('adminEmailSubsHeader');
+  if (hdr) hdr.textContent = `${adminName || '—'} (${adminEmail || ''})`;
+  // 메일 종류 카탈로그 + 현재 구독 상태 로드
+  const [kinds, subs] = await Promise.all([
+    _getAdminEmailKinds(),
+    fetchAdminEmailSubscriptions([adminId])
+  ]);
+  _adminEmailSubsModalKinds = kinds;
+  const currentSet = new Set(subs[adminId] || []);
+  // 본문 동적 렌더
+  const body = $('adminEmailSubsBody');
+  if (body) {
+    body.innerHTML = kinds.length ? kinds.map(k => `
+      <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer">
+        <input type="checkbox" class="adm-email-sub-cb" data-code="${esc(k.code)}" ${currentSet.has(k.code) ? 'checked' : ''} style="margin-top:3px">
+        <div style="flex:1">
+          <div style="font-weight:600;color:var(--ink);font-size:13px">${esc(k.name_ko)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(_adminEmailKindDesc(k.code))}</div>
+        </div>
+      </label>
+    `).join('') : '<div style="color:var(--muted);font-size:12px;padding:12px">등록된 메일 종류가 없습니다.</div>';
   }
+  openModal('adminEmailSubsModal');
+}
+
+// 메일 종류별 보조 설명 (사용자 친화 카피)
+function _adminEmailKindDesc(code) {
+  const map = {
+    'brand_notify':       '광고주(브랜드)가 sales 페이지에서 신청 폼을 제출했을 때 접수 알림',
+    'application_cancel': '인플루언서가 구매기간 이후에 응모를 취소했을 때 알림'
+  };
+  return map[code] || '';
+}
+
+async function saveAdminEmailSubsFromModal() {
+  if (!_adminEmailSubsEditingId) { closeModal('adminEmailSubsModal'); return; }
+  // 모달 안 체크박스 상태 → Set
+  const checked = new Set();
+  document.querySelectorAll('#adminEmailSubsBody .adm-email-sub-cb:checked').forEach(cb => {
+    const code = cb.getAttribute('data-code');
+    if (code) checked.add(code);
+  });
+  const res = await saveAdminEmailSubscriptions(_adminEmailSubsEditingId, checked, _adminEmailSubsModalKinds);
+  if (!res.ok) {
+    toast('저장 실패: ' + (res.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  toast('메일 수신 설정을 저장했습니다');
+  closeModal('adminEmailSubsModal');
+  _adminEmailSubsEditingId = null;
+  _adminEmailSubsModalKinds = [];
+  await refreshPane('admin-accounts');
 }
 
 // 권한에 따라 "기준 데이터" 메뉴 표시/숨김

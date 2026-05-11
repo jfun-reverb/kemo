@@ -1525,3 +1525,67 @@ async function updateBrandApplication(id, patch, expectedVersion) {
   }
 }
 
+// ──────────────────────────────────────
+// 관리자 메일 수신 구독 (admin_email_subscriptions)
+// 사양: docs/specs/2026-05-11-admin-email-subscriptions.md
+// ──────────────────────────────────────
+
+// 여러 관리자의 구독 상태를 한 번에 가져온다 (admin_id → mail_kind 배열).
+// 관리자 계정 페인 리스트 렌더 시 1회 호출로 모든 행에 칩 표시.
+async function fetchAdminEmailSubscriptions(adminIds) {
+  if (!db || !adminIds || adminIds.length === 0) return {};
+  const {data, error} = await db.from('admin_email_subscriptions')
+    .select('admin_id, mail_kind')
+    .in('admin_id', adminIds)
+    .eq('subscribed', true);
+  if (error) { console.error('[fetchAdminEmailSubscriptions]', error); return {}; }
+  const map = {};
+  for (const row of data || []) {
+    if (!map[row.admin_id]) map[row.admin_id] = [];
+    map[row.admin_id].push(row.mail_kind);
+  }
+  return map;
+}
+
+// 메일 종류 카탈로그 (lookup_values kind='admin_email_kind')
+// 모달의 체크박스 목록을 동적 렌더하기 위함.
+async function fetchAdminEmailKinds() {
+  if (!db) return [];
+  const {data, error} = await db.from('lookup_values')
+    .select('code, name_ko, name_ja, sort_order')
+    .eq('kind', 'admin_email_kind')
+    .eq('active', true)
+    .order('sort_order');
+  if (error) { console.error('[fetchAdminEmailKinds]', error); return []; }
+  return data || [];
+}
+
+// 한 관리자의 메일 구독 일괄 저장 (UPSERT)
+// allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
+// 모달에서 「저장」 클릭 시 호출. RLS 가 본인 또는 super_admin 만 허용.
+async function saveAdminEmailSubscriptions(adminId, subscribedKinds, allKinds) {
+  if (!db) return {ok: false, error: 'no_db'};
+  // updated_by: 누가 변경했는지 추적 (super_admin 이 다른 관리자 설정을 바꿀 때 식별).
+  // currentUser 는 dev/lib/shared.js 의 전역 — 미세션 상황에서는 NULL 로 들어감.
+  const updatedBy = (typeof currentUser !== 'undefined' && currentUser?.id) || null;
+  const rows = (allKinds || []).map(k => ({
+    admin_id: adminId,
+    mail_kind: k.code,
+    subscribed: subscribedKinds.has(k.code),
+    updated_at: new Date().toISOString(),
+    updated_by: updatedBy
+  }));
+  if (rows.length === 0) return {ok: true};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db.from('admin_email_subscriptions')
+        .upsert(rows, {onConflict: 'admin_id,mail_kind'});
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[saveAdminEmailSubscriptions]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+

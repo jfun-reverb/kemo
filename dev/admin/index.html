@@ -1623,6 +1623,25 @@
   </div>
 </div>
 
+<!-- 관리자 메일 받기 설정 모달 -->
+<div class="modal-overlay" id="adminEmailSubsModal">
+  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto">
+    <div class="modal-header">
+      <div class="modal-title">메일 받기 설정</div>
+      <div class="modal-close" onclick="closeModal('adminEmailSubsModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
+    <div class="modal-body">
+      <div id="adminEmailSubsHeader" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
+      <div style="font-size:12px;color:var(--ink);margin-bottom:10px">받을 메일을 선택하세요.</div>
+      <div id="adminEmailSubsBody"></div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-ghost" onclick="closeModal('adminEmailSubsModal')" style="flex:1">취소</button>
+        <button class="btn btn-primary" onclick="saveAdminEmailSubsFromModal()" style="flex:1">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="../lib/supabase.js"></script>
 <script src="../lib/shared.js"></script>
 <!-- 캠페인 미리보기 모달 (모바일 크기) -->

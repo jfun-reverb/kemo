@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!--
+  Preview: application-cancelled.html — placeholder를 샘플값으로 채운 시각적 미리보기.
+  실제 템플릿은 application-cancelled.html. 본 파일은 docs/email-templates/index.html 카탈로그용.
+-->
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>응모 취소 — 관리자 알림 (미리보기)</title>
+  <style>
+    body { background:#f5f5f7; margin:0; padding:24px; font-family:'Noto Sans KR',Arial,sans-serif; }
+    .preview-frame { background:#fff; border:1px solid #ddd; border-radius:12px; padding:24px; max-width:640px; margin:0 auto; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    .preview-meta { font-size:12px; color:#888; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #eee; }
+    .preview-meta b { color:#444; }
+  </style>
+</head>
+<body>
+  <div class="preview-frame">
+    <div class="preview-meta">
+      <div><b>From</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+      <div><b>To</b> admin@kemo.jp · marketing@jfun.co.kr</div>
+      <div><b>Subject</b> [REVERB] 응모 취소 — 구매기간 (【CAMP-2026-0042】 립프롬 신상 리뷰)</div>
+    </div>
+
+    <div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+      <h2 style="color:#E8344E;margin:0 0 8px">응모 취소 발생</h2>
+      <p style="margin:0 0 16px;color:#666;font-size:13px">REVERB JP 관리자 알림 · 구매·방문·결과물 단계 이후 본인 취소</p>
+
+      <h3 style="margin:16px 0 8px;font-size:14px;color:#444;border-left:3px solid #E8344E;padding-left:8px">캠페인 정보</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px">
+        <tr><td style="padding:6px 0;color:#888;width:100px">번호</td><td style="padding:6px 0;font-family:monospace">【CAMP-2026-0042】</td></tr>
+        <tr><td style="padding:6px 0;color:#888">제목</td><td style="padding:6px 0;font-weight:700">립프롬 신상 리뷰</td></tr>
+        <tr><td style="padding:6px 0;color:#888">모집 타입</td><td style="padding:6px 0">리뷰어</td></tr>
+      </table>
+
+      <h3 style="margin:16px 0 8px;font-size:14px;color:#444;border-left:3px solid #E8344E;padding-left:8px">인플루언서</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px">
+        <tr><td style="padding:6px 0;color:#888;width:100px">이름</td><td style="padding:6px 0;font-weight:700">야마다 사쿠라 (山田 さくら)</td></tr>
+        <tr><td style="padding:6px 0;color:#888">이메일</td><td style="padding:6px 0">sakura.test@reverb.jp</td></tr>
+      </table>
+
+      <h3 style="margin:16px 0 8px;font-size:14px;color:#444;border-left:3px solid #E8344E;padding-left:8px">취소 정보</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px">
+        <tr><td style="padding:6px 0;color:#888;width:100px">일시</td><td style="padding:6px 0">2026-05-11 14:30</td></tr>
+        <tr><td style="padding:6px 0;color:#888">취소 시점</td><td style="padding:6px 0"><span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700">구매기간</span></td></tr>
+        <tr><td style="padding:6px 0;color:#888">사유 카테고리</td><td style="padding:6px 0">참여 가능 일정 부족</td></tr>
+        <tr><td style="padding:6px 0;color:#888;vertical-align:top">보충 설명</td><td style="padding:6px 0;line-height:1.5">갑작스러운 출장이 잡혀 게시 마감 안에 활동이 어려울 것 같습니다. 다음 캠페인은 꼭 참여하고 싶습니다.</td></tr>
+      </table>
+
+      <a href="https://globalreverb.com/admin#applications?id=abc-def-123" style="display:inline-block;background:#E8344E;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">관리자 신청 관리에서 확인</a>
+
+      <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.5">
+        본 메일은 자동 발송됩니다. 회신 시 응답이 어렵습니다.<br>
+        위반 등록은 관리자 화면에서 인플루언서 상세 모달의 「위반 등록」 버튼으로 진행하세요.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
