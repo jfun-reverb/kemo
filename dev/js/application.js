@@ -593,6 +593,28 @@ async function openActivityPage(applicationId, campaignId, from) {
     }
   }
 
+  // 사양 §4-1 추가 진입점: 활동관리 페이지 상단 「取消」 버튼.
+  // 표시 조건은 응모이력 ⋮ 메뉴와 동일 — pending/approved 이면서
+  // 결과물 1건도 approved 아닐 때만. fetchDeliverablesForUser 로 본인
+  // 결과물 조회 후 판단.
+  const cancelBtnEl = $('activityCancelBtn');
+  if (cancelBtnEl) {
+    let canCancel = false;
+    try {
+      const app = (typeof _myApps !== 'undefined' && Array.isArray(_myApps))
+        ? _myApps.find(a => a.id === applicationId)
+        : null;
+      const appStatus = app?.status;
+      if (appStatus === 'pending' || appStatus === 'approved') {
+        const ds = await fetchDeliverablesForUser({user_id: currentUser?.id, application_id: applicationId});
+        const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+        canCancel = !hasApprovedDeliv;
+      }
+    } catch(_e) { canCancel = false; }
+    cancelBtnEl.style.display = canCancel ? '' : 'none';
+    cancelBtnEl.dataset.appId = applicationId;
+  }
+
   // 타입별 섹션 표시
   //   monitor: 영수증 이미지만 (receiptSection) — 자비 구매 증빙
   //   gifting: 게시 URL만 (postSection) — 무료 제품 + SNS 포스트
@@ -708,6 +730,24 @@ function navigateBackFromActivity() {
   } else {
     openCampaign(_activityCampId);
   }
+}
+
+// 활동관리 페이지 상단 「取消」 버튼 클릭 핸들러 (사양 §4-1).
+// 응모이력 ⋮ 메뉴와 동일하게 openCancelModalFor 재사용. _myApps 캐시가
+// 이 시점에 없을 수 있으므로 (응모이력을 거치지 않고 직접 진입한 케이스)
+// loadMyApplications 로 캐시를 보장하고 모달을 연다.
+async function onActivityCancelClick() {
+  const appId = $('activityCancelBtn')?.dataset?.appId || _activityAppId;
+  if (!appId) return;
+  // _myApps 캐시에 대상 행이 있는지로 검사 — 응모이력 거치지 않고 직접 진입
+  // (예: 알림 클릭 등) 케이스 모두 커버.
+  const cacheReady = typeof _myApps !== 'undefined'
+    && Array.isArray(_myApps)
+    && !!_myApps.find(a => a.id === appId);
+  if (!cacheReady && typeof loadMyApplications === 'function') {
+    try { await loadMyApplications(); } catch(_e) { /* 캐시 실패해도 모달은 시도 */ }
+  }
+  if (typeof openCancelModalFor === 'function') openCancelModalFor(appId);
 }
 
 async function loadReceipts() { return loadDeliverablesForActivity(); }

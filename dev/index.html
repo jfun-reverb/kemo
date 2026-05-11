@@ -483,7 +483,10 @@ window._supabaseLoaded = false;
   <div class="container" style="padding:16px 16px calc(var(--tab-h) + 16px)">
     <div class="detail-back" onclick="navigateBackFromActivity()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="common.back">戻る</span></div>
     <div id="activityRecruitLabel" style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px;display:none"></div>
-    <div id="activityCampTitle" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
+      <div id="activityCampTitle" style="font-size:18px;font-weight:800;flex:1;min-width:0"></div>
+      <button type="button" id="activityCancelBtn" onclick="onActivityCancelClick()" style="display:none;flex-shrink:0;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--muted);cursor:pointer" data-i18n="appHistory.cancelMenu">取消</button>
+    </div>
     <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
 
     <!-- 반려 사유 배너 (결과물 반려 시 노출) -->
