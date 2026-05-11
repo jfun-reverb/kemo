@@ -1530,17 +1530,17 @@ function resolveConfirmModal(ok) {
   if (_confirmResolver) { _confirmResolver(!!ok); _confirmResolver = null; }
 }
 
-// 결과물 제출 마감일을 +14일로 자동 제안 (확인 모달)
-//   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
-//   - monitor: 구매 기간 종료일 + 14일
-//   - visit:   방문 기간 종료일 + 14일
-//   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 14일
 // ════════════════════════════════════════════════════════════════════
 // SECTION: CAMPAIGNS · FORM — 날짜 / flatpickr (range + single)
 //   _campRangePickers / _campSinglePickers 는 switchAdminPane 가
 //   참조하므로 파일 분리 시 같은 모듈로 묶기
 // ════════════════════════════════════════════════════════════════════
 
+// 결과물 제출 마감일을 +19일로 자동 제안 (확인 모달)
+//   baseKind: 'purchase'(monitor) | 'visit' | 'recruit'(gifting fallback)
+//   - monitor: 구매 기간 종료일 + 19일
+//   - visit:   방문 기간 종료일 + 19일
+//   - gifting: 구매·방문 기간 없으므로 모집 종료일 + 19일
 async function suggestSubmissionEnd(prefix, baseKind) {
   const baseSuffix = baseKind === 'purchase' ? 'PurchaseEnd'
     : baseKind === 'visit' ? 'VisitEnd'
@@ -1548,7 +1548,7 @@ async function suggestSubmissionEnd(prefix, baseKind) {
   const baseDate = $(prefix + baseSuffix)?.value;
   if (!baseDate) return;
   const target = new Date(baseDate);
-  target.setDate(target.getDate() + 14);
+  target.setDate(target.getDate() + 19);
   const yyyy = target.getFullYear();
   const mm = String(target.getMonth() + 1).padStart(2, '0');
   const dd = String(target.getDate()).padStart(2, '0');
@@ -1556,7 +1556,7 @@ async function suggestSubmissionEnd(prefix, baseKind) {
   const seEl = $(prefix+'SubmissionEnd');
   if (!seEl || seEl.value === suggested) return;
   const baseLabel = {purchase: '구매 기간 종료', visit: '방문 기간 종료', recruit: '모집 종료'}[baseKind] || '기준일';
-  const ok = await showConfirm(`결과물 제출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(${baseLabel} + 2주)`);
+  const ok = await showConfirm(`결과물 제출 마감일을 ${yyyy}년 ${mm}월 ${dd}일로 입력하시겠습니까?\n(${baseLabel} + 19일)`);
   if (ok) {
     seEl.value = suggested;
     syncCampDateMinMax(prefix);
@@ -1793,12 +1793,12 @@ function _commitFpRangeToHiddenInputs(fp) {
   if (endEl)   endEl.value   = _fpFormatYmd(end);
   if (kind === 'recruit') {
     updateRecruitPastWarn(fp, start);
-    // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +14일 fallback 제안
+    // gifting 캠페인은 구매·방문 기간이 없으므로 모집 종료일 기준 +19일 fallback 제안
     const rtName = prefix === 'editCamp' ? 'editRecruitType' : 'newRecruitType';
     const currentRt = document.querySelector(`input[name="${rtName}"]:checked`)?.value || 'monitor';
     if (currentRt === 'gifting' && end) suggestSubmissionEnd(prefix, 'recruit');
   }
-  // monitor=구매 종료, visit=방문 종료 기준 +14일 제안
+  // monitor=구매 종료, visit=방문 종료 기준 +19일 제안
   if ((kind === 'purchase' || kind === 'visit') && end) {
     suggestSubmissionEnd(prefix, kind);
   }
@@ -1832,6 +1832,34 @@ function _updateFpFooterSummary(fp) {
   const diffDays = Math.round((end - start) / MS_PER_DAY) + 1;
   summary.textContent = s + ' ~ ' + e + ' (' + diffDays + '일)';
   summary.classList.add('has-range');
+}
+
+// ─────────────────────────────────────────────────────────────────
+// flatpickr appendTo:body 모드 viewport 좌우 경계 보정
+//   - flatpickr position:'auto'는 위/아래만 자동 결정. 좌우는 input
+//     의 left 좌표를 그대로 따라가 viewport 밖으로 잘리는 사고 발생.
+//   - 캘린더가 우측 viewport를 넘으면 left를 줄여 안으로 이동.
+//   - 캘린더가 좌측 viewport를 넘으면 left를 늘려 안으로 이동.
+//   - 위치 계산이 끝난 뒤 다음 프레임에 보정 (race 회피).
+// ─────────────────────────────────────────────────────────────────
+function _clampFpToViewport(fpInst) {
+  if (!fpInst || !fpInst.calendarContainer) return;
+  const cal = fpInst.calendarContainer;
+  requestAnimationFrame(() => {
+    const margin = 8;
+    const vw = document.documentElement.clientWidth;
+    let rect = cal.getBoundingClientRect();
+    let currLeft = parseFloat(cal.style.left) || 0;
+    if (rect.right > vw - margin) {
+      currLeft -= (rect.right - (vw - margin));
+      cal.style.left = currLeft + 'px';
+    }
+    rect = cal.getBoundingClientRect();
+    if (rect.left < margin) {
+      currLeft += (margin - rect.left);
+      cal.style.left = currLeft + 'px';
+    }
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1883,6 +1911,7 @@ function setupCampSinglePickers() {
           if (mn) fpInst.jumpToDate(mn);
         }
         _updateFpSingleFooterSummary(fpInst);
+        _clampFpToViewport(fpInst);
       },
       onChange: (_selectedDates, _str, fpInst) => {
         // popup 안 시각·푸터 요약만 (input.value는 「적용」 시 commit)
@@ -2034,6 +2063,8 @@ function setupCampRangePickers() {
         }
         // 외부에서 hidden input 직접 변경됐을 수 있으니 푸터 요약 재동기화
         _updateFpFooterSummary(fpInst);
+        // viewport 좌우 보정 (recruit 조기 반환 전에 호출해 모든 range picker 적용)
+        _clampFpToViewport(fpInst);
         if (kind !== 'recruit') return;
         // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
         updateRecruitPastWarn(fpInst, sv ? new Date(sv) : null);
