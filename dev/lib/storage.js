@@ -552,6 +552,39 @@ async function markAllNotificationsRead() {
   } catch(e) { console.error('[markAllNotificationsRead]', e); }
 }
 
+// 본인 응모 취소 완료 알림 (notifications kind='application_cancelled')
+// 사양 §4-10. RPC 호출 성공 직후 클라이언트가 1건 INSERT.
+// 헤더 햄버거 미읽음 배지에 즉시 반영 + 다른 디바이스 동기 확인 용도.
+async function insertApplicationCancelledNotification(applicationId, campaignTitle) {
+  if (!db) return;
+  try {
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return;
+    // 사양 §4-10 라벨: 「応募を取り消しました — {キャンペーン名}」.
+    // notifications.title 은 INSERT 시점 텍스트가 굳어지므로 일본어 고정
+    // (인플루언서 기본 언어 ja). 다국어 토글은 알림 렌더 코드에서 kind
+    // 기반으로 별도 처리.
+    const titleText = campaignTitle
+      ? `応募を取り消しました — ${campaignTitle}`
+      : '応募を取り消しました';
+    await retryWithRefresh(async () => {
+      const {error} = await db.from('notifications').insert({
+        user_id:   uid,
+        kind:      'application_cancelled',
+        ref_table: 'applications',
+        ref_id:    applicationId,
+        title:     titleText,
+        body:      null
+      });
+      if (error) throw error;
+    });
+  } catch(e) {
+    // 알림 INSERT 실패는 사용자 흐름 차단 안 함 (취소 자체는 RPC 로 이미 성공)
+    console.warn('[insertApplicationCancelledNotification]', e);
+  }
+}
+
 // 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
 async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
@@ -1576,7 +1609,7 @@ async function fetchAdminEmailKinds() {
 // 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
 async function fetchCancelReasons() {
   if (!db) return [];
-  const {data, error} = await db.from('lookup_values')
+  const {data, error} = await db?.from('lookup_values')
     .select('code, name_ko, name_ja, sort_order')
     .eq('kind', 'cancel_reason')
     .eq('active', true)

@@ -1299,7 +1299,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-11 13:52 · 74f18f2</span>
+          <span class="admin-build-text">2026-05-11 14:22 · caa9c40</span>
         </div>
       </div>
     </aside>
@@ -4378,6 +4378,39 @@ async function markAllNotificationsRead() {
   } catch(e) { console.error('[markAllNotificationsRead]', e); }
 }
 
+// 본인 응모 취소 완료 알림 (notifications kind='application_cancelled')
+// 사양 §4-10. RPC 호출 성공 직후 클라이언트가 1건 INSERT.
+// 헤더 햄버거 미읽음 배지에 즉시 반영 + 다른 디바이스 동기 확인 용도.
+async function insertApplicationCancelledNotification(applicationId, campaignTitle) {
+  if (!db) return;
+  try {
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return;
+    // 사양 §4-10 라벨: 「応募を取り消しました — {キャンペーン名}」.
+    // notifications.title 은 INSERT 시점 텍스트가 굳어지므로 일본어 고정
+    // (인플루언서 기본 언어 ja). 다국어 토글은 알림 렌더 코드에서 kind
+    // 기반으로 별도 처리.
+    const titleText = campaignTitle
+      ? `応募を取り消しました — ${campaignTitle}`
+      : '応募を取り消しました';
+    await retryWithRefresh(async () => {
+      const {error} = await db.from('notifications').insert({
+        user_id:   uid,
+        kind:      'application_cancelled',
+        ref_table: 'applications',
+        ref_id:    applicationId,
+        title:     titleText,
+        body:      null
+      });
+      if (error) throw error;
+    });
+  } catch(e) {
+    // 알림 INSERT 실패는 사용자 흐름 차단 안 함 (취소 자체는 RPC 로 이미 성공)
+    console.warn('[insertApplicationCancelledNotification]', e);
+  }
+}
+
 // 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
 async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
@@ -5402,7 +5435,7 @@ async function fetchAdminEmailKinds() {
 // 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
 async function fetchCancelReasons() {
   if (!db) return [];
-  const {data, error} = await db.from('lookup_values')
+  const {data, error} = await db?.from('lookup_values')
     .select('code, name_ko, name_ja, sort_order')
     .eq('kind', 'cancel_reason')
     .eq('active', true)
@@ -5687,13 +5720,24 @@ function getStatusBadge(s) {
   const labels = {
     pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
     approved: (typeof t === 'function' ? t('appHistory.approved') : '当選'),
-    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '落選')
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '落選'),
+    cancelled: (typeof t === 'function' ? t('appHistory.cancelledBadge') : '取消済')
   };
-  const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
+  const m = {
+    pending:   `<span class="badge badge-gold">${labels.pending}</span>`,
+    approved:  `<span class="badge badge-green">${labels.approved}</span>`,
+    rejected:  `<span class="badge badge-gray">${labels.rejected}</span>`,
+    cancelled: `<span class="badge badge-gray">${labels.cancelled}</span>`
+  };
   return m[s] || s;
 }
 function getStatusBadgeKo(s) {
-  const m = {pending:'<span class="badge badge-gold">심사중</span>',approved:'<span class="badge badge-green">승인</span>',rejected:'<span class="badge badge-gray">미승인</span>'};
+  const m = {
+    pending:   '<span class="badge badge-gold">심사중</span>',
+    approved:  '<span class="badge badge-green">승인</span>',
+    rejected:  '<span class="badge badge-gray">미승인</span>',
+    cancelled: '<span class="badge badge-gray">취소됨</span>'
+  };
   return m[s] || s;
 }
 function getChannelBadge(ch) {

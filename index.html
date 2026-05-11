@@ -622,6 +622,75 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- 응모 취소 모달 (migration 104 / 사양 §4-2·§4-3) — 단순형/사유 입력형 통합 -->
+<div class="modal-overlay" id="cancelModal" style="z-index:615">
+  <div class="modal" style="max-width:440px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div id="cancelModalTitle" style="font-size:15px;font-weight:700;color:var(--ink)">応募を取り消しますか？</div>
+      <button onclick="closeCancelModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:18px 20px;overflow-y:auto;flex:1">
+      <input type="hidden" id="cancelModalPhase" value="recruit">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">
+        <span data-i18n="appHistory.title">応募履歴</span>: <strong id="cancelModalCampaign" style="color:var(--ink)"></strong>
+      </div>
+      <!-- 단순형 본문 (cancel_phase = 'recruit') -->
+      <div id="cancelModalSimpleBody" style="font-size:13px;color:var(--ink);line-height:1.7;margin-bottom:14px" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
+      <!-- 사유 입력형 (cancel_phase != 'recruit') -->
+      <div id="cancelModalWarning" style="display:none;background:#FFE9E9;border:1px solid #F5B0B0;border-radius:10px;padding:10px 12px;font-size:12px;color:#9B1C1C;line-height:1.7;margin-bottom:12px">
+        <div style="font-weight:700;margin-bottom:4px">⚠ <span data-i18n="appHistory.cancel.warningOther">注意</span></div>
+        <div id="cancelModalWarningText"></div>
+      </div>
+      <div id="cancelModalReason" style="display:none;margin-bottom:12px">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
+        <select id="cancelModalReasonSelect" class="form-input" style="font-size:14px"></select>
+      </div>
+      <div id="cancelModalNoteWrap" style="display:none;margin-bottom:12px">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
+        <textarea id="cancelModalNote" class="form-input" rows="3" maxlength="500" style="font-size:14px;resize:vertical"></textarea>
+      </div>
+      <div id="cancelModalAckWrap" style="display:none;margin-bottom:12px">
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">
+          <input type="checkbox" id="cancelModalAck" style="margin-top:3px">
+          <span data-i18n="appHistory.cancel.acknowledge">上記の不利益の可能性を理解しました</span>
+        </label>
+      </div>
+      <div id="cancelModalError" class="form-error" style="display:none;margin-bottom:10px"></div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-ghost" onclick="closeCancelModal()" style="flex:1" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
+        <button class="btn btn-primary" id="cancelModalSubmitBtn" onclick="submitCancelApplication()" style="flex:1" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 취소 사유 확인 모달 (취소된 응모이력 카드 클릭 시) -->
+<div class="modal-overlay" id="cancelDetailModal" style="z-index:614">
+  <div class="modal" style="max-width:400px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
+      <button onclick="closeCancelDetailModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:18px 20px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink);line-height:1.8">
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start">
+        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
+        <div id="cancelDetailDatetime"></div>
+        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
+        <div id="cancelDetailCategory"></div>
+        <div id="cancelDetailNoteRow" style="display:contents">
+          <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.note">補足</div>
+          <div id="cancelDetailNote" style="white-space:pre-wrap"></div>
+        </div>
+        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
+        <div id="cancelDetailPhase"></div>
+      </div>
+      <div style="margin-top:16px;text-align:center">
+        <button class="btn btn-ghost" onclick="closeCancelDetailModal()" data-i18n="appHistory.cancelDetail.closeBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
@@ -2025,6 +2094,10 @@ window.I18N_JA = {
     pending: '審査中',
     approved: '当選',
     rejected: '落選',
+    cancelled: '取消',
+    cancelledBadge: '取消済',
+    cancelMenu: '取消',
+    cancelDisabledDeliv: '承認済みの結果物があるため、ご自身で取消できません。管理者にお問い合わせください。',
     campStatus: 'キャンペーン状態',
     sortNewest: '新しい順',
     sortOldest: '古い順',
@@ -2035,6 +2108,47 @@ window.I18N_JA = {
     applyDate: '応募日',
     allChannels: '全チャンネル',
     cautionAgreed: '注意事項同意',
+    cancel: {
+      title: '応募を取り消しますか？',
+      simpleBody: 'この応募を取り消します。よろしいですか？',
+      warningPurchase: '購入期間が開始しているため、取消すと違反記録など不利益を受ける可能性があります。',
+      warningVisit: '訪問期間が開始しているため、取消すと違反記録など不利益を受ける可能性があります。',
+      warningPost: '結果物提出期間または期限が経過しているため、取消すと違反記録など不利益を受ける可能性があります。',
+      warningOther: '現在のキャンペーン状態では取消すと違反記録など不利益を受ける可能性があります。',
+      reasonLabel: '取消理由 (必須)',
+      reasonSelect: 'カテゴリを選択',
+      noteLabel: '補足説明 (任意・最大500文字)',
+      acknowledge: '上記の不利益の可能性を理解しました',
+      confirmBtn: '取り消す',
+      cancelBtn: '戻る',
+      success: '応募を取り消しました',
+      errorOwner: 'このキャンペーンの応募者ではありません',
+      errorStatus: 'すでに取り消されているか、取消できない状態です',
+      errorDeliverable: '承認済みの結果物があるため、ご自身で取消できません',
+      errorReason: '取消理由を選択してください',
+      errorAck: '同意のチェックが必要です',
+      errorGeneric: '取消に失敗しました。再度お試しください',
+    },
+    cancelDetail: {
+      title: '取消の詳細',
+      datetime: '取消日時',
+      category: 'カテゴリ',
+      note: '補足',
+      phase: '取消時の段階',
+      closeBtn: '閉じる',
+    },
+    cancelPhase: {
+      recruit: '募集期間中',
+      purchase: '購入期間',
+      visit: '訪問期間',
+      post: '結果物提出期間後',
+      other: 'その他',
+    },
+    cancelBlocked: {
+      title: 'この応募はキャンセルされました',
+      body: '応募履歴に戻る場合は下のボタンをタップしてください',
+      backBtn: '応募履歴に戻る',
+    },
   },
 
   // 햄버거 메뉴
@@ -2046,6 +2160,7 @@ window.I18N_JA = {
     headerN: 'お知らせ ({n})',
     emptyUnread: '未読の通知はありません',
     refMissing: '関連する成果物が見つかりません',
+    applicationCancelledTitle: '応募を取り消しました',
   },
 
   // 하단 탭 (deprecated — 햄버거 메뉴로 이전)
@@ -2093,6 +2208,8 @@ window.I18N_JA = {
     peopleUnit: '名',
     noSetting: '—',
     applyBtn: '申請',
+    reapplyBtn: '再応募する',
+    reapplyNotice: '以前キャンセルされた応募があります。再度応募しますか？',
     closedBtn: '募集締切',
     fullBtn: '募集終了',
     appliedBtn: '応募済み',
@@ -2486,6 +2603,10 @@ window.I18N_KO = {
     pending: '심사중',
     approved: '당첨',
     rejected: '낙첨',
+    cancelled: '취소',
+    cancelledBadge: '취소됨',
+    cancelMenu: '취소',
+    cancelDisabledDeliv: '승인된 결과물이 있어 본인 취소가 불가합니다. 관리자에게 문의하세요.',
     campStatus: '캠페인 상태',
     sortNewest: '최신순',
     sortOldest: '오래된순',
@@ -2496,6 +2617,47 @@ window.I18N_KO = {
     applyDate: '응모일',
     allChannels: '전체 채널',
     cautionAgreed: '주의사항 동의',
+    cancel: {
+      title: '응모를 취소하시겠습니까?',
+      simpleBody: '이 응모를 취소합니다. 진행할까요?',
+      warningPurchase: '구매 기간이 시작되어 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
+      warningVisit: '방문 기간이 시작되어 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
+      warningPost: '결과물 제출 기간 또는 기한이 경과되어 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
+      warningOther: '현재 캠페인 상태에서는 취소 시 위반 기록 등 불이익을 받을 수 있습니다.',
+      reasonLabel: '취소 사유 (필수)',
+      reasonSelect: '카테고리 선택',
+      noteLabel: '추가 설명 (선택, 최대 500자)',
+      acknowledge: '위 불이익 가능성을 확인했습니다',
+      confirmBtn: '취소',
+      cancelBtn: '돌아가기',
+      success: '응모를 취소했습니다',
+      errorOwner: '이 캠페인의 응모자가 아닙니다',
+      errorStatus: '이미 취소되었거나 취소 불가 상태입니다',
+      errorDeliverable: '승인된 결과물이 있어 본인 취소가 불가합니다',
+      errorReason: '취소 사유를 선택해주세요',
+      errorAck: '동의 체크가 필요합니다',
+      errorGeneric: '취소에 실패했습니다. 다시 시도해주세요',
+    },
+    cancelDetail: {
+      title: '취소 상세',
+      datetime: '취소 일시',
+      category: '카테고리',
+      note: '보충',
+      phase: '취소 시점 단계',
+      closeBtn: '닫기',
+    },
+    cancelPhase: {
+      recruit: '모집 기간 중',
+      purchase: '구매 기간',
+      visit: '방문 기간',
+      post: '결과물 제출 기간 이후',
+      other: '기타',
+    },
+    cancelBlocked: {
+      title: '이 응모는 취소되었습니다',
+      body: '응모 이력으로 돌아가려면 아래 버튼을 누르세요',
+      backBtn: '응모 이력으로',
+    },
   },
 
   menu: {
@@ -2506,6 +2668,7 @@ window.I18N_KO = {
     headerN: '알림 ({n})',
     emptyUnread: '읽지 않은 알림이 없습니다',
     refMissing: '관련 결과물을 찾을 수 없습니다',
+    applicationCancelledTitle: '응모를 취소했습니다',
   },
 
   tab: {
@@ -2548,6 +2711,8 @@ window.I18N_KO = {
     peopleUnit: '명',
     noSetting: '—',
     applyBtn: '응모',
+    reapplyBtn: '재응모',
+    reapplyNotice: '이전에 취소한 응모가 있습니다. 다시 응모하시겠습니까?',
     closedBtn: '모집 마감',
     fullBtn: '모집 종료',
     appliedBtn: '응모 완료',
@@ -3416,6 +3581,39 @@ async function markAllNotificationsRead() {
       if (error) throw error;
     });
   } catch(e) { console.error('[markAllNotificationsRead]', e); }
+}
+
+// 본인 응모 취소 완료 알림 (notifications kind='application_cancelled')
+// 사양 §4-10. RPC 호출 성공 직후 클라이언트가 1건 INSERT.
+// 헤더 햄버거 미읽음 배지에 즉시 반영 + 다른 디바이스 동기 확인 용도.
+async function insertApplicationCancelledNotification(applicationId, campaignTitle) {
+  if (!db) return;
+  try {
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return;
+    // 사양 §4-10 라벨: 「応募を取り消しました — {キャンペーン名}」.
+    // notifications.title 은 INSERT 시점 텍스트가 굳어지므로 일본어 고정
+    // (인플루언서 기본 언어 ja). 다국어 토글은 알림 렌더 코드에서 kind
+    // 기반으로 별도 처리.
+    const titleText = campaignTitle
+      ? `応募を取り消しました — ${campaignTitle}`
+      : '応募を取り消しました';
+    await retryWithRefresh(async () => {
+      const {error} = await db.from('notifications').insert({
+        user_id:   uid,
+        kind:      'application_cancelled',
+        ref_table: 'applications',
+        ref_id:    applicationId,
+        title:     titleText,
+        body:      null
+      });
+      if (error) throw error;
+    });
+  } catch(e) {
+    // 알림 INSERT 실패는 사용자 흐름 차단 안 함 (취소 자체는 RPC 로 이미 성공)
+    console.warn('[insertApplicationCancelledNotification]', e);
+  }
 }
 
 // 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
@@ -4442,7 +4640,7 @@ async function fetchAdminEmailKinds() {
 // 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
 async function fetchCancelReasons() {
   if (!db) return [];
-  const {data, error} = await db.from('lookup_values')
+  const {data, error} = await db?.from('lookup_values')
     .select('code, name_ko, name_ja, sort_order')
     .eq('kind', 'cancel_reason')
     .eq('active', true)
@@ -4881,13 +5079,24 @@ function getStatusBadge(s) {
   const labels = {
     pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
     approved: (typeof t === 'function' ? t('appHistory.approved') : '当選'),
-    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '落選')
+    rejected: (typeof t === 'function' ? t('appHistory.rejected') : '落選'),
+    cancelled: (typeof t === 'function' ? t('appHistory.cancelledBadge') : '取消済')
   };
-  const m = {pending:`<span class="badge badge-gold">${labels.pending}</span>`,approved:`<span class="badge badge-green">${labels.approved}</span>`,rejected:`<span class="badge badge-gray">${labels.rejected}</span>`};
+  const m = {
+    pending:   `<span class="badge badge-gold">${labels.pending}</span>`,
+    approved:  `<span class="badge badge-green">${labels.approved}</span>`,
+    rejected:  `<span class="badge badge-gray">${labels.rejected}</span>`,
+    cancelled: `<span class="badge badge-gray">${labels.cancelled}</span>`
+  };
   return m[s] || s;
 }
 function getStatusBadgeKo(s) {
-  const m = {pending:'<span class="badge badge-gold">심사중</span>',approved:'<span class="badge badge-green">승인</span>',rejected:'<span class="badge badge-gray">미승인</span>'};
+  const m = {
+    pending:   '<span class="badge badge-gold">심사중</span>',
+    approved:  '<span class="badge badge-green">승인</span>',
+    rejected:  '<span class="badge badge-gray">미승인</span>',
+    cancelled: '<span class="badge badge-gray">취소됨</span>'
+  };
   return m[s] || s;
 }
 function getChannelBadge(ch) {
@@ -6144,10 +6353,27 @@ async function openCampaign(id) {
 
   let alreadyApplied = false;
   let _myApp = null;
+  let hasCancelledHistory = false;
   if (currentUser) {
-    const {data:_appData} = await (db?.from('applications').select('*').eq('user_id', currentUser.id).eq('campaign_id', id).maybeSingle() || {data:null});
+    // partial unique index 가 cancelled 가 아닌 행 1개만 보장하므로
+    // .neq('status', 'cancelled') 로 활성 행만 단일 조회. cancelled 이력은 별도 확인.
+    const {data:_appData} = await (db?.from('applications').select('*')
+      .eq('user_id', currentUser.id)
+      .eq('campaign_id', id)
+      .neq('status', 'cancelled')
+      .maybeSingle() || {data:null});
     _myApp = _appData;
     alreadyApplied = !!_myApp;
+    if (!alreadyApplied) {
+      // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 확인 → 재응모 동선
+      const {data:_cancelled} = await (db?.from('applications').select('id')
+        .eq('user_id', currentUser.id)
+        .eq('campaign_id', id)
+        .eq('status', 'cancelled')
+        .limit(1)
+        .maybeSingle() || {data:null});
+      hasCancelledHistory = !!_cancelled;
+    }
   }
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
@@ -6372,7 +6598,27 @@ async function openCampaign(id) {
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='closed') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (isFull) { floatApplyBtn.textContent=t('detail.fullBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (hasCancelledHistory) {
+      // 사양 §4-9: 본인이 과거 취소한 캠페인 → 「再応募する」 라벨 + 안내 박스
+      floatApplyBtn.textContent=t('detail.reapplyBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
+      floatApplyBtn.onclick=()=>handleFloatApply();
+    }
     else { floatApplyBtn.textContent=t('detail.applyBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    // 재응모 안내 박스 (버튼 위에 회색 한 줄)
+    const reapplyNoticeId = 'detailReapplyNotice';
+    let reapplyNotice = document.getElementById(reapplyNoticeId);
+    if (hasCancelledHistory && !alreadyApplied && _myApp?.status !== 'approved' && camp.status !== 'closed' && !isFull) {
+      if (!reapplyNotice) {
+        reapplyNotice = document.createElement('div');
+        reapplyNotice.id = reapplyNoticeId;
+        reapplyNotice.style.cssText = 'background:#F5F5F5;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center';
+        floatApplyBtn.parentNode?.insertBefore(reapplyNotice, floatApplyBtn);
+      }
+      reapplyNotice.textContent = t('detail.reapplyNotice');
+      reapplyNotice.style.display = '';
+    } else if (reapplyNotice) {
+      reapplyNotice.style.display = 'none';
+    }
   }
   if (fb) fb.style.display='block';
 
@@ -6638,6 +6884,44 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityFrom = from || 'detail';
   const camp = allCampaigns.find(c=>c.id===campaignId) || {};
   _activityCamp = camp;
+  // 사양 §4-8: cancelled 신청은 활동관리 진입 자체 차단.
+  // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
+  // 진입한 경우에도 동일 분기.
+  const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  if (typeof navigate === 'function') navigate('activity');
+  if (isCancelled) {
+    const root = $('page-activity');
+    if (root) {
+      // 첫 차단 진입일 때만 안내 패널 삽입. 이후 다른 신청 열면 원래 폼이 다시 표시되어야 하므로 plain 패널만 추가.
+      let blocked = $('activityCancelledNotice');
+      if (!blocked) {
+        blocked = document.createElement('div');
+        blocked.id = 'activityCancelledNotice';
+        blocked.style.cssText = 'padding:40px 20px;text-align:center;background:#F5F5F5;border-radius:14px;margin:20px';
+        blocked.innerHTML = `
+          <div style="font-size:36px;color:var(--muted);margin-bottom:12px"><span class="material-icons-round notranslate" translate="no" style="font-size:48px">cancel</span></div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="appHistory.cancelBlocked.title">この応募はキャンセルされました</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7" data-i18n="appHistory.cancelBlocked.body">応募履歴に戻る場合は下のボタンをタップ</div>
+          <button class="btn btn-primary" onclick="navigate('mypage');openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
+        // 페이지 헤더 + 안내. 다른 폼/섹션은 모두 가린다.
+        const main = root.querySelector('.page-content') || root;
+        // 기존 자식 모두 숨김 후 안내만 노출
+        Array.from(main.children).forEach(ch => { ch.style.display = 'none'; });
+        main.appendChild(blocked);
+      } else {
+        blocked.style.display = '';
+      }
+      if (typeof applyI18n === 'function') applyI18n();
+    }
+    return;
+  }
+  // cancelled 가 아닌 정상 진입 — 차단 패널이 이전에 삽입되어 있으면 숨기고 폼을 복원
+  const prevBlocked = $('activityCancelledNotice');
+  if (prevBlocked && prevBlocked.parentNode) {
+    const main = prevBlocked.parentNode;
+    Array.from(main.children).forEach(ch => { ch.style.display = ''; });
+    prevBlocked.style.display = 'none';
+  }
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
   const rtLabel = $('activityRecruitLabel');
@@ -7509,9 +7793,15 @@ async function loadMyApplications() {
 function renderMyApplyTabs() {
   const tabs = $('myApplyTabs');
   if (!tabs) return;
-  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0};
+  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0, cancelled: 0};
   _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
-  const labels = {all: t('appHistory.all'), pending: t('appHistory.pending'), approved: t('appHistory.approved'), rejected: t('appHistory.rejected')};
+  const labels = {
+    all:       t('appHistory.all'),
+    pending:   t('appHistory.pending'),
+    approved:  t('appHistory.approved'),
+    rejected:  t('appHistory.rejected'),
+    cancelled: t('appHistory.cancelled')
+  };
   tabs.innerHTML = Object.keys(labels).map(k =>
     `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
   ).join('');
@@ -7572,7 +7862,31 @@ async function renderMyApplyList() {
     const thumb = imgs[0]
       ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
-    const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
+    // 카드 클릭 동선:
+    //   - cancelled: 사유 확인 모달 (openCancelDetailModal)
+    //   - approved: 활동관리 페이지 (단, cancelled 였다가 재진입이라면 사양 §4-8에 따라 차단)
+    //   - 그 외: 캠페인 상세
+    const clickAction = a.status==='cancelled'
+      ? `onclick="openCancelDetailModal('${a.id}')"`
+      : (a.status==='approved'
+          ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"`
+          : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`);
+    // ⋮ 메뉴: 본인 취소 가능 여부 판단
+    //   - pending/approved 만 후보
+    //   - 결과물 1건이라도 approved 면 비활성 (DB 트리거가 차단하지만 UX 차원에서 미리 막음)
+    //   - cancelled/rejected 는 메뉴 자체 비표시
+    let menuHtml = '';
+    if (a.status === 'pending' || a.status === 'approved') {
+      const ds = (_myDelivsByApp[a.id] || []);
+      const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+      menuHtml = hasApprovedDeliv
+        ? `<button type="button" class="apply-card-menu-btn" disabled title="${esc(t('appHistory.cancelDisabledDeliv'))}" onclick="event.stopPropagation()" aria-label="${esc(t('appHistory.cancelMenu'))}" style="opacity:.4;cursor:not-allowed"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`
+        : `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openCancelModalFor('${a.id}')" aria-label="${esc(t('appHistory.cancelMenu'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">more_vert</span></button>`;
+    }
+    // cancelled 행: 취소일 표시
+    const cancelledLine = a.status === 'cancelled' && a.cancelled_at
+      ? `<div class="apply-item-cancelled-at" style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('appHistory.cancelDetail.datetime'))}: ${formatDate(a.cancelled_at)}</div>`
+      : '';
     // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
     // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
     // monitor 캠페인은 영수증·리뷰 캡쳐 두 단계가 별도 진행 → 라벨도 두 줄로 표시.
@@ -7606,15 +7920,16 @@ async function renderMyApplyList() {
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
-    return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
+    return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
         <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
+        ${cancelledLine}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}${menuHtml ? `<div class="apply-item-menu">${menuHtml}</div>` : ''}</div>
     </div>`;
   }).join('');
 }
@@ -7803,6 +8118,174 @@ function populateMyApplyChannelOptions() {
   if (prev && channels.includes(prev)) sel.value = prev;
 }
 // Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨
+
+// ════════════════════════════════════════════════════════════════════
+// 신청 본인 취소 (migration 104, 사양 docs/specs/2026-05-11-application-cancel.md §4)
+// ════════════════════════════════════════════════════════════════════
+
+let _cancelTargetAppId = null;
+let _cancelReasonsCache = null;
+
+// 클라이언트측 cancel_phase 계산 — 서버 RPC 의 CASE 와 동일 우선순위.
+// 모달 분기(단순 vs 사유 입력)와 phase 라벨 표시에 사용. 서버가 최종 검증.
+function _computeCancelPhase(camp) {
+  if (!camp) return 'other';
+  const now = Date.now();
+  const toMs = (d) => d ? Date.parse(d) : null;
+  const recruitDeadline = toMs(camp.deadline);
+  const purchaseStart = toMs(camp.purchase_start);
+  const purchaseEnd   = toMs(camp.purchase_end);
+  const visitStart    = toMs(camp.visit_start);
+  const visitEnd      = toMs(camp.visit_end);
+  const submissionEnd = toMs(camp.submission_end);
+  if (purchaseStart && now >= purchaseStart && (!purchaseEnd || now <= purchaseEnd)) return 'purchase';
+  if (visitStart    && now >= visitStart    && (!visitEnd    || now <= visitEnd))    return 'visit';
+  if (submissionEnd && now > submissionEnd) return 'post';
+  if (purchaseEnd   && now > purchaseEnd)   return 'post';
+  if (visitEnd      && now > visitEnd)      return 'post';
+  if (recruitDeadline && now <= recruitDeadline) return 'recruit';
+  return 'other';
+}
+
+async function openCancelModalFor(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  const camp = allCampaigns.find(c => c.id === app.campaign_id) || {};
+  _cancelTargetAppId = appId;
+  const phase = _computeCancelPhase(camp);
+  const titleEl = $('cancelModalTitle');
+  if (titleEl) titleEl.textContent = t('appHistory.cancel.title');
+  const campNameEl = $('cancelModalCampaign');
+  if (campNameEl) campNameEl.textContent = camp.title || app.campaign_id || '';
+  // recruit 단계: 단순형 — 경고/사유/동의 영역 숨김
+  const isSimple = phase === 'recruit';
+  const warnBox  = $('cancelModalWarning');
+  const reasonBox = $('cancelModalReason');
+  const noteBox  = $('cancelModalNoteWrap');
+  const ackBox   = $('cancelModalAckWrap');
+  const simpleBody = $('cancelModalSimpleBody');
+  if (warnBox)   warnBox.style.display   = isSimple ? 'none' : 'block';
+  if (reasonBox) reasonBox.style.display = isSimple ? 'none' : 'block';
+  if (noteBox)   noteBox.style.display   = isSimple ? 'none' : 'block';
+  if (ackBox)    ackBox.style.display    = isSimple ? 'none' : 'block';
+  if (simpleBody) simpleBody.style.display = isSimple ? 'block' : 'none';
+  // 경고 카피
+  const warnTextEl = $('cancelModalWarningText');
+  if (warnTextEl && !isSimple) {
+    const key = `appHistory.cancel.warning${phase.charAt(0).toUpperCase()}${phase.slice(1)}`;
+    warnTextEl.textContent = t(key);
+  }
+  // 사유 셀렉트: 카탈로그 캐시
+  if (!isSimple) {
+    if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
+    const sel = $('cancelModalReasonSelect');
+    if (sel) {
+      const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
+      const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(r.name_ja || r.name_ko)}</option>`).join('');
+      sel.innerHTML = placeholder + opts;
+      sel.value = '';
+    }
+    const note = $('cancelModalNote');
+    if (note) note.value = '';
+    const ack = $('cancelModalAck');
+    if (ack) ack.checked = false;
+  }
+  // phase 정보 hidden
+  const phaseEl = $('cancelModalPhase');
+  if (phaseEl) phaseEl.value = phase;
+  // 에러 메시지 영역 초기화
+  const errEl = $('cancelModalError');
+  if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+  openModal('cancelModal');
+}
+
+function closeCancelModal() {
+  closeModal('cancelModal');
+  _cancelTargetAppId = null;
+}
+
+async function submitCancelApplication() {
+  if (!_cancelTargetAppId) return;
+  const phase = $('cancelModalPhase')?.value || 'other';
+  const isSimple = phase === 'recruit';
+  const errEl = $('cancelModalError');
+  const showErr = (msg) => {
+    if (!errEl) { toast(msg, 'error'); return; }
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+  };
+  let reasonCode = null, reasonNote = null, acknowledged = false;
+  if (!isSimple) {
+    reasonCode = $('cancelModalReasonSelect')?.value || '';
+    reasonNote = $('cancelModalNote')?.value || '';
+    acknowledged = !!$('cancelModalAck')?.checked;
+    if (!reasonCode) { showErr(t('appHistory.cancel.errorReason')); return; }
+    if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
+    if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
+  }
+  const submitBtn = $('cancelModalSubmitBtn');
+  if (submitBtn) submitBtn.disabled = true;
+  const res = await cancelApplication(_cancelTargetAppId, {
+    reasonCode: reasonCode || null,
+    reasonNote: reasonNote || null,
+    acknowledged
+  });
+  if (submitBtn) submitBtn.disabled = false;
+  if (!res.ok) {
+    const errKey = {
+      'not_owner':                    'appHistory.cancel.errorOwner',
+      'invalid_status':               'appHistory.cancel.errorStatus',
+      'deliverable_already_approved': 'appHistory.cancel.errorDeliverable',
+      'reason_required':              'appHistory.cancel.errorReason',
+      'acknowledgement_required':     'appHistory.cancel.errorAck'
+    }[res.error] || 'appHistory.cancel.errorGeneric';
+    showErr(t(errKey));
+    return;
+  }
+  // 성공 — 캠페인 정보로 알림 생성, 토스트, 닫기, 응모이력 새로고침
+  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === _cancelTargetAppId)?.campaign_id)) || {};
+  try {
+    if (typeof insertApplicationCancelledNotification === 'function') {
+      await insertApplicationCancelledNotification(_cancelTargetAppId, camp.title || '');
+    }
+  } catch(_e) { /* 알림 실패는 사용자 흐름 차단 안 함 */ }
+  toast(t('appHistory.cancel.success'));
+  closeCancelModal();
+  await loadMyApplications();
+}
+
+async function openCancelDetailModal(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
+  const reason = _cancelReasonsCache.find(r => r.code === app.cancel_reason_code);
+  const setText = (id, text) => { const el = $(id); if (el) el.textContent = text || ''; };
+  setText('cancelDetailDatetime', app.cancelled_at ? formatDate(app.cancelled_at) : '—');
+  setText('cancelDetailCategory', reason ? (reason.name_ja || reason.name_ko) : '—');
+  setText('cancelDetailPhase', t(`appHistory.cancelPhase.${app.cancel_phase || 'other'}`));
+  // 보충 텍스트는 있을 때만 행 노출.
+  // noteRow 는 display:contents 로 grid 가상 행이라 'none'↔'contents' 로 명시 복원.
+  const noteRow = $('cancelDetailNoteRow');
+  const noteEl  = $('cancelDetailNote');
+  if (app.cancel_reason && app.cancel_reason.trim()) {
+    if (noteEl) noteEl.textContent = app.cancel_reason;
+    if (noteRow) noteRow.style.display = 'contents';
+  } else {
+    if (noteRow) noteRow.style.display = 'none';
+  }
+  openModal('cancelDetailModal');
+}
+
+function closeCancelDetailModal() {
+  closeModal('cancelDetailModal');
+}
+
+// 활동관리 페이지 진입 시 호출 — cancelled 신청이면 회색 안내 화면으로 차단
+// dev/js/application.js 의 openActivityPage / 활동관리 라우팅에서 사용
+function isApplicationCancelled(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  return !!(app && app.status === 'cancelled');
+}
 
 // ══════════════════════════════════════
 // NAVIGATION + INIT
