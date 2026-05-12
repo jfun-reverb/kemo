@@ -1102,31 +1102,45 @@ function renderBrandAppBundleCard(a) {
           ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--pink);text-decoration:none">' + esc(p.url) + '</a>'
           : '<span title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--muted)">' + esc(p.url) + '</span>')
       : dash;
+    // 숫자 컬럼들은 nowrap 으로 한 줄 보장 (¥ / ₩ + 쉼표 표기가 두 줄로 잘리지 않게).
+    var numCellBase = 'text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px;white-space:nowrap';
     return '<tr>'
-      + '<td style="font-weight:600;font-size:11px;padding:6px 8px">' + (p.name ? esc(p.name) : dash)
+      + '<td style="font-weight:600;font-size:11px;padding:6px 8px;word-break:break-word">' + (p.name ? esc(p.name) : dash)
         + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
       + '</td>'
-      + '<td style="font-size:10px;padding:6px 8px;max-width:220px;line-height:1.4">' + urlCell + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (rfee != null ? fmtKrw(rfee) : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (tfee != null ? fmtKrw(tfee) : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;font-weight:600;padding:6px 8px">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
+      + '<td style="font-size:10px;padding:6px 8px;line-height:1.4">' + urlCell + '</td>'
+      + '<td style="' + numCellBase + '">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (rfee != null ? fmtKrw(rfee) : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (tfee != null ? fmtKrw(tfee) : dash) + '</td>'
+      + '<td style="' + numCellBase + ';font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
     + '</tr>';
   }).join('');
 
+  // 수량 ~ 소계 컬럼은 숫자 ¥/₩ 표기로 줄바꿈이 생기지 않도록 최소 폭 지정.
+  // 모달 폭(1280px) 확대 + 컬럼별 nowrap + colgroup 으로 안정 레이아웃.
   var bodyHtml = '<div data-bundle-body style="display:none;background:#fff;border-top:1px solid var(--line)">'
-    + '<table class="data-table" style="width:100%;font-size:11px;margin:0">'
+    + '<table class="data-table" style="width:100%;font-size:11px;margin:0;table-layout:fixed">'
+      + '<colgroup>'
+        + '<col style="width:18%">'      // 제품명
+        + '<col style="width:24%">'      // URL
+        + '<col style="width:58px">'     // 수량
+        + '<col style="width:90px">'     // 가격(엔)
+        + '<col style="width:100px">'    // 가격(원)
+        + '<col style="width:90px">'     // 모집비
+        + '<col style="width:100px">'    // 이체수수료
+        + '<col style="width:110px">'    // 소계
+      + '</colgroup>'
       + '<thead><tr style="background:var(--surface-dim)">'
         + '<th style="padding:6px 8px;text-align:left">제품명</th>'
         + '<th style="padding:6px 8px;text-align:left">URL</th>'
-        + '<th style="text-align:right;padding:6px 8px">수량</th>'
-        + '<th style="text-align:right;padding:6px 8px">가격(엔)</th>'
-        + '<th style="text-align:right;padding:6px 8px">가격(원)</th>'
-        + '<th style="text-align:right;padding:6px 8px">모집비</th>'
-        + '<th style="text-align:right;padding:6px 8px">이체수수료</th>'
-        + '<th style="text-align:right;padding:6px 8px">소계</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">수량</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">가격(엔)</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">가격(원)</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">모집비</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">이체수수료</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">소계</th>'
       + '</tr></thead>'
       + '<tbody>' + (bodyRows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:14px">제품 정보 없음</td></tr>') + '</tbody>'
     + '</table>'
