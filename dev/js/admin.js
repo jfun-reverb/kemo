@@ -4454,13 +4454,16 @@ async function loadAdminAccounts() {
   const renderMailCell = a => {
     const codes = subs[a.id] || [];
     const chips = codes.length
-      ? codes.map(c => `<span class="badge badge-gray" style="font-size:11px;padding:2px 8px;border-radius:10px">${esc(kindLabel(c))}</span>`).join(' ')
+      ? codes.map(c => `<span class="badge badge-gray" style="font-size:10px;padding:1px 6px;border-radius:8px;line-height:1.5;white-space:nowrap">${esc(kindLabel(c))}</span>`).join(' ')
       : '<span style="color:var(--muted);font-size:12px">—</span>';
     const canEdit = isSuper || a.auth_id === currentUser?.id;
     const btn = canEdit
-      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)" style="margin-left:6px">설정</button>`
+      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)">설정</button>`
       : '';
-    return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">${chips}${btn}</div>`;
+    return `<div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px">${chips}</div>
+      ${btn}
+    </div>`;
   };
 
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>

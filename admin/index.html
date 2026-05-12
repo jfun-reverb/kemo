@@ -1301,7 +1301,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-11 18:43 · 7d45b23</span>
+          <span class="admin-build-text">2026-05-12 11:28 · c3f21a9</span>
         </div>
       </div>
     </aside>
@@ -2663,7 +2663,7 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:110px;text-align:center" title="브랜드 서베이 접수 시 알림 메일 수신">설문 메일받기</th><th>등록일</th><th>처리</th></tr></thead>
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th>등록일</th><th>처리</th></tr></thead>
               <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
@@ -14091,13 +14091,16 @@ async function loadAdminAccounts() {
   const renderMailCell = a => {
     const codes = subs[a.id] || [];
     const chips = codes.length
-      ? codes.map(c => `<span class="badge badge-gray" style="font-size:11px;padding:2px 8px;border-radius:10px">${esc(kindLabel(c))}</span>`).join(' ')
+      ? codes.map(c => `<span class="badge badge-gray" style="font-size:10px;padding:1px 6px;border-radius:8px;line-height:1.5;white-space:nowrap">${esc(kindLabel(c))}</span>`).join(' ')
       : '<span style="color:var(--muted);font-size:12px">—</span>';
     const canEdit = isSuper || a.auth_id === currentUser?.id;
     const btn = canEdit
-      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)" style="margin-left:6px">설정</button>`
+      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)">설정</button>`
       : '';
-    return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">${chips}${btn}</div>`;
+    return `<div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px">${chips}</div>
+      ${btn}
+    </div>`;
   };
 
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>
