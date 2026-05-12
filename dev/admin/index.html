@@ -7,6 +7,25 @@
 <title>REVERB Admin</title>
 <link id="appFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%232D1F2B'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>A</text></svg>">
 <script>
+// 빌드 시 build.sh 가 BUILD_ID placeholder 를 VERSION 타임스탬프로 치환.
+// 옛 빌드 페이지가 메모리·디스크 캐시에 남아 있다가 새 빌드와 시그니처 불일치로 throw 하는
+// 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
+// sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
+(function(){
+  var CURRENT_BUILD = '__BUILD_ID__';
+  if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
+  try {
+    var prev = sessionStorage.getItem('reverb.adminBuild');
+    if (prev && prev !== CURRENT_BUILD) {
+      sessionStorage.setItem('reverb.adminBuild', CURRENT_BUILD);
+      location.reload();
+      return;
+    }
+    sessionStorage.setItem('reverb.adminBuild', CURRENT_BUILD);
+  } catch (_e) { /* sessionStorage 차단 환경은 무시 */ }
+})();
+</script>
+<script>
 (function(){
   if (!/^(www\.)?globalreverb\.com$/.test(location.hostname)) {
     document.title = '[DEV] REVERB Admin';
@@ -1298,10 +1317,6 @@
                 <label>폼 종류</label>
                 <div id="brandAppFormMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 폼</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>상태</label>
-                <div id="brandAppStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
-              </div>
               <div class="admin-filter-group" style="min-width:240px">
                 <label>신청 기간</label>
                 <input type="text" id="brandAppDateRange" class="admin-filter" autocomplete="off" placeholder="시작일 ~ 종료일" readonly>
@@ -1323,6 +1338,8 @@
                 </div>
               </div>
             </div>
+            <!-- 상태별 탭 바 (11개 탭 — JS가 동적으로 렌더). 필터 줄 아래·신청목록 카드 바로 위에 위치 -->
+            <div id="brandAppStatusTabBar" class="status-tab-bar" style="margin-top:16px;margin-bottom:2px"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -1357,11 +1374,13 @@
                 <th style="width:100px">상품 가격(원) <span class="col-help" data-tooltip="상품 가격(엔) × 10  (환율 ¥1 = ₩10)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:130px">모집비 <span class="col-help" data-tooltip="제품별 단가 직접 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">이체수수료(건)</th>
-                <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT 시 고정)&#10;reviewer: (∑ 엔가격×수량×10 + ∑ 수량×₩2,500) × 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비는 미포함&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
+                <th style="width:120px">최종견적금액 <span class="col-help" data-tooltip="VAT 미포함 견적 금액. 「VAT 포함」 컬럼을 1.1로 나눈 값 (반올림).&#10;reviewer: ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료)&#10;seeding: 0 (수동 협의)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:120px">VAT 포함 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT/UPDATE 시 재계산)&#10;reviewer: ( ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료) ) × VAT 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비·이체수수료 미입력 시 0 (이체수수료는 ₩2,500 자동 채움)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
+                <th style="width:130px">오리엔트 전달</th>
                 <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="25" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="28" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -1467,7 +1486,7 @@
             </div>
             <div class="admin-table-wrap">
             <table class="data-table">
-              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:110px;text-align:center" title="브랜드 서베이 접수 시 알림 메일 수신">설문 메일받기</th><th>등록일</th><th>처리</th></tr></thead>
+              <thead><tr><th>이름</th><th>이메일</th><th>권한</th><th style="width:240px" title="이 관리자가 수신 중인 알림 메일 종류">수신 메일</th><th>등록일</th><th>처리</th></tr></thead>
               <tbody id="adminAccountsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
@@ -2114,7 +2133,7 @@
 <!-- 관리자 직접 신청 등록 모달 (091 admin_create_brand_application) -->
 <div class="modal-overlay" id="newBrandAppModal" style="z-index:612">
   <style>#newBrandAppModal .form-input,#newBrandAppModal select.form-input,#newBrandAppModal textarea.form-input{font-size:14px}</style>
-  <div class="modal" style="max-width:880px;width:96vw;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+  <div class="modal" style="width:80vw;max-width:1600px;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div>
         <div id="nbaModalTitle" style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 서베이 신청 등록</div>
@@ -2215,11 +2234,12 @@
           <span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>제품 추가
         </button>
       </div>
-      <div id="nbaProductHead" style="display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
+      <div id="nbaProductHead" style="display:grid;grid-template-columns:1.4fr 1.4fr 100px 90px 120px 120px 1fr 32px;gap:8px;padding:0 10px;margin-bottom:6px;font-size:11px;color:var(--muted);font-weight:600">
         <div>제품명</div>
         <div>제품명 일본어 <span style="font-size:9px;color:var(--muted)">(선택)</span></div>
         <div>단가 (¥)</div>
         <div>수량</div>
+        <div>모집비 <span style="font-size:9px;color:var(--muted)">(원)</span></div>
         <div>이체수수료 <span style="font-size:9px;color:var(--muted)">(원)</span></div>
         <div>URL</div>
         <div></div>

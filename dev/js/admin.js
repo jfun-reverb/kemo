@@ -301,9 +301,7 @@ function initMultiFilters() {
   createMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer',label:'리뷰어'},{value:'seeding',label:'나노 시딩'}
   ], () => renderBrandApplicationsList());
-  createMultiFilter('brandAppStatusMulti', '전체 상태', [
-    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'kakao_room_created',label:'카톡방 생성'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
-  ], () => renderBrandApplicationsList());
+  // brandAppStatusMulti 드롭다운은 상태 탭 바로 대체됨 (admin-brand.js의 renderBrandAppStatusTabs)
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -4454,13 +4452,16 @@ async function loadAdminAccounts() {
   const renderMailCell = a => {
     const codes = subs[a.id] || [];
     const chips = codes.length
-      ? codes.map(c => `<span class="badge badge-gray" style="font-size:11px;padding:2px 8px;border-radius:10px">${esc(kindLabel(c))}</span>`).join(' ')
+      ? codes.map(c => `<span class="badge badge-gray" style="font-size:10px;padding:1px 6px;border-radius:8px;line-height:1.5;white-space:nowrap">${esc(kindLabel(c))}</span>`).join(' ')
       : '<span style="color:var(--muted);font-size:12px">—</span>';
     const canEdit = isSuper || a.auth_id === currentUser?.id;
     const btn = canEdit
-      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)" style="margin-left:6px">설정</button>`
+      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)">설정</button>`
       : '';
-    return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">${chips}${btn}</div>`;
+    return `<div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:4px">${chips}</div>
+      ${btn}
+    </div>`;
   };
 
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>

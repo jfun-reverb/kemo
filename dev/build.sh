@@ -114,6 +114,8 @@ html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|stor
 # 사이드바 최하단 빌드 버전 placeholder 치환
 html = html.replace("__BUILD_DATETIME_KST__", build_datetime_kst)
 html = html.replace("__GIT_SHA_SHORT__", git_sha_short)
+# 빌드 시각 기반 ID — admin <head>의 buildId 자동 reload guard 가 사용
+html = html.replace("__BUILD_ID__", version)
 
 version_comment = f"<!-- {version} -->"
 style_block = f"<style>\n{all_css}</style>\n"

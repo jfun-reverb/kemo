@@ -24,6 +24,95 @@ var _brandApps = [];          // 캐시된 전체 목록
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
+// 상태 탭 현재 활성값 — null = 전체, 문자열 = 특정 상태 코드
+var _brandAppActiveStatusTab = null;
+
+// 상태 탭 순서 및 라벨 정의 (상세 모달 상태 드롭다운 라벨과 통일)
+var BRAND_APP_STATUS_TABS = [
+  {code: null,                 label: '전체'},
+  {code: 'new',                label: '신규'},
+  {code: 'reviewing',          label: '검토중'},
+  {code: 'quoted',             label: '견적 전달'},
+  {code: 'paid',               label: '입금완료'},
+  {code: 'kakao_room_created', label: '카톡방 생성'},
+  {code: 'orient_sheet_sent',  label: '오리엔트 전달'},
+  {code: 'schedule_sent',      label: '일정 전달'},
+  {code: 'campaign_registered',label: '캠페인 등록'},
+  {code: 'done',               label: '최종완료'},
+  {code: 'rejected',           label: '반려'},
+];
+
+// URL 해시 쿼리에서 특정 파라미터 추출
+// 예: #brand-applications?status=new → 'new'
+function parseHashQuery(paramName) {
+  var hash = location.hash || '';
+  var qIdx = hash.indexOf('?');
+  if (qIdx < 0) return null;
+  var qs = hash.slice(qIdx + 1);
+  var pairs = qs.split('&');
+  for (var i = 0; i < pairs.length; i++) {
+    var kv = pairs[i].split('=');
+    if (decodeURIComponent(kv[0]) === paramName) {
+      return kv[1] ? decodeURIComponent(kv[1]) : null;
+    }
+  }
+  return null;
+}
+
+// URL 해시를 현재 탭 상태에 맞게 갱신 (history 스택 오염 없이 replace)
+function syncBrandAppStatusTabHash() {
+  var base = '#brand-applications';
+  var next = _brandAppActiveStatusTab ? base + '?status=' + encodeURIComponent(_brandAppActiveStatusTab) : base;
+  if (location.hash !== next) {
+    history.replaceState(null, '', next);
+  }
+}
+
+// 탭 바 렌더 + 건수 계산
+// baseCounts: 현재 폼타입·기간·검색 필터 적용 후 상태별 건수 맵 {statusCode: n}
+function renderBrandAppStatusTabs(baseCounts) {
+  var bar = $('brandAppStatusTabBar');
+  if (!bar) return;
+  baseCounts = baseCounts || {}; // null/undefined 가드 (catch 경로에서 빈 객체로 호출됨)
+  var totalAll = Object.values(baseCounts).reduce(function(sum, n){ return sum + n; }, 0);
+  bar.innerHTML = BRAND_APP_STATUS_TABS.map(function(tab) {
+    var n = tab.code === null ? totalAll : (baseCounts[tab.code] || 0);
+    var isOn = (tab.code === null && _brandAppActiveStatusTab === null)
+            || (tab.code !== null && tab.code === _brandAppActiveStatusTab);
+    var zeroClass = n === 0 && tab.code !== null ? ' zero-count' : '';
+    var onClass = isOn ? ' on' : '';
+    // data-status 속성: 전체 탭은 빈 문자열
+    var dataStatus = tab.code !== null ? esc(tab.code) : '';
+    return '<button type="button" class="status-tab-btn' + onClass + zeroClass + '"'
+      + ' data-status="' + dataStatus + '"'
+      + ' onclick="setBrandAppStatusTab(this)">'
+      + esc(tab.label)
+      + '<span class="tab-count">(' + n + ')</span>'
+      + '</button>';
+  }).join('');
+}
+
+// 탭 클릭 핸들러
+function setBrandAppStatusTab(btn) {
+  var code = btn.dataset.status || null; // 빈 문자열이면 null(전체)
+  if (code === '') code = null;
+  _brandAppActiveStatusTab = code;
+  syncBrandAppStatusTabHash();
+  renderBrandApplicationsList();
+}
+
+// updateBrandApplication 응답을 메모리 cur 에 동기화.
+// products 변경 시 052/111 트리거가 서버에서 재계산한 estimated_krw /
+// total_jpy / total_qty 까지 즉시 반영해 새로고침 없이 「예상 견적」 등
+// 의존 셀이 갱신되도록 한다.
+function _syncBrandAppCur(cur, result, fallbackVersion) {
+  if (!cur || !result || !result.data) return;
+  cur.version = (result.data.version != null) ? result.data.version : (fallbackVersion + 1);
+  if (result.data.estimated_krw != null) cur.estimated_krw = result.data.estimated_krw;
+  if (result.data.total_jpy != null) cur.total_jpy = result.data.total_jpy;
+  if (result.data.total_qty != null) cur.total_qty = result.data.total_qty;
+}
+
 // 상태 라벨·컬러 (객체 키 순서가 드롭다운 옵션 순서)
 var BRAND_APP_STATUS = {
   'new':                 {label:'신규',             color:'#C33',   bg:'#FEE'},
@@ -130,7 +219,7 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (expectedVersion + 1);
+  _syncBrandAppCur(cur, result, expectedVersion);
   _refreshBrandAppHistoryButton(id);
   // 상태 변경은 필터 (NN)건 카운트와 매칭 행 노출에 즉시 영향 — 목록 전체 재렌더
   // 일정 인라인 편집과는 다른 흐름이라 의도적으로 셀-only 재렌더 미사용
@@ -348,7 +437,13 @@ async function exportBrandApplicationsExcel() {
     var yyyy = ts.getFullYear();
     var mm = String(ts.getMonth()+1).padStart(2,'0');
     var dd = String(ts.getDate()).padStart(2,'0');
-    a.download = `brand-survey-${yyyy}${mm}${dd}.xlsx`;
+    // 탭 필터 중이면 파일명에 상태 라벨 포함
+    var tabSuffix = '';
+    if (_brandAppActiveStatusTab) {
+      var activeTab = BRAND_APP_STATUS_TABS.find(function(t){ return t.code === _brandAppActiveStatusTab; });
+      if (activeTab) tabSuffix = '-' + activeTab.label;
+    }
+    a.download = `brand-survey${tabSuffix}-${yyyy}${mm}${dd}.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1291,18 +1386,44 @@ async function submitNewBrand() {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="24" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
-  // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
-  var [apps, counts, memoSummaries] = await Promise.all([
-    fetchBrandApplications(),
-    fetchBrandAppHistoryCounts(),
-    fetchBrandAppMemoSummaries()
-  ]);
-  _brandApps = apps;
-  _brandAppHistoryCounts = counts || {};
-  _brandAppMemoSummaries = memoSummaries || {};
-  renderBrandApplicationsList();
-  refreshBrandAppBadge();
+  if (tbody) tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+
+  try {
+    // URL 해시 쿼리에서 status 파라미터 파싱
+    //   화이트리스트 통과: 해당 탭 활성
+    //   미통과(옛 status 값이 hash에 남은 사용자): _brandAppActiveStatusTab=null + #brand-applications로 강제 정리
+    var hashStatus = parseHashQuery('status');
+    if (hashStatus) {
+      if (BRAND_APP_STATUS_TABS.some(function(t){ return t.code === hashStatus; })) {
+        _brandAppActiveStatusTab = hashStatus;
+      } else {
+        _brandAppActiveStatusTab = null;
+        try { history.replaceState(null, '', '#brand-applications'); } catch (_e) {}
+      }
+    }
+
+    // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
+    var [apps, counts, memoSummaries] = await Promise.all([
+      fetchBrandApplications(),
+      fetchBrandAppHistoryCounts(),
+      fetchBrandAppMemoSummaries()
+    ]);
+    _brandApps = apps || [];
+    _brandAppHistoryCounts = counts || {};
+    _brandAppMemoSummaries = memoSummaries || {};
+    renderBrandApplicationsList();
+    refreshBrandAppBadge();
+  } catch (err) {
+    console.error('[brand-applications] load failed:', err);
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:#c33;padding:24px">'
+        + '신청 목록을 불러오지 못했습니다. 새로고침 또는 재로그인 후 다시 시도해 주세요.'
+        + '<br><button type="button" onclick="location.reload()" class="btn btn-primary" style="margin-top:8px">새로고침</button>'
+        + '</td></tr>';
+    }
+    // 탭 바는 카운트 0으로 안전 렌더 (탭 자체는 노출 유지)
+    try { renderBrandAppStatusTabs({}); } catch (_e) {}
+  }
 }
 
 async function refreshBrandAppBadge() {
@@ -1317,27 +1438,27 @@ var brandAppLazy = null;
 var BRAND_APP_PAGE_SIZE = 50;
 
 // 현재 UI 필터/정렬 기준으로 브랜드 서베이 리스트를 추출 (렌더·엑셀 export 공용)
+// 상태 필터: 탭 변수(_brandAppActiveStatusTab)를 사용하며 폼타입·기간·검색과 AND 결합
 function getFilteredBrandApps() {
   var formVals = getMultiFilterValues('brandAppFormMulti');
-  var statusVals = getMultiFilterValues('brandAppStatusMulti');
   var from = ($('brandAppFromDate')?.value) || '';
   var to = ($('brandAppToDate')?.value) || '';
   var q = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
 
-  var list = _brandApps.slice();
-  if (formVals.length > 0) list = list.filter(a => formVals.indexOf(a.form_type) >= 0);
-  // Phase B: status 필터는 제품 단위 — 매칭 제품이 1개라도 있는 신청 통과. render 시 행 단위 필터로 매칭 제품만 노출
-  if (statusVals.length > 0) {
+  var list = (_brandApps || []).slice();
+  if (formVals.length > 0) list = list.filter(function(a){ return formVals.indexOf(a.form_type) >= 0; });
+  // 상태 탭 필터 — null이면 전체, 값이 있으면 해당 상태인 신청만 통과
+  if (_brandAppActiveStatusTab) {
+    var tabStatus = _brandAppActiveStatusTab;
     list = list.filter(function(a) {
       var prods = Array.isArray(a.products) ? a.products : [];
-      if (prods.length === 0) return statusVals.indexOf(a.status) >= 0;
+      if (prods.length === 0) return a.status === tabStatus;
       return prods.some(function(p) {
-        var s = (p && p.status) || a.status;
-        return statusVals.indexOf(s) >= 0;
+        return ((p && p.status) || a.status) === tabStatus;
       });
     });
   }
-  if (from) list = list.filter(a => (a.created_at || '') >= from);
+  if (from) list = list.filter(function(a){ return (a.created_at || '') >= from; });
   if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
   if (q) list = list.filter(a =>
     (a.brand?.name || a.brand_name || '').toLowerCase().includes(q) ||
@@ -1380,7 +1501,7 @@ function getFilteredBrandApps() {
     return 0;
   });
 
-  var filterActive = !!(formVals.length > 0 || statusVals.length > 0 || from || to || q);
+  var filterActive = !!(formVals.length > 0 || _brandAppActiveStatusTab || from || to || q);
   return { list: list, filterActive: filterActive };
 }
 
@@ -1388,32 +1509,42 @@ function renderBrandApplicationsList() {
   var tbody = $('brandAppTableBody');
   if (!tbody) return;
 
-  // 옵션별 (NN) 카운트 갱신 — 필터 적용 전 전체 신청 기준
-  // form은 신청 단위, status는 Phase B에 따라 제품 단위 카운트
+  // 폼 종류 다중 선택 드롭다운 옵션 갱신 (신청 단위 카운트)
   var formCounts = {reviewer:0, seeding:0};
-  var brandStatusCounts = {};
   (_brandApps || []).forEach(function(a) {
     if (a.form_type) formCounts[a.form_type] = (formCounts[a.form_type] || 0) + 1;
-  });
-  _flattenAppsToProducts(_brandApps).forEach(function(f) {
-    if (f.status) brandStatusCounts[f.status] = (brandStatusCounts[f.status] || 0) + 1;
   });
   syncMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer', label:'리뷰어', count: formCounts.reviewer || 0},
     {value:'seeding',  label:'나노 시딩',   count: formCounts.seeding  || 0},
   ], renderBrandApplicationsList);
-  syncMultiFilter('brandAppStatusMulti', '전체 상태', [
-    {value:'new',                 label:'신규',            count: brandStatusCounts.new || 0},
-    {value:'reviewing',           label:'검토중',          count: brandStatusCounts.reviewing || 0},
-    {value:'quoted',              label:'견적 전달',       count: brandStatusCounts.quoted || 0},
-    {value:'paid',                label:'입금완료',        count: brandStatusCounts.paid || 0},
-    {value:'kakao_room_created',  label:'카톡방 생성',     count: brandStatusCounts.kakao_room_created || 0},
-    {value:'orient_sheet_sent',   label:'오리엔시트 전달', count: brandStatusCounts.orient_sheet_sent || 0},
-    {value:'schedule_sent',       label:'일정 전달',       count: brandStatusCounts.schedule_sent || 0},
-    {value:'campaign_registered', label:'캠페인 등록',     count: brandStatusCounts.campaign_registered || 0},
-    {value:'done',                label:'최종완료',        count: brandStatusCounts.done || 0},
-    {value:'rejected',            label:'반려',            count: brandStatusCounts.rejected || 0},
-  ], renderBrandApplicationsList);
+
+  // 탭 건수: 폼타입·기간·검색 필터만 적용한 모집단에서 상태별 카운트 계산
+  // (탭 자체는 상태 필터 제외하고 계산해야 전체 분포 보임)
+  var tabBase = (_brandApps || []).slice();
+  var formValsForTab = getMultiFilterValues('brandAppFormMulti');
+  var fromForTab = ($('brandAppFromDate')?.value) || '';
+  var toForTab   = ($('brandAppToDate')?.value) || '';
+  var qForTab    = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
+  if (formValsForTab.length > 0) tabBase = tabBase.filter(function(a){ return formValsForTab.indexOf(a.form_type) >= 0; });
+  if (fromForTab) tabBase = tabBase.filter(function(a){ return (a.created_at || '') >= fromForTab; });
+  if (toForTab)   tabBase = tabBase.filter(function(a){ return (a.created_at || '') <= toForTab + 'T23:59:59'; });
+  if (qForTab)    tabBase = tabBase.filter(function(a){
+    return (a.brand?.name || a.brand_name || '').toLowerCase().includes(qForTab) ||
+           (a.brand?.brand_no || '').toLowerCase().includes(qForTab) ||
+           (a.applicant_contact_name || a.contact_name || '').toLowerCase().includes(qForTab) ||
+           (a.applicant_email || a.email || '').toLowerCase().includes(qForTab) ||
+           (a.application_no || '').toLowerCase().includes(qForTab) ||
+           (a.request_note || '').toLowerCase().includes(qForTab);
+  });
+  // 상태별 건수는 화면 리스트 행 수 단위로 카운트 (제품 단위 — _flattenAppsToProducts).
+  //   상태 드롭다운이 제품 단위 변경(quickChangeBrandAppProductStatus)이라 같은 단위여야
+  //   변경 즉시 탭 카운트가 갱신됨. 카드 헤더 카운트와도 단위 통일 (행 수).
+  var tabStatusCounts = {};
+  _flattenAppsToProducts(tabBase).forEach(function(f) {
+    if (f.status) tabStatusCounts[f.status] = (tabStatusCounts[f.status] || 0) + 1;
+  });
+  renderBrandAppStatusTabs(tabStatusCounts);
 
   var res = getFilteredBrandApps();
   var list = res.list;
@@ -1425,35 +1556,47 @@ function renderBrandApplicationsList() {
 
   var count = $('brandAppTotalCount');
   if (count) {
-    var totalAll = (_brandApps || []).length;
-    var reviewerN = (_brandApps || []).filter(function(a){ return a.form_type === 'reviewer'; }).length;
-    var seedingN  = (_brandApps || []).filter(function(a){ return a.form_type === 'seeding'; }).length;
-    var summary = '전체 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
-    count.textContent = filterActive
-      ? '(필터 ' + list.length + ' / ' + summary + ')'
-      : '(' + summary + ')';
+    // 화면 리스트 행 수 기준 (제품 단위) — 탭 옆 카운트와 단위 통일.
+    //   탭 활성 시 매칭 status 제품만 행으로 노출되므로 그 필터까지 적용한 행 수로 계산.
+    //   리뷰어/시딩 분포도 행 단위 (각 행이 속한 신청의 form_type).
+    var flatRows = _flattenAppsToProducts(list);
+    if (_brandAppActiveStatusTab) {
+      flatRows = flatRows.filter(function(f) {
+        return ((f.product && f.product.status) || f.app.status) === _brandAppActiveStatusTab;
+      });
+    }
+    var totalRows = flatRows.length;
+    var resultReviewer = flatRows.filter(function(f){ return f.app && f.app.form_type === 'reviewer'; }).length;
+    var resultSeeding  = flatRows.filter(function(f){ return f.app && f.app.form_type === 'seeding';  }).length;
+    var leadLabel = filterActive ? '신청 결과 ' : '전체 ';
+    count.textContent = '(' + leadLabel + totalRows + '건 · 리뷰어 ' + resultReviewer + ' · 시딩 ' + resultSeeding + ')';
   }
 
-  // Phase B: status 필터가 켜지면 매칭 제품 행만 노출 (행 단위 필터)
-  // 「제품 N개」 라벨은 항상 원본 전체 개수. idx는 원본 인덱스 유지(cur.products[idx] 매핑 정확성).
-  // 「첫 행」 시각 표시는 화면 첫 행(displayIdx === 0) 기준
-  var statusFilter = getMultiFilterValues('brandAppStatusMulti');
+  // 상태 탭이 켜진 경우 매칭 제품 행만 노출 (행 단위 필터)
+  // 「제품 N개」 라벨은 원본 전체 개수, idx는 원본 인덱스 유지(cur.products[idx] 매핑 정확성)
+  // 신청 단위 좌측 색 띠 stripe map — 같은 신청의 모든 행에 동일 색.
+  //   list 정렬·필터 적용 후 인접 신청끼리 색이 교대(짝/홀) 되도록 인덱스 부여.
+  var stripeMap = {};
+  list.forEach(function(a, i) {
+    stripeMap[a.id] = (i % 2 === 0) ? 'app-stripe-even' : 'app-stripe-odd';
+  });
   var renderBrandAppRow = function(a) {
     var allProds = Array.isArray(a.products) ? a.products : [];
     var totalCount = allProds.length;
     var pairs = allProds.map(function(p, originalIdx) { return {p: p, idx: originalIdx}; });
-    if (statusFilter.length > 0) {
+    if (_brandAppActiveStatusTab) {
+      var ts = _brandAppActiveStatusTab;
       pairs = pairs.filter(function(pair) {
-        var s = (pair.p && pair.p.status) || a.status;
-        return statusFilter.indexOf(s) >= 0;
+        return ((pair.p && pair.p.status) || a.status) === ts;
       });
       if (pairs.length === 0) return ''; // 매칭 제품 없으면 신청 자체 미노출
     }
+    var stripeCls = stripeMap[a.id] || '';
     if (pairs.length === 0) {
-      return renderBrandAppFlatRow(a, {}, 0, 0, true);
+      return renderBrandAppFlatRow(a, {}, 0, 0, true, stripeCls);
     }
     return pairs.map(function(pair, displayIdx) {
-      return renderBrandAppFlatRow(a, pair.p, pair.idx, totalCount, displayIdx === 0);
+      return renderBrandAppFlatRow(a, pair.p, pair.idx, totalCount, displayIdx === 0, stripeCls);
     }).join('');
   };
   if (brandAppLazy) brandAppLazy.destroy();
@@ -1463,13 +1606,15 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="25" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="28" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
 function resetBrandAppFilters() {
   resetMultiFilter('brandAppFormMulti', '전체 폼');
-  resetMultiFilter('brandAppStatusMulti', '전체 상태');
+  // 상태 탭 초기화 (전체 탭으로)
+  _brandAppActiveStatusTab = null;
+  syncBrandAppStatusTabHash();
   if ($('brandAppFromDate')) $('brandAppFromDate').value = '';
   if ($('brandAppToDate')) $('brandAppToDate').value = '';
   if ($('brandAppSearch')) $('brandAppSearch').value = '';
@@ -1595,6 +1740,9 @@ var BRAND_APP_HISTORY_FIELD_LABELS = {
   status: '상태',
   admin_memo: '내부 메모',
   quote_sent_at: '견적서 전달일',
+  quote_sent_url: '견적서 URL',
+  orient_sheet_sent_at: '오리엔시트 전달일',
+  orient_sheet_sent_url: '오리엔시트 URL',
   final_quote_krw: '확정 견적',
   products: '제품 정보',
   memo_added: '메모 추가',
@@ -1656,8 +1804,10 @@ function _uniformProductValue(prods, key) {
 //   count: 신청 전체 제품 수 (필터 무관 — 「제품 N개」 라벨에 사용)
 //   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
 //            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
-function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
+function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   if (typeof isFirst === 'undefined') isFirst = (idx === 0);
+  // stripeClass: 신청 단위 좌측 색 띠 (app-stripe-even / app-stripe-odd). 호출처에서 stripeMap 으로 결정
+  var clsAttr = stripeClass ? ' class="' + esc(stripeClass) + '"' : '';
   var qty = Number(p && p.qty) || 0;
   var priceJpy = Number(p && p.price) || 0;
   var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
@@ -1674,7 +1824,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
     ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:4px" title="관리자가 직접 등록한 신청">직접등록</span>'
     : '';
 
-  var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
+  var html = '<tr' + clsAttr + ' data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
   // 1. 신청번호(-N) + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) — 모든 행에 동일 표시
   // 신청번호 끝에 -1·-2 인덱스 부착(원본 idx+1)으로 행 식별. 「제품 N개」 별도 라벨 불필요
@@ -1778,15 +1928,24 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
   // 18. 이체수수료(건) (제품 단가 — 인라인 편집 가능)
   html += '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>';
 
-  // 19. 예상 견적 (신청 단위 — 모든 행에 같은 값을 동일 색상으로)
+  // 19. 최종견적금액 (VAT 미포함 — estimated_krw / 1.1 반올림. 같은 신청 모든 행에 동일 값)
+  var finalNoVat = (a.estimated_krw == null || a.estimated_krw === '') ? null : Math.round(Number(a.estimated_krw) / (1 + BRAND_QUOTE_CONST.VAT_RATE));
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + (finalNoVat ? fmtKrw(finalNoVat) : '') + '</td>';
+
+  // 20. VAT 포함 (= estimated_krw, DB 트리거 자동 계산. 같은 신청 모든 행에 동일 값)
   html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>';
 
   // 20. 견적서 전달 (액션 — 첫 행만)
   html += isFirst
-    ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, false) + '</div></td>'
+    ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, a.quote_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 21. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
+  // 21. 오리엔시트 전달 (액션 — 첫 행만)
+  html += isFirst
+    ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_at, a.orient_sheet_sent_url, false) + '</div></td>'
+    : emptyAction;
+
+  // 22. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
     ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
@@ -1871,6 +2030,7 @@ async function openBrandAppEditModal(applicationId) {
     setRowVal('nba-prod-name-ja',      p.name_ja);
     setRowVal('nba-prod-price',        p.price);
     setRowVal('nba-prod-qty',          p.qty);
+    setRowVal('nba-prod-recruit-fee',  p.recruit_fee_krw);
     setRowVal('nba-prod-transfer-fee', p.transfer_fee_krw);
     setRowVal('nba-prod-url',          p.url);
   });
@@ -2052,12 +2212,13 @@ function addNbaProductRow() {
   var row = document.createElement('div');
   row.className = 'nba-product-row';
   row.dataset.idx = rowIdx;
-  row.style.cssText = 'display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
+  row.style.cssText = 'display:grid;grid-template-columns:1.4fr 1.4fr 100px 90px 120px 120px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
   row.innerHTML =
     '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
     '<input type="text" class="form-input nba-prod-name-ja" placeholder="상품명 (일본어)" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-recruit-fee" placeholder="0" min="0" style="font-size:14px" title="제품 1건당 모집비(원). 비워두면 0 — 견적 합산에서 제외">' +
     '<input type="number" class="form-input nba-prod-transfer-fee" placeholder="리뷰어 자동 2500 / 시딩 자동 0" min="0" style="font-size:14px" title="비워두면 리뷰어는 ₩2,500, 시딩은 ₩0 자동 등록 (098 트리거)">' +
     '<input type="url" class="form-input nba-prod-url" placeholder="https://..." style="font-size:14px">' +
     '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
@@ -2085,14 +2246,20 @@ function _collectNbaProducts() {
     var nameJa = (r.querySelector('.nba-prod-name-ja')?.value || '').trim();
     var price = parseInt(r.querySelector('.nba-prod-price')?.value) || 0;
     var qty = parseInt(r.querySelector('.nba-prod-qty')?.value) || 0;
+    var recruitFeeRaw = (r.querySelector('.nba-prod-recruit-fee')?.value || '').trim();
     var feeRaw = (r.querySelector('.nba-prod-transfer-fee')?.value || '').trim();
     var url = (r.querySelector('.nba-prod-url')?.value || '').trim();
-    if (!name && !nameJa && !price && !qty && !feeRaw && !url) continue;  // 빈 행 스킵
+    if (!name && !nameJa && !price && !qty && !recruitFeeRaw && !feeRaw && !url) continue;  // 빈 행 스킵
     if (!name) { toast('제품 ' + (i + 1) + ': 이름이 비었습니다', 'error'); return null; }
     if (qty <= 0) { toast('제품 ' + (i + 1) + ': 수량은 1 이상', 'error'); return null; }
-    // 트리거 trg_brand_app_recalc(052)가 price·qty 키만 읽으므로 sales 폼 패턴과 일치시킴
+    // 트리거 trg_brand_app_recalc(052·111)는 price·qty·recruit_fee_krw·transfer_fee_krw 모두 읽음
     var item = { name: name, price: price, qty: qty, url: url || null };
     if (nameJa) item.name_ja = nameJa;  // 선택 입력 시에만 저장 (sales 폼 데이터 호환)
+    // recruit_fee_krw: 명시 입력하면 그 값. 비우면 키 미저장 → 트리거가 COALESCE(0)
+    if (recruitFeeRaw !== '') {
+      var rFeeNum = parseInt(recruitFeeRaw);
+      if (!isNaN(rFeeNum) && rFeeNum >= 0) item.recruit_fee_krw = rFeeNum;
+    }
     // transfer_fee_krw: 명시 입력하면 그 값. 비우면 098 트리거가 reviewer는 2500, seeding은 0 자동 채움
     if (feeRaw !== '') {
       var feeNum = parseInt(feeRaw);
@@ -2697,7 +2864,7 @@ async function _saveDateEdit(anyChildEl, primaryVal, endVal) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(id);
   // 해당 셀만 재렌더 — 같은 페이지에서 편집 중인 다른 셀들의 입력 상태가 사라지지 않도록 전체 재렌더 회피
   _restoreDateDisplay(cell, cfg, nextProducts[idx]);
@@ -2792,7 +2959,7 @@ async function confirmTransferFeeEdit(anyChildEl) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(id);
   // 같은 신청의 모든 행 재렌더(이체수수료(원)/최종 견적/VAT포함 컬럼이 동기화됨)
   renderBrandApplicationsList();
@@ -2887,25 +3054,30 @@ async function confirmRecruitFeeEdit(anyChildEl) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(id);
   // 같은 신청의 모든 행 재렌더(모집비/최종 견적/VAT포함 컬럼이 동기화됨)
   renderBrandApplicationsList();
   toast('모집비가 저장되었습니다.');
 }
 
-function renderQuoteSentDisplay(isoOrNull, locked) {
+function renderQuoteSentDisplay(isoOrNull, urlOrNull, locked) {
   var hasValue = !!isoOrNull;
+  var safeUrl = safeBrandUrl(urlOrNull);
+  var urlIcon = safeUrl
+    ? ' <a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="견적서 열기" style="color:var(--pink);vertical-align:middle;display:inline-flex;align-items:center">'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">open_in_new</span></a>'
+    : '';
   var content = hasValue
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달</span>'
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
       + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
     : '<span style="color:var(--muted);font-size:11px">미전달</span>';
   return content
     + '<button type="button" class="qsent-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterQuoteSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '견적서 전달 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
 }
 
-function _restoreQuoteSentDisplay(cell, isoOrNull, locked) {
-  cell.innerHTML = renderQuoteSentDisplay(isoOrNull, locked);
+function _restoreQuoteSentDisplay(cell, isoOrNull, urlOrNull, locked) {
+  cell.innerHTML = renderQuoteSentDisplay(isoOrNull, urlOrNull, locked);
 }
 
 function enterQuoteSentEdit(btnEl) {
@@ -2915,12 +3087,14 @@ function enterQuoteSentEdit(btnEl) {
   if (!cur) return;
   var hasValue = !!cur.quote_sent_at;
   var dateValue = hasValue ? new Date(cur.quote_sent_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  var urlValue = esc(cur.quote_sent_url || '');
   cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
     + '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">'
       + '<input type="checkbox" class="qsent-edit-cb" ' + (hasValue ? 'checked' : '') + ' onchange="syncQsentEditDate(this)">'
       + '<span>전달 완료</span>'
     + '</label>'
     + '<input type="date" class="qsent-edit-date" value="' + dateValue + '" ' + (hasValue ? '' : 'disabled') + ' style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (hasValue ? '#fff' : '#F5F5F5') + '">'
+    + '<input type="url" class="qsent-edit-url" value="' + urlValue + '" placeholder="https://" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%">'
     + '<div style="display:flex;gap:4px;justify-content:flex-end">'
       + '<button type="button" onclick="cancelQuoteSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
       + '<button type="button" onclick="confirmQuoteSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
@@ -2945,7 +3119,7 @@ function cancelQuoteSentEdit(anyChildEl) {
   if (!cell) return;
   var cur = _findBrandApp(cell.dataset.id);
   var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
-  _restoreQuoteSentDisplay(cell, cur?.quote_sent_at || null, !!locked);
+  _restoreQuoteSentDisplay(cell, cur?.quote_sent_at || null, cur?.quote_sent_url || null, !!locked);
 }
 
 async function confirmQuoteSentEdit(anyChildEl) {
@@ -2956,24 +3130,29 @@ async function confirmQuoteSentEdit(anyChildEl) {
   if (!cur) return;
   var cb = cell.querySelector('.qsent-edit-cb');
   var dateInput = cell.querySelector('.qsent-edit-date');
+  var urlInput = cell.querySelector('.qsent-edit-url');
   if (!cb || !dateInput) return;
-  var nextValue = null;
+  var nextDate = null;
   if (cb.checked) {
     var raw = dateInput.value;
     if (!raw) { toast('날짜를 선택하세요.', 'warn'); return; }
-    nextValue = new Date(raw + 'T12:00:00+09:00').toISOString();
+    nextDate = new Date(raw + 'T12:00:00+09:00').toISOString();
   }
-  var prevValue = cur.quote_sent_at;
-  var prevDateStr = prevValue ? new Date(prevValue).toISOString().slice(0,10) : null;
-  var nextDateStr = nextValue ? new Date(nextValue).toISOString().slice(0,10) : null;
-  if (prevDateStr === nextDateStr) {
-    _restoreQuoteSentDisplay(cell, prevValue, false);
+  var rawUrl = urlInput ? urlInput.value.trim() : '';
+  var nextUrl = rawUrl ? safeBrandUrl(rawUrl) : null;
+  if (rawUrl && !nextUrl) { toast('URL은 http:// 또는 https:// 로 시작해야 합니다.', 'warn'); return; }
+  var prevDate = cur.quote_sent_at;
+  var prevUrl = cur.quote_sent_url || null;
+  var prevDateStr = prevDate ? new Date(prevDate).toISOString().slice(0,10) : null;
+  var nextDateStr = nextDate ? new Date(nextDate).toISOString().slice(0,10) : null;
+  if (prevDateStr === nextDateStr && prevUrl === nextUrl) {
+    _restoreQuoteSentDisplay(cell, prevDate, prevUrl, false);
     return;
   }
   var prevVersion = cur.version;
-  cb.disabled = true; dateInput.disabled = true;
-  var result = await updateBrandApplication(id, {quote_sent_at: nextValue}, prevVersion);
-  cb.disabled = false; dateInput.disabled = false;
+  cb.disabled = true; dateInput.disabled = true; if (urlInput) urlInput.disabled = true;
+  var result = await updateBrandApplication(id, {quote_sent_at: nextDate, quote_sent_url: nextUrl}, prevVersion);
+  cb.disabled = false; dateInput.disabled = false; if (urlInput) urlInput.disabled = false;
   if (result.conflict) {
     toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
     await loadBrandApplications();
@@ -2983,11 +3162,123 @@ async function confirmQuoteSentEdit(anyChildEl) {
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
     return;
   }
-  cur.quote_sent_at = nextValue;
-  cur.version = result.data?.version || (prevVersion + 1);
-  _restoreQuoteSentDisplay(cell, nextValue, false);
+  cur.quote_sent_at = nextDate;
+  cur.quote_sent_url = nextUrl;
+  _syncBrandAppCur(cur, result, prevVersion);
+  _restoreQuoteSentDisplay(cell, nextDate, nextUrl, false);
   _refreshBrandAppHistoryButton(id);
-  toast(nextValue ? '견적서 전달일이 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
+  toast(nextDate ? '견적서 전달 정보가 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
+}
+
+// ─── 오리엔시트 전달 셀 (견적서 전달과 동일 구조) ────────────────────────────
+
+function renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked) {
+  var hasValue = !!isoOrNull;
+  var safeUrl = safeBrandUrl(urlOrNull);
+  var urlIcon = safeUrl
+    ? ' <a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="오리엔시트 열기" style="color:var(--pink);vertical-align:middle;display:inline-flex;align-items:center">'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">open_in_new</span></a>'
+    : '';
+  var content = hasValue
+    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
+      + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
+    : '<span style="color:var(--muted);font-size:11px">미전달</span>';
+  return content
+    + '<button type="button" class="orient-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterOrientSheetSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '오리엔시트 전달 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+}
+
+function _restoreOrientSheetSentDisplay(cell, isoOrNull, urlOrNull, locked) {
+  cell.innerHTML = renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked);
+}
+
+function enterOrientSheetSentEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-orient-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  if (!cur) return;
+  var hasValue = !!cur.orient_sheet_sent_at;
+  var dateValue = hasValue ? new Date(cur.orient_sheet_sent_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  var urlValue = esc(cur.orient_sheet_sent_url || '');
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">'
+      + '<input type="checkbox" class="orient-edit-cb" ' + (hasValue ? 'checked' : '') + ' onchange="syncOrientSheetSentEditDate(this)">'
+      + '<span>전달 완료</span>'
+    + '</label>'
+    + '<input type="date" class="orient-edit-date" value="' + dateValue + '" ' + (hasValue ? '' : 'disabled') + ' style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (hasValue ? '#fff' : '#F5F5F5') + '">'
+    + '<input type="url" class="orient-edit-url" value="' + urlValue + '" placeholder="https://" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelOrientSheetSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmOrientSheetSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+}
+
+function syncOrientSheetSentEditDate(cb) {
+  var cell = cb.closest('.brand-app-orient-cell');
+  if (!cell) return;
+  var dateInput = cell.querySelector('.orient-edit-date');
+  if (!dateInput) return;
+  dateInput.disabled = !cb.checked;
+  dateInput.style.background = cb.checked ? '#fff' : '#F5F5F5';
+  if (cb.checked && !dateInput.value) {
+    dateInput.value = new Date().toISOString().slice(0,10);
+  }
+}
+
+function cancelOrientSheetSentEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-orient-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
+  _restoreOrientSheetSentDisplay(cell, cur?.orient_sheet_sent_at || null, cur?.orient_sheet_sent_url || null, !!locked);
+}
+
+async function confirmOrientSheetSentEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-orient-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  var cb = cell.querySelector('.orient-edit-cb');
+  var dateInput = cell.querySelector('.orient-edit-date');
+  var urlInput = cell.querySelector('.orient-edit-url');
+  if (!cb || !dateInput) return;
+  var nextDate = null;
+  if (cb.checked) {
+    var raw = dateInput.value;
+    if (!raw) { toast('날짜를 선택하세요.', 'warn'); return; }
+    nextDate = new Date(raw + 'T12:00:00+09:00').toISOString();
+  }
+  var rawUrl = urlInput ? urlInput.value.trim() : '';
+  var nextUrl = rawUrl ? safeBrandUrl(rawUrl) : null;
+  if (rawUrl && !nextUrl) { toast('URL은 http:// 또는 https:// 로 시작해야 합니다.', 'warn'); return; }
+  var prevDate = cur.orient_sheet_sent_at;
+  var prevUrl = cur.orient_sheet_sent_url || null;
+  var prevDateStr = prevDate ? new Date(prevDate).toISOString().slice(0,10) : null;
+  var nextDateStr = nextDate ? new Date(nextDate).toISOString().slice(0,10) : null;
+  if (prevDateStr === nextDateStr && prevUrl === nextUrl) {
+    _restoreOrientSheetSentDisplay(cell, prevDate, prevUrl, false);
+    return;
+  }
+  var prevVersion = cur.version;
+  cb.disabled = true; dateInput.disabled = true; if (urlInput) urlInput.disabled = true;
+  var result = await updateBrandApplication(id, {orient_sheet_sent_at: nextDate, orient_sheet_sent_url: nextUrl}, prevVersion);
+  cb.disabled = false; dateInput.disabled = false; if (urlInput) urlInput.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.orient_sheet_sent_at = nextDate;
+  cur.orient_sheet_sent_url = nextUrl;
+  _syncBrandAppCur(cur, result, prevVersion);
+  _restoreOrientSheetSentDisplay(cell, nextDate, nextUrl, false);
+  _refreshBrandAppHistoryButton(id);
+  toast(nextDate ? '오리엔시트 전달 정보가 저장되었습니다.' : '오리엔시트 미전달로 변경했습니다.');
 }
 
 function renderMemoDisplay(memoText, locked) {
@@ -3073,7 +3364,7 @@ async function confirmMemoEdit(anyChildEl) {
     return;
   }
   cur.admin_memo = nextValue || null;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _restoreMemoDisplay(cell, nextValue, false);
   _refreshBrandAppHistoryButton(id);
   toast('메모가 저장되었습니다.');
