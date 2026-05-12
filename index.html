@@ -3390,7 +3390,8 @@ async function uploadFlagEvidence(file, flagId) {
   const ext = file.name ? file.name.split('.').pop().toLowerCase() : 'bin';
   const uuid = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substring(2));
   const path = `${flagId}/${uuid}.${ext}`;
-  const {error} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type, upsert: false});
+  // cacheControl: '86400' — 증빙 파일도 동일 캐시 정책. signed URL 만료(1h)와 무관하게 브라우저 캐시 활용
+  const {error} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
   if (error) throw error;
   return path;
 }
@@ -3897,7 +3898,9 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   var prefix = pathPrefix || 'campaigns';
   var ext = mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1];
   var path = prefix + '/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
-  var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false});
+  // cacheControl: '86400' — 응답 헤더에 cache-control: max-age=86400 부여 → 브라우저 24h 캐시
+  //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
+  var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
