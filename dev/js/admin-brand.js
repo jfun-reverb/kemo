@@ -27,19 +27,19 @@ var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 // 상태 탭 현재 활성값 — null = 전체, 문자열 = 특정 상태 코드
 var _brandAppActiveStatusTab = null;
 
-// 상태 탭 순서 및 라벨 정의 (사양서 §2 순서)
+// 상태 탭 순서 및 라벨 정의 (상세 모달 상태 드롭다운 라벨과 통일)
 var BRAND_APP_STATUS_TABS = [
   {code: null,                 label: '전체'},
-  {code: 'new',                label: '신규접수'},
-  {code: 'reviewing',          label: '검수중'},
-  {code: 'quoted',             label: '견적전달'},
+  {code: 'new',                label: '신규'},
+  {code: 'reviewing',          label: '검토중'},
+  {code: 'quoted',             label: '견적 전달'},
   {code: 'paid',               label: '입금완료'},
-  {code: 'kakao_room_created', label: '카톡방생성'},
-  {code: 'orient_sheet_sent',  label: 'OT시트전송'},
-  {code: 'schedule_sent',      label: '일정전송'},
-  {code: 'campaign_registered',label: '캠페인등록'},
+  {code: 'kakao_room_created', label: '카톡방 생성'},
+  {code: 'orient_sheet_sent',  label: '오리엔트 전달'},
+  {code: 'schedule_sent',      label: '일정 전달'},
+  {code: 'campaign_registered',label: '캠페인 등록'},
   {code: 'done',               label: '최종완료'},
-  {code: 'rejected',           label: '거절'},
+  {code: 'rejected',           label: '반려'},
 ];
 
 // URL 해시 쿼리에서 특정 파라미터 추출
@@ -1549,6 +1549,12 @@ function renderBrandApplicationsList() {
 
   // 상태 탭이 켜진 경우 매칭 제품 행만 노출 (행 단위 필터)
   // 「제품 N개」 라벨은 원본 전체 개수, idx는 원본 인덱스 유지(cur.products[idx] 매핑 정확성)
+  // 신청 단위 좌측 색 띠 stripe map — 같은 신청의 모든 행에 동일 색.
+  //   list 정렬·필터 적용 후 인접 신청끼리 색이 교대(짝/홀) 되도록 인덱스 부여.
+  var stripeMap = {};
+  list.forEach(function(a, i) {
+    stripeMap[a.id] = (i % 2 === 0) ? 'app-stripe-even' : 'app-stripe-odd';
+  });
   var renderBrandAppRow = function(a) {
     var allProds = Array.isArray(a.products) ? a.products : [];
     var totalCount = allProds.length;
@@ -1560,11 +1566,12 @@ function renderBrandApplicationsList() {
       });
       if (pairs.length === 0) return ''; // 매칭 제품 없으면 신청 자체 미노출
     }
+    var stripeCls = stripeMap[a.id] || '';
     if (pairs.length === 0) {
-      return renderBrandAppFlatRow(a, {}, 0, 0, true);
+      return renderBrandAppFlatRow(a, {}, 0, 0, true, stripeCls);
     }
     return pairs.map(function(pair, displayIdx) {
-      return renderBrandAppFlatRow(a, pair.p, pair.idx, totalCount, displayIdx === 0);
+      return renderBrandAppFlatRow(a, pair.p, pair.idx, totalCount, displayIdx === 0, stripeCls);
     }).join('');
   };
   if (brandAppLazy) brandAppLazy.destroy();
@@ -1769,8 +1776,10 @@ function _uniformProductValue(prods, key) {
 //   count: 신청 전체 제품 수 (필터 무관 — 「제품 N개」 라벨에 사용)
 //   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
 //            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
-function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
+function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   if (typeof isFirst === 'undefined') isFirst = (idx === 0);
+  // stripeClass: 신청 단위 좌측 색 띠 (app-stripe-even / app-stripe-odd). 호출처에서 stripeMap 으로 결정
+  var clsAttr = stripeClass ? ' class="' + esc(stripeClass) + '"' : '';
   var qty = Number(p && p.qty) || 0;
   var priceJpy = Number(p && p.price) || 0;
   var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
@@ -1787,7 +1796,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst) {
     ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:4px" title="관리자가 직접 등록한 신청">직접등록</span>'
     : '';
 
-  var html = '<tr data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
+  var html = '<tr' + clsAttr + ' data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
   // 1. 신청번호(-N) + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) — 모든 행에 동일 표시
   // 신청번호 끝에 -1·-2 인덱스 부착(원본 idx+1)으로 행 식별. 「제품 N개」 별도 라벨 불필요
