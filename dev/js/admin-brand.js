@@ -1197,7 +1197,7 @@ function renderBrandDetailFormHtml(b, apps) {
   };
   var labelStyle = 'color:var(--ink);font-size:12px;font-weight:600;display:block;margin-bottom:5px';
   var input = function(id, label, val, placeholder) {
-    return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
+    return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '" style="width:100%;box-sizing:border-box"></div>';
   };
   var ta = function(id, label, val, placeholder, rows) {
     return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="' + (rows || 3) + '" style="resize:vertical;font-family:inherit;width:100%" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
@@ -1207,20 +1207,17 @@ function renderBrandDetailFormHtml(b, apps) {
   var appsHtml = renderBrandAppsBundledView(apps);
 
   return ''
-    // § 기본 정보
+    // § 기본 정보 — 3열 grid 두 행 (회사 정보 / 브랜드명)
     + section('기본 정보', '',
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
           + input('brandFormCompanyName', '회사명', b.company_name, '예: (주)제이펀')
           + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
+          + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
         + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
           + input('brandFormName', '브랜드명 (한국어) *', b.name)
           + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
           + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-          + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
-          + '<div></div>'
         + '</div>'
       )
     // § 담당자
