@@ -7363,9 +7363,17 @@ function renderActivityReceiptList(delivs) {
   const addBtn = $('addReceiptBtn');
   const maxNote = $('receiptMaxNote');
   // monitor 캠페인은 영수증 1장만 제출 가능 (visit는 현장 사진 여러 장 가능 — 그대로 둠)
-  // active = draft|pending|approved (rejected는 제외, 재제출 가능)
+  // active 판정: kind별 가장 최신 1건이 rejected가 아니면 active로 본다.
+  //   같은 application에 옛 pending 행이 누적되어도(관리자 미검수 방치 등) 가장 최신이
+  //   rejected면 재제출 form 노출. 2026-05-12 a4y2u9.i@gmail.com 케이스 — pending 3건
+  //   누적 + 최신 rejected였는데 단순 `status !== 'rejected'` 카운트로 인해 재제출 차단됨.
   const isMonitor = (_activityCamp?.recruit_type === 'monitor');
-  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  const latestPerKind = {};
+  (delivs || []).forEach(function(d) {
+    var prev = latestPerKind[d.kind];
+    if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestPerKind[d.kind] = d;
+  });
+  const activeCount = Object.values(latestPerKind).filter(function(d) { return d.status !== 'rejected'; }).length;
   const reachedMax = isMonitor && activeCount >= 1;
   if (formBox) formBox.style.display = reachedMax ? 'none' : '';
   if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
@@ -7418,8 +7426,14 @@ function renderActivityReviewImageList(delivs) {
   const maxNote = $('reviewImageMaxNote');
   const formBox = $('reviewImageForm');
   // 1장 제약: 어떤 상태든(draft/pending/approved) 1건이라도 있으면 추가 불가
-  // — 단, rejected 1건뿐이면 재제출 가능 (active=draft|pending|approved 정의)
-  const activeCount = (delivs || []).filter(d => d.status !== 'rejected').length;
+  //   active 판정은 kind별 가장 최신 1건 기준 — 같은 application에 옛 pending 누적되어도
+  //   가장 최신이 rejected면 재제출 form 노출 (renderActivityList 와 동일 패턴)
+  const latestPerKind = {};
+  (delivs || []).forEach(function(d) {
+    var prev = latestPerKind[d.kind];
+    if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestPerKind[d.kind] = d;
+  });
+  const activeCount = Object.values(latestPerKind).filter(function(d) { return d.status !== 'rejected'; }).length;
   const reachedMax = activeCount >= 1;
   if (formBox) formBox.style.display = reachedMax ? 'none' : '';
   if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
