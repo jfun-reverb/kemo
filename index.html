@@ -4772,11 +4772,14 @@ async function updateBrandApplication(id, patch, expectedVersion) {
   if (!db) return {ok: false, error: 'no_db'};
   try {
     const result = await retryWithRefresh(async () => {
+      // products 변경 시 052/111 트리거가 estimated_krw/total_jpy/total_qty 를
+      // 서버에서 재계산한다. 갱신된 값을 함께 받아 호출처가 메모리 캐시를
+      // 즉시 동기화할 수 있도록 select 에 포함.
       const {data, error} = await db?.from('brand_applications')
         .update(patch)
         .eq('id', id)
         .eq('version', expectedVersion)
-        .select('id, version, status')
+        .select('id, version, status, products, total_jpy, total_qty, estimated_krw')
         .maybeSingle();
       if (error) throw error;
       return data;
