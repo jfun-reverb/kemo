@@ -301,7 +301,9 @@ function initMultiFilters() {
   createMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer',label:'리뷰어'},{value:'seeding',label:'나노 시딩'}
   ], () => renderBrandApplicationsList());
-  // brandAppStatusMulti 드롭다운은 상태 탭 바로 대체됨 (admin-brand.js의 renderBrandAppStatusTabs)
+  createMultiFilter('brandAppStatusMulti', '전체 상태', [
+    {value:'new',label:'신규'},{value:'reviewing',label:'검토중'},{value:'quoted',label:'견적 전달'},{value:'paid',label:'입금완료'},{value:'kakao_room_created',label:'카톡방 생성'},{value:'orient_sheet_sent',label:'오리엔시트 전달'},{value:'schedule_sent',label:'일정 전달'},{value:'campaign_registered',label:'캠페인 등록'},{value:'done',label:'최종완료'},{value:'rejected',label:'반려'}
+  ], () => renderBrandApplicationsList());
 }
 
 // ════════════════════════════════════════════════════════════════════
