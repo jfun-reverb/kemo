@@ -1841,7 +1841,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
 
   var html = '<tr' + clsAttr + ' data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
-  // 1. 신청번호(-N) + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) — 모든 행에 동일 표시
+  // 1. 신청번호(-N) + 폼 종류(리뷰어/시딩 색 구분) + 리뷰어 채널(큐텐/엣코스메 회색) — 모든 행 동일 표시
   // 신청번호 끝에 -1·-2 인덱스 부착(원본 idx+1)으로 행 식별. 「제품 N개」 별도 라벨 불필요
   // reviewer_channels는 form_type='reviewer'일 때만 의미 (시딩은 항상 NULL — DB CHECK 제약)
   var channelBadges = '';
@@ -1849,13 +1849,16 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     var CH_LABEL = {qoo10: '큐텐', atcosme: '엣코스메'};
     channelBadges = a.reviewer_channels.map(function(c){
       var label = CH_LABEL[c] || c;
-      return '<span style="border:1px solid var(--pink);color:var(--pink);background:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px">' + esc(label) + '</span>';
+      return '<span style="background:#F0F0F0;color:#666;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(label) + '</span>';
     }).join('');
   }
+  // 폼 라벨 컬러 분기: 리뷰어=핑크, 시딩=파랑. 한눈에 구분되도록 라이트 배경 + 톤 진한 글자.
+  var formBg = a.form_type === 'reviewer' ? '#FCE4EC' : '#E3F2FD';
+  var formFg = a.form_type === 'reviewer' ? '#B91D5F' : '#1565C0';
   var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
   html += '<td>'
     + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + manualBadgeInline + '</div>'
-    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + '</div>'
+    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:' + formBg + ';color:' + formFg + ';font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + '</div>'
     + '</td>';
 
   // 2. 브랜드 (모든 행에 동일 색상)
