@@ -1095,10 +1095,12 @@ function renderBrandAppBundleCard(a) {
     var rfee = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
     var tfee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
     var urlSafe = (typeof safeBrandUrl === 'function') ? safeBrandUrl(p.url) : null;
+    // 표 안에서 인코딩된 긴 URL 이 10줄 이상으로 늘어지는 회귀 — 두 줄 제한 + 마우스 호버 시 전체 URL 노출 (title 속성).
+    var urlClamp = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all';
     var urlCell = p.url
       ? (urlSafe
-          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" style="color:var(--pink);text-decoration:none;word-break:break-all">' + esc(p.url) + '</a>'
-          : '<span style="color:var(--muted);word-break:break-all">' + esc(p.url) + '</span>')
+          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--pink);text-decoration:none">' + esc(p.url) + '</a>'
+          : '<span title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--muted)">' + esc(p.url) + '</span>')
       : dash;
     return '<tr>'
       + '<td style="font-weight:600;font-size:11px;padding:6px 8px">' + (p.name ? esc(p.name) : dash)
