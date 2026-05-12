@@ -1312,7 +1312,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 12:35 · bca3f21</span>
+          <span class="admin-build-text">2026-05-12 12:41 · 7e35988</span>
         </div>
       </div>
     </aside>
@@ -8104,12 +8104,14 @@ function renderBrandApplicationsList() {
 
   var count = $('brandAppTotalCount');
   if (count) {
+    // 신청 단위(brand_applications 행) 카운트.
+    //   탭 옆 숫자는 제품 단위(_flattenAppsToProducts)라 단위가 다름 — 라벨에 「신청」 명시로 구분.
     var totalAll = (_brandApps || []).length;
     var reviewerN = (_brandApps || []).filter(function(a){ return a.form_type === 'reviewer'; }).length;
     var seedingN  = (_brandApps || []).filter(function(a){ return a.form_type === 'seeding'; }).length;
-    var summary = '전체 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
+    var summary = '전체 신청 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
     count.textContent = filterActive
-      ? '(필터 ' + list.length + ' / ' + summary + ')'
+      ? '(필터 결과 ' + list.length + '건 · ' + summary + ')'
       : '(' + summary + ')';
   }
 
