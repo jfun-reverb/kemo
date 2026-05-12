@@ -1883,6 +1883,7 @@ async function openBrandAppEditModal(applicationId) {
     setRowVal('nba-prod-name-ja',      p.name_ja);
     setRowVal('nba-prod-price',        p.price);
     setRowVal('nba-prod-qty',          p.qty);
+    setRowVal('nba-prod-recruit-fee',  p.recruit_fee_krw);
     setRowVal('nba-prod-transfer-fee', p.transfer_fee_krw);
     setRowVal('nba-prod-url',          p.url);
   });
@@ -2064,12 +2065,13 @@ function addNbaProductRow() {
   var row = document.createElement('div');
   row.className = 'nba-product-row';
   row.dataset.idx = rowIdx;
-  row.style.cssText = 'display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
+  row.style.cssText = 'display:grid;grid-template-columns:1.4fr 1.4fr 0.7fr 60px 90px 90px 1fr 32px;gap:8px;align-items:stretch;padding:8px 10px;background:var(--bg);border-radius:8px';
   row.innerHTML =
     '<input type="text" class="form-input nba-prod-name" placeholder="제품 이름" style="font-size:14px">' +
     '<input type="text" class="form-input nba-prod-name-ja" placeholder="상품명 (일본어)" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-price" placeholder="0" min="0" value="0" style="font-size:14px">' +
     '<input type="number" class="form-input nba-prod-qty" placeholder="0" min="0" value="0" style="font-size:14px">' +
+    '<input type="number" class="form-input nba-prod-recruit-fee" placeholder="0" min="0" style="font-size:14px" title="제품 1건당 모집비(원). 비워두면 0 — 견적 합산에서 제외">' +
     '<input type="number" class="form-input nba-prod-transfer-fee" placeholder="리뷰어 자동 2500 / 시딩 자동 0" min="0" style="font-size:14px" title="비워두면 리뷰어는 ₩2,500, 시딩은 ₩0 자동 등록 (098 트리거)">' +
     '<input type="url" class="form-input nba-prod-url" placeholder="https://..." style="font-size:14px">' +
     '<button type="button" class="btn btn-ghost btn-xs" onclick="removeNbaProductRow(this)" title="제품 제거" style="padding:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span></button>';
@@ -2097,14 +2099,20 @@ function _collectNbaProducts() {
     var nameJa = (r.querySelector('.nba-prod-name-ja')?.value || '').trim();
     var price = parseInt(r.querySelector('.nba-prod-price')?.value) || 0;
     var qty = parseInt(r.querySelector('.nba-prod-qty')?.value) || 0;
+    var recruitFeeRaw = (r.querySelector('.nba-prod-recruit-fee')?.value || '').trim();
     var feeRaw = (r.querySelector('.nba-prod-transfer-fee')?.value || '').trim();
     var url = (r.querySelector('.nba-prod-url')?.value || '').trim();
-    if (!name && !nameJa && !price && !qty && !feeRaw && !url) continue;  // 빈 행 스킵
+    if (!name && !nameJa && !price && !qty && !recruitFeeRaw && !feeRaw && !url) continue;  // 빈 행 스킵
     if (!name) { toast('제품 ' + (i + 1) + ': 이름이 비었습니다', 'error'); return null; }
     if (qty <= 0) { toast('제품 ' + (i + 1) + ': 수량은 1 이상', 'error'); return null; }
-    // 트리거 trg_brand_app_recalc(052)가 price·qty 키만 읽으므로 sales 폼 패턴과 일치시킴
+    // 트리거 trg_brand_app_recalc(052·111)는 price·qty·recruit_fee_krw·transfer_fee_krw 모두 읽음
     var item = { name: name, price: price, qty: qty, url: url || null };
     if (nameJa) item.name_ja = nameJa;  // 선택 입력 시에만 저장 (sales 폼 데이터 호환)
+    // recruit_fee_krw: 명시 입력하면 그 값. 비우면 키 미저장 → 트리거가 COALESCE(0)
+    if (recruitFeeRaw !== '') {
+      var rFeeNum = parseInt(recruitFeeRaw);
+      if (!isNaN(rFeeNum) && rFeeNum >= 0) item.recruit_fee_krw = rFeeNum;
+    }
     // transfer_fee_krw: 명시 입력하면 그 값. 비우면 098 트리거가 reviewer는 2500, seeding은 0 자동 채움
     if (feeRaw !== '') {
       var feeNum = parseInt(feeRaw);
