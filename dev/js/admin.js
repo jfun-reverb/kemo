@@ -6325,6 +6325,10 @@ function closeCampBundleModal() {
   }
   closeModal('campBundleModal');
   if (ret) renderCampBundleSummary(ret.kind, ret.formMode);
+  // 모달 안에서 한 편집(텍스트·이미지 위치 변경 포함)은 페인 input 리스너에
+  // bubble 되지 않는다 (DOM 이 한동안 페인 밖에 있어서). 닫을 때 명시적으로
+  // 미리보기 갱신 트리거 — _psetState/_csetState/_nsetState 에서 최신 값 재수집.
+  window.dispatchEvent(new Event('reverb:campFormChange'));
   _campBundleModalReturn = null;
 }
 
