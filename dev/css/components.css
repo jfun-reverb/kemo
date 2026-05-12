@@ -252,6 +252,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* 미니 에디터(참여방법/주의사항/NG) 콘텐츠 이미지: 가로 100% 가운데 정렬, 모서리 둥글림 */
 .rich-img{max-width:100%;display:block;margin:8px auto;border-radius:6px}
 .mini-editor-content .rich-img{margin:6px auto}
+/* 사이즈 프리셋 4단계 — data-rich-size 속성에 따라 sanitize 후처리에서 클래스 부여 */
+.rich-img.rich-img-sm{max-width:25%}
+.rich-img.rich-img-md{max-width:50%}
+.rich-img.rich-img-lg{max-width:75%}
+/* 미니 에디터 안에서는 선택 표시용 outline (기본 contenteditable 가시 셀렉션 보강) */
+.mini-editor-content .rich-img.is-selected{outline:2px solid var(--pink);outline-offset:2px}
 
 /* Quill 에디터 (admin) */
 .quill-host{background:#fff;border-radius:6px}

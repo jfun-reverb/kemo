@@ -160,9 +160,25 @@ function sanitizeCautionHtml(html) {
     console.warn('[sanitizeCautionHtml] DOMPurify not loaded');
     return '';
   }
-  const clean = DOMPurify.sanitize(String(html), {
+  // 사전 정규화: Chrome contenteditable 이 Enter 시 줄을 <div> 로 감싼다.
+  // sanitize 가 <div> 를 FORBID 으로 제거하면 줄바꿈이 모두 사라지므로,
+  // 먼저 <div> 를 허용 태그 <p> 로 치환해 단락 구조 보존.
+  // (Firefox 의 <br> 은 그대로 통과 — 양 브라우저 모두 안정.)
+  let normalized = String(html);
+  if (/<div\b/i.test(normalized)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = normalized;
+    tmp.querySelectorAll('div').forEach(d => {
+      const p = document.createElement('p');
+      while (d.firstChild) p.appendChild(d.firstChild);
+      if (d.parentNode) d.parentNode.replaceChild(p, d);
+    });
+    normalized = tmp.innerHTML;
+  }
+  const clean = DOMPurify.sanitize(normalized, {
     ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br','p','img'],
-    ALLOWED_ATTR: ['href','target','rel','src','alt'],
+    // data-rich-size: 이미지 사이즈 프리셋(sm/md/lg/원본). class 자체는 후처리에서 부여.
+    ALLOWED_ATTR: ['href','target','rel','src','alt','data-rich-size'],
     FORBID_TAGS: ['script','iframe','style','object','embed','svg','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
     FORBID_ATTR: ['style','onerror','onload','onclick','onmouseover','onfocus','class','id']
   });
@@ -197,6 +213,14 @@ function sanitizeCautionHtml(html) {
     img.setAttribute('decoding', 'async');
     // alt 누락 시 빈 문자열 (장식용으로 처리)
     if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
+    // 사이즈 프리셋: data-rich-size sm/md/lg/원본. 미지정 또는 'orig' 은 기본 가로 100%.
+    const size = (img.getAttribute('data-rich-size') || '').toLowerCase();
+    if (size === 'sm' || size === 'md' || size === 'lg') {
+      img.classList.add('rich-img-' + size);
+    } else if (size && size !== 'orig') {
+      // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
+      img.removeAttribute('data-rich-size');
+    }
   });
   return wrapper.innerHTML;
 }

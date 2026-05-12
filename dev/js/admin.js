@@ -5528,6 +5528,106 @@ document.addEventListener('click', function(e) {
   openMiniEditorLinkPopover(a, contentDiv);
 });
 
+// 위임 핸들러 — 미니 에디터 내부 <img> 클릭 → 사이즈 팝오버 (작게/중간/크게/원본·삭제)
+// 신규 삽입 직후(sanitize 전)는 .rich-img 클래스가 없으므로 img 전체 매칭.
+document.addEventListener('click', function(e) {
+  const img = e.target.closest && e.target.closest('.mini-editor-content img');
+  if (!img) return;
+  const contentDiv = img.closest('.mini-editor-content');
+  if (!contentDiv) return;
+  e.preventDefault();
+  openMiniEditorImagePopover(img, contentDiv);
+});
+
+// ══════════════════════════════════════
+// 미니 에디터 — 이미지 사이즈 팝오버 (작게/중간/크게/원본·삭제)
+//   .mini-editor-content 내부 <img.rich-img> 클릭 시 말풍선 팝오버 노출.
+//   - 4개 사이즈 버튼: 작게(sm 25%) / 중간(md 50%) / 크게(lg 75%) / 원본(100%)
+//   - 현재 적용 사이즈 버튼 활성 표시
+//   - 삭제 버튼 → <img> 제거 + oninput 트리거
+//   - 외부 클릭 또는 ESC 로 닫기
+//   - data-rich-size 속성으로 저장, sanitize 후처리에서 class 부여
+// ══════════════════════════════════════
+var _miniEditorImagePopover = null;
+
+function closeMiniEditorImagePopover() {
+  if (_miniEditorImagePopover) {
+    // 선택 outline 정리 (.rich-img 가 아직 없는 신규 이미지도 포함)
+    document.querySelectorAll('.mini-editor-content img.is-selected')
+      .forEach(el => el.classList.remove('is-selected'));
+    _miniEditorImagePopover.remove();
+    _miniEditorImagePopover = null;
+    document.removeEventListener('mousedown', _miniEditorImagePopoverOutside, true);
+    document.removeEventListener('keydown', _miniEditorImagePopoverKey, true);
+  }
+}
+
+function _miniEditorImagePopoverOutside(e) {
+  if (!_miniEditorImagePopover) return;
+  if (_miniEditorImagePopover.contains(e.target)) return;
+  // 다른 이미지 클릭이면 팝오버 교체 (위임 핸들러가 새 openMiniEditorImagePopover 호출)
+  if (e.target.closest && e.target.closest('.mini-editor-content img')) return;
+  closeMiniEditorImagePopover();
+}
+
+function _miniEditorImagePopoverKey(e) {
+  if (e.key === 'Escape') closeMiniEditorImagePopover();
+}
+
+function openMiniEditorImagePopover(imgEl, contentDiv) {
+  closeMiniEditorImagePopover();
+  imgEl.classList.add('is-selected');
+  const rect = imgEl.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = 'mini-editor-img-popover';
+  const currentSize = (imgEl.getAttribute('data-rich-size') || 'orig').toLowerCase();
+  const btn = (val, label) =>
+    `<button type="button" class="meip-size ${currentSize===val?'is-active':''}" data-size="${val}" title="${label}">${label}</button>`;
+  pop.innerHTML = `
+    ${btn('sm','작게')}
+    ${btn('md','중간')}
+    ${btn('lg','크게')}
+    ${btn('orig','원본')}
+    <span class="meip-sep"></span>
+    <button type="button" class="meip-delete" title="이미지 제거"><span class="material-icons-round notranslate" translate="no">delete</span></button>
+  `;
+  document.body.appendChild(pop);
+  // 위치 계산 — 기존 링크 팝오버와 동일한 viewport-aware 헬퍼 사용
+  _positionMenuInViewport(pop, rect, {placement: 'below', gap: 6});
+  _miniEditorImagePopover = pop;
+
+  const apply = (size) => {
+    if (size === 'orig') imgEl.removeAttribute('data-rich-size');
+    else imgEl.setAttribute('data-rich-size', size);
+    // 즉시 시각 반영 — sanitize 가 다시 통과하기 전 미리보기 일치
+    imgEl.classList.remove('rich-img-sm','rich-img-md','rich-img-lg');
+    if (size === 'sm' || size === 'md' || size === 'lg') imgEl.classList.add('rich-img-' + size);
+    contentDiv.dispatchEvent(new Event('input', {bubbles:true}));
+    // 활성 상태 갱신
+    pop.querySelectorAll('.meip-size').forEach(b => {
+      b.classList.toggle('is-active', b.dataset.size === size);
+    });
+  };
+
+  pop.querySelectorAll('.meip-size').forEach(b => {
+    b.addEventListener('click', () => apply(b.dataset.size));
+  });
+
+  pop.querySelector('.meip-delete').addEventListener('click', () => {
+    const parent = imgEl.parentNode;
+    if (!parent) return;
+    parent.removeChild(imgEl);
+    contentDiv.dispatchEvent(new Event('input', {bubbles:true}));
+    closeMiniEditorImagePopover();
+  });
+
+  // 팝오버 밖 클릭·ESC 로 닫기
+  setTimeout(() => {
+    document.addEventListener('mousedown', _miniEditorImagePopoverOutside, true);
+    document.addEventListener('keydown', _miniEditorImagePopoverKey, true);
+  }, 0);
+}
+
 function renderCsetItems() {
   const wrap = $('csetItemsWrap');
   if (!wrap) return;

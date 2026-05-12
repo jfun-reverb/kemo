@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778581560';
+  var CURRENT_BUILD = 'v1778582001';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -358,6 +358,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* 미니 에디터(참여방법/주의사항/NG) 콘텐츠 이미지: 가로 100% 가운데 정렬, 모서리 둥글림 */
 .rich-img{max-width:100%;display:block;margin:8px auto;border-radius:6px}
 .mini-editor-content .rich-img{margin:6px auto}
+/* 사이즈 프리셋 4단계 — data-rich-size 속성에 따라 sanitize 후처리에서 클래스 부여 */
+.rich-img.rich-img-sm{max-width:25%}
+.rich-img.rich-img-md{max-width:50%}
+.rich-img.rich-img-lg{max-width:75%}
+/* 미니 에디터 안에서는 선택 표시용 outline (기본 contenteditable 가시 셀렉션 보강) */
+.mini-editor-content .rich-img.is-selected{outline:2px solid var(--pink);outline-offset:2px}
 
 /* Quill 에디터 (admin) */
 .quill-host{background:#fff;border-radius:6px}
@@ -792,6 +798,72 @@ textarea.form-input{resize:vertical;min-height:80px}
 }
 .mini-editor-link-popover .melp-delete{color:#B3261E}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
+
+/* 미니 에디터 — 이미지 사이즈 팝오버 (작게/중간/크게/원본·삭제) */
+.mini-editor-img-popover{
+  position:fixed;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.12);
+  padding:4px;
+  z-index:9999;
+  animation:melp-fade 0.12s ease-out;
+}
+.mini-editor-img-popover::before{
+  content:'';
+  position:absolute;
+  top:-6px;
+  left:16px;
+  width:10px;
+  height:10px;
+  background:#fff;
+  border-left:1px solid var(--line);
+  border-top:1px solid var(--line);
+  transform:rotate(45deg);
+}
+.mini-editor-img-popover .meip-size{
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:6px 10px;
+  border-radius:4px;
+  font-size:12px;
+  font-weight:500;
+  color:var(--ink);
+  white-space:nowrap;
+}
+.mini-editor-img-popover .meip-size:hover{
+  background:rgba(200,120,163,0.12);
+}
+.mini-editor-img-popover .meip-size.is-active{
+  background:var(--pink);
+  color:#fff;
+  font-weight:700;
+}
+.mini-editor-img-popover .meip-sep{
+  width:1px;
+  height:18px;
+  background:var(--line);
+  margin:0 4px;
+}
+.mini-editor-img-popover .meip-delete{
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:6px;
+  border-radius:4px;
+  color:#B3261E;
+  display:inline-flex;
+  align-items:center;
+}
+.mini-editor-img-popover .meip-delete:hover{
+  background:rgba(179,38,30,0.12);
+}
+.mini-editor-img-popover .meip-delete .material-icons-round{font-size:18px}
 
 /* ──────────────────────────────────────────
  * Quill 리치 에디터 통합 박스 — 미니 에디터와 같은 looks
@@ -1343,7 +1415,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 19:26 · 0f47e49</span>
+          <span class="admin-build-text">2026-05-12 19:33 · 2e73d47</span>
         </div>
       </div>
     </aside>
@@ -3769,9 +3841,25 @@ function sanitizeCautionHtml(html) {
     console.warn('[sanitizeCautionHtml] DOMPurify not loaded');
     return '';
   }
-  const clean = DOMPurify.sanitize(String(html), {
+  // 사전 정규화: Chrome contenteditable 이 Enter 시 줄을 <div> 로 감싼다.
+  // sanitize 가 <div> 를 FORBID 으로 제거하면 줄바꿈이 모두 사라지므로,
+  // 먼저 <div> 를 허용 태그 <p> 로 치환해 단락 구조 보존.
+  // (Firefox 의 <br> 은 그대로 통과 — 양 브라우저 모두 안정.)
+  let normalized = String(html);
+  if (/<div\b/i.test(normalized)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = normalized;
+    tmp.querySelectorAll('div').forEach(d => {
+      const p = document.createElement('p');
+      while (d.firstChild) p.appendChild(d.firstChild);
+      if (d.parentNode) d.parentNode.replaceChild(p, d);
+    });
+    normalized = tmp.innerHTML;
+  }
+  const clean = DOMPurify.sanitize(normalized, {
     ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br','p','img'],
-    ALLOWED_ATTR: ['href','target','rel','src','alt'],
+    // data-rich-size: 이미지 사이즈 프리셋(sm/md/lg/원본). class 자체는 후처리에서 부여.
+    ALLOWED_ATTR: ['href','target','rel','src','alt','data-rich-size'],
     FORBID_TAGS: ['script','iframe','style','object','embed','svg','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
     FORBID_ATTR: ['style','onerror','onload','onclick','onmouseover','onfocus','class','id']
   });
@@ -3806,6 +3894,14 @@ function sanitizeCautionHtml(html) {
     img.setAttribute('decoding', 'async');
     // alt 누락 시 빈 문자열 (장식용으로 처리)
     if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
+    // 사이즈 프리셋: data-rich-size sm/md/lg/원본. 미지정 또는 'orig' 은 기본 가로 100%.
+    const size = (img.getAttribute('data-rich-size') || '').toLowerCase();
+    if (size === 'sm' || size === 'md' || size === 'lg') {
+      img.classList.add('rich-img-' + size);
+    } else if (size && size !== 'orig') {
+      // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
+      img.removeAttribute('data-rich-size');
+    }
   });
   return wrapper.innerHTML;
 }
@@ -15600,6 +15696,106 @@ document.addEventListener('click', function(e) {
   e.preventDefault();
   openMiniEditorLinkPopover(a, contentDiv);
 });
+
+// 위임 핸들러 — 미니 에디터 내부 <img> 클릭 → 사이즈 팝오버 (작게/중간/크게/원본·삭제)
+// 신규 삽입 직후(sanitize 전)는 .rich-img 클래스가 없으므로 img 전체 매칭.
+document.addEventListener('click', function(e) {
+  const img = e.target.closest && e.target.closest('.mini-editor-content img');
+  if (!img) return;
+  const contentDiv = img.closest('.mini-editor-content');
+  if (!contentDiv) return;
+  e.preventDefault();
+  openMiniEditorImagePopover(img, contentDiv);
+});
+
+// ══════════════════════════════════════
+// 미니 에디터 — 이미지 사이즈 팝오버 (작게/중간/크게/원본·삭제)
+//   .mini-editor-content 내부 <img.rich-img> 클릭 시 말풍선 팝오버 노출.
+//   - 4개 사이즈 버튼: 작게(sm 25%) / 중간(md 50%) / 크게(lg 75%) / 원본(100%)
+//   - 현재 적용 사이즈 버튼 활성 표시
+//   - 삭제 버튼 → <img> 제거 + oninput 트리거
+//   - 외부 클릭 또는 ESC 로 닫기
+//   - data-rich-size 속성으로 저장, sanitize 후처리에서 class 부여
+// ══════════════════════════════════════
+var _miniEditorImagePopover = null;
+
+function closeMiniEditorImagePopover() {
+  if (_miniEditorImagePopover) {
+    // 선택 outline 정리 (.rich-img 가 아직 없는 신규 이미지도 포함)
+    document.querySelectorAll('.mini-editor-content img.is-selected')
+      .forEach(el => el.classList.remove('is-selected'));
+    _miniEditorImagePopover.remove();
+    _miniEditorImagePopover = null;
+    document.removeEventListener('mousedown', _miniEditorImagePopoverOutside, true);
+    document.removeEventListener('keydown', _miniEditorImagePopoverKey, true);
+  }
+}
+
+function _miniEditorImagePopoverOutside(e) {
+  if (!_miniEditorImagePopover) return;
+  if (_miniEditorImagePopover.contains(e.target)) return;
+  // 다른 이미지 클릭이면 팝오버 교체 (위임 핸들러가 새 openMiniEditorImagePopover 호출)
+  if (e.target.closest && e.target.closest('.mini-editor-content img')) return;
+  closeMiniEditorImagePopover();
+}
+
+function _miniEditorImagePopoverKey(e) {
+  if (e.key === 'Escape') closeMiniEditorImagePopover();
+}
+
+function openMiniEditorImagePopover(imgEl, contentDiv) {
+  closeMiniEditorImagePopover();
+  imgEl.classList.add('is-selected');
+  const rect = imgEl.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = 'mini-editor-img-popover';
+  const currentSize = (imgEl.getAttribute('data-rich-size') || 'orig').toLowerCase();
+  const btn = (val, label) =>
+    `<button type="button" class="meip-size ${currentSize===val?'is-active':''}" data-size="${val}" title="${label}">${label}</button>`;
+  pop.innerHTML = `
+    ${btn('sm','작게')}
+    ${btn('md','중간')}
+    ${btn('lg','크게')}
+    ${btn('orig','원본')}
+    <span class="meip-sep"></span>
+    <button type="button" class="meip-delete" title="이미지 제거"><span class="material-icons-round notranslate" translate="no">delete</span></button>
+  `;
+  document.body.appendChild(pop);
+  // 위치 계산 — 기존 링크 팝오버와 동일한 viewport-aware 헬퍼 사용
+  _positionMenuInViewport(pop, rect, {placement: 'below', gap: 6});
+  _miniEditorImagePopover = pop;
+
+  const apply = (size) => {
+    if (size === 'orig') imgEl.removeAttribute('data-rich-size');
+    else imgEl.setAttribute('data-rich-size', size);
+    // 즉시 시각 반영 — sanitize 가 다시 통과하기 전 미리보기 일치
+    imgEl.classList.remove('rich-img-sm','rich-img-md','rich-img-lg');
+    if (size === 'sm' || size === 'md' || size === 'lg') imgEl.classList.add('rich-img-' + size);
+    contentDiv.dispatchEvent(new Event('input', {bubbles:true}));
+    // 활성 상태 갱신
+    pop.querySelectorAll('.meip-size').forEach(b => {
+      b.classList.toggle('is-active', b.dataset.size === size);
+    });
+  };
+
+  pop.querySelectorAll('.meip-size').forEach(b => {
+    b.addEventListener('click', () => apply(b.dataset.size));
+  });
+
+  pop.querySelector('.meip-delete').addEventListener('click', () => {
+    const parent = imgEl.parentNode;
+    if (!parent) return;
+    parent.removeChild(imgEl);
+    contentDiv.dispatchEvent(new Event('input', {bubbles:true}));
+    closeMiniEditorImagePopover();
+  });
+
+  // 팝오버 밖 클릭·ESC 로 닫기
+  setTimeout(() => {
+    document.addEventListener('mousedown', _miniEditorImagePopoverOutside, true);
+    document.addEventListener('keydown', _miniEditorImagePopoverKey, true);
+  }, 0);
+}
 
 function renderCsetItems() {
   const wrap = $('csetItemsWrap');
