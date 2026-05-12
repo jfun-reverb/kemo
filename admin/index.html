@@ -1320,7 +1320,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 14:52 · eecbb9b</span>
+          <span class="admin-build-text">2026-05-12 15:54 · 1e5b3b8</span>
         </div>
       </div>
     </aside>
@@ -6652,7 +6652,8 @@ function syncBrandAppStatusTabHash() {
 function renderBrandAppStatusTabs(baseCounts) {
   var bar = $('brandAppStatusTabBar');
   if (!bar) return;
-  var totalAll = Object.values(baseCounts || {}).reduce(function(sum, n){ return sum + n; }, 0);
+  baseCounts = baseCounts || {}; // null/undefined 가드 (catch 경로에서 빈 객체로 호출됨)
+  var totalAll = Object.values(baseCounts).reduce(function(sum, n){ return sum + n; }, 0);
   bar.innerHTML = BRAND_APP_STATUS_TABS.map(function(tab) {
     var n = tab.code === null ? totalAll : (baseCounts[tab.code] || 0);
     var isOn = (tab.code === null && _brandAppActiveStatusTab === null)
@@ -7966,25 +7967,42 @@ async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
 
-  // URL 해시 쿼리에서 status 파라미터 파싱 → 유효한 상태 코드면 해당 탭 활성
-  //   해시가 없거나 잘못된 값이면 기존 _brandAppActiveStatusTab 유지
-  //   (페인 첫 진입 시 초기값 null → 전체 탭 자동 활성, 잘못된 해시로 인한 의도치 않은 탭 리셋 방지)
-  var hashStatus = parseHashQuery('status');
-  if (hashStatus && BRAND_APP_STATUS_TABS.some(function(t){ return t.code === hashStatus; })) {
-    _brandAppActiveStatusTab = hashStatus;
-  }
+  try {
+    // URL 해시 쿼리에서 status 파라미터 파싱
+    //   화이트리스트 통과: 해당 탭 활성
+    //   미통과(옛 status 값이 hash에 남은 사용자): _brandAppActiveStatusTab=null + #brand-applications로 강제 정리
+    var hashStatus = parseHashQuery('status');
+    if (hashStatus) {
+      if (BRAND_APP_STATUS_TABS.some(function(t){ return t.code === hashStatus; })) {
+        _brandAppActiveStatusTab = hashStatus;
+      } else {
+        _brandAppActiveStatusTab = null;
+        try { history.replaceState(null, '', '#brand-applications'); } catch (_e) {}
+      }
+    }
 
-  // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
-  var [apps, counts, memoSummaries] = await Promise.all([
-    fetchBrandApplications(),
-    fetchBrandAppHistoryCounts(),
-    fetchBrandAppMemoSummaries()
-  ]);
-  _brandApps = apps;
-  _brandAppHistoryCounts = counts || {};
-  _brandAppMemoSummaries = memoSummaries || {};
-  renderBrandApplicationsList();
-  refreshBrandAppBadge();
+    // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
+    var [apps, counts, memoSummaries] = await Promise.all([
+      fetchBrandApplications(),
+      fetchBrandAppHistoryCounts(),
+      fetchBrandAppMemoSummaries()
+    ]);
+    _brandApps = apps || [];
+    _brandAppHistoryCounts = counts || {};
+    _brandAppMemoSummaries = memoSummaries || {};
+    renderBrandApplicationsList();
+    refreshBrandAppBadge();
+  } catch (err) {
+    console.error('[brand-applications] load failed:', err);
+    if (tbody) {
+      tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:#c33;padding:24px">'
+        + '신청 목록을 불러오지 못했습니다. 새로고침 또는 재로그인 후 다시 시도해 주세요.'
+        + '<br><button type="button" onclick="location.reload()" class="btn btn-primary" style="margin-top:8px">새로고침</button>'
+        + '</td></tr>';
+    }
+    // 탭 바는 카운트 0으로 안전 렌더 (탭 자체는 노출 유지)
+    try { renderBrandAppStatusTabs({}); } catch (_e) {}
+  }
 }
 
 async function refreshBrandAppBadge() {
@@ -8006,7 +8024,7 @@ function getFilteredBrandApps() {
   var to = ($('brandAppToDate')?.value) || '';
   var q = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
 
-  var list = _brandApps.slice();
+  var list = (_brandApps || []).slice();
   if (formVals.length > 0) list = list.filter(function(a){ return formVals.indexOf(a.form_type) >= 0; });
   // 상태 탭 필터 — null이면 전체, 값이 있으면 해당 상태인 신청만 통과
   if (_brandAppActiveStatusTab) {
@@ -8082,7 +8100,7 @@ function renderBrandApplicationsList() {
 
   // 탭 건수: 폼타입·기간·검색 필터만 적용한 모집단에서 상태별 카운트 계산
   // (탭 자체는 상태 필터 제외하고 계산해야 전체 분포 보임)
-  var tabBase = _brandApps.slice();
+  var tabBase = (_brandApps || []).slice();
   var formValsForTab = getMultiFilterValues('brandAppFormMulti');
   var fromForTab = ($('brandAppFromDate')?.value) || '';
   var toForTab   = ($('brandAppToDate')?.value) || '';
