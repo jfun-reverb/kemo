@@ -111,6 +111,8 @@ function _syncBrandAppCur(cur, result, fallbackVersion) {
   if (result.data.estimated_krw != null) cur.estimated_krw = result.data.estimated_krw;
   if (result.data.total_jpy != null) cur.total_jpy = result.data.total_jpy;
   if (result.data.total_qty != null) cur.total_qty = result.data.total_qty;
+  // products 변경 시 migration 116 트리거가 payment_flags 자동 재계산 — 응답 동기화 필수
+  if (result.data.payment_flags != null) cur.payment_flags = result.data.payment_flags;
 }
 
 // 상태 라벨·컬러 (객체 키 순서가 드롭다운 옵션 순서)

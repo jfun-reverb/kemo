@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778587496';
+  var CURRENT_BUILD = 'v1778587629';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1431,7 +1431,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 21:04 · 0d5a636</span>
+          <span class="admin-build-text">2026-05-12 21:07 · 87cd6fb</span>
         </div>
       </div>
     </aside>
@@ -6944,6 +6944,8 @@ function _syncBrandAppCur(cur, result, fallbackVersion) {
   if (result.data.estimated_krw != null) cur.estimated_krw = result.data.estimated_krw;
   if (result.data.total_jpy != null) cur.total_jpy = result.data.total_jpy;
   if (result.data.total_qty != null) cur.total_qty = result.data.total_qty;
+  // products 변경 시 migration 116 트리거가 payment_flags 자동 재계산 — 응답 동기화 필수
+  if (result.data.payment_flags != null) cur.payment_flags = result.data.payment_flags;
 }
 
 // 상태 라벨·컬러 (객체 키 순서가 드롭다운 옵션 순서)
