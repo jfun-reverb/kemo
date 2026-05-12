@@ -100,6 +100,17 @@
 /* 헤더 텍스트 줄바꿈 방지 — ? 아이콘과 함께 한 줄로 */
 #adminPane-brand-applications .data-table thead th{white-space:nowrap}
 
+/* ─── 상태 탭 바 (브랜드 서베이 신청 목록 · 공통 클래스)
+   기준 데이터 페인의 .lookup-tab 인라인 스타일과 동일 패턴을 공통 클래스로 추출. */
+.status-tab-bar{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--surface-dim);margin-bottom:10px;flex-shrink:0;scrollbar-width:none}
+.status-tab-bar::-webkit-scrollbar{display:none}
+.status-tab-btn{padding:10px 14px;font-size:13px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:color .15s,border-color .15s}
+.status-tab-btn:hover{background:var(--surface-dim)}
+.status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
+.status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
+.status-tab-btn.zero-count{color:#aaa}
+.status-tab-btn.zero-count .tab-count{color:#ccc}
+
 /* ─── 캠페인/신청/결과물/브랜드 관리 페인: 가로 스크롤 + 첫 컬럼 sticky-left
    브랜드 서베이 패턴(75~96)과 동일 구조. 결과물 관리는 첫 컬럼이 모집 타입 칩(좁음)이라
    sticky 가치가 낮아 두 번째 컬럼(캠페인) 고정. */

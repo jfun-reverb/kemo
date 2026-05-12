@@ -24,6 +24,82 @@ var _brandApps = [];          // 캐시된 전체 목록
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
+// 상태 탭 현재 활성값 — null = 전체, 문자열 = 특정 상태 코드
+var _brandAppActiveStatusTab = null;
+
+// 상태 탭 순서 및 라벨 정의 (사양서 §2 순서)
+var BRAND_APP_STATUS_TABS = [
+  {code: null,                 label: '전체'},
+  {code: 'new',                label: '신규접수'},
+  {code: 'reviewing',          label: '검수중'},
+  {code: 'quoted',             label: '견적전달'},
+  {code: 'paid',               label: '입금완료'},
+  {code: 'kakao_room_created', label: '카톡방생성'},
+  {code: 'orient_sheet_sent',  label: 'OT시트전송'},
+  {code: 'schedule_sent',      label: '일정전송'},
+  {code: 'campaign_registered',label: '캠페인등록'},
+  {code: 'done',               label: '최종완료'},
+  {code: 'rejected',           label: '거절'},
+];
+
+// URL 해시 쿼리에서 특정 파라미터 추출
+// 예: #brand-applications?status=new → 'new'
+function parseHashQuery(paramName) {
+  var hash = location.hash || '';
+  var qIdx = hash.indexOf('?');
+  if (qIdx < 0) return null;
+  var qs = hash.slice(qIdx + 1);
+  var pairs = qs.split('&');
+  for (var i = 0; i < pairs.length; i++) {
+    var kv = pairs[i].split('=');
+    if (decodeURIComponent(kv[0]) === paramName) {
+      return kv[1] ? decodeURIComponent(kv[1]) : null;
+    }
+  }
+  return null;
+}
+
+// URL 해시를 현재 탭 상태에 맞게 갱신 (history 스택 오염 없이 replace)
+function syncBrandAppStatusTabHash() {
+  var base = '#brand-applications';
+  var next = _brandAppActiveStatusTab ? base + '?status=' + encodeURIComponent(_brandAppActiveStatusTab) : base;
+  if (location.hash !== next) {
+    history.replaceState(null, '', next);
+  }
+}
+
+// 탭 바 렌더 + 건수 계산
+// baseCounts: 현재 폼타입·기간·검색 필터 적용 후 상태별 건수 맵 {statusCode: n}
+function renderBrandAppStatusTabs(baseCounts) {
+  var bar = $('brandAppStatusTabBar');
+  if (!bar) return;
+  var totalAll = Object.values(baseCounts || {}).reduce(function(sum, n){ return sum + n; }, 0);
+  bar.innerHTML = BRAND_APP_STATUS_TABS.map(function(tab) {
+    var n = tab.code === null ? totalAll : (baseCounts[tab.code] || 0);
+    var isOn = (tab.code === null && _brandAppActiveStatusTab === null)
+            || (tab.code !== null && tab.code === _brandAppActiveStatusTab);
+    var zeroClass = n === 0 && tab.code !== null ? ' zero-count' : '';
+    var onClass = isOn ? ' on' : '';
+    // data-status 속성: 전체 탭은 빈 문자열
+    var dataStatus = tab.code !== null ? esc(tab.code) : '';
+    return '<button type="button" class="status-tab-btn' + onClass + zeroClass + '"'
+      + ' data-status="' + dataStatus + '"'
+      + ' onclick="setBrandAppStatusTab(this)">'
+      + esc(tab.label)
+      + '<span class="tab-count">(' + n + ')</span>'
+      + '</button>';
+  }).join('');
+}
+
+// 탭 클릭 핸들러
+function setBrandAppStatusTab(btn) {
+  var code = btn.dataset.status || null; // 빈 문자열이면 null(전체)
+  if (code === '') code = null;
+  _brandAppActiveStatusTab = code;
+  syncBrandAppStatusTabHash();
+  renderBrandApplicationsList();
+}
+
 // updateBrandApplication 응답을 메모리 cur 에 동기화.
 // products 변경 시 052/111 트리거가 서버에서 재계산한 estimated_krw /
 // total_jpy / total_qty 까지 즉시 반영해 새로고침 없이 「예상 견적」 등
@@ -360,7 +436,13 @@ async function exportBrandApplicationsExcel() {
     var yyyy = ts.getFullYear();
     var mm = String(ts.getMonth()+1).padStart(2,'0');
     var dd = String(ts.getDate()).padStart(2,'0');
-    a.download = `brand-survey-${yyyy}${mm}${dd}.xlsx`;
+    // 탭 필터 중이면 파일명에 상태 라벨 포함
+    var tabSuffix = '';
+    if (_brandAppActiveStatusTab) {
+      var activeTab = BRAND_APP_STATUS_TABS.find(function(t){ return t.code === _brandAppActiveStatusTab; });
+      if (activeTab) tabSuffix = '-' + activeTab.label;
+    }
+    a.download = `brand-survey${tabSuffix}-${yyyy}${mm}${dd}.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1304,6 +1386,15 @@ async function submitNewBrand() {
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="24" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+
+  // URL 해시 쿼리에서 status 파라미터 파싱 → 유효한 상태 코드면 해당 탭 활성
+  //   해시가 없거나 잘못된 값이면 기존 _brandAppActiveStatusTab 유지
+  //   (페인 첫 진입 시 초기값 null → 전체 탭 자동 활성, 잘못된 해시로 인한 의도치 않은 탭 리셋 방지)
+  var hashStatus = parseHashQuery('status');
+  if (hashStatus && BRAND_APP_STATUS_TABS.some(function(t){ return t.code === hashStatus; })) {
+    _brandAppActiveStatusTab = hashStatus;
+  }
+
   // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
   var [apps, counts, memoSummaries] = await Promise.all([
     fetchBrandApplications(),
@@ -1329,27 +1420,27 @@ var brandAppLazy = null;
 var BRAND_APP_PAGE_SIZE = 50;
 
 // 현재 UI 필터/정렬 기준으로 브랜드 서베이 리스트를 추출 (렌더·엑셀 export 공용)
+// 상태 필터: 탭 변수(_brandAppActiveStatusTab)를 사용하며 폼타입·기간·검색과 AND 결합
 function getFilteredBrandApps() {
   var formVals = getMultiFilterValues('brandAppFormMulti');
-  var statusVals = getMultiFilterValues('brandAppStatusMulti');
   var from = ($('brandAppFromDate')?.value) || '';
   var to = ($('brandAppToDate')?.value) || '';
   var q = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
 
   var list = _brandApps.slice();
-  if (formVals.length > 0) list = list.filter(a => formVals.indexOf(a.form_type) >= 0);
-  // Phase B: status 필터는 제품 단위 — 매칭 제품이 1개라도 있는 신청 통과. render 시 행 단위 필터로 매칭 제품만 노출
-  if (statusVals.length > 0) {
+  if (formVals.length > 0) list = list.filter(function(a){ return formVals.indexOf(a.form_type) >= 0; });
+  // 상태 탭 필터 — null이면 전체, 값이 있으면 해당 상태인 신청만 통과
+  if (_brandAppActiveStatusTab) {
+    var tabStatus = _brandAppActiveStatusTab;
     list = list.filter(function(a) {
       var prods = Array.isArray(a.products) ? a.products : [];
-      if (prods.length === 0) return statusVals.indexOf(a.status) >= 0;
+      if (prods.length === 0) return a.status === tabStatus;
       return prods.some(function(p) {
-        var s = (p && p.status) || a.status;
-        return statusVals.indexOf(s) >= 0;
+        return ((p && p.status) || a.status) === tabStatus;
       });
     });
   }
-  if (from) list = list.filter(a => (a.created_at || '') >= from);
+  if (from) list = list.filter(function(a){ return (a.created_at || '') >= from; });
   if (to) list = list.filter(a => (a.created_at || '') <= to + 'T23:59:59');
   if (q) list = list.filter(a =>
     (a.brand?.name || a.brand_name || '').toLowerCase().includes(q) ||
@@ -1392,7 +1483,7 @@ function getFilteredBrandApps() {
     return 0;
   });
 
-  var filterActive = !!(formVals.length > 0 || statusVals.length > 0 || from || to || q);
+  var filterActive = !!(formVals.length > 0 || _brandAppActiveStatusTab || from || to || q);
   return { list: list, filterActive: filterActive };
 }
 
@@ -1400,32 +1491,40 @@ function renderBrandApplicationsList() {
   var tbody = $('brandAppTableBody');
   if (!tbody) return;
 
-  // 옵션별 (NN) 카운트 갱신 — 필터 적용 전 전체 신청 기준
-  // form은 신청 단위, status는 Phase B에 따라 제품 단위 카운트
+  // 폼 종류 다중 선택 드롭다운 옵션 갱신 (신청 단위 카운트)
   var formCounts = {reviewer:0, seeding:0};
-  var brandStatusCounts = {};
   (_brandApps || []).forEach(function(a) {
     if (a.form_type) formCounts[a.form_type] = (formCounts[a.form_type] || 0) + 1;
-  });
-  _flattenAppsToProducts(_brandApps).forEach(function(f) {
-    if (f.status) brandStatusCounts[f.status] = (brandStatusCounts[f.status] || 0) + 1;
   });
   syncMultiFilter('brandAppFormMulti', '전체 폼', [
     {value:'reviewer', label:'리뷰어', count: formCounts.reviewer || 0},
     {value:'seeding',  label:'나노 시딩',   count: formCounts.seeding  || 0},
   ], renderBrandApplicationsList);
-  syncMultiFilter('brandAppStatusMulti', '전체 상태', [
-    {value:'new',                 label:'신규',            count: brandStatusCounts.new || 0},
-    {value:'reviewing',           label:'검토중',          count: brandStatusCounts.reviewing || 0},
-    {value:'quoted',              label:'견적 전달',       count: brandStatusCounts.quoted || 0},
-    {value:'paid',                label:'입금완료',        count: brandStatusCounts.paid || 0},
-    {value:'kakao_room_created',  label:'카톡방 생성',     count: brandStatusCounts.kakao_room_created || 0},
-    {value:'orient_sheet_sent',   label:'오리엔시트 전달', count: brandStatusCounts.orient_sheet_sent || 0},
-    {value:'schedule_sent',       label:'일정 전달',       count: brandStatusCounts.schedule_sent || 0},
-    {value:'campaign_registered', label:'캠페인 등록',     count: brandStatusCounts.campaign_registered || 0},
-    {value:'done',                label:'최종완료',        count: brandStatusCounts.done || 0},
-    {value:'rejected',            label:'반려',            count: brandStatusCounts.rejected || 0},
-  ], renderBrandApplicationsList);
+
+  // 탭 건수: 폼타입·기간·검색 필터만 적용한 모집단에서 상태별 카운트 계산
+  // (탭 자체는 상태 필터 제외하고 계산해야 전체 분포 보임)
+  var tabBase = _brandApps.slice();
+  var formValsForTab = getMultiFilterValues('brandAppFormMulti');
+  var fromForTab = ($('brandAppFromDate')?.value) || '';
+  var toForTab   = ($('brandAppToDate')?.value) || '';
+  var qForTab    = ((($('brandAppSearch')?.value) || '').trim().toLowerCase());
+  if (formValsForTab.length > 0) tabBase = tabBase.filter(function(a){ return formValsForTab.indexOf(a.form_type) >= 0; });
+  if (fromForTab) tabBase = tabBase.filter(function(a){ return (a.created_at || '') >= fromForTab; });
+  if (toForTab)   tabBase = tabBase.filter(function(a){ return (a.created_at || '') <= toForTab + 'T23:59:59'; });
+  if (qForTab)    tabBase = tabBase.filter(function(a){
+    return (a.brand?.name || a.brand_name || '').toLowerCase().includes(qForTab) ||
+           (a.brand?.brand_no || '').toLowerCase().includes(qForTab) ||
+           (a.applicant_contact_name || a.contact_name || '').toLowerCase().includes(qForTab) ||
+           (a.applicant_email || a.email || '').toLowerCase().includes(qForTab) ||
+           (a.application_no || '').toLowerCase().includes(qForTab) ||
+           (a.request_note || '').toLowerCase().includes(qForTab);
+  });
+  // 상태별 건수는 제품 단위로 카운트
+  var tabStatusCounts = {};
+  _flattenAppsToProducts(tabBase).forEach(function(f) {
+    if (f.status) tabStatusCounts[f.status] = (tabStatusCounts[f.status] || 0) + 1;
+  });
+  renderBrandAppStatusTabs(tabStatusCounts);
 
   var res = getFilteredBrandApps();
   var list = res.list;
@@ -1446,18 +1545,16 @@ function renderBrandApplicationsList() {
       : '(' + summary + ')';
   }
 
-  // Phase B: status 필터가 켜지면 매칭 제품 행만 노출 (행 단위 필터)
-  // 「제품 N개」 라벨은 항상 원본 전체 개수. idx는 원본 인덱스 유지(cur.products[idx] 매핑 정확성).
-  // 「첫 행」 시각 표시는 화면 첫 행(displayIdx === 0) 기준
-  var statusFilter = getMultiFilterValues('brandAppStatusMulti');
+  // 상태 탭이 켜진 경우 매칭 제품 행만 노출 (행 단위 필터)
+  // 「제품 N개」 라벨은 원본 전체 개수, idx는 원본 인덱스 유지(cur.products[idx] 매핑 정확성)
   var renderBrandAppRow = function(a) {
     var allProds = Array.isArray(a.products) ? a.products : [];
     var totalCount = allProds.length;
     var pairs = allProds.map(function(p, originalIdx) { return {p: p, idx: originalIdx}; });
-    if (statusFilter.length > 0) {
+    if (_brandAppActiveStatusTab) {
+      var ts = _brandAppActiveStatusTab;
       pairs = pairs.filter(function(pair) {
-        var s = (pair.p && pair.p.status) || a.status;
-        return statusFilter.indexOf(s) >= 0;
+        return ((pair.p && pair.p.status) || a.status) === ts;
       });
       if (pairs.length === 0) return ''; // 매칭 제품 없으면 신청 자체 미노출
     }
@@ -1481,7 +1578,9 @@ function renderBrandApplicationsList() {
 
 function resetBrandAppFilters() {
   resetMultiFilter('brandAppFormMulti', '전체 폼');
-  resetMultiFilter('brandAppStatusMulti', '전체 상태');
+  // 상태 탭 초기화 (전체 탭으로)
+  _brandAppActiveStatusTab = null;
+  syncBrandAppStatusTabHash();
   if ($('brandAppFromDate')) $('brandAppFromDate').value = '';
   if ($('brandAppToDate')) $('brandAppToDate').value = '';
   if ($('brandAppSearch')) $('brandAppSearch').value = '';
