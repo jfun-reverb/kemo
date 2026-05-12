@@ -1588,7 +1588,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="25" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="26" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -1907,7 +1907,11 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   // 18. 이체수수료(건) (제품 단가 — 인라인 편집 가능)
   html += '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>';
 
-  // 19. 예상 견적 (신청 단위 — 모든 행에 같은 값을 동일 색상으로)
+  // 19. 최종견적금액 (VAT 미포함 — estimated_krw / 1.1 반올림. 같은 신청 모든 행에 동일 값)
+  var finalNoVat = (a.estimated_krw == null || a.estimated_krw === '') ? null : Math.round(Number(a.estimated_krw) / (1 + BRAND_QUOTE_CONST.VAT_RATE));
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + (finalNoVat ? fmtKrw(finalNoVat) : '') + '</td>';
+
+  // 20. VAT 포함 (= estimated_krw, DB 트리거 자동 계산. 같은 신청 모든 행에 동일 값)
   html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>';
 
   // 20. 견적서 전달 (액션 — 첫 행만)
