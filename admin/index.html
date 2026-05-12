@@ -483,6 +483,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* 브랜드 서베이 신청 목록 — 신청 단위 좌측 색 띠 4px (같은 신청 행끼리 동일 색, 짝/홀 교대) */
 #brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
 #brandAppTableBody tr.app-stripe-odd  > td:first-child{border-left:4px solid #8a8a8a}
+
+/* 브랜드 서베이 신청 목록 — 컬럼 경계 시각화 (액션 버튼이 다음 열과 헷갈리지 않게) */
+#brandAppTableBody tr > td{border-right:1px solid rgba(0,0,0,.05)}
+#brandAppTableBody tr > td:last-child{border-right:none}
 .status-tab-btn.zero-count .tab-count{color:#ccc}
 
 /* ─── 캠페인/신청/결과물/브랜드 관리 페인: 가로 스크롤 + 첫 컬럼 sticky-left
@@ -1316,7 +1320,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 14:16 · 844e839</span>
+          <span class="admin-build-text">2026-05-12 14:18 · 23f7531</span>
         </div>
       </div>
     </aside>
@@ -3323,7 +3327,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- 관리자 직접 신청 등록 모달 (091 admin_create_brand_application) -->
 <div class="modal-overlay" id="newBrandAppModal" style="z-index:612">
   <style>#newBrandAppModal .form-input,#newBrandAppModal select.form-input,#newBrandAppModal textarea.form-input{font-size:14px}</style>
-  <div class="modal" style="max-width:1080px;width:96vw;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+  <div class="modal" style="width:80vw;max-width:1600px;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div>
         <div id="nbaModalTitle" style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 서베이 신청 등록</div>
