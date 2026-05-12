@@ -12,10 +12,27 @@ async function openCampaign(id) {
 
   let alreadyApplied = false;
   let _myApp = null;
+  let hasCancelledHistory = false;
   if (currentUser) {
-    const {data:_appData} = await (db?.from('applications').select('*').eq('user_id', currentUser.id).eq('campaign_id', id).maybeSingle() || {data:null});
+    // partial unique index 가 cancelled 가 아닌 행 1개만 보장하므로
+    // .neq('status', 'cancelled') 로 활성 행만 단일 조회. cancelled 이력은 별도 확인.
+    const {data:_appData} = await (db?.from('applications').select('*')
+      .eq('user_id', currentUser.id)
+      .eq('campaign_id', id)
+      .neq('status', 'cancelled')
+      .maybeSingle() || {data:null});
     _myApp = _appData;
     alreadyApplied = !!_myApp;
+    if (!alreadyApplied) {
+      // 활성 행이 없으면 본인이 이 캠페인을 과거에 cancelled 했는지 확인 → 재응모 동선
+      const {data:_cancelled} = await (db?.from('applications').select('id')
+        .eq('user_id', currentUser.id)
+        .eq('campaign_id', id)
+        .eq('status', 'cancelled')
+        .limit(1)
+        .maybeSingle() || {data:null});
+      hasCancelledHistory = !!_cancelled;
+    }
   }
 
   // 리뷰어(monitor)만 모집인원 초과 시 신규 응모 차단. 기프팅·방문형은 초과 응모 허용.
@@ -122,15 +139,9 @@ async function openCampaign(id) {
       </div>
 
       ${(() => {
-        // 캠페인별 참여방법 스냅샷 우선, 없으면 legacy 하드코딩 fallback
-        const legacy = [
-          {title_ja:'応募フォームを提出', desc_ja:'当選された方には当選日にLINEにてご連絡いたします。'},
-          {title_ja:'製品を使用してSNSにレビューを投稿', desc_ja:'① 投稿ガイドを確認 ② SNSにレビューを投稿'},
-          {title_ja:'LINEで投稿リンクを送る', desc_ja:'SNSの投稿リンクをコピーして、LINEで送信してください。'}
-        ];
-        const steps = (Array.isArray(camp.participation_steps) && camp.participation_steps.length)
-          ? camp.participation_steps
-          : legacy;
+        // 참여방법: 스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료
+        const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
+        if (!steps.length) return '';
         return `
       <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
         <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--ink)">${t('detail.participationTitle')}</div>
@@ -172,11 +183,18 @@ async function openCampaign(id) {
         <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fdf5fd;padding:12px;border-radius:8px;border:1px solid #e8d4e8">${richHtml(camp.guide)}</div>
       </div>` : ''}
 
-      ${camp.ng ? `
-      <div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
-        <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.ngItems')}</div>
-        <div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>
-      </div>` : ''}
+      ${(() => {
+        // ng_items (jsonb 번들 스냅샷) 우선 렌더, 없으면 legacy campaigns.ng 폴백
+        const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
+        const hasJsonb = ngItems.length > 0;
+        const hasLegacy = !!camp.ng;
+        if (!hasJsonb && !hasLegacy) return '';
+        const ngHeader = `<div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--ink)">${t('detail.ngItems')}</div>`;
+        const ngBody = hasJsonb
+          ? `<div style="font-size:12px;color:var(--ink);line-height:1.7;padding:12px;border-radius:8px;background:#fff8f8;border:1px solid #fdd">${renderNgItemsHtml(ngItems)}</div>`
+          : `<div class="rich-content" style="font-size:12px;color:var(--ink);line-height:1.7;background:#fff8f8;padding:12px;border-radius:8px;border:1px solid #fdd">${richHtml(camp.ng)}</div>`;
+        return `<div style="background:#fff;padding:16px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">${ngHeader}${ngBody}</div>`;
+      })()}
 
       ${camp.product_url ? `
       <div style="background:#fff;padding:12px 0;margin-bottom:10px;border-bottom:1px dashed var(--line)">
@@ -240,7 +258,27 @@ async function openCampaign(id) {
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='closed') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (isFull) { floatApplyBtn.textContent=t('detail.fullBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (hasCancelledHistory) {
+      // 사양 §4-9: 본인이 과거 취소한 캠페인 → 「再応募する」 라벨 + 안내 박스
+      floatApplyBtn.textContent=t('detail.reapplyBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm';
+      floatApplyBtn.onclick=()=>handleFloatApply();
+    }
     else { floatApplyBtn.textContent=t('detail.applyBtn'); floatApplyBtn.disabled=false; floatApplyBtn.className='btn btn-primary btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    // 재응모 안내 박스 (버튼 위에 회색 한 줄)
+    const reapplyNoticeId = 'detailReapplyNotice';
+    let reapplyNotice = document.getElementById(reapplyNoticeId);
+    if (hasCancelledHistory && !alreadyApplied && _myApp?.status !== 'approved' && camp.status !== 'closed' && !isFull) {
+      if (!reapplyNotice) {
+        reapplyNotice = document.createElement('div');
+        reapplyNotice.id = reapplyNoticeId;
+        reapplyNotice.style.cssText = 'background:#F5F5F5;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center';
+        floatApplyBtn.parentNode?.insertBefore(reapplyNotice, floatApplyBtn);
+      }
+      reapplyNotice.textContent = t('detail.reapplyNotice');
+      reapplyNotice.style.display = '';
+    } else if (reapplyNotice) {
+      reapplyNotice.style.display = 'none';
+    }
   }
   if (fb) fb.style.display='block';
 
@@ -304,6 +342,21 @@ function renderCautionItemsHtml(items) {
         : '';
       return `<li>${esc(body)}${link}${esc(after)}</li>`;
     }
+    return `<li>${sanitize(html)}</li>`;
+  }).join('');
+  return `<ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;line-height:1.8">${lis}</ul>`;
+}
+
+// ng_items 배열(v2: html_ko/html_ja) 렌더 — 저장 전 DOMPurify 통과한 인라인 서식 허용
+// caution 과 달리 NG 는 동의 항목 아니므로 신청 모달 미노출, 상세 페이지만 렌더.
+function renderNgItemsHtml(items) {
+  if (!Array.isArray(items) || !items.length) return '';
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const sanitize = (typeof sanitizeCautionHtml === 'function')
+    ? sanitizeCautionHtml
+    : (h => String(h||'').replace(/<script/gi,'&lt;script'));
+  const lis = items.map(it => {
+    const html = lang === 'ko' ? (it.html_ko || it.html_ja || '') : (it.html_ja || it.html_ko || '');
     return `<li>${sanitize(html)}</li>`;
   }).join('');
   return `<ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;line-height:1.8">${lis}</ul>`;
@@ -506,6 +559,44 @@ async function openActivityPage(applicationId, campaignId, from) {
   _activityFrom = from || 'detail';
   const camp = allCampaigns.find(c=>c.id===campaignId) || {};
   _activityCamp = camp;
+  // 사양 §4-8: cancelled 신청은 활동관리 진입 자체 차단.
+  // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
+  // 진입한 경우에도 동일 분기.
+  const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
+  if (typeof navigate === 'function') navigate('activity');
+  if (isCancelled) {
+    const root = $('page-activity');
+    if (root) {
+      // 첫 차단 진입일 때만 안내 패널 삽입. 이후 다른 신청 열면 원래 폼이 다시 표시되어야 하므로 plain 패널만 추가.
+      let blocked = $('activityCancelledNotice');
+      if (!blocked) {
+        blocked = document.createElement('div');
+        blocked.id = 'activityCancelledNotice';
+        blocked.style.cssText = 'padding:40px 20px;text-align:center;background:#F5F5F5;border-radius:14px;margin:20px';
+        blocked.innerHTML = `
+          <div style="font-size:36px;color:var(--muted);margin-bottom:12px"><span class="material-icons-round notranslate" translate="no" style="font-size:48px">cancel</span></div>
+          <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="appHistory.cancelBlocked.title">この応募はキャンセルされました</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7" data-i18n="appHistory.cancelBlocked.body">応募履歴に戻る場合は下のボタンをタップ</div>
+          <button class="btn btn-primary" onclick="navigate('mypage');openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
+        // 페이지 헤더 + 안내. 다른 폼/섹션은 모두 가린다.
+        const main = root.querySelector('.page-content') || root;
+        // 기존 자식 모두 숨김 후 안내만 노출
+        Array.from(main.children).forEach(ch => { ch.style.display = 'none'; });
+        main.appendChild(blocked);
+      } else {
+        blocked.style.display = '';
+      }
+      if (typeof applyI18n === 'function') applyI18n();
+    }
+    return;
+  }
+  // cancelled 가 아닌 정상 진입 — 차단 패널이 이전에 삽입되어 있으면 숨기고 폼을 복원
+  const prevBlocked = $('activityCancelledNotice');
+  if (prevBlocked && prevBlocked.parentNode) {
+    const main = prevBlocked.parentNode;
+    Array.from(main.children).forEach(ch => { ch.style.display = ''; });
+    prevBlocked.style.display = 'none';
+  }
   $('activityCampTitle').textContent = camp.title || '';
   $('activityCampBrand').textContent = camp.brand || '';
   const rtLabel = $('activityRecruitLabel');
@@ -516,6 +607,28 @@ async function openActivityPage(applicationId, campaignId, from) {
     } else {
       rtLabel.style.display = 'none';
     }
+  }
+
+  // 사양 §4-1 추가 진입점: 활동관리 페이지 상단 「取消」 버튼.
+  // 표시 조건은 응모이력 ⋮ 메뉴와 동일 — pending/approved 이면서
+  // 결과물 1건도 approved 아닐 때만. fetchDeliverablesForUser 로 본인
+  // 결과물 조회 후 판단.
+  const cancelBtnEl = $('activityCancelBtn');
+  if (cancelBtnEl) {
+    let canCancel = false;
+    try {
+      const app = (typeof _myApps !== 'undefined' && Array.isArray(_myApps))
+        ? _myApps.find(a => a.id === applicationId)
+        : null;
+      const appStatus = app?.status;
+      if (appStatus === 'pending' || appStatus === 'approved') {
+        const ds = await fetchDeliverablesForUser({user_id: currentUser?.id, application_id: applicationId});
+        const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+        canCancel = !hasApprovedDeliv;
+      }
+    } catch(_e) { canCancel = false; }
+    cancelBtnEl.style.display = canCancel ? '' : 'none';
+    cancelBtnEl.dataset.appId = applicationId;
   }
 
   // 타입별 섹션 표시
@@ -633,6 +746,24 @@ function navigateBackFromActivity() {
   } else {
     openCampaign(_activityCampId);
   }
+}
+
+// 활동관리 페이지 상단 「取消」 버튼 클릭 핸들러 (사양 §4-1).
+// 응모이력 ⋮ 메뉴와 동일하게 openCancelModalFor 재사용. _myApps 캐시가
+// 이 시점에 없을 수 있으므로 (응모이력을 거치지 않고 직접 진입한 케이스)
+// loadMyApplications 로 캐시를 보장하고 모달을 연다.
+async function onActivityCancelClick() {
+  const appId = $('activityCancelBtn')?.dataset?.appId || _activityAppId;
+  if (!appId) return;
+  // _myApps 캐시에 대상 행이 있는지로 검사 — 응모이력 거치지 않고 직접 진입
+  // (예: 알림 클릭 등) 케이스 모두 커버.
+  const cacheReady = typeof _myApps !== 'undefined'
+    && Array.isArray(_myApps)
+    && !!_myApps.find(a => a.id === appId);
+  if (!cacheReady && typeof loadMyApplications === 'function') {
+    try { await loadMyApplications(); } catch(_e) { /* 캐시 실패해도 모달은 시도 */ }
+  }
+  if (typeof openCancelModalFor === 'function') openCancelModalFor(appId);
 }
 
 async function loadReceipts() { return loadDeliverablesForActivity(); }

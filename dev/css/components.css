@@ -52,6 +52,8 @@
 .badge-pink{background:#FFE4EC;color:#B91C5C;border:1px solid #FFB8D0}
 /* 캠페인 상태 비노출 강조 — expired(노출마감, 영구 비노출) */
 .badge-expired{background:#EEEEEE;color:#666666;border:1.5px dashed #999999;opacity:.85}
+/* NG 사항 배지 — 진한 빨강 계열 (badge-pink 분홍과 명확히 구분, cp-sec-bg-ng 톤과 일관) */
+.badge-ng{background:#FFEBEE;color:#B71C1C;border:1px solid #EF9A9A}
 .badge-new{background:var(--primary);color:#fff}
 
 /* ── FORMS (Material Text Field - Outlined) ── */

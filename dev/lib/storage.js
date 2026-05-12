@@ -387,7 +387,14 @@ async function updateApplication(appId, updates) {
 
 async function checkDuplicateApplication(userId, campaignId) {
   if (!db) return false;
-  const {data} = await db.from('applications').select('id').eq('user_id', userId).eq('campaign_id', campaignId).maybeSingle();
+  // cancelled 행은 재응모 허용을 위해 중복으로 보지 않는다 (migration 104,
+  // partial unique index `applications_user_camp_active_uidx` 와 일치).
+  const {data} = await db.from('applications')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('campaign_id', campaignId)
+    .neq('status', 'cancelled')
+    .maybeSingle();
   return !!data;
 }
 
@@ -543,6 +550,39 @@ async function markAllNotificationsRead() {
       if (error) throw error;
     });
   } catch(e) { console.error('[markAllNotificationsRead]', e); }
+}
+
+// 본인 응모 취소 완료 알림 (notifications kind='application_cancelled')
+// 사양 §4-10. RPC 호출 성공 직후 클라이언트가 1건 INSERT.
+// 헤더 햄버거 미읽음 배지에 즉시 반영 + 다른 디바이스 동기 확인 용도.
+async function insertApplicationCancelledNotification(applicationId, campaignTitle) {
+  if (!db) return;
+  try {
+    const {data: s} = await db.auth.getUser();
+    const uid = s?.user?.id;
+    if (!uid) return;
+    // 사양 §4-10 라벨: 「応募を取り消しました — {キャンペーン名}」.
+    // notifications.title 은 INSERT 시점 텍스트가 굳어지므로 일본어 고정
+    // (인플루언서 기본 언어 ja). 다국어 토글은 알림 렌더 코드에서 kind
+    // 기반으로 별도 처리.
+    const titleText = campaignTitle
+      ? `応募を取り消しました — ${campaignTitle}`
+      : '応募を取り消しました';
+    await retryWithRefresh(async () => {
+      const {error} = await db.from('notifications').insert({
+        user_id:   uid,
+        kind:      'application_cancelled',
+        ref_table: 'applications',
+        ref_id:    applicationId,
+        title:     titleText,
+        body:      null
+      });
+      if (error) throw error;
+    });
+  } catch(e) {
+    // 알림 INSERT 실패는 사용자 흐름 차단 안 함 (취소 자체는 RPC 로 이미 성공)
+    console.warn('[insertApplicationCancelledNotification]', e);
+  }
 }
 
 // 캠페인 단위로 결과물 전체 조회 (진행현황 탭 — 여러 신청자 일괄)
@@ -870,7 +910,8 @@ async function isLookupInUse(row) {
     const {count} = await db.from('campaigns').select('id', {count: 'exact', head: true}).ilike('content_types', `%${row.name_ja}%`);
     return (count || 0) > 0;
   }
-  // ng_item은 textarea 자유 입력이라 사용 여부 추적 불가 → 항상 false
+  // ng_item lookup은 비활성(active=false) 처리됨 — ng_sets 번들로 대체 (migration 107)
+  // 사용 여부 추적 불가이므로 항상 false 반환 (비활성 처리로 hard delete 차단됨)
   return false;
 }
 
@@ -1070,16 +1111,119 @@ async function swapCautionSetOrder(idA, idB) {
 }
 
 // ══════════════════════════════════════
-// CAMPAIGN CAUTION HISTORY (주의사항/참여방법 변경 audit — migration 077, Phase 2)
+// NG SETS (NG 사항 번들 — migration 107)
+//   caution_sets 패턴 완전 미러링.
+//   캠페인 저장 시 items 스냅샷이 campaigns.ng_items 로 복사되므로
+//   번들 수정 후에도 기존 캠페인 상세에는 영향 없음.
+// ══════════════════════════════════════
+
+// 캠페인 폼에서 recruit_type 필터로 active 번들만 조회
+//   서버 filter(contains)가 recruit_types=[] 를 제외시키는 문제로 클라이언트 필터 사용.
+//   빈 배열(= 전 타입 공통)은 항상 포함.
+async function fetchNgSets(recruitType) {
+  if (!db) return [];
+  const {data, error} = await db?.from('ng_sets')
+    .select('*')
+    .eq('active', true)
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  const all = data || [];
+  if (!recruitType) return all;
+  return all.filter(s => {
+    const rts = Array.isArray(s.recruit_types) ? s.recruit_types : [];
+    return rts.length === 0 || rts.includes(recruitType);
+  });
+}
+
+// 관리자 기준 데이터 페인 — 비활성 포함 전체
+async function fetchNgSetsAll() {
+  if (!db) return [];
+  const {data, error} = await db?.from('ng_sets')
+    .select('*')
+    .order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+async function insertNgSet(row) {
+  let result;
+  await retryWithRefresh(async () => {
+    const existing = await fetchNgSetsAll();
+    const maxOrder = existing.reduce((m, r) => Math.max(m, r.sort_order || 0), 0);
+    const payload = {
+      name_ko: row.name_ko,
+      name_ja: row.name_ja,
+      recruit_types: row.recruit_types || [],
+      items: row.items || [],
+      sort_order: row.sort_order != null ? row.sort_order : maxOrder + 10,
+      active: row.active != null ? row.active : true
+    };
+    const {data, error} = await db?.from('ng_sets').insert(payload).select().maybeSingle();
+    if (error) throw error;
+    result = data;
+  });
+  return result;
+}
+
+async function updateNgSet(id, updates) {
+  await retryWithRefresh(async () => {
+    const {error} = await db?.from('ng_sets').update(updates).eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function deactivateNgSet(id) {
+  await updateNgSet(id, {active: false});
+}
+
+async function activateNgSet(id) {
+  await updateNgSet(id, {active: true});
+}
+
+// hard delete — campaigns.ng_set_id 는 ON DELETE SET NULL 이라 안전.
+// 단, 사용 중인 번들(campaigns.ng_set_id 참조 있음)은 hard delete 차단 → soft delete만 허용.
+async function deleteNgSet(id) {
+  await retryWithRefresh(async () => {
+    // 사용 중 여부 확인 (campaigns.ng_set_id 참조)
+    const {count} = await db?.from('campaigns')
+      .select('id', {count: 'exact', head: true})
+      .eq('ng_set_id', id);
+    if ((count || 0) > 0) {
+      // 사용 중이면 hard delete 차단 — soft delete(비활성)만 허용
+      const {error} = await db?.from('ng_sets').update({active: false}).eq('id', id);
+      if (error) throw error;
+      return;
+    }
+    // 미사용이면 hard delete
+    const {error} = await db?.from('ng_sets').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+async function swapNgSetOrder(idA, idB) {
+  if (!db) return;
+  const {data: rows} = await db?.from('ng_sets').select('id, sort_order').in('id', [idA, idB]);
+  if (!rows || rows.length !== 2) return;
+  const [a, b] = rows;
+  await retryWithRefresh(async () => {
+    await db?.from('ng_sets').update({sort_order: b.sort_order}).eq('id', a.id);
+    await db?.from('ng_sets').update({sort_order: a.sort_order}).eq('id', b.id);
+  });
+}
+
+// ══════════════════════════════════════
+// CAMPAIGN CAUTION HISTORY (주의사항/참여방법/NG 변경 audit — migration 077+109)
 // ══════════════════════════════════════
 
 // 변경 이력 INSERT — record_caution_history RPC (SECURITY DEFINER)
-//   호출 위치: dev/js/admin.js:saveCampaignEdit() — caution/participation 변경이 감지된 경우만
-//   args: { campaign_id, prev:{caution_set_id, caution_items, participation_set_id, participation_steps},
-//           next:{caution_set_id, caution_items, participation_set_id, participation_steps},
+//   호출 위치: dev/js/admin.js:saveCampaignEdit() — caution/participation/ng 변경이 감지된 경우만
+//   args: { campaign_id,
+//           prev:{caution_set_id, caution_items, participation_set_id, participation_steps, ng_set_id, ng_items},
+//           next:{caution_set_id, caution_items, participation_set_id, participation_steps, ng_set_id, ng_items},
 //           app_count, bypass_ack }
 //   bypass_ack: 신청자 ≥1 + 사용자가 경고 모달 「확인하고 저장」을 통과했으면 true.
 //   DEMO_MODE(no db)에서는 no-op (audit 의미 없음).
+//   migration 109: NG 파라미터 4개 추가 (기존 호출처는 DEFAULT NULL이라 호환 유지).
 async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_ack}) {
   if (!db || !campaign_id) return null;
   let result = null;
@@ -1096,6 +1240,11 @@ async function recordCautionHistory({campaign_id, prev, next, app_count, bypass_
       p_next_participation_steps: next?.participation_steps ?? null,
       p_app_count: Number.isFinite(app_count) ? app_count : 0,
       p_bypass_ack: !!bypass_ack,
+      // migration 109: NG 사항 파라미터 (미전달 시 RPC 기본값 NULL)
+      p_prev_ng_set_id: prev?.ng_set_id || null,
+      p_next_ng_set_id: next?.ng_set_id || null,
+      p_prev_ng_items: prev?.ng_items ?? null,
+      p_next_ng_items: next?.ng_items ?? null,
     });
     if (error) throw error;
     result = data || null;
@@ -1521,6 +1670,118 @@ async function updateBrandApplication(id, patch, expectedVersion) {
     return {ok: true, data: result};
   } catch(e) {
     console.error('[updateBrandApplication]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// ──────────────────────────────────────
+// 관리자 메일 수신 구독 (admin_email_subscriptions)
+// 사양: docs/specs/2026-05-11-admin-email-subscriptions.md
+// ──────────────────────────────────────
+
+// 여러 관리자의 구독 상태를 한 번에 가져온다 (admin_id → mail_kind 배열).
+// 관리자 계정 페인 리스트 렌더 시 1회 호출로 모든 행에 칩 표시.
+async function fetchAdminEmailSubscriptions(adminIds) {
+  if (!db || !adminIds || adminIds.length === 0) return {};
+  const {data, error} = await db.from('admin_email_subscriptions')
+    .select('admin_id, mail_kind')
+    .in('admin_id', adminIds)
+    .eq('subscribed', true);
+  if (error) { console.error('[fetchAdminEmailSubscriptions]', error); return {}; }
+  const map = {};
+  for (const row of data || []) {
+    if (!map[row.admin_id]) map[row.admin_id] = [];
+    map[row.admin_id].push(row.mail_kind);
+  }
+  return map;
+}
+
+// 메일 종류 카탈로그 (lookup_values kind='admin_email_kind')
+// 모달의 체크박스 목록을 동적 렌더하기 위함.
+async function fetchAdminEmailKinds() {
+  if (!db) return [];
+  const {data, error} = await db.from('lookup_values')
+    .select('code, name_ko, name_ja, sort_order')
+    .eq('kind', 'admin_email_kind')
+    .eq('active', true)
+    .order('sort_order');
+  if (error) { console.error('[fetchAdminEmailKinds]', error); return []; }
+  return data || [];
+}
+
+// ──────────────────────────────────────
+// 캠페인 신청 본인 취소 (cancel_application RPC)
+// 사양: docs/specs/2026-05-11-application-cancel.md
+// ──────────────────────────────────────
+
+// 취소 사유 카테고리 목록 (lookup_values kind='cancel_reason')
+// 인플루언서 취소 모달의 select 옵션을 동적 렌더하기 위함.
+async function fetchCancelReasons() {
+  if (!db) return [];
+  const {data, error} = await db?.from('lookup_values')
+    .select('code, name_ko, name_ja, sort_order')
+    .eq('kind', 'cancel_reason')
+    .eq('active', true)
+    .order('sort_order');
+  if (error) { console.error('[fetchCancelReasons]', error); return []; }
+  return data || [];
+}
+
+// 본인 취소 RPC 호출.
+// 반환: { ok: true, data: { cancel_phase, cancelled_at, previous_status } }
+//      | { ok: false, error: 'application_not_found' | 'not_owner'
+//                          | 'invalid_status' | 'deliverable_already_approved'
+//                          | 'acknowledgement_required' | 'reason_required'
+//                          | (그 외 메시지) }
+// 호출 측에서 error 코드로 분기해 사용자 친화 메시지 표시.
+async function cancelApplication(applicationId, opts) {
+  if (!db) return {ok: false, error: 'no_db'};
+  const payload = {
+    p_application_id: applicationId,
+    p_reason_code:    opts?.reasonCode || null,
+    p_reason_note:    opts?.reasonNote || null,
+    p_acknowledged:   !!opts?.acknowledged
+  };
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('cancel_application', payload);
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) {
+    // PostgREST 가 RAISE EXCEPTION 메시지를 e.message 로 전달
+    const msg = e?.message || 'unknown';
+    console.error('[cancelApplication]', e);
+    return {ok: false, error: msg};
+  }
+}
+
+// 한 관리자의 메일 구독 일괄 저장 (UPSERT)
+// allKinds 의 모든 종류에 대해 subscribed=subscribedKinds.has(code) 로 행을 보장.
+// 모달에서 「저장」 클릭 시 호출. RLS 가 본인 또는 super_admin 만 허용.
+async function saveAdminEmailSubscriptions(adminId, subscribedKinds, allKinds) {
+  if (!db) return {ok: false, error: 'no_db'};
+  // updated_by: 누가 변경했는지 추적 (super_admin 이 다른 관리자 설정을 바꿀 때 식별).
+  // currentUser 는 dev/lib/shared.js 의 전역 — 미세션 상황에서는 NULL 로 들어감.
+  const updatedBy = (typeof currentUser !== 'undefined' && currentUser?.id) || null;
+  const rows = (allKinds || []).map(k => ({
+    admin_id: adminId,
+    mail_kind: k.code,
+    subscribed: subscribedKinds.has(k.code),
+    updated_at: new Date().toISOString(),
+    updated_by: updatedBy
+  }));
+  if (rows.length === 0) return {ok: true};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db.from('admin_email_subscriptions')
+        .upsert(rows, {onConflict: 'admin_id,mail_kind'});
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[saveAdminEmailSubscriptions]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }

@@ -211,7 +211,7 @@ function switchAdminPane(pane, el, pushHistory) {
     applyDeadlineFieldsVisibility('new', 'monitor');
     // Quill 리치 에디터 lazy init (pane이 보여야 치수 측정 성공하므로 다음 tick)
     setTimeout(() => {
-      ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
+      ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
     }, 0);
     // 참여방법 번들 초기화 (기본 recruit_type='monitor')
     _psetState.new = [];
@@ -223,6 +223,11 @@ function switchAdminPane(pane, el, pushHistory) {
     populateCampCsetDropdown('new', 'monitor', null);
     renderCampCautionItems('new');
     renderCampBundleSummary('cset', 'new');
+    // NG 사항 번들 초기화 (migration 107 — caution_sets 패턴 미러)
+    _nsetState.new = [];
+    populateCampNsetDropdown('new', 'monitor', null);
+    renderCampNgItems('new');
+    renderCampBundleSummary('nset', 'new');
     setupCampPreview('new');
     // brand 드롭다운 로드 (캐시는 _campBrandsCache로 재사용)
     loadCampBrandSelect('new', '').then(() => onCampBrandChange('new'));
@@ -982,7 +987,7 @@ async function loadAdminCampaigns(useCache) {
 }
 
 // ── Quill 리치 텍스트 에디터 관리 ──
-const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','editCampNg','newCampDesc','newCampAppeal','newCampGuide','newCampNg'];
+const RICH_EDITOR_IDS = ['editCampDesc','editCampAppeal','editCampGuide','newCampDesc','newCampAppeal','newCampGuide'];
 const richEditors = {};
 
 // ════════════════════════════════════════════════════════════════════
@@ -1143,7 +1148,6 @@ async function openEditCampaign(campId) {
   loadTagsFromValue('tagWrap_editCampMentions', 'editCampMentions', '@', camp.mentions||'');
   sv('editCampAppeal', camp.appeal||'');
   sv('editCampGuide', camp.guide||'');
-  sv('editCampNg', camp.ng||'');
   sv('editCampMinFollowers', camp.min_followers||0);
   if ($('editCampStatus')) $('editCampStatus').value = camp.status||'active';
 
@@ -1197,6 +1201,14 @@ async function openEditCampaign(campId) {
   renderCampCautionItems('edit');
   renderCampBundleSummary('cset', 'edit');
 
+  // NG 사항 번들 복원 (migration 107 — 스냅샷 우선, 드롭다운은 recruit_type 필터)
+  _nsetState.edit = Array.isArray(camp.ng_items)
+    ? camp.ng_items.map(normalizeNgItem)
+    : [];
+  await populateCampNsetDropdown('edit', rtVal, camp.ng_set_id || null);
+  renderCampNgItems('edit');
+  renderCampBundleSummary('nset', 'edit');
+
   // 신청 동의 영향 영역(주의사항/참여방법) 변경 감지용 원본 스냅샷 보관
   // saveCampaignEdit 에서 신청자 ≥1건일 때 변경 여부를 비교하여 경고 모달 표시
   _editCampOriginal = {
@@ -1206,6 +1218,8 @@ async function openEditCampaign(campId) {
     caution_items: Array.isArray(camp.caution_items) ? JSON.parse(JSON.stringify(camp.caution_items)) : [],
     participation_set_id: camp.participation_set_id || null,
     participation_steps: Array.isArray(camp.participation_steps) ? JSON.parse(JSON.stringify(camp.participation_steps)) : [],
+    ng_set_id: camp.ng_set_id || null,
+    ng_items: Array.isArray(camp.ng_items) ? JSON.parse(JSON.stringify(camp.ng_items)) : [],
   };
   // closed 캠페인은 신청 동의 영향 영역을 readonly 처리 (DB 트리거가 이중 차단)
   applyEditFormSensitiveLocks(camp.status || '');
@@ -1219,7 +1233,7 @@ async function openEditCampaign(campId) {
 function applyEditFormSensitiveLocks(status) {
   const isLocked = status === 'closed' || status === 'expired';
   const lockLabel = status === 'expired' ? '노출마감' : '종료';
-  ['Pset', 'Cset'].forEach(kind => {
+  ['Pset', 'Cset', 'Nset'].forEach(kind => {
     const card = $('editCamp' + kind + 'Summary');
     if (!card) return;
     const editBtn = card.querySelector('button[onclick*="openCampBundleModal"]');
@@ -1268,6 +1282,13 @@ function detectSensitiveChange(editPayload) {
       html_ja: s.html_ja || '',
     }));
   };
+  const normNgItems = arr => {
+    if (!Array.isArray(arr) || !arr.length) return [];
+    return arr.map(s => ({
+      html_ko: s.html_ko || '',
+      html_ja: s.html_ja || '',
+    }));
+  };
   const stable = v => JSON.stringify(v ?? null);
   const cautionChanged =
     (orig.caution_set_id || null) !== (editPayload.caution_set_id || null)
@@ -1275,10 +1296,14 @@ function detectSensitiveChange(editPayload) {
   const participationChanged =
     (orig.participation_set_id || null) !== (editPayload.participation_set_id || null)
     || stable(normSteps(orig.participation_steps)) !== stable(normSteps(editPayload.participation_steps));
+  const ngChanged =
+    (orig.ng_set_id || null) !== (editPayload.ng_set_id || null)
+    || stable(normNgItems(orig.ng_items)) !== stable(normNgItems(editPayload.ng_items));
   return {
     cautionChanged,
     participationChanged,
-    anyChanged: cautionChanged || participationChanged
+    ngChanged,
+    anyChanged: cautionChanged || participationChanged || ngChanged
   };
 }
 
@@ -1286,13 +1311,17 @@ function detectSensitiveChange(editPayload) {
 //   기존 신청자 ≥1건 + caution/participation 변경 시 명시적 확인을 요구
 //   기존 신청자가 동의한 시점의 스냅샷은 applications.caution_snapshot 에 보존되어 효력 유지됨을 안내
 let _sensitiveChangeResolver = null;
-function showSensitiveChangeConfirm({appCount, cautionChanged, participationChanged, orig, next}) {
+function showSensitiveChangeConfirm({appCount, cautionChanged, participationChanged, ngChanged, orig, next}) {
   return new Promise(resolve => {
     _sensitiveChangeResolver = resolve;
     const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
     const renderCautionItems = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
       return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
+    };
+    const renderNgItemsForModal = (arr) => {
+      if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+      return arr.map(it => `<li>${safeRich(it.html_ko || it.html_ja || '')}</li>`).join('');
     };
     const renderPsetSteps = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
@@ -1332,6 +1361,23 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
             <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
               <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
               <ul style="margin:0;padding-left:18px;line-height:1.6;list-style:none">${renderPsetSteps(next?.participation_steps)}</ul>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+    if (ngChanged) {
+      sections.push(`
+        <div style="margin-top:14px">
+          <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">NG 사항 변경</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+            <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--surface-container-low)">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(orig?.ng_items)}</ul>
+            </div>
+            <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+              <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+              <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItemsForModal(next?.ng_items)}</ul>
             </div>
           </div>
         </div>
@@ -1394,13 +1440,18 @@ function renderCautionHistoryModal() {
     ? `<div style="font-size:12px;color:var(--muted);margin-bottom:14px">캠페인 · <b style="color:var(--ink)">${esc(camp.title || '')}</b>${camp.campaign_no ? ` <span style="color:var(--muted)">[${esc(camp.campaign_no)}]</span>` : ''}</div>`
     : '';
   if (!list.length) {
-    body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">주의사항/참여방법 변경이 발생하면 자동 기록됩니다.</span></div>`;
+    body.innerHTML = `${headerLine}<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">아직 변경 이력이 없습니다.<br><span style="font-size:11px">주의사항/참여방법/NG 사항 변경이 발생하면 자동 기록됩니다.</span></div>`;
     return;
   }
   const safeRich = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => esc(String(h||'')));
   const renderCautionItems = (arr) => {
     if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
     return arr.map(it => `<li>${safeRich(it.html_ja || it.html_ko || '')}</li>`).join('');
+  };
+  // NG 항목: 관리자 페이지 한국어 원칙 — html_ko 우선, 없으면 html_ja 폴백
+  const renderNgItems = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+    return arr.map(it => `<li>${safeRich(it.html_ko || it.html_ja || '')}</li>`).join('');
   };
   const renderPsetSteps = (arr) => {
     if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
@@ -1417,9 +1468,14 @@ function renderCautionHistoryModal() {
     const participationChanged =
       (row.prev_participation_set_id || null) !== (row.next_participation_set_id || null)
       || JSON.stringify(row.prev_participation_steps ?? null) !== JSON.stringify(row.next_participation_steps ?? null);
+    // NG 사항 변경 감지 — migration 109에서 추가된 컬럼 (없으면 null 취급)
+    const ngChanged =
+      (row.ng_set_id_prev || null) !== (row.ng_set_id_next || null)
+      || JSON.stringify(row.ng_items_prev ?? null) !== JSON.stringify(row.ng_items_next ?? null);
     const tags = [];
     if (cautionChanged) tags.push('<span class="badge badge-pink" style="font-size:10px">주의사항</span>');
     if (participationChanged) tags.push('<span class="badge badge-blue" style="font-size:10px">참여방법</span>');
+    if (ngChanged) tags.push('<span class="badge badge-ng" style="font-size:10px">NG 사항</span>');
     const ackBadge = row.bypass_warning_ack
       ? '<span class="badge badge-gold" style="font-size:10px" title="신청자 ≥1건 + 경고 모달 통과">경고 확인</span>'
       : '<span class="badge badge-gray" style="font-size:10px" title="신청자 0건 — 모달 미표시">자동</span>';
@@ -1441,7 +1497,7 @@ function renderCautionHistoryModal() {
             </div>
           </div>` : ''}
         ${participationChanged ? `
-          <div>
+          <div${cautionChanged || ngChanged ? ' style="margin-bottom:14px"' : ''}>
             <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">참여방법</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
               <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
@@ -1454,6 +1510,22 @@ function renderCautionHistoryModal() {
               </div>
             </div>
           </div>` : ''}
+        ${ngChanged ? `
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">NG 사항</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+              <div style="border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:4px">변경 전</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_prev)}</ul>
+              </div>
+              <div style="border:1px solid #f5b1b1;border-radius:8px;padding:10px;background:#fff5f5">
+                <div style="font-size:11px;color:#B3261E;margin-bottom:4px;font-weight:700">변경 후</div>
+                <ul style="margin:0;padding-left:18px;line-height:1.6">${renderNgItems(row.ng_items_next)}</ul>
+              </div>
+            </div>
+          </div>` : ''}
+        ${!cautionChanged && !participationChanged && !ngChanged ? `
+          <div style="font-size:12px;color:var(--muted);padding:8px 0">변경 내용이 기록되지 않았습니다.</div>` : ''}
       </div>
     `;
     return `
@@ -1863,6 +1935,68 @@ function _clampFpToViewport(fpInst) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// 캘린더를 input 위치에 맞춰 재정렬 (스크롤 동기화용)
+//   - appendTo:document.body 모드라 캘린더는 페이지 좌표 기준 absolute
+//   - 관리자 메인 영역 스크롤은 body 스크롤이 아니라 input의 viewport
+//     rect가 변경됨 → 캘린더는 그 자리에 남아 input과 따로 놀게 됨
+//   - 캘린더 top/left를 input.getBoundingClientRect() + 페이지 스크롤
+//     offset 으로 재계산해서 input 바로 아래(또는 viewport 하단 잘림
+//     시 위)에 다시 붙임
+//   - viewport 우/좌 잘림은 _clampFpToViewport 재사용
+// ─────────────────────────────────────────────────────────────────
+function _repositionFpAtInput(fpInst) {
+  if (!fpInst || !fpInst.isOpen || !fpInst.calendarContainer || !fpInst.input) return;
+  const cal = fpInst.calendarContainer;
+  const inputRect = fpInst.input.getBoundingClientRect();
+  const margin = 4;
+  const calHeight = cal.offsetHeight;
+  const vh = document.documentElement.clientHeight;
+  const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  const scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+  // 기본: input 아래
+  let top = inputRect.bottom + margin;
+  // viewport 하단을 넘고 위쪽 공간이 충분하면 input 위로 flip
+  if (top + calHeight > vh - margin && inputRect.top - margin - calHeight > 0) {
+    top = inputRect.top - margin - calHeight;
+  }
+  // 페이지 스크롤 좌표로 환산 (body가 스크롤 안 되면 0)
+  cal.style.top = (top + scrollY) + 'px';
+  cal.style.left = (inputRect.left + scrollX) + 'px';
+  // 좌우 viewport 보정 (다음 프레임)
+  _clampFpToViewport(fpInst);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 스크롤 시 캘린더가 input 위치를 따라오도록 listener 부착/해제
+//   - capture:true 로 등록해 관리자 메인 영역의 스크롤까지 잡음
+//     (메인 영역은 body 가 아닌 자체 overflow:auto 컨테이너로 스크롤됨)
+//   - passive:true 로 스크롤 성능 영향 최소화
+//   - onOpen 시 부착, onClose 시 해제 (메모리 누수 방지)
+// ─────────────────────────────────────────────────────────────────
+function _attachFpScrollSync(fpInst) {
+  if (!fpInst || fpInst._reverbScrollHandler) return;
+  // requestAnimationFrame throttle: 빠른 스크롤 중 rAF 콜백이 누적되지 않도록
+  // 1프레임 동안 한 번만 reposition 호출. 관리자 PC 환경에서 실측 부하는 낮으나
+  // 안전망 차원에서 적용.
+  let rafId = null;
+  fpInst._reverbScrollHandler = () => {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = null;
+      _repositionFpAtInput(fpInst);
+    });
+  };
+  window.addEventListener('scroll', fpInst._reverbScrollHandler, { passive: true, capture: true });
+  window.addEventListener('resize', fpInst._reverbScrollHandler, { passive: true });
+}
+function _detachFpScrollSync(fpInst) {
+  if (!fpInst || !fpInst._reverbScrollHandler) return;
+  window.removeEventListener('scroll', fpInst._reverbScrollHandler, { capture: true });
+  window.removeEventListener('resize', fpInst._reverbScrollHandler);
+  fpInst._reverbScrollHandler = null;
+}
+
+// ─────────────────────────────────────────────────────────────────
 // 단일 날짜 picker (결과물 제출 마감일 / 캠페인 노출 마감일)
 //   - input.fp-single[data-single-prefix][data-single-target] 마크업 mount
 //   - input value를 직접 사용 (별도 hidden input 없음)
@@ -1912,6 +2046,7 @@ function setupCampSinglePickers() {
         }
         _updateFpSingleFooterSummary(fpInst);
         _clampFpToViewport(fpInst);
+        _attachFpScrollSync(fpInst);
       },
       onChange: (_selectedDates, _str, fpInst) => {
         // popup 안 시각·푸터 요약만 (input.value는 「적용」 시 commit)
@@ -1923,6 +2058,7 @@ function setupCampSinglePickers() {
         if (v) fpInst.setDate(v, false);
         else fpInst.clear(false);
         _updateFpSingleFooterSummary(fpInst);
+        _detachFpScrollSync(fpInst);
       },
     });
   });
@@ -2065,6 +2201,8 @@ function setupCampRangePickers() {
         _updateFpFooterSummary(fpInst);
         // viewport 좌우 보정 (recruit 조기 반환 전에 호출해 모든 range picker 적용)
         _clampFpToViewport(fpInst);
+        // 페이지·메인 영역 스크롤 시 캘린더가 input 위치를 따라가도록 listener 부착
+        _attachFpScrollSync(fpInst);
         if (kind !== 'recruit') return;
         // 캘린더 열릴 때마다 현재 hidden input의 시작일을 기준으로 경고 평가
         updateRecruitPastWarn(fpInst, sv ? new Date(sv) : null);
@@ -2085,6 +2223,7 @@ function setupCampRangePickers() {
         else if (sv) fpInst.setDate([sv], false);
         else fpInst.clear(false);
         _updateFpFooterSummary(fpInst);
+        _detachFpScrollSync(fpInst);
       },
     });
   });
@@ -2202,11 +2341,12 @@ async function saveCampaignEdit() {
       mentions: gv('editCampMentions'),
       appeal: gv('editCampAppeal'),
       guide: gv('editCampGuide'),
-      ng: gv('editCampNg'),
       // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
+      // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
       status: gv('editCampStatus'),
       ...collectCampPsetPayload('edit'),
       ...collectCampCsetPayload('edit'),
+      ...collectCampNsetPayload('edit'),
     };
 
     // 신청 동의 영향 영역(주의사항/참여방법) 변경 게이트
@@ -2219,12 +2359,14 @@ async function saveCampaignEdit() {
     const origStatus = (_editCampOriginal && _editCampOriginal.status) || '';
     let _historyAppCount = 0;
     let _historyBypassAck = false;
-    let change = {cautionChanged:false, participationChanged:false, anyChanged:false};
-    if (origStatus === 'closed') {
+    let change = {cautionChanged:false, participationChanged:false, ngChanged:false, anyChanged:false};
+    if (origStatus === 'closed' || origStatus === 'expired') {
       delete updates.caution_set_id;
       delete updates.caution_items;
       delete updates.participation_set_id;
       delete updates.participation_steps;
+      delete updates.ng_set_id;
+      delete updates.ng_items;
     } else {
       change = detectSensitiveChange(updates);
       if (change.anyChanged) {
@@ -2234,6 +2376,7 @@ async function saveCampaignEdit() {
             appCount: _historyAppCount,
             cautionChanged: change.cautionChanged,
             participationChanged: change.participationChanged,
+            ngChanged: change.ngChanged,
             orig: _editCampOriginal,
             next: updates
           });
@@ -2269,12 +2412,16 @@ async function saveCampaignEdit() {
             caution_items: _editCampOriginal?.caution_items || [],
             participation_set_id: _editCampOriginal?.participation_set_id || null,
             participation_steps: _editCampOriginal?.participation_steps || null,
+            ng_set_id: _editCampOriginal?.ng_set_id || null,
+            ng_items: _editCampOriginal?.ng_items || [],
           },
           next: {
             caution_set_id: updates.caution_set_id || null,
             caution_items: updates.caution_items || [],
             participation_set_id: updates.participation_set_id || null,
             participation_steps: updates.participation_steps || null,
+            ng_set_id: updates.ng_set_id || null,
+            ng_items: updates.ng_items || [],
           },
           app_count: _historyAppCount,
           bypass_ack: _historyBypassAck,
@@ -2315,6 +2462,9 @@ async function duplicateCampaign(campId) {
       // 주의사항 번들 스냅샷도 함께 복제 (번들 원본은 참조만, items는 deep copy)
       caution_set_id: src.caution_set_id || null,
       caution_items: Array.isArray(src.caution_items) ? JSON.parse(JSON.stringify(src.caution_items)) : [],
+      // NG 사항 번들 스냅샷도 함께 복제 (migration 107)
+      ng_set_id: src.ng_set_id || null,
+      ng_items: Array.isArray(src.ng_items) ? JSON.parse(JSON.stringify(src.ng_items)) : [],
       product_price: src.product_price, reward: src.reward, reward_note: src.reward_note,
       slots: src.slots, applied_count: 0,
       recruit_start: src.recruit_start, deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
@@ -2417,6 +2567,10 @@ function buildPreviewCamp(mode) {
   const imgUrls = imgList.map(x => x?.url || x?.data || x).filter(Boolean);
   const crops = (typeof buildImageCrops === 'function') ? buildImageCrops(imgList) : {};
   const pset = (typeof collectCampPsetPayload === 'function') ? collectCampPsetPayload(mode) : {};
+  const cset = (typeof collectCampCsetPayload === 'function') ? collectCampCsetPayload(mode) : {};
+  const nset = (typeof collectCampNsetPayload === 'function') ? collectCampNsetPayload(mode) : {};
+  // edit 모드: NG legacy(`camp.ng`) 폴백을 _editCampOriginal에서 가져옴 (폼에 더 이상 NG Quill 없음)
+  const ngLegacy = (mode === 'edit' && typeof _editCampOriginal !== 'undefined') ? (_editCampOriginal?.ng || '') : '';
   return {
     id: '__preview__',
     title: val(g+'Title') || '(캠페인명)',
@@ -2446,7 +2600,7 @@ function buildPreviewCamp(mode) {
     description: typeof getRichValue === 'function' ? getRichValue(g+'Desc') : '',
     appeal: typeof getRichValue === 'function' ? getRichValue(g+'Appeal') : '',
     guide: typeof getRichValue === 'function' ? getRichValue(g+'Guide') : '',
-    ng: typeof getRichValue === 'function' ? getRichValue(g+'Ng') : '',
+    ng: ngLegacy,
     hashtags: val(g+'Hashtags'),
     mentions: val(g+'Mentions'),
     image_url: imgUrls[0]||null,
@@ -2458,6 +2612,8 @@ function buildPreviewCamp(mode) {
     view_count: 0,
     created_at: new Date().toISOString(),
     ...pset,
+    ...cset,
+    ...nset,
   };
 }
 
@@ -2500,13 +2656,8 @@ function renderCampPreview(mode) {
     ? `${camp.product_price>0?`¥${camp.product_price.toLocaleString()} ${rewardLabelJa}`:'商品無償提供'}${camp.reward>0?` + ¥${camp.reward.toLocaleString()} 報酬`:''}`
     : '';
 
-  // 참여방법 (스냅샷 > legacy)
-  const legacySteps = [
-    {title_ja:'応募フォームを提出', desc_ja:'当選された方には当選日にLINEにてご連絡いたします。'},
-    {title_ja:'製品を使用してSNSにレビューを投稿', desc_ja:'① 投稿ガイドを確認 ② SNSにレビューを投稿'},
-    {title_ja:'LINEで投稿リンクを送る', desc_ja:'SNSの投稿リンクをコピーして、LINEで送信してください。'}
-  ];
-  const steps = (Array.isArray(camp.participation_steps) && camp.participation_steps.length) ? camp.participation_steps : legacySteps;
+  // 참여방법 (스냅샷만 사용 — legacy 폴백 제거, migration 110으로 운영 백필 완료)
+  const steps = Array.isArray(camp.participation_steps) ? camp.participation_steps : [];
 
   el.innerHTML = `
     <div class="cp-frame">
@@ -2550,14 +2701,14 @@ function renderCampPreview(mode) {
             return rows.join('');
           })()}
         </div>
-        <div class="cp-participation">
+        ${steps.length ? `<div class="cp-participation">
           <div class="cp-section-heading">参加方法</div>
           ${steps.map((s,i)=>{
             const title = s.title_ja || s.title_ko || '';
             const desc = s.desc_ja || s.desc_ko || '';
             return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
           }).join('')}
-        </div>
+        </div>` : ''}
         ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
         ${camp.description?`<div class="cp-sec"><div class="cp-section-heading">キャンペーン説明</div><div class="cp-sec-desc-body rich-content">${richFn(camp.description)}</div></div>`:''}
         ${(camp.appeal||camp.hashtags||camp.mentions)?`<div class="cp-sec"><div class="cp-section-heading">投稿ガイドライン</div>
@@ -2566,11 +2717,23 @@ function renderCampPreview(mode) {
           ${camp.mentions?`<div><div class="cp-sec-subtitle">必須メンション</div><div class="cp-chips">${camp.mentions.split(',').filter(Boolean).map(t=>`<span class="cp-chip cp-chip-mention">${esc(t.trim())}</span>`).join('')}</div></div>`:''}
         </div>`:''}
         ${camp.guide?`<div class="cp-sec"><div class="cp-section-heading">撮影ガイド</div><div class="cp-sec-body cp-sec-bg-guide rich-content">${richFn(camp.guide)}</div></div>`:''}
-        ${camp.ng?`<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`:''}
+        ${(() => {
+          // NG 사항: ng_items(jsonb) 우선, 없으면 legacy camp.ng(Quill html) 폴백
+          const ngItems = Array.isArray(camp.ng_items) ? camp.ng_items : [];
+          const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
+          if (ngItems.length) {
+            const lis = ngItems.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
+            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
+          }
+          if (camp.ng) {
+            return `<div class="cp-sec"><div class="cp-section-heading">NG事項</div><div class="cp-sec-body cp-sec-bg-ng rich-content">${richFn(camp.ng)}</div></div>`;
+          }
+          return '';
+        })()}
         ${(Array.isArray(camp.caution_items) && camp.caution_items.length) ? (() => {
           const s = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (h => String(h||''));
           const lis = camp.caution_items.map(it => `<li>${s(it.html_ja || it.html_ko || '')}</li>`).join('');
-          return `<div class="cp-sec"><div class="cp-section-heading">注意事項</div><ul class="cp-sec-body" style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px;line-height:1.65">${lis}</ul></div>`;
+          return `<div class="cp-sec"><div class="cp-section-heading">注意事項</div><div class="cp-sec-body"><ul style="margin:0;padding-left:18px;line-height:1.7">${lis}</ul></div></div>`;
         })() : ''}
       </div>
       <div class="cp-cta">
@@ -2919,11 +3082,12 @@ async function loadCampApplicants() {
     <td style="font-weight:700;color:var(--pink)">${totalF}</td>
     <td>${msgCell(a.message, a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-    <td>${getStatusBadgeKo(a.status)}</td>
+    <td>${getStatusBadgeKo(a.status)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
     <td>${otCell}</td>
     <td>${delivCell}</td>
     <td style="white-space:nowrap">
       ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+      :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
   </tr>`;
@@ -3319,16 +3483,39 @@ async function openInfluencerDetail(userId) {
   // 신청 이력
   const apps = await fetchApplications({user_id: userId});
   const camps = await fetchCampaigns();
+  await ensureCancelReasonsCache();
   $('infDetailAppCount').textContent = `${apps.length}건`;
   $('infDetailAppsBody').innerHTML = apps.length ? apps.map(a => {
     const camp = camps.find(c=>c.id===a.campaign_id) || {};
     const typeLabel = getRecruitTypeBadgeKo(camp.recruit_type);
-    return `<tr>
+    const mainRow = `<tr>
       <td style="font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td>
       <td>${typeLabel}</td>
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status)}</td>
+      <td>${getStatusBadgeKo(a.status)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
     </tr>`;
+    if (a.status !== 'cancelled') return mainRow;
+    // 취소 사유 보조 행
+    const catLabel = a.cancel_reason_code ? esc(cancelReasonLabelKo(a.cancel_reason_code)) : '—';
+    const noteHtml = a.cancel_reason ? `<div style="font-size:12px;color:var(--ink);margin-top:4px;white-space:pre-wrap"><strong style="font-weight:700">보충</strong> · ${esc(a.cancel_reason)}</div>` : '';
+    const phaseLabel = esc(cancelPhaseLabelKo(a.cancel_phase));
+    const whenStr = a.cancelled_at ? formatDateTime(a.cancelled_at) : '—';
+    const appPayload = esc(JSON.stringify({
+      id: a.id,
+      cancel_reason: a.cancel_reason || '',
+      cancel_reason_code: a.cancel_reason_code || '',
+      cancel_phase: a.cancel_phase || '',
+      cancel_category_ko: a.cancel_reason_code ? cancelReasonLabelKo(a.cancel_reason_code) : ''
+    }));
+    return mainRow + `<tr><td colspan="4" style="padding:0">
+      <div style="background:#FFF5F5;border-left:3px solid #C62828;padding:10px 14px;margin:0 0 4px;border-radius:0 6px 6px 0">
+        <div style="font-size:11px;font-weight:700;color:#C62828;margin-bottom:6px">취소 사유</div>
+        <div style="font-size:12px;color:var(--ink)"><strong style="font-weight:700">카테고리</strong> · ${catLabel}</div>
+        ${noteHtml}
+        <div style="font-size:11px;color:var(--muted);margin-top:6px"><strong style="font-weight:700">시점</strong> · ${phaseLabel} <span style="margin:0 4px;color:var(--line)">|</span> <strong style="font-weight:700">일시</strong> · ${whenStr}</div>
+        <div style="margin-top:8px"><button class="btn btn-xs status-btn-orange" onclick='prefillViolationFromCancel(${appPayload})'>이 취소 건으로 위반 등록</button></div>
+      </div>
+    </td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
   openModal('influencerFullDetailModal');
@@ -3338,6 +3525,31 @@ async function openInfluencerDetail(userId) {
 var _currentDetailInfluencer = null;
 var _blacklistReasonsCache = null;
 var _violationReasonsCache = null;
+var _cancelReasonsCache = null;
+
+// 취소 시점(cancel_phase) → 한국어 라벨
+const CANCEL_PHASE_LABEL_KO = {
+  recruit: '모집기간',
+  purchase: '구매기간',
+  visit: '방문기간',
+  post: '결과물 제출기간',
+  other: '기타'
+};
+function cancelPhaseLabelKo(phase) {
+  return CANCEL_PHASE_LABEL_KO[phase] || phase || '—';
+}
+
+// cancel_reason 카테고리 캐시 lazy load
+async function ensureCancelReasonsCache() {
+  if (_cancelReasonsCache == null) _cancelReasonsCache = await fetchCancelReasons();
+  return _cancelReasonsCache;
+}
+function cancelReasonLabelKo(code) {
+  if (!code) return '';
+  const r = (_cancelReasonsCache || []).find(x => x.code === code);
+  return r?.name_ko || code;
+}
+
 // 증빙 파일: 등록 폼 ({file, previewUrl}[]) / 편집 모달 ({file, previewUrl}[] + keptPaths[])
 var _pendingFlagFiles = [];
 var _editingKeptPaths = [];
@@ -3695,6 +3907,50 @@ async function onSaveEditViolation() {
   } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
 }
 
+// 신청 이력의 cancelled 보조 행에서 호출 — 위반 등록 폼에 자동 prefill
+// payload = {id, cancel_reason, cancel_reason_code, cancel_phase, cancel_category_ko}
+function prefillViolationFromCancel(payload) {
+  if (!payload) return;
+  const modal = $('influencerFullDetailModal');
+  if (!modal) return;
+  const cancelCode = 'cancel_after_purchase_start';
+  const cancelLookup = (_violationReasonsCache || []).find(r => r.code === cancelCode);
+
+  // 사유 체크박스 컨테이너 — reasonChecks 영역
+  const cbContainer = modal.querySelector('.status-chip')?.parentElement;
+  if (cbContainer) {
+    // 모든 체크 해제
+    cbContainer.querySelectorAll('input.bl-reason-cb').forEach(cb => { cb.checked = false; });
+    // cancel_after_purchase_start 체크박스가 이미 있는지
+    let cancelCb = cbContainer.querySelector('input.bl-reason-cb[value="' + cancelCode + '"]');
+    if (!cancelCb && cancelLookup) {
+      // 동적으로 맨 앞에 추가
+      const wrapper = document.createElement('label');
+      wrapper.className = 'status-chip';
+      wrapper.innerHTML = `<input type="checkbox" class="bl-reason-cb" value="${esc(cancelLookup.code)}"><span>${esc(cancelLookup.name_ko)}</span>`;
+      cbContainer.insertBefore(wrapper, cbContainer.firstChild);
+      cancelCb = wrapper.querySelector('input.bl-reason-cb');
+    }
+    if (cancelCb) cancelCb.checked = true;
+  }
+
+  // 메모 prefill — 기존 값 비어 있을 때만 (사용자 입력 덮어쓰기 방지)
+  const noteInput = $('blNoteInput');
+  if (noteInput && !(noteInput.value || '').trim()) {
+    const lines = ['[취소 사유]'];
+    if (payload.cancel_category_ko) lines.push(`카테고리: ${payload.cancel_category_ko}`);
+    if (payload.cancel_reason) lines.push(`보충: ${payload.cancel_reason}`);
+    if (payload.cancel_phase) lines.push(`시점: ${cancelPhaseLabelKo(payload.cancel_phase)}`);
+    noteInput.value = lines.join('\n');
+  }
+
+  // 상태 관리 영역으로 스크롤 + 메모 포커스
+  const targetCard = $('infDetailStatusBody');
+  if (targetCard) targetCard.scrollIntoView({behavior:'smooth', block:'start'});
+  setTimeout(() => { noteInput?.focus(); }, 400);
+  if (typeof toast === 'function') toast('위반 등록 폼에 사유·메모 prefill 됨', 'info');
+}
+
 async function onInfluencerRecordViolation() {
   if (!_currentDetailInfluencer) return;
   const modal = $('influencerFullDetailModal');
@@ -3861,9 +4117,10 @@ async function renderAppCampList() {
     availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t, count: appTypeCounts[t] || 0})),
     () => renderAppCampList());
   syncMultiFilter('appStatusMulti', '전체 상태', [
-    {value:'pending',  label:'심사중', count: appStatusCountsMap.pending  || 0},
-    {value:'approved', label:'승인',   count: appStatusCountsMap.approved || 0},
-    {value:'rejected', label:'미승인', count: appStatusCountsMap.rejected || 0},
+    {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
+    {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
+    {value:'rejected',  label:'미승인', count: appStatusCountsMap.rejected  || 0},
+    {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
   ], () => renderAppCampList());
 
   // 타입 필터 (다중 선택) — stale 제거 후 최종값
@@ -3893,7 +4150,9 @@ async function renderAppCampList() {
         || (camp.product_ko||'').toLowerCase().includes(searchVal)
         || (camp.campaign_no||'').toLowerCase().includes(searchVal)
         || (a.user_name||'').toLowerCase().includes(searchVal)
-        || (a.user_email||'').toLowerCase().includes(searchVal);
+        || (a.user_email||'').toLowerCase().includes(searchVal)
+        || (a.cancel_reason||'').toLowerCase().includes(searchVal)
+        || (a.cancel_reason_code||'').toLowerCase().includes(searchVal);
     });
   }
 
@@ -3901,7 +4160,7 @@ async function renderAppCampList() {
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
-    const statusOrder = {pending:0, approved:1, rejected:2};
+    const statusOrder = {pending:0, approved:1, rejected:2, cancelled:3};
     apps.sort((a,b) => ((statusOrder[a.status]??9) - (statusOrder[b.status]??9)) * appDir);
   } else if (appSortKey === 'name') {
     apps.sort((a,b) => (a.user_name||'').localeCompare(b.user_name||'', 'ja') * appDir);
@@ -3949,9 +4208,10 @@ async function renderAppCampList() {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status)}</td>
+      <td>${getStatusBadgeKo(a.status)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_campRemaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
@@ -3966,6 +4226,8 @@ async function renderAppCampList() {
     pageSize: APP_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
   });
+  // cancel_reason 캐시 미리 채움 — 상세 모달에서 카테고리 라벨 즉시 표시
+  ensureCancelReasonsCache();
 }
 
 async function updateAppStatus(appId, status) {
@@ -4080,11 +4342,13 @@ async function addCampaign() {
     winner_announce: $('newCampWinnerAnnounce')?.value || '選考後、LINEにてご連絡',
     description: getRichValue('newCampDesc'),
     hashtags:$('newCampHashtags').value, mentions:$('newCampMentions').value,
-    appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'), ng: getRichValue('newCampNg'),
+    appeal: getRichValue('newCampAppeal'), guide: getRichValue('newCampGuide'),
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
+    // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
     ...collectCampPsetPayload('new'),
     ...collectCampCsetPayload('new'),
+    ...collectCampNsetPayload('new'),
   };
 
   await insertCampaign(camp);
@@ -4102,7 +4366,7 @@ async function addCampaign() {
   // flatpickr range picker 클리어
   applyCampRangeValues('newCamp', { recruit:[null,null], purchase:[null,null], visit:[null,null] });
   // 리치 에디터 초기화
-  ['newCampDesc','newCampAppeal','newCampGuide','newCampNg'].forEach(id => setRichValue(id, ''));
+  ['newCampDesc','newCampAppeal','newCampGuide'].forEach(id => setRichValue(id, ''));
   document.querySelectorAll('input[name="recruitType"]').forEach(r=>r.checked=false);
   document.querySelectorAll('[id^="rt-"]').forEach(l=>{l.style.borderColor='var(--line)';l.style.background='';l.style.color='';});
   // 동적 영역 재렌더 (체크 해제 + 전체 채널 다시 표시)
@@ -4115,6 +4379,10 @@ async function addCampaign() {
   _csetState.new = [];
   await populateCampCsetDropdown('new', null, null);
   renderCampCautionItems('new');
+  // NG 사항 번들 초기화 (migration 107)
+  _nsetState.new = [];
+  await populateCampNsetDropdown('new', null, null);
+  renderCampNgItems('new');
 
   allCampaigns = await fetchCampaigns();
 
@@ -4151,6 +4419,14 @@ function updateSidebarProfile() {
 //   isCampaignAdminOrAbove / applyLookupMenuVisibility 도 함께 이동
 // ════════════════════════════════════════════════════════════════════
 
+// 메일 종류 카탈로그 캐시 (모달 + 칩 라벨 양쪽에서 재사용)
+let _adminEmailKindsCache = null;
+async function _getAdminEmailKinds() {
+  if (_adminEmailKindsCache) return _adminEmailKindsCache;
+  _adminEmailKindsCache = await fetchAdminEmailKinds();
+  return _adminEmailKindsCache;
+}
+
 async function loadAdminAccounts() {
   if (!db) return;
   const {data} = await db?.from('admins').select('*').order('created_at');
@@ -4159,22 +4435,39 @@ async function loadAdminAccounts() {
   currentAdminInfo = admins.find(a => a.auth_id === currentUser?.id) || null;
   const isSuper = currentAdminInfo?.role === 'super_admin';
 
+  // 구독 상태 + 메일 종류 카탈로그 일괄 로드
+  const adminIds = admins.map(a => a.id);
+  const [subs, kinds] = await Promise.all([
+    fetchAdminEmailSubscriptions(adminIds),
+    _getAdminEmailKinds()
+  ]);
+  const kindLabel = code => (kinds.find(k => k.code === code) || {}).name_ko || code;
+
   const roleLabel = r => r === 'super_admin'
     ? '<span class="badge badge-red">슈퍼관리자</span>'
     : r === 'campaign_admin'
     ? '<span class="badge badge-blue">캠페인관리자</span>'
     : '<span class="badge badge-gray">캠페인매니저</span>';
 
+  // 메일받기 셀: 켜진 종류 회색 칩 나열 + 「설정」 버튼.
+  // 본인 행은 항상 편집 가능. 다른 관리자 행은 super_admin 만 편집 가능.
+  const renderMailCell = a => {
+    const codes = subs[a.id] || [];
+    const chips = codes.length
+      ? codes.map(c => `<span class="badge badge-gray" style="font-size:11px;padding:2px 8px;border-radius:10px">${esc(kindLabel(c))}</span>`).join(' ')
+      : '<span style="color:var(--muted);font-size:12px">—</span>';
+    const canEdit = isSuper || a.auth_id === currentUser?.id;
+    const btn = canEdit
+      ? `<button class="btn btn-ghost btn-xs" data-name="${esc(a.name||'')}" data-email="${esc(a.email)}" onclick="openAdminEmailSubsModal('${a.id}', this.dataset.name, this.dataset.email)" style="margin-left:6px">설정</button>`
+      : '';
+    return `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">${chips}${btn}</div>`;
+  };
+
   $('adminAccountsBody').innerHTML = admins.length ? admins.map(a => `<tr>
     <td style="font-weight:600">${esc(a.name)||'—'}</td>
     <td>${esc(a.email)}</td>
     <td>${roleLabel(a.role)}</td>
-    <td style="text-align:center">
-      <label class="lookup-toggle" title="브랜드 서베이 접수 시 알림 메일 수신" onclick="event.stopPropagation()">
-        <input type="checkbox" ${a.receive_brand_notify ? 'checked' : ''} onchange="toggleAdminBrandNotify('${a.id}', this.checked)">
-        <span class="lookup-toggle-slider"></span>
-      </label>
-    </td>
+    <td>${renderMailCell(a)}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
     <td><div style="display:flex;gap:5px">
       <button class="btn btn-ghost btn-xs" data-email="${esc(a.email)}" data-name="${esc(a.name||'')}" onclick="openEditAdmin('${a.id}',this.dataset.email,this.dataset.name,'${a.role}')">수정</button>
@@ -4186,18 +4479,70 @@ async function loadAdminAccounts() {
   applyLookupMenuVisibility();
 }
 
-// 광고주 신청 알림 수신 토글 (admins.receive_brand_notify)
-async function toggleAdminBrandNotify(adminId, checked) {
+// ──────────────────────────────────────
+// 「메일 받기 설정」 모달 (admin_email_subscriptions)
+// ──────────────────────────────────────
+// 현재 편집 중인 관리자 id (저장 시 사용)
+let _adminEmailSubsEditingId = null;
+// 모달 안의 메일 종류 목록 (저장 시 사용)
+let _adminEmailSubsModalKinds = [];
+
+async function openAdminEmailSubsModal(adminId, adminName, adminEmail) {
   if (!db) return;
-  try {
-    const {error} = await db?.from('admins').update({receive_brand_notify: !!checked}).eq('id', adminId);
-    if (error) throw error;
-    toast(checked ? '알림 수신 켜짐' : '알림 수신 꺼짐');
-    await refreshPane('admin-accounts');
-  } catch(e) {
-    toast('저장 실패: ' + (e.message || '알 수 없는 오류'), 'error');
-    await refreshPane('admin-accounts');
+  _adminEmailSubsEditingId = adminId;
+  // 헤더에 관리자 정보 + 안내문
+  const hdr = $('adminEmailSubsHeader');
+  if (hdr) hdr.textContent = `${adminName || '—'} (${adminEmail || ''})`;
+  // 메일 종류 카탈로그 + 현재 구독 상태 로드
+  const [kinds, subs] = await Promise.all([
+    _getAdminEmailKinds(),
+    fetchAdminEmailSubscriptions([adminId])
+  ]);
+  _adminEmailSubsModalKinds = kinds;
+  const currentSet = new Set(subs[adminId] || []);
+  // 본문 동적 렌더
+  const body = $('adminEmailSubsBody');
+  if (body) {
+    body.innerHTML = kinds.length ? kinds.map(k => `
+      <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;cursor:pointer">
+        <input type="checkbox" class="adm-email-sub-cb" data-code="${esc(k.code)}" ${currentSet.has(k.code) ? 'checked' : ''} style="margin-top:3px">
+        <div style="flex:1">
+          <div style="font-weight:600;color:var(--ink);font-size:13px">${esc(k.name_ko)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(_adminEmailKindDesc(k.code))}</div>
+        </div>
+      </label>
+    `).join('') : '<div style="color:var(--muted);font-size:12px;padding:12px">등록된 메일 종류가 없습니다.</div>';
   }
+  openModal('adminEmailSubsModal');
+}
+
+// 메일 종류별 보조 설명 (사용자 친화 카피)
+function _adminEmailKindDesc(code) {
+  const map = {
+    'brand_notify':       '광고주(브랜드)가 sales 페이지에서 신청 폼을 제출했을 때 접수 알림',
+    'application_cancel': '인플루언서가 구매기간 이후에 응모를 취소했을 때 알림'
+  };
+  return map[code] || '';
+}
+
+async function saveAdminEmailSubsFromModal() {
+  if (!_adminEmailSubsEditingId) { closeModal('adminEmailSubsModal'); return; }
+  // 모달 안 체크박스 상태 → Set
+  const checked = new Set();
+  document.querySelectorAll('#adminEmailSubsBody .adm-email-sub-cb:checked').forEach(cb => {
+    const code = cb.getAttribute('data-code');
+    if (code) checked.add(code);
+  });
+  const res = await saveAdminEmailSubscriptions(_adminEmailSubsEditingId, checked, _adminEmailSubsModalKinds);
+  if (!res.ok) {
+    toast('저장 실패: ' + (res.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  toast('메일 수신 설정을 저장했습니다');
+  closeModal('adminEmailSubsModal');
+  _adminEmailSubsEditingId = null;
+  _adminEmailSubsModalKinds = [];
+  await refreshPane('admin-accounts');
 }
 
 // 권한에 따라 "기준 데이터" 메뉴 표시/숨김
@@ -4213,7 +4558,7 @@ function applyLookupMenuVisibility() {
 // ══════════════════════════════════════
 // 기준 데이터 (lookup_values) 관리
 // ══════════════════════════════════════
-const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_item:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항'};
+const LOOKUP_KIND_LABEL_KO = {channel:'채널', category:'카테고리', content_type:'콘텐츠 종류', ng_set:'NG 사항', participation_set:'참여방법', reject_reason:'반려사유', caution:'주의사항'};
 let _currentLookupKind = 'channel';
 
 // ════════════════════════════════════════════════════════════════════
@@ -4259,6 +4604,7 @@ async function renderLookupsTable() {
   if (title) title.textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 목록';
   if (_currentLookupKind === 'participation_set') { await renderPsetTable(); return; }
   if (_currentLookupKind === 'caution') { await renderCsetTable(); return; }
+  if (_currentLookupKind === 'ng_set') { await renderNgSetTable(); return; }
   const isChannel = _currentLookupKind === 'channel';
   const showRt = isChannel || _currentLookupKind === 'reject_reason';
   // 헤더 렌더
@@ -4454,6 +4800,9 @@ async function filterChannelsByRecruitType(formMode, recruitType) {
   // 주의사항 번들 드롭다운도 동일 패턴으로 필터링 (migration 069)
   const csetSel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
   await populateCampCsetDropdown(formMode, recruitType, csetSel?.value || null);
+  // NG 사항 번들 드롭다운도 동일 패턴으로 필터링 (migration 107)
+  const nsetSel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  await populateCampNsetDropdown(formMode, recruitType, nsetSel?.value || null);
   // 타입별 기한 필드 표시/숨김
   applyDeadlineFieldsVisibility(formMode, recruitType);
 }
@@ -4510,6 +4859,7 @@ function openLookupAddModal() {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetAddModal(); return; }
   if (_currentLookupKind === 'caution') { openCsetAddModal(); return; }
+  if (_currentLookupKind === 'ng_set') { openNgSetAddModal(); return; }
   $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[_currentLookupKind] + ' 추가';
   $('lookupEditId').value = '';
   $('lookupEditKind').value = _currentLookupKind;
@@ -4526,6 +4876,7 @@ function openLookupEditModal(row) {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   if (_currentLookupKind === 'participation_set') { openPsetEditModal(row); return; }
   if (_currentLookupKind === 'caution') { openCsetEditModal(row); return; }
+  if (_currentLookupKind === 'ng_set') { openNgSetEditModal(row); return; }
   $('lookupModalTitle').textContent = LOOKUP_KIND_LABEL_KO[row.kind] + ' 편집';
   $('lookupEditId').value = row.id;
   $('lookupEditKind').value = row.kind;
@@ -4585,6 +4936,7 @@ async function moveLookup(idA, idB) {
   try {
     if (_currentLookupKind === 'participation_set') await swapParticipationSetOrder(idA, idB);
     else if (_currentLookupKind === 'caution') await swapCautionSetOrder(idA, idB);
+    else if (_currentLookupKind === 'ng_set') await swapNgSetOrder(idA, idB);
     else await swapLookupOrder(idA, idB);
     renderLookupsTable();
   } catch(e) {
@@ -4598,6 +4950,8 @@ async function toggleLookupActive(id, nextActive) {
       if (nextActive) await activateParticipationSet(id); else await deactivateParticipationSet(id);
     } else if (_currentLookupKind === 'caution') {
       if (nextActive) await activateCautionSet(id); else await deactivateCautionSet(id);
+    } else if (_currentLookupKind === 'ng_set') {
+      if (nextActive) await activateNgSet(id); else await deactivateNgSet(id);
     } else {
       if (nextActive) await activateLookup(id); else await deactivateLookup(id);
     }
@@ -4608,12 +4962,13 @@ async function toggleLookupActive(id, nextActive) {
 }
 
 async function handleLookupDelete(row) {
-  // 번들(caution_sets / participation_sets) 여부 판별: row.kind 미존재 또는 현재 kind가 번들 탭
-  if (_currentLookupKind === 'caution' || (_currentLookupKind === 'participation_set') || row.kind === undefined) {
+  // 번들(ng_sets / caution_sets / participation_sets) 여부 판별: row.kind 미존재 또는 현재 kind가 번들 탭
+  if (_currentLookupKind === 'ng_set' || _currentLookupKind === 'caution' || (_currentLookupKind === 'participation_set') || row.kind === undefined) {
     const ok = await showConfirm(`'${row.name_ko}' 번들을 영구 삭제하시겠습니까?\n이미 해당 번들을 쓴 캠페인은 스냅샷이 저장돼 영향 없습니다.`);
     if (!ok) return;
     try {
-      if (_currentLookupKind === 'caution') await deleteCautionSet(row.id);
+      if (_currentLookupKind === 'ng_set') await deleteNgSet(row.id);
+      else if (_currentLookupKind === 'caution') await deleteCautionSet(row.id);
       else await deleteParticipationSet(row.id);
       toast('삭제했습니다','success');
       renderLookupsTable();
@@ -5203,6 +5558,182 @@ async function saveCsetEdit() {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// SECTION: NG-SETS — NG 사항 번들 기준 데이터 페인 (migration 107)
+//   caution_sets(cset) 패턴 완전 미러링. 캠페인 폼의 editModal 과
+//   동일 nset 헬퍼를 재활용. 번들 자체 편집이므로 "번들 다시 불러오기" 없음.
+// ══════════════════════════════════════════════════════════════════════
+let _nsetCurrentItems = []; // 기준 데이터 페인 편집 중 items 상태
+const MAX_NSET_ITEMS = 20;
+
+async function renderNgSetTable() {
+  const tbody = $('lookupsTableBody');
+  const thead = $('lookupTableHead');
+  if (!tbody) return;
+  if (thead) {
+    thead.innerHTML = `<tr>
+      <th style="width:40px"></th>
+      ${_lookupReorderMode ? '<th style="width:80px">순서</th>' : ''}
+      <th>번들 이름 (한국어 / 일본어)</th>
+      <th style="width:140px">모집 타입</th>
+      <th style="width:80px">항목 수</th>
+      <th style="width:80px">상태</th>
+      ${_lookupReorderMode ? '' : '<th style="width:160px"></th>'}
+    </tr>`;
+  }
+  const colspan = _lookupReorderMode ? 5 : 6;
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
+  let rows = [];
+  try { rows = await fetchNgSetsAll(); } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    return;
+  }
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">등록된 번들이 없습니다</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => {
+    const isFirst = i === 0;
+    const isLast = i === rows.length - 1;
+    const upId = isFirst ? '' : rows[i-1].id;
+    const downId = isLast ? '' : rows[i+1].id;
+    const activeToggle = `<label class="lookup-toggle" title="${r.active?'활성':'비활성'}" onclick="event.stopPropagation()">
+      <input type="checkbox" ${r.active?'checked':''} onchange="toggleLookupActive('${r.id}',this.checked)">
+      <span class="lookup-toggle-slider"></span>
+    </label>`;
+    const rtBadges = (r.recruit_types||[]).length
+      ? (r.recruit_types||[]).map(t => {
+          const cls = t==='monitor'?'badge-blue':t==='gifting'?'badge-gold':'badge-green';
+          return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${RECRUIT_TYPE_LABEL_KO[t]||t}</span>`;
+        }).join(' ')
+      : '<span style="font-size:10px;color:var(--muted)">공통</span>';
+    const itemCount = Array.isArray(r.items) ? r.items.length : 0;
+    return `<tr>
+      <td style="color:var(--muted);font-size:11px">${i+1}</td>
+      ${_lookupReorderMode ? `<td><div style="display:flex;gap:3px">
+        <button class="btn btn-ghost btn-xs" ${isFirst?'disabled':''} onclick="moveLookup('${r.id}','${upId}')" style="padding:2px 6px;font-size:13px">↑</button>
+        <button class="btn btn-ghost btn-xs" ${isLast?'disabled':''} onclick="moveLookup('${r.id}','${downId}')" style="padding:2px 6px;font-size:13px">↓</button>
+      </div></td>` : ''}
+      <td><strong style="font-size:13px">${esc(r.name_ko)}</strong><div style="color:var(--muted);font-size:11px;margin-top:2px">${esc(r.name_ja)}</div></td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap">${rtBadges}</div></td>
+      <td style="font-size:12px;color:var(--ink)">${itemCount}개</td>
+      <td>${activeToggle}</td>
+      ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick='openNgSetEditModal(${JSON.stringify(r)})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+      </td>`}
+    </tr>`;
+  }).join('');
+}
+
+function openNgSetAddModal() {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('nsetModalTitle').textContent = 'NG 사항 번들 추가';
+  $('nsetEditId').value = '';
+  $('nsetNameKo').value = '';
+  $('nsetNameJa').value = '';
+  document.querySelectorAll('input[name="nsetRT"]').forEach(cb => cb.checked = false);
+  _nsetCurrentItems = [{html_ko:'', html_ja:''}];
+  renderNgSetItems();
+  $('nsetEditError').style.display = 'none';
+  openModal('nsetEditModal');
+}
+
+function openNgSetEditModal(row) {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  $('nsetModalTitle').textContent = 'NG 사항 번들 편집';
+  $('nsetEditId').value = row.id;
+  $('nsetNameKo').value = row.name_ko || '';
+  $('nsetNameJa').value = row.name_ja || '';
+  const rtSet = new Set(row.recruit_types || []);
+  document.querySelectorAll('input[name="nsetRT"]').forEach(cb => cb.checked = rtSet.has(cb.value));
+  _nsetCurrentItems = Array.isArray(row.items) && row.items.length
+    ? row.items.map(normalizeNgItem)
+    : [{html_ko:'', html_ja:''}];
+  renderNgSetItems();
+  $('nsetEditError').style.display = 'none';
+  openModal('nsetEditModal');
+}
+
+function renderNgSetItems() {
+  const wrap = $('nsetItemsWrap');
+  if (!wrap) return;
+  wrap.innerHTML = _nsetCurrentItems.map((s, idx) => `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="nsetMoveItem(${idx},-1)" style="padding:2px 6px">↑</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===_nsetCurrentItems.length-1?'disabled':''} onclick="nsetMoveItem(${idx},1)" style="padding:2px 6px">↓</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${_nsetCurrentItems.length<=1?'disabled':''} onclick="nsetRemoveItem(${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (한국어)</div>
+          ${miniEditorHtml(s.html_ko, `_nsetCurrentItems[${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_nsetCurrentItems[${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+  const addBtn = $('nsetAddItemBtn');
+  if (addBtn) addBtn.disabled = _nsetCurrentItems.length >= MAX_NSET_ITEMS;
+}
+
+function nsetAddItem() {
+  if (_nsetCurrentItems.length >= MAX_NSET_ITEMS) { toast(`NG 항목은 최대 ${MAX_NSET_ITEMS}개까지`,'error'); return; }
+  _nsetCurrentItems.push({html_ko:'', html_ja:''});
+  renderNgSetItems();
+}
+
+function nsetRemoveItem(idx) {
+  if (_nsetCurrentItems.length <= 1) return;
+  _nsetCurrentItems.splice(idx, 1);
+  renderNgSetItems();
+}
+
+function nsetMoveItem(idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= _nsetCurrentItems.length) return;
+  const [s] = _nsetCurrentItems.splice(idx, 1);
+  _nsetCurrentItems.splice(j, 0, s);
+  renderNgSetItems();
+}
+
+async function saveNgSetEdit() {
+  const errEl = $('nsetEditError');
+  const show = m => { errEl.textContent = m; errEl.style.display = 'block'; };
+  errEl.style.display = 'none';
+  const id = $('nsetEditId').value;
+  const name_ko = $('nsetNameKo').value.trim();
+  const name_ja = $('nsetNameJa').value.trim();
+  if (!name_ko || !name_ja) { show('한국어/일본어 번들 이름을 모두 입력해주세요'); return; }
+  const recruit_types = Array.from(document.querySelectorAll('input[name="nsetRT"]:checked')).map(cb => cb.value);
+  const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+  const items = _nsetCurrentItems
+    .filter(s => !isNgItemEmpty(s.html_ko, s.html_ja))
+    .map(s => ({
+      html_ko: sanitize(s.html_ko || ''),
+      html_ja: sanitize(s.html_ja || '')
+    }));
+  if (!items.length) { show('항목을 1개 이상 입력해주세요 (본문 한국어 또는 일본어 필수)'); return; }
+  if (items.length > MAX_NSET_ITEMS) { show(`NG 항목은 최대 ${MAX_NSET_ITEMS}개까지`); return; }
+  const payload = {name_ko, name_ja, recruit_types, items};
+  try {
+    if (id) await updateNgSet(id, payload);
+    else await insertNgSet(payload);
+    closeModal('nsetEditModal');
+    toast('저장했습니다','success');
+    renderLookupsTable();
+  } catch(e) {
+    show('저장 실패: ' + (e.message||String(e)));
+  }
+}
+
 // ══════════════════════════════════════
 // 캠페인 폼: 참여방법 번들 + 인라인 단계 편집
 // ══════════════════════════════════════
@@ -5220,8 +5751,30 @@ async function populateCampPsetDropdown(formMode, recruitType, selectedSetId) {
   let sets = [];
   try { sets = await fetchParticipationSets(recruitType); } catch(e) { sets = []; }
   _psetCache[formMode] = sets;
-  sel.innerHTML = `<option value="">— 번들 선택 —</option>` +
-    sets.map(s => `<option value="${esc(s.id)}" ${selectedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+
+  // 운영 캠페인 보호 안전망:
+  //   participation_set_id=NULL이지만 participation_steps가 존재할 때
+  //   — 활성 번들 중 steps 완전 일치 번들을 자동 매칭 (UI 선택 표시만, DB는 NULL 유지)
+  //   — 일치 없으면 가상 옵션 「(현재 캠페인 항목 — 번들 미선택)」 추가
+  let resolvedSetId = selectedSetId;
+  let showInlineOption = false;
+  if (!selectedSetId && formMode === 'edit' && _editCampOriginal) {
+    const currentSteps = Array.isArray(_editCampOriginal.participation_steps) ? _editCampOriginal.participation_steps : [];
+    if (currentSteps.length > 0) {
+      const matchedBundle = sets.find(s => JSON.stringify(s.steps) === JSON.stringify(currentSteps));
+      if (matchedBundle) {
+        resolvedSetId = matchedBundle.id;
+      } else {
+        showInlineOption = true;
+      }
+    }
+  }
+
+  const inlineOpt = showInlineOption
+    ? `<option value="__INLINE__" selected>(현재 캠페인 항목 — 번들 미선택)</option>`
+    : '';
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>${inlineOpt}` +
+    sets.map(s => `<option value="${esc(s.id)}" ${resolvedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
 }
 
 function onPsetSelectChange(formMode) {
@@ -5300,12 +5853,14 @@ function moveCampPsetStep(formMode, idx, dir) {
   renderCampSteps(formMode);
 }
 
+// __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, steps 변동 없음)
 function collectCampPsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
+  const rawSetId = sel?.value || '';
   const steps = _psetState[formMode].filter(s => (s.title_ja||s.title_ko||'').trim())
     .map(s => ({title_ko:s.title_ko||'', title_ja:s.title_ja||'', desc_ko:s.desc_ko||'', desc_ja:s.desc_ja||''}));
   return {
-    participation_set_id: sel?.value || null,
+    participation_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
     participation_steps: steps.length ? steps : null
   };
 }
@@ -5323,8 +5878,30 @@ async function populateCampCsetDropdown(formMode, recruitType, selectedSetId) {
   let sets = [];
   try { sets = await fetchCautionSets(recruitType); } catch(e) { sets = []; }
   _csetCache[formMode] = sets;
-  sel.innerHTML = `<option value="">— 번들 선택 —</option>` +
-    sets.map(s => `<option value="${esc(s.id)}" ${selectedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+
+  // 운영 캠페인 보호 안전망:
+  //   caution_set_id=NULL이지만 caution_items가 존재할 때
+  //   — 활성 번들 중 items 완전 일치 번들을 자동 매칭 (UI 선택 표시만, DB는 NULL 유지)
+  //   — 일치 없으면 가상 옵션 「(현재 캠페인 항목 — 번들 미선택)」 추가
+  let resolvedSetId = selectedSetId;
+  let showInlineOption = false;
+  if (!selectedSetId && formMode === 'edit' && _editCampOriginal) {
+    const currentItems = Array.isArray(_editCampOriginal.caution_items) ? _editCampOriginal.caution_items : [];
+    if (currentItems.length > 0) {
+      const matchedBundle = sets.find(s => JSON.stringify(s.items) === JSON.stringify(currentItems));
+      if (matchedBundle) {
+        resolvedSetId = matchedBundle.id; // UI 선택 표시 (DB set_id는 NULL 유지)
+      } else {
+        showInlineOption = true;
+      }
+    }
+  }
+
+  const inlineOpt = showInlineOption
+    ? `<option value="__INLINE__" selected>(현재 캠페인 항목 — 번들 미선택)</option>`
+    : '';
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>${inlineOpt}` +
+    sets.map(s => `<option value="${esc(s.id)}" ${resolvedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
 }
 
 function onCsetSelectChange(formMode) {
@@ -5407,8 +5984,10 @@ function moveCampCsetItem(formMode, idx, dir) {
 }
 
 // 저장 payload: {caution_set_id, caution_items} — items 는 {html_ko, html_ja} 형식 + 저장 전 sanitize
+// __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, items 변동 없음)
 function collectCampCsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
+  const rawSetId = sel?.value || '';
   const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
   const items = _csetState[formMode]
     .filter(s => !isCsetItemEmpty(s.html_ko, s.html_ja))
@@ -5417,8 +5996,155 @@ function collectCampCsetPayload(formMode) {
       html_ja: sanitize(s.html_ja || '')
     }));
   return {
-    caution_set_id: sel?.value || null,
+    caution_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
     caution_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)
+  };
+}
+
+// ══════════════════════════════════════
+// 캠페인 폼: NG 사항 번들 + 인라인 items 편집 (migration 107)
+//   caution_sets(_csetState) 패턴 완전 미러링
+// ══════════════════════════════════════
+const _nsetState = { new: [], edit: [] }; // 모드별 현재 items 배열
+const _nsetCache = { new: [], edit: [] }; // 모드별 드롭다운 원본 번들 리스트
+
+async function populateCampNsetDropdown(formMode, recruitType, selectedSetId) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  if (!sel) return;
+  let sets = [];
+  try { sets = await fetchNgSets(recruitType); } catch(e) { sets = []; }
+  _nsetCache[formMode] = sets;
+
+  // 운영 캠페인 보호 안전망:
+  //   ng_set_id=NULL이지만 ng_items가 존재할 때
+  //   — 활성 번들 중 items 완전 일치 번들을 자동 매칭 (UI 선택 표시만, DB는 NULL 유지)
+  //   — 일치 없으면 가상 옵션 「(현재 캠페인 항목 — 번들 미선택)」 추가
+  let resolvedSetId = selectedSetId;
+  let showInlineOption = false;
+  if (!selectedSetId && formMode === 'edit' && _editCampOriginal) {
+    const currentItems = Array.isArray(_editCampOriginal.ng_items) ? _editCampOriginal.ng_items : [];
+    if (currentItems.length > 0) {
+      const matchedBundle = sets.find(s => JSON.stringify(s.items) === JSON.stringify(currentItems));
+      if (matchedBundle) {
+        resolvedSetId = matchedBundle.id;
+      } else {
+        showInlineOption = true;
+      }
+    }
+  }
+
+  const inlineOpt = showInlineOption
+    ? `<option value="__INLINE__" selected>(현재 캠페인 항목 — 번들 미선택)</option>`
+    : '';
+  sel.innerHTML = `<option value="">— 번들 선택 —</option>${inlineOpt}` +
+    sets.map(s => `<option value="${esc(s.id)}" ${resolvedSetId===s.id?'selected':''}>${esc(s.name_ko)}</option>`).join('');
+}
+
+function onNsetSelectChange(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  if (!sel) return;
+  const set = _nsetCache[formMode].find(s => s.id === sel.value);
+  if (!set) return;
+  const hasContent = _nsetState[formMode].some(s => !isNgItemEmpty(s.html_ko, s.html_ja));
+  const apply = () => {
+    _nsetState[formMode] = (set.items||[]).map(normalizeNgItem);
+    renderCampNgItems(formMode);
+  };
+  if (!hasContent) { apply(); return; }
+  showConfirm('현재 입력된 NG 사항을 덮어쓸까요?').then(ok => { if (ok) apply(); else sel.value = ''; });
+}
+
+async function reloadNsetFromBundle(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  if (!sel || !sel.value) { toast('먼저 번들을 선택하세요','error'); return; }
+  const set = _nsetCache[formMode].find(s => s.id === sel.value);
+  if (!set) return;
+  const ok = await showConfirm(`번들 "${set.name_ko}"의 현재 내용으로 덮어쓸까요?`);
+  if (!ok) return;
+  _nsetState[formMode] = (set.items||[]).map(normalizeNgItem);
+  renderCampNgItems(formMode);
+}
+
+function renderCampNgItems(formMode) {
+  const wrap = $(formMode === 'edit' ? 'editCampNgItems' : 'newCampNgItems');
+  if (!wrap) return;
+  const arr = _nsetState[formMode];
+  if (!arr.length) {
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 0">NG 항목이 없습니다. 번들을 선택하거나 항목을 추가하세요.</div>`;
+    window.dispatchEvent(new Event('reverb:campFormChange'));
+    return;
+  }
+  wrap.innerHTML = arr.map((s, idx) => `
+    <div style="border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-container-low)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:#B3261E">NG ${idx+1}</span>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===0?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},-1)" style="padding:2px 6px">↑</button>
+          <button type="button" class="btn btn-ghost btn-xs" ${idx===arr.length-1?'disabled':''} onclick="moveCampNsetItem('${formMode}',${idx},1)" style="padding:2px 6px">↓</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="removeCampNsetItem('${formMode}',${idx})" style="padding:2px 8px;color:#B3261E">삭제</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (한국어)</div>
+          ${miniEditorHtml(s.html_ko, `_nsetState['${formMode}'][${idx}].html_ko=this.innerHTML`, '본문 (한국어)')}
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">본문 (일본어)</div>
+          ${miniEditorHtml(s.html_ja, `_nsetState['${formMode}'][${idx}].html_ja=this.innerHTML`, '본문 (일본어)')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+  window.dispatchEvent(new Event('reverb:campFormChange'));
+}
+
+function addCampNsetItem(formMode) {
+  if (_nsetState[formMode].length >= MAX_NSET_ITEMS) { toast(`NG 항목은 최대 ${MAX_NSET_ITEMS}개까지`,'error'); return; }
+  _nsetState[formMode].push({html_ko:'', html_ja:''});
+  renderCampNgItems(formMode);
+}
+
+function removeCampNsetItem(formMode, idx) {
+  _nsetState[formMode].splice(idx, 1);
+  renderCampNgItems(formMode);
+}
+
+function moveCampNsetItem(formMode, idx, dir) {
+  const arr = _nsetState[formMode];
+  const j = idx + dir;
+  if (j < 0 || j >= arr.length) return;
+  const [s] = arr.splice(idx, 1);
+  arr.splice(j, 0, s);
+  renderCampNgItems(formMode);
+}
+
+function isNgItemEmpty(htmlKo, htmlJa) {
+  const strip = h => (h||'').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').trim();
+  return !strip(htmlKo) && !strip(htmlJa);
+}
+
+// ng_item 정규화 — {html_ko, html_ja} 구조 보장
+function normalizeNgItem(s) {
+  if (!s) return {html_ko:'', html_ja:''};
+  return { html_ko: s.html_ko || '', html_ja: s.html_ja || '' };
+}
+
+// 저장 payload: {ng_set_id, ng_items} — items 는 {html_ko, html_ja} 형식 + 저장 전 sanitize
+// __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, items 변동 없음)
+function collectCampNsetPayload(formMode) {
+  const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+  const rawSetId = sel?.value || '';
+  const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+  const items = _nsetState[formMode]
+    .filter(s => !isNgItemEmpty(s.html_ko, s.html_ja))
+    .map(s => ({
+      html_ko: sanitize(s.html_ko || ''),
+      html_ja: sanitize(s.html_ja || '')
+    }));
+  return {
+    ng_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
+    ng_items: items  // 빈 배열이면 '[]'로 저장됨 (NOT NULL)
   };
 }
 
@@ -5431,7 +6157,11 @@ function collectCampCsetPayload(formMode) {
 let _campBundleModalReturn = null;  // { group, parent, next, kind, formMode }
 
 function renderCampBundleSummary(kind, formMode) {
-  const summaryId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetSummary' : 'CsetSummary');
+  let summarySuffix;
+  if (kind === 'pset') summarySuffix = 'PsetSummary';
+  else if (kind === 'cset') summarySuffix = 'CsetSummary';
+  else summarySuffix = 'NsetSummary'; // nset
+  const summaryId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + summarySuffix;
   const summary = $(summaryId);
   if (!summary) return;
   const body = summary.querySelector('.bundle-summary-body');
@@ -5453,7 +6183,7 @@ function renderCampBundleSummary(kind, formMode) {
     const jaCol = steps.map((s,i) => renderStep(s, i, 'ja')).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${steps.length}단계</span></div>`
       + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div>${koCol}</div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div>${jaCol}</div></div>`;
-  } else {
+  } else if (kind === 'cset') {
     const sel = $(formMode === 'edit' ? 'editCampCsetSelect' : 'newCampCsetSelect');
     const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
     const items = _csetState[formMode] || [];
@@ -5466,11 +6196,29 @@ function renderCampBundleSummary(kind, formMode) {
     const jaCol = items.map(it => `<li>${sanitize(it.html_ja || it.html_ko || '')}</li>`).join('');
     body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span></div>`
       + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
+  } else {
+    // nset — NG 사항 번들 요약 카드 (caution 패턴 완전 미러링)
+    const sel = $(formMode === 'edit' ? 'editCampNsetSelect' : 'newCampNsetSelect');
+    const bundleName = sel?.selectedOptions?.[0]?.text && sel.value ? sel.selectedOptions[0].text : '';
+    const items = _nsetState[formMode] || [];
+    if (!items.length) {
+      body.innerHTML = '<div class="summary-head" style="color:var(--muted)">번들 미선택 또는 항목 없음 — 편집 버튼으로 항목을 추가하거나 번들을 선택하세요</div>';
+      return;
+    }
+    const sanitize = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : (x => String(x||''));
+    const koCol = items.map(it => `<li>${sanitize(it.html_ko || it.html_ja || '')}</li>`).join('');
+    const jaCol = items.map(it => `<li>${sanitize(it.html_ja || it.html_ko || '')}</li>`).join('');
+    body.innerHTML = `<div class="summary-head">${bundleName ? `<span style="font-weight:600">${esc(bundleName)}</span> · ` : ''}<span style="color:var(--muted)">${items.length}개 항목</span></div>`
+      + `<div class="summary-lang-grid"><div class="summary-lang-col"><div class="summary-lang-title">한국어</div><ul class="summary-lang-list">${koCol}</ul></div><div class="summary-lang-col"><div class="summary-lang-title">일본어</div><ul class="summary-lang-list">${jaCol}</ul></div></div>`;
   }
 }
 
 function openCampBundleModal(kind, formMode) {
-  const groupId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + (kind === 'pset' ? 'PsetGroup' : 'CsetGroup');
+  let groupSuffix;
+  if (kind === 'pset') groupSuffix = 'PsetGroup';
+  else if (kind === 'cset') groupSuffix = 'CsetGroup';
+  else groupSuffix = 'NsetGroup';  // nset
+  const groupId = (formMode === 'edit' ? 'editCamp' : 'newCamp') + groupSuffix;
   const group = $(groupId);
   const host = $('campBundleModalHost');
   if (!group || !host) return;
@@ -5486,7 +6234,10 @@ function openCampBundleModal(kind, formMode) {
   host.innerHTML = '';
   host.appendChild(group);
   const title = $('campBundleModalTitle');
-  if (title) title.textContent = (kind === 'pset' ? '참여방법' : '주의사항') + ' 편집';
+  if (title) {
+    const titleMap = { pset: '참여방법', cset: '주의사항', nset: 'NG 사항' };
+    title.textContent = (titleMap[kind] || kind) + ' 편집';
+  }
   openModal('campBundleModal');
 }
 
@@ -6735,8 +7486,11 @@ async function exportCampaignApplicationsExcel(campId) {
       if (s === 'approved') return '승인';
       if (s === 'pending') return '심사중';
       if (s === 'rejected') return '미승인';
+      if (s === 'cancelled') return '취소';
       return s || '';
     };
+    // 취소 카테고리 라벨 캐시 (cancelled 행 있으면 미리 채움)
+    await ensureCancelReasonsCache();
     var snsHandleStr = function(channel, raw) {
       if (!raw) return '';
       if (typeof extractSnsHandle === 'function') {
@@ -6775,7 +7529,11 @@ async function exportCampaignApplicationsExcel(campId) {
       { header: '배송지',            key: 'address',    width: 40 },
       { header: '신청 메시지',       key: 'message',    width: 40 },
       { header: '심사일',            key: 'reviewedAt', width: 20 },
-      { header: '리뷰어',            key: 'reviewedBy', width: 16 }
+      { header: '리뷰어',            key: 'reviewedBy', width: 16 },
+      { header: '취소일',            key: 'cancelledAt',    width: 20 },
+      { header: '취소 사유(보충)',   key: 'cancelReason',   width: 30 },
+      { header: '취소 카테고리',     key: 'cancelCategory', width: 22 },
+      { header: '취소 시점',         key: 'cancelPhase',    width: 14 }
     ];
 
     var header = ws.getRow(1);
@@ -6796,24 +7554,33 @@ async function exportCampaignApplicationsExcel(campId) {
         try { reviewedStr = new Date(a.reviewed_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
         catch(e) { reviewedStr = String(a.reviewed_at); }
       }
+      var cancelledStr = '';
+      if (a.cancelled_at) {
+        try { cancelledStr = new Date(a.cancelled_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
+        catch(e) { cancelledStr = String(a.cancelled_at); }
+      }
       ws.addRow({
-        created:    createdStr,
-        status:     statusLabel(a.status),
-        name:       u.name_kanji || u.name || a.user_name || '',
-        email:      a.user_email || '',
-        phone:      formatPhoneDisplay(u.phone),
-        ig:         snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
-        igF:        Number(u.ig_followers || 0),
-        tt:         snsHandleStr('tiktok', u.tiktok),
-        ttF:        Number(u.tiktok_followers || 0),
-        x:          snsHandleStr('x', u.x),
-        xF:         Number(u.x_followers || 0),
-        yt:         snsHandleStr('youtube', u.youtube),
-        ytF:        Number(u.youtube_followers || 0),
-        address:    addrStr(u, a.address),
-        message:    a.message || '',
-        reviewedAt: reviewedStr,
-        reviewedBy: formatReviewer(a.reviewed_by)
+        created:        createdStr,
+        status:         statusLabel(a.status),
+        name:           u.name_kanji || u.name || a.user_name || '',
+        email:          a.user_email || '',
+        phone:          formatPhoneDisplay(u.phone),
+        ig:             snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        igF:            Number(u.ig_followers || 0),
+        tt:             snsHandleStr('tiktok', u.tiktok),
+        ttF:            Number(u.tiktok_followers || 0),
+        x:              snsHandleStr('x', u.x),
+        xF:             Number(u.x_followers || 0),
+        yt:             snsHandleStr('youtube', u.youtube),
+        ytF:            Number(u.youtube_followers || 0),
+        address:        addrStr(u, a.address),
+        message:        a.message || '',
+        reviewedAt:     reviewedStr,
+        reviewedBy:     formatReviewer(a.reviewed_by),
+        cancelledAt:    cancelledStr,
+        cancelReason:   a.cancel_reason || '',
+        cancelCategory: a.cancel_reason_code ? cancelReasonLabelKo(a.cancel_reason_code) : '',
+        cancelPhase:    a.cancel_phase ? cancelPhaseLabelKo(a.cancel_phase) : ''
       });
     });
 
@@ -6823,6 +7590,7 @@ async function exportCampaignApplicationsExcel(campId) {
     });
     ws.getColumn('message').alignment = { wrapText: true, vertical: 'top' };
     ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
+    ws.getColumn('cancelReason').alignment = { wrapText: true, vertical: 'top' };
 
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -7276,14 +8044,6 @@ async function openAdminNoticeView(id) {
   if (typeof renderRich === 'function') renderRich(bodyEl, n.body_html || '');
   else if (typeof sanitizeRich === 'function') bodyEl.innerHTML = sanitizeRich(n.body_html || '');
   else bodyEl.innerHTML = n.body_html || '';
-  // 2026-05-07 임시 디버그: ol 분리 문제 추적용. 보기 모달 열 때 raw·rendered HTML을 콘솔에 덤프
-  try {
-    console.group('[adminNotice debug] ' + (n.title || '(no title)'));
-    console.log('raw body_html:', n.body_html);
-    console.log('rendered innerHTML:', bodyEl.innerHTML);
-    console.log('ol count in rendered:', bodyEl.querySelectorAll('ol').length);
-    console.groupEnd();
-  } catch(_) {}
   // 푸터: 작성자/super 만 표시
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const canEdit = isSuper || n.created_by === currentUser?.id;

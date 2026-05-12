@@ -13,10 +13,12 @@
 //   BREVO_SENDER_EMAIL    발신자 이메일 (기본 noreply@globalreverb.com)
 //   BREVO_SENDER_NAME     발신자 이름 (기본 환경별 REVERB JP 또는 REVERB JP [DEV])
 //
-// 관리자 수신자 결정 로직 (2026-04-20~):
-//   1) admins.receive_brand_notify = true 이메일 (DB, 관리자 페이지에서 토글)
+// 관리자 수신자 결정 로직 (2026-05-11~ migration 103):
+//   1) get_subscribed_admin_emails('brand_notify') 가 반환하는 이메일
+//      (admin_email_subscriptions 테이블, 관리자 페이지 모달로 편집)
 //   2) + NOTIFY_ADMIN_EMAILS 환경변수에 나열된 이메일 (외부 수신자 병합)
 //   3) 중복 제거 후 발송. DB 조회 실패 시 env만 사용.
+//   (이전: admins.receive_brand_notify=true 단일 컬럼 — 2026-05-11 deprecated)
 //
 // HTML 템플릿:
 //   _templates/brand-admin-notify.html        관리자 알림
@@ -77,7 +79,8 @@ function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
 }
 
-// 관리자 수신자 결정: admins.receive_brand_notify=true ∪ NOTIFY_ADMIN_EMAILS
+// 관리자 수신자 결정: get_subscribed_admin_emails('brand_notify') ∪ NOTIFY_ADMIN_EMAILS
+// (2026-05-11 migration 103 — 기존 admins.receive_brand_notify 단일 컬럼에서 마이그레이션)
 async function resolveAdminEmails(): Promise<string[]> {
   const fromEnv = env("NOTIFY_ADMIN_EMAILS", "")
     .split(",")
@@ -90,12 +93,13 @@ async function resolveAdminEmails(): Promise<string[]> {
 
   try {
     const sb = createClient(supaUrl, serviceKey, { auth: { persistSession: false } });
-    const { data, error } = await sb
-      .from("admins")
-      .select("email")
-      .eq("receive_brand_notify", true);
+    const { data, error } = await sb.rpc("get_subscribed_admin_emails", {
+      p_mail_kind: "brand_notify",
+    });
     if (error) throw error;
-    const fromDb = (data || []).map((r: { email: string | null }) => (r.email || "").trim()).filter(Boolean);
+    const fromDb = (data || [])
+      .map((r: { email: string | null }) => (r.email || "").trim())
+      .filter(Boolean);
     return [...new Set([...fromDb, ...fromEnv])];
   } catch (_e) {
     // DB 조회 실패 시 env만 사용 (fail-safe)
@@ -342,7 +346,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 관리자 수신자: DB admins.receive_brand_notify=true + NOTIFY_ADMIN_EMAILS 병합
+    // 관리자 수신자: get_subscribed_admin_emails('brand_notify') + NOTIFY_ADMIN_EMAILS 병합
     const adminEmails = await resolveAdminEmails();
     const adminUrl = env("PUBLIC_ADMIN_URL", "https://globalreverb.com/admin/");
     console.log("[notify-brand-application] adminEmails resolved", {

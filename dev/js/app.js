@@ -97,13 +97,22 @@ window.addEventListener('langchange', function() {
   if (page === 'home') { if (typeof loadCampaigns === 'function') loadCampaigns(); }
   else if (page === 'campaigns') { if (typeof loadCampaignsPage === 'function') loadCampaignsPage(); }
   else if (page.startsWith('detail-')) { if (typeof openCampaign === 'function') openCampaign(page.replace('detail-','')); }
+  else if (page === 'app-cancel') {
+    // 응모 취소 페이지: data-i18n 정적 텍스트는 applyI18n 가 처리하지만
+    // JS 로 동적 채운 영역(경고 메시지, 카테고리 select)은 stale.
+    // 현재 대상 신청 ID 가 있으면 페이지 데이터 재렌더.
+    if (typeof _cancelTargetAppId !== 'undefined' && _cancelTargetAppId
+        && typeof openCancelModalFor === 'function') {
+      openCancelModalFor(_cancelTargetAppId);
+    }
+  }
   // 햄버거 메뉴 재렌더 (언어에 따라 라벨 갱신)
   if (typeof renderNavMenu === 'function') renderNavMenu();
 });
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', 'app-cancel':'mypage'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);

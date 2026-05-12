@@ -111,9 +111,15 @@ async function loadMyApplications() {
 function renderMyApplyTabs() {
   const tabs = $('myApplyTabs');
   if (!tabs) return;
-  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0};
+  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0, cancelled: 0};
   _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
-  const labels = {all: t('appHistory.all'), pending: t('appHistory.pending'), approved: t('appHistory.approved'), rejected: t('appHistory.rejected')};
+  const labels = {
+    all:       t('appHistory.all'),
+    pending:   t('appHistory.pending'),
+    approved:  t('appHistory.approved'),
+    rejected:  t('appHistory.rejected'),
+    cancelled: t('appHistory.cancelled')
+  };
   tabs.innerHTML = Object.keys(labels).map(k =>
     `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
   ).join('');
@@ -174,7 +180,29 @@ async function renderMyApplyList() {
     const thumb = imgs[0]
       ? `<img src="${esc(imgThumb(imgs[0],120))}" data-orig="${esc(imgs[0])}" loading="lazy" decoding="async" alt="" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}">`
       : `<span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">inventory_2</span>`;
-    const clickAction = a.status==='approved' ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"` : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`;
+    // 카드 클릭 동선:
+    //   - cancelled: 사유 확인 모달 (openCancelDetailModal)
+    //   - approved: 활동관리 페이지 (단, cancelled 였다가 재진입이라면 사양 §4-8에 따라 차단)
+    //   - 그 외: 캠페인 상세
+    const clickAction = a.status==='cancelled'
+      ? `onclick="openCancelDetailModal('${a.id}')"`
+      : (a.status==='approved'
+          ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"`
+          : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`);
+    // ⋮ 메뉴: pending/approved 카드에 표시.
+    //   클릭 시 액션 모달(applyActionModal) — 「결과물 제출」/「응모 취소」 선택.
+    //   결과물 제출 옵션: status=approved 일 때만 활성 (pending 은 안내문만).
+    //   응모 취소 옵션: 결과물 1건이라도 approved 면 비활성 (모달 내부에서 비활성 처리).
+    //   cancelled/rejected 카드는 메뉴 자체 비표시.
+    //   모바일 터치 영역 보강: 버튼 최소 44×44px (애플 HIG / 머티리얼 권장).
+    let menuHtml = '';
+    if (a.status === 'pending' || a.status === 'approved') {
+      menuHtml = `<button type="button" class="apply-card-menu-btn" onclick="event.stopPropagation();openApplyActionModal('${a.id}')" aria-label="${esc(t('appHistory.action.title'))}" style="min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:22px;cursor:pointer;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:24px">more_vert</span></button>`;
+    }
+    // cancelled 행: 취소일 표시
+    const cancelledLine = a.status === 'cancelled' && a.cancelled_at
+      ? `<div class="apply-item-cancelled-at" style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t('appHistory.cancelDetail.datetime'))}: ${formatDate(a.cancelled_at)}</div>`
+      : '';
     // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
     // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
     // monitor 캠페인은 영수증·리뷰 캡쳐 두 단계가 별도 진행 → 라벨도 두 줄로 표시.
@@ -208,15 +236,16 @@ async function renderMyApplyList() {
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
-    return `<div class="apply-item" style="cursor:pointer" ${clickAction}>
+    return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
         <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
+        ${cancelledLine}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}${menuHtml ? `<div class="apply-item-menu">${menuHtml}</div>` : ''}</div>
     </div>`;
   }).join('');
 }
@@ -405,3 +434,310 @@ function populateMyApplyChannelOptions() {
   if (prev && channels.includes(prev)) sel.value = prev;
 }
 // Stage 6 알림 로직은 dev/js/notifications.js (햄버거 메뉴 모달)로 이전됨
+
+// ════════════════════════════════════════════════════════════════════
+// 신청 본인 취소 (migration 104, 사양 docs/specs/2026-05-11-application-cancel.md §4)
+// ════════════════════════════════════════════════════════════════════
+
+let _cancelTargetAppId = null;
+let _cancelReasonsCache = null;
+
+// 클라이언트측 cancel_phase 계산 — 서버 RPC 의 CASE 와 동일 우선순위.
+// 모달 분기(단순 vs 사유 입력)와 phase 라벨 표시에 사용. 서버가 최종 검증.
+function _computeCancelPhase(camp) {
+  if (!camp) return 'other';
+  const now = Date.now();
+  const toMs = (d) => d ? Date.parse(d) : null;
+  const recruitDeadline = toMs(camp.deadline);
+  const purchaseStart = toMs(camp.purchase_start);
+  const purchaseEnd   = toMs(camp.purchase_end);
+  const visitStart    = toMs(camp.visit_start);
+  const visitEnd      = toMs(camp.visit_end);
+  const submissionEnd = toMs(camp.submission_end);
+  if (purchaseStart && now >= purchaseStart && (!purchaseEnd || now <= purchaseEnd)) return 'purchase';
+  if (visitStart    && now >= visitStart    && (!visitEnd    || now <= visitEnd))    return 'visit';
+  if (submissionEnd && now > submissionEnd) return 'post';
+  if (purchaseEnd   && now > purchaseEnd)   return 'post';
+  if (visitEnd      && now > visitEnd)      return 'post';
+  if (recruitDeadline && now <= recruitDeadline) return 'recruit';
+  return 'other';
+}
+
+// ⋮ 메뉴 액션 모달: 「결과물 제출」 / 「응모 취소」 선택.
+//   pending 상태:  결과물 제출 옵션 비활성(안내 텍스트만), 응모 취소 활성
+//   approved 상태: 결과물 제출 옵션 활성 → 활동관리 페이지 이동
+//                  응모 취소 옵션 — 결과물 1건이라도 approved 면 비활성 + tooltip
+let _applyActionTargetAppId = null;
+
+function openApplyActionModal(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  _applyActionTargetAppId = appId;
+  const isApproved = app.status === 'approved';
+  const ds = (_myDelivsByApp[appId] || []);
+  const hasApprovedDeliv = ds.some(d => d.status === 'approved');
+  // 결과물 제출 버튼: approved 만 활성. pending 은 비활성 + 안내 텍스트
+  const submitBtn = $('applyActionSubmitBtn');
+  const submitHint = $('applyActionSubmitHint');
+  if (submitBtn && submitHint) {
+    submitBtn.disabled = !isApproved;
+    submitBtn.style.opacity = isApproved ? '1' : '.5';
+    submitBtn.style.cursor = isApproved ? 'pointer' : 'not-allowed';
+    submitBtn.onclick = isApproved
+      ? () => { closeApplyActionModal(); if (typeof openActivityPage === 'function') openActivityPage(app.id, app.campaign_id, 'mypage'); }
+      : null;
+    submitHint.textContent = isApproved
+      ? t('appHistory.action.submitHintApproved')
+      : t('appHistory.action.submitHintPending');
+  }
+  // 응모 취소 버튼: 결과물 approved 있으면 비활성 + tooltip, 없으면 활성
+  const cancelBtn = $('applyActionCancelBtn');
+  const cancelHint = $('applyActionCancelHint');
+  if (cancelBtn && cancelHint) {
+    cancelBtn.disabled = hasApprovedDeliv;
+    cancelBtn.style.opacity = hasApprovedDeliv ? '.5' : '1';
+    cancelBtn.style.cursor = hasApprovedDeliv ? 'not-allowed' : 'pointer';
+    cancelBtn.title = hasApprovedDeliv ? t('appHistory.cancelDisabledDeliv') : '';
+    cancelBtn.onclick = hasApprovedDeliv
+      ? null
+      : () => { closeApplyActionModal(); openCancelModalFor(app.id); };
+    cancelHint.textContent = hasApprovedDeliv
+      ? t('appHistory.cancelDisabledDeliv')
+      : t('appHistory.action.cancelHint');
+  }
+  openModal('applyActionModal');
+}
+
+function closeApplyActionModal() {
+  closeModal('applyActionModal');
+  _applyActionTargetAppId = null;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 응모 취소 페이지 (#page-app-cancel) — 2026-05-11 모달→페이지 전환
+// 이전 cancelModal 의 UI/로직을 그대로 페이지로 이전. 모바일에서 모달이
+// 키보드 위로 잘리는 문제가 일반 페이지(.page.active 자연 스크롤)에선
+// 자동 해결됨.
+// ════════════════════════════════════════════════════════════════════
+
+// 함수명 openCancelModalFor 는 응모이력 ⋮ 액션 모달과 활동관리 헤더 버튼
+// 양쪽이 호출하므로 인터페이스 호환을 위해 이름 유지. 내부 동작만 페이지
+// navigate 로 변경.
+async function openCancelModalFor(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  const camp = allCampaigns.find(c => c.id === app.campaign_id) || {};
+  _cancelTargetAppId = appId;
+  const phase = _computeCancelPhase(camp);
+  // 페이지 안 input/표시 영역에 state 채움
+  const campNameEl = $('cancelPageCampaign');
+  if (campNameEl) campNameEl.textContent = camp.title || app.campaign_id || '';
+  const isSimple = phase === 'recruit';
+  const warnBox   = $('cancelPageWarning');
+  const reasonBox = $('cancelPageReason');
+  const noteBox   = $('cancelPageNoteWrap');
+  const ackBox    = $('cancelPageAckWrap');
+  const simpleBody = $('cancelPageSimpleBody');
+  if (warnBox)   warnBox.style.display   = isSimple ? 'none' : 'block';
+  if (reasonBox) reasonBox.style.display = isSimple ? 'none' : 'block';
+  if (noteBox)   noteBox.style.display   = isSimple ? 'none' : 'block';
+  if (ackBox)    ackBox.style.display    = isSimple ? 'none' : 'block';
+  if (simpleBody) simpleBody.style.display = isSimple ? 'block' : 'none';
+  // 경고 카피
+  const warnTextEl = $('cancelPageWarningText');
+  if (warnTextEl && !isSimple) {
+    const key = `appHistory.cancel.warning${phase.charAt(0).toUpperCase()}${phase.slice(1)}`;
+    warnTextEl.textContent = t(key);
+  }
+  // 사유 셀렉트: 카탈로그 캐시
+  if (!isSimple) {
+    if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
+    const sel = $('cancelPageReasonSelect');
+    if (sel) {
+      const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+      const pickLabel = (r) => (lang === 'ko' ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko));
+      const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
+      const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(pickLabel(r))}</option>`).join('');
+      sel.innerHTML = placeholder + opts;
+      sel.value = '';
+      // 카테고리 선택 시 textarea placeholder 를 카테고리별 가이드로 갱신.
+      // 사용자가 어떤 내용을 입력해야 하는지 안내.
+      sel.onchange = () => _syncCancelNotePlaceholder(sel.value);
+    }
+    const note = $('cancelPageNote');
+    if (note) {
+      note.value = '';
+      // 초기 placeholder: 기본 가이드 (카테고리 미선택 상태)
+      note.placeholder = t('appHistory.cancel.notePlaceholderDefault');
+    }
+    const ack = $('cancelPageAck');
+    if (ack) ack.checked = false;
+  }
+  // phase + appId hidden
+  const phaseEl = $('cancelPagePhase');
+  if (phaseEl) phaseEl.value = phase;
+  const appIdEl = $('cancelPageAppId');
+  if (appIdEl) appIdEl.value = appId;
+  // 에러 영역 초기화
+  const errEl = $('cancelPageError');
+  if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+  // 진입 출처 기록 (mypage 응모이력 vs 활동관리). 성공 시 응모이력으로 이동.
+  const activeIsActivity = document.getElementById('page-activity')?.classList?.contains('active');
+  _cancelPageFrom = activeIsActivity ? 'activity' : 'mypage';
+  // 페이지 전환
+  if (typeof navigate === 'function') navigate('app-cancel');
+  if (typeof applyI18n === 'function') applyI18n();
+  // 모바일 키보드 대응: input/select/textarea focus 시 명시적 scrollIntoView.
+  // #appShell 이 position:fixed + overflow:hidden 이라 iOS Safari 의 자동
+  // 스크롤이 .page.active 내부 컨테이너에서 작동하지 않으므로 직접 처리.
+  _attachCancelPageFocusScroll();
+}
+
+// 카테고리 코드별 textarea placeholder 동기화
+function _syncCancelNotePlaceholder(reasonCode) {
+  const note = $('cancelPageNote');
+  if (!note) return;
+  // i18n notePlaceholder.<code> 우선, 없으면 default
+  let placeholder = '';
+  if (reasonCode) {
+    placeholder = t('appHistory.cancel.notePlaceholder.' + reasonCode);
+    // t() 가 키를 그대로 반환하면 매핑 없는 코드 → default 사용
+    if (placeholder === 'appHistory.cancel.notePlaceholder.' + reasonCode) placeholder = '';
+  }
+  if (!placeholder) placeholder = t('appHistory.cancel.notePlaceholderDefault');
+  note.placeholder = placeholder;
+}
+
+// 이미 등록됐는지 플래그 — 페이지 재진입 시 listener 중복 부착 방지
+let _cancelPageFocusScrollBound = false;
+function _attachCancelPageFocusScroll() {
+  if (_cancelPageFocusScrollBound) return;
+  const page = document.getElementById('page-app-cancel');
+  if (!page) return;
+  const targets = page.querySelectorAll('select, textarea, input[type="text"], input[type="number"]');
+  targets.forEach(el => {
+    el.addEventListener('focus', () => {
+      // 0.3s 후 — 키보드/picker 슬라이드-업이 끝나 visualViewport 가 안정된 뒤
+      setTimeout(() => {
+        try { el.scrollIntoView({block: 'center', behavior: 'smooth'}); } catch(_e) {}
+      }, 300);
+    });
+  });
+  _cancelPageFocusScrollBound = true;
+}
+
+// 페이지 진입 출처 — 뒤로가기 동선 결정.
+let _cancelPageFrom = 'mypage';
+
+function navigateBackFromCancelApp() {
+  if (typeof navigate === 'function') {
+    if (_cancelPageFrom === 'activity' && _cancelTargetAppId) {
+      const app = _myApps.find(a => a.id === _cancelTargetAppId);
+      if (app && typeof openActivityPage === 'function') {
+        openActivityPage(app.id, app.campaign_id, 'mypage');
+        return;
+      }
+    }
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  }
+}
+
+async function submitCancelApplicationFromPage() {
+  const appId = $('cancelPageAppId')?.value || _cancelTargetAppId;
+  if (!appId) return;
+  const phase = $('cancelPagePhase')?.value || 'other';
+  const isSimple = phase === 'recruit';
+  const errEl = $('cancelPageError');
+  const showErr = (msg) => {
+    if (!errEl) { toast(msg, 'error'); return; }
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+  };
+  let reasonCode = null, reasonNote = null, acknowledged = false;
+  if (!isSimple) {
+    reasonCode = $('cancelPageReasonSelect')?.value || '';
+    reasonNote = ($('cancelPageNote')?.value || '').trim();
+    acknowledged = !!$('cancelPageAck')?.checked;
+    if (!reasonCode) { showErr(t('appHistory.cancel.errorReason')); return; }
+    // 추가 설명 필수화 — 사용자 요청 (2026-05-11). 사양 §3-2 매트릭스도
+    // 같이 갱신 권장 (지금은 코드만 필수, 서버 RPC 는 선택 — RPC 검증은
+    // 후속 마이그레이션에서 강화 가능).
+    if (!reasonNote) { showErr(t('appHistory.cancel.errorNoteRequired')); return; }
+    if (!acknowledged) { showErr(t('appHistory.cancel.errorAck')); return; }
+    if (reasonNote.length > 500) reasonNote = reasonNote.slice(0, 500);
+  }
+  const submitBtn = $('cancelPageSubmitBtn');
+  if (submitBtn) submitBtn.disabled = true;
+  const res = await cancelApplication(appId, {
+    reasonCode: reasonCode || null,
+    reasonNote: reasonNote || null,
+    acknowledged
+  });
+  if (submitBtn) submitBtn.disabled = false;
+  if (!res.ok) {
+    const errKey = {
+      'not_owner':                    'appHistory.cancel.errorOwner',
+      'invalid_status':               'appHistory.cancel.errorStatus',
+      'deliverable_already_approved': 'appHistory.cancel.errorDeliverable',
+      'reason_required':              'appHistory.cancel.errorReason',
+      'acknowledgement_required':     'appHistory.cancel.errorAck'
+    }[res.error] || 'appHistory.cancel.errorGeneric';
+    showErr(t(errKey));
+    return;
+  }
+  // 성공 — 알림 생성, 토스트, 응모이력 새로고침 후 응모이력 「取消」 탭으로
+  const camp = allCampaigns.find(c => c.id === (_myApps.find(a => a.id === appId)?.campaign_id)) || {};
+  try {
+    if (typeof insertApplicationCancelledNotification === 'function') {
+      await insertApplicationCancelledNotification(appId, camp.title || '');
+    }
+  } catch(_e) { /* 알림 실패는 사용자 흐름 차단 안 함 */ }
+  toast(t('appHistory.cancel.success'));
+  _cancelTargetAppId = null;
+  await loadMyApplications();
+  if (typeof navigate === 'function') {
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  }
+  // cancelled 탭으로 자동 이동해 사용자가 결과 즉시 확인
+  _myAppsTab = 'cancelled';
+  if (typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+  if (typeof renderMyApplyList === 'function') renderMyApplyList();
+}
+
+async function openCancelDetailModal(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  if (!app) return;
+  if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
+  const reason = _cancelReasonsCache.find(r => r.code === app.cancel_reason_code);
+  const setText = (id, text) => { const el = $(id); if (el) el.textContent = text || ''; };
+  setText('cancelDetailDatetime', app.cancelled_at ? formatDate(app.cancelled_at) : '—');
+  // 현재 언어 토글에 맞춰 카테고리 라벨 표시
+  const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+  const reasonLabel = reason ? (lang === 'ko' ? (reason.name_ko || reason.name_ja) : (reason.name_ja || reason.name_ko)) : '—';
+  setText('cancelDetailCategory', reasonLabel);
+  setText('cancelDetailPhase', t(`appHistory.cancelPhase.${app.cancel_phase || 'other'}`));
+  // 보충 텍스트는 있을 때만 행 노출.
+  // noteRow 는 display:contents 로 grid 가상 행이라 'none'↔'contents' 로 명시 복원.
+  const noteRow = $('cancelDetailNoteRow');
+  const noteEl  = $('cancelDetailNote');
+  if (app.cancel_reason && app.cancel_reason.trim()) {
+    if (noteEl) noteEl.textContent = app.cancel_reason;
+    if (noteRow) noteRow.style.display = 'contents';
+  } else {
+    if (noteRow) noteRow.style.display = 'none';
+  }
+  openModal('cancelDetailModal');
+}
+
+function closeCancelDetailModal() {
+  closeModal('cancelDetailModal');
+}
+
+// 활동관리 페이지 진입 시 호출 — cancelled 신청이면 회색 안내 화면으로 차단
+// dev/js/application.js 의 openActivityPage / 활동관리 라우팅에서 사용
+function isApplicationCancelled(appId) {
+  const app = _myApps.find(a => a.id === appId);
+  return !!(app && app.status === 'cancelled');
+}

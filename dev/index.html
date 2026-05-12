@@ -122,6 +122,64 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- 응모이력 ⋮ 액션 선택 모달 (결과물 제출 / 응모 취소) — 모바일 큰 터치 영역 -->
+<div class="modal-overlay" id="applyActionModal" style="z-index:613">
+  <div class="modal" style="max-width:420px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.title">アクションを選択</div>
+      <button onclick="closeApplyActionModal()" style="background:none;border:none;cursor:pointer;padding:6px 10px;line-height:1;display:flex;align-items:center;justify-content:center;min-width:32px;min-height:32px" aria-label="close"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:var(--muted)">close</span></button>
+    </div>
+    <div class="modal-body" style="padding:14px 16px 18px;overflow-y:auto;flex:1">
+      <button type="button" id="applyActionSubmitBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:10px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:var(--pink);flex-shrink:0">upload_file</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.submit">結果物を提出</span>
+          <span id="applyActionSubmitHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5"></span>
+        </span>
+      </button>
+      <button type="button" id="applyActionCancelBtn" class="apply-action-row" style="width:100%;min-height:64px;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;margin-bottom:14px;text-align:left">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:26px;color:#C33;flex-shrink:0">cancel</span>
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.action.cancel">応募を取り消す</span>
+          <span id="applyActionCancelHint" style="display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5" data-i18n="appHistory.action.cancelHint">不利益の可能性があります</span>
+        </span>
+      </button>
+      <div style="text-align:center;margin-top:4px">
+        <button class="btn btn-ghost" onclick="closeApplyActionModal()" style="min-width:120px;min-height:44px" data-i18n="appHistory.action.close">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 응모 취소 모달 → 페이지로 대체됨 (2026-05-11): #page-app-cancel 참조 -->
+
+<!-- 취소 사유 확인 모달 (취소된 응모이력 카드 클릭 시) -->
+<div class="modal-overlay" id="cancelDetailModal" style="z-index:614">
+  <div class="modal" style="max-width:400px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:15px;font-weight:700;color:var(--ink)" data-i18n="appHistory.cancelDetail.title">取消の詳細</div>
+      <button onclick="closeCancelDetailModal()" style="background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:18px 20px;overflow-y:auto;flex:1;font-size:13px;color:var(--ink);line-height:1.8">
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:start">
+        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.datetime">取消日時</div>
+        <div id="cancelDetailDatetime"></div>
+        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.category">カテゴリ</div>
+        <div id="cancelDetailCategory"></div>
+        <div id="cancelDetailNoteRow" style="display:contents">
+          <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.note">補足</div>
+          <div id="cancelDetailNote" style="white-space:pre-wrap"></div>
+        </div>
+        <div style="color:var(--muted);font-weight:600" data-i18n="appHistory.cancelDetail.phase">取消時の段階</div>
+        <div id="cancelDetailPhase"></div>
+      </div>
+      <div style="margin-top:16px;text-align:center">
+        <button class="btn btn-ghost" onclick="closeCancelDetailModal()" data-i18n="appHistory.cancelDetail.closeBtn">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── LOGIN PROMPT BOTTOM SHEET ── -->
 <div id="loginPromptOverlay" onclick="closeLoginPrompt(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:flex-end;justify-content:center">
   <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 36px">
@@ -398,6 +456,56 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- ══════════════════════════════════
+응모 취소 페이지 (사양 §4-2/§4-3, 2026-05-11 모달→페이지 전환)
+이전 cancelModal 을 그대로 페이지로 옮김. 모바일 키보드와 안전하게
+공존하기 위해 일반 페이지 스크롤(.page.active overflow-y:auto)을
+재사용한다.
+══════════════════════════════════ -->
+<div id="page-app-cancel" class="page">
+  <!-- padding-bottom 을 크게 잡아 모바일 키보드가 올라와도 input/textarea
+       가 .page.active 자연 스크롤로 키보드 위로 올라올 여유 확보 -->
+  <div class="container" style="padding:16px 16px 50vh">
+    <div class="detail-back" onclick="navigateBackFromCancelApp()" style="font-size:13px;margin-bottom:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="appHistory.cancel.cancelBtn">戻る</span></div>
+    <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.title">応募を取り消しますか？</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:18px">
+      <span data-i18n="appHistory.title">応募履歴</span>: <strong id="cancelPageCampaign" style="color:var(--ink)"></strong>
+    </div>
+    <input type="hidden" id="cancelPagePhase" value="recruit">
+    <input type="hidden" id="cancelPageAppId" value="">
+
+    <!-- 단순형 본문 (cancel_phase = 'recruit') -->
+    <div id="cancelPageSimpleBody" style="font-size:14px;color:var(--ink);line-height:1.7;margin-bottom:18px" data-i18n="appHistory.cancel.simpleBody">この応募を取り消します。よろしいですか？</div>
+
+    <!-- 사유 입력형 (cancel_phase != 'recruit') -->
+    <div id="cancelPageWarning" style="display:none;background:#FFE9E9;border:1px solid #F5B0B0;border-radius:10px;padding:12px 14px;font-size:13px;color:#9B1C1C;line-height:1.7;margin-bottom:16px">
+      <div style="font-weight:700;margin-bottom:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">warning</span> <span data-i18n="appHistory.cancel.warningLabel">注意</span></div>
+      <div id="cancelPageWarningText"></div>
+    </div>
+    <div id="cancelPageReason" style="display:none;margin-bottom:16px">
+      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.reasonLabel">取消理由 (必須)</label>
+      <select id="cancelPageReasonSelect" class="form-input" style="font-size:16px"></select>
+    </div>
+    <div id="cancelPageNoteWrap" style="display:none;margin-bottom:16px">
+      <label style="display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px" data-i18n="appHistory.cancel.noteLabel">補足説明 (任意・最大500文字)</label>
+      <textarea id="cancelPageNote" class="form-input" rows="4" maxlength="500" style="font-size:16px;resize:vertical;line-height:1.5;width:100%"></textarea>
+    </div>
+    <div id="cancelPageAckWrap" style="display:none;margin-bottom:24px">
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:14px;color:var(--ink);cursor:pointer">
+        <input type="checkbox" id="cancelPageAck" style="margin-top:4px;width:18px;height:18px">
+        <span data-i18n="appHistory.cancel.acknowledge">上記の不利益の可能性を理解しました</span>
+      </label>
+    </div>
+
+    <div id="cancelPageError" class="form-error" style="display:none;margin-bottom:12px"></div>
+
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="navigateBackFromCancelApp()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.cancelBtn">戻る</button>
+      <button class="btn btn-primary" id="cancelPageSubmitBtn" onclick="submitCancelApplicationFromPage()" style="flex:1;min-height:48px" data-i18n="appHistory.cancel.confirmBtn">取り消す</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
      PAGE: CAMPAIGN DETAIL
 ══════════════════════════════════ -->
 <div id="page-detail" class="page">
@@ -414,7 +522,10 @@ window._supabaseLoaded = false;
   <div class="container" style="padding:16px 16px calc(var(--tab-h) + 16px)">
     <div class="detail-back" onclick="navigateBackFromActivity()" style="font-size:13px;margin-bottom:12px"><span class="material-icons-round" style="font-size:18px;vertical-align:-3px">arrow_back</span> <span data-i18n="common.back">戻る</span></div>
     <div id="activityRecruitLabel" style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px;display:none"></div>
-    <div id="activityCampTitle" style="font-size:18px;font-weight:800;margin-bottom:4px"></div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px">
+      <div id="activityCampTitle" style="font-size:18px;font-weight:800;flex:1;min-width:0"></div>
+      <button type="button" id="activityCancelBtn" onclick="onActivityCancelClick()" style="display:none;flex-shrink:0;background:none;border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--muted);cursor:pointer" data-i18n="appHistory.cancelMenu">取消</button>
+    </div>
     <div id="activityCampBrand" style="font-size:13px;color:var(--muted);margin-bottom:20px"></div>
 
     <!-- 반려 사유 배너 (결과물 반려 시 노출) -->
