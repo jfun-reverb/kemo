@@ -24,6 +24,18 @@ var _brandApps = [];          // 캐시된 전체 목록
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
+// updateBrandApplication 응답을 메모리 cur 에 동기화.
+// products 변경 시 052/111 트리거가 서버에서 재계산한 estimated_krw /
+// total_jpy / total_qty 까지 즉시 반영해 새로고침 없이 「예상 견적」 등
+// 의존 셀이 갱신되도록 한다.
+function _syncBrandAppCur(cur, result, fallbackVersion) {
+  if (!cur || !result || !result.data) return;
+  cur.version = (result.data.version != null) ? result.data.version : (fallbackVersion + 1);
+  if (result.data.estimated_krw != null) cur.estimated_krw = result.data.estimated_krw;
+  if (result.data.total_jpy != null) cur.total_jpy = result.data.total_jpy;
+  if (result.data.total_qty != null) cur.total_qty = result.data.total_qty;
+}
+
 // 상태 라벨·컬러 (객체 키 순서가 드롭다운 옵션 순서)
 var BRAND_APP_STATUS = {
   'new':                 {label:'신규',             color:'#C33',   bg:'#FEE'},
@@ -130,7 +142,7 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (expectedVersion + 1);
+  _syncBrandAppCur(cur, result, expectedVersion);
   _refreshBrandAppHistoryButton(id);
   // 상태 변경은 필터 (NN)건 카운트와 매칭 행 노출에 즉시 영향 — 목록 전체 재렌더
   // 일정 인라인 편집과는 다른 흐름이라 의도적으로 셀-only 재렌더 미사용
@@ -2697,7 +2709,7 @@ async function _saveDateEdit(anyChildEl, primaryVal, endVal) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(id);
   // 해당 셀만 재렌더 — 같은 페이지에서 편집 중인 다른 셀들의 입력 상태가 사라지지 않도록 전체 재렌더 회피
   _restoreDateDisplay(cell, cfg, nextProducts[idx]);
@@ -2792,7 +2804,7 @@ async function confirmTransferFeeEdit(anyChildEl) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(id);
   // 같은 신청의 모든 행 재렌더(이체수수료(원)/최종 견적/VAT포함 컬럼이 동기화됨)
   renderBrandApplicationsList();
@@ -2887,7 +2899,7 @@ async function confirmRecruitFeeEdit(anyChildEl) {
     return;
   }
   cur.products = nextProducts;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _refreshBrandAppHistoryButton(id);
   // 같은 신청의 모든 행 재렌더(모집비/최종 견적/VAT포함 컬럼이 동기화됨)
   renderBrandApplicationsList();
@@ -2984,7 +2996,7 @@ async function confirmQuoteSentEdit(anyChildEl) {
     return;
   }
   cur.quote_sent_at = nextValue;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _restoreQuoteSentDisplay(cell, nextValue, false);
   _refreshBrandAppHistoryButton(id);
   toast(nextValue ? '견적서 전달일이 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
@@ -3073,7 +3085,7 @@ async function confirmMemoEdit(anyChildEl) {
     return;
   }
   cur.admin_memo = nextValue || null;
-  cur.version = result.data?.version || (prevVersion + 1);
+  _syncBrandAppCur(cur, result, prevVersion);
   _restoreMemoDisplay(cell, nextValue, false);
   _refreshBrandAppHistoryButton(id);
   toast('메모가 저장되었습니다.');
