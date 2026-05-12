@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778570576';
+  var CURRENT_BUILD = 'v1778573828';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1339,7 +1339,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 16:22 · 436940b</span>
+          <span class="admin-build-text">2026-05-12 17:17 · 411c9bd</span>
         </div>
       </div>
     </aside>
@@ -4209,7 +4209,8 @@ async function uploadFlagEvidence(file, flagId) {
   const ext = file.name ? file.name.split('.').pop().toLowerCase() : 'bin';
   const uuid = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substring(2));
   const path = `${flagId}/${uuid}.${ext}`;
-  const {error} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type, upsert: false});
+  // cacheControl: '86400' — 증빙 파일도 동일 캐시 정책. signed URL 만료(1h)와 무관하게 브라우저 캐시 활용
+  const {error} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
   if (error) throw error;
   return path;
 }
@@ -4716,7 +4717,9 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   var prefix = pathPrefix || 'campaigns';
   var ext = mime.split('/')[1] === 'jpeg' ? 'jpg' : mime.split('/')[1];
   var path = prefix + '/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
-  var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false});
+  // cacheControl: '86400' — 응답 헤더에 cache-control: max-age=86400 부여 → 브라우저 24h 캐시
+  //   재방문 시 transform/object API 재호출 차단, Storage Image Transformations 월 한도 보호
+  var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
   // 공개 URL 반환
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
