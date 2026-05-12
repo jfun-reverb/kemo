@@ -1316,7 +1316,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 13:44 · 8f49c08</span>
+          <span class="admin-build-text">2026-05-12 14:05 · 3dba60a</span>
         </div>
       </div>
     </aside>
@@ -2566,11 +2566,12 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:100px">상품 가격(원) <span class="col-help" data-tooltip="상품 가격(엔) × 10  (환율 ¥1 = ₩10)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:130px">모집비 <span class="col-help" data-tooltip="제품별 단가 직접 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">이체수수료(건)</th>
-                <th style="width:120px">예상 견적 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT/UPDATE 시 재계산)&#10;reviewer: ( ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료) ) × VAT 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비·이체수수료 미입력 시 0 (이체수수료는 ₩2,500 자동 채움)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
+                <th style="width:120px">최종견적금액 <span class="col-help" data-tooltip="VAT 미포함 견적 금액. 「VAT 포함」 컬럼을 1.1로 나눈 값 (반올림).&#10;reviewer: ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료)&#10;seeding: 0 (수동 협의)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:120px">VAT 포함 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT/UPDATE 시 재계산)&#10;reviewer: ( ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료) ) × VAT 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비·이체수수료 미입력 시 0 (이체수수료는 ₩2,500 자동 채움)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="25" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="26" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -8160,7 +8161,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="25" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="26" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -8479,7 +8480,11 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   // 18. 이체수수료(건) (제품 단가 — 인라인 편집 가능)
   html += '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>';
 
-  // 19. 예상 견적 (신청 단위 — 모든 행에 같은 값을 동일 색상으로)
+  // 19. 최종견적금액 (VAT 미포함 — estimated_krw / 1.1 반올림. 같은 신청 모든 행에 동일 값)
+  var finalNoVat = (a.estimated_krw == null || a.estimated_krw === '') ? null : Math.round(Number(a.estimated_krw) / (1 + BRAND_QUOTE_CONST.VAT_RATE));
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + (finalNoVat ? fmtKrw(finalNoVat) : '') + '</td>';
+
+  // 20. VAT 포함 (= estimated_krw, DB 트리거 자동 계산. 같은 신청 모든 행에 동일 값)
   html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>';
 
   // 20. 견적서 전달 (액션 — 첫 행만)
