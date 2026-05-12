@@ -1323,10 +1323,11 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
     };
     const renderPsetSteps = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+      const renderDesc = (typeof miniRichHtml === 'function') ? miniRichHtml : (h => esc(String(h||'')));
       return arr.map((s, i) => {
         const t = s.title_ko || s.title_ja || '';
         const d = s.desc_ko || s.desc_ja || '';
-        return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div style="font-size:11px;color:var(--muted)">${esc(d)}</div>` : ''}</li>`;
+        return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div class="rich-content" style="font-size:11px;color:var(--muted)">${renderDesc(d)}</div>` : ''}</li>`;
       }).join('');
     };
     const sections = [];
@@ -1453,10 +1454,11 @@ function renderCautionHistoryModal() {
   };
   const renderPsetSteps = (arr) => {
     if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+    const renderDesc = (typeof miniRichHtml === 'function') ? miniRichHtml : (h => esc(String(h||'')));
     return arr.map((s, i) => {
       const t = s.title_ko || s.title_ja || '';
       const d = s.desc_ko || s.desc_ja || '';
-      return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div style="font-size:11px;color:var(--muted)">${esc(d)}</div>` : ''}</li>`;
+      return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div class="rich-content" style="font-size:11px;color:var(--muted)">${renderDesc(d)}</div>` : ''}</li>`;
     }).join('');
   };
   const items = list.map((row, idx) => {
@@ -2704,7 +2706,8 @@ function renderCampPreview(mode) {
           ${steps.map((s,i)=>{
             const title = s.title_ja || s.title_ko || '';
             const desc = s.desc_ja || s.desc_ko || '';
-            return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
+            const descHtml = (typeof miniRichHtml === 'function') ? miniRichHtml(desc) : esc(desc);
+            return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc rich-content">${descHtml}</div>`:''}</div></div>`;
           }).join('')}
         </div>` : ''}
         ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
@@ -5110,8 +5113,8 @@ function renderPsetSteps() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ko=this.value">
         <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
-        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ko=this.value">${esc(s.desc_ko)}</textarea>
-        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
+        ${miniEditorHtml(s.desc_ko, `_psetCurrentSteps[${idx}].desc_ko=this.innerHTML`, '설명 (한국어)')}
+        ${miniEditorHtml(s.desc_ja, `_psetCurrentSteps[${idx}].desc_ja=this.innerHTML`, '설명 (일본어)')}
       </div>
     </div>
   `).join('');
@@ -5149,7 +5152,9 @@ async function savePsetEdit() {
   if (!name_ko || !name_ja) { show('한국어/일본어 이름을 모두 입력해주세요'); return; }
   const recruit_types = Array.from(document.querySelectorAll('input[name="psetRT"]:checked')).map(cb => cb.value);
   if (!recruit_types.length) { show('사용 가능한 모집 타입을 1개 이상 선택해주세요'); return; }
-  const steps = _psetCurrentSteps.filter(s => (s.title_ja||s.title_ko||'').trim());
+  const steps = _sanitizePsetStepsForSave(
+    _psetCurrentSteps.filter(s => (s.title_ja||s.title_ko||'').trim())
+  );
   if (!steps.length) { show('단계를 1개 이상 입력해주세요 (제목 필수)'); return; }
   if (steps.length > MAX_PSET_STEPS) { show(`단계는 최대 ${MAX_PSET_STEPS}개까지`); return; }
   const payload = {name_ko, name_ja, recruit_types, steps};
@@ -5291,7 +5296,9 @@ function normalizeCsetItem(s) {
   return {html_ko: buildLang('ko'), html_ja: buildLang('ja')};
 }
 
-// 미니 에디터 (contenteditable + execCommand) — B/I/U/S/Link 5버튼만 제공
+// 미니 에디터 (contenteditable + execCommand) — B/I/U/S/Link/Image 6버튼
+//   이미지 버튼: 파일 선택 다이얼로그 → uploadContentImage → 커서 위치 <img> 삽입
+//   외부 URL 직접 삽입 차단 (sanitize 단계 src 화이트리스트로 후방 차단)
 function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
   const safe = (typeof sanitizeCautionHtml === 'function')
     ? sanitizeCautionHtml(initialHtml || '')
@@ -5306,9 +5313,60 @@ function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
         <button type="button" onclick="miniEditorCmd(this,'strikeThrough')" title="취소선" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;text-decoration:line-through;font-size:12px">S</button>
         <span style="width:1px;background:var(--line);margin:2px 4px"></span>
         <button type="button" onclick="miniEditorCmd(this,'link')" title="링크 추가 (텍스트 선택 후 클릭)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">link</span>링크</button>
+        <button type="button" onclick="miniEditorInsertImageClick(this)" title="이미지 삽입 (5MB 이하 jpg/png/webp)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">image</span>이미지</button>
       </div>
       <div class="mini-editor-content" contenteditable="true" data-placeholder="${ph}" style="padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none" oninput="${onChangeAttr}" onpaste="miniEditorPaste(event)">${safe}</div>
     </div>`;
+}
+
+// 이미지 버튼 클릭 — 숨김 file input 생성 → 파일 선택 → 업로드 → <img> 삽입
+//   캡션·크기 옵션 없음 (사양 §1: 기본만, .rich-img 가로 100% 자동 적용)
+function miniEditorInsertImageClick(btn) {
+  const wrap = btn.closest('.mini-editor-wrap');
+  const content = wrap?.querySelector('.mini-editor-content');
+  if (!content) return;
+  // 임시 file input — DOM 에 부착해야 일부 브라우저에서 click() 동작
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/webp';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    try {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
+        toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다','error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast('이미지는 5MB 이하만 업로드할 수 있습니다','error');
+        return;
+      }
+      content.focus();
+      toast('이미지 업로드 중…','info');
+      const url = await uploadContentImage(file);
+      // sanitize 가 src 화이트리스트 + .rich-img 클래스를 후처리에서 부여하므로
+      // 여기서는 단순히 <img src="..."> 만 삽입. oninput 트리거로 sanitize 가 다시 통과.
+      const html = '<img src="' + url + '" alt="">';
+      // execCommand insertHTML 폴백: contenteditable 에서 selection 위치 보존
+      const ok = document.execCommand('insertHTML', false, html);
+      if (!ok) {
+        // 폴백: 끝에 append
+        content.insertAdjacentHTML('beforeend', html);
+      }
+      content.dispatchEvent(new Event('input', {bubbles:true}));
+      toast('이미지를 추가했습니다','success');
+    } catch (e) {
+      const msg = (e && e.message) || String(e);
+      if (msg === 'file_too_large') toast('이미지는 5MB 이하만 업로드할 수 있습니다','error');
+      else if (msg === 'file_type_not_allowed') toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다','error');
+      else toast('이미지 업로드 실패: ' + msg,'error');
+    } finally {
+      input.remove();
+    }
+  }, {once: true});
+  input.click();
 }
 
 // 툴바 버튼 클릭 핸들러 — 현재 셀렉션에 cmd 적용
@@ -5825,8 +5883,8 @@ function renderCampSteps(formMode) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ko=this.value">
         <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
-        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ko=this.value">${esc(s.desc_ko||'')}</textarea>
-        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
+        ${miniEditorHtml(s.desc_ko||'', `_psetState['${formMode}'][${idx}].desc_ko=this.innerHTML`, '설명 (한국어)')}
+        ${miniEditorHtml(s.desc_ja||'', `_psetState['${formMode}'][${idx}].desc_ja=this.innerHTML`, '설명 (일본어)')}
       </div>
     </div>
   `).join('');
@@ -5854,12 +5912,28 @@ function moveCampPsetStep(formMode, idx, dir) {
   renderCampSteps(formMode);
 }
 
+// 미니 에디터 desc(html) 값을 저장 전 sanitize — 외부 URL <img>·이벤트 핸들러 차단.
+// title 은 평문 input 이라 별도 처리 불필요.
+function _sanitizePsetStepsForSave(steps) {
+  if (!Array.isArray(steps)) return [];
+  var safe = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : function(h){ return String(h||''); };
+  return steps.map(function(s){
+    return {
+      title_ko: (s.title_ko||''),
+      title_ja: (s.title_ja||''),
+      desc_ko : safe(s.desc_ko||''),
+      desc_ja : safe(s.desc_ja||'')
+    };
+  });
+}
+
 // __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, steps 변동 없음)
 function collectCampPsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
   const rawSetId = sel?.value || '';
-  const steps = _psetState[formMode].filter(s => (s.title_ja||s.title_ko||'').trim())
-    .map(s => ({title_ko:s.title_ko||'', title_ja:s.title_ja||'', desc_ko:s.desc_ko||'', desc_ja:s.desc_ja||''}));
+  const steps = _sanitizePsetStepsForSave(
+    _psetState[formMode].filter(s => (s.title_ja||s.title_ko||'').trim())
+  );
   return {
     participation_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
     participation_steps: steps.length ? steps : null

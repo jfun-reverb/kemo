@@ -792,6 +792,41 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   return data.publicUrl;
 }
 
+// 미니 에디터(참여방법/주의사항/NG)용 콘텐츠 이미지 업로드.
+//   - 파일 객체(File/Blob) 직접 업로드 (base64 변환 단계 생략 — 메모리 절약)
+//   - 클라이언트 1차 검증: 5MB 이하 + image/jpeg|png|webp 만
+//   - 저장 경로: campaign-images 버킷의 `content/` 폴더
+//   - cacheControl 86400 (24시간) — 첫 캠페인 상세 진입 후 재진입 빠른 로드
+//   - 반환: 공개 URL (https). DB에는 이 URL 을 jsonb 안 html 필드에 <img src> 로 삽입
+async function uploadContentImage(file) {
+  if (!db) throw new Error('storage_unavailable');
+  if (!file || !file.size) throw new Error('file_required');
+
+  var MAX_SIZE = 5 * 1024 * 1024;   // 5MB
+  var ALLOWED  = ['image/jpeg', 'image/png', 'image/webp'];
+
+  if (!ALLOWED.includes(file.type)) {
+    throw new Error('file_type_not_allowed');   // 호출자가 i18n 토스트로 변환
+  }
+  if (file.size > MAX_SIZE) {
+    throw new Error('file_too_large');
+  }
+
+  // 파일 경로: content/타임스탬프_랜덤.ext
+  var ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
+  var path = 'content/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+
+  var {error} = await db.storage.from('campaign-images').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+    cacheControl: '86400'
+  });
+  if (error) throw error;
+
+  var {data} = db.storage.from('campaign-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 // 이미지 배열(base64)을 Storage에 업로드하고 URL 배열 반환
 async function uploadCampImages(imgList) {
   var urls = [];

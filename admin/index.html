@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778575052';
+  var CURRENT_BUILD = 'v1778577864';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -354,6 +354,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 .rich-content pre{background:var(--bg);padding:8px 10px;border-radius:6px;overflow-x:auto;font-size:.9em}
 .rich-content strong{font-weight:700}
 .rich-content em{font-style:italic}
+
+/* 미니 에디터(참여방법/주의사항/NG) 콘텐츠 이미지: 가로 100% 가운데 정렬, 모서리 둥글림 */
+.rich-img{max-width:100%;display:block;margin:8px auto;border-radius:6px}
+.mini-editor-content .rich-img{margin:6px auto}
 
 /* Quill 에디터 (admin) */
 .quill-host{background:#fff;border-radius:6px}
@@ -1339,7 +1343,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 17:37 · 7a70d1f</span>
+          <span class="admin-build-text">2026-05-12 18:24 · 13358e2</span>
         </div>
       </div>
     </aside>
@@ -3747,9 +3751,18 @@ function sanitizeRich(html) {
   return wrapper.innerHTML;
 }
 
-// caution_items 전용 sanitize — inline 서식(B/I/U/S) + 링크만 허용.
-// <p>, <div>, <ul> 등 블록 태그는 제거(렌더는 <li> 한 칸이라 inline 만 허용해야 레이아웃 유지).
-// 관리자 미니 에디터의 contenteditable 출력이 paste 시 섞어 올 수 있는 block 태그를 정리.
+// 미니 에디터(주의사항·참여방법·NG) 전용 sanitize.
+// 허용:
+//   inline 서식: B/I/U/S 계열 + 링크
+//   콘텐츠 블록: <p>, <br> (단락 + 줄바꿈)
+//   이미지: <img src=https://*.supabase.co/...> 만 허용 (외부 도메인 차단)
+// 차단:
+//   <script>/<iframe>/<style>/<object>/<embed>/<svg>/<div>/<span>/<ul>/<ol>/<li>/<h1~h4>/<blockquote>/<code>/<pre>
+//   onerror/onload/onclick/style/class 속성
+// 이미지 후처리: 화이트리스트 통과 시 .rich-img 클래스·lazy 로딩 부여, 미통과는 제거.
+//
+// 관리자 미니 에디터(contenteditable) 의 paste·툴바 결과를 모두 본 함수로 통과시켜
+// 저장 + 렌더 양쪽 모두 동일 정책 적용. 외부 URL 직접 입력은 src 화이트리스트로 차단.
 function sanitizeCautionHtml(html) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
@@ -3757,10 +3770,10 @@ function sanitizeCautionHtml(html) {
     return '';
   }
   const clean = DOMPurify.sanitize(String(html), {
-    ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br'],
-    ALLOWED_ATTR: ['href','target','rel'],
-    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg','p','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
-    FORBID_ATTR: ['style','onerror','onload','onclick','class']
+    ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br','p','img'],
+    ALLOWED_ATTR: ['href','target','rel','src','alt'],
+    FORBID_TAGS: ['script','iframe','style','object','embed','svg','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
+    FORBID_ATTR: ['style','onerror','onload','onclick','onmouseover','onfocus','class','id']
   });
   const wrapper = document.createElement('div');
   wrapper.innerHTML = clean;
@@ -3778,7 +3791,58 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
+  // 이미지 src 화이트리스트: https + Supabase Storage 도메인만.
+  //   외부 URL 직접 입력 (예: evil.com) 차단 — 추적·서버 공격 가능성 0.
+  //   소유 자산이 아닌 임시 URL(blob:, data:, http:) 도 차단.
+  wrapper.querySelectorAll('img').forEach(img => {
+    const src = (img.getAttribute('src') || '').trim();
+    if (!_isAllowedContentImageSrc(src)) {
+      img.remove();
+      return;
+    }
+    // 표시 일관화: 가로 100% / 가운데 정렬 / 지연 로딩
+    img.classList.add('rich-img');
+    img.setAttribute('loading', 'lazy');
+    img.setAttribute('decoding', 'async');
+    // alt 누락 시 빈 문자열 (장식용으로 처리)
+    if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
+  });
   return wrapper.innerHTML;
+}
+
+// 미니 에디터 콘텐츠 이미지 src 화이트리스트.
+//   - https 만 허용 (http/data:/blob:/javascript: 모두 거부)
+//   - 호스트는 *.supabase.co (운영·개발 Supabase Storage 모두 포함)
+//   - 외부 이미지 hotlink 는 차단 — 운영자 업로드 자산만 정상 표시
+function _isAllowedContentImageSrc(src) {
+  if (!src || typeof src !== 'string') return false;
+  try {
+    const u = new URL(src);
+    if (u.protocol !== 'https:') return false;
+    // Supabase Storage 도메인 — 본 프로젝트는 모든 Storage 가 *.supabase.co
+    if (!/\.supabase\.co$/i.test(u.hostname)) return false;
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+// 미니 에디터(참여방법·주의사항·NG) 출력 렌더용 — sanitizeCautionHtml 경유.
+//   - HTML 있으면 sanitizeCautionHtml (img/p/br + inline 서식 허용)
+//   - 평문이면 esc + 줄바꿈→<br> (마이그레이션 110 백필 데이터 호환)
+function miniRichHtml(raw) {
+  const value = raw == null ? '' : String(raw);
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    return value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+  }
+  return (typeof sanitizeCautionHtml === 'function')
+    ? sanitizeCautionHtml(value)
+    : value.replace(/<script/gi, '&lt;script');
 }
 
 // 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
@@ -4722,6 +4786,41 @@ async function uploadImage(base64Data, fileName, pathPrefix) {
   var {error} = await db.storage.from('campaign-images').upload(path, blob, {contentType: mime, upsert: false, cacheControl: '86400'});
   if (error) throw error;
   // 공개 URL 반환
+  var {data} = db.storage.from('campaign-images').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// 미니 에디터(참여방법/주의사항/NG)용 콘텐츠 이미지 업로드.
+//   - 파일 객체(File/Blob) 직접 업로드 (base64 변환 단계 생략 — 메모리 절약)
+//   - 클라이언트 1차 검증: 5MB 이하 + image/jpeg|png|webp 만
+//   - 저장 경로: campaign-images 버킷의 `content/` 폴더
+//   - cacheControl 86400 (24시간) — 첫 캠페인 상세 진입 후 재진입 빠른 로드
+//   - 반환: 공개 URL (https). DB에는 이 URL 을 jsonb 안 html 필드에 <img src> 로 삽입
+async function uploadContentImage(file) {
+  if (!db) throw new Error('storage_unavailable');
+  if (!file || !file.size) throw new Error('file_required');
+
+  var MAX_SIZE = 5 * 1024 * 1024;   // 5MB
+  var ALLOWED  = ['image/jpeg', 'image/png', 'image/webp'];
+
+  if (!ALLOWED.includes(file.type)) {
+    throw new Error('file_type_not_allowed');   // 호출자가 i18n 토스트로 변환
+  }
+  if (file.size > MAX_SIZE) {
+    throw new Error('file_too_large');
+  }
+
+  // 파일 경로: content/타임스탬프_랜덤.ext
+  var ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
+  var path = 'content/' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '.' + ext;
+
+  var {error} = await db.storage.from('campaign-images').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+    cacheControl: '86400'
+  });
+  if (error) throw error;
+
   var {data} = db.storage.from('campaign-images').getPublicUrl(path);
   return data.publicUrl;
 }
@@ -11297,10 +11396,11 @@ function showSensitiveChangeConfirm({appCount, cautionChanged, participationChan
     };
     const renderPsetSteps = (arr) => {
       if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+      const renderDesc = (typeof miniRichHtml === 'function') ? miniRichHtml : (h => esc(String(h||'')));
       return arr.map((s, i) => {
         const t = s.title_ko || s.title_ja || '';
         const d = s.desc_ko || s.desc_ja || '';
-        return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div style="font-size:11px;color:var(--muted)">${esc(d)}</div>` : ''}</li>`;
+        return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div class="rich-content" style="font-size:11px;color:var(--muted)">${renderDesc(d)}</div>` : ''}</li>`;
       }).join('');
     };
     const sections = [];
@@ -11427,10 +11527,11 @@ function renderCautionHistoryModal() {
   };
   const renderPsetSteps = (arr) => {
     if (!Array.isArray(arr) || !arr.length) return '<li style="color:var(--muted)">(없음)</li>';
+    const renderDesc = (typeof miniRichHtml === 'function') ? miniRichHtml : (h => esc(String(h||'')));
     return arr.map((s, i) => {
       const t = s.title_ko || s.title_ja || '';
       const d = s.desc_ko || s.desc_ja || '';
-      return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div style="font-size:11px;color:var(--muted)">${esc(d)}</div>` : ''}</li>`;
+      return `<li><b>STEP ${i+1}</b> · ${esc(t)}${d ? `<div class="rich-content" style="font-size:11px;color:var(--muted)">${renderDesc(d)}</div>` : ''}</li>`;
     }).join('');
   };
   const items = list.map((row, idx) => {
@@ -12678,7 +12779,8 @@ function renderCampPreview(mode) {
           ${steps.map((s,i)=>{
             const title = s.title_ja || s.title_ko || '';
             const desc = s.desc_ja || s.desc_ko || '';
-            return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc">${esc(desc)}</div>`:''}</div></div>`;
+            const descHtml = (typeof miniRichHtml === 'function') ? miniRichHtml(desc) : esc(desc);
+            return `<div class="cp-step"><div class="cp-step-num">STEP ${i+1}</div><div><div class="cp-step-title">${esc(title)}</div>${desc?`<div class="cp-step-desc rich-content">${descHtml}</div>`:''}</div></div>`;
           }).join('')}
         </div>` : ''}
         ${camp.product_url?`<div class="cp-product-link"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">shopping_bag</span> 商品ページ</div>`:''}
@@ -15084,8 +15186,8 @@ function renderPsetSteps() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ko=this.value">
         <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja)}" style="font-size:13px;padding:8px 10px" oninput="_psetCurrentSteps[${idx}].title_ja=this.value">
-        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ko=this.value">${esc(s.desc_ko)}</textarea>
-        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetCurrentSteps[${idx}].desc_ja=this.value">${esc(s.desc_ja)}</textarea>
+        ${miniEditorHtml(s.desc_ko, `_psetCurrentSteps[${idx}].desc_ko=this.innerHTML`, '설명 (한국어)')}
+        ${miniEditorHtml(s.desc_ja, `_psetCurrentSteps[${idx}].desc_ja=this.innerHTML`, '설명 (일본어)')}
       </div>
     </div>
   `).join('');
@@ -15123,7 +15225,9 @@ async function savePsetEdit() {
   if (!name_ko || !name_ja) { show('한국어/일본어 이름을 모두 입력해주세요'); return; }
   const recruit_types = Array.from(document.querySelectorAll('input[name="psetRT"]:checked')).map(cb => cb.value);
   if (!recruit_types.length) { show('사용 가능한 모집 타입을 1개 이상 선택해주세요'); return; }
-  const steps = _psetCurrentSteps.filter(s => (s.title_ja||s.title_ko||'').trim());
+  const steps = _sanitizePsetStepsForSave(
+    _psetCurrentSteps.filter(s => (s.title_ja||s.title_ko||'').trim())
+  );
   if (!steps.length) { show('단계를 1개 이상 입력해주세요 (제목 필수)'); return; }
   if (steps.length > MAX_PSET_STEPS) { show(`단계는 최대 ${MAX_PSET_STEPS}개까지`); return; }
   const payload = {name_ko, name_ja, recruit_types, steps};
@@ -15265,7 +15369,9 @@ function normalizeCsetItem(s) {
   return {html_ko: buildLang('ko'), html_ja: buildLang('ja')};
 }
 
-// 미니 에디터 (contenteditable + execCommand) — B/I/U/S/Link 5버튼만 제공
+// 미니 에디터 (contenteditable + execCommand) — B/I/U/S/Link/Image 6버튼
+//   이미지 버튼: 파일 선택 다이얼로그 → uploadContentImage → 커서 위치 <img> 삽입
+//   외부 URL 직접 삽입 차단 (sanitize 단계 src 화이트리스트로 후방 차단)
 function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
   const safe = (typeof sanitizeCautionHtml === 'function')
     ? sanitizeCautionHtml(initialHtml || '')
@@ -15280,9 +15386,60 @@ function miniEditorHtml(initialHtml, onChangeAttr, placeholder) {
         <button type="button" onclick="miniEditorCmd(this,'strikeThrough')" title="취소선" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;text-decoration:line-through;font-size:12px">S</button>
         <span style="width:1px;background:var(--line);margin:2px 4px"></span>
         <button type="button" onclick="miniEditorCmd(this,'link')" title="링크 추가 (텍스트 선택 후 클릭)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">link</span>링크</button>
+        <button type="button" onclick="miniEditorInsertImageClick(this)" title="이미지 삽입 (5MB 이하 jpg/png/webp)" style="border:0;background:transparent;cursor:pointer;padding:4px 8px;font-size:12px;color:var(--pink);display:inline-flex;align-items:center;gap:3px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">image</span>이미지</button>
       </div>
       <div class="mini-editor-content" contenteditable="true" data-placeholder="${ph}" style="padding:8px 10px;font-size:13px;min-height:48px;line-height:1.6;outline:none" oninput="${onChangeAttr}" onpaste="miniEditorPaste(event)">${safe}</div>
     </div>`;
+}
+
+// 이미지 버튼 클릭 — 숨김 file input 생성 → 파일 선택 → 업로드 → <img> 삽입
+//   캡션·크기 옵션 없음 (사양 §1: 기본만, .rich-img 가로 100% 자동 적용)
+function miniEditorInsertImageClick(btn) {
+  const wrap = btn.closest('.mini-editor-wrap');
+  const content = wrap?.querySelector('.mini-editor-content');
+  if (!content) return;
+  // 임시 file input — DOM 에 부착해야 일부 브라우저에서 click() 동작
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/webp';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+  input.addEventListener('change', async () => {
+    try {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
+        toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다','error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast('이미지는 5MB 이하만 업로드할 수 있습니다','error');
+        return;
+      }
+      content.focus();
+      toast('이미지 업로드 중…','info');
+      const url = await uploadContentImage(file);
+      // sanitize 가 src 화이트리스트 + .rich-img 클래스를 후처리에서 부여하므로
+      // 여기서는 단순히 <img src="..."> 만 삽입. oninput 트리거로 sanitize 가 다시 통과.
+      const html = '<img src="' + url + '" alt="">';
+      // execCommand insertHTML 폴백: contenteditable 에서 selection 위치 보존
+      const ok = document.execCommand('insertHTML', false, html);
+      if (!ok) {
+        // 폴백: 끝에 append
+        content.insertAdjacentHTML('beforeend', html);
+      }
+      content.dispatchEvent(new Event('input', {bubbles:true}));
+      toast('이미지를 추가했습니다','success');
+    } catch (e) {
+      const msg = (e && e.message) || String(e);
+      if (msg === 'file_too_large') toast('이미지는 5MB 이하만 업로드할 수 있습니다','error');
+      else if (msg === 'file_type_not_allowed') toast('JPG/PNG/WebP 형식만 업로드할 수 있습니다','error');
+      else toast('이미지 업로드 실패: ' + msg,'error');
+    } finally {
+      input.remove();
+    }
+  }, {once: true});
+  input.click();
 }
 
 // 툴바 버튼 클릭 핸들러 — 현재 셀렉션에 cmd 적용
@@ -15799,8 +15956,8 @@ function renderCampSteps(formMode) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <input type="text" class="form-input" placeholder="제목 (한국어)" value="${esc(s.title_ko||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ko=this.value">
         <input type="text" class="form-input" placeholder="제목 (일본어)" value="${esc(s.title_ja||'')}" style="font-size:13px;padding:8px 10px" oninput="_psetState['${formMode}'][${idx}].title_ja=this.value">
-        <textarea class="form-input" placeholder="설명 (한국어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ko=this.value">${esc(s.desc_ko||'')}</textarea>
-        <textarea class="form-input" placeholder="설명 (일본어)" rows="2" style="resize:vertical;font-size:13px;padding:8px 10px;line-height:1.5" oninput="_psetState['${formMode}'][${idx}].desc_ja=this.value">${esc(s.desc_ja||'')}</textarea>
+        ${miniEditorHtml(s.desc_ko||'', `_psetState['${formMode}'][${idx}].desc_ko=this.innerHTML`, '설명 (한국어)')}
+        ${miniEditorHtml(s.desc_ja||'', `_psetState['${formMode}'][${idx}].desc_ja=this.innerHTML`, '설명 (일본어)')}
       </div>
     </div>
   `).join('');
@@ -15828,12 +15985,28 @@ function moveCampPsetStep(formMode, idx, dir) {
   renderCampSteps(formMode);
 }
 
+// 미니 에디터 desc(html) 값을 저장 전 sanitize — 외부 URL <img>·이벤트 핸들러 차단.
+// title 은 평문 input 이라 별도 처리 불필요.
+function _sanitizePsetStepsForSave(steps) {
+  if (!Array.isArray(steps)) return [];
+  var safe = (typeof sanitizeCautionHtml === 'function') ? sanitizeCautionHtml : function(h){ return String(h||''); };
+  return steps.map(function(s){
+    return {
+      title_ko: (s.title_ko||''),
+      title_ja: (s.title_ja||''),
+      desc_ko : safe(s.desc_ko||''),
+      desc_ja : safe(s.desc_ja||'')
+    };
+  });
+}
+
 // __INLINE__ 가상 옵션: 기존 캠페인 항목 유지 (set_id=NULL, steps 변동 없음)
 function collectCampPsetPayload(formMode) {
   const sel = $(formMode === 'edit' ? 'editCampPsetSelect' : 'newCampPsetSelect');
   const rawSetId = sel?.value || '';
-  const steps = _psetState[formMode].filter(s => (s.title_ja||s.title_ko||'').trim())
-    .map(s => ({title_ko:s.title_ko||'', title_ja:s.title_ja||'', desc_ko:s.desc_ko||'', desc_ja:s.desc_ja||''}));
+  const steps = _sanitizePsetStepsForSave(
+    _psetState[formMode].filter(s => (s.title_ja||s.title_ko||'').trim())
+  );
   return {
     participation_set_id: (rawSetId === '' || rawSetId === '__INLINE__') ? null : rawSetId,
     participation_steps: steps.length ? steps : null

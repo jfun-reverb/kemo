@@ -249,6 +249,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 .rich-content strong{font-weight:700}
 .rich-content em{font-style:italic}
 
+/* 미니 에디터(참여방법/주의사항/NG) 콘텐츠 이미지: 가로 100% 가운데 정렬, 모서리 둥글림 */
+.rich-img{max-width:100%;display:block;margin:8px auto;border-radius:6px}
+.mini-editor-content .rich-img{margin:6px auto}
+
 /* Quill 에디터 (admin) */
 .quill-host{background:#fff;border-radius:6px}
 .quill-host .ql-toolbar{border:1px solid var(--line);border-radius:6px 6px 0 0;background:#fafafa}
