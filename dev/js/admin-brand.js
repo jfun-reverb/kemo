@@ -1833,8 +1833,10 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시 (행 차등 색상은 모두 제거 — 모든 행에 동일하게 표시)
   var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
 
-  var manualBadge = (a.source === 'manual_admin')
-    ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:4px" title="관리자가 직접 등록한 신청">직접등록</span>'
+  // 「직접등록」은 신청번호 옆 작은 칩으로 표시 (사용자 요청 2026-05-12).
+  // 폼·채널 배지 줄에서는 제거 — 한 신청에 한 번만 노출되어 시각 잡음 감소.
+  var manualBadgeInline = (a.source === 'manual_admin')
+    ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle" title="관리자가 직접 등록한 신청">직접등록</span>'
     : '';
 
   var html = '<tr' + clsAttr + ' data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
@@ -1852,8 +1854,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   }
   var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
   html += '<td>'
-    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + '</div>'
-    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + manualBadge + '</div>'
+    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + manualBadgeInline + '</div>'
+    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + '</div>'
     + '</td>';
 
   // 2. 브랜드 (모든 행에 동일 색상)
