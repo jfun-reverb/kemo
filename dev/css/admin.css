@@ -953,8 +953,8 @@
 .brand-app-pay-cell .pay-rows-wrap{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
 .brand-app-pay-cell .pay-row{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;background:#F0F0F0;color:#999;border:1px solid transparent;transition:transform .08s ease}
 .brand-app-pay-cell .pay-row:hover{transform:translateY(-1px)}
-.brand-app-pay-cell .pay-row.is-checked{background:linear-gradient(135deg,#B91D5F 0%,#6D4D9F 100%);color:#fff}
-.brand-app-pay-cell .pay-row.is-checked.pay-free{background:linear-gradient(135deg,#5A6B82 0%,#3E4A60 100%)}
+/* REVERB 브랜드 핑크 단일색 — 다른 페인의 리뷰어 배지(#FCE4EC/#B91D5F)와 동일 톤 */
+.brand-app-pay-cell .pay-row.is-checked{background:#FCE4EC;color:#B91D5F}
 .brand-app-pay-cell .pay-row .pay-row-label{flex:1;min-width:0}
 .brand-app-pay-cell .pay-row .pay-row-check{font-size:13px;line-height:1}
 .brand-app-pay-cell .pay-refresh-btn{flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px;border-radius:50%;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}

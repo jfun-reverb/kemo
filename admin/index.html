@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778587150';
+  var CURRENT_BUILD = 'v1778587496';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1352,8 +1352,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .brand-app-pay-cell .pay-rows-wrap{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
 .brand-app-pay-cell .pay-row{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;background:#F0F0F0;color:#999;border:1px solid transparent;transition:transform .08s ease}
 .brand-app-pay-cell .pay-row:hover{transform:translateY(-1px)}
-.brand-app-pay-cell .pay-row.is-checked{background:linear-gradient(135deg,#B91D5F 0%,#6D4D9F 100%);color:#fff}
-.brand-app-pay-cell .pay-row.is-checked.pay-free{background:linear-gradient(135deg,#5A6B82 0%,#3E4A60 100%)}
+/* REVERB 브랜드 핑크 단일색 — 다른 페인의 리뷰어 배지(#FCE4EC/#B91D5F)와 동일 톤 */
+.brand-app-pay-cell .pay-row.is-checked{background:#FCE4EC;color:#B91D5F}
 .brand-app-pay-cell .pay-row .pay-row-label{flex:1;min-width:0}
 .brand-app-pay-cell .pay-row .pay-row-check{font-size:13px;line-height:1}
 .brand-app-pay-cell .pay-refresh-btn{flex-shrink:0;background:none;border:none;cursor:pointer;padding:2px;border-radius:50%;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
@@ -1431,7 +1431,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 20:59 · 26342c7</span>
+          <span class="admin-build-text">2026-05-12 21:04 · 0d5a636</span>
         </div>
       </div>
     </aside>
