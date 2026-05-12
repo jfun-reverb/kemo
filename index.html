@@ -4787,6 +4787,7 @@ async function fetchBrandApplications(filters) {
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at, quote_sent_url,
         orient_sheet_sent_at, orient_sheet_sent_url,
+        payment_flags,
         status, admin_memo, request_note,
         reviewer_channels,
         reviewed_by, reviewed_at,
@@ -4913,7 +4914,7 @@ async function updateBrandApplication(id, patch, expectedVersion) {
         .update(patch)
         .eq('id', id)
         .eq('version', expectedVersion)
-        .select('id, version, status, products, total_jpy, total_qty, estimated_krw')
+        .select('id, version, status, products, total_jpy, total_qty, estimated_krw, payment_flags')
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -4922,6 +4923,24 @@ async function updateBrandApplication(id, patch, expectedVersion) {
     return {ok: true, data: result};
   } catch(e) {
     console.error('[updateBrandApplication]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// 신청 1건의 payment_flags 자동 갱신 — 새로고침 버튼 핸들러용.
+//   migration 114 RPC recalc_brand_app_payment_flags(application_id).
+//   recruit/product/transfer 키는 products 합계 기준 재설정, free 는 보존.
+//   반환: 갱신 후 payment_flags jsonb.
+async function recalcBrandAppPaymentFlags(applicationId) {
+  if (!db || !applicationId) return {ok: false, error: 'no_db_or_id'};
+  try {
+    const {data, error} = await db.rpc('recalc_brand_app_payment_flags', {
+      p_application_id: applicationId
+    });
+    if (error) throw error;
+    return {ok: true, flags: data || {}};
+  } catch(e) {
+    console.error('[recalcBrandAppPaymentFlags]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }

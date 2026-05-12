@@ -111,6 +111,8 @@ function _syncBrandAppCur(cur, result, fallbackVersion) {
   if (result.data.estimated_krw != null) cur.estimated_krw = result.data.estimated_krw;
   if (result.data.total_jpy != null) cur.total_jpy = result.data.total_jpy;
   if (result.data.total_qty != null) cur.total_qty = result.data.total_qty;
+  // products 변경 시 migration 116 트리거가 payment_flags 자동 재계산 — 응답 동기화 필수
+  if (result.data.payment_flags != null) cur.payment_flags = result.data.payment_flags;
 }
 
 // 상태 라벨·컬러 (객체 키 순서가 드롭다운 옵션 순서)
@@ -1095,36 +1097,52 @@ function renderBrandAppBundleCard(a) {
     var rfee = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
     var tfee = (p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
     var urlSafe = (typeof safeBrandUrl === 'function') ? safeBrandUrl(p.url) : null;
+    // 표 안에서 인코딩된 긴 URL 이 10줄 이상으로 늘어지는 회귀 — 두 줄 제한 + 마우스 호버 시 전체 URL 노출 (title 속성).
+    var urlClamp = 'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all';
     var urlCell = p.url
       ? (urlSafe
-          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" style="color:var(--pink);text-decoration:none;word-break:break-all">' + esc(p.url) + '</a>'
-          : '<span style="color:var(--muted);word-break:break-all">' + esc(p.url) + '</span>')
+          ? '<a href="' + esc(urlSafe) + '" target="_blank" rel="noopener" title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--pink);text-decoration:none">' + esc(p.url) + '</a>'
+          : '<span title="' + esc(p.url) + '" style="' + urlClamp + ';color:var(--muted)">' + esc(p.url) + '</span>')
       : dash;
+    // 숫자 컬럼들은 nowrap 으로 한 줄 보장 (¥ / ₩ + 쉼표 표기가 두 줄로 잘리지 않게).
+    var numCellBase = 'text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px;white-space:nowrap';
     return '<tr>'
-      + '<td style="font-weight:600;font-size:11px;padding:6px 8px">' + (p.name ? esc(p.name) : dash)
+      + '<td style="font-weight:600;font-size:11px;padding:6px 8px;word-break:break-word">' + (p.name ? esc(p.name) : dash)
         + (p.name_ja ? '<div style="font-size:10px;font-weight:400;color:var(--muted);margin-top:2px">' + esc(p.name_ja) + '</div>' : '')
       + '</td>'
-      + '<td style="font-size:10px;padding:6px 8px;max-width:220px;line-height:1.4">' + urlCell + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (rfee != null ? fmtKrw(rfee) : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;padding:6px 8px">' + (tfee != null ? fmtKrw(tfee) : dash) + '</td>'
-      + '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:11px;font-weight:600;padding:6px 8px">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
+      + '<td style="font-size:10px;padding:6px 8px;line-height:1.4">' + urlCell + '</td>'
+      + '<td style="' + numCellBase + '">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (priceKrw > 0 ? fmtKrw(priceKrw) : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (rfee != null ? fmtKrw(rfee) : dash) + '</td>'
+      + '<td style="' + numCellBase + '">' + (tfee != null ? fmtKrw(tfee) : dash) + '</td>'
+      + '<td style="' + numCellBase + ';font-weight:600">' + (lineTotal > 0 ? fmtKrw(lineTotal) : dash) + '</td>'
     + '</tr>';
   }).join('');
 
+  // 수량 ~ 소계 컬럼은 숫자 ¥/₩ 표기로 줄바꿈이 생기지 않도록 최소 폭 지정.
+  // 모달 폭(1280px) 확대 + 컬럼별 nowrap + colgroup 으로 안정 레이아웃.
   var bodyHtml = '<div data-bundle-body style="display:none;background:#fff;border-top:1px solid var(--line)">'
-    + '<table class="data-table" style="width:100%;font-size:11px;margin:0">'
+    + '<table class="data-table" style="width:100%;font-size:11px;margin:0;table-layout:fixed">'
+      + '<colgroup>'
+        + '<col style="width:18%">'      // 제품명
+        + '<col style="width:24%">'      // URL
+        + '<col style="width:58px">'     // 수량
+        + '<col style="width:90px">'     // 가격(엔)
+        + '<col style="width:100px">'    // 가격(원)
+        + '<col style="width:90px">'     // 모집비
+        + '<col style="width:100px">'    // 이체수수료
+        + '<col style="width:110px">'    // 소계
+      + '</colgroup>'
       + '<thead><tr style="background:var(--surface-dim)">'
         + '<th style="padding:6px 8px;text-align:left">제품명</th>'
         + '<th style="padding:6px 8px;text-align:left">URL</th>'
-        + '<th style="text-align:right;padding:6px 8px">수량</th>'
-        + '<th style="text-align:right;padding:6px 8px">가격(엔)</th>'
-        + '<th style="text-align:right;padding:6px 8px">가격(원)</th>'
-        + '<th style="text-align:right;padding:6px 8px">모집비</th>'
-        + '<th style="text-align:right;padding:6px 8px">이체수수료</th>'
-        + '<th style="text-align:right;padding:6px 8px">소계</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">수량</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">가격(엔)</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">가격(원)</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">모집비</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">이체수수료</th>'
+        + '<th style="text-align:right;padding:6px 8px;white-space:nowrap">소계</th>'
       + '</tr></thead>'
       + '<tbody>' + (bodyRows || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:14px">제품 정보 없음</td></tr>') + '</tbody>'
     + '</table>'
@@ -1181,7 +1199,7 @@ function renderBrandDetailFormHtml(b, apps) {
   };
   var labelStyle = 'color:var(--ink);font-size:12px;font-weight:600;display:block;margin-bottom:5px';
   var input = function(id, label, val, placeholder) {
-    return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '"></div>';
+    return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><input type="text" id="' + id + '" class="admin-filter" autocomplete="off" data-lpignore="true" value="' + esc(val || '') + '" placeholder="' + esc(placeholder || '') + '" style="width:100%;box-sizing:border-box"></div>';
   };
   var ta = function(id, label, val, placeholder, rows) {
     return '<div><label style="' + labelStyle + '">' + esc(label) + '</label><textarea id="' + id + '" class="admin-filter" rows="' + (rows || 3) + '" style="resize:vertical;font-family:inherit;width:100%" placeholder="' + esc(placeholder || '') + '">' + esc(val || '') + '</textarea></div>';
@@ -1191,20 +1209,17 @@ function renderBrandDetailFormHtml(b, apps) {
   var appsHtml = renderBrandAppsBundledView(apps);
 
   return ''
-    // § 기본 정보
+    // § 기본 정보 — 3열 grid 두 행 (회사 정보 / 브랜드명)
     + section('기본 정보', '',
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
           + input('brandFormCompanyName', '회사명', b.company_name, '예: (주)제이펀')
           + input('brandFormBusinessNo', '사업자등록번호', b.business_no, '예: 123-45-67890')
+          + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
         + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
           + input('brandFormName', '브랜드명 (한국어) *', b.name)
           + input('brandFormNameJa', '브랜드명 (일본어)', b.name_ja)
           + input('brandFormNameEn', '브랜드명 (영문)', b.name_en)
-        + '</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
-          + input('brandFormBillingEmail', '계산서 이메일', b.billing_email)
-          + '<div></div>'
         + '</div>'
       )
     // § 담당자
@@ -1386,7 +1401,7 @@ async function submitNewBrand() {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -1416,7 +1431,7 @@ async function loadBrandApplications() {
   } catch (err) {
     console.error('[brand-applications] load failed:', err);
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:#c33;padding:24px">'
+      tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:#c33;padding:24px">'
         + '신청 목록을 불러오지 못했습니다. 새로고침 또는 재로그인 후 다시 시도해 주세요.'
         + '<br><button type="button" onclick="location.reload()" class="btn btn-primary" style="margin-top:8px">새로고침</button>'
         + '</td></tr>';
@@ -1606,7 +1621,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="28" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -1820,13 +1835,15 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   // 같은 신청 첫 행에만 위쪽 핑크 보더로 신청 경계 표시 (행 차등 색상은 모두 제거 — 모든 행에 동일하게 표시)
   var rowStyle = isFirst ? 'border-top:2px solid rgba(200,120,163,.35)' : '';
 
-  var manualBadge = (a.source === 'manual_admin')
-    ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:4px" title="관리자가 직접 등록한 신청">직접등록</span>'
+  // 「직접등록」은 신청번호 옆 작은 칩으로 표시 (사용자 요청 2026-05-12).
+  // 폼·채널 배지 줄에서는 제거 — 한 신청에 한 번만 노출되어 시각 잡음 감소.
+  var manualBadgeInline = (a.source === 'manual_admin')
+    ? '<span style="background:#FFF4E5;color:#B46A1A;font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle" title="관리자가 직접 등록한 신청">직접등록</span>'
     : '';
 
   var html = '<tr' + clsAttr + ' data-id="' + esc(a.id) + '" data-product-idx="' + idx + '"' + (isFirst ? ' data-first="1"' : '') + (rowStyle ? ' style="' + rowStyle + '"' : '') + '>';
 
-  // 1. 신청번호(-N) + 폼 종류 + 리뷰어 채널 배지(큐텐/엣코스메) — 모든 행에 동일 표시
+  // 1. 신청번호(-N) + 폼 종류(리뷰어/시딩 색 구분) + 리뷰어 채널(큐텐/엣코스메 회색) — 모든 행 동일 표시
   // 신청번호 끝에 -1·-2 인덱스 부착(원본 idx+1)으로 행 식별. 「제품 N개」 별도 라벨 불필요
   // reviewer_channels는 form_type='reviewer'일 때만 의미 (시딩은 항상 NULL — DB CHECK 제약)
   var channelBadges = '';
@@ -1834,13 +1851,16 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     var CH_LABEL = {qoo10: '큐텐', atcosme: '엣코스메'};
     channelBadges = a.reviewer_channels.map(function(c){
       var label = CH_LABEL[c] || c;
-      return '<span style="border:1px solid var(--pink);color:var(--pink);background:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px">' + esc(label) + '</span>';
+      return '<span style="background:#F0F0F0;color:#666;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(label) + '</span>';
     }).join('');
   }
+  // 폼 라벨 컬러 분기: 리뷰어=핑크, 시딩=파랑. 한눈에 구분되도록 라이트 배경 + 톤 진한 글자.
+  var formBg = a.form_type === 'reviewer' ? '#FCE4EC' : '#E3F2FD';
+  var formFg = a.form_type === 'reviewer' ? '#B91D5F' : '#1565C0';
   var rowNo = (a.application_no || '—') + (count > 0 ? '-' + (idx + 1) : '');
   html += '<td>'
-    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + '</div>'
-    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:#F0F0F0;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + manualBadge + '</div>'
+    + '<div style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(rowNo) + manualBadgeInline + '</div>'
+    + '<div style="margin-top:3px;display:flex;flex-wrap:wrap;align-items:center;gap:3px"><span style="background:' + formBg + ';color:' + formFg + ';font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">' + esc(brandAppFormLabel(a.form_type)) + '</span>' + channelBadges + '</div>'
     + '</td>';
 
   // 2. 브랜드 (모든 행에 동일 색상)
@@ -1945,7 +1965,12 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_at, a.orient_sheet_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 22. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
+  // 22. 입금여부 (액션 — 첫 행만). 4종 칩 토글 + 새로고침 아이콘 (products 합계 기준 자동 채움)
+  html += isFirst
+    ? '<td><div class="brand-app-pay-cell" data-id="' + esc(a.id) + '">' + renderBrandAppPaymentFlagsCell(a) + '</div></td>'
+    : emptyAction;
+
+  // 23. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
     ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
@@ -3189,6 +3214,104 @@ function renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked) {
 
 function _restoreOrientSheetSentDisplay(cell, isoOrNull, urlOrNull, locked) {
   cell.innerHTML = renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked);
+}
+
+// ─── 입금여부 셀 (4종 체크 + 새로고침) ────────────────────────────
+//   migration 114 payment_flags jsonb : recruit / product / transfer / free.
+//   - 무료모집 OFF: 4종 모두 표시 (체크 = 그래디언트 + ✓, 미체크 = 회색)
+//   - 무료모집 ON : 무료모집만 표시 (다른 3종 시각 숨김 — DB 값 보존)
+//   - 우측 새로고침: products 합계로 recruit/product/transfer 재설정 (free 보존)
+function renderBrandAppPaymentFlagsCell(a) {
+  var flags = (a && a.payment_flags) || {};
+  var isFree = !!flags.free;
+
+  // 라벨 + jsonb 키 매핑. 무료모집은 마지막.
+  var ROWS = [
+    {key: 'recruit',  label: '모집비용'},
+    {key: 'product',  label: '상품비용'},
+    {key: 'transfer', label: '이체수수료'},
+    {key: 'free',     label: '무료모집'}
+  ];
+
+  var rowsHtml = ROWS.map(function(r){
+    // 무료모집 ON 일 때는 free 만 표시, 다른 3종 시각 숨김 (사용자 결정 2026-05-12).
+    if (isFree && r.key !== 'free') return '';
+    var checked = !!flags[r.key];
+    var cls = 'pay-row' + (checked ? ' is-checked' : '') + ' pay-' + r.key;
+    return '<div class="' + cls + '" onclick="event.stopPropagation();toggleBrandAppPaymentFlag(\'' + esc(a.id) + '\',\'' + r.key + '\')" title="클릭하여 ' + (checked ? '체크 해제' : '체크') + '">'
+      + '<span class="pay-row-label">' + r.label + '</span>'
+      + (checked ? '<span class="material-icons-round notranslate pay-row-check" translate="no">check</span>' : '')
+    + '</div>';
+  }).join('');
+
+  return '<div class="pay-cell-inner">'
+    + '<div class="pay-rows-wrap">' + rowsHtml + '</div>'
+    + '<button type="button" class="pay-refresh-btn" onclick="event.stopPropagation();refreshBrandAppPaymentFlags(\'' + esc(a.id) + '\',this)" title="제품 합계 기준 자동 체크 (모집비용/상품비용/이체수수료)"><span class="material-icons-round notranslate" translate="no">refresh</span></button>'
+  + '</div>';
+}
+
+// 칩 클릭 시 해당 key 토글 + DB 갱신. 낙관적 락 충돌 시 토스트.
+async function toggleBrandAppPaymentFlag(applicationId, flagKey) {
+  var cur = _findBrandApp(applicationId);
+  if (!cur) return;
+  var oldFlags = cur.payment_flags || {};
+  var newFlags = Object.assign({}, oldFlags);
+  newFlags[flagKey] = !oldFlags[flagKey];
+
+  // 낙관적 UI 갱신
+  cur.payment_flags = newFlags;
+  _rerenderBrandAppPaymentCell(applicationId);
+
+  var res = await updateBrandApplication(applicationId, {payment_flags: newFlags}, cur.version);
+  if (res && res.conflict) {
+    cur.payment_flags = oldFlags;          // 롤백
+    _rerenderBrandAppPaymentCell(applicationId);
+    toast('이미 다른 곳에서 변경됐습니다. 새로고침 후 다시 시도하세요','error');
+    return;
+  }
+  if (!res || !res.ok) {
+    cur.payment_flags = oldFlags;          // 롤백
+    _rerenderBrandAppPaymentCell(applicationId);
+    toast('입금여부 저장 실패: ' + ((res && res.error) || 'unknown'), 'error');
+    return;
+  }
+  // 서버 반환값으로 version·payment_flags 동기화
+  if (res.data) {
+    if (typeof res.data.version === 'number') cur.version = res.data.version;
+    if (res.data.payment_flags) cur.payment_flags = res.data.payment_flags;
+  }
+  _rerenderBrandAppPaymentCell(applicationId);
+}
+
+// 새로고침 아이콘 클릭 — RPC recalc_brand_app_payment_flags 호출.
+// recruit/product/transfer 만 products 합계 기준 재설정, free 는 보존.
+async function refreshBrandAppPaymentFlags(applicationId, btnEl) {
+  if (btnEl && btnEl.disabled) return;
+  if (btnEl) btnEl.disabled = true;
+  try {
+    var res = await recalcBrandAppPaymentFlags(applicationId);
+    if (!res || !res.ok) {
+      toast('자동 체크 실패: ' + ((res && res.error) || 'unknown'), 'error');
+      return;
+    }
+    var cur = _findBrandApp(applicationId);
+    if (cur) {
+      cur.payment_flags = res.flags;
+      _rerenderBrandAppPaymentCell(applicationId);
+    }
+    toast('입금여부를 자동 갱신했습니다','success');
+  } finally {
+    if (btnEl) btnEl.disabled = false;
+  }
+}
+
+// 메모리 캐시(_brandApps) 갱신 후 해당 신청의 입금여부 셀만 다시 렌더
+function _rerenderBrandAppPaymentCell(applicationId) {
+  var cell = document.querySelector('.brand-app-pay-cell[data-id="' + applicationId + '"]');
+  if (!cell) return;
+  var cur = _findBrandApp(applicationId);
+  if (!cur) return;
+  cell.innerHTML = renderBrandAppPaymentFlagsCell(cur);
 }
 
 function enterOrientSheetSentEdit(btnEl) {
