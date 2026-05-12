@@ -27,18 +27,24 @@
 //   _templates/application-cancelled-daily.row.html  행 1건
 //
 //   원본은 docs/email-templates/ — scripts/sync-email-templates.sh 가
-//   _templates/ 로 복사. 배포 직전 반드시 sync 실행.
+//   _templates/ 로 복사 + templates.ts 자동 생성 (Supabase CLI 가
+//   _templates/ 를 함수 번들에 포함 안 시키므로 ES 모듈 임포트로 우회).
+//   배포 직전 반드시 sync 실행.
 //
-// pg_cron 등록 (양 서버 SQL Editor 에서 환경별 1회):
+// pg_cron 등록 (자세한 절차는 docs/specs/2026-05-12-HANDOFF-application-cancel-pr-d-cron-setup.md):
+//   사전 조건: pg_net + pg_cron + supabase_vault 확장 ON,
+//             vault.secrets 에 'edge_function_jwt' 이름으로 service_role JWT 저장.
 //   SELECT cron.schedule(
 //     'application-cancel-daily-digest',
 //     '0 0 * * *',   -- 매일 UTC 00:00 = 한국시간 09:00
 //     $$
 //     SELECT net.http_post(
-//       url := current_setting('app.functions_url', false) || '/notify-application-cancelled-daily',
+//       url := 'https://<project-ref>.functions.supabase.co/notify-application-cancelled-daily',
 //       headers := jsonb_build_object(
 //         'Content-Type', 'application/json',
-//         'Authorization', 'Bearer ' || current_setting('app.functions_jwt', false)
+//         'Authorization', 'Bearer ' || (
+//           SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'edge_function_jwt' LIMIT 1
+//         )
 //       ),
 //       body := '{}'::jsonb
 //     );
@@ -121,11 +127,13 @@ interface CancelledRow {
   cancel_reason: string | null;
   campaign_id: string;
   user_id: string;
-  campaign?: {
-    campaign_no: string | null;
-    title: string | null;
-    recruit_type: string | null;
-  } | null;
+}
+
+interface CampaignRow {
+  id: string;
+  campaign_no: string | null;
+  title: string | null;
+  recruit_type: string | null;
 }
 
 interface InfluencerRow {
@@ -180,15 +188,15 @@ function influencerDisplayName(row: InfluencerRow): string {
 
 // ──────────────────────────────────────────────────────────────────
 // HTML 템플릿 로딩 + placeholder 치환
+// _templates/*.html 가 Edge Function 번들에 포함되지 않는 Supabase CLI
+// 동작 때문에 templates.ts 에 ES 모듈로 인라인 (번들러 자동 dependency).
+// (notify-deliverable-decision 과 동일 패턴 — sync-email-templates.sh 자동 생성)
 // ──────────────────────────────────────────────────────────────────
-const TEMPLATE_CACHE = new Map<string, string>();
+import { TEMPLATES } from "./templates.ts";
 
-async function loadTemplate(name: string): Promise<string> {
-  const cached = TEMPLATE_CACHE.get(name);
-  if (cached) return cached;
-  const url = new URL(`./_templates/${name}.html`, import.meta.url);
-  const html = await Deno.readTextFile(url);
-  TEMPLATE_CACHE.set(name, html);
+function loadTemplate(name: string): string {
+  const html = TEMPLATES[name];
+  if (!html) throw new Error(`template not registered: ${name}`);
   return html;
 }
 
@@ -312,7 +320,8 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // 2. 윈도우 내 취소 행 + 캠페인 embed 조회
+  // 2. 윈도우 내 취소 행 조회 (캠페인은 별도 배치 — applications.campaign_id 는
+  //    PostgREST schema 캐시에 외래 키(FK) 관계가 없어 embed 불가)
   let rows: CancelledRow[] = [];
   try {
     const { data, error } = await sb
@@ -324,12 +333,7 @@ Deno.serve(async (req: Request) => {
         cancel_reason_code,
         cancel_reason,
         campaign_id,
-        user_id,
-        campaign:campaigns!campaign_id (
-          campaign_no,
-          title,
-          recruit_type
-        )
+        user_id
       `)
       .eq("status", "cancelled")
       .neq("cancel_phase", "recruit")
@@ -377,13 +381,29 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // 4. 인플루언서·사유 lookup 배치 조회
+  // 4. 캠페인·인플루언서·사유 lookup 배치 조회
+  const campaignIds = [...new Set(rows.map((r) => r.campaign_id))];
   const userIds = [...new Set(rows.map((r) => r.user_id))];
   const reasonCodes = [
     ...new Set(
       rows.map((r) => r.cancel_reason_code).filter((c): c is string => !!c),
     ),
   ];
+
+  const campaignMap = new Map<string, CampaignRow>();
+  if (campaignIds.length > 0) {
+    const { data: camps, error: cErr } = await sb
+      .from("campaigns")
+      .select("id, campaign_no, title, recruit_type")
+      .in("id", campaignIds);
+    if (cErr) {
+      console.warn("[notify-cancel-daily] campaign lookup failed", cErr);
+    } else {
+      (camps || []).forEach((row: CampaignRow) => {
+        campaignMap.set(row.id, row);
+      });
+    }
+  }
 
   const influencerMap = new Map<string, InfluencerRow>();
   if (userIds.length > 0) {
@@ -437,9 +457,10 @@ Deno.serve(async (req: Request) => {
     .join("");
 
   // 6. 행별 HTML 빌드
-  const rowTpl = await loadTemplate("application-cancelled-daily.row");
+  const rowTpl = loadTemplate("application-cancelled-daily.row");
   const rowsHtml = rows
     .map((r) => {
+      const camp = campaignMap.get(r.campaign_id) || null;
       const infl = influencerMap.get(r.user_id) || {
         auth_id: r.user_id,
         name: null,
@@ -455,9 +476,9 @@ Deno.serve(async (req: Request) => {
         : "";
 
       return render(rowTpl, {
-        campaign_no: escapeHtml(`【${r.campaign?.campaign_no ?? ""}】`),
-        campaign_title: escapeHtml(r.campaign?.title ?? "-"),
-        recruit_type_ko: escapeHtml(recruitTypeKo(r.campaign?.recruit_type ?? null)),
+        campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
+        campaign_title: escapeHtml(camp?.title ?? "-"),
+        recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
         influencer_name: escapeHtml(influencerDisplayName(infl)),
         influencer_email: escapeHtml(infl.email || "-"),
         cancelled_at_jst: escapeHtml(formatJst(r.cancelled_at)),
@@ -473,7 +494,7 @@ Deno.serve(async (req: Request) => {
     .replace(/\/$/, "");
   const adminPaneUrl = `${adminUrlBase}/#applications?filter=cancelled&date=${digestDate}`;
 
-  const mainTpl = await loadTemplate("application-cancelled-daily");
+  const mainTpl = loadTemplate("application-cancelled-daily");
   const html = render(mainTpl, {
     digest_date: escapeHtml(digestDate),
     total_count: String(rows.length),
@@ -491,12 +512,13 @@ Deno.serve(async (req: Request) => {
     `총 ${rows.length}건`,
     "",
     ...rows.map((r) => {
+      const camp = campaignMap.get(r.campaign_id) || null;
       const infl = influencerMap.get(r.user_id) || { name: null, name_kanji: null, name_kana: null, email: null } as InfluencerRow;
       const displayName = (infl.name_kanji || infl.name || infl.name_kana || "-");
       const reasonLabel = r.cancel_reason_code
         ? reasonMap.get(r.cancel_reason_code) || r.cancel_reason_code
         : "-";
-      return `- [${r.campaign?.campaign_no ?? ""}] ${r.campaign?.title ?? "-"} · ${displayName} · ${phaseKo(r.cancel_phase)} · ${reasonLabel}`;
+      return `- [${camp?.campaign_no ?? ""}] ${camp?.title ?? "-"} · ${displayName} · ${phaseKo(r.cancel_phase)} · ${reasonLabel}`;
     }),
     "",
     `관리자 페이지: ${adminPaneUrl}`,

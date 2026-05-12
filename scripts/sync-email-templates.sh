@@ -72,9 +72,13 @@ for group in "${SYNC_GROUPS[@]}"; do
     changed_fns+=("$fn_name")
   fi
 
-  # notify-deliverable-decision은 _templates를 ts 모듈로도 자동 생성
-  # (supabase CLI가 _templates 디렉토리를 함수 번들에 포함 안 시키는 동작 회피)
-  if [[ "$fn_name" == "notify-deliverable-decision" ]]; then
+  # _templates 디렉토리가 Edge Function 번들에 포함 안 되는 supabase CLI
+  # 동작을 회피하기 위해 templates.ts 자동 생성. 대상 함수는 아래 두 곳:
+  #   - notify-deliverable-decision (결과물 검수 메일 6종)
+  #   - notify-application-cancelled-daily (응모 취소 일일 요약 2종)
+  # notify-brand-application 은 과거 deploy 가 _templates/ 를 포함했던 시점에
+  # 등록되어 그대로 동작 중 — 추후 재배포 회귀 발생 시 동일 분기로 이동.
+  if [[ "$fn_name" == "notify-deliverable-decision" ]] || [[ "$fn_name" == "notify-application-cancelled-daily" ]]; then
     ts_path="$REPO_ROOT/supabase/functions/$fn_name/templates.ts"
     {
       echo "// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지"

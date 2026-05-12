@@ -32,16 +32,23 @@
 
 ## pg_cron 등록 (양 서버 SQL Editor 1회)
 
+> 자세한 절차(확장 활성화·Vault 등록·검증 호출 포함)는
+> `docs/specs/2026-05-12-HANDOFF-application-cancel-pr-d-cron-setup.md` 참조.
+
+사전 조건: `pg_net` + `pg_cron` + `supabase_vault` 확장 ON, `vault.secrets` 에 `edge_function_jwt` 이름으로 service_role JWT 저장.
+
 ```sql
 SELECT cron.schedule(
   'application-cancel-daily-digest',
   '0 0 * * *',                          -- UTC 00:00 = KST 09:00
   $$
   SELECT net.http_post(
-    url := current_setting('app.functions_url', false) || '/notify-application-cancelled-daily',
+    url := 'https://<project-ref>.functions.supabase.co/notify-application-cancelled-daily',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.functions_jwt', false)
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'edge_function_jwt' LIMIT 1
+      )
     ),
     body := '{}'::jsonb
   );
@@ -49,8 +56,8 @@ SELECT cron.schedule(
 );
 ```
 
-> `app.functions_url` / `app.functions_jwt` 는 환경별 GUC. 양 서버 각각
-> `ALTER DATABASE postgres SET app.functions_url = 'https://<ref>.functions.supabase.co'` 등으로 설정.
+> Supabase 호스팅 환경은 `ALTER DATABASE postgres SET ...` 권한이 없어
+> 환경별 GUC(데이터베이스 설정 변수) 패턴 대신 Vault 비밀 저장소 사용.
 
 ## 배포
 
