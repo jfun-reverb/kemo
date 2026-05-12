@@ -1536,12 +1536,14 @@ function renderBrandApplicationsList() {
 
   var count = $('brandAppTotalCount');
   if (count) {
+    // 신청 단위(brand_applications 행) 카운트.
+    //   탭 옆 숫자는 제품 단위(_flattenAppsToProducts)라 단위가 다름 — 라벨에 「신청」 명시로 구분.
     var totalAll = (_brandApps || []).length;
     var reviewerN = (_brandApps || []).filter(function(a){ return a.form_type === 'reviewer'; }).length;
     var seedingN  = (_brandApps || []).filter(function(a){ return a.form_type === 'seeding'; }).length;
-    var summary = '전체 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
+    var summary = '전체 신청 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
     count.textContent = filterActive
-      ? '(필터 ' + list.length + ' / ' + summary + ')'
+      ? '(필터 결과 ' + list.length + '건 · ' + summary + ')'
       : '(' + summary + ')';
   }
 
