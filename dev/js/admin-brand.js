@@ -1399,7 +1399,7 @@ async function submitNewBrand() {
 
 async function loadBrandApplications() {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -1429,7 +1429,7 @@ async function loadBrandApplications() {
   } catch (err) {
     console.error('[brand-applications] load failed:', err);
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="28" style="text-align:center;color:#c33;padding:24px">'
+      tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:#c33;padding:24px">'
         + '신청 목록을 불러오지 못했습니다. 새로고침 또는 재로그인 후 다시 시도해 주세요.'
         + '<br><button type="button" onclick="location.reload()" class="btn btn-primary" style="margin-top:8px">새로고침</button>'
         + '</td></tr>';
@@ -1619,7 +1619,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="28" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -1963,7 +1963,12 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_at, a.orient_sheet_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 22. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
+  // 22. 입금여부 (액션 — 첫 행만). 4종 칩 토글 + 새로고침 아이콘 (products 합계 기준 자동 채움)
+  html += isFirst
+    ? '<td><div class="brand-app-pay-cell" data-id="' + esc(a.id) + '">' + renderBrandAppPaymentFlagsCell(a) + '</div></td>'
+    : emptyAction;
+
+  // 23. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
     ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
@@ -3207,6 +3212,104 @@ function renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked) {
 
 function _restoreOrientSheetSentDisplay(cell, isoOrNull, urlOrNull, locked) {
   cell.innerHTML = renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked);
+}
+
+// ─── 입금여부 셀 (4종 체크 + 새로고침) ────────────────────────────
+//   migration 114 payment_flags jsonb : recruit / product / transfer / free.
+//   - 무료모집 OFF: 4종 모두 표시 (체크 = 그래디언트 + ✓, 미체크 = 회색)
+//   - 무료모집 ON : 무료모집만 표시 (다른 3종 시각 숨김 — DB 값 보존)
+//   - 우측 새로고침: products 합계로 recruit/product/transfer 재설정 (free 보존)
+function renderBrandAppPaymentFlagsCell(a) {
+  var flags = (a && a.payment_flags) || {};
+  var isFree = !!flags.free;
+
+  // 라벨 + jsonb 키 매핑. 무료모집은 마지막.
+  var ROWS = [
+    {key: 'recruit',  label: '모집비용'},
+    {key: 'product',  label: '상품비용'},
+    {key: 'transfer', label: '이체수수료'},
+    {key: 'free',     label: '무료모집'}
+  ];
+
+  var rowsHtml = ROWS.map(function(r){
+    // 무료모집 ON 일 때는 free 만 표시, 다른 3종 시각 숨김 (사용자 결정 2026-05-12).
+    if (isFree && r.key !== 'free') return '';
+    var checked = !!flags[r.key];
+    var cls = 'pay-row' + (checked ? ' is-checked' : '') + ' pay-' + r.key;
+    return '<div class="' + cls + '" onclick="event.stopPropagation();toggleBrandAppPaymentFlag(\'' + esc(a.id) + '\',\'' + r.key + '\')" title="클릭하여 ' + (checked ? '체크 해제' : '체크') + '">'
+      + '<span class="pay-row-label">' + r.label + '</span>'
+      + (checked ? '<span class="material-icons-round notranslate pay-row-check" translate="no">check</span>' : '')
+    + '</div>';
+  }).join('');
+
+  return '<div class="pay-cell-inner">'
+    + '<div class="pay-rows-wrap">' + rowsHtml + '</div>'
+    + '<button type="button" class="pay-refresh-btn" onclick="event.stopPropagation();refreshBrandAppPaymentFlags(\'' + esc(a.id) + '\',this)" title="제품 합계 기준 자동 체크 (모집비용/상품비용/이체수수료)"><span class="material-icons-round notranslate" translate="no">refresh</span></button>'
+  + '</div>';
+}
+
+// 칩 클릭 시 해당 key 토글 + DB 갱신. 낙관적 락 충돌 시 토스트.
+async function toggleBrandAppPaymentFlag(applicationId, flagKey) {
+  var cur = _findBrandApp(applicationId);
+  if (!cur) return;
+  var oldFlags = cur.payment_flags || {};
+  var newFlags = Object.assign({}, oldFlags);
+  newFlags[flagKey] = !oldFlags[flagKey];
+
+  // 낙관적 UI 갱신
+  cur.payment_flags = newFlags;
+  _rerenderBrandAppPaymentCell(applicationId);
+
+  var res = await updateBrandApplication(applicationId, {payment_flags: newFlags}, cur.version);
+  if (res && res.conflict) {
+    cur.payment_flags = oldFlags;          // 롤백
+    _rerenderBrandAppPaymentCell(applicationId);
+    toast('이미 다른 곳에서 변경됐습니다. 새로고침 후 다시 시도하세요','error');
+    return;
+  }
+  if (!res || !res.ok) {
+    cur.payment_flags = oldFlags;          // 롤백
+    _rerenderBrandAppPaymentCell(applicationId);
+    toast('입금여부 저장 실패: ' + ((res && res.error) || 'unknown'), 'error');
+    return;
+  }
+  // 서버 반환값으로 version·payment_flags 동기화
+  if (res.data) {
+    if (typeof res.data.version === 'number') cur.version = res.data.version;
+    if (res.data.payment_flags) cur.payment_flags = res.data.payment_flags;
+  }
+  _rerenderBrandAppPaymentCell(applicationId);
+}
+
+// 새로고침 아이콘 클릭 — RPC recalc_brand_app_payment_flags 호출.
+// recruit/product/transfer 만 products 합계 기준 재설정, free 는 보존.
+async function refreshBrandAppPaymentFlags(applicationId, btnEl) {
+  if (btnEl && btnEl.disabled) return;
+  if (btnEl) btnEl.disabled = true;
+  try {
+    var res = await recalcBrandAppPaymentFlags(applicationId);
+    if (!res || !res.ok) {
+      toast('자동 체크 실패: ' + ((res && res.error) || 'unknown'), 'error');
+      return;
+    }
+    var cur = _findBrandApp(applicationId);
+    if (cur) {
+      cur.payment_flags = res.flags;
+      _rerenderBrandAppPaymentCell(applicationId);
+    }
+    toast('입금여부를 자동 갱신했습니다','success');
+  } finally {
+    if (btnEl) btnEl.disabled = false;
+  }
+}
+
+// 메모리 캐시(_brandApps) 갱신 후 해당 신청의 입금여부 셀만 다시 렌더
+function _rerenderBrandAppPaymentCell(applicationId) {
+  var cell = document.querySelector('.brand-app-pay-cell[data-id="' + applicationId + '"]');
+  if (!cell) return;
+  var cur = _findBrandApp(applicationId);
+  if (!cur) return;
+  cell.innerHTML = renderBrandAppPaymentFlagsCell(cur);
 }
 
 function enterOrientSheetSentEdit(btnEl) {
