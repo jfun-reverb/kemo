@@ -1474,8 +1474,9 @@ async function insertBrand(payload) {
 async function fetchBrandApplicationsByBrand(brandId) {
   if (!db || !brandId) return [];
   try {
+    // products: 제품 행 렌더 + 합산(수량·견적·이체수수료·모집비)에 필수
     const {data, error} = await db?.from('brand_applications')
-      .select('id, application_no, form_type, status, created_at, total_qty, total_jpy, estimated_krw, applicant_contact_name, applicant_email, source')
+      .select('id, application_no, form_type, status, created_at, products, total_qty, total_jpy, estimated_krw, applicant_contact_name, applicant_email, source')
       .eq('brand_id', brandId)
       .order('created_at', {ascending: false});
     if (error) throw error;
