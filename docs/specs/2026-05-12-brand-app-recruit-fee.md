@@ -108,27 +108,9 @@
 
 `docs/email-templates/` + `supabase/functions/notify-brand-application/_templates/` 미러:
 
-### 5-1. `brand-admin-notify.html` (운영팀 알림)
+### **5-X. 메일 템플릿 3종 전체 — 변경 없음 (2026-05-12 사용자 정정)**
 
-- 제품 테이블 HTML(`{{products_html}}`)에 모집비 열 추가 — Edge Function 안 누적 합치는 헬퍼 갱신
-- 견적 합계 행에 모집비 합계 별도 표시 (선택)
-
-### 5-2. `brand-ack-reviewer.html` (Qoo10 리뷰어 접수 확인)
-
-- 동일 — 제품 테이블에 모집비 열 추가
-
-### 5-3. `brand-ack-seeding.html` (나노 시딩 접수 확인) — **변경 없음 (2026-05-12 사용자 정정)**
-
-시딩은 모집비 입력 받지 않음. 메일도 그대로.
-
-### 5-4. 카탈로그 미리보기 (3종 `.preview.html`)
-
-- 샘플값으로 모집비 열 채워서 미리보기 갱신
-- `docs/email-templates/index.html` 카탈로그에 별도 카드 추가는 없음 (기존 카드 유지)
-
-### 5-5. 배포 동기화
-
-- 작업 후 `scripts/sync-email-templates.sh` 실행하여 `docs/` → `_templates/` 동기화 + `cmp -s` diff 검증
+sales 폼이 비대상이라 광고주 확인 메일에도 모집비 노출 필요 없고, 관리자가 직접 등록한 신청은 광고주와 별도로 커뮤니케이션하므로 운영팀 알림 메일에도 추가 정보 불필요. `brand-admin-notify` / `brand-ack-reviewer` / `brand-ack-seeding` 3종 모두 변경 없음.
 
 ---
 
