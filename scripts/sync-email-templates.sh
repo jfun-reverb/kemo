@@ -30,6 +30,7 @@ SRC_DIR="$REPO_ROOT/docs/email-templates"
 SYNC_GROUPS=(
   "notify-brand-application|brand-admin-notify.html,brand-ack-reviewer.html,brand-ack-seeding.html"
   "notify-deliverable-decision|deliverable-receipt-approved.html,deliverable-receipt-rejected.html,deliverable-review-image-approved.html,deliverable-review-image-rejected.html,deliverable-post-approved.html,deliverable-post-rejected.html"
+  "notify-application-cancelled-daily|application-cancelled-daily.html,application-cancelled-daily.row.html"
 )
 
 if [[ ! -d "$SRC_DIR" ]]; then
