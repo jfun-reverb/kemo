@@ -109,6 +109,10 @@
 .status-tab-btn.on{color:var(--pink);border-bottom-color:var(--pink);font-weight:700}
 .status-tab-btn .tab-count{font-size:11px;color:var(--muted);margin-left:2px;font-weight:400}
 .status-tab-btn.zero-count{color:#aaa}
+
+/* 브랜드 서베이 신청 목록 — 신청 단위 좌측 색 띠 4px (같은 신청 행끼리 동일 색, 짝/홀 교대) */
+#brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
+#brandAppTableBody tr.app-stripe-odd  > td:first-child{border-left:4px solid #8a8a8a}
 .status-tab-btn.zero-count .tab-count{color:#ccc}
 
 /* ─── 캠페인/신청/결과물/브랜드 관리 페인: 가로 스크롤 + 첫 컬럼 sticky-left
