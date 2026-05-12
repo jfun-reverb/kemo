@@ -1316,7 +1316,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 13:39 · 415a2e5</span>
+          <span class="admin-build-text">2026-05-12 13:44 · 8f49c08</span>
         </div>
       </div>
     </aside>
@@ -8091,12 +8091,12 @@ function renderBrandApplicationsList() {
            (a.application_no || '').toLowerCase().includes(qForTab) ||
            (a.request_note || '').toLowerCase().includes(qForTab);
   });
-  // 상태별 건수는 신청 단위로 카운트 (a.status 기준).
-  //   한 신청에 제품별 status 가 여러 개여도 신청 1건 = 카운트 1.
-  //   카드 헤더의 「신청 결과 N건」과 단위 일관 — 사용자 혼동 방지.
+  // 상태별 건수는 화면 리스트 행 수 단위로 카운트 (제품 단위 — _flattenAppsToProducts).
+  //   상태 드롭다운이 제품 단위 변경(quickChangeBrandAppProductStatus)이라 같은 단위여야
+  //   변경 즉시 탭 카운트가 갱신됨. 카드 헤더 카운트와도 단위 통일 (행 수).
   var tabStatusCounts = {};
-  tabBase.forEach(function(a) {
-    if (a.status) tabStatusCounts[a.status] = (tabStatusCounts[a.status] || 0) + 1;
+  _flattenAppsToProducts(tabBase).forEach(function(f) {
+    if (f.status) tabStatusCounts[f.status] = (tabStatusCounts[f.status] || 0) + 1;
   });
   renderBrandAppStatusTabs(tabStatusCounts);
 
@@ -8110,13 +8110,20 @@ function renderBrandApplicationsList() {
 
   var count = $('brandAppTotalCount');
   if (count) {
-    // 신청 단위(brand_applications 행) 카운트 — 현재 필터 결과 기준 폼타입 분포.
-    //   탭 옆 숫자는 제품 단위(_flattenAppsToProducts)라 단위가 다름 — 라벨에 「신청」 명시로 구분.
-    //   필터 비활성 시 list = _brandApps 전체와 동일하므로 같은 list 기준 분포 그대로 사용.
-    var resultReviewer = list.filter(function(a){ return a.form_type === 'reviewer'; }).length;
-    var resultSeeding  = list.filter(function(a){ return a.form_type === 'seeding'; }).length;
-    var leadLabel = filterActive ? '신청 결과 ' : '전체 신청 ';
-    count.textContent = '(' + leadLabel + list.length + '건 · 리뷰어 ' + resultReviewer + ' · 시딩 ' + resultSeeding + ')';
+    // 화면 리스트 행 수 기준 (제품 단위) — 탭 옆 카운트와 단위 통일.
+    //   탭 활성 시 매칭 status 제품만 행으로 노출되므로 그 필터까지 적용한 행 수로 계산.
+    //   리뷰어/시딩 분포도 행 단위 (각 행이 속한 신청의 form_type).
+    var flatRows = _flattenAppsToProducts(list);
+    if (_brandAppActiveStatusTab) {
+      flatRows = flatRows.filter(function(f) {
+        return ((f.product && f.product.status) || f.app.status) === _brandAppActiveStatusTab;
+      });
+    }
+    var totalRows = flatRows.length;
+    var resultReviewer = flatRows.filter(function(f){ return f.app && f.app.form_type === 'reviewer'; }).length;
+    var resultSeeding  = flatRows.filter(function(f){ return f.app && f.app.form_type === 'seeding';  }).length;
+    var leadLabel = filterActive ? '신청 결과 ' : '전체 ';
+    count.textContent = '(' + leadLabel + totalRows + '건 · 리뷰어 ' + resultReviewer + ' · 시딩 ' + resultSeeding + ')';
   }
 
   // 상태 탭이 켜진 경우 매칭 제품 행만 노출 (행 단위 필터)
