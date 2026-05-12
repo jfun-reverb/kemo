@@ -1519,10 +1519,12 @@ function renderBrandApplicationsList() {
            (a.application_no || '').toLowerCase().includes(qForTab) ||
            (a.request_note || '').toLowerCase().includes(qForTab);
   });
-  // 상태별 건수는 제품 단위로 카운트
+  // 상태별 건수는 신청 단위로 카운트 (a.status 기준).
+  //   한 신청에 제품별 status 가 여러 개여도 신청 1건 = 카운트 1.
+  //   카드 헤더의 「신청 결과 N건」과 단위 일관 — 사용자 혼동 방지.
   var tabStatusCounts = {};
-  _flattenAppsToProducts(tabBase).forEach(function(f) {
-    if (f.status) tabStatusCounts[f.status] = (tabStatusCounts[f.status] || 0) + 1;
+  tabBase.forEach(function(a) {
+    if (a.status) tabStatusCounts[a.status] = (tabStatusCounts[a.status] || 0) + 1;
   });
   renderBrandAppStatusTabs(tabStatusCounts);
 
@@ -1536,15 +1538,13 @@ function renderBrandApplicationsList() {
 
   var count = $('brandAppTotalCount');
   if (count) {
-    // 신청 단위(brand_applications 행) 카운트.
+    // 신청 단위(brand_applications 행) 카운트 — 현재 필터 결과 기준 폼타입 분포.
     //   탭 옆 숫자는 제품 단위(_flattenAppsToProducts)라 단위가 다름 — 라벨에 「신청」 명시로 구분.
-    var totalAll = (_brandApps || []).length;
-    var reviewerN = (_brandApps || []).filter(function(a){ return a.form_type === 'reviewer'; }).length;
-    var seedingN  = (_brandApps || []).filter(function(a){ return a.form_type === 'seeding'; }).length;
-    var summary = '전체 신청 ' + totalAll + '건 · 리뷰어 ' + reviewerN + ' · 시딩 ' + seedingN;
-    count.textContent = filterActive
-      ? '(필터 결과 ' + list.length + '건 · ' + summary + ')'
-      : '(' + summary + ')';
+    //   필터 비활성 시 list = _brandApps 전체와 동일하므로 같은 list 기준 분포 그대로 사용.
+    var resultReviewer = list.filter(function(a){ return a.form_type === 'reviewer'; }).length;
+    var resultSeeding  = list.filter(function(a){ return a.form_type === 'seeding'; }).length;
+    var leadLabel = filterActive ? '신청 결과 ' : '전체 신청 ';
+    count.textContent = '(' + leadLabel + list.length + '건 · 리뷰어 ' + resultReviewer + ' · 시딩 ' + resultSeeding + ')';
   }
 
   // 상태 탭이 켜진 경우 매칭 제품 행만 노출 (행 단위 필터)
