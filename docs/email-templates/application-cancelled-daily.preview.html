@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--
+  Preview: application-cancelled-daily.html + application-cancelled-daily.row.html
+  placeholder를 샘플값 3건(구매기간 2 + 방문기간 1)으로 채운 시각적 미리보기.
+  실제 템플릿은 application-cancelled-daily.html / .row.html. 본 파일은 docs/email-templates/index.html 카탈로그용.
+-->
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>응모 취소 일일 요약 — 관리자 알림 (미리보기)</title>
+  <style>
+    body { background:#f5f5f7; margin:0; padding:24px; font-family:'Noto Sans KR',Arial,sans-serif; }
+    .preview-frame { background:#fff; border:1px solid #ddd; border-radius:12px; padding:24px; max-width:720px; margin:0 auto; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    .preview-meta { font-size:12px; color:#888; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #eee; }
+    .preview-meta b { color:#444; }
+  </style>
+</head>
+<body>
+  <div class="preview-frame">
+    <div class="preview-meta">
+      <div><b>From</b> REVERB JP &lt;noreply@globalreverb.com&gt;</div>
+      <div><b>To</b> admin@kemo.jp · marketing@jfun.co.kr</div>
+      <div><b>Subject</b> [REVERB] 응모 취소 일일 요약 — 2026-05-12 (3건)</div>
+      <div><b>발송 시각</b> 2026-05-12 09:00 KST (= 2026-05-12 00:00 UTC, pg_cron)</div>
+    </div>
+
+    <div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:640px">
+      <h2 style="color:#E8344E;margin:0 0 6px">응모 취소 일일 요약</h2>
+      <p style="margin:0 0 16px;color:#666;font-size:13px">REVERB JP 관리자 알림 · 매일 한국시간 오전 9시 발송</p>
+
+      <table style="border-collapse:collapse;width:100%;font-size:13px;margin:0 0 20px;background:#FFF5F7;border-radius:8px;overflow:hidden">
+        <tr>
+          <td style="padding:12px 16px;color:#888;width:90px">대상일</td>
+          <td style="padding:12px 16px;font-weight:700">2026-05-12</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;color:#888;border-top:1px solid #FFE4E9">총 건수</td>
+          <td style="padding:12px 16px;font-weight:700;color:#E8344E;border-top:1px solid #FFE4E9">3건</td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px;color:#888;border-top:1px solid #FFE4E9;vertical-align:top">시점별</td>
+          <td style="padding:12px 16px;border-top:1px solid #FFE4E9;line-height:1.7">
+            <span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-right:6px">구매기간 2건</span>
+            <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700">방문기간 1건</span>
+          </td>
+        </tr>
+      </table>
+
+      <!-- ROW 1 — 구매기간 -->
+      <div style="border:1px solid #F0E1E4;border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#fff">
+        <div style="font-size:12px;color:#888;margin-bottom:4px">
+          <span style="font-family:monospace">【CAMP-2026-0042】</span> · 리뷰어
+        </div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;line-height:1.4">립프롬 신상 리뷰</div>
+        <table style="border-collapse:collapse;width:100%;font-size:12px">
+          <tr><td style="padding:4px 0;color:#888;width:88px">인플루언서</td><td style="padding:4px 0">야마다 사쿠라 (山田 さくら) · sakura.test@reverb.jp</td></tr>
+          <tr><td style="padding:4px 0;color:#888">취소 일시</td><td style="padding:4px 0">2026-05-11 14:30 JST</td></tr>
+          <tr><td style="padding:4px 0;color:#888">시점</td><td style="padding:4px 0"><span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700">구매기간</span></td></tr>
+          <tr><td style="padding:4px 0;color:#888">사유</td><td style="padding:4px 0">참여 가능 일정 부족</td></tr>
+          <tr><td style="padding:4px 0;color:#888;vertical-align:top">보충</td><td style="padding:4px 0;line-height:1.5">갑작스러운 출장이 잡혀 게시 마감 안에 활동이 어려울 것 같습니다. 다음 캠페인은 꼭 참여하고 싶습니다.</td></tr>
+        </table>
+      </div>
+
+      <!-- ROW 2 — 구매기간 (보충 텍스트 없음) -->
+      <div style="border:1px solid #F0E1E4;border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#fff">
+        <div style="font-size:12px;color:#888;margin-bottom:4px">
+          <span style="font-family:monospace">【CAMP-2026-0055】</span> · 리뷰어
+        </div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;line-height:1.4">아이쿠 마스크팩 리뷰</div>
+        <table style="border-collapse:collapse;width:100%;font-size:12px">
+          <tr><td style="padding:4px 0;color:#888;width:88px">인플루언서</td><td style="padding:4px 0">사토 유이 (佐藤 ゆい) · yui.test@reverb.jp</td></tr>
+          <tr><td style="padding:4px 0;color:#888">취소 일시</td><td style="padding:4px 0">2026-05-11 18:12 JST</td></tr>
+          <tr><td style="padding:4px 0;color:#888">시점</td><td style="padding:4px 0"><span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700">구매기간</span></td></tr>
+          <tr><td style="padding:4px 0;color:#888">사유</td><td style="padding:4px 0">제품 정보 불일치</td></tr>
+        </table>
+      </div>
+
+      <!-- ROW 3 — 방문기간 -->
+      <div style="border:1px solid #F0E1E4;border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#fff">
+        <div style="font-size:12px;color:#888;margin-bottom:4px">
+          <span style="font-family:monospace">【CAMP-2026-0061】</span> · 방문형
+        </div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;line-height:1.4">하라주쿠 카페 체험단</div>
+        <table style="border-collapse:collapse;width:100%;font-size:12px">
+          <tr><td style="padding:4px 0;color:#888;width:88px">인플루언서</td><td style="padding:4px 0">스즈키 하루카 (鈴木 はるか) · haruka.test@reverb.jp</td></tr>
+          <tr><td style="padding:4px 0;color:#888">취소 일시</td><td style="padding:4px 0">2026-05-11 21:34 JST</td></tr>
+          <tr><td style="padding:4px 0;color:#888">시점</td><td style="padding:4px 0"><span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700">방문기간</span></td></tr>
+          <tr><td style="padding:4px 0;color:#888">사유</td><td style="padding:4px 0">개인 사정 변경</td></tr>
+          <tr><td style="padding:4px 0;color:#888;vertical-align:top">보충</td><td style="padding:4px 0;line-height:1.5">가족 행사가 같은 날 잡혀 방문이 어렵습니다.</td></tr>
+        </table>
+      </div>
+
+      <a href="https://globalreverb.com/admin#applications?filter=cancelled&date=2026-05-12" style="display:inline-block;background:#E8344E;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-top:8px">관리자 신청 관리에서 일괄 확인</a>
+
+      <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+        본 메일은 자동 발송됩니다. 회신 시 응답이 어렵습니다.<br>
+        개별 취소는 발생 즉시 관리자 페이지 사이드바 공지사항에도 노출됩니다.<br>
+        위반 등록은 관리자 화면 → 인플루언서 상세 모달 → 「위반 등록」 버튼.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

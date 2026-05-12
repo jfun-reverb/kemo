@@ -400,6 +400,72 @@
 .mini-editor-link-popover .melp-delete{color:#B3261E}
 .mini-editor-link-popover .melp-btn .material-icons-round{font-size:18px}
 
+/* 미니 에디터 — 이미지 사이즈 팝오버 (작게/중간/크게/원본·삭제) */
+.mini-editor-img-popover{
+  position:fixed;
+  display:flex;
+  align-items:center;
+  gap:2px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.12);
+  padding:4px;
+  z-index:9999;
+  animation:melp-fade 0.12s ease-out;
+}
+.mini-editor-img-popover::before{
+  content:'';
+  position:absolute;
+  top:-6px;
+  left:16px;
+  width:10px;
+  height:10px;
+  background:#fff;
+  border-left:1px solid var(--line);
+  border-top:1px solid var(--line);
+  transform:rotate(45deg);
+}
+.mini-editor-img-popover .meip-size{
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:6px 10px;
+  border-radius:4px;
+  font-size:12px;
+  font-weight:500;
+  color:var(--ink);
+  white-space:nowrap;
+}
+.mini-editor-img-popover .meip-size:hover{
+  background:rgba(200,120,163,0.12);
+}
+.mini-editor-img-popover .meip-size.is-active{
+  background:var(--pink);
+  color:#fff;
+  font-weight:700;
+}
+.mini-editor-img-popover .meip-sep{
+  width:1px;
+  height:18px;
+  background:var(--line);
+  margin:0 4px;
+}
+.mini-editor-img-popover .meip-delete{
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:6px;
+  border-radius:4px;
+  color:#B3261E;
+  display:inline-flex;
+  align-items:center;
+}
+.mini-editor-img-popover .meip-delete:hover{
+  background:rgba(179,38,30,0.12);
+}
+.mini-editor-img-popover .meip-delete .material-icons-round{font-size:18px}
+
 /* ──────────────────────────────────────────
  * Quill 리치 에디터 통합 박스 — 미니 에디터와 같은 looks
  * getRichEditor() 에서 toolbar + host 를 .quill-wrap 으로 감쌈

@@ -234,6 +234,22 @@
     </div>
   </div>
 
+  <!-- ⑫ 응모 취소 — 일일 요약 (관리자) -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">응모 취소 — 일일 요약 (관리자)</div>
+    <div class="card-desc">전일 한국시간 0~24시 동안 구매·방문·게시 단계 응모 취소를 모아 관리자에게 1통 발송. 0건이면 미발송.</div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
+      <div><b>수신자:</b> get_subscribed_admin_emails('application_cancel') + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="application-cancelled-daily.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="application-cancelled-daily.html">원본</a>
+    </div>
+  </div>
+
 </div>
 
 <h2>미구현 — 인플루언서 비즈니스 로직 메일 (TODO)</h2>

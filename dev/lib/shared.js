@@ -142,20 +142,45 @@ function sanitizeRich(html) {
   return wrapper.innerHTML;
 }
 
-// caution_items 전용 sanitize — inline 서식(B/I/U/S) + 링크만 허용.
-// <p>, <div>, <ul> 등 블록 태그는 제거(렌더는 <li> 한 칸이라 inline 만 허용해야 레이아웃 유지).
-// 관리자 미니 에디터의 contenteditable 출력이 paste 시 섞어 올 수 있는 block 태그를 정리.
+// 미니 에디터(주의사항·참여방법·NG) 전용 sanitize.
+// 허용:
+//   inline 서식: B/I/U/S 계열 + 링크
+//   콘텐츠 블록: <p>, <br> (단락 + 줄바꿈)
+//   이미지: <img src=https://*.supabase.co/...> 만 허용 (외부 도메인 차단)
+// 차단:
+//   <script>/<iframe>/<style>/<object>/<embed>/<svg>/<div>/<span>/<ul>/<ol>/<li>/<h1~h4>/<blockquote>/<code>/<pre>
+//   onerror/onload/onclick/style/class 속성
+// 이미지 후처리: 화이트리스트 통과 시 .rich-img 클래스·lazy 로딩 부여, 미통과는 제거.
+//
+// 관리자 미니 에디터(contenteditable) 의 paste·툴바 결과를 모두 본 함수로 통과시켜
+// 저장 + 렌더 양쪽 모두 동일 정책 적용. 외부 URL 직접 입력은 src 화이트리스트로 차단.
 function sanitizeCautionHtml(html) {
   if (html == null) return '';
   if (typeof DOMPurify === 'undefined') {
     console.warn('[sanitizeCautionHtml] DOMPurify not loaded');
     return '';
   }
-  const clean = DOMPurify.sanitize(String(html), {
-    ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br'],
-    ALLOWED_ATTR: ['href','target','rel'],
-    FORBID_TAGS: ['img','script','iframe','style','object','embed','svg','p','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
-    FORBID_ATTR: ['style','onerror','onload','onclick','class']
+  // 사전 정규화: Chrome contenteditable 이 Enter 시 줄을 <div> 로 감싼다.
+  // sanitize 가 <div> 를 FORBID 으로 제거하면 줄바꿈이 모두 사라지므로,
+  // 먼저 <div> 를 허용 태그 <p> 로 치환해 단락 구조 보존.
+  // (Firefox 의 <br> 은 그대로 통과 — 양 브라우저 모두 안정.)
+  let normalized = String(html);
+  if (/<div\b/i.test(normalized)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = normalized;
+    tmp.querySelectorAll('div').forEach(d => {
+      const p = document.createElement('p');
+      while (d.firstChild) p.appendChild(d.firstChild);
+      if (d.parentNode) d.parentNode.replaceChild(p, d);
+    });
+    normalized = tmp.innerHTML;
+  }
+  const clean = DOMPurify.sanitize(normalized, {
+    ALLOWED_TAGS: ['b','strong','i','em','u','s','strike','a','br','p','img'],
+    // data-rich-size: 이미지 사이즈 프리셋(sm/md/lg/원본). class 자체는 후처리에서 부여.
+    ALLOWED_ATTR: ['href','target','rel','src','alt','data-rich-size'],
+    FORBID_TAGS: ['script','iframe','style','object','embed','svg','div','span','ul','ol','li','h1','h2','h3','h4','blockquote','code','pre'],
+    FORBID_ATTR: ['style','onerror','onload','onclick','onmouseover','onfocus','class','id']
   });
   const wrapper = document.createElement('div');
   wrapper.innerHTML = clean;
@@ -173,7 +198,66 @@ function sanitizeCautionHtml(html) {
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener noreferrer');
   });
+  // 이미지 src 화이트리스트: https + Supabase Storage 도메인만.
+  //   외부 URL 직접 입력 (예: evil.com) 차단 — 추적·서버 공격 가능성 0.
+  //   소유 자산이 아닌 임시 URL(blob:, data:, http:) 도 차단.
+  wrapper.querySelectorAll('img').forEach(img => {
+    const src = (img.getAttribute('src') || '').trim();
+    if (!_isAllowedContentImageSrc(src)) {
+      img.remove();
+      return;
+    }
+    // 표시 일관화: 가로 100% / 가운데 정렬 / 지연 로딩
+    img.classList.add('rich-img');
+    img.setAttribute('loading', 'lazy');
+    img.setAttribute('decoding', 'async');
+    // alt 누락 시 빈 문자열 (장식용으로 처리)
+    if (!img.hasAttribute('alt')) img.setAttribute('alt', '');
+    // 사이즈 프리셋: data-rich-size sm/md/lg/원본. 미지정 또는 'orig' 은 기본 가로 100%.
+    const size = (img.getAttribute('data-rich-size') || '').toLowerCase();
+    if (size === 'sm' || size === 'md' || size === 'lg') {
+      img.classList.add('rich-img-' + size);
+    } else if (size && size !== 'orig') {
+      // 알 수 없는 값은 정리 (직접 편집·복사 사고 방어)
+      img.removeAttribute('data-rich-size');
+    }
+  });
   return wrapper.innerHTML;
+}
+
+// 미니 에디터 콘텐츠 이미지 src 화이트리스트.
+//   - https 만 허용 (http/data:/blob:/javascript: 모두 거부)
+//   - 호스트는 *.supabase.co (운영·개발 Supabase Storage 모두 포함)
+//   - 외부 이미지 hotlink 는 차단 — 운영자 업로드 자산만 정상 표시
+function _isAllowedContentImageSrc(src) {
+  if (!src || typeof src !== 'string') return false;
+  try {
+    const u = new URL(src);
+    if (u.protocol !== 'https:') return false;
+    // Supabase Storage 도메인 — 본 프로젝트는 모든 Storage 가 *.supabase.co
+    if (!/\.supabase\.co$/i.test(u.hostname)) return false;
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+// 미니 에디터(참여방법·주의사항·NG) 출력 렌더용 — sanitizeCautionHtml 경유.
+//   - HTML 있으면 sanitizeCautionHtml (img/p/br + inline 서식 허용)
+//   - 평문이면 esc + 줄바꿈→<br> (마이그레이션 110 백필 데이터 호환)
+function miniRichHtml(raw) {
+  const value = raw == null ? '' : String(raw);
+  const looksLikeHtml = /<[a-z][\s\S]*>/i.test(value);
+  if (!looksLikeHtml) {
+    return value
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/\n/g,'<br>');
+  }
+  return (typeof sanitizeCautionHtml === 'function')
+    ? sanitizeCautionHtml(value)
+    : value.replace(/<script/gi, '&lt;script');
 }
 
 // 문자열 입력 → 안전한 HTML 문자열 반환 (템플릿 리터럴에서 바로 삽입용)
