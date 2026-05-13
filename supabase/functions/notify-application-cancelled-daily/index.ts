@@ -141,7 +141,7 @@ interface InfluencerRow {
   name: string | null;
   name_kanji: string | null;
   name_kana: string | null;
-  email: string | null;
+  // email 은 auth.users 에서 별도 조회 (influencers 테이블에 email 컬럼 없음)
 }
 
 function phaseKo(phase: string): string {
@@ -409,7 +409,7 @@ Deno.serve(async (req: Request) => {
   if (userIds.length > 0) {
     const { data: infls, error: infErr } = await sb
       .from("influencers")
-      .select("auth_id, name, name_kanji, name_kana, email")
+      .select("auth_id, name, name_kanji, name_kana")
       .in("auth_id", userIds);
     if (infErr) {
       console.warn("[notify-cancel-daily] influencer lookup failed", infErr);
@@ -418,6 +418,20 @@ Deno.serve(async (req: Request) => {
         influencerMap.set(row.auth_id, row);
       });
     }
+  }
+
+  // 이메일은 auth.users 에서 별도 조회 (influencers 테이블에 email 컬럼 없음).
+  // 서비스 키 권한으로 admin.getUserById 사용 가능.
+  const emailMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const emailResults = await Promise.all(
+      userIds.map((id) => sb.auth.admin.getUserById(id)),
+    );
+    emailResults.forEach((result, idx) => {
+      if (!result.error && result.data?.user?.email) {
+        emailMap.set(userIds[idx], result.data.user.email);
+      }
+    });
   }
 
   const reasonMap = new Map<string, string>();
@@ -456,36 +470,58 @@ Deno.serve(async (req: Request) => {
     })
     .join("");
 
-  // 6. 행별 HTML 빌드
+  // 6. 행별 HTML 빌드 — 시점별 그룹화 (구매기간 → 방문기간 → 결과물 제출기간 → 기타).
+  //    각 그룹에 소제목 + 건수 헤더. 0건 그룹은 생략. 그룹 내 행 순서는 쿼리의
+  //    cancelled_at 오름차순(ascending) 정렬을 그대로 유지.
   const rowTpl = loadTemplate("application-cancelled-daily.row");
-  const rowsHtml = rows
-    .map((r) => {
-      const camp = campaignMap.get(r.campaign_id) || null;
-      const infl = influencerMap.get(r.user_id) || {
-        auth_id: r.user_id,
-        name: null,
-        name_kanji: null,
-        name_kana: null,
-        email: null,
-      };
-      const reasonLabel = r.cancel_reason_code
-        ? reasonMap.get(r.cancel_reason_code) || r.cancel_reason_code
-        : "-";
-      const noteRow = (r.cancel_reason || "").trim()
-        ? `<tr><td style="padding:4px 0;color:#888;vertical-align:top">보충</td><td style="padding:4px 0;line-height:1.5">${escapeHtml(r.cancel_reason || "")}</td></tr>`
-        : "";
+  const phaseGroups: Record<string, CancelledRow[]> = {};
+  phaseOrder.forEach((p) => {
+    phaseGroups[p] = [];
+  });
+  rows.forEach((r) => {
+    const key = phaseOrder.includes(r.cancel_phase) ? r.cancel_phase : "other";
+    phaseGroups[key].push(r);
+  });
 
-      return render(rowTpl, {
-        campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
-        campaign_title: escapeHtml(camp?.title ?? "-"),
-        recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
-        influencer_name: escapeHtml(influencerDisplayName(infl)),
-        influencer_email: escapeHtml(infl.email || "-"),
-        cancelled_at_jst: escapeHtml(formatJst(r.cancelled_at)),
-        cancel_phase_ko: escapeHtml(phaseKo(r.cancel_phase)),
-        cancel_reason_ko: escapeHtml(reasonLabel),
-        cancel_reason_note_row: noteRow,
-      });
+  const renderCard = (r: CancelledRow): string => {
+    const camp = campaignMap.get(r.campaign_id) || null;
+    const infl = influencerMap.get(r.user_id) || {
+      auth_id: r.user_id,
+      name: null,
+      name_kanji: null,
+      name_kana: null,
+    };
+    const reasonLabel = r.cancel_reason_code
+      ? reasonMap.get(r.cancel_reason_code) || r.cancel_reason_code
+      : "-";
+    const noteRow = (r.cancel_reason || "").trim()
+      ? `<tr><td style="padding:4px 0;color:#888;vertical-align:top">보충</td><td style="padding:4px 0;line-height:1.5">${escapeHtml(r.cancel_reason || "")}</td></tr>`
+      : "";
+
+    return render(rowTpl, {
+      campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
+      campaign_title: escapeHtml(camp?.title ?? "-"),
+      recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
+      influencer_name: escapeHtml(influencerDisplayName(infl)),
+      influencer_email: escapeHtml(emailMap.get(r.user_id) || "-"),
+      cancelled_at_jst: escapeHtml(formatJst(r.cancelled_at)),
+      cancel_phase_ko: escapeHtml(phaseKo(r.cancel_phase)),
+      cancel_reason_ko: escapeHtml(reasonLabel),
+      cancel_reason_note_row: noteRow,
+    });
+  };
+
+  const rowsHtml = phaseOrder
+    .filter((p) => phaseGroups[p].length > 0)
+    .map((p) => {
+      const c = phaseColors[p] || phaseColors.other;
+      const groupHeader =
+        `<div style="margin:20px 0 10px;padding:8px 12px;background:${c.bg};border-left:3px solid ${c.fg};border-radius:0 6px 6px 0">` +
+        `<span style="color:${c.fg};font-weight:700;font-size:13px">${phaseKo(p)}</span>` +
+        `<span style="color:${c.fg};font-size:12px;margin-left:6px">${phaseGroups[p].length}건</span>` +
+        `</div>`;
+      const cardsHtml = phaseGroups[p].map(renderCard).join("");
+      return groupHeader + cardsHtml;
     })
     .join("");
 
@@ -513,7 +549,7 @@ Deno.serve(async (req: Request) => {
     "",
     ...rows.map((r) => {
       const camp = campaignMap.get(r.campaign_id) || null;
-      const infl = influencerMap.get(r.user_id) || { name: null, name_kanji: null, name_kana: null, email: null } as InfluencerRow;
+      const infl = influencerMap.get(r.user_id) || { name: null, name_kanji: null, name_kana: null } as Partial<InfluencerRow>;
       const displayName = (infl.name_kanji || infl.name || infl.name_kana || "-");
       const reasonLabel = r.cancel_reason_code
         ? reasonMap.get(r.cancel_reason_code) || r.cancel_reason_code
