@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778634988';
+  var CURRENT_BUILD = 'v1778635390';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1434,7 +1434,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-13 10:16 · 0ad9f29</span>
+          <span class="admin-build-text">2026-05-13 10:23 · d573046</span>
         </div>
       </div>
     </aside>
@@ -8663,6 +8663,12 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   var priceKrw = priceJpy * BRAND_QUOTE_CONST.FX_JPY_KRW;
   var transferFeeKrw = (!p || p.transfer_fee_krw == null || p.transfer_fee_krw === '') ? null : Number(p.transfer_fee_krw);
   var recruitFeeKrw = (!p || p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? null : Number(p.recruit_fee_krw);
+  // 제품 단위 최종견적·VAT 계산 (엑셀 내보내기와 동일 로직)
+  var _lineTotal        = qty * priceKrw;
+  var _feeTotalKrw      = transferFeeKrw == null ? 0 : qty * transferFeeKrw;
+  var _recruitFeeTotKrw = recruitFeeKrw  == null ? 0 : qty * recruitFeeKrw;
+  var _finalKrw         = calcBrandAppFinalKrw(a.form_type, _lineTotal, _feeTotalKrw, _recruitFeeTotKrw);
+  var _vatKrw           = Math.floor(_finalKrw * (1 + BRAND_QUOTE_CONST.VAT_RATE));
 
   var dash = '<span style="color:var(--muted)">—</span>';
   var emptyAction = '<td></td>';
@@ -8783,12 +8789,11 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   // 18. 이체수수료(건) (제품 단가 — 인라인 편집 가능)
   html += '<td><div class="brand-app-tfee-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderTransferFeeDisplay(transferFeeKrw) + '</div></td>';
 
-  // 19. 최종견적금액 (VAT 미포함 — estimated_krw / 1.1 반올림. 같은 신청 모든 행에 동일 값)
-  var finalNoVat = (a.estimated_krw == null || a.estimated_krw === '') ? null : Math.round(Number(a.estimated_krw) / (1 + BRAND_QUOTE_CONST.VAT_RATE));
-  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + (finalNoVat ? fmtKrw(finalNoVat) : '') + '</td>';
+  // 19. 최종견적금액 (제품 단위 — VAT 미포함)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + (_finalKrw ? fmtKrw(_finalKrw) : '') + '</td>';
 
-  // 20. VAT 포함 (= estimated_krw, DB 트리거 자동 계산. 같은 신청 모든 행에 동일 값)
-  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + fmtKrw(a.estimated_krw) + '</td>';
+  // 20. VAT 포함 (제품 단위)
+  html += '<td style="text-align:right;font-variant-numeric:tabular-nums">' + (_vatKrw ? fmtKrw(_vatKrw) : '') + '</td>';
 
   // 20. 견적서 전달 (액션 — 첫 행만)
   html += isFirst
