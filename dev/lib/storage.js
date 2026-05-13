@@ -1578,7 +1578,6 @@ async function fetchBrandApplications(filters) {
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at, quote_sent_url,
         orient_sheet_sent_at, orient_sheet_sent_url,
-        payment_flags,
         status, admin_memo, request_note,
         reviewer_channels,
         reviewed_by, reviewed_at,
@@ -1705,7 +1704,7 @@ async function updateBrandApplication(id, patch, expectedVersion) {
         .update(patch)
         .eq('id', id)
         .eq('version', expectedVersion)
-        .select('id, version, status, products, total_jpy, total_qty, estimated_krw, payment_flags')
+        .select('id, version, status, products, total_jpy, total_qty, estimated_krw')
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -1718,20 +1717,20 @@ async function updateBrandApplication(id, patch, expectedVersion) {
   }
 }
 
-// 신청 1건의 payment_flags 자동 갱신 — 새로고침 버튼 핸들러용.
-//   migration 114 RPC recalc_brand_app_payment_flags(application_id).
-//   recruit/product/transfer 키는 products 합계 기준 재설정, free 는 보존.
-//   반환: 갱신 후 payment_flags jsonb.
-async function recalcBrandAppPaymentFlags(applicationId) {
+// 신청 1건 모든 제품 payment_flags 완전 초기화 — 새로고침 버튼 핸들러용.
+//   migration 117 RPC refresh_brand_app_product_payment_flags(application_id).
+//   4종(recruit/product/transfer/free) 모두 products 합계 기반 재설정.
+//   반환: 갱신 후 products 배열.
+async function refreshBrandAppProductPaymentFlags(applicationId) {
   if (!db || !applicationId) return {ok: false, error: 'no_db_or_id'};
   try {
-    const {data, error} = await db.rpc('recalc_brand_app_payment_flags', {
+    const {data, error} = await db.rpc('refresh_brand_app_product_payment_flags', {
       p_application_id: applicationId
     });
     if (error) throw error;
-    return {ok: true, flags: data || {}};
+    return {ok: true, products: data || []};
   } catch(e) {
-    console.error('[recalcBrandAppPaymentFlags]', e);
+    console.error('[refreshBrandAppProductPaymentFlags]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }
