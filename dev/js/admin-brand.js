@@ -1965,10 +1965,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_at, a.orient_sheet_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 22. 입금여부 (액션 — 첫 행만). 4종 칩 토글 + 새로고침 아이콘 (products 합계 기준 자동 채움)
-  html += isFirst
-    ? '<td><div class="brand-app-pay-cell" data-id="' + esc(a.id) + '">' + renderBrandAppPaymentFlagsCell(a) + '</div></td>'
-    : emptyAction;
+  // 22. 입금여부 — 제품 행마다 해당 제품의 플래그만 표시
+  html += '<td><div class="brand-app-pay-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '">' + renderBrandAppPaymentFlagsCell(a, idx) + '</div></td>';
 
   // 23. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
@@ -3216,14 +3214,20 @@ function _restoreOrientSheetSentDisplay(cell, isoOrNull, urlOrNull, locked) {
   cell.innerHTML = renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked);
 }
 
-// ─── 입금여부 셀 (제품별 4종 체크 + 새로고침) ────────────────────────────
+// ─── 입금여부 셀 (해당 제품의 4종 체크 + 새로고침) ────────────────────────────
 //   migration 117: products[i].payment_flags 구조.
-//   제품마다 독립된 4플래그(recruit/product/transfer/free).
-//   - 무료모집 OFF: 해당 제품 4종 모두 표시
-//   - 무료모집 ON : 해당 제품은 무료모집만 표시 (다른 3종 시각 숨김 — DB 값 보존)
-//   - 새로고침: 모든 제품 4종 완전 초기화 (free=false 포함)
-function renderBrandAppPaymentFlagsCell(a) {
+//   테이블은 제품 행 단위로 렌더되므로 셀 1개 = 해당 제품 1개의 플래그만 표시.
+//   - 무료모집 OFF: 4종 모두 표시
+//   - 무료모집 ON : 무료모집만 표시 (다른 3종 숨김 — DB 값 보존)
+//   - 새로고침: 해당 신청의 모든 제품 4종 완전 초기화 (free=false 포함)
+function renderBrandAppPaymentFlagsCell(a, productIdx) {
   var products = (a && a.products) || [];
+  var p = products[productIdx];
+
+  if (!p) return '<span style="color:#bbb;font-size:10px">—</span>';
+
+  var flags  = (p.payment_flags) || {};
+  var isFree = !!flags.free;
 
   var ROWS = [
     {key: 'recruit',  label: '모집비용'},
@@ -3232,34 +3236,19 @@ function renderBrandAppPaymentFlagsCell(a) {
     {key: 'free',     label: '무료모집'}
   ];
 
-  if (!products.length) {
-    return '<div class="pay-cell-inner"><span style="color:#bbb;font-size:10px">제품 없음</span></div>';
-  }
-
-  var sectionsHtml = products.map(function(p, idx) {
-    var flags  = (p && p.payment_flags) || {};
-    var isFree = !!flags.free;
-    var productName = esc(p.name_ko || ('제품 ' + (idx + 1)));
-
-    var rowsHtml = ROWS.map(function(r) {
-      if (isFree && r.key !== 'free') return '';
-      var checked = !!flags[r.key];
-      var cls = 'pay-row' + (checked ? ' is-checked' : '') + ' pay-' + r.key;
-      return '<div class="' + cls + '" onclick="event.stopPropagation();toggleBrandAppProductPaymentFlag(\'' + esc(a.id) + '\',' + idx + ',\'' + r.key + '\')" title="클릭하여 ' + (checked ? '체크 해제' : '체크') + '">'
-        + '<span class="pay-row-label">' + r.label + '</span>'
-        + (checked ? '<span class="material-icons-round notranslate pay-row-check" translate="no">check</span>' : '')
-      + '</div>';
-    }).join('');
-
-    return '<div class="pay-product-section">'
-      + '<div class="pay-product-header">' + productName + '</div>'
-      + '<div class="pay-rows-wrap">' + rowsHtml + '</div>'
+  var rowsHtml = ROWS.map(function(r) {
+    if (isFree && r.key !== 'free') return '';
+    var checked = !!flags[r.key];
+    var cls = 'pay-row' + (checked ? ' is-checked' : '') + ' pay-' + r.key;
+    return '<div class="' + cls + '" onclick="event.stopPropagation();toggleBrandAppProductPaymentFlag(\'' + esc(a.id) + '\',' + productIdx + ',\'' + r.key + '\')" title="클릭하여 ' + (checked ? '체크 해제' : '체크') + '">'
+      + '<span class="pay-row-label">' + r.label + '</span>'
+      + (checked ? '<span class="material-icons-round notranslate pay-row-check" translate="no">check</span>' : '')
     + '</div>';
   }).join('');
 
   return '<div class="pay-cell-inner">'
-    + '<div class="pay-products-wrap">' + sectionsHtml + '</div>'
-    + '<button type="button" class="pay-refresh-btn" onclick="event.stopPropagation();refreshBrandAppPaymentFlags(\'' + esc(a.id) + '\',this)" title="제품 합계 기준 자동 체크 — 4종 완전 초기화"><span class="material-icons-round notranslate" translate="no">refresh</span></button>'
+    + '<div class="pay-rows-wrap">' + rowsHtml + '</div>'
+    + '<button type="button" class="pay-refresh-btn" onclick="event.stopPropagation();refreshBrandAppPaymentFlags(\'' + esc(a.id) + '\',this)" title="전체 제품 자동 체크 초기화"><span class="material-icons-round notranslate" translate="no">refresh</span></button>'
   + '</div>';
 }
 
@@ -3323,13 +3312,16 @@ async function refreshBrandAppPaymentFlags(applicationId, btnEl) {
   }
 }
 
-// 메모리 캐시(_brandApps) 갱신 후 해당 신청의 입금여부 셀만 다시 렌더
+// 메모리 캐시(_brandApps) 갱신 후 해당 신청의 모든 입금여부 셀 다시 렌더
+// 제품별 행이 여러 개이므로 querySelectorAll로 전체 업데이트
 function _rerenderBrandAppPaymentCell(applicationId) {
-  var cell = document.querySelector('.brand-app-pay-cell[data-id="' + applicationId + '"]');
-  if (!cell) return;
   var cur = _findBrandApp(applicationId);
   if (!cur) return;
-  cell.innerHTML = renderBrandAppPaymentFlagsCell(cur);
+  var cells = document.querySelectorAll('.brand-app-pay-cell[data-id="' + applicationId + '"]');
+  cells.forEach(function(cell) {
+    var idx = parseInt(cell.getAttribute('data-product-idx'), 10) || 0;
+    cell.innerHTML = renderBrandAppPaymentFlagsCell(cur, idx);
+  });
 }
 
 function enterOrientSheetSentEdit(btnEl) {
