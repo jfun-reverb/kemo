@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778587763';
+  var CURRENT_BUILD = 'v1778634466';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1345,11 +1345,15 @@ textarea.form-input{resize:vertical;min-height:80px}
   vertical-align: middle;
 }
 
-/* 입금여부 셀 (migration 114 payment_flags) — 신청 목록 페인 「입금여부」 컬럼.
-   짧은 클래스명(pay-row 등) 충돌 회피 위해 .brand-app-pay-cell 스코프 한정. */
+/* 입금여부 셀 (migration 117 제품별 payment_flags) — 신청 목록 페인 「입금여부」 컬럼.
+   짧은 클래스명(pay-row 등) 충돌 회피 위해 .brand-app-pay-cell 스코프 한정.
+   제품마다 독립된 4플래그(recruit/product/transfer/free) 표시. */
 .brand-app-pay-cell{font-size:11px}
 .brand-app-pay-cell .pay-cell-inner{display:flex;align-items:flex-start;gap:4px}
-.brand-app-pay-cell .pay-rows-wrap{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.brand-app-pay-cell .pay-products-wrap{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.brand-app-pay-cell .pay-product-section{display:flex;flex-direction:column;gap:2px}
+.brand-app-pay-cell .pay-product-header{font-size:9px;color:#888;border-bottom:1px solid #E0E0E0;padding-bottom:1px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-app-pay-cell .pay-rows-wrap{display:flex;flex-direction:column;gap:2px}
 .brand-app-pay-cell .pay-row{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;background:#F0F0F0;color:#999;border:1px solid transparent;transition:transform .08s ease}
 .brand-app-pay-cell .pay-row:hover{transform:translateY(-1px)}
 /* 체크 시 — REVERB 핑크 단일색 (다른 페인 리뷰어 배지와 동일 톤) */
@@ -1433,7 +1437,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-12 21:09 · 776c243</span>
+          <span class="admin-build-text">2026-05-13 10:07 · a0853e6</span>
         </div>
       </div>
     </aside>
@@ -5691,7 +5695,6 @@ async function fetchBrandApplications(filters) {
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at, quote_sent_url,
         orient_sheet_sent_at, orient_sheet_sent_url,
-        payment_flags,
         status, admin_memo, request_note,
         reviewer_channels,
         reviewed_by, reviewed_at,
@@ -5818,7 +5821,7 @@ async function updateBrandApplication(id, patch, expectedVersion) {
         .update(patch)
         .eq('id', id)
         .eq('version', expectedVersion)
-        .select('id, version, status, products, total_jpy, total_qty, estimated_krw, payment_flags')
+        .select('id, version, status, products, total_jpy, total_qty, estimated_krw')
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -5831,20 +5834,20 @@ async function updateBrandApplication(id, patch, expectedVersion) {
   }
 }
 
-// 신청 1건의 payment_flags 자동 갱신 — 새로고침 버튼 핸들러용.
-//   migration 114 RPC recalc_brand_app_payment_flags(application_id).
-//   recruit/product/transfer 키는 products 합계 기준 재설정, free 는 보존.
-//   반환: 갱신 후 payment_flags jsonb.
-async function recalcBrandAppPaymentFlags(applicationId) {
+// 신청 1건 모든 제품 payment_flags 완전 초기화 — 새로고침 버튼 핸들러용.
+//   migration 117 RPC refresh_brand_app_product_payment_flags(application_id).
+//   4종(recruit/product/transfer/free) 모두 products 합계 기반 재설정.
+//   반환: 갱신 후 products 배열.
+async function refreshBrandAppProductPaymentFlags(applicationId) {
   if (!db || !applicationId) return {ok: false, error: 'no_db_or_id'};
   try {
-    const {data, error} = await db.rpc('recalc_brand_app_payment_flags', {
+    const {data, error} = await db.rpc('refresh_brand_app_product_payment_flags', {
       p_application_id: applicationId
     });
     if (error) throw error;
-    return {ok: true, flags: data || {}};
+    return {ok: true, products: data || []};
   } catch(e) {
-    console.error('[recalcBrandAppPaymentFlags]', e);
+    console.error('[refreshBrandAppProductPaymentFlags]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }
@@ -6946,8 +6949,8 @@ function _syncBrandAppCur(cur, result, fallbackVersion) {
   if (result.data.estimated_krw != null) cur.estimated_krw = result.data.estimated_krw;
   if (result.data.total_jpy != null) cur.total_jpy = result.data.total_jpy;
   if (result.data.total_qty != null) cur.total_qty = result.data.total_qty;
-  // products 변경 시 migration 116 트리거가 payment_flags 자동 재계산 — 응답 동기화 필수
-  if (result.data.payment_flags != null) cur.payment_flags = result.data.payment_flags;
+  // products 변경 시 migration 117 트리거가 products[i].payment_flags 자동 재계산 — 응답 동기화 필수
+  if (result.data.products != null) cur.products = result.data.products;
 }
 
 // 상태 라벨·컬러 (객체 키 순서가 드롭다운 옵션 순서)
@@ -10051,16 +10054,15 @@ function _restoreOrientSheetSentDisplay(cell, isoOrNull, urlOrNull, locked) {
   cell.innerHTML = renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked);
 }
 
-// ─── 입금여부 셀 (4종 체크 + 새로고침) ────────────────────────────
-//   migration 114 payment_flags jsonb : recruit / product / transfer / free.
-//   - 무료모집 OFF: 4종 모두 표시 (체크 = 그래디언트 + ✓, 미체크 = 회색)
-//   - 무료모집 ON : 무료모집만 표시 (다른 3종 시각 숨김 — DB 값 보존)
-//   - 우측 새로고침: products 합계로 recruit/product/transfer 재설정 (free 보존)
+// ─── 입금여부 셀 (제품별 4종 체크 + 새로고침) ────────────────────────────
+//   migration 117: products[i].payment_flags 구조.
+//   제품마다 독립된 4플래그(recruit/product/transfer/free).
+//   - 무료모집 OFF: 해당 제품 4종 모두 표시
+//   - 무료모집 ON : 해당 제품은 무료모집만 표시 (다른 3종 시각 숨김 — DB 값 보존)
+//   - 새로고침: 모든 제품 4종 완전 초기화 (free=false 포함)
 function renderBrandAppPaymentFlagsCell(a) {
-  var flags = (a && a.payment_flags) || {};
-  var isFree = !!flags.free;
+  var products = (a && a.products) || [];
 
-  // 라벨 + jsonb 키 매핑. 무료모집은 마지막.
   var ROWS = [
     {key: 'recruit',  label: '모집비용'},
     {key: 'product',  label: '상품비용'},
@@ -10068,73 +10070,92 @@ function renderBrandAppPaymentFlagsCell(a) {
     {key: 'free',     label: '무료모집'}
   ];
 
-  var rowsHtml = ROWS.map(function(r){
-    // 무료모집 ON 일 때는 free 만 표시, 다른 3종 시각 숨김 (사용자 결정 2026-05-12).
-    if (isFree && r.key !== 'free') return '';
-    var checked = !!flags[r.key];
-    var cls = 'pay-row' + (checked ? ' is-checked' : '') + ' pay-' + r.key;
-    return '<div class="' + cls + '" onclick="event.stopPropagation();toggleBrandAppPaymentFlag(\'' + esc(a.id) + '\',\'' + r.key + '\')" title="클릭하여 ' + (checked ? '체크 해제' : '체크') + '">'
-      + '<span class="pay-row-label">' + r.label + '</span>'
-      + (checked ? '<span class="material-icons-round notranslate pay-row-check" translate="no">check</span>' : '')
+  if (!products.length) {
+    return '<div class="pay-cell-inner"><span style="color:#bbb;font-size:10px">제품 없음</span></div>';
+  }
+
+  var sectionsHtml = products.map(function(p, idx) {
+    var flags  = (p && p.payment_flags) || {};
+    var isFree = !!flags.free;
+    var productName = esc(p.name_ko || ('제품 ' + (idx + 1)));
+
+    var rowsHtml = ROWS.map(function(r) {
+      if (isFree && r.key !== 'free') return '';
+      var checked = !!flags[r.key];
+      var cls = 'pay-row' + (checked ? ' is-checked' : '') + ' pay-' + r.key;
+      return '<div class="' + cls + '" onclick="event.stopPropagation();toggleBrandAppProductPaymentFlag(\'' + esc(a.id) + '\',' + idx + ',\'' + r.key + '\')" title="클릭하여 ' + (checked ? '체크 해제' : '체크') + '">'
+        + '<span class="pay-row-label">' + r.label + '</span>'
+        + (checked ? '<span class="material-icons-round notranslate pay-row-check" translate="no">check</span>' : '')
+      + '</div>';
+    }).join('');
+
+    return '<div class="pay-product-section">'
+      + '<div class="pay-product-header">' + productName + '</div>'
+      + '<div class="pay-rows-wrap">' + rowsHtml + '</div>'
     + '</div>';
   }).join('');
 
   return '<div class="pay-cell-inner">'
-    + '<div class="pay-rows-wrap">' + rowsHtml + '</div>'
-    + '<button type="button" class="pay-refresh-btn" onclick="event.stopPropagation();refreshBrandAppPaymentFlags(\'' + esc(a.id) + '\',this)" title="제품 합계 기준 자동 체크 (모집비용/상품비용/이체수수료)"><span class="material-icons-round notranslate" translate="no">refresh</span></button>'
+    + '<div class="pay-products-wrap">' + sectionsHtml + '</div>'
+    + '<button type="button" class="pay-refresh-btn" onclick="event.stopPropagation();refreshBrandAppPaymentFlags(\'' + esc(a.id) + '\',this)" title="제품 합계 기준 자동 체크 — 4종 완전 초기화"><span class="material-icons-round notranslate" translate="no">refresh</span></button>'
   + '</div>';
 }
 
-// 칩 클릭 시 해당 key 토글 + DB 갱신. 낙관적 락 충돌 시 토스트.
-async function toggleBrandAppPaymentFlag(applicationId, flagKey) {
+// 제품별 칩 클릭 시 해당 제품·key 토글 + DB 갱신. 낙관적 락 충돌 시 토스트.
+async function toggleBrandAppProductPaymentFlag(applicationId, productIndex, flagKey) {
   var cur = _findBrandApp(applicationId);
-  if (!cur) return;
-  var oldFlags = cur.payment_flags || {};
-  var newFlags = Object.assign({}, oldFlags);
-  newFlags[flagKey] = !oldFlags[flagKey];
+  if (!cur || !Array.isArray(cur.products)) return;
+
+  var oldProducts = cur.products;
+  var newProducts = oldProducts.map(function(p, i) {
+    if (i !== productIndex) return p;
+    var pFlags = Object.assign({}, p.payment_flags || {});
+    pFlags[flagKey] = !pFlags[flagKey];
+    return Object.assign({}, p, {payment_flags: pFlags});
+  });
 
   // 낙관적 UI 갱신
-  cur.payment_flags = newFlags;
+  cur.products = newProducts;
   _rerenderBrandAppPaymentCell(applicationId);
 
-  var res = await updateBrandApplication(applicationId, {payment_flags: newFlags}, cur.version);
+  var res = await updateBrandApplication(applicationId, {products: newProducts}, cur.version);
   if (res && res.conflict) {
-    cur.payment_flags = oldFlags;          // 롤백
+    cur.products = oldProducts;
     _rerenderBrandAppPaymentCell(applicationId);
-    toast('이미 다른 곳에서 변경됐습니다. 새로고침 후 다시 시도하세요','error');
+    toast('이미 다른 곳에서 변경됐습니다. 새로고침 후 다시 시도하세요', 'error');
     return;
   }
   if (!res || !res.ok) {
-    cur.payment_flags = oldFlags;          // 롤백
+    cur.products = oldProducts;
     _rerenderBrandAppPaymentCell(applicationId);
     toast('입금여부 저장 실패: ' + ((res && res.error) || 'unknown'), 'error');
     return;
   }
-  // 서버 반환값으로 version·payment_flags 동기화
+  // 서버 반환값으로 version·products 동기화 (트리거로 recruit/product/transfer 재계산)
   if (res.data) {
     if (typeof res.data.version === 'number') cur.version = res.data.version;
-    if (res.data.payment_flags) cur.payment_flags = res.data.payment_flags;
+    if (res.data.products != null) cur.products = res.data.products;
   }
   _rerenderBrandAppPaymentCell(applicationId);
 }
 
-// 새로고침 아이콘 클릭 — RPC recalc_brand_app_payment_flags 호출.
-// recruit/product/transfer 만 products 합계 기준 재설정, free 는 보존.
+// 새로고침 아이콘 클릭 — RPC refresh_brand_app_product_payment_flags 호출.
+// 모든 제품 4종(recruit/product/transfer/free) 완전 초기화.
 async function refreshBrandAppPaymentFlags(applicationId, btnEl) {
   if (btnEl && btnEl.disabled) return;
   if (btnEl) btnEl.disabled = true;
   try {
-    var res = await recalcBrandAppPaymentFlags(applicationId);
+    var res = await refreshBrandAppProductPaymentFlags(applicationId);
     if (!res || !res.ok) {
       toast('자동 체크 실패: ' + ((res && res.error) || 'unknown'), 'error');
       return;
     }
     var cur = _findBrandApp(applicationId);
     if (cur) {
-      cur.payment_flags = res.flags;
+      cur.products = res.products;
       _rerenderBrandAppPaymentCell(applicationId);
     }
-    toast('입금여부를 자동 갱신했습니다','success');
+    toast('입금여부를 자동 갱신했습니다', 'success');
   } finally {
     if (btnEl) btnEl.disabled = false;
   }

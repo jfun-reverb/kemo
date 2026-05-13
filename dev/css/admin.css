@@ -946,11 +946,15 @@
   vertical-align: middle;
 }
 
-/* 입금여부 셀 (migration 114 payment_flags) — 신청 목록 페인 「입금여부」 컬럼.
-   짧은 클래스명(pay-row 등) 충돌 회피 위해 .brand-app-pay-cell 스코프 한정. */
+/* 입금여부 셀 (migration 117 제품별 payment_flags) — 신청 목록 페인 「입금여부」 컬럼.
+   짧은 클래스명(pay-row 등) 충돌 회피 위해 .brand-app-pay-cell 스코프 한정.
+   제품마다 독립된 4플래그(recruit/product/transfer/free) 표시. */
 .brand-app-pay-cell{font-size:11px}
 .brand-app-pay-cell .pay-cell-inner{display:flex;align-items:flex-start;gap:4px}
-.brand-app-pay-cell .pay-rows-wrap{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.brand-app-pay-cell .pay-products-wrap{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.brand-app-pay-cell .pay-product-section{display:flex;flex-direction:column;gap:2px}
+.brand-app-pay-cell .pay-product-header{font-size:9px;color:#888;border-bottom:1px solid #E0E0E0;padding-bottom:1px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-app-pay-cell .pay-rows-wrap{display:flex;flex-direction:column;gap:2px}
 .brand-app-pay-cell .pay-row{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;background:#F0F0F0;color:#999;border:1px solid transparent;transition:transform .08s ease}
 .brand-app-pay-cell .pay-row:hover{transform:translateY(-1px)}
 /* 체크 시 — REVERB 핑크 단일색 (다른 페인 리뷰어 배지와 동일 톤) */
