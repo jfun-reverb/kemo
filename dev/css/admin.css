@@ -964,3 +964,12 @@
 .brand-app-pay-cell .pay-refresh-btn:hover{background:rgba(200,120,163,.12);color:var(--pink)}
 .brand-app-pay-cell .pay-refresh-btn:disabled{opacity:.5;cursor:not-allowed}
 .brand-app-pay-cell .pay-refresh-btn .material-icons-round{font-size:15px}
+
+/* 가격체크 드롭다운 (제품별 4상태) — 신청 목록 페인 「가격체크」 컬럼.
+   마켓 등록 가격과 신청 금액 비교 결과 (가격높음/낮음/동일) 또는 미선택. */
+.brand-app-pricecheck-select{width:100%;min-width:90px;font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);cursor:pointer;background:#fff;font-weight:600;appearance:auto}
+.brand-app-pricecheck-select.pc-empty{color:var(--muted);border:1px dashed var(--border);background:#fafafa;font-weight:400}
+.brand-app-pricecheck-select.pc-higher{background:#FFF4E0;color:#C8650A;border-color:#FFD9A8}
+.brand-app-pricecheck-select.pc-lower{background:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
+.brand-app-pricecheck-select.pc-equal{background:#EEEEEE;color:#555555;border-color:#D0D0D0}
+.brand-app-pricecheck-select:focus{outline:2px solid var(--accent);outline-offset:1px}

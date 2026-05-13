@@ -260,6 +260,14 @@ function brandAppFormLabel(formType) {
   return formType === 'reviewer' ? '리뷰어' : (formType === 'seeding' ? '나노 시딩' : formType);
 }
 
+// 가격체크 코드 → 한글 라벨 (엑셀 내보내기·툴팁용)
+function priceCheckKo(val) {
+  if (val === 'higher') return '가격높음';
+  if (val === 'lower')  return '가격낮음';
+  if (val === 'equal')  return '가격동일';
+  return ''; // null/undefined/빈값 = 미선택
+}
+
 // 광고주가 입력한 URL을 http/https만 허용 (javascript:, data: 스킴 차단)
 function safeBrandUrl(url) {
   if (!url) return null;
@@ -318,6 +326,7 @@ async function exportBrandApplicationsExcel() {
       { header: 'URL',              key: 'productUrl',  width: 36 },
       { header: '내부 메모',        key: 'memo',        width: 36 },
       { header: '진행 수량',        key: 'qty',         width: 10 },
+      { header: '가격체크',         key: 'priceCheck',  width: 12 },
       { header: '상품 가격(엔)',    key: 'priceJpy',    width: 14 },
       { header: '상품 가격(원)',    key: 'priceKrw',    width: 14 },
       { header: '상품 최종 금액',   key: 'lineTotal',   width: 16 },
@@ -392,6 +401,7 @@ async function exportBrandApplicationsExcel() {
           productUrl:    p.url || '',
           memo:          a.admin_memo || '',
           qty:           qty || '',
+          priceCheck:    priceCheckKo(p.price_check),
           priceJpy:      priceJpy || '',
           priceKrw:      priceKrw || '',
           lineTotal:     lineTotal || '',
@@ -1942,6 +1952,11 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   // 14. 진행 수량 (제품 단위)
   html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>';
 
+  // 14.5. 가격체크 (제품 단위, 신규) — 마켓 가격 vs 신청 가격 비교
+  html += '<td><div class="brand-app-pricecheck-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '">'
+        + renderBrandAppPriceCheckCell(a, idx, p)
+        + '</div></td>';
+
   // 15. 상품 가격(엔) (제품 단위)
   html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (priceJpy > 0 ? '¥ ' + priceJpy.toLocaleString('ja-JP') : dash) + '</td>';
 
@@ -3327,6 +3342,82 @@ function _rerenderBrandAppPaymentCell(applicationId) {
     var idx = parseInt(cell.getAttribute('data-product-idx'), 10) || 0;
     cell.innerHTML = renderBrandAppPaymentFlagsCell(cur, idx);
   });
+}
+
+// ─── 가격체크 셀 (제품별 4상태 드롭다운) ────────────────────────────
+//   products[i].price_check : 'higher' | 'lower' | 'equal' | null/undefined
+//   마켓 등록 가격 vs 신청 금액 비교용. 관리자가 행별로 직접 선택.
+//   DB 마이그레이션 없이 jsonb 키 추가만으로 동작.
+var BRAND_APP_PRICECHECK_OPTS = [
+  { val: '',       label: '확인 필요', cls: 'pc-empty'  },
+  { val: 'higher', label: '가격높음',  cls: 'pc-higher' },
+  { val: 'lower',  label: '가격낮음',  cls: 'pc-lower'  },
+  { val: 'equal',  label: '가격동일',  cls: 'pc-equal'  }
+];
+
+function renderBrandAppPriceCheckCell(a, productIndex, p) {
+  var val = (p && p.price_check) || '';
+  var cur = BRAND_APP_PRICECHECK_OPTS.find(function(o){ return o.val === val; }) || BRAND_APP_PRICECHECK_OPTS[0];
+  var optionsHtml = BRAND_APP_PRICECHECK_OPTS.map(function(o){
+    return '<option value="' + o.val + '"' + (o.val === val ? ' selected' : '') + '>' + o.label + '</option>';
+  }).join('');
+  return '<select class="brand-app-pricecheck-select ' + cur.cls + '"'
+       + ' onchange="onBrandAppPriceCheckChange(\'' + esc(a.id) + '\',' + productIndex + ',this.value)"'
+       + ' onclick="event.stopPropagation()">'
+       + optionsHtml
+       + '</select>';
+}
+
+// 가격체크 드롭다운 변경 → products jsonb 패치 (낙관적 락)
+async function onBrandAppPriceCheckChange(applicationId, productIndex, newVal) {
+  var cur = _findBrandApp(applicationId);
+  if (!cur || !Array.isArray(cur.products)) return;
+  var oldProducts = cur.products;
+  var oldVal = (oldProducts[productIndex] && oldProducts[productIndex].price_check) || null;
+
+  var newProducts = oldProducts.slice();
+  newProducts[productIndex] = Object.assign({}, newProducts[productIndex]);
+  if (newVal === '') {
+    delete newProducts[productIndex].price_check; // 빈 값은 키 제거 (jsonb 깔끔)
+  } else {
+    newProducts[productIndex].price_check = newVal;
+  }
+
+  // 낙관적 UI 갱신
+  cur.products = newProducts;
+  _rerenderBrandAppPriceCheckCell(applicationId, productIndex);
+
+  var res = await updateBrandApplication(applicationId, { products: newProducts }, cur.version);
+  if (res && res.conflict) {
+    cur.products = oldProducts;
+    _rerenderBrandAppPriceCheckCell(applicationId, productIndex);
+    toast('이미 다른 곳에서 변경됐습니다. 새로고침 후 다시 시도하세요', 'error');
+    return;
+  }
+  if (!res || !res.ok) {
+    cur.products = oldProducts;
+    _rerenderBrandAppPriceCheckCell(applicationId, productIndex);
+    toast('가격체크 저장 실패: ' + ((res && res.error) || 'unknown'), 'error');
+    return;
+  }
+  // 서버 응답으로 version·products 동기화 (트리거가 다른 키도 갱신할 수 있음)
+  if (res.data) {
+    if (typeof res.data.version === 'number') cur.version = res.data.version;
+    if (res.data.products != null) cur.products = res.data.products;
+  }
+  _rerenderBrandAppPriceCheckCell(applicationId, productIndex);
+  // 가격체크 변경은 입금여부 트리거에 의해 products 전체가 갱신되므로 입금여부 셀도 재렌더
+  _rerenderBrandAppPaymentCell(applicationId);
+}
+
+function _rerenderBrandAppPriceCheckCell(applicationId, productIndex) {
+  var cell = document.querySelector(
+    '.brand-app-pricecheck-cell[data-id="' + applicationId + '"][data-product-idx="' + productIndex + '"]'
+  );
+  if (!cell) return;
+  var cur = _findBrandApp(applicationId);
+  if (!cur || !cur.products) return;
+  cell.innerHTML = renderBrandAppPriceCheckCell(cur, productIndex, cur.products[productIndex]);
 }
 
 function enterOrientSheetSentEdit(btnEl) {
