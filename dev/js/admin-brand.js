@@ -399,7 +399,12 @@ async function exportBrandApplicationsExcel() {
           productName:   p.name || '',
           productNameJa: p.name_ja || '',
           productUrl:    p.url || '',
-          memo:          (p && p.admin_memo) || '',
+          memo:          (function(){
+            // migration 123 이후: brand_application_memos summary 의 (app_id, idx) 최신 메모
+            var k = a.id + '_' + idx;
+            var s = (_brandAppMemoSummaries && _brandAppMemoSummaries[k]) || null;
+            return s && s.latest ? s.latest : '';
+          })(),
           qty:           qty || '',
           priceCheck:    priceCheckKo(p.price_check),
           priceJpy:      priceJpy || '',
@@ -886,9 +891,10 @@ function renderBrandLongPending(apps) {
 }
 
 var _brandAppHistoryCounts = {};
-var _brandAppMemoSummaries = {};      // {appId: {count, latest}}
+var _brandAppMemoSummaries = {};      // {`${appId}_${productIdx}`: {count, latest}} — migration 123 이후 페어 키
 var _brandAppMemoModalCurrentId = null;
-var _brandAppMemoModalCache = [];     // open된 신청의 메모 배열 (memory)
+var _brandAppMemoModalCurrentProductIdx = 0;  // 현재 열린 모달의 제품 인덱스
+var _brandAppMemoModalCache = [];     // open된 신청·제품의 메모 배열 (memory)
 
 // 인라인 편집 성공 후 카운트 캐시만 +1 (배지 미표시. 다음 더보기 메뉴 열 때 새 카운트 반영)
 function _refreshBrandAppHistoryButton(id) {
@@ -2424,16 +2430,22 @@ async function submitNewBrandApp() {
   }
 }
 
-// ─── 내부 메모 (multi-entry) 모달 ────────────────────────────
-async function openBrandAppMemoModal(id) {
+// ─── 내부 메모 (multi-entry, 제품별) 모달 ────────────────────────────
+// migration 123 이후: (application_id, product_idx) 페어 단위 메모.
+// 메모 셀 ✎ 클릭 또는 코드에서 직접 호출. productIdx 미지정 시 0.
+async function openBrandAppMemoModal(id, productIdx) {
   _brandAppMemoModalCurrentId = id;
+  _brandAppMemoModalCurrentProductIdx = (typeof productIdx === 'number' && productIdx >= 0) ? productIdx : 0;
   var cur = _findBrandApp(id);
+  var prods = (cur && Array.isArray(cur.products)) ? cur.products : [];
+  var product = prods[_brandAppMemoModalCurrentProductIdx] || {};
+  var productName = product.name || ('제품 ' + (_brandAppMemoModalCurrentProductIdx + 1));
   var modal = document.getElementById('brandAppMemoModal');
   var titleEl = document.getElementById('brandAppMemoTitle');
   var bodyEl  = document.getElementById('brandAppMemoBody');
   var newInput = document.getElementById('brandAppMemoNewInput');
   if (!modal || !titleEl || !bodyEl) return;
-  titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + (cur.brand_name || '') : '신청') + ' — 내부 메모';
+  titleEl.textContent = (cur ? (cur.application_no || '') + ' · ' + productName : ('제품 ' + (_brandAppMemoModalCurrentProductIdx + 1))) + ' — 내부 메모';
   bodyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px"><span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (newInput) newInput.value = '';
   modal.classList.add('open');
@@ -2445,19 +2457,21 @@ function closeBrandAppMemoModal() {
   var modal = document.getElementById('brandAppMemoModal');
   if (modal) modal.classList.remove('open');
   _brandAppMemoModalCurrentId = null;
+  _brandAppMemoModalCurrentProductIdx = 0;
 }
 
 async function loadBrandAppMemoList() {
   if (!_brandAppMemoModalCurrentId) return;
-  var rows = await fetchBrandAppMemos(_brandAppMemoModalCurrentId);
+  var rows = await fetchBrandAppMemos(_brandAppMemoModalCurrentId, _brandAppMemoModalCurrentProductIdx);
   _brandAppMemoModalCache = rows || [];
   renderBrandAppMemoList();
-  // 목록 셀 카운트 동기화
-  _brandAppMemoSummaries[_brandAppMemoModalCurrentId] = {
+  // 목록 셀 카운트 동기화 — 페어 키
+  var key = _brandAppMemoModalCurrentId + '_' + _brandAppMemoModalCurrentProductIdx;
+  _brandAppMemoSummaries[key] = {
     count: _brandAppMemoModalCache.length,
     latest: _brandAppMemoModalCache.length > 0 ? _brandAppMemoModalCache[0].text : null
   };
-  _refreshBrandAppMemoCell(_brandAppMemoModalCurrentId);
+  _refreshBrandAppMemoCell(_brandAppMemoModalCurrentId, _brandAppMemoModalCurrentProductIdx);
 }
 
 function renderBrandAppMemoList() {
@@ -2541,7 +2555,7 @@ async function submitNewBrandAppMemo() {
   input.disabled = true;
   var name = currentAdminInfo?.name || currentUser?.email || '관리자';
   var authorId = currentUser?.id || null;
-  var result = await insertBrandAppMemo(_brandAppMemoModalCurrentId, text, authorId, name);
+  var result = await insertBrandAppMemo(_brandAppMemoModalCurrentId, text, authorId, name, _brandAppMemoModalCurrentProductIdx);
   input.disabled = false;
   if (!result.ok) { toast('추가 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
   input.value = '';
@@ -2556,7 +2570,6 @@ function _refreshBrandAppMemoCell(applicationId, productIdx) {
   var cur = _findBrandApp(applicationId);
   if (!cur) return;
   var prods = Array.isArray(cur.products) ? cur.products : [];
-  var locked = cur.status === 'done' || cur.status === 'rejected';
   var cells = document.querySelectorAll('#brandAppTableBody td .brand-app-memo-cell[data-id="' + applicationId + '"]');
   cells.forEach(function(cell) {
     var cidx = parseInt(cell.dataset.productIdx, 10);
@@ -2565,25 +2578,55 @@ function _refreshBrandAppMemoCell(applicationId, productIdx) {
   });
 }
 
-// 메모 셀 inner HTML — products[i].admin_memo 텍스트 + 인라인 편집 버튼
+// 메모 셀 inner HTML — brand_application_memos 의 (app_id, product_idx) 최신 메모 + 개수 배지 + 모달 진입 버튼
+// (migration 123 이후: products[i].admin_memo 폐기, brand_application_memos.product_idx 사용)
 function renderMemoCellInner(a, idx, p) {
   var locked = a.status === 'done' || a.status === 'rejected';
-  return renderMemoDisplay((p && p.admin_memo) || '', !!locked);
+  var summaryKey = a.id + '_' + idx;
+  var summary = (_brandAppMemoSummaries && _brandAppMemoSummaries[summaryKey]) || null;
+  var latestText = summary && summary.latest ? String(summary.latest) : '';
+  var count = summary && summary.count ? summary.count : 0;
+  return renderProductMemoDisplay(latestText, count, !!locked);
+}
+
+// 셀 표시: 최신 메모 1줄 + 개수 배지 + ✎ (모달 진입)
+function renderProductMemoDisplay(latestText, count, locked) {
+  var preview = '';
+  if (latestText) {
+    var t = String(latestText).trim();
+    if (t.length > 40) t = t.slice(0, 40) + '…';
+    preview = '<span style="color:var(--ink);font-size:11px;line-height:1.35">' + esc(t) + '</span>';
+  } else {
+    preview = '<span style="color:var(--muted);font-size:11px">—</span>';
+  }
+  var badge = count > 0
+    ? '<span style="display:inline-block;margin-left:4px;padding:0 6px;background:var(--pink);color:#fff;border-radius:8px;font-size:10px;font-weight:600;line-height:14px;vertical-align:middle">' + count + '</span>'
+    : '';
+  var btnTitle = locked ? '완료/거절 신청 — 모달 열람만 가능' : (count > 0 ? '메모 편집 (' + count + '건)' : '메모 추가');
+  var btn = '<button type="button" class="brand-app-memo-open-btn" onclick="openBrandAppMemoModalFromCell(this)" title="' + esc(btnTitle) + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_note</span></button>';
+  return '<div style="padding-right:22px;line-height:1.4;display:flex;align-items:center;flex-wrap:wrap;gap:2px">' + preview + badge + '</div>' + btn;
+}
+
+// 메모 셀 ✎ 버튼 클릭 → 모달 진입 (제품별)
+function openBrandAppMemoModalFromCell(btnEl) {
+  var cell = btnEl.closest('.brand-app-memo-cell');
+  if (!cell) return;
+  var appId = cell.dataset.id;
+  var productIdx = parseInt(cell.dataset.productIdx, 10);
+  if (!appId || isNaN(productIdx)) return;
+  openBrandAppMemoModal(appId, productIdx);
 }
 
 // 제품 jsonb 변경을 sub-field 단위로 풀어서 가상 history rows 반환
+// [migration 123] admin_memo 항목 제거됨 — 제품별 메모는 brand_application_memos 로 이전되어
+// products 배열의 admin_memo 키는 더 이상 존재하지 않음. 메모 변경은 별도 memo_added/edited/deleted
+// 행으로 history 에 기록됨 (renderBrandAppHistoryTableHtml 의 별도 분기)
 var BRAND_APP_PRODUCT_SUBFIELDS = [
   {key: 'transfer_fee_krw', label: '이체수수료(건)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(fmtKrw(Number(v))); }},
   {key: 'qty',              label: '수량',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(Number(v).toLocaleString('ja-JP')); }},
   {key: 'price',            label: '상품 가격(엔)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc('¥ ' + Number(v).toLocaleString('ja-JP')); }},
   {key: 'name',             label: '제품명',        fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
-  {key: 'url',              label: 'URL',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
-  {key: 'admin_memo',       label: '내부 메모',     fmt: function(v){
-    if (v == null || v === '') return '<span style="color:var(--muted)">—</span>';
-    var s = String(v);
-    if (s.length > 80) s = s.slice(0, 80) + '…';
-    return esc(s);
-  }}
+  {key: 'url',              label: 'URL',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }}
 ];
 
 function _expandBrandAppProductsHistoryRow(h) {
@@ -2639,6 +2682,27 @@ function renderBrandAppHistoryTableHtml(historyArr) {
       } else {
         rows = rows.concat(expanded);
       }
+    } else if (h.field_name === 'memo_added' || h.field_name === 'memo_edited' || h.field_name === 'memo_deleted') {
+      // 메모 변경 — product_idx 가 있으면 [제품 N] productName 표시 (migration 123 이후)
+      var memoVal = h.new_value || h.old_value || {};
+      var pIdx = (memoVal && typeof memoVal.product_idx === 'number') ? memoVal.product_idx : null;
+      var labelHtml;
+      if (pIdx === null) {
+        labelHtml = '<span style="color:var(--muted)">공통</span>';
+      } else {
+        var cur = _findBrandApp(h.application_id);
+        var prods = cur && Array.isArray(cur.products) ? cur.products : [];
+        var pname = (prods[pIdx] && prods[pIdx].name) ? prods[pIdx].name : '';
+        labelHtml = '<span style="font-weight:500">[제품 ' + (pIdx + 1) + ']</span>' + (pname ? ' <span style="color:var(--muted);font-size:11px">' + esc(pname) + '</span>' : '');
+      }
+      rows.push({
+        changed_at: h.changed_at,
+        changed_by_name: h.changed_by_name,
+        _productLabel: labelHtml,
+        _fieldLabel: _brandAppHistoryFieldLabel(h.field_name),
+        _oldHtml: _brandAppHistoryFormatValue(h.field_name, h.old_value),
+        _newHtml: _brandAppHistoryFormatValue(h.field_name, h.new_value)
+      });
     } else {
       rows.push({
         changed_at: h.changed_at,
@@ -3495,108 +3559,8 @@ async function confirmOrientSheetSentEdit(anyChildEl) {
   toast(nextDate ? '오리엔시트 전달 정보가 저장되었습니다.' : '오리엔시트 미전달로 변경했습니다.');
 }
 
-function renderMemoDisplay(memoText, locked) {
-  var safe = (memoText || '').trim();
-  var color = safe ? 'var(--ink)' : 'var(--muted)';
-  var content = safe ? esc(safe) : '—';
-  // 요청사항 셀과 동일한 기준: 40자 초과 또는 개행 포함 시 더보기 노출
-  var hasMore = !!safe && (safe.length > 40 || /\n/.test(safe));
-  var moreLink = hasMore
-    ? '<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer;margin-top:2px;display:inline-block" onclick="event.stopPropagation();openMsgModal(this)" data-msg="' + esc(safe) + '">더보기</a>'
-    : '';
-  return '<div class="memo-display" style="font-size:11px;color:' + color + ';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4;padding-right:22px;white-space:pre-wrap" title="' + esc(safe) + '">' + content + '</div>'
-    + moreLink
-    + '<button type="button" class="memo-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterMemoEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '메모 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
-}
-
-function _restoreMemoDisplay(cell, memoText, locked) {
-  cell.innerHTML = renderMemoDisplay(memoText, locked);
-}
-
-function enterMemoEdit(btnEl) {
-  var cell = btnEl.closest('.brand-app-memo-cell');
-  if (!cell) return;
-  var id = cell.dataset.id;
-  var productIdx = parseInt(cell.dataset.productIdx, 10);
-  var cur = _findBrandApp(id);
-  if (!cur) return;
-  var prods = Array.isArray(cur.products) ? cur.products : [];
-  var p = prods[productIdx] || {};
-  var original = (p.admin_memo || '').trim();
-  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
-    + '<textarea class="memo-edit-input" data-original="' + esc(original) + '" onkeydown="handleMemoEditKey(event, this)" style="width:100%;min-height:60px;font-size:11px;line-height:1.4;padding:4px 6px;border:1px solid var(--pink);border-radius:4px;resize:vertical;font-family:inherit;color:var(--ink)">' + esc(original) + '</textarea>'
-    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
-      + '<button type="button" onclick="cancelMemoEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
-      + '<button type="button" onclick="confirmMemoEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
-    + '</div>'
-  + '</div>';
-  var ta = cell.querySelector('.memo-edit-input');
-  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-}
-
-function handleMemoEditKey(ev, taEl) {
-  if (ev.key === 'Escape') {
-    ev.preventDefault();
-    cancelMemoEdit(taEl);
-  } else if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') {
-    ev.preventDefault();
-    confirmMemoEdit(taEl);
-  }
-}
-
-function cancelMemoEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-memo-cell');
-  if (!cell) return;
-  var id = cell.dataset.id;
-  var productIdx = parseInt(cell.dataset.productIdx, 10);
-  var cur = _findBrandApp(id);
-  var prods = Array.isArray(cur?.products) ? cur.products : [];
-  var p = prods[productIdx] || {};
-  var memoText = (p.admin_memo || '').trim();
-  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
-  _restoreMemoDisplay(cell, memoText, !!locked);
-}
-
-async function confirmMemoEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-memo-cell');
-  if (!cell) return;
-  var ta = cell.querySelector('.memo-edit-input');
-  if (!ta) return;
-  var id = cell.dataset.id;
-  var productIdx = parseInt(cell.dataset.productIdx, 10);
-  var cur = _findBrandApp(id);
-  if (!cur) return;
-  var prods = Array.isArray(cur.products) ? cur.products : [];
-  var p = prods[productIdx] || {};
-  var nextValue = (ta.value || '').trim();
-  var prevValue = (p.admin_memo || '').trim();
-  if (nextValue === prevValue) {
-    _restoreMemoDisplay(cell, prevValue, false);
-    return;
-  }
-  var prevVersion = cur.version;
-  ta.disabled = true;
-  var nextProducts = prods.map(function(prod, i) {
-    if (i !== productIdx) return prod;
-    var updated = Object.assign({}, prod);
-    if (nextValue) { updated.admin_memo = nextValue; } else { delete updated.admin_memo; }
-    return updated;
-  });
-  var result = await updateBrandApplication(id, {products: nextProducts}, prevVersion);
-  ta.disabled = false;
-  if (result.conflict) {
-    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
-    await loadBrandApplications();
-    return;
-  }
-  if (!result.ok) {
-    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
-    return;
-  }
-  cur.products = nextProducts;
-  _syncBrandAppCur(cur, result, prevVersion);
-  _restoreMemoDisplay(cell, nextValue, false);
-  _refreshBrandAppHistoryButton(id);
-  toast('메모가 저장되었습니다.');
-}
+// [migration 123] 인라인 메모 편집 함수 6종(renderMemoDisplay/_restoreMemoDisplay/enterMemoEdit/
+// handleMemoEditKey/cancelMemoEdit/confirmMemoEdit) 제거.
+// 제품별 메모는 brand_application_memos 테이블 + brandAppMemoModal 모달로 통일됨.
+// 셀 표시는 renderMemoCellInner → renderProductMemoDisplay → openBrandAppMemoModalFromCell 흐름.
 

@@ -298,7 +298,7 @@ grep -rn "admin_memo\|adminMemo\|brand-app-memo" \
 
 3. **롤백 SQL 보강**: products[0].admin_memo → admin_memo 컬럼 역방향 복사 SQL 추가.
 
-### 검증 결과
+### 검증 결과 (마이그레이션 122)
 - **개발 DB (`qysmxtipobomefudyixw`): 2026-05-14 적용 완료 + 검증 통과**
   - V0-PRE: 0 (백필 누락 행 없음)
   - V0-COUNT: 14 (백필 대상)
@@ -308,4 +308,41 @@ grep -rn "admin_memo\|adminMemo\|brand-app-memo" \
   - V4: 0 (트리거의 NEW.admin_memo/OLD.admin_memo 식별자 제거 확인 — 주석 단어 잔존은 거짓 양성)
   - V5: 14 파라미터 (p_admin_memo 제거)
   - V6: 15 (기존 admin_memo 이력 행 감사 목적 보존)
-- 운영 DB (`twofagomeizrtkwlhsuv`): 사용자 확인 후 적용
+
+---
+
+## 후속 결정 — multi-entry 제품별 메모로 전환 (2026-05-14)
+
+### 배경
+122 적용 후 사용자가 운영서버의 `brand_application_memos` (multi-entry) 패턴을 보고 "제품별로 같은 방식이 구동돼야 한다" 요청. 단일 텍스트 `products[i].admin_memo` 로는 운영서버의 작성자·시각·수정/삭제 audit + 모달 UX 가 구현 불가능 → multi-entry 시스템으로 전환 결정.
+
+### 변경 범위 (마이그레이션 123·124 + UI 재설계)
+
+#### DB
+- **마이그레이션 123**: `brand_application_memos.product_idx integer NOT NULL DEFAULT 0` 컬럼 추가. (application_id, product_idx, created_at DESC) 인덱스. `record_brand_application_memo_history` 트리거 함수 갱신 (jsonb 페이로드에 product_idx). 122 의 `products[i].admin_memo` → `brand_application_memos` 백필 (14건) → `products[i]` 의 admin_memo 키 제거
+- **마이그레이션 124**: 080 백필분 (12건) 과 123 백필분 (14건) 의 동일 텍스트 중복 12쌍 정리. 081 트리거 임시 비활성화 → 080 백필분 12건 삭제 → 트리거 재활성화. 결과: legacy 메모 14건, 모두 history 에 매칭
+
+#### 클라이언트
+- **셀 표시 변경**: 인라인 textarea 편집 제거. 셀에 최신 메모 1줄 + 개수 배지 + ✎ 모달 진입 버튼
+- **모달 재사용 확장**: 기존 `brandAppMemoModal` (운영서버 패턴) 을 그대로 활용. `openBrandAppMemoModal(applicationId, productIdx)` 시그니처 확장. 헤더에 "신청번호 · 제품명 — 내부 메모" 표시. 본문은 그 제품 메모만 필터
+- **변경 이력 모달 갱신**: `memo_added`/`memo_edited`/`memo_deleted` 이력 행에 `product_idx` 가 있으면 "[제품 N] 제품명" 라벨 표시 — 신청 단위 변경 이력 모달에서 제품별 메모 변경 이력이 식별 가능
+
+### 영향 파일
+- `supabase/migrations/123_brand_app_memo_per_product.sql` (신규)
+- `supabase/migrations/124_brand_app_memo_dedup_legacy.sql` (신규)
+- `dev/lib/storage.js` — `fetchBrandAppMemos`/`insertBrandAppMemo` 시그니처 확장, `fetchBrandAppMemoSummaries` 페어 키 그룹핑으로 재설계
+- `dev/js/admin-brand.js` — 인라인 메모 편집 함수 6종 제거(renderMemoDisplay/_restoreMemoDisplay/enterMemoEdit/handleMemoEditKey/cancelMemoEdit/confirmMemoEdit), `renderMemoCellInner`/`renderProductMemoDisplay`/`openBrandAppMemoModalFromCell` 신규, 모달 함수 product_idx 인식 확장, 변경 이력 모달 분기 추가, 엑셀 export 갱신
+
+### 검증 결과 (마이그레이션 123·124)
+- **개발 DB**: 2026-05-14 적용 완료 + 검증 통과
+  - 123 V1~V7: product_idx 컬럼/인덱스/트리거 갱신/백필 14건/history 14건 매칭 모두 정상
+  - 124 V1~V4: 중복 그룹 0건, legacy 메모 14건, history 링크 14건, memo_deleted 노이즈 0건
+- **운영 DB**: 미적용 — 122 + 123 + 124 순서로 한 번에 적용 예정 (사용자 확인 후)
+
+### 운영 DB 적용 가이드 (다음 운영 배포 시)
+운영 DB 에는 122·123·124 모두 미적용 상태. 다음 순서로 SQL Editor 한 세션에서 차례로 실행:
+1. 122 (admin_memo 컬럼 → products[0].admin_memo 백필 + 컬럼 DROP + 트리거/RPC 갱신)
+2. 123 (brand_application_memos.product_idx 추가 + products[i].admin_memo → brand_application_memos 백필 + products 정리)
+3. 124 (080↔123 중복 legacy 메모 정리)
+
+각 마이그레이션 적용 후 검증 SQL 실행 권장.
