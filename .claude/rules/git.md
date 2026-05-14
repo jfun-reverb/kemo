@@ -77,6 +77,7 @@ feat: ...
 - [ ] DB 변경 있으면 개발 DB에 적용 + 검증
 - [ ] **`reverb-reviewer` 에이전트 호출 — 모든 commit 직전 예외 없이** (단순 한 줄 오탈자 제외)
 - [ ] Supabase/Auth 관련 변경이면 `reverb-supabase-expert` 호출
+- [ ] **신규 기능·DB 변경·동작 변경이 있으면 → 같은 커밋에 FEATURE_SPEC.md + CLAUDE.md 업데이트 포함** (상세 규칙: `.claude/rules/docs-tracking.md`)
 - [ ] 설계 분기점 2개 이상이면 `reverb-planner`로 경우의 수 탐색 선행
 
 ## 외부 시스템 설정 양 서버 동기화 (필수)

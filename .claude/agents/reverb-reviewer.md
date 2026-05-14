@@ -68,6 +68,7 @@ model: sonnet
 - [ ] 새 규칙/패턴 등장 시 `.claude/rules/` 해당 파일 업데이트 필요? (없으면 신규 파일 제안)
 - [ ] `docs/FEATURE_SPEC.md`에 반영 필요한 기능 변경인가?
 - [ ] 마이그레이션 파일에 목적/롤백 주석이 있는가?
+- [ ] **요청서(`docs/specs/<날짜>-<주제>.md`)가 있는 PR은 요청서 항목 ↔ 실제 변경 diff 일치 확인** — 요청서에 명시된 파일·함수·마이그레이션이 diff에 전부 반영됐는지, diff에 요청서 범위 밖 변경이 없는지 교차 체크. 불일치 시 🟡 Warning + 구체적 누락/초과 항목 명시
 - [ ] **`docs/OPERATOR_GUIDE.md` 변경 시 동기화 마커 점검** — 수정한 섹션 헤더 바로 아래 `<!-- NOTION:SYNCED YYYY-MM-DD -->` 가 `<!-- NOTION:PENDING -->` 로 바뀌었는지. 안 바뀌었으면 🟡 Warning + 변경 섹션 번호 명시 (`.claude/rules/notion-sync.md` 규약)
 - [ ] **`docs/email-templates/` 변경 시 `_templates/` 미러 동기화 점검** — `git diff --stat` 에 `docs/email-templates/*.html` 변경이 있으면 `cmp -s docs/email-templates/<file> supabase/functions/notify-brand-application/_templates/<file>` 명령을 Bash로 실행해서 일치 검증. 불일치면 🔴 Critical + `bash scripts/sync-email-templates.sh` 실행 지시
 - [ ] **CLAUDE.md `## Features` 섹션 누락 감지 강화** — 신규 페인(adminPane-*) 추가 / 신규 lookup `kind` / 신규 RPC / 신규 마이그레이션이 있는데 CLAUDE.md 본문에 해당 키워드 grep 결과 0건이면 🟡 Warning
