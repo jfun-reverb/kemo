@@ -216,13 +216,17 @@ GRANT EXECUTE ON FUNCTION public.delete_admin_completely(uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.update_deliverable_status(uuid, text, integer, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.update_deliverable_status(uuid, text, integer, text, text) TO authenticated;
 
--- record_caution_history: 주의사항 이력 기록 RPC (campaign_admin 이상, 077)
+-- record_caution_history: 주의사항/참여방법/NG 변경 이력 기록 RPC (campaign_admin 이상)
+-- 시그니처: 077 에서 11개 파라미터로 도입 → 109 에서 NG 4개 추가로 15개 확장 (2026-05-12, 084 작성 후 변경됨)
+-- 11개 버전은 109 적용 시점에 DROP 됨 — 현재 운영 DB 시그니처는 15개만 존재
 -- 이미 REVOKE FROM PUBLIC + GRANT TO authenticated 적용됨 — 재확인
 REVOKE ALL ON FUNCTION public.record_caution_history(
-  uuid, uuid, uuid, jsonb, jsonb, uuid, uuid, jsonb, jsonb, integer, boolean
+  uuid, uuid, uuid, jsonb, jsonb, uuid, uuid, jsonb, jsonb, integer, boolean,
+  uuid, uuid, jsonb, jsonb
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.record_caution_history(
-  uuid, uuid, uuid, jsonb, jsonb, uuid, uuid, jsonb, jsonb, integer, boolean
+  uuid, uuid, uuid, jsonb, jsonb, uuid, uuid, jsonb, jsonb, integer, boolean,
+  uuid, uuid, jsonb, jsonb
 ) TO authenticated;
 
 
