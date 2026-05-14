@@ -4753,26 +4753,39 @@ async function deleteBrandAppMemo(memoId) {
     return {ok: true};
   } catch(e) { console.error('[deleteBrandAppMemo]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
-// 신청별·제품별 메모 카운트 + latest 텍스트 (목록 셀 표시용, migration 123 이후)
+// 신청별·제품별 메모 카운트 + latest 텍스트 + 미확인 메모 수 (목록 셀 표시용, migration 125 이후)
 //   반환 키: `${application_id}_${product_idx}` (페어 키)
-//   값: {count, latest} — 최신 메모 텍스트 + 누적 카운트
+//   값: {count, unreadCount, latest} — 총 메모 개수 + 본인 미확인 개수 + 최신 메모 텍스트
 async function fetchBrandAppMemoSummaries() {
   if (!db) return {};
   try {
-    const {data, error} = await db?.from('brand_application_memos')
-      .select('application_id, product_idx, text, created_at')
-      .order('created_at', {ascending: false})
-      .limit(100000);
+    const {data, error} = await db?.rpc('get_brand_app_memo_summaries');
     if (error) throw error;
     const summary = {};
     (data || []).forEach(r => {
       const key = r.application_id + '_' + (r.product_idx || 0);
-      if (!summary[key]) summary[key] = {count: 0, latest: null};
-      summary[key].count++;
-      if (!summary[key].latest) summary[key].latest = r.text;
+      summary[key] = {
+        count: r.total_count || 0,
+        unreadCount: r.unread_count || 0,
+        latest: r.latest_text || null
+      };
     });
     return summary;
   } catch(e) { console.error('[fetchBrandAppMemoSummaries]', e); return {}; }
+}
+
+// (application_id, product_idx) 페어의 메모를 본인 기준 일괄 읽음 처리 (migration 125)
+async function markBrandAppMemosRead(applicationId, productIdx) {
+  if (!db || !applicationId) return {ok: false, error: 'no_db_or_id'};
+  try {
+    const idx = (typeof productIdx === 'number' && productIdx >= 0) ? productIdx : 0;
+    const {data, error} = await db?.rpc('mark_brand_app_memos_read', {
+      p_application_id: applicationId,
+      p_product_idx: idx
+    });
+    if (error) throw error;
+    return {ok: true, marked: data || 0};
+  } catch(e) { console.error('[markBrandAppMemosRead]', e); return {ok: false, error: e?.message || 'unknown'}; }
 }
 
 // 신청별 history 건수 조회 (작은 카운트 쿼리 — 1회 호출)

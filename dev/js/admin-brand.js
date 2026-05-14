@@ -2462,16 +2462,23 @@ function closeBrandAppMemoModal() {
 
 async function loadBrandAppMemoList() {
   if (!_brandAppMemoModalCurrentId) return;
-  var rows = await fetchBrandAppMemos(_brandAppMemoModalCurrentId, _brandAppMemoModalCurrentProductIdx);
+  var appId = _brandAppMemoModalCurrentId;
+  var productIdx = _brandAppMemoModalCurrentProductIdx;
+  var rows = await fetchBrandAppMemos(appId, productIdx);
   _brandAppMemoModalCache = rows || [];
   renderBrandAppMemoList();
-  // 목록 셀 카운트 동기화 — 페어 키
-  var key = _brandAppMemoModalCurrentId + '_' + _brandAppMemoModalCurrentProductIdx;
+  // migration 125: 모달이 메모를 표시 = 본인이 봤다는 의도 → 일괄 read 처리
+  if (_brandAppMemoModalCache.length > 0) {
+    await markBrandAppMemosRead(appId, productIdx);
+  }
+  // 목록 셀 카운트 동기화 — 페어 키 (본인 기준 unreadCount=0, 다른 관리자 영향 없음)
+  var key = appId + '_' + productIdx;
   _brandAppMemoSummaries[key] = {
     count: _brandAppMemoModalCache.length,
+    unreadCount: 0,
     latest: _brandAppMemoModalCache.length > 0 ? _brandAppMemoModalCache[0].text : null
   };
-  _refreshBrandAppMemoCell(_brandAppMemoModalCurrentId, _brandAppMemoModalCurrentProductIdx);
+  _refreshBrandAppMemoCell(appId, productIdx);
 }
 
 function renderBrandAppMemoList() {
@@ -2578,19 +2585,20 @@ function _refreshBrandAppMemoCell(applicationId, productIdx) {
   });
 }
 
-// 메모 셀 inner HTML — brand_application_memos 의 (app_id, product_idx) 최신 메모 + 개수 배지 + 모달 진입 버튼
-// (migration 123 이후: products[i].admin_memo 폐기, brand_application_memos.product_idx 사용)
+// 메모 셀 inner HTML — brand_application_memos 의 (app_id, product_idx) 최신 메모 + 미확인 배지 + 모달 진입 버튼
+// (migration 123: products[i].admin_memo 폐기, migration 125: 분홍 배지 = 미확인 메모 수)
 function renderMemoCellInner(a, idx, p) {
   var locked = a.status === 'done' || a.status === 'rejected';
   var summaryKey = a.id + '_' + idx;
   var summary = (_brandAppMemoSummaries && _brandAppMemoSummaries[summaryKey]) || null;
   var latestText = summary && summary.latest ? String(summary.latest) : '';
-  var count = summary && summary.count ? summary.count : 0;
-  return renderProductMemoDisplay(latestText, count, !!locked);
+  var totalCount = summary && summary.count ? summary.count : 0;
+  var unreadCount = summary && summary.unreadCount ? summary.unreadCount : 0;
+  return renderProductMemoDisplay(latestText, totalCount, unreadCount, !!locked);
 }
 
-// 셀 표시: 최신 메모 1줄 + 개수 배지 + ✎ (모달 진입)
-function renderProductMemoDisplay(latestText, count, locked) {
+// 셀 표시: 최신 메모 1줄 + 미확인 배지(>0 일 때만) + ✎ (모달 진입)
+function renderProductMemoDisplay(latestText, totalCount, unreadCount, locked) {
   var preview = '';
   if (latestText) {
     var t = String(latestText).trim();
@@ -2599,10 +2607,13 @@ function renderProductMemoDisplay(latestText, count, locked) {
   } else {
     preview = '<span style="color:var(--muted);font-size:11px">—</span>';
   }
-  var badge = count > 0
-    ? '<span style="display:inline-block;margin-left:4px;padding:0 6px;background:var(--pink);color:#fff;border-radius:8px;font-size:10px;font-weight:600;line-height:14px;vertical-align:middle">' + count + '</span>'
+  // 미확인 메모가 있을 때만 분홍 배지
+  var badge = unreadCount > 0
+    ? '<span title="안 읽은 메모 ' + unreadCount + '건" style="display:inline-block;margin-left:4px;padding:0 6px;background:var(--pink);color:#fff;border-radius:8px;font-size:10px;font-weight:600;line-height:14px;vertical-align:middle">' + unreadCount + '</span>'
     : '';
-  var btnTitle = locked ? '완료/거절 신청 — 모달 열람만 가능' : (count > 0 ? '메모 편집 (' + count + '건)' : '메모 추가');
+  var btnTitle = locked
+    ? '완료/거절 신청 — 모달 열람만 가능'
+    : (totalCount > 0 ? '메모 ' + totalCount + '건' + (unreadCount > 0 ? ' · 안 읽음 ' + unreadCount : '') : '메모 추가');
   var btn = '<button type="button" class="brand-app-memo-open-btn" onclick="openBrandAppMemoModalFromCell(this)" title="' + esc(btnTitle) + '" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">edit</span></button>';
   return '<div style="padding-right:22px;line-height:1.4;display:flex;align-items:center;flex-wrap:wrap;gap:2px;width:100%">' + preview + badge + '</div>' + btn;
 }
