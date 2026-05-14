@@ -48,6 +48,14 @@
 - `migration NNN` → `마이그레이션 NNN (기능 설명)` 형태
 - 제목은 사용자가 한 줄만 읽고 어떤 작업인지 알 수 있도록 구체적으로
 
+### 적용 제외 (규칙 미적용 대상)
+아래 형태는 「참조 번호」 가 아닌 「식별자·자원 주소」이므로 한글 제목 동반 의무에서 제외:
+- **파일 경로**: `.claude/rules/interaction.md`, `dev/js/admin.js`, `supabase/migrations/121_*.sql` 등 — 그 자체로 위치를 가리키는 절대/상대 경로
+- **URL**: `https://github.com/...`, `https://dev.globalreverb.com/admin/`, GitHub PR/이슈 링크 — 클릭으로 즉시 확인 가능
+- **커밋 해시**: `3c95972`, `1bf9c16` 등 — 식별자 자체가 정보
+- **SQL 함수/객체 시그니처**: `record_caution_history(uuid, ..., jsonb)`, `public.campaigns.campaign_no` — 코드 레퍼런스 맥락
+- **DB 에러코드**: `42501`, `22023`, `23505` — PostgreSQL 표준 코드
+
 ### 서브 에이전트 결과 검열
 - 서브 에이전트(planner/reviewer/qa-tester/supabase-expert 등)가 참조 번호만 표기한 텍스트를 반환하면, **메인 Claude가 사용자에게 전달 전 한글 제목을 결합해 재가공**
 - 개발·기획 세션 모두 본 규칙 준수 의무
