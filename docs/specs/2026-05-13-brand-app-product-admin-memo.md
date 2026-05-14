@@ -266,3 +266,46 @@ grep -rn "admin_memo\|adminMemo\|brand-app-memo" \
 - 메모 텍스트에 멘션·태그·이미지 등 리치 텍스트 기능 — 단순 텍스트만
 - 메모 검색 기능 강화 — 기존 동작 유지 (없으면 추가 안 함)
 - 신청 전체 단위 메모 별도 보존 — 결정 사항대로 첫 제품에 백필 후 제거
+
+---
+
+## 구현 결과
+
+**구현일:** 2026-05-14
+**마이그레이션:** 122 (사양서 §1 후보였던 123 대신 실제 다음 번호 122 사용)
+**관련 커밋:** (예정 — dev 푸시 후 갱신)
+
+### 초안 대비 변경 사항
+
+#### 빠진 것
+- **`brand_application_history.field_name` CHECK 제약 갱신 SECTION 제거** (사양서 §4 SECTION 3 / 변경 범위 (3))
+  - 사유 1: `ALTER TABLE ADD CONSTRAINT` 는 기존 행 즉시 검증 → `field_name='admin_memo'` 인 이력 행이 있으면 23514 위반 에러
+  - 사유 2: 현재 CHECK 에 `memo_added`/`memo_edited`/`memo_deleted` 도 포함되어 있음 (마이그레이션 080+ 에서 추가). 사양서대로 4개로 줄이면 이 3종 신규 INSERT 가 차단되는 조용한 회귀
+  - 결정: CHECK 제약은 손대지 않음. 트리거가 admin_memo INSERT 를 안 하므로 신규 행은 안 생기고, 기존 행은 감사 목적 보존됨
+
+#### 추가된 것
+- `admin-brand.js` 의 `BRAND_APP_HISTORY_FIELD_LABELS.admin_memo` 라벨 그대로 유지 (기존 이력 행 표시용 — 사양서 §5 에서 언급 없었음)
+- 마이그레이션 파일 검증 SQL 보강: `V0-PRE`(백필 누락 행 사전 점검) + `V0-COUNT`(백필 대상 건수 캡쳐) + `V2-SAMPLE` 분리
+
+#### 달라진 것
+- 마이그레이션 번호: 사양서 §1 후보 123 → 실제 122 (사양서 작성 시점에 117~122 가 예약됐다고 가정했으나, 실제로는 121 까지만 사용됨)
+
+### 구현 중 기술 결정 사항
+
+1. **CHECK 제약 보존**: 위 "빠진 것" 항목 참조. 사양서가 `admin_memo` 만 제거하면 된다고 가정했으나, 실제 CHECK 는 `memo_*` 3종도 포함하고 있었음 + 기존 행 영향 확인 누락 → 통째로 미수정 결정.
+
+2. **백필 검증 SQL 강화**: supabase-expert 검토에서 제기된 경고에 따라 V0-PRE / V0-COUNT / V2 건수 대조 추가.
+
+3. **롤백 SQL 보강**: products[0].admin_memo → admin_memo 컬럼 역방향 복사 SQL 추가.
+
+### 검증 결과
+- **개발 DB (`qysmxtipobomefudyixw`): 2026-05-14 적용 완료 + 검증 통과**
+  - V0-PRE: 0 (백필 누락 행 없음)
+  - V0-COUNT: 14 (백필 대상)
+  - V1: 0 (admin_memo 컬럼 제거)
+  - V2: 14 (백필 결과 = V0-COUNT 일치)
+  - V3: CHECK 제약 보존 (admin_memo + memo_added/edited/deleted 포함된 8개 ARRAY 그대로)
+  - V4: 0 (트리거의 NEW.admin_memo/OLD.admin_memo 식별자 제거 확인 — 주석 단어 잔존은 거짓 양성)
+  - V5: 14 파라미터 (p_admin_memo 제거)
+  - V6: 15 (기존 admin_memo 이력 행 감사 목적 보존)
+- 운영 DB (`twofagomeizrtkwlhsuv`): 사용자 확인 후 적용

@@ -1578,7 +1578,7 @@ async function fetchBrandApplications(filters) {
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at, quote_sent_url,
         orient_sheet_sent_at, orient_sheet_sent_url,
-        status, admin_memo, request_note,
+        status, request_note,
         reviewer_channels,
         reviewed_by, reviewed_at,
         version, created_at, updated_at,
@@ -1656,7 +1656,6 @@ async function adminCreateBrandApplication({
   billingEmail = null,
   products,
   requestNote = null,
-  adminMemo = null,
   brandSync = true,
   reviewerChannels = null
 }) {
@@ -1676,7 +1675,6 @@ async function adminCreateBrandApplication({
         p_billing_email:     billingEmail,
         p_products:          products,
         p_request_note:      requestNote,
-        p_admin_memo:        adminMemo,
         p_brand_sync:        brandSync,
         p_reviewer_channels: reviewerChannels
       });
@@ -1690,8 +1688,8 @@ async function adminCreateBrandApplication({
   }
 }
 
-// 광고주 신청 상태 변경·견적 입력·메모 수정 (낙관적 락)
-// patch: {status?, final_quote_krw?, quote_sent_at?, admin_memo?, reviewed_by?, reviewed_at?}
+// 광고주 신청 상태 변경·견적 입력·제품 정보 수정 (낙관적 락)
+// patch: {status?, final_quote_krw?, quote_sent_at?, products?, reviewed_by?, reviewed_at?}
 // expectedVersion: UPDATE 시 버전 일치 확인. 불일치면 {ok:false, conflict:true}
 async function updateBrandApplication(id, patch, expectedVersion) {
   if (!db) return {ok: false, error: 'no_db'};
