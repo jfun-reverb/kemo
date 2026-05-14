@@ -2577,7 +2577,13 @@ var BRAND_APP_PRODUCT_SUBFIELDS = [
   {key: 'qty',              label: '수량',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(Number(v).toLocaleString('ja-JP')); }},
   {key: 'price',            label: '상품 가격(엔)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc('¥ ' + Number(v).toLocaleString('ja-JP')); }},
   {key: 'name',             label: '제품명',        fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
-  {key: 'url',              label: 'URL',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }}
+  {key: 'url',              label: 'URL',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
+  {key: 'admin_memo',       label: '내부 메모',     fmt: function(v){
+    if (v == null || v === '') return '<span style="color:var(--muted)">—</span>';
+    var s = String(v);
+    if (s.length > 80) s = s.slice(0, 80) + '…';
+    return esc(s);
+  }}
 ];
 
 function _expandBrandAppProductsHistoryRow(h) {
