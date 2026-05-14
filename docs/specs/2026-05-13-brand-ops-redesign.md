@@ -35,6 +35,10 @@
 | 모집기간 연장 기능 | **이번 작업에서 제외** (추후 결정) |
 | 계층 채번 v2 (B0023-A001-C002) | **이번 작업과 함께 운영 배포** |
 | 핵심 지표 | 모집률 / 결과물 제출률 / D-3 임박 / 7일 취소 |
+| 「외부 캠페인」 용어 | **「직접 등록 캠페인」으로 변경** |
+| 직접 등록 캠페인 → 신청 연결 시 번호 | **새 번호 자동 발급** — 옛 번호는 `legacy_no` 컬럼에 보존 |
+| 브랜드 상세에 「신청에 연결」 빠른 액션 | **추가** — 모달에서 이 브랜드의 신청 선택 |
+| 신청 연결 해제 (다시 직접 등록 캠페인으로) | **가능** — 동일하게 새 번호 자동 발급 |
 
 ---
 
@@ -158,13 +162,46 @@ UPDATE brands SET company_id = ... WHERE id = ANY(brand_ids);
 
 ### 4-4. 계층 채번 v2 운영 배포 (088~090)
 
-현재 dev에만 적용된 마이그레이션 088~090을 운영 DB에 적용. 채번 형식 `B0023-A001-C002` / 외부 캠페인 `B0023-C001` 사용.
+현재 dev에만 적용된 마이그레이션 088~090을 운영 DB에 적용. 채번 형식 `B0023-A001-C002` / 직접 등록 캠페인 `B0023-C001` 사용.
 
 **적용 순서** (PR1과 함께):
 1. 운영 DB 백업
 2. 088 → 089 → 090 순차 적용
 3. legacy_no 매핑 검증 (`numbering_legacy_map`)
 4. 카운터 시퀀스 정상 동작 확인
+
+### 4-5. 캠페인 신청 연결/해제 원격 함수 (마이그레이션 121)
+
+**파일**: `supabase/migrations/121_link_unlink_campaign_application.sql`
+
+직접 등록 캠페인을 신청에 연결하거나 그 반대로 해제할 때 호출하는 원격 함수 2종. 단일 트랜잭션에서 `source_application_id` 변경 + 새 번호 발급 + 옛 번호 `legacy_no` 보존을 한꺼번에 처리.
+
+#### `link_campaign_to_application(p_campaign_id uuid, p_application_id uuid)`
+- 가드: `is_campaign_admin()` 이상 + 캠페인이 같은 브랜드의 신청인지 검증
+- 동작:
+  1. 캠페인 현재 `campaign_no`를 `legacy_no` 컬럼에 추가 (`legacy_no` 이미 값 있으면 콤마 누적)
+  2. `source_application_id` = `p_application_id`
+  3. `application_campaign_counter`에서 새 시퀀스 발급
+  4. `campaign_no` 재설정 (`B{brand_seq}-A{app_seq}-C{new_camp_seq}`)
+  5. `numbering_legacy_map`에 매핑 추가
+- 반환: `{campaign_id, old_no, new_no, application_no}`
+
+#### `unlink_campaign_from_application(p_campaign_id uuid)`
+- 가드: `is_campaign_admin()` 이상
+- 동작:
+  1. 캠페인 현재 `campaign_no`를 `legacy_no`에 누적 보존
+  2. `source_application_id` = NULL
+  3. `brand_external_campaign_counter`에서 새 시퀀스 발급
+  4. `campaign_no` 재설정 (`B{brand_seq}-C{new_ext_seq}`)
+- 반환: `{campaign_id, old_no, new_no}`
+
+#### 동시 편집 충돌 대응
+- 캠페인 행 `version` 컬럼 낙관적 락 (기존 패턴 동일)
+- 카운터 advisory lock으로 직렬화 (088 패턴 동일)
+
+#### 후속 처리
+- 캠페인 번호 변경 시 운영자 알림 토스트 ("B0026-C001 → B0026-A002-C001 로 재발급됨, 옛 번호는 검색에서 매칭됨")
+- 이력 audit 테이블 기록 (선택, 추후 별도 사양에서 결정)
 
 ---
 
@@ -281,7 +318,7 @@ UPDATE brands SET company_id = ... WHERE id = ANY(brand_ids);
 │  ▸ 신청 #3   B0023-A003  reviewer  검수대기  (0캠페인)          │
 │                                                                  │
 │ ──────────────────────────────────────────────────────────────── │
-│  외부 캠페인 (신청 없이 직접 등록)                                │
+│  직접 등록 캠페인 (신청 없이 직접 등록)                                │
 │      ├ B0023-C001 미니카드                                       │
 │      └ B0023-C002 미니카드                                       │
 └──────────────────────────────────────────────────────────────────┘
@@ -315,22 +352,71 @@ UPDATE brands SET company_id = ... WHERE id = ANY(brand_ids);
 └────────────────────────────────────────────────────────────┘
 ```
 
-빠른 액션 4개 (모집기간 연장은 이번 작업에서 제외):
+빠른 액션 (모집기간 연장은 이번 작업에서 제외):
 - 상세: 기존 캠페인 미리보기 모달
 - 편집: `/admin#edit-campaign?id=xxx`
 - 신청자: `/admin#camp-applicants?cid=xxx`
 - 복제: 기존 복제 모달 호출 (`source_application_id` 자동 승계)
+- **신청에 연결** (직접 등록 캠페인에만 표시) — 모달에서 이 브랜드의 신청 목록 중 하나 선택 → `link_campaign_to_application` RPC 호출
+- **신청 연결 해제** (신청에 연결된 캠페인에만 표시) — 확인 모달 → `unlink_campaign_from_application` RPC 호출
+
+### 7-4. 신청 연결 모달 (신규)
+
+```
+┌─────────────────────────────────────────────────┐
+│  신청에 연결                            [✕ 닫기] │
+│ ──────────────────────────────────────────────  │
+│  현재 캠페인: B0026-C001 [캠페인 제목]           │
+│  브랜드: [브랜드 한국어]                         │
+│                                                 │
+│  연결할 신청 선택:                              │
+│  ○ B0026-A001  reviewer  최종완료  ¥120,000    │
+│  ● B0026-A002  reviewer  견적전달  ¥80,000     │
+│  ○ B0026-A003  seeding   검수대기  -           │
+│                                                 │
+│  ⚠ 캠페인 번호가 B0026-C001 → B0026-A002-C001  │
+│     로 재발급됩니다. 옛 번호는 검색에서 매칭됩니다.│
+│                                                 │
+│  [취소] [연결]                                  │
+└─────────────────────────────────────────────────┘
+```
+
+- 신청 목록은 이 브랜드(`brand_id` 일치)의 신청만 표시
+- 상태 무관하게 모두 표시 (rejected 신청도 운영자가 의도적으로 연결할 수 있음)
+- 확인 클릭 시 토스트로 새 번호 안내 + 미니카드 즉시 재렌더
+
+### 7-5. 신청 연결 해제 확인 모달 (신규)
+
+```
+┌─────────────────────────────────────────────────┐
+│  신청 연결 해제                          [✕]    │
+│ ──────────────────────────────────────────────  │
+│  캠페인: B0026-A002-C001 [캠페인 제목]          │
+│  현재 신청: B0026-A002                          │
+│                                                 │
+│  연결 해제 시 직접 등록 캠페인으로 되돌아갑니다.  │
+│  캠페인 번호: B0026-A002-C001 → B0026-C00X      │
+│  옛 번호는 검색에서 계속 매칭됩니다.             │
+│                                                 │
+│  [취소] [연결 해제]                             │
+└─────────────────────────────────────────────────┘
+```
+
+### 7-6. 캠페인 편집 화면의 신청 드롭다운 동작
+
+기존 캠페인 편집 화면(스크린샷 화면)의 「신청」 드롭다운은 그대로 유지하되, **변경 후 저장 시 확인 모달 표시** + 동일 RPC(`link_campaign_to_application` 또는 `unlink_campaign_from_application`) 호출. 두 경로(브랜드 상세 빠른 액션 / 캠페인 편집 화면) 모두 동일한 로직을 거치게 통일.
 
 ---
 
 ## 8. 단계별 구현 계획 (PR 4개)
 
-### PR 1 — DB 기반 (마이그레이션 4종)
+### PR 1 — DB 기반 (마이그레이션 5종)
 **범위**:
 - 088~090 계층 채번 운영 배포
 - 118 회사 테이블 + brands.company_id 추가
 - 119 브랜드 → 회사 백필 (이름 유사도)
 - 120 `get_brand_ops_overview` / `get_brand_ops_detail` 원격 함수
+- 121 `link_campaign_to_application` / `unlink_campaign_from_application` 원격 함수
 
 **작업 절차**:
 1. 운영 DB 백업
@@ -390,26 +476,35 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 
 ---
 
-### PR 4 — 브랜드 상세 페인 (드릴다운)
+### PR 4 — 브랜드 상세 페인 (드릴다운) + 신청 연결/해제
 **의존성**: PR 3
 
 **범위**:
 - `adminPane-brand-ops-detail` 페인
 - 신청 아코디언 + 캠페인 미니카드
-- 빠른 액션 4종 (상세/편집/신청자/복제 — 기존 함수 재사용)
-- 외부 캠페인(신청 없이 등록된 것) 별도 섹션
+- 빠른 액션 6종:
+  - 상세/편집/신청자/복제 (기존 함수 재사용)
+  - 신청에 연결 (직접 등록 캠페인 한정) — 신규 모달
+  - 신청 연결 해제 (신청 연결된 캠페인 한정) — 신규 확인 모달
+- 직접 등록 캠페인(신청 없이 등록된 것) 별도 섹션
+- 캠페인 편집 화면의 신청 드롭다운도 동일 RPC 사용으로 통일
 - URL 해시 파싱 (`?bid=xxx`) 및 새로고침 복원
 
 **파일**:
-- `dev/admin/index.html` — 페인 컨테이너 추가
-- `dev/js/admin.js` — 드릴다운 렌더
+- `dev/admin/index.html` — 페인 컨테이너 추가, 신청 연결 모달/연결 해제 모달 추가
+- `dev/js/admin.js` — 드릴다운 렌더, 모달 핸들러
+- `dev/js/admin-brand.js` (또는 신규 admin-ops.js) — 신청에 연결/연결 해제 함수
 - `dev/admin/app.js` — 해시 파싱·복원
-- `dev/lib/storage.js` — `getBrandOpsDetail` 추가
+- `dev/lib/storage.js` — `getBrandOpsDetail`, `linkCampaignToApplication`, `unlinkCampaignFromApplication` 추가
 
 **검증**:
 - 모집률·제출률이 SQL 직접 집계와 일치
 - 「+ 캠페인 추가」 시 `source_application_id` 자동 채워짐
-- 외부 캠페인 섹션이 신청 없이 등록된 캠페인만 표시
+- 직접 등록 캠페인 섹션이 신청 없이 등록된 캠페인만 표시
+- 신청에 연결 후 캠페인 번호가 `B0026-C001 → B0026-A002-C001` 로 재발급되는지
+- 옛 번호로 검색해도 매칭되는지 (`legacy_no`)
+- 연결 해제 후 직접 등록 캠페인 섹션으로 이동
+- 캠페인 편집 화면 「신청」 드롭다운 변경 → 저장 시 확인 모달 → 동일 동작
 
 ---
 
@@ -420,13 +515,14 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 - `supabase/migrations/118_companies_master.sql` (신규)
 - `supabase/migrations/119_companies_backfill.sql` (신규)
 - `supabase/migrations/120_brand_ops_rpc.sql` (신규)
+- `supabase/migrations/121_link_unlink_campaign_application.sql` (신규)
 
 ### 클라이언트
 - `dev/admin/index.html` — 사이드바·페인 컨테이너 3개 추가, 대시보드 「최근 신청」 제거
 - `dev/admin/app.js` — 페인 라우팅·해시 복원
 - `dev/js/admin.js` (핫스팟 ⚠) — 페인 렌더·라우팅 핸들러
 - `dev/js/admin-brand.js` 또는 신규 `dev/js/admin-company.js` — 회사 CRUD
-- `dev/lib/storage.js` — 6개 신규 함수 (`fetchCompanies`, `upsertCompany`, `assignCompanyToBrand`, `archiveCompany`, `getBrandOpsOverview`, `getBrandOpsDetail`)
+- `dev/lib/storage.js` — 8개 신규 함수 (`fetchCompanies`, `upsertCompany`, `assignCompanyToBrand`, `archiveCompany`, `getBrandOpsOverview`, `getBrandOpsDetail`, `linkCampaignToApplication`, `unlinkCampaignFromApplication`)
 - `dev/lib/shared.js` — `PANE_REFRESHERS`에 `companies`, `brand-ops`, `brand-ops-detail` 등록
 - `dev/css/admin.css` — 카드 그리드·미니카드·진행바 스타일
 - `dev/build.sh` — 신규 JS 파일 분리 시 등록 필수
@@ -442,6 +538,10 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 4. 모집률·제출률·D-3·취소7일이 SQL 직접 집계와 일치
 5. 대시보드에서 「최근 신청」 영역 제거 확인 / 운영 현황 하단에 동일 데이터 표시
 6. 계층 채번 v2 (`B0023-A001-C002`) 운영 표시 + legacy 채번도 호환
+7. 직접 등록 캠페인 → 신청에 연결: 번호 재발급 + 옛 번호 `legacy_no` 보존 + 검색 호환
+8. 신청 연결 해제: 직접 등록 캠페인 섹션으로 이동 + 번호 재발급
+9. 캠페인 편집 화면 「신청」 드롭다운 변경 시 저장 확인 모달 + 동일 번호 재발급 동작
+10. 옛 캠페인 번호로 검색 시 신규 번호도 함께 매칭 (`legacy_no` 활용)
 
 ### 권한 검증
 - super_admin / campaign_admin / campaign_manager 각각으로 회사 CRUD 테스트
@@ -499,3 +599,74 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 | admin.js 핫스팟 충돌 | 다른 세션과 동시 작업 시 충돌 | `.claude/rules/multi-session.md` 준수 — 시퀀셜 작업 |
 | `legacy_no` ↔ 신규 채번 표시 혼동 | 운영자가 어느 번호로 검색해야 할지 헷갈림 | UI에 둘 다 표시 + 검색은 둘 다 매칭 |
 | 미분류 브랜드 다수 발생 | 운영 현황에 「미분류」가 많음 | 회사 관리 페인에서 일괄 정리 도구 제공 (PR2) |
+
+---
+
+## 15. 구현 결과 — PR 1 (DB 기반)
+
+**구현일:** 2026-05-13 ~ 2026-05-14
+**관련 커밋:**
+- 4469947 feat(db): companies master table + brands.company_id (migration 118)
+- 6ee89aa feat(db): companies backfill + brand ops RPCs (migrations 119, 120)
+- (예정) feat(db): link/unlink campaign-application RPCs (migration 121)
+
+### 초안 대비 변경 사항
+
+#### 추가된 것
+- 「외부 캠페인」 용어를 **「직접 등록 캠페인」으로 변경** (사양서 §2 의사결정표 기록 완료, §4-5 / §7-3 / §7-4 본문 일괄 적용)
+- 마이그레이션 121 본문에 내부 헬퍼 함수 `_accumulate_legacy_no(text, text)` 추가 — link/unlink 두 함수에서 공통으로 호출하는 `legacy_no` 콤마 누적 + 중복 방어 로직 추출. supabase-expert 검증 단계에서 "각 함수 30줄 이상 중복 우려"로 분리 결정
+
+#### 빠진 것
+- 사양서 §4-5 「동시 편집 충돌 대응」에 명시했던 **「캠페인 행 `version` 컬럼 낙관적 락」** 도입 보류 — `campaigns` 테이블에 `version` 컬럼이 존재하지 않아 신규 추가가 필요했으나, `pg_advisory_xact_lock(campaign_id)` + `pg_advisory_xact_lock(application_id 또는 brand_id)` 2단 잠금만으로 동시 link/unlink 충돌이 직렬화됨이 supabase-expert 검증에서 확인되어 version 컬럼 추가 불필요로 판단. 사양서 본문의 "version 낙관적 락" 표현은 기획 단계 오기입으로 처리
+
+#### 달라진 것
+- 멱등성 동작: 사양서에는 「반환: `{campaign_id, old_no, new_no, application_no}`」 4필드만 명시했으나, 실제 반환에 **`unchanged` 불리언 필드 추가**. 클라이언트가 "이미 연결된 상태입니다" 안내 토스트와 "재발급 완료" 토스트를 구분하기 위함
+- `numbering_legacy_map` UPSERT 정책 구체화: 사양서에는 "매핑 추가"라 했으나, PK가 `(entity_type, entity_id)`이므로 ON CONFLICT 시 **`new_no`와 `migrated_at`만 갱신**하고 `legacy_no` 컬럼은 최초 이주 시점 원래 번호(예: `CAMP-2026-0001`)로 고정. `campaigns.legacy_no` 컬럼은 "변경 이력 콤마 누적", `numbering_legacy_map.legacy_no`는 "최초 이주값 고정"으로 역할 분리
+
+### 구현 중 기술 결정 사항
+
+#### 1. advisory lock 순서 고정 (데드락 회피)
+- link: `pg_advisory_xact_lock(campaign_id) → pg_advisory_xact_lock(application_id)` 순서
+- unlink: `pg_advisory_xact_lock(campaign_id) → pg_advisory_xact_lock(brand_id)` 순서
+- 두 함수 모두 첫 번째 잠금이 `campaign_id` 로 동일하므로 같은 캠페인에 동시 link+unlink 호출이 들어와도 데드락 없이 직렬화
+
+#### 2. legacy_no 콤마 누적 중복 방어
+- `_accumulate_legacy_no` 헬퍼가 `string_to_array(p_existing, ',')` 후 `ANY()` 매칭으로 중복 추가 차단
+- 같은 캠페인이 link → unlink → link 반복돼도 한 번만 누적되므로 콤마 누적이 무한 길어지지 않음
+- 부분 문자열 일치 오탐 방어: `'A,B,C'` 안에 `'B'` 추가 시 단순 `position()` 이면 매칭되어 누적 안 됐을 위험이 있었지만, 배열 분리 방식으로 정확히 토큰 단위 매칭
+
+#### 3. 권한 — authenticated GRANT + is_campaign_admin() 가드
+- 088~090 트리거 함수는 `REVOKE ALL FROM authenticated` (클라이언트 직접 호출 의미 없음) 패턴
+- 121의 link/unlink는 PostgREST `.rpc()` 호출 대상이므로 **`GRANT EXECUTE TO authenticated`** 적용
+- 인플루언서(authenticated 이지만 admins 미등록) 호출은 함수 본문 첫 줄 `is_campaign_admin()` 가드에서 42501 반환
+- 120 (`get_brand_ops_overview` / `get_brand_ops_detail`) 패턴과 동일
+
+#### 4. brand_id NULL legacy 캠페인 처리
+- 088~090 적용 이전에 생성된 레거시 캠페인(`brand_id IS NULL`)은 link/unlink 모두 `RAISE EXCEPTION` 으로 차단(에러코드 22023)
+- 이유: `brand_seq` 를 알 수 없어 새 번호 발급 불가. 운영자가 캠페인에 brand 를 먼저 지정해야 함
+- 사양서 §7-6 "브랜드 미연결 캠페인" 케이스로 별도 안내 필요
+
+#### 5. SQL Editor 검증 환경
+- 개발 DB SQL Editor 는 `auth.uid()` 가 NULL이라 `is_campaign_admin()` false 반환 → 직접 호출이 불가능
+- 검증용 패턴: `BEGIN; SELECT set_config('request.jwt.claims', json_build_object('sub', <super_admin_auth_id>)::text, true); ... ROLLBACK;` 로 트랜잭션 한정 JWT 클레임 주입
+- DO $$ ... $$ 블록 내 마지막 `RAISE EXCEPTION 'RESULT >> ...'` 트릭으로 결과를 에러 메시지에 담아 보여주면서 자동 ROLLBACK — 검증용 변경이 개발 DB에 남지 않음
+
+### 개발 DB 검증 결과 (2026-05-14)
+
+| 시나리오 | 결과 |
+|---|---|
+| 함수 3종 생성 + 권한(authenticated만 EXECUTE) | PASS |
+| `_accumulate_legacy_no` 4케이스(NULL/누적/중복방어/부분일치 방어) | PASS |
+| link — `B0020-C001` → `B0013-A001-C001` + legacy_no 콤마 누적 + map 갱신 | PASS |
+| unlink — `B0013-A001-C001` → `B0013-C001` + source_application_id NULL | PASS |
+| 멱등성 — 같은 신청 재호출 시 `unchanged:true` 반환 | PASS |
+| 권한 가드 — JWT 클레임 미주입 시 42501 차단 | PASS |
+| 같은 브랜드 검증 — 다른 brand_id 신청 차단 22023 | PASS |
+| ROLLBACK 후 개발 DB 상태 무변경 | 확인 완료 |
+
+### 운영 배포 시점 체크리스트
+- [ ] 운영 DB 백업
+- [ ] 088 → 089 → 090 → 118 → 119 → 120 → 121 순차 적용
+- [ ] 121 적용 직후 `SELECT proname FROM pg_proc WHERE proname IN ('_accumulate_legacy_no','link_campaign_to_application','unlink_campaign_from_application')` 3행 확인
+- [ ] 권한 확인: `has_function_privilege('authenticated', 'public.link_campaign_to_application(uuid,uuid)', 'EXECUTE')` true
+- [ ] PR 2 (회사 관리 페인) 작업 시작은 운영 배포 완료 이후
