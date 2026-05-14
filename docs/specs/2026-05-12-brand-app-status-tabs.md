@@ -1,10 +1,23 @@
 # 사양서: 브랜드 서베이 신청 목록 상태별 탭 UI
 
-> **작성일**: 2026-05-12
-> **작성 세션**: 기획/설계
-> **상태**: 사양 확정
-> **모델 패턴**: 기준 데이터 페인(`/admin#lookups`)의 가로 탭 UI 미러링 — 핑크 밑줄(`#E8344E`) + 굵은 글자 + 비활성 회색
-> **예상 PR 분할**: 1개
+> ✅ **완료** (2026-05-14 확인) — main 머지 + 운영 자동 배포 완료. 사양서 작성 직후 짧은 시간 내 구현·머지된 작업.
+>
+> **구현·머지 커밋**:
+> - 99f876b feat(brand-survey): replace status dropdown with 11 horizontal tabs (PR #182)
+> - ded0167 ui(brand-survey): move status tabs below filters, above the list card (PR #184)
+> - 470fa1b ui(brand-survey): clarify count label unit (신청 vs 제품)
+> - b5f6da4 ui(brand-survey): unify counts to 신청 단위 (card + tabs)
+> - 411fcd9 ui(brand-survey): group rows by application + match tab labels to modal
+> - 63d46bc ui(brand-survey): row-count basis for all counts (tabs + card header)
+> - 436940b fix(brand-survey): harden brand-applications pane against stale state crashes
+>
+> 운영 영향: 관리자 페인 「브랜드 서베이 → 신청 관리」 상단 가로 탭(전체 + 10단계 + rejected) 정상 동작 중.
+>
+> **원래 작성 정보**:
+> - **작성일**: 2026-05-12
+> - **작성 세션**: 기획/설계
+> - **모델 패턴**: 기준 데이터 페인(`/admin#lookups`)의 가로 탭 UI 미러링 — 핑크 밑줄(`#E8344E`) + 굵은 글자 + 비활성 회색
+> - **예상 PR 분할**: 1개 (실제 진행: 본 PR + 6개 보강 PR/커밋)
 
 ---
 
