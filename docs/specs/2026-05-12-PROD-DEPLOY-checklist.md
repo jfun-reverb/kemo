@@ -1,8 +1,24 @@
 # 운영 배포 체크리스트 — 응모 취소 + 관리자 메일 분리 + NG 사항 번들화 + 브랜드 서베이 묶음
 
-> **작성일**: 2026-05-12 (초안) / 2026-05-12 (1차 갱신)
-> **작성 세션**: 메인 폴더(고문) — 코드·머지 안 함, 정리 자료만
-> **대상 dev → main PR**: 36개 dev 커밋 일괄 운영 배포
+> ✅ **완료** (2026-05-14 확인) — 36커밋 묶음은 PR #201, #202 등 별도 PR로 이미 main 머지·운영 적용 완료. 운영 DB 마이그레이션(103·104·105·106·107·108·109·111·112·113·114·115·116·117) 전부 적용 확인됨. 본 문서는 일감 추적·이력 보존용으로 보관.
+>
+> **2026-05-14 운영 DB 적용 확인 결과**:
+> - admin_email_subscriptions 테이블 (103) ✅
+> - applications.cancelled_at + cancel_application RPC (104) ✅
+> - notifications.kind CHECK 확장 — `application_cancelled` 포함 (105) ✅
+> - lookup_values.kind CHECK 확장 — `cancel_reason`·`admin_email_kind` 포함 (106) ✅
+> - ng_sets 테이블 + campaigns.ng_set_id/ng_items (107) ✅
+> - closed 캠페인 NG 변경 차단 트리거 — block_closed_campaign_caution_participation_update 함수에 ng_items 차단 코드 포함 확인 (108) ✅
+> - campaign_caution_history NG 확장 + record_caution_history 시그니처 15개 (109) ✅
+> - recalc_brand_application_totals 모집비 합산 (111) ✅
+> - brand_applications.quote_sent_url + orient_sheet_sent_at/url (112) ✅
+> - application_cancel_digest_runs (113) ✅
+> - 114·115·116·117 묶음은 117의 인라인 모델(`products[i].payment_flags`)로 통합 적용 완료 — 116 트리거 함수 본문이 `calc_brand_app_product_payment_flag` 단수 함수를 호출하는 117 버전으로 재정의되어 있음 확인
+>
+> **원래 작성 정보**:
+> - **작성일**: 2026-05-12 (초안) / 2026-05-12 (1차 갱신)
+> - **작성 세션**: 메인 폴더(고문) — 코드·머지 안 함, 정리 자료만
+> - **대상 dev → main PR**: 36개 dev 커밋 일괄 운영 배포 (실제 진행: 여러 PR로 분할 머지)
 
 ---
 
