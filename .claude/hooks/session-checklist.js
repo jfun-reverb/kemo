@@ -10,16 +10,44 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 
 let payload;
 try {
   payload = JSON.parse(fs.readFileSync(0, 'utf8'));
 } catch {
-  // payload 없어도 그냥 체크리스트 주입
   payload = {};
 }
 
+// cwd 기반 세션 역할 추론
+const cwd = (payload.cwd || process.cwd() || '').replace(/\/$/, '');
+const folderName = path.basename(cwd);
+
+let sessionRole = null;
+let roleDesc = '';
+if (/기획|planner|design/i.test(folderName)) {
+  sessionRole = '기획';
+  roleDesc = '요구사항 정리·구현 계획·경우의 수 분기. 코드 수정은 planner 산출까지만.';
+} else if (folderName === 'reverb-jp') {
+  // 메인 폴더는 역할 미분류 — 단일 세션 시 「한 사람·한 작업」이면 직접 작업 가능
+  // (.claude/rules/multi-session.md 「한 시점에 한 작업만이면 메인 폴더 OK」).
+  // 사용자가 명시적으로 「넌 고문이야」/「넌 개발자야」로 첫 메시지에 교정하면 그 역할로 동작.
+  sessionRole = null;
+} else if (/reverb-jp/.test(cwd)) {
+  sessionRole = '개발';
+  roleDesc = '일감 수령→구현→reviewer→dev 배포→사용자 OK 후 운영 배포.';
+}
+
+const roleBlock = sessionRole ? [
+  `🎭 [세션 역할 추론: ${sessionRole}]`,
+  `"넌 누구야" 류 질문에는 첫 줄에 "저는 ${sessionRole} 세션입니다."로 응답.`,
+  `→ ${roleDesc}`,
+  `(역할이 다르면 사용자가 첫 메시지에서 교정 — 교정 시 즉시 따름)`,
+  '',
+] : [];
+
 const checklist = [
+  ...roleBlock,
   '',
   '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
   '🛡️  [REVERB 에이전트 호출 의무 — 이번 세션]',
