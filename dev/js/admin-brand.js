@@ -2625,15 +2625,19 @@ function openBrandAppMemoModalFromCell(btnEl) {
 }
 
 // 제품 jsonb 변경을 sub-field 단위로 풀어서 가상 history rows 반환
-// [migration 123] admin_memo 항목 제거됨 — 제품별 메모는 brand_application_memos 로 이전되어
-// products 배열의 admin_memo 키는 더 이상 존재하지 않음. 메모 변경은 별도 memo_added/edited/deleted
-// 행으로 history 에 기록됨 (renderBrandAppHistoryTableHtml 의 별도 분기)
+// [migration 123] admin_memo 항목 제외 — 제품별 메모는 brand_application_memos 로 이전됨.
+// 메모 변경은 별도 memo_added/edited/deleted 행으로 history 에 기록됨.
+// sub-field 차이가 0건이면 (마이그레이션 자동 키 추가/제거 같은 노이즈) "메타 변경" 행을 숨김 — _expandBrandAppProductsHistoryRow 호출처 처리
 var BRAND_APP_PRODUCT_SUBFIELDS = [
+  {key: 'recruit_fee_krw',  label: '모집비(건)',    fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(fmtKrw(Number(v))); }},
   {key: 'transfer_fee_krw', label: '이체수수료(건)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(fmtKrw(Number(v))); }},
   {key: 'qty',              label: '수량',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(Number(v).toLocaleString('ja-JP')); }},
   {key: 'price',            label: '상품 가격(엔)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc('¥ ' + Number(v).toLocaleString('ja-JP')); }},
+  {key: 'price_check',      label: '가격체크',      fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(priceCheckKo(String(v))); }},
   {key: 'name',             label: '제품명',        fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
-  {key: 'url',              label: 'URL',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }}
+  {key: 'name_ja',          label: '제품명(일본어)', fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
+  {key: 'url',              label: 'URL',          fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }},
+  {key: 'category',         label: '카테고리',      fmt: function(v){ return v == null || v === '' ? '<span style="color:var(--muted)">—</span>' : esc(String(v)); }}
 ];
 
 function _expandBrandAppProductsHistoryRow(h) {
@@ -2676,17 +2680,9 @@ function renderBrandAppHistoryTableHtml(historyArr) {
   historyArr.forEach(function(h){
     if (h.field_name === 'products') {
       var expanded = _expandBrandAppProductsHistoryRow(h);
-      if (expanded.length === 0) {
-        // sub-field 비교 결과 변경 없음 (jsonb 키 순서 등 메타 변경) — 한 행으로 요약
-        rows.push({
-          changed_at: h.changed_at,
-          changed_by_name: h.changed_by_name,
-          _productLabel: '—',
-          _fieldLabel: '제품 정보',
-          _oldHtml: '<span style="color:var(--muted)">메타 변경</span>',
-          _newHtml: '<span style="color:var(--muted)">메타 변경</span>'
-        });
-      } else {
+      // sub-field 화이트리스트 기준 차이가 0건이면 — 마이그레이션 자동 키 추가/제거 또는
+      // 추적 안 하는 필드 변경 (예: admin_memo 키, jsonb 키 순서). 노이즈라 행 자체 숨김
+      if (expanded.length > 0) {
         rows = rows.concat(expanded);
       }
     } else if (h.field_name === 'memo_added' || h.field_name === 'memo_edited' || h.field_name === 'memo_deleted') {
