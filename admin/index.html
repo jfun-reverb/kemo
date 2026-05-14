@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778747754';
+  var CURRENT_BUILD = 'v1778748482';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1443,7 +1443,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-14 17:35 · 59fa3d0</span>
+          <span class="admin-build-text">2026-05-14 17:48 · 091cf72</span>
         </div>
       </div>
     </aside>
@@ -8804,7 +8804,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   html += '<td><div class="brand-app-subdeadline-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:24px">' + renderDateSingleDisplay(p && p.submission_deadline) + '</div></td>';
 
   // 17. 내부 메모 (제품 단위 — 모든 행)
-  html += '<td><div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:36px">' + renderMemoCellInner(a, idx, p) + '</div></td>';
+  html += '<td><div class="brand-app-memo-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '" style="position:relative;min-height:36px;display:flex;align-items:center">' + renderMemoCellInner(a, idx, p) + '</div></td>';
 
   // 14. 진행 수량 (제품 단위)
   html += '<td style="text-align:right;font-variant-numeric:tabular-nums;font-size:12px">' + (qty > 0 ? qty.toLocaleString('ja-JP') : dash) + '</td>';
@@ -9341,7 +9341,7 @@ function renderBrandAppMemoList() {
       : '';
     return '<div class="bam-row" data-memo-id="' + esc(m.id) + '" style="padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:8px;background:#fff">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:var(--muted)">'
-        + '<div><span style="font-weight:600;color:var(--ink)">' + esc(m.author_name || '시스템') + '</span> · ' + esc(when) + edited + '</div>'
+        + '<div><span style="font-weight:600;color:var(--ink)">' + esc(formatBrandAppMemoAuthor(m.author_name)) + '</span> · ' + esc(when) + edited + '</div>'
         + '<div style="display:flex;gap:4px">'
           + '<button class="btn btn-ghost btn-xs" onclick="enterBrandAppMemoEdit(\'' + esc(m.id) + '\')" style="padding:2px 8px" title="수정"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">edit</span></button>'
           + '<button class="btn btn-ghost btn-xs" onclick="deleteBrandAppMemoConfirm(\'' + esc(m.id) + '\')" style="padding:2px 8px;color:#c0392b" title="삭제"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span></button>'
@@ -9456,8 +9456,15 @@ function renderProductMemoDisplay(latestText, count, locked) {
     ? '<span style="display:inline-block;margin-left:4px;padding:0 6px;background:var(--pink);color:#fff;border-radius:8px;font-size:10px;font-weight:600;line-height:14px;vertical-align:middle">' + count + '</span>'
     : '';
   var btnTitle = locked ? '완료/거절 신청 — 모달 열람만 가능' : (count > 0 ? '메모 편집 (' + count + '건)' : '메모 추가');
-  var btn = '<button type="button" class="brand-app-memo-open-btn" onclick="openBrandAppMemoModalFromCell(this)" title="' + esc(btnTitle) + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit_note</span></button>';
-  return '<div style="padding-right:22px;line-height:1.4;display:flex;align-items:center;flex-wrap:wrap;gap:2px">' + preview + badge + '</div>' + btn;
+  var btn = '<button type="button" class="brand-app-memo-open-btn" onclick="openBrandAppMemoModalFromCell(this)" title="' + esc(btnTitle) + '" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">edit</span></button>';
+  return '<div style="padding-right:22px;line-height:1.4;display:flex;align-items:center;flex-wrap:wrap;gap:2px;width:100%">' + preview + badge + '</div>' + btn;
+}
+
+// (legacy) 라벨을 한국어 친화적 표기로 변환 — backfill 데이터 식별
+function formatBrandAppMemoAuthor(name) {
+  if (!name) return '시스템';
+  if (name === '(legacy)') return '(자동 이전)';
+  return name;
 }
 
 // 메모 셀 ✎ 버튼 클릭 → 모달 진입 (제품별)
