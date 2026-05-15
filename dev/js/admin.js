@@ -757,7 +757,7 @@ function updateCampTableHead() {
   if (!head) return;
   const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
@@ -765,11 +765,11 @@ function updateCampTableHead() {
       <th>브랜드</th>
       <th>제품</th>
       <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
-      <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>모집기간</th>
       <th>구매기간</th>
       <th>결과물 제출 마감</th>
+      <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">${adminCampSortKey==='updated'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th></th></tr>`;
@@ -959,7 +959,6 @@ async function loadAdminCampaigns(useCache) {
         </td>`;
       })()}
       <td style="white-space:nowrap;min-width:90px">${statusBadge(c.status)}</td>
-      <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
@@ -995,6 +994,7 @@ async function loadAdminCampaigns(useCache) {
       <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(ps, pe)}</td>
       <td style="font-size:11px;color:var(--ink);white-space:nowrap">${singleCell(c.submission_end)}</td>`;
       })()}
+      <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
       ${adminReorderMode ? '' : `<td style="position:relative">
@@ -1002,8 +1002,8 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/조회/신청/모집기간/구매기간/제출마감/등록일/수정일/액션)
-  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/조회/신청/등록일/수정일)
+  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
+  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/신청/조회/등록일/수정일)
   const emptyHtml = `<tr><td colspan="${adminReorderMode ? 9 : 13}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.

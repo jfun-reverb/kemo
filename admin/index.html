@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778839469';
+  var CURRENT_BUILD = 'v1778840140';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -525,17 +525,48 @@ textarea.form-input{resize:vertical;min-height:80px}
    브랜드 서베이 패턴(75~96)과 동일 구조. 결과물 관리는 첫 컬럼이 모집 타입 칩(좁음)이라
    sticky 가치가 낮아 두 번째 컬럼(캠페인) 고정. */
 
-/* 캠페인 관리 — 첫 컬럼(캠페인 셀: 이미지+번호+제목) 좌측 고정 */
+/* 캠페인 관리 — 좌측 3컬럼(체크박스·캠페인·브랜드) sticky + 가로 스크롤
+   2026-05-15 확장: 모집기간·구매기간·제출마감·조회 컬럼 추가로 표 폭 증가.
+   브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
-#adminPane-campaigns .data-table{min-width:1400px}
+#adminPane-campaigns .data-table{min-width:2000px}
+
+/* 1열 체크박스 (44px) — sticky
+   thead th 는 78줄 전역에서 이미 position:sticky;top:0;z-index:5 적용됨.
+   여기서는 left·background 만 추가 (position:sticky 재선언 시 top:0 사라짐 주의). */
 #adminPane-campaigns .data-table th:nth-child(1),
-#adminPane-campaigns .data-table td:nth-child(1){width:280px;min-width:280px;max-width:280px;box-sizing:border-box}
+#adminPane-campaigns .data-table td:nth-child(1){width:44px;min-width:44px;max-width:44px;box-sizing:border-box}
 #adminPane-campaigns .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-campaigns .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
-#adminPane-campaigns .data-table thead th:nth-child(1){left:0;z-index:7}
-#adminPane-campaigns .data-table tbody td:nth-child(1),
-#adminPane-campaigns .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-campaigns .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+
+/* 2열 캠페인 (380px) — sticky */
+#adminPane-campaigns .data-table th:nth-child(2),
+#adminPane-campaigns .data-table td:nth-child(2){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
+#adminPane-campaigns .data-table tbody td:nth-child(2){position:sticky;left:44px;z-index:3;background:var(--surface)}
+#adminPane-campaigns .data-table thead th:nth-child(2){left:44px;z-index:7;background:var(--surface-dim)}
+
+/* 3열 브랜드 (170px) — sticky + 우측 그림자 (sticky 영역 경계 시각화) */
+#adminPane-campaigns .data-table th:nth-child(3),
+#adminPane-campaigns .data-table td:nth-child(3){width:170px;min-width:170px;max-width:170px;box-sizing:border-box;word-break:break-word}
+#adminPane-campaigns .data-table tbody td:nth-child(3){position:sticky;left:424px;z-index:3;background:var(--surface)}
+#adminPane-campaigns .data-table thead th:nth-child(3){left:424px;z-index:7;background:var(--surface-dim)}
+#adminPane-campaigns .data-table tbody td:nth-child(3),
+#adminPane-campaigns .data-table thead th:nth-child(3){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+
+/* 4열 제품 — 최소 폭 보장 (sticky 아님) */
+#adminPane-campaigns .data-table th:nth-child(4),
+#adminPane-campaigns .data-table td:nth-child(4){width:220px;min-width:220px;max-width:240px;box-sizing:border-box;word-break:break-word}
+
+/* sticky 컬럼 hover 색상 */
+#adminPane-campaigns .data-table tbody tr:hover td:nth-child(1),
+#adminPane-campaigns .data-table tbody tr:hover td:nth-child(2),
+#adminPane-campaigns .data-table tbody tr:hover td:nth-child(3){background:var(--surface-dim)}
+
 #adminPane-campaigns .data-table thead th{white-space:nowrap}
+
+/* 컬럼 간 세로 보더 (브랜드 서베이 신청 목록 패턴) */
+#adminPane-campaigns .data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
+#adminPane-campaigns .data-table tbody td:last-child{border-right:none}
 
 /* 신청 관리 — 첫 컬럼(캠페인) 좌측 고정 */
 #adminPane-applications .admin-table-wrap{overflow-x:auto}
@@ -1446,7 +1477,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-15 19:04 · c680a28</span>
+          <span class="admin-build-text">2026-05-15 19:15 · e18fd4f</span>
         </div>
       </div>
     </aside>
@@ -1586,11 +1617,11 @@ textarea.form-input{resize:vertical;min-height:80px}
   <th>브랜드</th>
   <th>제품</th>
   <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">▲▼</span></th>
-  <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
   <th>신청 <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">▲▼</span></th>
   <th>모집기간</th>
   <th>구매기간</th>
   <th>결과물 제출 마감</th>
+  <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">▲▼</span></th>
   <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">▲▼</span></th>
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
@@ -11351,7 +11382,7 @@ function updateCampTableHead() {
   if (!head) return;
   const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
@@ -11359,11 +11390,11 @@ function updateCampTableHead() {
       <th>브랜드</th>
       <th>제품</th>
       <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
-      <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>모집기간</th>
       <th>구매기간</th>
       <th>결과물 제출 마감</th>
+      <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">${adminCampSortKey==='updated'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th></th></tr>`;
@@ -11553,7 +11584,6 @@ async function loadAdminCampaigns(useCache) {
         </td>`;
       })()}
       <td style="white-space:nowrap;min-width:90px">${statusBadge(c.status)}</td>
-      <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
@@ -11589,6 +11619,7 @@ async function loadAdminCampaigns(useCache) {
       <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(ps, pe)}</td>
       <td style="font-size:11px;color:var(--ink);white-space:nowrap">${singleCell(c.submission_end)}</td>`;
       })()}
+      <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
       ${adminReorderMode ? '' : `<td style="position:relative">
@@ -11596,8 +11627,8 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/조회/신청/모집기간/구매기간/제출마감/등록일/수정일/액션)
-  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/조회/신청/등록일/수정일)
+  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
+  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/신청/조회/등록일/수정일)
   const emptyHtml = `<tr><td colspan="${adminReorderMode ? 9 : 13}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
