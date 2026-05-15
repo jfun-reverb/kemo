@@ -892,24 +892,13 @@ function applyFormGating(allDelivs) {
 }
 
 // 한 폼의 label / input / button 묶음을 disabled 토글
-//   label: <label> 회색 처리 + 클릭 차단 (file input 트리거 막기)
+//   label: <label> 회색 처리 + 클릭 차단 (file input 트리거 막기) — CSS 클래스 토글
+//     inline style 의 background:var(--pink) 를 보존하기 위해 클래스 방식 사용
 //   input/button: disabled 속성 직접 설정
 function _setFormDisabled(targets, disabled) {
   if (targets.labelId) {
     const lab = $(targets.labelId);
-    if (lab) {
-      if (disabled) {
-        lab.style.background = '#cccccc';
-        lab.style.cursor = 'not-allowed';
-        lab.style.pointerEvents = 'none';
-        lab.style.opacity = '0.6';
-      } else {
-        lab.style.background = '';
-        lab.style.cursor = '';
-        lab.style.pointerEvents = '';
-        lab.style.opacity = '';
-      }
-    }
+    if (lab) lab.classList.toggle('form-label-disabled', disabled);
   }
   (targets.inputIds || []).forEach(function(id) {
     const el = $(id); if (el) el.disabled = disabled;

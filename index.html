@@ -122,6 +122,9 @@ img{display:block;max-width:100%}
 .btn-green:active{transform:scale(.96);box-shadow:var(--elevation-1);filter:brightness(.95)}
 .btn:disabled{opacity:.38;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
+/* 활동관리 폼 라벨 비활성 (파일 선택용 분홍 라벨 — 마감 후+반려 없음 시 적용) */
+.form-label-disabled{opacity:.45;cursor:not-allowed!important;pointer-events:none;filter:grayscale(1)}
+
 /* ── CARDS (Material Card) ── */
 .card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1)}
 .card-pad{padding:16px}
@@ -7682,24 +7685,13 @@ function applyFormGating(allDelivs) {
 }
 
 // 한 폼의 label / input / button 묶음을 disabled 토글
-//   label: <label> 회색 처리 + 클릭 차단 (file input 트리거 막기)
+//   label: <label> 회색 처리 + 클릭 차단 (file input 트리거 막기) — CSS 클래스 토글
+//     inline style 의 background:var(--pink) 를 보존하기 위해 클래스 방식 사용
 //   input/button: disabled 속성 직접 설정
 function _setFormDisabled(targets, disabled) {
   if (targets.labelId) {
     const lab = $(targets.labelId);
-    if (lab) {
-      if (disabled) {
-        lab.style.background = '#cccccc';
-        lab.style.cursor = 'not-allowed';
-        lab.style.pointerEvents = 'none';
-        lab.style.opacity = '0.6';
-      } else {
-        lab.style.background = '';
-        lab.style.cursor = '';
-        lab.style.pointerEvents = '';
-        lab.style.opacity = '';
-      }
-    }
+    if (lab) lab.classList.toggle('form-label-disabled', disabled);
   }
   (targets.inputIds || []).forEach(function(id) {
     const el = $(id); if (el) el.disabled = disabled;
