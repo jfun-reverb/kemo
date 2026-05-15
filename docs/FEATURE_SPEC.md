@@ -213,6 +213,10 @@
 | ADM-066 | 캠페인 multi-select + cascade 필터 (2026-04-22) | 신청 관리·결과물 관리·캠페인별 신청자 페인에 캠페인 다중 선택 드롭다운. 캠페인 선택 시 타입/kind 옵션 자동 cascade로 좁혀짐. `[CAMP-YYYY-NNNN] 제목` 라벨. 신청 관리에선 맨 왼쪽 위치 |
 | ADM-067 | 캠페인 신청자 SNS 전체 표시 (2026-04-22) | `renderAppCampList` 행에 IG/TT/X/YT 4개 채널 핸들+팔로워 모두 표시(이전: primary_channel 단일). 멀티채널 캠페인에서 심사 판단 용이 |
 | ADM-068 | 캠페인 행 브랜드 라인 중복 제거 (2026-04-22) | 캠페인 목록 행의 브랜드 라인에서 `CAMP-XXXX` 중복 표시 제거(편집 페인 헤더 핑크 배지에만 표시) |
+| ADM-069 | 캠페인 다중 선택 + 통합 엑셀 (2026-05-15, PR #206/#207) | 캠페인 관리 목록 표 맨 앞 체크박스 컬럼 + 「전체 선택」 헤더 + 카드 헤더 「선택 N개 신청자/결과물 엑셀」 버튼. `_selectedCampIds = new Set()` 전역 + 필터/정렬/lazy remount 와 무관한 Set 기반 절대 선택. 다운로드 가드 5초 쿨다운 + 동시 진행 lock (4종 export 함수 모두). 50개+ 선택 시 `confirm()`. 엑셀 시트1 「캠페인 정보」(N행 요약) + 시트2 「결과물」 또는 「신청자」 — 결과물 시트2 는 단일 함수 형식 + 캠페인 컬럼 2개 앞 추가 (총 21컬럼, 영수증·리뷰 이미지 셀 임베드 N열·T열). 이름 한자/가나 2컬럼 분리, SNS 핸들 → 공식 전체 URL, 우편번호 별도 컬럼(〒 없이). 공용 헬퍼 4종(`_excelInfluencerNameParts`/`_excelSnsUrl`/`_excelZip`/`_excelAddressOnly`) |
+| ADM-070 | multi-filter 초기 비체크 (2026-05-15, PR #206) | 모든 페인의 다중 선택 드롭다운(「전체 타입/상태/폼」)이 처음 열렸을 때 모두 비체크 상태로 변경. 데이터 모델 동일 (비체크=전체) |
+| ADM-071 | admin list 정렬 인덱스 5종 (2026-05-15, 마이그레이션 127) | applications/influencers/deliverables/brand_applications/campaigns 정렬 컬럼 인덱스 추가. 진단 사양서 §6-3 권장. 효과: applications EXPLAIN Seq Scan 19.3ms → Index Scan 1.9ms (10배 ↑) |
+| ADM-072 | 광고주 신청 중복 fetch 회귀 수정 (2026-05-15, PR #205) | `loadBrandApplications` race condition 으로 4종 fetch 가 2회씩 발생하던 회귀 — promise 캐싱 guard 로 동시 호출 차단. 14 requests → 8 requests |
 | ADM-069 | 관리자 공지사항 (2026-04-22, §27) | 사이드바 최상단 "공지사항" 메뉴 + 미읽음 배지. §27 참조 |
 | ADM-070 | 캠페인 폼 날짜 입력 개편 (2026-04-27, §30) | flatpickr range picker 3개 통합 + `recruit_start` 신규 + 자동 시작/종료 + monitor 콘텐츠 필터 + 기본 정보 섹션 재배치. §30 참조 |
 | ADM-071 | 캠페인 자동 시작 (2026-04-27) | scheduled 상태 캠페인의 `recruit_start` 가 도래하면 active로 자동 전환. `fetchCampaigns` 호출 시 `autoOpenCampaigns()` → `autoCloseCampaigns()` 순차 실행으로 시작·종료 동시 처리 |
