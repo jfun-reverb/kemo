@@ -277,6 +277,21 @@ function safeBrandUrl(url) {
   } catch(e) { return null; }
 }
 
+// 인라인 URL 입력 정규화 — 사용자가 http://·https:// 없이 입력하면 https:// 자동 prefix.
+// 빈 문자열은 null. 다른 스킴(javascript:, data: 등) 은 차단.
+function normalizeBrandUrlInput(raw) {
+  var t = (raw || '').trim();
+  if (!t) return null;
+  // 이미 http/https 로 시작하면 그대로 검증
+  if (/^https?:\/\//i.test(t)) return safeBrandUrl(t);
+  // protocol-relative (//example.com) 도 https 로 보정
+  if (t.indexOf('//') === 0) return safeBrandUrl('https:' + t);
+  // 다른 스킴(javascript: 등) 차단
+  if (/^[a-z][a-z0-9+.\-]*:/i.test(t)) return safeBrandUrl(t);
+  // 스킴 없음 → https:// 자동 prefix
+  return safeBrandUrl('https://' + t);
+}
+
 function fmtKrw(n) {
   if (n === null || n === undefined || n === '') return '—';
   var v = Number(n);
@@ -3251,8 +3266,8 @@ async function confirmQuoteSentEdit(anyChildEl) {
     nextDate = new Date(raw + 'T12:00:00+09:00').toISOString();
   }
   var rawUrl = urlInput ? urlInput.value.trim() : '';
-  var nextUrl = rawUrl ? safeBrandUrl(rawUrl) : null;
-  if (rawUrl && !nextUrl) { toast('URL은 http:// 또는 https:// 로 시작해야 합니다.', 'warn'); return; }
+  var nextUrl = normalizeBrandUrlInput(rawUrl);
+  if (rawUrl && !nextUrl) { toast('URL 형식이 올바르지 않습니다.', 'warn'); return; }
   var prevDate = cur.quote_sent_at;
   var prevUrl = cur.quote_sent_url || null;
   var prevDateStr = prevDate ? new Date(prevDate).toISOString().slice(0,10) : null;
@@ -3533,8 +3548,8 @@ async function confirmOrientSheetSentEdit(anyChildEl) {
   var urlInput = cell.querySelector('.orient-edit-url');
   if (!urlInput) return;
   var rawUrl = urlInput.value.trim();
-  var nextUrl = rawUrl ? safeBrandUrl(rawUrl) : null;
-  if (rawUrl && !nextUrl) { toast('URL은 http:// 또는 https:// 로 시작해야 합니다.', 'warn'); return; }
+  var nextUrl = normalizeBrandUrlInput(rawUrl);
+  if (rawUrl && !nextUrl) { toast('URL 형식이 올바르지 않습니다.', 'warn'); return; }
   var prevUrl = cur.orient_sheet_sent_url || null;
   if (prevUrl === nextUrl) {
     _restoreOrientSheetSentDisplay(cell, prevUrl, false);
