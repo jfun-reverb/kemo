@@ -759,6 +759,7 @@ function updateCampTableHead() {
     head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
+      <th style="width:36px;text-align:center"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
       <th>캠페인</th>
       <th>브랜드</th>
       <th>제품</th>
@@ -7743,7 +7744,8 @@ function updateCampSelectionUI() {
 }
 
 // 시트1 헬퍼: 선택한 캠페인 N개 요약 행
-function _buildCampaignSummarySheet(wb, campaigns) {
+//   appsByCampId: {campaignId: appsArray} — 시트2 export 시 이미 fetch한 결과 재사용 (round-trip 절약)
+function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
   var ws = wb.addWorksheet('캠페인 정보');
   ws.columns = [
     { header: '캠페인 번호', key: 'no',      width: 18 },
@@ -7767,7 +7769,7 @@ function _buildCampaignSummarySheet(wb, campaigns) {
   var rtypeLabel = function(t) { return t === 'monitor' ? '리뷰어' : t === 'gifting' ? '기프팅' : t === 'visit' ? '방문형' : (t || ''); };
   var statusKo = function(s) { return s === 'draft' ? '준비' : s === 'scheduled' ? '모집예정' : s === 'active' ? '모집중' : s === 'closed' ? '종료' : s === 'expired' ? '노출마감' : (s || ''); };
   campaigns.forEach(function(c) {
-    var campApps = (Array.isArray(allApps) ? allApps : []).filter(function(a){ return a.campaign_id === c.id; });
+    var campApps = (appsByCampId && appsByCampId[c.id]) || [];
     var approvedCnt = campApps.filter(function(a){ return a.status === 'approved'; }).length;
     ws.addRow({
       no:       c.campaign_no || '',
@@ -7814,18 +7816,20 @@ async function exportSelectedCampaignsApplicants() {
     var users = await fetchInfluencers();
     var userByEmail = {};
     (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
-    // 신청자: 캠페인별로 fetch (서버 round-trip)
+    // 신청자: 캠페인별로 fetch (서버 round-trip) — appsByCampId 캐시도 동시 빌드
     var allCampApps = [];
+    var appsByCampId = {};
     for (var i = 0; i < camps.length; i++) {
       var c = camps[i];
       var apps = await fetchApplications({ campaign_id: c.id });
+      appsByCampId[c.id] = apps || [];
       (apps || []).forEach(function(a){ a._campMeta = c; allCampApps.push(a); });
     }
 
     var wb = new ExcelJS.Workbook();
     wb.creator = 'REVERB JP Admin';
     wb.created = new Date();
-    _buildCampaignSummarySheet(wb, camps);
+    _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
     var ws = wb.addWorksheet('신청자');
     ws.columns = [
@@ -7943,6 +7947,13 @@ async function exportSelectedCampaignsDeliverables() {
     var users = await fetchInfluencers();
     var userByEmail = {};
     (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
+    // 시트1 캠페인 요약 「신청 수」 컬럼을 채우기 위해 신청 전체 fetch 1회 + groupBy
+    var allAppsForSummary = await fetchApplications();
+    var appsByCampId = {};
+    (allAppsForSummary || []).forEach(function(a){
+      if (!appsByCampId[a.campaign_id]) appsByCampId[a.campaign_id] = [];
+      appsByCampId[a.campaign_id].push(a);
+    });
     var allDelivs = [];
     for (var i = 0; i < camps.length; i++) {
       var c = camps[i];
@@ -7953,7 +7964,7 @@ async function exportSelectedCampaignsDeliverables() {
     var wb = new ExcelJS.Workbook();
     wb.creator = 'REVERB JP Admin';
     wb.created = new Date();
-    _buildCampaignSummarySheet(wb, camps);
+    _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
     var ws = wb.addWorksheet('결과물');
     ws.columns = [
