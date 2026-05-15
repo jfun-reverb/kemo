@@ -1604,7 +1604,7 @@ async function fetchBrandApplications(filters) {
         brand_name, contact_name, phone, email, billing_email,
         products, total_jpy, total_qty,
         estimated_krw, final_quote_krw, quote_sent_at, quote_sent_url,
-        orient_sheet_sent_at, orient_sheet_sent_url,
+        orient_sheet_sent_url, paid_at,
         status, request_note,
         reviewer_channels,
         reviewed_by, reviewed_at,

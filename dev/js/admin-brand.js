@@ -1774,6 +1774,7 @@ var BRAND_APP_HISTORY_FIELD_LABELS = {
   quote_sent_url: '견적서 URL',
   orient_sheet_sent_at: '오리엔시트 전달일',
   orient_sheet_sent_url: '오리엔시트 URL',
+  paid_at: '입금 날짜',
   final_quote_krw: '확정 견적',
   products: '제품 정보',
   memo_added: '메모 추가',
@@ -1984,15 +1985,20 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, a.quote_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 21. 오리엔시트 전달 (액션 — 첫 행만)
+  // 21. 오리엔시트 전달 — URL 만 (migration 126: 날짜 분리)
   html += isFirst
-    ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_at, a.orient_sheet_sent_url, false) + '</div></td>'
+    ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px;display:flex;align-items:center">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_url, false) + '</div></td>'
     : emptyAction;
 
   // 22. 입금 정보 — 제품 행마다 해당 제품의 플래그만 표시
   html += '<td><div class="brand-app-pay-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '">' + renderBrandAppPaymentFlagsCell(a, idx) + '</div></td>';
 
-  // 23. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
+  // 23. 입금 날짜 (액션 — 첫 행만, migration 126)
+  html += isFirst
+    ? '<td><div class="brand-app-paid-at-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px;display:flex;align-items:center">' + renderPaidAtDisplay(a.paid_at, false) + '</div></td>'
+    : emptyAction;
+
+  // 24. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
     ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
@@ -3276,25 +3282,35 @@ async function confirmQuoteSentEdit(anyChildEl) {
   toast(nextDate ? '견적서 전달 정보가 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
 }
 
-// ─── 오리엔시트 전달 셀 (견적서 전달과 동일 구조) ────────────────────────────
-
-function renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked) {
-  var hasValue = !!isoOrNull;
+// ─── 오리엔시트 전달 셀 — URL 만 (migration 126: 날짜는 paid_at 으로 분리) ─────
+function renderOrientSheetSentDisplay(urlOrNull, locked) {
   var safeUrl = safeBrandUrl(urlOrNull);
-  var urlIcon = safeUrl
-    ? ' <a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="오리엔시트 열기" style="color:var(--pink);vertical-align:middle;display:inline-flex;align-items:center">'
-      + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">open_in_new</span></a>'
-    : '';
-  var content = hasValue
-    ? '<span style="display:inline-flex;align-items:center;gap:4px;color:#16a34a;font-size:11px;font-weight:600"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>전달' + urlIcon + '</span>'
-      + '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + fmtDate(isoOrNull) + '</div>'
-    : '<span style="color:var(--muted);font-size:11px">미전달</span>';
+  var content = safeUrl
+    ? '<a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="오리엔시트 열기" style="display:inline-flex;align-items:center;gap:4px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none">'
+        + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span>'
+        + '<span style="text-decoration:underline">열기</span>'
+      + '</a>'
+    : '<span style="color:var(--muted);font-size:11px">—</span>';
   return content
-    + '<button type="button" class="orient-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterOrientSheetSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '오리엔시트 전달 수정') + '" style="position:absolute;top:0;right:0;background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">edit</span></button>';
+    + '<button type="button" class="orient-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterOrientSheetSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '오리엔시트 URL 수정') + '" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">edit</span></button>';
 }
 
-function _restoreOrientSheetSentDisplay(cell, isoOrNull, urlOrNull, locked) {
-  cell.innerHTML = renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked);
+function _restoreOrientSheetSentDisplay(cell, urlOrNull, locked) {
+  cell.innerHTML = renderOrientSheetSentDisplay(urlOrNull, locked);
+}
+
+// ─── 입금 날짜 셀 (migration 126) ────────────────────────────────────────────
+function renderPaidAtDisplay(isoOrNull, locked) {
+  var hasValue = !!isoOrNull;
+  var content = hasValue
+    ? '<span style="font-size:11px;color:var(--ink);font-variant-numeric:tabular-nums">' + esc(fmtDate(isoOrNull)) + '</span>'
+    : '<span style="color:var(--muted);font-size:11px">—</span>';
+  return content
+    + '<button type="button" class="paid-at-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterPaidAtEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '입금 날짜 수정') + '" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">edit</span></button>';
+}
+
+function _restorePaidAtDisplay(cell, isoOrNull, locked) {
+  cell.innerHTML = renderPaidAtDisplay(isoOrNull, locked);
 }
 
 // ─── 입금 정보 셀 (해당 제품의 4종 체크 + 새로고침) ────────────────────────────
@@ -3488,33 +3504,16 @@ function enterOrientSheetSentEdit(btnEl) {
   if (!cell) return;
   var cur = _findBrandApp(cell.dataset.id);
   if (!cur) return;
-  var hasValue = !!cur.orient_sheet_sent_at;
-  var dateValue = hasValue ? new Date(cur.orient_sheet_sent_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
   var urlValue = esc(cur.orient_sheet_sent_url || '');
   cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
-    + '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">'
-      + '<input type="checkbox" class="orient-edit-cb" ' + (hasValue ? 'checked' : '') + ' onchange="syncOrientSheetSentEditDate(this)">'
-      + '<span>전달 완료</span>'
-    + '</label>'
-    + '<input type="date" class="orient-edit-date" value="' + dateValue + '" ' + (hasValue ? '' : 'disabled') + ' style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (hasValue ? '#fff' : '#F5F5F5') + '">'
     + '<input type="url" class="orient-edit-url" value="' + urlValue + '" placeholder="https://" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%">'
     + '<div style="display:flex;gap:4px;justify-content:flex-end">'
       + '<button type="button" onclick="cancelOrientSheetSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
       + '<button type="button" onclick="confirmOrientSheetSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
     + '</div>'
   + '</div>';
-}
-
-function syncOrientSheetSentEditDate(cb) {
-  var cell = cb.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var dateInput = cell.querySelector('.orient-edit-date');
-  if (!dateInput) return;
-  dateInput.disabled = !cb.checked;
-  dateInput.style.background = cb.checked ? '#fff' : '#F5F5F5';
-  if (cb.checked && !dateInput.value) {
-    dateInput.value = new Date().toISOString().slice(0,10);
-  }
+  var input = cell.querySelector('.orient-edit-url');
+  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
 }
 
 function cancelOrientSheetSentEdit(anyChildEl) {
@@ -3522,7 +3521,7 @@ function cancelOrientSheetSentEdit(anyChildEl) {
   if (!cell) return;
   var cur = _findBrandApp(cell.dataset.id);
   var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
-  _restoreOrientSheetSentDisplay(cell, cur?.orient_sheet_sent_at || null, cur?.orient_sheet_sent_url || null, !!locked);
+  _restoreOrientSheetSentDisplay(cell, cur?.orient_sheet_sent_url || null, !!locked);
 }
 
 async function confirmOrientSheetSentEdit(anyChildEl) {
@@ -3531,31 +3530,20 @@ async function confirmOrientSheetSentEdit(anyChildEl) {
   var id = cell.dataset.id;
   var cur = _findBrandApp(id);
   if (!cur) return;
-  var cb = cell.querySelector('.orient-edit-cb');
-  var dateInput = cell.querySelector('.orient-edit-date');
   var urlInput = cell.querySelector('.orient-edit-url');
-  if (!cb || !dateInput) return;
-  var nextDate = null;
-  if (cb.checked) {
-    var raw = dateInput.value;
-    if (!raw) { toast('날짜를 선택하세요.', 'warn'); return; }
-    nextDate = new Date(raw + 'T12:00:00+09:00').toISOString();
-  }
-  var rawUrl = urlInput ? urlInput.value.trim() : '';
+  if (!urlInput) return;
+  var rawUrl = urlInput.value.trim();
   var nextUrl = rawUrl ? safeBrandUrl(rawUrl) : null;
   if (rawUrl && !nextUrl) { toast('URL은 http:// 또는 https:// 로 시작해야 합니다.', 'warn'); return; }
-  var prevDate = cur.orient_sheet_sent_at;
   var prevUrl = cur.orient_sheet_sent_url || null;
-  var prevDateStr = prevDate ? new Date(prevDate).toISOString().slice(0,10) : null;
-  var nextDateStr = nextDate ? new Date(nextDate).toISOString().slice(0,10) : null;
-  if (prevDateStr === nextDateStr && prevUrl === nextUrl) {
-    _restoreOrientSheetSentDisplay(cell, prevDate, prevUrl, false);
+  if (prevUrl === nextUrl) {
+    _restoreOrientSheetSentDisplay(cell, prevUrl, false);
     return;
   }
   var prevVersion = cur.version;
-  cb.disabled = true; dateInput.disabled = true; if (urlInput) urlInput.disabled = true;
-  var result = await updateBrandApplication(id, {orient_sheet_sent_at: nextDate, orient_sheet_sent_url: nextUrl}, prevVersion);
-  cb.disabled = false; dateInput.disabled = false; if (urlInput) urlInput.disabled = false;
+  urlInput.disabled = true;
+  var result = await updateBrandApplication(id, {orient_sheet_sent_url: nextUrl}, prevVersion);
+  urlInput.disabled = false;
   if (result.conflict) {
     toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
     await loadBrandApplications();
@@ -3565,12 +3553,94 @@ async function confirmOrientSheetSentEdit(anyChildEl) {
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
     return;
   }
-  cur.orient_sheet_sent_at = nextDate;
   cur.orient_sheet_sent_url = nextUrl;
   _syncBrandAppCur(cur, result, prevVersion);
-  _restoreOrientSheetSentDisplay(cell, nextDate, nextUrl, false);
+  _restoreOrientSheetSentDisplay(cell, nextUrl, false);
   _refreshBrandAppHistoryButton(id);
-  toast(nextDate ? '오리엔시트 전달 정보가 저장되었습니다.' : '오리엔시트 미전달로 변경했습니다.');
+  toast(nextUrl ? '오리엔시트 URL이 저장되었습니다.' : '오리엔시트 URL을 제거했습니다.');
+}
+
+// ─── 입금 날짜 셀 편집 (migration 126) ────────────────────────────────────────
+function enterPaidAtEdit(btnEl) {
+  var cell = btnEl.closest('.brand-app-paid-at-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  if (!cur) return;
+  var hasValue = !!cur.paid_at;
+  var dateValue = hasValue ? new Date(cur.paid_at).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);
+  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
+    + '<label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;cursor:pointer">'
+      + '<input type="checkbox" class="paid-at-edit-cb" ' + (hasValue ? 'checked' : '') + ' onchange="syncPaidAtEditDate(this)">'
+      + '<span>입금 완료</span>'
+    + '</label>'
+    + '<input type="date" class="paid-at-edit-date" value="' + dateValue + '" ' + (hasValue ? '' : 'disabled') + ' style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%;background:' + (hasValue ? '#fff' : '#F5F5F5') + '">'
+    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
+      + '<button type="button" onclick="cancelPaidAtEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
+      + '<button type="button" onclick="confirmPaidAtEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
+    + '</div>'
+  + '</div>';
+}
+
+function syncPaidAtEditDate(cb) {
+  var cell = cb.closest('.brand-app-paid-at-cell');
+  if (!cell) return;
+  var dateInput = cell.querySelector('.paid-at-edit-date');
+  if (!dateInput) return;
+  dateInput.disabled = !cb.checked;
+  dateInput.style.background = cb.checked ? '#fff' : '#F5F5F5';
+  if (cb.checked && !dateInput.value) {
+    dateInput.value = new Date().toISOString().slice(0,10);
+  }
+}
+
+function cancelPaidAtEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-paid-at-cell');
+  if (!cell) return;
+  var cur = _findBrandApp(cell.dataset.id);
+  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
+  _restorePaidAtDisplay(cell, cur?.paid_at || null, !!locked);
+}
+
+async function confirmPaidAtEdit(anyChildEl) {
+  var cell = anyChildEl.closest('.brand-app-paid-at-cell');
+  if (!cell) return;
+  var id = cell.dataset.id;
+  var cur = _findBrandApp(id);
+  if (!cur) return;
+  var cb = cell.querySelector('.paid-at-edit-cb');
+  var dateInput = cell.querySelector('.paid-at-edit-date');
+  if (!cb || !dateInput) return;
+  var nextDate = null;
+  if (cb.checked) {
+    var raw = dateInput.value;
+    if (!raw) { toast('날짜를 선택하세요.', 'warn'); return; }
+    nextDate = new Date(raw + 'T12:00:00+09:00').toISOString();
+  }
+  var prevDate = cur.paid_at;
+  var prevDateStr = prevDate ? new Date(prevDate).toISOString().slice(0,10) : null;
+  var nextDateStr = nextDate ? new Date(nextDate).toISOString().slice(0,10) : null;
+  if (prevDateStr === nextDateStr) {
+    _restorePaidAtDisplay(cell, prevDate, false);
+    return;
+  }
+  var prevVersion = cur.version;
+  cb.disabled = true; dateInput.disabled = true;
+  var result = await updateBrandApplication(id, {paid_at: nextDate}, prevVersion);
+  cb.disabled = false; dateInput.disabled = false;
+  if (result.conflict) {
+    toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    await loadBrandApplications();
+    return;
+  }
+  if (!result.ok) {
+    toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    return;
+  }
+  cur.paid_at = nextDate;
+  _syncBrandAppCur(cur, result, prevVersion);
+  _restorePaidAtDisplay(cell, nextDate, false);
+  _refreshBrandAppHistoryButton(id);
+  toast(nextDate ? '입금 날짜가 저장되었습니다.' : '입금 미완료로 변경했습니다.');
 }
 
 // [migration 123] 인라인 메모 편집 함수 6종(renderMemoDisplay/_restoreMemoDisplay/enterMemoEdit/
