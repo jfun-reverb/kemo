@@ -1379,10 +1379,11 @@
                 <th style="width:120px">VAT 포함 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT/UPDATE 시 재계산)&#10;reviewer: ( ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료) ) × VAT 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비·이체수수료 미입력 시 0 (이체수수료는 ₩2,500 자동 채움)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
                 <th style="width:130px">오리엔트 전달</th>
-                <th style="width:160px">입금여부 <span class="col-help" data-tooltip="모집비용/상품비용/이체수수료/무료모집 체크. 새로고침 아이콘 클릭 시 제품 합계 기준 자동 재설정 (무료모집 제외)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:160px">입금 정보 <span class="col-help" data-tooltip="모집비용/상품비용/이체수수료/무료모집 체크. 새로고침 아이콘 클릭 시 제품 합계 기준 자동 재설정 (무료모집 제외)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:110px">입금 날짜 <span class="col-help" data-tooltip="운영자가 통장 확인 후 입력하는 실제 입금 일자"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="29" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2253,10 +2254,6 @@
       <div class="form-group" style="margin-bottom:12px">
         <label class="form-label">요청사항 <span style="font-size:10px;font-weight:400;color:var(--muted)">(광고주 입력값 · 선택)</span></label>
         <textarea id="nbaRequestNote" class="form-input" rows="3" placeholder="희망 시기·타겟층·강조 포인트 등"></textarea>
-      </div>
-      <div class="form-group" style="margin-bottom:12px">
-        <label class="form-label">내부 메모 <span style="font-size:10px;font-weight:400;color:var(--muted)">(관리자 전용 · 선택)</span></label>
-        <textarea id="nbaAdminMemo" class="form-input" rows="2" placeholder="검수 우선순위·진행 상황 등 영업팀 메모"></textarea>
       </div>
     </div>
     <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">

@@ -608,7 +608,10 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 **관련 커밋:**
 - 4469947 feat(db): companies master table + brands.company_id (migration 118)
 - 6ee89aa feat(db): companies backfill + brand ops RPCs (migrations 119, 120)
-- (예정) feat(db): link/unlink campaign-application RPCs (migration 121)
+- 3c95972 feat(db): link/unlink campaign-application RPCs (migration 121)
+- ab2e4bc fix(db): one-off patch for 089 backfill missing 32 campaigns (운영 적용 중 089 부분 적용 흔적 발견하여 32건 보정)
+- a0b274b fix(db): update 084 record_caution_history signature 11→15 (운영 적용 중 109 시그니처 확장 영향 발견)
+- 1bf9c16 Merge pull request #203 from jfun-reverb/dev (운영 배포 머지)
 
 ### 초안 대비 변경 사항
 
