@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778833979';
+  var CURRENT_BUILD = 'v1778838547';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1446,7 +1446,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-15 17:32 · 63e7968</span>
+          <span class="admin-build-text">2026-05-15 18:49 · 0a31570</span>
         </div>
       </div>
     </aside>
@@ -1750,7 +1750,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div id="editCampRecruitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group" id="editCampPurchaseRow" style="display:none">
-                <label class="form-label">구매 기간</label>
+                <label class="form-label">구매 및 영수증 제출 기간</label>
                 <input type="text" id="editCampPurchaseRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="editCamp" data-range-kind="purchase" readonly>
                 <input type="hidden" id="editCampPurchaseStart">
                 <input type="hidden" id="editCampPurchaseEnd">
@@ -2022,7 +2022,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <div id="newCampRecruitWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
               <div class="form-group" id="newCampPurchaseRow" style="display:none">
-                <label class="form-label">구매 기간</label>
+                <label class="form-label">구매 및 영수증 제출 기간</label>
                 <input type="text" id="newCampPurchaseRange" class="form-input fp-range" placeholder="시작일 ~ 종료일 선택" data-range-prefix="newCamp" data-range-kind="purchase" readonly>
                 <input type="hidden" id="newCampPurchaseStart">
                 <input type="hidden" id="newCampPurchaseEnd">
@@ -13294,7 +13294,7 @@ function renderCampPreview(mode) {
             if (channelNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">チャンネル</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
             if (contentTypeNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">コンテンツ種類</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">募集期間</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
-            if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
+            if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">購入および領収書提出期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
             if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end) rows.push(`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
             if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`);
