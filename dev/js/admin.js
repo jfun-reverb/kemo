@@ -757,7 +757,7 @@ function updateCampTableHead() {
   if (!head) return;
   const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>조회</th><th>신청</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
@@ -765,8 +765,11 @@ function updateCampTableHead() {
       <th>브랜드</th>
       <th>제품</th>
       <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
-      <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>모집기간</th>
+      <th>구매기간</th>
+      <th>결과물 제출 마감</th>
+      <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">${adminCampSortKey==='updated'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th></th></tr>`;
@@ -926,7 +929,7 @@ async function loadAdminCampaigns(useCache) {
           <button class="btn btn-ghost btn-xs" ${i===totalLen-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
       </td>` : `<td style="text-align:center;width:44px;min-width:44px;max-width:44px;padding:8px 4px"><input type="checkbox" class="camp-select-cb" data-camp-id="${esc(c.id)}" ${isSelected?'checked':''} onchange="toggleCampSelect('${c.id}', this.checked)"></td>`}
-      <td style="max-width:280px">
+      <td style="min-width:300px;max-width:380px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
             ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:160, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
@@ -938,7 +941,6 @@ async function loadAdminCampaigns(useCache) {
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
             <strong style="cursor:pointer;color:var(--ink);display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
-            ${c.post_deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:1px">캠페인 노출: ~${formatDate(c.post_deadline)} ${dDayLabel(c.post_deadline)}</div>` : ''}
           </div>
         </div>
       </td>
@@ -956,8 +958,7 @@ async function loadAdminCampaigns(useCache) {
           ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(ps)}</div>`:''}
         </td>`;
       })()}
-      <td>${statusBadge(c.status)}</td>
-      <td style="font-size:13px;font-weight:600;color:var(--ink)">${(c.view_count||0).toLocaleString()}</td>
+      <td style="white-space:nowrap;min-width:90px">${statusBadge(c.status)}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
@@ -968,8 +969,32 @@ async function loadAdminCampaigns(useCache) {
           </button>
           <span style="font-size:10px;font-weight:600;color:${approvedCnt>0?'var(--pink)':'var(--muted)'}">${approvedCnt}승인${pendingCnt>0?` · <span style="color:var(--gold)">${pendingCnt}대기</span>`:''}</span>
         </div>
-        ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:12px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
       </td>
+      ${adminReorderMode ? '' : (()=>{
+        // 모집기간·구매기간·결과물 제출 마감 — 2026-05-15 컬럼 3종.
+        //   각 셀 종료일 옆에 D-day 라벨 (모집 마감·구매 마감·결과물 마감 임박 시각화)
+        //   recruit_type 별 분기: monitor=purchase_*, visit=visit_*, gifting=빈칸
+        var ps = (c.recruit_type === 'monitor') ? c.purchase_start
+               : (c.recruit_type === 'visit')   ? c.visit_start  : '';
+        var pe = (c.recruit_type === 'monitor') ? c.purchase_end
+               : (c.recruit_type === 'visit')   ? c.visit_end    : '';
+        // 기간 셀: 시작 ~ 종료 + 종료일 기준 D-day 라벨
+        var rangeCell = function(s, e) {
+          if (!s && !e) return '<span style="color:var(--muted)">—</span>';
+          var startTxt = s ? formatDate(s) : '—';
+          var endTxt   = e ? formatDate(e) : '—';
+          return startTxt + ' ~ ' + endTxt + (e ? ' ' + dDayLabel(e) : '');
+        };
+        var singleCell = function(d) {
+          if (!d) return '<span style="color:var(--muted)">—</span>';
+          return formatDate(d) + ' ' + dDayLabel(d);
+        };
+        return `
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(c.recruit_start, c.deadline)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(ps, pe)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${singleCell(c.submission_end)}</td>`;
+      })()}
+      <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
       ${adminReorderMode ? '' : `<td style="position:relative">
@@ -977,7 +1002,9 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  const emptyHtml = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
+  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/신청/조회/등록일/수정일)
+  const emptyHtml = `<tr><td colspan="${adminReorderMode ? 9 : 13}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
@@ -2703,7 +2730,7 @@ function renderCampPreview(mode) {
             if (channelNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">チャンネル</div><div class="cp-info-val"><div class="cp-chips">${channelNames.map((n,i)=>(i>0?`<span class="cp-chip-sep">${chSep}</span>`:'')+`<span class="cp-chip">${esc(n)}</span>`).join('')}</div></div></div>`);
             if (contentTypeNames.length) rows.push(`<div class="cp-info-row"><div class="cp-info-key">コンテンツ種類</div><div class="cp-info-val"><div class="cp-chips">${contentTypeNames.map(n=>`<span class="cp-chip cp-chip-sm">${esc(n)}</span>`).join('')}</div></div></div>`);
             rows.push(`<div class="cp-info-row"><div class="cp-info-key">募集期間</div><div class="cp-info-val">${fmt(camp.recruit_start || new Date())} 〜 ${fmt(camp.deadline)}</div></div>`);
-            if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">購入期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
+            if (isMonitorPreview && (camp.purchase_start || camp.purchase_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">購入および領収書提出期間</div><div class="cp-info-val">${fmt(camp.purchase_start)} 〜 ${fmt(camp.purchase_end)}</div></div>`);
             if (camp.recruit_type === 'visit' && (camp.visit_start || camp.visit_end)) rows.push(`<div class="cp-info-row"><div class="cp-info-key">訪問期間</div><div class="cp-info-val">${fmt(camp.visit_start)} 〜 ${fmt(camp.visit_end)}</div></div>`);
             if (camp.submission_end) rows.push(`<div class="cp-info-row"><div class="cp-info-key">提出締切</div><div class="cp-info-val" style="font-weight:600">${fmt(camp.submission_end)}</div></div>`);
             if (camp.slots) rows.push(`<div class="cp-info-row"><div class="cp-info-key">募集人数</div><div class="cp-info-val">${camp.slots}名</div></div>`);

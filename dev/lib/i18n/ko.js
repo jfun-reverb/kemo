@@ -288,7 +288,7 @@ window.I18N_KO = {
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
     postDeadlineRelative: '수령 후 {days}일 이내',
-    purchasePeriod: '구매 기간',
+    purchasePeriod: '구매 및 영수증 제출 기간',
     visitPeriod: '방문 기간',
     submissionEnd: '결과물 제출 마감',
     peopleUnit: '명',

@@ -301,7 +301,7 @@ window.I18N_JA = {
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
     postDeadlineRelative: '受取後 {days}日以内',
-    purchasePeriod: '購入期間',
+    purchasePeriod: '購入および領収書提出期間',
     visitPeriod: '訪問期間',
     submissionEnd: '成果物提出締切',
     peopleUnit: '名',
