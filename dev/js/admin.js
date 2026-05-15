@@ -638,8 +638,9 @@ function syncCampMultiFilter(containerId, sortedCamps, onChange, counts) {
 }
 
 // ── 다중 선택 드롭다운 필터 ──
-// "전체" = 모든 항목 체크 표시 (시각). 일부 해제 시 "전체"는 indeterminate.
-// 데이터 모델: 전체(모두 체크) → 빈 배열 반환(=필터 없음). 일부만 체크 → 그 배열 반환.
+// 초기 상태: 모두 비체크 = 필터 없음 (전체 표시). 사용자가 체크한 항목만 필터 적용.
+// "전체" 체크박스 클릭 시 모든 옵션 토글. 일부만 체크 시 "전체" indeterminate.
+// 데이터 모델: 모두 비체크 또는 모두 체크 → 빈 배열 반환(=필터 없음). 일부만 체크 → 그 배열 반환.
 //
 // options = [{value, label, subLabel?, count?}]
 //   - subLabel(있으면): 라벨 아래 회색 작은 글씨 (예: 캠페인 번호 B0019-C001)
@@ -650,14 +651,14 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
   const btn = wrap.querySelector('.mf-btn');
   const drop = wrap.querySelector('.mf-drop');
   if (!btn || !drop) return;
-  // 옵션 행 렌더 — subLabel·count 지원
+  // 옵션 행 렌더 — subLabel·count 지원. 초기 비체크 (사용자가 명시적으로 선택해야 필터 적용)
   const renderOptionItem = (o) => {
     const countHtml = (o.count != null) ? ` <span class="mf-item-count">(${o.count})</span>` : '';
     const subHtml = o.subLabel ? `<div class="mf-item-sub">${esc(o.subLabel)}</div>` : '';
-    return `<label class="mf-item${o.subLabel ? ' has-sub' : ''}"><input type="checkbox" value="${esc(o.value)}" checked data-label="${esc(o.label)}"><div class="mf-item-text"><div class="mf-item-label">${esc(o.label)}${countHtml}</div>${subHtml}</div></label>`;
+    return `<label class="mf-item${o.subLabel ? ' has-sub' : ''}"><input type="checkbox" value="${esc(o.value)}" data-label="${esc(o.label)}"><div class="mf-item-text"><div class="mf-item-label">${esc(o.label)}${countHtml}</div>${subHtml}</div></label>`;
   };
-  // 드롭다운 아이템 생성 — 초기 상태: 전체 체크 = 모든 항목 체크
-  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all" checked><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
+  // 드롭다운 아이템 생성 — 초기 상태: 모두 비체크 = 필터 없음 (전체 표시)
+  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all"><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
     + options.map(renderOptionItem).join('');
   btn.textContent = allLabel;
   // 토글
