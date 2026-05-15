@@ -7654,6 +7654,44 @@ function imgToJpegArrayBuffer(url, maxW, maxH) {
   });
 }
 
+// ─── 엑셀 export 공용 헬퍼 ─────────────────────────────────────────
+// 인플루언서 이름 — 한자/가나 별도 컬럼용 (사용자 요청 형식)
+function _excelInfluencerNameParts(u) {
+  if (!u) return {kanji: '', kana: ''};
+  return {
+    kanji: (u.name_kanji || '').trim(),
+    kana:  (u.name_kana || u.name || '').trim()
+  };
+}
+
+// SNS 핸들 → 전체 URL 변환 (각 SNS 공식 URL 형식 유지). TikTok/YouTube 는 @ 필수
+function _excelSnsUrl(channel, raw) {
+  if (!raw) return '';
+  var handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : String(raw).replace(/^@/, '').trim();
+  if (!handle) return '';
+  switch (channel) {
+    case 'instagram': return 'https://www.instagram.com/' + handle + '/';
+    case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
+    case 'x':         return 'https://x.com/' + handle;
+    case 'youtube':   return 'https://www.youtube.com/@' + handle;
+    default: return handle;
+  }
+}
+
+// 우편번호 (별도 컬럼용). 〒 prefix 제거, 하이픈 유지
+function _excelZip(u) {
+  if (!u || !u.zip) return '';
+  return String(u.zip).replace(/^〒\s*/, '').trim();
+}
+
+// 주소 본문 (우편번호 제외). 도도부현 + 시군구 + 건물
+function _excelAddressOnly(u, fallback) {
+  if (u && (u.prefecture || u.city || u.building)) {
+    return (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
+  }
+  return fallback || '';
+}
+
 // ─── 캠페인 다중 선택 + 통합 엑셀 ────────────────────────────────────
 // _selectedCampIds: 사용자가 체크한 캠페인 id 집합. 페인 이동/새로고침 시 초기화.
 // 필터·정렬·lazy-load remount 와 무관하게 Set 기반 절대 선택 유지.
@@ -7800,9 +7838,10 @@ function _confirmLargeExport(n) {
 }
 
 // 캠페인 다중 선택 신청자 엑셀 — 시트1 캠페인 정보 + 시트2 통합 신청자 리스트
-async function exportSelectedCampaignsApplicants() {
+//   idsOverride: 인자로 직접 ids 배열 받기 가능 (단일 캠페인 더보기 메뉴 호출용)
+async function exportSelectedCampaignsApplicants(idsOverride) {
   if (!_checkExportAllowed()) return;
-  var ids = Array.from(_selectedCampIds);
+  var ids = (Array.isArray(idsOverride) && idsOverride.length > 0) ? idsOverride : Array.from(_selectedCampIds);
   if (ids.length === 0) { toast('캠페인을 1개 이상 선택하세요', 'warn'); return; }
   if (!(await _confirmLargeExport(ids.length))) return;
 
@@ -7838,17 +7877,19 @@ async function exportSelectedCampaignsApplicants() {
       { header: '캠페인 제목',   key: 'campTitle',  width: 28 },
       { header: '신청일',        key: 'created',    width: 20 },
       { header: '상태',          key: 'status',     width: 10 },
-      { header: '인플루언서명',  key: 'name',       width: 16 },
+      { header: '이름(한자)',    key: 'nameKanji',  width: 16 },
+      { header: '이름(가나)',    key: 'nameKana',   width: 16 },
       { header: '이메일',        key: 'email',      width: 26 },
       { header: '연락처',        key: 'phone',      width: 16 },
-      { header: 'Instagram',     key: 'ig',         width: 22 },
+      { header: 'Instagram URL', key: 'ig',         width: 36 },
       { header: 'Instagram 팔로워', key: 'igF',     width: 14 },
-      { header: 'TikTok',        key: 'tt',         width: 22 },
+      { header: 'TikTok URL',    key: 'tt',         width: 36 },
       { header: 'TikTok 팔로워', key: 'ttF',        width: 14 },
-      { header: 'X',             key: 'x',          width: 22 },
+      { header: 'X URL',         key: 'x',          width: 36 },
       { header: 'X 팔로워',      key: 'xF',         width: 14 },
-      { header: 'YouTube',       key: 'yt',         width: 22 },
+      { header: 'YouTube URL',   key: 'yt',         width: 36 },
       { header: 'YouTube 팔로워',key: 'ytF',        width: 14 },
+      { header: '우편번호',      key: 'zip',        width: 10 },
       { header: '배송지',        key: 'address',    width: 36 },
       { header: '신청 메시지',   key: 'message',    width: 32 },
       { header: '심사일',        key: 'reviewedAt', width: 20 },
@@ -7864,38 +7905,32 @@ async function exportSelectedCampaignsApplicants() {
     hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
     hdr.height = 22;
 
-    var snsHandleStr = function(channel, raw) {
-      if (!raw) return '';
-      if (typeof extractSnsHandle === 'function') { var h = extractSnsHandle(channel, raw); return h ? '@' + h : ''; }
-      return String(raw).trim();
-    };
-    var addrStr = function(u, fallbackAddress) {
-      if (u && u.zip) return '〒' + u.zip + ' ' + (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
-      return fallbackAddress || '';
-    };
     var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '심사중' : s === 'rejected' ? '미승인' : s === 'cancelled' ? '취소' : (s || ''); };
     var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
 
     allCampApps.forEach(function(a) {
       var u = userByEmail[a.user_email] || {};
       var c = a._campMeta || {};
+      var nm = _excelInfluencerNameParts(u);
       ws.addRow({
         campNo:        c.campaign_no || '',
         campTitle:     c.title || '',
         created:       fmtKR(a.created_at),
         status:        statusKo(a.status),
-        name:          u.name_kanji || u.name || a.user_name || '',
+        nameKanji:     nm.kanji || a.user_name || '',
+        nameKana:      nm.kana || '',
         email:         a.user_email || '',
         phone:         formatPhoneDisplay(u.phone),
-        ig:            snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        ig:            _excelSnsUrl('instagram', u.ig || a.ig_id || a.user_ig),
         igF:           Number(u.ig_followers || 0),
-        tt:            snsHandleStr('tiktok', u.tiktok),
+        tt:            _excelSnsUrl('tiktok', u.tiktok),
         ttF:           Number(u.tiktok_followers || 0),
-        x:             snsHandleStr('x', u.x),
+        x:             _excelSnsUrl('x', u.x),
         xF:            Number(u.x_followers || 0),
-        yt:            snsHandleStr('youtube', u.youtube),
+        yt:            _excelSnsUrl('youtube', u.youtube),
         ytF:           Number(u.youtube_followers || 0),
-        address:       addrStr(u, a.address),
+        zip:           _excelZip(u),
+        address:       _excelAddressOnly(u, a.address),
         message:       a.message || '',
         reviewedAt:    fmtKR(a.reviewed_at),
         reviewedBy:    formatReviewer(a.reviewed_by),
@@ -7932,9 +7967,10 @@ async function exportSelectedCampaignsApplicants() {
 }
 
 // 캠페인 다중 선택 결과물 엑셀 — 시트1 캠페인 정보 + 시트2 통합 결과물 리스트 (이미지 임베드 생략, URL만)
-async function exportSelectedCampaignsDeliverables() {
+//   idsOverride: 인자로 직접 ids 배열 받기 가능 (단일 캠페인 더보기 메뉴 호출용)
+async function exportSelectedCampaignsDeliverables(idsOverride) {
   if (!_checkExportAllowed()) return;
-  var ids = Array.from(_selectedCampIds);
+  var ids = (Array.isArray(idsOverride) && idsOverride.length > 0) ? idsOverride : Array.from(_selectedCampIds);
   if (ids.length === 0) { toast('캠페인을 1개 이상 선택하세요', 'warn'); return; }
   if (!(await _confirmLargeExport(ids.length))) return;
 
@@ -7946,8 +7982,6 @@ async function exportSelectedCampaignsDeliverables() {
     if (camps.length === 0) { toast('선택한 캠페인을 찾을 수 없습니다', 'error'); return; }
 
     var users = await fetchInfluencers();
-    var userByEmail = {};
-    (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
     // 시트1 캠페인 요약 「신청 수」 컬럼을 채우기 위해 신청 전체 fetch 1회 + groupBy
     var allAppsForSummary = await fetchApplications();
     var appsByCampId = {};
@@ -7955,62 +7989,193 @@ async function exportSelectedCampaignsDeliverables() {
       if (!appsByCampId[a.campaign_id]) appsByCampId[a.campaign_id] = [];
       appsByCampId[a.campaign_id].push(a);
     });
+    // 결과물 fetch (전체 상태) + 이미지 다운로드
     var allDelivs = [];
     for (var i = 0; i < camps.length; i++) {
       var c = camps[i];
       var dels = await fetchDeliverables({ campaign_id: c.id });
       (dels || []).forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
     }
+    if (allDelivs.length === 0) { toast('결과물이 없습니다', 'warn'); return; }
+
+    // 인플루언서 id 매핑 (단일 함수와 동일 패턴)
+    var usersById = {};
+    (users || []).forEach(function(u){ if (u && u.id) usersById[u.id] = u; });
+
+    // 영수증·리뷰 이미지 Image→Canvas→JPEG 재인코딩 (CORS·포맷 호환성)
+    var imgBuffers = {};
+    await Promise.all(allDelivs.filter(function(d){
+      return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
+    }).map(async function(d) {
+      try {
+        var url = d.receipt_url;
+        if (url && !/^https?:\/\//.test(url) && db?.storage) {
+          var sig = await db.storage.from('campaign-images').createSignedUrl(url, 3600);
+          url = sig?.data?.signedUrl;
+        }
+        if (!url) return;
+        var result = await imgToJpegArrayBuffer(url, 400, 400);
+        if (result && result.buffer && result.buffer.byteLength > 0) {
+          imgBuffers[d.id] = result;
+        }
+      } catch(e) { console.warn('[excel] receipt fetch failed', d.id, e); }
+    }));
+
+    // application_id 단위 그룹핑 (캠페인 정보 보존). 동일 신청 receipt + result 한 행에 펼침
+    var groups = {};
+    allDelivs.forEach(function(d) {
+      var ck = (d._campMeta && d._campMeta.id) || '';
+      var key = ck + '|' + (d.application_id || ('user-' + d.user_id));
+      if (!groups[key]) {
+        groups[key] = { key: key, camp: d._campMeta || {}, application_id: d.application_id, user_id: d.user_id, receipt: null, result: null };
+      }
+      var g = groups[key];
+      if (d.kind === 'receipt') {
+        if (!g.receipt || (d.updated_at || '') > (g.receipt.updated_at || '')) g.receipt = d;
+      } else if (d.kind === 'review_image' || d.kind === 'post') {
+        if (!g.result || (d.updated_at || '') > (g.result.updated_at || '')) g.result = d;
+      }
+    });
+    var groupList = Object.values(groups);
+    // 정렬: 캠페인 번호 → 인플루언서 한자 이름
+    groupList.sort(function(a, b) {
+      var ca = (a.camp.campaign_no || '').toString();
+      var cb = (b.camp.campaign_no || '').toString();
+      if (ca !== cb) return ca.localeCompare(cb, 'ja');
+      var ua = usersById[a.user_id] || {};
+      var ub = usersById[b.user_id] || {};
+      var na = (ua.name_kanji || ua.name || '').toString();
+      var nb = (ub.name_kanji || ub.name || '').toString();
+      return na.localeCompare(nb, 'ja');
+    });
 
     var wb = new ExcelJS.Workbook();
     wb.creator = 'REVERB JP Admin';
     wb.created = new Date();
+
+    // 시트1 캠페인 정보 (기존 유지)
     _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
+    // 시트2 결과물 — 21컬럼 (캠페인 2 + 인플루언서 7 + 영수증 6 + 결과물 6)
     var ws = wb.addWorksheet('결과물');
-    ws.columns = [
-      { header: '캠페인 번호',   key: 'campNo',     width: 16 },
-      { header: '캠페인 제목',   key: 'campTitle',  width: 28 },
-      { header: '제출일',        key: 'submitted',  width: 20 },
-      { header: '종류',          key: 'kind',       width: 10 },
-      { header: '상태',          key: 'status',     width: 10 },
-      { header: '인플루언서명',  key: 'name',       width: 16 },
-      { header: '이메일',        key: 'email',      width: 26 },
-      { header: '결과물 URL',    key: 'url',        width: 50 },
-      { header: '채널',          key: 'channel',    width: 12 },
-      { header: '반려 사유',     key: 'rejectReason', width: 24 },
-      { header: '검수일',        key: 'reviewedAt', width: 20 },
-      { header: '리뷰어',        key: 'reviewedBy', width: 14 }
-    ];
-    var hdr = ws.getRow(1);
-    hdr.font = { bold: true, color: { argb: 'FF222222' } };
-    hdr.alignment = { vertical: 'middle', horizontal: 'center' };
-    hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
-    hdr.height = 22;
 
-    var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '검수대기' : s === 'rejected' ? '반려' : s === 'changed' ? '재제출요청' : (s || ''); };
-    var kindKo = function(k) { return k === 'receipt' ? '영수증' : k === 'post' ? '게시물' : (k || ''); };
-    var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
+    // 머리글 (A1:U1, A2:U2)
+    ws.mergeCells('A1:U1');
+    var tCell = ws.getCell('A1');
+    tCell.value = '선택한 ' + camps.length + '개 캠페인 결과물 통합';
+    tCell.font = {bold: true, size: 14};
+    tCell.alignment = {vertical: 'middle'};
+    ws.getRow(1).height = 26;
 
-    allDelivs.forEach(function(d) {
-      var u = userByEmail[(d.influencers && d.influencers.email) || d.user_email] || {};
-      var c = d._campMeta || {};
-      ws.addRow({
-        campNo:       c.campaign_no || '',
-        campTitle:    c.title || '',
-        submitted:    fmtKR(d.submitted_at),
-        kind:         kindKo(d.kind),
-        status:       statusKo(d.status),
-        name:         u.name_kanji || u.name || (d.influencers && d.influencers.name) || '',
-        email:        (d.influencers && d.influencers.email) || u.email || '',
-        url:          d.receipt_url || d.post_url || '',
-        channel:      d.post_channel || '',
-        rejectReason: d.reject_reason || '',
-        reviewedAt:   fmtKR(d.reviewed_at),
-        reviewedBy:   formatReviewer(d.reviewed_by)
-      });
+    ws.mergeCells('A2:U2');
+    var mCell = ws.getCell('A2');
+    mCell.value = '캠페인 수: ' + camps.length + '개'
+      + '  ·  신청 건수: ' + groupList.length + '건'
+      + '  ·  결과물 합계: ' + allDelivs.length + '건'
+      + '  ·  생성일: ' + new Date().toLocaleString('ko-KR');
+    mCell.font = {color: {argb: 'FF888888'}, size: 11};
+    ws.getRow(2).height = 20;
+
+    // 그룹 헤더 (3행)
+    ws.mergeCells('A3:B3'); ws.getCell('A3').value = '캠페인';
+    ws.mergeCells('C3:I3'); ws.getCell('C3').value = '인플루언서 정보';
+    ws.mergeCells('J3:O3'); ws.getCell('J3').value = '영수증';
+    ws.mergeCells('P3:U3'); ws.getCell('P3').value = '결과물';
+    ['A3','C3','J3','P3'].forEach(function(addr) {
+      var c2 = ws.getCell(addr);
+      c2.font = {bold: true, color: {argb: 'FF222222'}};
+      c2.alignment = {vertical: 'middle', horizontal: 'center'};
+      c2.fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFE8E8E8'}};
     });
-    ws.getColumn('rejectReason').alignment = { wrapText: true, vertical: 'top' };
+    ws.getRow(3).height = 22;
+
+    // 컬럼 헤더 (4행)
+    ws.getRow(4).values = [
+      '캠페인 번호', '캠페인 제목',
+      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+      '타입', '제출일', '검수일', '상태', '이미지', 'URL',
+      '타입', '제출일', '검수일', '상태', '이미지', 'URL'
+    ];
+    ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
+    ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
+    ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
+    ws.getRow(4).height = 24;
+
+    // 컬럼 너비
+    ws.columns = [
+      {width: 18}, {width: 28},
+      {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
+    ];
+
+    // 결과물 1건 → 6컬럼 값
+    var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려', changed:'재제출요청'};
+    var renderDeliverableCells = function(d) {
+      if (!d) return ['', '', '', '', '', ''];
+      var kindLabel = d.kind === 'receipt' ? '영수증'
+        : d.kind === 'review_image' ? '리뷰 이미지'
+        : '게시물';
+      var submittedStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
+      var reviewedStr = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+      var statusStr = statusLabelMap[d.status] || d.status || '';
+      var urlCellValue = '';
+      if (d.kind === 'post') {
+        var postUrl = d.post_url || '';
+        if (Array.isArray(d.post_submissions) && d.post_submissions.length) {
+          var last = d.post_submissions[d.post_submissions.length - 1];
+          postUrl = (last && last.url) || postUrl;
+        }
+        if (postUrl) urlCellValue = {text: postUrl, hyperlink: postUrl};
+      } else if ((d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url) {
+        var imgUrl = /^https?:\/\//.test(d.receipt_url)
+          ? d.receipt_url
+          : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
+        var linkText = d.kind === 'receipt' ? '영수증 보기' : '리뷰 이미지 보기';
+        urlCellValue = {text: linkText, hyperlink: imgUrl};
+      }
+      return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
+    };
+
+    // 본문 행 — 그룹 1개 = 1행
+    groupList.forEach(function(g, idx) {
+      var rowNum = 5 + idx;
+      var u = usersById[g.user_id] || {};
+      var cc = g.camp || {};
+      var row = ws.getRow(rowNum);
+      row.height = 84;
+      var receiptCells = renderDeliverableCells(g.receipt);
+      var resultCells = renderDeliverableCells(g.result);
+      row.values = [
+        cc.campaign_no || '', cc.title || '',
+        u.name_kanji || u.name || '—',
+        u.name_kana || '',
+        u.email || '',
+        _excelSnsUrl('instagram', u.ig),
+        _excelSnsUrl('tiktok', u.tiktok),
+        _excelSnsUrl('x', u.x),
+        _excelSnsUrl('youtube', u.youtube),
+        receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5],
+        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5]
+      ];
+      row.alignment = {vertical: 'middle', wrapText: true};
+      // 하이퍼링크 색상 (O열=15 영수증 URL, U열=21 결과물 URL)
+      [15, 21].forEach(function(colNum) {
+        var cell = row.getCell(colNum);
+        if (cell && cell.value && cell.value.hyperlink) {
+          cell.font = {color: {argb: 'FFE8344E'}, underline: true};
+        }
+      });
+      // 이미지 임베드 (N열=14 영수증, T열=20 결과물)
+      if (g.receipt && imgBuffers[g.receipt.id]) {
+        var rImgId = wb.addImage({buffer: imgBuffers[g.receipt.id].buffer, extension: imgBuffers[g.receipt.id].ext});
+        ws.addImage(rImgId, 'N' + rowNum + ':N' + rowNum);
+      }
+      if (g.result && g.result.kind === 'review_image' && imgBuffers[g.result.id]) {
+        var sImgId = wb.addImage({buffer: imgBuffers[g.result.id].buffer, extension: imgBuffers[g.result.id].ext});
+        ws.addImage(sImgId, 'T' + rowNum + ':T' + rowNum);
+      }
+    });
 
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -8019,10 +8184,13 @@ async function exportSelectedCampaignsDeliverables() {
     aEl.href = url;
     var ts = new Date();
     var ymd = ts.getFullYear() + String(ts.getMonth()+1).padStart(2,'0') + String(ts.getDate()).padStart(2,'0');
-    aEl.download = 'deliverables-' + camps.length + 'campaigns-' + ymd + '.xlsx';
+    var fnTag = camps.length === 1
+      ? ((camps[0].campaign_no || camps[0].title || 'campaign').replace(/[\\\/:*?"<>|]/g, '_').substring(0, 40))
+      : (camps.length + 'campaigns');
+    aEl.download = 'deliverables-' + fnTag + '-' + ymd + '.xlsx';
     document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
     URL.revokeObjectURL(url);
-    toast('엑셀 다운로드 완료 (' + camps.length + '개 캠페인, ' + allDelivs.length + '건 결과물)');
+    toast('엑셀 다운로드 완료 (' + camps.length + '개 캠페인, ' + groupList.length + '건 신청, ' + allDelivs.length + '건 결과물)');
   } catch (e) {
     console.error('[exportSelectedCampaignsDeliverables]', e);
     toast('엑셀 생성 실패: ' + (e?.message || e), 'error');
@@ -8064,20 +8232,7 @@ async function exportCampaignApplicationsExcel(campId) {
     };
     // 취소 카테고리 라벨 캐시 (cancelled 행 있으면 미리 채움)
     await ensureCancelReasonsCache();
-    var snsHandleStr = function(channel, raw) {
-      if (!raw) return '';
-      if (typeof extractSnsHandle === 'function') {
-        var h = extractSnsHandle(channel, raw);
-        return h ? '@' + h : '';
-      }
-      return String(raw).trim();
-    };
-    var addrStr = function(u, fallbackAddress) {
-      if (u && u.zip) {
-        return '〒' + u.zip + ' ' + (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
-      }
-      return fallbackAddress || '';
-    };
+    // 인라인 헬퍼 폐기 — _excelInfluencerNameParts / _excelSnsUrl / _excelZip / _excelAddressOnly 공용 헬퍼 사용
 
     var wb = new ExcelJS.Workbook();
     wb.creator = 'REVERB JP Admin';
@@ -8088,17 +8243,19 @@ async function exportCampaignApplicationsExcel(campId) {
     ws.columns = [
       { header: '신청일',            key: 'created',    width: 20 },
       { header: '상태',              key: 'status',     width: 10 },
-      { header: '인플루언서명',      key: 'name',       width: 18 },
+      { header: '이름(한자)',        key: 'nameKanji',  width: 16 },
+      { header: '이름(가나)',        key: 'nameKana',   width: 16 },
       { header: '이메일',            key: 'email',      width: 26 },
       { header: '연락처',            key: 'phone',      width: 16 },
-      { header: 'Instagram',         key: 'ig',         width: 22 },
+      { header: 'Instagram URL',     key: 'ig',         width: 36 },
       { header: 'Instagram 팔로워', key: 'igF',        width: 14 },
-      { header: 'TikTok',            key: 'tt',         width: 22 },
+      { header: 'TikTok URL',        key: 'tt',         width: 36 },
       { header: 'TikTok 팔로워',    key: 'ttF',        width: 14 },
-      { header: 'X',                 key: 'x',          width: 22 },
+      { header: 'X URL',             key: 'x',          width: 36 },
       { header: 'X 팔로워',          key: 'xF',         width: 14 },
-      { header: 'YouTube',           key: 'yt',         width: 22 },
+      { header: 'YouTube URL',       key: 'yt',         width: 36 },
       { header: 'YouTube 팔로워',    key: 'ytF',        width: 14 },
+      { header: '우편번호',          key: 'zip',        width: 10 },
       { header: '배송지',            key: 'address',    width: 40 },
       { header: '신청 메시지',       key: 'message',    width: 40 },
       { header: '심사일',            key: 'reviewedAt', width: 20 },
@@ -8132,21 +8289,24 @@ async function exportCampaignApplicationsExcel(campId) {
         try { cancelledStr = new Date(a.cancelled_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }); }
         catch(e) { cancelledStr = String(a.cancelled_at); }
       }
+      var nmS = _excelInfluencerNameParts(u);
       ws.addRow({
         created:        createdStr,
         status:         statusLabel(a.status),
-        name:           u.name_kanji || u.name || a.user_name || '',
+        nameKanji:      nmS.kanji || a.user_name || '',
+        nameKana:       nmS.kana || '',
         email:          a.user_email || '',
         phone:          formatPhoneDisplay(u.phone),
-        ig:             snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        ig:             _excelSnsUrl('instagram', u.ig || a.ig_id || a.user_ig),
         igF:            Number(u.ig_followers || 0),
-        tt:             snsHandleStr('tiktok', u.tiktok),
+        tt:             _excelSnsUrl('tiktok', u.tiktok),
         ttF:            Number(u.tiktok_followers || 0),
-        x:              snsHandleStr('x', u.x),
+        x:              _excelSnsUrl('x', u.x),
         xF:             Number(u.x_followers || 0),
-        yt:             snsHandleStr('youtube', u.youtube),
+        yt:             _excelSnsUrl('youtube', u.youtube),
         ytF:            Number(u.youtube_followers || 0),
-        address:        addrStr(u, a.address),
+        zip:            _excelZip(u),
+        address:        _excelAddressOnly(u, a.address),
         message:        a.message || '',
         reviewedAt:     reviewedStr,
         reviewedBy:     formatReviewer(a.reviewed_by),
@@ -8300,7 +8460,7 @@ async function exportCampaignDeliverables(campId) {
 
     // 컬럼 헤더 (4행)
     ws.getRow(4).values = [
-      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram', 'TikTok', 'X', 'YouTube',
+      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL'
     ];
@@ -8309,22 +8469,14 @@ async function exportCampaignDeliverables(campId) {
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (이름 18·이메일 28·SNS 22, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
+    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
     ws.columns = [
-      {width: 18}, {width: 18}, {width: 28}, {width: 22}, {width: 22}, {width: 18}, {width: 22},
+      {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
     ];
 
-    // 헬퍼: SNS 핸들 추출 + @ 접두
-    var snsHandleStr = function(channel, raw) {
-      if (!raw) return '';
-      if (typeof extractSnsHandle === 'function') {
-        var h = extractSnsHandle(channel, raw);
-        return h ? '@' + h : '';
-      }
-      return String(raw).trim();
-    };
+    // SNS URL 변환은 공용 _excelSnsUrl 헬퍼 사용 (handle → 전체 URL)
     // 헬퍼: 결과물 1건의 6컬럼 값 계산 — 타입/제출일/검수일/상태/이미지(빈 셀, 임베드는 별도)/URL
     var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
     var renderDeliverableCells = function(d) {
@@ -8369,10 +8521,10 @@ async function exportCampaignDeliverables(campId) {
         u.name_kanji || u.name || '—',
         u.name_kana || '',
         u.email || '',
-        snsHandleStr('instagram', u.ig),
-        snsHandleStr('tiktok', u.tiktok),
-        snsHandleStr('x', u.x),
-        snsHandleStr('youtube', u.youtube),
+        _excelSnsUrl('instagram', u.ig),
+        _excelSnsUrl('tiktok', u.tiktok),
+        _excelSnsUrl('x', u.x),
+        _excelSnsUrl('youtube', u.youtube),
         // 영수증 6컬럼
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5],
         // 결과물 6컬럼
