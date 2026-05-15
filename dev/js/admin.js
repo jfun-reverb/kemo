@@ -767,6 +767,9 @@ function updateCampTableHead() {
       <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>조회 <span class="sort-arrows" data-sort="views" onclick="toggleCampSort('views')">${adminCampSortKey==='views'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>신청 (신청/모집)(승인/대기) <span class="sort-arrows" data-sort="apps" onclick="toggleCampSort('apps')">${adminCampSortKey==='apps'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
+      <th>모집기간</th>
+      <th>구매기간</th>
+      <th>결과물 제출 마감</th>
       <th>등록일 <span class="sort-arrows" data-sort="created" onclick="toggleCampSort('created')">${adminCampSortKey==='created'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">${adminCampSortKey==='updated'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
       <th></th></tr>`;
@@ -970,6 +973,22 @@ async function loadAdminCampaigns(useCache) {
         </div>
         ${c.deadline ? `<div style="font-size:10px;color:var(--muted);margin-top:12px">마감: ${formatDate(c.deadline)} ${dDayLabel(c.deadline)}</div>` : ''}
       </td>
+      ${adminReorderMode ? '' : (()=>{
+        // 모집기간·구매기간·결과물 제출 마감 — 2026-05-15 컬럼 3종 추가
+        //   recruit_type 별 분기: monitor=purchase_*, visit=visit_*, gifting=빈칸
+        var ps = (c.recruit_type === 'monitor') ? c.purchase_start
+               : (c.recruit_type === 'visit')   ? c.visit_start  : '';
+        var pe = (c.recruit_type === 'monitor') ? c.purchase_end
+               : (c.recruit_type === 'visit')   ? c.visit_end    : '';
+        var range = function(s, e) {
+          if (!s && !e) return '<span style="color:var(--muted)">—</span>';
+          return (s ? formatDate(s) : '—') + ' ~ ' + (e ? formatDate(e) : '—');
+        };
+        return `
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${range(c.recruit_start, c.deadline)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${range(ps, pe)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${c.submission_end ? formatDate(c.submission_end) : '<span style="color:var(--muted)">—</span>'}</td>`;
+      })()}
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDateTime(c.updated_at||c.created_at)}</td>
       ${adminReorderMode ? '' : `<td style="position:relative">
@@ -977,7 +996,9 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  const emptyHtml = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/조회/신청/모집기간/구매기간/제출마감/등록일/수정일/액션)
+  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/조회/신청/등록일/수정일)
+  const emptyHtml = `<tr><td colspan="${adminReorderMode ? 9 : 13}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
