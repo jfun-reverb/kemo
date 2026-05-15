@@ -808,6 +808,11 @@ function applyImageCropsToList(imgList, cropsMap) {
 var campsLazy = null;
 const CAMPS_PAGE_SIZE = 50;
 
+// 캠페인 다중 선택 — 현재 필터/정렬 적용된 캠페인 리스트 캐시
+// loadAdminCampaigns 가 매 호출마다 갱신. toggleCampSelectAll·updateCampSelectionUI 에서 참조
+var _currentFilteredCamps = [];
+function getCurrentFilteredCamps() { return _currentFilteredCamps; }
+
 async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
   let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
@@ -897,6 +902,9 @@ async function loadAdminCampaigns(useCache) {
       <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
     </div>`;
   };
+  // 캠페인 다중 선택 — 현재 필터 결과를 전역 캐시 (전체 선택 헤더가 참조)
+  _currentFilteredCamps = camps.slice();
+
   const campsBody = $('adminCampsBody');
   if (!campsBody) return;
   const buildCampRow = (c, i, totalLen) => {
@@ -908,13 +916,14 @@ async function loadAdminCampaigns(useCache) {
     const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,idx,a)=>a.indexOf(v)===idx);
     const thumbUrl = imgs[0] || '';
     const imgCount = imgs.length;
+    const isSelected = (_selectedCampIds && _selectedCampIds.has(c.id));
     return `<tr data-camp-id="${c.id}" data-id="${esc(c.id)}">
       ${adminReorderMode ? `<td style="white-space:nowrap">
         <div style="display:flex;gap:3px">
           <button class="btn btn-ghost btn-xs" ${i===0?'disabled':''} onclick="moveCampOrder('${c.id}',-1)" style="padding:2px 6px;font-size:13px">↑</button>
           <button class="btn btn-ghost btn-xs" ${i===totalLen-1?'disabled':''} onclick="moveCampOrder('${c.id}',1)" style="padding:2px 6px;font-size:13px">↓</button>
         </div>
-      </td>` : ''}
+      </td>` : `<td style="text-align:center;width:36px"><input type="checkbox" class="camp-select-cb" data-camp-id="${esc(c.id)}" ${isSelected?'checked':''} onchange="toggleCampSelect('${c.id}', this.checked)"></td>`}
       <td style="max-width:280px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
@@ -966,7 +975,7 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  const emptyHtml = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  const emptyHtml = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
@@ -981,6 +990,10 @@ async function loadAdminCampaigns(useCache) {
       pageSize: CAMPS_PAGE_SIZE,
       emptyHtml,
     });
+  }
+  // 행 렌더 후 선택 UI (버튼/배지/select-all indeterminate) 동기화
+  if (typeof updateCampSelectionUI === 'function') {
+    setTimeout(updateCampSelectionUI, 0);
   }
 }
 
@@ -7639,8 +7652,377 @@ function imgToJpegArrayBuffer(url, maxW, maxH) {
   });
 }
 
+// ─── 캠페인 다중 선택 + 통합 엑셀 ────────────────────────────────────
+// _selectedCampIds: 사용자가 체크한 캠페인 id 집합. 페인 이동/새로고침 시 초기화.
+// 필터·정렬·lazy-load remount 와 무관하게 Set 기반 절대 선택 유지.
+var _selectedCampIds = new Set();
+
+// 다운로드 쿨다운 가드 — 단시간 다중 클릭 방지
+var _exportInProgress = false;
+var _lastExportAt = 0;
+var EXPORT_COOLDOWN_MS = 5000;
+
+function _checkExportAllowed() {
+  if (_exportInProgress) {
+    toast('다운로드가 진행 중입니다. 잠시 기다려주세요.', 'warn');
+    return false;
+  }
+  var now = Date.now();
+  var elapsed = now - _lastExportAt;
+  if (elapsed < EXPORT_COOLDOWN_MS) {
+    var wait = Math.ceil((EXPORT_COOLDOWN_MS - elapsed) / 1000);
+    toast(wait + '초 후 다시 시도해주세요', 'warn');
+    return false;
+  }
+  return true;
+}
+
+function _markExportStart() { _exportInProgress = true; }
+function _markExportEnd() { _exportInProgress = false; _lastExportAt = Date.now(); }
+
+function toggleCampSelect(campId, checked) {
+  if (checked) _selectedCampIds.add(campId);
+  else _selectedCampIds.delete(campId);
+  updateCampSelectionUI();
+}
+
+function toggleCampSelectAll(checked) {
+  // 필터 결과 전체 — getCurrentFilteredCamps() 반환을 우선, 없으면 캠페인 전체 캐시
+  var filtered = (typeof getCurrentFilteredCamps === 'function') ? getCurrentFilteredCamps() : null;
+  if (!filtered) filtered = (Array.isArray(allCampaigns) ? allCampaigns : []);
+  if (checked) {
+    filtered.forEach(function(c) { _selectedCampIds.add(c.id); });
+  } else {
+    filtered.forEach(function(c) { _selectedCampIds.delete(c.id); });
+  }
+  // DOM 행의 체크박스도 동기 (현재 렌더된 행만)
+  document.querySelectorAll('.camp-select-cb').forEach(function(cb) {
+    var id = cb.dataset.campId;
+    cb.checked = _selectedCampIds.has(id);
+  });
+  updateCampSelectionUI();
+}
+
+function clearCampSelection() {
+  _selectedCampIds.clear();
+  document.querySelectorAll('.camp-select-cb').forEach(function(cb) { cb.checked = false; });
+  var sa = document.getElementById('campSelectAll');
+  if (sa) { sa.checked = false; sa.indeterminate = false; }
+  updateCampSelectionUI();
+}
+
+function updateCampSelectionUI() {
+  var n = _selectedCampIds.size;
+  var btnApp = document.getElementById('btnCampSelectApplicants');
+  var btnDel = document.getElementById('btnCampSelectDeliverables');
+  var btnClr = document.getElementById('btnCampSelectClear');
+  var cntEl = document.getElementById('adminCampSelectedCount');
+  if (btnApp) {
+    btnApp.disabled = (n === 0);
+    btnApp.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '신청자 엑셀';
+  }
+  if (btnDel) {
+    btnDel.disabled = (n === 0);
+    btnDel.innerHTML = '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> ' + (n > 0 ? '선택 ' + n + '개 ' : '') + '결과물 엑셀';
+  }
+  if (btnClr) btnClr.style.display = n > 0 ? '' : 'none';
+  if (cntEl) {
+    if (n > 0) { cntEl.textContent = '· ' + n + '개 선택'; cntEl.style.display = ''; }
+    else { cntEl.textContent = ''; cntEl.style.display = 'none'; }
+  }
+  // 전체 선택 체크박스 indeterminate
+  var sa = document.getElementById('campSelectAll');
+  if (sa) {
+    var filtered = (typeof getCurrentFilteredCamps === 'function') ? getCurrentFilteredCamps() : null;
+    if (!filtered) filtered = (Array.isArray(allCampaigns) ? allCampaigns : []);
+    var total = filtered.length;
+    var selectedInFiltered = filtered.filter(function(c) { return _selectedCampIds.has(c.id); }).length;
+    sa.checked = (total > 0 && selectedInFiltered === total);
+    sa.indeterminate = (selectedInFiltered > 0 && selectedInFiltered < total);
+  }
+}
+
+// 시트1 헬퍼: 선택한 캠페인 N개 요약 행
+function _buildCampaignSummarySheet(wb, campaigns) {
+  var ws = wb.addWorksheet('캠페인 정보');
+  ws.columns = [
+    { header: '캠페인 번호', key: 'no',      width: 18 },
+    { header: '제목',        key: 'title',   width: 36 },
+    { header: '브랜드',      key: 'brand',   width: 18 },
+    { header: '제품',        key: 'product', width: 22 },
+    { header: '모집 타입',   key: 'rtype',   width: 10 },
+    { header: '상태',        key: 'status',  width: 10 },
+    { header: '모집 시작',   key: 'rstart',  width: 14 },
+    { header: '모집 마감',   key: 'deadline',width: 14 },
+    { header: '게시 마감',   key: 'pdead',   width: 14 },
+    { header: '슬롯',        key: 'slots',   width: 8 },
+    { header: '신청 수',     key: 'apps',    width: 10 },
+    { header: '승인 수',     key: 'approved',width: 10 }
+  ];
+  var header = ws.getRow(1);
+  header.font = { bold: true, color: { argb: 'FF222222' } };
+  header.alignment = { vertical: 'middle', horizontal: 'center' };
+  header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+  header.height = 22;
+  var rtypeLabel = function(t) { return t === 'monitor' ? '리뷰어' : t === 'gifting' ? '기프팅' : t === 'visit' ? '방문형' : (t || ''); };
+  var statusKo = function(s) { return s === 'draft' ? '준비' : s === 'scheduled' ? '모집예정' : s === 'active' ? '모집중' : s === 'closed' ? '종료' : s === 'expired' ? '노출마감' : (s || ''); };
+  campaigns.forEach(function(c) {
+    var campApps = (Array.isArray(allApps) ? allApps : []).filter(function(a){ return a.campaign_id === c.id; });
+    var approvedCnt = campApps.filter(function(a){ return a.status === 'approved'; }).length;
+    ws.addRow({
+      no:       c.campaign_no || '',
+      title:    c.title || '',
+      brand:    c.brand_ko || c.brand || '',
+      product:  c.product_ko || c.product || '',
+      rtype:    rtypeLabel(c.recruit_type),
+      status:   statusKo(c.status),
+      rstart:   c.recruit_start ? formatDate(c.recruit_start) : '',
+      deadline: c.deadline ? formatDate(c.deadline) : '',
+      pdead:    c.post_deadline ? formatDate(c.post_deadline) : '',
+      slots:    Number(c.slots || 0),
+      apps:     campApps.length,
+      approved: approvedCnt
+    });
+  });
+  return ws;
+}
+
+// 50개 이상 경고 모달
+function _confirmLargeExport(n) {
+  if (n < 50) return Promise.resolve(true);
+  return new Promise(function(resolve) {
+    var ok = confirm(n + '개 캠페인 선택했습니다.\n엑셀 생성에 수십 초~수 분 걸릴 수 있습니다.\n\n계속할까요?');
+    resolve(!!ok);
+  });
+}
+
+// 캠페인 다중 선택 신청자 엑셀 — 시트1 캠페인 정보 + 시트2 통합 신청자 리스트
+async function exportSelectedCampaignsApplicants() {
+  if (!_checkExportAllowed()) return;
+  var ids = Array.from(_selectedCampIds);
+  if (ids.length === 0) { toast('캠페인을 1개 이상 선택하세요', 'warn'); return; }
+  if (!(await _confirmLargeExport(ids.length))) return;
+
+  _markExportStart();
+  try {
+    toast('엑셀 생성 중...');
+    await loadExcelJS();
+    var camps = (Array.isArray(allCampaigns) ? allCampaigns : []).filter(function(c){ return ids.indexOf(c.id) !== -1; });
+    if (camps.length === 0) { toast('선택한 캠페인을 찾을 수 없습니다', 'error'); return; }
+    // 모든 캠페인의 신청자 + 인플루언서 한 번에 fetch
+    await ensureCancelReasonsCache();
+    var users = await fetchInfluencers();
+    var userByEmail = {};
+    (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
+    // 신청자: 캠페인별로 fetch (서버 round-trip)
+    var allCampApps = [];
+    for (var i = 0; i < camps.length; i++) {
+      var c = camps[i];
+      var apps = await fetchApplications({ campaign_id: c.id });
+      (apps || []).forEach(function(a){ a._campMeta = c; allCampApps.push(a); });
+    }
+
+    var wb = new ExcelJS.Workbook();
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+    _buildCampaignSummarySheet(wb, camps);
+
+    var ws = wb.addWorksheet('신청자');
+    ws.columns = [
+      { header: '캠페인 번호',   key: 'campNo',     width: 16 },
+      { header: '캠페인 제목',   key: 'campTitle',  width: 28 },
+      { header: '신청일',        key: 'created',    width: 20 },
+      { header: '상태',          key: 'status',     width: 10 },
+      { header: '인플루언서명',  key: 'name',       width: 16 },
+      { header: '이메일',        key: 'email',      width: 26 },
+      { header: '연락처',        key: 'phone',      width: 16 },
+      { header: 'Instagram',     key: 'ig',         width: 22 },
+      { header: 'Instagram 팔로워', key: 'igF',     width: 14 },
+      { header: 'TikTok',        key: 'tt',         width: 22 },
+      { header: 'TikTok 팔로워', key: 'ttF',        width: 14 },
+      { header: 'X',             key: 'x',          width: 22 },
+      { header: 'X 팔로워',      key: 'xF',         width: 14 },
+      { header: 'YouTube',       key: 'yt',         width: 22 },
+      { header: 'YouTube 팔로워',key: 'ytF',        width: 14 },
+      { header: '배송지',        key: 'address',    width: 36 },
+      { header: '신청 메시지',   key: 'message',    width: 32 },
+      { header: '심사일',        key: 'reviewedAt', width: 20 },
+      { header: '리뷰어',        key: 'reviewedBy', width: 14 },
+      { header: '취소일',        key: 'cancelledAt',width: 20 },
+      { header: '취소 사유',     key: 'cancelReason',width: 24 },
+      { header: '취소 카테고리', key: 'cancelCategory', width: 18 },
+      { header: '취소 시점',     key: 'cancelPhase', width: 12 }
+    ];
+    var hdr = ws.getRow(1);
+    hdr.font = { bold: true, color: { argb: 'FF222222' } };
+    hdr.alignment = { vertical: 'middle', horizontal: 'center' };
+    hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+    hdr.height = 22;
+
+    var snsHandleStr = function(channel, raw) {
+      if (!raw) return '';
+      if (typeof extractSnsHandle === 'function') { var h = extractSnsHandle(channel, raw); return h ? '@' + h : ''; }
+      return String(raw).trim();
+    };
+    var addrStr = function(u, fallbackAddress) {
+      if (u && u.zip) return '〒' + u.zip + ' ' + (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
+      return fallbackAddress || '';
+    };
+    var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '심사중' : s === 'rejected' ? '미승인' : s === 'cancelled' ? '취소' : (s || ''); };
+    var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
+
+    allCampApps.forEach(function(a) {
+      var u = userByEmail[a.user_email] || {};
+      var c = a._campMeta || {};
+      ws.addRow({
+        campNo:        c.campaign_no || '',
+        campTitle:     c.title || '',
+        created:       fmtKR(a.created_at),
+        status:        statusKo(a.status),
+        name:          u.name_kanji || u.name || a.user_name || '',
+        email:         a.user_email || '',
+        phone:         formatPhoneDisplay(u.phone),
+        ig:            snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        igF:           Number(u.ig_followers || 0),
+        tt:            snsHandleStr('tiktok', u.tiktok),
+        ttF:           Number(u.tiktok_followers || 0),
+        x:             snsHandleStr('x', u.x),
+        xF:            Number(u.x_followers || 0),
+        yt:            snsHandleStr('youtube', u.youtube),
+        ytF:           Number(u.youtube_followers || 0),
+        address:       addrStr(u, a.address),
+        message:       a.message || '',
+        reviewedAt:    fmtKR(a.reviewed_at),
+        reviewedBy:    formatReviewer(a.reviewed_by),
+        cancelledAt:   fmtKR(a.cancelled_at),
+        cancelReason:  a.cancel_reason || '',
+        cancelCategory:a.cancel_reason_code ? cancelReasonLabelKo(a.cancel_reason_code) : '',
+        cancelPhase:   a.cancel_phase ? cancelPhaseLabelKo(a.cancel_phase) : ''
+      });
+    });
+    ['igF','ttF','xF','ytF'].forEach(function(k) {
+      ws.getColumn(k).numFmt = '#,##0';
+      ws.getColumn(k).alignment = { horizontal: 'right' };
+    });
+    ws.getColumn('message').alignment = { wrapText: true, vertical: 'top' };
+    ws.getColumn('address').alignment = { wrapText: true, vertical: 'top' };
+
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob);
+    var aEl = document.createElement('a');
+    aEl.href = url;
+    var ts = new Date();
+    var ymd = ts.getFullYear() + String(ts.getMonth()+1).padStart(2,'0') + String(ts.getDate()).padStart(2,'0');
+    aEl.download = 'applicants-' + camps.length + 'campaigns-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + camps.length + '개 캠페인, ' + allCampApps.length + '건 신청)');
+  } catch (e) {
+    console.error('[exportSelectedCampaignsApplicants]', e);
+    toast('엑셀 생성 실패: ' + (e?.message || e), 'error');
+  } finally {
+    _markExportEnd();
+  }
+}
+
+// 캠페인 다중 선택 결과물 엑셀 — 시트1 캠페인 정보 + 시트2 통합 결과물 리스트 (이미지 임베드 생략, URL만)
+async function exportSelectedCampaignsDeliverables() {
+  if (!_checkExportAllowed()) return;
+  var ids = Array.from(_selectedCampIds);
+  if (ids.length === 0) { toast('캠페인을 1개 이상 선택하세요', 'warn'); return; }
+  if (!(await _confirmLargeExport(ids.length))) return;
+
+  _markExportStart();
+  try {
+    toast('엑셀 생성 중...');
+    await loadExcelJS();
+    var camps = (Array.isArray(allCampaigns) ? allCampaigns : []).filter(function(c){ return ids.indexOf(c.id) !== -1; });
+    if (camps.length === 0) { toast('선택한 캠페인을 찾을 수 없습니다', 'error'); return; }
+
+    var users = await fetchInfluencers();
+    var userByEmail = {};
+    (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
+    var allDelivs = [];
+    for (var i = 0; i < camps.length; i++) {
+      var c = camps[i];
+      var dels = await fetchDeliverables({ campaign_id: c.id });
+      (dels || []).forEach(function(d){ d._campMeta = c; allDelivs.push(d); });
+    }
+
+    var wb = new ExcelJS.Workbook();
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+    _buildCampaignSummarySheet(wb, camps);
+
+    var ws = wb.addWorksheet('결과물');
+    ws.columns = [
+      { header: '캠페인 번호',   key: 'campNo',     width: 16 },
+      { header: '캠페인 제목',   key: 'campTitle',  width: 28 },
+      { header: '제출일',        key: 'submitted',  width: 20 },
+      { header: '종류',          key: 'kind',       width: 10 },
+      { header: '상태',          key: 'status',     width: 10 },
+      { header: '인플루언서명',  key: 'name',       width: 16 },
+      { header: '이메일',        key: 'email',      width: 26 },
+      { header: '결과물 URL',    key: 'url',        width: 50 },
+      { header: '채널',          key: 'channel',    width: 12 },
+      { header: '반려 사유',     key: 'rejectReason', width: 24 },
+      { header: '검수일',        key: 'reviewedAt', width: 20 },
+      { header: '리뷰어',        key: 'reviewedBy', width: 14 }
+    ];
+    var hdr = ws.getRow(1);
+    hdr.font = { bold: true, color: { argb: 'FF222222' } };
+    hdr.alignment = { vertical: 'middle', horizontal: 'center' };
+    hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+    hdr.height = 22;
+
+    var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '검수대기' : s === 'rejected' ? '반려' : s === 'changed' ? '재제출요청' : (s || ''); };
+    var kindKo = function(k) { return k === 'receipt' ? '영수증' : k === 'post' ? '게시물' : (k || ''); };
+    var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
+
+    allDelivs.forEach(function(d) {
+      var u = userByEmail[(d.influencers && d.influencers.email) || d.user_email] || {};
+      var c = d._campMeta || {};
+      ws.addRow({
+        campNo:       c.campaign_no || '',
+        campTitle:    c.title || '',
+        submitted:    fmtKR(d.submitted_at),
+        kind:         kindKo(d.kind),
+        status:       statusKo(d.status),
+        name:         u.name_kanji || u.name || (d.influencers && d.influencers.name) || '',
+        email:        (d.influencers && d.influencers.email) || u.email || '',
+        url:          d.receipt_url || d.post_url || '',
+        channel:      d.post_channel || '',
+        rejectReason: d.reject_reason || '',
+        reviewedAt:   fmtKR(d.reviewed_at),
+        reviewedBy:   formatReviewer(d.reviewed_by)
+      });
+    });
+    ws.getColumn('rejectReason').alignment = { wrapText: true, vertical: 'top' };
+
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob);
+    var aEl = document.createElement('a');
+    aEl.href = url;
+    var ts = new Date();
+    var ymd = ts.getFullYear() + String(ts.getMonth()+1).padStart(2,'0') + String(ts.getDate()).padStart(2,'0');
+    aEl.download = 'deliverables-' + camps.length + 'campaigns-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + camps.length + '개 캠페인, ' + allDelivs.length + '건 결과물)');
+  } catch (e) {
+    console.error('[exportSelectedCampaignsDeliverables]', e);
+    toast('엑셀 생성 실패: ' + (e?.message || e), 'error');
+  } finally {
+    _markExportEnd();
+  }
+}
+
 // 캠페인별 신청자 목록 엑셀 다운로드 (전체 상태, 4채널 SNS+팔로워 포함)
 async function exportCampaignApplicationsExcel(campId) {
+  if (!_checkExportAllowed()) return;
+  _markExportStart();
   try {
     document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
 
@@ -7790,11 +8172,15 @@ async function exportCampaignApplicationsExcel(campId) {
   } catch (e) {
     console.error('[exportCampaignApplicationsExcel]', e);
     toast('엑셀 생성 실패: ' + (e?.message || e), 'error');
+  } finally {
+    _markExportEnd();
   }
 }
 
 
 async function exportCampaignDeliverables(campId) {
+  if (!_checkExportAllowed()) return;
+  _markExportStart();
   try {
     document.querySelectorAll('.camp-more-menu').forEach(function(d){ d.remove(); });
     toast('엑셀 생성 중...');
