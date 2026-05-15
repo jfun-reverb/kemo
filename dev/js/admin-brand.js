@@ -1989,7 +1989,7 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_at, a.orient_sheet_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 22. 입금여부 — 제품 행마다 해당 제품의 플래그만 표시
+  // 22. 입금 정보 — 제품 행마다 해당 제품의 플래그만 표시
   html += '<td><div class="brand-app-pay-cell" data-id="' + esc(a.id) + '" data-product-idx="' + idx + '">' + renderBrandAppPaymentFlagsCell(a, idx) + '</div></td>';
 
   // 23. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
@@ -3297,7 +3297,7 @@ function _restoreOrientSheetSentDisplay(cell, isoOrNull, urlOrNull, locked) {
   cell.innerHTML = renderOrientSheetSentDisplay(isoOrNull, urlOrNull, locked);
 }
 
-// ─── 입금여부 셀 (해당 제품의 4종 체크 + 새로고침) ────────────────────────────
+// ─── 입금 정보 셀 (해당 제품의 4종 체크 + 새로고침) ────────────────────────────
 //   migration 117: products[i].payment_flags 구조.
 //   테이블은 제품 행 단위로 렌더되므로 셀 1개 = 해당 제품 1개의 플래그만 표시.
 //   - 무료모집 OFF: 4종 모두 표시
@@ -3362,7 +3362,7 @@ async function toggleBrandAppProductPaymentFlag(applicationId, productIndex, fla
   if (!res || !res.ok) {
     cur.products = oldProducts;
     _rerenderBrandAppPaymentCell(applicationId);
-    toast('입금여부 저장 실패: ' + ((res && res.error) || 'unknown'), 'error');
+    toast('입금 정보 저장 실패: ' + ((res && res.error) || 'unknown'), 'error');
     return;
   }
   // 서버 반환값으로 version·products 동기화 (트리거로 recruit/product/transfer 재계산)
@@ -3389,13 +3389,13 @@ async function refreshBrandAppPaymentFlags(applicationId, btnEl) {
       cur.products = res.products;
       _rerenderBrandAppPaymentCell(applicationId);
     }
-    toast('입금여부를 자동 갱신했습니다', 'success');
+    toast('입금 정보를 자동 갱신했습니다', 'success');
   } finally {
     if (btnEl) btnEl.disabled = false;
   }
 }
 
-// 메모리 캐시(_brandApps) 갱신 후 해당 신청의 모든 입금여부 셀 다시 렌더
+// 메모리 캐시(_brandApps) 갱신 후 해당 신청의 모든 입금 정보 셀 다시 렌더
 // 제품별 행이 여러 개이므로 querySelectorAll로 전체 업데이트
 function _rerenderBrandAppPaymentCell(applicationId) {
   var cur = _findBrandApp(applicationId);
@@ -3469,7 +3469,7 @@ async function onBrandAppPriceCheckChange(applicationId, productIndex, newVal) {
     if (res.data.products != null) cur.products = res.data.products;
   }
   _rerenderBrandAppPriceCheckCell(applicationId, productIndex);
-  // 가격체크 변경은 입금여부 트리거에 의해 products 전체가 갱신되므로 입금여부 셀도 재렌더
+  // 가격체크 변경은 입금 정보 트리거에 의해 products 전체가 갱신되므로 입금 정보 셀도 재렌더
   _rerenderBrandAppPaymentCell(applicationId);
 }
 

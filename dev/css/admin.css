@@ -946,7 +946,7 @@
   vertical-align: middle;
 }
 
-/* 입금여부 셀 (migration 117 제품별 payment_flags) — 신청 목록 페인 「입금여부」 컬럼.
+/* 입금 정보 셀 (migration 117 제품별 payment_flags) — 신청 목록 페인 「입금 정보」 컬럼.
    짧은 클래스명(pay-row 등) 충돌 회피 위해 .brand-app-pay-cell 스코프 한정.
    테이블이 제품 행 단위로 렌더되므로 셀 1개 = 해당 제품 4플래그. */
 .brand-app-pay-cell{font-size:11px}
