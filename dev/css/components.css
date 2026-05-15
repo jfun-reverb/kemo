@@ -37,6 +37,9 @@
 .btn-green:active{transform:scale(.96);box-shadow:var(--elevation-1);filter:brightness(.95)}
 .btn:disabled{opacity:.38;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
+/* 활동관리 폼 라벨 비활성 (파일 선택용 분홍 라벨 — 마감 후+반려 없음 시 적용) */
+.form-label-disabled{opacity:.45;cursor:not-allowed!important;pointer-events:none;filter:grayscale(1)}
+
 /* ── CARDS (Material Card) ── */
 .card{background:var(--surface);border:1px solid var(--outline);border-radius:var(--r16);overflow:hidden;box-shadow:var(--elevation-1)}
 .card-pad{padding:16px}

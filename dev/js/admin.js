@@ -7231,8 +7231,9 @@ async function openDelivDetail(id) {
   let contentHtml = '';
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     // receipt(영수증) + review_image(monitor 2단계 리뷰 캡처) 모두 receipt_url 컬럼을 재사용 (093 마이그레이션)
-    // 인플루언서 영수증 폼에서 구매일/구매 금액 input은 제거된 상태라 상세 페이지에도 표시 안 함
+    // receipt kind 는 주문번호·구매일·구매금액 마스킹 해제 + 수정 폼 + 변경 이력 (마이그레이션 128)
     const altText = d.kind === 'receipt' ? '영수증' : '리뷰 이미지';
+    const receiptInfoBlock = (d.kind === 'receipt') ? renderReceiptInfoBlock(d) : '';
     contentHtml = `
       <div style="display:grid;grid-template-columns:240px 1fr;gap:16px">
         <div>
@@ -7242,6 +7243,7 @@ async function openDelivDetail(id) {
         </div>
         <div style="font-size:13px">
           <div style="margin-bottom:8px"><span style="color:var(--muted)">결과물 종류</span> · <strong>${esc(altText)}</strong></div>
+          ${receiptInfoBlock}
           ${d.memo ? `<div style="margin-bottom:8px"><span style="color:var(--muted)">메모</span> · ${esc(d.memo)}</div>` : ''}
           <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted)">
             제출일 · ${formatDate(d.submitted_at)}<br>
@@ -7261,24 +7263,11 @@ async function openDelivDetail(id) {
       </div>`;
   }
 
-  // 이력 타임라인 (반려 사유는 reject 이벤트 안에 줄바꿈 + 빨간색으로 노출)
+  // 변경 이력 — 최근 2건 + 「더보기」 토글 (2026-05-15 사용자 요청)
   if (events.length) {
-    contentHtml += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">변경 이력</div><div style="font-size:11px">';
-    contentHtml += events.map(e => {
-      const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
-      const transition = e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : '';
-      const reasonLine = e.reason
-        ? `<div style="margin-top:4px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(e.reason)}</div>`
-        : '';
-      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line)">
-        <div style="display:flex;justify-content:space-between;gap:10px">
-          <span><strong>${esc(label)}</strong>${transition}</span>
-          <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
-        </div>
-        ${reasonLine}
-      </div>`;
-    }).join('');
-    contentHtml += '</div></div>';
+    contentHtml += '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px">변경 이력</div>';
+    contentHtml += renderDeliverableEventsTimeline(events, 'detail-' + d.id);
+    contentHtml += '</div>';
   }
 
   if (body) body.innerHTML = contentHtml;
@@ -7469,6 +7458,7 @@ async function renderDelivCombinedBody(applicationId) {
     const delivRes = await db.from('deliverables').select(`
       id, kind, status, version, application_id, user_id, campaign_id,
       receipt_url, post_url, post_channel, post_submissions, memo,
+      order_number, purchase_date, purchase_amount,
       reject_reason, reject_template_code,
       submitted_at, reviewed_at, updated_at, reviewed_by,
       campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
@@ -7546,6 +7536,188 @@ async function renderDelivCombinedBody(applicationId) {
   `;
 }
 
+// ─── 영수증 정보 블록 (마이그레이션 128) ─────────────────────
+// kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
+// campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
+// (review_image kind는 이 블록 대상이 아니다 — 영수증과 별개 단계)
+function renderReceiptInfoBlock(d) {
+  if (!d || d.kind !== 'receipt') return '';
+  const canEdit = isCampaignAdminOrAbove();
+  const id = String(d.id);
+  const orderNo = d.order_number || '';
+  const purchaseDate = d.purchase_date || '';
+  const amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
+    ? null
+    : Number(d.purchase_amount);
+  const fmtMissing = '<span style="color:#C33">미입력</span>';
+  const amtView = (amt === null || !Number.isFinite(amt)) ? fmtMissing : `¥${amt.toLocaleString()}`;
+  const viewHtml = `
+    <div id="receiptInfoView-${esc(id)}" style="font-size:12px;line-height:1.7;margin-bottom:10px;padding:10px 12px;background:#FAFAFA;border:1px solid var(--line);border-radius:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px">
+        <strong style="font-size:12px;color:var(--ink)">영수증 정보</strong>
+        ${canEdit ? `<button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="enterReceiptEditMode('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>` : ''}
+      </div>
+      <div><span style="color:var(--muted)">주문번호</span> · ${orderNo ? `<strong>${esc(orderNo)}</strong>` : fmtMissing}</div>
+      <div><span style="color:var(--muted)">구매일</span> · ${purchaseDate ? esc(purchaseDate) : fmtMissing}</div>
+      <div><span style="color:var(--muted)">구매금액</span> · ${amtView}</div>
+      <div style="margin-top:6px"><button class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 8px" onclick="toggleReceiptHistory('${esc(id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">history</span> 변경 이력 보기</button></div>
+      <div id="receiptHistoryBox-${esc(id)}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)"></div>
+    </div>`;
+  const editHtml = canEdit ? `
+    <div id="receiptInfoEdit-${esc(id)}" style="display:none;font-size:12px;margin-bottom:10px;padding:10px 12px;background:#FFF9E6;border:1px solid #F5C518;border-radius:8px">
+      <div style="font-weight:600;margin-bottom:8px">영수증 정보 수정</div>
+      <div style="margin-bottom:6px">
+        <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호 *</label>
+        <input id="receiptEditOrder-${esc(id)}" type="text" maxlength="200" value="${esc(orderNo)}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
+      </div>
+      <div style="margin-bottom:6px">
+        <label style="display:block;color:var(--muted);margin-bottom:2px">구매일 *</label>
+        <input id="receiptEditDate-${esc(id)}" type="date" value="${esc(purchaseDate)}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
+      </div>
+      <div style="margin-bottom:8px">
+        <label style="display:block;color:var(--muted);margin-bottom:2px">구매금액 (엔) *</label>
+        <input id="receiptEditAmount-${esc(id)}" type="number" min="0" step="1" value="${(amt === null || !Number.isFinite(amt)) ? '' : amt}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
+      </div>
+      <div style="display:flex;gap:6px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px" onclick="cancelReceiptEdit('${esc(id)}')">취소</button>
+        <button class="btn btn-primary btn-xs" style="font-size:11px;padding:4px 10px" onclick="saveReceiptEdit('${esc(id)}')">저장</button>
+      </div>
+    </div>` : '';
+  return viewHtml + editHtml;
+}
+
+function enterReceiptEditMode(id) {
+  const v = document.getElementById('receiptInfoView-' + id);
+  const e = document.getElementById('receiptInfoEdit-' + id);
+  if (v) v.style.display = 'none';
+  if (e) e.style.display = '';
+}
+
+function cancelReceiptEdit(id) {
+  const v = document.getElementById('receiptInfoView-' + id);
+  const e = document.getElementById('receiptInfoEdit-' + id);
+  if (v) v.style.display = '';
+  if (e) e.style.display = 'none';
+}
+
+async function saveReceiptEdit(id) {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
+  const orderNo = (document.getElementById('receiptEditOrder-' + id)?.value || '').trim();
+  const purchaseDate = document.getElementById('receiptEditDate-' + id)?.value || '';
+  const rawAmount = document.getElementById('receiptEditAmount-' + id)?.value || '';
+  if (!orderNo) { toast('주문번호를 입력해주세요','error'); return; }
+  if (orderNo.length > 200) { toast('주문번호는 200자 이내로 입력해주세요','error'); return; }
+  if (!purchaseDate) { toast('구매일을 입력해주세요','error'); return; }
+  if (rawAmount === '' || rawAmount === null || rawAmount === undefined) {
+    toast('구매금액을 입력해주세요','error'); return;
+  }
+  const amount = Number(rawAmount);
+  if (!Number.isFinite(amount) || amount < 0) {
+    toast('구매금액은 0 이상의 숫자를 입력해주세요','error'); return;
+  }
+  try {
+    await updateReceiptAdmin(id, orderNo, purchaseDate, amount);
+    toast('영수증 정보를 수정했습니다','success');
+    // 현재 열린 모달 재로딩 (통합 검수 모달 우선, 단일 상세 모달 후순)
+    if (typeof _delivCombinedRefreshAppId !== 'undefined' && _delivCombinedRefreshAppId) {
+      await renderDelivCombinedBody(_delivCombinedRefreshAppId);
+    } else if (typeof _delivDetailCurrent !== 'undefined' && _delivDetailCurrent?.id) {
+      await openDelivDetail(_delivDetailCurrent.id);
+    }
+    if (typeof refreshPane === 'function') await refreshPane('deliverables');
+  } catch(e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    toast(friendlyError(msg), 'error');
+  }
+}
+
+async function toggleReceiptHistory(id) {
+  const box = document.getElementById('receiptHistoryBox-' + id);
+  if (!box) return;
+  if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+  box.style.display = '';
+  box.innerHTML = '<div style="font-size:11px;color:var(--muted)">불러오는 중...</div>';
+  const rows = await fetchReceiptEditHistory(id);
+  if (!rows.length) {
+    box.innerHTML = '<div style="font-size:11px;color:var(--muted)">변경 이력이 없습니다.</div>';
+    return;
+  }
+  const fmtAmt = v => (v === null || v === undefined || v === '')
+    ? '(빈값)'
+    : '¥' + Number(v).toLocaleString();
+  const html = rows.map(r => {
+    const lines = [];
+    if ((r.order_number_prev || '') !== (r.order_number_next || '')) {
+      lines.push(`<div>주문번호 · ${esc(r.order_number_prev || '(빈값)')} → <strong>${esc(r.order_number_next || '(빈값)')}</strong></div>`);
+    }
+    if (String(r.purchase_date_prev || '') !== String(r.purchase_date_next || '')) {
+      lines.push(`<div>구매일 · ${esc(r.purchase_date_prev || '(빈값)')} → <strong>${esc(r.purchase_date_next || '(빈값)')}</strong></div>`);
+    }
+    if (String(r.purchase_amount_prev ?? '') !== String(r.purchase_amount_next ?? '')) {
+      lines.push(`<div>구매금액 · ${fmtAmt(r.purchase_amount_prev)} → <strong>${fmtAmt(r.purchase_amount_next)}</strong></div>`);
+    }
+    return `<div style="padding:5px 0;border-bottom:1px dashed var(--line);font-size:11px">
+      <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:3px">
+        <span><strong>${esc(r.changed_by_name || '(이름미상)')}</strong></span>
+        <span style="color:var(--muted);white-space:nowrap">${formatDate(r.changed_at)}</span>
+      </div>
+      ${lines.join('') || '<div style="color:var(--muted)">변경 사항 없음</div>'}
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div style="font-size:11px;font-weight:600;color:var(--ink);margin-bottom:4px">변경 이력 (${rows.length}건)</div>${html}`;
+}
+
+// ─── 결과물 변경 이력 타임라인 (최근 2건 + 더보기 토글, 2026-05-15 사용자 요청) ─
+// 영수증 패널·결과물 패널·단일 결과물 모달 모두 동일 패턴으로 사용
+// events: created_at DESC 정렬된 deliverable_events 배열
+// scopeId: deliverable.id (각 패널마다 unique element id 생성용)
+function renderDeliverableEventsTimeline(events, scopeId) {
+  if (!Array.isArray(events) || !events.length) return '';
+  var VISIBLE = 2;
+  var total = events.length;
+  var recent = events.slice(0, VISIBLE);
+  var rest = events.slice(VISIBLE);
+  var renderItem = function(e) {
+    var labelMap = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'};
+    var label = labelMap[e.action] || e.action;
+    var transition = e.from_status
+      ? ' · ' + esc(statusLabelKo(e.from_status)) + ' → ' + esc(statusLabelKo(e.to_status))
+      : '';
+    var reasonLine = e.reason
+      ? '<div style="margin-top:4px;color:#C33;white-space:pre-wrap;line-height:1.5">' + esc(e.reason) + '</div>'
+      : '';
+    return '<div style="padding:5px 0;border-bottom:1px dashed var(--line)">'
+      + '<div style="display:flex;justify-content:space-between;gap:10px">'
+      + '<span><strong>' + esc(label) + '</strong>' + transition + '</span>'
+      + '<span style="color:var(--muted);white-space:nowrap">' + formatDate(e.created_at) + '</span>'
+      + '</div>' + reasonLine + '</div>';
+  };
+  var html = '<div style="font-size:11px">' + recent.map(renderItem).join('');
+  if (rest.length > 0) {
+    var sid = esc(String(scopeId));
+    html += '<div id="delivEventsRest-' + sid + '" style="display:none">' + rest.map(renderItem).join('') + '</div>';
+    html += '<div style="text-align:center;padding:6px 0">'
+      + '<button id="delivEventsToggleBtn-' + sid + '" class="btn btn-ghost btn-xs" style="font-size:10px;padding:3px 10px" '
+      + 'onclick="toggleDelivEventsRest(\'' + sid + '\', ' + rest.length + ')">'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">expand_more</span>'
+      + ' 더보기 (' + rest.length + '건)'
+      + '</button></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function toggleDelivEventsRest(scopeId, hiddenCount) {
+  var box = document.getElementById('delivEventsRest-' + scopeId);
+  var btn = document.getElementById('delivEventsToggleBtn-' + scopeId);
+  if (!box || !btn) return;
+  var isHidden = box.style.display === 'none';
+  box.style.display = isHidden ? '' : 'none';
+  btn.innerHTML = isHidden
+    ? '<span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">expand_less</span> 접기'
+    : '<span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">expand_more</span> 더보기 (' + hiddenCount + '건)';
+}
+
 // 합본 모달 안 한 패널의 본문 — 이미지/URL/메타/반려사유/이력 타임라인/액션버튼
 // events: deliverable_events 배열 (제출/재제출/승인/반려/되돌리기 타임라인)
 function renderDelivPanelContent(d, events) {
@@ -7559,6 +7731,11 @@ function renderDelivPanelContent(d, events) {
         ? `<img src="${esc(d.receipt_url)}" style="max-width:100%;max-height:280px;border:1px solid var(--line);border-radius:8px;cursor:zoom-in" onclick="openImageLightbox('${esc(d.receipt_url)}')">`
         : '<div style="height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">이미지 없음</div>'}
     </div>`;
+    // 영수증(receipt)만 주문번호·구매일·구매금액 정보 + 수정 + 이력 표시 (마이그레이션 128)
+    // review_image kind는 해당 없음
+    if (d.kind === 'receipt') {
+      html += renderReceiptInfoBlock(d);
+    }
   } else {
     html += `<div style="font-size:13px;line-height:1.7;margin-bottom:10px">
       <div><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong></div>
@@ -7568,25 +7745,11 @@ function renderDelivPanelContent(d, events) {
   }
   // 상태는 패널 헤더 우측에 노출되므로 여기에선 제거. 제출일·검수일만 한 줄로 압축.
   html += `<div style="margin-bottom:10px;font-size:11px;color:var(--muted)">제출일 ${formatDate(d.submitted_at)}${d.reviewed_at ? ` · 검수일 ${formatDate(d.reviewed_at)}` : ''}</div>`;
-  // 반려 사유는 변경 이력의 reject 이벤트 안에 줄바꿈 + 빨간색으로 노출 (별도 박스 제거)
-  // 변경 이력 타임라인 (제출/재제출/승인/반려/되돌리기) — 단일 결과물 모달과 동일 패턴
+  // 변경 이력 타임라인 — 최근 2건 + 「더보기」 토글 (2026-05-15 사용자 요청)
   if (Array.isArray(events) && events.length) {
-    html += '<div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">변경 이력</div><div style="font-size:11px">';
-    html += events.map(e => {
-      const label = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'}[e.action] || e.action;
-      const transition = e.from_status ? ` · ${statusLabelKo(e.from_status)} → ${statusLabelKo(e.to_status)}` : '';
-      const reasonLine = e.reason
-        ? `<div style="margin-top:4px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(e.reason)}</div>`
-        : '';
-      return `<div style="padding:5px 0;border-bottom:1px dashed var(--line)">
-        <div style="display:flex;justify-content:space-between;gap:10px">
-          <span><strong>${esc(label)}</strong>${transition}</span>
-          <span style="color:var(--muted);white-space:nowrap">${formatDate(e.created_at)}</span>
-        </div>
-        ${reasonLine}
-      </div>`;
-    }).join('');
-    html += '</div></div>';
+    html += '<div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--line)"><div style="font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px">변경 이력</div>';
+    html += renderDeliverableEventsTimeline(events, 'panel-' + d.id);
+    html += '</div>';
   }
   if (d.status === 'pending') {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
@@ -8056,18 +8219,19 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 시트1 캠페인 정보 (기존 유지)
     _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
-    // 시트2 결과물 — 21컬럼 (캠페인 2 + 인플루언서 7 + 영수증 6 + 결과물 6)
+    // 시트2 결과물 — 24컬럼 (캠페인 2 + 인플루언서 7 + 영수증 9 + 결과물 6)
+    // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL (마이그레이션 128)
     var ws = wb.addWorksheet('결과물');
 
-    // 머리글 (A1:U1, A2:U2)
-    ws.mergeCells('A1:U1');
+    // 머리글 (A1:X1, A2:X2)
+    ws.mergeCells('A1:X1');
     var tCell = ws.getCell('A1');
     tCell.value = '선택한 ' + camps.length + '개 캠페인 결과물 통합';
     tCell.font = {bold: true, size: 14};
     tCell.alignment = {vertical: 'middle'};
     ws.getRow(1).height = 26;
 
-    ws.mergeCells('A2:U2');
+    ws.mergeCells('A2:X2');
     var mCell = ws.getCell('A2');
     mCell.value = '캠페인 수: ' + camps.length + '개'
       + '  ·  신청 건수: ' + groupList.length + '건'
@@ -8079,9 +8243,9 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 그룹 헤더 (3행)
     ws.mergeCells('A3:B3'); ws.getCell('A3').value = '캠페인';
     ws.mergeCells('C3:I3'); ws.getCell('C3').value = '인플루언서 정보';
-    ws.mergeCells('J3:O3'); ws.getCell('J3').value = '영수증';
-    ws.mergeCells('P3:U3'); ws.getCell('P3').value = '결과물';
-    ['A3','C3','J3','P3'].forEach(function(addr) {
+    ws.mergeCells('J3:R3'); ws.getCell('J3').value = '영수증';
+    ws.mergeCells('S3:X3'); ws.getCell('S3').value = '결과물';
+    ['A3','C3','J3','S3'].forEach(function(addr) {
       var c2 = ws.getCell(addr);
       c2.font = {bold: true, color: {argb: 'FF222222'}};
       c2.alignment = {vertical: 'middle', horizontal: 'center'};
@@ -8093,7 +8257,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     ws.getRow(4).values = [
       '캠페인 번호', '캠페인 제목',
       '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
-      '타입', '제출일', '검수일', '상태', '이미지', 'URL',
+      '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
@@ -8105,11 +8269,11 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     ws.columns = [
       {width: 18}, {width: 28},
       {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
-      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 18}, {width: 12}, {width: 12}, {width: 16}, {width: 32},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
     ];
 
-    // 결과물 1건 → 6컬럼 값
+    // 결과물 1건 → 6컬럼 값 (post / review_image)
     var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려', changed:'재제출요청'};
     var renderDeliverableCells = function(d) {
       if (!d) return ['', '', '', '', '', ''];
@@ -8137,6 +8301,18 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
     };
 
+    // 영수증(receipt) 전용 9컬럼 — 기본 4 + 주문번호·구매일·구매금액 + 이미지·URL (마이그레이션 128)
+    var renderReceiptCells9 = function(d) {
+      if (!d) return ['', '', '', '', '', '', '', '', ''];
+      var base = renderDeliverableCells(d);  // [type, submitted, reviewed, status, '', url]
+      var orderNo = d.order_number || '';
+      var purchaseDate = d.purchase_date || '';
+      var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
+        ? '' : Number(d.purchase_amount);
+      // 결과: [type, submitted, reviewed, status, order_no, purchase_date, purchase_amount, image, url]
+      return [base[0], base[1], base[2], base[3], orderNo, purchaseDate, amt, base[4], base[5]];
+    };
+
     // 본문 행 — 그룹 1개 = 1행
     groupList.forEach(function(g, idx) {
       var rowNum = 5 + idx;
@@ -8144,7 +8320,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
       var cc = g.camp || {};
       var row = ws.getRow(rowNum);
       row.height = 84;
-      var receiptCells = renderDeliverableCells(g.receipt);
+      var receiptCells = renderReceiptCells9(g.receipt);
       var resultCells = renderDeliverableCells(g.result);
       row.values = [
         cc.campaign_no || '', cc.title || '',
@@ -8155,25 +8331,25 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('tiktok', u.tiktok),
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
-        receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5],
+        receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5]
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
-      // 하이퍼링크 색상 (O열=15 영수증 URL, U열=21 결과물 URL)
-      [15, 21].forEach(function(colNum) {
+      // 하이퍼링크 색상 (R열=18 영수증 URL, X열=24 결과물 URL)
+      [18, 24].forEach(function(colNum) {
         var cell = row.getCell(colNum);
         if (cell && cell.value && cell.value.hyperlink) {
           cell.font = {color: {argb: 'FFE8344E'}, underline: true};
         }
       });
-      // 이미지 임베드 (N열=14 영수증, T열=20 결과물)
+      // 이미지 임베드 (Q열=17 영수증, W열=23 결과물)
       if (g.receipt && imgBuffers[g.receipt.id]) {
         var rImgId = wb.addImage({buffer: imgBuffers[g.receipt.id].buffer, extension: imgBuffers[g.receipt.id].ext});
-        ws.addImage(rImgId, 'N' + rowNum + ':N' + rowNum);
+        ws.addImage(rImgId, 'Q' + rowNum + ':Q' + rowNum);
       }
       if (g.result && g.result.kind === 'review_image' && imgBuffers[g.result.id]) {
         var sImgId = wb.addImage({buffer: imgBuffers[g.result.id].buffer, extension: imgBuffers[g.result.id].ext});
-        ws.addImage(sImgId, 'T' + rowNum + ':T' + rowNum);
+        ws.addImage(sImgId, 'W' + rowNum + ':W' + rowNum);
       }
     });
 
@@ -8429,15 +8605,15 @@ async function exportCampaignDeliverables(campId) {
     wb.created = new Date();
     var ws = wb.addWorksheet('결과물');
 
-    // 헤더 (A1:S1, A2:S2) — 총 19열
-    ws.mergeCells('A1:S1');
+    // 헤더 (A1:V1, A2:V2) — 총 22열 (영수증 6→9 확장, 마이그레이션 128)
+    ws.mergeCells('A1:V1');
     var t = ws.getCell('A1');
     t.value = (camp.campaign_no ? camp.campaign_no + '  ' : '') + (camp.title || '');
     t.font = {bold: true, size: 14};
     t.alignment = {vertical: 'middle'};
     ws.getRow(1).height = 26;
 
-    ws.mergeCells('A2:S2');
+    ws.mergeCells('A2:V2');
     var m = ws.getCell('A2');
     m.value = '브랜드: ' + (camp.brand || '—')
       + '  ·  신청 건수: ' + groupList.length + '건'
@@ -8446,11 +8622,11 @@ async function exportCampaignDeliverables(campId) {
     m.font = {color: {argb: 'FF888888'}, size: 11};
     ws.getRow(2).height = 20;
 
-    // 그룹 헤더 (3행) — 인플루언서 7컬럼 / 영수증 6컬럼 / 결과물 6컬럼
+    // 그룹 헤더 (3행) — 인플루언서 7컬럼 / 영수증 9컬럼 / 결과물 6컬럼 (마이그레이션 128로 영수증 6→9 확장)
     ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
-    ws.mergeCells('H3:M3'); ws.getCell('H3').value = '영수증';
-    ws.mergeCells('N3:S3'); ws.getCell('N3').value = '결과물';
-    ['A3','H3','N3'].forEach(function(addr) {
+    ws.mergeCells('H3:P3'); ws.getCell('H3').value = '영수증';
+    ws.mergeCells('Q3:V3'); ws.getCell('Q3').value = '결과물';
+    ['A3','H3','Q3'].forEach(function(addr) {
       var c = ws.getCell(addr);
       c.font = {bold: true, color: {argb: 'FF222222'}};
       c.alignment = {vertical: 'middle', horizontal: 'center'};
@@ -8459,9 +8635,10 @@ async function exportCampaignDeliverables(campId) {
     ws.getRow(3).height = 22;
 
     // 컬럼 헤더 (4행)
+    // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL
     ws.getRow(4).values = [
       '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
-      '타입', '제출일', '검수일', '상태', '이미지', 'URL',
+      '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
@@ -8469,10 +8646,10 @@ async function exportCampaignDeliverables(campId) {
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
+    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증 9컬럼·결과물 6컬럼)
     ws.columns = [
       {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
-      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 18}, {width: 12}, {width: 12}, {width: 16}, {width: 32},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
     ];
 
@@ -8506,6 +8683,17 @@ async function exportCampaignDeliverables(campId) {
       return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
     };
 
+    // 영수증(receipt) 전용 9컬럼 (마이그레이션 128) — 기본 4 + 주문번호·구매일·구매금액 + 이미지·URL
+    var renderReceiptCells9 = function(d) {
+      if (!d) return ['', '', '', '', '', '', '', '', ''];
+      var base = renderDeliverableCells(d);  // [type, submitted, reviewed, status, '', url]
+      var orderNo = d.order_number || '';
+      var purchaseDate = d.purchase_date || '';
+      var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
+        ? '' : Number(d.purchase_amount);
+      return [base[0], base[1], base[2], base[3], orderNo, purchaseDate, amt, base[4], base[5]];
+    };
+
     // 본문 행 — 그룹 1개 = 1행
     groupList.forEach(function(g, i) {
       var rowNum = 5 + i;
@@ -8513,7 +8701,7 @@ async function exportCampaignDeliverables(campId) {
       var row = ws.getRow(rowNum);
       row.height = 84;
 
-      var receiptCells = renderDeliverableCells(g.receipt);
+      var receiptCells = renderReceiptCells9(g.receipt);
       var resultCells = renderDeliverableCells(g.result);
 
       row.values = [
@@ -8525,30 +8713,30 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('tiktok', u.tiktok),
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
-        // 영수증 6컬럼
-        receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5],
+        // 영수증 9컬럼
+        receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼
         resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5]
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
 
-      // 하이퍼링크 셀 스타일 (M열=13 영수증 URL, S열=19 결과물 URL)
-      [13, 19].forEach(function(colNum) {
+      // 하이퍼링크 셀 스타일 (P열=16 영수증 URL, V열=22 결과물 URL)
+      [16, 22].forEach(function(colNum) {
         var c = row.getCell(colNum);
         if (c && c.value && c.value.hyperlink) {
           c.font = {color: {argb: 'FFE8344E'}, underline: true};
         }
       });
 
-      // 영수증 이미지 임베드 (L열=12)
+      // 영수증 이미지 임베드 (O열=15)
       if (g.receipt && imgBuffers[g.receipt.id]) {
         var rImgId = wb.addImage({buffer: imgBuffers[g.receipt.id].buffer, extension: imgBuffers[g.receipt.id].ext});
-        ws.addImage(rImgId, 'L' + rowNum + ':L' + rowNum);
+        ws.addImage(rImgId, 'O' + rowNum + ':O' + rowNum);
       }
-      // 결과물 이미지 임베드 (review_image, R열=18). post는 이미지 없음.
+      // 결과물 이미지 임베드 (review_image, U열=21). post는 이미지 없음.
       if (g.result && g.result.kind === 'review_image' && imgBuffers[g.result.id]) {
         var dImgId = wb.addImage({buffer: imgBuffers[g.result.id].buffer, extension: imgBuffers[g.result.id].ext});
-        ws.addImage(dImgId, 'R' + rowNum + ':R' + rowNum);
+        ws.addImage(dImgId, 'U' + rowNum + ':U' + rowNum);
       }
     });
 

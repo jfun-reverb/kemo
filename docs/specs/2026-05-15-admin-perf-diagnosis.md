@@ -257,15 +257,17 @@ brand_applications?select=id&status=eq.new  0.8 KB   189 ms  ← 2회
 4. **🟢 인덱스 5종 누락** — 현재 데이터 양에선 Seq Scan 빠름 (< 20ms). 데이터 누적 (6개월 후 1만 행+) 대비 인덱스 추가 권장. 작은 마이그레이션
 5. **🟢 PostgREST `SELECT *`** — 화면 표시 컬럼만 명시하면 페이로드 50% 이상 감소. 페인별 별도 작업 필요
 
-### 6-3. 추가 발견 — 인덱스 누락 5종 (§5-5)
+### 6-3. 추가 발견 — 인덱스 누락 5종 (§5-5) — **✅ 2026-05-15 마이그레이션 127 로 해결 완료**
 
-| 테이블 | 컬럼 | 우선순위 | 누적 시점 |
-|---|---|---|---|
-| applications | `created_at DESC` | 🔴 높음 | 1~3개월 |
-| influencers | `created_at ASC` | 🟡 중간 | 3~6개월 |
-| deliverables | `updated_at DESC` | 🟡 중간 | 3~6개월 |
-| brand_applications | `created_at DESC` | 🟢 낮음 | 6개월+ |
-| campaigns | `order_index NULLS LAST` | 🟢 낮음 | 12개월+ |
+| 테이블 | 컬럼 | 우선순위 | 누적 시점 | 적용 결과 |
+|---|---|---|---|---|
+| applications | `created_at DESC` | 🔴 높음 | 1~3개월 | ✅ Seq Scan 19.3ms → Index Scan **1.9ms** (10배 ↑) |
+| influencers | `created_at ASC` | 🟡 중간 | 3~6개월 | ✅ 인덱스 등록 |
+| deliverables | `updated_at DESC` | 🟡 중간 | 3~6개월 | ✅ 인덱스 등록 |
+| brand_applications | `created_at DESC` | 🟢 낮음 | 6개월+ | ✅ 인덱스 등록 |
+| campaigns | `order_index NULLS LAST` | 🟢 낮음 | 12개월+ | ✅ 인덱스 등록 |
+
+PR #208 (`6603eb0`) — 운영 DB + 개발 DB 양쪽 적용 완료.
 
 ### 6-4. 메모리 누수 — **미측정**
 
@@ -298,13 +300,13 @@ brand_applications?select=id&status=eq.new  0.8 KB   189 ms  ← 2회
 - 사양서: 별도 사양서 불필요 (회귀 수정)
 - **추천 다음 작업 1순위**
 
-### 7-2. 🟢 인덱스 추가 (병행 — 작은 마이그레이션)
-**5종 인덱스 추가**
-- 영향: 데이터 누적 시 Seq Scan 선형 악화 방지
-- 신규 마이그레이션 1개 (예: `127_admin_list_indexes.sql`)
-- 운영 적용 시 `CREATE INDEX CONCURRENTLY` 권장 (테이블 잠금 최소화)
-- 사양서: 작은 사양서 또는 §7-1 PR 본문에 동시 처리
-- **추천 다음 작업 2순위**
+### 7-2. ✅ 인덱스 추가 — **완료 (2026-05-15)**
+**5종 인덱스 추가 — 마이그레이션 127 적용 완료**
+- 파일: `supabase/migrations/127_admin_list_indexes.sql`
+- 운영 DB + 개발 DB 모두 적용 (PR #208 `6603eb0`)
+- 효과 검증: applications EXPLAIN ANALYZE Seq Scan 19.3ms → Index Scan 1.9ms (~10배 ↑)
+- Supabase SQL Editor 가 multi-statement 를 트랜잭션으로 wrap 하므로 `CONCURRENTLY` 미사용 (일반 `CREATE INDEX`). 현재 데이터 양 작아서 빌드 < 1초
+- 후속 메모: `deliverables.submitted_at ASC` 인덱스가 pending 큐 길어질 때 필요. 마이그레이션 128 이후로 보류 (supabase-expert 검토 의견)
 
 ### 7-3. 🟡 대시보드 통합 RPC (중간 PR)
 **`get_admin_dashboard_summary()` 단일 호출**

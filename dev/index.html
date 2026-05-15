@@ -551,10 +551,25 @@ window._supabaseLoaded = false;
         <div class="form-group">
           <label class="form-label"><span data-i18n="activity.imageLabel">画像</span> <span style="color:var(--red)">*</span></label>
           <div id="receiptPreview" style="margin-bottom:8px"></div>
-          <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
+          <label id="receiptFileLabel" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
             <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> <span data-i18n="activity.imageBtn">画像を選択</span>
             <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
           </label>
+        </div>
+        <!-- monitor(리뷰어) 전용: 주문번호·구매일·구매금액 3종 필수 (마이그레이션 128) -->
+        <div id="monitorReceiptFields" style="display:none">
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="activity.orderNumberLabel">注文番号</span> <span style="color:var(--red)">*</span></label>
+            <input type="text" id="receiptOrderNumber" class="form-input" maxlength="200" placeholder="例: A1234567890">
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="activity.purchaseDateLabel">購入日</span> <span style="color:var(--red)">*</span></label>
+            <input type="date" id="receiptDate" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span style="color:var(--red)">*</span></label>
+            <input type="number" id="receiptAmount" class="form-input" min="0" step="1" placeholder="0">
+          </div>
         </div>
         <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
@@ -577,7 +592,7 @@ window._supabaseLoaded = false;
           <div class="form-group">
             <label class="form-label"><span data-i18n="activity.imageLabel">画像</span> <span style="color:var(--red)">*</span></label>
             <div id="reviewImagePreview" style="margin-bottom:8px"></div>
-            <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
+            <label id="reviewImageFileLabel" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
               <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span> <span data-i18n="activity.imageBtn">画像を選択</span>
               <input type="file" id="reviewImageFile" accept="image/*" style="display:none" onchange="previewReviewImage(this)">
             </label>
@@ -612,7 +627,7 @@ window._supabaseLoaded = false;
           </select>
           <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="activity.postChannelHint">URLからチャンネルを自動判別できませんでした</div>
         </div>
-        <button class="btn btn-ghost btn-block" onclick="addDraftUrl()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
+        <button id="addPostBtn" class="btn btn-ghost btn-block" onclick="addDraftUrl()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
       <button id="submitPostsBtn" class="btn btn-primary btn-block" onclick="submitAllDrafts('post')" style="display:none" data-i18n="activity.submitToAdminBtn">管理者へ提出</button>
     </div>

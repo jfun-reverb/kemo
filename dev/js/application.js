@@ -551,6 +551,8 @@ let _activityAppId = null;
 let _activityCampId = null;
 let _activityCamp = null;
 let _activityFrom = 'detail'; // 'detail' or 'mypage'
+// 마지막 loadDeliverablesForActivity() 결과 — draft 추가 함수의 마감 후 가드 판정에 사용
+let _activityLastDelivs = [];
 let _receiptImgData = null;
 let _reviewImgData = null;  // monitor 2단계 — 리뷰 게시물 캡쳐 (이미지 base64)
 
@@ -647,39 +649,35 @@ async function openActivityPage(applicationId, campaignId, from) {
   if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
   const reviewSec = $('reviewImageSection');
   if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
+  // monitor 전용 영수증 필수 필드(주문번호·구매일·구매금액) — 마이그레이션 128
+  const monitorFields = $('monitorReceiptFields');
+  if (monitorFields) monitorFields.style.display = isMonitor ? '' : 'none';
   const isPostType = showPost;  // 아래 마감 검사 로직용
 
-  // 제출 마감일 안내 + 마감 초과 시 폼 비활성
+  // 제출 마감일 안내 기본값 (마감 전 케이스만 여기서 처리)
+  // 마감 후 비활성/반려후 활성 분기는 loadDeliverablesForActivity 가 끝난 뒤
+  // applyFormGating() 이 덮어쓴다 — 반려된 결과물 데이터를 알아야 결정 가능하므로.
   const submissionEnd = camp.submission_end || camp.post_deadline || null;
-  const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
   const deadlineBox = $('activitySubmissionDeadline');
   if (deadlineBox) {
     if (submissionEnd) {
       deadlineBox.style.display = '';
-      deadlineBox.textContent = isAfterDeadline
-        ? `${t('activity.submissionEndPast')} (${formatDate(submissionEnd)})`
-        : `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
-      deadlineBox.style.color = isAfterDeadline ? '#C33' : 'var(--muted)';
+      deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
+      deadlineBox.style.color = 'var(--muted)';
     } else {
       deadlineBox.style.display = 'none';
     }
   }
-  // 마감 후엔 입력 UI 비활성
-  const formDisabled = isAfterDeadline;
-  if (isPostType) {
-    const urlEl = $('postUrlInput'); if (urlEl) urlEl.disabled = formDisabled;
-    const selEl = $('postChannelManual'); if (selEl) selEl.disabled = formDisabled;
-  } else {
-    const rf = $('receiptFile'); if (rf) rf.disabled = formDisabled;
-    const rd = $('receiptDate'); if (rd) rd.disabled = formDisabled;
-    const ra = $('receiptAmount'); if (ra) ra.disabled = formDisabled;
-  }
 
-  // 폼 초기화 (이미지·URL 섹션 모두 null-safe 처리; 제거된 receiptDate/Amount도 안전하게 접근)
+  // 폼 초기화 (이미지·URL 섹션 모두 null-safe 처리)
   if (showImage) {
     const rp = $('receiptPreview'); if (rp) rp.innerHTML = '';
     const rf = $('receiptFile'); if (rf) rf.value = '';
     _receiptImgData = null;
+    // monitor 전용 3종 필드 — 폼 진입 시 비움 (마이그레이션 128)
+    const ron = $('receiptOrderNumber'); if (ron) ron.value = '';
+    const rd = $('receiptDate'); if (rd) rd.value = '';
+    const ra = $('receiptAmount'); if (ra) ra.value = '';
   }
   if (isMonitor) {
     const rp2 = $('reviewImagePreview'); if (rp2) rp2.innerHTML = '';
@@ -780,6 +778,7 @@ async function loadDeliverablesForActivity() {
     application_id: _activityAppId,
     user_id: currentUser?.id
   });
+  _activityLastDelivs = all || [];
 
   // 반려 사유 배너: 활동관리 페이지 상단에 표시. receipt/post/review_image
   // 모든 결과물 종류의 가장 최신 반려 1건을 후보로 집계 (각 행 안에도 사유 박스가
@@ -813,6 +812,100 @@ async function loadDeliverablesForActivity() {
       renderActivityReviewImageList(all.filter(d => d.kind === 'review_image'));
     }
   }
+
+  // 마감 안내 + 폼 활성/비활성 결정 (데이터 로드 후 한 번에 처리)
+  // 반려된 결과물(kind 별 최신 1건이 rejected)이 있으면 마감 후에도 재제출 허용 — 관리자 책임 정책
+  applyFormGating(all);
+}
+
+// kind 별 최신 1건이 rejected 상태인지 판정 (활동관리 1장 제약·재제출 정책의 공통 기준)
+//   draft 행은 제외(아직 제출 전이라 「반려당했다」 판정에 부적합)
+function _latestNonDraftIsRejected(allDelivs, kind) {
+  if (!Array.isArray(allDelivs)) return false;
+  const candidates = allDelivs
+    .filter(d => d.kind === kind && d.status !== 'draft')
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  return !!(candidates[0] && candidates[0].status === 'rejected');
+}
+
+// 활동관리 폼 활성/비활성 + 마감 안내문 분기
+//   - 마감 전: 「제출 기한: YYYY/MM/DD」 + 폼 활성 (기본 상태 유지)
+//   - 마감 후 + 어떤 kind든 최신 1건 rejected: 「기한은 지났지만 재제출 가능」 + 해당 폼 활성
+//   - 마감 후 + 반려 없음: 「제출 기한이 지났습니다」 빨간색 + 폼 비활성 (label 회색·input/button disabled)
+function applyFormGating(allDelivs) {
+  const camp = _activityCamp || {};
+  const rt = camp.recruit_type || 'monitor';
+  const showImage = (rt === 'monitor' || rt === 'visit');
+  const showPost = (rt === 'gifting' || rt === 'visit');
+  const isMonitor = (rt === 'monitor');
+  const submissionEnd = camp.submission_end || camp.post_deadline || null;
+  const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
+
+  // kind 별 「최신 1건 rejected」 판정 (마감 후에도 폼 활성 허용 조건)
+  const receiptRejected = _latestNonDraftIsRejected(allDelivs, 'receipt');
+  const reviewRejected = _latestNonDraftIsRejected(allDelivs, 'review_image');
+  const postRejected = _latestNonDraftIsRejected(allDelivs, 'post');
+  const anyRejected = receiptRejected || reviewRejected || postRejected;
+
+  // 마감 안내문 (전체 상단에 하나만)
+  const deadlineBox = $('activitySubmissionDeadline');
+  if (deadlineBox && submissionEnd) {
+    deadlineBox.style.display = '';
+    if (!isAfterDeadline) {
+      deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
+      deadlineBox.style.color = 'var(--muted)';
+    } else if (anyRejected) {
+      deadlineBox.textContent = t('activity.submissionEndPastButRejected').replace('{date}', formatDate(submissionEnd));
+      deadlineBox.style.color = '#B8741A';
+    } else {
+      deadlineBox.textContent = `${t('activity.submissionEndPast')} (${formatDate(submissionEnd)})`;
+      deadlineBox.style.color = '#C33';
+    }
+  }
+
+  // kind 별 폼 비활성 결정 — 마감 후이고 해당 kind 에 반려 이력이 없으면 비활성
+  const receiptDisabled = isAfterDeadline && !receiptRejected;
+  const reviewDisabled  = isAfterDeadline && !reviewRejected;
+  const postDisabled    = isAfterDeadline && !postRejected;
+
+  if (showImage) {
+    _setFormDisabled({
+      labelId: 'receiptFileLabel',
+      inputIds: ['receiptFile', 'receiptOrderNumber', 'receiptDate', 'receiptAmount'],
+      buttonIds: ['addReceiptBtn', 'submitImagesBtn']
+    }, receiptDisabled);
+  }
+  if (isMonitor) {
+    _setFormDisabled({
+      labelId: 'reviewImageFileLabel',
+      inputIds: ['reviewImageFile'],
+      buttonIds: ['addReviewImageBtn', 'submitReviewImageBtn']
+    }, reviewDisabled);
+  }
+  if (showPost) {
+    _setFormDisabled({
+      labelId: null,
+      inputIds: ['postUrlInput', 'postChannelManual'],
+      buttonIds: ['addPostBtn', 'submitPostsBtn']
+    }, postDisabled);
+  }
+}
+
+// 한 폼의 label / input / button 묶음을 disabled 토글
+//   label: <label> 회색 처리 + 클릭 차단 (file input 트리거 막기) — CSS 클래스 토글
+//     inline style 의 background:var(--pink) 를 보존하기 위해 클래스 방식 사용
+//   input/button: disabled 속성 직접 설정
+function _setFormDisabled(targets, disabled) {
+  if (targets.labelId) {
+    const lab = $(targets.labelId);
+    if (lab) lab.classList.toggle('form-label-disabled', disabled);
+  }
+  (targets.inputIds || []).forEach(function(id) {
+    const el = $(id); if (el) el.disabled = disabled;
+  });
+  (targets.buttonIds || []).forEach(function(id) {
+    const el = $(id); if (el) el.disabled = disabled;
+  });
 }
 
 function renderActivityReceiptList(delivs) {
@@ -1012,7 +1105,9 @@ async function addDraftUrl() {
 
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end || camp.post_deadline;
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+  // 마감 후라도 해당 kind 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
+      && !_latestNonDraftIsRejected(_activityLastDelivs, 'post')) {
     toast(t('activity.afterDeadline'),'error'); return;
   }
 
@@ -1046,9 +1141,33 @@ async function addDraftImage() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end || camp.post_deadline;
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+  // 마감 후라도 receipt 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
+      && !_latestNonDraftIsRejected(_activityLastDelivs, 'receipt')) {
     toast(t('activity.afterDeadline'),'error'); return;
   }
+
+  // monitor(리뷰어) 전용 필수 필드 검증 — 마이그레이션 128
+  const isMonitor = (camp.recruit_type === 'monitor');
+  let orderNumber = null;
+  let purchaseDate = null;
+  let purchaseAmount = null;
+  if (isMonitor) {
+    orderNumber = ($('receiptOrderNumber')?.value || '').trim();
+    purchaseDate = $('receiptDate')?.value || '';
+    const rawAmount = $('receiptAmount')?.value || '';
+    if (!orderNumber) { toast(t('activity.needOrderNumber'), 'error'); return; }
+    if (orderNumber.length > 200) { toast(t('activity.orderNumberTooLong'), 'error'); return; }
+    if (!purchaseDate) { toast(t('activity.needPurchaseDate'), 'error'); return; }
+    if (rawAmount === '' || rawAmount === null || rawAmount === undefined) {
+      toast(t('activity.needPurchaseAmount'), 'error'); return;
+    }
+    purchaseAmount = Number(rawAmount);
+    if (!Number.isFinite(purchaseAmount) || purchaseAmount < 0) {
+      toast(t('activity.invalidPurchaseAmount'), 'error'); return;
+    }
+  }
+
   try {
     toast(t('activity.uploading'),'');
     const fileName = `evidence_${currentUser.id}_${Date.now()}.jpg`;
@@ -1058,12 +1177,22 @@ async function addDraftImage() {
       user_id: currentUser.id,
       campaign_id: _activityCampId,
       kind: 'receipt',
-      receipt_url: imgUrl
+      receipt_url: imgUrl,
+      // monitor 전용 3종 — visit 캠페인이면 모두 null
+      order_number: orderNumber,
+      purchase_date: purchaseDate || null,
+      purchase_amount: purchaseAmount
     });
     if (!id) { toast(t('activity.saveFail'), 'error'); return; }
     _receiptImgData = null;
     $('receiptPreview').innerHTML = '';
     $('receiptFile').value = '';
+    // monitor 전용 필드 비움
+    if (isMonitor) {
+      const ron = $('receiptOrderNumber'); if (ron) ron.value = '';
+      const rd = $('receiptDate'); if (rd) rd.value = '';
+      const ra = $('receiptAmount'); if (ra) ra.value = '';
+    }
     toast(t('activity.draftAdded'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
@@ -1075,7 +1204,9 @@ async function addDraftReviewImage() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end || camp.post_deadline;
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
+  // 마감 후라도 review_image 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
+  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
+      && !_latestNonDraftIsRejected(_activityLastDelivs, 'review_image')) {
     toast(t('activity.afterDeadline'),'error'); return;
   }
   try {
@@ -1116,6 +1247,9 @@ async function submitAllDrafts(kind) {
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }
 
+// [DEAD CODE 2026-05-15] 활동관리 현행 흐름은 addDraftImage → submitDrafts 로 일원화됨.
+//   receipts 테이블 직접 INSERT 경로(submitReceipt) 는 더 이상 호출되지 않음. CLAUDE.md 명시.
+//   별도 정리 PR 에서 제거 예정. 본 함수의 마감 가드 정책은 의도적으로 동결.
 async function submitReceipt() {
   if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
