@@ -7654,6 +7654,44 @@ function imgToJpegArrayBuffer(url, maxW, maxH) {
   });
 }
 
+// ─── 엑셀 export 공용 헬퍼 ─────────────────────────────────────────
+// 인플루언서 이름 — |한자|가나| 형식. 한자만/가나만 있어도 양쪽 파이프 유지
+function _excelInfluencerName(u) {
+  if (!u) return '';
+  var k = (u.name_kanji || '').trim();
+  var n = (u.name_kana || u.name || '').trim();
+  if (!k && !n) return '';
+  return '|' + k + '|' + n + '|';
+}
+
+// SNS 핸들 → 전체 URL 변환 (Instagram/TikTok/X/YouTube)
+function _excelSnsUrl(channel, raw) {
+  if (!raw) return '';
+  var handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : String(raw).replace(/^@/, '').trim();
+  if (!handle) return '';
+  switch (channel) {
+    case 'instagram': return 'https://www.instagram.com/' + handle + '/';
+    case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
+    case 'x':         return 'https://x.com/' + handle;
+    case 'youtube':   return 'https://www.youtube.com/@' + handle;
+    default: return handle;
+  }
+}
+
+// 우편번호 (별도 컬럼용). 〒 prefix 제거, 하이픈 유지
+function _excelZip(u) {
+  if (!u || !u.zip) return '';
+  return String(u.zip).replace(/^〒\s*/, '').trim();
+}
+
+// 주소 본문 (우편번호 제외). 도도부현 + 시군구 + 건물
+function _excelAddressOnly(u, fallback) {
+  if (u && (u.prefecture || u.city || u.building)) {
+    return (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
+  }
+  return fallback || '';
+}
+
 // ─── 캠페인 다중 선택 + 통합 엑셀 ────────────────────────────────────
 // _selectedCampIds: 사용자가 체크한 캠페인 id 집합. 페인 이동/새로고침 시 초기화.
 // 필터·정렬·lazy-load remount 와 무관하게 Set 기반 절대 선택 유지.
@@ -7838,17 +7876,18 @@ async function exportSelectedCampaignsApplicants() {
       { header: '캠페인 제목',   key: 'campTitle',  width: 28 },
       { header: '신청일',        key: 'created',    width: 20 },
       { header: '상태',          key: 'status',     width: 10 },
-      { header: '인플루언서명',  key: 'name',       width: 16 },
+      { header: '인플루언서명 |한자|가나|', key: 'name', width: 22 },
       { header: '이메일',        key: 'email',      width: 26 },
       { header: '연락처',        key: 'phone',      width: 16 },
-      { header: 'Instagram',     key: 'ig',         width: 22 },
+      { header: 'Instagram URL', key: 'ig',         width: 36 },
       { header: 'Instagram 팔로워', key: 'igF',     width: 14 },
-      { header: 'TikTok',        key: 'tt',         width: 22 },
+      { header: 'TikTok URL',    key: 'tt',         width: 36 },
       { header: 'TikTok 팔로워', key: 'ttF',        width: 14 },
-      { header: 'X',             key: 'x',          width: 22 },
+      { header: 'X URL',         key: 'x',          width: 36 },
       { header: 'X 팔로워',      key: 'xF',         width: 14 },
-      { header: 'YouTube',       key: 'yt',         width: 22 },
+      { header: 'YouTube URL',   key: 'yt',         width: 36 },
       { header: 'YouTube 팔로워',key: 'ytF',        width: 14 },
+      { header: '우편번호',      key: 'zip',        width: 10 },
       { header: '배송지',        key: 'address',    width: 36 },
       { header: '신청 메시지',   key: 'message',    width: 32 },
       { header: '심사일',        key: 'reviewedAt', width: 20 },
@@ -7864,15 +7903,6 @@ async function exportSelectedCampaignsApplicants() {
     hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
     hdr.height = 22;
 
-    var snsHandleStr = function(channel, raw) {
-      if (!raw) return '';
-      if (typeof extractSnsHandle === 'function') { var h = extractSnsHandle(channel, raw); return h ? '@' + h : ''; }
-      return String(raw).trim();
-    };
-    var addrStr = function(u, fallbackAddress) {
-      if (u && u.zip) return '〒' + u.zip + ' ' + (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
-      return fallbackAddress || '';
-    };
     var statusKo = function(s) { return s === 'approved' ? '승인' : s === 'pending' ? '심사중' : s === 'rejected' ? '미승인' : s === 'cancelled' ? '취소' : (s || ''); };
     var fmtKR = function(iso) { if (!iso) return ''; try { return new Date(iso).toLocaleString('ko-KR', {timeZone:'Asia/Seoul'}); } catch(e) { return String(iso); } };
 
@@ -7884,18 +7914,19 @@ async function exportSelectedCampaignsApplicants() {
         campTitle:     c.title || '',
         created:       fmtKR(a.created_at),
         status:        statusKo(a.status),
-        name:          u.name_kanji || u.name || a.user_name || '',
+        name:          _excelInfluencerName(u) || a.user_name || '',
         email:         a.user_email || '',
         phone:         formatPhoneDisplay(u.phone),
-        ig:            snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        ig:            _excelSnsUrl('instagram', u.ig || a.ig_id || a.user_ig),
         igF:           Number(u.ig_followers || 0),
-        tt:            snsHandleStr('tiktok', u.tiktok),
+        tt:            _excelSnsUrl('tiktok', u.tiktok),
         ttF:           Number(u.tiktok_followers || 0),
-        x:             snsHandleStr('x', u.x),
+        x:             _excelSnsUrl('x', u.x),
         xF:            Number(u.x_followers || 0),
-        yt:            snsHandleStr('youtube', u.youtube),
+        yt:            _excelSnsUrl('youtube', u.youtube),
         ytF:           Number(u.youtube_followers || 0),
-        address:       addrStr(u, a.address),
+        zip:           _excelZip(u),
+        address:       _excelAddressOnly(u, a.address),
         message:       a.message || '',
         reviewedAt:    fmtKR(a.reviewed_at),
         reviewedBy:    formatReviewer(a.reviewed_by),
@@ -7974,7 +8005,7 @@ async function exportSelectedCampaignsDeliverables() {
       { header: '제출일',        key: 'submitted',  width: 20 },
       { header: '종류',          key: 'kind',       width: 10 },
       { header: '상태',          key: 'status',     width: 10 },
-      { header: '인플루언서명',  key: 'name',       width: 16 },
+      { header: '인플루언서명 |한자|가나|', key: 'name', width: 22 },
       { header: '이메일',        key: 'email',      width: 26 },
       { header: '결과물 URL',    key: 'url',        width: 50 },
       { header: '채널',          key: 'channel',    width: 12 },
@@ -7995,13 +8026,16 @@ async function exportSelectedCampaignsDeliverables() {
     allDelivs.forEach(function(d) {
       var u = userByEmail[(d.influencers && d.influencers.email) || d.user_email] || {};
       var c = d._campMeta || {};
+      // u 가 비어있을 때 deliverables.influencers 로 폴백 (kanji/kana 컬럼 fetch 안 했을 수도)
+      var nameStr = _excelInfluencerName(u);
+      if (!nameStr) nameStr = (d.influencers && d.influencers.name) || '';
       ws.addRow({
         campNo:       c.campaign_no || '',
         campTitle:    c.title || '',
         submitted:    fmtKR(d.submitted_at),
         kind:         kindKo(d.kind),
         status:       statusKo(d.status),
-        name:         u.name_kanji || u.name || (d.influencers && d.influencers.name) || '',
+        name:         nameStr,
         email:        (d.influencers && d.influencers.email) || u.email || '',
         url:          d.receipt_url || d.post_url || '',
         channel:      d.post_channel || '',
@@ -8064,20 +8098,7 @@ async function exportCampaignApplicationsExcel(campId) {
     };
     // 취소 카테고리 라벨 캐시 (cancelled 행 있으면 미리 채움)
     await ensureCancelReasonsCache();
-    var snsHandleStr = function(channel, raw) {
-      if (!raw) return '';
-      if (typeof extractSnsHandle === 'function') {
-        var h = extractSnsHandle(channel, raw);
-        return h ? '@' + h : '';
-      }
-      return String(raw).trim();
-    };
-    var addrStr = function(u, fallbackAddress) {
-      if (u && u.zip) {
-        return '〒' + u.zip + ' ' + (u.prefecture || '') + (u.city || '') + (u.building ? ' ' + u.building : '');
-      }
-      return fallbackAddress || '';
-    };
+    // 인라인 헬퍼 폐기 — _excelInfluencerName / _excelSnsUrl / _excelZip / _excelAddressOnly 공용 헬퍼 사용
 
     var wb = new ExcelJS.Workbook();
     wb.creator = 'REVERB JP Admin';
@@ -8088,17 +8109,18 @@ async function exportCampaignApplicationsExcel(campId) {
     ws.columns = [
       { header: '신청일',            key: 'created',    width: 20 },
       { header: '상태',              key: 'status',     width: 10 },
-      { header: '인플루언서명',      key: 'name',       width: 18 },
+      { header: '인플루언서명 |한자|가나|', key: 'name', width: 22 },
       { header: '이메일',            key: 'email',      width: 26 },
       { header: '연락처',            key: 'phone',      width: 16 },
-      { header: 'Instagram',         key: 'ig',         width: 22 },
+      { header: 'Instagram URL',     key: 'ig',         width: 36 },
       { header: 'Instagram 팔로워', key: 'igF',        width: 14 },
-      { header: 'TikTok',            key: 'tt',         width: 22 },
+      { header: 'TikTok URL',        key: 'tt',         width: 36 },
       { header: 'TikTok 팔로워',    key: 'ttF',        width: 14 },
-      { header: 'X',                 key: 'x',          width: 22 },
+      { header: 'X URL',             key: 'x',          width: 36 },
       { header: 'X 팔로워',          key: 'xF',         width: 14 },
-      { header: 'YouTube',           key: 'yt',         width: 22 },
+      { header: 'YouTube URL',       key: 'yt',         width: 36 },
       { header: 'YouTube 팔로워',    key: 'ytF',        width: 14 },
+      { header: '우편번호',          key: 'zip',        width: 10 },
       { header: '배송지',            key: 'address',    width: 40 },
       { header: '신청 메시지',       key: 'message',    width: 40 },
       { header: '심사일',            key: 'reviewedAt', width: 20 },
@@ -8135,18 +8157,19 @@ async function exportCampaignApplicationsExcel(campId) {
       ws.addRow({
         created:        createdStr,
         status:         statusLabel(a.status),
-        name:           u.name_kanji || u.name || a.user_name || '',
+        name:           _excelInfluencerName(u) || a.user_name || '',
         email:          a.user_email || '',
         phone:          formatPhoneDisplay(u.phone),
-        ig:             snsHandleStr('instagram', u.ig || a.ig_id || a.user_ig),
+        ig:             _excelSnsUrl('instagram', u.ig || a.ig_id || a.user_ig),
         igF:            Number(u.ig_followers || 0),
-        tt:             snsHandleStr('tiktok', u.tiktok),
+        tt:             _excelSnsUrl('tiktok', u.tiktok),
         ttF:            Number(u.tiktok_followers || 0),
-        x:              snsHandleStr('x', u.x),
+        x:              _excelSnsUrl('x', u.x),
         xF:             Number(u.x_followers || 0),
-        yt:             snsHandleStr('youtube', u.youtube),
+        yt:             _excelSnsUrl('youtube', u.youtube),
         ytF:            Number(u.youtube_followers || 0),
-        address:        addrStr(u, a.address),
+        zip:            _excelZip(u),
+        address:        _excelAddressOnly(u, a.address),
         message:        a.message || '',
         reviewedAt:     reviewedStr,
         reviewedBy:     formatReviewer(a.reviewed_by),
@@ -8300,7 +8323,7 @@ async function exportCampaignDeliverables(campId) {
 
     // 컬럼 헤더 (4행)
     ws.getRow(4).values = [
-      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram', 'TikTok', 'X', 'YouTube',
+      '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL'
     ];
@@ -8309,22 +8332,14 @@ async function exportCampaignDeliverables(campId) {
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (이름 18·이메일 28·SNS 22, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
+    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증/결과물 각 6컬럼: 타입 12·날짜 12·상태 10·이미지 16·URL 32)
     ws.columns = [
-      {width: 18}, {width: 18}, {width: 28}, {width: 22}, {width: 22}, {width: 18}, {width: 22},
+      {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
     ];
 
-    // 헬퍼: SNS 핸들 추출 + @ 접두
-    var snsHandleStr = function(channel, raw) {
-      if (!raw) return '';
-      if (typeof extractSnsHandle === 'function') {
-        var h = extractSnsHandle(channel, raw);
-        return h ? '@' + h : '';
-      }
-      return String(raw).trim();
-    };
+    // SNS URL 변환은 공용 _excelSnsUrl 헬퍼 사용 (handle → 전체 URL)
     // 헬퍼: 결과물 1건의 6컬럼 값 계산 — 타입/제출일/검수일/상태/이미지(빈 셀, 임베드는 별도)/URL
     var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
     var renderDeliverableCells = function(d) {
@@ -8369,10 +8384,10 @@ async function exportCampaignDeliverables(campId) {
         u.name_kanji || u.name || '—',
         u.name_kana || '',
         u.email || '',
-        snsHandleStr('instagram', u.ig),
-        snsHandleStr('tiktok', u.tiktok),
-        snsHandleStr('x', u.x),
-        snsHandleStr('youtube', u.youtube),
+        _excelSnsUrl('instagram', u.ig),
+        _excelSnsUrl('tiktok', u.tiktok),
+        _excelSnsUrl('x', u.x),
+        _excelSnsUrl('youtube', u.youtube),
         // 영수증 6컬럼
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5],
         // 결과물 6컬럼
