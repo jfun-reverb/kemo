@@ -556,6 +556,21 @@ window._supabaseLoaded = false;
             <input type="file" id="receiptFile" accept="image/*" style="display:none" onchange="previewReceipt(this)">
           </label>
         </div>
+        <!-- monitor(리뷰어) 전용: 주문번호·구매일·구매금액 3종 필수 (마이그레이션 128) -->
+        <div id="monitorReceiptFields" style="display:none">
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="activity.orderNumberLabel">注文番号</span> <span style="color:var(--red)">*</span></label>
+            <input type="text" id="receiptOrderNumber" class="form-input" maxlength="200" placeholder="例: A1234567890">
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="activity.purchaseDateLabel">購入日</span> <span style="color:var(--red)">*</span></label>
+            <input type="date" id="receiptDate" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="activity.purchaseAmountLabel">購入金額 (円)</span> <span style="color:var(--red)">*</span></label>
+            <input type="number" id="receiptAmount" class="form-input" min="0" step="1" placeholder="0">
+          </div>
+        </div>
         <button id="addReceiptBtn" class="btn btn-ghost btn-block" onclick="addDraftImage()" style="margin-top:12px" data-i18n="activity.addDraftBtn">リストに追加</button>
       </div>
       <!-- monitor 캠페인 영수증 1장 제약 안내 (active count >= 1일 때만 노출) -->

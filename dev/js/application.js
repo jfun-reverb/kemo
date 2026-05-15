@@ -647,6 +647,9 @@ async function openActivityPage(applicationId, campaignId, from) {
   if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
   const reviewSec = $('reviewImageSection');
   if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
+  // monitor 전용 영수증 필수 필드(주문번호·구매일·구매금액) — 마이그레이션 128
+  const monitorFields = $('monitorReceiptFields');
+  if (monitorFields) monitorFields.style.display = isMonitor ? '' : 'none';
   const isPostType = showPost;  // 아래 마감 검사 로직용
 
   // 제출 마감일 안내 + 마감 초과 시 폼 비활성
@@ -671,15 +674,20 @@ async function openActivityPage(applicationId, campaignId, from) {
     const selEl = $('postChannelManual'); if (selEl) selEl.disabled = formDisabled;
   } else {
     const rf = $('receiptFile'); if (rf) rf.disabled = formDisabled;
+    const ron = $('receiptOrderNumber'); if (ron) ron.disabled = formDisabled;
     const rd = $('receiptDate'); if (rd) rd.disabled = formDisabled;
     const ra = $('receiptAmount'); if (ra) ra.disabled = formDisabled;
   }
 
-  // 폼 초기화 (이미지·URL 섹션 모두 null-safe 처리; 제거된 receiptDate/Amount도 안전하게 접근)
+  // 폼 초기화 (이미지·URL 섹션 모두 null-safe 처리)
   if (showImage) {
     const rp = $('receiptPreview'); if (rp) rp.innerHTML = '';
     const rf = $('receiptFile'); if (rf) rf.value = '';
     _receiptImgData = null;
+    // monitor 전용 3종 필드 — 폼 진입 시 비움 (마이그레이션 128)
+    const ron = $('receiptOrderNumber'); if (ron) ron.value = '';
+    const rd = $('receiptDate'); if (rd) rd.value = '';
+    const ra = $('receiptAmount'); if (ra) ra.value = '';
   }
   if (isMonitor) {
     const rp2 = $('reviewImagePreview'); if (rp2) rp2.innerHTML = '';
@@ -1049,6 +1057,28 @@ async function addDraftImage() {
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
     toast(t('activity.afterDeadline'),'error'); return;
   }
+
+  // monitor(리뷰어) 전용 필수 필드 검증 — 마이그레이션 128
+  const isMonitor = (camp.recruit_type === 'monitor');
+  let orderNumber = null;
+  let purchaseDate = null;
+  let purchaseAmount = null;
+  if (isMonitor) {
+    orderNumber = ($('receiptOrderNumber')?.value || '').trim();
+    purchaseDate = $('receiptDate')?.value || '';
+    const rawAmount = $('receiptAmount')?.value || '';
+    if (!orderNumber) { toast(t('activity.needOrderNumber'), 'error'); return; }
+    if (orderNumber.length > 200) { toast(t('activity.orderNumberTooLong'), 'error'); return; }
+    if (!purchaseDate) { toast(t('activity.needPurchaseDate'), 'error'); return; }
+    if (rawAmount === '' || rawAmount === null || rawAmount === undefined) {
+      toast(t('activity.needPurchaseAmount'), 'error'); return;
+    }
+    purchaseAmount = Number(rawAmount);
+    if (!Number.isFinite(purchaseAmount) || purchaseAmount < 0) {
+      toast(t('activity.invalidPurchaseAmount'), 'error'); return;
+    }
+  }
+
   try {
     toast(t('activity.uploading'),'');
     const fileName = `evidence_${currentUser.id}_${Date.now()}.jpg`;
@@ -1058,12 +1088,22 @@ async function addDraftImage() {
       user_id: currentUser.id,
       campaign_id: _activityCampId,
       kind: 'receipt',
-      receipt_url: imgUrl
+      receipt_url: imgUrl,
+      // monitor 전용 3종 — visit 캠페인이면 모두 null
+      order_number: orderNumber,
+      purchase_date: purchaseDate || null,
+      purchase_amount: purchaseAmount
     });
     if (!id) { toast(t('activity.saveFail'), 'error'); return; }
     _receiptImgData = null;
     $('receiptPreview').innerHTML = '';
     $('receiptFile').value = '';
+    // monitor 전용 필드 비움
+    if (isMonitor) {
+      const ron = $('receiptOrderNumber'); if (ron) ron.value = '';
+      const rd = $('receiptDate'); if (rd) rd.value = '';
+      const ra = $('receiptAmount'); if (ra) ra.value = '';
+    }
     toast(t('activity.draftAdded'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }

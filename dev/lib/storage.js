@@ -441,7 +441,7 @@ async function fetchDeliverables(filters) {
     const data = await fetchAllPaged(() => {
       let q = db.from('deliverables').select(`
         id, kind, status, version,
-        receipt_url, purchase_date, purchase_amount, memo,
+        receipt_url, order_number, purchase_date, purchase_amount, memo,
         post_url, post_channel, post_submissions,
         reject_reason, reject_template_code,
         reviewed_by, reviewed_at, submitted_at, updated_at,
@@ -624,7 +624,7 @@ async function insertDraftDeliverable(payload) {
       application_id: payload.application_id,
       user_id: payload.user_id,
       campaign_id: payload.campaign_id,
-      kind: payload.kind,            // 'post' | 'receipt' (receipt = image evidence)
+      kind: payload.kind,            // 'post' | 'receipt' | 'review_image'
       status: 'draft',
       post_url: payload.post_url || null,
       post_channel: payload.post_channel || null,
@@ -632,13 +632,54 @@ async function insertDraftDeliverable(payload) {
         ? [{url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
         : [],
       receipt_url: payload.receipt_url || null,
-      memo: payload.memo || null
+      memo: payload.memo || null,
+      // 영수증(monitor) 전용 3종 필수 필드 — 마이그레이션 128
+      order_number: payload.order_number || null,
+      purchase_date: payload.purchase_date || null,
+      purchase_amount: (payload.purchase_amount === undefined || payload.purchase_amount === null || payload.purchase_amount === '')
+        ? null
+        : Number(payload.purchase_amount)
     };
     const {data, error} = await db?.from('deliverables').insert(row).select('id').maybeSingle();
     if (error) throw error;
     id = data?.id || null;
   });
   return id;
+}
+
+// ─── 영수증 관리자 수정 (마이그레이션 128) ──────────────────
+// campaign_admin 이상만 호출 가능. RPC가 권한·입력값을 이중 검증함.
+async function updateReceiptAdmin(deliverableId, orderNumber, purchaseDate, purchaseAmount) {
+  if (!db) throw new Error('DB 미연결');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('update_receipt_admin', {
+      p_deliverable_id:  deliverableId,
+      p_order_number:    orderNumber,
+      p_purchase_date:   purchaseDate,
+      p_purchase_amount: purchaseAmount
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 영수증 변경 이력 조회 (모든 관리자 SELECT 가능)
+async function fetchReceiptEditHistory(deliverableId) {
+  if (!db || !deliverableId) return [];
+  let rows = [];
+  try {
+    await retryWithRefresh(async () => {
+      const {data, error} = await db.from('receipt_edit_history')
+        .select('*')
+        .eq('deliverable_id', deliverableId)
+        .order('changed_at', {ascending: false});
+      if (error) throw error;
+      rows = Array.isArray(data) ? data : [];
+    });
+  } catch(e) { console.error('[fetchReceiptEditHistory]', e); }
+  return rows;
 }
 
 // 본인 draft 삭제
