@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1778828519';
+  var CURRENT_BUILD = 'v1778833979';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1446,7 +1446,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-15 16:01 · 6b7ae18</span>
+          <span class="admin-build-text">2026-05-15 17:32 · 63e7968</span>
         </div>
       </div>
     </aside>
@@ -18541,18 +18541,26 @@ function updateCampSelectionUI() {
 function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
   var ws = wb.addWorksheet('캠페인 정보');
   ws.columns = [
-    { header: '캠페인 번호', key: 'no',      width: 18 },
-    { header: '제목',        key: 'title',   width: 36 },
-    { header: '브랜드',      key: 'brand',   width: 18 },
-    { header: '제품',        key: 'product', width: 22 },
-    { header: '모집 타입',   key: 'rtype',   width: 10 },
-    { header: '상태',        key: 'status',  width: 10 },
-    { header: '모집 시작',   key: 'rstart',  width: 14 },
-    { header: '모집 마감',   key: 'deadline',width: 14 },
-    { header: '게시 마감',   key: 'pdead',   width: 14 },
-    { header: '슬롯',        key: 'slots',   width: 8 },
-    { header: '신청 수',     key: 'apps',    width: 10 },
-    { header: '승인 수',     key: 'approved',width: 10 }
+    { header: '캠페인 번호',     key: 'no',       width: 18 },
+    { header: '제목',            key: 'title',    width: 36 },
+    { header: '브랜드',          key: 'brand',    width: 18 },
+    { header: '제품',            key: 'product',  width: 22 },
+    { header: '모집 타입',       key: 'rtype',    width: 10 },
+    { header: '상태',            key: 'status',   width: 10 },
+    { header: '모집 시작',       key: 'rstart',   width: 14 },
+    { header: '모집 마감',       key: 'deadline', width: 14 },
+    { header: '게시 마감',       key: 'pdead',    width: 14 },
+    // 2026-05-15 추가: 운영자가 캠페인 일정 한 번에 보기용 기간 4종.
+    //   monitor 캠페인은 purchase_start/end, visit 캠페인은 visit_start/end 를 같은 컬럼에 매핑.
+    //   gifting 캠페인은 구매·방문 개념이 없어 빈칸.
+    //   노출 마감은 현재 운영 DB 에서 post_deadline 과 동일 값 (게시 마감 컬럼과 같은 값).
+    { header: '구매기간 시작',   key: 'pstart',   width: 14 },
+    { header: '구매기간 마감',   key: 'pend',     width: 14 },
+    { header: '결과물 제출 마감',key: 'subend',   width: 16 },
+    { header: '노출 마감',       key: 'expdead',  width: 14 },
+    { header: '슬롯',            key: 'slots',    width: 8 },
+    { header: '신청 수',         key: 'apps',     width: 10 },
+    { header: '승인 수',         key: 'approved', width: 10 }
   ];
   var header = ws.getRow(1);
   header.font = { bold: true, color: { argb: 'FF222222' } };
@@ -18561,9 +18569,22 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
   header.height = 22;
   var rtypeLabel = function(t) { return t === 'monitor' ? '리뷰어' : t === 'gifting' ? '기프팅' : t === 'visit' ? '방문형' : (t || ''); };
   var statusKo = function(s) { return s === 'draft' ? '준비' : s === 'scheduled' ? '모집예정' : s === 'active' ? '모집중' : s === 'closed' ? '종료' : s === 'expired' ? '노출마감' : (s || ''); };
+  // 캠페인 종류별 구매·방문 기간 매핑 (monitor=purchase_*, visit=visit_*, gifting=빈칸)
+  var pickPurchStart = function(c) {
+    if (c.recruit_type === 'monitor') return c.purchase_start || '';
+    if (c.recruit_type === 'visit')   return c.visit_start || '';
+    return '';
+  };
+  var pickPurchEnd = function(c) {
+    if (c.recruit_type === 'monitor') return c.purchase_end || '';
+    if (c.recruit_type === 'visit')   return c.visit_end || '';
+    return '';
+  };
   campaigns.forEach(function(c) {
     var campApps = (appsByCampId && appsByCampId[c.id]) || [];
     var approvedCnt = campApps.filter(function(a){ return a.status === 'approved'; }).length;
+    var ps = pickPurchStart(c);
+    var pe = pickPurchEnd(c);
     ws.addRow({
       no:       c.campaign_no || '',
       title:    c.title || '',
@@ -18574,6 +18595,10 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
       rstart:   c.recruit_start ? formatDate(c.recruit_start) : '',
       deadline: c.deadline ? formatDate(c.deadline) : '',
       pdead:    c.post_deadline ? formatDate(c.post_deadline) : '',
+      pstart:   ps ? formatDate(ps) : '',
+      pend:     pe ? formatDate(pe) : '',
+      subend:   c.submission_end ? formatDate(c.submission_end) : '',
+      expdead:  c.post_deadline ? formatDate(c.post_deadline) : '',
       slots:    Number(c.slots || 0),
       apps:     campApps.length,
       approved: approvedCnt
