@@ -1430,7 +1430,15 @@ async function submitNewBrand() {
   }
 }
 
+// [perf 2026-05-15] 동시 진행 중 중복 호출 차단 — 페인 진입 시 fetch 가 2번 발생하는 회귀 방어.
+// 같은 시점 호출은 같은 promise 반환. 완료 후엔 새 호출 가능 (정상 동작 유지).
+// 원인 추적: docs/specs/2026-05-15-admin-perf-diagnosis.md §6-2 참조.
+var _loadBrandApplicationsPromise = null;
+
 async function loadBrandApplications() {
+  // 이미 진행 중이면 같은 promise 반환 (중복 fetch 차단)
+  if (_loadBrandApplicationsPromise) return _loadBrandApplicationsPromise;
+  _loadBrandApplicationsPromise = (async function() { try {
   var tbody = $('brandAppTableBody');
   if (tbody) tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
 
@@ -1470,6 +1478,8 @@ async function loadBrandApplications() {
     // 탭 바는 카운트 0으로 안전 렌더 (탭 자체는 노출 유지)
     try { renderBrandAppStatusTabs({}); } catch (_e) {}
   }
+  } finally { _loadBrandApplicationsPromise = null; }})();
+  return _loadBrandApplicationsPromise;
 }
 
 async function refreshBrandAppBadge() {
