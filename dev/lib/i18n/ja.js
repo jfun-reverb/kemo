@@ -397,6 +397,7 @@ window.I18N_JA = {
     rejectedHint: '修正後、再度ご提出ください。',
     submissionEndLabel: '提出期限',
     submissionEndPast: '提出期限が過ぎました',
+    submissionEndPastButRejected: '提出期限は過ぎていますが、差し戻し項目があるため再提出が可能です',
     receiptSection: '購入レシート',
     receiptImageLabel: 'レシート画像',
     receiptImageBtn: '画像を選択',
