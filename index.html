@@ -2474,7 +2474,7 @@ window.I18N_JA = {
     rejectedHint: '修正後、再度ご提出ください。',
     submissionEndLabel: '提出期限',
     submissionEndPast: '提出期限が過ぎました',
-    submissionEndPastButRejected: '提出期限は過ぎていますが、差し戻し項目があるため再提出が可能です',
+    submissionEndPastButRejected: '提出期限（{date}）が過ぎていますが、差し戻し項目があるため再提出が必要です。',
     receiptSection: '購入レシート',
     receiptImageLabel: 'レシート画像',
     receiptImageBtn: '画像を選択',
@@ -3005,7 +3005,7 @@ window.I18N_KO = {
     rejectedHint: '수정 후 다시 제출해주세요.',
     submissionEndLabel: '제출 기한',
     submissionEndPast: '제출 기한이 지났습니다',
-    submissionEndPastButRejected: '제출 기한이 지났지만 반려된 항목이 있어 재제출이 가능합니다',
+    submissionEndPastButRejected: '제출 기한({date})이 지났지만 반려된 항목이 있어 재제출이 필요합니다.',
     receiptSection: '구매 영수증',
     receiptImageLabel: '영수증 이미지',
     receiptImageBtn: '이미지 선택',
@@ -7648,7 +7648,7 @@ function applyFormGating(allDelivs) {
       deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
       deadlineBox.style.color = 'var(--muted)';
     } else if (anyRejected) {
-      deadlineBox.textContent = `${t('activity.submissionEndPastButRejected')} (${formatDate(submissionEnd)})`;
+      deadlineBox.textContent = t('activity.submissionEndPastButRejected').replace('{date}', formatDate(submissionEnd));
       deadlineBox.style.color = '#B8741A';
     } else {
       deadlineBox.textContent = `${t('activity.submissionEndPast')} (${formatDate(submissionEnd)})`;

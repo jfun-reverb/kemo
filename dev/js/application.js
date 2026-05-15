@@ -855,7 +855,7 @@ function applyFormGating(allDelivs) {
       deadlineBox.textContent = `${t('activity.submissionEndLabel')}: ${formatDate(submissionEnd)}`;
       deadlineBox.style.color = 'var(--muted)';
     } else if (anyRejected) {
-      deadlineBox.textContent = `${t('activity.submissionEndPastButRejected')} (${formatDate(submissionEnd)})`;
+      deadlineBox.textContent = t('activity.submissionEndPastButRejected').replace('{date}', formatDate(submissionEnd));
       deadlineBox.style.color = '#B8741A';
     } else {
       deadlineBox.textContent = `${t('activity.submissionEndPast')} (${formatDate(submissionEnd)})`;

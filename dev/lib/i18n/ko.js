@@ -382,7 +382,7 @@ window.I18N_KO = {
     rejectedHint: '수정 후 다시 제출해주세요.',
     submissionEndLabel: '제출 기한',
     submissionEndPast: '제출 기한이 지났습니다',
-    submissionEndPastButRejected: '제출 기한이 지났지만 반려된 항목이 있어 재제출이 가능합니다',
+    submissionEndPastButRejected: '제출 기한({date})이 지났지만 반려된 항목이 있어 재제출이 필요합니다.',
     receiptSection: '구매 영수증',
     receiptImageLabel: '영수증 이미지',
     receiptImageBtn: '이미지 선택',
