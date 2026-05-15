@@ -337,12 +337,91 @@ grep -rn "admin_memo\|adminMemo\|brand-app-memo" \
 - **개발 DB**: 2026-05-14 적용 완료 + 검증 통과
   - 123 V1~V7: product_idx 컬럼/인덱스/트리거 갱신/백필 14건/history 14건 매칭 모두 정상
   - 124 V1~V4: 중복 그룹 0건, legacy 메모 14건, history 링크 14건, memo_deleted 노이즈 0건
-- **운영 DB**: 미적용 — 122 + 123 + 124 순서로 한 번에 적용 예정 (사용자 확인 후)
+- **운영 DB**: 2026-05-15 적용 완료 (122 → 123 → 124 → 125 → 126 한 묶음 SQL Editor 차례로)
 
-### 운영 DB 적용 가이드 (다음 운영 배포 시)
-운영 DB 에는 122·123·124 모두 미적용 상태. 다음 순서로 SQL Editor 한 세션에서 차례로 실행:
-1. 122 (admin_memo 컬럼 → products[0].admin_memo 백필 + 컬럼 DROP + 트리거/RPC 갱신)
-2. 123 (brand_application_memos.product_idx 추가 + products[i].admin_memo → brand_application_memos 백필 + products 정리)
-3. 124 (080↔123 중복 legacy 메모 정리)
+---
 
-각 마이그레이션 적용 후 검증 SQL 실행 권장.
+## 후속 결정 — 미확인 메모 카운트 배지 (2026-05-14)
+
+### 배경
+123/124 적용 후 메모 셀의 분홍 카운트가 "총 메모 개수" 였음. 사용자 요청: "메모를 확인하면 배지가 없어지게. 미확인 메모 수로 활용". 운영서버 `admin_notices`/`admin_notice_reads` 패턴(063) 을 미러링하여 메모 단위 읽음 이력 도입.
+
+### 사용자 결정 (분기 3개)
+1. 읽음 처리 시점: 모달을 열면 자동 일괄 처리 (추천 A)
+2. 변경 안내 방식: 별도 안내 없이 배포 (옵션 C — 의미 변경이 단순)
+3. 추천안 그대로 진행: 데이터 소스 `brand_application_memos` 확장, product_idx 단순 사용, 단일 PR
+
+### 마이그레이션 125
+- `brand_application_memo_reads` 테이블 (memo_id FK CASCADE, auth_id, read_at, PRIMARY KEY)
+- 행 단위 보안 정책 2종 (SELECT 관리자 전체, INSERT 본인만)
+- 원격 호출 함수 2종:
+  - `mark_brand_app_memos_read(application_id, product_idx)` SECURITY DEFINER — 페어 단위 일괄 UPSERT
+  - `get_brand_app_memo_summaries()` SECURITY DEFINER — (application_id, product_idx, total_count, unread_count, latest_text, latest_created_at) 반환
+
+### 클라이언트
+- `storage.js`: `fetchBrandAppMemoSummaries()` 가 RPC 호출로 전환 (페어 키 + unreadCount 포함). `markBrandAppMemosRead(applicationId, productIdx)` 신규
+- `admin-brand.js`: 셀 배지가 `unreadCount > 0` 일 때만 분홍. 모달 진입 시 mark read + 셀 즉시 갱신
+
+### 검증 결과 (마이그레이션 125)
+- 개발 DB: 2026-05-14 적용 완료. SQL Editor 검증 V1~V4 통과. V5/V6 은 auth.uid()=NULL 때문에 SQL Editor 컨텍스트에선 권한 거부 (정상)
+- 운영 DB: 2026-05-15 적용 완료
+
+---
+
+## 후속 결정 — 「오리엔시트 전달」 → 「입금 날짜」 컬럼 분리 (2026-05-15)
+
+### 배경
+운영자가 「오리엔시트 전달」 셀에 입력해온 날짜가 실제로는 입금일 의미였음. 사용자 요청: 오리엔시트 전달 셀은 URL 만 + 입금 날짜 별도 컬럼.
+
+### 사용자 결정 (분기 3개)
+1. 컬럼 처리: 데이터 이전 후 컬럼 DROP (추천 A) — 모델 깔끔, 회귀 위험 최소
+2. 백필 범위: 전체 데이터 이전 (추천 A)
+3. PR 묶음: 단일 PR (추천 A)
+
+### 마이그레이션 126
+- `paid_at timestamptz NULL` 컬럼 추가
+- 백필: `paid_at = orient_sheet_sent_at` (NULL 도 그대로 보존)
+- `orient_sheet_sent_at` 컬럼 DROP (`orient_sheet_sent_url` 은 보존)
+- 변경 이력 트리거는 두 컬럼 모두 미추적 (091/122 시점 결정 유지)
+
+### 클라이언트
+- `storage.js`: SELECT 컬럼에서 `orient_sheet_sent_at` 제거, `paid_at` 추가
+- `admin-brand.js`:
+  - 오리엔시트 셀: URL 만 (날짜 입력 영역 제거). `renderOrientSheetSentDisplay(urlOrNull, locked)` 시그니처 축소
+  - 입금 날짜 셀 신규: `renderPaidAtDisplay` + enter/cancel/confirm + syncPaidAtEditDate (견적서 셀 패턴 미러)
+  - thead 「입금 정보」 뒤로 「입금 날짜」 컬럼 추가 + colspan 29→30
+- `BRAND_APP_HISTORY_FIELD_LABELS` 에 `paid_at: '입금 날짜'` 라벨 추가
+
+### 검증 결과
+- 개발 DB: 2026-05-15 적용 완료 (단, 검증 주석 블록 `/*` 닫힘 문제로 첫 시도 부분 적용 → 사실 동작은 정상, 본문 모두 적용됨)
+- 운영 DB: 2026-05-15 적용 완료 (수동 4 statement 분리 실행)
+
+---
+
+## 후속 폴리시 (2026-05-14 ~ 05-15)
+
+### 메모 셀 UX
+- ✎ 아이콘 통일: `edit_note(15px)` → `edit(13px)` + 수직 중앙 정렬 (옆 셀 모집비/이체수수료와 매칭)
+- 셀 컨테이너 `display:flex;align-items:center` — 상하 중앙 정렬
+- 작성자 표기: `(legacy)` → `(자동 이전)` — 한국어 친화
+
+### 변경 이력 모달 화이트리스트 확장
+- `BRAND_APP_PRODUCT_SUBFIELDS` 에 4종 추가: recruit_fee_krw / price_check / name_ja / category
+- `_expandBrandAppProductsHistoryRow` 가 0건 반환 시 "메타 변경" 가상 행 push 제거 — 마이그레이션 자동 키 추가/제거 노이즈 숨김
+
+### URL 자동 prefix
+- 신규 헬퍼 `normalizeBrandUrlInput(raw)` — `safeBrandUrl` 와 짝
+- 빈 문자열 → null, http/https 시작 → 그대로 검증, protocol-relative → `https:` prefix, 스킴 없음 → `https://` 자동, 위험 스킴 → 차단
+- 견적서·오리엔시트 셀 양쪽 적용
+
+### 라벨 변경
+- 컬럼 헤더 「입금여부」 → 「입금 정보」 (2026-05-15)
+
+---
+
+## 운영 배포 완료 (2026-05-15)
+
+- 운영 DB 마이그레이션 122 → 123 → 124 → 125 → 126 순차 적용 + 통합 검증 통과
+- dev → main PR #204 머지 (354e446)
+- Vercel 자동 배포 완료 — 운영 빌드 마커 `v1778809512` (커밋 b8487c1)
+- reverb-qa-tester light: 개발서버 PASS 5 / FAIL 0 (운영서버 검증은 사용자 직접)
