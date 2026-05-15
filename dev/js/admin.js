@@ -7664,17 +7664,16 @@ function _excelInfluencerNameParts(u) {
   };
 }
 
-// SNS 핸들 → 전체 URL 변환 (Instagram/TikTok/X/YouTube)
-// 사용자 요청: URL 에서 '@' 표기 제거 (TikTok/YouTube 공식 URL 은 @ 포함이지만 사용자 표시 선호에 맞춤)
+// SNS 핸들 → 전체 URL 변환 (각 SNS 공식 URL 형식 유지). TikTok/YouTube 는 @ 필수
 function _excelSnsUrl(channel, raw) {
   if (!raw) return '';
   var handle = (typeof extractSnsHandle === 'function') ? extractSnsHandle(channel, raw) : String(raw).replace(/^@/, '').trim();
   if (!handle) return '';
   switch (channel) {
     case 'instagram': return 'https://www.instagram.com/' + handle + '/';
-    case 'tiktok':    return 'https://www.tiktok.com/' + handle;
+    case 'tiktok':    return 'https://www.tiktok.com/@' + handle;
     case 'x':         return 'https://x.com/' + handle;
-    case 'youtube':   return 'https://www.youtube.com/' + handle;
+    case 'youtube':   return 'https://www.youtube.com/@' + handle;
     default: return handle;
   }
 }
