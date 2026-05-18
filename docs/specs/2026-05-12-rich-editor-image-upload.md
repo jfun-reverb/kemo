@@ -2,9 +2,9 @@
 
 > **작성일**: 2026-05-12
 > **작성 세션**: 기획/설계
-> **상태**: 사양 확정
+> **상태**: ✅ **운영 배포 완료 (DB 마이그레이션 없음 — 코드 전용, 2026-05-12 `ee2a500`)** — 미니 에디터 「이미지」 버튼 + `uploadContentImage()` + `campaign-images/content/` Storage 경로 + 이미지 크기 팝오버(Small/Medium/Large/Original 4단계). 코드(admin.js)는 dev 잠재, main merge 보류 중
 > **연관 사양**: `docs/specs/2026-05-12-ng-sets.md` (C. NG 사항 번들화) — NG 항목 스키마가 본 사양으로 강화됨. C PR 안에 포함하거나 본 사양을 C 머지 후 별도 PR로 진행
-> **예상 PR 분할**: 1개 (단일)
+> **실제 PR 분할**: 1개 (단일) — 사양과 동일
 
 ---
 
