@@ -288,14 +288,13 @@
               <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
               <div class="product-form-title" style="margin:0">캠페인 편집</div>
               <span id="editCampNoBadge" style="display:none;font-family:monospace;font-size:12px;font-weight:700;letter-spacing:0.02em;background:var(--pink-soft,#fdf5fb);color:var(--pink);padding:3px 10px;border-radius:6px;cursor:pointer" title="클릭하여 복사"></span>
+              <div id="editCampVisibilityRow" class="visibility-toggle-row" style="margin-left:auto">
+                <div class="visibility-toggle-label">캠페인 노출</div>
+                <button type="button" id="editCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('edit')"><span class="visibility-toggle-knob"></span></button>
+                <div class="visibility-toggle-status" id="editCampVisibilityStatus"></div>
+              </div>
             </div>
             <input type="hidden" id="editCampId">
-
-            <div id="editCampVisibilityRow" class="visibility-toggle-row">
-              <div class="visibility-toggle-label">캠페인 노출</div>
-              <button type="button" id="editCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('edit')"><span class="visibility-toggle-knob"></span></button>
-              <div class="visibility-toggle-status" id="editCampVisibilityStatus"></div>
-            </div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
@@ -556,14 +555,15 @@
           <div class="camp-form-2col">
             <div class="camp-form-main">
           <div class="product-form">
-            <div class="product-form-title">신규 캠페인 등록</div>
-            <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
-
-            <div id="newCampVisibilityRow" class="visibility-toggle-row">
-              <div class="visibility-toggle-label">캠페인 노출</div>
-              <button type="button" id="newCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('new')"><span class="visibility-toggle-knob"></span></button>
-              <div class="visibility-toggle-status" id="newCampVisibilityStatus"></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+              <div class="product-form-title" style="margin:0">신규 캠페인 등록</div>
+              <div id="newCampVisibilityRow" class="visibility-toggle-row" style="margin-left:auto">
+                <div class="visibility-toggle-label">캠페인 노출</div>
+                <button type="button" id="newCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('new')"><span class="visibility-toggle-knob"></span></button>
+                <div class="visibility-toggle-status" id="newCampVisibilityStatus"></div>
+              </div>
             </div>
+            <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
