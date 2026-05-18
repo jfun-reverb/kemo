@@ -61,8 +61,8 @@ LINE 외부 채널 의존을 줄이고 응모건 단위 시스템 내 양방향 
 |---|---|---|---|
 | **PR 1** — 기반 인프라 + 인플 메시지 | DB 마이그레이션 (테이블 5개 + RPC 핵심) + lookup_values 시드 + Storage 버킷 + 인플루언서 메시지 모달 + 본인 회수 25분 + 첨부 cleanup | §4 데이터 모델 + §3-1, §3-3, §3-5 + §5 인플 UI | 메일 통합 PR (131·132) 운영 안정화 후 |
 | **PR 2** — 관리자 페인 + 강제 숨김 | 관리자 사이드바 「메시지」 페인 + 응모 행 버튼 + 받은편지함 + 응대 완료 + 강제 숨김 모달 + 복구 모달(super_admin) + audit | §5 관리자 UI + §3-4, §3-5 + §4-1-5 audit | PR 1 운영 배포 완료 |
-| **PR 3** — 일괄 발송 (BCC) | 일괄 발송 모달 + 이력 페인 + 일괄 발송·회수 RPC + 메시지 카드 일괄 발송 배지 | §3-6 일괄 발송 + §4 `application_message_broadcasts` | PR 1·2 운영 배포 후 **1주 안정화** |
-| **PR 4** — 지연 큐·다이제스트 | 30분 미읽음 지연 발송 + 묶음 + 야간 보류 + 24h 리마인더 한도 + 일별 다이제스트 | §3-7 발송 정책 + §4-6 + Edge Function 2종 | PR 3 운영 배포 완료 |
+| **PR 3** — 일괄 발송 (BCC) | 일괄 발송 모달 + 이력 페인 + 일괄 발송·회수 RPC + 메시지 카드 일괄 발송 배지 | §3-7 양방향 시작 + 일괄 발송 + §4 `application_message_broadcasts` | PR 1·2 운영 배포 후 **1주 안정화** |
+| **PR 4** — 지연 큐·다이제스트 | 30분 미읽음 지연 발송 + 묶음 + 야간 보류 + 24h 리마인더 한도 + 일별 다이제스트 | §3-1 알림 방식 (인플 메일 지연·묶음·야간 보류 정책) + §4-6 + Edge Function 2종 | PR 3 운영 배포 완료 |
 | **PR 5** — LINE 전환 + 약관 | LINE CTA 변경 1단계 + i18n + **PRIVACY/TERMS 4종 갱신 (사양서 §8-2 A~E)** + D-7 사전 통지 | §3-9 LINE 전환 + §8 약관 | PR 4 운영 배포 후 D-7 사전 통지 + 약관 시행일 명시 |
 
 총 5개 PR. 큰 기능이라 1 PR 무리. 점진 배포 + 운영 안정화 버퍼 1주 ~ 1개월.
@@ -138,8 +138,8 @@ LINE 외부 채널 의존을 줄이고 응모건 단위 시스템 내 양방향 
 - `unhide_application_message` (신설, super_admin)
 - `withdraw_own_message` (신설, 25분 한도)
 - `withdraw_broadcast` (신설, PR 3)
-- `resolve_application_message` (응대 완료)
-- `admin_unread_counts` (사이드바 배지)
+- `mark_application_resolved` (응대 완료)
+- `application_message_admin_unread_counts` (사이드바 배지)
 
 행 단위 보안 정책: 인플루언서는 본인 응모건만, 관리자는 전체. INSERT/UPDATE 는 모두 SECURITY DEFINER RPC 경유 (sender_kind 변조 차단).
 
