@@ -273,7 +273,7 @@
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -288,6 +288,11 @@
               <button type="button" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns', (() => { let r=null; document.querySelectorAll('.admin-si').forEach(e=>{if(e.textContent.includes('캠페인 관리'))r=e;}); return r; })())">← 목록으로</button>
               <div class="product-form-title" style="margin:0">캠페인 편집</div>
               <span id="editCampNoBadge" style="display:none;font-family:monospace;font-size:12px;font-weight:700;letter-spacing:0.02em;background:var(--pink-soft,#fdf5fb);color:var(--pink);padding:3px 10px;border-radius:6px;cursor:pointer" title="클릭하여 복사"></span>
+              <div id="editCampVisibilityRow" class="visibility-toggle-row" style="margin-left:auto">
+                <div class="visibility-toggle-label">캠페인 노출</div>
+                <button type="button" id="editCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('edit')"><span class="visibility-toggle-knob"></span></button>
+                <div class="visibility-toggle-status" id="editCampVisibilityStatus"></div>
+              </div>
             </div>
             <input type="hidden" id="editCampId">
 
@@ -455,17 +460,8 @@
               <div class="form-group">
                 <label class="form-label">결과물 제출 마감일</label>
                 <input type="text" id="editCampSubmissionEnd" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
-                <div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 캠페인 노출 마감일로 폴백</div>
+                <div class="form-hint">이 날짜 이후 결과물 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="editCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
-            </div>
-            <!-- 기간 입력 2행: [캠페인 노출 마감] | -- | -- (빈 칸 자동) -->
-            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">캠페인 노출 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="text" id="editCampPostDeadline" class="form-input fp-single" data-single-prefix="editCamp" data-single-target="PostDeadline" placeholder="연도. 월. 일." readonly>
-                <div class="form-hint">이 날짜 이후 캠페인이 인플루언서 사이트에서 숨겨집니다</div>
-                <div id="editCampPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
             </div>
             <div class="form-group"><label class="form-label">당선 발표 안내</label><input type="text" id="editCampWinnerAnnounce" class="form-input" placeholder="選考後、LINEにてご連絡"><div class="form-hint">인플루언서 캠페인 상세에 표시되는 문구. 비우면 기본값</div></div>
@@ -559,7 +555,14 @@
           <div class="camp-form-2col">
             <div class="camp-form-main">
           <div class="product-form">
-            <div class="product-form-title">신규 캠페인 등록</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+              <div class="product-form-title" style="margin:0">신규 캠페인 등록</div>
+              <div id="newCampVisibilityRow" class="visibility-toggle-row" style="margin-left:auto">
+                <div class="visibility-toggle-label">캠페인 노출</div>
+                <button type="button" id="newCampVisibilityToggle" class="visibility-toggle is-on" role="switch" aria-checked="true" onclick="onCampVisibilityToggle('new')"><span class="visibility-toggle-knob"></span></button>
+                <div class="visibility-toggle-status" id="newCampVisibilityStatus"></div>
+              </div>
+            </div>
             <div class="product-form-sub">등록 후 바로 인플루언서에게 공개됩니다</div>
 
             <div style="font-size:14px;font-weight:700;color:var(--ink);padding-bottom:8px;margin-bottom:12px;border-bottom:2px solid var(--pink)">기본 정보</div>
@@ -733,17 +736,8 @@
               <div class="form-group">
                 <label class="form-label">결과물 제출 마감일</label>
                 <input type="text" id="newCampSubmissionEnd" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="SubmissionEnd" placeholder="연도. 월. 일." readonly>
-                <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 캠페인 노출 마감일로 폴백</div>
+                <div class="form-hint">이 날짜 이후 결과물(영수증·게시물 URL) 제출 불가. 비우면 마감 없이 무기한 제출 가능</div>
                 <div id="newCampSubmissionWarn" class="form-error" style="display:none;margin-top:4px"></div>
-              </div>
-            </div>
-            <!-- 기간 입력 2행: [캠페인 노출 마감] | -- | -- (빈 칸 자동) -->
-            <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
-              <div class="form-group">
-                <label class="form-label">캠페인 노출 마감일 <span style="background:var(--pink);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px">필수</span></label>
-                <input type="text" id="newCampPostDeadline" class="form-input fp-single" data-single-prefix="newCamp" data-single-target="PostDeadline" placeholder="연도. 월. 일." readonly>
-                <div class="form-hint">이 날짜 이후 캠페인이 인플루언서 사이트에서 숨겨집니다</div>
-                <div id="newCampPostDeadlineWarn" class="form-error" style="display:none;margin-top:4px"></div>
               </div>
             </div>
             <div class="form-group">
@@ -1893,12 +1887,12 @@
           <tr>
             <td style="padding:8px 10px"><span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">closed</span></td>
             <td style="padding:8px 10px">모집 종료</td>
-            <td style="padding:8px 10px;color:var(--gold);font-weight:600">캠페인 노출 마감일까지 노출</td>
+            <td style="padding:8px 10px;color:var(--gold);font-weight:600">노출됨 (운영자가 OFF 할 때까지)</td>
             <td style="padding:8px 10px">「募集締切」 오버레이 + 신청 버튼 비활성</td>
           </tr>
           <tr>
             <td style="padding:8px 10px"><span style="background:#EFEFEF;color:#888;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">expired</span></td>
-            <td style="padding:8px 10px">노출 마감 (캠페인 노출 마감일 경과)</td>
+            <td style="padding:8px 10px">노출 마감 (운영자가 노출 토글 OFF)</td>
             <td style="padding:8px 10px;color:var(--red);font-weight:600">노출 안 됨</td>
             <td style="padding:8px 10px;color:var(--muted)">—</td>
           </tr>
@@ -1907,16 +1901,17 @@
       <div style="margin-top:18px;padding:14px;background:var(--light-pink);border-radius:10px;font-size:12px;line-height:1.6">
         <div style="font-weight:700;color:var(--dark-pink);margin-bottom:6px">자동 전이 규칙</div>
         <ul style="margin:0;padding-left:18px;color:var(--ink)">
-          <li><strong>모집 마감일(deadline) 경과</strong>하면 active → closed 로 자동 변경됩니다 (인플루언서 페이지 접속 시 클라이언트 측에서 처리).</li>
-          <li><strong>캠페인 노출 마감일(post_deadline) 경과</strong>하면 closed → expired 로 자동 변경됩니다. expired 상태는 사이트에서 완전히 숨겨집니다.</li>
+          <li><strong>모집 시작일(recruit_start) 도래</strong>하면 scheduled → active 로 자동 변경됩니다.</li>
+          <li><strong>모집 마감일(deadline) 경과</strong>하면 active → closed 로 자동 변경됩니다.</li>
+          <li>expired(노출 마감) 상태는 <strong>운영자가 「캠페인 노출」 토글 OFF</strong> 클릭으로만 진입합니다. 자동 전이 없음.</li>
           <li>모집 마감일이 지난 캠페인은 active / scheduled 상태로 저장·변경할 수 없습니다.</li>
           <li>closed / expired 캠페인의 주의사항·참여방법은 수정할 수 없습니다 (DB에서 이중 차단).</li>
         </ul>
       </div>
       <div style="margin-top:14px;padding:14px;background:var(--surface-dim);border-radius:10px;font-size:12px;line-height:1.6">
         <div style="font-weight:700;color:var(--ink);margin-bottom:6px">전이 흐름</div>
-        <div style="font-family:monospace;font-size:11px;color:var(--ink)">draft → scheduled → active → closed → expired</div>
-        <div style="margin-top:6px;color:var(--muted)">closed 는 post_deadline 까지 인플루언서에게 노출(募集締切 표시). expired 는 완전 비노출.</div>
+        <div style="font-family:monospace;font-size:11px;color:var(--ink)">draft → scheduled → active → closed (← 운영자가 OFF 시 expired)</div>
+        <div style="margin-top:6px;color:var(--muted)">closed 는 운영자가 토글 OFF 할 때까지 인플루언서에게 계속 노출(募集締切 표시). expired 는 완전 비노출.</div>
       </div>
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--line);text-align:right">

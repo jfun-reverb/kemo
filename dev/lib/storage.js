@@ -43,7 +43,7 @@ async function fetchCampaigns() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
-      await autoExpireCampaigns(data); // closed → expired (post_deadline 경과)
+      // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
     return DEMO_CAMPAIGNS.slice();
@@ -98,28 +98,45 @@ async function autoCloseCampaigns(camps) {
   return camps;
 }
 
-// post_deadline 경과 캠페인 자동 노출마감 전환 (closed → expired)
-//   post_deadline 당일 자정(JST) 이후 접속 시 expired로 전환.
-//   expired 캠페인은 인플루언서 화면에서 완전히 숨겨짐 (closed는 post_deadline까지 표시).
-async function autoExpireCampaigns(camps) {
-  if (!db) return camps;
+// 캠페인 「노출」 토글 — 사양서 2026-05-13-campaign-visibility-toggle.md
+//   OFF 클릭 시: status = 'expired' (수동 노출마감, 인플 화면 완전 비노출)
+//   ON  클릭 시: status 를 날짜 기준 자동 재계산 (scheduled/active/closed)
+//   migration 129 로 post_deadline 컬럼이 사라졌으므로 expired 전이는 오직 본 함수만 수행.
+async function toggleCampaignVisibility(campId, visible) {
+  if (!db) return;
+  if (visible === false) {
+    await retryWithRefresh(async () => {
+      const {error} = await db.from('campaigns').update({status: 'expired'}).eq('id', campId);
+      if (error) throw error;
+    });
+    return 'expired';
+  }
+  // ON: 현재 row 조회 후 날짜 기반 상태 계산
+  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline').eq('id', campId).maybeSingle();
+  if (e1) throw e1;
+  if (!row) return null;
+  const newStatus = computeCampaignStatus(row);
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('campaigns').update({status: newStatus}).eq('id', campId);
+    if (error) throw error;
+  });
+  return newStatus;
+}
+
+// 날짜 기준 캠페인 상태 자동 계산 — recruit_start 미도래=scheduled / deadline 경과=closed / 그 외=active
+function computeCampaignStatus(camp) {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const toExpire = camps.filter(c => {
-    if (c.status !== 'closed' || !c.post_deadline) return false;
-    const pd = new Date(c.post_deadline);
-    pd.setHours(23, 59, 59, 999);
-    return now > pd;
-  });
-  if (!toExpire.length) return camps;
-  const results = await Promise.allSettled(toExpire.map(c => {
-    c.status = 'expired';
-    return db.from('campaigns').update({ status: 'expired' }).eq('id', c.id);
-  }));
-  results.forEach((r, i) => {
-    if (r.status === 'rejected') console.warn('autoExpireCampaigns 실패:', toExpire[i]?.id, r.reason);
-  });
-  return camps;
+  if (camp.recruit_start) {
+    const rs = new Date(camp.recruit_start);
+    rs.setHours(0, 0, 0, 0);
+    if (rs > now) return 'scheduled';
+  }
+  if (camp.deadline) {
+    const dl = new Date(camp.deadline);
+    dl.setHours(23, 59, 59, 999);
+    if (dl < now) return 'closed';
+  }
+  return 'active';
 }
 
 async function insertCampaign(camp) {
