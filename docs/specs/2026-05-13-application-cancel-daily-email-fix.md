@@ -271,3 +271,67 @@ curl -X POST \
 
 - 방문기간(`visit`) 그룹: 현재 방문형 캠페인 없어 실데이터 검증 불가. 코드는 포함하되 화면 검증은 추후
 - 이메일 미존재 인플루언서 처리: `auth.users`에도 이메일이 없으면 `-` 표시 (기존 동일)
+
+---
+
+## 9. 2026-05-18 운영 점검 결과 (메인 세션 검증)
+
+운영 DB(`twofagomeizrtkwlhsuv`) 발송 로그 검증 결과:
+
+| 점검 항목 | 결과 |
+|---|---|
+| cron 매일 09:00 KST 정시 호출 | ✅ 정상 (2026-05-13~17 5일 연속 09:00 정각 호출 확인) |
+| 2026-05-12 발송 (sent) 의 cancelled_count=25 | ✅ 실데이터 일치 (other 8 + post 11 + purchase 6 = 25, recruit 5건 제외 정확) |
+| 2026-05-13~17 `skipped_no_data` 5건 | ✅ 정상 — 해당 윈도우에 실제 응모 취소 0건 |
+| Brevo SMTP 발송 (2026-05-12 발송분 2명 관리자 수신) | ✅ 정상 |
+
+**결론**: 인프라·cron·발송 로직·로그 기록은 모두 정상 작동. **다만 2026-05-13 발송 시 발견된 3개 버그 + 1개 개선 요청은 미해결**. 다음 응모 취소가 발생해서 `sent` 상태가 되는 날 동일 증상 재발 위험. 즉시 수정 필요.
+
+→ 2026-05-18 메일 파이프라인 사양서(`2026-05-18-application-email-pipeline.md`) 와 **같은 PR 로 묶어서 개발 세션 처리** 권장 (양쪽 모두 `supabase/functions/` 영역 + Brevo SMTP 패턴 + 이메일 조회 로직 공유).
+
+---
+
+## 10. 구현 결과
+
+**구현일:** 2026-05-13 (코드 적용) + 2026-05-18 (사양서 회고 작성 + 메일 파이프라인 같은 PR 묶음)
+**관련 커밋:**
+- `607f52b` — fix(application-cancel-digest): comment placeholders, influencer email, phase grouping
+- `0f47e49` — fix(notify-cancel-daily): unblock dev verification (3 bugs) (선행 dev 검증용)
+- `9ed247c` — release: application-cancel daily digest fixes + phase grouping (main 머지)
+**관련 PR:** dev → main release 9ed247c (2026-05-13) — main 머지 완료 상태. 운영 Edge Function 재배포는 2026-05-18 메일 파이프라인 PR 과 같이 진행
+
+### 초안 대비 변경 사항
+
+#### 동일하게 구현된 것
+- **버그 A** (주석 안 플레이스홀더 누출): `application-cancelled-daily.html` 의 line 18~19 의 `{{rows_html}}` / `{{admin_pane_url}}` 을 `[취소 건 카드 HTML — ...]` / `[관리자 딥링크 — ...]` 일반 텍스트로 교체. 애플 메일 등에서 주석 안 텍스트가 렌더되던 사고 차단
+- **버그 C** (인플루언서 이메일 「-」 표시): `InfluencerRow` 인터페이스에서 `email` 제거. `influencers` SELECT 에서 `email` 컬럼 제거. `auth.admin.getUserById` 를 `Promise.all` 배치 호출로 `emailMap` 채움. 행 렌더 시 `escapeHtml(emailMap.get(r.user_id) || "-")` 주입
+- **시점별 그룹화** (개선 요청): `PHASE_ORDER = ['purchase','visit','post','other']` + `phaseGroups` 분류 + 그룹 헤더(시점 라벨 + 건수) + 0건 그룹 자동 생략. 그룹 안 행은 기존 `cancelled_at` 오름차순 유지
+
+#### 추가된 것 (초안에 없었음)
+- `phaseSummaryHtml` 상단 카드 요약 — 사양서 §3 에는 그룹 헤더만 명시했으나 상단 표 「시점별」 행에 인라인 색상 pill 도 함께 추가 (`구매기간 6건 · 방문기간 0건 · 결과물 제출기간 11건 · 기타 8건`)
+
+#### 빠진 것
+- 없음
+
+### 구현 중 기술 결정 사항
+
+- **이메일 일괄 조회 패턴**: `auth.admin.getUserById` 를 `Promise.all` 로 병렬 호출 → 인플루언서 N명 → `emailMap`. 100명 이상 규모가 되면 `auth.admin.listUsers` + 클라이언트 필터링으로 전환 권장 (이번 범위 밖)
+- **PostgREST embed 우회**: `applications.campaign_id` 가 PostgREST schema 캐시에 외래 키 관계로 등록 안 돼있어 캠페인을 별도 배치 SELECT 로 처리. influencers / lookup_values 동일 패턴
+- **로그 INSERT 실패 처리**: `application_cancel_digest_runs` INSERT 가 23505 (UNIQUE 위반)이면 duplicate 로 plain return — cron 가 같은 날 두 번 호출되어도 본 함수가 즉시 종료되도록 안전 장치
+
+### 수동 테스트 결과 (운영 점검 §9 결과 그대로)
+
+- cron 매일 09:00 KST 정시 호출 정상 (2026-05-13~17 5일 연속)
+- 2026-05-12 발송 1건만 `sent` (other 8 + post 11 + purchase 6 = 25, recruit 5건 제외 정확)
+- 2026-05-13~17 5일 `skipped_no_data` (윈도우 0건 정상)
+- Brevo SMTP 발송 정상 (2명 관리자 수신)
+
+### 2026-05-18 메일 파이프라인 PR 묶음 처리
+
+코드 패치(607f52b → release 9ed247c)는 2026-05-13 에 이미 main 머지된 상태. 운영 Edge Function 재배포는 메일 파이프라인 PR(마이그레이션 130 + 인플 다이제스트 + 관리자 접수 요약) 과 같이 운영 배포 절차에서 3개 함수 모두 재배포:
+
+```
+supabase functions deploy notify-application-cancelled-daily   --project-ref twofagomeizrtkwlhsuv  # 2026-05-13 패치 운영 반영
+supabase functions deploy notify-influencer-daily-digest        --project-ref twofagomeizrtkwlhsuv  # 신규
+supabase functions deploy notify-application-received-admin-daily --project-ref twofagomeizrtkwlhsuv  # 신규
+```

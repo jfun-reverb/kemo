@@ -1,0 +1,26 @@
+<!--
+  Row partial: 인플루언서 일일 다이제스트 — 섹션 4 「마감 임박 (deadline)」
+  영수증(receipt) + 결과물(post) 모두 같은 row 형식 사용. kind 별 색상 차이 없음 — 본문에서 라벨로 구분.
+
+  Row Placeholders:
+    {{kind_label_jp}}    종류 라벨 (영수증 = レシート, 결과물 = 投稿物)
+    {{campaign_no}}      캠페인 번호
+    {{campaign_title}}   캠페인 제목
+    {{deadline_jp}}      마감일 일본어 (예: 5月23日 (D-5))
+    {{d_minus_label}}    D-N 강조 라벨 (예: D-5 또는 D-1)
+    {{d_minus_color}}    D-N 강조 색상 (D-5=#A06A14 오렌지, D-1=#E8344E 빨강)
+    {{d_minus_bg}}       D-N 배경색 (D-5=#FFF0D6, D-1=#FFE4E9)
+    {{submit_url}}       제출 페이지 절대 URL (활동관리 페이지 딥링크)
+-->
+<div style="border:1.5px solid #FFE0A8;border-radius:10px;padding:14px 16px;margin-bottom:10px;background:#FFFAF0">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <span style="background:{{d_minus_bg}};color:{{d_minus_color}};padding:3px 10px;border-radius:4px;font-weight:700;font-size:11px">{{d_minus_label}}</span>
+    <span style="font-size:11px;color:#A06A14;font-weight:700">{{kind_label_jp}}</span>
+  </div>
+  <div style="font-size:11px;color:#888;margin-bottom:3px">
+    <span style="font-family:monospace">{{campaign_no}}</span>
+  </div>
+  <div style="font-size:13px;font-weight:700;line-height:1.4;margin-bottom:6px">{{campaign_title}}</div>
+  <div style="font-size:12px;color:#333;margin-bottom:8px">提出期限 <strong>{{deadline_jp}}</strong></div>
+  <a href="{{submit_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">提出に進む</a>
+</div>

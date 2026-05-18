@@ -1,0 +1,23 @@
+<!--
+  Row partial: 인플루언서 일일 다이제스트 — 섹션 2 「어제 승인 (approved)」
+
+  Row Placeholders:
+    {{campaign_no}}        캠페인 번호
+    {{campaign_title}}     캠페인 제목
+    {{recruit_type_jp}}    모집 타입 일본어
+    {{reviewed_at_jst}}    승인 시각 (예: 2026年5月18日 14:22)
+    {{reward}}             보상 (¥ 표기 포함, 예: ¥3,000)
+    {{deadline_summary}}   마감일 요약 (예: 영수증 5/25 まで · 結果物 6/5 まで, 빈 문자열 가능)
+-->
+<div style="border:1.5px solid #C8EFC8;border-radius:10px;padding:14px 16px;margin-bottom:10px;background:#F4FBF4">
+  <div style="font-size:11px;color:#16A34A;font-weight:700;margin-bottom:4px">承認されました</div>
+  <div style="font-size:11px;color:#888;margin-bottom:3px">
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_jp}}
+  </div>
+  <div style="font-size:13px;font-weight:700;line-height:1.4;margin-bottom:6px">{{campaign_title}}</div>
+  <table style="border-collapse:collapse;width:100%;font-size:12px">
+    <tr><td style="padding:3px 0;color:#888;width:84px">承認日時</td><td style="padding:3px 0">{{reviewed_at_jst}}</td></tr>
+    <tr><td style="padding:3px 0;color:#888">報酬</td><td style="padding:3px 0;font-weight:700">{{reward}}</td></tr>
+    {{deadline_summary_row}}
+  </table>
+</div>

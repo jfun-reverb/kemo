@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<!--
+  Mail: 인플루언서 일일 다이제스트 (influencer daily digest)
+  Trigger: pg_cron 매일 UTC 00:00 (= 한국시간 오전 9시) → Edge Function notify-influencer-daily-digest
+  Window:
+    - 어제 KST 0시~24시 동안의 applications.created_at / reviewed_at
+    - 오늘 KST 기준 D-5/D-1 영수증·결과물 마감
+  To:     각 인플루언서 1명 (이메일은 auth.users 에서 조회) — marketing_opt_in 무시
+  Lang:   JA (인플루언서 UI 언어)
+  Skip:   4섹션 모두 0건인 인플루언서는 발송 스킵
+
+  Subject (Edge Function이 동적 생성):
+    【REVERB】本日の応募状況のお知らせ ({{today_jp}})
+    예시: 【REVERB】本日の応募状況のお知らせ (2026年5月19日)
+
+  Top-level Placeholders:
+    {{today_jp}}            오늘 일본어 날짜 (예: 2026年5月19日)
+    {{total_count}}         4섹션 총 항목 수
+    {{section_received_html}}   섹션 1 — 어제 신청 (0건이면 빈 문자열)
+    {{section_approved_html}}   섹션 2 — 어제 승인
+    {{section_rejected_html}}   섹션 3 — 어제 반려
+    {{section_deadline_html}}   섹션 4 — 마감 임박
+    {{public_app_url}}      인플루언서 사이트 절대 URL (https://globalreverb.com)
+
+  각 섹션은 Edge Function 가 인플루언서별로 미리 렌더링 (헤더 + row 누적)
+  하거나 빈 문자열로 치환. 헤더 + row 형식은 row 파일 4종 참조:
+    influencer-daily-digest.row-received.html
+    influencer-daily-digest.row-approved.html
+    influencer-daily-digest.row-rejected.html
+    influencer-daily-digest.row-deadline.html
+
+  관련 사양: docs/specs/2026-05-18-application-email-pipeline.md §8-1
+-->
+<div style="font-family:'Hiragino Sans','Yu Gothic',Arial,sans-serif;color:#222;max-width:640px">
+  <h2 style="color:#C8789C;margin:0 0 6px">本日の応募状況のお知らせ</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">{{today_jp}} · {{total_count}}件のお知らせ</p>
+
+  {{section_received_html}}
+  {{section_approved_html}}
+  {{section_rejected_html}}
+  {{section_deadline_html}}
+
+  <div style="margin-top:28px;padding-top:18px;border-top:1px solid #F0E1E4">
+    <a href="{{public_app_url}}/#mypage-applications" style="display:inline-block;background:#C8789C;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-right:8px">応募履歴を確認</a>
+    <a href="{{public_app_url}}/#campaigns" style="display:inline-block;background:#fff;border:1.5px solid #C8789C;color:#C8789C;padding:9px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px">キャンペーン一覧</a>
+  </div>
+
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    このメールは応募活動に関する重要なお知らせです。<br>
+    REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
+    お問い合わせは LINE @reverb.jp までお願いいたします。
+  </p>
+</div>
