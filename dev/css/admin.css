@@ -1004,3 +1004,25 @@
 .brand-app-pricecheck-select.pc-lower{background:#E4F0FF;color:#1F5DBF;border-color:#B6D3F7}
 .brand-app-pricecheck-select.pc-equal{background:#EEEEEE;color:#555555;border-color:#D0D0D0}
 .brand-app-pricecheck-select:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+/* 캠페인 등록·편집 폼 「부모 신청 선택」 커스텀 드롭다운 — 제품명 + 메타 2줄 */
+.custom-srcapp-wrap{position:relative;margin-top:6px}
+.custom-srcapp-wrap > select[data-srcapp-hidden]{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+.custom-srcapp-trigger{width:100%;text-align:left;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 32px 9px 12px;font-size:13px;cursor:pointer;position:relative;min-height:38px;font-family:inherit;color:inherit;line-height:1.4;transition:border-color .15s,box-shadow .15s}
+.custom-srcapp-trigger:hover{border-color:var(--accent)}
+.custom-srcapp-trigger:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(200,120,163,.18)}
+.custom-srcapp-trigger.is-open{border-color:var(--accent);box-shadow:0 0 0 2px rgba(200,120,163,.18)}
+.custom-srcapp-trigger::after{content:"";position:absolute;right:12px;top:50%;width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.custom-srcapp-trigger-main{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-srcapp-trigger-main.is-placeholder{font-weight:400;color:var(--muted)}
+.custom-srcapp-trigger-meta{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-srcapp-panel{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;max-height:280px;overflow-y:auto;display:none}
+.custom-srcapp-panel.is-open{display:block}
+.custom-srcapp-option{padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f1f1;transition:background .12s}
+.custom-srcapp-option:last-child{border-bottom:none}
+.custom-srcapp-option:hover,.custom-srcapp-option.is-active{background:#fff4f8}
+.custom-srcapp-option.is-selected{background:#fdeef4}
+.custom-srcapp-option-main{font-size:13px;font-weight:600;color:var(--text);line-height:1.4;word-break:break-word}
+.custom-srcapp-option-main.is-empty{font-weight:400;color:var(--muted);font-style:italic}
+.custom-srcapp-option-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.3}
+.custom-srcapp-option-extra{font-size:11px;color:var(--muted);font-weight:500;margin-left:4px}

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779076544';
+  var CURRENT_BUILD = 'v1779077749';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1407,6 +1407,28 @@ textarea.form-input{resize:vertical;min-height:80px}
 .brand-app-pricecheck-select.pc-equal{background:#EEEEEE;color:#555555;border-color:#D0D0D0}
 .brand-app-pricecheck-select:focus{outline:2px solid var(--accent);outline-offset:1px}
 
+/* 캠페인 등록·편집 폼 「부모 신청 선택」 커스텀 드롭다운 — 제품명 + 메타 2줄 */
+.custom-srcapp-wrap{position:relative;margin-top:6px}
+.custom-srcapp-wrap > select[data-srcapp-hidden]{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+.custom-srcapp-trigger{width:100%;text-align:left;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 32px 9px 12px;font-size:13px;cursor:pointer;position:relative;min-height:38px;font-family:inherit;color:inherit;line-height:1.4;transition:border-color .15s,box-shadow .15s}
+.custom-srcapp-trigger:hover{border-color:var(--accent)}
+.custom-srcapp-trigger:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(200,120,163,.18)}
+.custom-srcapp-trigger.is-open{border-color:var(--accent);box-shadow:0 0 0 2px rgba(200,120,163,.18)}
+.custom-srcapp-trigger::after{content:"";position:absolute;right:12px;top:50%;width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.custom-srcapp-trigger-main{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-srcapp-trigger-main.is-placeholder{font-weight:400;color:var(--muted)}
+.custom-srcapp-trigger-meta{font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-srcapp-panel{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;max-height:280px;overflow-y:auto;display:none}
+.custom-srcapp-panel.is-open{display:block}
+.custom-srcapp-option{padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f1f1;transition:background .12s}
+.custom-srcapp-option:last-child{border-bottom:none}
+.custom-srcapp-option:hover,.custom-srcapp-option.is-active{background:#fff4f8}
+.custom-srcapp-option.is-selected{background:#fdeef4}
+.custom-srcapp-option-main{font-size:13px;font-weight:600;color:var(--text);line-height:1.4;word-break:break-word}
+.custom-srcapp-option-main.is-empty{font-weight:400;color:var(--muted);font-style:italic}
+.custom-srcapp-option-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.3}
+.custom-srcapp-option-extra{font-size:11px;color:var(--muted);font-weight:500;margin-left:4px}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -1477,7 +1499,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-18 12:55 · 78334ff</span>
+          <span class="admin-build-text">2026-05-18 13:15 · 5f3f0ac</span>
         </div>
       </div>
     </aside>
@@ -1657,9 +1679,15 @@ textarea.form-input{resize:vertical;min-height:80px}
                     <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
                   </button>
                 </div>
-                <select id="editCampSourceAppId" class="form-input" style="margin-top:6px;display:none" onchange="onCampSourceAppChange('edit')">
-                  <option value="">선택 안 함 (외부 캠페인)</option>
-                </select>
+                <div id="editCampSourceAppContainer" class="custom-srcapp-wrap" style="display:none">
+                  <select id="editCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('edit')">
+                    <option value="">선택 안 함 (외부 캠페인)</option>
+                  </select>
+                  <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="edit" aria-haspopup="listbox" aria-expanded="false">
+                    <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
+                  </button>
+                  <div class="custom-srcapp-panel" role="listbox" data-srcapp-panel="edit"></div>
+                </div>
                 <div id="editCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px;color:var(--muted)"></div>
                 <input type="hidden" id="editCampBrand">
                 <input type="hidden" id="editCampBrandKo">
@@ -1925,9 +1953,15 @@ textarea.form-input{resize:vertical;min-height:80px}
                     <span class="material-icons-round notranslate" translate="no" style="font-size:16px">add</span>신규
                   </button>
                 </div>
-                <select id="newCampSourceAppId" class="form-input" style="margin-top:6px;display:none" onchange="onCampSourceAppChange('new')">
-                  <option value="">선택 안 함 (외부 캠페인)</option>
-                </select>
+                <div id="newCampSourceAppContainer" class="custom-srcapp-wrap" style="display:none">
+                  <select id="newCampSourceAppId" data-srcapp-hidden aria-hidden="true" tabindex="-1" onchange="onCampSourceAppChange('new')">
+                    <option value="">선택 안 함 (외부 캠페인)</option>
+                  </select>
+                  <button type="button" class="custom-srcapp-trigger" data-srcapp-trigger="new" aria-haspopup="listbox" aria-expanded="false">
+                    <div class="custom-srcapp-trigger-main is-placeholder" data-srcapp-trigger-main>선택 안 함 (외부 캠페인)</div>
+                  </button>
+                  <div class="custom-srcapp-panel" role="listbox" data-srcapp-panel="new"></div>
+                </div>
                 <div id="newCampBrandHint" class="form-hint" style="margin-top:4px;font-size:11px">신청 연결 시 캠페인 번호가 <code>B0001-A001-C001</code> 형식으로 채번됩니다.</div>
                 <input type="hidden" id="newCampBrand">
                 <input type="hidden" id="newCampBrandKo">
@@ -11778,8 +11812,8 @@ async function openEditCampaign(campId) {
   loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
-      var srcSel = $('editCampSourceAppId');
-      if (srcSel) srcSel.style.display = '';
+      var srcWrap = $('editCampSourceAppContainer');
+      if (srcWrap) srcWrap.style.display = '';
     }
     // hint 갱신
     onCampBrandChange('edit');
@@ -15030,7 +15064,8 @@ async function addCampaign() {
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
    'newCampSubmissionEnd','newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
-  var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) newSrcSel.style.display = 'none';
+  var newSrcWrap = $('newCampSourceAppContainer'); if (newSrcWrap) newSrcWrap.style.display = 'none';
+  var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) { newSrcSel.value = ''; _srcAppSyncTrigger('new'); }
   // flatpickr range picker 클리어
   applyCampRangeValues('newCamp', { recruit:[null,null], purchase:[null,null], visit:[null,null] });
   // 리치 에디터 초기화
@@ -19478,12 +19513,14 @@ async function onCampBrandChange(prefix) {
   if (hiddenNameKo) hiddenNameKo.value = '';  // 086 이후 brands는 단일 name. 한국어 표기는 brand 마스터에서 관리
   // 신청 cascade
   if (sourceSel) {
+    var sourceWrap = $(prefix + 'CampSourceAppContainer');
     if (!brandId) {
-      sourceSel.style.display = 'none';
+      if (sourceWrap) sourceWrap.style.display = 'none';
       sourceSel.innerHTML = '<option value="">선택 안 함 (외부 캠페인)</option>';
       sourceSel.value = '';
+      _srcAppSyncTrigger(prefix);
     } else {
-      sourceSel.style.display = '';
+      if (sourceWrap) sourceWrap.style.display = '';
       await loadCampSourceAppSelect(prefix, brandId);
     }
   }
@@ -19501,6 +19538,9 @@ async function onCampBrandChange(prefix) {
   }
 }
 
+// 부모 신청 선택 — 커스텀 드롭다운 (제품명 큰 글씨 + 메타 작은 글씨 2줄)
+// native <select>는 화면 밖으로 숨겨두고 옵션 클릭 시 select.value 갱신 + change 이벤트 발화 →
+// 기존 호출처(sel.value, FormData, onchange 인라인)는 무손상 그대로 동작
 async function loadCampSourceAppSelect(prefix, brandId, currentAppId) {
   var sel = $(prefix + 'CampSourceAppId');
   if (!sel) return;
@@ -19509,18 +19549,205 @@ async function loadCampSourceAppSelect(prefix, brandId, currentAppId) {
   }
   var apps = _campAppsCache[brandId];
   var current = currentAppId || sel.value || '';
-  var html = '<option value="">선택 안 함 (외부 캠페인)</option>';
+  // 1) 숨김 select 옵션 재구성 — 라벨은 단순 텍스트(검색·접근성 용)
+  var optHtml = '<option value="">선택 안 함 (외부 캠페인)</option>';
   for (var i = 0; i < apps.length; i++) {
     var a = apps[i];
     var statusLabel = (typeof BRAND_APP_STATUS !== 'undefined' && BRAND_APP_STATUS[a.status] && BRAND_APP_STATUS[a.status].label) || a.status;
-    var label = (a.application_no || a.id.slice(0,8)) + ' · ' + (a.form_type === 'reviewer' ? '리뷰어' : '시딩') + ' · ' + statusLabel;
-    html += '<option value="' + esc(a.id) + '"' + (current === a.id ? ' selected' : '') + '>' + esc(label) + '</option>';
+    var optLabel = (a.application_no || a.id.slice(0,8)) + ' · ' + (a.form_type === 'reviewer' ? '리뷰어' : '시딩') + ' · ' + statusLabel;
+    optHtml += '<option value="' + esc(a.id) + '"' + (current === a.id ? ' selected' : '') + '>' + esc(optLabel) + '</option>';
   }
-  sel.innerHTML = html;
+  sel.innerHTML = optHtml;
+  sel.value = current;
+  // 2) 커스텀 패널 옵션 카드 그리기
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  if (panel) {
+    var panelHtml = '<div class="custom-srcapp-option" data-srcapp-value="" role="option">'
+      + '<div class="custom-srcapp-option-main is-empty">선택 안 함 (외부 캠페인)</div>'
+      + '</div>';
+    for (var j = 0; j < apps.length; j++) {
+      var ap = apps[j];
+      var st = (typeof BRAND_APP_STATUS !== 'undefined' && BRAND_APP_STATUS[ap.status] && BRAND_APP_STATUS[ap.status].label) || ap.status;
+      panelHtml += '<div class="custom-srcapp-option' + (current === ap.id ? ' is-selected' : '') + '" data-srcapp-value="' + esc(ap.id) + '" role="option" aria-selected="' + (current === ap.id ? 'true' : 'false') + '">'
+        + '<div class="custom-srcapp-option-main">' + _srcAppProductLabel(ap.products) + '</div>'
+        + '<div class="custom-srcapp-option-meta">' + esc(_srcAppMetaLine(ap, st)) + '</div>'
+        + '</div>';
+    }
+    panel.innerHTML = panelHtml;
+  }
+  // 3) 트리거 라벨 동기화
+  _srcAppSyncTrigger(prefix);
 }
 
+// 제품명 라벨 — 첫 제품(name 또는 name_ja) + 외 N개 / 제품 없으면 안내
+function _srcAppProductLabel(products) {
+  var arr = Array.isArray(products) ? products : [];
+  if (!arr.length) return '<span class="is-empty">(제품 정보 없음)</span>';
+  var first = arr[0] || {};
+  var name = first.name || first.name_ja || '';
+  if (!name) return '<span class="is-empty">(제품명 미입력)</span>';
+  var extra = arr.length > 1 ? '<span class="custom-srcapp-option-extra">외 ' + (arr.length - 1) + '개</span>' : '';
+  return esc(name) + extra;
+}
+
+// 메타 라인 — 신청번호 · 폼타입 · 상태
+function _srcAppMetaLine(a, statusLabel) {
+  var no = a.application_no || (a.id ? a.id.slice(0,8) : '');
+  var ft = a.form_type === 'reviewer' ? '리뷰어' : '시딩';
+  return no + ' · ' + ft + ' · ' + statusLabel;
+}
+
+// 트리거 버튼 표시 갱신
+function _srcAppSyncTrigger(prefix) {
+  var sel = $(prefix + 'CampSourceAppId');
+  var trigger = document.querySelector('[data-srcapp-trigger="' + prefix + '"]');
+  if (!sel || !trigger) return;
+  var mainEl = trigger.querySelector('[data-srcapp-trigger-main]');
+  var existingMeta = trigger.querySelector('.custom-srcapp-trigger-meta');
+  if (existingMeta) existingMeta.remove();
+  var apps = _campAppsCache[ $(prefix + 'CampBrandId')?.value || '' ] || [];
+  var picked = apps.find(function(x){ return x.id === sel.value; });
+  if (!picked) {
+    if (mainEl) { mainEl.className = 'custom-srcapp-trigger-main is-placeholder'; mainEl.textContent = '선택 안 함 (외부 캠페인)'; }
+    return;
+  }
+  if (mainEl) {
+    mainEl.className = 'custom-srcapp-trigger-main';
+    mainEl.innerHTML = _srcAppProductLabel(picked.products);
+  }
+  var st = (typeof BRAND_APP_STATUS !== 'undefined' && BRAND_APP_STATUS[picked.status] && BRAND_APP_STATUS[picked.status].label) || picked.status;
+  var metaEl = document.createElement('div');
+  metaEl.className = 'custom-srcapp-trigger-meta';
+  metaEl.textContent = _srcAppMetaLine(picked, st);
+  trigger.appendChild(metaEl);
+}
+
+// 옵션 선택 — select.value 갱신 + change 이벤트 발화로 onchange 인라인 핸들러 트리거
+function _srcAppPick(prefix, value) {
+  var sel = $(prefix + 'CampSourceAppId');
+  if (!sel) return;
+  sel.value = value;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  // is-selected / aria-selected 재동기화 (접근성)
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  if (panel) {
+    panel.querySelectorAll('.custom-srcapp-option').forEach(function(o){
+      var match = (o.getAttribute('data-srcapp-value') || '') === (value || '');
+      o.classList.toggle('is-selected', match);
+      o.setAttribute('aria-selected', match ? 'true' : 'false');
+    });
+  }
+  _srcAppSyncTrigger(prefix);
+  _srcAppClosePanel(prefix);
+}
+
+function _srcAppOpenPanel(prefix) {
+  // 다른 prefix 패널 닫기
+  document.querySelectorAll('.custom-srcapp-panel.is-open').forEach(function(p){
+    if (p.getAttribute('data-srcapp-panel') !== prefix) p.classList.remove('is-open');
+  });
+  document.querySelectorAll('.custom-srcapp-trigger.is-open').forEach(function(t){
+    if (t.getAttribute('data-srcapp-trigger') !== prefix) { t.classList.remove('is-open'); t.setAttribute('aria-expanded','false'); }
+  });
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  var trigger = document.querySelector('[data-srcapp-trigger="' + prefix + '"]');
+  if (!panel || !trigger) return;
+  panel.classList.add('is-open');
+  trigger.classList.add('is-open');
+  trigger.setAttribute('aria-expanded', 'true');
+  // 현재 선택된 옵션을 active 로
+  var selValue = $(prefix + 'CampSourceAppId')?.value || '';
+  var opts = panel.querySelectorAll('.custom-srcapp-option');
+  opts.forEach(function(o){ o.classList.remove('is-active'); });
+  var match = panel.querySelector('.custom-srcapp-option[data-srcapp-value="' + (selValue || '') + '"]');
+  if (match) match.classList.add('is-active');
+}
+
+function _srcAppClosePanel(prefix) {
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  var trigger = document.querySelector('[data-srcapp-trigger="' + prefix + '"]');
+  if (panel) panel.classList.remove('is-open');
+  if (trigger) { trigger.classList.remove('is-open'); trigger.setAttribute('aria-expanded','false'); }
+}
+
+function _srcAppMoveActive(prefix, dir) {
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  if (!panel) return;
+  var opts = Array.prototype.slice.call(panel.querySelectorAll('.custom-srcapp-option'));
+  if (!opts.length) return;
+  var idx = opts.findIndex(function(o){ return o.classList.contains('is-active'); });
+  if (idx < 0) idx = opts.findIndex(function(o){ return o.classList.contains('is-selected'); });
+  if (idx < 0) idx = (dir > 0 ? -1 : opts.length);
+  var next = idx + dir;
+  if (next < 0) next = opts.length - 1;
+  if (next >= opts.length) next = 0;
+  opts.forEach(function(o){ o.classList.remove('is-active'); });
+  opts[next].classList.add('is-active');
+  opts[next].scrollIntoView({ block: 'nearest' });
+}
+
+// 클릭(트리거·옵션) + 외부 클릭 닫기 + 키보드 핸들링 — 위임 한 번만 등록
+(function _srcAppBindHandlers(){
+  if (window._srcAppHandlersBound) return;
+  window._srcAppHandlersBound = true;
+  document.addEventListener('click', function(e){
+    var trigger = e.target.closest('[data-srcapp-trigger]');
+    if (trigger) {
+      e.preventDefault();
+      var prefix = trigger.getAttribute('data-srcapp-trigger');
+      var isOpen = trigger.classList.contains('is-open');
+      if (isOpen) _srcAppClosePanel(prefix);
+      else _srcAppOpenPanel(prefix);
+      return;
+    }
+    var opt = e.target.closest('.custom-srcapp-option');
+    if (opt) {
+      var panel = opt.closest('[data-srcapp-panel]');
+      if (!panel) return;
+      var prefix2 = panel.getAttribute('data-srcapp-panel');
+      var value = opt.getAttribute('data-srcapp-value') || '';
+      _srcAppPick(prefix2, value);
+      return;
+    }
+    // 외부 클릭 — 모든 패널 닫기
+    document.querySelectorAll('.custom-srcapp-trigger.is-open').forEach(function(t){
+      _srcAppClosePanel(t.getAttribute('data-srcapp-trigger'));
+    });
+  });
+  document.addEventListener('keydown', function(e){
+    // 어느 트리거에 포커스가 있는지
+    var trigger = document.activeElement && document.activeElement.closest && document.activeElement.closest('[data-srcapp-trigger]');
+    if (!trigger) return;
+    var prefix = trigger.getAttribute('data-srcapp-trigger');
+    var isOpen = trigger.classList.contains('is-open');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) { _srcAppOpenPanel(prefix); }
+      else { _srcAppMoveActive(prefix, 1); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!isOpen) { _srcAppOpenPanel(prefix); }
+      else { _srcAppMoveActive(prefix, -1); }
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      if (!isOpen) {
+        e.preventDefault();
+        _srcAppOpenPanel(prefix);
+        return;
+      }
+      e.preventDefault();
+      var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+      var active = panel && panel.querySelector('.custom-srcapp-option.is-active');
+      if (active) _srcAppPick(prefix, active.getAttribute('data-srcapp-value') || '');
+    } else if (e.key === 'Escape') {
+      if (isOpen) { e.preventDefault(); _srcAppClosePanel(prefix); }
+    } else if (e.key === 'Tab') {
+      if (isOpen) _srcAppClosePanel(prefix);
+    }
+  });
+})();
+
 function onCampSourceAppChange(prefix) {
-  // hint 갱신만
+  // hint 갱신 (onCampBrandChange 가 sourceSel.value 를 다시 읽어 캠페인 번호 형식 갱신)
   return onCampBrandChange(prefix);
 }
 
