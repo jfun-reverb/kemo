@@ -116,11 +116,11 @@
 
 <div class="header">
   <h1>REVERB JP — Service Flow Chart</h1>
-  <p>인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-04-20</p>
+  <p>인플루언서 체험단 플랫폼 전체 서비스 흐름도 | 최종 업데이트: 2026-05-18</p>
 </div>
 
 <div class="toc">
-  <a href="#sec0">0. 광고주 인테이크 플로우 (신규)</a>
+  <a href="#sec0">0. 광고주 인테이크 플로우</a>
   <a href="#sec1">1. 전체 서비스 플로우</a>
   <a href="#sec2">2. 인플루언서 사용자 플로우</a>
   <a href="#sec3">3. 캠페인 상태 라이프사이클</a>
@@ -130,6 +130,8 @@
   <a href="#sec7">7. 신청 심사 플로우</a>
   <a href="#sec8">8. 결과물 검수 플로우</a>
   <a href="#sec9">9. 알림 시스템 플로우</a>
+  <a href="#sec10">10. 신청 취소 플로우 (2026-05-11)</a>
+  <a href="#sec11">11. 메일 알림 파이프라인 (2026-05-18)</a>
 </div>
 
 <div class="legend">
@@ -164,7 +166,7 @@ flowchart TB
   end
 
   subgraph NOTIFY["📧 Edge Function"]
-    E1[notify-brand-application<br/>클라이언트 직접 호출] --> E2[수신자 결정<br/>admins.receive_brand_notify=true<br/>+ env NOTIFY_ADMIN_EMAILS]
+    E1[notify-brand-application<br/>클라이언트 직접 호출] --> E2[수신자 결정<br/>get_subscribed_admin_emails('brand_notify')<br/>+ env NOTIFY_ADMIN_EMAILS]
     E2 --> E3[Brevo SMTP 발송<br/>noreply@globalreverb.com]
   end
 
@@ -172,11 +174,12 @@ flowchart TB
     M1[메일 수신] --> M2[상세 모달 오픈<br/>제품 테이블 · 견적 입력]
     M2 --> M3{상태 전이}
     M3 -->|검토 시작| M4[reviewing]
-    M4 --> M5[final_quote_krw 수동 입력<br/>admin_memo 작성]
+    M4 --> M5[final_quote_krw 수동 입력<br/>메모 작성]
     M5 --> M6[견적서 발송<br/>quote_sent_at 체크]
     M6 --> M7[quoted]
-    M7 --> M7P[paid<br/>입금 확인]
-    M7P --> M7O[orient_sheet_sent<br/>오리엔시트 발송]
+    M7 --> M7P[paid<br/>paid_at 날짜 기록]
+    M7P --> M7K[kakao_room_created<br/>카톡방 개설]
+    M7K --> M7O[orient_sheet_sent<br/>오리엔시트 URL 저장]
     M7O --> M7S[schedule_sent<br/>일정 전달]
     M7S --> M7C[campaign_registered<br/>캠페인 등록]
     M7C --> M9[done<br/>최종완료]
@@ -218,20 +221,18 @@ flowchart TB
 flowchart TB
   subgraph ADMIN["🔧 관리자 (PC)"]
     A1[관리자 로그인] --> A2[캠페인 등록<br/>25+ 필드 입력]
-    A2 --> A2V{마감일 검증}
-    A2V -->|post_deadline < deadline| A2E[경고 + 저장 차단]
-    A2V -->|OK| A3{상태 설정}
+    A2 --> A3{상태 설정}
     A3 -->|draft| A4[준비중 — 비공개]
     A3 -->|scheduled| A5[공개예정 — 목록 노출]
     A3 -->|active| A6[모집중 — 신청 가능]
     A4 --> A3
     A5 --> A3
     A6 --> A7{deadline 경과?}
-    A7 -->|Yes| A8[자동 closed]
+    A7 -->|Yes| A8[자동 closed<br/>募集締切 오버레이<br/>목록 노출 유지]
     A7 -->|No| A6
-    A8 --> A9{post_deadline 남음?}
-    A9 -->|Yes| A10[모집마감 — 목록 노출 유지]
-    A9 -->|No| A11[완전 비노출]
+    A8 --> A8T{운영자 노출 토글 OFF?}
+    A8T -->|Yes| A11[expired — 비노출]
+    A8T -->|No| A8
   end
 
   subgraph USER["📱 인플루언서 (모바일 480px)"]
@@ -255,19 +256,19 @@ flowchart TB
     R2 -->|승인| R3[상품 발송]
     R2 -->|비승인| R4[미승인 통보]
     R3 --> R5[인플루언서 — 상품 수령]
-    R5 --> R6[SNS 게시<br/>post_deadline까지]
+    R5 --> R6[SNS 게시<br/>결과물 제출 마감까지]
     R6 --> R7[LINE 게시 링크 전송]
     R7 --> R8[캠페인 완료 ✓]
   end
 
   A6 --> U2
-  A10 --> U2
+  A8 --> U2
   U11 --> R1
 
   style ADMIN fill:#F0F4FF,stroke:#5B7CFF,stroke-width:2px
   style USER fill:#FFF0F6,stroke:#C878A3,stroke-width:2px
   style REVIEW fill:#F0FFF4,stroke:#28C76F,stroke-width:2px
-  style A2E fill:#B3261E,color:#fff
+  style A11 fill:#8B7A8E,color:#fff
     </pre>
   </div>
 </div>
@@ -326,7 +327,7 @@ flowchart LR
 <div class="section" id="sec3">
   <h2><span class="num">3</span>캠페인 상태 라이프사이클</h2>
   <div class="chart-wrap">
-    <div class="chart-desc">캠페인의 5가지 상태(draft→scheduled→active→paused→closed)와 전환 조건, 노출 규칙</div>
+    <div class="chart-desc">캠페인의 5가지 상태(draft→scheduled→active→closed/expired)와 전환 조건, 노출 규칙</div>
     <pre class="mermaid">
 stateDiagram-v2
   [*] --> draft: 캠페인 등록
@@ -334,16 +335,14 @@ stateDiagram-v2
   draft --> scheduled: 관리자 상태 변경
   draft --> active: 관리자 상태 변경 (deadline 유효시)
 
-  scheduled --> active: 관리자 수동 변경 또는 recruit_start 도래 (자동, 2026-04-27)
+  scheduled --> active: 관리자 수동 변경 또는 recruit_start 도래 (자동)
   scheduled --> draft: 관리자 상태 변경
 
-  active --> paused: 관리자 일시정지
   active --> closed: 관리자 수동 종료
   active --> closed: deadline 경과 (자동)
 
-  paused --> active: 관리자 재개 (deadline 미경과시만)
-  paused --> closed: 관리자 종료
-
+  closed --> expired: 운영자 노출 토글 OFF (수동)
+  expired --> closed: 운영자 노출 토글 ON (자연 상태 재계산)
   closed --> draft: 관리자 재등록
 
   note right of draft
@@ -361,18 +360,19 @@ stateDiagram-v2
     신청 가능
     deadline 경과 시 자동 closed
   end note
-  note right of paused
-    일시정지 — 목록 미노출
-    deadline 경과시 active 전환 차단
-  end note
   note right of closed
-    모집마감
-    post_deadline 남으면 → 모집마감으로 목록 유지
-    post_deadline 경과 → 완전 비노출
+    모집마감 — 募集締切 오버레이
+    목록 노출 유지 (운영자 토글 OFF 전까지)
+    인플루언서 화면: 신청 불가, 상세 조회 가능
+  end note
+  note right of expired
+    비노출 — 운영자 수동 전환만
+    자동 전이 없음
   end note
     </pre>
     <div class="chart-desc" style="margin-top:8px; font-size:13px;">
-      <strong>2026-04-27 변경 (PR #129, migration 072)</strong>: <code>campaigns.recruit_start date NULL</code> 신규 컬럼 추가. <code>fetchCampaigns()</code> 호출 시 <code>autoOpenCampaigns()</code> → <code>autoCloseCampaigns()</code> 순차 실행 — scheduled 캠페인의 <code>recruit_start ≤ now()</code> 이면 active 로 자동 전환. 기존 행 <code>recruit_start IS NULL</code> 은 자동 전환 대상 아님(인플루언서 화면에서는 "오늘 ~ deadline" 폴백 렌더).
+      <strong>2026-04-27 (migration 072)</strong>: <code>campaigns.recruit_start date NULL</code> 신규 컬럼. <code>autoOpenCampaigns()</code> → <code>autoCloseCampaigns()</code> 순차 실행 — scheduled 캠페인의 <code>recruit_start ≤ now()</code> 이면 active 자동 전환. <code>recruit_start IS NULL</code> 이면 인플루언서 화면에서 "오늘 ~ deadline" 폴백 렌더.<br/>
+      <strong>2026-05-18 (migration 129)</strong>: <code>post_deadline</code> 컬럼 삭제 + <code>autoExpireCampaigns</code> 제거. 캠페인 노출 관리는 운영자 수동 토글 — ON 시 closed 자연 상태 재계산, OFF 시 <code>status=expired</code>. expired 진입은 운영자 토글 OFF 만, 자동 전이 없음.
     </div>
   </div>
 </div>
@@ -452,7 +452,7 @@ flowchart TB
   CAMP_LIST --> CAMP_SORT[정렬: 조회·신청·등록일·수정일 ▲▼]
   CAMP_LIST --> CAMP_ORDER[순서 변경 모드<br/>↑↓ 버튼]
   CAMP_MGR --> CAMP_NEW[신규 등록<br/>25+ 필드]
-  CAMP_NEW --> VALIDATE{마감일 검증<br/>post_deadline ≥ deadline}
+  CAMP_NEW --> VALIDATE{마감일 검증<br/>deadline 유효성}
   VALIDATE -->|위반| ERROR[인라인 경고 + 저장 차단]
   VALIDATE -->|OK| SAVE[저장]
   CAMP_MGR --> CAMP_EDIT[편집]
@@ -700,8 +700,119 @@ flowchart LR
   </div>
 </div>
 
+<!-- 10. 신청 취소 플로우 -->
+<div class="section" id="sec10">
+  <h2><span class="num">10</span>신청 취소 플로우</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">인플루언서가 본인 응모를 취소하는 플로우 — cancel_application RPC 경유, 구매기간 이후 취소 시 사유 필수, 결과물 승인 건은 취소 불가. (migration 104, 2026-05-11)</div>
+    <pre class="mermaid">
+flowchart TB
+  START([마이페이지 → 응모이력]) --> FIND[취소 대상 응모 선택]
+  FIND --> CHECK1{결과물 승인 있음?}
+  CHECK1 -->|Yes| BLOCK_END[취소 불가<br/>승인 결과물 존재 안내]
+  CHECK1 -->|No| CHECK2{현재 시점?}
+  CHECK2 -->|recruit 단계| SIMPLE[단순 취소<br/>사유 선택 선택사항]
+  CHECK2 -->|구매·방문 기간 이후| REASON[취소 사유 필수<br/>사유 코드 선택 + 노트]
+
+  SIMPLE --> ACK{취소 확인 모달<br/>동의 체크박스}
+  REASON --> ACK
+  ACK -->|동의 안함| CANCEL_END[취소 중단]
+  ACK -->|동의| RPC[cancel_application RPC 호출<br/>SECURITY DEFINER]
+
+  RPC --> VALIDATE{RPC 내부 검증}
+  VALIDATE -->|본인 확인 실패| ERR1[42501 오류]
+  VALIDATE -->|이미 취소됨| ERR2[중복 취소 차단]
+  VALIDATE -->|승인 결과물 존재| ERR3[취소 불가 오류]
+  VALIDATE -->|OK| UPDATE[applications.status = cancelled<br/>cancelled_at / cancel_reason<br/>cancel_phase / previous_status 기록]
+
+  UPDATE --> NOTICE[admin_notices INSERT<br/>cancel_phase != recruit 단계만]
+  UPDATE --> REAPPLY[partial unique index로<br/>동일 캠페인 재응모 허용<br/>새 row INSERT 가능]
+
+  NOTICE --> ADMIN[관리자 사이드바 배지 + 공지]
+  REAPPLY --> DONE([취소 완료])
+  ADMIN --> DONE
+
+  style BLOCK_END fill:#B3261E,color:#fff
+  style ERR1 fill:#B3261E,color:#fff
+  style ERR2 fill:#B3261E,color:#fff
+  style ERR3 fill:#B3261E,color:#fff
+  style UPDATE fill:#28C76F,color:#fff
+  style DONE fill:#28C76F,color:#fff
+    </pre>
+    <div class="chart-desc" style="margin-top:8px; font-size:13px;">
+      <strong>migration 104 (2026-05-11)</strong>: <code>applications</code> 테이블에 취소 보조 컬럼 5종 추가 — <code>cancelled_at</code>, <code>cancel_reason</code>, <code>cancel_reason_code</code>, <code>cancel_phase</code> (<code>recruit|purchase|visit|post|other</code>), <code>previous_status</code>. <code>(user_id, campaign_id)</code> UNIQUE 제약을 partial unique index (cancelled 행 제외)로 변경하여 동일 캠페인 재응모 가능. 즉시 알림 <code>admin_notices</code> — recruit 단계 취소는 미등록.
+    </div>
+  </div>
+</div>
+
+<!-- 11. 메일 알림 파이프라인 -->
+<div class="section" id="sec11">
+  <h2><span class="num">11</span>메일 알림 파이프라인</h2>
+  <div class="chart-wrap">
+    <div class="chart-desc">pg_cron + Supabase Edge Functions 기반 메일 파이프라인 — 인플루언서 일일 다이제스트 + 관리자 통합 일일 다이제스트 + 광고주 신청 즉시 알림. (migrations 130·132, 2026-05-18)</div>
+    <pre class="mermaid">
+flowchart TB
+  subgraph CRON["⏰ pg_cron (매일 UTC 00:00 = KST 09:00)"]
+    C1[notify-influencer-daily-digest]
+    C2[notify-admin-daily-digest]
+  end
+
+  subgraph INF_DIGEST["📱 인플루언서 일일 다이제스트 (migration 130)"]
+    C1 --> ID1[어제 신청·승인·반려 조회]
+    C1 --> ID2[오늘 D-5·D-1 마감 임박 조회<br/>영수증·결과물]
+    ID1 --> ID3{4섹션 모두 0건?}
+    ID2 --> ID3
+    ID3 -->|Yes| ID4[발송 스킵]
+    ID3 -->|No| ID5[인플루언서별 1통 발송<br/>Brevo SMTP · 일본어]
+    ID5 --> ID6[deadline_reminder_email_sent<br/>UNIQUE 4-tuple INSERT<br/>재발송 차단]
+    ID5 --> ID7[influencer_daily_digest_runs<br/>digest_date UNIQUE 로그]
+  end
+
+  subgraph ADMIN_DIGEST["🔧 관리자 통합 일일 다이제스트 (migration 132)"]
+    C2 --> AD1{admin_daily_digest_runs<br/>status=failed INSERT — mutex}
+    AD1 -->|23505 중복| AD2[동시 실행 차단]
+    AD1 -->|INSERT 성공| AD3[§1 신청 접수<br/>applications.created_at 어제 윈도우]
+    AD3 --> AD4[§2 응모 취소<br/>cancelled_at 어제 · cancel_phase!=recruit]
+    AD4 --> AD5[§3 결과물 제출<br/>deliverable_events action=submit]
+    AD5 --> AD6[§4 재처리 일감<br/>deliverable_events resubmit/revert<br/>+ application_events revert_to_pending]
+    AD6 --> AD7{4섹션 모두 0건?}
+    AD7 -->|Yes| AD8[미발송 + status=skipped_no_data]
+    AD7 -->|No| AD9[수신자 결정<br/>get_subscribed_admin_emails×2<br/>+ env NOTIFY_ADMIN_EMAILS]
+    AD9 --> AD10[관리자 1통 발송<br/>Brevo SMTP · 한국어<br/>6종 HTML 템플릿]
+    AD10 --> AD11[status=sent UPDATE<br/>sections_summary jsonb 기록]
+  end
+
+  subgraph BRAND_NOTIFY["📧 광고주 신청 즉시 알림"]
+    B1[brand_applications INSERT] --> B2[notify-brand-application<br/>Edge Function 즉시 호출]
+    B2 --> B3[get_subscribed_admin_emails<br/>brand_notify]
+    B3 --> B4[Brevo SMTP 발송]
+  end
+
+  subgraph DEPRECATED["⚠️ Deprecated (2026-05-18 cron 해제)"]
+    DEP1[notify-application-cancelled-daily<br/>코드 보존 · 롤백 대비]
+    DEP2[notify-application-received-admin-daily<br/>코드 보존 · 롤백 대비]
+  end
+
+  style AD2 fill:#8B7A8E,color:#fff
+  style AD8 fill:#8B7A8E,color:#fff
+  style ID4 fill:#8B7A8E,color:#fff
+  style AD10 fill:#28C76F,color:#fff
+  style ID5 fill:#28C76F,color:#fff
+  style B4 fill:#28C76F,color:#fff
+  style DEPRECATED fill:#FFF3E0,stroke:#FF9F43
+  style DEP1 fill:#FF9F43,color:#fff
+  style DEP2 fill:#FF9F43,color:#fff
+    </pre>
+    <div class="chart-desc" style="margin-top:8px; font-size:13px;">
+      <strong>migration 130 (2026-05-18)</strong>: 인플루언서 일일 다이제스트 — <code>notify-influencer-daily-digest</code> Edge Function + <code>influencer_daily_digest_runs</code> 로그 + <code>deadline_reminder_email_sent</code> 재발송 방지.<br/>
+      <strong>migration 132 (2026-05-18)</strong>: 관리자 통합 일일 다이제스트 — <code>notify-admin-daily-digest</code> Edge Function + <code>admin_daily_digest_runs</code> 로그. 4섹션: ①신청접수 ②응모취소 ③결과물제출 ④재처리일감. 첫 자동 발송 2026-05-19 09:00 KST.<br/>
+      <strong>Deprecated</strong>: <code>notify-application-cancelled-daily</code> · <code>notify-application-received-admin-daily</code> — cron 해제됨, Edge Function 코드는 2026-06-01 이후 별도 정리 PR에서 삭제 예정.
+    </div>
+  </div>
+</div>
+
 <div class="footer">
-  REVERB JP Service Flow Chart — Generated 2026-04-08 · Updated 2026-04-20<br/>
+  REVERB JP Service Flow Chart — Generated 2026-04-08 · Updated 2026-05-18<br/>
   Tech: Supabase + Vanilla JS + Vercel | Mobile 480px + PC Full-Width
 </div>
 
@@ -732,7 +843,7 @@ mermaid.initialize({
 
 document.addEventListener('DOMContentLoaded', () => {
   const wait = setInterval(() => {
-    if (document.querySelectorAll('.chart-wrap svg').length >= 9) {
+    if (document.querySelectorAll('.chart-wrap svg').length >= 11) {
       clearInterval(wait); initHover();
     }
   }, 200);
