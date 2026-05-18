@@ -1153,8 +1153,8 @@ async function openEditCampaign(campId) {
   loadCampBrandSelect('edit', camp.brand_id || '').then(async () => {
     if (camp.brand_id) {
       await loadCampSourceAppSelect('edit', camp.brand_id, camp.source_application_id || '');
-      var srcSel = $('editCampSourceAppId');
-      if (srcSel) srcSel.style.display = '';
+      var srcWrap = $('editCampSourceAppContainer');
+      if (srcWrap) srcWrap.style.display = '';
     }
     // hint 갱신
     onCampBrandChange('edit');
@@ -4405,7 +4405,8 @@ async function addCampaign() {
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
    'newCampSubmissionEnd','newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
-  var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) newSrcSel.style.display = 'none';
+  var newSrcWrap = $('newCampSourceAppContainer'); if (newSrcWrap) newSrcWrap.style.display = 'none';
+  var newSrcSel = $('newCampSourceAppId'); if (newSrcSel) { newSrcSel.value = ''; _srcAppSyncTrigger('new'); }
   // flatpickr range picker 클리어
   applyCampRangeValues('newCamp', { recruit:[null,null], purchase:[null,null], visit:[null,null] });
   // 리치 에디터 초기화
@@ -8853,12 +8854,14 @@ async function onCampBrandChange(prefix) {
   if (hiddenNameKo) hiddenNameKo.value = '';  // 086 이후 brands는 단일 name. 한국어 표기는 brand 마스터에서 관리
   // 신청 cascade
   if (sourceSel) {
+    var sourceWrap = $(prefix + 'CampSourceAppContainer');
     if (!brandId) {
-      sourceSel.style.display = 'none';
+      if (sourceWrap) sourceWrap.style.display = 'none';
       sourceSel.innerHTML = '<option value="">선택 안 함 (외부 캠페인)</option>';
       sourceSel.value = '';
+      _srcAppSyncTrigger(prefix);
     } else {
-      sourceSel.style.display = '';
+      if (sourceWrap) sourceWrap.style.display = '';
       await loadCampSourceAppSelect(prefix, brandId);
     }
   }
@@ -8876,6 +8879,9 @@ async function onCampBrandChange(prefix) {
   }
 }
 
+// 부모 신청 선택 — 커스텀 드롭다운 (제품명 큰 글씨 + 메타 작은 글씨 2줄)
+// native <select>는 화면 밖으로 숨겨두고 옵션 클릭 시 select.value 갱신 + change 이벤트 발화 →
+// 기존 호출처(sel.value, FormData, onchange 인라인)는 무손상 그대로 동작
 async function loadCampSourceAppSelect(prefix, brandId, currentAppId) {
   var sel = $(prefix + 'CampSourceAppId');
   if (!sel) return;
@@ -8884,17 +8890,205 @@ async function loadCampSourceAppSelect(prefix, brandId, currentAppId) {
   }
   var apps = _campAppsCache[brandId];
   var current = currentAppId || sel.value || '';
-  var html = '<option value="">선택 안 함 (외부 캠페인)</option>';
+  // 1) 숨김 select 옵션 재구성 — 라벨은 단순 텍스트(검색·접근성 용)
+  var optHtml = '<option value="">선택 안 함 (외부 캠페인)</option>';
   for (var i = 0; i < apps.length; i++) {
     var a = apps[i];
-    var label = (a.application_no || a.id.slice(0,8)) + ' · ' + (a.form_type === 'reviewer' ? '리뷰어' : '시딩') + ' · ' + (getStatusBadgeKo(a.status) || a.status);
-    html += '<option value="' + esc(a.id) + '"' + (current === a.id ? ' selected' : '') + '>' + esc(label) + '</option>';
+    var statusLabel = (typeof BRAND_APP_STATUS !== 'undefined' && BRAND_APP_STATUS[a.status] && BRAND_APP_STATUS[a.status].label) || a.status;
+    var optLabel = (a.application_no || a.id.slice(0,8)) + ' · ' + (a.form_type === 'reviewer' ? '리뷰어' : '시딩') + ' · ' + statusLabel;
+    optHtml += '<option value="' + esc(a.id) + '"' + (current === a.id ? ' selected' : '') + '>' + esc(optLabel) + '</option>';
   }
-  sel.innerHTML = html;
+  sel.innerHTML = optHtml;
+  sel.value = current;
+  // 2) 커스텀 패널 옵션 카드 그리기
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  if (panel) {
+    var panelHtml = '<div class="custom-srcapp-option" data-srcapp-value="" role="option">'
+      + '<div class="custom-srcapp-option-main is-empty">선택 안 함 (외부 캠페인)</div>'
+      + '</div>';
+    for (var j = 0; j < apps.length; j++) {
+      var ap = apps[j];
+      var st = (typeof BRAND_APP_STATUS !== 'undefined' && BRAND_APP_STATUS[ap.status] && BRAND_APP_STATUS[ap.status].label) || ap.status;
+      panelHtml += '<div class="custom-srcapp-option' + (current === ap.id ? ' is-selected' : '') + '" data-srcapp-value="' + esc(ap.id) + '" role="option" aria-selected="' + (current === ap.id ? 'true' : 'false') + '">'
+        + '<div class="custom-srcapp-option-main">' + _srcAppProductLabel(ap.products) + '</div>'
+        + '<div class="custom-srcapp-option-meta">' + esc(_srcAppMetaLine(ap, st)) + '</div>'
+        + '</div>';
+    }
+    panel.innerHTML = panelHtml;
+  }
+  // 3) 트리거 라벨 동기화
+  _srcAppSyncTrigger(prefix);
 }
 
+// 제품명 라벨 — 첫 제품(name 또는 name_ja) + 외 N개 / 제품 없으면 안내
+function _srcAppProductLabel(products) {
+  var arr = Array.isArray(products) ? products : [];
+  if (!arr.length) return '<span class="is-empty">(제품 정보 없음)</span>';
+  var first = arr[0] || {};
+  var name = first.name || first.name_ja || '';
+  if (!name) return '<span class="is-empty">(제품명 미입력)</span>';
+  var extra = arr.length > 1 ? '<span class="custom-srcapp-option-extra">외 ' + (arr.length - 1) + '개</span>' : '';
+  return esc(name) + extra;
+}
+
+// 메타 라인 — 신청번호 · 폼타입 · 상태
+function _srcAppMetaLine(a, statusLabel) {
+  var no = a.application_no || (a.id ? a.id.slice(0,8) : '');
+  var ft = a.form_type === 'reviewer' ? '리뷰어' : '시딩';
+  return no + ' · ' + ft + ' · ' + statusLabel;
+}
+
+// 트리거 버튼 표시 갱신
+function _srcAppSyncTrigger(prefix) {
+  var sel = $(prefix + 'CampSourceAppId');
+  var trigger = document.querySelector('[data-srcapp-trigger="' + prefix + '"]');
+  if (!sel || !trigger) return;
+  var mainEl = trigger.querySelector('[data-srcapp-trigger-main]');
+  var existingMeta = trigger.querySelector('.custom-srcapp-trigger-meta');
+  if (existingMeta) existingMeta.remove();
+  var apps = _campAppsCache[ $(prefix + 'CampBrandId')?.value || '' ] || [];
+  var picked = apps.find(function(x){ return x.id === sel.value; });
+  if (!picked) {
+    if (mainEl) { mainEl.className = 'custom-srcapp-trigger-main is-placeholder'; mainEl.textContent = '선택 안 함 (외부 캠페인)'; }
+    return;
+  }
+  if (mainEl) {
+    mainEl.className = 'custom-srcapp-trigger-main';
+    mainEl.innerHTML = _srcAppProductLabel(picked.products);
+  }
+  var st = (typeof BRAND_APP_STATUS !== 'undefined' && BRAND_APP_STATUS[picked.status] && BRAND_APP_STATUS[picked.status].label) || picked.status;
+  var metaEl = document.createElement('div');
+  metaEl.className = 'custom-srcapp-trigger-meta';
+  metaEl.textContent = _srcAppMetaLine(picked, st);
+  trigger.appendChild(metaEl);
+}
+
+// 옵션 선택 — select.value 갱신 + change 이벤트 발화로 onchange 인라인 핸들러 트리거
+function _srcAppPick(prefix, value) {
+  var sel = $(prefix + 'CampSourceAppId');
+  if (!sel) return;
+  sel.value = value;
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+  // is-selected / aria-selected 재동기화 (접근성)
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  if (panel) {
+    panel.querySelectorAll('.custom-srcapp-option').forEach(function(o){
+      var match = (o.getAttribute('data-srcapp-value') || '') === (value || '');
+      o.classList.toggle('is-selected', match);
+      o.setAttribute('aria-selected', match ? 'true' : 'false');
+    });
+  }
+  _srcAppSyncTrigger(prefix);
+  _srcAppClosePanel(prefix);
+}
+
+function _srcAppOpenPanel(prefix) {
+  // 다른 prefix 패널 닫기
+  document.querySelectorAll('.custom-srcapp-panel.is-open').forEach(function(p){
+    if (p.getAttribute('data-srcapp-panel') !== prefix) p.classList.remove('is-open');
+  });
+  document.querySelectorAll('.custom-srcapp-trigger.is-open').forEach(function(t){
+    if (t.getAttribute('data-srcapp-trigger') !== prefix) { t.classList.remove('is-open'); t.setAttribute('aria-expanded','false'); }
+  });
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  var trigger = document.querySelector('[data-srcapp-trigger="' + prefix + '"]');
+  if (!panel || !trigger) return;
+  panel.classList.add('is-open');
+  trigger.classList.add('is-open');
+  trigger.setAttribute('aria-expanded', 'true');
+  // 현재 선택된 옵션을 active 로
+  var selValue = $(prefix + 'CampSourceAppId')?.value || '';
+  var opts = panel.querySelectorAll('.custom-srcapp-option');
+  opts.forEach(function(o){ o.classList.remove('is-active'); });
+  var match = panel.querySelector('.custom-srcapp-option[data-srcapp-value="' + (selValue || '') + '"]');
+  if (match) match.classList.add('is-active');
+}
+
+function _srcAppClosePanel(prefix) {
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  var trigger = document.querySelector('[data-srcapp-trigger="' + prefix + '"]');
+  if (panel) panel.classList.remove('is-open');
+  if (trigger) { trigger.classList.remove('is-open'); trigger.setAttribute('aria-expanded','false'); }
+}
+
+function _srcAppMoveActive(prefix, dir) {
+  var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+  if (!panel) return;
+  var opts = Array.prototype.slice.call(panel.querySelectorAll('.custom-srcapp-option'));
+  if (!opts.length) return;
+  var idx = opts.findIndex(function(o){ return o.classList.contains('is-active'); });
+  if (idx < 0) idx = opts.findIndex(function(o){ return o.classList.contains('is-selected'); });
+  if (idx < 0) idx = (dir > 0 ? -1 : opts.length);
+  var next = idx + dir;
+  if (next < 0) next = opts.length - 1;
+  if (next >= opts.length) next = 0;
+  opts.forEach(function(o){ o.classList.remove('is-active'); });
+  opts[next].classList.add('is-active');
+  opts[next].scrollIntoView({ block: 'nearest' });
+}
+
+// 클릭(트리거·옵션) + 외부 클릭 닫기 + 키보드 핸들링 — 위임 한 번만 등록
+(function _srcAppBindHandlers(){
+  if (window._srcAppHandlersBound) return;
+  window._srcAppHandlersBound = true;
+  document.addEventListener('click', function(e){
+    var trigger = e.target.closest('[data-srcapp-trigger]');
+    if (trigger) {
+      e.preventDefault();
+      var prefix = trigger.getAttribute('data-srcapp-trigger');
+      var isOpen = trigger.classList.contains('is-open');
+      if (isOpen) _srcAppClosePanel(prefix);
+      else _srcAppOpenPanel(prefix);
+      return;
+    }
+    var opt = e.target.closest('.custom-srcapp-option');
+    if (opt) {
+      var panel = opt.closest('[data-srcapp-panel]');
+      if (!panel) return;
+      var prefix2 = panel.getAttribute('data-srcapp-panel');
+      var value = opt.getAttribute('data-srcapp-value') || '';
+      _srcAppPick(prefix2, value);
+      return;
+    }
+    // 외부 클릭 — 모든 패널 닫기
+    document.querySelectorAll('.custom-srcapp-trigger.is-open').forEach(function(t){
+      _srcAppClosePanel(t.getAttribute('data-srcapp-trigger'));
+    });
+  });
+  document.addEventListener('keydown', function(e){
+    // 어느 트리거에 포커스가 있는지
+    var trigger = document.activeElement && document.activeElement.closest && document.activeElement.closest('[data-srcapp-trigger]');
+    if (!trigger) return;
+    var prefix = trigger.getAttribute('data-srcapp-trigger');
+    var isOpen = trigger.classList.contains('is-open');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) { _srcAppOpenPanel(prefix); }
+      else { _srcAppMoveActive(prefix, 1); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!isOpen) { _srcAppOpenPanel(prefix); }
+      else { _srcAppMoveActive(prefix, -1); }
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      if (!isOpen) {
+        e.preventDefault();
+        _srcAppOpenPanel(prefix);
+        return;
+      }
+      e.preventDefault();
+      var panel = document.querySelector('[data-srcapp-panel="' + prefix + '"]');
+      var active = panel && panel.querySelector('.custom-srcapp-option.is-active');
+      if (active) _srcAppPick(prefix, active.getAttribute('data-srcapp-value') || '');
+    } else if (e.key === 'Escape') {
+      if (isOpen) { e.preventDefault(); _srcAppClosePanel(prefix); }
+    } else if (e.key === 'Tab') {
+      if (isOpen) _srcAppClosePanel(prefix);
+    }
+  });
+})();
+
 function onCampSourceAppChange(prefix) {
-  // hint 갱신만
+  // hint 갱신 (onCampBrandChange 가 sourceSel.value 를 다시 읽어 캠페인 번호 형식 갱신)
   return onCampBrandChange(prefix);
 }
 
