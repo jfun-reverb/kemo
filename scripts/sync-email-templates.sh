@@ -31,6 +31,8 @@ SYNC_GROUPS=(
   "notify-brand-application|brand-admin-notify.html,brand-ack-reviewer.html,brand-ack-seeding.html"
   "notify-deliverable-decision|deliverable-receipt-approved.html,deliverable-receipt-rejected.html,deliverable-review-image-approved.html,deliverable-review-image-rejected.html,deliverable-post-approved.html,deliverable-post-rejected.html"
   "notify-application-cancelled-daily|application-cancelled-daily.html,application-cancelled-daily.row.html"
+  "notify-influencer-daily-digest|influencer-daily-digest.html,influencer-daily-digest.row-received.html,influencer-daily-digest.row-approved.html,influencer-daily-digest.row-rejected.html,influencer-daily-digest.row-deadline.html"
+  "notify-application-received-admin-daily|application-received-admin-daily.html,application-received-admin-daily.row.html"
 )
 
 if [[ ! -d "$SRC_DIR" ]]; then
@@ -73,12 +75,17 @@ for group in "${SYNC_GROUPS[@]}"; do
   fi
 
   # _templates 디렉토리가 Edge Function 번들에 포함 안 되는 supabase CLI
-  # 동작을 회피하기 위해 templates.ts 자동 생성. 대상 함수는 아래 두 곳:
+  # 동작을 회피하기 위해 templates.ts 자동 생성. 대상 함수:
   #   - notify-deliverable-decision (결과물 검수 메일 6종)
   #   - notify-application-cancelled-daily (응모 취소 일일 요약 2종)
+  #   - notify-influencer-daily-digest (인플루언서 일일 다이제스트 5종 — 마이그레이션 130)
+  #   - notify-application-received-admin-daily (관리자 접수 일일 요약 2종 — 마이그레이션 130)
   # notify-brand-application 은 과거 deploy 가 _templates/ 를 포함했던 시점에
   # 등록되어 그대로 동작 중 — 추후 재배포 회귀 발생 시 동일 분기로 이동.
-  if [[ "$fn_name" == "notify-deliverable-decision" ]] || [[ "$fn_name" == "notify-application-cancelled-daily" ]]; then
+  if [[ "$fn_name" == "notify-deliverable-decision" ]] || \
+     [[ "$fn_name" == "notify-application-cancelled-daily" ]] || \
+     [[ "$fn_name" == "notify-influencer-daily-digest" ]] || \
+     [[ "$fn_name" == "notify-application-received-admin-daily" ]]; then
     ts_path="$REPO_ROOT/supabase/functions/$fn_name/templates.ts"
     {
       echo "// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지"

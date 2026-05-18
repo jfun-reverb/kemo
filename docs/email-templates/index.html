@@ -28,8 +28,12 @@
   .tag-brand { background:#FBE2E7; color:#A02038; }
   .tag-infl { background:#E5EAE0; color:#3F5530; }
   .card-title { font-size:15px; font-weight:700; letter-spacing:-0.01em; margin-bottom:6px; line-height:1.4; }
-  .card-desc { font-size:12px; color:#666; line-height:1.6; margin-bottom:14px; flex:1; }
-  .card-meta { font-size:11px; color:#888; margin-bottom:14px; line-height:1.7; }
+  .card-desc { font-size:12px; color:#666; line-height:1.6; margin-bottom:14px; }
+  /* 「언제 보내요?」 박스 — 운영자·CS 담당자용 평이한 한국어 발송 조건 안내 (사양서 2026-05-18 §8-3) */
+  .card-condition { background:#FFF8E1; border-left:3px solid #F5C147; padding:8px 12px; border-radius:6px; margin-bottom:14px; }
+  .cc-label { font-size:10px; font-weight:700; color:#8A5A0A; letter-spacing:0.05em; margin-bottom:4px; }
+  .cc-text { font-size:12.5px; color:#333; line-height:1.55; }
+  .card-meta { font-size:11px; color:#888; margin-bottom:14px; line-height:1.7; flex:1; }
   .card-meta b { color:#444; font-weight:600; }
   .card-actions { display:flex; gap:6px; margin-top:auto; }
   .btn { font-size:11px; padding:6px 12px; border-radius:6px; text-decoration:none; font-weight:600; letter-spacing:0.02em; flex:1; text-align:center; }
@@ -51,7 +55,7 @@
   <div class="legend">
     <span class="auth">Auth · Supabase 자동 발송</span>
     <span class="brand">Brand · Edge Function</span>
-    <span class="infl">Influencer · 미구현</span>
+    <span class="infl">Influencer · Edge Function</span>
   </div>
 </div>
 
@@ -63,6 +67,10 @@
     <div class="card-tag tag-auth">Auth</div>
     <div class="card-title">회원가입 확인 메일</div>
     <div class="card-desc">인플루언서가 가입하면 메일 인증을 요청. 운영서버 한정 (개발서버는 Confirm email OFF).</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 회원가입을 하면 보냅니다. 이메일 주소가 진짜인지 확인하는 메일입니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> 회원가입</div>
       <div><b>수신자:</b> 가입자 본인</div>
@@ -79,6 +87,10 @@
     <div class="card-tag tag-auth">Auth</div>
     <div class="card-title">비밀번호 재설정 메일</div>
     <div class="card-desc">"비밀번호 찾기" + 관리자 초대(invite_admin 후 resetPasswordForEmail) 공용. 1시간 만료.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">비밀번호를 잊었을 때 다시 만들 수 있는 링크를 보내거나, 새 관리자에게 처음 비밀번호 만드는 링크를 보낼 때 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> 비밀번호 재설정 / 관리자 초대</div>
       <div><b>수신자:</b> 본인 / 신규 관리자</div>
@@ -95,9 +107,13 @@
     <div class="card-tag tag-brand">Brand</div>
     <div class="card-title">광고주 신청 — 관리자 알림</div>
     <div class="card-desc">sales 폼 제출 시 관리자에게 신청 내용·견적·딥링크 발송.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">광고주가 캠페인 신청서를 보내면 관리자에게 「새 신청이 들어왔어요」 알림을 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> brand_applications INSERT</div>
-      <div><b>수신자:</b> receive_brand_notify=true 관리자 + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>수신자:</b> get_subscribed_admin_emails('brand_notify') + NOTIFY_ADMIN_EMAILS</div>
       <div><b>언어:</b> KO</div>
     </div>
     <div class="card-actions">
@@ -111,6 +127,10 @@
     <div class="card-tag tag-brand">Brand</div>
     <div class="card-title">광고주 접수 확인 — Qoo10 리뷰어</div>
     <div class="card-desc">form_type='reviewer' 신청자에게 접수 확인 + 5단계 다음 절차 안내.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">Qoo10 리뷰어 신청서를 받은 광고주에게 「접수했습니다, 다음 절차는 이렇습니다」 안내를 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> brand_applications INSERT (reviewer)</div>
       <div><b>수신자:</b> 신청자 본인</div>
@@ -127,6 +147,10 @@
     <div class="card-tag tag-brand">Brand</div>
     <div class="card-title">광고주 접수 확인 — 나노 시딩</div>
     <div class="card-desc">form_type='seeding' 신청자에게 접수 확인 + 6단계 다음 절차 안내.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">나노 시딩 신청서를 받은 광고주에게 「접수했습니다, 다음 절차는 이렇습니다」 안내를 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> brand_applications INSERT (seeding)</div>
       <div><b>수신자:</b> 신청자 본인</div>
@@ -143,6 +167,10 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">결과물 — 영수증 승인</div>
     <div class="card-desc">monitor 1단계 영수증 승인 시 발송. STEP 2(리뷰 이미지 제출) 안내 포함.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 보낸 영수증을 관리자가 승인하면 「다음 단계로 리뷰 이미지를 보내주세요」 안내를 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=receipt)</div>
       <div><b>수신자:</b> 인플루언서 본인</div>
@@ -159,6 +187,10 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">결과물 — 영수증 비승인</div>
     <div class="card-desc">영수증 반려 시 사유 포함 발송. 활동관리에서 재제출 안내.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 보낸 영수증에 문제가 있어서 다시 보내야 할 때, 어디를 고쳐야 하는지 알려주는 메일을 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=receipt)</div>
       <div><b>수신자:</b> 인플루언서 본인</div>
@@ -175,6 +207,10 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">결과물 — 리뷰 이미지 승인</div>
     <div class="card-desc">monitor 2단계 리뷰 캡처 승인 시 발송. 보상 지급 대기 안내 포함.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 보낸 리뷰 화면 캡처를 관리자가 승인하면 「확인 완료, 보상 지급을 기다려 주세요」 안내를 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=review_image)</div>
       <div><b>수신자:</b> 인플루언서 본인</div>
@@ -191,6 +227,10 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">결과물 — 리뷰 이미지 비승인</div>
     <div class="card-desc">리뷰 캡처 반려 시 사유 포함 발송.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 보낸 리뷰 화면 캡처에 문제가 있어서 다시 보내야 할 때, 어디를 고쳐야 하는지 알려주는 메일을 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=review_image)</div>
       <div><b>수신자:</b> 인플루언서 본인</div>
@@ -207,6 +247,10 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">결과물 — 게시 URL 승인</div>
     <div class="card-desc">gifting/visit 게시물 URL 승인 시 발송. 보상 지급 대기 안내 포함.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 SNS에 올린 게시물 주소를 관리자가 승인하면 「확인 완료, 보상 지급을 기다려 주세요」 안내를 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=post)</div>
       <div><b>수신자:</b> 인플루언서 본인</div>
@@ -223,6 +267,10 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">결과물 — 게시 URL 비승인</div>
     <div class="card-desc">게시물 URL 반려 시 사유 + 제출 URL 함께 노출, 재제출 안내.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 SNS에 올린 게시물에 문제가 있어서 다시 올려야 할 때, 어디를 고쳐야 하는지 알려주는 메일을 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=post)</div>
       <div><b>수신자:</b> 인플루언서 본인</div>
@@ -239,6 +287,10 @@
     <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">응모 취소 — 일일 요약 (관리자)</div>
     <div class="card-desc">전일 한국시간 0~24시 동안 구매·방문·게시 단계 응모 취소를 모아 관리자에게 1통 발송. 0건이면 미발송.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 어제 캠페인 응모를 취소한 게 있으면, 그 목록을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다.</div>
+    </div>
     <div class="card-meta">
       <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
       <div><b>수신자:</b> get_subscribed_admin_emails('application_cancel') + NOTIFY_ADMIN_EMAILS</div>
@@ -250,6 +302,46 @@
     </div>
   </div>
 
+  <!-- ⑬ 인플루언서 일일 다이제스트 (신규 — 2026-05-18) -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">인플루언서 일일 다이제스트</div>
+    <div class="card-desc">어제 신청·승인·반려 + 오늘 기준 D-5/D-1 영수증·결과물 마감을 4섹션 1통으로 통합 발송. 4섹션 모두 0건인 인플루언서는 발송 스킵.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서에게 매일 아침 9시에 한 통으로 보냅니다. 어제 신청·승인·반려된 캠페인 + 오늘부터 5일 안에 영수증/결과물 마감되는 캠페인을 한 메일에 모아 안내합니다.</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
+      <div><b>수신자:</b> 인플루언서 본인 (marketing_opt_in 무시)</div>
+      <div><b>언어:</b> JA</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="influencer-daily-digest.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="influencer-daily-digest.html">원본</a>
+    </div>
+  </div>
+
+  <!-- ⑭ 캠페인 신청 접수 — 관리자 일일 요약 (신규 — 2026-05-18) -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">캠페인 신청 접수 — 관리자 일일 요약</div>
+    <div class="card-desc">전일 한국시간 0~24시 동안 들어온 신청을 캠페인별로 그룹화해서 관리자에게 1통 발송. 0건이면 미발송.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">인플루언서가 어제 응모한 캠페인 목록을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다.</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
+      <div><b>수신자:</b> get_subscribed_admin_emails('application_received') + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="application-received-admin-daily.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="application-received-admin-daily.html">원본</a>
+    </div>
+  </div>
+
 </div>
 
 <h2>미구현 — 인플루언서 비즈니스 로직 메일 (TODO)</h2>
@@ -257,56 +349,26 @@
 
   <div class="card disabled">
     <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">캠페인 신청 접수 알림 (관리자)</div>
-    <div class="card-desc">인플루언서 신청 시 관리자 알림. 현재 대시보드에서 수동 확인.</div>
-    <div class="card-meta"><span class="status-soon">미구현</span></div>
-  </div>
-
-  <div class="card disabled">
-    <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">캠페인 신청 접수 확인 (본인)</div>
-    <div class="card-desc">인플루언서 본인에게 접수 확인 메일.</div>
-    <div class="card-meta"><span class="status-soon">미구현</span></div>
-  </div>
-
-  <div class="card disabled">
-    <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">신청 승인 알림</div>
-    <div class="card-desc">관리자가 승인 시 인플루언서에게 발송. 현재 앱 내 알림만.</div>
-    <div class="card-meta"><span class="status-soon">미구현</span></div>
-  </div>
-
-  <div class="card disabled">
-    <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">신청 반려 알림</div>
-    <div class="card-desc">관리자가 반려 시 사유 포함 발송.</div>
-    <div class="card-meta"><span class="status-soon">미구현</span></div>
-  </div>
-
-  <div class="card disabled">
-    <div class="card-tag tag-infl">Influencer</div>
     <div class="card-title">OT 발송 안내</div>
     <div class="card-desc">관리자가 OT 체크박스 활성화 시.</div>
-    <div class="card-meta"><span class="status-soon">미구현</span></div>
-  </div>
-
-  <div class="card disabled">
-    <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">마감일 임박 리마인더</div>
-    <div class="card-desc">submission_end / post_deadline 임박 시 자동 발송.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자가 인플루언서에게 「OT(오리엔테이션) 자료를 보냈어요」 알림을 보낼 때 보냅니다. 현재 미구현.</div>
+    </div>
     <div class="card-meta"><span class="status-soon">미구현</span></div>
   </div>
 
 </div>
 
 <div class="footer-note">
+  <b>🟡 노란 박스 안 「언제 보내요?」</b> — 메일이 자동으로 발송되는 시점을 평이한 한국어로 설명합니다. 새로 들어온 운영자·CS 담당자가 이 페이지 하나로 메일 흐름을 이해할 수 있도록 의도된 것입니다.<br>
+  <br>
   <b>📁 폴더 구조</b><br>
   <code>{name}.html</code> — 발송용 템플릿 (placeholder 포함, source of truth)<br>
   <code>{name}.preview.html</code> — 메일 클라이언트 frame + 샘플 데이터로 렌더된 미리보기<br>
   <br>
   <b>🔄 Edge Function 동기화</b><br>
-  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code>의 미러본을 사용.
-  HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
+  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code> 의 미러본을, 결과물 메일 6종은 <code>notify-deliverable-decision/</code>, 응모 취소·인플 다이제스트·관리자 접수 요약 3종은 각각 같은 이름 Edge Function 의 <code>_templates/</code> + <code>templates.ts</code> 미러본을 사용. HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
 </div>
 
 </body>
