@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779080562';
+  var CURRENT_BUILD = 'v1779080874';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1432,8 +1432,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .custom-srcapp-option-extra{font-size:11px;color:var(--on-surface-variant);font-weight:500;margin-left:4px}
 
 /* 캠페인 노출 토글 — 폼 최상단 영역 + 목록 빠른 토글 공통 스타일.
-   사양서 docs/specs/2026-05-13-campaign-visibility-toggle.md §9 참고. */
-.visibility-toggle-row{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:18px;background:#fdf5fb;border:1px solid #f5e1ee;border-radius:12px}
+   사양서 docs/specs/2026-05-13-campaign-visibility-toggle.md §9 참고.
+   배경 박스 제거 — 단순 행 흐름으로 폼 헤더와 자연스럽게 이어짐. */
+.visibility-toggle-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
 .visibility-toggle-label{font-size:14px;font-weight:700;color:var(--ink)}
 .visibility-toggle-status{font-size:12px;color:var(--muted);margin-left:auto}
 .visibility-toggle-status.is-off{color:#C33;font-weight:600}
@@ -1519,7 +1520,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-18 14:02 · 9d67d82</span>
+          <span class="admin-build-text">2026-05-18 14:07 · 5f39a18</span>
         </div>
       </div>
     </aside>
