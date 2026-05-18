@@ -8887,7 +8887,8 @@ async function loadCampSourceAppSelect(prefix, brandId, currentAppId) {
   var html = '<option value="">선택 안 함 (외부 캠페인)</option>';
   for (var i = 0; i < apps.length; i++) {
     var a = apps[i];
-    var label = (a.application_no || a.id.slice(0,8)) + ' · ' + (a.form_type === 'reviewer' ? '리뷰어' : '시딩') + ' · ' + (getStatusBadgeKo(a.status) || a.status);
+    var statusLabel = (typeof BRAND_APP_STATUS !== 'undefined' && BRAND_APP_STATUS[a.status] && BRAND_APP_STATUS[a.status].label) || a.status;
+    var label = (a.application_no || a.id.slice(0,8)) + ' · ' + (a.form_type === 'reviewer' ? '리뷰어' : '시딩') + ' · ' + statusLabel;
     html += '<option value="' + esc(a.id) + '"' + (current === a.id ? ' selected' : '') + '>' + esc(label) + '</option>';
   }
   sel.innerHTML = html;
