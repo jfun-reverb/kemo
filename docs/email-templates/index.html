@@ -33,6 +33,9 @@
   .card-condition { background:#FFF8E1; border-left:3px solid #F5C147; padding:8px 12px; border-radius:6px; margin-bottom:14px; }
   .cc-label { font-size:10px; font-weight:700; color:#8A5A0A; letter-spacing:0.05em; margin-bottom:4px; }
   .cc-text { font-size:12.5px; color:#333; line-height:1.55; }
+  /* 발송 시점 — cc-text 아래 굵은 라벨 + 시점 텍스트 (사양서 2026-05-18 §8-3 추가 요구사항) */
+  .cc-timing { font-size:11.5px; color:#7A4E0A; line-height:1.5; margin-top:6px; padding-top:6px; border-top:1px dashed #F5C147; }
+  .cc-timing strong { font-weight:700; color:#5B3A06; }
   .card-meta { font-size:11px; color:#888; margin-bottom:14px; line-height:1.7; flex:1; }
   .card-meta b { color:#444; font-weight:600; }
   .card-actions { display:flex; gap:6px; margin-top:auto; }
@@ -70,6 +73,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 회원가입을 하면 보냅니다. 이메일 주소가 진짜인지 확인하는 메일입니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 가입 폼 제출 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> 회원가입</div>
@@ -91,6 +95,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">비밀번호를 잊었을 때 다시 만들 수 있는 링크를 보내거나, 새 관리자에게 처음 비밀번호 만드는 링크를 보낼 때 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 비밀번호 찾기 요청 / 관리자 초대 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> 비밀번호 재설정 / 관리자 초대</div>
@@ -112,6 +117,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">광고주가 캠페인 신청서를 보내면 관리자에게 「새 신청이 들어왔어요」 알림을 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 광고주 신청서 접수 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> brand_applications INSERT</div>
@@ -132,6 +138,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">Qoo10 리뷰어 신청서를 받은 광고주에게 「접수했습니다, 다음 절차는 이렇습니다」 안내를 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 리뷰어 신청서 접수 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> brand_applications INSERT (reviewer)</div>
@@ -152,6 +159,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">나노 시딩 신청서를 받은 광고주에게 「접수했습니다, 다음 절차는 이렇습니다」 안내를 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 시딩 신청서 접수 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> brand_applications INSERT (seeding)</div>
@@ -172,6 +180,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 보낸 영수증을 관리자가 승인하면 「다음 단계로 리뷰 이미지를 보내주세요」 안내를 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 영수증 승인 처리 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=receipt)</div>
@@ -192,6 +201,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 보낸 영수증에 문제가 있어서 다시 보내야 할 때, 어디를 고쳐야 하는지 알려주는 메일을 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 영수증 비승인 처리 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=receipt)</div>
@@ -212,6 +222,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 보낸 리뷰 화면 캡처를 관리자가 승인하면 「확인 완료, 보상 지급을 기다려 주세요」 안내를 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 리뷰 이미지 승인 처리 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=review_image)</div>
@@ -232,6 +243,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 보낸 리뷰 화면 캡처에 문제가 있어서 다시 보내야 할 때, 어디를 고쳐야 하는지 알려주는 메일을 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 리뷰 이미지 비승인 처리 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=review_image)</div>
@@ -252,6 +264,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 SNS에 올린 게시물 주소를 관리자가 승인하면 「확인 완료, 보상 지급을 기다려 주세요」 안내를 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 게시 URL 승인 처리 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_approved, deliv.kind=post)</div>
@@ -272,6 +285,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 SNS에 올린 게시물에 문제가 있어서 다시 올려야 할 때, 어디를 고쳐야 하는지 알려주는 메일을 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 게시 URL 비승인 처리 즉시</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> notifications INSERT (kind=deliverable_rejected, deliv.kind=post)</div>
@@ -292,6 +306,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 어제 캠페인 응모를 취소한 게 있으면, 그 목록을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (전일 0~24시 분 모아서 1통, 0건이면 미발송)</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
@@ -312,6 +327,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서에게 매일 아침 9시에 한 통으로 보냅니다. 어제 신청·승인·반려된 캠페인 + 오늘부터 5일 안에 영수증/결과물 마감되는 캠페인을 한 메일에 모아 안내합니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (인플루언서당 1통, 4섹션 모두 0건이면 미발송)</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
@@ -333,6 +349,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">인플루언서가 어제 응모한 캠페인 목록을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (전일 신청 1통, 0건이면 미발송)</div>
     </div>
     <div class="card-meta">
       <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
@@ -357,6 +374,7 @@
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
       <div class="cc-text">관리자가 인플루언서에게 「OT(오리엔테이션) 자료를 보냈어요」 알림을 보낼 때 보냅니다. 현재 미구현.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> (미구현 — 관리자가 OT 발송 체크박스 토글 시 즉시 발송 예정)</div>
     </div>
     <div class="card-meta"><span class="status-soon">미구현</span></div>
   </div>
