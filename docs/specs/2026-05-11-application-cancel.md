@@ -2,8 +2,8 @@
 
 > **작성일**: 2026-05-11
 > **작성 세션**: 고문(메인 폴더) + reverb-planner
-> **상태**: 사양 확정. 코드 작업 대기 (PR #152·#153 머지 후 시작)
-> **예상 PR 분할**: 5개 (DB → 인플루언서 UI → 관리자 UI → 알림 → 약관)
+> **상태**: ✅ **운영 배포 완료 (마이그레이션 104, 2026-05-11)** — DB·인플루언서 UI·관리자 UI 구현 완료. 코드(admin.js·app.js)는 dev 잠재, main merge 보류 중. 알림 메일(PR-D)은 2026-05-18 관리자 통합 다이제스트(마이그레이션 132)로 흡수. 구현 결과 섹션 참조
+> **실제 PR 분할**: DB + UI(인플루언서·관리자 통합) 1개 — 별도 알림 PR 은 메일 파이프라인 통합으로 대체
 
 ---
 
@@ -565,3 +565,26 @@ ls supabase/migrations/ | tail -5
   - 본 사양에서는 결과물 승인 후 본인 취소만 차단. 관리자 강제 취소 UI 미포함
   - 발생 시 운영팀이 DB 직접 UPDATE로 처리 (수동 SQL 패치)
   - 후속 사양 작성 시점: 실제 케이스 발생 후 또는 운영팀 요청 시
+
+---
+
+## 14. 구현 결과
+
+**구현일:** 2026-05-11 (마이그레이션 104) — 개발 세션이 상세 채워야 함
+**관련 마이그레이션:** `supabase/migrations/104_application_cancel.sql`
+
+### 초안 대비 변경 사항
+
+#### 달라진 것
+- **PR 분할 구조 변경**: 사양서에서 5개 PR(DB·인플루언서 UI·관리자 UI·알림·약관) 예상 → 실제는 DB+UI 통합 1개 PR 로 단순화
+- **PR-D 알림 메일**: 별도 PR 이 아닌 **2026-05-18 관리자 통합 다이제스트** (`notify-admin-daily-digest`, 마이그레이션 132)의 §2 응모 취소 섹션으로 흡수. `notify-application-cancelled-daily` Edge Function 의 cron 은 2026-05-18 해제됨
+
+#### 구현된 것 (CLAUDE.md 기준)
+- `applications` 테이블 취소 보조 컬럼 5종: `cancelled_at·cancel_reason·cancel_reason_code·cancel_phase CHECK(recruit|purchase|visit|post|other)·previous_status`
+- `cancel_application(uuid, reason_code, reason_note, acknowledged)` 원격 호출 함수(행 단위 보안 정책(RLS) + 결과물 승인 차단 + 구매기간 이후 사유 + 동의 강제)
+- `(user_id, campaign_id)` 중복 방지 제약을 부분 고유 인덱스로 변경 → 취소 후 재응모 가능
+- `lookup_values` 취소 사유 6종 시드 + `cancel_after_purchase_start` 위반 사유 추가
+
+### 잔존 작업 (다음 배포 사이클)
+- main merge (현재 dev 잠재)
+- 위반 등록 자동화 정책 (§13-2 — 데이터 축적 후)
