@@ -228,23 +228,41 @@ LIMIT 5;
 
 ```typescript
 // supabase/functions/notify-admin-daily-digest/index.ts
+// supabase-expert 검증 (2026-05-18) 반영:
+//  - INSERT-선행 동시성 패턴 (digest_date UNIQUE 가 mutex 역할 — 메일 중복 발송 방지)
+//  - 섹션 3 = deliverable_events.action='submit' 기준 (재제출 자동 배제, 사양 의도 명확화)
+//  - 수신자 Promise.all 개별 try-catch + env 폴백 (한쪽 RPC 실패 시도 진행)
 
 // 1. 어제 KST 윈도우 계산 (헬퍼 _yesterday_kst_window() 재사용)
-// 2. 4섹션 데이터 조회 (개별 쿼리 4종)
+
+// 2. ★ INSERT 선행 (mutex) — status='failed' 로 마커 INSERT
+//    23505 (UNIQUE 위반) = 이미 처리됨 → 즉시 종료 (중복 메일 발송 차단)
+//    성공 = 이 프로세스만 진행, 메일 발송 후 UPDATE 로 실제 상태 갱신
+
+// 3. 4섹션 데이터 조회 (개별 쿼리 4종)
 //    a. 신청 접수: applications WHERE created_at IN yesterday_kst_window
 //       ※ 본인 재응모 케이스도 새 INSERT 라 여기서 함께 잡힘
-//    b. 응모 취소: applications WHERE cancelled_at IN yesterday_kst_window AND cancel_phase != 'recruit'
-//    c. 결과물 제출: deliverables WHERE created_at IN yesterday_kst_window  -- 최초 제출만
-//    d. 재처리: UNION
-//       - deliverable_events WHERE created_at IN yesterday_kst_window AND action IN ('resubmit', 'revert')
-//       - application_events WHERE created_at IN yesterday_kst_window AND action = 'revert_to_pending'
-//         ※ application_events 액션 3종 (approve/reject/revert_to_pending) 중 재처리 1종만 사용
-//         ※ approve/reject 는 이미 신청 접수 → 승인·반려 단계로 봐서 §4 가 아닌 §1·§3 흐름의 일부
-// 3. 4섹션 모두 0건이면 발송 스킵 + admin_daily_digest_runs status='skipped_no_data' 로그
-// 4. 수신자 조회 — get_subscribed_admin_emails('application_received') ∪ env NOTIFY_ADMIN_EMAILS
-//    ※ application_cancel / application_received 두 종류 구독자 합집합 (집합 분리 검토 — 후술 5-4)
-// 5. 메일 템플릿 렌더 + Brevo SMTP 전송
-// 6. admin_daily_digest_runs 행 INSERT (digest_date UNIQUE 로 중복 호출 차단)
+//    b. 응모 취소: applications WHERE cancelled_at IN window AND cancel_phase != 'recruit'
+//    c. 결과물 제출: deliverable_events WHERE created_at IN window AND action='submit'
+//       ※ deliverable_events.action='submit' 기준 — 재제출(resubmit) 자동 배제
+//       ※ 이후 deliverable_id 배치 조회로 campaign_id / user_id / kind 획득
+//    d. 재처리: 클라이언트 측 머지
+//       - deliverable_events WHERE created_at IN window AND action IN ('resubmit', 'revert')
+//       - application_events WHERE created_at IN window AND action = 'revert_to_pending'
+//         ※ application_events 액션 3종 중 재처리 1종만 사용 (approve/reject 는 §1·§3 흐름)
+
+// 4. 4섹션 모두 0건이면 → UPDATE status='skipped_no_data' + 발송 스킵
+//    부분 0건은 발송 (0건 섹션은 본문 생략)
+
+// 5. 수신자 조회 — Promise.all + 개별 try-catch
+//    get_subscribed_admin_emails('application_cancel')
+//      ∪ get_subscribed_admin_emails('application_received')
+//      ∪ env NOTIFY_ADMIN_EMAILS
+
+// 6. 메일 템플릿 렌더 + Brevo SMTP 전송
+
+// 7. UPDATE admin_daily_digest_runs SET status='sent' + sections_summary + recipients_count
+//    (실패 시 status='failed' 유지 + error_message 채워서 UPDATE)
 ```
 
 ### 5-3. 다이제스트 로그 테이블
@@ -254,22 +272,28 @@ LIMIT 5;
 **권장**: 신규 테이블 `admin_daily_digest_runs` 추가, 기존 2종은 그대로 보존 (deprecated, 추후 정리 PR 에서 DROP 검토).
 
 ```sql
--- 통합 함수와 같은 시점에 마이그레이션 132 (또는 PR 2 안에서 별도 SQL) 로 신설
-CREATE TABLE admin_daily_digest_runs (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    digest_date date NOT NULL UNIQUE,
-    status text NOT NULL CHECK (status IN ('sent', 'skipped_no_data', 'error')),
+-- 마이그레이션 132 로 신설 (supabase-expert 검증 반영)
+--   - status 'failed' (기존 cancel/received 패턴 승계, 'error' 아님)
+--   - run_at (130 패턴, ran_at 아님)
+--   - recipients_count NOT NULL DEFAULT 0
+CREATE TABLE IF NOT EXISTS public.admin_daily_digest_runs (
+    id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    digest_date      date NOT NULL UNIQUE,
+    status           text NOT NULL CHECK (status IN ('sent', 'skipped_no_data', 'failed')),
     sections_summary jsonb,  -- {received: N, cancelled: N, submitted: N, reprocessed: N}
-    recipients_count integer,
-    error_message text,
-    run_at timestamptz NOT NULL DEFAULT now()
+    recipients_count integer NOT NULL DEFAULT 0,
+    error_message    text,
+    run_at           timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE admin_daily_digest_runs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY admin_daily_digest_runs_select ON admin_daily_digest_runs FOR SELECT USING (is_admin());
+ALTER TABLE public.admin_daily_digest_runs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS admin_daily_digest_runs_select ON public.admin_daily_digest_runs;
+CREATE POLICY admin_daily_digest_runs_select
+  ON public.admin_daily_digest_runs FOR SELECT
+  USING (is_admin());
 ```
 
-→ **메모**: 이전 세션에서 "recipients_count 컬럼 부재 SQL 오류" 가 있었다. 이는 기존 `application_received_admin_digest_runs` 테이블 검증 중 컬럼명 미스매치였을 가능성 — 통합 테이블 신설 시 컬럼 명칭 표준화 (`recipients_count`, `error_message`, `sections_summary`).
+→ **메모**: 이전 세션에서 "recipients_count 컬럼 부재 SQL 오류" 가 있었다. 기존 130 테이블이 `recipient_count` (단수) 였던 컬럼명 미스매치 — 통합 테이블 신설 시 `recipients_count` (복수) 로 통일, 신규 cancel 테이블 (113) 패턴과 일치.
 
 ### 5-4. 수신자 lookup_kind 결정 (재확인)
 
@@ -309,12 +333,10 @@ CREATE POLICY admin_daily_digest_runs_select ON admin_daily_digest_runs FOR SELE
 
 ### 5-6. cron 전환 SQL (양 DB)
 
-```sql
--- 1. 기존 cron 2종 해제
-SELECT cron.unschedule('notify-application-cancelled-daily');
-SELECT cron.unschedule('notify-application-received-admin-daily');
+⚠ supabase-expert 검증 반영 — **등록 먼저, 해제 나중**. 반대로 하면 그날 관리자 메일이 0통 발송됨.
 
--- 2. 통합 cron 등록 (UTC 00:00 = KST 09:00)
+```sql
+-- 1. 통합 cron 먼저 등록 (UTC 00:00 = KST 09:00)
 SELECT cron.schedule(
     'notify-admin-daily-digest',
     '0 0 * * *',
@@ -328,7 +350,7 @@ SELECT cron.schedule(
     $$
 );
 
--- 3. 인플 다이제스트 cron 등록 (옵션 C 결정으로 통합 시점에 등록)
+-- 2. 인플 다이제스트 cron 등록 (옵션 C 결정으로 통합 시점에 등록)
 SELECT cron.schedule(
     'notify-influencer-daily-digest',
     '0 0 * * *',
@@ -342,8 +364,16 @@ SELECT cron.schedule(
     $$
 );
 
--- 4. 등록 확인
+-- 3. 신규 cron 2종 등록 확인
 SELECT jobname, schedule, active FROM cron.job WHERE jobname LIKE '%-daily%';
+
+-- 4. 신규 cron 등록 확인 후 기존 cron 2종 해제
+--    (반드시 신규 cron 등록 + active 확인 후 진행)
+SELECT cron.unschedule('notify-application-cancelled-daily');
+SELECT cron.unschedule('notify-application-received-admin-daily');
+
+-- 5. 최종 상태 확인 (기존 2종 사라지고 신규 2종 + 기타만 남아있어야 함)
+SELECT jobname, schedule, active FROM cron.job ORDER BY jobname;
 ```
 
 ### 5-7. PR 2 검증 절차 (개발 DB)

@@ -1,0 +1,23 @@
+<!--
+  Row partial: 섹션 3 (결과물 제출) — 행별 카드
+  Edge Function 이 kind 그룹 안에서 행마다 1회 render.
+  쿼리: deliverable_events.action='submit' (재제출 자동 배제) + deliverable_id 배치 조회.
+
+  Row Placeholders:
+    {{campaign_no}}        캠페인 번호 (【...】)
+    {{campaign_title}}     캠페인 제목
+    {{recruit_type_ko}}    모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{kind_ko}}            결과물 종류 (영수증 / 리뷰 이미지 / 게시 URL)
+    {{influencer_name}}    인플루언서 표시명
+    {{submitted_at_jst}}   제출 시각 (HH:mm JST)
+-->
+<div style="border:1px solid #DCE6F0;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fff">
+  <div style="font-size:12px;color:#888;margin-bottom:4px">
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{submitted_at_jst}}
+  </div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:4px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:12px;color:#444">
+    <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;margin-right:8px">{{kind_ko}}</span>
+    {{influencer_name}}
+  </div>
+</div>

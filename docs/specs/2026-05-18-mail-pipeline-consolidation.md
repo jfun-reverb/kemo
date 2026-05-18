@@ -248,21 +248,59 @@
 
 ## 12. 구현 결과
 
-**구현일:** (개발 진행 후 채울 것)
-**관련 마이그레이션:** (세부 결정 후 부여)
-**관련 PR:** (개발 후 채울 것)
+**구현일:** 2026-05-18
+**관련 마이그레이션:** 131 (application_events audit) + 132 (admin_daily_digest_runs)
+**관련 PR:** PR 1 commit `45c891c` (dev) — application_events / PR 2 (본 세션, dev 잠재 + 운영 적용은 사용자 결정에 따라 진행)
 
 ### 최종 채택 옵션
 - 메인 옵션: **C (관리자만 통합, 인플루언서 측 즉시 검수 메일 + 4섹션 다이제스트 유지)**
 - 보완안: **옵션 2 (신청 + 결과물 양측 audit 도입 — 2차 변경 다이제스트 포착)**
 
 ### 초안 대비 변경 사항
-- 추가된 것: 신청 status 변경 audit 테이블 (옵션 2 채택으로 신규 마이그레이션 1건 추가). 관리자 다이제스트 4섹션화 (재처리 섹션 신설)
-- 빠진 것: 인플루언서 다이제스트 결과물 섹션 추가 (옵션 C 채택으로 제외 — 즉시 검수 메일 유지)
-- 달라진 것: 관리자 다이제스트 결과물 제출 섹션이 단순 INSERT 기준이 아니라 `deliverable_events` 액션 기준으로 확장 (제출/재제출/되돌리기 통합)
+- 추가된 것:
+  - 신청 status 변경 audit 테이블 (마이그레이션 131, application_events) — 옵션 2 채택으로 신규
+  - 관리자 통합 다이제스트 발송 로그 (마이그레이션 132, admin_daily_digest_runs) — PR 2 핵심
+  - 신규 Edge Function `notify-admin-daily-digest` + 메일 템플릿 6종 (메인 + 섹션 wrapper + 4종 row)
+  - 관리자 다이제스트 4섹션화 (재처리 섹션 신설)
+- 빠진 것:
+  - 인플루언서 다이제스트 결과물 섹션 추가 (옵션 C 채택으로 제외 — 즉시 검수 메일 유지)
+  - application_events `reapply` 액션 (supabase-expert 검증으로 제거 — cancelled→pending UI 없음, 본인 재응모는 신청 접수 섹션이 잡음)
+- 달라진 것:
+  - 관리자 다이제스트 결과물 제출 섹션 데이터 소스가 `deliverables.created_at` 이 아닌 `deliverable_events.action='submit'` 기준 (재제출 자동 배제, supabase-expert 검증 반영)
+  - application_events 액션 매핑에 approved↔rejected 직접 전이 추가 (단계 생략·직접 SQL 대비, 방어적 audit)
+  - 마이그레이션 132 인덱스 단순화 (partial 인덱스 → 단순 created_at 인덱스)
+  - 컬럼명 통일: `run_at`·`recipients_count`·status='failed' (130 의 단수 표기·113 의 'error' 표기 모두 130 패턴 + 113 패턴 일치 방향으로 정리)
 
 ### 구현 중 기술 결정 사항
-- (개발 세션이 채울 것)
+
+**PR 1 — application_events (마이그레이션 131)**
+- 트리거 SECURITY DEFINER + `SET search_path = ''` + `public.` 접두사 통일 (077·104·128 패턴 일치)
+- `changed_by` FK `ON DELETE SET NULL` 추가 — 관리자 삭제 시 audit 데이터 보존 (`changed_by_name` 스냅샷으로 추적)
+- 인덱스 2종: `(application_id, created_at DESC)` + `(created_at DESC)` (다이제스트 윈도우 조회용)
+- 행 단위 보안 정책: SELECT 만 `is_admin()`, INSERT/UPDATE/DELETE 정책 없음 → 트리거만 INSERT (deliverable_events 패턴 일치)
+
+**PR 2 — admin_daily_digest (마이그레이션 132 + Edge Function)**
+- **INSERT 선행 mutex 패턴** (supabase-expert 검증 반영) — 기존 cancel-daily/received-admin-daily 의 「precheck 후 INSERT」 패턴은 동시 호출 시 메일 중복 발송 가능성. 신규 함수는 INSERT 먼저 (status='failed' 마커, digest_date UNIQUE = mutex) → 23505 시 중복 호출 차단 → 성공 시 데이터 처리 → 메일 발송 후 UPDATE 로 실제 상태 갱신
+- **섹션 3 데이터 소스 변경** — 초안의 `deliverables.created_at` 대신 `deliverable_events.action='submit'` 사용 (재제출 자동 배제, 사양 의도 명확화)
+- **수신자 합집합 + 개별 try-catch** — `get_subscribed_admin_emails('application_cancel')` ∪ `get_subscribed_admin_emails('application_received')` ∪ env. Promise.all 안 한쪽 RPC 실패 시도 다른 쪽 + env 폴백 (cancel-daily 패턴 강화)
+- **cron 전환 순서** — 신규 cron 먼저 등록 후 기존 2종 해제 (반대 순서면 그날 관리자 메일 0통 발송)
+- **기존 Edge Function 2종 보존** — cron 만 해제, Edge Function 코드는 운영 안정화 2주 후 별도 정리 PR 에서 삭제. 카탈로그 ⑫·⑭ 카드에 「DEPRECATED 2026-05-18」 표기 + 신규 ⑮ 카드 추가
+
+### 검증·배포 절차 (HANDOFF §5-7, §5-8)
+
+PR 1 — 개발·운영 양 DB 적용·검증 완료 (2026-05-18).
+
+PR 2 — 본 세션에서 코드 작성 완료. 다음 단계:
+- 개발서버 배포 + 시드 데이터로 curl 수동 호출 + 관리자 메일 직접 확인 (HANDOFF §5-7)
+- 운영 배포 결정 후 마이그레이션 132 적용 + Edge Function 배포 + cron 전환 (HANDOFF §5-8)
+- 다음 날 09:00 KST 첫 자동 발송 확인
+
+### 후속 별도 PR
+
+운영 2주 안정화 후 별도 정리 PR (HANDOFF §6-1):
+- `notify-application-cancelled-daily` + `notify-application-received-admin-daily` Supabase Dashboard·repo 삭제
+- `application_cancel_digest_runs` / `application_received_admin_digest_runs` 테이블 DROP 검토 (감사 보존 시 보존)
+- 카탈로그 deprecated 카드 제거
 
 ---
 
