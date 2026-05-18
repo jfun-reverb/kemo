@@ -11,7 +11,7 @@
 
 ## 0. 한 줄 요약
 
-관리자 일일 메일 2종을 단일 `notify-admin-daily-digest` 로 통합 + 신청 status 변경 audit 테이블 (`application_events`) 신규 도입으로 2차 변경(재제출·되돌리기·재응모) 까지 다이제스트에 포착. 인플루언서 측 발송 매트릭스는 변경 없음.
+관리자 일일 메일 2종을 단일 `notify-admin-daily-digest` 로 통합 + 신청 status 변경 audit 테이블 (`application_events`) 신규 도입으로 2차 변경(결과물 재제출·결과물 되돌리기·신청 되돌리기) 까지 다이제스트에 포착. 인플루언서 측 발송 매트릭스는 변경 없음.
 
 ---
 
@@ -38,7 +38,7 @@
 | 통합 방향 | 옵션 C — 관리자만 통합, 인플루언서 측 즉시 검수 메일 + 4섹션 다이제스트 유지 |
 | 보완안 | 옵션 2 — 신청 + 결과물 양측 audit (`application_events` 신규 + 기존 `deliverable_events` 활용) |
 | 다이제스트 섹션 구조 | 4섹션 (접수 / 취소 / 제출 / 재처리) |
-| application_events 트래킹 범위 | 운영자 액션만 (approve / reject / revert_to_pending / reapply). 본인 취소는 cancelled_at 으로 §2 섹션이 이미 잡음 |
+| application_events 트래킹 범위 | 운영자 액션만 (approve / reject / revert_to_pending — 3종, supabase-expert 검증 반영 reapply 제외). 본인 취소는 cancelled_at 으로 §2 섹션이 이미 잡음. 본인 재응모는 새 INSERT 라 §1 「신청 접수」 가 잡음 |
 | 결과물 제출 섹션 그룹화 | kind 별 (영수증 / 리뷰 이미지 / 게시 URL) |
 | 기존 Edge Function 2종 | cron 해제 + 코드 보존 (2주 안정화 후 별도 PR 에서 삭제 검토) |
 | 운영 적용 타이밍 | 인플 다이제스트 cron 미등록 상태에서 통합 함수 cron + 인플 cron 함께 등록 (1회 전환) |
@@ -85,25 +85,30 @@
 ```sql
 -- 131_application_events.sql
 -- 신청 status 변경 audit (운영자 액션 한정). 본인 취소는 cancelled_at 으로 별도 추적
+-- supabase-expert 검증 (2026-05-18) 반영:
+--  - reapply 액션 제거 (cancelled→pending UI 없음, 본인 재응모는 §1 신청 접수가 잡음)
+--  - approved↔rejected 직접 전이 매핑 추가 (UI 단계 생략·직접 SQL 대비)
+--  - partial 인덱스 → 단순 created_at 인덱스로 통합
+--  - from_status·to_status CHECK 제약 추가
+--  - changed_by FK ON DELETE SET NULL (관리자 삭제 시 audit 보존)
 
 CREATE TABLE application_events (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id uuid NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-    action text NOT NULL CHECK (action IN ('approve', 'reject', 'revert_to_pending', 'reapply')),
-    from_status text,
-    to_status text,
-    changed_by uuid REFERENCES auth.users(id),
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    application_id  uuid        NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    action          text        NOT NULL CHECK (action IN ('approve', 'reject', 'revert_to_pending')),
+    from_status     text        CHECK (from_status IN ('pending','approved','rejected','cancelled')),
+    to_status       text        CHECK (to_status   IN ('pending','approved','rejected','cancelled')),
+    changed_by      uuid        REFERENCES auth.users(id) ON DELETE SET NULL,
     changed_by_name text,
-    memo text,
-    created_at timestamptz NOT NULL DEFAULT now()
+    memo            text,
+    created_at      timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_application_events_application_created
     ON application_events (application_id, created_at DESC);
 
-CREATE INDEX idx_application_events_recent_repro
-    ON application_events (created_at DESC)
-    WHERE action IN ('revert_to_pending', 'reapply');
+CREATE INDEX idx_application_events_created_at
+    ON application_events (created_at DESC);
 
 ALTER TABLE application_events ENABLE ROW LEVEL SECURITY;
 
@@ -119,28 +124,30 @@ CREATE POLICY application_events_select
 `applications.status` 변경 시 트리거가 자동 INSERT:
 
 ```sql
-CREATE OR REPLACE FUNCTION record_application_status_event()
+CREATE OR REPLACE FUNCTION public.record_application_status_event()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-    v_action text;
-    v_admin_name text;
+    v_action      text;
+    v_admin_name  text;
 BEGIN
-    -- 본인 취소는 audit 제외 (cancelled_at 으로 별도 추적)
-    -- cancelled 로의 전이는 cancel_application RPC 가 처리 — 본 트리거 대상 아님
-    IF NEW.status = 'cancelled' OR OLD.status = NEW.status THEN
+    -- no-op (status 동일) 스킵
+    IF OLD.status = NEW.status THEN
         RETURN NEW;
     END IF;
 
-    -- 운영자 액션 매핑
+    -- 운영자 액션 매핑.
+    -- cancelled 전이는 cancel_application RPC 가 cancelled_at 으로 별도 추적 → ELSE NULL 로 미기록.
+    -- cancelled → pending 은 현재 UI 없음 → ELSE NULL 로 미기록 (추후 필요 시 확장).
     v_action := CASE
-        WHEN OLD.status = 'pending' AND NEW.status = 'approved' THEN 'approve'
-        WHEN OLD.status = 'pending' AND NEW.status = 'rejected' THEN 'reject'
-        WHEN OLD.status IN ('approved', 'rejected') AND NEW.status = 'pending' THEN 'revert_to_pending'
-        WHEN OLD.status = 'cancelled' AND NEW.status = 'pending' THEN 'reapply'
+        WHEN OLD.status = 'pending'                AND NEW.status = 'approved' THEN 'approve'
+        WHEN OLD.status = 'pending'                AND NEW.status = 'rejected' THEN 'reject'
+        WHEN OLD.status IN ('approved','rejected') AND NEW.status = 'pending'  THEN 'revert_to_pending'
+        WHEN OLD.status = 'approved'               AND NEW.status = 'rejected' THEN 'reject'
+        WHEN OLD.status = 'rejected'               AND NEW.status = 'approved' THEN 'approve'
         ELSE NULL
     END;
 
@@ -149,7 +156,9 @@ BEGIN
     END IF;
 
     -- 관리자 이름 스냅샷
-    SELECT name INTO v_admin_name FROM public.admins WHERE auth_id = auth.uid();
+    SELECT a.name INTO v_admin_name
+      FROM public.admins a
+     WHERE a.auth_id = auth.uid();
 
     INSERT INTO public.application_events (
         application_id, action, from_status, to_status,
@@ -163,13 +172,14 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_application_status_event ON public.applications;
 CREATE TRIGGER trg_application_status_event
-    AFTER UPDATE OF status ON applications
+    AFTER UPDATE OF status ON public.applications
     FOR EACH ROW
-    EXECUTE FUNCTION record_application_status_event();
+    EXECUTE FUNCTION public.record_application_status_event();
 ```
 
-**주의**: `reapply` 액션은 같은 캠페인 재응모 시 발생. 마이그레이션 104 의 partial unique index 로 cancelled 행은 별도 새 row INSERT 패턴이므로, `cancelled → pending` 전이는 일반적이지 않다. 단 운영자가 수동으로 cancelled 행을 pending 으로 되돌리는 케이스 보존 차원에서 매핑은 유지.
+**참고 (reapply 제거)**: 본인 응모 취소 후 재응모는 마이그레이션 104 partial unique index 패턴으로 새 INSERT 행이 되므로 다이제스트 §1 「신청 접수」 섹션이 잡음. `cancelled → pending` UPDATE 는 현재 관리자 UI 에 없음 (반드시 「revert → pending」 후 재심사 2단계 또는 새 INSERT 경로). 따라서 `reapply` 액션은 트리거가 INSERT 안 함 (CHECK 제약에서도 제거).
 
 ### 4-4. PR 1 검증 SQL (개발 DB 에서 실행)
 
@@ -222,11 +232,14 @@ LIMIT 5;
 // 1. 어제 KST 윈도우 계산 (헬퍼 _yesterday_kst_window() 재사용)
 // 2. 4섹션 데이터 조회 (개별 쿼리 4종)
 //    a. 신청 접수: applications WHERE created_at IN yesterday_kst_window
+//       ※ 본인 재응모 케이스도 새 INSERT 라 여기서 함께 잡힘
 //    b. 응모 취소: applications WHERE cancelled_at IN yesterday_kst_window AND cancel_phase != 'recruit'
 //    c. 결과물 제출: deliverables WHERE created_at IN yesterday_kst_window  -- 최초 제출만
 //    d. 재처리: UNION
 //       - deliverable_events WHERE created_at IN yesterday_kst_window AND action IN ('resubmit', 'revert')
-//       - application_events WHERE created_at IN yesterday_kst_window AND action IN ('revert_to_pending', 'reapply')
+//       - application_events WHERE created_at IN yesterday_kst_window AND action = 'revert_to_pending'
+//         ※ application_events 액션 3종 (approve/reject/revert_to_pending) 중 재처리 1종만 사용
+//         ※ approve/reject 는 이미 신청 접수 → 승인·반려 단계로 봐서 §4 가 아닌 §1·§3 흐름의 일부
 // 3. 4섹션 모두 0건이면 발송 스킵 + admin_daily_digest_runs status='skipped_no_data' 로그
 // 4. 수신자 조회 — get_subscribed_admin_emails('application_received') ∪ env NOTIFY_ADMIN_EMAILS
 //    ※ application_cancel / application_received 두 종류 구독자 합집합 (집합 분리 검토 — 후술 5-4)
@@ -287,8 +300,9 @@ CREATE POLICY admin_daily_digest_runs_select ON admin_daily_digest_runs FOR SELE
   - 행: [캠페인] / [인플] / [제출 시각]
 
 ▶ 재처리 일감 (N건)  ← 신규 섹션
-  ※ 종류별 그룹 — 결과물 재제출 / 결과물 되돌리기 / 신청 되돌리기 / 재응모
+  ※ 종류별 그룹 — 결과물 재제출 / 결과물 되돌리기 / 신청 되돌리기
   - 행: [캠페인] / [인플] / [action 라벨] / [운영자 이름]
+  ※ 본인 응모 취소 후 재응모는 새 INSERT 라 §1 「신청 접수」 가 잡음 (재처리 아님)
 ```
 
 4섹션 모두 0건이면 발송 스킵 (기존 cancel-daily 패턴 승계).
@@ -399,11 +413,11 @@ PR 1 운영 배포 + 안정성 확인 (최소 1일 이상) 후:
 
 ```sql
 -- 1. 트리거 제거
-DROP TRIGGER IF EXISTS trg_application_status_event ON applications;
-DROP FUNCTION IF EXISTS record_application_status_event;
+DROP TRIGGER IF EXISTS trg_application_status_event ON public.applications;
+DROP FUNCTION IF EXISTS public.record_application_status_event();
 
 -- 2. 테이블 DROP (audit 데이터 소실 주의)
-DROP TABLE IF EXISTS application_events;
+DROP TABLE IF EXISTS public.application_events;
 ```
 
 application_events 가 다른 코드에서 참조되지 않으므로 단순 DROP 안전.
@@ -453,7 +467,7 @@ PR 1, PR 2 각각 commit 직전 모두 적용:
 ```
 ## 변경 요약
 - 마이그레이션 131 — application_events audit 테이블 + 트리거 + RLS
-- 운영자 액션(approve/reject/revert_to_pending/reapply) 자동 INSERT
+- 운영자 액션(approve/reject/revert_to_pending — 3종) 자동 INSERT. approved↔rejected 직접 전이도 매핑 (단계 생략 대비)
 
 ## 요청 외 추가 변경
 - 없음

@@ -296,10 +296,11 @@
   - 결과물 재제출 (deliverable_events action='resubmit', 어제 윈도우)
   - 결과물 되돌리기 (deliverable_events action='revert', 어제 윈도우)
   - 신청 되돌리기 (application_events action='revert_to_pending', 어제 윈도우)
-  - 응모 취소 후 재응모 (application_events action='reapply', 어제 윈도우)
 ```
 
 각 섹션 0건이면 생략 (4섹션 모두 0건이면 메일 미발송 + skipped_no_data 로그).
+
+> **본인 응모 취소 후 재응모는 §1 「신청 접수」 섹션이 잡음** — 마이그레이션 104 의 partial unique index 패턴으로 본인 재응모는 새 INSERT 행이 되므로 §4 재처리 섹션이 아닌 §1 신청 접수 섹션 안에서 집계됨. 따라서 `application_events` 에는 `reapply` 액션 없음. supabase-expert 검증 (2026-05-18) 결과 반영.
 
 ---
 
@@ -320,19 +321,29 @@
 
 | 컬럼 | 타입 | 설명 |
 |---|---|---|
-| id | uuid | PK |
+| id | uuid | 기본 키 |
 | application_id | uuid FK CASCADE | 신청 |
-| action | text CHECK | `approve` / `reject` / `revert_to_pending` / `reapply` |
-| from_status | text | 변경 전 status |
-| to_status | text | 변경 후 status |
-| changed_by | uuid | auth.uid() — 관리자 |
-| changed_by_name | text | 관리자 이름 스냅샷 |
+| action | text CHECK | `approve` / `reject` / `revert_to_pending` (3종, supabase-expert 검증 반영 — `reapply` 제외) |
+| from_status | text CHECK | pending / approved / rejected / cancelled |
+| to_status | text CHECK | pending / approved / rejected / cancelled |
+| changed_by | uuid FK ON DELETE SET NULL | auth.uid() — 관리자 (삭제 시 SET NULL) |
+| changed_by_name | text | 관리자 이름 스냅샷 (auth 삭제 후에도 audit 보존) |
 | created_at | timestamptz NOT NULL DEFAULT now() | 이벤트 발생 시점 |
-| memo | text NULL | 반려 사유 / 되돌리기 사유 등 |
+| memo | text NULL | 반려 사유 / 되돌리기 사유 등 (현재 트리거는 NULL 만 INSERT, 추후 확장) |
 
 행 단위 보안 정책(RLS): SELECT 는 `is_admin()`, INSERT/UPDATE/DELETE 정책 없음 → 트리거로만 INSERT.
 
-인덱스: `(application_id, created_at DESC)` + `(created_at DESC) WHERE action IN ('revert_to_pending', 'reapply')` (다이제스트 윈도우 조회용).
+인덱스 2종:
+- `(application_id, created_at DESC)` — 신청별 audit 타임라인 조회용
+- `(created_at DESC)` — 다이제스트 어제 윈도우 조회용 (supabase-expert 검증 — partial 인덱스 대신 단순 인덱스로 변경. 일일 트래픽이 적어 partial 분리 비용이 더 큼)
+
+트리거 매핑 (마이그레이션 131 본문 참조):
+- `pending → approved` = approve
+- `pending → rejected` = reject
+- `approved/rejected → pending` = revert_to_pending
+- `approved → rejected` = reject (단계 생략·직접 SQL 대비)
+- `rejected → approved` = approve (단계 생략·직접 SQL 대비)
+- `* → cancelled` 및 `cancelled → pending` = 무시 (각각 cancel_application 별도 추적 / UI 없음)
 
 ### 14-3. 기존 Edge Function 2종 처리 — 확정: **cron 해제 + 코드 보존**
 
