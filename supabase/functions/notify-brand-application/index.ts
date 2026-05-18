@@ -143,7 +143,10 @@ async function loadTemplate(name: string): Promise<string> {
   const cached = TEMPLATE_CACHE.get(name);
   if (cached) return cached;
   const url = new URL(`./_templates/${name}.html`, import.meta.url);
-  const html = await Deno.readTextFile(url);
+  const raw = await Deno.readTextFile(url);
+  // HTML 주석 제거 — 주석 안 placeholder 가 치환되면서 발생하는 중첩 주석
+  // → 조기 종료 → 본문 누출 버그 차단 (2026-05-18 admin-daily-digest 발견 동일 패턴)
+  const html = raw.replace(/<!--[\s\S]*?-->/g, "");
   TEMPLATE_CACHE.set(name, html);
   return html;
 }

@@ -166,7 +166,9 @@ function snsHandleDisplay(infl: {
 function loadTemplate(name: string): string {
   const html = TEMPLATES[name];
   if (!html) throw new Error(`template not registered: ${name}`);
-  return html;
+  // HTML 주석 제거 — 주석 안 placeholder 가 치환되면서 발생하는 중첩 주석
+  // → 조기 종료 → 본문 누출 버그 차단. 2026-05-18 dev 발송 테스트에서 발견
+  return html.replace(/<!--[\s\S]*?-->/g, "");
 }
 
 function render(html: string, data: Record<string, string>): string {
