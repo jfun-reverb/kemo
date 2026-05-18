@@ -23,19 +23,11 @@ async function loadCampaigns() {
   updateStats(allCampaigns);
 }
 
-// 인플루언서에게 보이는 캠페인: 모집중 + 모집예정 + 모집마감(게시기한 남음)
-// expired(노출마감) 는 post_deadline 경과 후 서버가 자동 전환한 상태 — 완전 비노출
+// 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
+//   scheduled / active / closed = 노출 (closed 는 募集締切 오버레이)
+//   draft / expired = 비노출 (expired 는 운영자가 수동 토글 OFF 한 캠페인)
 function visibleCamps(camps) {
-  const now = new Date(); now.setHours(0,0,0,0);
-  return camps.filter(c => {
-    if (c.status === 'active' || c.status === 'scheduled') return true;
-    if (c.status === 'closed' && c.post_deadline) {
-      const pd = new Date(c.post_deadline); pd.setHours(23,59,59,999);
-      return now <= pd;
-    }
-    // draft / expired / (closed without post_deadline) → 비노출
-    return false;
-  });
+  return camps.filter(c => c.status === 'active' || c.status === 'scheduled' || c.status === 'closed');
 }
 
 // 인플루언서 노출 캠페인의 정렬: 모집중(active) > 모집예정(scheduled) > 모집완료(closed)

@@ -305,3 +305,59 @@ CSS 예시(클래스명 가안):
 | migration 097 운영 배포가 다른 작업과 시간 충돌 | 배포 순서 의존성 | `2026-05-13-brand-ops-redesign.md` 의 088~090 운영 배포와 같은 시점에 같이 적용 검토 |
 | 운영자가 토글 의미를 헷갈림 | "OFF 했는데 화면에 안 보임" 등 문의 | 상태 도움말 모달 + 폼 안 안내 텍스트 명확화 |
 | 결과물 마감 안내 (옛 post_deadline 용도) 가 사라짐 | 인플루언서가 결과물 마감 일정 알기 어려움 | submission_end 와 deadline 으로 충분한지 사용자 확인 필요 |
+
+---
+
+## 구현 결과
+
+**구현일:** 2026-05-18
+**관련 마이그레이션:** `supabase/migrations/129_remove_post_deadline.sql`
+
+### 사전 진단 결과 (운영 DB)
+- `paused_count` = 0 (paused 데이터 없음)
+- `expired_count` = 35 (097이 이미 운영 DB 에 적용된 상태로 확인됨)
+- `submission_null_count` = 35 (모두 expired 와 동일 캠페인)
+- `closed_with_pd_count` = 47
+- CHECK 제약: `('draft','scheduled','active','closed','expired')` — 097 운영 적용 완료
+
+### 초안 대비 변경 사항
+
+#### 빠진 것 (사용자 결정으로 의도적 제외)
+- **§2 결정사항: 「모든 expired 캠페인을 자연 상태로 복귀」** → 사용자 결정으로 **expired 35건 그대로 보존**. 운영자가 명시적으로 OFF 한 적 없이 자동 비노출됐던 옛 캠페인이라 갑자기 다시 노출하지 않음
+- **§5-2 step 3: 자연 복귀 UPDATE** 미실행
+- **submission_end 백필 (Q2-C)** → 폴백 제거(Q2-A) 채택. expired 35건은 인플 화면 비노출이라 결과물 마감 표시 영향 없음
+
+#### 추가된 것 (초안에 없었음)
+- **`get_brand_ops_detail(uuid)` 함수 재정의** — 120 마이그레이션의 함수가 `post_deadline` 을 SELECT 함을 supabase-expert 검토에서 발견. 129 단계 1로 함수 재정의 후 단계 2 컬럼 DROP 순서로 처리
+- **캠페인 목록 빠른 토글 mini 클래스** (`.visibility-toggle.is-mini`) — 상태 컬럼 통합 시 폼 토글보다 작은 크기 필요해 신규 추가
+- **post_days 컬럼 클라이언트 참조 정리** — admin.js:4344 에서 post_deadline 의존이라 같이 제거
+
+#### 달라진 것
+- **§6-2 캠페인 목록 빠른 토글** — 상태 배지 + 미니 토글 버튼 (실제 구현 형태)
+- **§7-1 코드 예시** — `fetchCampaign(campId)` 직접 호출 대신 `db.from('campaigns').select(...).eq('id', campId).maybeSingle()` 인라인
+
+#### 동일하게 구현된 것
+- post_deadline 컬럼 DROP
+- 토글 위치 (캠페인 등록·편집 폼 최상단)
+- 기본값 ON
+- OFF 시 status = expired, ON 시 자연 상태 재계산
+- draft 상태 토글 비활성
+- 자동 전이 제거 (autoExpireCampaigns 함수 제거)
+
+### 구현 중 기술 결정 사항
+
+#### DB
+- **마이그레이션 129 — 단일 트랜잭션**: 함수 재정의(단계 1) + 컬럼 DROP(단계 2) BEGIN/COMMIT 묶음
+- **097은 운영에 이미 적용된 상태** — 129 만 운영 DB 에 적용
+
+#### 코드
+- **클라이언트 코드 수정 먼저 → DB 적용 순서** — supabase-expert 가이드. payload 에 post_deadline 잔존 시 컬럼 DROP 후 캠페인 저장 PostgREST 오류 발생 위험 회피
+- **토글 UI**: native `<button role="switch" aria-checked>` + CSS 알약 모양. 외부 라이브러리 의존 없음
+- **목록 빠른 토글 위임**: tr 의 `data-camp-id` 를 `closest('tr')?.dataset.campId` 로 받음
+- **refreshPane('campaigns')**: 토글 후 목록 자동 재렌더
+
+### 잔존 작업 (다음 사이클)
+- 사양서 §14 「일괄 OFF 도구」 — 본 사이클 제외
+- 사양서 §13 「토글 변경 audit 이력」 — 본 사이클 제외
+- 사양서 §13 「일정 시간 후 자동 OFF 예약」 — 본 사이클 제외
+

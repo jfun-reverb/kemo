@@ -200,6 +200,8 @@ function switchAdminPane(pane, el, pushHistory) {
     initTagInput('tagWrap_newCampMentions');
     loadTagsFromValue('tagWrap_newCampHashtags', 'newCampHashtags', '#', '');
     loadTagsFromValue('tagWrap_newCampMentions', 'newCampMentions', '@', '');
+    // 캠페인 노출 토글 초기값 ON (기본)
+    if (typeof _resetNewCampVisibilityToggle === 'function') _resetNewCampVisibilityToggle();
     // 모집 타입 기본값: 리뷰어(monitor)
     const defaultRt = document.querySelector('input[name="recruitType"][value="monitor"]');
     if (defaultRt) { defaultRt.checked = true; toggleRT(defaultRt); }
@@ -903,8 +905,14 @@ async function loadAdminCampaigns(useCache) {
     const cls = statusBadgeClass[s]||'badge-gray';
     // draft만 점선 인라인 — expired는 .badge-expired 자체에 dashed 정의되어 있어 인라인 불필요
     const dashed = s==='draft' ? 'border:1.5px dashed var(--muted);' : '';
-    return `<div style="position:relative;display:inline-block">
+    // 캠페인 노출 토글 (사양서 2026-05-13) — draft 는 비활성, expired=OFF, 그 외=ON
+    const toggleDisabled = s === 'draft' ? ' is-disabled' : '';
+    const toggleOn = (s !== 'expired' && s !== 'draft') ? ' is-on' : '';
+    const ariaChecked = (s !== 'expired' && s !== 'draft') ? 'true' : 'false';
+    const toggleAttrs = s === 'draft' ? 'disabled' : '';
+    return `<div style="position:relative;display:inline-flex;align-items:center;gap:6px">
       <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
+      <button type="button" class="visibility-toggle is-mini${toggleOn}${toggleDisabled}" role="switch" aria-checked="${ariaChecked}" title="캠페인 노출 ON/OFF" ${toggleAttrs} onclick="onCampQuickVisibilityToggle(event, this.closest('tr')?.dataset.campId, '${s}')"><span class="visibility-toggle-knob"></span></button>
     </div>`;
   };
   // 캠페인 다중 선택 — 현재 필터 결과를 전역 캐시 (전체 선택 헤더가 참조)
@@ -1166,8 +1174,9 @@ async function openEditCampaign(campId) {
   sv('editCampProductPrice', camp.product_price||0);
   sv('editCampReward', camp.reward||0);
   sv('editCampRewardNote', camp.reward_note||'');
-  sv('editCampPostDeadline', camp.post_deadline||'');
   sv('editCampSubmissionEnd', camp.submission_end||'');
+  // 캠페인 노출 토글 — status 기준으로 ON/OFF 표시
+  _renderCampVisibilityToggle('edit', camp.status, { recruit_start: camp.recruit_start, deadline: camp.deadline });
   // flatpickr range picker mount + 값 주입 (모집·구매·방문 3개)
   setupCampRangePickers();
   applyCampRangeValues('editCamp', {
@@ -1679,18 +1688,16 @@ async function suggestSubmissionEnd(prefix, baseKind) {
 }
 
 // 일자 자식 input들의 min/max 를 운영 흐름에 맞춰 동기화 (브라우저 단 차단)
-//   구매·방문: [recruit_start||deadline] ~ [submission_end || post_deadline]
-//   결과물 제출 마감일: max(recruit_start||deadline, purchase_end, visit_end) ~ post_deadline
-//   캠페인 노출 마감일: deadline ~ (없음)
+//   구매·방문: [recruit_start||deadline] ~ [submission_end]
+//   결과물 제출 마감일: max(recruit_start||deadline, purchase_end, visit_end) ~ (상한 없음)
 function syncCampDateMinMax(prefix) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const pdl = $(prefix+'PostDeadline')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
   const ve = $(prefix+'VisitEnd')?.value || '';
   const se = $(prefix+'SubmissionEnd')?.value || '';
   const lower = rs || dl || '';
-  const upperPV = se || pdl || '';
+  const upperPV = se || '';
   // 구매·방문: lower ~ upperPV
   ['PurchaseStart','PurchaseEnd','VisitStart','VisitEnd'].forEach(suffix => {
     const el = $(prefix+suffix);
@@ -1698,23 +1705,17 @@ function syncCampDateMinMax(prefix) {
     if (lower) el.min = lower; else el.removeAttribute('min');
     if (upperPV) el.max = upperPV; else el.removeAttribute('max');
   });
-  // 결과물 제출 마감일: 구매·방문 종료일 이후 (없으면 lower) ~ 캠페인 노출 마감일
+  // 결과물 제출 마감일: 구매·방문 종료일 이후 (없으면 lower) ~ (상한 없음 — post_deadline 제거)
   const seEl = $(prefix+'SubmissionEnd');
   if (seEl) {
     const seLower = [lower, pe, ve].filter(Boolean).sort().pop() || '';
     if (seLower) seEl.min = seLower; else seEl.removeAttribute('min');
-    if (pdl) seEl.max = pdl; else seEl.removeAttribute('max');
+    seEl.removeAttribute('max');
   }
-  // 캠페인 노출 마감일: 결과물 제출 마감일(우선) 또는 모집 종료일 이후
-  const postEl = $(prefix+'PostDeadline');
-  if (postEl) {
-    const postLower = se || dl || '';
-    if (postLower) postEl.min = postLower; else postEl.removeAttribute('min');
-    postEl.removeAttribute('max');
-  }
+  // 캠페인 노출 마감일 picker 는 사양서 §6-3 에 따라 제거됨 (토글로 대체)
   // flatpickr range picker (구매·방문) 도 같은 경계로 비활성 날짜 처리
   if (typeof syncCampRangePickerBounds === 'function') syncCampRangePickerBounds(prefix);
-  // 단일 picker(SubmissionEnd / PostDeadline) 비활성 날짜 동기화
+  // 단일 picker(SubmissionEnd) 비활성 날짜 동기화
   // flatpickr.set('minDate', ...) 는 selectedDates를 재검증하면서 input.value를
   // selectedDates 기준으로 덮어쓸 수 있음 → 호출 직전에 input.value ↔ selectedDates 동기화 필수
   if (typeof _campSinglePickers === 'object' && _campSinglePickers) {
@@ -1729,29 +1730,21 @@ function syncCampDateMinMax(prefix) {
       _syncFpToInput(seFp, $(prefix+'SubmissionEnd')?.value || '');
       const seLower = [lower, pe, ve].filter(Boolean).sort().pop() || '';
       seFp.set('minDate', seLower || null);
-      seFp.set('maxDate', pdl || null);
-    }
-    const postFp = _campSinglePickers[prefix + 'PostDeadline'];
-    if (postFp) {
-      _syncFpToInput(postFp, $(prefix+'PostDeadline')?.value || '');
-      const postLower = se || dl || '';
-      postFp.set('minDate', postLower || null);
-      postFp.set('maxDate', null);
+      seFp.set('maxDate', null);
     }
   }
 }
 
 // flatpickr range picker 의 minDate/maxDate 를 hidden input 값에 맞춰 동적 갱신
-//   구매·방문: [recruit_start || deadline] ~ [submission_end || post_deadline]
+//   구매·방문: [recruit_start || deadline] ~ [submission_end]
 //   모집: 제한 없음 (관리자가 자유 입력)
 function syncCampRangePickerBounds(prefix) {
   if (!_campRangePickers) return;
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const pdl = $(prefix+'PostDeadline')?.value || '';
   const se = $(prefix+'SubmissionEnd')?.value || '';
   const lower = rs || dl || '';
-  const upperPV = se || pdl || '';
+  const upperPV = se || '';
   ['Purchase', 'Visit'].forEach(kind => {
     const fp = _campRangePickers[prefix + kind + 'Range'];
     if (!fp) return;
@@ -1761,11 +1754,10 @@ function syncCampRangePickerBounds(prefix) {
 }
 
 // 입력값 검증 (저장 시 + onchange 인라인 경고). 위반 메시지 배열 반환.
-//   경계: 모집 시작일 ~ 캠페인 노출 마감일 사이
+//   경계: 모집 시작일 ~ 결과물 제출 마감일 (post_deadline 제거 — migration 129)
 function validateCampDateRanges(prefix) {
   const rs = $(prefix+'RecruitStart')?.value || '';
   const dl = $(prefix+'Deadline')?.value || '';
-  const pdl = $(prefix+'PostDeadline')?.value || '';
   const ps = $(prefix+'PurchaseStart')?.value || '';
   const pe = $(prefix+'PurchaseEnd')?.value || '';
   const vs = $(prefix+'VisitStart')?.value || '';
@@ -1773,33 +1765,24 @@ function validateCampDateRanges(prefix) {
   const se = $(prefix+'SubmissionEnd')?.value || '';
   const errs = [];
   const lower = rs || dl || '';
-  const between = (val) => {
-    if (!val) return true;
-    if (lower && new Date(val) < new Date(lower)) return false;
-    if (pdl && new Date(val) > new Date(pdl)) return false;
-    return true;
-  };
-  // 구매·방문 일자의 상한은 결과물 제출 마감일(우선) 또는 캠페인 노출 마감일(폴백)
-  const upperPV = se || pdl || '';
+  // 구매·방문 일자의 상한은 결과물 제출 마감일
+  const upperPV = se || '';
   const inPVRange = (val) => {
     if (!val) return true;
     if (lower && new Date(val) < new Date(lower)) return false;
     if (upperPV && new Date(val) > new Date(upperPV)) return false;
     return true;
   };
-  const upperPVLabel = se ? '결과물 제출 마감일' : '캠페인 노출 마감일';
+  const upperPVLabel = se ? '결과물 제출 마감일' : '제한 없음';
   if (rs && dl && new Date(dl) < new Date(rs)) errs.push({kind:'recruit', msg:'모집 종료일은 모집 시작일 이후여야 합니다'});
-  if (dl && pdl && new Date(pdl) < new Date(dl)) errs.push({kind:'post', msg:'캠페인 노출 마감일은 모집 종료일 이후여야 합니다'});
-  if (se && pdl && new Date(pdl) < new Date(se)) errs.push({kind:'post', msg:'캠페인 노출 마감일은 결과물 제출 마감일 이후여야 합니다'});
   if (!inPVRange(ps)) errs.push({kind:'purchase', msg:`구매 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (!inPVRange(pe)) errs.push({kind:'purchase', msg:`구매 마감일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (ps && pe && new Date(pe) < new Date(ps)) errs.push({kind:'purchase', msg:'구매 마감일은 구매 시작일 이후여야 합니다'});
   if (!inPVRange(vs)) errs.push({kind:'visit', msg:`방문 시작일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (!inPVRange(ve)) errs.push({kind:'visit', msg:`방문 마감일은 모집 시작일~${upperPVLabel} 사이여야 합니다`});
   if (vs && ve && new Date(ve) < new Date(vs)) errs.push({kind:'visit', msg:'방문 마감일은 방문 시작일 이후여야 합니다'});
-  // 결과물 제출 마감일: 모집 시작 ~ 캠페인 노출 마감 사이 + 구매·방문 종료일 이후
+  // 결과물 제출 마감일: 모집 시작 이후 + 구매·방문 종료일 이후
   if (se && lower && new Date(se) < new Date(lower)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 모집 시작일 이후여야 합니다'});
-  if (se && pdl && new Date(se) > new Date(pdl)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 캠페인 노출 마감일 이전이어야 합니다'});
   if (se && pe && new Date(se) < new Date(pe)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 구매 종료일 이후여야 합니다'});
   if (se && ve && new Date(se) < new Date(ve)) errs.push({kind:'submission', msg:'결과물 제출 마감일은 방문 종료일 이후여야 합니다'});
   return errs;
@@ -1808,7 +1791,6 @@ function validateCampDateRanges(prefix) {
 // 종류별 row 아래 div 매핑 — 한 row에 여러 위반이 있으면 같은 div에 누적 표시
 const CAMP_DATE_WARN_TARGETS = {
   recruit:    'RecruitWarn',
-  post:       'PostDeadlineWarn',
   purchase:   'PurchaseWarn',
   visit:      'VisitWarn',
   submission: 'SubmissionWarn',
@@ -2330,11 +2312,6 @@ async function saveCampaignEdit() {
     const brand = gv('editCampBrand').trim();
 
     const editDeadline = gv('editCampDeadline');
-    const editPostDeadline = gv('editCampPostDeadline');
-    if (editPostDeadline && editDeadline && new Date(editPostDeadline) < new Date(editDeadline)) {
-      toast('캠페인 노출 마감일은 모집 종료일 이후여야 합니다','error');
-      return;
-    }
     const editDateErrs = validateCampDateRanges('editCamp');
     if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
     const editStatus = gv('editCampStatus');
@@ -2371,7 +2348,6 @@ async function saveCampaignEdit() {
       reward_note: gv('editCampRewardNote') || null,
       recruit_start: gv('editCampRecruitStart')||null,
       deadline: gv('editCampDeadline')||null,
-      post_deadline: gv('editCampPostDeadline')||null,
       purchase_start: gv('editCampPurchaseStart')||null,
       purchase_end: gv('editCampPurchaseEnd')||null,
       visit_start: gv('editCampVisitStart')||null,
@@ -2509,7 +2485,7 @@ async function duplicateCampaign(campId) {
       ng_items: Array.isArray(src.ng_items) ? JSON.parse(JSON.stringify(src.ng_items)) : [],
       product_price: src.product_price, reward: src.reward, reward_note: src.reward_note,
       slots: src.slots, applied_count: 0,
-      recruit_start: src.recruit_start, deadline: src.deadline, post_deadline: src.post_deadline, post_days: src.post_days,
+      recruit_start: src.recruit_start, deadline: src.deadline,
       purchase_start: src.purchase_start, purchase_end: src.purchase_end,
       visit_start: src.visit_start, visit_end: src.visit_end,
       submission_end: src.submission_end,
@@ -2632,7 +2608,6 @@ function buildPreviewCamp(mode) {
     primary_channel: val(g+'PrimaryChannel')||null,
     recruit_start: val(g+'RecruitStart')||null,
     deadline: val(g+'Deadline')||null,
-    post_deadline: val(g+'PostDeadline')||null,
     purchase_start: val(g+'PurchaseStart')||null,
     purchase_end: val(g+'PurchaseEnd')||null,
     visit_start: val(g+'VisitStart')||null,
@@ -4333,11 +4308,6 @@ async function addCampaign() {
     toast('필수 항목을 모두 입력해주세요','error');
     return;
   }
-  const postDeadline = $('newCampPostDeadline')?.value;
-  if (postDeadline && deadline && new Date(postDeadline) < new Date(deadline)) {
-    toast('캠페인 노출 마감일은 모집 종료일 이후여야 합니다','error');
-    return;
-  }
   const newDateErrs = validateCampDateRanges('newCamp');
   if (newDateErrs.length) { toast(newDateErrs[0].msg, 'error'); validateCampDateRangesInline('newCamp'); return; }
   const catEmojiMap = {beauty:'💄',food:'🍜',fashion:'👗',health:'💪',other:'📦'};
@@ -4373,10 +4343,6 @@ async function addCampaign() {
     slots, applied_count:0,
     recruit_start: $('newCampRecruitStart')?.value||null,
     deadline: deadline||null,
-    post_deadline: $('newCampPostDeadline')?.value||null,
-    post_days: $('newCampPostDeadline')?.value
-      ? Math.ceil((new Date($('newCampPostDeadline').value) - new Date()) / (1000*60*60*24))
-      : 14,
     purchase_start: $('newCampPurchaseStart')?.value||null,
     purchase_end: $('newCampPurchaseEnd')?.value||null,
     visit_start: $('newCampVisitStart')?.value||null,
@@ -4401,7 +4367,7 @@ async function addCampaign() {
 
   ['newCampTitle','newCampBrand','newCampBrandKo','newCampBrandId','newCampSourceAppId',
    'newCampProduct','newCampProductUrl',
-   'newCampSlots','newCampRecruitStart','newCampDeadline','newCampPostDeadline',
+   'newCampSlots','newCampRecruitStart','newCampDeadline',
    'newCampPurchaseStart','newCampPurchaseEnd','newCampVisitStart','newCampVisitEnd',
    'newCampSubmissionEnd','newCampHashtags','newCampMentions',
    'newCampProductPrice','newCampReward','newCampRewardNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
@@ -7986,15 +7952,13 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     { header: '상태',            key: 'status',   width: 10 },
     { header: '모집 시작',       key: 'rstart',   width: 14 },
     { header: '모집 마감',       key: 'deadline', width: 14 },
-    { header: '게시 마감',       key: 'pdead',    width: 14 },
-    // 2026-05-15 추가: 운영자가 캠페인 일정 한 번에 보기용 기간 4종.
+    // 2026-05-15 추가: 운영자가 캠페인 일정 한 번에 보기용 기간 3종.
     //   monitor 캠페인은 purchase_start/end, visit 캠페인은 visit_start/end 를 같은 컬럼에 매핑.
     //   gifting 캠페인은 구매·방문 개념이 없어 빈칸.
-    //   노출 마감은 현재 운영 DB 에서 post_deadline 과 동일 값 (게시 마감 컬럼과 같은 값).
+    //   2026-05-18: 게시 마감/노출 마감 컬럼 제거 (post_deadline 폐기 — migration 129)
     { header: '구매기간 시작',   key: 'pstart',   width: 14 },
     { header: '구매기간 마감',   key: 'pend',     width: 14 },
     { header: '결과물 제출 마감',key: 'subend',   width: 16 },
-    { header: '노출 마감',       key: 'expdead',  width: 14 },
     { header: '슬롯',            key: 'slots',    width: 8 },
     { header: '신청 수',         key: 'apps',     width: 10 },
     { header: '승인 수',         key: 'approved', width: 10 }
@@ -8031,11 +7995,9 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
       status:   statusKo(c.status),
       rstart:   c.recruit_start ? formatDate(c.recruit_start) : '',
       deadline: c.deadline ? formatDate(c.deadline) : '',
-      pdead:    c.post_deadline ? formatDate(c.post_deadline) : '',
       pstart:   ps ? formatDate(ps) : '',
       pend:     pe ? formatDate(pe) : '',
       subend:   c.submission_end ? formatDate(c.submission_end) : '',
-      expdead:  c.post_deadline ? formatDate(c.post_deadline) : '',
       slots:    Number(c.slots || 0),
       apps:     campApps.length,
       approved: approvedCnt
@@ -9470,4 +9432,103 @@ async function showAdminUnreadNoticesIfAny() {
 function onShowDetailFromUnreadPopup(id) {
   closeModal('adminNoticeUnreadModal');
   openAdminNoticeView(id);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 캠페인 노출 토글 — 폼 최상단 + 목록 빠른 토글 (사양서 2026-05-13)
+// ════════════════════════════════════════════════════════════════════
+
+// 폼 토글 영역 렌더 — status 가 expired 면 OFF, 그 외는 ON
+//   draft 상태는 토글 비활성 (사양서 §7-2)
+//   상태 텍스트는 현재 status 의 한국어 라벨 표시
+function _renderCampVisibilityToggle(prefix, status, dateRefs) {
+  var toggle = $(prefix + 'CampVisibilityToggle');
+  var statusEl = $(prefix + 'CampVisibilityStatus');
+  if (!toggle) return;
+  var isOff = status === 'expired';
+  var isDraft = status === 'draft';
+  toggle.classList.toggle('is-on', !isOff);
+  toggle.classList.toggle('is-disabled', isDraft);
+  toggle.setAttribute('aria-checked', isOff ? 'false' : 'true');
+  toggle.disabled = isDraft;
+  if (statusEl) {
+    var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '종료', expired: '노출마감 (수동)' };
+    statusEl.textContent = '상태: ' + (labels[status] || status || '미정');
+    statusEl.classList.toggle('is-off', isOff);
+  }
+  // dateRefs 는 ON 클릭 시 status 재계산에 사용 — 폼 hidden 으로 보관
+  toggle.dataset.recruitStart = (dateRefs && dateRefs.recruit_start) || '';
+  toggle.dataset.deadline = (dateRefs && dateRefs.deadline) || '';
+}
+
+// 토글 클릭 핸들러 — OFF 시 확인 모달 후 status=expired, ON 시 즉시 자연 상태 재계산
+async function onCampVisibilityToggle(prefix) {
+  var toggle = $(prefix + 'CampVisibilityToggle');
+  if (!toggle || toggle.disabled) return;
+  var isCurrentlyOn = toggle.classList.contains('is-on');
+  var campId = (prefix === 'edit') ? ($('editCampId')?.value || null) : null;
+  if (isCurrentlyOn) {
+    // ON → OFF: 확인 모달
+    var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
+    if (!ok) return;
+    if (campId) {
+      try {
+        await toggleCampaignVisibility(campId, false);
+        toast('캠페인 노출이 OFF (노출마감) 로 변경되었습니다');
+        _renderCampVisibilityToggle(prefix, 'expired', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+        // 폼 상태 드롭다운도 갱신 (있으면)
+        var statusSel = $('editCampStatus');
+        if (statusSel) statusSel.value = 'expired';
+        await refreshPane('campaigns');
+      } catch (e) {
+        console.error('[toggleCampaignVisibility OFF]', e);
+        toast('변경 실패: ' + (e.message || e), 'error');
+      }
+    } else {
+      // 신규 등록 폼은 아직 DB에 없음 — UI 상태만 변경
+      _renderCampVisibilityToggle(prefix, 'expired', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+    }
+  } else {
+    // OFF → ON: 즉시 자연 상태 재계산
+    if (campId) {
+      try {
+        var newStatus = await toggleCampaignVisibility(campId, true);
+        toast('캠페인 노출이 ON 으로 변경되었습니다');
+        _renderCampVisibilityToggle(prefix, newStatus, { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+        var statusSel = $('editCampStatus');
+        if (statusSel) statusSel.value = newStatus;
+        await refreshPane('campaigns');
+      } catch (e) {
+        console.error('[toggleCampaignVisibility ON]', e);
+        toast('변경 실패: ' + (e.message || e), 'error');
+      }
+    } else {
+      // 신규 등록 폼 — 기본 active 로 가정
+      _renderCampVisibilityToggle(prefix, 'active', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
+    }
+  }
+}
+
+// 캠페인 목록 「상태」 셀 안 빠른 토글 클릭 — 단순 위임 핸들러
+async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  if (!campId) return;
+  var willTurnOff = currentStatus !== 'expired';
+  if (willTurnOff) {
+    var ok = confirm('「캠페인 노출」을 OFF 합니다.\n\n인플루언서 화면에서 이 캠페인이 즉시 사라집니다.\n계속할까요?');
+    if (!ok) return;
+  }
+  try {
+    var newStatus = await toggleCampaignVisibility(campId, !willTurnOff);
+    toast(willTurnOff ? '캠페인 노출이 OFF 로 변경되었습니다' : '캠페인 노출이 ON 으로 변경되었습니다');
+    await refreshPane('campaigns');
+  } catch (e) {
+    console.error('[onCampQuickVisibilityToggle]', e);
+    toast('변경 실패: ' + (e.message || e), 'error');
+  }
+}
+
+// 신규 등록 폼이 열릴 때 토글 초기 상태(ON)로 리셋 — switchAdminPane 에서 사용
+function _resetNewCampVisibilityToggle() {
+  _renderCampVisibilityToggle('new', 'active', { recruit_start: '', deadline: '' });
 }

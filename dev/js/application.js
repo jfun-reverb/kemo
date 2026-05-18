@@ -657,7 +657,7 @@ async function openActivityPage(applicationId, campaignId, from) {
   // 제출 마감일 안내 기본값 (마감 전 케이스만 여기서 처리)
   // 마감 후 비활성/반려후 활성 분기는 loadDeliverablesForActivity 가 끝난 뒤
   // applyFormGating() 이 덮어쓴다 — 반려된 결과물 데이터를 알아야 결정 가능하므로.
-  const submissionEnd = camp.submission_end || camp.post_deadline || null;
+  const submissionEnd = camp.submission_end || null;
   const deadlineBox = $('activitySubmissionDeadline');
   if (deadlineBox) {
     if (submissionEnd) {
@@ -838,7 +838,7 @@ function applyFormGating(allDelivs) {
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
   const isMonitor = (rt === 'monitor');
-  const submissionEnd = camp.submission_end || camp.post_deadline || null;
+  const submissionEnd = camp.submission_end || null;
   const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
 
   // kind 별 「최신 1건 rejected」 판정 (마감 후에도 폼 활성 허용 조건)
@@ -1104,7 +1104,7 @@ async function addDraftUrl() {
   try { new URL(url); } catch(e) { toast(t('activity.badUrlFormat'),'error'); return; }
 
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end || camp.post_deadline;
+  const submissionEnd = camp.submission_end;
   // 마감 후라도 해당 kind 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
       && !_latestNonDraftIsRejected(_activityLastDelivs, 'post')) {
@@ -1140,7 +1140,7 @@ async function addDraftImage() {
   if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end || camp.post_deadline;
+  const submissionEnd = camp.submission_end;
   // 마감 후라도 receipt 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
       && !_latestNonDraftIsRejected(_activityLastDelivs, 'receipt')) {
@@ -1203,7 +1203,7 @@ async function addDraftReviewImage() {
   if (!_reviewImgData) { toast(t('activity.needReviewImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end || camp.post_deadline;
+  const submissionEnd = camp.submission_end;
   // 마감 후라도 review_image 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
       && !_latestNonDraftIsRejected(_activityLastDelivs, 'review_image')) {
@@ -1256,7 +1256,7 @@ async function submitReceipt() {
 
   // 제출 마감 확인 (Stage 3)
   const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end || camp.post_deadline;
+  const submissionEnd = camp.submission_end;
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
     toast(t('activity.afterDeadline'),'error');
     return;
