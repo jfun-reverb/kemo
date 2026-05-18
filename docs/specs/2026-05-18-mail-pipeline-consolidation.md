@@ -2,7 +2,7 @@
 
 - **작성일**: 2026-05-18
 - **작성**: 메인 세션 (사용자 새 요청 기반 초안)
-- **상태**: 사양 검토 대기 (옵션 A/B/C 결정 필요)
+- **상태**: 사양 확정 완료 (2026-05-18 메인 세션) — 옵션 C + 보완 옵션 2 + 세부 결정 5종 모두 확정 (§13~§14 참조). HANDOFF 문서 별도 작성됨
 - **선행**: `2026-05-18-application-email-pipeline.md` (운영 배포 완료, 마이그레이션 130)
 - **선행 운영 상태**: 인플루언서 다이제스트 4섹션 + 관리자 접수 요약 1통 + cancel-daily 1통 + 결과물 검수 즉시 6종(`notify-deliverable-decision`) 모두 가동 중
 
@@ -249,16 +249,141 @@
 ## 12. 구현 결과
 
 **구현일:** (개발 진행 후 채울 것)
-**관련 마이그레이션:** (옵션 A/B 시 결정 후)
+**관련 마이그레이션:** (세부 결정 후 부여)
 **관련 PR:** (개발 후 채울 것)
 
 ### 최종 채택 옵션
-(사용자 결정 후 기록)
+- 메인 옵션: **C (관리자만 통합, 인플루언서 측 즉시 검수 메일 + 4섹션 다이제스트 유지)**
+- 보완안: **옵션 2 (신청 + 결과물 양측 audit 도입 — 2차 변경 다이제스트 포착)**
 
 ### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+- 추가된 것: 신청 status 변경 audit 테이블 (옵션 2 채택으로 신규 마이그레이션 1건 추가). 관리자 다이제스트 4섹션화 (재처리 섹션 신설)
+- 빠진 것: 인플루언서 다이제스트 결과물 섹션 추가 (옵션 C 채택으로 제외 — 즉시 검수 메일 유지)
+- 달라진 것: 관리자 다이제스트 결과물 제출 섹션이 단순 INSERT 기준이 아니라 `deliverable_events` 액션 기준으로 확장 (제출/재제출/되돌리기 통합)
 
 ### 구현 중 기술 결정 사항
--
+- (개발 세션이 채울 것)
+
+---
+
+## 13. 1차 결정 사항 (2026-05-18 확정 — 메인 세션)
+
+### 13-1. 통합 방향 — 옵션 C 채택
+- 인플루언서 측 발송 매트릭스 **변경 없음** (즉시 검수 메일 6종 + 인플 다이제스트 4섹션 유지)
+- 관리자 측 일일 메일 2종 (`notify-application-cancelled-daily`, `notify-application-received-admin-daily`) 을 신규 단일 Edge Function `notify-admin-daily-digest` 로 통합
+- 광고주 신청 접수 즉시 메일 (`notify-brand-application`) 은 도메인 사건이 다르므로 통합 대상 아님 — 그대로 유지
+
+### 13-2. 보완 — 옵션 2 채택 (양측 audit 도입)
+- `deliverable_events` (기존 테이블) 활용 — 결과물 측 재제출·되돌리기 다이제스트 자동 포착
+- **신규 마이그레이션 — `application_events` 테이블** — 신청 status 변경 audit. 트리거로 자동 기록
+- 관리자 다이제스트 본문에 **「어제 재처리된 일감」 신규 섹션** 추가 (결과물 + 신청 통합)
+
+### 13-3. 관리자 다이제스트 최종 본문 구조 (4섹션 + 푸터)
+
+```
+[REVERB] 관리자 일일 요약 — YYYY-MM-DD
+
+▶ 캠페인 신청 접수 (N건)
+  (어제 0~24시 신규 INSERT)
+
+▶ 응모 취소 (N건)
+  (어제 cancel_phase != recruit 인 취소)
+
+▶ 결과물 제출 (N건)
+  (어제 deliverable_events action='submit' — 최초 제출 한정)
+
+▶ 재처리 일감 (N건)  ← 신규 섹션
+  - 결과물 재제출 (deliverable_events action='resubmit', 어제 윈도우)
+  - 결과물 되돌리기 (deliverable_events action='revert', 어제 윈도우)
+  - 신청 되돌리기 (application_events action='revert_to_pending', 어제 윈도우)
+  - 응모 취소 후 재응모 (application_events action='reapply', 어제 윈도우)
+```
+
+각 섹션 0건이면 생략 (4섹션 모두 0건이면 메일 미발송 + skipped_no_data 로그).
+
+---
+
+## 14. 세부 결정 사항 (2026-05-18 확정 — 메인 세션 5종 일괄 승인)
+
+옵션 C + 보완 옵션 2 채택 후 세부 결정 5종 모두 봇 추천안 그대로 확정.
+
+### 14-1. application_events 트래킹 범위 (마이그레이션 설계)
+
+| 안 | 트래킹 대상 | 비고 |
+|---|---|---|
+| **A (확정)** | 운영자 액션만 — 승인/반려/되돌리기 | reviewed_by 가 있을 때만 INSERT. 본인 취소(cancel_application RPC) 는 제외 — 이미 cancelled_at 으로 추적됨 |
+| B | 모든 status 변경 | 본인 취소 + 운영자 액션 + 시스템 자동 (없음) 모두 |
+
+**확정 근거**: 본인 취소는 이미 `cancelled_at` 으로 다이제스트 §2 응모 취소 섹션이 잡음. 중복 트래킹 피하기 위해 audit 은 운영자 액션만.
+
+### 14-2. application_events 컬럼 구조
+
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| id | uuid | PK |
+| application_id | uuid FK CASCADE | 신청 |
+| action | text CHECK | `approve` / `reject` / `revert_to_pending` / `reapply` |
+| from_status | text | 변경 전 status |
+| to_status | text | 변경 후 status |
+| changed_by | uuid | auth.uid() — 관리자 |
+| changed_by_name | text | 관리자 이름 스냅샷 |
+| created_at | timestamptz NOT NULL DEFAULT now() | 이벤트 발생 시점 |
+| memo | text NULL | 반려 사유 / 되돌리기 사유 등 |
+
+행 단위 보안 정책(RLS): SELECT 는 `is_admin()`, INSERT/UPDATE/DELETE 정책 없음 → 트리거로만 INSERT.
+
+인덱스: `(application_id, created_at DESC)` + `(created_at DESC) WHERE action IN ('revert_to_pending', 'reapply')` (다이제스트 윈도우 조회용).
+
+### 14-3. 기존 Edge Function 2종 처리 — 확정: **cron 해제 + 코드 보존**
+
+| 안 | 절차 | 롤백 |
+|---|---|---|
+| **A (확정)** | Supabase Dashboard 에서 cron 스케줄 2개 해제. Edge Function 코드는 그대로 둠. 사양서·CLAUDE.md 에 "deprecated, archived" 표기 | 통합 함수 문제 발생 시 cron 재등록만으로 즉시 복귀 |
+| B | Edge Function 자체 삭제 (Supabase Dashboard + repo) | 롤백 시 코드 재배포 필요 |
+
+**확정 근거**: 신규 통합 함수가 운영 안정화될 때까지 (2주 권장) 기존 함수 보존. 안정화 후 별도 정리 PR 에서 삭제.
+
+### 14-4. 「결과물 제출」 섹션 그룹화 — 확정: **kind 별 그룹**
+
+| 안 | 본문 구조 | 비고 |
+|---|---|---|
+| **A (확정)** | kind 별 — 영수증 N건 / 리뷰 이미지 N건 / 게시 URL N건 (각 행에 캠페인+인플) | 검수 워크플로가 kind 별로 나뉘어 있어 일감 우선순위 판단 용이 |
+| B | 캠페인별 하위 kind 별 | 캠페인 단위 운영 시 적합. 단 일일 8건이 캠페인 8개에 흩어지면 8줄 파편화 |
+
+**확정 근거**: 검수자 입장에서 "오늘 들어온 영수증 N건부터" 처리하는 흐름이 자연스러움.
+
+### 14-5. 운영 적용 타이밍 — 확정: **인플 다이제스트 cron 등록 직전 통합**
+
+| 안 | 절차 |
+|---|---|
+| **A (확정)** | 인플 다이제스트 cron 미등록 상태 → 통합 함수 개발·검증 완료 후 인플 다이제스트 cron + 통합 함수 cron 함께 등록 (1회 전환) |
+| B | 인플 다이제스트 cron 먼저 등록 + 2~3일 안정화 → 그 후 통합 함수 별도 배포 |
+
+**확정 근거**: 인플 다이제스트는 이미 마이그레이션 130 으로 코드 + DB 가 운영에 올라가 있으나 cron 만 미등록. 통합 함수와 cron 등록을 한 번에 묶으면 운영 전환 시점이 명확.
+
+---
+
+## 15. 작업 분해 (참고용 — 사양 확정 후 HANDOFF 별도 작성)
+
+PR 단위 예상:
+
+| PR | 범위 | 의존성 |
+|---|---|---|
+| PR 1 — 신청 status 변경 audit 테이블 | 마이그레이션 신규 (`application_events` 테이블 + 트리거) | 없음 |
+| PR 2 — 관리자 통합 다이제스트 Edge Function | `notify-admin-daily-digest` 신규 (4섹션) + cron 등록 + 기존 2종 cron 해제 + 카탈로그 갱신 | PR 1 운영 배포 완료 |
+| PR 3 — 인플 다이제스트 cron 등록 | 운영 cron 1줄 추가 (코드 변경 없음) | PR 2 와 동시 또는 직후 |
+
+PR 1·2 는 한 묶음 (동일 세션에서 처리 가능), PR 3 은 운영 전환 시점 결정에 따라 분리 또는 동시.
+
+---
+
+## 16. 리스크 (옵션 C + 보완 2 기준 갱신)
+
+| 리스크 | 옵션 C+2 영향 | 완화 |
+|---|---|---|
+| 메일 폭탄 (즉시 + 다이제스트 이중 발송) | 0 — 결과물 도메인은 즉시 메일만, 신청 도메인은 다이제스트만 | 도메인 사건 분리로 자동 |
+| 결과물 반려 즉시성 손실 | 0 — 즉시 검수 메일 유지 | — |
+| 2차 변경 다이제스트 누락 | 0 — application_events + deliverable_events 양측 audit 으로 포착 | 옵션 2 보완 |
+| application_events 트리거가 본인 취소까지 잡으면 cancel 섹션과 중복 | 14-1 추천안 A 채택 시 0 | 운영자 액션만 트래킹 |
+| audit 테이블 무한 누적 | 시간당 수 행 수준이라 1~2년 영향 미미 | 추후 archive 정책 별도 |
+| 통합 함수 첫 가동일 0건 발송 부담 | 4섹션 모두 0건이면 미발송 + skipped_no_data 로그 | 기존 동작 그대로 승계 |

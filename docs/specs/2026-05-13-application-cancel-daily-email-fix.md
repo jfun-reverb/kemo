@@ -2,7 +2,7 @@
 
 - **작성일**: 2026-05-13
 - **작성**: 기획 세션
-- **상태**: 개발 착수 전 (미구현)
+- **상태**: ✅ **운영 배포 완료 + 검증 완료** (2026-05-13 main 머지 `9ed247c` + 2026-05-18 메일 파이프라인 PR 묶음으로 운영 Edge Function 재배포. §9 운영 점검 + §10 구현 결과 참조)
 - **관련 Edge Function**: `notify-application-cancelled-daily`
 - **관련 파일**: `docs/email-templates/application-cancelled-daily.html`, `index.ts`
 
