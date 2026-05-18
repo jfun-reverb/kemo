@@ -2,10 +2,10 @@
 
 - **작성일**: 2026-05-18
 - **작성**: 기획/설계 세션 (메인 폴더, 코드 미수정)
-- **상태**: 사양 확정. 개발 착수 대기
-- **우선순위**: 🔴 최우선 (2026-05-18 사용자 지정)
+- **상태**: ✅ **운영 배포 완료 (2026-05-18)** — 마이그레이션 130 운영 DB 적용 완료. Edge Function 2종(`notify-influencer-daily-digest`, `notify-application-received-admin-daily`) 운영 배포. cron 2종 모두 가동 중 (관리자 접수 요약 + 인플루언서 다이제스트 — mail-pipeline-consolidation PR 2 에서 통합 전환 완료). **dev 잠재, main merge 보류 중**
+- **우선순위**: 🟢 완료
 - **선행**: 없음. 기존 인프라 재사용 (`notify-application-cancelled-daily` 패턴 미러)
-- **다음 마이그레이션 번호**: 130 부터 (129는 2026-05-18 확인 시점 「캠페인 노출 토글 — post_deadline 제거」 작업이 가져감)
+- **마이그레이션**: 130 (`supabase/migrations/130_application_email_pipeline_infra.sql`) — 운영 DB 적용 완료
 - **연관 별도 사양** (예정): `applications.reject_reason` 컬럼 + 운영자 입력 UI — 본 사양 도입 후 후속
 
 ---

@@ -2,11 +2,11 @@
 
 > **작성일**: 2026-05-18 (2026-05-18 cancel-daily 통합 안내 추가)
 > **작성 세션**: 기획/설계 (메인 폴더, 코드 미수정)
-> **인수인계 대상**: 현재 진행 중인 메일링 작업 개발 세션 (사용자 지정 — 2026-05-18)
+> **현재 상태**: ✅ **운영 배포 완료 (2026-05-18)** — 마이그레이션 130 + Edge Function 2종 + cancel-daily 버그 수정 + 관리자 접수 요약 cron 가동. **인플루언서 다이제스트 cron 은 mail-pipeline-consolidation PR 2 에서 통합 등록 예정**
 > **관련 사양서**:
-> - `docs/specs/2026-05-18-application-email-pipeline.md` (확정 — 메일 파이프라인 신규)
-> - **`docs/specs/2026-05-13-application-cancel-daily-email-fix.md` (같은 PR 묶음 진행)**
-> **우선순위**: 🔴 최우선 (사용자 지정 — 2026-05-18)
+> - `docs/specs/2026-05-18-application-email-pipeline.md` (✅ 운영 배포 완료)
+> - `docs/specs/2026-05-13-application-cancel-daily-email-fix.md` (✅ 운영 Edge Function 재배포 완료)
+> **우선순위**: 🟢 완료
 
 ---
 
@@ -197,34 +197,37 @@
 
 ## 4. 영향 파일 체크리스트
 
+> ✅ = 운영 배포 완료 / ⏳ = mail-pipeline-consolidation PR 2 에서 처리 / 🔲 = 미완료
+
 ### DB
-- [ ] `supabase/migrations/130_application_email_pipeline_infra.sql` (신규)
+- [x] `supabase/migrations/130_application_email_pipeline_infra.sql` ✅ 운영 DB 적용 완료
 
 ### Edge Functions
-- [ ] `supabase/functions/notify-influencer-daily-digest/index.ts`
-- [ ] `supabase/functions/notify-influencer-daily-digest/templates.ts` (sync 자동)
-- [ ] `supabase/functions/notify-application-received-admin-daily/index.ts`
-- [ ] `supabase/functions/notify-application-received-admin-daily/templates.ts` (sync 자동)
+- [x] `supabase/functions/notify-influencer-daily-digest/index.ts` ✅
+- [x] `supabase/functions/notify-influencer-daily-digest/templates.ts` ✅
+- [x] `supabase/functions/notify-application-received-admin-daily/index.ts` ✅
+- [x] `supabase/functions/notify-application-received-admin-daily/templates.ts` ✅
 
 ### 메일 템플릿
-- [ ] `docs/email-templates/influencer-daily-digest.html` + `.preview.html`
-- [ ] `docs/email-templates/application-received-admin-daily.html` + `.preview.html` + `.row.html`
-- [ ] `docs/email-templates/index.html` (카탈로그 갱신 — 사양서 §8-3 적용)
-  - [ ] 신규 CSS 클래스 `.card-condition` / `.cc-label` / `.cc-text` 추가
-  - [ ] 활성 12장 모든 카드에 「언제 보내요?」 박스 삽입 (사양서 §8-3 표 그대로)
-  - [ ] 신규 카드 2장 추가 (활성 섹션)
-  - [ ] 미구현 섹션 정리 (4장 흡수 삭제 + 1장 활성화 + 「OT 발송 안내」만 미구현 유지)
-  - [ ] 푸터에 「🟡 노란 박스」 안내 한 줄 추가
-  - [ ] 운영 URL `https://www.globalreverb.com/docs/email-templates/index.html` 자동 반영 확인 (Vercel 정적 배포 대상)
+- [x] `docs/email-templates/influencer-daily-digest.html` + `.preview.html` ✅
+- [x] `docs/email-templates/application-received-admin-daily.html` + `.preview.html` + `.row.html` ✅
+- [x] `docs/email-templates/index.html` (카탈로그 갱신 — 사양서 §8-3 적용) ✅
+  - [x] 신규 CSS 클래스 `.card-condition` / `.cc-label` / `.cc-text` / `.cc-timing` 추가 ✅
+  - [x] 활성 14장 모든 카드에 「언제 보내요?」 박스 삽입 ✅
+  - [x] 신규 카드 2장 추가 (활성 섹션) ✅
+  - [x] 미구현 섹션 정리 (4장 흡수 삭제 + 1장 활성화 + 「OT 발송 안내」만 미구현 유지) ✅
+  - [x] 푸터에 노란 박스 안내 추가 ✅
+  - [x] 운영 URL 자동 반영 확인 ✅
 
-### pg_cron (개발 + 운영 양쪽)
-- [ ] 개발 DB: `cron.schedule('influencer-daily-digest', '0 0 * * *', ...)`
-- [ ] 개발 DB: `cron.schedule('application-received-admin-daily', '0 0 * * *', ...)`
-- [ ] 운영 DB: 동일 2개 (운영 배포 시점)
+### pg_cron
+- [x] 개발 DB: `cron.schedule('application-received-admin-daily', '0 0 * * *', ...)` ✅
+- [x] 개발 DB: `cron.schedule('notify-influencer-daily-digest', '0 0 * * *', ...)` ✅ (mail-pipeline-consolidation PR 2 에서 통합 전환 완료)
+- [x] 운영 DB: `application-received-admin-daily` cron → 관리자 통합 다이제스트 cron 으로 전환 완료 ✅
+- [x] 운영 DB: `notify-influencer-daily-digest` cron 가동 중 ✅
 
 ### 문서
-- [ ] `CLAUDE.md` — Email / SMTP 섹션에 신규 cron job 2개 + Edge Function 2종 추가 안내
-- [ ] `docs/specs/2026-05-18-application-email-pipeline.md` 의 §17 「구현 결과」 채우기
+- [x] `CLAUDE.md` — Email / SMTP 섹션 + Database Schema 섹션 업데이트 ✅
+- [x] `docs/specs/2026-05-18-application-email-pipeline.md` §17 「구현 결과」 채움 ✅
 
 ---
 

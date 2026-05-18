@@ -2,9 +2,17 @@
 
 - **작성일**: 2026-05-18
 - **작성**: 메인 세션 (사용자 새 요청 기반 초안)
-- **상태**: 사양 확정 완료 (2026-05-18 메인 세션) — 옵션 C + 보완 옵션 2 + 세부 결정 5종 모두 확정 (§13~§14 참조). HANDOFF 문서 별도 작성됨
-- **선행**: `2026-05-18-application-email-pipeline.md` (운영 배포 완료, 마이그레이션 130)
-- **선행 운영 상태**: 인플루언서 다이제스트 4섹션 + 관리자 접수 요약 1통 + cancel-daily 1통 + 결과물 검수 즉시 6종(`notify-deliverable-decision`) 모두 가동 중
+- **상태**: ✅ **운영 배포 완료 (2026-05-18)** — PR 1 + PR 2 모두 완료. **dev 잠재, main merge 보류 중**
+  - PR 1: 마이그레이션 131(`application_events`) 개발·운영 DB 적용 완료
+  - PR 2: 마이그레이션 132(`admin_daily_digest_runs`) + `notify-admin-daily-digest` Edge Function 신규 + cron 전환 (admin-daily-digest + influencer-daily-digest 등록 / cancel-daily cron 해제) 개발·운영 모두 완료
+  - 첫 자동 발송: 2026-05-19 09:00 KST (UTC 00:00). 사용자 메일 검수 통과 (8통)
+  - 옵션 C + 보완 옵션 2 확정 (§13~§14). 관련 커밋: `45c891c`(PR 1) + `6f5fbe4`(PR 2) + `19ed98f`(주석 strip 패치)
+- **선행**: `2026-05-18-application-email-pipeline.md` ✅ 운영 배포 완료 (마이그레이션 130)
+- **현재 운영 상태 (2026-05-18 완료)**:
+  - ✅ 가동 중: 인플루언서 다이제스트 (`notify-influencer-daily-digest`) cron + 관리자 통합 다이제스트 (`notify-admin-daily-digest`) cron
+  - ✅ 해제됨: `application-cancel-daily-digest` cron (→ 관리자 통합으로 흡수)
+  - ✅ 가동 중: 결과물 검수 즉시 6종 (`notify-deliverable-decision`) — 변경 없음 유지
+  - ⏳ 후속: deprecated Edge Function 2종 정리 (2주 안정화 후 별도 PR — §6-1)
 
 ---
 
@@ -249,8 +257,11 @@
 ## 12. 구현 결과
 
 **구현일:** 2026-05-18
+**운영 적용일:** 2026-05-18 (PR 1·PR 2 양 DB 적용·검증·cron 전환 완료)
+**첫 자동 발송 예정:** 2026-05-19 09:00 KST (UTC 00:00)
 **관련 마이그레이션:** 131 (application_events audit) + 132 (admin_daily_digest_runs)
-**관련 PR:** PR 1 commit `45c891c` (dev) — application_events / PR 2 (본 세션, dev 잠재 + 운영 적용은 사용자 결정에 따라 진행)
+**관련 PR:** PR 1 commit `45c891c` / PR 2 commit `6f5fbe4` / 주석 누출 버그 수정 commit `19ed98f` (모두 dev 잠재, main merge 보류)
+**상태:** ✅ 운영 완전 가동 (cron 등록·Edge Function 배포·DB 마이그레이션 양 서버 모두 적용)
 
 ### 최종 채택 옵션
 - 메인 옵션: **C (관리자만 통합, 인플루언서 측 즉시 검수 메일 + 4섹션 다이제스트 유지)**
@@ -288,12 +299,43 @@
 
 ### 검증·배포 절차 (HANDOFF §5-7, §5-8)
 
-PR 1 — 개발·운영 양 DB 적용·검증 완료 (2026-05-18).
+**PR 1 — application_events** (2026-05-18 완료)
+- 개발 DB (qysmxtipobomefudyixw) 마이그레이션 131 적용·검증 통과
+- 운영 DB (twofagomeizrtkwlhsuv) 마이그레이션 131 적용·검증 통과
+- 트리거 기능 검증: BEGIN/ROLLBACK 트랜잭션 안에서 임의 신청 status 변경 → `application_events` 자동 INSERT 확인 (`action='revert_to_pending'`, from/to_status 매핑 정확)
 
-PR 2 — 본 세션에서 코드 작성 완료. 다음 단계:
-- 개발서버 배포 + 시드 데이터로 curl 수동 호출 + 관리자 메일 직접 확인 (HANDOFF §5-7)
-- 운영 배포 결정 후 마이그레이션 132 적용 + Edge Function 배포 + cron 전환 (HANDOFF §5-8)
-- 다음 날 09:00 KST 첫 자동 발송 확인
+**PR 2 — 통합 다이제스트** (2026-05-18 완료)
+- 개발 DB 마이그레이션 132 적용 + 4종 검증 SQL 통과
+- 개발 Edge Function 6종 배포 (admin-daily-digest 신규 + 기존 5종 주석 strip 패치)
+- curl 수동 호출 — `skipped_no_data` 정상 + `admin_daily_digest_runs` 로그 INSERT + mutex 동작(중복 호출 차단) 검증
+- **메일 렌더링 검증** — Brevo 임시 키 + Deno 스크립트로 인박스 발송 8통 (관리자 다이제스트 + 인플 다이제스트 + 결과물 검수 6종) → 사용자 직접 인박스 검수 통과
+- 운영 DB 마이그레이션 132 적용 + 검증 통과
+- 운영 Edge Function 6종 배포 (Supabase CLI `supabase functions deploy ... --project-ref twofagomeizrtkwlhsuv`)
+- 양 DB cron 전환: 신규 2종 (`notify-admin-daily-digest`, `notify-influencer-daily-digest`) 등록 → 기존 1종 (`application-cancel-daily-digest`) 해제. 등록·해제 순서 정확히 준수
+- 최종 양 DB cron 상태 일치 — 2종 active
+
+**현재 운영 cron 상태 (2026-05-18 18시경 기준)**
+| 양 DB | jobname | schedule | active |
+|---|---|---|---|
+| 개발·운영 | notify-admin-daily-digest | `0 0 * * *` (UTC) | true |
+| 개발·운영 | notify-influencer-daily-digest | `0 0 * * *` (UTC) | true |
+
+`notify-application-received-admin-daily` cron 은 마이그레이션 130 시점부터 양 DB 모두 미등록 상태였음 — PR 2 운영 전환 시 같은 도메인 사건 통합 함수로 흡수.
+
+### 발견·해결된 추가 이슈
+
+**메일 주석 누출 버그 (2026-05-18 발견, 즉시 수정)**
+- 첫 테스트 발송 시 메일 본문에 템플릿 description 텍스트 누출
+- 원인: HTML 템플릿 상단 주석 안 `{{placeholder}}` 가 render() 로 치환되면서, 치환 값에 포함된 inner `<!-- -->` 가 외부 주석을 조기 종료 → 본문 누출
+- 수정: 6개 Edge Function 의 `loadTemplate()` 에 `return html.replace(/<!--[\s\S]*?-->/g, "")` 1줄 추가. 다단 nesting 함수 2개(admin-daily-digest, influencer-daily-digest)만 실제 영향 + 4개(cancelled-daily, received-admin-daily, deliverable-decision, brand-application)는 방어적 적용
+- 검증: 사용자 인박스 8통 재발송 후 깨끗하게 렌더 확인
+- Outlook 조건부 주석(`<!--[if mso]>...<![endif]-->`) 사용 시 strip 영향 받을 수 있음 — 현재 템플릿 미사용
+
+**테스트 발송 스크립트 신규 작성**
+- `scripts/send-test-admin-digest.ts` (관리자 다이제스트 14건 더미)
+- `scripts/send-test-influencer-digest.ts` (인플 다이제스트 4섹션 일본어)
+- `scripts/send-test-deliverable-decision.ts` (결과물 검수 6종, `TYPES` env 로 부분 발송 가능)
+- Brevo 임시 API 키 + `BREVO_API_KEY` env 로 안전 발송. 운영 안 영향 0.
 
 ### 후속 별도 PR
 
