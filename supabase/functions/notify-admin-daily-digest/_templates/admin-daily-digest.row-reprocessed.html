@@ -8,23 +8,29 @@
     - 신청 되돌리기 (application_events action='revert_to_pending')
 
   Row Placeholders:
-    {{campaign_no}}        캠페인 번호 (【...】)
-    {{campaign_title}}     캠페인 제목
-    {{recruit_type_ko}}    모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{type_ko}}            재처리 종류 라벨
-    {{type_color_bg}}      종류 칩 배경색
-    {{type_color_fg}}      종류 칩 글자색
-    {{influencer_name}}    인플루언서 표시명
-    {{actor_name}}         액션 수행 운영자 이름 (또는 「-」)
-    {{event_at_jst}}       이벤트 시각 (HH:mm JST)
+    {{campaign_no}}            캠페인 번호 (【...】)
+    {{campaign_title}}         캠페인 제목
+    {{recruit_type_ko}}        모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{type_ko}}                재처리 종류 라벨
+    {{type_color_bg}}          종류 칩 배경색
+    {{type_color_fg}}          종류 칩 글자색
+    {{influencer_name_full}}   인플루언서 표시명 「이름(한자) (가나)」 합본
+    {{influencer_email}}       인플루언서 이메일
+    {{influencer_sns_html}}    SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
+    {{actor_name}}             액션 수행 운영자 이름 (또는 「-」)
+    {{event_at_jst}}           이벤트 시각 (HH:mm JST)
 -->
 <div style="border:1px solid #E5E0F4;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
     <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{event_at_jst}}
   </div>
-  <div style="font-size:14px;font-weight:700;margin-bottom:4px;line-height:1.4">{{campaign_title}}</div>
-  <div style="font-size:12px;color:#444">
+  <div style="font-size:14px;font-weight:700;margin-bottom:6px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:12px;color:#444;margin-bottom:4px">
     <span style="background:{{type_color_bg}};color:{{type_color_fg}};padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;margin-right:8px">{{type_ko}}</span>
-    {{influencer_name}} <span style="color:#888">· 처리: {{actor_name}}</span>
+    <strong>{{influencer_name_full}}</strong> <span style="color:#888">· 처리: {{actor_name}}</span>
+  </div>
+  <div style="font-size:11px;color:#666;line-height:1.6">
+    <span style="color:#888">이메일</span> {{influencer_email}}
+    <span style="color:#888;margin-left:10px">SNS</span> {{influencer_sns_html}}
   </div>
 </div>
