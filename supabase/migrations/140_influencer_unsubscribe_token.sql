@@ -194,6 +194,8 @@ BEGIN
 END;
 $$;
 
+-- PostgreSQL 기본은 PUBLIC EXECUTE 권한 부여 → REVOKE 후 명시 GRANT 로 표면적 최소화
+REVOKE EXECUTE ON FUNCTION public.unsubscribe_by_token(uuid) FROM PUBLIC;
 -- 익명(anon) GRANT 필수: 메일 링크는 비로그인 상태에서 클릭
 GRANT EXECUTE ON FUNCTION public.unsubscribe_by_token(uuid) TO anon, authenticated;
 
@@ -219,7 +221,10 @@ AS $$
    WHERE id = auth.uid();  -- influencers.id = auth.users.id (PK)
 $$;
 
--- 인증된 사용자(본인)만 호출 가능
+-- Supabase 기본 정책: 새 함수에 anon/authenticated/service_role 자동 GRANT.
+-- PUBLIC + anon 명시 REVOKE 로 보안 표면적 최소화 (authenticated 본인만 호출).
+-- (anon 호출 시 auth.uid()=NULL 이라 실제 피해는 없으나 호출 시도 자체를 차단)
+REVOKE EXECUTE ON FUNCTION public.resubscribe_marketing() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.resubscribe_marketing() TO authenticated;
 
 COMMENT ON FUNCTION public.resubscribe_marketing() IS

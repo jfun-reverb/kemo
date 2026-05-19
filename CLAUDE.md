@@ -179,6 +179,7 @@
   - 번들 스냅샷: `participation_set_id`/`participation_steps jsonb`, `caution_set_id`/`caution_items jsonb`, `ng_set_id`/`ng_items jsonb`
   - 채번: `campaign_no`(현행 계층 채번), `legacy_no`(콤마 누적), `brand_id` FK, `source_application_id` FK
   - `reward_note` 는 리워드 금액 외 추가 안내(지급 조건·정산 시점) 자유 텍스트
+  - 홍보 메일 트리거: `first_active_at timestamptz NULL` — 캠페인이 처음 active 상태로 전환된 시각. `BEFORE UPDATE OF status` 트리거(`_record_first_active_at`)가 자동 기록(이후 불변). 캠페인 홍보 메일이 「어제 KST 신규 캠페인」 판별에 사용 (마이그레이션 140)
 - `campaigns_yearly_counter`, `brand_seq_counter`(싱글톤), `brand_application_counter`, `application_campaign_counter`, `brand_external_campaign_counter` — 채번 카운터. SECURITY DEFINER 트리거 전용 (직접 UPDATE 금지)
 - `numbering_legacy_map` — 신구 채번 양방향 매핑
 - `applications` — 캠페인 신청. `user_id`, `campaign_id`, `message`, `address`, `status`(pending/approved/rejected/cancelled), `reviewed_by`, `reviewed_at`, `oriented_at`(OT 발송 체크 수동 토글), `reviewed_version`(낙관적 락), `caution_agreed_at`, `caution_snapshot jsonb`. 취소 보조 5종: `cancelled_at`, `cancel_reason`, `cancel_reason_code`, `cancel_phase CHECK(recruit|purchase|visit|post|other)`, `previous_status`. `(user_id, campaign_id)` partial unique index (cancelled 행 제외) → 같은 캠페인 재응모 가능
@@ -201,7 +202,7 @@
 - `link_campaign_to_application` / `unlink_campaign_from_application` — 캠페인↔신청 연결/해제 RPC (`is_campaign_admin()` 이상, advisory_xact_lock 2단)
 
 ### 인플루언서·관리자
-- `influencers` — 인플루언서 프로필. `name`, SNS 계정+팔로워, 주소, `paypal_email`, `primary_sns`, `terms_agreed_at`, `privacy_agreed_at`, `marketing_opt_in` 등
+- `influencers` — 인플루언서 프로필. `name`, SNS 계정+팔로워, 주소, `paypal_email`, `primary_sns`, `terms_agreed_at`, `privacy_agreed_at`, `marketing_opt_in` 등. 홍보 메일 PR 1 추가 컬럼: `unsubscribe_token uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE`(영구 1개 토큰, 메일 수신거부·클릭 추적 익명 호출 식별자), `marketing_unsubscribed_at timestamptz NULL`(수신거부 시각 감사 — 재구독 시 NULL 초기화). 기존 인플 1,398행 백필 완료 (마이그레이션 140)
 - `admins` — 관리자 계정. `auth_id`, `email`, `name`, `role`(super_admin/campaign_admin/campaign_manager)
 - `admin_email_subscriptions` — 관리자별 메일 수신 구독. `(admin_id, mail_kind)` UNIQUE. `mail_kind` 는 `lookup_values(kind='admin_email_kind')` code 참조 (시드 `brand_notify`/`application_cancel`/`application_received`). RLS SELECT 관리자 전체, CUD 본인 또는 super_admin. 헬퍼 `get_subscribed_admin_emails(p_mail_kind)`
 - `admin_notices` — 관리자 공지. `category`(system_update/release/warning/general), `pin`(bool), `title`, `body_html`(Quill rich), `created_by`/`created_at`/`updated_at`, `status CHECK(draft|published)`, `published_at`/`published_by`/`published_by_name`. SELECT RLS 는 published OR `is_super_admin()` OR `created_by=auth.uid()` (draft 는 작성자/super 한정). XSS 방어는 저장+렌더 이중 sanitize
@@ -217,6 +218,14 @@
 - `admin_daily_digest_runs` — 관리자 통합 다이제스트 발송 로그. `digest_date` UNIQUE(중복 호출 차단 + INSERT 선행 mutex) + `status CHECK(sent|skipped_no_data|failed)` + `sections_summary jsonb`(`{received, cancelled, submitted, reprocessed}`) + `recipients_count` + `error_message` + `run_at`. RLS SELECT `is_admin()`, INSERT 는 service_role 만 우회
 - `influencer_daily_digest_runs` / `application_received_admin_digest_runs` — 메일 파이프라인 운영 로그. `digest_date` UNIQUE
 - `deadline_reminder_email_sent` — 영수증/결과물 D-5·D-1 임박 메일 재발송 차단. UNIQUE 4-tuple `(influencer_id, campaign_id, kind, d_minus)`
+- 캠페인 홍보 메일 4종(주 2회 다이제스트, 마이그레이션 139 — PR 1 인프라, Edge Function·cron은 PR 2~5):
+  - `campaign_promo_digest_runs` — 다이제스트 run 로그. `digest_date` UNIQUE(중복 호출 차단 mutex) + `status CHECK(sent|partial|skipped_no_data|failed)` + `included_campaign_ids uuid[]` + `target_influencer_count`/`sent_count`/`skipped_count`/`failed_count` + `error_message` + `triggered_by`(향후 운영자 수동 트리거 대비)
+  - `campaign_promo_digest_sent` — 인플별 발송 결과. `(influencer_id, digest_date)` UNIQUE 로 1통/cron 보장. `status CHECK(sent|skipped|failed)` + `skip_reason`(opt_out/no_email/no_matched_campaign/already_sent) + `included_campaign_ids uuid[]`
+  - `campaign_promo_exposure` — 캠페인×인플×종류별 노출 기록. `(campaign_id, influencer_id, kind)` UNIQUE 로 인플당 캠페인당 최대 2회 보장(`kind CHECK(new|deadline_d1)`). 「관심 없는 캠페인 매일 노출」 방지
+  - `campaign_promo_email_clicks` — CTA 클릭 추적. `(campaign_id, influencer_id)` UNIQUE + `click_count`/`first_clicked_at`/`last_clicked_at`. 클릭된 페어는 다음 다이제스트 매칭에서 자동 제외
+  - 4종 모두 RLS SELECT `is_admin()` 한정, INSERT/UPDATE/DELETE 정책 없음 → service_role만 우회
+  - 헬퍼 함수 4종(마이그레이션 141): `_meets_min_followers`(internal, PUBLIC+anon REVOKE), `get_promo_digest_targets(date)`(authenticated 한정), `mark_promo_digest_sent(...)`(authenticated 한정), `track_promo_click(uuid, uuid)`(익명 anon GRANT)
+  - `influencers.unsubscribe_by_token(uuid)` RPC(익명 anon GRANT, 메일 1-click 수신거부) + `resubscribe_marketing()`(authenticated 본인만, 마이페이지 재구독, 마이그레이션 140)
 - 헬퍼 함수 `_yesterday_kst_window()` STABLE — 어제 KST 윈도우 + 오늘 KST 날짜 반환 (SQL Editor 디버깅용)
 
 ### RLS·인증·세션

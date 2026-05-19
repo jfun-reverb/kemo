@@ -618,18 +618,59 @@ SELECT cron.schedule(
 
 ---
 
-## 14. 구현 결과 (개발 세션이 채울 것)
+## 14. 구현 결과 (PR 1 — DB 인프라)
 
-**구현일:**
-**관련 커밋:**
+**구현일:** 2026-05-19
+**관련 커밋:** (PR 1 커밋 머지 시 추가)
+**개발 DB 적용:** 2026-05-19 ✓ (qysmxtipobomefudyixw)
+**운영 DB 적용:** (PR 1 머지 후 적용 예정)
 
 ### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+
+#### 추가된 것
+- **모든 신규 함수에 `REVOKE EXECUTE ... FROM PUBLIC, anon` 패턴 적용** — Supabase 의 자동 GRANT 정책(`default_privileges` 가 신규 public 스키마 함수에 anon/authenticated/service_role 자동 부여) 대응. 사양서 §10 「nonpublic 함수는 authenticated 한정」 원칙을 실제로 강제하기 위해 PUBLIC 뿐 아니라 anon 도 명시적으로 REVOKE 후 의도된 role 만 GRANT.
+  - anon 차단: `_meets_min_followers`, `get_promo_digest_targets`, `mark_promo_digest_sent`, `resubscribe_marketing`
+  - anon 의도 노출 유지 + REVOKE→GRANT 명시: `unsubscribe_by_token`, `track_promo_click`
+
+#### 빠진 것
+없음 (사양서 §3-1, §3-2, §3-3, §16, §17 모두 구현)
+
+#### 달라진 것
+- **마이그레이션 번호**: 사양서 §9·§17-11 표기 `133·134·135·136` → 실제 파일 **`139·140·141·142`**. 이전 세션이 이미 133~138 까지 사용했기에 번호 충돌 회피.
+- **외래 키 컬럼명**: 사양서 §3-1·§17-4 SQL 초안의 `REFERENCES public.influencers(auth_id)` → 실제 코드 **`REFERENCES public.influencers(id)`**. influencers 의 실제 PK가 `id`(= auth.users.id) 이고, 기존 마이그레이션 059(influencer_flags) 패턴과 동일.
+- **캠페인 채널 컬럼명**: 사양서 §3-3 SQL 초안의 `c.channels LIKE '%instagram%'` → 실제 코드 **`c.channel LIKE '%instagram%'`** (단수). 실제 DB 컬럼은 `campaigns.channel text` (CSV 저장). 141 적용 시 컬럼 미존재 에러로 발견.
+- **`get_promo_digest_targets` 반환 시그니처**: 사양서 §3-3 초안의 `matched_campaign_ids uuid[]` 단일 배열 → §17-4 갱신 사양 **`new_campaign_ids uuid[] + deadline_d1_campaign_ids uuid[]`** 분리 구조. 두 섹션(신규 + 마감 1일전) 분리 발송 정책 반영.
 
 ### 구현 중 기술 결정 사항
-- (초안에 없던 마이그레이션·RLS·DB 구조 결정 등)
+
+1. **Supabase `default_privileges` 자동 GRANT 대응 패턴 표준화**
+   - 신규 public 함수 생성 직후 `REVOKE EXECUTE FROM PUBLIC, anon` → 의도된 role 명시 GRANT.
+   - 향후 모든 신규 함수에 같은 패턴 적용 권장 (보안 표면적 최소화).
+
+2. **`first_active_at` 트리거 BEFORE UPDATE OF status**
+   - `NEW.first_active_at` 직접 수정 가능하도록 BEFORE 사용.
+   - `OLD.status <> 'active' AND NEW.first_active_at IS NULL` 조건으로 첫 전환만 기록 (closed→active 재개 시 원본 시각 보존).
+   - 백필 SQL: `UPDATE WHERE status IN ('active','closed','expired') AND first_active_at IS NULL` 로 9건 자동 채움(개발 DB 기준).
+
+3. **`_meets_min_followers` 함수 시그니처 — 컬럼이 아닌 개별 파라미터**
+   - CTE 안에서 일부 컬럼만 SELECT 하므로 복합 행 타입 전달이 어려움 → 개별 파라미터 8종으로 분리(recruit_type/primary_channel/channels/min_followers + 4개 채널 팔로워).
+
+4. **`array_agg(c.id ORDER BY c.deadline ASC)[1:5]` 패턴**
+   - SQL 안에서 「마감 가까운 순 + 최대 5건」 동시 구현. PostgreSQL 배열 슬라이스 활용.
+
+5. **`FULL OUTER JOIN` 으로 신규·D-1 양 섹션 결합**
+   - 한 인플이 신규 0건 + D-1 3건 또는 신규 5건 + D-1 0건 시나리오 모두 발송 대상에 포함.
+   - WHERE 절에서 양쪽 모두 빈 배열인 행만 제외.
+
+### 운영 적용 체크리스트
+- [ ] 마이그레이션 139·140·141 운영 DB SQL Editor 실행 (개발과 동일 순서)
+- [ ] 운영 DB 검증 SQL 3건 실행 (테이블 4종 / 인플·캠페인 컬럼 / 함수 4종 권한)
+- [ ] 142 cron 등록은 PR 5 — 운영 DB 적용 보류
+- [ ] 운영 적용 후 커밋 본문에 「운영 DB 적용 완료 (date)」 표기
+
+### 후속 보완 (Warning)
+- 사양서 §3-1·§17-4 SQL 초안의 `auth_id`/`channels` 표기는 본 섹션이 정정한 것으로 갈음 (초안 SQL 자체는 이력 보존 차원에서 그대로 유지)
+- Edge Function `notify-campaign-promo-digest` (PR 2) 주석에 qoo10 채널 미처리 명시 예정 (인플 테이블 qoo10 핸들 컬럼 없음)
 
 ---
 
