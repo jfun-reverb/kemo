@@ -384,6 +384,29 @@
     </div>
   </div>
 
+  <!-- ⑯ 캠페인 홍보 메일 다이제스트 (신규 — 2026-05-19 PR 2) -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">캠페인 홍보 메일 (주 2회 다이제스트) <span style="color:#C8789C;font-size:12px;font-weight:600">— NEW 2026-05-19</span></div>
+    <div class="card-desc">자격이 맞는 신규 캠페인과 마감 임박 (D-1) 캠페인을 한 통의 메일로 모아 인플루언서에게 안내. 같은 캠페인은 인플당 최대 2회 (신규 1회 + D-1 1회) 노출 + 클릭한 캠페인은 자동 제외 → 스팸 인식 회피.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">매주 월요일·목요일 한국시간 오전 9시에, 마케팅 수신 동의한 인플루언서 중 자격이 맞는 신규 / 마감 임박 캠페인이 있는 사람에게만 자동 발송합니다. 두 섹션(신규·마감 임박) 모두 0건이면 그 인플은 발송 미실시. 메일 안 카드는 최대 5건씩, 초과분은 「他 N件」 안내로 캠페인 목록 페이지로 유도.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매주 월·목 한국시간 오전 9시 (인플당 1통, 양쪽 섹션 모두 0건이면 미발송)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매주 월·목 UTC 00:00 (= KST 09:00) — '0 0 * * 1,4'</div>
+      <div><b>수신자:</b> get_promo_digest_targets 결과 인플 (marketing_opt_in=true + marketing_unsubscribed_at IS NULL + 자격 매칭)</div>
+      <div><b>언어:</b> JA (친근체)</div>
+      <div><b>동시성:</b> INSERT 선행 mutex (digest_date UNIQUE — 중복 호출 차단) + 200명/배치 chained 자기재호출</div>
+      <div><b>노출 한도:</b> 같은 캠페인 인플당 최대 2회 (campaign_promo_exposure UNIQUE) + 클릭 시 자동 제외 (campaign_promo_email_clicks)</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="campaign-promo-digest.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="campaign-promo-digest.html">원본 (메인)</a>
+    </div>
+  </div>
+
 </div>
 
 <h2>미구현 — 인플루언서 비즈니스 로직 메일 (TODO)</h2>
@@ -411,7 +434,7 @@
   <code>{name}.preview.html</code> — 메일 클라이언트 frame + 샘플 데이터로 렌더된 미리보기<br>
   <br>
   <b>🔄 Edge Function 동기화</b><br>
-  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code> 의 미러본을, 결과물 메일 6종은 <code>notify-deliverable-decision/</code>, 응모 취소·인플 다이제스트·관리자 접수 요약·관리자 통합 다이제스트 4종은 각각 같은 이름 Edge Function 의 <code>_templates/</code> + <code>templates.ts</code> 미러본을 사용. HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
+  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code> 의 미러본을, 결과물 메일 6종은 <code>notify-deliverable-decision/</code>, 응모 취소·인플 다이제스트·관리자 접수 요약·관리자 통합 다이제스트·캠페인 홍보 메일 5종은 각각 같은 이름 Edge Function 의 <code>_templates/</code> + <code>templates.ts</code> 미러본을 사용. HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
 </div>
 
 </body>

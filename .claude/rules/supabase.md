@@ -83,6 +83,21 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
   - 한도 소진 증상: `429 email rate limit exceeded`. Logs & Analytics → Auth에서 확인
   - 대시보드 수동 설정이라 repo에 반영 안 됨 — 재구축 시 이 섹션 참고
 
+## 메일 발송 테스트 환경 정책 (2026-05-19 사용자 명시)
+
+- **개발서버는 환경(코드·DB·Edge Function 배포)만 운영과 동일하게 구축, 실제 발송 테스트는 운영에서만**
+- 신규 메일 파이프라인 Edge Function 작성·머지 시 흐름:
+  1. dev 브랜치 commit + push → 개발서버 코드 자동 배포
+  2. 개발 데이터베이스 SQL Editor 에서 마이그레이션 적용 (환경 동기화 목적)
+  3. `supabase functions deploy <fn> --project-ref qysmxtipobomefudyixw` 로 개발 Edge Function 배포 (환경 동기화 목적)
+  4. **수동 호출·발송 테스트는 건너뜀** — curl / Dashboard Test function 안내 생략
+  5. 운영 dev → main 머지 후 운영 데이터베이스 + Edge Function 배포 + 운영에서 수동 호출로 발송 검증
+- 적용 대상: 캠페인 홍보 메일 같은 **대량 다이제스트·마케팅 메일**. 영수증 검수 메일 등 트랜잭션 메일은 별도 판단
+- 운영에서 첫 수동 호출 시 `*_runs` 로그 + 인박스 도착 + `*_digest_sent` 행을 단계별로 확인
+- cron 자동 등록은 별도 PR (PR 5 패턴)에서 수동 호출 안정성 검증 후 진행
+
+**Why:** 개발서버 DB 에도 실제 인플 데이터가 있어 잘못 발송 시 실수 발송 위험 + Brevo 일일 한도 소모 누적. 운영 적용 단계에서 같은 SQL Editor + 같은 deploy 명령으로 한 번에 검증하는 패턴을 사용자가 선호. 영구 메모리 `feedback_dev_no_mail_test.md` 와 함께 영구 적용.
+
 ## 마이그레이션 관리
 - `supabase/migrations/*.sql` — 영구 보관, 순번 유지, 삭제/이동 금지
 - `supabase/patches/*.sql` — 운영 DB 수동 복구용 one-off (마이그레이션 체인 외)
