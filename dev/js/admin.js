@@ -152,6 +152,13 @@ function friendlyError(msg) {
 // ════════════════════════════════════════════════════════════════════
 
 function switchAdminPane(pane, el, pushHistory) {
+  // Vercel Web Analytics — 관리자 앱 페인별 접속 카운트
+  try {
+    if (typeof window.va === 'function') {
+      window.va('event', { name: 'pv_admin', page: pane });
+    }
+  } catch (e) { /* analytics 실패 무시 */ }
+
   initMultiFilters();
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));

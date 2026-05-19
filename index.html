@@ -9130,6 +9130,13 @@ function navigate(page, pushHistory) {
     pageName = 'detail';
   }
 
+  // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
+  try {
+    if (typeof window.va === 'function') {
+      window.va('event', { name: 'pv_inf', page: pageName });
+    }
+  } catch (e) { /* analytics 실패 무시 */ }
+
   // 브라우저 히스토리에 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
     history.pushState({page}, '', '#' + page);
