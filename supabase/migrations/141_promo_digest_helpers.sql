@@ -118,6 +118,9 @@ $$;
 COMMENT ON FUNCTION public._meets_min_followers(text, text, text, integer, integer, integer, integer, integer) IS
   '[141] 팔로워 수 매칭 헬퍼. primary_channel 기준 (FEATURE_SPEC §10 정책). monitor 캠페인은 항상 true. 개별 컬럼 파라미터로 CTE 행 타입 불일치 방지. SECURITY DEFINER + search_path 고정.';
 
+-- 내부 헬퍼 — anon/authenticated 직접 호출 불필요. Supabase 자동 GRANT 차단 (PUBLIC + anon)
+REVOKE EXECUTE ON FUNCTION public._meets_min_followers(text, text, text, integer, integer, integer, integer, integer) FROM PUBLIC, anon;
+
 
 -- ============================================================
 -- 2. get_promo_digest_targets — 발송 대상자 조회
@@ -165,7 +168,7 @@ AS $$
   new_campaigns AS (
     SELECT
       c.id,
-      c.channels,
+      c.channel,
       c.recruit_type,
       c.min_followers,
       c.primary_channel,
@@ -194,7 +197,7 @@ AS $$
   deadline_d1_campaigns AS (
     SELECT
       c.id,
-      c.channels,
+      c.channel,
       c.recruit_type,
       c.min_followers,
       c.primary_channel,
@@ -265,14 +268,14 @@ AS $$
     WHERE
       -- 채널 매칭: 캠페인 channels CSV 에 인플 등록 채널이 포함 (§3-3 로직)
       (
-        (c.channels LIKE '%instagram%' AND i.ig      IS NOT NULL AND i.ig      <> '')
-        OR (c.channels LIKE '%tiktok%'    AND i.tiktok  IS NOT NULL AND i.tiktok  <> '')
-        OR (c.channels LIKE '%x%'         AND i.x       IS NOT NULL AND i.x       <> '')
-        OR (c.channels LIKE '%youtube%'   AND i.youtube IS NOT NULL AND i.youtube <> '')
+        (c.channel LIKE '%instagram%' AND i.ig      IS NOT NULL AND i.ig      <> '')
+        OR (c.channel LIKE '%tiktok%'    AND i.tiktok  IS NOT NULL AND i.tiktok  <> '')
+        OR (c.channel LIKE '%x%'         AND i.x       IS NOT NULL AND i.x       <> '')
+        OR (c.channel LIKE '%youtube%'   AND i.youtube IS NOT NULL AND i.youtube <> '')
       )
       -- 팔로워 매칭 (monitor 제외)
       AND public._meets_min_followers(
-            c.recruit_type, c.primary_channel, c.channels, c.min_followers,
+            c.recruit_type, c.primary_channel, c.channel, c.min_followers,
             i.ig_followers, i.tiktok_followers, i.x_followers, i.youtube_followers
           )
       -- 응모/거절 제외 (cancelled 는 재응모 가능이므로 포함 — §16-2)
@@ -313,13 +316,13 @@ AS $$
     CROSS JOIN deadline_d1_campaigns c
     WHERE
       (
-        (c.channels LIKE '%instagram%' AND i.ig      IS NOT NULL AND i.ig      <> '')
-        OR (c.channels LIKE '%tiktok%'    AND i.tiktok  IS NOT NULL AND i.tiktok  <> '')
-        OR (c.channels LIKE '%x%'         AND i.x       IS NOT NULL AND i.x       <> '')
-        OR (c.channels LIKE '%youtube%'   AND i.youtube IS NOT NULL AND i.youtube <> '')
+        (c.channel LIKE '%instagram%' AND i.ig      IS NOT NULL AND i.ig      <> '')
+        OR (c.channel LIKE '%tiktok%'    AND i.tiktok  IS NOT NULL AND i.tiktok  <> '')
+        OR (c.channel LIKE '%x%'         AND i.x       IS NOT NULL AND i.x       <> '')
+        OR (c.channel LIKE '%youtube%'   AND i.youtube IS NOT NULL AND i.youtube <> '')
       )
       AND public._meets_min_followers(
-            c.recruit_type, c.primary_channel, c.channels, c.min_followers,
+            c.recruit_type, c.primary_channel, c.channel, c.min_followers,
             i.ig_followers, i.tiktok_followers, i.x_followers, i.youtube_followers
           )
       AND NOT EXISTS (
@@ -384,8 +387,10 @@ AS $$
   JOIN public.influencers i ON i.id = t.influencer_id;
 $$;
 
+-- Supabase 자동 GRANT 차단 (PUBLIC + anon) 후 authenticated 만 명시 GRANT
 -- service_role 은 RLS 우회로 자동 실행 가능
 -- authenticated GRANT 는 향후 운영자 수동 트리거 지원용
+REVOKE EXECUTE ON FUNCTION public.get_promo_digest_targets(date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_promo_digest_targets(date) TO authenticated;
 
 COMMENT ON FUNCTION public.get_promo_digest_targets(date) IS
@@ -417,6 +422,9 @@ AS $$
   -- UNIQUE(influencer_id, digest_date) 충돌 시 무시 — 멱등 보장
 $$;
 
+-- Supabase 자동 GRANT 차단 (PUBLIC + anon) 후 authenticated 만 명시 GRANT
+-- (service_role 은 RLS 우회로 자동 실행 — Edge Function 이 mark 호출)
+REVOKE EXECUTE ON FUNCTION public.mark_promo_digest_sent(uuid, date, text, text, text, uuid[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.mark_promo_digest_sent(uuid, date, text, text, text, uuid[]) TO authenticated;
 
 COMMENT ON FUNCTION public.mark_promo_digest_sent(uuid, date, text, text, text, uuid[]) IS
@@ -464,6 +472,8 @@ BEGIN
 END;
 $$;
 
+-- PostgreSQL 기본 PUBLIC 권한 REVOKE 후 anon+authenticated 명시 GRANT
+REVOKE EXECUTE ON FUNCTION public.track_promo_click(uuid, uuid) FROM PUBLIC;
 -- 익명 GRANT 필수: 메일 CTA 클릭 = 비로그인
 GRANT EXECUTE ON FUNCTION public.track_promo_click(uuid, uuid) TO anon, authenticated;
 
