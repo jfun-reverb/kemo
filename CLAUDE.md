@@ -221,7 +221,7 @@
 - `influencer_daily_digest_runs` / `application_received_admin_digest_runs` — 메일 파이프라인 운영 로그. `digest_date` UNIQUE
 - `deadline_reminder_email_sent` — 영수증/결과물 D-5·D-1 임박 메일 재발송 차단. UNIQUE 4-tuple `(influencer_id, campaign_id, kind, d_minus)`
 - 캠페인 홍보 메일 4종(주 2회 다이제스트, 마이그레이션 139 — PR 1 인프라, Edge Function·cron은 PR 2~5):
-  - `campaign_promo_digest_runs` — 다이제스트 run 로그. `digest_date` UNIQUE(중복 호출 차단 mutex) + `status CHECK(sent|partial|skipped_no_data|failed)` + `included_campaign_ids uuid[]` + `target_influencer_count`/`sent_count`/`skipped_count`/`failed_count` + `error_message` + `triggered_by`(향후 운영자 수동 트리거 대비)
+  - `campaign_promo_digest_runs` — 다이제스트 run 로그. `digest_date` UNIQUE(중복 호출 차단 mutex) + `status CHECK(sent|partial|skipped_no_data|failed)` + `included_campaign_ids uuid[]` + `target_influencer_count`/`sent_count`/`skipped_count`/`failed_count` + `error_message` + `started_at timestamptz DEFAULT now()` + `finished_at timestamptz NULL`(마지막 배치 또는 즉시 종료 시점에만 기록 — chained 중간은 NULL 유지) + `triggered_by`(향후 운영자 수동 트리거 대비)
   - `campaign_promo_digest_sent` — 인플별 발송 결과. `(influencer_id, digest_date)` UNIQUE 로 1통/cron 보장. `status CHECK(sent|skipped|failed)` + `skip_reason`(opt_out/no_email/no_matched_campaign/already_sent) + `included_campaign_ids uuid[]`
   - `campaign_promo_exposure` — 캠페인×인플×종류별 노출 기록. `(campaign_id, influencer_id, kind)` UNIQUE 로 인플당 캠페인당 최대 2회 보장(`kind CHECK(new|deadline_d1)`). 「관심 없는 캠페인 매일 노출」 방지
   - `campaign_promo_email_clicks` — CTA 클릭 추적. `(campaign_id, influencer_id)` UNIQUE + `click_count`/`first_clicked_at`/`last_clicked_at`. 클릭된 페어는 다음 다이제스트 매칭에서 자동 제외

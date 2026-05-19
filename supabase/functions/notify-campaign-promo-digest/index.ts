@@ -515,6 +515,7 @@ Deno.serve(async (req: Request) => {
   // 종료 시 runs UPDATE 헬퍼
   //   targetCount 는 첫 배치에서만 전달 (chained 배치는 잔여 인플만 반환하므로
   //   target_influencer_count 가 덮어씌워지면 실제 전체 대상자 수와 달라짐).
+  //   finishedAt 은 마지막 배치 또는 즉시 종료 시점에만 기록 (chained 중간은 NULL 유지).
   const finalizeRun = async (payload: {
     status: "sent" | "partial" | "skipped_no_data" | "failed";
     targetCount?: number; // 첫 배치만 전달 — chained 배치는 컬럼 유지
@@ -523,6 +524,7 @@ Deno.serve(async (req: Request) => {
     failedCount: number;
     includedCampaignIds: string[];
     errorMessage?: string | null;
+    finishedAt?: string; // hasMore 면 undefined (NULL 유지)
   }) => {
     const updateData: Record<string, unknown> = {
       status: payload.status,
@@ -534,6 +536,9 @@ Deno.serve(async (req: Request) => {
     };
     if (payload.targetCount !== undefined) {
       updateData.target_influencer_count = payload.targetCount;
+    }
+    if (payload.finishedAt !== undefined) {
+      updateData.finished_at = payload.finishedAt;
     }
     const { error } = await sb
       .from("campaign_promo_digest_runs")
@@ -556,6 +561,7 @@ Deno.serve(async (req: Request) => {
           targetCount: 0, sentCount: 0, skippedCount: 0, failedCount: 0,
           includedCampaignIds: [],
           errorMessage: `RPC get_promo_digest_targets: ${rpcError.message}`,
+          finishedAt: new Date().toISOString(),
         });
       }
       return new Response(JSON.stringify({ error: rpcError.message, stage: "rpc" }), {
@@ -572,6 +578,7 @@ Deno.serve(async (req: Request) => {
           status: "skipped_no_data",
           targetCount: 0, sentCount: 0, skippedCount: 0, failedCount: 0,
           includedCampaignIds: [],
+          finishedAt: new Date().toISOString(),
         });
       }
       return new Response(
@@ -813,6 +820,8 @@ Deno.serve(async (req: Request) => {
       failedCount: cumFailed,
       includedCampaignIds,
       errorMessage: errMsg,
+      // 마지막 배치(hasMore=false) 시점에만 finished_at 기록 — chained 중간은 NULL 유지
+      finishedAt: hasMore ? undefined : new Date().toISOString(),
     });
 
     console.log("[notify-campaign-promo] done", {
@@ -843,6 +852,7 @@ Deno.serve(async (req: Request) => {
           targetCount: 0, sentCount: 0, skippedCount: 0, failedCount: 0,
           includedCampaignIds: [],
           errorMessage: `unexpected: ${msg}`,
+          finishedAt: new Date().toISOString(),
         });
       } catch (_finalizeErr) {
         console.error("[notify-campaign-promo] could not finalize after unexpected error");
