@@ -623,3 +623,85 @@ DB 마이그레이션 없음. 다른 메일(brand-application·deliverable-decis
 - 개발 Supabase deploy 후 sales-dev 또는 admin_daily_digest_runs 삭제 + curl 호출로 다이제스트 메일 1통 발송 → 4섹션 모두 4종 정보 + 섹션 1 표 헤더 확인
 - SNS 링크 클릭 시 새 탭 열림 + 정확한 SNS 프로필로 이동 확인
 - 인플루언서 이름 한쪽만 등록된 케이스 (예: 한자만 등록) 도 「-」 폴백 정상 표시
+
+## 19. 후속 패치 — 섹션 2/3/4 캠페인 그룹화 + 표 + 제출 내역 링크 (2026-05-19)
+
+### 배경
+
+§18 적용 후 사용자 지적: "응모취소·결과물 제출·재처리도 한 캠페인에 인플루언서가 1건 이상일 수 있는데" — 카드 1건당 1인 표시는 같은 캠페인 다중 사건을 시각적으로 묶지 못함. 섹션 1과 동일하게 「캠페인 그룹 + 인플 N행 표」 패턴으로 통일 필요.
+
+추가 지적: "영수증과 게시 url은 제출내역 링크(영수증인 이미지 링크, 게시URL은 게시 링크)를 추가하고 영수증의 경우 인플루언서가 입력한 정보(금액 등도 나오게)" — 섹션 3 표에 「제출 내역」 컬럼 신설하고 종류별 분기 렌더.
+
+### 변경
+
+#### 섹션 2/3/4 구조 통일
+
+섹션 1 received 패턴 미러:
+- 캠페인별로 그룹화 (`grouped` Map)
+- 캠페인 카드 헤더: 캠페인 번호 · 모집 타입 · 캠페인 제목 + 「취소/제출/재처리 N건」 카운트
+- 본문: 표 (헤더 1행 + 본문 N행)
+
+phase/kind/type 그룹 헤더 폐기 → 표 컬럼 안 컬러 칩으로 흡수:
+- phase 칩 helper: `phaseChipHtml(phase)` — purchase/visit/post/other
+- kind 칩 helper: `kindChipHtml(kind)` — receipt/review_image/post/other
+- reprocess type 칩 helper: `reprocessTypeChipHtml(type)` — deliv_resubmit/deliv_revert/app_revert
+
+색상 코드 모두 기존 phaseColors / 신규 KIND_CHIP / REPROCESS_TYPE_CHIP 상수 테이블에서 가져옴.
+
+#### 섹션 3 「제출 내역」 컬럼
+
+7컬럼: 이름(한자) / 이름(가나) / 이메일 / SNS / 종류 / **제출 내역** / 제출시각
+
+제출 내역 셀 `submitContentCellHtml(d: DeliverableInfo)`:
+- `kind=receipt`: `<a>영수증 이미지 보기</a>` 링크 + 작은 글씨 「주문 X · 구매일 · 금액 ¥N」
+- `kind=post`: `<a>게시 보기</a>` 링크
+- `kind=review_image`: `<a>리뷰 이미지 보기</a>` 링크
+- 그 외 또는 URL 없음: 「-」 또는 「이미지/URL 없음」 회색 안내
+
+URL 안전성: `safeExternalUrl(raw)` 가 http/https 만 통과 (javascript:, data: 등 차단). 모든 `<a>` 에 `target="_blank" rel="noopener noreferrer"`.
+
+구매정보 (영수증 한정): `formatYen(amount)` 가 0엔/null 안전 처리. 셀 안 한 줄 표시 (주문번호·구매일·금액 모두 있으면 「주문 X · 구매일 · 금액 ¥N」, 일부만 있으면 있는 것만 표시).
+
+#### DeliverableInfo 확장
+
+```typescript
+interface DeliverableInfo {
+  id, kind, campaign_id, user_id,
+  receipt_url: string | null,     // 영수증 + 리뷰 이미지 공용
+  post_url: string | null,
+  order_number: string | null,    // 마이그레이션 128 이후
+  purchase_date: string | null,
+  purchase_amount: number | string | null,
+}
+```
+
+`deliverables` 쿼리 select 컬럼에 5개 추가. 다른 함수 영향 없음.
+
+#### 보안·정책 관점
+
+- 영수증 구매정보 노출: 2026-04-30 마스킹 정책이 2026-05-15 마이그레이션 128 (`docs/specs/2026-05-14-receipt-required-fields.md`) 에서 정책 해제 — 마켓 주문 대조 위해 다시 노출. 본 패치는 그 정책에 부합
+- receipt_url / post_url: 인플루언서가 등록한 URL 그대로 노출. Supabase Storage 가 public bucket 이면 즉시 열람 가능, signed URL 이면 만료 가능 (만료 시 운영자가 관리자 결과물 검수 페인에서 재확인). 별도 signed URL 재발급 로직은 추가하지 않음 (운영 데이터로 결정)
+- 메일 자체는 관리자만 수신 (수정 §17 패치로 1통씩 분리 발송) → 외부 노출 위험 없음
+
+### 변경 파일
+
+- `docs/email-templates/admin-daily-digest.row-cancelled.html` (표 7컬럼 구조 전환)
+- `docs/email-templates/admin-daily-digest.row-submitted.html` (표 7컬럼 + 제출 내역)
+- `docs/email-templates/admin-daily-digest.row-reprocessed.html` (표 7컬럼)
+- `supabase/functions/notify-admin-daily-digest/_templates/*` 3개 (sync 스크립트 자동)
+- `supabase/functions/notify-admin-daily-digest/templates.ts` (sync 자동)
+- `supabase/functions/notify-admin-daily-digest/index.ts` (3개 섹션 render 재작성 + 칩 헬퍼 3종 + `submitContentCellHtml` + `safeExternalUrl` + `formatYen` + DeliverableInfo 확장)
+- `docs/email-templates/admin-daily-digest.preview.html` (섹션 2/3/4 본문 통째 갱신)
+- `CLAUDE.md` 한 줄
+
+### 미사용 헬퍼
+
+`influencerNameFull` / `snsLink` 는 이번 패치로 호출처 0이 되지만 향후 다른 메일에서 재사용 가능성 있어 유지.
+
+### 검증
+
+- 개발 Supabase deploy 후 미리보기 페이지 https://dev.globalreverb.com/docs/email-templates/admin-daily-digest.preview.html 시각 확인
+- 4섹션 모두 캠페인 그룹 카드 + 표 형식 + 헤더 동일 패턴
+- 섹션 3 영수증 행에 이미지 링크 + 주문번호·구매일·금액 정상 표시
+- 섹션 3 게시 URL 행에 게시 링크 정상 표시
+- 같은 캠페인에 인플 N명 케이스 (미리보기 시나리오: 섹션 2 2명·섹션 3 3명·섹션 4 2명 모두 같은 캠페인 B0018-A002-C001) 시각 확인
