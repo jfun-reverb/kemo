@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>미리보기 — 캠페인 홍보 메일 다이제스트 (JA)</title>
+<style>
+  body{font-family:'Hiragino Sans','Noto Sans JP',Arial,sans-serif;background:#f5f5f5;padding:40px 20px;color:#222}
+  .preview-wrap{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08);padding:32px}
+  .preview-note{font-size:11px;color:#888;border-left:3px solid #C8789C;padding:8px 12px;margin-bottom:24px;background:#FFF5F8;line-height:1.6}
+  .preview-subject{font-size:12px;color:#666;background:#FAFAFC;border:1px solid #E2E7F2;border-radius:6px;padding:8px 12px;margin-bottom:18px}
+  .preview-subject b{color:#222}
+</style>
+</head>
+<body>
+<div class="preview-wrap">
+  <div class="preview-note">
+    이 페이지는 메일 본문 미리보기입니다. 실제 메일은 Brevo SMTP 로 발송되며,
+    Edge Function <code>notify-campaign-promo-digest</code> 가 placeholder 치환을 담당합니다.<br>
+    아래 본문은 신규 3건 + 마감 임박 2건 + 「他 1件」 안내가 있는 샘플 시나리오입니다.
+    실제 메일은 한쪽 0건이면 그 섹션이 통째로 생략되고, 양쪽 0건이면 발송 자체가 일어나지 않습니다.<br>
+    수신거부 / 마이페이지 설정 링크는 <code>#</code> 더미입니다.
+  </div>
+  <div class="preview-subject">
+    <b>件名:</b> [REVERB JP] 新着キャンペーン3件 / 締切間近2件
+  </div>
+
+  <!-- 메인 wrapper (campaign-promo-digest.html) -->
+  <div style="font-family:'Hiragino Sans','Noto Sans JP',Arial,sans-serif;color:#222;max-width:600px;margin:0 auto">
+    <h2 style="color:#C8789C;margin:0 0 6px;font-size:20px">キャンペーン情報のお知らせ</h2>
+    <p style="margin:0 0 18px;color:#666;font-size:13px">REVERB JP からの最新キャンペーン情報をお届けします</p>
+
+    <p style="margin:0 0 14px;font-size:14px;line-height:1.6">
+      <strong>桜</strong> 様<br>
+      新しいキャンペーンが届きました!気になるキャンペーンをチェックしてみてくださいね。
+    </p>
+
+    <!-- ───────────── 섹션 1: 新着キャンペーン ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#FFF5F8;border-left:4px solid #C8789C;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 新着キャンペーン</span>
+        <span style="font-size:12px;color:#C8789C;font-weight:700">3件</span>
+      </div>
+      <div style="padding:14px;background:#fff">
+
+        <!-- 카드 1: 리뷰어 (monitor) — 잔여 슬롯 표시 -->
+        <div style="border:1px solid #E2E7F2;border-radius:10px;padding:14px;margin-bottom:14px;background:#fff">
+          <img src="https://via.placeholder.com/520x200/FFE4E9/C8789C?text=Sample+Beauty+Serum" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">
+            <span style="background:#FFE4E9;color:#C8789C;padding:2px 8px;border-radius:4px;font-weight:700">レビュアー</span>
+            <span style="margin-left:6px">バイオオン</span>
+          </div>
+          <h3 style="font-size:15px;font-weight:700;margin:6px 0 10px;line-height:1.4;color:#222">バイオオン8X 毛穴保湿美容液 30ml</h3>
+          <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px">
+            <tr><td style="color:#888;width:80px;padding:3px 0">報酬</td><td style="padding:3px 0">商品提供 + 5,000円</td></tr>
+            <tr><td style="color:#888;padding:3px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:3px 0">あと7日</td></tr>
+            <tr><td style="color:#888;padding:3px 0">残り枠</td><td style="padding:3px 0">3/10名</td></tr>
+          </table>
+          <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px">詳細を見る</a>
+        </div>
+
+        <!-- 카드 2: 기프팅 (gifting) — 잔여 슬롯 미표시 -->
+        <div style="border:1px solid #E2E7F2;border-radius:10px;padding:14px;margin-bottom:14px;background:#fff">
+          <img src="https://via.placeholder.com/520x200/E4F0FF/1F5DBF?text=Korean+Snack+Box" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">
+            <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700">ギフティング</span>
+            <span style="margin-left:6px">韓国スナック</span>
+          </div>
+          <h3 style="font-size:15px;font-weight:700;margin:6px 0 10px;line-height:1.4;color:#222">韓国スナック詰め合わせボックス 春の新作</h3>
+          <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px">
+            <tr><td style="color:#888;width:80px;padding:3px 0">報酬</td><td style="padding:3px 0">商品提供のみ</td></tr>
+            <tr><td style="color:#888;padding:3px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:3px 0">あと5日</td></tr>
+          </table>
+          <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px">詳細を見る</a>
+        </div>
+
+        <!-- 카드 3: 방문형 (visit) -->
+        <div style="border:1px solid #E2E7F2;border-radius:10px;padding:14px;margin-bottom:14px;background:#fff">
+          <img src="https://via.placeholder.com/520x200/E0F1E4/1F7A3D?text=Cafe+Visit+Sample" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">
+            <span style="background:#E0F1E4;color:#1F7A3D;padding:2px 8px;border-radius:4px;font-weight:700">訪問型</span>
+            <span style="margin-left:6px">カフェソウル</span>
+          </div>
+          <h3 style="font-size:15px;font-weight:700;margin:6px 0 10px;line-height:1.4;color:#222">韓国カフェソウル新宿店 新メニュー体験</h3>
+          <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px">
+            <tr><td style="color:#888;width:80px;padding:3px 0">報酬</td><td style="padding:3px 0">食事代 + 3,000円</td></tr>
+            <tr><td style="color:#888;padding:3px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:3px 0">あと10日</td></tr>
+          </table>
+          <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px">詳細を見る</a>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ───────────── 섹션 2: 締切間近キャンペーン ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#FFF5F8;border-left:4px solid #E8344E;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 締切間近キャンペーン</span>
+        <span style="font-size:12px;color:#E8344E;font-weight:700">2件</span>
+      </div>
+      <div style="padding:14px;background:#fff">
+
+        <!-- 카드 1: D-1 칩 포함 -->
+        <div style="border:1px solid #E2E7F2;border-radius:10px;padding:14px;margin-bottom:14px;background:#fff">
+          <img src="https://via.placeholder.com/520x200/FFE4E9/E8344E?text=K-Beauty+Lipstick" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">
+            <span style="background:#FFE4E9;color:#C8789C;padding:2px 8px;border-radius:4px;font-weight:700">レビュアー</span>
+            <span style="margin-left:6px">K-ビューティー</span>
+            <span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">締切間近 D-1</span>
+          </div>
+          <h3 style="font-size:15px;font-weight:700;margin:6px 0 10px;line-height:1.4;color:#222">K-ビューティー リップスティック新色5本セット</h3>
+          <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px">
+            <tr><td style="color:#888;width:80px;padding:3px 0">報酬</td><td style="padding:3px 0">商品提供 + 4,500円</td></tr>
+            <tr><td style="color:#888;padding:3px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:3px 0">明日まで</td></tr>
+            <tr><td style="color:#888;padding:3px 0">残り枠</td><td style="padding:3px 0">2/8名</td></tr>
+          </table>
+          <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px">詳細を見る</a>
+        </div>
+
+        <!-- 카드 2: D-1 칩 포함 + 기프팅 -->
+        <div style="border:1px solid #E2E7F2;border-radius:10px;padding:14px;margin-bottom:14px;background:#fff">
+          <img src="https://via.placeholder.com/520x200/E4F0FF/1F5DBF?text=Wellness+Tea+Set" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block">
+          <div style="font-size:11px;color:#888;margin-bottom:6px">
+            <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700">ギフティング</span>
+            <span style="margin-left:6px">ハーブティー</span>
+            <span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">締切間近 D-1</span>
+          </div>
+          <h3 style="font-size:15px;font-weight:700;margin:6px 0 10px;line-height:1.4;color:#222">ウェルネスハーブティー アソートセット 韓方茶</h3>
+          <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px">
+            <tr><td style="color:#888;width:80px;padding:3px 0">報酬</td><td style="padding:3px 0">商品提供のみ</td></tr>
+            <tr><td style="color:#888;padding:3px 0">締切</td><td style="color:#E8344E;font-weight:700;padding:3px 0">明日まで</td></tr>
+          </table>
+          <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px">詳細を見る</a>
+        </div>
+
+        <!-- 「他 N件」 안내 -->
+        <p style="margin:8px 0 0;text-align:center;font-size:12px;color:#888">
+          他 1件のキャンペーンも公開中です
+        </p>
+
+      </div>
+    </div>
+
+    <div style="text-align:center;margin:24px 0">
+      <a href="#" style="display:inline-block;background:#C8789C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">すべてのキャンペーンを見る</a>
+    </div>
+
+    <hr style="border:none;border-top:1px solid #EEE;margin:24px 0">
+
+    <div style="font-size:11px;color:#999;line-height:1.7">
+      <p style="margin:0 0 10px;font-weight:700;color:#666">発信元</p>
+      <p style="margin:0 0 14px">
+        株式会社ジェイファン (JFUN Corp.)<br>
+        ソウル特別市江南区テヘラン路 (本社)<br>
+        お問い合わせ: <a href="mailto:noreply@globalreverb.com" style="color:#C8789C;text-decoration:none">noreply@globalreverb.com</a>
+      </p>
+
+      <p style="margin:0 0 10px;font-weight:700;color:#666">配信停止</p>
+      <p style="margin:0 0 14px">
+        キャンペーン情報の配信を停止する場合は<a href="#" style="color:#C8789C;text-decoration:none;font-weight:700">こちら</a>から。<br>
+        マイページから設定を変更することもできます: <a href="#" style="color:#C8789C;text-decoration:none">メール受信設定</a>
+      </p>
+
+      <p style="margin:0;color:#BBB;font-size:10px">
+        本メールは自動配信されます。返信いただいてもご対応できません。<br>
+        2024年5月にマーケティング情報配信に同意いただきました
+      </p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

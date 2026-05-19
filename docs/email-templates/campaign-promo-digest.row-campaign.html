@@ -1,0 +1,45 @@
+<!--
+  Row partial: 캠페인 카드 1개 (新着 섹션, 締切間近 섹션 공통 사용)
+  Edge Function 이 캠페인별로 본 견본을 1회 render.
+
+  D-1 칩은 deadline_d1 섹션에서만 채움. 신규 섹션 카드에서는 d1_chip_html = "" (빈 문자열).
+  slots 행은 monitor (리뷰어) 캠페인에서만 채움. 다른 타입은 slots_row_html = "".
+
+  Row Placeholders:
+    {{img_url}}              캠페인 썸네일 (Supabase Storage URL, safeExternalUrl 검증 통과)
+    {{recruit_type_ja}}      모집 타입 (レビュアー / ギフティング / 訪問型)
+    {{type_chip_bg}}         모집 타입 칩 배경색
+    {{type_chip_fg}}         모집 타입 칩 글자색
+    {{brand}}                브랜드명
+    {{title}}                캠페인 제목
+    {{d1_chip_html}}         「締切間近 D-1」 칩 HTML (신규 섹션은 "", D-1 섹션만 채움)
+    {{reward}}               리워드 표기
+    {{deadline_label}}       마감 표기 (「あと N日」 또는 「明日まで」)
+    {{slots_row_html}}       잔여 슬롯 행 (monitor 만 채움, 다른 타입은 "")
+    {{detail_url}}           캠페인 상세 URL (?promo_token={token} 포함)
+-->
+<div style="border:1px solid #E2E7F2;border-radius:10px;padding:14px;margin-bottom:14px;background:#fff">
+  <img src="{{img_url}}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block">
+
+  <div style="font-size:11px;color:#888;margin-bottom:6px">
+    <span style="background:{{type_chip_bg}};color:{{type_chip_fg}};padding:2px 8px;border-radius:4px;font-weight:700">{{recruit_type_ja}}</span>
+    <span style="margin-left:6px">{{brand}}</span>
+    {{d1_chip_html}}
+  </div>
+
+  <h3 style="font-size:15px;font-weight:700;margin:6px 0 10px;line-height:1.4;color:#222">{{title}}</h3>
+
+  <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px">
+    <tr>
+      <td style="color:#888;width:80px;padding:3px 0">報酬</td>
+      <td style="padding:3px 0">{{reward}}</td>
+    </tr>
+    <tr>
+      <td style="color:#888;padding:3px 0">締切</td>
+      <td style="color:#E8344E;font-weight:700;padding:3px 0">{{deadline_label}}</td>
+    </tr>
+    {{slots_row_html}}
+  </table>
+
+  <a href="{{detail_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px">詳細を見る</a>
+</div>
