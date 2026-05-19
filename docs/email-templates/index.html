@@ -298,24 +298,24 @@
     </div>
   </div>
 
-  <!-- ⑫ 응모 취소 — 일일 요약 (관리자) -->
-  <div class="card">
+  <!-- ⑫ 응모 취소 — 일일 요약 (관리자) [DEPRECATED 2026-05-18] -->
+  <div class="card disabled">
     <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">응모 취소 — 일일 요약 (관리자)</div>
-    <div class="card-desc">전일 한국시간 0~24시 동안 구매·방문·게시 단계 응모 취소를 모아 관리자에게 1통 발송. 0건이면 미발송.</div>
+    <div class="card-title">응모 취소 — 일일 요약 (관리자) <span style="color:#a06a14;font-size:12px;font-weight:600">— DEPRECATED 2026-05-18</span></div>
+    <div class="card-desc">[운영 안정화 2주 후 별도 정리 PR 에서 삭제 예정] 「⑮ 관리자 통합 다이제스트」 §2 응모 취소 섹션으로 흡수. cron 만 해제되고 Edge Function 코드는 롤백 대비 보존.</div>
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
-      <div class="cc-text">인플루언서가 어제 캠페인 응모를 취소한 게 있으면, 그 목록을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다.</div>
-      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (전일 0~24시 분 모아서 1통, 0건이면 미발송)</div>
+      <div class="cc-text">⑮ 통합 다이제스트가 응모 취소를 섹션 형태로 포함합니다. 본 함수는 cron 해제 상태이며 호출되지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> (해제됨 — 통합 다이제스트가 KST 09:00 발송 시 §2 섹션으로 포함)</div>
     </div>
     <div class="card-meta">
-      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
-      <div><b>수신자:</b> get_subscribed_admin_emails('application_cancel') + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>트리거:</b> (cron 해제)</div>
+      <div><b>수신자:</b> (해당 사항 없음)</div>
       <div><b>언어:</b> KO</div>
     </div>
     <div class="card-actions">
-      <a class="btn btn-primary" href="application-cancelled-daily.preview.html">미리보기</a>
-      <a class="btn btn-ghost" href="application-cancelled-daily.html">원본</a>
+      <a class="btn btn-ghost" href="application-cancelled-daily.preview.html">미리보기 (참조용)</a>
+      <a class="btn btn-ghost" href="application-cancelled-daily.html">원본 (참조용)</a>
     </div>
   </div>
 
@@ -341,24 +341,46 @@
     </div>
   </div>
 
-  <!-- ⑭ 캠페인 신청 접수 — 관리자 일일 요약 (신규 — 2026-05-18) -->
-  <div class="card">
+  <!-- ⑭ 캠페인 신청 접수 — 관리자 일일 요약 [DEPRECATED 2026-05-18] -->
+  <div class="card disabled">
     <div class="card-tag tag-infl">Influencer</div>
-    <div class="card-title">캠페인 신청 접수 — 관리자 일일 요약</div>
-    <div class="card-desc">전일 한국시간 0~24시 동안 들어온 신청을 캠페인별로 그룹화해서 관리자에게 1통 발송. 0건이면 미발송.</div>
+    <div class="card-title">캠페인 신청 접수 — 관리자 일일 요약 <span style="color:#a06a14;font-size:12px;font-weight:600">— DEPRECATED 2026-05-18</span></div>
+    <div class="card-desc">[운영 안정화 2주 후 별도 정리 PR 에서 삭제 예정] 「⑮ 관리자 통합 다이제스트」 §1 신청 접수 섹션으로 흡수. cron 만 해제되고 Edge Function 코드는 롤백 대비 보존.</div>
     <div class="card-condition">
       <div class="cc-label">언제 보내요?</div>
-      <div class="cc-text">인플루언서가 어제 응모한 캠페인 목록을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다.</div>
-      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (전일 신청 1통, 0건이면 미발송)</div>
+      <div class="cc-text">⑮ 통합 다이제스트가 신청 접수를 섹션 형태로 포함합니다. 본 함수는 cron 해제 상태이며 호출되지 않습니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> (해제됨 — 통합 다이제스트가 KST 09:00 발송 시 §1 섹션으로 포함)</div>
     </div>
     <div class="card-meta">
-      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
-      <div><b>수신자:</b> get_subscribed_admin_emails('application_received') + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>트리거:</b> (cron 해제)</div>
+      <div><b>수신자:</b> (해당 사항 없음)</div>
       <div><b>언어:</b> KO</div>
     </div>
     <div class="card-actions">
-      <a class="btn btn-primary" href="application-received-admin-daily.preview.html">미리보기</a>
-      <a class="btn btn-ghost" href="application-received-admin-daily.html">원본</a>
+      <a class="btn btn-ghost" href="application-received-admin-daily.preview.html">미리보기 (참조용)</a>
+      <a class="btn btn-ghost" href="application-received-admin-daily.html">원본 (참조용)</a>
+    </div>
+  </div>
+
+  <!-- ⑮ 관리자 통합 다이제스트 (신규 — 2026-05-18 PR 2) -->
+  <div class="card">
+    <div class="card-tag tag-infl">Influencer</div>
+    <div class="card-title">관리자 일일 통합 다이제스트 <span style="color:#1F5DBF;font-size:12px;font-weight:600">— NEW 2026-05-18</span></div>
+    <div class="card-desc">신청 접수 + 응모 취소 + 결과물 제출 + 재처리 일감 4섹션을 한 통으로 통합 발송. 기존 ⑫·⑭ 흡수 + 결과물·재처리 신규 섹션 추가. 4섹션 모두 0건이면 미발송.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">어제 한국시간 0~24시 동안 일어난 관리자 일감을 모아서 다음 날 아침 9시에 관리자에게 한 통으로 보냅니다. 신청 접수·응모 취소·결과물 제출·재처리(재제출/되돌리기) 모두 한 메일에 섹션 형태로 모아 안내합니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 매일 한국시간 오전 9시 (관리자당 1통, 4섹션 모두 0건이면 미발송)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> pg_cron 매일 UTC 00:00 (= KST 09:00)</div>
+      <div><b>수신자:</b> get_subscribed_admin_emails('application_cancel') ∪ get_subscribed_admin_emails('application_received') + NOTIFY_ADMIN_EMAILS</div>
+      <div><b>언어:</b> KO</div>
+      <div><b>동시성:</b> INSERT 선행 mutex (digest_date UNIQUE — 메일 중복 발송 차단)</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="admin-daily-digest.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="admin-daily-digest.html">원본 (메인)</a>
     </div>
   </div>
 
@@ -389,7 +411,7 @@
   <code>{name}.preview.html</code> — 메일 클라이언트 frame + 샘플 데이터로 렌더된 미리보기<br>
   <br>
   <b>🔄 Edge Function 동기화</b><br>
-  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code> 의 미러본을, 결과물 메일 6종은 <code>notify-deliverable-decision/</code>, 응모 취소·인플 다이제스트·관리자 접수 요약 3종은 각각 같은 이름 Edge Function 의 <code>_templates/</code> + <code>templates.ts</code> 미러본을 사용. HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
+  광고주 메일 3종은 <code>supabase/functions/notify-brand-application/_templates/</code> 의 미러본을, 결과물 메일 6종은 <code>notify-deliverable-decision/</code>, 응모 취소·인플 다이제스트·관리자 접수 요약·관리자 통합 다이제스트 4종은 각각 같은 이름 Edge Function 의 <code>_templates/</code> + <code>templates.ts</code> 미러본을 사용. HTML 수정 후 <code>bash scripts/sync-email-templates.sh</code> 실행 필수. 자세한 가이드는 <a href="README.md">README.md</a> 참고.
 </div>
 
 </body>

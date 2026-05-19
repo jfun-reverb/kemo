@@ -2,8 +2,8 @@
 
 - **작성일**: 2026-05-13
 - **작성**: 기획 세션
-- **상태**: 개발 착수 전 (미구현)
-- **다음 마이그레이션 번호**: 117
+- **상태**: ✅ **운영 배포 완료 (마이그레이션 114~116, 2026-05-12)** — `payment_flags jsonb` 컬럼 + 자동 재계산 트리거 + `recalc_brand_app_payment_flags()` 원격 호출 함수 + 신청 목록 입금여부 칩 토글 UI. 코드(admin.js)는 dev 잠재, main merge 보류 중
+- **실제 마이그레이션 번호**: 114~116 (117~121이 다른 기능에 먼저 사용됨)
 
 ---
 
@@ -322,3 +322,38 @@ SELECT refresh_brand_app_product_payment_flags('<테스트 신청 id>');
 
 - 신청 단위 입금 완료 배지 (모든 제품이 완료일 때 신청 전체 표시) — 현재 사용 사례 없음, 추후 추가
 - 제품 10개 이상 케이스 스크롤 처리 — 대부분 1~3개라 일단 자연 노출
+
+---
+
+## 11. 구현 결과
+
+**구현일**: 2026-05-12 (단일 세션)
+**운영 적용일**: 2026-05-12 (양 DB)
+**관련 커밋 (시간순)**:
+- `0ad9f29 feat(brand-survey): per-product payment_flags (migration 117)` — 사양서 작성 시점엔 「migration 117」 이 다음 번호였으나 실제 적용 시 다른 기능 먼저 117 사용 → 본 작업은 마이그레이션 114~116 으로 분리 배정
+- `776c243 fix(brand-survey): auto-sync payment_flags when products change` — 트리거 시점 보강
+- `87cd6fb fix(brand-survey): refresh resets all 4 flags + REVERB pink chip color` — 새로고침 RPC 동작 변경 + UI 색상
+- `0d5a636 feat(brand-survey): add 입금여부 column with toggle chips + auto-fill` — UI 칩 토글 컬럼 완성
+
+**관련 마이그레이션**:
+- 114: `payment_flags jsonb NOT NULL DEFAULT '{}'` 컬럼 추가 + 헬퍼 `calc_brand_app_payment_flags(products)` + 원격 호출 함수 `recalc_brand_app_payment_flags(application_id)` + 기존 행 백필
+- 115: 새로고침 원격 호출 함수 동작 변경 — free 보존 → false 리셋 (4종 모두 products 합계로 완전 초기화)
+- 116: `trg_brand_app_auto_recalc_payment_flags BEFORE INSERT OR UPDATE OF products` 트리거 — products 변경 시 recruit/product/transfer 자동 재계산, free 키는 OLD 값 보존(관리자 명시 토글 보호)
+
+### 초안 대비 변경 사항
+- **추가된 것**:
+  - 트리거(116) 추가 — 초안의 「products 변경 시 입금여부 자동 재계산」 결정에 따른 정착. free 키 보존 로직은 사양서 §3 「관리자 명시 토글 보호」 결정대로
+  - 입금여부 칩 색상 — 무료모집 칩만 초록 톤(#E8F5E9/#16A34A) 차별화, 나머지 3종은 REVERB pink (sa사용자 결정)
+- **빠진 것**:
+  - 신청 단위 입금 완료 배지 (§10 제외 항목으로 명시) — 현재 사용 사례 없어서 미구현 유지
+- **달라진 것**:
+  - 마이그레이션 번호 분할 — 사양서엔 「migration 117」 단일로 설계했으나 실제는 114(테이블+백필) + 115(refresh RPC) + 116(트리거) 3단계로 분리 적용. 함수 정의·트리거 등록을 단계별로 검증하면서 안전하게 적용
+
+### 구현 중 기술 결정 사항
+- `payment_flags` 가 jsonb 구조라 4종 (`recruit`/`product`/`transfer`/`free`) 키 모두 boolean. 신청 단위 1세트 vs 제품 단위 4세트의 트레이드오프 → 초안의 제품 단위 결정 유지
+- `auto_recalc_brand_app_payment_flags` 트리거가 BEFORE INSERT OR UPDATE — products jsonb 변경 시 자동 재계산
+- `free` 키는 자동 재계산 시 보존됨 — 관리자 명시 토글로만 변경 가능 (자동 false 리셋 방지)
+- 컬럼명 「입금여부」 → 「입금 정보」 라벨 변경 (2026-05-15 mig 126 의 paid_at 추가 시 통일)
+
+### 후속 작업
+- 마이그레이션 126 (2026-05-15): 「입금여부」 컬럼이 실제로는 입금일 의미로 쓰여서 별도 `paid_at` 컬럼 분리. 본 사양의 4플래그와 별개로 입금 날짜 명시화

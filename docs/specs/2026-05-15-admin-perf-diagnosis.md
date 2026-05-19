@@ -2,8 +2,8 @@
 
 **작성일:** 2026-05-15
 **작성자:** 기획 세션
-**측정 담당:** 개발 세션 (TBD)
-**상태:** 진단 단계 (개선안 사양서는 진단 결과 후 별도 작성)
+**측정 담당:** 개발 세션 (완료 — 2026-05-15)
+**상태:** ✅ **진단 완료 + 긴급 2건 해결 (2026-05-15)** — 광고주 신청 페인 중복 요청(PR #205) + 정렬 인덱스 5종(마이그레이션 127) 운영 배포 완료. 잔여 개선안(대시보드 109건 요청 통합 등)은 §7 참조
 
 ---
 
@@ -246,15 +246,15 @@ brand_applications?select=id&status=eq.new  0.8 KB   189 ms  ← 2회
 | 데이터 누적 (최근 30일에 99% 폭증) | ✅ 적중 (applications 2,671/30d, influencers 1,378/30d) |
 | 전건 fetch (PostgREST 1000-row cap + range pagination) | ✅ 적중 (applications 3 round-trip, influencers 2 round-trip) |
 | DB 쿼리 자체가 병목 | ❌ 빗나감 (현재 데이터 양에선 DB Execution 모두 < 20ms, 캐시 hit) |
-| **(예상 외) 광고주 신청 페인 중복 fetch 회귀** | 🚨 **발견** — 모든 fetch 가 2번 발생 |
+| **(예상 외) 광고주 신청 페인 중복 fetch 회귀** | 🚨 발견 → ✅ **PR #205 (2026-05-15) 수정 완료** (14→8 reqs) |
 | **(예상 외) 대시보드 109 requests / 4 MB 숨은 비용** | 🚨 **발견** — 사용자 체감 안 되지만 가장 큰 페이로드 |
 
 ### 6-2. 주요 병목 (우선순위 순)
 
-1. **🚨 광고주 신청 페인 중복 fetch (회귀)** — 페인 진입 시 brand_applications·brand_application_history·get_brand_app_memo_summaries·status=eq.new 카운트 4종이 모두 2번씩 호출됨. **즉시 수정 가능한 작은 PR**. 마이그레이션 122~126 작업 중 useEffect/IntersectionObserver/loadBrandApplications 호출 흐름이 두 번 트리거되도록 변경됐을 가능성. 코드 추적 필요
-2. **🟡 대시보드 109 requests / 4 MB** — KPI 카드 8개·차트·도넛·최근 신청 5건·장기 대기 등이 각각 별도 fetch. 통합 RPC `get_admin_dashboard_summary()` 하나로 묶을 수 있음. 사용자 체감 안 되는 숨은 비용
-3. **🟡 신청 관리 1.7 MB / 52 requests** — applications 2,673 행. 현재 client-side 전건 fetch + 정렬·필터. 서버 페이징 + 기본 필터(예: 최근 30일·pending 만) 도입 시 큰 개선
-4. **🟢 인덱스 5종 누락** — 현재 데이터 양에선 Seq Scan 빠름 (< 20ms). 데이터 누적 (6개월 후 1만 행+) 대비 인덱스 추가 권장. 작은 마이그레이션
+1. ✅ **광고주 신청 페인 중복 fetch (회귀) — PR #205 완료**: `loadBrandApplications` promise 캐싱 guard 로 차단. 14→8 reqs
+2. ✅ **인덱스 5종 누락 — 마이그레이션 127 완료**: applications EXPLAIN ANALYZE Seq Scan 19.3ms → Index Scan 1.9ms (~10배 ↑). 데이터 누적 (6개월 후 1만 행+) 대비
+3. **🟡 대시보드 109 requests / 4 MB** — KPI 카드 8개·차트·도넛·최근 신청 5건·장기 대기 등이 각각 별도 fetch. 통합 RPC `get_admin_dashboard_summary()` 하나로 묶을 수 있음. 사용자 체감 안 되는 숨은 비용. **다음 작업 우선순위 1**
+4. **🟡 신청 관리 1.7 MB / 52 requests** — applications 2,673 행. 현재 client-side 전건 fetch + 정렬·필터. 서버 페이징 + 기본 필터(예: 최근 30일·pending 만) 도입 시 큰 개선. **다음 작업 우선순위 2**
 5. **🟢 PostgREST `SELECT *`** — 화면 표시 컬럼만 명시하면 페이로드 50% 이상 감소. 페인별 별도 작업 필요
 
 ### 6-3. 추가 발견 — 인덱스 누락 5종 (§5-5) — **✅ 2026-05-15 마이그레이션 127 로 해결 완료**
@@ -285,20 +285,18 @@ PR #208 (`6603eb0`) — 운영 DB + 개발 DB 양쪽 적용 완료.
 | 결과물 관리 | ✅ 정상 (47 reqs / 1 MB) |
 | 캠페인별 신청자 | ✅ 정상 (18 reqs / 540 KB) |
 | 인플루언서 관리 | 🟡 664 KB / 17 reqs — 누적 시 페이징 권장 |
-| 광고주 신청 | 🚨 중복 fetch 회귀 — 즉시 수정 |
+| 광고주 신청 | ✅ 정상 (PR #205 수정 완료, 14→8 reqs) |
 | 관리자 계정 | ✅ 정상 (6 reqs / 4 KB) |
 
 ## 7. 다음 단계 — 우선순위 정렬
 
 진단 결과 기반 작업 백로그 (작은 → 큰 순):
 
-### 7-1. 🚨 즉시 수정 (회귀 — 작은 PR)
-**광고주 신청 페인 중복 fetch 제거**
-- 영향: 페인 진입 시 round-trip 2배
-- 원인 추적: `loadBrandApplications` 호출 흐름 + IntersectionObserver sentinel + 페어 키 summary 캐시 갱신이 두 번 트리거되는 지점 찾기
-- 예상 PR 규모: 1~5 라인 수정 (`admin-brand.js` 한 곳)
-- 사양서: 별도 사양서 불필요 (회귀 수정)
-- **추천 다음 작업 1순위**
+### 7-1. ✅ 광고주 신청 중복 fetch 수정 — **완료 (2026-05-15, PR #205)**
+- 원인: `loadBrandApplications` 가 페인 진입 시 race condition 으로 두 번 호출되어 brand_applications/brand_application_history/get_brand_app_memo_summaries/status=eq.new 4종이 각각 2회 fetch
+- 해결: promise 캐싱 guard 로 동시 호출 차단 (진행 중 promise 가 있으면 그것 반환 후 새 호출 시 fresh fetch)
+- 효과: 14 requests → 8 requests (절반 감소)
+- 파일: `dev/js/admin-brand.js`
 
 ### 7-2. ✅ 인덱스 추가 — **완료 (2026-05-15)**
 **5종 인덱스 추가 — 마이그레이션 127 적용 완료**
@@ -364,11 +362,13 @@ PR #208 (`6603eb0`) — 운영 DB + 개발 DB 양쪽 적용 완료.
   - 🚨 **예상 외 발견**: 광고주 신청 중복 fetch 회귀 (마이그레이션 122~126 작업 흔적 추정)
   - 🚨 **예상 외 발견**: 대시보드 109 requests 숨은 비용 (체감 안 됨)
 
-### 다음 작업 우선순위 (§7)
-1. 🚨 광고주 신청 중복 fetch 즉시 수정 (작은 PR)
-2. 🟢 인덱스 5종 추가 마이그레이션 (작은 PR)
-3. 🟡 대시보드 통합 RPC (사양서 필요)
-4. 🟡 서버 페이징 전환 (사양서 필요)
+### 다음 작업 우선순위 (§7) — 갱신 (2026-05-15)
+1. ✅ 광고주 신청 중복 fetch 수정 — **PR #205 완료**
+2. ✅ 인덱스 5종 추가 — **마이그레이션 127 / PR #208 완료**
+3. 🟡 대시보드 통합 RPC `get_admin_dashboard_summary()` — **다음 작업 1순위** (사양서 작성 필요)
+4. 🟡 신청 관리·인플루언서 서버 페이징 — **다음 작업 2순위** (사양서 작성 필요)
+5. 🟢 PostgREST `SELECT *` → 명시 컬럼 — 페인별 작은 PR, 3·4 완료 후
+6. 🟡 메모리 누수 측정 (§5-4) — 사용자 직접 측정 대기 (선택)
 
 ### 측정 미완료 (사용자 직접)
 - §5-3 Performance (TTFR/TTI/Long Tasks) — 시간 여유 있을 때 측정

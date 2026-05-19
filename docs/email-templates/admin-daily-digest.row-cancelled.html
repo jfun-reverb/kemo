@@ -1,0 +1,40 @@
+<!--
+  Row partial: 섹션 2 (응모 취소) — 행별 카드
+  Edge Function 이 cancel_phase 그룹 안에서 행마다 1회 render.
+
+  Row Placeholders:
+    {{campaign_no}}              캠페인 번호 (【...】)
+    {{campaign_title}}           캠페인 제목
+    {{recruit_type_ko}}          모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{influencer_name}}          인플루언서 표시명
+    {{influencer_email}}         인플루언서 이메일
+    {{cancelled_at_jst}}         취소 시각 (YYYY-MM-DD HH:mm JST)
+    {{cancel_phase_ko}}          시점 라벨 (구매기간 / 방문기간 / 결과물 제출기간 / 기타)
+    {{cancel_reason_ko}}         사유 라벨 (lookup name_ko)
+    {{cancel_reason_note_row}}   보충 메모 행 (있을 때만, 없으면 빈 문자열)
+-->
+<div style="border:1px solid #F4DDE0;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
+  <div style="font-size:12px;color:#888;margin-bottom:4px">
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{cancelled_at_jst}}
+  </div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
+  <table style="border-collapse:collapse;font-size:12px;width:100%">
+    <tr>
+      <td style="padding:4px 0;color:#888;width:60px">인플</td>
+      <td style="padding:4px 0">{{influencer_name}}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#888">이메일</td>
+      <td style="padding:4px 0;color:#666">{{influencer_email}}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#888">시점</td>
+      <td style="padding:4px 0;font-weight:700;color:#E8344E">{{cancel_phase_ko}}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#888">사유</td>
+      <td style="padding:4px 0">{{cancel_reason_ko}}</td>
+    </tr>
+    {{cancel_reason_note_row}}
+  </table>
+</div>
