@@ -29,6 +29,8 @@ export const TEMPLATES: Record<string, string> = {
     {{new_section_html}}       섹션 1 본문 (0건이면 빈 문자열로 통째 생략)
     {{deadline_section_html}}  섹션 2 본문 (0건이면 빈 문자열로 통째 생략)
     {{campaigns_url}}          하단 「すべてのキャンペーンを見る」 CTA URL
+
+  PR 4 머지 시 복구 예정 placeholder (현 본문에 미사용 — 인플 페이지 수신거부/설정 라우트 구현 후 본문 다시 부착):
     {{unsubscribe_url}}        1-click 수신거부 URL (토큰 포함)
     {{mypage_settings_url}}    마이페이지 메일 수신 설정 URL
     {{agreed_at_label}}        동의 시점 라벨 (예: 「2024年5月にマーケティング情報配信に同意いただきました」)
@@ -52,27 +54,13 @@ export const TEMPLATES: Record<string, string> = {
     <a href="{{campaigns_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">すべてのキャンペーンを見る</a>
   </div>
 
-  <hr style="border:none;border-top:1px solid #EEE;margin:24px 0">
-
-  <div style="font-size:11px;color:#999;line-height:1.7">
-    <p style="margin:0 0 10px;font-weight:700;color:#666">発信元</p>
-    <p style="margin:0 0 14px">
-      株式会社ジェイファン (JFUN Corp.)<br>
-      ソウル特別市江南区テヘラン路 (本社)<br>
-      お問い合わせ: <a href="mailto:noreply@globalreverb.com" style="color:#C8789C;text-decoration:none">noreply@globalreverb.com</a>
-    </p>
-
-    <p style="margin:0 0 10px;font-weight:700;color:#666">配信停止</p>
-    <p style="margin:0 0 14px">
-      キャンペーン情報の配信を停止する場合は<a href="{{unsubscribe_url}}" style="color:#C8789C;text-decoration:none;font-weight:700">こちら</a>から。<br>
-      マイページから設定を変更することもできます: <a href="{{mypage_settings_url}}" style="color:#C8789C;text-decoration:none">メール受信設定</a>
-    </p>
-
-    <p style="margin:0;color:#BBB;font-size:10px">
-      本メールは自動配信されます。返信いただいてもご対応できません。<br>
-      {{agreed_at_label}}
-    </p>
-  </div>
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
+    お問い合わせは LINE <a href="https://line.me/R/ti/p/@reverb.jp" style="color:#999;text-decoration:underline">@reverb.jp</a> までお願いいたします。<br>
+    <br>
+    © JFUN Corp. · 株式会社ジェイファン<br>
+    <a href="https://globalreverb.com" style="color:#999;text-decoration:underline">https://globalreverb.com</a>
+  </p>
 </div>`,
   "campaign-promo-digest.section": `<!--
   Section wrapper partial: 캠페인 홍보 메일 2섹션 공통 wrapper
@@ -96,6 +84,9 @@ export const TEMPLATES: Record<string, string> = {
   Row partial: 캠페인 카드 1개 (新着 섹션, 締切間近 섹션 공통 사용)
   Edge Function 이 캠페인별로 본 견본을 1회 render.
 
+  레이아웃: 좌(이미지) / 우(정보 + 버튼) 수평 분할 — table 기반 (메일 클라이언트 호환).
+  이미지 폭 ~40%, 정보 폭 ~60%.
+
   D-1 칩은 deadline_d1 섹션에서만 채움. 신규 섹션 카드에서는 d1_chip_html = "" (빈 문자열).
   slots 행은 monitor (리뷰어) 캠페인에서만 채움. 다른 타입은 slots_row_html = "".
 
@@ -112,29 +103,34 @@ export const TEMPLATES: Record<string, string> = {
     {{slots_row_html}}       잔여 슬롯 행 (monitor 만 채움, 다른 타입은 "")
     {{detail_url}}           캠페인 상세 URL (?promo_token={token} 포함)
 -->
-<div style="border:1px solid #E2E7F2;border-radius:10px;padding:14px;margin-bottom:14px;background:#fff">
-  <img src="{{img_url}}" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:10px;display:block">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
+  <tr>
+    <td width="40%" valign="top" style="padding:12px 0 12px 12px">
+      <img src="{{img_url}}" alt="" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block">
+    </td>
+    <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
+        <span style="background:{{type_chip_bg}};color:{{type_chip_fg}};padding:2px 8px;border-radius:4px;font-weight:700">{{recruit_type_ja}}</span>
+        <span style="margin-left:6px">{{brand}}</span>
+        {{d1_chip_html}}
+      </div>
 
-  <div style="font-size:11px;color:#888;margin-bottom:6px">
-    <span style="background:{{type_chip_bg}};color:{{type_chip_fg}};padding:2px 8px;border-radius:4px;font-weight:700">{{recruit_type_ja}}</span>
-    <span style="margin-left:6px">{{brand}}</span>
-    {{d1_chip_html}}
-  </div>
+      <h3 style="font-size:14px;font-weight:700;margin:6px 0 8px;line-height:1.4;color:#222">{{title}}</h3>
 
-  <h3 style="font-size:15px;font-weight:700;margin:6px 0 10px;line-height:1.4;color:#222">{{title}}</h3>
+      <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px">
+        <tr>
+          <td style="color:#888;width:70px;padding:2px 0">報酬</td>
+          <td style="padding:2px 0">{{reward}}</td>
+        </tr>
+        <tr>
+          <td style="color:#888;padding:2px 0">締切</td>
+          <td style="color:#E8344E;font-weight:700;padding:2px 0">{{deadline_label}}</td>
+        </tr>
+        {{slots_row_html}}
+      </table>
 
-  <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:12px">
-    <tr>
-      <td style="color:#888;width:80px;padding:3px 0">報酬</td>
-      <td style="padding:3px 0">{{reward}}</td>
-    </tr>
-    <tr>
-      <td style="color:#888;padding:3px 0">締切</td>
-      <td style="color:#E8344E;font-weight:700;padding:3px 0">{{deadline_label}}</td>
-    </tr>
-    {{slots_row_html}}
-  </table>
-
-  <a href="{{detail_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;font-weight:700;font-size:13px">詳細を見る</a>
-</div>`,
+      <a href="{{detail_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">詳細を見る</a>
+    </td>
+  </tr>
+</table>`,
 };

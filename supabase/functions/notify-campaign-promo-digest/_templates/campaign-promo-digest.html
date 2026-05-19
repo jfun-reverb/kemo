@@ -23,6 +23,8 @@
     {{new_section_html}}       섹션 1 본문 (0건이면 빈 문자열로 통째 생략)
     {{deadline_section_html}}  섹션 2 본문 (0건이면 빈 문자열로 통째 생략)
     {{campaigns_url}}          하단 「すべてのキャンペーンを見る」 CTA URL
+
+  PR 4 머지 시 복구 예정 placeholder (현 본문에 미사용 — 인플 페이지 수신거부/설정 라우트 구현 후 본문 다시 부착):
     {{unsubscribe_url}}        1-click 수신거부 URL (토큰 포함)
     {{mypage_settings_url}}    마이페이지 메일 수신 설정 URL
     {{agreed_at_label}}        동의 시점 라벨 (예: 「2024年5月にマーケティング情報配信に同意いただきました」)
@@ -46,25 +48,11 @@
     <a href="{{campaigns_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">すべてのキャンペーンを見る</a>
   </div>
 
-  <hr style="border:none;border-top:1px solid #EEE;margin:24px 0">
-
-  <div style="font-size:11px;color:#999;line-height:1.7">
-    <p style="margin:0 0 10px;font-weight:700;color:#666">発信元</p>
-    <p style="margin:0 0 14px">
-      株式会社ジェイファン (JFUN Corp.)<br>
-      ソウル特別市江南区テヘラン路 (本社)<br>
-      お問い合わせ: <a href="mailto:noreply@globalreverb.com" style="color:#C8789C;text-decoration:none">noreply@globalreverb.com</a>
-    </p>
-
-    <p style="margin:0 0 10px;font-weight:700;color:#666">配信停止</p>
-    <p style="margin:0 0 14px">
-      キャンペーン情報の配信を停止する場合は<a href="{{unsubscribe_url}}" style="color:#C8789C;text-decoration:none;font-weight:700">こちら</a>から。<br>
-      マイページから設定を変更することもできます: <a href="{{mypage_settings_url}}" style="color:#C8789C;text-decoration:none">メール受信設定</a>
-    </p>
-
-    <p style="margin:0;color:#BBB;font-size:10px">
-      本メールは自動配信されます。返信いただいてもご対応できません。<br>
-      {{agreed_at_label}}
-    </p>
-  </div>
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
+    お問い合わせは LINE <a href="https://line.me/R/ti/p/@reverb.jp" style="color:#999;text-decoration:underline">@reverb.jp</a> までお願いいたします。<br>
+    <br>
+    © JFUN Corp. · 株式会社ジェイファン<br>
+    <a href="https://globalreverb.com" style="color:#999;text-decoration:underline">https://globalreverb.com</a>
+  </p>
 </div>

@@ -377,7 +377,9 @@ function renderMailBody(args: {
 
   const campaignsUrl = `${args.publicAppUrl}/#campaigns`;
   const unsubscribeUrl = `${args.publicAppUrl}/#unsubscribe?token=${encodeURIComponent(args.target.unsubscribe_token)}`;
-  const mypageSettingsUrl = `${args.publicAppUrl}/#mypage-email-settings`;
+  // PR 4 — 마이페이지 「メール受信設定」 토글 머지 시 본 라인과 메일 템플릿
+  //         메인 wrapper 의 「マイページから設定を変更…」 줄 함께 복구
+  // const mypageSettingsUrl = `${args.publicAppUrl}/#mypage-email-settings`;
 
   const html = render(mainTpl, {
     influencer_name: escapeHtml(influencerName),
@@ -385,7 +387,7 @@ function renderMailBody(args: {
     deadline_section_html: deadlineSectionHtml,
     campaigns_url: escapeHtml(campaignsUrl),
     unsubscribe_url: escapeHtml(unsubscribeUrl),
-    mypage_settings_url: escapeHtml(mypageSettingsUrl),
+    // mypage_settings_url: escapeHtml(mypageSettingsUrl),  // PR 4 머지 시 복구
     agreed_at_label: "マーケティング情報配信にご同意いただいた方にお送りしています",
   });
 
@@ -411,7 +413,7 @@ function renderMailBody(args: {
   if (d1Count > 0) textLines.push(`・締切間近 (D-1): ${d1Count}件`);
   textLines.push("");
   textLines.push(`すべてのキャンペーンを見る: ${campaignsUrl}`);
-  textLines.push(`配信停止: ${unsubscribeUrl}`);
+  // PR 4 머지 시 복구: textLines.push(`配信停止: ${unsubscribeUrl}`);
   const text = textLines.join("\n");
 
   return { html, subject, text };
