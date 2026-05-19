@@ -45,6 +45,7 @@
 - **메일 템플릿 소스**: `docs/email-templates/` 가 source of truth. Edge Function 은 `_templates/` 미러를 `Deno.readTextFile + render({{key}})` 로 읽음. 배포 전 항상 `scripts/sync-email-templates.sh` 로 동기화
 - **카탈로그**: `docs/email-templates/index.html`
 - **관리자 일괄 발송 메일 수신자 분리** (2026-05-19): 관리자 N명에게 보내는 메일은 모두 **관리자 한 명당 1통씩 분리 발송**. To 헤더에 다른 관리자 이메일이 노출되지 않음. 적용 함수: `notify-admin-daily-digest`, `notify-brand-application` (관리자 알림 부분), `notify-application-received-admin-daily` / `notify-application-cancelled-daily` (cron 해제 deprecated 2종도 회귀 방지 차원에서 동일 패턴). 부분 실패(N명 중 일부 실패) 시 `status='sent'` + `recipients_count`=성공 수 + `error_message`에 실패 명단 누적 (전원 실패만 `status='failed'`). 인플루언서 메일은 원래부터 1명씩 발송이라 영향 없음
+- **관리자 일일 통합 다이제스트 인플루언서 표시 4종 통일 + 섹션 1 표 헤더** (2026-05-19): 4개 섹션 모두 인플루언서 정보를 「이름(한자)·이름(가나)·이메일·SNS 아이디(공식 URL 링크)」 4종으로 통일. 섹션 1 신청 접수 표는 5컬럼 헤더(이름·이메일·SNS·신청시각) + 행 하단 점선. SNS 링크는 `dev/js/admin.js` 엑셀 export 의 `_excelSnsUrl` 패턴과 통일 (Instagram `https://www.instagram.com/{h}/`, TikTok `https://www.tiktok.com/@{h}`, X `https://x.com/{h}`, YouTube `https://www.youtube.com/@{h}`). primary_sns 우선 + 없으면 첫 등록 채널 폴백. 기존 `influencerDisplayName` / `snsHandleDisplay` 헬퍼는 `influencerNameKanji` / `influencerNameKana` / `influencerNameFull` / `snsCellHtml` 4종으로 분리
 
 ### Auth URL Configuration
 - 운영: Site URL `https://globalreverb.com` + Redirect `https://globalreverb.com/**`, `https://www.globalreverb.com/**`

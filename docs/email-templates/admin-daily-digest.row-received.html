@@ -7,7 +7,9 @@
     {{campaign_title}}     캠페인 제목
     {{recruit_type_ko}}    모집 타입 (리뷰어 / 기프팅 / 방문형)
     {{infl_count}}         이 캠페인 신청한 인플루언서 수
-    {{infl_list_html}}     인플루언서 카드 누적 HTML (이름·이메일·SNS·신청 시각)
+    {{infl_list_html}}     인플루언서 행 누적 HTML
+                           컬럼 5종: 이름(한자) / 이름(가나) / 이메일 / SNS(링크) / 신청 시각
+                           헤더 행은 Edge Function 이 본 템플릿 안에 이미 내장
 -->
 <div style="border:1px solid #E2E7F2;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
@@ -16,6 +18,17 @@
   <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
   <div style="font-size:11px;color:#5B6BBF;font-weight:700;margin-bottom:6px">신청 {{infl_count}}건</div>
   <table style="border-collapse:collapse;width:100%;font-size:12px">
-    {{infl_list_html}}
+    <thead>
+      <tr style="background:#F5F7FC;color:#5B6BBF">
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(한자)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이메일</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">SNS</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">신청 시각</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{infl_list_html}}
+    </tbody>
   </table>
 </div>

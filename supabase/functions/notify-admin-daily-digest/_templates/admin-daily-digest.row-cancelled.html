@@ -6,8 +6,10 @@
     {{campaign_no}}              캠페인 번호 (【...】)
     {{campaign_title}}           캠페인 제목
     {{recruit_type_ko}}          모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{influencer_name}}          인플루언서 표시명
+    {{influencer_name_kanji}}    인플루언서 이름 (한자) — 없으면 「-」
+    {{influencer_name_kana}}     인플루언서 이름 (가나) — 없으면 「-」
     {{influencer_email}}         인플루언서 이메일
+    {{influencer_sns_html}}      SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
     {{cancelled_at_jst}}         취소 시각 (YYYY-MM-DD HH:mm JST)
     {{cancel_phase_ko}}          시점 라벨 (구매기간 / 방문기간 / 결과물 제출기간 / 기타)
     {{cancel_reason_ko}}         사유 라벨 (lookup name_ko)
@@ -20,12 +22,20 @@
   <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
   <table style="border-collapse:collapse;font-size:12px;width:100%">
     <tr>
-      <td style="padding:4px 0;color:#888;width:60px">인플</td>
-      <td style="padding:4px 0">{{influencer_name}}</td>
+      <td style="padding:4px 0;color:#888;width:80px">이름(한자)</td>
+      <td style="padding:4px 0">{{influencer_name_kanji}}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#888">이름(가나)</td>
+      <td style="padding:4px 0">{{influencer_name_kana}}</td>
     </tr>
     <tr>
       <td style="padding:4px 0;color:#888">이메일</td>
       <td style="padding:4px 0;color:#666">{{influencer_email}}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#888">SNS</td>
+      <td style="padding:4px 0">{{influencer_sns_html}}</td>
     </tr>
     <tr>
       <td style="padding:4px 0;color:#888">시점</td>

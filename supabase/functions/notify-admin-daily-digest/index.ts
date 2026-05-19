@@ -126,7 +126,24 @@ function phaseKo(phase: string): string {
   }
 }
 
-function influencerDisplayName(row: {
+// 이름(한자) — name_kanji 우선, 없으면 legacy `name` 폴백, 둘 다 없으면 「-」
+function influencerNameKanji(row: {
+  name: string | null;
+  name_kanji: string | null;
+}): string {
+  const kanji = (row.name_kanji || "").trim();
+  const name  = (row.name       || "").trim();
+  return kanji || name || "-";
+}
+
+// 이름(가나) — name_kana, 없으면 「-」
+function influencerNameKana(row: { name_kana: string | null }): string {
+  const kana = (row.name_kana || "").trim();
+  return kana || "-";
+}
+
+// 합본 표시명 (섹션 3/4 한 줄 카드용) — 「한자 (가나)」 또는 한쪽만
+function influencerNameFull(row: {
   name: string | null;
   name_kanji: string | null;
   name_kana: string | null;
@@ -139,28 +156,57 @@ function influencerDisplayName(row: {
   return main || kana || "-";
 }
 
-function snsHandleDisplay(infl: {
+// SNS 핸들 + 공식 URL — primary_sns 우선, 없으면 첫 채널.
+// dev/js/admin.js 의 _excelSnsUrl 패턴과 통일.
+function snsLink(infl: {
+  primary_sns: string | null;
+  ig: string | null;
+  tiktok: string | null;
+  x: string | null;
+  youtube: string | null;
+}): { handle: string; url: string; label: string } | null {
+  const channels: { key: string; val: string | null; label: string; url: (h: string) => string }[] = [
+    { key: "instagram", val: infl.ig,      label: "IG", url: (h) => `https://www.instagram.com/${h}/` },
+    { key: "tiktok",    val: infl.tiktok,  label: "TT", url: (h) => `https://www.tiktok.com/@${h}` },
+    { key: "x",         val: infl.x,       label: "X",  url: (h) => `https://x.com/${h}` },
+    { key: "youtube",   val: infl.youtube, label: "YT", url: (h) => `https://www.youtube.com/@${h}` },
+  ];
+  // primary 우선
+  if (infl.primary_sns) {
+    const p = channels.find((c) => c.key === infl.primary_sns && c.val);
+    if (p) {
+      const h = stripAtPrefix(p.val!);
+      return { handle: h, url: p.url(h), label: p.label };
+    }
+  }
+  // 폴백: 등록된 첫 채널
+  const first = channels.find((c) => c.val);
+  if (first) {
+    const h = stripAtPrefix(first.val!);
+    return { handle: h, url: first.url(h), label: first.label };
+  }
+  return null;
+}
+
+function stripAtPrefix(raw: string): string {
+  const t = (raw || "").trim();
+  return t.startsWith("@") ? t.slice(1) : t;
+}
+
+// 메일 본문용 SNS 셀 HTML — 안전한 a 태그 또는 「-」
+function snsCellHtml(infl: {
   primary_sns: string | null;
   ig: string | null;
   tiktok: string | null;
   x: string | null;
   youtube: string | null;
 }): string {
-  const map: Record<string, { val: string | null; label: string }> = {
-    instagram: { val: infl.ig,      label: "IG" },
-    tiktok:    { val: infl.tiktok,  label: "TT" },
-    x:         { val: infl.x,       label: "X"  },
-    youtube:   { val: infl.youtube, label: "YT" },
-  };
-  if (infl.primary_sns && map[infl.primary_sns]?.val) {
-    const m = map[infl.primary_sns];
-    return `@${m.val} · ${m.label}`;
-  }
-  for (const k of ["instagram", "tiktok", "x", "youtube"]) {
-    const m = map[k];
-    if (m?.val) return `@${m.val} · ${m.label}`;
-  }
-  return "-";
+  const link = snsLink(infl);
+  if (!link) return "-";
+  const url = escapeHtml(link.url);
+  const handle = escapeHtml(link.handle);
+  const label = escapeHtml(link.label);
+  return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@${handle}</a> <span style="color:#888;font-size:11px">· ${label}</span>`;
 }
 
 function loadTemplate(name: string): string {
@@ -347,15 +393,17 @@ function renderReceivedSection(args: {
     const apps = grouped.get(cid)!;
     const inflListHtml = apps.map((a) => {
       const i = args.influencerMap.get(a.user_id);
-      const displayName = i ? influencerDisplayName(i) : "-";
+      const kanji = i ? influencerNameKanji(i) : "-";
+      const kana  = i ? influencerNameKana(i)  : "-";
       const email = args.emailMap.get(a.user_id) || "-";
-      const sns = i ? snsHandleDisplay(i) : "-";
+      const snsHtml = i ? snsCellHtml(i) : "-";
       const appliedAt = formatJstHmin(a.created_at);
       return `<tr>
-        <td style="padding:4px 0">${escapeHtml(displayName)}</td>
-        <td style="padding:4px 0;color:#666">${escapeHtml(email)}</td>
-        <td style="padding:4px 0;color:#666;font-size:11px">${escapeHtml(sns)}</td>
-        <td style="padding:4px 0;color:#888;font-size:11px;text-align:right">${escapeHtml(appliedAt)}</td>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F0F2F8">${escapeHtml(kanji)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F0F2F8">${escapeHtml(kana)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8">${escapeHtml(email)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8">${snsHtml}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #F0F2F8">${escapeHtml(appliedAt)}</td>
       </tr>`;
     }).join("");
     return render(rowTpl, {
@@ -416,8 +464,10 @@ function renderCancelledSection(args: {
       campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
       campaign_title: escapeHtml(camp?.title ?? "-"),
       recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
-      influencer_name: escapeHtml(influencerDisplayName(infl)),
+      influencer_name_kanji: escapeHtml(influencerNameKanji(infl)),
+      influencer_name_kana: escapeHtml(influencerNameKana(infl)),
       influencer_email: escapeHtml(args.emailMap.get(r.user_id) || "-"),
+      influencer_sns_html: snsCellHtml(infl),
       cancelled_at_jst: escapeHtml(formatJstFull(r.cancelled_at)),
       cancel_phase_ko: escapeHtml(phaseKo(r.cancel_phase)),
       cancel_reason_ko: escapeHtml(reasonLabel),
@@ -452,6 +502,7 @@ function renderSubmittedSection(args: {
   deliverableMap: Map<string, DeliverableInfo>;
   campaignMap: Map<string, CampaignRow>;
   influencerMap: Map<string, InfluencerRow>;
+  emailMap: Map<string, string>;
 }): string {
   if (args.events.length === 0) return "";
 
@@ -483,7 +534,9 @@ function renderSubmittedSection(args: {
           campaign_title: escapeHtml(camp?.title ?? "-"),
           recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
           kind_ko: escapeHtml(deliverableKindKo(d?.kind ?? null)),
-          influencer_name: escapeHtml(infl ? influencerDisplayName(infl) : "-"),
+          influencer_name_full: escapeHtml(infl ? influencerNameFull(infl) : "-"),
+          influencer_email: escapeHtml((d && args.emailMap.get(d.user_id)) || "-"),
+          influencer_sns_html: infl ? snsCellHtml(infl) : "-",
           submitted_at_jst: escapeHtml(formatJstHmin(ev.created_at)),
         });
       }).join("");
@@ -511,6 +564,7 @@ function renderReprocessedSection(args: {
   items: ReprocessedItem[];
   campaignMap: Map<string, CampaignRow>;
   influencerMap: Map<string, InfluencerRow>;
+  emailMap: Map<string, string>;
 }): string {
   if (args.items.length === 0) return "";
 
@@ -553,7 +607,9 @@ function renderReprocessedSection(args: {
           type_ko: escapeHtml(typeLabels[it.type]),
           type_color_bg: c.bg,
           type_color_fg: c.fg,
-          influencer_name: escapeHtml(infl ? influencerDisplayName(infl) : "-"),
+          influencer_name_full: escapeHtml(infl ? influencerNameFull(infl) : "-"),
+          influencer_email: escapeHtml((it.user_id && args.emailMap.get(it.user_id)) || "-"),
+          influencer_sns_html: infl ? snsCellHtml(infl) : "-",
           actor_name: escapeHtml(it.actor_name || "-"),
           event_at_jst: escapeHtml(formatJstHmin(it.created_at)),
         });
@@ -817,13 +873,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 이메일 (섹션 1 + 섹션 2 의 user_id 만)
-    const emailUserIds = [
-      ...new Set([
-        ...receivedRows.map((r) => r.user_id),
-        ...cancelledRows.map((r) => r.user_id),
-      ]),
-    ];
+    // 이메일 — 4섹션 전체 user_id 대상 (섹션 3·4 카드에도 이메일 노출)
+    const emailUserIds = [...userIds];
     const emailMap = new Map<string, string>();
     if (emailUserIds.length > 0) {
       const results = await Promise.all(
@@ -898,11 +949,13 @@ Deno.serve(async (req: Request) => {
       deliverableMap,
       campaignMap,
       influencerMap,
+      emailMap,
     });
     const sectionReprocessedHtml = renderReprocessedSection({
       items: reprocessedItems,
       campaignMap,
       influencerMap,
+      emailMap,
     });
 
     // 섹션 칩 (헤더 요약)

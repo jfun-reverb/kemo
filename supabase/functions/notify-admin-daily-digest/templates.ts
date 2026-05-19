@@ -94,7 +94,9 @@ export const TEMPLATES: Record<string, string> = {
     {{campaign_title}}     캠페인 제목
     {{recruit_type_ko}}    모집 타입 (리뷰어 / 기프팅 / 방문형)
     {{infl_count}}         이 캠페인 신청한 인플루언서 수
-    {{infl_list_html}}     인플루언서 카드 누적 HTML (이름·이메일·SNS·신청 시각)
+    {{infl_list_html}}     인플루언서 행 누적 HTML
+                           컬럼 5종: 이름(한자) / 이름(가나) / 이메일 / SNS(링크) / 신청 시각
+                           헤더 행은 Edge Function 이 본 템플릿 안에 이미 내장
 -->
 <div style="border:1px solid #E2E7F2;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
@@ -103,7 +105,18 @@ export const TEMPLATES: Record<string, string> = {
   <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
   <div style="font-size:11px;color:#5B6BBF;font-weight:700;margin-bottom:6px">신청 {{infl_count}}건</div>
   <table style="border-collapse:collapse;width:100%;font-size:12px">
-    {{infl_list_html}}
+    <thead>
+      <tr style="background:#F5F7FC;color:#5B6BBF">
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(한자)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이메일</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">SNS</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">신청 시각</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{infl_list_html}}
+    </tbody>
   </table>
 </div>`,
   "admin-daily-digest.row-cancelled": `<!--
@@ -114,8 +127,10 @@ export const TEMPLATES: Record<string, string> = {
     {{campaign_no}}              캠페인 번호 (【...】)
     {{campaign_title}}           캠페인 제목
     {{recruit_type_ko}}          모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{influencer_name}}          인플루언서 표시명
+    {{influencer_name_kanji}}    인플루언서 이름 (한자) — 없으면 「-」
+    {{influencer_name_kana}}     인플루언서 이름 (가나) — 없으면 「-」
     {{influencer_email}}         인플루언서 이메일
+    {{influencer_sns_html}}      SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
     {{cancelled_at_jst}}         취소 시각 (YYYY-MM-DD HH:mm JST)
     {{cancel_phase_ko}}          시점 라벨 (구매기간 / 방문기간 / 결과물 제출기간 / 기타)
     {{cancel_reason_ko}}         사유 라벨 (lookup name_ko)
@@ -128,12 +143,20 @@ export const TEMPLATES: Record<string, string> = {
   <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
   <table style="border-collapse:collapse;font-size:12px;width:100%">
     <tr>
-      <td style="padding:4px 0;color:#888;width:60px">인플</td>
-      <td style="padding:4px 0">{{influencer_name}}</td>
+      <td style="padding:4px 0;color:#888;width:80px">이름(한자)</td>
+      <td style="padding:4px 0">{{influencer_name_kanji}}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#888">이름(가나)</td>
+      <td style="padding:4px 0">{{influencer_name_kana}}</td>
     </tr>
     <tr>
       <td style="padding:4px 0;color:#888">이메일</td>
       <td style="padding:4px 0;color:#666">{{influencer_email}}</td>
+    </tr>
+    <tr>
+      <td style="padding:4px 0;color:#888">SNS</td>
+      <td style="padding:4px 0">{{influencer_sns_html}}</td>
     </tr>
     <tr>
       <td style="padding:4px 0;color:#888">시점</td>
@@ -152,21 +175,27 @@ export const TEMPLATES: Record<string, string> = {
   쿼리: deliverable_events.action='submit' (재제출 자동 배제) + deliverable_id 배치 조회.
 
   Row Placeholders:
-    {{campaign_no}}        캠페인 번호 (【...】)
-    {{campaign_title}}     캠페인 제목
-    {{recruit_type_ko}}    모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{kind_ko}}            결과물 종류 (영수증 / 리뷰 이미지 / 게시 URL)
-    {{influencer_name}}    인플루언서 표시명
-    {{submitted_at_jst}}   제출 시각 (HH:mm JST)
+    {{campaign_no}}            캠페인 번호 (【...】)
+    {{campaign_title}}         캠페인 제목
+    {{recruit_type_ko}}        모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{kind_ko}}                결과물 종류 (영수증 / 리뷰 이미지 / 게시 URL)
+    {{influencer_name_full}}   인플루언서 표시명 「이름(한자) (가나)」 합본
+    {{influencer_email}}       인플루언서 이메일
+    {{influencer_sns_html}}    SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
+    {{submitted_at_jst}}       제출 시각 (HH:mm JST)
 -->
 <div style="border:1px solid #DCE6F0;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
     <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{submitted_at_jst}}
   </div>
-  <div style="font-size:14px;font-weight:700;margin-bottom:4px;line-height:1.4">{{campaign_title}}</div>
-  <div style="font-size:12px;color:#444">
+  <div style="font-size:14px;font-weight:700;margin-bottom:6px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:12px;color:#444;margin-bottom:4px">
     <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;margin-right:8px">{{kind_ko}}</span>
-    {{influencer_name}}
+    <strong>{{influencer_name_full}}</strong>
+  </div>
+  <div style="font-size:11px;color:#666;line-height:1.6">
+    <span style="color:#888">이메일</span> {{influencer_email}}
+    <span style="color:#888;margin-left:10px">SNS</span> {{influencer_sns_html}}
   </div>
 </div>`,
   "admin-daily-digest.row-reprocessed": `<!--
@@ -179,24 +208,30 @@ export const TEMPLATES: Record<string, string> = {
     - 신청 되돌리기 (application_events action='revert_to_pending')
 
   Row Placeholders:
-    {{campaign_no}}        캠페인 번호 (【...】)
-    {{campaign_title}}     캠페인 제목
-    {{recruit_type_ko}}    모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{type_ko}}            재처리 종류 라벨
-    {{type_color_bg}}      종류 칩 배경색
-    {{type_color_fg}}      종류 칩 글자색
-    {{influencer_name}}    인플루언서 표시명
-    {{actor_name}}         액션 수행 운영자 이름 (또는 「-」)
-    {{event_at_jst}}       이벤트 시각 (HH:mm JST)
+    {{campaign_no}}            캠페인 번호 (【...】)
+    {{campaign_title}}         캠페인 제목
+    {{recruit_type_ko}}        모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{type_ko}}                재처리 종류 라벨
+    {{type_color_bg}}          종류 칩 배경색
+    {{type_color_fg}}          종류 칩 글자색
+    {{influencer_name_full}}   인플루언서 표시명 「이름(한자) (가나)」 합본
+    {{influencer_email}}       인플루언서 이메일
+    {{influencer_sns_html}}    SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
+    {{actor_name}}             액션 수행 운영자 이름 (또는 「-」)
+    {{event_at_jst}}           이벤트 시각 (HH:mm JST)
 -->
 <div style="border:1px solid #E5E0F4;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
     <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{event_at_jst}}
   </div>
-  <div style="font-size:14px;font-weight:700;margin-bottom:4px;line-height:1.4">{{campaign_title}}</div>
-  <div style="font-size:12px;color:#444">
+  <div style="font-size:14px;font-weight:700;margin-bottom:6px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:12px;color:#444;margin-bottom:4px">
     <span style="background:{{type_color_bg}};color:{{type_color_fg}};padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;margin-right:8px">{{type_ko}}</span>
-    {{influencer_name}} <span style="color:#888">· 처리: {{actor_name}}</span>
+    <strong>{{influencer_name_full}}</strong> <span style="color:#888">· 처리: {{actor_name}}</span>
+  </div>
+  <div style="font-size:11px;color:#666;line-height:1.6">
+    <span style="color:#888">이메일</span> {{influencer_email}}
+    <span style="color:#888;margin-left:10px">SNS</span> {{influencer_sns_html}}
   </div>
 </div>`,
 };
