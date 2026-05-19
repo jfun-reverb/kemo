@@ -1,0 +1,15 @@
+{
+  "name": "reverb-sales",
+  "version": "1.0.0",
+  "description": "REVERB JP Sales Website",
+  "scripts": {
+    "build": "echo 'Static HTML - no build required'",
+    "dev": "npx serve .",
+    "lint": "echo 'No linting configured for static HTML'"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.4.1"
+  },
+  "devDependencies": {},
+  "private": true
+}
