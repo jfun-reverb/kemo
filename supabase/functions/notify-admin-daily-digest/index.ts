@@ -311,6 +311,11 @@ interface DeliverableInfo {
   kind: string | null;
   campaign_id: string;
   user_id: string;
+  receipt_url: string | null;
+  post_url: string | null;
+  order_number: string | null;
+  purchase_date: string | null;
+  purchase_amount: number | string | null;
 }
 interface DeliverableReprocessEvent {
   id: string;
@@ -423,6 +428,18 @@ function renderReceivedSection(args: {
   });
 }
 
+// phase 별 컬러 칩 색상 (셀 안 인라인 칩)
+const PHASE_CHIP: Record<string, { bg: string; fg: string }> = {
+  purchase: { bg: "#FFE4E9", fg: "#E8344E" },
+  visit:    { bg: "#E4F0FF", fg: "#1F5DBF" },
+  post:     { bg: "#FFF0D6", fg: "#A06A14" },
+  other:    { bg: "#EAEAEA", fg: "#555555" },
+};
+function phaseChipHtml(phase: string): string {
+  const c = PHASE_CHIP[phase] || PHASE_CHIP.other;
+  return `<span style="background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${escapeHtml(phaseKo(phase))}</span>`;
+}
+
 function renderCancelledSection(args: {
   rows: CancelledRow[];
   campaignMap: Map<string, CampaignRow>;
@@ -432,62 +449,52 @@ function renderCancelledSection(args: {
 }): string {
   if (args.rows.length === 0) return "";
 
-  const phaseOrder = ["purchase", "visit", "post", "other"];
-  const phaseColors: Record<string, { bg: string; fg: string }> = {
-    purchase: { bg: "#FFE4E9", fg: "#E8344E" },
-    visit:    { bg: "#E4F0FF", fg: "#1F5DBF" },
-    post:     { bg: "#FFF0D6", fg: "#A06A14" },
-    other:    { bg: "#EAEAEA", fg: "#555555" },
-  };
-
-  const phaseGroups: Record<string, CancelledRow[]> = {};
-  phaseOrder.forEach((p) => { phaseGroups[p] = []; });
+  // 캠페인별 그룹
+  const grouped = new Map<string, CancelledRow[]>();
   args.rows.forEach((r) => {
-    const key = phaseOrder.includes(r.cancel_phase) ? r.cancel_phase : "other";
-    phaseGroups[key].push(r);
+    if (!grouped.has(r.campaign_id)) grouped.set(r.campaign_id, []);
+    grouped.get(r.campaign_id)!.push(r);
+  });
+  const campIdsSorted = [...grouped.keys()].sort((a, b) => {
+    const ta = (args.campaignMap.get(a)?.title || "").toLowerCase();
+    const tb = (args.campaignMap.get(b)?.title || "").toLowerCase();
+    return ta.localeCompare(tb);
   });
 
   const rowTpl = loadTemplate("admin-daily-digest.row-cancelled");
-  const renderCard = (r: CancelledRow): string => {
-    const camp = args.campaignMap.get(r.campaign_id) || null;
-    const infl = args.influencerMap.get(r.user_id) || {
-      auth_id: r.user_id, name: null, name_kanji: null, name_kana: null,
-      primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
-    };
-    const reasonLabel = r.cancel_reason_code
-      ? args.reasonMap.get(r.cancel_reason_code) || r.cancel_reason_code
-      : "-";
-    const noteRow = (r.cancel_reason || "").trim()
-      ? `<tr><td style="padding:4px 0;color:#888;vertical-align:top">보충</td><td style="padding:4px 0;line-height:1.5">${escapeHtml(r.cancel_reason || "")}</td></tr>`
-      : "";
+  const bodyHtml = campIdsSorted.map((cid) => {
+    const camp = args.campaignMap.get(cid);
+    const rows = grouped.get(cid)!;
+    const cancelRowsHtml = rows.map((r) => {
+      const infl = args.influencerMap.get(r.user_id) || {
+        auth_id: r.user_id, name: null, name_kanji: null, name_kana: null,
+        primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
+      };
+      const reasonLabel = r.cancel_reason_code
+        ? args.reasonMap.get(r.cancel_reason_code) || r.cancel_reason_code
+        : "-";
+      const note = (r.cancel_reason || "").trim();
+      const reasonCell = note
+        ? `${escapeHtml(reasonLabel)}<br><span style="color:#888;font-size:11px;line-height:1.5">${escapeHtml(note)}</span>`
+        : escapeHtml(reasonLabel);
+      return `<tr>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">${escapeHtml(influencerNameKanji(infl))}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F8E5E8">${escapeHtml(influencerNameKana(infl))}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">${escapeHtml(args.emailMap.get(r.user_id) || "-")}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">${snsCellHtml(infl)}</td>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">${phaseChipHtml(r.cancel_phase)}</td>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">${reasonCell}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #F8E5E8">${escapeHtml(formatJstFull(r.cancelled_at))}</td>
+      </tr>`;
+    }).join("");
     return render(rowTpl, {
       campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
       campaign_title: escapeHtml(camp?.title ?? "-"),
       recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
-      influencer_name_kanji: escapeHtml(influencerNameKanji(infl)),
-      influencer_name_kana: escapeHtml(influencerNameKana(infl)),
-      influencer_email: escapeHtml(args.emailMap.get(r.user_id) || "-"),
-      influencer_sns_html: snsCellHtml(infl),
-      cancelled_at_jst: escapeHtml(formatJstFull(r.cancelled_at)),
-      cancel_phase_ko: escapeHtml(phaseKo(r.cancel_phase)),
-      cancel_reason_ko: escapeHtml(reasonLabel),
-      cancel_reason_note_row: noteRow,
+      cancel_count: String(rows.length),
+      cancel_rows_html: cancelRowsHtml,
     });
-  };
-
-  const bodyHtml = phaseOrder
-    .filter((p) => phaseGroups[p].length > 0)
-    .map((p) => {
-      const c = phaseColors[p] || phaseColors.other;
-      const groupHeader =
-        `<div style="margin:8px 0 6px;padding:6px 10px;background:${c.bg};border-left:3px solid ${c.fg};border-radius:0 6px 6px 0">` +
-        `<span style="color:${c.fg};font-weight:700;font-size:12px">${phaseKo(p)}</span>` +
-        `<span style="color:${c.fg};font-size:11px;margin-left:6px">${phaseGroups[p].length}건</span>` +
-        `</div>`;
-      const cardsHtml = phaseGroups[p].map(renderCard).join("");
-      return groupHeader + cardsHtml;
-    })
-    .join("");
+  }).join("");
 
   return renderSectionWrapper({
     title: "응모 취소",
@@ -495,6 +502,70 @@ function renderCancelledSection(args: {
     count: args.rows.length,
     bodyHtml,
   });
+}
+
+// kind 별 컬러 칩 (영수증/리뷰 이미지/게시 URL)
+const KIND_CHIP: Record<string, { bg: string; fg: string }> = {
+  receipt:      { bg: "#E4F0FF", fg: "#1F5DBF" },
+  review_image: { bg: "#E0F1E4", fg: "#1F7A3D" },
+  post:         { bg: "#FFF0D6", fg: "#A06A14" },
+  other:        { bg: "#EAEAEA", fg: "#555555" },
+};
+function kindChipHtml(kind: string | null): string {
+  const key = kind && KIND_CHIP[kind] ? kind : "other";
+  const c = KIND_CHIP[key];
+  return `<span style="background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${escapeHtml(deliverableKindKo(kind))}</span>`;
+}
+
+// 일본 엔화 표시 (소수점 0자리, 0엔 허용)
+function formatYen(amount: number | string | null | undefined): string {
+  if (amount === null || amount === undefined || amount === "") return "-";
+  const n = typeof amount === "string" ? Number(amount) : amount;
+  if (!Number.isFinite(n)) return "-";
+  return `¥${Math.round(n).toLocaleString("ja-JP")}`;
+}
+
+// 안전한 외부 URL — http(s) 스킴만 허용 (javascript:, data: 차단)
+function safeExternalUrl(raw: string | null | undefined): string | null {
+  const url = (raw || "").trim();
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) return null;
+  return url;
+}
+
+// 제출 내역 셀 HTML — kind 분기
+function submitContentCellHtml(d: DeliverableInfo | null): string {
+  if (!d) return "-";
+  if (d.kind === "receipt") {
+    const url = safeExternalUrl(d.receipt_url);
+    const linkHtml = url
+      ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">영수증 이미지 보기</a>`
+      : `<span style="color:#888">이미지 없음</span>`;
+    const orderNo = (d.order_number || "").trim();
+    const purchaseDate = (d.purchase_date || "").trim();
+    const amountText = formatYen(d.purchase_amount);
+    const info: string[] = [];
+    if (orderNo) info.push(`주문 ${escapeHtml(orderNo)}`);
+    if (purchaseDate) info.push(`구매일 ${escapeHtml(purchaseDate)}`);
+    if (amountText !== "-") info.push(`금액 ${escapeHtml(amountText)}`);
+    const infoLine = info.length > 0
+      ? `<br><span style="color:#888;font-size:11px;line-height:1.5">${info.join(" · ")}</span>`
+      : "";
+    return linkHtml + infoLine;
+  }
+  if (d.kind === "post") {
+    const url = safeExternalUrl(d.post_url);
+    return url
+      ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">게시 보기</a>`
+      : `<span style="color:#888">URL 없음</span>`;
+  }
+  if (d.kind === "review_image") {
+    const url = safeExternalUrl(d.receipt_url);  // review_image 도 receipt_url 컬럼 사용 (기존 스키마)
+    return url
+      ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">리뷰 이미지 보기</a>`
+      : `<span style="color:#888">이미지 없음</span>`;
+  }
+  return "-";
 }
 
 function renderSubmittedSection(args: {
@@ -506,43 +577,50 @@ function renderSubmittedSection(args: {
 }): string {
   if (args.events.length === 0) return "";
 
-  // kind 별 그룹 (영수증 / 리뷰 이미지 / 게시 URL / 기타)
-  const kindOrder = ["receipt", "review_image", "post", "other"];
-  const kindGroups: Record<string, SubmittedEvent[]> = {};
-  kindOrder.forEach((k) => { kindGroups[k] = []; });
+  // 캠페인별 그룹
+  const grouped = new Map<string, SubmittedEvent[]>();
   args.events.forEach((ev) => {
     const d = args.deliverableMap.get(ev.deliverable_id);
-    const k = d?.kind && kindOrder.includes(d.kind) ? d.kind : "other";
-    kindGroups[k].push(ev);
+    const cid = d?.campaign_id || "__no_campaign__";
+    if (!grouped.has(cid)) grouped.set(cid, []);
+    grouped.get(cid)!.push(ev);
+  });
+  const campIdsSorted = [...grouped.keys()].sort((a, b) => {
+    const ta = (args.campaignMap.get(a)?.title || "").toLowerCase();
+    const tb = (args.campaignMap.get(b)?.title || "").toLowerCase();
+    return ta.localeCompare(tb);
   });
 
   const rowTpl = loadTemplate("admin-daily-digest.row-submitted");
-  const bodyHtml = kindOrder
-    .filter((k) => kindGroups[k].length > 0)
-    .map((k) => {
-      const groupHeader =
-        `<div style="margin:8px 0 6px;padding:6px 10px;background:#E4F0FF;border-left:3px solid #1F5DBF;border-radius:0 6px 6px 0">` +
-        `<span style="color:#1F5DBF;font-weight:700;font-size:12px">${escapeHtml(deliverableKindKo(k))}</span>` +
-        `<span style="color:#1F5DBF;font-size:11px;margin-left:6px">${kindGroups[k].length}건</span>` +
-        `</div>`;
-      const cardsHtml = kindGroups[k].map((ev) => {
-        const d = args.deliverableMap.get(ev.deliverable_id);
-        const camp = d ? args.campaignMap.get(d.campaign_id) : null;
-        const infl = d ? args.influencerMap.get(d.user_id) : null;
-        return render(rowTpl, {
-          campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
-          campaign_title: escapeHtml(camp?.title ?? "-"),
-          recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
-          kind_ko: escapeHtml(deliverableKindKo(d?.kind ?? null)),
-          influencer_name_full: escapeHtml(infl ? influencerNameFull(infl) : "-"),
-          influencer_email: escapeHtml((d && args.emailMap.get(d.user_id)) || "-"),
-          influencer_sns_html: infl ? snsCellHtml(infl) : "-",
-          submitted_at_jst: escapeHtml(formatJstHmin(ev.created_at)),
-        });
-      }).join("");
-      return groupHeader + cardsHtml;
-    })
-    .join("");
+  const bodyHtml = campIdsSorted.map((cid) => {
+    const camp = args.campaignMap.get(cid);
+    const events = grouped.get(cid)!;
+    const submitRowsHtml = events.map((ev) => {
+      const d = args.deliverableMap.get(ev.deliverable_id) || null;
+      const infl = d ? args.influencerMap.get(d.user_id) : null;
+      const fallbackInfl = {
+        auth_id: d?.user_id || "", name: null, name_kanji: null, name_kana: null,
+        primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
+      };
+      const i = infl || fallbackInfl;
+      return `<tr>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">${escapeHtml(influencerNameKanji(i))}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E5ECF4">${escapeHtml(influencerNameKana(i))}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">${escapeHtml((d && args.emailMap.get(d.user_id)) || "-")}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">${snsCellHtml(i)}</td>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">${kindChipHtml(d?.kind ?? null)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E5ECF4">${submitContentCellHtml(d)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E5ECF4">${escapeHtml(formatJstHmin(ev.created_at))}</td>
+      </tr>`;
+    }).join("");
+    return render(rowTpl, {
+      campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
+      campaign_title: escapeHtml(camp?.title ?? "-"),
+      recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
+      submit_count: String(events.length),
+      submit_rows_html: submitRowsHtml,
+    });
+  }).join("");
 
   return renderSectionWrapper({
     title: "결과물 제출",
@@ -560,6 +638,21 @@ interface ReprocessedItem {
   actor_name: string | null;
 }
 
+const REPROCESS_TYPE_LABELS: Record<ReprocessedItem["type"], string> = {
+  deliv_resubmit: "결과물 재제출",
+  deliv_revert:   "결과물 되돌리기",
+  app_revert:     "신청 되돌리기",
+};
+const REPROCESS_TYPE_CHIP: Record<ReprocessedItem["type"], { bg: string; fg: string }> = {
+  deliv_resubmit: { bg: "#F0E6FA", fg: "#6F40A6" },
+  deliv_revert:   { bg: "#FFE8D6", fg: "#A0541A" },
+  app_revert:     { bg: "#E5E0F4", fg: "#5B6BBF" },
+};
+function reprocessTypeChipHtml(t: ReprocessedItem["type"]): string {
+  const c = REPROCESS_TYPE_CHIP[t];
+  return `<span style="background:${c.bg};color:${c.fg};padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">${escapeHtml(REPROCESS_TYPE_LABELS[t])}</span>`;
+}
+
 function renderReprocessedSection(args: {
   items: ReprocessedItem[];
   campaignMap: Map<string, CampaignRow>;
@@ -568,55 +661,48 @@ function renderReprocessedSection(args: {
 }): string {
   if (args.items.length === 0) return "";
 
-  const typeOrder: ReprocessedItem["type"][] = ["deliv_resubmit", "deliv_revert", "app_revert"];
-  const typeLabels: Record<ReprocessedItem["type"], string> = {
-    deliv_resubmit: "결과물 재제출",
-    deliv_revert:   "결과물 되돌리기",
-    app_revert:     "신청 되돌리기",
-  };
-  const typeColors: Record<ReprocessedItem["type"], { bg: string; fg: string }> = {
-    deliv_resubmit: { bg: "#F0E6FA", fg: "#6F40A6" },
-    deliv_revert:   { bg: "#FFE8D6", fg: "#A0541A" },
-    app_revert:     { bg: "#E5E0F4", fg: "#5B6BBF" },
-  };
-
-  const typeGroups: Record<ReprocessedItem["type"], ReprocessedItem[]> = {
-    deliv_resubmit: [],
-    deliv_revert: [],
-    app_revert: [],
-  };
-  args.items.forEach((it) => typeGroups[it.type].push(it));
+  // 캠페인별 그룹 (campaign_id null 은 「__no_campaign__」 으로 묶음)
+  const grouped = new Map<string, ReprocessedItem[]>();
+  args.items.forEach((it) => {
+    const cid = it.campaign_id || "__no_campaign__";
+    if (!grouped.has(cid)) grouped.set(cid, []);
+    grouped.get(cid)!.push(it);
+  });
+  const campIdsSorted = [...grouped.keys()].sort((a, b) => {
+    const ta = (args.campaignMap.get(a)?.title || "").toLowerCase();
+    const tb = (args.campaignMap.get(b)?.title || "").toLowerCase();
+    return ta.localeCompare(tb);
+  });
 
   const rowTpl = loadTemplate("admin-daily-digest.row-reprocessed");
-  const bodyHtml = typeOrder
-    .filter((t) => typeGroups[t].length > 0)
-    .map((t) => {
-      const c = typeColors[t];
-      const groupHeader =
-        `<div style="margin:8px 0 6px;padding:6px 10px;background:${c.bg};border-left:3px solid ${c.fg};border-radius:0 6px 6px 0">` +
-        `<span style="color:${c.fg};font-weight:700;font-size:12px">${escapeHtml(typeLabels[t])}</span>` +
-        `<span style="color:${c.fg};font-size:11px;margin-left:6px">${typeGroups[t].length}건</span>` +
-        `</div>`;
-      const cardsHtml = typeGroups[t].map((it) => {
-        const camp = it.campaign_id ? args.campaignMap.get(it.campaign_id) : null;
-        const infl = it.user_id ? args.influencerMap.get(it.user_id) : null;
-        return render(rowTpl, {
-          campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
-          campaign_title: escapeHtml(camp?.title ?? "-"),
-          recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
-          type_ko: escapeHtml(typeLabels[it.type]),
-          type_color_bg: c.bg,
-          type_color_fg: c.fg,
-          influencer_name_full: escapeHtml(infl ? influencerNameFull(infl) : "-"),
-          influencer_email: escapeHtml((it.user_id && args.emailMap.get(it.user_id)) || "-"),
-          influencer_sns_html: infl ? snsCellHtml(infl) : "-",
-          actor_name: escapeHtml(it.actor_name || "-"),
-          event_at_jst: escapeHtml(formatJstHmin(it.created_at)),
-        });
-      }).join("");
-      return groupHeader + cardsHtml;
-    })
-    .join("");
+  const bodyHtml = campIdsSorted.map((cid) => {
+    const camp = args.campaignMap.get(cid);
+    const items = grouped.get(cid)!;
+    const reprocessRowsHtml = items.map((it) => {
+      const infl = it.user_id ? args.influencerMap.get(it.user_id) : null;
+      const fallbackInfl = {
+        auth_id: it.user_id || "", name: null, name_kanji: null, name_kana: null,
+        primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
+      };
+      const i = infl || fallbackInfl;
+      return `<tr>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">${escapeHtml(influencerNameKanji(i))}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E8E2F5">${escapeHtml(influencerNameKana(i))}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">${escapeHtml((it.user_id && args.emailMap.get(it.user_id)) || "-")}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">${snsCellHtml(i)}</td>
+        <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">${reprocessTypeChipHtml(it.type)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E8E2F5">${escapeHtml(it.actor_name || "-")}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E8E2F5">${escapeHtml(formatJstHmin(it.created_at))}</td>
+      </tr>`;
+    }).join("");
+    return render(rowTpl, {
+      campaign_no: escapeHtml(`【${camp?.campaign_no ?? ""}】`),
+      campaign_title: escapeHtml(camp?.title ?? "-"),
+      recruit_type_ko: escapeHtml(recruitTypeKo(camp?.recruit_type ?? null)),
+      reprocess_count: String(items.length),
+      reprocess_rows_html: reprocessRowsHtml,
+    });
+  }).join("");
 
   return renderSectionWrapper({
     title: "재처리 일감",
@@ -813,7 +899,7 @@ Deno.serve(async (req: Request) => {
     if (deliverableIds.length > 0) {
       const { data: delivs, error } = await sb
         .from("deliverables")
-        .select("id, kind, campaign_id, user_id")
+        .select("id, kind, campaign_id, user_id, receipt_url, post_url, order_number, purchase_date, purchase_amount")
         .in("id", deliverableIds);
       if (error) {
         console.warn("[notify-admin-daily] deliverable lookup failed", error);

@@ -120,87 +120,86 @@ export const TEMPLATES: Record<string, string> = {
   </table>
 </div>`,
   "admin-daily-digest.row-cancelled": `<!--
-  Row partial: 섹션 2 (응모 취소) — 행별 카드
-  Edge Function 이 cancel_phase 그룹 안에서 행마다 1회 render.
+  Row partial: 섹션 2 (응모 취소) — 캠페인별 그룹 카드
+  Edge Function 이 캠페인 기준으로 그룹화 후 본 견본을 캠페인마다 1회 render.
+  기존 phase 그룹 헤더는 폐기되고 표의 「시점」 컬럼 컬러 칩으로 흡수.
 
   Row Placeholders:
-    {{campaign_no}}              캠페인 번호 (【...】)
-    {{campaign_title}}           캠페인 제목
-    {{recruit_type_ko}}          모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{influencer_name_kanji}}    인플루언서 이름 (한자) — 없으면 「-」
-    {{influencer_name_kana}}     인플루언서 이름 (가나) — 없으면 「-」
-    {{influencer_email}}         인플루언서 이메일
-    {{influencer_sns_html}}      SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
-    {{cancelled_at_jst}}         취소 시각 (YYYY-MM-DD HH:mm JST)
-    {{cancel_phase_ko}}          시점 라벨 (구매기간 / 방문기간 / 결과물 제출기간 / 기타)
-    {{cancel_reason_ko}}         사유 라벨 (lookup name_ko)
-    {{cancel_reason_note_row}}   보충 메모 행 (있을 때만, 없으면 빈 문자열)
+    {{campaign_no}}          캠페인 번호 (【...】)
+    {{campaign_title}}       캠페인 제목
+    {{recruit_type_ko}}      모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{cancel_count}}         이 캠페인에서 취소된 건수
+    {{cancel_rows_html}}     인플별 <tr> 누적 HTML (Edge Function 이 직접 생성)
+                             컬럼 7종: 이름(한자) / 이름(가나) / 이메일 / SNS / 시점(칩) / 사유 / 취소시각
+                             보충 메모는 사유 셀 아래 작은 글씨 줄로 자동 포함
 -->
 <div style="border:1px solid #F4DDE0;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
-    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{cancelled_at_jst}}
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}}
   </div>
   <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
-  <table style="border-collapse:collapse;font-size:12px;width:100%">
-    <tr>
-      <td style="padding:4px 0;color:#888;width:80px">이름(한자)</td>
-      <td style="padding:4px 0">{{influencer_name_kanji}}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 0;color:#888">이름(가나)</td>
-      <td style="padding:4px 0">{{influencer_name_kana}}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 0;color:#888">이메일</td>
-      <td style="padding:4px 0;color:#666">{{influencer_email}}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 0;color:#888">SNS</td>
-      <td style="padding:4px 0">{{influencer_sns_html}}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 0;color:#888">시점</td>
-      <td style="padding:4px 0;font-weight:700;color:#E8344E">{{cancel_phase_ko}}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 0;color:#888">사유</td>
-      <td style="padding:4px 0">{{cancel_reason_ko}}</td>
-    </tr>
-    {{cancel_reason_note_row}}
+  <div style="font-size:11px;color:#E8344E;font-weight:700;margin-bottom:6px">취소 {{cancel_count}}건</div>
+  <table style="border-collapse:collapse;width:100%;font-size:12px">
+    <thead>
+      <tr style="background:#FDF1F3;color:#E8344E">
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이름(한자)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이메일</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">SNS</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">시점</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">사유</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">취소시각</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{cancel_rows_html}}
+    </tbody>
   </table>
 </div>`,
   "admin-daily-digest.row-submitted": `<!--
-  Row partial: 섹션 3 (결과물 제출) — 행별 카드
-  Edge Function 이 kind 그룹 안에서 행마다 1회 render.
+  Row partial: 섹션 3 (결과물 제출) — 캠페인별 그룹 카드
+  Edge Function 이 캠페인 기준으로 그룹화 후 본 견본을 캠페인마다 1회 render.
   쿼리: deliverable_events.action='submit' (재제출 자동 배제) + deliverable_id 배치 조회.
+  기존 kind 그룹 헤더는 폐기되고 표의 「종류」 컬럼 칩으로 흡수.
 
   Row Placeholders:
     {{campaign_no}}            캠페인 번호 (【...】)
     {{campaign_title}}         캠페인 제목
     {{recruit_type_ko}}        모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{kind_ko}}                결과물 종류 (영수증 / 리뷰 이미지 / 게시 URL)
-    {{influencer_name_full}}   인플루언서 표시명 「이름(한자) (가나)」 합본
-    {{influencer_email}}       인플루언서 이메일
-    {{influencer_sns_html}}    SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
-    {{submitted_at_jst}}       제출 시각 (HH:mm JST)
+    {{submit_count}}           이 캠페인에서 제출된 건수
+    {{submit_rows_html}}       인플별 <tr> 누적 HTML
+                               컬럼 7종: 이름(한자) / 이름(가나) / 이메일 / SNS / 종류(칩) / 제출 내역 / 제출시각
+                               제출 내역 셀:
+                                 - receipt: <a>영수증 이미지 보기</a> + 작은 글씨 「주문 X · 구매일 · 금액 ¥N」
+                                 - review_image: <a>리뷰 이미지 보기</a>
+                                 - post: <a>게시 보기</a>
 -->
-<div style="border:1px solid #DCE6F0;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fff">
+<div style="border:1px solid #DCE6F0;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
-    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{submitted_at_jst}}
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}}
   </div>
-  <div style="font-size:14px;font-weight:700;margin-bottom:6px;line-height:1.4">{{campaign_title}}</div>
-  <div style="font-size:12px;color:#444;margin-bottom:4px">
-    <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;margin-right:8px">{{kind_ko}}</span>
-    <strong>{{influencer_name_full}}</strong>
-  </div>
-  <div style="font-size:11px;color:#666;line-height:1.6">
-    <span style="color:#888">이메일</span> {{influencer_email}}
-    <span style="color:#888;margin-left:10px">SNS</span> {{influencer_sns_html}}
-  </div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:11px;color:#1F5DBF;font-weight:700;margin-bottom:6px">제출 {{submit_count}}건</div>
+  <table style="border-collapse:collapse;width:100%;font-size:12px">
+    <thead>
+      <tr style="background:#EEF4FC;color:#1F5DBF">
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이름(한자)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이메일</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">SNS</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">종류</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">제출 내역</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">제출시각</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{submit_rows_html}}
+    </tbody>
+  </table>
 </div>`,
   "admin-daily-digest.row-reprocessed": `<!--
-  Row partial: 섹션 4 (재처리 일감) — 행별 카드
-  Edge Function 이 종류 그룹 안에서 행마다 1회 render.
+  Row partial: 섹션 4 (재처리 일감) — 캠페인별 그룹 카드
+  Edge Function 이 캠페인 기준으로 그룹화 후 본 견본을 캠페인마다 1회 render.
 
   종류 3종:
     - 결과물 재제출 (deliverable_events action='resubmit')
@@ -208,30 +207,34 @@ export const TEMPLATES: Record<string, string> = {
     - 신청 되돌리기 (application_events action='revert_to_pending')
 
   Row Placeholders:
-    {{campaign_no}}            캠페인 번호 (【...】)
-    {{campaign_title}}         캠페인 제목
-    {{recruit_type_ko}}        모집 타입 (리뷰어 / 기프팅 / 방문형)
-    {{type_ko}}                재처리 종류 라벨
-    {{type_color_bg}}          종류 칩 배경색
-    {{type_color_fg}}          종류 칩 글자색
-    {{influencer_name_full}}   인플루언서 표시명 「이름(한자) (가나)」 합본
-    {{influencer_email}}       인플루언서 이메일
-    {{influencer_sns_html}}    SNS 아이디 링크 HTML (예: <a href="...">@handle · IG</a>) 또는 「-」
-    {{actor_name}}             액션 수행 운영자 이름 (또는 「-」)
-    {{event_at_jst}}           이벤트 시각 (HH:mm JST)
+    {{campaign_no}}             캠페인 번호 (【...】)
+    {{campaign_title}}          캠페인 제목
+    {{recruit_type_ko}}         모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{reprocess_count}}         이 캠페인에서 재처리된 건수
+    {{reprocess_rows_html}}     인플별 <tr> 누적 HTML
+                                컬럼 7종: 이름(한자) / 이름(가나) / 이메일 / SNS / 종류(칩) / 처리 운영자 / 시각
 -->
-<div style="border:1px solid #E5E0F4;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:#fff">
+<div style="border:1px solid #E5E0F4;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
   <div style="font-size:12px;color:#888;margin-bottom:4px">
-    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}} · {{event_at_jst}}
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}}
   </div>
-  <div style="font-size:14px;font-weight:700;margin-bottom:6px;line-height:1.4">{{campaign_title}}</div>
-  <div style="font-size:12px;color:#444;margin-bottom:4px">
-    <span style="background:{{type_color_bg}};color:{{type_color_fg}};padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;margin-right:8px">{{type_ko}}</span>
-    <strong>{{influencer_name_full}}</strong> <span style="color:#888">· 처리: {{actor_name}}</span>
-  </div>
-  <div style="font-size:11px;color:#666;line-height:1.6">
-    <span style="color:#888">이메일</span> {{influencer_email}}
-    <span style="color:#888;margin-left:10px">SNS</span> {{influencer_sns_html}}
-  </div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:11px;color:#6F40A6;font-weight:700;margin-bottom:6px">재처리 {{reprocess_count}}건</div>
+  <table style="border-collapse:collapse;width:100%;font-size:12px">
+    <thead>
+      <tr style="background:#F5EFFB;color:#6F40A6">
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(한자)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이메일</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">SNS</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">종류</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">처리 운영자</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">시각</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{reprocess_rows_html}}
+    </tbody>
+  </table>
 </div>`,
 };
