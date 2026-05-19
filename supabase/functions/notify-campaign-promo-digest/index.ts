@@ -144,6 +144,35 @@ function recruitTypeChipColors(rt: string | null | undefined): { bg: string; fg:
 }
 
 // ──────────────────────────────────────────────────────────────────
+// 리워드 텍스트 — dev/js/admin.js rewardText 패턴 미러
+//   - product_price>0: 「¥N ペイバック」(monitor) 또는 「¥N 商品提供」
+//   - product_price<=0: 「商品無償提供」
+//   - reward>0: 「+ ¥M 報酬」 추가
+// ──────────────────────────────────────────────────────────────────
+function formatYenLabel(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(Number(n))) return "";
+  return `¥${Math.round(Number(n)).toLocaleString("ja-JP")}`;
+}
+
+function buildRewardText(camp: CampaignRow): string {
+  const price = Number(camp.product_price ?? 0);
+  const cash  = Number(camp.reward ?? 0);
+  if (price <= 0 && cash <= 0) return "-";
+
+  const parts: string[] = [];
+  if (price > 0) {
+    const label = camp.recruit_type === "monitor" ? "ペイバック" : "商品提供";
+    parts.push(`${formatYenLabel(price)} ${label}`);
+  } else {
+    parts.push("商品無償提供");
+  }
+  if (cash > 0) {
+    parts.push(`${formatYenLabel(cash)} 報酬`);
+  }
+  return parts.join(" + ");
+}
+
+// ──────────────────────────────────────────────────────────────────
 // 안전한 외부 URL — http(s) 스킴만 허용 (javascript:, data: 차단)
 // ──────────────────────────────────────────────────────────────────
 function safeExternalUrl(raw: string | null | undefined): string | null {
@@ -151,6 +180,18 @@ function safeExternalUrl(raw: string | null | undefined): string | null {
   if (!url) return null;
   if (!/^https?:\/\//i.test(url)) return null;
   return url;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Supabase Storage transform 적용 — dev/js/ui.js imgThumb 패턴 미러
+//   /storage/v1/object/public/... → /storage/v1/render/image/public/...?width=200&height=200&quality=75&resize=cover
+//   외부 URL 은 그대로 반환 (Supabase 외부 호스팅도 호환).
+// ──────────────────────────────────────────────────────────────────
+function imgThumbSquare(url: string | null, size = 200, quality = 75): string | null {
+  if (!url || typeof url !== "string") return url;
+  if (!url.includes("/storage/v1/object/public/")) return url;
+  const renderUrl = url.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/");
+  return `${renderUrl}?width=${size}&height=${size}&quality=${quality}&resize=cover`;
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -210,7 +251,11 @@ interface CampaignRow {
   recruit_type: string | null;
   deadline: string | null;
   slots: number | null;
-  reward: string | null;
+  // reward / product_price 는 integer (엔 단위). reward_note 는 자유 텍스트.
+  // dev/js/admin.js rewardText 로직과 동일하게 「商品無償提供 + ¥N 報酬」 형태로 조합.
+  reward: number | null;
+  product_price: number | null;
+  reward_note: string | null;
   img1: string | null;
 }
 
@@ -218,6 +263,9 @@ interface RequestBody {
   source?: "cron" | "manual" | "chained";
   digestDate?: string;
   batchOffset?: number;
+  // 운영 디버그 — testRecipient 지정 시 자격 매칭 우회 + 단일 수신자 강제 발송.
+  // mutex/RPC/exposure/digest_sent 모두 스킵. service_role 인증 필수.
+  testRecipient?: string;
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -237,11 +285,10 @@ function renderCampaignCard(args: {
   const typeChip = recruitTypeChipColors(recruitType);
   const brandName = (camp.brand || camp.brand_ko || "").trim();
   const imgRaw = safeExternalUrl(camp.img1);
-  // 메일 클라이언트는 file:/cid: 같은 비표준 URL 차단 → fallback 은 빈 alt 만
-  // 정적 placeholder 이미지 호스팅 별도 자산 도입 전까지 비어있는 src 회피용으로 1px 데이터 URI 사용
-  const imgUrl = imgRaw
-    ? `${imgRaw}${imgRaw.includes("?") ? "&" : "?"}width=520&quality=75`
-    : "https://placehold.co/520x200/EEEEEE/888888?text=No+Image";
+  // Supabase Storage transform 적용: /object/public/ → /render/image/public/ + 200x200 cover.
+  // fallback 은 PNG 필수 (Gmail 등 SVG 미지원).
+  const imgUrl = imgThumbSquare(imgRaw, 200, 75)
+    ?? "https://dummyimage.com/200x200/eeeeee/888888.png&text=No+Image";
 
   const d1ChipHtml = args.showD1Chip
     ? `<span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:6px">締切間近 D-1</span>`
@@ -259,11 +306,12 @@ function renderCampaignCard(args: {
   }
 
   const detailUrl = `${args.publicAppUrl}/#detail-${camp.id}?promo_token=${encodeURIComponent(args.token)}`;
-  const reward = (camp.reward || "").trim() || "-";
+  const reward = buildRewardText(camp);
   const deadlineLabel = deadlineLabelJa(camp.deadline, args.todayKst);
 
   return render(args.rowTpl, {
     img_url: escapeHtml(imgUrl),
+    img_alt: escapeHtml(camp.title || "キャンペーン画像"),
     recruit_type_ja: escapeHtml(recruitTypeJa(recruitType)),
     type_chip_bg: typeChip.bg,
     type_chip_fg: typeChip.fg,
@@ -479,6 +527,86 @@ Deno.serve(async (req: Request) => {
 
   console.log("[notify-campaign-promo] start", { source, digestDate, batchOffset, isFirstBatch });
 
+  // ── 0. testRecipient 모드 (운영 디버그) ─────────────────────────
+  //   body.testRecipient 가 있으면 자격 매칭 / mutex / 로그 모두 우회.
+  //   현재 active 캠페인 최대 5개를 신규 섹션 카드로 채워 단일 수신자에게 발송.
+  //   PR 5 cron 등록 전 메일 본문 깨짐 검증용. service_role 인증 필수라 외부 anon 위험 없음.
+  if (body.testRecipient) {
+    try {
+      const publicAppUrl = env("PUBLIC_APP_URL", "https://globalreverb.com").replace(/\/$/, "");
+
+      const { data: camps, error: campError } = await sb
+        .from("campaigns")
+        .select("id, campaign_no, title, brand, brand_ko, recruit_type, deadline, slots, reward, product_price, reward_note, img1")
+        .eq("status", "active")
+        .order("deadline", { ascending: true })
+        .limit(5);
+      if (campError) throw new Error(`campaigns lookup: ${campError.message}`);
+
+      const campaignMap = new Map<string, CampaignRow>();
+      (camps || []).forEach((c: CampaignRow) => campaignMap.set(c.id, c));
+      const newIds = (camps || []).map((c: CampaignRow) => c.id);
+
+      // monitor 슬롯 표시용 approved count 조회 (있으면 더 정확한 본문)
+      const monitorIds = (camps || []).filter((c) => c.recruit_type === "monitor").map((c) => c.id);
+      const approvedMap = new Map<string, number>();
+      if (monitorIds.length > 0) {
+        const { data: apps } = await sb
+          .from("applications")
+          .select("campaign_id")
+          .in("campaign_id", monitorIds)
+          .eq("status", "approved");
+        (apps || []).forEach((row: { campaign_id: string }) => {
+          approvedMap.set(row.campaign_id, (approvedMap.get(row.campaign_id) || 0) + 1);
+        });
+      }
+
+      const fakeTarget: PromoTarget = {
+        influencer_id: "00000000-0000-0000-0000-000000000000",
+        email: body.testRecipient,
+        name: "テスト",
+        unsubscribe_token: "00000000-0000-0000-0000-000000000000",
+        new_campaign_ids: newIds,
+        deadline_d1_campaign_ids: [],
+        new_total_count: newIds.length,
+        deadline_d1_total_count: 0,
+      };
+
+      const mail = renderMailBody({
+        target: fakeTarget,
+        campaignMap,
+        approvedMap,
+        publicAppUrl,
+        todayKst,
+      });
+
+      await sendBrevoEmail({
+        to: [{ email: body.testRecipient, name: "テスト" }],
+        subject: `[TEST] ${mail.subject}`,
+        htmlContent: mail.html,
+        textContent: mail.text,
+      });
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          test: true,
+          recipient: body.testRecipient,
+          campaignCount: newIds.length,
+          digestDate,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    } catch (e) {
+      const msg = (e as Error).message || "test send error";
+      console.error("[notify-campaign-promo] test send failed", msg);
+      return new Response(
+        JSON.stringify({ ok: false, test: true, error: msg }),
+        { status: 500, headers: { "content-type": "application/json" } },
+      );
+    }
+  }
+
   // ── 1. INSERT mutex (첫 배치만) ──
   //    triggered_by 는 마이그레이션 139 에서 uuid REFERENCES auth.users(id) 타입이라
   //    cron 자동 실행은 null 로 저장 (운영자 수동 트리거 구현은 후속 PR 영역).
@@ -599,7 +727,7 @@ Deno.serve(async (req: Request) => {
     if (campaignIds.length > 0) {
       const { data: camps, error: campError } = await sb
         .from("campaigns")
-        .select("id, campaign_no, title, brand, brand_ko, recruit_type, deadline, slots, reward, img1")
+        .select("id, campaign_no, title, brand, brand_ko, recruit_type, deadline, slots, reward, product_price, reward_note, img1")
         .in("id", campaignIds);
       if (campError) {
         console.warn("[notify-campaign-promo] campaign lookup failed", campError);

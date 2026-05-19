@@ -106,7 +106,7 @@ export const TEMPLATES: Record<string, string> = {
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
   <tr>
     <td width="40%" valign="top" style="padding:12px 0 12px 12px">
-      <img src="{{img_url}}" alt="" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block">
+      <img src="{{img_url}}" alt="{{img_alt}}" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block;background:#eeeeee">
     </td>
     <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
       <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
