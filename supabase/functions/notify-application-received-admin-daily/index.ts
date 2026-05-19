@@ -365,23 +365,39 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  try {
-    await sendBrevoEmail({
-      to: adminEmails.map((e) => ({ email: e })),
-      subject, htmlContent: html, textContent: text,
-    });
-  } catch (e) {
-    const msg = (e as Error).message || "brevo send error";
-    await logRun(sb, { digest_date: digestDate, status: "failed", total_applications: rows.length, recipient_count: adminEmails.length, error_message: msg });
-    return new Response(JSON.stringify({ error: msg, stage: "send" }), { status: 500, headers: { "content-type": "application/json" } });
+  // 관리자별 1통씩 분리 발송 (To 헤더 노출 차단)
+  let successCount = 0;
+  const failures: string[] = [];
+  for (const email of adminEmails) {
+    try {
+      await sendBrevoEmail({
+        to: [{ email }],
+        subject, htmlContent: html, textContent: text,
+      });
+      successCount++;
+    } catch (e) {
+      const msg = (e as Error).message || "brevo send error";
+      console.error("[notify-application-received-admin-daily] send failed", email, msg);
+      failures.push(`${email}(${msg})`);
+    }
   }
 
-  await logRun(sb, { digest_date: digestDate, status: "sent", total_applications: rows.length, recipient_count: adminEmails.length });
+  if (successCount === 0) {
+    await logRun(sb, { digest_date: digestDate, status: "failed", total_applications: rows.length, recipient_count: 0, error_message: `all ${adminEmails.length} sends failed: ${failures[0] ?? "unknown"}` });
+    return new Response(JSON.stringify({ error: "all sends failed", stage: "send", attempted: adminEmails.length, failed: failures.length }), { status: 500, headers: { "content-type": "application/json" } });
+  }
+
+  const errMsg = failures.length > 0
+    ? `${successCount}/${adminEmails.length} sent. failed: ${failures.join("; ")}`
+    : null;
+  await logRun(sb, { digest_date: digestDate, status: "sent", total_applications: rows.length, recipient_count: successCount, error_message: errMsg });
 
   return new Response(JSON.stringify({
     ok: true, digestDate,
     total_applications: rows.length,
-    recipient_count: adminEmails.length,
+    attempted: adminEmails.length,
+    succeeded: successCount,
+    failed: failures.length,
     campaigns: campIdsSorted.length,
   }), { status: 200, headers: { "content-type": "application/json" } });
 });

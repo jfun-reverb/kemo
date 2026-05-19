@@ -962,37 +962,53 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ── 9. 메일 발송 ──
-    try {
-      await sendBrevoEmail({
-        to: adminEmails.map((e) => ({ email: e })),
-        subject,
-        htmlContent: html,
-        textContent: text,
-      });
-    } catch (e) {
-      const msg = (e as Error).message || "brevo send error";
-      console.error("[notify-admin-daily] send failed", msg);
+    // ── 9. 메일 발송 ── 관리자별 1통씩 분리 발송 (To 헤더 노출 차단)
+    let successCount = 0;
+    const failures: { email: string; error: string }[] = [];
+    for (const email of adminEmails) {
+      try {
+        await sendBrevoEmail({
+          to: [{ email }],
+          subject,
+          htmlContent: html,
+          textContent: text,
+        });
+        successCount++;
+      } catch (e) {
+        const msg = (e as Error).message || "brevo send error";
+        console.error("[notify-admin-daily] send failed", email, msg);
+        failures.push({ email, error: msg });
+      }
+    }
+
+    if (successCount === 0) {
+      const firstErr = failures[0]?.error || "unknown";
       await finalizeRun({
         status: "failed",
         sections_summary: sectionsSummary,
-        recipients_count: adminEmails.length,
-        error_message: msg,
+        recipients_count: 0,
+        error_message: `all ${adminEmails.length} sends failed: ${firstErr}`,
       });
-      return new Response(JSON.stringify({ error: msg, stage: "send" }), {
-        status: 500, headers: { "content-type": "application/json" },
-      });
+      return new Response(JSON.stringify({
+        error: "all sends failed", stage: "send",
+        attempted: adminEmails.length, failed: failures.length,
+      }), { status: 500, headers: { "content-type": "application/json" } });
     }
 
-    // ── 10. 성공 UPDATE ──
+    // ── 10. 성공 (전부 또는 일부) UPDATE ──
+    const errMsg = failures.length > 0
+      ? `${successCount}/${adminEmails.length} sent. failed: ${failures.map((f) => `${f.email}(${f.error})`).join("; ")}`
+      : null;
     await finalizeRun({
       status: "sent",
       sections_summary: sectionsSummary,
-      recipients_count: adminEmails.length,
+      recipients_count: successCount,
+      error_message: errMsg,
     });
 
     console.log("[notify-admin-daily] done", {
-      digestDate, totalCount, recipients: adminEmails.length,
+      digestDate, totalCount,
+      attempted: adminEmails.length, succeeded: successCount, failed: failures.length,
     });
 
     return new Response(
@@ -1001,7 +1017,9 @@ Deno.serve(async (req: Request) => {
         digestDate,
         totalCount,
         sectionsSummary,
-        recipients_count: adminEmails.length,
+        attempted: adminEmails.length,
+        succeeded: successCount,
+        failed: failures.length,
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
