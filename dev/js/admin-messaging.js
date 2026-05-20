@@ -136,10 +136,13 @@ function renderInboxCampaignList() {
     const slots = (c && c.slots) ? `모집 ${c.slots}명` : '';
     const sub = [brand, slots].filter(Boolean).join(' · ');
     return `<button type="button" class="inbox-camp-item ${active}" onclick="selectInboxCampaign('${esc(g.campaign_id)}')">
-      <span class="inbox-camp-badges">${typeBadge}${statusBadge}</span>
-      <span class="inbox-camp-title">${esc(title)}</span>
-      ${sub ? `<span class="inbox-camp-sub">${sub}</span>` : ''}
-      <span class="inbox-camp-meta">대화 ${g.total}건${badge}</span>
+      <span class="inbox-camp-main">
+        <span class="inbox-camp-badges">${typeBadge}${statusBadge}</span>
+        <span class="inbox-camp-title">${esc(title)}</span>
+        ${sub ? `<span class="inbox-camp-sub">${sub}</span>` : ''}
+        <span class="inbox-camp-meta">대화 ${g.total}건</span>
+      </span>
+      <span class="inbox-camp-right">${badge}</span>
     </button>`;
   }).join('');
 }
@@ -190,13 +193,15 @@ function renderInboxThreadList() {
       previewHtml = `<span class="inbox-thread-preview">${esc(who + (body || '(이미지)'))}</span>`;
     }
     return `<button type="button" class="inbox-thread-item ${active}" onclick="openInboxThread('${esc(t.application_id)}')">
-      <span class="inbox-thread-top">
+      <span class="inbox-thread-main">
         <span class="inbox-thread-name">${kanji}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
-        <span class="inbox-thread-meta">${unresolved}${unreadChip}</span>
+        ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
+        ${previewHtml}
       </span>
-      ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
-      ${previewHtml}
-      <span class="inbox-thread-time">${esc(formatDateTime(t.last_message_at))}</span>
+      <span class="inbox-thread-right">
+        <span class="inbox-thread-time">${esc(formatDateTime(t.last_message_at))}</span>
+        <span class="inbox-thread-chips">${unresolved}${unreadChip}</span>
+      </span>
     </button>`;
   }).join('');
 }
@@ -378,19 +383,34 @@ function renderAdminMsgThread(threadElId, messages) {
       }
     }
 
-    return `<div class="msg-card ${sideCls}">
-      <div class="msg-card-head"><span class="msg-sender">${senderLabel}</span><span class="msg-time">${esc(timeStr)}</span>${statusBadge}${actions}</div>
-      <div class="msg-card-body">${bodyHtml}</div>
-      ${attachHtml}
+    // 읽음 표시 (관리자 발신 + 정상 메시지 — 인플루언서가 내 메시지를 읽었는지)
+    let readMark = '';
+    if (fromAdmin && msg.mask_state === 'visible') {
+      readMark = msg.read_by_influencer_at
+        ? '<span class="msg-read read">읽음</span>'
+        : '<span class="msg-read unread">안읽음</span>';
+    }
+    // 말풍선 옆 메타: 읽음 / 시간 / 액션(숨김·회수·복구) — mine 은 풍선 왼쪽, 상대는 오른쪽
+    return `<div class="msg-row ${sideCls}">
+      <div class="msg-meta-side">${readMark}<span class="msg-time">${esc(timeStr)}</span>${actions}</div>
+      <div class="msg-bubble">
+        <div class="msg-sender">${senderLabel}</div>
+        <div class="msg-card-body">${bodyHtml}</div>
+        ${attachHtml}
+        ${statusBadge ? `<div class="msg-status-line">${statusBadge}</div>` : ''}
+      </div>
     </div>`;
   }).join('');
   thread.scrollTop = thread.scrollHeight;
 }
 
 function msgCardMasked(senderLabel, timeStr, sideCls, text) {
-  return `<div class="msg-card msg-card-masked ${sideCls}">
-    <div class="msg-card-head"><span class="msg-sender">${senderLabel}</span><span class="msg-time">${esc(timeStr)}</span></div>
-    <div class="msg-masked-body">${esc(text)}</div>
+  return `<div class="msg-row msg-row-masked ${sideCls}">
+    <div class="msg-meta-side"><span class="msg-time">${esc(timeStr)}</span></div>
+    <div class="msg-bubble">
+      <div class="msg-sender">${senderLabel}</div>
+      <div class="msg-masked-body">${esc(text)}</div>
+    </div>
   </div>`;
 }
 
