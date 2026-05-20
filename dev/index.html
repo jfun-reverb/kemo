@@ -246,6 +246,33 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
+<div id="msgModal" class="msg-modal" aria-hidden="true">
+  <div class="msg-modal-backdrop" onclick="closeMessageModal()"></div>
+  <div class="msg-modal-body">
+    <div class="msg-modal-header">
+      <div id="msgModalTitle" class="msg-modal-title"></div>
+      <button class="msg-close-btn" onclick="closeMessageModal()" aria-label="Close">
+        <span class="material-icons-round notranslate" translate="no">close</span>
+      </button>
+    </div>
+    <div id="msgModalThread" class="msg-modal-thread"></div>
+    <div class="msg-modal-input-area">
+      <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
+      <div class="msg-input-row">
+        <label class="msg-attach-btn" aria-label="attach image">
+          <span class="material-icons-round notranslate" translate="no">image</span>
+          <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
+        </label>
+        <textarea id="msgModalInput" class="msg-input" rows="2"></textarea>
+        <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
+          <span class="material-icons-round notranslate" translate="no">send</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
@@ -1166,6 +1193,7 @@ window._supabaseLoaded = false;
 <script src="lib/i18n/ja.js"></script>
 <script src="lib/i18n/ko.js"></script>
 <script src="lib/i18n/index.js"></script>
+<script src="lib/image-compress.js"></script>
 <script src="lib/storage.js"></script>
 <script src="lib/legal.js"></script>
 <script src="js/ui.js"></script>
@@ -1173,6 +1201,7 @@ window._supabaseLoaded = false;
 <script src="js/auth.js"></script>
 <script src="js/application.js"></script>
 <script src="js/mypage.js"></script>
+<script src="js/messaging.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -568,6 +568,47 @@ textarea.form-input{resize:vertical;min-height:80px}
 .lang-toggle .lang-btn.on{background:var(--primary);color:#fff}
 .lang-toggle .lang-btn:not(.on):hover{background:var(--outline)}
 
+/* ── 응모이력 메시지 버튼/배지 ── */
+.apply-item-actions{display:flex;align-items:center;gap:2px}
+.apply-msg-btn{position:relative;min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:20px;cursor:pointer;color:var(--muted)}
+.apply-msg-btn:hover{background:var(--surface-dim)}
+.apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:8px}
+
+/* ── 응모건 메시지 모달 (게시판형) ── */
+.msg-modal{position:fixed;inset:0;z-index:1200;display:none}
+.msg-modal.on{display:block}
+.msg-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+.msg-modal-body{position:absolute;left:0;right:0;bottom:0;top:0;max-width:480px;margin:0 auto;background:var(--bg,#fff);display:flex;flex-direction:column}
+.msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
+.msg-modal-title{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-close-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
+.msg-modal-thread{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--surface-dim,#f7f7f8)}
+.msg-empty{text-align:center;color:var(--muted);font-size:13px;padding:32px 16px;line-height:1.6}
+.msg-card{background:#fff;border:1px solid var(--outline);border-radius:10px;padding:10px 12px;max-width:88%;align-self:flex-start}
+.msg-card.mine{align-self:flex-end;background:#eef4ff;border-color:#cfe0ff}
+.msg-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.msg-sender{font-size:12px;font-weight:700;color:var(--text)}
+.msg-time{font-size:11px;color:var(--muted)}
+.msg-card-body{font-size:14px;line-height:1.6;color:var(--text);word-break:break-word}
+.msg-card-masked .msg-masked-body{font-size:13px;color:var(--muted);font-style:italic}
+.msg-withdraw-btn{margin-left:auto;border:none;background:transparent;color:var(--pink,#e84a7f);font-size:12px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
+.msg-withdraw-btn:hover{background:rgba(232,74,127,.1)}
+.msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.msg-attach-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
+.msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
+.msg-modal-input-area{flex-shrink:0;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
+.msg-attach-preview{display:flex;flex-wrap:wrap;gap:6px}
+.msg-attach-preview:not(:empty){margin-bottom:8px}
+.msg-attach-pending{position:relative;width:56px;height:56px;border-radius:8px;overflow:hidden}
+.msg-attach-pending img{width:100%;height:100%;object-fit:cover}
+.msg-attach-remove{position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.msg-attach-remove .material-icons-round{font-size:14px}
+.msg-input-row{display:flex;align-items:flex-end;gap:8px}
+.msg-attach-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface-dim)}
+.msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;max-height:120px;font-family:inherit}
+.msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.msg-send-btn:disabled{opacity:.5;cursor:default}
+
 </style>
 </head>
 <body>
@@ -773,6 +814,33 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
     <div id="notifModalBody" class="notif-modal-list"></div>
+  </div>
+</div>
+
+<!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
+<div id="msgModal" class="msg-modal" aria-hidden="true">
+  <div class="msg-modal-backdrop" onclick="closeMessageModal()"></div>
+  <div class="msg-modal-body">
+    <div class="msg-modal-header">
+      <div id="msgModalTitle" class="msg-modal-title"></div>
+      <button class="msg-close-btn" onclick="closeMessageModal()" aria-label="Close">
+        <span class="material-icons-round notranslate" translate="no">close</span>
+      </button>
+    </div>
+    <div id="msgModalThread" class="msg-modal-thread"></div>
+    <div class="msg-modal-input-area">
+      <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
+      <div class="msg-input-row">
+        <label class="msg-attach-btn" aria-label="attach image">
+          <span class="material-icons-round notranslate" translate="no">image</span>
+          <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
+        </label>
+        <textarea id="msgModalInput" class="msg-input" rows="2"></textarea>
+        <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
+          <span class="material-icons-round notranslate" translate="no">send</span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2717,6 +2785,31 @@ window.I18N_JA = {
   channelLabel: {
     other: 'その他',
   },
+
+  // 응모건 메시지 (인플루언서 ↔ 관리자)
+  messaging: {
+    titleFor: '{name}に関するお問い合わせ',
+    loading: '読み込み中...',
+    loadError: 'メッセージの読み込みに失敗しました',
+    emptyThread: 'まだメッセージはありません。下の入力欄からお問い合わせできます。',
+    you: '本人',
+    adminTeam: '運営チーム',
+    maskHiddenByAdmin: '[管理者により非表示処理されたメッセージ]',
+    maskSelfWithdrawn: '[本人が取り消したメッセージ]',
+    maskAdminWithdrawn: '[管理者が取り消したメッセージ]',
+    withdraw: '取り消す',
+    withdrawConfirm: 'このメッセージを取り消しますか？',
+    withdrawFailed: 'メッセージの取り消しに失敗しました',
+    placeholder: 'メッセージを入力...',
+    attachMax: '添付は最大{n}枚までです',
+    attachTooLarge: '画像が大きすぎます。別の画像をお試しください',
+    attachUploadFailed: '画像のアップロードに失敗しました',
+    attachError: '画像を開けませんでした',
+    emptyInput: 'メッセージを入力してください',
+    sendFailed: '送信に失敗しました',
+    btnLabel: 'メッセージ',
+    unreadBadge: '未読',
+  },
 };
 
 // ══════════════════════════════════════
@@ -3264,6 +3357,31 @@ window.I18N_KO = {
   channelLabel: {
     other: '기타',
   },
+
+  // 응모건 메시지 (인플루언서 ↔ 관리자)
+  messaging: {
+    titleFor: '{name} 관련 문의',
+    loading: '불러오는 중...',
+    loadError: '메시지를 불러오지 못했습니다',
+    emptyThread: '아직 메시지가 없습니다. 아래 입력란에서 문의할 수 있습니다.',
+    you: '본인',
+    adminTeam: '운영팀',
+    maskHiddenByAdmin: '[관리자에 의해 숨김 처리된 메시지]',
+    maskSelfWithdrawn: '[본인이 취소한 메시지]',
+    maskAdminWithdrawn: '[관리자가 취소한 메시지]',
+    withdraw: '취소',
+    withdrawConfirm: '이 메시지를 취소할까요?',
+    withdrawFailed: '메시지 취소에 실패했습니다',
+    placeholder: '메시지를 입력...',
+    attachMax: '첨부는 최대 {n}장까지입니다',
+    attachTooLarge: '이미지가 너무 큽니다. 다른 이미지를 시도해 주세요',
+    attachUploadFailed: '이미지 업로드에 실패했습니다',
+    attachError: '이미지를 열 수 없습니다',
+    emptyInput: '메시지를 입력해 주세요',
+    sendFailed: '전송에 실패했습니다',
+    btnLabel: '메시지',
+    unreadBadge: '미읽음',
+  },
 };
 
 // ══════════════════════════════════════
@@ -3363,6 +3481,96 @@ window.I18N_KO = {
     window.applyI18n(document);
   }
 })();
+
+// ════════════════════════════════════════════════════════════════════
+// image-compress.js — 클라이언트 이미지 압축/HEIC 변환 공통 헬퍼
+//   메시지 첨부(application-message-attachments) 업로드 전처리.
+//   사양서 docs/specs/2026-05-15-application-messaging.md §3-2.
+//   추후 영수증·캠페인 이미지 업로드에도 확산 적용 예정(§10).
+//
+//   - HEIC(iPhone 사진) 자동 감지 → JPEG 변환 (heic2any CDN lazy-load)
+//   - Canvas 리사이즈: 긴 변 2048px, JPEG quality 0.85
+//   - EXIF Orientation 자동 보정 (createImageBitmap imageOrientation)
+//   - 압축 후 2MB 초과 시 예외
+// ════════════════════════════════════════════════════════════════════
+
+const IMG_COMPRESS_DEFAULTS = {
+  maxEdge: 2048,        // 긴 변 최대 픽셀 (영수증 작은 글씨 가독)
+  quality: 0.85,        // JPEG 품질
+  maxBytes: 2 * 1024 * 1024,  // 압축 후 한도 2MB
+};
+
+const HEIC2ANY_CDN = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+let _heic2anyLoading = null;
+
+// heic2any 라이브러리 lazy-load (한 번만)
+function loadHeic2any() {
+  if (typeof window.heic2any === 'function') return Promise.resolve();
+  if (_heic2anyLoading) return _heic2anyLoading;
+  _heic2anyLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = HEIC2ANY_CDN;
+    s.onload = () => resolve();
+    s.onerror = () => { _heic2anyLoading = null; reject(new Error('heic2any_load_failed')); };
+    document.head.appendChild(s);
+  });
+  return _heic2anyLoading;
+}
+
+// HEIC/HEIF 여부 판별 (MIME 또는 확장자)
+function isHeicFile(file) {
+  const type = (file.type || '').toLowerCase();
+  const name = (file.name || '').toLowerCase();
+  return /image\/(heic|heif)/.test(type) || /\.(heic|heif)$/.test(name);
+}
+
+// 메인 압축 함수. file(File/Blob) → 압축된 JPEG File 반환.
+// 실패 코드: 'heic_convert_failed' | 'decode_failed' | 'compress_failed' | 'too_large'
+async function compressImageFile(file, opts = {}) {
+  const cfg = Object.assign({}, IMG_COMPRESS_DEFAULTS, opts);
+  let workBlob = file;
+
+  // 1) HEIC → JPEG 선변환
+  if (isHeicFile(file)) {
+    try {
+      await loadHeic2any();
+      const converted = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: cfg.quality });
+      workBlob = Array.isArray(converted) ? converted[0] : converted;
+    } catch (e) {
+      console.error('[compressImageFile] HEIC 변환 실패', e);
+      throw new Error('heic_convert_failed');
+    }
+  }
+
+  // 2) 디코드 (EXIF Orientation 보정 — imageOrientation:'from-image')
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(workBlob, { imageOrientation: 'from-image' });
+  } catch (e) {
+    // 일부 브라우저는 옵션 미지원 → 폴백
+    try { bitmap = await createImageBitmap(workBlob); }
+    catch (e2) { console.error('[compressImageFile] 디코드 실패', e2); throw new Error('decode_failed'); }
+  }
+
+  // 3) Canvas 리사이즈 (긴 변 maxEdge)
+  const scale = Math.min(1, cfg.maxEdge / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+
+  // 4) JPEG 인코딩
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', cfg.quality));
+  if (!blob) throw new Error('compress_failed');
+  if (blob.size > cfg.maxBytes) throw new Error('too_large');
+
+  const baseName = (file.name || 'image').replace(/\.[^.]+$/, '');
+  return new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+}
 
 // ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
@@ -5358,6 +5566,94 @@ async function updateMarketingOptIn(value) {
     console.error('[updateMarketingOptIn]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 응모건 단위 메시지 (인플루언서 ↔ 관리자) — PR 1
+//   사양서 docs/specs/2026-05-15-application-messaging.md §4
+//   마이그레이션 144. 본문/첨부 마스킹은 get_application_messages RPC 서버측 처리.
+// ════════════════════════════════════════════════════════════════════
+const MSG_ATTACH_BUCKET = 'application-message-attachments';
+
+// 응모건의 메시지 목록 (마스킹 적용된 행) — 인플루언서·관리자 공용.
+// get_application_messages RPC 가 호출자 역할(본인 인플 / is_admin)에 따라 마스킹.
+async function fetchApplicationMessages(applicationId) {
+  if (!db || !applicationId) return [];
+  const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
+  if (error) throw error;
+  return data || [];
+}
+
+// 메시지 발송 (인플루언서·관리자 공용, sender_kind 는 서버가 판별).
+// attachments: [{path, name, size, mime}] — uploadMessageAttachment() 반환값 배열
+async function sendApplicationMessage(applicationId, body, attachments = []) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_application_message', {
+      p_application_id: applicationId,
+      p_body: body || '',
+      p_attachments: attachments,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 본인 미열람 메시지를 읽음 처리 (관리자: 개인별 / 인플루언서: read_by_influencer_at).
+async function markApplicationMessagesRead(applicationId) {
+  if (!db || !applicationId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_application_messages_read', { p_application_id: applicationId });
+    if (error) throw error;
+  });
+}
+
+// 본인 메시지 회수 (25분 한도, RPC 가 시간/본인 검증). 성공 후 첨부 Storage 즉시 삭제 (§3-5 ②).
+// attachmentPaths: 회수할 메시지의 attachments[].path 배열 (없으면 빈 배열)
+async function withdrawOwnMessage(messageId, attachmentPaths = []) {
+  if (!db || !messageId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('withdraw_own_message', { p_message_id: messageId });
+    if (error) throw error;
+  });
+  if (attachmentPaths && attachmentPaths.length) {
+    // 본인 회수는 첨부 즉시 삭제 (개인정보 최소화). 실패해도 회수 자체는 성공이므로 경고만.
+    try { await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths); }
+    catch (e) { console.warn('[withdrawOwnMessage] 첨부 삭제 실패', e); }
+  }
+}
+
+// 첨부 이미지 업로드 — 압축/HEIC 변환(image-compress.js) 후 비공개 버킷에 저장.
+// 반환: {path, name, size, mime} (send 의 attachments 배열에 그대로 push)
+async function uploadMessageAttachment(file, applicationId) {
+  if (!db) throw new Error('DB 미연결');
+  const compressed = await compressImageFile(file);  // image-compress.js — too_large/decode_failed 등 예외 가능
+  const uuid = crypto.randomUUID ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `${applicationId}/${uuid}.jpg`;
+  const {error} = await db.storage.from(MSG_ATTACH_BUCKET)
+    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) throw error;
+  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
+}
+
+// 첨부 이미지 signed URL (5분 시한, §9). 라이트박스/썸네일 표시용
+async function getMessageAttachmentSignedUrl(path, expiresIn = 300) {
+  if (!db || !path) return null;
+  const {data, error} = await db.storage.from(MSG_ATTACH_BUCKET).createSignedUrl(path, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl || null;
+}
+
+// 인플루언서 GNB 미읽음 메시지 응모건 목록 (security_invoker 뷰 — 본인 행만 RLS 적용).
+async function fetchInfluencerUnreadMessageThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return [];
+  const {data, error} = await db.from('application_message_summary')
+    .select('application_id, campaign_id, unread_for_influencer, last_message_at')
+    .gt('unread_for_influencer', 0)
+    .order('last_message_at', { ascending: false });
+  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); return []; }
+  return data || [];
 }
 
 
@@ -8663,6 +8959,7 @@ function renderMyApplyTabs() {
 }
 
 let _myDelivsByApp = {};
+let _myMsgUnreadByApp = {};  // 응모건별 인플루언서 미읽음 메시지 수 (배지용)
 
 async function renderMyApplyList() {
   const container = $('myApplicationsList');
@@ -8679,6 +8976,12 @@ async function renderMyApplyList() {
       _myDelivsByApp = {};
       delivs.forEach(d => { (_myDelivsByApp[d.application_id] ||= []).push(d); });
     } catch(e) { _myDelivsByApp = {}; }
+    // 메시지 미읽음 배지 — application_message_summary 뷰 (security_invoker, 본인 행만)
+    try {
+      const threads = await fetchInfluencerUnreadMessageThreads();
+      _myMsgUnreadByApp = {};
+      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+    } catch(e) { _myMsgUnreadByApp = {}; }
   }
 
   // 캠페인 상태 필터
@@ -8773,6 +9076,9 @@ async function renderMyApplyList() {
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
+    // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
+    const msgUnread = _myMsgUnreadByApp[a.id] || 0;
+    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessageModal('${a.id}')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
@@ -8782,9 +9088,23 @@ async function renderMyApplyList() {
         ${cautionLine}
         ${cancelledLine}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}${menuHtml ? `<div class="apply-item-menu">${menuHtml}</div>` : ''}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}<div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
+}
+
+// 메시지 모달에서 읽음 처리/닫은 뒤 응모이력 미읽음 배지 갱신
+async function refreshMyMsgUnread() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  try {
+    const threads = await fetchInfluencerUnreadMessageThreads();
+    _myMsgUnreadByApp = {};
+    threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+  } catch(e) { /* 무시 */ }
+  // 응모이력 화면이 떠 있을 때만 재렌더 (배지 갱신)
+  if ($('myApplicationsList') && typeof renderMyApplyList === 'function') {
+    try { await renderMyApplyList(); } catch(e) { /* 무시 */ }
+  }
 }
 
 // ── Phase 2: 주의사항 비교 (응모이력 셀 토글) ──
@@ -9297,6 +9617,226 @@ function closeCancelDetailModal() {
 function isApplicationCancelled(appId) {
   const app = _myApps.find(a => a.id === appId);
   return !!(app && app.status === 'cancelled');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// messaging.js — 인플루언서 ↔ 관리자 메시지 모달 (PR 1, 인플루언서 화면)
+//   사양서 docs/specs/2026-05-15-application-messaging.md §5-1 (게시판형)
+//   DB 함수: storage.js (fetchApplicationMessages / sendApplicationMessage /
+//            markApplicationMessagesRead / withdrawOwnMessage / uploadMessageAttachment)
+//   본문/첨부 마스킹은 서버(get_application_messages RPC)에서 처리 — 클라는 mask_state 로 표시만.
+// ════════════════════════════════════════════════════════════════════
+
+const MSG_WITHDRAW_LIMIT_MS = 25 * 60 * 1000;  // 본인 회수 25분 (§3-5 ②)
+const MSG_MAX_ATTACH = 5;                       // 메시지당 첨부 최대 5장 (§3-2)
+
+let _msgCurrentAppId = null;
+let _msgPendingFiles = [];   // 업로드 대기 File 배열 (압축 전 원본)
+let _msgSending = false;
+
+// 응모건 메시지 모달 열기
+async function openMessageModal(applicationId) {
+  if (!applicationId) return;
+  _msgCurrentAppId = applicationId;
+  _msgPendingFiles = [];
+  const m = $('msgModal');
+  if (!m) return;
+
+  // 헤더 제목: 「{캠페인명}に関するお問い合わせ」
+  const app = (typeof _myApps !== 'undefined' ? _myApps : []).find(a => a.id === applicationId);
+  const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === app?.campaign_id) || {};
+  const titleEl = $('msgModalTitle');
+  if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
+
+  m.classList.add('on');
+  document.body.style.overflow = 'hidden';
+  renderMsgAttachPreview();
+  const inputEl = $('msgModalInput');
+  if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
+
+  const thread = $('msgModalThread');
+  if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+
+  try {
+    const msgs = await fetchApplicationMessages(applicationId);
+    renderMessageThread(msgs);
+    // 열람 시 본인 미열람 읽음 처리 후 응모이력 배지 갱신
+    await markApplicationMessagesRead(applicationId);
+    if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
+  } catch (e) {
+    console.error('[openMessageModal]', e);
+    if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
+  }
+}
+
+function closeMessageModal() {
+  const m = $('msgModal');
+  if (m) m.classList.remove('on');
+  document.body.style.overflow = '';
+  _msgCurrentAppId = null;
+  _msgPendingFiles = [];
+}
+
+// 메시지 스레드 렌더 (게시판형 — 위→아래 누적 카드)
+function renderMessageThread(messages) {
+  const thread = $('msgModalThread');
+  if (!thread) return;
+  if (!messages || !messages.length) {
+    thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
+    return;
+  }
+  const now = Date.now();
+  thread.innerHTML = messages.map(msg => {
+    const mine = msg.sender_kind === 'influencer';
+    const senderLabel = mine ? t('messaging.you') : t('messaging.adminTeam');
+    const timeStr = formatDate(msg.created_at);
+
+    // 마스킹 상태별 placeholder (§3-5)
+    if (msg.mask_state && msg.mask_state !== 'visible') {
+      const phKey = {
+        hidden_by_admin: 'messaging.maskHiddenByAdmin',
+        self_withdrawn_influencer: 'messaging.maskSelfWithdrawn',
+        self_withdrawn_admin: 'messaging.maskAdminWithdrawn',
+      }[msg.mask_state] || 'messaging.maskHiddenByAdmin';
+      return `<div class="msg-card msg-card-masked ${mine ? 'mine' : ''}">
+        <div class="msg-card-head"><span class="msg-sender">${esc(senderLabel)}</span><span class="msg-time">${esc(timeStr)}</span></div>
+        <div class="msg-masked-body">${esc(t(phKey))}</div>
+      </div>`;
+    }
+
+    // 본문: esc() 선적용 후 줄바꿈만 <br> 치환 — 다른 HTML 태그는 이스케이프되어 XSS 안전
+    const bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
+
+    // 첨부 썸네일 (signed URL 비동기 로드)
+    let attachHtml = '';
+    const atts = Array.isArray(msg.attachments) ? msg.attachments : [];
+    if (atts.length) {
+      attachHtml = `<div class="msg-attachments">${atts.map((a, i) => {
+        const elId = `msgatt-${msg.id}-${i}`;
+        loadMsgAttachThumb(elId, a.path);
+        return `<div class="msg-attach-thumb" id="${elId}" onclick="openMsgLightbox('${esc(a.path)}')"><span class="material-icons-round notranslate" translate="no">image</span></div>`;
+      }).join('')}</div>`;
+    }
+
+    // 본인 메시지 + 25분 이내 → 회수 버튼
+    let withdrawBtn = '';
+    if (mine) {
+      const elapsed = now - new Date(msg.created_at).getTime();
+      if (elapsed < MSG_WITHDRAW_LIMIT_MS) {
+        const pathsJson = esc(JSON.stringify(atts.map(a => a.path)));
+        withdrawBtn = `<button type="button" class="msg-withdraw-btn" onclick='confirmWithdrawMessage("${esc(msg.id)}", ${pathsJson})'>${esc(t('messaging.withdraw'))}</button>`;
+      }
+    }
+
+    return `<div class="msg-card ${mine ? 'mine' : ''}">
+      <div class="msg-card-head"><span class="msg-sender">${esc(senderLabel)}</span><span class="msg-time">${esc(timeStr)}</span>${withdrawBtn}</div>
+      <div class="msg-card-body">${bodyHtml}</div>
+      ${attachHtml}
+    </div>`;
+  }).join('');
+  // 최신 메시지로 스크롤
+  thread.scrollTop = thread.scrollHeight;
+}
+
+// 첨부 썸네일 signed URL 비동기 로드 (5분 시한)
+async function loadMsgAttachThumb(elId, path) {
+  try {
+    const url = await getMessageAttachmentSignedUrl(path);
+    const el = $(elId);
+    if (el && url) {
+      el.innerHTML = `<img src="${esc(url)}" loading="lazy" decoding="async" alt="">`;
+    }
+  } catch (e) { /* 썸네일 실패 시 아이콘 유지 */ }
+}
+
+// 첨부 라이트박스 (원본 보기)
+async function openMsgLightbox(path) {
+  try {
+    const url = await getMessageAttachmentSignedUrl(path);
+    if (url) window.open(url, '_blank', 'noopener');
+  } catch (e) { toast(t('messaging.attachError')); }
+}
+
+// 회수 확인 → 실행
+async function confirmWithdrawMessage(messageId, attachmentPaths) {
+  if (!confirm(t('messaging.withdrawConfirm'))) return;
+  try {
+    await withdrawOwnMessage(messageId, attachmentPaths || []);
+    // 스레드 재로드
+    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    renderMessageThread(msgs);
+  } catch (e) {
+    console.error('[confirmWithdrawMessage]', e);
+    toast(t('messaging.withdrawFailed'));
+  }
+}
+
+// ── 첨부 선택/미리보기 ──
+function onMsgAttachSelected(input) {
+  const files = Array.from(input.files || []);
+  input.value = '';  // 같은 파일 재선택 허용
+  for (const f of files) {
+    if (_msgPendingFiles.length >= MSG_MAX_ATTACH) { toast(t('messaging.attachMax').replace('{n}', MSG_MAX_ATTACH)); break; }
+    _msgPendingFiles.push(f);
+  }
+  renderMsgAttachPreview();
+}
+
+function removeMsgAttach(idx) {
+  _msgPendingFiles.splice(idx, 1);
+  renderMsgAttachPreview();
+}
+
+function renderMsgAttachPreview() {
+  const wrap = $('msgModalAttachPreview');
+  if (!wrap) return;
+  if (!_msgPendingFiles.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = _msgPendingFiles.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return `<div class="msg-attach-pending"><img src="${url}" alt=""><button type="button" class="msg-attach-remove" onclick="removeMsgAttach(${i})" aria-label="remove"><span class="material-icons-round notranslate" translate="no">close</span></button></div>`;
+  }).join('');
+}
+
+// ── 전송 ──
+async function sendMessageFromModal() {
+  if (_msgSending || !_msgCurrentAppId) return;
+  const inputEl = $('msgModalInput');
+  const body = (inputEl?.value || '').trim();
+  if (!body && !_msgPendingFiles.length) { toast(t('messaging.emptyInput')); return; }
+
+  _msgSending = true;
+  const sendBtn = $('msgModalSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+
+  try {
+    // 첨부 압축·업로드 (순차 — 실패 시 즉시 중단)
+    const attachments = [];
+    for (const f of _msgPendingFiles) {
+      try {
+        attachments.push(await uploadMessageAttachment(f, _msgCurrentAppId));
+      } catch (e) {
+        console.error('[sendMessageFromModal] 첨부 업로드', e);
+        toast(e?.message === 'too_large' ? t('messaging.attachTooLarge') : t('messaging.attachUploadFailed'));
+        _msgSending = false;
+        if (sendBtn) sendBtn.disabled = false;
+        return;
+      }
+    }
+    await sendApplicationMessage(_msgCurrentAppId, body, attachments);
+    // 입력 초기화 + 재로드
+    if (inputEl) inputEl.value = '';
+    _msgPendingFiles = [];
+    renderMsgAttachPreview();
+    const msgs = await fetchApplicationMessages(_msgCurrentAppId);
+    renderMessageThread(msgs);
+  } catch (e) {
+    console.error('[sendMessageFromModal]', e);
+    // 90일 경과·rate limit 등 RPC 예외 메시지 노출
+    toast(e?.message || t('messaging.sendFailed'));
+  } finally {
+    _msgSending = false;
+    if (sendBtn) sendBtn.disabled = false;
+  }
 }
 
 // ══════════════════════════════════════

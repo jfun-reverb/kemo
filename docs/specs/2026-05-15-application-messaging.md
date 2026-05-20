@@ -1328,14 +1328,29 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 
 ## 구현 결과
 
-**구현일:** (개발 세션이 채울 것)
-**관련 커밋:** (개발 세션이 채울 것)
-**PR:** (PR-1~4 링크 차례로)
+### PR 1 — 기반 인프라 + 인플루언서 메시지 (2026-05-20)
 
-### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+**구현일:** 2026-05-20
+**관련 커밋:** 95cbb41 (DB+연동 계층), 0e47156 (인플 모달 UI) — feature/application-messaging
+**PR:** (작업 폴더 PR 생성 예정)
 
-### 구현 중 기술 결정 사항
--
+#### 초안 대비 변경 사항
+- **추가된 것**:
+  - 마스킹 조회 RPC `get_application_messages(uuid)` — 사양서엔 "뷰 또는 RPC" 선택으로 열려 있었으나, 호출자 역할별 4종 마스킹 분기를 RPC 로 구현(클라 마스킹은 본문이 네트워크로 노출돼 부적합). §9 비대칭 그대로.
+  - 공통 이미지 압축 헬퍼 `dev/lib/image-compress.js` (HEIC→JPEG + Canvas 2048px/0.85) — §10 에 신규 파일로 예고됐던 것을 PR 1 에서 선구현.
+  - `application_message_summary` 뷰에 `security_invoker=true` (인플루언서 직접 조회 시 RLS 상속), `application_message_admin_unread_counts` 에 is_admin 가드 — 초안에 명시 안 됐던 보안 보강.
+- **빠진 것 (PR 2 로 이동)**:
+  - GNB 햄버거 「メッセージ」 메뉴(§5-2) + 알림 `message_received`(§5-5): 관리자 발신이 있어야 인플루언서 미읽음·알림이 생기는데 관리자 발신 UI 가 PR 2 → PR 2(관리자 발신)와 함께 연동하기로 사용자 결정(2026-05-20). PR 1 에 빈 껍데기만 넣으면 표시 데이터·테스트 불가.
+  - 응모 종료 후 90일 입력창 비활성 UX: send RPC 가 90일 차단하므로 PR 1 은 발송 실패 토스트로 처리, 입력창 자동 비활성 UX 는 후속.
+- **달라진 것**:
+  - PR 1 테이블 5개 전부 생성(broadcast/hide_history 포함). 관련 RPC(bulk/hide/unhide/withdraw_broadcast/mark_resolved)는 PR 2·3 에서 추가.
+  - Storage 버킷·정책을 마이그레이션 SQL 안에 포함(Dashboard 수동 아님).
+
+#### 구현 중 기술 결정 사항
+- 마이그레이션 **144** 단일 파일(테이블 5개 + 컬럼 + 뷰 + 마스킹/발송/읽음/회수 RPC + rate limit + lookup 시드 + Storage). 보안 보강을 별도 145 로 했다가 미적용 상태라 144 에 통합.
+- 본인 회수 첨부 삭제: SQL RPC 에서 storage 삭제 불가 → `withdrawOwnMessage()` 가 RPC 성공 후 클라이언트에서 `storage.remove()` 호출(§9 채택안).
+- Rate limit: send 100/시간, withdraw 50/시간 (함수 내 최근 1시간 count 가드).
+- 인플 메시지 로직은 `dev/js/messaging.js` 신규 파일로 분리(인플 코드 비대화 방지).
+
+### PR 2~5
+(미진행)

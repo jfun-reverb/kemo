@@ -60,3 +60,44 @@
 .lang-toggle .lang-btn{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s}
 .lang-toggle .lang-btn.on{background:var(--primary);color:#fff}
 .lang-toggle .lang-btn:not(.on):hover{background:var(--outline)}
+
+/* ── 응모이력 메시지 버튼/배지 ── */
+.apply-item-actions{display:flex;align-items:center;gap:2px}
+.apply-msg-btn{position:relative;min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:20px;cursor:pointer;color:var(--muted)}
+.apply-msg-btn:hover{background:var(--surface-dim)}
+.apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:8px}
+
+/* ── 응모건 메시지 모달 (게시판형) ── */
+.msg-modal{position:fixed;inset:0;z-index:1200;display:none}
+.msg-modal.on{display:block}
+.msg-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+.msg-modal-body{position:absolute;left:0;right:0;bottom:0;top:0;max-width:480px;margin:0 auto;background:var(--bg,#fff);display:flex;flex-direction:column}
+.msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
+.msg-modal-title{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-close-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
+.msg-modal-thread{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--surface-dim,#f7f7f8)}
+.msg-empty{text-align:center;color:var(--muted);font-size:13px;padding:32px 16px;line-height:1.6}
+.msg-card{background:#fff;border:1px solid var(--outline);border-radius:10px;padding:10px 12px;max-width:88%;align-self:flex-start}
+.msg-card.mine{align-self:flex-end;background:#eef4ff;border-color:#cfe0ff}
+.msg-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.msg-sender{font-size:12px;font-weight:700;color:var(--text)}
+.msg-time{font-size:11px;color:var(--muted)}
+.msg-card-body{font-size:14px;line-height:1.6;color:var(--text);word-break:break-word}
+.msg-card-masked .msg-masked-body{font-size:13px;color:var(--muted);font-style:italic}
+.msg-withdraw-btn{margin-left:auto;border:none;background:transparent;color:var(--pink,#e84a7f);font-size:12px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
+.msg-withdraw-btn:hover{background:rgba(232,74,127,.1)}
+.msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.msg-attach-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
+.msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
+.msg-modal-input-area{flex-shrink:0;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
+.msg-attach-preview{display:flex;flex-wrap:wrap;gap:6px}
+.msg-attach-preview:not(:empty){margin-bottom:8px}
+.msg-attach-pending{position:relative;width:56px;height:56px;border-radius:8px;overflow:hidden}
+.msg-attach-pending img{width:100%;height:100%;object-fit:cover}
+.msg-attach-remove{position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.msg-attach-remove .material-icons-round{font-size:14px}
+.msg-input-row{display:flex;align-items:flex-end;gap:8px}
+.msg-attach-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface-dim)}
+.msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;max-height:120px;font-family:inherit}
+.msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.msg-send-btn:disabled{opacity:.5;cursor:default}
