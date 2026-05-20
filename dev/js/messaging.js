@@ -83,7 +83,7 @@ function renderMessageThread(messages) {
       </div>`;
     }
 
-    // 본문 (esc 후 줄바꿈 보존)
+    // 본문: esc() 선적용 후 줄바꿈만 <br> 치환 — 다른 HTML 태그는 이스케이프되어 XSS 안전
     const bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
 
     // 첨부 썸네일 (signed URL 비동기 로드)
