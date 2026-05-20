@@ -392,6 +392,9 @@ const PANE_REFRESHERS = {
   'campaigns': async () => {
     // 관리자 캠페인 목록 갱신 — `loadCampaigns`(인플루언서 함수) 오참조 버그 수정
     if (typeof loadAdminCampaigns === 'function') await loadAdminCampaigns();
+  },
+  'messages': async () => {
+    if (typeof refreshInboxData === 'function') await refreshInboxData();
   }
 };
 async function refreshPane(paneId) {

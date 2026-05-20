@@ -196,7 +196,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'brand-applications': loadBrandApplications,
     'brand-dashboard': loadBrandDashboard,
     'brands': loadBrandsPane,
-    'admin-notices': loadAdminNotices
+    'admin-notices': loadAdminNotices,
+    'messages': loadMessagesInbox
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -3035,6 +3036,7 @@ const CAMP_APPLICANTS_PAGE_SIZE = 50;
 async function loadCampApplicants() {
   const filter = $('campAppFilterStatus')?.value || '';
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
+  await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
   const total = apps.length;
   const allApproved = apps.filter(a => a.status === 'approved').length;
@@ -3103,6 +3105,7 @@ async function loadCampApplicants() {
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
+      <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
     </td>
     <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
     <td>${snsCell('x', _u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
@@ -4101,6 +4104,8 @@ async function renderAppCampList() {
     const [cs, as, us] = await Promise.all([fetchCampaigns(), fetchApplications(), fetchInfluencers()]);
     _appListCache = { camps: cs, allAppsRaw: as, users: us };
   }
+  // 응모건 메시지 본인 미열람 배지 맵 (응모 행 메시지 버튼용)
+  await loadApplicantMsgUnread();
   let camps = _appListCache.camps.slice();
   const allAppsRaw = _appListCache.allAppsRaw;
   let apps = allAppsRaw.slice();
@@ -4234,6 +4239,7 @@ async function renderAppCampList() {
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(u.line_id)}</div>`:''}
+        <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
@@ -6964,6 +6970,7 @@ async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
 
   // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
   const campsForFilter = await fetchCampaigns().catch(() => []);
@@ -7164,7 +7171,7 @@ function renderDelivAppRow(g) {
   return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
     <td>${rtBadge}</td>
     <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}</td>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
     <td>${submittedCell}</td>

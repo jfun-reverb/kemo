@@ -1352,5 +1352,26 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 - Rate limit: send 100/시간, withdraw 50/시간 (함수 내 최근 1시간 count 가드).
 - 인플 메시지 로직은 `dev/js/messaging.js` 신규 파일로 분리(인플 코드 비대화 방지).
 
-### PR 2~5
-(미진행)
+### PR 2 — 관리자 발신 + GNB 메뉴 + 인플 알림 (2026-05-20)
+
+**구현일:** 2026-05-20
+**관련 브랜치/커밋:** `feature/application-messaging-pr2` (dev PR 예정)
+**마이그레이션:** 145 (`145_application_messages_pr2.sql`)
+
+#### 초안 대비 변경 사항
+- **추가된 것:**
+  - 받은편지함을 **3단 패널**(좌: 캠페인 / 중: 대화 상대 / 우: 대화 내용)로 구현 (사용자 결정 — 사양서 §5-4의 단일 받은편지함보다 확장. 관리자 PC 전체폭 활용)
+  - 응모 행 「메시지」 버튼은 **별도 컬럼 대신 인플루언서 셀 안**에 삽입(3개 페인 표 헤더 변경 없이 일관 적용). 공통 헬퍼 `renderApplicantMsgBtn(app)`
+  - 숨김 이력은 **응모건 단위 조회**(`fetchApplicationHideHistory` — hide_history ⨝ application_messages) + 메시지 모달 하단 접이식 패널(super_admin 한정)
+- **빠진 것:** 일괄 발송(BCC)·메일 지연 큐·LINE 안내는 사양대로 PR 3~5로 분리(범위 외)
+- **달라진 것:** `mark_application_resolved` 권한을 초안 추정의 campaign_admin 이상이 아닌 **is_admin()**(모든 관리자)으로 확정 — 사양서 §3-4 「모든 관리자 발신·열람·응대완료 마킹」 충실. 자동 응대(send RPC)도 is_admin 이라 수동도 동일 등급
+
+#### 구현 중 기술 결정 사항
+- **선결작업 통합(마이그레이션 145 단일 파일):** `notifications.kind` CHECK 제약 확장(message_received) + `send_application_message` 재정의(144 본문 보존 + 관리자 발신 시 알림 INSERT, 미읽음 중복 방지) + 신규 RPC 3종을 한 파일에. 144 통합 패턴과 일관
+- **알림 클릭 분기 회귀 방지:** `application_cancelled` 알림도 `ref_table='applications'` 이므로 `onNotifItemClick`에서 `kind='message_received'` 로 한정(reviewer 가 잡은 회귀). 알림 onclick 에 kind 인자 추가
+- **admin.js 핫스팟 회피:** 관리자 로직 전부 신규 `dev/js/admin-messaging.js` 분리. admin.js 변경은 페인 로더 1줄 + 응모행 버튼/미열람맵 로딩 3곳으로 최소화. build.sh ADMIN_JS_FILES 에 admin.js 앞 등록
+- **데이터 계층 재사용:** 받은편지함은 144의 `application_message_summary` 뷰(security_invoker — 관리자 전체 조회) + `application_message_admin_unread_counts`(본인 미열람) + `fetchInfluencersByIds`(이름 보강)로 구성. 145에 뷰/집계 추가 없음
+- **GNB 메시지 배지:** `_myMsgUnreadByApp`(mypage.js) 합계 → `updateNavMsgBadge()`. 햄버거 열 때 `refreshMyMsgUnread` 백그라운드 최신화
+
+### PR 3~5
+(미진행 — PR 3 일괄 발송 / PR 4 메일 지연 큐 / PR 5 LINE 안내 + 약관 D-7 + 운영 배포)

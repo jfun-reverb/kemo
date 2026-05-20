@@ -151,13 +151,14 @@
 | INF-080 | 햄버거 메뉴    | 홈 / キャンペーン / マイページ / 通知(미읽음 배지 9+) / ログアウト (우측 슬라이드 패널, 인증 페이지에선 숨김) |
 | INF-081 | 바텀탭 (deprecated) | 2026-04 햄버거 메뉴로 대체. 키보드 간섭 제거 목적                          |
 
-### 2.10 응모건 메시지 (인플루언서 ↔ 관리자, PR 1 — 개발 검증 중)
-- 응모이력 카드의 「メッセージ」 버튼(미읽음 배지) → 게시판형 풀스크린 모달 (`#msgModal`, `dev/js/messaging.js`)
-- 발송: 텍스트 + 이미지 첨부 (클라이언트 자동 압축 2048px·HEIC→JPEG 변환, 메시지당 최대 5장). 본인 메시지 25분 내 회수 (회수 시 첨부 즉시 삭제)
-- 숨김·회수 메시지는 본문/첨부 가림(placeholder) — 서버 `get_application_messages` RPC 가 호출자 역할별 4종 마스킹
+### 2.10 응모건 메시지 (인플루언서 ↔ 관리자, PR 1·2 — 개발 검증 중)
+- **인플루언서(PR 1):** 응모이력 카드의 「メッセージ」 버튼(미읽음 배지) → 게시판형 풀스크린 모달 (`#msgModal`, `dev/js/messaging.js`). 발송: 텍스트 + 이미지 첨부(클라 자동 압축 2048px·HEIC→JPEG, 최대 5장). 본인 25분 내 회수(첨부 즉시 삭제). 숨김·회수 메시지 본문/첨부 가림(placeholder)
+- **인플루언서 GNB·알림(PR 2):** 햄버거 메뉴에 「メッセージ」 항목 + 전체 미읽음 배지(`_myMsgUnreadByApp` 합계). 관리자 답장 시 앱 내 알림 `message_received` → 알림 모달 클릭 시 메시지 모달 직접 오픈(kind 로 분기 — application_cancelled 와 ref_table 공유)
+- **관리자(PR 2, `dev/js/admin-messaging.js`):** 사이드바 「메시지」 → 받은편지함 **3단 패널**(좌 캠페인 / 중 대화 상대 / 우 대화 내용). 응모 행(신청관리·캠페인별 신청자·결과물 관리 3개 페인) 인플 셀에 「메시지」 버튼 + 본인 미열람 배지. 메시지 모달에서 답장·이미지 첨부·25분 회수. 「응대 완료」 수동 마킹(모든 관리자). 인플 메시지 강제 숨김(campaign_admin+, 사유 카테고리+메모) / 복구(super_admin, 사유 필수) / 숨김 이력 패널(super_admin)
+- 숨김·회수 마스킹은 서버 `get_application_messages` RPC 가 호출자 역할별 4종 분기(관리자는 숨김 원본 + mask_state 표시)
 - 첨부는 비공개 버킷 `application-message-attachments` + 5분 시한 signed URL
-- DB: 마이그레이션 144 — 테이블 5개(`application_messages` 외) + 마스킹/발송(rate limit 100/h)/읽음/회수(25분, rate limit 50/h) RPC + `security_invoker` 집계 뷰 + 숨김사유 7종 시드
-- **PR 2 예정**: 관리자 발신 UI, GNB 「메시지」 메뉴, 알림(`message_received`), 강제 숨김. **약관 중대 변경(D-7 사전 통지)은 PR 5 운영 배포 직전 집행** (현재 보류)
+- DB: 마이그레이션 144(테이블 5개 + 마스킹/발송/읽음/회수 RPC + 집계 뷰 + 숨김사유 7종) + 145(notifications.kind 확장 + send RPC 알림 INSERT + mark_application_resolved/hide_application_message/unhide_application_message)
+- **미구현**: 일괄 발송(PR 3)·메일 지연 큐(PR 4)·LINE 안내+약관 D-7 사전 통지(PR 5). 운영 배포는 PR 5 약관 통지와 함께(현재 보류)
 - 사양서: `docs/specs/2026-05-15-application-messaging.md`
 
 ---
