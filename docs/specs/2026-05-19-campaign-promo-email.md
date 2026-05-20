@@ -621,9 +621,9 @@ SELECT cron.schedule(
 ## 14. 구현 결과 (PR 1 — DB 인프라)
 
 **구현일:** 2026-05-19
-**관련 커밋:** (PR 1 커밋 머지 시 추가)
+**관련 커밋:** 5835904 (PR 1 본체) + 0db3fea (channel 컬럼명 정정·REVOKE 가드 보강) — PR #228·#229 머지
 **개발 DB 적용:** 2026-05-19 ✓ (qysmxtipobomefudyixw)
-**운영 DB 적용:** (PR 1 머지 후 적용 예정)
+**운영 DB 적용:** 2026-05-19 ✓ (마이그레이션 139·140·141, twofagomeizrtkwlhsuv)
 
 ### 초안 대비 변경 사항
 
@@ -663,10 +663,10 @@ SELECT cron.schedule(
    - WHERE 절에서 양쪽 모두 빈 배열인 행만 제외.
 
 ### 운영 적용 체크리스트
-- [ ] 마이그레이션 139·140·141 운영 DB SQL Editor 실행 (개발과 동일 순서)
-- [ ] 운영 DB 검증 SQL 3건 실행 (테이블 4종 / 인플·캠페인 컬럼 / 함수 4종 권한)
-- [ ] 142 cron 등록은 PR 5 — 운영 DB 적용 보류
-- [ ] 운영 적용 후 커밋 본문에 「운영 DB 적용 완료 (date)」 표기
+- [x] 마이그레이션 139·140·141 운영 DB SQL Editor 실행 (개발과 동일 순서) — 2026-05-19 완료
+- [x] 운영 DB 검증 SQL 3건 실행 (테이블 4종 / 인플·캠페인 컬럼 / 함수 4종 권한) — 2026-05-19 완료
+- [x] 마이그레이션 142 (pg_cron 주 2회 자동 발송 등록)는 PR 5 — 2026-05-20 운영 등록 완료 (§20 참조)
+- [x] 운영 적용 후 커밋 본문에 「운영 DB 적용 완료 (date)」 표기
 
 ### 후속 보완 (Warning)
 - 사양서 §3-1·§17-4 SQL 초안의 `auth_id`/`channels` 표기는 본 섹션이 정정한 것으로 갈음 (초안 SQL 자체는 이력 보존 차원에서 그대로 유지)
@@ -1139,7 +1139,7 @@ https://globalreverb.com/#detail-{campaign_id}?promo_token={influencer.unsubscri
 ## 18. 구현 결과 (PR 3·4 — 인플 수신거부 라우트 + 마이페이지 메일 수신 설정)
 
 **구현일:** 2026-05-20
-**관련 커밋:** (이 커밋)
+**관련 커밋:** 2d324dd — PR #234 (dev→main) 머지 완료, 운영 배포 완료
 
 ### 초안 대비 변경 사항
 
@@ -1162,3 +1162,64 @@ https://globalreverb.com/#detail-{campaign_id}?promo_token={influencer.unsubscri
 - **잘못된 토큰 처리**: 잘못된 UUID 형식은 PostgreSQL 캐스팅 에러(22P02) → storage 함수 try/catch 가 `invalid_token` 무효 처리
 - **교차 사이트 스크립팅 방지**: 수신거부 성공 화면 인플 이름은 `textContent` 주입 (innerHTML 미사용)
 - **신규 파일 없음**: 기존 6개 파일 수정만 → `build.sh` 등록 불필요. `dev/build.sh` 로 빌드 재생성만
+
+---
+
+## 19. 구현 결과 (PR 2 — Edge Function + 메일 템플릿)
+
+**구현일:** 2026-05-20 (운영 배포 완료)
+**관련 커밋:**
+- 40b98ce — PR 2 본체 (Edge Function `notify-campaign-promo-digest` + 메일 템플릿 + 마이그레이션 143 신설)
+- a71b423 — 카드 이미지 transform·리워드 텍스트·testRecipient 디버그 모드 보강
+- 12369ce — `finalizeRun` 종료 경로에서 `finished_at` 기록 누락 수정
+- ee4caf4 — 인플 메일 푸터 4줄 통일 + 회사 정보 행 추가 (홍보 메일 포함 전체 인플 메일 공통)
+
+**운영 배포:** Edge Function v7 ACTIVE (twofagomeizrtkwlhsuv) + 마이그레이션 143 운영 적용 2026-05-20
+
+### 초안 대비 변경 사항
+
+#### 추가된 것
+- **마이그레이션 143 신설** (`get_promo_digest_targets` 반환 시그니처에 `new_total_count` + `deadline_d1_total_count` 2컬럼 추가) — 초안에는 없던 컬럼. 메일 본문 「他 N件のキャンペーン公開中」 안내 시, 마감 가까운 순 5건 슬라이스 전 매칭 총수를 정확히 산정하기 위함 (§16-5). 함수 반환 컬럼 변경이라 `DROP FUNCTION` 선행 후 재정의 + 권한 재부여
+- **testRecipient 디버그 모드** — 운영 첫 수동 발송 검증 시 전체 발송 대신 지정 주소 1명에게만 보내는 디버그 파라미터. 운영 안정화 후 무해(미지정 시 정상 전체 발송)
+- **메일 템플릿 주석 누출 strip 패치** — `<!-- {{placeholder}} -->` 패턴이 render 시 중첩 주석으로 본문에 누출되던 문제(메모리 `project_mail_template_comment_leak` 참조). `loadTemplate` 단계에서 placeholder 주석 제거
+
+#### 빠진 것
+- 없음 (사양서 §4·§5 Edge Function 처리 흐름·메일 본문 구성 모두 구현)
+
+#### 달라진 것
+- **카드 이미지 URL** — Supabase Storage transform(`/render/image/...?width=&quality=`) 적용해 메일 내 썸네일 용량 축소 (인플 앱 카드와 동일 패턴)
+- **qoo10 채널** — 인플 테이블에 qoo10 핸들 컬럼이 없어 매칭에서 제외 (§14 후속 보완에서 예고한 대로 코드 주석 명시)
+
+### 구현 중 기술 결정 사항
+- 인플당 1통씩 분리 발송 (To 헤더에 다른 인플 이메일 노출 차단) — 기존 다이제스트 메일 패턴과 동일
+- 200명/호출 배치 + chained 자기재호출(fire-and-forget)으로 대량 발송 timeout 대응 (§16-4)
+- `campaign_promo_digest_runs.finished_at` 은 마지막 배치 또는 즉시 종료 시점에만 기록 — chained 중간 호출은 NULL 유지
+
+---
+
+## 20. 구현 결과 (PR 5 — pg_cron 등록 + 운영 가동)
+
+**구현일:** 2026-05-20 (운영 가동 완료)
+**관련 커밋:** 1e36126 — cron 호출 방식을 운영 가동 중인 기존 다이제스트 2종 패턴(vault `edge_function_jwt`)으로 정렬. dev→main **PR #235 머지 대기** (SQL 파일 변경뿐이라 운영 동작 영향 없음)
+
+**운영 가동:**
+- 마이그레이션 142 운영 SQL Editor 적용 2026-05-20
+- cron `campaign-promo-digest-weekly` 등록 확인: jobid=4, schedule `0 0 * * 1,4`(월·목 UTC 00:00 = KST 09:00), active=true
+- 운영 첫 수동 발송 테스트(curl) 완료
+- **첫 자동 발송: 2026-05-21(목) 09:00 KST**
+
+### 초안 대비 변경 사항
+
+#### 달라진 것
+- **마이그레이션 번호**: 사양서 §9 표기 `136` → 실제 파일 **`142`** (번호 충돌 회피, §14와 동일 사유)
+- **cron 호출 방식**: 초안의 `current_setting('app.supabase_url')` 방식 폐기 → 운영/개발 DB 양쪽에 해당 커스텀 설정이 없음을 운영 등록 시 확인. 운영 가동 중인 `notify-admin-daily-digest`/`notify-influencer-daily-digest` 와 동일하게 **vault `decrypted_secrets`의 `edge_function_jwt`(서비스 키) + `functions.supabase.co` URL** 방식으로 통일
+- **URL의 project-ref 환경 분리**: 운영 `twofagomeizrtkwlhsuv`. 개발은 ref만 `qysmxtipobomefudyixw` 로 교체 필요
+
+### 구현 중 기술 결정 사항 / 운영 정책
+- **개발서버에는 cron(142) 등록하지 않음** — 개발 DB의 실제 인플 데이터로 자동 발송이 나가는 것을 방지 (메일 발송 테스트 정책 `feedback_dev_no_mail_test`). 개발은 마이그레이션 143(함수 시그니처)만 환경 동기화 적용
+- 배포 순서: 마이그레이션(개발→운영) → Edge Function(개발→운영) → **운영에서만** 수동 curl 검증 → 최종적으로 cron(142) 운영 등록
+
+### 선택·향후 항목 (본 사양 범위 내 미진행)
+- **PR 6 (선택) — 약관·개인정보처리방침 갱신**: §8 일본 특정전자메일법 체크리스트는 기존 동의(`marketing_opt_in`·`marketing_agreed_at`)·푸터 표기·수신거부 경로로 충족. `docs/PRIVACY_{ja,kr}.md` 문구 추가 필요 여부는 `/약관확인` 으로 별도 점검 필요 (미실행)
+- **PR 7 (선택, 향후) — 발송 이력 모니터링 페인** (`/admin#campaign-promo-history`): 발송 통계·실패자 리스트·수동 재시도 버튼. 운영 안정화 후 별도 사양서로 분리 (미착수)
+- **메일 CTA 클릭 추적 라우트(`trackPromoClick`)**: PR 3·4 에서 미포함(§18). `track_promo_click` 원격 호출 함수·`campaign_promo_email_clicks` 테이블은 인프라로 존재하나, 인플 앱에서 클릭 시 호출하는 프런트 연결은 미적용 → 「클릭한 캠페인 자동 제외」 최적화만 보류 (자동 발송·노출 한도 동작에는 영향 없음, `campaign_promo_exposure` 가 최대 2회 노출 이미 보장)
