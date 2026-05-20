@@ -1994,3 +1994,91 @@ async function updateMarketingOptIn(value) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 응모건 단위 메시지 (인플루언서 ↔ 관리자) — PR 1
+//   사양서 docs/specs/2026-05-15-application-messaging.md §4
+//   마이그레이션 144. 본문/첨부 마스킹은 get_application_messages RPC 서버측 처리.
+// ════════════════════════════════════════════════════════════════════
+const MSG_ATTACH_BUCKET = 'application-message-attachments';
+
+// 응모건의 메시지 목록 (마스킹 적용된 행) — 인플루언서·관리자 공용.
+// get_application_messages RPC 가 호출자 역할(본인 인플 / is_admin)에 따라 마스킹.
+async function fetchApplicationMessages(applicationId) {
+  if (!db || !applicationId) return [];
+  const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
+  if (error) throw error;
+  return data || [];
+}
+
+// 메시지 발송 (인플루언서·관리자 공용, sender_kind 는 서버가 판별).
+// attachments: [{path, name, size, mime}] — uploadMessageAttachment() 반환값 배열
+async function sendApplicationMessage(applicationId, body, attachments = []) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_application_message', {
+      p_application_id: applicationId,
+      p_body: body || '',
+      p_attachments: attachments,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 본인 미열람 메시지를 읽음 처리 (관리자: 개인별 / 인플루언서: read_by_influencer_at).
+async function markApplicationMessagesRead(applicationId) {
+  if (!db || !applicationId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_application_messages_read', { p_application_id: applicationId });
+    if (error) throw error;
+  });
+}
+
+// 본인 메시지 회수 (25분 한도, RPC 가 시간/본인 검증). 성공 후 첨부 Storage 즉시 삭제 (§3-5 ②).
+// attachmentPaths: 회수할 메시지의 attachments[].path 배열 (없으면 빈 배열)
+async function withdrawOwnMessage(messageId, attachmentPaths = []) {
+  if (!db || !messageId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('withdraw_own_message', { p_message_id: messageId });
+    if (error) throw error;
+  });
+  if (attachmentPaths && attachmentPaths.length) {
+    // 본인 회수는 첨부 즉시 삭제 (개인정보 최소화). 실패해도 회수 자체는 성공이므로 경고만.
+    try { await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths); }
+    catch (e) { console.warn('[withdrawOwnMessage] 첨부 삭제 실패', e); }
+  }
+}
+
+// 첨부 이미지 업로드 — 압축/HEIC 변환(image-compress.js) 후 비공개 버킷에 저장.
+// 반환: {path, name, size, mime} (send 의 attachments 배열에 그대로 push)
+async function uploadMessageAttachment(file, applicationId) {
+  if (!db) throw new Error('DB 미연결');
+  const compressed = await compressImageFile(file);  // image-compress.js — too_large/decode_failed 등 예외 가능
+  const uuid = crypto.randomUUID ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `${applicationId}/${uuid}.jpg`;
+  const {error} = await db.storage.from(MSG_ATTACH_BUCKET)
+    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) throw error;
+  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
+}
+
+// 첨부 이미지 signed URL (5분 시한, §9). 라이트박스/썸네일 표시용
+async function getMessageAttachmentSignedUrl(path, expiresIn = 300) {
+  if (!db || !path) return null;
+  const {data, error} = await db.storage.from(MSG_ATTACH_BUCKET).createSignedUrl(path, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl || null;
+}
+
+// 인플루언서 GNB 미읽음 메시지 응모건 목록 (security_invoker 뷰 — 본인 행만 RLS 적용).
+async function fetchInfluencerUnreadMessageThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return [];
+  const {data, error} = await db.from('application_message_summary')
+    .select('application_id, campaign_id, unread_for_influencer, last_message_at')
+    .gt('unread_for_influencer', 0)
+    .order('last_message_at', { ascending: false });
+  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); return []; }
+  return data || [];
+}
+
