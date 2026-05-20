@@ -28,6 +28,7 @@ async function openMessageModal(applicationId) {
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
 
   m.classList.add('on');
+  m.setAttribute('aria-hidden', 'false');  // 모달 열림 — 내부 포커스 가능 (WAI-ARIA)
   document.body.style.overflow = 'hidden';
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
@@ -50,7 +51,7 @@ async function openMessageModal(applicationId) {
 
 function closeMessageModal() {
   const m = $('msgModal');
-  if (m) m.classList.remove('on');
+  if (m) { m.classList.remove('on'); m.setAttribute('aria-hidden', 'true'); }
   document.body.style.overflow = '';
   _msgCurrentAppId = null;
   _msgPendingFiles = [];
@@ -210,8 +211,9 @@ async function sendMessageFromModal() {
     renderMessageThread(msgs);
   } catch (e) {
     console.error('[sendMessageFromModal]', e);
-    // 90일 경과·rate limit 등 RPC 예외 메시지 노출
-    toast(e?.message || t('messaging.sendFailed'));
+    // 의도된 RPC 예외(RAISE EXCEPTION = SQLSTATE P0001, 일본어 안내문)만 그대로 노출.
+    // 그 외 DB 내부 에러(42702 등)는 일반 메시지로 — 원문 노출 방지
+    toast(e?.code === 'P0001' && e?.message ? e.message : t('messaging.sendFailed'));
   } finally {
     _msgSending = false;
     if (sendBtn) sendBtn.disabled = false;

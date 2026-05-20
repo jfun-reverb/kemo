@@ -368,6 +368,7 @@ DECLARE
   v_app_status  text;
   v_msg_id      uuid;
   v_rate_count  bigint;
+  v_ended_at    timestamptz;  -- 응모 종료 시각 (90일 차단 판별용)
 BEGIN
   -- 응모 소유자 확인
   SELECT user_id, status INTO v_app_owner, v_app_status
@@ -411,33 +412,30 @@ BEGIN
   --   3) status='approved' + 해당 응모의 모든 deliverables 가 approved → 마지막 deliverable.reviewed_at
   --   4) 위 모두 아니면 (진행 중) → NULL (차단 없음)
   IF NOT public.is_admin() THEN
-    DECLARE
-      v_ended_at timestamptz;
-    BEGIN
-      SELECT CASE
-        WHEN a.cancelled_at IS NOT NULL THEN a.cancelled_at
-        WHEN a.status = 'rejected'      THEN a.reviewed_at
-        WHEN a.status = 'approved' AND NOT EXISTS (
-          SELECT 1 FROM public.deliverables d
-           WHERE d.application_id = p_application_id
-             AND d.status <> 'approved'
-        ) AND EXISTS (
-          SELECT 1 FROM public.deliverables d
-           WHERE d.application_id = p_application_id
-        ) THEN (
-          SELECT max(d.reviewed_at) FROM public.deliverables d
-           WHERE d.application_id = p_application_id
-        )
-        ELSE NULL
-      END
-      INTO v_ended_at
-      FROM public.applications a
-      WHERE a.id = p_application_id;
+    -- 응모 종료 90일 경과 차단 — nested DECLARE 제거하고 함수 상단 v_ended_at 사용
+    SELECT CASE
+      WHEN a.cancelled_at IS NOT NULL THEN a.cancelled_at
+      WHEN a.status = 'rejected'      THEN a.reviewed_at
+      WHEN a.status = 'approved' AND NOT EXISTS (
+        SELECT 1 FROM public.deliverables d
+         WHERE d.application_id = p_application_id
+           AND d.status <> 'approved'
+      ) AND EXISTS (
+        SELECT 1 FROM public.deliverables d
+         WHERE d.application_id = p_application_id
+      ) THEN (
+        SELECT max(d.reviewed_at) FROM public.deliverables d
+         WHERE d.application_id = p_application_id
+      )
+      ELSE NULL
+    END
+    INTO v_ended_at
+    FROM public.applications a
+    WHERE a.id = p_application_id;
 
-      IF v_ended_at IS NOT NULL AND v_ended_at < now() - interval '90 days' THEN
-        RAISE EXCEPTION '応募終了から90日経過しました。閲覧のみ可能です';
-      END IF;
-    END;
+    IF v_ended_at IS NOT NULL AND v_ended_at < now() - interval '90 days' THEN
+      RAISE EXCEPTION '応募終了から90日経過しました。閲覧のみ可能です';
+    END IF;
   END IF;
 
   INSERT INTO public.application_messages (
@@ -861,6 +859,7 @@ CREATE OR REPLACE FUNCTION public.get_application_messages(
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = ''
 AS $$
+#variable_conflict use_column
 DECLARE
   v_caller_is_admin  boolean;
   v_app_owner        uuid;
