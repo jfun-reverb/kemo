@@ -19,12 +19,16 @@ let _inboxThreads = [];                 // fetchAdminMessageThreads 결과 (뷰 
 let _inboxUnreadMap = new Map();        // application_id → 본인 미열람 수
 let _inboxSelectedCampaign = null;      // 좌 패널 선택 캠페인 id
 let _inboxFilters = { unresolvedOnly: false, sinceMonths: 6 };
+let _inboxSort = 'recent';              // 'recent'(최근 메시지순) | 'unresolved'(미응대 우선)
+let _inboxSearch = '';                  // 받은편지함 검색어 (인플 이름·이메일·캠페인명·미리보기)
 
 // 메시지 모달/패널 공용 상태
 let _admMsgAppId = null;                // 현재 열린 응모건
 let _admMsgContext = 'modal';           // 'modal' | 'inbox' — 전송 후 재렌더 대상
 let _admMsgPendingFiles = [];
 let _admMsgSending = false;
+let _admMsgCurrentMsgs = [];        // 현재 열린 대화 전체 메시지 (검색 필터 원본)
+let _admMsgCurrentThreadId = null;  // 현재 렌더 중인 thread DOM id
 
 // 응모 행 메시지 버튼 셀에 표시할 본인 미열람 맵 (페인 로드 시 채움)
 let _applicantMsgUnreadMap = new Map();
@@ -50,6 +54,7 @@ async function loadHideReasons() {
 // ════════════════════════════════════════════════════════════════════
 async function loadMessagesInbox() {
   _inboxSelectedCampaign = null;
+  _inboxSearch = '';  // 페인 재진입 시 검색어 초기화 (정렬은 사용자 선택 유지)
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
@@ -108,17 +113,21 @@ function updateInboxSidebarBadge() {
 function renderInboxCampaignList() {
   const el = document.getElementById('inboxCampaigns');
   if (!el) return;
-  // campaign_id 별 집계
+  // campaign_id 별 집계 (미응대만·검색 필터 적용된 목록 기준)
   const byCamp = new Map();
-  for (const t of _inboxThreads) {
-    if (_inboxFilters.unresolvedOnly && !t.unresolved_for_admin_team) continue;
+  for (const t of filteredInboxThreads()) {
     let g = byCamp.get(t.campaign_id);
     if (!g) { g = { campaign_id: t.campaign_id, total: 0, unresolved: 0, lastAt: t.last_message_at }; byCamp.set(t.campaign_id, g); }
     g.total += 1;
     if (t.unresolved_for_admin_team) g.unresolved += 1;
     if (t.last_message_at > g.lastAt) g.lastAt = t.last_message_at;
   }
-  const groups = Array.from(byCamp.values()).sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || ''));
+  const groups = Array.from(byCamp.values());
+  if (_inboxSort === 'unresolved') {
+    groups.sort((a, b) => (b.unresolved - a.unresolved) || (b.lastAt || '').localeCompare(a.lastAt || ''));
+  } else {
+    groups.sort((a, b) => (b.lastAt || '').localeCompare(a.lastAt || ''));
+  }
   if (!groups.length) {
     el.innerHTML = '<div class="inbox-empty">표시할 대화가 없습니다.</div>';
     return;
@@ -127,7 +136,7 @@ function renderInboxCampaignList() {
     const c = inboxCampaignById(g.campaign_id);
     const title = c ? (c.title || '(제목 없음)') : '(캠페인)';
     const active = g.campaign_id === _inboxSelectedCampaign ? 'active' : '';
-    const badge = g.unresolved > 0 ? `<span class="inbox-camp-badge">${g.unresolved}</span>` : '';
+    const badge = g.unresolved > 0 ? `<span class="inbox-camp-badge">미응대 ${g.unresolved}건</span>` : '';
     // 모집타입 배지(공통 헬퍼) + 캠페인 상태 배지(캠페인 전용 — 신청 상태와 라벨 다름)
     const typeBadge = (c && typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(c.recruit_type) : '';
     const statusBadge = c ? inboxCampStatusBadge(c.status) : '';
@@ -166,9 +175,13 @@ function renderInboxThreadList() {
     el.innerHTML = '<div class="inbox-empty">왼쪽에서 캠페인을 선택하세요.</div>';
     return;
   }
-  let list = _inboxThreads.filter(t => t.campaign_id === _inboxSelectedCampaign);
-  if (_inboxFilters.unresolvedOnly) list = list.filter(t => t.unresolved_for_admin_team);
-  list.sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+  let list = filteredInboxThreads().filter(t => t.campaign_id === _inboxSelectedCampaign);
+  if (_inboxSort === 'unresolved') {
+    list.sort((a, b) => (Number(b.unresolved_for_admin_team) - Number(a.unresolved_for_admin_team))
+      || (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+  } else {
+    list.sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+  }
   if (!list.length) {
     el.innerHTML = '<div class="inbox-empty">대화가 없습니다.</div>';
     return;
@@ -239,6 +252,33 @@ function changeInboxSince(months) {
   _inboxFilters.sinceMonths = Number(months) || 6;
   refreshInboxData();
 }
+function changeInboxSort(v) {
+  _inboxSort = (v === 'unresolved') ? 'unresolved' : 'recent';
+  renderInboxCampaignList();
+  renderInboxThreadList();
+}
+// 받은편지함 검색 — 인플 이름·이메일·캠페인명·최근 메시지로 대화 목록 필터
+function searchInbox(query) {
+  _inboxSearch = (query || '').trim().toLowerCase();
+  renderInboxCampaignList();
+  renderInboxThreadList();
+}
+// 미응대만·검색어를 적용한 대화 목록 (캠페인/대화 렌더 공통)
+function filteredInboxThreads() {
+  let list = _inboxThreads;
+  if (_inboxFilters.unresolvedOnly) list = list.filter(t => t.unresolved_for_admin_team);
+  if (_inboxSearch) {
+    list = list.filter(t => {
+      const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
+      const prev = _inboxPreviewMap.get(t.application_id);
+      const camp = inboxCampaignById(t.campaign_id);
+      const bag = [inf.name, inf.name_kana, inf.email, prev && prev.body, camp && camp.title, camp && (camp.brand_ko || camp.brand)]
+        .filter(Boolean).join(' ').toLowerCase();
+      return bag.includes(_inboxSearch);
+    });
+  }
+  return list;
+}
 
 // ════════════════════════════════════════════════════════════════════
 // 2. 메시지 모달 (응모 행 버튼 진입)
@@ -285,6 +325,8 @@ function adminThreadViewHtml(ctx) {
     ? `<button type="button" class="adm-msg-bar-btn" onclick="toggleHideHistory('${ctx}')">숨김 이력</button>` : '';
   return `
     <div class="adm-msg-actionbar">
+      <input type="search" class="adm-msg-search" placeholder="대화 내용 검색" oninput="searchAdminMsg(this.value)">
+      <span class="adm-msg-bar-spacer"></span>
       <button type="button" class="adm-msg-bar-btn primary" onclick="markCurrentResolved()">응대 완료</button>
       ${histBtn}
     </div>
@@ -329,11 +371,16 @@ async function toggleHideHistory(ctx) {
 // ════════════════════════════════════════════════════════════════════
 // 3. 스레드 렌더 (공용 — 받은편지함 우측·모달 모두)
 // ════════════════════════════════════════════════════════════════════
-function renderAdminMsgThread(threadElId, messages) {
+function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
+  // 검색 결과 렌더가 아니면 전체 메시지를 보관(검색 필터 원본) + 현재 thread 추적
+  if (!_isSearchResult) {
+    _admMsgCurrentMsgs = messages || [];
+    _admMsgCurrentThreadId = threadElId;
+  }
   const thread = document.getElementById(threadElId);
   if (!thread) return;
   if (!messages || !messages.length) {
-    thread.innerHTML = '<div class="msg-empty">아직 메시지가 없습니다.</div>';
+    thread.innerHTML = `<div class="msg-empty">${_isSearchResult ? '검색 결과가 없습니다.' : '아직 메시지가 없습니다.'}</div>`;
     return;
   }
   const now = Date.now();
@@ -412,6 +459,16 @@ function msgCardMasked(senderLabel, timeStr, sideCls, text) {
       <div class="msg-masked-body">${esc(text)}</div>
     </div>
   </div>`;
+}
+
+// 대화창 내 메시지 검색 — 현재 열린 대화의 본문에서 매칭 (검색 결과만 표시)
+function searchAdminMsg(query) {
+  if (!_admMsgCurrentThreadId) return;
+  const q = (query || '').trim().toLowerCase();
+  const filtered = q
+    ? _admMsgCurrentMsgs.filter(m => (m.body || '').toLowerCase().includes(q))
+    : _admMsgCurrentMsgs;
+  renderAdminMsgThread(_admMsgCurrentThreadId, filtered, true);
 }
 
 async function loadAdmMsgAttachThumb(elId, path) {
