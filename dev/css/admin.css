@@ -1050,31 +1050,46 @@
 /* ════════════════════════════════════════════════════════════
    응모건 메시지 (PR 2) — 받은편지함 3단 + 메시지 카드/모달
    ════════════════════════════════════════════════════════════ */
-/* 받은편지함 3단 패널 */
-.inbox-3pane{display:flex;gap:0;flex:1;min-height:0;height:calc(100vh - 130px);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+/* 받은편지함 3단 패널 — 단계 진행형 너비 */
+.inbox-3pane{display:flex;gap:0;flex:1;min-height:0;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
 .inbox-col{overflow-y:auto;min-height:0}
-.inbox-col-camps{width:240px;flex-shrink:0;border-right:1px solid var(--line);background:var(--surface-container-low)}
-.inbox-col-threads{width:300px;flex-shrink:0;border-right:1px solid var(--line)}
-.inbox-col-view{flex:1;min-width:0;display:flex;flex-direction:column}
+.inbox-col-camps{border-right:1px solid var(--line);background:var(--surface-container-low)}
+.inbox-col-threads{border-right:1px solid var(--line)}
+.inbox-col-view{display:flex;flex-direction:column}
 .inbox-empty{padding:24px 16px;color:var(--muted);font-size:13px;text-align:center}
-/* 좌: 캠페인 항목 */
-.inbox-camp-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;font-size:13px;color:var(--ink)}
+/* 단계: campaigns(캠페인 전체폭) → threads(대화상대 확대) → view(대화내용 확대) */
+.inbox-3pane.stage-campaigns .inbox-col-camps{flex:1;width:auto}
+.inbox-3pane.stage-campaigns .inbox-col-threads,
+.inbox-3pane.stage-campaigns .inbox-col-view{display:none}
+.inbox-3pane.stage-threads .inbox-col-camps{width:320px;flex-shrink:0}
+.inbox-3pane.stage-threads .inbox-col-threads{flex:1;width:auto}
+.inbox-3pane.stage-threads .inbox-col-view{display:none}
+.inbox-3pane.stage-view .inbox-col-camps{width:260px;flex-shrink:0}
+.inbox-3pane.stage-view .inbox-col-threads{width:320px;flex-shrink:0}
+.inbox-3pane.stage-view .inbox-col-view{flex:1;min-width:0}
+/* 좌: 캠페인 정보 카드 */
+.inbox-camp-item{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
 .inbox-camp-item:hover{background:var(--light-pink)}
-.inbox-camp-item.active{background:var(--light-pink);font-weight:600}
-.inbox-camp-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.inbox-camp-meta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);flex-shrink:0}
+.inbox-camp-item.active{background:var(--light-pink)}
+.inbox-camp-badges{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.inbox-camp-title{font-size:13px;font-weight:600;word-break:break-word;line-height:1.4}
+.inbox-camp-sub{font-size:11px;color:var(--muted)}
+.inbox-camp-meta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
 .inbox-camp-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--pink);color:#fff;font-size:11px;font-weight:700}
-/* 중: 대화 상대 항목 */
-.inbox-thread-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;font-size:13px;color:var(--ink)}
+/* 중: 대화 상대 카드 (한자·가나 이름 + 이메일 + 미리보기 + 시간) */
+.inbox-thread-item{display:flex;flex-direction:column;align-items:stretch;gap:3px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
 .inbox-thread-item:hover{background:var(--surface-dim)}
-.inbox-thread-item.active{background:var(--light-pink);font-weight:600}
-.inbox-thread-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.inbox-thread-meta{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.inbox-thread-item.active{background:var(--light-pink)}
+.inbox-thread-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.inbox-thread-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbox-thread-kana{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
+.inbox-thread-email{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbox-thread-preview{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
+.inbox-thread-meta{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .inbox-thread-time{font-size:10px;color:var(--muted)}
 .inbox-thread-chip{display:inline-flex;align-items:center;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
 .inbox-thread-chip.unresolved{background:var(--gold-l);color:var(--gold)}
 .inbox-thread-chip.unread{background:var(--pink);color:#fff}
-.inbox-filter-chk{font-size:13px;color:var(--ink);display:inline-flex;align-items:center;gap:4px;cursor:pointer}
 
 /* 대화 내용 영역 (받은편지함 우측 + 모달 본문 공용) */
 .adm-msg-actionbar{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--surface-container-low)}

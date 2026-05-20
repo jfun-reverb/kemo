@@ -5756,6 +5756,32 @@ async function fetchAdminMessageThreads(opts = {}) {
   return rows;
 }
 
+// 받은편지함 최근 메시지 미리보기 — 응모건별 마지막 「살아있는」 메시지 본문.
+//   숨김/회수 메시지는 제외(미리보기 노출 부적절). created_at 내림차순 후 클라에서 첫 행=최신.
+//   반환: Map<application_id, {body, sender_kind, created_at}>
+//   ⚠️ PostgREST 1000행 cap: 청크당 application 100개 + limit 1000. 한 청크 내
+//      메시지 밀도가 매우 높으면(application 평균 10건 초과) 뒤쪽 응모건 미리보기가
+//      누락될 수 있음. 미리보기는 보조 정보라 치명적이지 않음. 정밀도 필요 시
+//      차후 「응모건당 최신 1건」 전용 RPC 로 개선 권장.
+async function fetchMessagePreviews(applicationIds) {
+  if (!db || !applicationIds || !applicationIds.length) return new Map();
+  const map = new Map();
+  const CHUNK = 100;  // application_id 청크 (청크당 1000행 cap 내 평균 10건 커버)
+  for (let i = 0; i < applicationIds.length; i += CHUNK) {
+    const ids = applicationIds.slice(i, i + CHUNK);
+    const {data, error} = await db?.from('application_messages')
+      .select('application_id, body, sender_kind, created_at')
+      .in('application_id', ids)
+      .is('hidden_by_admin_at', null)
+      .is('self_withdrawn_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    if (error) { console.warn('[fetchMessagePreviews]', error); continue; }
+    (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
+  }
+  return map;
+}
+
 // 응모건 단위 숨김/복구 이력 (super_admin — append-only audit). 메시지 모달 하단 패널용.
 //   hide_history 는 message_id 만 가지므로 application_messages inner join 으로 응모건 필터.
 //   RLS SELECT 는 super_admin 한정 (144) — 매니저 호출 시 빈 배열.
@@ -9834,7 +9860,7 @@ function renderMessageThread(messages) {
   thread.innerHTML = messages.map(msg => {
     const mine = msg.sender_kind === 'influencer';
     const senderLabel = mine ? t('messaging.you') : t('messaging.adminTeam');
-    const timeStr = formatDate(msg.created_at);
+    const timeStr = formatDateTime(msg.created_at);
 
     // 마스킹 상태별 placeholder (§3-5)
     if (msg.mask_state && msg.mask_state !== 'visible') {

@@ -69,7 +69,7 @@ function renderMessageThread(messages) {
   thread.innerHTML = messages.map(msg => {
     const mine = msg.sender_kind === 'influencer';
     const senderLabel = mine ? t('messaging.you') : t('messaging.adminTeam');
-    const timeStr = formatDate(msg.created_at);
+    const timeStr = formatDateTime(msg.created_at);
 
     // 마스킹 상태별 placeholder (§3-5)
     if (msg.mask_state && msg.mask_state !== 'visible') {
