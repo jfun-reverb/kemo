@@ -107,6 +107,7 @@
 - **알림 모달**: deliverables.status 트리거로 생성된 rejected/changed/approved 3종. 항목 클릭 시 읽음 처리 + 활동관리로 이동. "모두 읽음" 버튼
 - **활동관리**: 승인된 캠페인에서 결과물 제출. recruit_type 분기 — monitor=영수증(이미지 + 주문번호·구매일·구매금액 3종 필수), gifting/visit=SNS 게시물 URL(자동 채널 판별 + 실패 시 수동 드롭다운). 모두 `deliverables` 직접 INSERT + `submit_deliverable` RPC. 반려된 결과물은 상단 빨간 배너에 사유 표시, 재제출 시 pending 복귀 (동일 URL 은 `post_submissions` 배열에 날짜 누적). `submission_end` 경과 시 폼 비활성
 - **응모이력**: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터. 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
+- **응모건 메시지**(PR 1, 개발 검증 중): 응모이력 카드의 메시지 버튼(미읽음 배지) → 게시판형 풀스크린 모달. 운영팀에 텍스트+이미지(자동 압축/HEIC 변환, 최대 5장) 발송, 25분 내 본인 회수, 숨김·회수 메시지는 가림(placeholder) 표시. 본문/첨부 마스킹은 서버(`get_application_messages` RPC). `dev/js/messaging.js`. 관리자 발신·GNB 메뉴·알림은 PR 2
 - **본인 응모 취소**: `cancel_application(uuid, reason_code, reason_note, acknowledged)` RPC — 본인 검증·결과물 승인 차단·구매기간 이후 사유·동의 강제
 - **홈 하단 푸터**: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
 - **성능 최적화**: preconnect(Supabase/Fonts/jsDelivr), 캠페인 카드/마이페이지 썸네일 lazy loading + decoding=async, Supabase Storage 이미지 transform(`/render/image/public/?width=&quality=`)으로 썸네일 용량 축소, 이미지 로드 실패 시 원본 URL 자동 폴백
@@ -212,6 +213,16 @@
 - `admin_notices` — 관리자 공지. `category`(system_update/release/warning/general), `pin`(bool), `title`, `body_html`(Quill rich), `created_by`/`created_at`/`updated_at`, `status CHECK(draft|published)`, `published_at`/`published_by`/`published_by_name`. SELECT RLS 는 published OR `is_super_admin()` OR `created_by=auth.uid()` (draft 는 작성자/super 한정). XSS 방어는 저장+렌더 이중 sanitize
 - `admin_notice_reads` — 관리자별 읽음 기록. `(admin_id, notice_id, read_at)` UNIQUE. `upsert_admin_notice_read` RPC. 미읽음 카운트 = published - reads(by admin)
 - `influencer_flags` — 인플루언서 관리자 마킹 이력. `influencer_id`, `action`(verify/violation/blacklist/clear), `reasons text[]` (blacklist_reason ∪ violation_reason lookup), `memo`, `evidence_paths text[]`, `updated_at/by/by_name`. 위반 행만 UPDATE RLS
+
+### 응모건 메시지 (인플루언서 ↔ 관리자, PR 1 — 개발 검증 중, 마이그레이션 144)
+> 응모(신청)건 단위 양방향 메시지. PR 1 은 인플루언서 발신 + 모달 + 응모이력 진입. 관리자 발신 UI·GNB 메뉴·알림(`message_received`)은 PR 2. 사양서 `docs/specs/2026-05-15-application-messaging.md`. 약관 중대 변경(D-7 사전 통지)은 PR 5 운영 배포 직전 집행(현재 보류).
+- `application_messages` — 메시지 본문. `application_id` FK CASCADE, `sender_kind`(influencer|admin), `sender_id/name`, `body`, `attachments jsonb`(`[{path,name,size,mime}]`), `read_by_influencer_at`, 강제숨김 4컬럼(`hidden_by_admin_at/_id/_reason_code/_memo`), 본인회수(`self_withdrawn_at`/`_by_kind`), 메일큐(`email_send_at`/`email_sent_at`/`email_skip_reason`), `broadcast_id` FK. RLS SELECT 본인 응모건 또는 `is_admin()`, INSERT/UPDATE 는 RPC 만 (sender_kind 변조 차단)
+- `application_message_admin_reads` — 관리자 개인별 읽음. `(message_id, admin_auth_id)` PK
+- `application_message_resolutions` — 응모건 응대 완료. `application_id` PK, `resolution_method`(auto_replied|manual)
+- `application_message_broadcasts` — 일괄 발송 그룹 (테이블만 PR 1, bulk/withdraw RPC 는 PR 3)
+- `application_message_hide_history` — 숨김/회수 audit (append-only, SELECT super_admin)
+- 뷰 `application_message_summary`(`security_invoker=true` — 인플 본인 행만 RLS 상속) + RPC: `get_application_messages`(호출자 역할별 4종 마스킹), `send_application_message`(rate limit 100/h + 자동 응대/reopen + 메일큐 계산), `mark_application_messages_read`, `withdraw_own_message`(25분 한도 + rate limit 50/h + 첨부 클라 삭제), `application_message_admin_unread_counts`(is_admin 가드). 모두 SECURITY DEFINER + `search_path=''`
+- lookup `message_hide_reason` 7종 시드 + Storage 버킷 `application-message-attachments`(비공개, 응모건 폴더 기반 정책). 첨부는 클라 압축(`dev/lib/image-compress.js`, HEIC→JPEG/2048px) 후 업로드
 
 ### 메일·기준 데이터·알림
 - `lookup_values` — 캠페인 기준 데이터. `kind`(channel/category/content_type/ng_item/reject_reason/blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`. channel 만 recruit_types 사용

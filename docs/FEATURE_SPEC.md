@@ -151,6 +151,15 @@
 | INF-080 | 햄버거 메뉴    | 홈 / キャンペーン / マイページ / 通知(미읽음 배지 9+) / ログアウト (우측 슬라이드 패널, 인증 페이지에선 숨김) |
 | INF-081 | 바텀탭 (deprecated) | 2026-04 햄버거 메뉴로 대체. 키보드 간섭 제거 목적                          |
 
+### 2.10 응모건 메시지 (인플루언서 ↔ 관리자, PR 1 — 개발 검증 중)
+- 응모이력 카드의 「メッセージ」 버튼(미읽음 배지) → 게시판형 풀스크린 모달 (`#msgModal`, `dev/js/messaging.js`)
+- 발송: 텍스트 + 이미지 첨부 (클라이언트 자동 압축 2048px·HEIC→JPEG 변환, 메시지당 최대 5장). 본인 메시지 25분 내 회수 (회수 시 첨부 즉시 삭제)
+- 숨김·회수 메시지는 본문/첨부 가림(placeholder) — 서버 `get_application_messages` RPC 가 호출자 역할별 4종 마스킹
+- 첨부는 비공개 버킷 `application-message-attachments` + 5분 시한 signed URL
+- DB: 마이그레이션 144 — 테이블 5개(`application_messages` 외) + 마스킹/발송(rate limit 100/h)/읽음/회수(25분, rate limit 50/h) RPC + `security_invoker` 집계 뷰 + 숨김사유 7종 시드
+- **PR 2 예정**: 관리자 발신 UI, GNB 「메시지」 메뉴, 알림(`message_received`), 강제 숨김. **약관 중대 변경(D-7 사전 통지)은 PR 5 운영 배포 직전 집행** (현재 보류)
+- 사양서: `docs/specs/2026-05-15-application-messaging.md`
+
 ---
 
 ## 3. 관리자 앱 (PC 전체폭)
