@@ -273,6 +273,14 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- 메시지 첨부 이미지 라이트박스 (메시지 모달 위, 배경/닫기 클릭 시 닫힘) -->
+<div id="msgLightbox" class="msg-lightbox" aria-hidden="true" onclick="closeMsgLightbox()">
+  <button class="msg-lightbox-close" aria-label="Close">
+    <span class="material-icons-round notranslate" translate="no">close</span>
+  </button>
+  <img id="msgLightboxImg" src="" alt="">
+</div>
+
 <!-- ══════════════════════════════════
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->

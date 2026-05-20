@@ -609,6 +609,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .msg-send-btn:disabled{opacity:.5;cursor:default}
 
+/* ── 첨부 이미지 라이트박스 (메시지 모달 위) ── */
+.msg-lightbox{position:fixed;inset:0;z-index:1300;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.85);padding:20px}
+.msg-lightbox.on{display:flex}
+.msg-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.msg-lightbox-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
 </style>
 </head>
 <body>
@@ -842,6 +848,14 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
   </div>
+</div>
+
+<!-- 메시지 첨부 이미지 라이트박스 (메시지 모달 위, 배경/닫기 클릭 시 닫힘) -->
+<div id="msgLightbox" class="msg-lightbox" aria-hidden="true" onclick="closeMsgLightbox()">
+  <button class="msg-lightbox-close" aria-label="Close">
+    <span class="material-icons-round notranslate" translate="no">close</span>
+  </button>
+  <img id="msgLightboxImg" src="" alt="">
 </div>
 
 <!-- ══════════════════════════════════
@@ -9750,12 +9764,29 @@ async function loadMsgAttachThumb(elId, path) {
   } catch (e) { /* 썸네일 실패 시 아이콘 유지 */ }
 }
 
-// 첨부 라이트박스 (원본 보기)
+// 첨부 라이트박스 (원본 보기) — 같은 화면 모달 (메시지 모달 위에 표시)
 async function openMsgLightbox(path) {
+  const lb = $('msgLightbox');
+  const img = $('msgLightboxImg');
+  if (!lb || !img) return;
+  img.src = '';
+  lb.classList.add('on');
+  lb.setAttribute('aria-hidden', 'false');
   try {
     const url = await getMessageAttachmentSignedUrl(path);
-    if (url) window.open(url, '_blank', 'noopener');
-  } catch (e) { toast(t('messaging.attachError')); }
+    if (url) { img.src = url; }
+    else { closeMsgLightbox(); toast(t('messaging.attachError')); }
+  } catch (e) {
+    closeMsgLightbox();
+    toast(t('messaging.attachError'));
+  }
+}
+
+function closeMsgLightbox() {
+  const lb = $('msgLightbox');
+  if (lb) { lb.classList.remove('on'); lb.setAttribute('aria-hidden', 'true'); }
+  const img = $('msgLightboxImg');
+  if (img) img.src = '';  // signed URL 해제
 }
 
 // 회수 확인 → 실행
