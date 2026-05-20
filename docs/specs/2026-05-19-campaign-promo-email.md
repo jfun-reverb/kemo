@@ -1133,3 +1133,32 @@ https://globalreverb.com/#detail-{campaign_id}?promo_token={influencer.unsubscri
 | 클릭 트래킹 false negative (앱 안 브라우저, JS off 등) → 클릭했는데 추적 안 됨 → D-1에 한 번 더 받음 | 인플 불편 작음 (최대 2회 보장이라 폭주 안 함) | MVP에서 허용 |
 | 주 2회 발송으로 신규 캠페인 노출 지연 (최대 3일 후) | 모집 초기 신청자 적음 | 운영자가 캠페인 등록 직후 LINE/SNS 즉시 알림 병행 |
 | 클릭 토큰(unsubscribe_token) 외부 노출 시 위변조 | 「클릭한 척」 가능 → 그 인플 그 캠페인 안내 안 받음 | 피해 작음 (재구독·수동 페이지 확인 가능). UUID v4 무차별 대입 안전 |
+
+---
+
+## 18. 구현 결과 (PR 3·4 — 인플 수신거부 라우트 + 마이페이지 메일 수신 설정)
+
+**구현일:** 2026-05-20
+**관련 커밋:** (이 커밋)
+
+### 초안 대비 변경 사항
+
+- **추가된 것**
+  - 수신거부 페이지를 3-상태(처리 중 / 성공 / 무효 토큰) 단일 페이지로 구현 — `#page-unsubscribe` 안에서 JS 가 `display` 토글. 인증 페이지(`auth-wrap` > `auth-card`) 마크업 패턴 재사용
+  - 마이페이지 「メール受信設定」 서브뷰에 **업무 알림 메일 안내 박스**(토글 없는 정보 영역) 추가 — 응모 접수·검수·마감 알림은 수신거부 불가임을 명시 (사양서 §6-2 의도 충실)
+  - storage 함수 `updateMarketingOptIn(value)` 의 ON(value=true) 분기를 `resubscribeMarketing()` 으로 내부 위임 — 동의 시각(`marketing_agreed_at`) 누락 오용을 코드 레벨에서 차단 (supabase-expert 권장 반영)
+  - OFF 처리 시 `marketing_opt_in=true` 인 행만 갱신하도록 조건 추가 — 최초 수신거부 시각 보존 (멱등 재호출 시 시각 덮어쓰기 방지)
+
+- **빠진 것**
+  - **메일 CTA 클릭 추적(`trackPromoClick`) 라우트는 이번 PR 미포함** — 사양서 §17-11 에서 「PR 3 에 포함 가능」으로 선택적 표기된 항목. 자동 발송 동작에는 불필요(같은 캠페인 인플당 최대 2회 노출은 `campaign_promo_exposure` 로 이미 보장). 클릭 시 자동 제외 최적화만 미적용 → 별도 후속 작업으로 분리
+
+- **달라진 것**
+  - storage 함수명: 사양서 시그니처(`unsubscribeByToken`/`updateMarketingOptIn`/`resubscribeMarketing`) 그대로 유지. 단 ON 경로 위임으로 `updateMarketingOptIn` 은 사실상 OFF 전용
+
+### 구현 중 기술 결정 사항
+
+- **라우팅 — 쿼리 붙은 해시 처리**: 기존 `app.js` 라우팅은 `location.hash.replace('#','')` 만 사용해 쿼리 파라미터 파싱이 전무했음. `#unsubscribe?token=...` 을 위해 `navigate()`(페이지명 분리) + `init()`(토큰 추출 후 `handleUnsubscribePage`) + `DOMContentLoaded`(initPage 계산) 세 경로에 일관 처리 추가
+- **익명 호출 분리**: `unsubscribeByToken` 은 비로그인 동작이라 세션 갱신 래퍼(`retryWithRefresh`) 미사용. `resubscribeMarketing`(로그인 본인)만 래퍼 사용
+- **잘못된 토큰 처리**: 잘못된 UUID 형식은 PostgreSQL 캐스팅 에러(22P02) → storage 함수 try/catch 가 `invalid_token` 무효 처리
+- **교차 사이트 스크립팅 방지**: 수신거부 성공 화면 인플 이름은 `textContent` 주입 (innerHTML 미사용)
+- **신규 파일 없음**: 기존 6개 파일 수정만 → `build.sh` 등록 불필요. `dev/build.sh` 로 빌드 재생성만

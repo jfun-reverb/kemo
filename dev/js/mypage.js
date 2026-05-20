@@ -23,6 +23,11 @@ async function loadMyPage() {
   $('mypageHandle').textContent = primary ? `@${primary}` : t('profile.unregistered');
   $('mypageEmail').textContent = currentUser.email;
 
+  // 메일 수신 설정 토글 — 발송 로직(get_promo_digest_targets)이 marketing_opt_in=true 만 대상이므로
+  // true 일 때만 ON 표시 (NULL/false 는 OFF)
+  const mktToggle = $('emailMarketingToggle');
+  if (mktToggle) mktToggle.checked = (p.marketing_opt_in === true);
+
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
   setVal('profileNameKana', p.name_kana);
@@ -381,6 +386,26 @@ async function changePassword() {
   if (error) { err.textContent=error.message; err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
+}
+
+// 메일 수신 설정 토글 (ON=재구독 / OFF=수신거부)
+// ON 은 동의 시각 기록 의무로 resubscribe_marketing() RPC, OFF 는 동의 철회라 직접 UPDATE.
+async function toggleMarketingEmail(checked) {
+  if (!currentUser) { navigate('login'); return; }
+  const toggle = $('emailMarketingToggle');
+  try {
+    const res = checked ? await resubscribeMarketing() : await updateMarketingOptIn(false);
+    if (!res || !res.ok) throw new Error(res?.error || 'unknown');
+    currentUserProfile = Object.assign(currentUserProfile || {}, {
+      marketing_opt_in: checked,
+      marketing_unsubscribed_at: checked ? null : new Date().toISOString()
+    });
+    toast(t(checked ? 'mypage.emailSettings.savedOn' : 'mypage.emailSettings.savedOff'), 'success');
+  } catch(e) {
+    // 실패 시 토글 원상복구
+    if (toggle) toggle.checked = !checked;
+    toast(friendlyErrorJa(e), 'error');
+  }
 }
 
 function openMypageSub(sub) {

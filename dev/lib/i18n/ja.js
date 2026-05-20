@@ -149,8 +149,18 @@ window.I18N_JA = {
       address: '配送先',
       paypal: 'PayPal',
       password: 'パスワード変更',
+      emailSettings: 'メール受信設定',
       logout: 'ログアウト',
       language: '言語 / 언어',
+    },
+    emailSettings: {
+      title: 'メール受信設定',
+      marketingLabel: 'キャンペーン情報のお知らせメール',
+      marketingDesc: '新しいキャンペーンが公開された際に、毎週月・木曜の朝にお知らせメールをお送りします。',
+      txTitle: '業務通知メール（常時送信）',
+      txDesc: '応募の受付・承認・否認、結果物の検収結果、提出期限の通知などの重要なお知らせは、配信を停止できません。',
+      savedOn: 'メール受信設定を更新しました',
+      savedOff: 'キャンペーン情報メールの配信を停止しました',
     },
     withdraw: '退会する',
     withdrawConfirm: '本当に退会しますか？',
@@ -164,6 +174,17 @@ window.I18N_JA = {
       diffNote: '※ 同意時点の文言が引き続き有効です。現在の文言は今後の応募者に適用されます。',
       empty: '注意事項データがありません',
     },
+  },
+
+  // 메일 1-click 수신거부 페이지
+  unsubscribe: {
+    loading: '確認しています...',
+    successTitle: 'メールの配信を停止しました',
+    successDesc: '今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。',
+    backToMypage: 'マイページへ',
+    invalidTitle: 'リンクが無効です',
+    invalidDesc: 'この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。',
+    toTop: 'トップへ',
   },
 
   // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)

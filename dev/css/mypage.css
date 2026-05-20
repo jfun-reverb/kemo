@@ -40,6 +40,21 @@
 .apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
 
+/* メール受信設定 — 토글 카드 + 업무 알림 안내 박스 */
+.email-setting-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r8);padding:16px;margin-bottom:16px}
+.email-setting-info{flex:1;min-width:0}
+.email-setting-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.email-setting-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+.email-switch{position:relative;display:inline-block;width:48px;height:28px;flex-shrink:0}
+.email-switch input{opacity:0;width:0;height:0}
+.email-switch .slider{position:absolute;cursor:pointer;inset:0;background:var(--outline);border-radius:28px;transition:.2s}
+.email-switch .slider::before{content:"";position:absolute;height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.email-switch input:checked + .slider{background:var(--primary)}
+.email-switch input:checked + .slider::before{transform:translateX(20px)}
+.email-tx-box{background:var(--surface-dim);border-radius:var(--r8);padding:14px}
+.email-tx-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.email-tx-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+
 /* 언어 토글 */
 .lang-toggle{display:inline-flex;gap:0;margin-left:auto;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
 .lang-toggle .lang-btn{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s}
