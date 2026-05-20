@@ -1064,29 +1064,32 @@
 .inbox-3pane.stage-threads .inbox-col-camps{width:320px;flex-shrink:0}
 .inbox-3pane.stage-threads .inbox-col-threads{flex:1;width:auto}
 .inbox-3pane.stage-threads .inbox-col-view{display:none}
-.inbox-3pane.stage-view .inbox-col-camps{width:260px;flex-shrink:0}
+.inbox-3pane.stage-view .inbox-col-camps{width:340px;flex-shrink:0}
 .inbox-3pane.stage-view .inbox-col-threads{width:320px;flex-shrink:0}
 .inbox-3pane.stage-view .inbox-col-view{flex:1;min-width:0}
-/* 좌: 캠페인 정보 카드 */
-.inbox-camp-item{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
+/* 좌: 캠페인 정보 카드 (좌측 정보 + 우측 미응대 배지) */
+.inbox-camp-item{display:flex;flex-direction:row;align-items:center;gap:8px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
 .inbox-camp-item:hover{background:var(--light-pink)}
 .inbox-camp-item.active{background:var(--light-pink)}
+.inbox-camp-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.inbox-camp-right{flex-shrink:0;display:flex;align-items:center}
 .inbox-camp-badges{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .inbox-camp-title{font-size:13px;font-weight:600;word-break:break-word;line-height:1.4}
 .inbox-camp-sub{font-size:11px;color:var(--muted)}
 .inbox-camp-meta{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
 .inbox-camp-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--pink);color:#fff;font-size:11px;font-weight:700}
-/* 중: 대화 상대 카드 (한자·가나 이름 + 이메일 + 미리보기 + 시간) */
-.inbox-thread-item{display:flex;flex-direction:column;align-items:stretch;gap:3px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
+/* 중: 대화 상대 카드 (좌측 이름·이메일·미리보기 + 우측 시간↑·미응대 배지↓) */
+.inbox-thread-item{display:flex;flex-direction:row;align-items:flex-start;gap:8px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
 .inbox-thread-item:hover{background:var(--surface-dim)}
 .inbox-thread-item.active{background:var(--light-pink)}
-.inbox-thread-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.inbox-thread-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.inbox-thread-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.inbox-thread-chips{display:flex;align-items:center;gap:4px}
 .inbox-thread-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-kana{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
 .inbox-thread-email{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-preview{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
-.inbox-thread-meta{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.inbox-thread-time{font-size:10px;color:var(--muted)}
+.inbox-thread-time{font-size:10px;color:var(--muted);white-space:nowrap}
 .inbox-thread-chip{display:inline-flex;align-items:center;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
 .inbox-thread-chip.unresolved{background:var(--gold-l);color:var(--gold)}
 .inbox-thread-chip.unread{background:var(--pink);color:#fff}
@@ -1096,14 +1099,21 @@
 .adm-msg-bar-btn{padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;cursor:pointer;color:var(--ink)}
 .adm-msg-bar-btn.primary{background:var(--pink);color:#fff;border-color:var(--pink)}
 .adm-msg-thread{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
-/* 메시지 카드 */
-.msg-card{max-width:78%;align-self:flex-start;background:var(--surface-dim);border-radius:12px;padding:10px 12px}
-.msg-card.mine{align-self:flex-end;background:var(--light-pink)}
-.msg-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
-.msg-card-head .msg-sender{font-size:11px;font-weight:700;color:var(--dark-pink)}
-.msg-card-head .msg-time{font-size:10px;color:var(--muted)}
+/* 메시지 — 말풍선 + 옆 메타(시간·읽음·액션). mine 은 우측 정렬, 메타는 풍선 왼쪽 */
+.msg-row{display:flex;gap:8px;align-items:flex-end;max-width:85%;align-self:flex-start}
+.msg-row.mine{flex-direction:row-reverse;align-self:flex-end}
+.msg-bubble{background:var(--surface-dim);border-radius:12px;padding:10px 12px;min-width:0}
+.msg-row.mine .msg-bubble{background:var(--light-pink)}
+.msg-bubble .msg-sender{font-size:11px;font-weight:700;color:var(--dark-pink);margin-bottom:4px}
 .msg-card-body{font-size:13px;line-height:1.6;color:var(--ink);word-break:break-word}
-.msg-card-masked{opacity:.7}
+.msg-meta-side{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end;padding-bottom:2px}
+.msg-row:not(.mine) .msg-meta-side{align-items:flex-start}
+.msg-time{font-size:10px;color:var(--muted);white-space:nowrap}
+.msg-read{font-size:10px;font-weight:600;white-space:nowrap}
+.msg-read.read{color:var(--green)}
+.msg-read.unread{color:var(--pink)}
+.msg-status-line{margin-top:6px}
+.msg-row-masked .msg-bubble{opacity:.7}
 .msg-masked-body{font-size:12px;color:var(--muted);font-style:italic}
 .msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .msg-attach-thumb{width:64px;height:64px;border-radius:8px;overflow:hidden;background:var(--surface-container);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
