@@ -61,6 +61,7 @@ function closeMessageModal() {
 function renderMessageThread(messages) {
   const thread = $('msgModalThread');
   if (!thread) return;
+  updateMsgPendingNotice(messages);  // 관리자 미응답 안내 토글
   if (!messages || !messages.length) {
     thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
     return;
@@ -116,6 +117,21 @@ function renderMessageThread(messages) {
   }).join('');
   // 최신 메시지로 스크롤
   thread.scrollTop = thread.scrollHeight;
+}
+
+// 관리자 미응답 안내 배너 — 마지막 살아있는 메시지가 인플루언서 발신이면 표시,
+//   관리자가 답하면(마지막이 admin) 자동으로 사라짐
+function updateMsgPendingNotice(messages) {
+  const notice = $('msgPendingNotice');
+  if (!notice) return;
+  const visible = (messages || []).filter(m => !m.mask_state || m.mask_state === 'visible');
+  const last = visible[visible.length - 1];
+  if (last && last.sender_kind === 'influencer') {
+    notice.textContent = t('messaging.pendingNotice');
+    notice.style.display = '';
+  } else {
+    notice.style.display = 'none';
+  }
 }
 
 // 첨부 썸네일 signed URL 비동기 로드 (5분 시한)
