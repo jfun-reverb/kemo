@@ -652,8 +652,36 @@ COMMENT ON FUNCTION public.withdraw_own_message(uuid) IS
 
 
 -- ============================================================
--- 12. lookup_values — message_hide_reason 시드 7건
---     숨김·강제회수 사유 카테고리 (사양서 §3-5)
+-- 12. lookup_values.kind CHECK 제약 확장 — message_hide_reason 추가
+--     기존 정의: migration 106 (10개 kind)
+--     본 섹션에서 11번째 kind 'message_hide_reason' 를 추가한다.
+--     기존 10개를 하나도 누락하면 기존 행이 제약 위반으로 rollback 발생하므로 전체 열거 필수.
+-- ============================================================
+ALTER TABLE public.lookup_values DROP CONSTRAINT IF EXISTS lookup_values_kind_check;
+
+ALTER TABLE public.lookup_values
+  ADD CONSTRAINT lookup_values_kind_check
+  CHECK (kind IN (
+    'channel',
+    'category',
+    'content_type',
+    'ng_item',
+    'reject_reason',
+    'blacklist_reason',
+    'violation_reason',
+    'caution',
+    'admin_email_kind',
+    'cancel_reason',
+    'message_hide_reason'
+  ));
+
+COMMENT ON COLUMN public.lookup_values.kind IS
+  'channel | category | content_type | ng_item | reject_reason | blacklist_reason | violation_reason | caution | admin_email_kind | cancel_reason | message_hide_reason';
+
+
+-- ============================================================
+-- 12-b. lookup_values — message_hide_reason 시드 7건
+--       숨김·강제회수 사유 카테고리 (사양서 §3-5)
 -- ============================================================
 INSERT INTO public.lookup_values (kind, code, name_ko, name_ja, sort_order, active)
 VALUES
