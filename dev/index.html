@@ -729,6 +729,36 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- ══════════════════════════════════
+     PAGE: UNSUBSCRIBE (메일 1-click 수신거부 — 비로그인 동작)
+══════════════════════════════════ -->
+<div id="page-unsubscribe" class="page">
+  <div class="auth-wrap">
+    <div class="auth-card fade-up">
+      <!-- 처리 중 -->
+      <div id="unsubLoading" style="text-align:center;padding:32px 0">
+        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています...</div>
+      </div>
+      <!-- 성공 -->
+      <div id="unsubSuccess" style="display:none;text-align:center;padding:8px 0">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">unsubscribe</span>
+        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
+        <div id="unsubName" style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px"></div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('mypage')" data-i18n="unsubscribe.backToMypage">マイページへ</button>
+      </div>
+      <!-- 무효 토큰 -->
+      <div id="unsubInvalid" style="display:none;text-align:center;padding:8px 0">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--on-surface-variant);margin-bottom:12px">link_off</span>
+        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('home')" data-i18n="unsubscribe.toTop">トップへ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
      PAGE: SIGNUP
 ══════════════════════════════════ -->
 <div id="page-signup" class="page">
@@ -859,6 +889,11 @@ window._supabaseLoaded = false;
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
           <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <div class="mypage-menu-item" onclick="openMypageSub('email-settings')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">mail</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.emailSettings">メール受信設定</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="handleLogout()">
@@ -1050,6 +1085,30 @@ window._supabaseLoaded = false;
         <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()">パスワードを変更</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メール受信設定 -->
+  <div id="mypage-sub-email-settings" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title" data-i18n="mypage.emailSettings.title">メール受信設定</span>
+    </div>
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div class="email-setting-card">
+        <div class="email-setting-info">
+          <div class="email-setting-title" data-i18n="mypage.emailSettings.marketingLabel">キャンペーン情報のお知らせメール</div>
+          <div class="email-setting-desc" data-i18n="mypage.emailSettings.marketingDesc">新しいキャンペーンが公開された際に、毎週月・木曜の朝にお知らせメールをお送りします。</div>
+        </div>
+        <label class="email-switch">
+          <input type="checkbox" id="emailMarketingToggle" onchange="toggleMarketingEmail(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="email-tx-box">
+        <div class="email-tx-title" data-i18n="mypage.emailSettings.txTitle">業務通知メール（常時送信）</div>
+        <div class="email-tx-desc" data-i18n="mypage.emailSettings.txDesc">応募の受付・承認・否認、結果物の検収結果、提出期限の通知などの重要なお知らせは、配信を停止できません。</div>
       </div>
     </div>
   </div>

@@ -34,6 +34,10 @@ function navigate(page, pushHistory) {
   if (page.startsWith('detail-')) {
     pageName = 'detail';
   }
+  // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
+  if (page.startsWith('unsubscribe')) {
+    pageName = 'unsubscribe';
+  }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
   try {
@@ -69,7 +73,7 @@ function navigate(page, pushHistory) {
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
-  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : '';
+  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
@@ -79,6 +83,33 @@ function navigate(page, pushHistory) {
     if (!currentUser) { navigate('login'); return; }
     closeMypageSub();
     loadMyPage();
+  }
+}
+
+// 메일 1-click 수신거부 처리 (#unsubscribe?token=...)
+// 토큰만으로 익명 호출 → 성공/무효 화면 토글. 비로그인 상태에서도 동작.
+async function handleUnsubscribePage(token) {
+  const elLoading = $('unsubLoading');
+  const elSuccess = $('unsubSuccess');
+  const elInvalid = $('unsubInvalid');
+  const show = (target) => {
+    [elLoading, elSuccess, elInvalid].forEach(el => { if (el) el.style.display = 'none'; });
+    if (target) target.style.display = '';
+  };
+  show(elLoading);
+  if (!token) { show(elInvalid); return; }
+  try {
+    const res = (typeof unsubscribeByToken === 'function') ? await unsubscribeByToken(token) : {ok:false};
+    if (res.ok) {
+      // 이름은 DB 값 — textContent 로 주입 (교차 사이트 스크립팅 방지)
+      const nameEl = $('unsubName');
+      if (nameEl) nameEl.textContent = res.name || '';
+      show(elSuccess);
+    } else {
+      show(elInvalid);
+    }
+  } catch(e) {
+    show(elInvalid);
   }
 }
 
@@ -343,6 +374,11 @@ async function init() {
   } else if (hash && hash.startsWith('detail-')) {
     const campId = hash.replace('detail-','');
     openCampaign(campId);
+  } else if (hash && hash.startsWith('unsubscribe')) {
+    // 메일 1-click 수신거부 — #unsubscribe?token=... (비로그인 진입 가능)
+    const token = new URLSearchParams(hash.split('?')[1] || '').get('token');
+    navigate('unsubscribe', false);
+    handleUnsubscribePage(token);
   } else if (hash && hash.startsWith('mypage-')) {
     const sub = hash.replace('mypage-','');
     navigate('mypage', false);
@@ -365,7 +401,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   const initHash = location.hash.replace('#','') || 'home';
   const initPage = inRecovery ? 'reset-pw'
-    : (initHash.startsWith('detail-') ? 'detail' : initHash.startsWith('mypage-') ? 'mypage' : initHash);
+    : (initHash.startsWith('detail-') ? 'detail'
+    : initHash.startsWith('mypage-') ? 'mypage'
+    : initHash.startsWith('unsubscribe') ? 'unsubscribe'
+    : initHash);
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');

@@ -1930,3 +1930,67 @@ async function saveAdminEmailSubscriptions(adminId, subscribedKinds, allKinds) {
   }
 }
 
+// ── 마케팅(캠페인 홍보) 메일 수신거부·재구독 ──
+// 마이그레이션 140 의 함수 사용. 수신거부 토큰 인프라.
+
+// [수신거부 라우트] 메일 1-click 익명 수신거부.
+// 비로그인 상태에서 토큰만으로 호출되므로 세션 갱신(retryWithRefresh) 불필요.
+// 반환: {ok:true, name} | {ok:false, error}
+async function unsubscribeByToken(token) {
+  if (!db) return {ok: false, error: 'no_db'};
+  if (!token) return {ok: false, error: 'invalid_token'};
+  try {
+    const {data, error} = await db.rpc('unsubscribe_by_token', { p_token: token });
+    if (error) throw error;
+    // data: {success:bool, name?, reason?}
+    if (data && data.success) return {ok: true, name: data.name || ''};
+    return {ok: false, error: data?.reason || 'invalid_token'};
+  } catch(e) {
+    // 잘못된 UUID 형식 등은 무효 토큰으로 처리
+    console.error('[unsubscribeByToken]', e);
+    return {ok: false, error: 'invalid_token'};
+  }
+}
+
+// [마이페이지 토글 ON] 마케팅 메일 재구독 — 로그인 본인.
+// resubscribe_marketing() 이 marketing_agreed_at=now() 를 갱신해
+// 특정전자메일법(특정전자메일의 송신 적정화법) 「동의 근거 기록」 의무를 충족하므로
+// 직접 UPDATE 대신 반드시 이 RPC 사용.
+async function resubscribeMarketing() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db.rpc('resubscribe_marketing');
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[resubscribeMarketing]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// [마이페이지 토글] 마케팅 메일 수신 설정 — 로그인 본인.
+// 동의 철회(OFF)는 동의 시각 기록 의무가 없으므로 본인 행을 직접 UPDATE.
+// 동의(ON)는 동의 근거(marketing_agreed_at) 기록을 위해 resubscribeMarketing() 으로 위임 —
+// 직접 UPDATE 로 ON 하면 동의 시각이 안 남아 특정전자메일법 위반 소지가 있어 차단.
+async function updateMarketingOptIn(value) {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return {ok: false, error: 'no_session'};
+  // ON 은 동의 근거 기록 의무로 RPC 경로로 위임 (오용 차단)
+  if (value) return await resubscribeMarketing();
+  try {
+    await retryWithRefresh(async () => {
+      // 이미 OFF 인 경우는 갱신하지 않아 최초 수신거부 시각을 보존 (marketing_opt_in=true 일 때만)
+      const {error} = await db.from('influencers')
+        .update({ marketing_opt_in: false, marketing_unsubscribed_at: new Date().toISOString() })
+        .eq('id', currentUser.id)
+        .eq('marketing_opt_in', true);
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[updateMarketingOptIn]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+

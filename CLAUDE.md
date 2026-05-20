@@ -100,7 +100,9 @@
 - **캠페인 신청**: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS / zip+prefecture+city+phone / PayPal 이메일) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지, 최소 팔로워수 미달 시 알럿 차단
 - **주의사항 동의**: 캠페인의 `caution_items` 가 있으면 ①상세 "주의 사항" 섹션 + ②신청 모달 상단 빨간 박스 양쪽 렌더. 모달 하단 "全ての注意事項を確認しました" 단일 체크박스 + 미체크 시 차단. 동의 시 `applications.caution_agreed_at` + `caution_snapshot`(jsonb) 저장. 캠페인 items 스냅샷을 신청 시점 그대로 보존 → 번들 수정 후에도 기존 신청 데이터 영향 없음. 응모이력에 동의 시각 작은 배지 노출
 - **응모 차단**: 리뷰어(monitor) 캠페인은 `applied_count >= slots` 일 때 신규 응모 차단 (기프팅·방문형은 초과 응모 허용)
-- **마이페이지**: 리스트 → 상세 페이지 네비게이션, 메뉴 応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리
+- **마이페이지**: 리스트 → 상세 페이지 네비게이션, 메뉴 応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/メール受信設定/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리
+- **메일 수신 설정**(`#mypage-email-settings`, 2026-05-20 PR 4): 마케팅(캠페인 홍보) 메일 ON/OFF 토글 + 업무 알림 메일(응모 접수·검수·마감) 상시 발송 안내 박스. 토글 ON → `resubscribe_marketing()` 원격 호출 함수(동의 시각 `marketing_agreed_at` 갱신 — 특정전자메일법 동의 근거 기록), OFF → `influencers.marketing_opt_in=false` + `marketing_unsubscribed_at` 본인 행 직접 UPDATE. `storage.js` 의 `resubscribeMarketing()`/`updateMarketingOptIn(value)` (ON 은 내부적으로 RPC 위임해 동의시각 누락 차단)
+- **메일 수신거부 라우트**(`#unsubscribe?token=...`, 2026-05-20 PR 3): 홍보 메일 본문 하단 1-click 수신거부 링크. 비로그인 상태에서 토큰만으로 동작 — `unsubscribe_by_token(token)` 익명 RPC 호출 후 성공/무효 화면 표시. 잘못된·만료 토큰은 「リンクが無効です」 안내. `app.js` 가 쿼리 붙은 해시(`#unsubscribe?token=`)를 파싱해 `handleUnsubscribePage(token)` 실행
 - **GNB 햄버거 메뉴**: 상단 우측 ☰ 버튼에 미읽음 알림 배지(9+), 클릭 시 우측 슬라이드 패널. 비로그인은 로그인/회원가입, 인증 페이지에선 햄버거 숨김, 관리자는 알림 항목 없음
 - **알림 모달**: deliverables.status 트리거로 생성된 rejected/changed/approved 3종. 항목 클릭 시 읽음 처리 + 활동관리로 이동. "모두 읽음" 버튼
 - **활동관리**: 승인된 캠페인에서 결과물 제출. recruit_type 분기 — monitor=영수증(이미지 + 주문번호·구매일·구매금액 3종 필수), gifting/visit=SNS 게시물 URL(자동 채널 판별 + 실패 시 수동 드롭다운). 모두 `deliverables` 직접 INSERT + `submit_deliverable` RPC. 반려된 결과물은 상단 빨간 배너에 사유 표시, 재제출 시 pending 복귀 (동일 URL 은 `post_submissions` 배열에 날짜 누적). `submission_end` 경과 시 폼 비활성

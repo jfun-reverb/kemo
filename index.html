@@ -547,6 +547,21 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-item-meta{font-size:11px;color:var(--on-surface-variant)}
 .apply-item-status{flex-shrink:0}
 
+/* メール受信設定 — 토글 카드 + 업무 알림 안내 박스 */
+.email-setting-card{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--outline);border-radius:var(--r8);padding:16px;margin-bottom:16px}
+.email-setting-info{flex:1;min-width:0}
+.email-setting-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.email-setting-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+.email-switch{position:relative;display:inline-block;width:48px;height:28px;flex-shrink:0}
+.email-switch input{opacity:0;width:0;height:0}
+.email-switch .slider{position:absolute;cursor:pointer;inset:0;background:var(--outline);border-radius:28px;transition:.2s}
+.email-switch .slider::before{content:"";position:absolute;height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.email-switch input:checked + .slider{background:var(--primary)}
+.email-switch input:checked + .slider::before{transform:translateX(20px)}
+.email-tx-box{background:var(--surface-dim);border-radius:var(--r8);padding:14px}
+.email-tx-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px}
+.email-tx-desc{font-size:12px;color:var(--on-surface-variant);line-height:1.6}
+
 /* 언어 토글 */
 .lang-toggle{display:inline-flex;gap:0;margin-left:auto;border:1px solid var(--outline);border-radius:8px;overflow:hidden;background:var(--surface-dim)}
 .lang-toggle .lang-btn{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s}
@@ -1244,6 +1259,36 @@ textarea.form-input{resize:vertical;min-height:80px}
 </div>
 
 <!-- ══════════════════════════════════
+     PAGE: UNSUBSCRIBE (메일 1-click 수신거부 — 비로그인 동작)
+══════════════════════════════════ -->
+<div id="page-unsubscribe" class="page">
+  <div class="auth-wrap">
+    <div class="auth-card fade-up">
+      <!-- 처리 중 -->
+      <div id="unsubLoading" style="text-align:center;padding:32px 0">
+        <span class="spinner" style="border-color:rgba(0,0,0,.12);border-top-color:var(--primary)"></span>
+        <div style="font-size:13px;color:var(--muted);margin-top:12px" data-i18n="unsubscribe.loading">確認しています...</div>
+      </div>
+      <!-- 성공 -->
+      <div id="unsubSuccess" style="display:none;text-align:center;padding:8px 0">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--green);margin-bottom:12px">unsubscribe</span>
+        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.successTitle">メールの配信を停止しました</div>
+        <div id="unsubName" style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px"></div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.successDesc">今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('mypage')" data-i18n="unsubscribe.backToMypage">マイページへ</button>
+      </div>
+      <!-- 무효 토큰 -->
+      <div id="unsubInvalid" style="display:none;text-align:center;padding:8px 0">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--on-surface-variant);margin-bottom:12px">link_off</span>
+        <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="unsubscribe.invalidTitle">リンクが無効です</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px" data-i18n="unsubscribe.invalidDesc">この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。</div>
+        <button class="btn btn-primary btn-block" onclick="navigate('home')" data-i18n="unsubscribe.toTop">トップへ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
      PAGE: SIGNUP
 ══════════════════════════════════ -->
 <div id="page-signup" class="page">
@@ -1374,6 +1419,11 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="mypage-menu-item" onclick="openMypageSub('password')">
           <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
           <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
+          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
+        </div>
+        <div class="mypage-menu-item" onclick="openMypageSub('email-settings')">
+          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">mail</span>
+          <span class="mypage-menu-label" data-i18n="mypage.menu.emailSettings">メール受信設定</span>
           <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
         </div>
         <div class="mypage-menu-item" onclick="handleLogout()">
@@ -1565,6 +1615,30 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div style="font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:12px;line-height:1.5" data-i18n="auth.pwPolicy">8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。</div>
         <div id="pwChangeError" class="form-error" style="margin-bottom:10px;display:none"></div>
         <button class="btn btn-primary btn-block" onclick="changePassword()">パスワードを変更</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メール受信設定 -->
+  <div id="mypage-sub-email-settings" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="mypage-sub-title" data-i18n="mypage.emailSettings.title">メール受信設定</span>
+    </div>
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div class="email-setting-card">
+        <div class="email-setting-info">
+          <div class="email-setting-title" data-i18n="mypage.emailSettings.marketingLabel">キャンペーン情報のお知らせメール</div>
+          <div class="email-setting-desc" data-i18n="mypage.emailSettings.marketingDesc">新しいキャンペーンが公開された際に、毎週月・木曜の朝にお知らせメールをお送りします。</div>
+        </div>
+        <label class="email-switch">
+          <input type="checkbox" id="emailMarketingToggle" onchange="toggleMarketingEmail(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="email-tx-box">
+        <div class="email-tx-title" data-i18n="mypage.emailSettings.txTitle">業務通知メール（常時送信）</div>
+        <div class="email-tx-desc" data-i18n="mypage.emailSettings.txDesc">応募の受付・承認・否認、結果物の検収結果、提出期限の通知などの重要なお知らせは、配信を停止できません。</div>
       </div>
     </div>
   </div>
@@ -2229,8 +2303,18 @@ window.I18N_JA = {
       address: '配送先',
       paypal: 'PayPal',
       password: 'パスワード変更',
+      emailSettings: 'メール受信設定',
       logout: 'ログアウト',
       language: '言語 / 언어',
+    },
+    emailSettings: {
+      title: 'メール受信設定',
+      marketingLabel: 'キャンペーン情報のお知らせメール',
+      marketingDesc: '新しいキャンペーンが公開された際に、毎週月・木曜の朝にお知らせメールをお送りします。',
+      txTitle: '業務通知メール（常時送信）',
+      txDesc: '応募の受付・承認・否認、結果物の検収結果、提出期限の通知などの重要なお知らせは、配信を停止できません。',
+      savedOn: 'メール受信設定を更新しました',
+      savedOff: 'キャンペーン情報メールの配信を停止しました',
     },
     withdraw: '退会する',
     withdrawConfirm: '本当に退会しますか？',
@@ -2244,6 +2328,17 @@ window.I18N_JA = {
       diffNote: '※ 同意時点の文言が引き続き有効です。現在の文言は今後の応募者に適用されます。',
       empty: '注意事項データがありません',
     },
+  },
+
+  // 메일 1-click 수신거부 페이지
+  unsubscribe: {
+    loading: '確認しています...',
+    successTitle: 'メールの配信を停止しました',
+    successDesc: '今後、キャンペーン情報のお知らせメールはお送りしません。応募状況・審査結果などの業務通知メールは引き続き送信されます。',
+    backToMypage: 'マイページへ',
+    invalidTitle: 'リンクが無効です',
+    invalidDesc: 'この配信停止リンクは無効か、期限が切れている可能性があります。お手数ですが、マイページの「メール受信設定」からご変更ください。',
+    toTop: 'トップへ',
   },
 
   // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)
@@ -2769,8 +2864,18 @@ window.I18N_KO = {
       address: '배송지',
       paypal: 'PayPal',
       password: '비밀번호 변경',
+      emailSettings: '메일 수신 설정',
       logout: '로그아웃',
       language: '言語 / 언어',
+    },
+    emailSettings: {
+      title: '메일 수신 설정',
+      marketingLabel: '캠페인 정보 안내 메일',
+      marketingDesc: '새 캠페인이 공개되면 매주 월·목요일 아침에 안내 메일을 보내드립니다.',
+      txTitle: '업무 알림 메일 (상시 발송)',
+      txDesc: '응모 접수·승인·반려, 결과물 검수 결과, 제출 기한 안내 등 중요한 알림은 수신을 거부할 수 없습니다.',
+      savedOn: '메일 수신 설정을 변경했습니다',
+      savedOff: '캠페인 정보 메일 수신을 중지했습니다',
     },
     withdraw: '회원 탈퇴',
     withdrawConfirm: '정말 탈퇴하시겠습니까?',
@@ -2784,6 +2889,17 @@ window.I18N_KO = {
       diffNote: '※ 동의 시점의 문구가 계속 유효합니다. 현재 문구는 이후 신규 응모자에게 적용됩니다.',
       empty: '주의사항 데이터가 없습니다',
     },
+  },
+
+  // 메일 1-click 수신거부 페이지
+  unsubscribe: {
+    loading: '확인 중입니다...',
+    successTitle: '메일 수신을 중지했습니다',
+    successDesc: '앞으로 캠페인 정보 안내 메일은 보내지 않습니다. 응모 현황·심사 결과 등 업무 알림 메일은 계속 발송됩니다.',
+    backToMypage: '마이페이지로',
+    invalidTitle: '링크가 유효하지 않습니다',
+    invalidDesc: '이 수신거부 링크가 유효하지 않거나 만료됐을 수 있습니다. 번거로우시겠지만 마이페이지의 「메일 수신 설정」에서 변경해 주세요.',
+    toTop: '홈으로',
   },
 
   appHistory: {
@@ -5176,6 +5292,70 @@ async function saveAdminEmailSubscriptions(adminId, subscribedKinds, allKinds) {
     return {ok: true};
   } catch(e) {
     console.error('[saveAdminEmailSubscriptions]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// ── 마케팅(캠페인 홍보) 메일 수신거부·재구독 ──
+// 마이그레이션 140 의 함수 사용. 수신거부 토큰 인프라.
+
+// [수신거부 라우트] 메일 1-click 익명 수신거부.
+// 비로그인 상태에서 토큰만으로 호출되므로 세션 갱신(retryWithRefresh) 불필요.
+// 반환: {ok:true, name} | {ok:false, error}
+async function unsubscribeByToken(token) {
+  if (!db) return {ok: false, error: 'no_db'};
+  if (!token) return {ok: false, error: 'invalid_token'};
+  try {
+    const {data, error} = await db.rpc('unsubscribe_by_token', { p_token: token });
+    if (error) throw error;
+    // data: {success:bool, name?, reason?}
+    if (data && data.success) return {ok: true, name: data.name || ''};
+    return {ok: false, error: data?.reason || 'invalid_token'};
+  } catch(e) {
+    // 잘못된 UUID 형식 등은 무효 토큰으로 처리
+    console.error('[unsubscribeByToken]', e);
+    return {ok: false, error: 'invalid_token'};
+  }
+}
+
+// [마이페이지 토글 ON] 마케팅 메일 재구독 — 로그인 본인.
+// resubscribe_marketing() 이 marketing_agreed_at=now() 를 갱신해
+// 특정전자메일법(특정전자메일의 송신 적정화법) 「동의 근거 기록」 의무를 충족하므로
+// 직접 UPDATE 대신 반드시 이 RPC 사용.
+async function resubscribeMarketing() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db.rpc('resubscribe_marketing');
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[resubscribeMarketing]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// [마이페이지 토글] 마케팅 메일 수신 설정 — 로그인 본인.
+// 동의 철회(OFF)는 동의 시각 기록 의무가 없으므로 본인 행을 직접 UPDATE.
+// 동의(ON)는 동의 근거(marketing_agreed_at) 기록을 위해 resubscribeMarketing() 으로 위임 —
+// 직접 UPDATE 로 ON 하면 동의 시각이 안 남아 특정전자메일법 위반 소지가 있어 차단.
+async function updateMarketingOptIn(value) {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return {ok: false, error: 'no_session'};
+  // ON 은 동의 근거 기록 의무로 RPC 경로로 위임 (오용 차단)
+  if (value) return await resubscribeMarketing();
+  try {
+    await retryWithRefresh(async () => {
+      // 이미 OFF 인 경우는 갱신하지 않아 최초 수신거부 시각을 보존 (marketing_opt_in=true 일 때만)
+      const {error} = await db.from('influencers')
+        .update({ marketing_opt_in: false, marketing_unsubscribed_at: new Date().toISOString() })
+        .eq('id', currentUser.id)
+        .eq('marketing_opt_in', true);
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[updateMarketingOptIn]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }
@@ -8134,7 +8314,8 @@ function renderNavMenu() {
       {sub:'profile-sns', label: t('mypage.menu.sns')},
       {sub:'profile-address', label: t('mypage.menu.address')},
       {sub:'paypal', label: t('mypage.menu.paypal')},
-      {sub:'password', label: t('mypage.menu.password')}
+      {sub:'password', label: t('mypage.menu.password')},
+      {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
     html += subs.map((s, i) => `
       ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
@@ -8373,6 +8554,11 @@ async function loadMyPage() {
   const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
   $('mypageHandle').textContent = primary ? `@${primary}` : t('profile.unregistered');
   $('mypageEmail').textContent = currentUser.email;
+
+  // 메일 수신 설정 토글 — 발송 로직(get_promo_digest_targets)이 marketing_opt_in=true 만 대상이므로
+  // true 일 때만 ON 표시 (NULL/false 는 OFF)
+  const mktToggle = $('emailMarketingToggle');
+  if (mktToggle) mktToggle.checked = (p.marketing_opt_in === true);
 
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
@@ -8732,6 +8918,26 @@ async function changePassword() {
   if (error) { err.textContent=error.message; err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
+}
+
+// 메일 수신 설정 토글 (ON=재구독 / OFF=수신거부)
+// ON 은 동의 시각 기록 의무로 resubscribe_marketing() RPC, OFF 는 동의 철회라 직접 UPDATE.
+async function toggleMarketingEmail(checked) {
+  if (!currentUser) { navigate('login'); return; }
+  const toggle = $('emailMarketingToggle');
+  try {
+    const res = checked ? await resubscribeMarketing() : await updateMarketingOptIn(false);
+    if (!res || !res.ok) throw new Error(res?.error || 'unknown');
+    currentUserProfile = Object.assign(currentUserProfile || {}, {
+      marketing_opt_in: checked,
+      marketing_unsubscribed_at: checked ? null : new Date().toISOString()
+    });
+    toast(t(checked ? 'mypage.emailSettings.savedOn' : 'mypage.emailSettings.savedOff'), 'success');
+  } catch(e) {
+    // 실패 시 토글 원상복구
+    if (toggle) toggle.checked = !checked;
+    toast(friendlyErrorJa(e), 'error');
+  }
 }
 
 function openMypageSub(sub) {
@@ -9129,6 +9335,10 @@ function navigate(page, pushHistory) {
   if (page.startsWith('detail-')) {
     pageName = 'detail';
   }
+  // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
+  if (page.startsWith('unsubscribe')) {
+    pageName = 'unsubscribe';
+  }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
   try {
@@ -9164,7 +9374,7 @@ function navigate(page, pushHistory) {
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
-  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw'].includes(pageName) ? 'none' : '';
+  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
@@ -9174,6 +9384,33 @@ function navigate(page, pushHistory) {
     if (!currentUser) { navigate('login'); return; }
     closeMypageSub();
     loadMyPage();
+  }
+}
+
+// 메일 1-click 수신거부 처리 (#unsubscribe?token=...)
+// 토큰만으로 익명 호출 → 성공/무효 화면 토글. 비로그인 상태에서도 동작.
+async function handleUnsubscribePage(token) {
+  const elLoading = $('unsubLoading');
+  const elSuccess = $('unsubSuccess');
+  const elInvalid = $('unsubInvalid');
+  const show = (target) => {
+    [elLoading, elSuccess, elInvalid].forEach(el => { if (el) el.style.display = 'none'; });
+    if (target) target.style.display = '';
+  };
+  show(elLoading);
+  if (!token) { show(elInvalid); return; }
+  try {
+    const res = (typeof unsubscribeByToken === 'function') ? await unsubscribeByToken(token) : {ok:false};
+    if (res.ok) {
+      // 이름은 DB 값 — textContent 로 주입 (교차 사이트 스크립팅 방지)
+      const nameEl = $('unsubName');
+      if (nameEl) nameEl.textContent = res.name || '';
+      show(elSuccess);
+    } else {
+      show(elInvalid);
+    }
+  } catch(e) {
+    show(elInvalid);
   }
 }
 
@@ -9438,6 +9675,11 @@ async function init() {
   } else if (hash && hash.startsWith('detail-')) {
     const campId = hash.replace('detail-','');
     openCampaign(campId);
+  } else if (hash && hash.startsWith('unsubscribe')) {
+    // 메일 1-click 수신거부 — #unsubscribe?token=... (비로그인 진입 가능)
+    const token = new URLSearchParams(hash.split('?')[1] || '').get('token');
+    navigate('unsubscribe', false);
+    handleUnsubscribePage(token);
   } else if (hash && hash.startsWith('mypage-')) {
     const sub = hash.replace('mypage-','');
     navigate('mypage', false);
@@ -9460,7 +9702,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   const initHash = location.hash.replace('#','') || 'home';
   const initPage = inRecovery ? 'reset-pw'
-    : (initHash.startsWith('detail-') ? 'detail' : initHash.startsWith('mypage-') ? 'mypage' : initHash);
+    : (initHash.startsWith('detail-') ? 'detail'
+    : initHash.startsWith('mypage-') ? 'mypage'
+    : initHash.startsWith('unsubscribe') ? 'unsubscribe'
+    : initHash);
   const initEl = $('page-' + initPage);
   if (initEl) initEl.classList.add('active');
   else $('page-home')?.classList.add('active');
