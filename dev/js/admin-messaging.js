@@ -31,6 +31,8 @@ let _applicantMsgUnreadMap = new Map();
 
 // 받은편지함 인플루언서 이름 맵 (influencer_id → 행). refreshInboxData 에서 채움
 let _inboxInflMap = {};
+// 받은편지함 최근 메시지 미리보기 맵 (application_id → {body, sender_kind, created_at})
+let _inboxPreviewMap = new Map();
 
 // 현재 super_admin 여부 (admin.js 의 currentAdminInfo 기준)
 function admMsgIsSuper() {
@@ -47,9 +49,24 @@ async function loadHideReasons() {
 // 1. 받은편지함 3단 패널 (#adminPane-messages)
 // ════════════════════════════════════════════════════════════════════
 async function loadMessagesInbox() {
+  _inboxSelectedCampaign = null;
+  if (_admMsgContext === 'inbox') _admMsgAppId = null;
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
   await refreshInboxData();
+  updateInboxStage();
+}
+
+// 단계 진행형 너비 — 선택 진척에 따라 활성 단을 넓힘 (메신저 드릴다운)
+//   캠페인 미선택 → 캠페인 목록 전체폭 / 캠페인 선택 → 대화 상대 목록 확대 / 대화 선택 → 대화 내용 확대
+function updateInboxStage() {
+  const pane = document.querySelector('.inbox-3pane');
+  if (!pane) return;
+  pane.classList.remove('stage-campaigns', 'stage-threads', 'stage-view');
+  const threadOpen = _admMsgContext === 'inbox' && _admMsgAppId;
+  if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
+  else if (!threadOpen) pane.classList.add('stage-threads');
+  else pane.classList.add('stage-view');
 }
 
 // 뷰 + 본인 미열람 맵을 다시 조회하고 좌/중 패널 재렌더
@@ -61,12 +78,17 @@ async function refreshInboxData() {
     ]);
     _inboxThreads = threads || [];
     _inboxUnreadMap = unreadMap || new Map();
-    // 인플루언서 이름 보강 (id 목록 → fetchInfluencersByIds 맵)
-    const ids = [...new Set(_inboxThreads.map(t => t.influencer_id).filter(Boolean))];
-    _inboxInflMap = ids.length ? (await fetchInfluencersByIds(ids)) : {};
+    // 인플루언서 이름·최근 메시지 미리보기 보강 (병렬)
+    const inflIds = [...new Set(_inboxThreads.map(t => t.influencer_id).filter(Boolean))];
+    const appIds = [...new Set(_inboxThreads.map(t => t.application_id).filter(Boolean))];
+    const [inflMap, prevMap] = await Promise.all([
+      inflIds.length ? fetchInfluencersByIds(inflIds) : Promise.resolve({}),
+      appIds.length ? fetchMessagePreviews(appIds) : Promise.resolve(new Map()),
+    ]);
+    _inboxInflMap = inflMap; _inboxPreviewMap = prevMap;
   } catch (e) {
     console.error('[refreshInboxData]', e);
-    _inboxThreads = []; _inboxUnreadMap = new Map(); _inboxInflMap = {};
+    _inboxThreads = []; _inboxUnreadMap = new Map(); _inboxInflMap = {}; _inboxPreviewMap = new Map();
   }
   renderInboxCampaignList();
   renderInboxThreadList();
@@ -102,20 +124,35 @@ function renderInboxCampaignList() {
     return;
   }
   el.innerHTML = groups.map(g => {
-    const camp = campaignTitleById(g.campaign_id);
+    const c = inboxCampaignById(g.campaign_id);
+    const title = c ? (c.title || '(제목 없음)') : '(캠페인)';
     const active = g.campaign_id === _inboxSelectedCampaign ? 'active' : '';
     const badge = g.unresolved > 0 ? `<span class="inbox-camp-badge">${g.unresolved}</span>` : '';
+    // 모집타입 배지(공통 헬퍼) + 캠페인 상태 배지(캠페인 전용 — 신청 상태와 라벨 다름)
+    const typeBadge = (c && typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(c.recruit_type) : '';
+    const statusBadge = c ? inboxCampStatusBadge(c.status) : '';
+    // 브랜드 · 모집인원
+    const brand = c ? esc(c.brand_ko || c.brand || '') : '';
+    const slots = (c && c.slots) ? `모집 ${c.slots}명` : '';
+    const sub = [brand, slots].filter(Boolean).join(' · ');
     return `<button type="button" class="inbox-camp-item ${active}" onclick="selectInboxCampaign('${esc(g.campaign_id)}')">
-      <span class="inbox-camp-title">${esc(camp)}</span>
-      <span class="inbox-camp-meta">${g.total}건${badge}</span>
+      <span class="inbox-camp-badges">${typeBadge}${statusBadge}</span>
+      <span class="inbox-camp-title">${esc(title)}</span>
+      ${sub ? `<span class="inbox-camp-sub">${sub}</span>` : ''}
+      <span class="inbox-camp-meta">대화 ${g.total}건${badge}</span>
     </button>`;
   }).join('');
 }
 
 function selectInboxCampaign(campaignId) {
   _inboxSelectedCampaign = campaignId;
+  // 캠페인 전환 시 우측 대화 초기화 (단계 = 대화 상대 선택)
+  if (_admMsgContext === 'inbox') _admMsgAppId = null;
+  const view = document.getElementById('inboxThreadView');
+  if (view) view.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
   renderInboxCampaignList();
   renderInboxThreadList();
+  updateInboxStage();
 }
 
 // 중: 선택 캠페인의 대화 상대(인플루언서) 목록
@@ -134,16 +171,32 @@ function renderInboxThreadList() {
     return;
   }
   el.innerHTML = list.map(t => {
-    const name = influencerNameById(t.influencer_id);
+    const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
+    const kanji = esc(inf.name || '(이름 없음)');           // 한자 이름
+    const kana = inf.name_kana ? esc(inf.name_kana) : '';   // 가나 이름
+    const email = inf.email ? esc(inf.email) : '';
     const unread = _inboxUnreadMap.get(t.application_id) || 0;
     const active = t.application_id === _admMsgAppId ? 'active' : '';
     const unresolved = t.unresolved_for_admin_team
       ? '<span class="inbox-thread-chip unresolved">미응대</span>' : '';
     const unreadChip = unread > 0
       ? `<span class="inbox-thread-chip unread">${unread > 99 ? '99+' : unread}</span>` : '';
+    // 최근 메시지 미리보기 (한 줄)
+    const prev = _inboxPreviewMap.get(t.application_id);
+    let previewHtml = '';
+    if (prev) {
+      const who = prev.sender_kind === 'admin' ? '운영팀: ' : '';
+      const body = (prev.body || '').replace(/\s+/g, ' ').trim();
+      previewHtml = `<span class="inbox-thread-preview">${esc(who + (body || '(이미지)'))}</span>`;
+    }
     return `<button type="button" class="inbox-thread-item ${active}" onclick="openInboxThread('${esc(t.application_id)}')">
-      <span class="inbox-thread-name">${esc(name)}</span>
-      <span class="inbox-thread-meta">${unresolved}${unreadChip}<span class="inbox-thread-time">${esc(formatDate(t.last_message_at))}</span></span>
+      <span class="inbox-thread-top">
+        <span class="inbox-thread-name">${kanji}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
+        <span class="inbox-thread-meta">${unresolved}${unreadChip}</span>
+      </span>
+      ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
+      ${previewHtml}
+      <span class="inbox-thread-time">${esc(formatDateTime(t.last_message_at))}</span>
     </button>`;
   }).join('');
 }
@@ -153,6 +206,7 @@ async function openInboxThread(applicationId) {
   _admMsgAppId = applicationId;
   _admMsgContext = 'inbox';
   _admMsgPendingFiles = [];
+  updateInboxStage();        // 대화 내용 단(우측) 펼침
   renderInboxThreadList();  // active 표시 갱신
   const view = document.getElementById('inboxThreadView');
   if (view) view.innerHTML = '<div class="inbox-empty">불러오는 중…</div>';
@@ -282,7 +336,7 @@ function renderAdminMsgThread(threadElId, messages) {
   thread.innerHTML = messages.map(msg => {
     const fromAdmin = msg.sender_kind === 'admin';
     const senderLabel = fromAdmin ? `운영팀 (${esc(msg.sender_name || '')})` : esc(msg.sender_name || '인플루언서');
-    const timeStr = formatDate(msg.created_at);
+    const timeStr = formatDateTime(msg.created_at);
     const sideCls = fromAdmin ? 'mine' : '';
 
     // 인플루언서 본인 회수 → 관리자도 못 봄 (placeholder)
@@ -526,11 +580,22 @@ function updateApplicantMsgBadge(applicationId) {
   });
 }
 
-// ── 헬퍼: 캠페인명 / 인플 이름 ──
-function campaignTitleById(id) {
-  if (!id) return '(캠페인)';
+// 캠페인 상태 배지 (draft/scheduled/active/closed/expired — 신청 상태와 별개)
+function inboxCampStatusBadge(s) {
+  const label = {draft:'준비', scheduled:'모집예정', active:'모집중', closed:'종료', expired:'노출마감'}[s];
+  if (!label) return '';
+  const cls = {draft:'badge-gray', scheduled:'badge-blue', active:'badge-green', closed:'badge-gold', expired:'badge-gray'}[s] || 'badge-gray';
+  return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${label}</span>`;
+}
+
+// ── 헬퍼: 캠페인 / 인플 이름 ──
+function inboxCampaignById(id) {
+  if (!id) return null;
   const list = (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns)) ? allCampaigns : [];
-  const c = list.find(x => x.id === id);
+  return list.find(x => x.id === id) || null;
+}
+function campaignTitleById(id) {
+  const c = inboxCampaignById(id);
   return c ? (c.title || '(제목 없음)') : '(캠페인)';
 }
 function influencerNameById(id) {
