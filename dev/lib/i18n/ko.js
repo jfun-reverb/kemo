@@ -543,4 +543,29 @@ window.I18N_KO = {
   channelLabel: {
     other: '기타',
   },
+
+  // 응모건 메시지 (인플루언서 ↔ 관리자)
+  messaging: {
+    titleFor: '{name} 관련 문의',
+    loading: '불러오는 중...',
+    loadError: '메시지를 불러오지 못했습니다',
+    emptyThread: '아직 메시지가 없습니다. 아래 입력란에서 문의할 수 있습니다.',
+    you: '본인',
+    adminTeam: '운영팀',
+    maskHiddenByAdmin: '[관리자에 의해 숨김 처리된 메시지]',
+    maskSelfWithdrawn: '[본인이 취소한 메시지]',
+    maskAdminWithdrawn: '[관리자가 취소한 메시지]',
+    withdraw: '취소',
+    withdrawConfirm: '이 메시지를 취소할까요?',
+    withdrawFailed: '메시지 취소에 실패했습니다',
+    placeholder: '메시지를 입력...',
+    attachMax: '첨부는 최대 {n}장까지입니다',
+    attachTooLarge: '이미지가 너무 큽니다. 다른 이미지를 시도해 주세요',
+    attachUploadFailed: '이미지 업로드에 실패했습니다',
+    attachError: '이미지를 열 수 없습니다',
+    emptyInput: '메시지를 입력해 주세요',
+    sendFailed: '전송에 실패했습니다',
+    btnLabel: '메시지',
+    unreadBadge: '미읽음',
+  },
 };

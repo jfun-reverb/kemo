@@ -131,6 +131,7 @@ function renderMyApplyTabs() {
 }
 
 let _myDelivsByApp = {};
+let _myMsgUnreadByApp = {};  // 응모건별 인플루언서 미읽음 메시지 수 (배지용)
 
 async function renderMyApplyList() {
   const container = $('myApplicationsList');
@@ -147,6 +148,12 @@ async function renderMyApplyList() {
       _myDelivsByApp = {};
       delivs.forEach(d => { (_myDelivsByApp[d.application_id] ||= []).push(d); });
     } catch(e) { _myDelivsByApp = {}; }
+    // 메시지 미읽음 배지 — application_message_summary 뷰 (security_invoker, 본인 행만)
+    try {
+      const threads = await fetchInfluencerUnreadMessageThreads();
+      _myMsgUnreadByApp = {};
+      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+    } catch(e) { _myMsgUnreadByApp = {}; }
   }
 
   // 캠페인 상태 필터
@@ -241,6 +248,9 @@ async function renderMyApplyList() {
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
+    // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
+    const msgUnread = _myMsgUnreadByApp[a.id] || 0;
+    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessageModal('${a.id}')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
@@ -250,9 +260,23 @@ async function renderMyApplyList() {
         ${cautionLine}
         ${cancelledLine}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}${menuHtml ? `<div class="apply-item-menu">${menuHtml}</div>` : ''}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}<div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
+}
+
+// 메시지 모달에서 읽음 처리/닫은 뒤 응모이력 미읽음 배지 갱신
+async function refreshMyMsgUnread() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  try {
+    const threads = await fetchInfluencerUnreadMessageThreads();
+    _myMsgUnreadByApp = {};
+    threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+  } catch(e) { /* 무시 */ }
+  // 응모이력 화면이 떠 있을 때만 재렌더 (배지 갱신)
+  if ($('myApplicationsList') && typeof renderMyApplyList === 'function') {
+    try { await renderMyApplyList(); } catch(e) { /* 무시 */ }
+  }
 }
 
 // ── Phase 2: 주의사항 비교 (응모이력 셀 토글) ──

@@ -563,4 +563,29 @@ window.I18N_JA = {
   channelLabel: {
     other: 'その他',
   },
+
+  // 응모건 메시지 (인플루언서 ↔ 관리자)
+  messaging: {
+    titleFor: '{name}に関するお問い合わせ',
+    loading: '読み込み中...',
+    loadError: 'メッセージの読み込みに失敗しました',
+    emptyThread: 'まだメッセージはありません。下の入力欄からお問い合わせできます。',
+    you: '本人',
+    adminTeam: '運営チーム',
+    maskHiddenByAdmin: '[管理者により非表示処理されたメッセージ]',
+    maskSelfWithdrawn: '[本人が取り消したメッセージ]',
+    maskAdminWithdrawn: '[管理者が取り消したメッセージ]',
+    withdraw: '取り消す',
+    withdrawConfirm: 'このメッセージを取り消しますか？',
+    withdrawFailed: 'メッセージの取り消しに失敗しました',
+    placeholder: 'メッセージを入力...',
+    attachMax: '添付は最大{n}枚までです',
+    attachTooLarge: '画像が大きすぎます。別の画像をお試しください',
+    attachUploadFailed: '画像のアップロードに失敗しました',
+    attachError: '画像を開けませんでした',
+    emptyInput: 'メッセージを入力してください',
+    sendFailed: '送信に失敗しました',
+    btnLabel: 'メッセージ',
+    unreadBadge: '未読',
+  },
 };
