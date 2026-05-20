@@ -214,14 +214,14 @@
 - `admin_notice_reads` — 관리자별 읽음 기록. `(admin_id, notice_id, read_at)` UNIQUE. `upsert_admin_notice_read` RPC. 미읽음 카운트 = published - reads(by admin)
 - `influencer_flags` — 인플루언서 관리자 마킹 이력. `influencer_id`, `action`(verify/violation/blacklist/clear), `reasons text[]` (blacklist_reason ∪ violation_reason lookup), `memo`, `evidence_paths text[]`, `updated_at/by/by_name`. 위반 행만 UPDATE RLS
 
-### 응모건 메시지 (인플루언서 ↔ 관리자, PR 1 — 개발 검증 중, 마이그레이션 144)
-> 응모(신청)건 단위 양방향 메시지. PR 1 은 인플루언서 발신 + 모달 + 응모이력 진입. 관리자 발신 UI·GNB 메뉴·알림(`message_received`)은 PR 2. 사양서 `docs/specs/2026-05-15-application-messaging.md`. 약관 중대 변경(D-7 사전 통지)은 PR 5 운영 배포 직전 집행(현재 보류).
+### 응모건 메시지 (인플루언서 ↔ 관리자, PR 1·2 — 개발 검증 중, 마이그레이션 144·145)
+> 응모(신청)건 단위 양방향 메시지. PR 1: 인플루언서 발신 + 모달 + 응모이력 진입. PR 2(마이그레이션 145): 관리자 발신(받은편지함 3단 페인 `#adminPane-messages` + 응모행 「메시지」 버튼 3개 페인 + 메시지 모달) + 강제 숨김/복구 + 수동 응대 완료 + 인플 GNB 「メッセージ」 메뉴 + 알림 `message_received`. 관리자 로직은 `dev/js/admin-messaging.js` 분리. 사양서 `docs/specs/2026-05-15-application-messaging.md`. 일괄 발송(PR 3)·메일 지연 큐(PR 4)·LINE 안내+약관 D-7(PR 5)은 미구현. 운영 배포는 PR 5 약관 통지와 함께(현재 보류).
 - `application_messages` — 메시지 본문. `application_id` FK CASCADE, `sender_kind`(influencer|admin), `sender_id/name`, `body`, `attachments jsonb`(`[{path,name,size,mime}]`), `read_by_influencer_at`, 강제숨김 4컬럼(`hidden_by_admin_at/_id/_reason_code/_memo`), 본인회수(`self_withdrawn_at`/`_by_kind`), 메일큐(`email_send_at`/`email_sent_at`/`email_skip_reason`), `broadcast_id` FK. RLS SELECT 본인 응모건 또는 `is_admin()`, INSERT/UPDATE 는 RPC 만 (sender_kind 변조 차단)
 - `application_message_admin_reads` — 관리자 개인별 읽음. `(message_id, admin_auth_id)` PK
 - `application_message_resolutions` — 응모건 응대 완료. `application_id` PK, `resolution_method`(auto_replied|manual)
 - `application_message_broadcasts` — 일괄 발송 그룹 (테이블만 PR 1, bulk/withdraw RPC 는 PR 3)
 - `application_message_hide_history` — 숨김/회수 audit (append-only, SELECT super_admin)
-- 뷰 `application_message_summary`(`security_invoker=true` — 인플 본인 행만 RLS 상속) + RPC: `get_application_messages`(호출자 역할별 4종 마스킹), `send_application_message`(rate limit 100/h + 자동 응대/reopen + 메일큐 계산), `mark_application_messages_read`, `withdraw_own_message`(25분 한도 + rate limit 50/h + 첨부 클라 삭제), `application_message_admin_unread_counts`(is_admin 가드). 모두 SECURITY DEFINER + `search_path=''`
+- 뷰 `application_message_summary`(`security_invoker=true` — 인플 본인 행만 RLS 상속, 관리자는 전체. 컬럼: message_count·unread_for_influencer·unresolved_for_admin_team·last_message_at) + RPC: `get_application_messages`(호출자 역할별 4종 마스킹), `send_application_message`(rate limit 100/h + 자동 응대/reopen + **관리자 발신 시 message_received 알림 INSERT** — 145), `mark_application_messages_read`, `withdraw_own_message`(25분 한도 + rate limit 50/h + 첨부 클라 삭제), `application_message_admin_unread_counts`(is_admin 가드). PR 2 신규(145): `mark_application_resolved`(is_admin — 수동 응대 완료), `hide_application_message`(is_campaign_admin — 강제 숨김 + hide_history INSERT), `unhide_application_message`(is_super_admin — 복구, 사유 메모 필수). 모두 SECURITY DEFINER + `search_path=''`
 - lookup `message_hide_reason` 7종 시드 + Storage 버킷 `application-message-attachments`(비공개, 응모건 폴더 기반 정책). 첨부는 클라 압축(`dev/lib/image-compress.js`, HEIC→JPEG/2048px) 후 업로드
 
 ### 메일·기준 데이터·알림
@@ -229,7 +229,7 @@
 - `participation_sets` — 참여방법 번들. `name_ko`/`ja`, `recruit_types[]`, `steps jsonb`, `sort_order`, `active`. `campaigns.participation_steps jsonb` + `participation_set_id` FK ON DELETE SET NULL 로 스냅샷·원본 참조
 - `caution_sets` — 주의사항 번들. items 구조 `{text_ko, text_ja, link_url?, link_label_ko?, link_label_ja?, text_after_ko?, text_after_ja?}`. `campaigns.caution_items jsonb` + `caution_set_id` FK ON DELETE SET NULL. RLS SELECT 관리자 (인플은 campaigns 스냅샷 경유)
 - `ng_sets` — NG 사항 번들. items 구조 `{html_ko, html_ja}` (DOMPurify, inline 서식만). `campaigns.ng_set_id` + `ng_items jsonb` 스냅샷. RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상. 신청자 동의 시점 스냅샷 없음 (NG는 표시용 가이드라인)
-- `notifications` — 인플루언서 알림. `kind`(deliverable_rejected/deliverable_changed/deliverable_approved), `ref_table`/`ref_id`, `read_at`. deliverables.status 전이 트리거로 자동 생성, 재제출 시 미읽음 알림 자동 dismiss
+- `notifications` — 인플루언서 알림. `kind`(deliverable_rejected/deliverable_changed/deliverable_approved/application_cancelled/message_received), `ref_table`/`ref_id`, `title`, `body`, `read_at`. deliverables.status 전이 트리거로 자동 생성(deliverable_*), 재제출 시 미읽음 알림 자동 dismiss. `message_received`(마이그레이션 145)는 관리자가 응모건 메시지에 답장 시 send RPC 가 INSERT(ref_table='applications', 미읽음 중복 방지). 알림 모달에서 `message_received` 클릭 시 메시지 모달 직접 오픈(kind 로 분기 — application_cancelled 와 ref_table 공유하므로 kind 한정 필수)
 - `admin_daily_digest_runs` — 관리자 통합 다이제스트 발송 로그. `digest_date` UNIQUE(중복 호출 차단 + INSERT 선행 mutex) + `status CHECK(sent|skipped_no_data|failed)` + `sections_summary jsonb`(`{received, cancelled, submitted, reprocessed}`) + `recipients_count` + `error_message` + `run_at`. RLS SELECT `is_admin()`, INSERT 는 service_role 만 우회
 - `influencer_daily_digest_runs` / `application_received_admin_digest_runs` — 메일 파이프라인 운영 로그. `digest_date` UNIQUE
 - `deadline_reminder_email_sent` — 영수증/결과물 D-5·D-1 임박 메일 재발송 차단. UNIQUE 4-tuple `(influencer_id, campaign_id, kind, d_minus)`

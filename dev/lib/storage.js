@@ -2082,3 +2082,95 @@ async function fetchInfluencerUnreadMessageThreads() {
   return data || [];
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 응모건 메시지 — 관리자 발신/숨김/응대 (PR 2)
+//   마이그레이션 145. 관리자 받은편지함·강제 숨김/복구·응대 완료.
+// ════════════════════════════════════════════════════════════════════
+
+// 응모건 수동 응대 완료 마킹 (모든 관리자 — 사양서 §3-4). RPC mark_application_resolved.
+async function markApplicationResolved(applicationId) {
+  if (!db || !applicationId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_application_resolved', { p_application_id: applicationId });
+    if (error) throw error;
+  });
+}
+
+// 메시지 강제 숨김 (campaign_admin 이상). reasonCode 는 lookup_values(kind='message_hide_reason').code.
+async function hideApplicationMessage(messageId, reasonCode, reasonMemo = null) {
+  if (!db || !messageId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('hide_application_message', {
+      p_message_id: messageId,
+      p_reason_code: reasonCode,
+      p_reason_memo: reasonMemo || null,
+    });
+    if (error) throw error;
+  });
+}
+
+// 강제 숨김 복구 (super_admin 한정). reasonMemo 필수.
+async function unhideApplicationMessage(messageId, reasonMemo) {
+  if (!db || !messageId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('unhide_application_message', {
+      p_message_id: messageId,
+      p_reason_memo: reasonMemo,
+    });
+    if (error) throw error;
+  });
+}
+
+// 관리자 본인 미열람 메시지 수 (응모건별). RPC application_message_admin_unread_counts.
+// 반환: Map<application_id, unread_count> (응모행 배지·받은편지함 개인 강조용)
+async function fetchAdminMessageUnreadCounts() {
+  if (!db) return new Map();
+  const {data, error} = await db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null });
+  if (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.application_id, Number(r.unread_count) || 0));
+  return map;
+}
+
+// 관리자 받은편지함 대화 목록 — application_message_summary 뷰 조회.
+//   security_invoker=true 라 관리자 호출 시 전체 응모건 RLS 통과.
+//   message_count>0 (메시지 있는 건만) + last_message_at 최근순. 1000행 cap 대응 pagination.
+//   opts: { sinceMonths(기본 6), campaignId(선택) }
+async function fetchAdminMessageThreads(opts = {}) {
+  if (!db) return [];
+  const sinceMonths = opts.sinceMonths || 6;
+  const sinceIso = new Date(Date.now() - sinceMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cols = 'application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at';
+  const rows = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    let q = db?.from('application_message_summary')
+      .select(cols)
+      .gt('message_count', 0)
+      .gte('last_message_at', sinceIso)
+      .order('last_message_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
+    const {data, error} = await q;
+    if (error) { console.warn('[fetchAdminMessageThreads]', error); break; }
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return rows;
+}
+
+// 응모건 단위 숨김/복구 이력 (super_admin — append-only audit). 메시지 모달 하단 패널용.
+//   hide_history 는 message_id 만 가지므로 application_messages inner join 으로 응모건 필터.
+//   RLS SELECT 는 super_admin 한정 (144) — 매니저 호출 시 빈 배열.
+async function fetchApplicationHideHistory(applicationId) {
+  if (!db || !applicationId) return [];
+  const {data, error} = await db.from('application_message_hide_history')
+    .select('id, message_id, action, by_user_kind, by_name, reason_code, reason_memo, at, application_messages!inner(application_id)')
+    .eq('application_messages.application_id', applicationId)
+    .order('at', { ascending: false });
+  if (error) { console.warn('[fetchApplicationHideHistory]', error); return []; }
+  return data || [];
+}
+

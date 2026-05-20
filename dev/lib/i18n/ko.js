@@ -567,5 +567,7 @@ window.I18N_KO = {
     sendFailed: '전송에 실패했습니다',
     btnLabel: '메시지',
     unreadBadge: '미읽음',
+    navMenu: '메시지',
+    notifTitle: '운영팀 메시지',
   },
 };

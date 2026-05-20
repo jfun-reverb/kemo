@@ -2215,6 +2215,9 @@ const PANE_REFRESHERS = {
   'campaigns': async () => {
     // 관리자 캠페인 목록 갱신 — `loadCampaigns`(인플루언서 함수) 오참조 버그 수정
     if (typeof loadAdminCampaigns === 'function') await loadAdminCampaigns();
+  },
+  'messages': async () => {
+    if (typeof refreshInboxData === 'function') await refreshInboxData();
   }
 };
 async function refreshPane(paneId) {
@@ -2823,6 +2826,8 @@ window.I18N_JA = {
     sendFailed: '送信に失敗しました',
     btnLabel: 'メッセージ',
     unreadBadge: '未読',
+    navMenu: 'メッセージ',
+    notifTitle: '運営からのメッセージ',
   },
 };
 
@@ -3395,6 +3400,8 @@ window.I18N_KO = {
     sendFailed: '전송에 실패했습니다',
     btnLabel: '메시지',
     unreadBadge: '미읽음',
+    navMenu: '메시지',
+    notifTitle: '운영팀 메시지',
   },
 };
 
@@ -5667,6 +5674,98 @@ async function fetchInfluencerUnreadMessageThreads() {
     .gt('unread_for_influencer', 0)
     .order('last_message_at', { ascending: false });
   if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); return []; }
+  return data || [];
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 응모건 메시지 — 관리자 발신/숨김/응대 (PR 2)
+//   마이그레이션 145. 관리자 받은편지함·강제 숨김/복구·응대 완료.
+// ════════════════════════════════════════════════════════════════════
+
+// 응모건 수동 응대 완료 마킹 (모든 관리자 — 사양서 §3-4). RPC mark_application_resolved.
+async function markApplicationResolved(applicationId) {
+  if (!db || !applicationId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_application_resolved', { p_application_id: applicationId });
+    if (error) throw error;
+  });
+}
+
+// 메시지 강제 숨김 (campaign_admin 이상). reasonCode 는 lookup_values(kind='message_hide_reason').code.
+async function hideApplicationMessage(messageId, reasonCode, reasonMemo = null) {
+  if (!db || !messageId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('hide_application_message', {
+      p_message_id: messageId,
+      p_reason_code: reasonCode,
+      p_reason_memo: reasonMemo || null,
+    });
+    if (error) throw error;
+  });
+}
+
+// 강제 숨김 복구 (super_admin 한정). reasonMemo 필수.
+async function unhideApplicationMessage(messageId, reasonMemo) {
+  if (!db || !messageId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('unhide_application_message', {
+      p_message_id: messageId,
+      p_reason_memo: reasonMemo,
+    });
+    if (error) throw error;
+  });
+}
+
+// 관리자 본인 미열람 메시지 수 (응모건별). RPC application_message_admin_unread_counts.
+// 반환: Map<application_id, unread_count> (응모행 배지·받은편지함 개인 강조용)
+async function fetchAdminMessageUnreadCounts() {
+  if (!db) return new Map();
+  const {data, error} = await db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null });
+  if (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.application_id, Number(r.unread_count) || 0));
+  return map;
+}
+
+// 관리자 받은편지함 대화 목록 — application_message_summary 뷰 조회.
+//   security_invoker=true 라 관리자 호출 시 전체 응모건 RLS 통과.
+//   message_count>0 (메시지 있는 건만) + last_message_at 최근순. 1000행 cap 대응 pagination.
+//   opts: { sinceMonths(기본 6), campaignId(선택) }
+async function fetchAdminMessageThreads(opts = {}) {
+  if (!db) return [];
+  const sinceMonths = opts.sinceMonths || 6;
+  const sinceIso = new Date(Date.now() - sinceMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cols = 'application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at';
+  const rows = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    let q = db?.from('application_message_summary')
+      .select(cols)
+      .gt('message_count', 0)
+      .gte('last_message_at', sinceIso)
+      .order('last_message_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
+    const {data, error} = await q;
+    if (error) { console.warn('[fetchAdminMessageThreads]', error); break; }
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return rows;
+}
+
+// 응모건 단위 숨김/복구 이력 (super_admin — append-only audit). 메시지 모달 하단 패널용.
+//   hide_history 는 message_id 만 가지므로 application_messages inner join 으로 응모건 필터.
+//   RLS SELECT 는 super_admin 한정 (144) — 매니저 호출 시 빈 배열.
+async function fetchApplicationHideHistory(applicationId) {
+  if (!db || !applicationId) return [];
+  const {data, error} = await db.from('application_message_hide_history')
+    .select('id, message_id, action, by_user_kind, by_name, reason_code, reason_memo, at, application_messages!inner(application_id)')
+    .eq('application_messages.application_id', applicationId)
+    .order('at', { ascending: false });
+  if (error) { console.warn('[fetchApplicationHideHistory]', error); return []; }
   return data || [];
 }
 
@@ -8596,6 +8695,10 @@ function openNavPanel() {
   if (!p) return;
   renderNavMenu();
   p.setAttribute('aria-hidden', 'false');
+  // 메시지 미읽음 최신화 (응모이력 미방문 상태로 햄버거 열어도 배지 정확)
+  if (currentUser && typeof refreshMyMsgUnread === 'function') {
+    refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
+  }
 }
 function closeNavPanel() {
   const p = $('navPanel');
@@ -8634,6 +8737,13 @@ function renderNavMenu() {
       </button>
     `).join('');
     html += divider;
+    // 메시지 — 응모이력으로 이동 (응모건 카드 메시지 버튼에서 대화 진입). 미읽음 배지 별도
+    html += `<button class="nav-item" data-nav="messages" onclick="navigate('mypage');openMypageSub('applications');closeNavPanel()">
+      <span class="material-icons-round notranslate nav-icon" translate="no">forum</span>
+      <span class="nav-label">${esc(t('messaging.navMenu'))}</span>
+      <span class="notif-badge hidden" data-role="nav-msg-badge"></span>
+    </button>`;
+    html += divider;
     // 관리자/일반 모두 알림 메뉴 노출 (본인 알림만 받음)
     html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
     html += divider;
@@ -8647,6 +8757,17 @@ function renderNavMenu() {
   }
   menu.innerHTML = html;
   refreshNotifBadge();
+  updateNavMsgBadge();
+}
+
+// 메시지 미읽음 배지 (GNB 「メッセージ」 항목) — _myMsgUnreadByApp(mypage.js) 합계
+function updateNavMsgBadge() {
+  const map = (typeof _myMsgUnreadByApp === 'object' && _myMsgUnreadByApp) ? _myMsgUnreadByApp : {};
+  const total = Object.values(map).reduce((s, n) => s + (Number(n) || 0), 0);
+  document.querySelectorAll('[data-role="nav-msg-badge"]').forEach(b => {
+    if (total > 0) { b.textContent = total > 9 ? '9+' : String(total); b.classList.remove('hidden'); }
+    else b.classList.add('hidden');
+  });
 }
 
 function navItemHtml(it) {
@@ -8776,7 +8897,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -8784,7 +8905,7 @@ function renderNotifModal(items) {
     const rtBadge = rtLabel
       ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
       : '';
-    return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
+    return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.kind||'')}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
       <div class="notif-item-body">
         ${rtBadge}
@@ -8796,9 +8917,16 @@ function renderNotifModal(items) {
   }).join('');
 }
 
-async function onNotifItemClick(id, refTable, refId) {
+async function onNotifItemClick(id, kind, refTable, refId) {
   await markNotificationRead(id);
   closeNotifModal();
+  // 메시지 알림 → 응모건 메시지 모달 직접 오픈 (사양서 §5-5)
+  //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
+  if (kind === 'message_received' && refId && currentUser) {
+    if (typeof openMessageModal === 'function') openMessageModal(refId);
+    refreshNotifBadge();
+    return;
+  }
   // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
     try {
@@ -9115,6 +9243,8 @@ async function refreshMyMsgUnread() {
     _myMsgUnreadByApp = {};
     threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
   } catch(e) { /* 무시 */ }
+  // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
+  if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
   // 응모이력 화면이 떠 있을 때만 재렌더 (배지 갱신)
   if ($('myApplicationsList') && typeof renderMyApplyList === 'function') {
     try { await renderMyApplyList(); } catch(e) { /* 무시 */ }

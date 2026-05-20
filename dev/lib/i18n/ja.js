@@ -587,5 +587,7 @@ window.I18N_JA = {
     sendFailed: '送信に失敗しました',
     btnLabel: 'メッセージ',
     unreadBadge: '未読',
+    navMenu: 'メッセージ',
+    notifTitle: '運営からのメッセージ',
   },
 };

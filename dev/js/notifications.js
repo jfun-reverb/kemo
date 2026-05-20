@@ -11,6 +11,10 @@ function openNavPanel() {
   if (!p) return;
   renderNavMenu();
   p.setAttribute('aria-hidden', 'false');
+  // 메시지 미읽음 최신화 (응모이력 미방문 상태로 햄버거 열어도 배지 정확)
+  if (currentUser && typeof refreshMyMsgUnread === 'function') {
+    refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
+  }
 }
 function closeNavPanel() {
   const p = $('navPanel');
@@ -49,6 +53,13 @@ function renderNavMenu() {
       </button>
     `).join('');
     html += divider;
+    // 메시지 — 응모이력으로 이동 (응모건 카드 메시지 버튼에서 대화 진입). 미읽음 배지 별도
+    html += `<button class="nav-item" data-nav="messages" onclick="navigate('mypage');openMypageSub('applications');closeNavPanel()">
+      <span class="material-icons-round notranslate nav-icon" translate="no">forum</span>
+      <span class="nav-label">${esc(t('messaging.navMenu'))}</span>
+      <span class="notif-badge hidden" data-role="nav-msg-badge"></span>
+    </button>`;
+    html += divider;
     // 관리자/일반 모두 알림 메뉴 노출 (본인 알림만 받음)
     html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
     html += divider;
@@ -62,6 +73,17 @@ function renderNavMenu() {
   }
   menu.innerHTML = html;
   refreshNotifBadge();
+  updateNavMsgBadge();
+}
+
+// 메시지 미읽음 배지 (GNB 「メッセージ」 항목) — _myMsgUnreadByApp(mypage.js) 합계
+function updateNavMsgBadge() {
+  const map = (typeof _myMsgUnreadByApp === 'object' && _myMsgUnreadByApp) ? _myMsgUnreadByApp : {};
+  const total = Object.values(map).reduce((s, n) => s + (Number(n) || 0), 0);
+  document.querySelectorAll('[data-role="nav-msg-badge"]').forEach(b => {
+    if (total > 0) { b.textContent = total > 9 ? '9+' : String(total); b.classList.remove('hidden'); }
+    else b.classList.add('hidden');
+  });
 }
 
 function navItemHtml(it) {
@@ -191,7 +213,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -199,7 +221,7 @@ function renderNotifModal(items) {
     const rtBadge = rtLabel
       ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(rtLabel)}</div>`
       : '';
-    return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
+    return `<div class="notif-item ${unread}" onclick="onNotifItemClick('${esc(n.id)}','${esc(n.kind||'')}','${esc(n.ref_table||'')}','${esc(n.ref_id||'')}')">
       <div class="notif-item-icon" style="background:${ic.color}"><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:#fff">${ic.icon}</span></div>
       <div class="notif-item-body">
         ${rtBadge}
@@ -211,9 +233,16 @@ function renderNotifModal(items) {
   }).join('');
 }
 
-async function onNotifItemClick(id, refTable, refId) {
+async function onNotifItemClick(id, kind, refTable, refId) {
   await markNotificationRead(id);
   closeNotifModal();
+  // 메시지 알림 → 응모건 메시지 모달 직접 오픈 (사양서 §5-5)
+  //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
+  if (kind === 'message_received' && refId && currentUser) {
+    if (typeof openMessageModal === 'function') openMessageModal(refId);
+    refreshNotifBadge();
+    return;
+  }
   // deliverable 참조가 있으면 활동관리 이동
   if (refTable === 'deliverables' && refId && currentUser) {
     try {

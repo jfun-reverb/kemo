@@ -273,6 +273,8 @@ async function refreshMyMsgUnread() {
     _myMsgUnreadByApp = {};
     threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
   } catch(e) { /* 무시 */ }
+  // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
+  if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
   // 응모이력 화면이 떠 있을 때만 재렌더 (배지 갱신)
   if ($('myApplicationsList') && typeof renderMyApplyList === 'function') {
     try { await renderMyApplyList(); } catch(e) { /* 무시 */ }
