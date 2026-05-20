@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779275088';
+  var CURRENT_BUILD = 'v1779276487';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -420,6 +420,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* 다중 선택 드롭다운 */
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
 .admin-filter-group label{font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+.admin-select{padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;min-width:120px;height:32px;box-sizing:border-box}
 .mf-wrap{position:relative;display:inline-block}
 .mf-btn{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap;min-width:100px;text-align:left;position:relative}
 .mf-btn::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--muted)}
@@ -1630,7 +1631,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-20 20:04 · 9527342</span>
+          <span class="admin-build-text">2026-05-20 20:28 · 02618d8</span>
         </div>
       </div>
     </aside>
@@ -2632,9 +2633,12 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <span>미응대만</span>
                 </label>
               </div>
-              <div class="admin-filter-group" style="margin-left:auto;flex:1;min-width:200px;max-width:300px">
+              <div class="admin-filter-group" style="margin-left:auto;flex:1;min-width:200px;max-width:320px">
                 <label>검색</label>
-                <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 메시지 검색" oninput="searchInbox(this.value)" style="width:100%">
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
+                </div>
               </div>
             </div>
           </div>
@@ -11415,7 +11419,8 @@ function changeInboxSort(v) {
   renderInboxCampaignList();
   renderInboxThreadList();
 }
-// 받은편지함 검색 — 인플 이름·이메일·캠페인명·최근 메시지로 대화 목록 필터
+// 받은편지함 검색 — 인플 이름·이메일·캠페인명으로 대화 목록 필터
+//   (대화 내용 검색은 대화창 상단 검색창에서 — 여기는 목록 찾기 전용)
 function searchInbox(query) {
   _inboxSearch = (query || '').trim().toLowerCase();
   renderInboxCampaignList();
@@ -11428,9 +11433,8 @@ function filteredInboxThreads() {
   if (_inboxSearch) {
     list = list.filter(t => {
       const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
-      const prev = _inboxPreviewMap.get(t.application_id);
       const camp = inboxCampaignById(t.campaign_id);
-      const bag = [inf.name, inf.name_kana, inf.email, prev && prev.body, camp && camp.title, camp && (camp.brand_ko || camp.brand)]
+      const bag = [inf.name, inf.name_kana, inf.email, camp && camp.title, camp && (camp.brand_ko || camp.brand)]
         .filter(Boolean).join(' ').toLowerCase();
       return bag.includes(_inboxSearch);
     });

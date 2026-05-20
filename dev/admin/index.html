@@ -1130,9 +1130,12 @@
                   <span>미응대만</span>
                 </label>
               </div>
-              <div class="admin-filter-group" style="margin-left:auto;flex:1;min-width:200px;max-width:300px">
+              <div class="admin-filter-group" style="margin-left:auto;flex:1;min-width:200px;max-width:320px">
                 <label>검색</label>
-                <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 메시지 검색" oninput="searchInbox(this.value)" style="width:100%">
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
+                </div>
               </div>
             </div>
           </div>

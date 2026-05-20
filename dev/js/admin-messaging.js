@@ -257,7 +257,8 @@ function changeInboxSort(v) {
   renderInboxCampaignList();
   renderInboxThreadList();
 }
-// 받은편지함 검색 — 인플 이름·이메일·캠페인명·최근 메시지로 대화 목록 필터
+// 받은편지함 검색 — 인플 이름·이메일·캠페인명으로 대화 목록 필터
+//   (대화 내용 검색은 대화창 상단 검색창에서 — 여기는 목록 찾기 전용)
 function searchInbox(query) {
   _inboxSearch = (query || '').trim().toLowerCase();
   renderInboxCampaignList();
@@ -270,9 +271,8 @@ function filteredInboxThreads() {
   if (_inboxSearch) {
     list = list.filter(t => {
       const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
-      const prev = _inboxPreviewMap.get(t.application_id);
       const camp = inboxCampaignById(t.campaign_id);
-      const bag = [inf.name, inf.name_kana, inf.email, prev && prev.body, camp && camp.title, camp && (camp.brand_ko || camp.brand)]
+      const bag = [inf.name, inf.name_kana, inf.email, camp && camp.title, camp && (camp.brand_ko || camp.brand)]
         .filter(Boolean).join(' ').toLowerCase();
       return bag.includes(_inboxSearch);
     });
