@@ -589,5 +589,6 @@ window.I18N_JA = {
     unreadBadge: '未読',
     navMenu: 'メッセージ',
     notifTitle: '運営からのメッセージ',
+    pendingNotice: '運営が順次確認のうえ、ご返信いたします。お返事までお時間をいただく場合がございます。',
   },
 };

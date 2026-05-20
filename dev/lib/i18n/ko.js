@@ -569,5 +569,6 @@ window.I18N_KO = {
     unreadBadge: '미읽음',
     navMenu: '메시지',
     notifTitle: '운영팀 메시지',
+    pendingNotice: '운영팀이 순차적으로 확인 후 회신드립니다. 답변까지 시간이 걸릴 수 있습니다.',
   },
 };

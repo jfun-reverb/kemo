@@ -596,6 +596,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .msg-attach-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
 .msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
+.msg-pending-notice{flex-shrink:0;padding:10px 14px;background:#FFF6E5;color:#8A6D3B;font-size:12px;line-height:1.5;border-top:1px solid var(--outline);text-align:center}
 .msg-modal-input-area{flex-shrink:0;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
 .msg-attach-preview{display:flex;flex-wrap:wrap;gap:6px}
 .msg-attach-preview:not(:empty){margin-bottom:8px}
@@ -834,6 +835,7 @@ textarea.form-input{resize:vertical;min-height:80px}
       </button>
     </div>
     <div id="msgModalThread" class="msg-modal-thread"></div>
+    <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
     <div class="msg-modal-input-area">
       <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
       <div class="msg-input-row">
@@ -2828,6 +2830,7 @@ window.I18N_JA = {
     unreadBadge: '未読',
     navMenu: 'メッセージ',
     notifTitle: '運営からのメッセージ',
+    pendingNotice: '運営が順次確認のうえ、ご返信いたします。お返事までお時間をいただく場合がございます。',
   },
 };
 
@@ -3402,6 +3405,7 @@ window.I18N_KO = {
     unreadBadge: '미읽음',
     navMenu: '메시지',
     notifTitle: '운영팀 메시지',
+    pendingNotice: '운영팀이 순차적으로 확인 후 회신드립니다. 답변까지 시간이 걸릴 수 있습니다.',
   },
 };
 
@@ -9852,6 +9856,7 @@ function closeMessageModal() {
 function renderMessageThread(messages) {
   const thread = $('msgModalThread');
   if (!thread) return;
+  updateMsgPendingNotice(messages);  // 관리자 미응답 안내 토글
   if (!messages || !messages.length) {
     thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
     return;
@@ -9907,6 +9912,21 @@ function renderMessageThread(messages) {
   }).join('');
   // 최신 메시지로 스크롤
   thread.scrollTop = thread.scrollHeight;
+}
+
+// 관리자 미응답 안내 배너 — 마지막 살아있는 메시지가 인플루언서 발신이면 표시,
+//   관리자가 답하면(마지막이 admin) 자동으로 사라짐
+function updateMsgPendingNotice(messages) {
+  const notice = $('msgPendingNotice');
+  if (!notice) return;
+  const visible = (messages || []).filter(m => !m.mask_state || m.mask_state === 'visible');
+  const last = visible[visible.length - 1];
+  if (last && last.sender_kind === 'influencer') {
+    notice.textContent = t('messaging.pendingNotice');
+    notice.style.display = '';
+  } else {
+    notice.style.display = 'none';
+  }
 }
 
 // 첨부 썸네일 signed URL 비동기 로드 (5분 시한)
