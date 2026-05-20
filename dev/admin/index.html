@@ -1117,11 +1117,22 @@
                 </select>
               </div>
               <div class="admin-filter-group">
+                <label>정렬</label>
+                <select class="admin-select" onchange="changeInboxSort(this.value)">
+                  <option value="recent">최근 메시지순</option>
+                  <option value="unresolved">미응대 우선</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
                 <label>미응대</label>
                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
                   <input type="checkbox" onchange="toggleInboxUnresolved(this.checked)" style="margin:0">
                   <span>미응대만</span>
                 </label>
+              </div>
+              <div class="admin-filter-group" style="margin-left:auto;flex:1;min-width:200px;max-width:300px">
+                <label>검색</label>
+                <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 메시지 검색" oninput="searchInbox(this.value)" style="width:100%">
               </div>
             </div>
           </div>
