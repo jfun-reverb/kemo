@@ -31,18 +31,32 @@
 
 -- ============================================================
 -- pg_cron 등록 — 주 2회 (월·목) 09:00 KST
+--
+-- 호출 방식은 운영에서 이미 가동 중인 기존 다이제스트 cron 2종
+-- (notify-admin-daily-digest / notify-influencer-daily-digest) 패턴을 그대로 따른다:
+--   - URL: https://<project-ref>.functions.supabase.co/<function-name>
+--   - 인증: vault.decrypted_secrets 의 'edge_function_jwt' (service_role JWT)
+--   - body: jsonb (Edge Function 은 source 미지정 시 'cron' 기본 처리)
+-- (당초 초안의 current_setting('app.supabase_url') 방식은 운영/개발 DB 에 해당
+--  커스텀 설정이 없어 폐기 — 2026-05-20 운영 등록 시 확인)
+--
+-- ⚠️ URL 의 project-ref 는 환경마다 다르다 — 실행 환경에 맞게 교체:
+--   - 운영: twofagomeizrtkwlhsuv
+--   - 개발: qysmxtipobomefudyixw
 -- ============================================================
 SELECT cron.schedule(
   'campaign-promo-digest-weekly',   -- 기존 cron 이 있으면 이름으로 덮어씀
   '0 0 * * 1,4',                    -- 월요일(1)·목요일(4) UTC 00:00 = KST 09:00
   $$
   SELECT net.http_post(
-    url     := current_setting('app.supabase_url') || '/functions/v1/notify-campaign-promo-digest',
+    url     := 'https://twofagomeizrtkwlhsuv.functions.supabase.co/notify-campaign-promo-digest',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.supabase_service_role_key')
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'edge_function_jwt' LIMIT 1
+      )
     ),
-    body    := jsonb_build_object('source', 'cron')::text
+    body    := jsonb_build_object('source', 'cron')
   );
   $$
 );
