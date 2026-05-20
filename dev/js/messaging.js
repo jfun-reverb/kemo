@@ -129,12 +129,29 @@ async function loadMsgAttachThumb(elId, path) {
   } catch (e) { /* 썸네일 실패 시 아이콘 유지 */ }
 }
 
-// 첨부 라이트박스 (원본 보기)
+// 첨부 라이트박스 (원본 보기) — 같은 화면 모달 (메시지 모달 위에 표시)
 async function openMsgLightbox(path) {
+  const lb = $('msgLightbox');
+  const img = $('msgLightboxImg');
+  if (!lb || !img) return;
+  img.src = '';
+  lb.classList.add('on');
+  lb.setAttribute('aria-hidden', 'false');
   try {
     const url = await getMessageAttachmentSignedUrl(path);
-    if (url) window.open(url, '_blank', 'noopener');
-  } catch (e) { toast(t('messaging.attachError')); }
+    if (url) { img.src = url; }
+    else { closeMsgLightbox(); toast(t('messaging.attachError')); }
+  } catch (e) {
+    closeMsgLightbox();
+    toast(t('messaging.attachError'));
+  }
+}
+
+function closeMsgLightbox() {
+  const lb = $('msgLightbox');
+  if (lb) { lb.classList.remove('on'); lb.setAttribute('aria-hidden', 'true'); }
+  const img = $('msgLightboxImg');
+  if (img) img.src = '';  // signed URL 해제
 }
 
 // 회수 확인 → 실행
