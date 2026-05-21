@@ -1,6 +1,21 @@
 // ══════════════════════════════════════
 // MY PAGE
 // ══════════════════════════════════════
+
+// 프로필 미등록 항목 계산 — 마이페이지 폼 필수 경고 + 햄버거 메뉴 未登録 배지 공용.
+// 순수 함수로 분리해 renderNavMenu(햄버거 열 때)에서도 동일 기준으로 호출한다.
+function computeProfileBadges(profile) {
+  const p = profile || {};
+  // 이름은 한자·가나 둘 다 채워져야 등록으로 간주 ("-"는 미등록)
+  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
+  const nameKana = ((p.name_kana || '') + '').trim();
+  const hasName = !!(nameKanji && nameKanji !== '-' && nameKana && nameKana !== '-');
+  const hasSns = !!(p.ig || p.x || p.tiktok || p.youtube);
+  const hasAddress = !!(p.zip && p.prefecture && p.city && p.phone);
+  const hasPaypal = !!p.paypal_email;
+  return {hasName, hasSns, hasAddress, hasPaypal};
+}
+
 async function loadMyPage() {
   if (!currentUser) { navigate('login'); return; }
   // 진입 시마다 인플루언서 프로필 새로고침 — 관리자 화면이나 다른 탭에서 변경된
@@ -12,16 +27,11 @@ async function loadMyPage() {
     } catch(e) { /* 네트워크 실패 시 stale 그대로 사용 */ }
   }
   const p = currentUserProfile || {};
-  const displayName = p.name_kanji || p.name || currentUser.email;
-  $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
-  $('mypageName').textContent = displayName;
-  // Stage 6 알림은 햄버거 메뉴 모달로 이전 (refreshNotifBadge에서 처리)
+  // 계정정보(아바타·이름·핸들·이메일)와 메뉴 목차는 햄버거 메뉴(renderNavMenu)로 이전됨.
+  // 마이페이지 랜딩 화면(#mypage-list)이 제거되어 여기서 직접 채우지 않는다.
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
-  // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
-  const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
-  const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
-  $('mypageHandle').textContent = primary ? `@${primary}` : t('profile.unregistered');
-  $('mypageEmail').textContent = currentUser.email;
+  // 햄버거 메뉴의 계정 카드·未登録 배지를 최신 프로필로 갱신
+  if (typeof renderNavMenu === 'function') renderNavMenu();
 
   // 메일 수신 설정 토글 — 발송 로직(get_promo_digest_targets)이 marketing_opt_in=true 만 대상이므로
   // true 일 때만 ON 표시 (NULL/false 는 OFF)
@@ -66,22 +76,8 @@ async function loadMyPage() {
   setVal('paypalEmail', p.paypal_email);
   setVal('paypalEmailConfirm', p.paypal_email);
 
-  // 미등록 배지 표시
-  // 이름은 한자·가나 둘 다 채워져야 등록으로 간주 ("-"는 미등록)
-  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
-  const nameKana = ((p.name_kana || '') + '').trim();
-  const hasName = nameKanji && nameKanji !== '-' && nameKana && nameKana !== '-';
-  const hasSns = p.ig || p.x || p.tiktok || p.youtube;
-  const hasAddress = p.zip && p.prefecture && p.city && p.phone;
-  const hasPaypal = !!p.paypal_email;
-  const badgeName = $('menuBadgeName');
-  const badgeSns = $('menuBadgeSns');
-  const badgeAddr = $('menuBadgeAddress');
-  const badgePaypal = $('menuBadgePaypal');
-  if (badgeName) badgeName.style.display = hasName ? 'none' : '';
-  if (badgeSns) badgeSns.style.display = hasSns ? 'none' : '';
-  if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
-  if (badgePaypal) badgePaypal.style.display = hasPaypal ? 'none' : '';
+  // 미등록 여부 계산 — 햄버거 메뉴 未登録 배지(renderNavMenu)와 아래 필수 경고 공용
+  const {hasSns, hasPaypal} = computeProfileBadges(p);
 
   // 필수 필드 경고 표시
   const reqMsg = t('profile.requiredHint');
@@ -443,10 +439,13 @@ function openMypageSub(sub) {
   history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
 }
 
+// 마이페이지 랜딩(목차) 화면이 제거되어, 서브 화면을 닫으면 응모이력을 기본 화면으로 보여준다.
+// 폼 화면의 뒤로가기 버튼·navigate('mypage')·popstate(#mypage) 진입 시 빈 화면 방지.
 function closeMypageSub() {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
-  $('mypage-list').classList.add('active');
-  history.pushState({page:'mypage'}, '', '#mypage');
+  const def = $('mypage-sub-applications');
+  if (def) def.classList.add('active');
+  history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
 }
 
 // 언어 토글 버튼 상태 업데이트

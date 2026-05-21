@@ -227,6 +227,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-panel-close{background:transparent;border:none;padding:8px;cursor:pointer;border-radius:8px}
 .nav-panel-close:hover{background:var(--surface-dim)}
 .nav-menu{display:flex;flex-direction:column;padding:8px 0;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* 메뉴가 길어 넘칠 때 flex-shrink 로 항목·구분선(1px)이 찌부러지는 것 방지. 넘치면 .nav-menu 가 스크롤 */
+.nav-menu>*{flex-shrink:0}
 .nav-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;font-size:15px;color:var(--ink);border:none;background:transparent;text-align:left;transition:background .15s}
 .nav-item:hover{background:var(--surface-dim)}
 .nav-item.on{background:var(--light-pink);color:var(--pink);font-weight:700}
@@ -238,6 +240,21 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
 .nav-divider{height:1px;background:var(--line);margin:6px 14px}
 .nav-divider-sub{height:1px;background:var(--line);margin:0 20px 0 54px;opacity:.6}
+
+/* ── 햄버거 계정 카드 + 마이페이지 아코디언 (마이페이지 랜딩 화면 흡수) ── */
+.nav-account{display:flex;align-items:center;gap:12px;padding:14px 20px}
+.nav-account-av{width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.nav-account-info{min-width:0;flex:1}
+.nav-account-name{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-account-handle{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-account-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.nav-accordion-head .nav-accordion-arrow{font-size:20px;color:var(--muted);margin-left:auto;flex-shrink:0;transition:transform .2s}
+.nav-accordion{overflow:hidden;max-height:0;transition:max-height .25s ease}
+.nav-accordion.open{max-height:1000px}
+.nav-subitem .nav-label{flex:1}
+.nav-unreg-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap;margin-left:8px}
+.nav-withdraw{display:block;width:100%;background:transparent;border:none;text-align:left;padding:12px 20px;font-size:11px;color:var(--muted);opacity:.6;cursor:pointer}
+.nav-withdraw:hover{opacity:.9;text-decoration:underline}
 
 /* ── NOTIF MODAL (슬라이드업 시트) ── */
 .notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
@@ -509,23 +526,13 @@ textarea.form-input{resize:vertical;min-height:80px}
    MY PAGE — マイページ (リスト → 詳細)
 ══════════════════════════════════ */
 .mypage-wrap{padding:16px 0 calc(var(--tab-h) + 16px)}
-.mypage-header{background:var(--surface);border-bottom:1px solid var(--outline);padding:20px 0;margin-bottom:16px}
-.mypage-profile{display:flex;align-items:center;gap:14px}
-.mypage-av{width:52px;height:52px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0}
-.mypage-name{font-size:17px;font-weight:700;margin-bottom:2px}
-.mypage-handle{font-size:12px;color:var(--on-surface-variant)}
+/* 랜딩(목차) 화면 관련 스타일(mypage-header / mypage-profile / mypage-av / mypage-name /
+   mypage-handle / mypage-menu 계열)은 햄버거 메뉴 흡수로 제거됨. 계정 카드·아코디언·未登録
+   배지 스타일은 components.css 의 nav-account, nav-accordion, nav-unreg-badge 계열 참조. */
 
 /* リスト/詳細の表示切替 */
 .mypage-view{display:none;height:100%;overflow-y:auto}
 .mypage-view.active{display:block}
-
-/* メニューリスト */
-.mypage-menu{display:flex;flex-direction:column;gap:0}
-.mypage-menu-item{display:flex;align-items:center;gap:14px;padding:14px 4px 14px 14px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--outline)}
-.mypage-menu-item:hover{background:var(--surface-dim);border-radius:var(--r8)}
-.mypage-menu-label{flex:1;font-size:14px;font-weight:500;color:var(--ink)}
-.mypage-menu-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap}
-.mypage-menu-arrow{font-size:20px;color:var(--on-surface-variant)}
 
 /* サブページヘッダー */
 .mypage-sub-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:10}
@@ -1498,76 +1505,12 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 <div id="page-mypage" class="page">
-  <!-- リスト画面 -->
-  <div id="mypage-list" class="mypage-view active">
-    <div class="mypage-header">
-      <div class="container">
-        <div class="mypage-profile">
-          <div class="mypage-av" id="mypageAv">U</div>
-          <div>
-            <div class="mypage-name" id="mypageName">—</div>
-            <div class="mypage-handle" id="mypageHandle">—</div>
-            <div class="mypage-email" id="mypageEmail" style="font-size:11px;color:var(--muted);margin-top:1px">—</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="container mypage-wrap" style="padding-top:0">
-      <div class="mypage-menu">
-        <div class="mypage-menu-item" onclick="openMypageSub('applications')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.applications">応募履歴</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-basic')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">person</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.basic">基本情報</span>
-          <span id="menuBadgeName" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
-          <span id="menuBadgeSns" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.address">配送先</span>
-          <span id="menuBadgeAddress" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('paypal')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance_wallet</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.paypal">PayPal</span>
-          <span id="menuBadgePaypal" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('password')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('email-settings')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">mail</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.emailSettings">メール受信設定</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="handleLogout()">
-          <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.logout" style="color:var(--on-surface-variant)">ログアウト</span>
-        </div>
-      </div>
-      <div style="margin-top:20px;padding-left:14px">
-        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</span>
-      </div>
-    </div>
-  </div>
+  <!-- 랜딩(목차) 화면은 햄버거 메뉴로 흡수되어 제거됨. 기본 화면은 응모이력(mypage-sub-applications) -->
 
   <!-- 応募履歴 -->
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
@@ -1594,7 +1537,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- 基本情報 -->
   <div id="mypage-sub-profile-basic" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.basic">基本情報</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1621,7 +1564,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- SNSアカウント -->
   <div id="mypage-sub-profile-sns" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.sns">SNSアカウント</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1665,7 +1608,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- 配送先 -->
   <div id="mypage-sub-profile-address" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.address">配送先</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1693,7 +1636,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- PayPal -->
   <div id="mypage-sub-paypal" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.paypal">PayPal</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1713,7 +1656,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- パスワード変更 -->
   <div id="mypage-sub-password" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.password">パスワード変更</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1749,7 +1692,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   <!-- メール受信設定 -->
   <div id="mypage-sub-email-settings" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.emailSettings.title">メール受信設定</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -9194,6 +9137,13 @@ function openNavPanel() {
   if (currentUser && typeof refreshMyMsgUnread === 'function') {
     refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
   }
+  // 프로필 최신화 — 폼 저장 직후 햄버거를 열어도 계정 카드·未登録 배지가 정확하도록.
+  // 첫 렌더는 현재 currentUserProfile(stale 가능)로 즉시 그리고, fetch 완료 시 다시 그린다.
+  if (currentUser && !currentUser._isAdmin && typeof db !== 'undefined' && db) {
+    db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle()
+      .then(({data}) => { if (data) { currentUserProfile = data; renderNavMenu(); } })
+      .catch(() => {});
+  }
 }
 function closeNavPanel() {
   const p = $('navPanel');
@@ -9211,26 +9161,42 @@ function renderNavMenu() {
   let html = '';
   const divider = '<div class="nav-divider"></div>';
   if (currentUser) {
+    // 계정 카드 (아바타·이름·핸들·이메일) — 마이페이지 랜딩 화면에서 이전
+    html += navAccountCardHtml();
+    html += divider;
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += divider;
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
     html += divider;
-    // 마이페이지 (클릭 시 바로 이동, 서브메뉴 항상 표시)
-    html += navItemHtml({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
+    // 마이페이지 — 접기/펼치기 아코디언 헤더 (기본 펼침, 클릭 시 토글만, 화면 이동 없음)
+    html += `<button class="nav-item nav-accordion-head" data-nav="mypage" onclick="toggleMypageAccordion()" aria-expanded="${_navMypageOpen}">
+      <span class="material-icons-round notranslate nav-icon" translate="no">person</span>
+      <span class="nav-label">${esc(t('tab.mypage'))}</span>
+      <span class="material-icons-round notranslate nav-accordion-arrow" translate="no" id="navMypageArrow">${_navMypageOpen ? 'expand_less' : 'expand_more'}</span>
+    </button>`;
+    // 未登録 배지 계산 (mypage.js computeProfileBadges 공용).
+    // 관리자 계정은 인플루언서 프로필이 비어 전 항목 미등록으로 떠 노이즈가 되므로 배지 생략.
+    const b = (!isAdmin && typeof computeProfileBadges === 'function')
+      ? computeProfileBadges(typeof currentUserProfile !== 'undefined' ? currentUserProfile : {})
+      : {hasName:true, hasSns:true, hasAddress:true, hasPaypal:true};
     const subs = [
       {sub:'applications', label: t('mypage.menu.applications')},
-      {sub:'profile-basic', label: t('mypage.menu.basic')},
-      {sub:'profile-sns', label: t('mypage.menu.sns')},
-      {sub:'profile-address', label: t('mypage.menu.address')},
-      {sub:'paypal', label: t('mypage.menu.paypal')},
+      {sub:'profile-basic', label: t('mypage.menu.basic'), unreg: !b.hasName},
+      {sub:'profile-sns', label: t('mypage.menu.sns'), unreg: !b.hasSns},
+      {sub:'profile-address', label: t('mypage.menu.address'), unreg: !b.hasAddress},
+      {sub:'paypal', label: t('mypage.menu.paypal'), unreg: !b.hasPaypal},
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
+    html += `<div class="nav-accordion${_navMypageOpen ? ' open' : ''}" id="navMypageAccordion">`;
     html += subs.map((s, i) => `
       ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
       <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
         <span class="nav-label">${esc(s.label)}</span>
+        ${s.unreg ? `<span class="nav-unreg-badge">${esc(t('common.unregistered'))}</span>` : ''}
       </button>
     `).join('');
+    html += `</div>`;
     html += divider;
     // 메시지 — 응모이력으로 이동 (응모건 카드 메시지 버튼에서 대화 진입). 미읽음 배지 별도
     html += `<button class="nav-item" data-nav="messages" onclick="navigate('mypage');openMypageSub('applications');closeNavPanel()">
@@ -9243,6 +9209,8 @@ function renderNavMenu() {
     html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
     html += divider;
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
+    // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크 (확인 후 LINE 안내)
+    html += `<button class="nav-withdraw" onclick="closeNavPanel();handleWithdraw()">${esc(t('mypage.withdraw'))}</button>`;
   } else {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
@@ -9271,6 +9239,37 @@ function navItemHtml(it) {
     <span class="nav-label">${esc(it.label)}</span>
     ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
   </button>`;
+}
+
+// 햄버거 상단 계정 카드 (아바타·이름·핸들·이메일) — 마이페이지 랜딩 헤더에서 이전
+function navAccountCardHtml() {
+  const p = (typeof currentUserProfile === 'object' && currentUserProfile) ? currentUserProfile : {};
+  const displayName = p.name_kanji || p.name || (currentUser && currentUser.email) || '';
+  const av = ((displayName || 'U') + '')[0].toUpperCase();
+  const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
+  const primary = (p.primary_sns && snsMap[p.primary_sns]) ? snsMap[p.primary_sns] : (p.ig || p.x || p.tiktok || p.youtube || '');
+  const handle = primary ? '@' + primary : '';
+  const email = (currentUser && currentUser.email) || '';
+  return `<div class="nav-account">
+    <div class="nav-account-av">${esc(av)}</div>
+    <div class="nav-account-info">
+      <div class="nav-account-name">${esc(displayName)}</div>
+      ${handle ? `<div class="nav-account-handle">${esc(handle)}</div>` : ''}
+      <div class="nav-account-email">${esc(email)}</div>
+    </div>
+  </div>`;
+}
+
+// 마이페이지 아코디언 펼침 상태 (기본 펼침). renderNavMenu 재렌더 시에도 유지.
+let _navMypageOpen = true;
+function toggleMypageAccordion() {
+  _navMypageOpen = !_navMypageOpen;
+  const wrap = $('navMypageAccordion');
+  const arrow = $('navMypageArrow');
+  const head = document.querySelector('.nav-accordion-head[data-nav="mypage"]');
+  if (wrap) wrap.classList.toggle('open', _navMypageOpen);
+  if (arrow) arrow.textContent = _navMypageOpen ? 'expand_less' : 'expand_more';
+  if (head) head.setAttribute('aria-expanded', String(_navMypageOpen));
 }
 
 // ── 배지 자동 갱신 (30초 폴링 + 탭 포커스, 로그인 상태에만 동작) ──
@@ -9475,6 +9474,21 @@ async function markAllNotifRead() {
 // ══════════════════════════════════════
 // MY PAGE
 // ══════════════════════════════════════
+
+// 프로필 미등록 항목 계산 — 마이페이지 폼 필수 경고 + 햄버거 메뉴 未登録 배지 공용.
+// 순수 함수로 분리해 renderNavMenu(햄버거 열 때)에서도 동일 기준으로 호출한다.
+function computeProfileBadges(profile) {
+  const p = profile || {};
+  // 이름은 한자·가나 둘 다 채워져야 등록으로 간주 ("-"는 미등록)
+  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
+  const nameKana = ((p.name_kana || '') + '').trim();
+  const hasName = !!(nameKanji && nameKanji !== '-' && nameKana && nameKana !== '-');
+  const hasSns = !!(p.ig || p.x || p.tiktok || p.youtube);
+  const hasAddress = !!(p.zip && p.prefecture && p.city && p.phone);
+  const hasPaypal = !!p.paypal_email;
+  return {hasName, hasSns, hasAddress, hasPaypal};
+}
+
 async function loadMyPage() {
   if (!currentUser) { navigate('login'); return; }
   // 진입 시마다 인플루언서 프로필 새로고침 — 관리자 화면이나 다른 탭에서 변경된
@@ -9486,16 +9500,11 @@ async function loadMyPage() {
     } catch(e) { /* 네트워크 실패 시 stale 그대로 사용 */ }
   }
   const p = currentUserProfile || {};
-  const displayName = p.name_kanji || p.name || currentUser.email;
-  $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
-  $('mypageName').textContent = displayName;
-  // Stage 6 알림은 햄버거 메뉴 모달로 이전 (refreshNotifBadge에서 처리)
+  // 계정정보(아바타·이름·핸들·이메일)와 메뉴 목차는 햄버거 메뉴(renderNavMenu)로 이전됨.
+  // 마이페이지 랜딩 화면(#mypage-list)이 제거되어 여기서 직접 채우지 않는다.
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
-  // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
-  const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
-  const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
-  $('mypageHandle').textContent = primary ? `@${primary}` : t('profile.unregistered');
-  $('mypageEmail').textContent = currentUser.email;
+  // 햄버거 메뉴의 계정 카드·未登録 배지를 최신 프로필로 갱신
+  if (typeof renderNavMenu === 'function') renderNavMenu();
 
   // 메일 수신 설정 토글 — 발송 로직(get_promo_digest_targets)이 marketing_opt_in=true 만 대상이므로
   // true 일 때만 ON 표시 (NULL/false 는 OFF)
@@ -9540,22 +9549,8 @@ async function loadMyPage() {
   setVal('paypalEmail', p.paypal_email);
   setVal('paypalEmailConfirm', p.paypal_email);
 
-  // 미등록 배지 표시
-  // 이름은 한자·가나 둘 다 채워져야 등록으로 간주 ("-"는 미등록)
-  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
-  const nameKana = ((p.name_kana || '') + '').trim();
-  const hasName = nameKanji && nameKanji !== '-' && nameKana && nameKana !== '-';
-  const hasSns = p.ig || p.x || p.tiktok || p.youtube;
-  const hasAddress = p.zip && p.prefecture && p.city && p.phone;
-  const hasPaypal = !!p.paypal_email;
-  const badgeName = $('menuBadgeName');
-  const badgeSns = $('menuBadgeSns');
-  const badgeAddr = $('menuBadgeAddress');
-  const badgePaypal = $('menuBadgePaypal');
-  if (badgeName) badgeName.style.display = hasName ? 'none' : '';
-  if (badgeSns) badgeSns.style.display = hasSns ? 'none' : '';
-  if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
-  if (badgePaypal) badgePaypal.style.display = hasPaypal ? 'none' : '';
+  // 미등록 여부 계산 — 햄버거 메뉴 未登録 배지(renderNavMenu)와 아래 필수 경고 공용
+  const {hasSns, hasPaypal} = computeProfileBadges(p);
 
   // 필수 필드 경고 표시
   const reqMsg = t('profile.requiredHint');
@@ -9917,10 +9912,13 @@ function openMypageSub(sub) {
   history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
 }
 
+// 마이페이지 랜딩(목차) 화면이 제거되어, 서브 화면을 닫으면 응모이력을 기본 화면으로 보여준다.
+// 폼 화면의 뒤로가기 버튼·navigate('mypage')·popstate(#mypage) 진입 시 빈 화면 방지.
 function closeMypageSub() {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
-  $('mypage-list').classList.add('active');
-  history.pushState({page:'mypage'}, '', '#mypage');
+  const def = $('mypage-sub-applications');
+  if (def) def.classList.add('active');
+  history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
 }
 
 // 언어 토글 버튼 상태 업데이트
@@ -11091,12 +11089,12 @@ async function handleUnsubscribePage(token) {
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
   const page = e.state?.page || location.hash.replace('#','') || 'home';
-  if (page === 'mypage' && e.state?.sub) {
+  // 마이페이지: state.page='mypage'(서브 동반) 또는 해시가 '#mypage-xxx'(state 유실)인 경우 모두 처리.
+  // 랜딩 화면 제거 후 closeMypageSub 가 응모이력으로 복귀하므로 빈 화면이 나오지 않도록 한다.
+  if (page === 'mypage' || page.startsWith('mypage-')) {
     navigate('mypage', false);
-    openMypageSub(e.state.sub);
-  } else if (page === 'mypage' && !e.state?.sub) {
-    navigate('mypage', false);
-    closeMypageSub();
+    const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
+    if (sub) openMypageSub(sub); else closeMypageSub();
   } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
   } else {

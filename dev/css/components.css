@@ -139,6 +139,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-panel-close{background:transparent;border:none;padding:8px;cursor:pointer;border-radius:8px}
 .nav-panel-close:hover{background:var(--surface-dim)}
 .nav-menu{display:flex;flex-direction:column;padding:8px 0;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* 메뉴가 길어 넘칠 때 flex-shrink 로 항목·구분선(1px)이 찌부러지는 것 방지. 넘치면 .nav-menu 가 스크롤 */
+.nav-menu>*{flex-shrink:0}
 .nav-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;font-size:15px;color:var(--ink);border:none;background:transparent;text-align:left;transition:background .15s}
 .nav-item:hover{background:var(--surface-dim)}
 .nav-item.on{background:var(--light-pink);color:var(--pink);font-weight:700}
@@ -150,6 +152,21 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
 .nav-divider{height:1px;background:var(--line);margin:6px 14px}
 .nav-divider-sub{height:1px;background:var(--line);margin:0 20px 0 54px;opacity:.6}
+
+/* ── 햄버거 계정 카드 + 마이페이지 아코디언 (마이페이지 랜딩 화면 흡수) ── */
+.nav-account{display:flex;align-items:center;gap:12px;padding:14px 20px}
+.nav-account-av{width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.nav-account-info{min-width:0;flex:1}
+.nav-account-name{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-account-handle{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-account-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.nav-accordion-head .nav-accordion-arrow{font-size:20px;color:var(--muted);margin-left:auto;flex-shrink:0;transition:transform .2s}
+.nav-accordion{overflow:hidden;max-height:0;transition:max-height .25s ease}
+.nav-accordion.open{max-height:1000px}
+.nav-subitem .nav-label{flex:1}
+.nav-unreg-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap;margin-left:8px}
+.nav-withdraw{display:block;width:100%;background:transparent;border:none;text-align:left;padding:12px 20px;font-size:11px;color:var(--muted);opacity:.6;cursor:pointer}
+.nav-withdraw:hover{opacity:.9;text-decoration:underline}
 
 /* ── NOTIF MODAL (슬라이드업 시트) ── */
 .notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
