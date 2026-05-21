@@ -483,13 +483,21 @@
 
 ## 구현 결과
 
-**구현일:** (개발 세션이 채울 것)
-**관련 커밋:** (개발 세션이 채울 것)
+### PR A (테이블·RPC·시드·관리자 페인) — 2026-05-21
 
-### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+**구현일:** 2026-05-21
+**브랜치:** `feature/message-faq` (개발 검증 단계, 운영 보류)
+**마이그레이션:** `supabase/migrations/146_faq_nodes_and_interactions.sql`
 
-### 구현 중 기술 결정 사항
--
+#### 초안 대비 변경 사항
+- **달라진 것 — `action_target` 해시 3개 정정**: 사양서 §8-2 추정값(`#mypage-sns`/`#mypage-address`/`#mypage-basic`)이 실제 라우팅과 달랐다. `openMypageSub`가 `#mypage-sub-{sub}` 요소를 찾는데 SNS/배송지/기본정보는 ID가 `profile-sns`/`profile-address`/`profile-basic`이라 해시도 **`#mypage-profile-sns`·`#mypage-profile-address`·`#mypage-profile-basic`**여야 한다. 시드·드롭다운 모두 정정값 적용
+- **추가된 것 — 시드 31노드**: 카테고리 7 + 질문 24. Q1-1("応募ができません")은 body 없는 분기 노드 + 하위 5개(a~e). 답변 문서 6칸 그대로 매핑, 고정 UUID + `ON CONFLICT DO NOTHING`(재실행 안전)
+- **달라진 것 — 관리자 페인 레이아웃 예외**: FAQ 페인은 좌우 2단 마스터-디테일(`faq-split`/`faq-col`)이라 다른 목록 페인의 `admin-card`/`admin-table-wrap` 구조를 따르지 않음(사양서 §4 마스터-디테일 의도). `ui.md`의 "7개 페인 구조 동일" 규칙의 의도된 예외
+
+#### 구현 중 기술 결정 사항
+- **`record_faq_interaction` 멱등 처리**: `viewed`는 `(influencer_id, application_id, faq_node_id) WHERE action='viewed' AND application_id IS NOT NULL` 부분 유니크 + `ON CONFLICT DO UPDATE`(view_count+1·last_viewed_at, created_at 보존). **`application_id` NULL 케이스는 부분 유니크 범위 밖**이라 RPC 내부에서 수동 UPDATE→NOT FOUND 시 INSERT로 멱등 보장(INSERT 폭증 방지). `resolved`/`handoff`는 append
+- **RLS 이중 방어**: `faq_interactions` INSERT 정책 `WITH CHECK (influencer_id = auth.uid())` + RPC가 서버에서 `auth.uid()` 강제 → 클라이언트 위조 차단
+- **`{required}`/`{current}` 플레이스홀더**: Q1-1-c 본문에 그대로 시드(PR B에서 동적 치환). `ON CONFLICT DO NOTHING`이라 운영자 수정분도 보호
+- storage 함수 8종(`dev/lib/storage.js`) + 관리자 페인(`dev/js/admin.js` `loadFaqPane` 외, +366줄) + `PANE_REFRESHERS('faq')` + `dev/css/admin.css`
+
+### PR B / B2 / C — (미착수)

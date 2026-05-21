@@ -113,6 +113,7 @@
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
+        <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
@@ -1577,6 +1578,46 @@
           </div>
         </div>
 
+        <!-- FAQ (자동응답) PANE -->
+        <div id="adminPane-faq" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">자주 묻는 질문 (자동응답)</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">응모건 메시지에서 인플루언서가 묻기 전에 셀프 해결하도록 안내하는 질문·답변을 관리합니다 (campaign_admin 이상)</div>
+              </div>
+            </div>
+          </div>
+          <div class="faq-split">
+            <!-- 좌측: 카테고리 목록 -->
+            <div class="faq-col faq-col-cats">
+              <div class="faq-col-header">
+                <span class="faq-col-title">카테고리</span>
+                <button class="btn btn-ghost btn-xs" id="btnFaqCatReorder" onclick="toggleFaqReorder('category')">순서 변경</button>
+              </div>
+              <div class="faq-list" id="faqCatList">
+                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+              </div>
+              <div class="faq-col-footer">
+                <button class="btn btn-primary btn-sm" style="width:100%" onclick="openFaqEditModal(null, null, 'category')">+ 카테고리 추가</button>
+              </div>
+            </div>
+            <!-- 우측: 선택 카테고리의 질문 목록 -->
+            <div class="faq-col faq-col-items">
+              <div class="faq-col-header">
+                <span class="faq-col-title" id="faqItemsTitle">질문</span>
+                <button class="btn btn-ghost btn-xs" id="btnFaqItemReorder" onclick="toggleFaqReorder('item')" style="display:none">순서 변경</button>
+              </div>
+              <div class="faq-list" id="faqItemList">
+                <div style="text-align:center;color:var(--muted);padding:32px">좌측에서 카테고리를 선택하세요</div>
+              </div>
+              <div class="faq-col-footer" id="faqItemFooter" style="display:none">
+                <button class="btn btn-primary btn-sm" style="width:100%" onclick="openFaqAddItem()">+ 질문 추가</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ADMIN NOTICES PANE -->
         <div id="adminPane-admin-notices" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
@@ -2096,6 +2137,113 @@
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button class="btn btn-ghost" onclick="closeModal('lookupEditModal')">취소</button>
         <button class="btn btn-primary" onclick="saveLookupEdit()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAQ (자동응답) 편집 모달 -->
+<div class="modal-overlay" id="faqEditModal" style="z-index:600">
+  <div class="modal" style="max-width:880px;border-radius:20px;margin:auto;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-body" style="padding:24px;overflow-y:auto">
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="faqModalTitle">질문 추가</div>
+      <input type="hidden" id="faqEditId">
+      <input type="hidden" id="faqEditParentId">
+      <input type="hidden" id="faqEditKind">
+
+      <!-- 질문 제목 / 카테고리명 — 한·일 2열 -->
+      <div class="faq-bilingual">
+        <div class="form-group">
+          <label class="form-label" id="faqLabelKoLabel">질문 제목 (한국어) <span style="color:var(--red)">*</span></label>
+          <input type="text" id="faqLabelKo" class="form-input" placeholder="예: 영수증을 어떻게 올리나요">
+        </div>
+        <div class="form-group">
+          <label class="form-label" id="faqLabelJaLabel">질문 제목 (일본어) <span style="color:var(--red)">*</span></label>
+          <input type="text" id="faqLabelJa" class="form-input" placeholder="例: レシートはどう提出しますか">
+        </div>
+      </div>
+
+      <!-- 답변 본문 — item 일 때만 표시, 한·일 2열 -->
+      <div id="faqBodyGroup">
+        <div class="faq-bilingual">
+          <div class="form-group">
+            <label class="form-label">답변 본문 (한국어)</label>
+            <textarea id="faqBodyKo" class="form-input" rows="8" style="resize:vertical;font-size:13px;line-height:1.6" placeholder="번호 단계(1. 2. 3.)로 끊어서 작성"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">답변 본문 (일본어) <span style="font-size:11px;font-weight:400;color:var(--muted)">— 인플루언서 노출</span></label>
+            <textarea id="faqBodyJa" class="form-input" rows="8" style="resize:vertical;font-size:13px;line-height:1.6" placeholder="番号の手順（1. 2. 3.）で区切って記入"></textarea>
+          </div>
+        </div>
+
+        <!-- 화면 이동 -->
+        <div class="form-group">
+          <label class="form-label">앱 화면 이동 버튼</label>
+          <select id="faqActionTarget" class="form-input" onchange="onFaqActionTargetChange()">
+            <option value="">(없음)</option>
+            <option value="#mypage-applications">응모이력</option>
+            <option value="#activity">활동관리(결과물 제출)</option>
+            <option value="#mypage-profile-sns">SNS 계정</option>
+            <option value="#mypage-profile-address">배송지</option>
+            <option value="#mypage-paypal">PayPal</option>
+            <option value="#mypage-profile-basic">기본정보</option>
+            <option value="#mypage-password">비밀번호 변경</option>
+            <option value="#mypage-email-settings">메일 수신 설정</option>
+          </select>
+        </div>
+        <div class="faq-bilingual" id="faqActionLabelGroup" style="display:none">
+          <div class="form-group">
+            <label class="form-label">버튼 라벨 (한국어)</label>
+            <input type="text" id="faqActionLabelKo" class="form-input" placeholder="예: 결과물 제출 화면 보기">
+          </div>
+          <div class="form-group">
+            <label class="form-label">버튼 라벨 (일본어)</label>
+            <input type="text" id="faqActionLabelJa" class="form-input" placeholder="例: 成果物提出を開く">
+          </div>
+        </div>
+
+        <!-- handoff 토글 -->
+        <div class="form-group" style="display:flex;align-items:center;gap:10px">
+          <label class="lookup-toggle" title="직접 문의로 바로" style="margin:0">
+            <input type="checkbox" id="faqHandoff" onchange="onFaqHandoffChange()">
+            <span class="lookup-toggle-slider"></span>
+          </label>
+          <span style="font-size:13px;color:var(--ink)">선택 시 답변 없이 바로 「직접 문의」로 연결 (handoff)</span>
+        </div>
+
+        <!-- 맞춤 노출 단계 -->
+        <div class="form-group">
+          <label class="form-label">맞춤 노출 단계 <span style="font-size:11px;font-weight:400;color:var(--muted)">(미선택 = 모든 단계 노출)</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="pending"> 심사중</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_purchase"> 승인-구매기간</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_visit"> 승인-방문기간</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_post"> 승인-제출단계</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="rejected"> 비승인</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="done"> 완료</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 활성 여부 -->
+      <div class="form-group" style="display:flex;align-items:center;gap:10px">
+        <label class="lookup-toggle" title="활성" style="margin:0">
+          <input type="checkbox" id="faqActive" checked>
+          <span class="lookup-toggle-slider"></span>
+        </label>
+        <span style="font-size:13px;color:var(--ink)">활성 (인플루언서에게 노출)</span>
+      </div>
+
+      <!-- 미리보기 토글 (item 만) -->
+      <div id="faqPreviewWrap">
+        <button type="button" class="btn btn-ghost btn-xs" onclick="toggleFaqPreview()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">visibility</span> <span id="faqPreviewToggleLabel">미리보기 (일본어 화면)</span></button>
+        <div id="faqPreviewBox" class="faq-preview" style="display:none"></div>
+      </div>
+
+      <div id="faqEditError" class="form-error" style="display:none;margin:8px 0"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('faqEditModal')">취소</button>
+        <button class="btn btn-primary" onclick="saveFaqNode()">저장</button>
       </div>
     </div>
   </div>

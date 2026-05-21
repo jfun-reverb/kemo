@@ -2365,3 +2365,111 @@ async function fetchApplicationHideHistory(applicationId) {
   return data || [];
 }
 
+// ══════════════════════════════════════
+// FAQ (자동응답) — 마이그레이션 146
+// ══════════════════════════════════════
+
+// 관리자용 전체 노드 (active 무관) — 트리 렌더용. sort_order → created_at 정렬
+async function fetchFaqNodes() {
+  if (!db) return [];
+  const {data, error} = await db?.from('faq_nodes')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) { console.warn('[fetchFaqNodes]', error); return []; }
+  return data || [];
+}
+
+// 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
+async function fetchFaqInteractionStats() {
+  if (!db) return {};
+  const out = {};
+  let from = 0;
+  while (true) {
+    const { data, error } = await db?.from('faq_interactions')
+      .select('faq_node_id, action, view_count')
+      .range(from, from + 999);
+    if (error) { console.warn('[fetchFaqInteractionStats]', error); break; }
+    (data || []).forEach(r => {
+      if (!r.faq_node_id) return;
+      const s = out[r.faq_node_id] || (out[r.faq_node_id] = { viewed: 0, handoff: 0, resolved: 0 });
+      if (r.action === 'viewed') s.viewed += (r.view_count || 1);
+      else if (r.action === 'handoff') s.handoff += 1;
+      else if (r.action === 'resolved') s.resolved += 1;
+    });
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
+
+// 노드 추가 (호출측에서 created_by/updated_by 채워 전달)
+async function insertFaqNode(row) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { data, error } = await db?.from('faq_nodes').insert(row).select().maybeSingle();
+      if (error) throw error;
+      return { ok: true, data };
+    });
+  } catch (e) { console.error('[insertFaqNode]', e); return { ok: false, error: e?.message }; }
+}
+
+// 노드 수정 (updated_at 은 트리거 자동 갱신)
+async function updateFaqNode(id, updates) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { error } = await db?.from('faq_nodes').update(updates).eq('id', id);
+      if (error) throw error;
+      return { ok: true };
+    });
+  } catch (e) { console.error('[updateFaqNode]', e); return { ok: false, error: e?.message }; }
+}
+
+async function setFaqNodeActive(id, active) {
+  return await updateFaqNode(id, { active: !!active });
+}
+
+// 순서 교환 — 두 노드의 sort_order 를 맞바꿈 (호출측에서 현재 sort 값 전달)
+async function swapFaqNodeOrder(idA, sortA, idB, sortB) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const e1 = (await db?.from('faq_nodes').update({ sort_order: sortB }).eq('id', idA)).error;
+      const e2 = (await db?.from('faq_nodes').update({ sort_order: sortA }).eq('id', idB)).error;
+      if (e1 || e2) throw (e1 || e2);
+      return { ok: true };
+    });
+  } catch (e) { console.error('[swapFaqNodeOrder]', e); return { ok: false, error: e?.message }; }
+}
+
+// 노드 삭제 (카테고리 삭제 시 자식 ON DELETE CASCADE)
+async function deleteFaqNode(id) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { error } = await db?.from('faq_nodes').delete().eq('id', id);
+      if (error) throw error;
+      return { ok: true };
+    });
+  } catch (e) { console.error('[deleteFaqNode]', e); return { ok: false, error: e?.message }; }
+}
+
+// FAQ 상호작용 기록 (RPC record_faq_interaction) — PR B 인플 화면 + PR A 스모크
+//   action: 'viewed' | 'resolved' | 'handoff'. viewed 는 서버에서 멱등 UPSERT.
+async function recordFaqInteraction(applicationId, faqNodeId, action) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('record_faq_interaction', {
+        p_application_id: applicationId || null,
+        p_faq_node_id: faqNodeId || null,
+        p_action: action
+      });
+      if (error) throw error;
+      return { ok: true, data };
+    });
+  } catch (e) { console.error('[recordFaqInteraction]', e); return { ok: false, error: e?.message }; }
+}
+
