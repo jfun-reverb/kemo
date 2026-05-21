@@ -196,6 +196,7 @@ function switchAdminPane(pane, el, pushHistory) {
     'deliverables': loadDeliverables,
     'brand-applications': loadBrandApplications,
     'brand-dashboard': loadBrandDashboard,
+    'brand-ops': loadBrandOps,
     'companies': loadCompanies,
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,
@@ -367,9 +368,13 @@ async function loadAdminData(preloaded) {
   renderAddressDistribution(users);
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
   refreshDelivSidebarBadge();
+}
 
-  // Recent apps — 신청관리와 동일 UI
-  const recent = apps.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
+// 최근 신청 렌더 — 대시보드에서 운영 현황 페인으로 이관 (브랜드 운영 재설계 PR 3)
+// 운영 현황 페인(loadBrandOps)에서 apps/camps/users 를 넘겨 호출한다.
+function renderRecentAppsTable(apps, camps, users) {
+  if (!$('recentAppsBody')) return;
+  const recent = apps.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
     const _dRem = Math.max((camp.slots||0)-apps.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);

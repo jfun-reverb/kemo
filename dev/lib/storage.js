@@ -1578,6 +1578,34 @@ async function fetchCompanies({ status = 'active', search } = {}) {
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
 
+// 운영 현황 페인 — 브랜드 카드 그리드용 핵심 지표 집계
+// companyId 지정 시 해당 회사 소속 브랜드만, null 이면 전체 브랜드
+// 반환: 행 배열(19컬럼), 오류 시 [] 반환
+// 서버 집계 함수(데이터베이스에 미리 만든 명령 — get_brand_ops_overview)를 호출
+async function getBrandOpsOverview(companyId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_brand_ops_overview', {
+      p_company_id: companyId || null
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[getBrandOpsOverview]', e); return []; }
+}
+
+// 운영 현황 페인 — 브랜드 상세 페인용 신청·캠페인 통합 jsonb 반환
+// 반환: { brand, company, applications, external_campaigns } 객체, 오류 시 null 반환
+async function getBrandOpsDetail(brandId) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_brand_ops_detail', {
+      p_brand_id: brandId
+    });
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[getBrandOpsDetail]', e); return null; }
+}
+
 // 회사 생성(id 없음) / 수정(id 있음) 통합
 // name_normalized 는 DB 트리거가 자동 계산 (name_ko 저장만 하면 됨)
 async function upsertCompany(payload) {
