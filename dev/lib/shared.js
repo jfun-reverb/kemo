@@ -359,6 +359,69 @@ function snsProfileUrl(channel, handle) {
 }
 
 // ──────────────────────────────────────
+// 응모건 상태 한 줄 판정 (FAQ §3-0) — 인플(messaging.js)·관리자(admin-messaging.js) 공용
+// ──────────────────────────────────────
+// 순수 함수로 추출해 양쪽이 동일 결과를 내도록 보장한다(사양서 §3-1 "동일 결과 대조").
+// 인플 측은 _myDelivsByApp 전역과 _computeCancelPhase 를 쓰지만, 이 함수는
+// 결과물 배열·캠페인 객체를 인자로 받아 전역 의존 없이 동작한다.
+
+// 캠페인 일정 → 현재 단계(recruit/purchase/visit/post/other). mypage.js _computeCancelPhase 와 동일 로직.
+function faqComputeCancelPhase(camp) {
+  if (!camp) return 'other';
+  const now = Date.now();
+  const toMs = (d) => d ? Date.parse(d) : null;
+  const recruitDeadline = toMs(camp.deadline);
+  const purchaseStart = toMs(camp.purchase_start);
+  const purchaseEnd   = toMs(camp.purchase_end);
+  const visitStart    = toMs(camp.visit_start);
+  const visitEnd      = toMs(camp.visit_end);
+  const submissionEnd = toMs(camp.submission_end);
+  if (purchaseStart && now >= purchaseStart && (!purchaseEnd || now <= purchaseEnd)) return 'purchase';
+  if (visitStart    && now >= visitStart    && (!visitEnd    || now <= visitEnd))    return 'visit';
+  if (submissionEnd && now > submissionEnd) return 'post';
+  if (purchaseEnd   && now > purchaseEnd)   return 'post';
+  if (visitEnd      && now > visitEnd)      return 'post';
+  if (recruitDeadline && now <= recruitDeadline) return 'recruit';
+  return 'other';
+}
+
+// 응모 상태 + 결과물 배열 + 캠페인 → {key, stage} (§3-0 판정 순서)
+//   status: applications.status (pending/approved/rejected/cancelled)
+//   delivs: 해당 응모건의 deliverables 배열([{status}, ...]) — 없으면 []
+//   camp:   캠페인 객체(recruit_type·일정 필드)
+//   key:   상태 한 줄 문구 케이스, stage: relevant_stages 매칭 태그(null=태그 없음)
+function faqComputeStatus(status, delivs, camp) {
+  if (status === 'cancelled') return { key: 'cancelled', stage: null };
+  if (status === 'rejected')  return { key: 'rejected',  stage: 'rejected' };
+  if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
+
+  if (status === 'approved') {
+    const ds = Array.isArray(delivs) ? delivs : [];
+    // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
+    if (ds.length) {
+      const allApproved = ds.every(d => d.status === 'approved');
+      const anyRejected = ds.some(d => d.status === 'rejected');
+      if (allApproved) return { key: 'done', stage: 'done' };
+      if (anyRejected) {
+        const allRejected = ds.every(d => d.status === 'rejected');
+        return { key: allRejected ? 'all_reject' : 'partial_reject', stage: 'approved_post' };
+      }
+      // pending(검수 대기) 포함, rejected 없음
+      return { key: 'reviewing', stage: 'approved_post' };
+    }
+    // ② 결과물이 없으면 캠페인 일정으로
+    const phase = faqComputeCancelPhase(camp);
+    const isVisit = camp?.recruit_type === 'visit';
+    if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
+    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
+    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
+    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
+    return { key: 'approved_fallback', stage: null };
+  }
+  return { key: 'fallback', stage: null };
+}
+
+// ──────────────────────────────────────
 // 관리자 페인 자동 갱신 헬퍼
 // ──────────────────────────────────────
 // 모달에서 저장한 직후 해당 페인의 목록·집계 영역이 stale 상태로 남는 패턴을

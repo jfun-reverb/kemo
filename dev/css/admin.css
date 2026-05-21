@@ -1161,6 +1161,29 @@
 .adm-hide-hist-title{font-weight:700;color:var(--ink);margin-bottom:6px}
 .adm-hide-hist-row{padding:4px 0;color:var(--muted);border-bottom:1px solid var(--line)}
 .adm-hide-hist-empty{color:var(--muted);font-style:italic}
+/* FAQ 응대 보조 — 응모건 상태 한 줄(§3-1) */
+.adm-msg-statusline{padding:10px 14px;border-bottom:1px solid var(--line);background:var(--light-pink);flex-shrink:0}
+.adm-msg-status-head{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.adm-msg-status-type{font-size:11px;font-weight:600;color:var(--dark-pink)}
+.adm-msg-status-main{font-size:13px;font-weight:600;color:var(--ink);line-height:1.5}
+.adm-msg-status-sub{font-size:11px;color:var(--muted);margin-top:3px}
+/* FAQ 열람 이력 패널(§3-2) */
+.adm-msg-faq-history{padding:12px 14px;border-bottom:1px dashed var(--line);background:var(--surface-container-low);font-size:12px;max-height:240px;overflow-y:auto;flex-shrink:0}
+.adm-faq-hist-title{font-weight:700;color:var(--ink);margin-bottom:8px}
+.adm-faq-hist-note{font-weight:400;color:var(--muted);font-size:11px}
+.adm-faq-hist-empty{color:var(--muted);font-style:italic}
+.adm-faq-hist-row{padding:6px 0;border-bottom:1px solid var(--line)}
+.adm-faq-hist-line1{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.adm-faq-hist-when{font-size:11px;color:var(--muted)}
+.adm-faq-hist-act{font-size:10px;font-weight:600;padding:1px 6px;border-radius:6px;background:var(--surface-dim);color:var(--muted)}
+.adm-faq-hist-act.handoff{background:var(--red-l);color:var(--red)}
+.adm-faq-hist-act.resolved{background:#E8F5E9;color:#16A34A}
+.adm-faq-hist-q{font-size:12px;font-weight:600;color:var(--ink)}
+.adm-faq-hist-cnt{font-weight:400;color:var(--muted);font-size:11px}
+.adm-faq-hist-a{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5}
+/* 직전 열람 컨텍스트 칩 — 인플 첫 메시지 위 */
+.adm-faq-chip{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--dark-pink);background:var(--light-pink);border:1px dashed var(--pink);border-radius:8px;padding:3px 8px;margin:2px 0}
+.adm-faq-chip .material-icons-round{font-size:13px}
 /* 응모 행 메시지 버튼 */
 .applicant-msg-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;font-size:11px;color:var(--ink);position:relative}
 .applicant-msg-btn:hover{background:var(--light-pink);border-color:var(--pink)}

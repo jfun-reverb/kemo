@@ -2170,6 +2170,69 @@ function snsProfileUrl(channel, handle) {
 }
 
 // ──────────────────────────────────────
+// 응모건 상태 한 줄 판정 (FAQ §3-0) — 인플(messaging.js)·관리자(admin-messaging.js) 공용
+// ──────────────────────────────────────
+// 순수 함수로 추출해 양쪽이 동일 결과를 내도록 보장한다(사양서 §3-1 "동일 결과 대조").
+// 인플 측은 _myDelivsByApp 전역과 _computeCancelPhase 를 쓰지만, 이 함수는
+// 결과물 배열·캠페인 객체를 인자로 받아 전역 의존 없이 동작한다.
+
+// 캠페인 일정 → 현재 단계(recruit/purchase/visit/post/other). mypage.js _computeCancelPhase 와 동일 로직.
+function faqComputeCancelPhase(camp) {
+  if (!camp) return 'other';
+  const now = Date.now();
+  const toMs = (d) => d ? Date.parse(d) : null;
+  const recruitDeadline = toMs(camp.deadline);
+  const purchaseStart = toMs(camp.purchase_start);
+  const purchaseEnd   = toMs(camp.purchase_end);
+  const visitStart    = toMs(camp.visit_start);
+  const visitEnd      = toMs(camp.visit_end);
+  const submissionEnd = toMs(camp.submission_end);
+  if (purchaseStart && now >= purchaseStart && (!purchaseEnd || now <= purchaseEnd)) return 'purchase';
+  if (visitStart    && now >= visitStart    && (!visitEnd    || now <= visitEnd))    return 'visit';
+  if (submissionEnd && now > submissionEnd) return 'post';
+  if (purchaseEnd   && now > purchaseEnd)   return 'post';
+  if (visitEnd      && now > visitEnd)      return 'post';
+  if (recruitDeadline && now <= recruitDeadline) return 'recruit';
+  return 'other';
+}
+
+// 응모 상태 + 결과물 배열 + 캠페인 → {key, stage} (§3-0 판정 순서)
+//   status: applications.status (pending/approved/rejected/cancelled)
+//   delivs: 해당 응모건의 deliverables 배열([{status}, ...]) — 없으면 []
+//   camp:   캠페인 객체(recruit_type·일정 필드)
+//   key:   상태 한 줄 문구 케이스, stage: relevant_stages 매칭 태그(null=태그 없음)
+function faqComputeStatus(status, delivs, camp) {
+  if (status === 'cancelled') return { key: 'cancelled', stage: null };
+  if (status === 'rejected')  return { key: 'rejected',  stage: 'rejected' };
+  if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
+
+  if (status === 'approved') {
+    const ds = Array.isArray(delivs) ? delivs : [];
+    // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
+    if (ds.length) {
+      const allApproved = ds.every(d => d.status === 'approved');
+      const anyRejected = ds.some(d => d.status === 'rejected');
+      if (allApproved) return { key: 'done', stage: 'done' };
+      if (anyRejected) {
+        const allRejected = ds.every(d => d.status === 'rejected');
+        return { key: allRejected ? 'all_reject' : 'partial_reject', stage: 'approved_post' };
+      }
+      // pending(검수 대기) 포함, rejected 없음
+      return { key: 'reviewing', stage: 'approved_post' };
+    }
+    // ② 결과물이 없으면 캠페인 일정으로
+    const phase = faqComputeCancelPhase(camp);
+    const isVisit = camp?.recruit_type === 'visit';
+    if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
+    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
+    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
+    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
+    return { key: 'approved_fallback', stage: null };
+  }
+  return { key: 'fallback', stage: null };
+}
+
+// ──────────────────────────────────────
 // 관리자 페인 자동 갱신 헬퍼
 // ──────────────────────────────────────
 // 모달에서 저장한 직후 해당 페인의 목록·집계 영역이 stale 상태로 남는 패턴을
@@ -6205,6 +6268,46 @@ async function recordFaqInteraction(applicationId, faqNodeId, action) {
       return { ok: true, data };
     });
   } catch (e) { console.error('[recordFaqInteraction]', e); return { ok: false, error: e?.message }; }
+}
+
+// 관리자 응모건 상태 한 줄(§3-1)용 — 응모 1건의 status + 결과물 status 배열을 함께 조회.
+//   §3-0 판정이 결과물 상태를 일정보다 먼저 보므로 status 와 결과물 집계가 모두 필요.
+//   반환: { status, delivs:[{status}] } (없으면 null)
+async function fetchApplicationStatusBundle(applicationId) {
+  if (!db || !applicationId) return null;
+  try {
+    const [{ data: app }, { data: delivs }] = await Promise.all([
+      db?.from('applications').select('id, status').eq('id', applicationId).maybeSingle(),
+      db?.from('deliverables').select('status').eq('application_id', applicationId).neq('status', 'draft'),
+    ]);
+    if (!app) return null;
+    return { status: app.status, delivs: (delivs || []).map(d => ({ status: d.status })) };
+  } catch (e) { console.error('[fetchApplicationStatusBundle]', e); return null; }
+}
+
+// 관리자 FAQ 열람 이력 패널(§3-2)용 — 한 응모건의 faq_interactions 를 시간순 + faq_nodes 역참조.
+//   RLS SELECT 는 is_admin() (마이그레이션 146). faq_node_id 가 SET NULL 된 행은 노드 제목 없이 표시.
+//   반환: 시간순(created_at 오름차순) 배열 [{action, view_count, created_at, last_viewed_at,
+//          faq_node_id, label_ko, body_ko}]
+async function fetchFaqInteractionsForApp(applicationId) {
+  if (!db || !applicationId) return [];
+  try {
+    const { data, error } = await db?.from('faq_interactions')
+      .select('id, faq_node_id, action, view_count, created_at, last_viewed_at, faq_nodes:faq_node_id (label_ko, body_ko)')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: true });
+    if (error) { console.warn('[fetchFaqInteractionsForApp]', error); return []; }
+    return (data || []).map(r => ({
+      id: r.id,
+      faq_node_id: r.faq_node_id,
+      action: r.action,
+      view_count: r.view_count,
+      created_at: r.created_at,
+      last_viewed_at: r.last_viewed_at,
+      label_ko: r.faq_nodes?.label_ko || '',
+      body_ko: r.faq_nodes?.body_ko || '',
+    }));
+  } catch (e) { console.error('[fetchFaqInteractionsForApp]', e); return []; }
 }
 
 
@@ -10631,40 +10734,10 @@ function _faqPick(row, base) {
 
 // 응모건 단계 태그 판정 (§3-3) — 상태 한 줄 케이스와 1:1
 //   반환: {key, stage} key=문구용 케이스, stage=relevant_stages 매칭 태그(null=태그 없음)
+//   판정 로직은 shared.js faqComputeStatus 에 추출(관리자 측과 동일 결과 보장, §3-1).
 function _computeFaqStatus(app, camp) {
-  const status = app?.status;
-  if (status === 'cancelled') return { key: 'cancelled', stage: null };
-  if (status === 'rejected')  return { key: 'rejected',  stage: 'rejected' };
-  if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
-
-  if (status === 'approved') {
-    // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
-    const delivs = (typeof _myDelivsByApp !== 'undefined' ? _myDelivsByApp[app.id] : null) || [];
-    if (delivs.length) {
-      const allApproved = delivs.every(d => d.status === 'approved');
-      const anyRejected = delivs.some(d => d.status === 'rejected');
-      if (allApproved) return { key: 'done', stage: 'done' };
-      if (anyRejected) {
-        const allRejected = delivs.every(d => d.status === 'rejected');
-        return { key: allRejected ? 'all_reject' : 'partial_reject', stage: 'approved_post' };
-      }
-      // pending(검수 대기) 포함, rejected 없음
-      return { key: 'reviewing', stage: 'approved_post' };
-    }
-    // ② 결과물이 없으면 캠페인 일정으로 (기존 _computeCancelPhase 패턴)
-    const phase = (typeof _computeCancelPhase === 'function') ? _computeCancelPhase(camp) : 'other';
-    const isVisit = camp?.recruit_type === 'visit';
-    if (phase === 'recruit') {
-      // 구매/방문 기간 전 = 당첨 안내 대기
-      return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
-    }
-    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
-    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
-    // 일정 누락 등 → 무난한 폴백
-    return { key: 'approved_fallback', stage: null };
-  }
-  return { key: 'fallback', stage: null };
+  const delivs = (typeof _myDelivsByApp !== 'undefined' ? _myDelivsByApp[app?.id] : null) || [];
+  return faqComputeStatus(app?.status, delivs, camp);
 }
 
 // 상태 케이스 → 관련 화면 바로가기 (없으면 null)

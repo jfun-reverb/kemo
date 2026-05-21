@@ -30,6 +30,9 @@ let _admMsgSending = false;
 let _admMsgCurrentMsgs = [];        // 현재 열린 대화 전체 메시지 (검색 필터 원본)
 let _admMsgCurrentThreadId = null;  // 현재 렌더 중인 thread DOM id
 
+// FAQ 응대 보조(PR B2·C) — 현재 열린 응모건의 FAQ 열람 이력. 직전 열람 칩에 재사용.
+let _admMsgFaqInteractions = [];    // fetchFaqInteractionsForApp 결과 (시간순)
+
 // 응모 행 메시지 버튼 셀에 표시할 본인 미열람 맵 (페인 로드 시 채움)
 let _applicantMsgUnreadMap = new Map();
 
@@ -234,6 +237,7 @@ async function openInboxThread(applicationId) {
     const thread = _inboxThreads.find(t => t.application_id === applicationId);
     const isResolved = !!thread && !thread.unresolved_for_admin_team;
     if (view) view.innerHTML = adminThreadViewHtml('inbox', isResolved);
+    await loadThreadFaqContext(applicationId, 'inbox', thread?.campaign_id);
     renderAdminMsgThread('inboxMsgThread', msgs);
     await markApplicationMessagesRead(applicationId);
     // 본인 미열람 맵 갱신 후 중 패널 재렌더
@@ -304,6 +308,7 @@ async function openAdminMessageModal(applicationId, campaignId) {
   const thread = document.getElementById('admMsgThread');
   if (thread) thread.innerHTML = '<div class="msg-empty">불러오는 중…</div>';
   try {
+    await loadThreadFaqContext(applicationId, 'modal', campaignId);
     const msgs = await fetchApplicationMessages(applicationId);
     renderAdminMsgThread('admMsgThread', msgs);
     await markApplicationMessagesRead(applicationId);
@@ -327,16 +332,22 @@ function adminThreadViewHtml(ctx, isResolved = false) {
   const threadId = ctx === 'inbox' ? 'inboxMsgThread' : 'admMsgThread';
   const composerId = ctx === 'inbox' ? 'inboxComposer' : 'admComposer';
   const histId = ctx === 'inbox' ? 'inboxHideHist' : 'admHideHist';
+  const statusId = ctx === 'inbox' ? 'inboxStatusLine' : 'admStatusLine';
+  const faqHistId = ctx === 'inbox' ? 'inboxFaqHist' : 'admFaqHist';
   const histBtn = admMsgIsSuper()
     ? `<button type="button" class="adm-msg-bar-btn" onclick="toggleHideHistory('${ctx}')">숨김 이력</button>` : '';
+  const faqBtn = `<button type="button" class="adm-msg-bar-btn" onclick="toggleFaqHistory('${ctx}')">FAQ 열람 이력</button>`;
   // 응대 완료 상태면 버튼을 「완료됨」 비활성으로 렌더 (진입 시 + 클릭 후 즉시 반영 공용)
   const resolveBtn = isResolved
     ? `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn done" disabled>응대 완료됨</button>`
     : `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn primary" onclick="markCurrentResolved()">응대 완료</button>`;
   return `
+    <div class="adm-msg-statusline" id="${statusId}" style="display:none"></div>
+    <div class="adm-msg-faq-history" id="${faqHistId}" style="display:none"></div>
     <div class="adm-msg-actionbar">
       <input type="search" class="adm-msg-search" placeholder="대화 내용 검색" oninput="searchAdminMsg(this.value)">
       <span class="adm-msg-bar-spacer"></span>
+      ${faqBtn}
       ${resolveBtn}
       ${histBtn}
     </div>
@@ -379,6 +390,154 @@ async function toggleHideHistory(ctx) {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// 2-1. FAQ 응대 보조 (PR B2 응모건 상태 한 줄 §3-1 / PR C FAQ 열람 이력 §3-2)
+// ════════════════════════════════════════════════════════════════════
+
+// 스레드 진입 시 상태 한 줄 + FAQ 열람 이력 데이터를 함께 로드.
+//   상태 한 줄은 즉시 렌더, FAQ 열람 이력은 데이터만 보관(패널 펼칠 때·직전 열람 칩에 사용).
+async function loadThreadFaqContext(applicationId, ctx, campaignId) {
+  _admMsgFaqInteractions = [];
+  // 직전 응모건의 상태/이력 컨테이너 초기화 (잔상 방지)
+  const statusEl = document.getElementById(ctx === 'inbox' ? 'inboxStatusLine' : 'admStatusLine');
+  const histEl = document.getElementById(ctx === 'inbox' ? 'inboxFaqHist' : 'admFaqHist');
+  if (statusEl) { statusEl.style.display = 'none'; statusEl.innerHTML = ''; }
+  if (histEl) { histEl.style.display = 'none'; histEl.innerHTML = ''; }
+  try {
+    const [bundle, interactions] = await Promise.all([
+      fetchApplicationStatusBundle(applicationId),
+      fetchFaqInteractionsForApp(applicationId),
+    ]);
+    _admMsgFaqInteractions = interactions || [];
+    renderAdmStatusLine(ctx, bundle, campaignId);
+  } catch (e) {
+    console.error('[loadThreadFaqContext]', e);
+  }
+}
+
+// 응모건 상태 한 줄(§3-1) — 인플 측 faqComputeStatus 와 동일 판정 → 한국어 문구.
+//   캠페인 타입(리뷰어=영수증 / 무료제공·방문형=게시물 URL) + 현재 단계 + 결과물 제출 여부.
+function renderAdmStatusLine(ctx, bundle, campaignId) {
+  const el = document.getElementById(ctx === 'inbox' ? 'inboxStatusLine' : 'admStatusLine');
+  if (!el) return;
+  if (!bundle) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const camp = inboxCampaignById(campaignId);
+  const delivs = bundle.delivs || [];
+  // 인플 측과 동일 순수 판정 (shared.js)
+  const { key } = faqComputeStatus(bundle.status, delivs, camp);
+
+  // 한국어 상태 문구 (i18n statusLine.* ko). t() 는 현재 인플 로케일 기준이라
+  // 관리자 화면은 항상 한국어가 필요 → ko 사전을 직접 조회.
+  const text = admStatusLineKo(key, camp);
+
+  // 캠페인 모집 타입 라벨 (리뷰어=영수증 / 무료제공·방문형=게시물 URL)
+  const rt = camp?.recruit_type;
+  let typeText = '';
+  if (rt === 'monitor') typeText = '리뷰어 · 영수증 제출형';
+  else if (rt === 'gifting') typeText = '기프팅 · 게시물 URL 제출형';
+  else if (rt === 'visit') typeText = '방문형 · 게시물 URL 제출형';
+  const typeBadge = (typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(rt) : '';
+
+  // 결과물 제출 여부
+  const submitted = delivs.length > 0;
+  const submitText = submitted ? `결과물 제출됨 (${delivs.length}건)` : '결과물 미제출';
+
+  el.innerHTML = `
+    <div class="adm-msg-status-head">${typeBadge}<span class="adm-msg-status-type">${esc(typeText)}</span></div>
+    <div class="adm-msg-status-main">${esc(text)}</div>
+    <div class="adm-msg-status-sub">${esc(submitText)}</div>`;
+  el.style.display = '';
+}
+
+// 상태 한 줄 한국어 문구 (관리자 화면 전용 — i18n 사전은 인플 빌드에만 있으므로 로컬 정의).
+//   인플 측 i18n ko.js messaging.statusLine 값과 동일하게 유지(동일 결과 §3-1).
+const ADM_STATUS_LINE_KO = {
+  pending: '현재 심사 중입니다. 결과는 별도로 안내드립니다.',
+  approved_purchase_before: '당첨되셨습니다. 곧 구매 안내가 시작됩니다.',
+  receipt: '상품 구매 후 영수증을 제출해 주세요 (제출 기한 {date}).',
+  visit: '방문 후 게시물을 제출해 주세요.',
+  post_deadline: '결과물 제출 기한: {date}',
+  reviewing: '제출하신 결과물을 확인 중입니다.',
+  partial_reject: '일부 결과물이 반려되었습니다. 반려된 항목을 확인 후 재제출해 주세요.',
+  all_reject: '결과물이 반려되었습니다. 사유를 확인 후 재제출해 주세요.',
+  done: '모든 미션이 완료되었습니다. 감사합니다.',
+  rejected: '이번에는 인연이 없었습니다.',
+  cancelled: '취소된 응모입니다.',
+  approved_fallback: '당첨 후 각 단계는 응모이력에서 확인할 수 있습니다.',
+  fallback: '응모 상태는 응모이력에서 확인할 수 있습니다.',
+};
+
+// statusLine 한국어 문구 — 관리자 화면은 항상 한국어.
+//   {date} 치환은 인플 측과 동일(영수증=구매/제출 마감, 제출기한=제출 마감).
+function admStatusLineKo(key, camp) {
+  const text = ADM_STATUS_LINE_KO[key] || '';
+  if (!text) return '';
+  let mmdd = '';
+  if (key === 'receipt') mmdd = _admMMDD(camp?.purchase_end || camp?.submission_end);
+  else if (key === 'post_deadline') mmdd = _admMMDD(camp?.submission_end);
+  return text.replace('{date}', mmdd);
+}
+
+function _admMMDD(d) {
+  const ms = Date.parse(d || '');
+  if (isNaN(ms)) return '';
+  const dt = new Date(ms);
+  return `${String(dt.getMonth() + 1).padStart(2, '0')}/${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+// FAQ 열람 이력 패널 토글(§3-2) — 시간순 「언제 / 질문 제목 / 받은 답변 요약 / 결과」.
+//   viewed 는 질문당 1줄(횟수·마지막 시각), handoff 는 발생마다 표시.
+function toggleFaqHistory(ctx) {
+  const el = document.getElementById(ctx === 'inbox' ? 'inboxFaqHist' : 'admFaqHist');
+  if (!el) return;
+  if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+  el.style.display = '';
+  renderAdmFaqHistory(el);
+}
+
+// FAQ 열람 이력 렌더 (관리자 화면 — 한국어 label_ko/body_ko)
+function renderAdmFaqHistory(el) {
+  const rows = _admMsgFaqInteractions || [];
+  if (!rows.length) {
+    el.innerHTML = '<div class="adm-faq-hist-empty">FAQ 열람 이력이 없습니다.</div>';
+    return;
+  }
+  const ACTION = {
+    viewed:   { label: '봤음',     cls: 'viewed' },
+    resolved: { label: '해결됨',   cls: 'resolved' },
+    handoff:  { label: '직접 문의', cls: 'handoff' },
+  };
+  const body = rows.map(r => {
+    const a = ACTION[r.action] || { label: esc(r.action), cls: '' };
+    const when = formatDateTime(r.last_viewed_at || r.created_at);
+    const title = r.label_ko ? esc(r.label_ko) : '(삭제된 질문)';
+    // 답변 요약 — 첫 줄 또는 60자 컷
+    let summary = '';
+    if (r.body_ko) {
+      const firstLine = String(r.body_ko).split('\n').find(s => s.trim()) || '';
+      summary = firstLine.length > 60 ? firstLine.slice(0, 60) + '…' : firstLine;
+    }
+    const cnt = (r.action === 'viewed' && r.view_count > 1) ? ` <span class="adm-faq-hist-cnt">×${r.view_count}</span>` : '';
+    return `<div class="adm-faq-hist-row">
+      <div class="adm-faq-hist-line1"><span class="adm-faq-hist-when">${esc(when)}</span><span class="adm-faq-hist-act ${a.cls}">${esc(a.label)}</span></div>
+      <div class="adm-faq-hist-q">${title}${cnt}</div>
+      ${summary ? `<div class="adm-faq-hist-a">${esc(summary)}</div>` : ''}
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="adm-faq-hist-title">FAQ 열람 이력 <span class="adm-faq-hist-note">(현재 등록된 답변 기준)</span></div>${body}`;
+}
+
+// 직전 열람 컨텍스트 칩(§3-2) — 직접 문의로 넘어오기 전 마지막 handoff 의 질문 제목.
+//   인플루언서 첫 메시지 말풍선 위에 1회만 노출. 질문 제목 없는 handoff(노드 삭제) 는 칩 생략.
+function admLastViewedChipHtml() {
+  const rows = _admMsgFaqInteractions || [];
+  // handoff 중 질문 제목이 있는 가장 마지막 건
+  const handoffs = rows.filter(r => r.action === 'handoff' && r.label_ko);
+  if (!handoffs.length) return '';
+  const last = handoffs[handoffs.length - 1];
+  return `<div class="adm-faq-chip"><span class="material-icons-round notranslate" translate="no">history</span>직전 열람: ${esc(last.label_ko)}</div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════
 // 3. 스레드 렌더 (공용 — 받은편지함 우측·모달 모두)
 // ════════════════════════════════════════════════════════════════════
 function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
@@ -395,7 +554,11 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
   }
   const now = Date.now();
   const isSuper = admMsgIsSuper();
-  thread.innerHTML = messages.map(msg => {
+  // 직전 열람 칩(§3-2)은 검색 결과가 아닐 때 첫 인플루언서 메시지 위에 1회만.
+  const chipHtml = _isSearchResult ? '' : admLastViewedChipHtml();
+  const firstInflIdx = chipHtml ? messages.findIndex(m => m.sender_kind === 'influencer') : -1;
+  thread.innerHTML = messages.map((msg, idx) => {
+    const lastViewedChip = (chipHtml && idx === firstInflIdx) ? chipHtml : '';
     const fromAdmin = msg.sender_kind === 'admin';
     const senderLabel = fromAdmin ? `운영팀 (${esc(msg.sender_name || '')})` : esc(msg.sender_name || '인플루언서');
     const timeStr = formatDateTime(msg.created_at);
@@ -403,7 +566,7 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
 
     // 인플루언서 본인 회수 → 관리자도 못 봄 (placeholder)
     if (msg.mask_state === 'self_withdrawn_influencer') {
-      return msgCardMasked(senderLabel, timeStr, sideCls, '인플루언서가 회수한 메시지입니다.');
+      return lastViewedChip + msgCardMasked(senderLabel, timeStr, sideCls, '인플루언서가 회수한 메시지입니다.');
     }
 
     const bodyHtml = esc(msg.body || '').replace(/\n/g, '<br>');
@@ -448,7 +611,7 @@ function renderAdminMsgThread(threadElId, messages, _isSearchResult) {
         : '<span class="msg-read unread">안읽음</span>';
     }
     // 말풍선 옆 메타: 읽음 / 시간 / 액션(숨김·회수·복구) — mine 은 풍선 왼쪽, 상대는 오른쪽
-    return `<div class="msg-row ${sideCls}">
+    return lastViewedChip + `<div class="msg-row ${sideCls}">
       <div class="msg-meta-side">${readMark}<span class="msg-time">${esc(timeStr)}</span>${actions}</div>
       <div class="msg-bubble">
         <div class="msg-sender">${senderLabel}</div>
