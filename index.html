@@ -10302,6 +10302,8 @@ function setupPTR() {
     const page = document.querySelector('#appShell .page.active');
     if (!page) return;
     if (PTR_BLOCKLIST.includes(page.id)) return;
+    // 모달/오버레이 등 활성 페이지 바깥을 터치하면 PTR 비활성 — 모달 내부 스크롤과 충돌 방지
+    if (!page.contains(e.target)) return;
     if ((page.scrollTop || 0) > 0) return;
     activePage = page;
     startY = e.touches[0].clientY;
