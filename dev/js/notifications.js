@@ -104,8 +104,13 @@ function startNotifPolling() {
   // 폴링 시작 직후 1회 즉시 갱신 — 30초 setInterval 때문에 첫 배지 표시가
   // 페이지 로드/로그인 직후 늦게 뜨던 문제 방지. force=true 로 stale 가드 우회.
   refreshNotifBadge({force: true});
+  // 메시지 미읽음 배지도 같은 주기로 갱신 — 알림 배지와 갱신 속도 일치 (햄버거 배지만, 재렌더 제외)
+  if (currentUser && typeof refreshMyMsgUnread === 'function') refreshMyMsgUnread({skipRerender: true});
   _notifPollTimer = setInterval(() => {
-    if (currentUser && !document.hidden) refreshNotifBadge();
+    if (currentUser && !document.hidden) {
+      refreshNotifBadge();
+      if (typeof refreshMyMsgUnread === 'function') refreshMyMsgUnread({skipRerender: true});
+    }
   }, 30000);
 }
 function stopNotifPolling() {
@@ -119,7 +124,11 @@ function stopNotifPolling() {
 
 // 탭 포커스 이벤트는 매번 등록해도 부작용 없으므로 초기화 시 한 번
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && currentUser) refreshNotifBadge();
+  if (!document.hidden && currentUser) {
+    refreshNotifBadge();
+    // 화면 복귀 시 메시지 배지도 함께 갱신 — 알림 배지와 동시 표시
+    if (typeof refreshMyMsgUnread === 'function') refreshMyMsgUnread({skipRerender: true});
+  }
 });
 
 // 앱 초기화: 로그인 상태면 시작

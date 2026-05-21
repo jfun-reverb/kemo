@@ -266,7 +266,7 @@ async function renderMyApplyList() {
 }
 
 // 메시지 모달에서 읽음 처리/닫은 뒤 응모이력 미읽음 배지 갱신
-async function refreshMyMsgUnread() {
+async function refreshMyMsgUnread(opts) {
   if (typeof currentUser === 'undefined' || !currentUser) return;
   try {
     const threads = await fetchInfluencerUnreadMessageThreads();
@@ -275,7 +275,9 @@ async function refreshMyMsgUnread() {
   } catch(e) { /* 무시 */ }
   // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
   if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
-  // 응모이력 화면이 떠 있을 때만 재렌더 (배지 갱신)
+  // 폴링·화면복귀 호출(skipRerender)은 햄버거 배지만 갱신 — 응모이력 재렌더로 인한
+  // 30초마다 깜빡임·스크롤 튐 방지. 사용자가 응모이력 진입/메시지 모달 열 때만 카드 배지 재렌더.
+  if (opts && opts.skipRerender) return;
   if ($('myApplicationsList') && typeof renderMyApplyList === 'function') {
     try { await renderMyApplyList(); } catch(e) { /* 무시 */ }
   }

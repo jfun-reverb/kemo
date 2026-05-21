@@ -8856,8 +8856,13 @@ function startNotifPolling() {
   // 폴링 시작 직후 1회 즉시 갱신 — 30초 setInterval 때문에 첫 배지 표시가
   // 페이지 로드/로그인 직후 늦게 뜨던 문제 방지. force=true 로 stale 가드 우회.
   refreshNotifBadge({force: true});
+  // 메시지 미읽음 배지도 같은 주기로 갱신 — 알림 배지와 갱신 속도 일치 (햄버거 배지만, 재렌더 제외)
+  if (currentUser && typeof refreshMyMsgUnread === 'function') refreshMyMsgUnread({skipRerender: true});
   _notifPollTimer = setInterval(() => {
-    if (currentUser && !document.hidden) refreshNotifBadge();
+    if (currentUser && !document.hidden) {
+      refreshNotifBadge();
+      if (typeof refreshMyMsgUnread === 'function') refreshMyMsgUnread({skipRerender: true});
+    }
   }, 30000);
 }
 function stopNotifPolling() {
@@ -8871,7 +8876,11 @@ function stopNotifPolling() {
 
 // 탭 포커스 이벤트는 매번 등록해도 부작용 없으므로 초기화 시 한 번
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && currentUser) refreshNotifBadge();
+  if (!document.hidden && currentUser) {
+    refreshNotifBadge();
+    // 화면 복귀 시 메시지 배지도 함께 갱신 — 알림 배지와 동시 표시
+    if (typeof refreshMyMsgUnread === 'function') refreshMyMsgUnread({skipRerender: true});
+  }
 });
 
 // 앱 초기화: 로그인 상태면 시작
@@ -9304,7 +9313,7 @@ async function renderMyApplyList() {
 }
 
 // 메시지 모달에서 읽음 처리/닫은 뒤 응모이력 미읽음 배지 갱신
-async function refreshMyMsgUnread() {
+async function refreshMyMsgUnread(opts) {
   if (typeof currentUser === 'undefined' || !currentUser) return;
   try {
     const threads = await fetchInfluencerUnreadMessageThreads();
@@ -9313,7 +9322,9 @@ async function refreshMyMsgUnread() {
   } catch(e) { /* 무시 */ }
   // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
   if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
-  // 응모이력 화면이 떠 있을 때만 재렌더 (배지 갱신)
+  // 폴링·화면복귀 호출(skipRerender)은 햄버거 배지만 갱신 — 응모이력 재렌더로 인한
+  // 30초마다 깜빡임·스크롤 튐 방지. 사용자가 응모이력 진입/메시지 모달 열 때만 카드 배지 재렌더.
+  if (opts && opts.skipRerender) return;
   if ($('myApplicationsList') && typeof renderMyApplyList === 'function') {
     try { await renderMyApplyList(); } catch(e) { /* 무시 */ }
   }
