@@ -230,7 +230,10 @@ async function openInboxThread(applicationId) {
   if (view) view.innerHTML = '<div class="inbox-empty">불러오는 중…</div>';
   try {
     const msgs = await fetchApplicationMessages(applicationId);
-    if (view) view.innerHTML = adminThreadViewHtml('inbox');
+    // 진입 시 이미 응대 완료된 건이면 버튼을 「완료됨」으로 렌더
+    const thread = _inboxThreads.find(t => t.application_id === applicationId);
+    const isResolved = !!thread && !thread.unresolved_for_admin_team;
+    if (view) view.innerHTML = adminThreadViewHtml('inbox', isResolved);
     renderAdminMsgThread('inboxMsgThread', msgs);
     await markApplicationMessagesRead(applicationId);
     // 본인 미열람 맵 갱신 후 중 패널 재렌더
@@ -293,7 +296,10 @@ async function openAdminMessageModal(applicationId, campaignId) {
   const titleEl = document.getElementById('admMsgModalTitle');
   if (titleEl) titleEl.textContent = `${campaignTitleById(campaignId)} — 메시지`;
   const body = document.getElementById('admMsgModalBody');
-  if (body) body.innerHTML = adminThreadViewHtml('modal');
+  // 받은편지함을 거쳐 로드된 thread 가 있으면 응대 상태로 버튼 초기화 (없으면 활성, 클릭 시 전환)
+  const modalThread = _inboxThreads.find(t => t.application_id === applicationId);
+  const modalResolved = !!modalThread && !modalThread.unresolved_for_admin_team;
+  if (body) body.innerHTML = adminThreadViewHtml('modal', modalResolved);
   openModal('admMsgModal');
   const thread = document.getElementById('admMsgThread');
   if (thread) thread.innerHTML = '<div class="msg-empty">불러오는 중…</div>';
@@ -317,17 +323,21 @@ function closeAdminMessageModal() {
 
 // 대화 내용 컨테이너 HTML (받은편지함 우측 / 모달 본문 공용)
 //   ctx: 'inbox' | 'modal' — thread/composer DOM id 접두사 결정
-function adminThreadViewHtml(ctx) {
+function adminThreadViewHtml(ctx, isResolved = false) {
   const threadId = ctx === 'inbox' ? 'inboxMsgThread' : 'admMsgThread';
   const composerId = ctx === 'inbox' ? 'inboxComposer' : 'admComposer';
   const histId = ctx === 'inbox' ? 'inboxHideHist' : 'admHideHist';
   const histBtn = admMsgIsSuper()
     ? `<button type="button" class="adm-msg-bar-btn" onclick="toggleHideHistory('${ctx}')">숨김 이력</button>` : '';
+  // 응대 완료 상태면 버튼을 「완료됨」 비활성으로 렌더 (진입 시 + 클릭 후 즉시 반영 공용)
+  const resolveBtn = isResolved
+    ? `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn done" disabled>응대 완료됨</button>`
+    : `<button type="button" id="${ctx}ResolveBtn" class="adm-msg-bar-btn primary" onclick="markCurrentResolved()">응대 완료</button>`;
   return `
     <div class="adm-msg-actionbar">
       <input type="search" class="adm-msg-search" placeholder="대화 내용 검색" oninput="searchAdminMsg(this.value)">
       <span class="adm-msg-bar-spacer"></span>
-      <button type="button" class="adm-msg-bar-btn primary" onclick="markCurrentResolved()">응대 완료</button>
+      ${resolveBtn}
       ${histBtn}
     </div>
     <div class="adm-msg-thread" id="${threadId}"></div>
@@ -617,12 +627,24 @@ async function promptUnhideMessage(messageId) {
   }
 }
 
+// 현재 대화창의 「응대 완료」 버튼을 「완료됨」 비활성으로 전환 (즉시 피드백)
+function _setResolveBtnDone(ctx) {
+  const btn = document.getElementById(`${ctx}ResolveBtn`);
+  if (!btn) return;
+  btn.textContent = '응대 완료됨';
+  btn.disabled = true;
+  btn.onclick = null;
+  btn.classList.remove('primary');
+  btn.classList.add('done');
+}
+
 // ── 수동 응대 완료 ──
 async function markCurrentResolved() {
   if (!_admMsgAppId) return;
   try {
     await markApplicationResolved(_admMsgAppId);
     toast('응대 완료로 표시했습니다.');
+    _setResolveBtnDone(_admMsgContext); // 현재 대화창 버튼 즉시 「완료됨」 비활성
     if (_admMsgContext === 'inbox') await refreshInboxData();
     else updateInboxSidebarBadge();
   } catch (e) {

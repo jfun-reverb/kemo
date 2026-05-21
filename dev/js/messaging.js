@@ -42,7 +42,10 @@ async function openMessageModal(applicationId) {
     renderMessageThread(msgs);
     // 열람 시 본인 미열람 읽음 처리 후 응모이력 배지 갱신
     await markApplicationMessagesRead(applicationId);
+    // 같은 응모건의 message_received 알림도 읽음 처리 (햄버거 알림 배지 잔존 방지)
+    if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(applicationId);
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
+    if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
   } catch (e) {
     console.error('[openMessageModal]', e);
     if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;

@@ -1104,6 +1104,7 @@
 .adm-msg-search{flex:0 1 220px;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;font-family:inherit}
 .adm-msg-bar-btn{padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px;cursor:pointer;color:var(--ink)}
 .adm-msg-bar-btn.primary{background:var(--pink);color:#fff;border-color:var(--pink)}
+.adm-msg-bar-btn.done{background:#E8F5E9;color:#16A34A;border-color:#A7D7B0;cursor:default}
 .adm-msg-thread{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
 /* 메시지 — 말풍선 + 옆 메타(시간·읽음·액션). 메타는 풍선 바깥쪽(상대=오른쪽, mine=왼쪽) */
 .msg-row{display:flex;gap:8px;align-items:flex-end;max-width:85%;align-self:flex-start;flex-direction:row-reverse}

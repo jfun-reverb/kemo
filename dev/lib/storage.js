@@ -541,6 +541,26 @@ async function markNotificationRead(notificationId) {
   } catch(e) { console.error('[markNotificationRead]', e); }
 }
 
+// 특정 응모건의 미읽음 message_received 알림 일괄 읽음 처리
+// (응모이력에서 메시지 모달을 직접 열람한 경우 — 알림 모달을 거치지 않아도
+//  해당 건 알림이 남지 않도록). RLS 는 markNotificationRead 와 동일 (본인 행 UPDATE).
+async function markMessageNotificationsRead(applicationId) {
+  if (!db || !applicationId) return;
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+  if (!uid) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('user_id', uid)
+        .eq('kind', 'message_received')
+        .eq('ref_id', applicationId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markMessageNotificationsRead]', e); }
+}
+
 // 알림 1건 삭제 (본인만)
 async function deleteNotification(id) {
   if (!db) return;
