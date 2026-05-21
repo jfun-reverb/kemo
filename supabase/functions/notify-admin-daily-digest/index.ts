@@ -342,7 +342,7 @@ interface CampaignRow {
   recruit_type: string | null;
 }
 interface InfluencerRow {
-  auth_id: string;
+  id: string;
   name: string | null;
   name_kanji: string | null;
   name_kana: string | null;
@@ -467,7 +467,7 @@ function renderCancelledSection(args: {
     const rows = grouped.get(cid)!;
     const cancelRowsHtml = rows.map((r) => {
       const infl = args.influencerMap.get(r.user_id) || {
-        auth_id: r.user_id, name: null, name_kanji: null, name_kana: null,
+        id: r.user_id, name: null, name_kanji: null, name_kana: null,
         primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
       };
       const reasonLabel = r.cancel_reason_code
@@ -599,7 +599,7 @@ function renderSubmittedSection(args: {
       const d = args.deliverableMap.get(ev.deliverable_id) || null;
       const infl = d ? args.influencerMap.get(d.user_id) : null;
       const fallbackInfl = {
-        auth_id: d?.user_id || "", name: null, name_kanji: null, name_kana: null,
+        id: d?.user_id || "", name: null, name_kanji: null, name_kana: null,
         primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
       };
       const i = infl || fallbackInfl;
@@ -681,7 +681,7 @@ function renderReprocessedSection(args: {
     const reprocessRowsHtml = items.map((it) => {
       const infl = it.user_id ? args.influencerMap.get(it.user_id) : null;
       const fallbackInfl = {
-        auth_id: it.user_id || "", name: null, name_kanji: null, name_kana: null,
+        id: it.user_id || "", name: null, name_kanji: null, name_kana: null,
         primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
       };
       const i = infl || fallbackInfl;
@@ -950,12 +950,12 @@ Deno.serve(async (req: Request) => {
     if (userIds.size > 0) {
       const { data: infls, error } = await sb
         .from("influencers")
-        .select("auth_id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube")
-        .in("auth_id", [...userIds]);
+        .select("id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube")
+        .in("id", [...userIds]);
       if (error) {
         console.warn("[notify-admin-daily] influencer lookup failed", error);
       } else {
-        (infls || []).forEach((i: InfluencerRow) => influencerMap.set(i.auth_id, i));
+        (infls || []).forEach((i: InfluencerRow) => influencerMap.set(i.id, i));
       }
     }
 
