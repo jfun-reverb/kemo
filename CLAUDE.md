@@ -233,6 +233,7 @@
 - `record_faq_interaction(application_id, faq_node_id, action)` RPC — SECURITY DEFINER + `search_path=''`, `influencer_id=auth.uid()` 강제, `viewed` 멱등 UPSERT(view_count+1·last_viewed_at·created_at 보존, application_id NULL 은 수동 UPSERT), resolved/handoff append
 - 관리자 페인 `#adminPane-faq`(campaign_admin 이상) — 좌우 2단 마스터-디테일(카테고리 | 질문 + 측정 배지[조회수·직접문의 전환수]). 편집 모달 한/일 2열 + 화면이동 드롭다운 + handoff 토글 + 단계 다중선택 + 미리보기. `dev/js/admin.js`(loadFaqPane), storage 함수 8종은 `dev/lib/storage.js`. **2단 마스터-디테일이라 다른 목록 페인의 `admin-card` 구조 미적용(사양서 §4 의도된 예외)**
 - 인플루언서 화면(PR B, `dev/js/messaging.js`) — 메시지 모달 0건 시 개인화 상태 한 줄(§3-0 판정: 결과물 상태 우선 → 일정) + FAQ 트리(카테고리→질문→답변, viewed/resolved/handoff 기록), 메시지 1건+면 상태 한 줄 + 스레드. 동적 치환 `{required}`(min_followers)/`{current}`(대표 SNS 팔로워, §5-1 — 값 없으면 줄 생략) + 반려 사유 `reject_reason` 표시(§3-4 ②). 화면이동 `navigate(action_target)`. DB 변경 없이 PR A RPC 재사용
+- 관리자 응대 보조(PR B2·C, `dev/js/admin-messaging.js`) — 메시지 스레드 상단에 응모건 상태 한 줄(§3-1, 한국어, 모집타입+단계+결과물 여부) + 「FAQ 열람 이력」 접이식 패널(§3-2, 시간순·viewed 횟수·handoff) + 직접문의 메시지 위 「직전 열람」 칩. 인플과 **동일 판정**: 판정 로직 `dev/lib/shared.js`의 `faqComputeStatus`/`faqComputeCancelPhase` 공용 함수로 추출(인플 messaging.js도 위임). storage `fetchApplicationStatusBundle`(status+결과물 집계)·`fetchFaqInteractionsForApp`(이력+faq_nodes 역참조, RLS is_admin). DB 변경 없음
 
 ### 메일·기준 데이터·알림
 - `lookup_values` — 캠페인 기준 데이터. `kind`(channel/category/content_type/ng_item/reject_reason/blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`. channel 만 recruit_types 사용

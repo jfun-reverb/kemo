@@ -2546,3 +2546,43 @@ async function recordFaqInteraction(applicationId, faqNodeId, action) {
   } catch (e) { console.error('[recordFaqInteraction]', e); return { ok: false, error: e?.message }; }
 }
 
+// 관리자 응모건 상태 한 줄(§3-1)용 — 응모 1건의 status + 결과물 status 배열을 함께 조회.
+//   §3-0 판정이 결과물 상태를 일정보다 먼저 보므로 status 와 결과물 집계가 모두 필요.
+//   반환: { status, delivs:[{status}] } (없으면 null)
+async function fetchApplicationStatusBundle(applicationId) {
+  if (!db || !applicationId) return null;
+  try {
+    const [{ data: app }, { data: delivs }] = await Promise.all([
+      db?.from('applications').select('id, status').eq('id', applicationId).maybeSingle(),
+      db?.from('deliverables').select('status').eq('application_id', applicationId).neq('status', 'draft'),
+    ]);
+    if (!app) return null;
+    return { status: app.status, delivs: (delivs || []).map(d => ({ status: d.status })) };
+  } catch (e) { console.error('[fetchApplicationStatusBundle]', e); return null; }
+}
+
+// 관리자 FAQ 열람 이력 패널(§3-2)용 — 한 응모건의 faq_interactions 를 시간순 + faq_nodes 역참조.
+//   RLS SELECT 는 is_admin() (마이그레이션 146). faq_node_id 가 SET NULL 된 행은 노드 제목 없이 표시.
+//   반환: 시간순(created_at 오름차순) 배열 [{action, view_count, created_at, last_viewed_at,
+//          faq_node_id, label_ko, body_ko}]
+async function fetchFaqInteractionsForApp(applicationId) {
+  if (!db || !applicationId) return [];
+  try {
+    const { data, error } = await db?.from('faq_interactions')
+      .select('id, faq_node_id, action, view_count, created_at, last_viewed_at, faq_nodes:faq_node_id (label_ko, body_ko)')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: true });
+    if (error) { console.warn('[fetchFaqInteractionsForApp]', error); return []; }
+    return (data || []).map(r => ({
+      id: r.id,
+      faq_node_id: r.faq_node_id,
+      action: r.action,
+      view_count: r.view_count,
+      created_at: r.created_at,
+      last_viewed_at: r.last_viewed_at,
+      label_ko: r.faq_nodes?.label_ko || '',
+      body_ko: r.faq_nodes?.body_ko || '',
+    }));
+  } catch (e) { console.error('[fetchFaqInteractionsForApp]', e); return []; }
+}
+
