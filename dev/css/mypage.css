@@ -2,23 +2,13 @@
    MY PAGE — マイページ (リスト → 詳細)
 ══════════════════════════════════ */
 .mypage-wrap{padding:16px 0 calc(var(--tab-h) + 16px)}
-.mypage-header{background:var(--surface);border-bottom:1px solid var(--outline);padding:20px 0;margin-bottom:16px}
-.mypage-profile{display:flex;align-items:center;gap:14px}
-.mypage-av{width:52px;height:52px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0}
-.mypage-name{font-size:17px;font-weight:700;margin-bottom:2px}
-.mypage-handle{font-size:12px;color:var(--on-surface-variant)}
+/* 랜딩(목차) 화면 관련 스타일(mypage-header / mypage-profile / mypage-av / mypage-name /
+   mypage-handle / mypage-menu 계열)은 햄버거 메뉴 흡수로 제거됨. 계정 카드·아코디언·未登録
+   배지 스타일은 components.css 의 nav-account, nav-accordion, nav-unreg-badge 계열 참조. */
 
 /* リスト/詳細の表示切替 */
 .mypage-view{display:none;height:100%;overflow-y:auto}
 .mypage-view.active{display:block}
-
-/* メニューリスト */
-.mypage-menu{display:flex;flex-direction:column;gap:0}
-.mypage-menu-item{display:flex;align-items:center;gap:14px;padding:14px 4px 14px 14px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--outline)}
-.mypage-menu-item:hover{background:var(--surface-dim);border-radius:var(--r8)}
-.mypage-menu-label{flex:1;font-size:14px;font-weight:500;color:var(--ink)}
-.mypage-menu-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap}
-.mypage-menu-arrow{font-size:20px;color:var(--on-surface-variant)}
 
 /* サブページヘッダー */
 .mypage-sub-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:10}

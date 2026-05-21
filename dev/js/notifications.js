@@ -15,6 +15,13 @@ function openNavPanel() {
   if (currentUser && typeof refreshMyMsgUnread === 'function') {
     refreshMyMsgUnread().then(() => updateNavMsgBadge()).catch(() => {});
   }
+  // 프로필 최신화 — 폼 저장 직후 햄버거를 열어도 계정 카드·未登録 배지가 정확하도록.
+  // 첫 렌더는 현재 currentUserProfile(stale 가능)로 즉시 그리고, fetch 완료 시 다시 그린다.
+  if (currentUser && !currentUser._isAdmin && typeof db !== 'undefined' && db) {
+    db.from('influencers').select('*').eq('id', currentUser.id).maybeSingle()
+      .then(({data}) => { if (data) { currentUserProfile = data; renderNavMenu(); } })
+      .catch(() => {});
+  }
 }
 function closeNavPanel() {
   const p = $('navPanel');
@@ -32,26 +39,42 @@ function renderNavMenu() {
   let html = '';
   const divider = '<div class="nav-divider"></div>';
   if (currentUser) {
+    // 계정 카드 (아바타·이름·핸들·이메일) — 마이페이지 랜딩 화면에서 이전
+    html += navAccountCardHtml();
+    html += divider;
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
+    html += divider;
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
     html += divider;
-    // 마이페이지 (클릭 시 바로 이동, 서브메뉴 항상 표시)
-    html += navItemHtml({nav:'mypage', icon:'person', label: t('tab.mypage'), onclick:"navigate('mypage');closeNavPanel()"});
+    // 마이페이지 — 접기/펼치기 아코디언 헤더 (기본 펼침, 클릭 시 토글만, 화면 이동 없음)
+    html += `<button class="nav-item nav-accordion-head" data-nav="mypage" onclick="toggleMypageAccordion()" aria-expanded="${_navMypageOpen}">
+      <span class="material-icons-round notranslate nav-icon" translate="no">person</span>
+      <span class="nav-label">${esc(t('tab.mypage'))}</span>
+      <span class="material-icons-round notranslate nav-accordion-arrow" translate="no" id="navMypageArrow">${_navMypageOpen ? 'expand_less' : 'expand_more'}</span>
+    </button>`;
+    // 未登録 배지 계산 (mypage.js computeProfileBadges 공용).
+    // 관리자 계정은 인플루언서 프로필이 비어 전 항목 미등록으로 떠 노이즈가 되므로 배지 생략.
+    const b = (!isAdmin && typeof computeProfileBadges === 'function')
+      ? computeProfileBadges(typeof currentUserProfile !== 'undefined' ? currentUserProfile : {})
+      : {hasName:true, hasSns:true, hasAddress:true, hasPaypal:true};
     const subs = [
       {sub:'applications', label: t('mypage.menu.applications')},
-      {sub:'profile-basic', label: t('mypage.menu.basic')},
-      {sub:'profile-sns', label: t('mypage.menu.sns')},
-      {sub:'profile-address', label: t('mypage.menu.address')},
-      {sub:'paypal', label: t('mypage.menu.paypal')},
+      {sub:'profile-basic', label: t('mypage.menu.basic'), unreg: !b.hasName},
+      {sub:'profile-sns', label: t('mypage.menu.sns'), unreg: !b.hasSns},
+      {sub:'profile-address', label: t('mypage.menu.address'), unreg: !b.hasAddress},
+      {sub:'paypal', label: t('mypage.menu.paypal'), unreg: !b.hasPaypal},
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
+    html += `<div class="nav-accordion${_navMypageOpen ? ' open' : ''}" id="navMypageAccordion">`;
     html += subs.map((s, i) => `
       ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
       <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
         <span class="nav-label">${esc(s.label)}</span>
+        ${s.unreg ? `<span class="nav-unreg-badge">${esc(t('common.unregistered'))}</span>` : ''}
       </button>
     `).join('');
+    html += `</div>`;
     html += divider;
     // 메시지 — 응모이력으로 이동 (응모건 카드 메시지 버튼에서 대화 진입). 미읽음 배지 별도
     html += `<button class="nav-item" data-nav="messages" onclick="navigate('mypage');openMypageSub('applications');closeNavPanel()">
@@ -64,6 +87,8 @@ function renderNavMenu() {
     html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
     html += divider;
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
+    // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크 (확인 후 LINE 안내)
+    html += `<button class="nav-withdraw" onclick="closeNavPanel();handleWithdraw()">${esc(t('mypage.withdraw'))}</button>`;
   } else {
     html += navItemHtml({nav:'home', icon:'home', label: t('tab.home'), onclick:"navigate('home');closeNavPanel()"});
     html += navItemHtml({nav:'campaigns', icon:'campaign', label: t('tab.campaigns'), onclick:"navigate('campaigns');closeNavPanel()"});
@@ -92,6 +117,37 @@ function navItemHtml(it) {
     <span class="nav-label">${esc(it.label)}</span>
     ${it.badge ? '<span class="notif-badge hidden" data-role="nav-badge"></span>' : ''}
   </button>`;
+}
+
+// 햄버거 상단 계정 카드 (아바타·이름·핸들·이메일) — 마이페이지 랜딩 헤더에서 이전
+function navAccountCardHtml() {
+  const p = (typeof currentUserProfile === 'object' && currentUserProfile) ? currentUserProfile : {};
+  const displayName = p.name_kanji || p.name || (currentUser && currentUser.email) || '';
+  const av = ((displayName || 'U') + '')[0].toUpperCase();
+  const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
+  const primary = (p.primary_sns && snsMap[p.primary_sns]) ? snsMap[p.primary_sns] : (p.ig || p.x || p.tiktok || p.youtube || '');
+  const handle = primary ? '@' + primary : '';
+  const email = (currentUser && currentUser.email) || '';
+  return `<div class="nav-account">
+    <div class="nav-account-av">${esc(av)}</div>
+    <div class="nav-account-info">
+      <div class="nav-account-name">${esc(displayName)}</div>
+      ${handle ? `<div class="nav-account-handle">${esc(handle)}</div>` : ''}
+      <div class="nav-account-email">${esc(email)}</div>
+    </div>
+  </div>`;
+}
+
+// 마이페이지 아코디언 펼침 상태 (기본 펼침). renderNavMenu 재렌더 시에도 유지.
+let _navMypageOpen = true;
+function toggleMypageAccordion() {
+  _navMypageOpen = !_navMypageOpen;
+  const wrap = $('navMypageAccordion');
+  const arrow = $('navMypageArrow');
+  const head = document.querySelector('.nav-accordion-head[data-nav="mypage"]');
+  if (wrap) wrap.classList.toggle('open', _navMypageOpen);
+  if (arrow) arrow.textContent = _navMypageOpen ? 'expand_less' : 'expand_more';
+  if (head) head.setAttribute('aria-expanded', String(_navMypageOpen));
 }
 
 // ── 배지 자동 갱신 (30초 폴링 + 탭 포커스, 로그인 상태에만 동작) ──

@@ -886,76 +886,12 @@ window._supabaseLoaded = false;
   </div>
 </div>
 <div id="page-mypage" class="page">
-  <!-- リスト画面 -->
-  <div id="mypage-list" class="mypage-view active">
-    <div class="mypage-header">
-      <div class="container">
-        <div class="mypage-profile">
-          <div class="mypage-av" id="mypageAv">U</div>
-          <div>
-            <div class="mypage-name" id="mypageName">—</div>
-            <div class="mypage-handle" id="mypageHandle">—</div>
-            <div class="mypage-email" id="mypageEmail" style="font-size:11px;color:var(--muted);margin-top:1px">—</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="container mypage-wrap" style="padding-top:0">
-      <div class="mypage-menu">
-        <div class="mypage-menu-item" onclick="openMypageSub('applications')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.applications">応募履歴</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-basic')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">person</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.basic">基本情報</span>
-          <span id="menuBadgeName" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
-          <span id="menuBadgeSns" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.address">配送先</span>
-          <span id="menuBadgeAddress" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('paypal')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance_wallet</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.paypal">PayPal</span>
-          <span id="menuBadgePaypal" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('password')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('email-settings')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">mail</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.emailSettings">メール受信設定</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="handleLogout()">
-          <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.logout" style="color:var(--on-surface-variant)">ログアウト</span>
-        </div>
-      </div>
-      <div style="margin-top:20px;padding-left:14px">
-        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</span>
-      </div>
-    </div>
-  </div>
+  <!-- 랜딩(목차) 화면은 햄버거 메뉴로 흡수되어 제거됨. 기본 화면은 응모이력(mypage-sub-applications) -->
 
   <!-- 応募履歴 -->
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
@@ -982,7 +918,7 @@ window._supabaseLoaded = false;
   <!-- 基本情報 -->
   <div id="mypage-sub-profile-basic" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.basic">基本情報</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1009,7 +945,7 @@ window._supabaseLoaded = false;
   <!-- SNSアカウント -->
   <div id="mypage-sub-profile-sns" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.sns">SNSアカウント</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1053,7 +989,7 @@ window._supabaseLoaded = false;
   <!-- 配送先 -->
   <div id="mypage-sub-profile-address" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.address">配送先</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1081,7 +1017,7 @@ window._supabaseLoaded = false;
   <!-- PayPal -->
   <div id="mypage-sub-paypal" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.paypal">PayPal</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1101,7 +1037,7 @@ window._supabaseLoaded = false;
   <!-- パスワード変更 -->
   <div id="mypage-sub-password" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.password">パスワード変更</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1137,7 +1073,7 @@ window._supabaseLoaded = false;
   <!-- メール受信設定 -->
   <div id="mypage-sub-email-settings" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
+      <span class="material-icons-round mypage-back notranslate" translate="no" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.emailSettings.title">メール受信設定</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
