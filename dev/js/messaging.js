@@ -337,40 +337,10 @@ function _faqPick(row, base) {
 
 // 응모건 단계 태그 판정 (§3-3) — 상태 한 줄 케이스와 1:1
 //   반환: {key, stage} key=문구용 케이스, stage=relevant_stages 매칭 태그(null=태그 없음)
+//   판정 로직은 shared.js faqComputeStatus 에 추출(관리자 측과 동일 결과 보장, §3-1).
 function _computeFaqStatus(app, camp) {
-  const status = app?.status;
-  if (status === 'cancelled') return { key: 'cancelled', stage: null };
-  if (status === 'rejected')  return { key: 'rejected',  stage: 'rejected' };
-  if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
-
-  if (status === 'approved') {
-    // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
-    const delivs = (typeof _myDelivsByApp !== 'undefined' ? _myDelivsByApp[app.id] : null) || [];
-    if (delivs.length) {
-      const allApproved = delivs.every(d => d.status === 'approved');
-      const anyRejected = delivs.some(d => d.status === 'rejected');
-      if (allApproved) return { key: 'done', stage: 'done' };
-      if (anyRejected) {
-        const allRejected = delivs.every(d => d.status === 'rejected');
-        return { key: allRejected ? 'all_reject' : 'partial_reject', stage: 'approved_post' };
-      }
-      // pending(검수 대기) 포함, rejected 없음
-      return { key: 'reviewing', stage: 'approved_post' };
-    }
-    // ② 결과물이 없으면 캠페인 일정으로 (기존 _computeCancelPhase 패턴)
-    const phase = (typeof _computeCancelPhase === 'function') ? _computeCancelPhase(camp) : 'other';
-    const isVisit = camp?.recruit_type === 'visit';
-    if (phase === 'recruit') {
-      // 구매/방문 기간 전 = 당첨 안내 대기
-      return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
-    }
-    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
-    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
-    // 일정 누락 등 → 무난한 폴백
-    return { key: 'approved_fallback', stage: null };
-  }
-  return { key: 'fallback', stage: null };
+  const delivs = (typeof _myDelivsByApp !== 'undefined' ? _myDelivsByApp[app?.id] : null) || [];
+  return faqComputeStatus(app?.status, delivs, camp);
 }
 
 // 상태 케이스 → 관련 화면 바로가기 (없으면 null)

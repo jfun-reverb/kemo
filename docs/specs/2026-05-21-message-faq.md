@@ -515,6 +515,19 @@
 #### 검증
 - reviewer GO (§3-0 판정·§5-1 치환·반려 사유 esc 정합 확인. Warning 1건=backFn onclick 보간은 parentCatId가 UUID+esc라 실질 안전). qa-tester: Light(상태 한 줄·FAQ 트리 탐색)
 
-### PR B2 / C — (미착수)
-- PR B2: 관리자 메시지 화면 응모건 상태 한 줄(§3-1) + 결과물 상태 집계
-- PR C: 관리자 FAQ 열람 이력 패널(§3-2)
+### PR B2 · C (관리자 응대 보조) — 2026-05-22
+
+**구현일:** 2026-05-22
+**파일:** `dev/lib/shared.js`(+63, 판정 공용 추출), `dev/js/messaging.js`(-36, 위임), `dev/lib/storage.js`(+40, 조회 2종), `dev/js/admin-messaging.js`(+169), `dev/css/admin.css`(+23). **DB 변경 없음**
+
+#### 구현된 것
+- **PR B2 — 관리자 측 상태 한 줄(§3-1)**: `adminThreadViewHtml` 스레드 상단에 응모건 상태 한 줄(한국어) — 모집 타입(리뷰어=영수증/기프팅·방문형=게시물) + 현재 단계 + 결과물 제출 여부. `fetchApplicationStatusBundle`(status + 결과물 상태 집계, `draft` 제외)로 §3-1 ⚠️ "결과물 집계 함께 조회" 충족
+- **인플·관리자 동일 판정**: §3-0 판정 순수 함수 `faqComputeStatus(status, delivs, camp)` + `faqComputeCancelPhase(camp)`를 `dev/lib/shared.js`로 추출(양쪽 빌드 포함). 인플 `_computeFaqStatus`도 이 함수에 위임 → 두 화면 동일 결과 보장(§10 검증)
+- **PR C — FAQ 열람 이력(§3-2)**: `fetchFaqInteractionsForApp`(faq_interactions 시간순 + faq_nodes 역참조 label_ko/body_ko). 「FAQ 열람 이력」 접이식 패널(기본 접힘, viewed 질문당 1줄·횟수, handoff 발생마다, 「현재 등록된 답변 기준」 안내) + 직접문의 메시지 위 「직전 열람」 칩. 받은편지함·모달 양 진입 연결
+
+#### 기술 결정
+- 관리자 빌드엔 인플 i18n ko 사전·mypage.js가 없어 상태 문구는 `ADM_STATUS_LINE_KO` 로컬 맵, 캠페인 단계 판정은 shared.js 공용 함수 사용
+- CSS 이름 충돌 회피: 상태 한 줄 컨테이너 `.adm-msg-statusline`(기존 `.adm-msg-status`=숨김/회수 배지와 구분)
+- reviewer GO(db?.from 3곳 교정, 인플 회귀 없음 확인) + supabase-expert OK(faq_interactions/applications/deliverables SELECT 모두 is_admin 정합). qa-tester: Light
+
+### PR D — 운영 배포 (메시지 PR 5 약관과 함께, 미착수)
