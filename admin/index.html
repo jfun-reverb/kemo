@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779375338';
+  var CURRENT_BUILD = 'v1779376384';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -257,15 +257,18 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-item.on .nav-icon{color:var(--pink)}
 .nav-item .nav-label{flex:1}
 .nav-item .notif-badge{position:static;margin-left:auto}
-.nav-subitem{display:flex;align-items:center;padding:11px 20px 11px 54px;cursor:pointer;font-size:13px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
+.nav-subitem{display:flex;align-items:center;min-height:48px;padding:12px 20px 12px 54px;cursor:pointer;font-size:14px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
 .nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
 .nav-divider{height:1px;background:var(--line);margin:6px 14px}
 .nav-divider-sub{height:1px;background:var(--line);margin:0 20px 0 54px;opacity:.6}
 
 /* ── 햄버거 계정 카드 + 마이페이지 아코디언 (마이페이지 랜딩 화면 흡수) ── */
-.nav-account{display:flex;align-items:center;gap:12px;padding:14px 20px}
-.nav-account-av{width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0}
+.nav-account{display:flex;align-items:center;gap:8px;padding:14px 20px}
 .nav-account-info{min-width:0;flex:1}
+.nav-account-notif{position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;background:transparent;border:none;cursor:pointer;padding:10px;border-radius:50%;color:var(--muted);-webkit-tap-highlight-color:transparent}
+.nav-account-notif:hover{background:var(--surface-dim)}
+.nav-account-notif:active{background:var(--surface-dim)}
+.nav-account-notif .material-icons-round{font-size:24px}
 .nav-account-name{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nav-account-handle{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nav-account-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
@@ -274,7 +277,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-accordion.open{max-height:1000px}
 .nav-subitem .nav-label{flex:1}
 .nav-unreg-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap;margin-left:8px}
-.nav-withdraw{display:block;width:100%;background:transparent;border:none;text-align:left;padding:12px 20px;font-size:11px;color:var(--muted);opacity:.6;cursor:pointer}
+.nav-withdraw{display:block;width:100%;margin-top:16px;background:transparent;border:none;text-align:left;padding:12px 20px;font-size:11px;color:var(--muted);opacity:.6;cursor:pointer}
 .nav-withdraw:hover{opacity:.9;text-decoration:underline}
 
 /* ── NOTIF MODAL (슬라이드업 시트) ── */
@@ -1703,7 +1706,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-21 23:55 · 3e2fbf5</span>
+          <span class="admin-build-text">2026-05-22 00:13 · 79a822a</span>
         </div>
       </div>
     </aside>
