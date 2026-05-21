@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779369821';
+  var CURRENT_BUILD = 'v1779370193';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1686,7 +1686,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-21 22:23 · 0466e30</span>
+          <span class="admin-build-text">2026-05-21 22:29 · c3f07b6</span>
         </div>
       </div>
     </aside>
@@ -12337,24 +12337,27 @@ function renderBrandOpsCard(b) {
     ? '<div style="margin-top:6px;font-size:11px;color:' + alert.color + ';display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">warning</span>' + esc(warns.join(' · ')) + '</div>'
     : '';
 
-  // 캠페인 타입 라벨 (브랜드별 캠페인 recruit_type 집계)
+  // 캠페인 타입 라벨 (브랜드별 캠페인 recruit_type 집계) + 번호를 같은 줄에
   var types = _brandOpsTypesByBrand[b.brand_id] || {};
   var typePills = ['monitor','gifting','visit']
     .filter(function(t){ return types[t]; })
     .map(function(t){ return getRecruitTypeBadgeKoSm(t); })
     .join(' ');
-  var typeLine = typePills ? '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">' + typePills + '</div>' : '';
+  var typeAndNoLine = '<div style="margin:4px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+    + typePills
+    + (b.brand_no ? '<span style="font-size:11px;color:var(--muted)">' + esc(b.brand_no) + '</span>' : '')
+    + '</div>';
 
   return '<div class="brand-ops-card" style="border-left:4px solid ' + alert.color + '" onclick="openBrandOpsDetail(\'' + esc(b.brand_id) + '\')">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       + '<div style="min-width:0">'
         + '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.company_name_ko || '미분류') + '</div>'
-        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + ' <span style="font-size:11px;font-weight:400;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
+        + typeAndNoLine
+        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + '</div>'
         + (b.brand_name_ja ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ja) + '</div>' : '')
       + '</div>'
       + badge
     + '</div>'
-    + typeLine
     + '<div style="display:flex;gap:14px;margin-top:8px;font-size:12px">'
       + '<div><span style="color:var(--muted)">진행 신청</span> <b style="color:var(--ink)">' + (b.open_applications||0) + '</b></div>'
       + '<div><span style="color:var(--muted)">진행 캠페인</span> <b style="color:var(--ink)">' + (b.active_campaigns||0) + '</b></div>'

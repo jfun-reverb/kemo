@@ -132,24 +132,27 @@ function renderBrandOpsCard(b) {
     ? '<div style="margin-top:6px;font-size:11px;color:' + alert.color + ';display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">warning</span>' + esc(warns.join(' · ')) + '</div>'
     : '';
 
-  // 캠페인 타입 라벨 (브랜드별 캠페인 recruit_type 집계)
+  // 캠페인 타입 라벨 (브랜드별 캠페인 recruit_type 집계) + 번호를 같은 줄에
   var types = _brandOpsTypesByBrand[b.brand_id] || {};
   var typePills = ['monitor','gifting','visit']
     .filter(function(t){ return types[t]; })
     .map(function(t){ return getRecruitTypeBadgeKoSm(t); })
     .join(' ');
-  var typeLine = typePills ? '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">' + typePills + '</div>' : '';
+  var typeAndNoLine = '<div style="margin:4px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+    + typePills
+    + (b.brand_no ? '<span style="font-size:11px;color:var(--muted)">' + esc(b.brand_no) + '</span>' : '')
+    + '</div>';
 
   return '<div class="brand-ops-card" style="border-left:4px solid ' + alert.color + '" onclick="openBrandOpsDetail(\'' + esc(b.brand_id) + '\')">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       + '<div style="min-width:0">'
         + '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.company_name_ko || '미분류') + '</div>'
-        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + ' <span style="font-size:11px;font-weight:400;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
+        + typeAndNoLine
+        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + '</div>'
         + (b.brand_name_ja ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ja) + '</div>' : '')
       + '</div>'
       + badge
     + '</div>'
-    + typeLine
     + '<div style="display:flex;gap:14px;margin-top:8px;font-size:12px">'
       + '<div><span style="color:var(--muted)">진행 신청</span> <b style="color:var(--ink)">' + (b.open_applications||0) + '</b></div>'
       + '<div><span style="color:var(--muted)">진행 캠페인</span> <b style="color:var(--ink)">' + (b.active_campaigns||0) + '</b></div>'
