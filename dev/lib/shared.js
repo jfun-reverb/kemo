@@ -380,6 +380,9 @@ const PANE_REFRESHERS = {
   'lookups': async () => {
     if (typeof renderLookupsTable === 'function') await renderLookupsTable();
   },
+  'faq': async () => {
+    if (typeof loadFaqPane === 'function') await loadFaqPane();
+  },
   'admin-accounts': async () => {
     if (typeof loadAdminAccounts === 'function') await loadAdminAccounts();
   },

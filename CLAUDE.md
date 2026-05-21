@@ -161,6 +161,7 @@
 
 ### 기준 데이터·번들·관리자 계정
 - **기준 데이터 관리**(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/반려사유/블랙리스트·위반 사유/주의사항/취소 사유/메일 종류 등을 한국어·일본어로 관리(campaign_admin 이상). 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete 만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code 는 자동 생성·UI 비공개
+- **자주 묻는 질문(FAQ) 관리**(`/admin#faq`, campaign_admin 이상, PR A — 개발 검증 중): 응모건 메시지 자동응답 등록 페인. 좌우 2단(카테고리 | 질문 + 측정 배지[조회수·직접문의 전환수]) + 편집 모달(한/일 2열·화면이동 드롭다운·handoff·단계 다중선택·미리보기). 운영 배포는 메시지 본체와 함께 보류
 - **주의사항 번들**(`caution_sets`): 캠페인 등록/편집 폼 콘텐츠 가이드 섹션에 "주의사항" 영역 — 번들 드롭다운(recruit_type 필터) + "번들 다시 불러오기" + 인라인 items 편집(본문 한/일, 선택적 링크). 캠페인 저장 시 스냅샷 복사. 신청 행 메시지 셀에 "주의사항 동의 ✓ {시각}" 작은 배지 (msgCell 헬퍼)
 - **참여방법 번들**(`participation_sets`): 1~6단계 묶음, 각 단계 title/desc ko·ja, recruit_types[] 태깅으로 필터링. 캠페인 저장 시 스냅샷 복사(`participation_steps jsonb`). 인라인 개별 수정 + "번들 다시 불러오기" 지원
 - **NG 번들**(`ng_sets`): caution_sets 패턴 미러링. items 구조 `{html_ko, html_ja}` 2필드 (DOMPurify sanitize, inline 서식만). `campaigns.ng_set_id` + `ng_items jsonb` 스냅샷. 인플루언서는 jsonb 우선 + legacy `campaigns.ng` 폴백
@@ -223,6 +224,13 @@
 - `application_message_hide_history` — 숨김/회수 audit (append-only, SELECT super_admin)
 - 뷰 `application_message_summary`(`security_invoker=true` — 인플 본인 행만 RLS 상속, 관리자는 전체. 컬럼: message_count·unread_for_influencer·unresolved_for_admin_team·last_message_at) + RPC: `get_application_messages`(호출자 역할별 4종 마스킹), `send_application_message`(rate limit 100/h + 자동 응대/reopen + **관리자 발신 시 message_received 알림 INSERT** — 145), `mark_application_messages_read`, `withdraw_own_message`(25분 한도 + rate limit 50/h + 첨부 클라 삭제), `application_message_admin_unread_counts`(is_admin 가드). PR 2 신규(145): `mark_application_resolved`(is_admin — 수동 응대 완료), `hide_application_message`(is_campaign_admin — 강제 숨김 + hide_history INSERT), `unhide_application_message`(is_super_admin — 복구, 사유 메모 필수). 모두 SECURITY DEFINER + `search_path=''`
 - lookup `message_hide_reason` 7종 시드 + Storage 버킷 `application-message-attachments`(비공개, 응모건 폴더 기반 정책). 첨부는 클라 압축(`dev/lib/image-compress.js`, HEIC→JPEG/2048px) 후 업로드
+
+### 자동응답(FAQ 가이드형, PR A — 개발 검증 중, 마이그레이션 146)
+> 응모건 메시지 위에 얹는 선택지 트리형 자주 묻는 질문(FAQ). PR A: 테이블 2개 + 기록 RPC + 시드 18문안 + 관리자 등록 페인. 인플 화면(개인화 상태 한 줄·FAQ 트리·동적 치환)은 PR B, 관리자 응대 보조는 PR B2·C. 사양서 `docs/specs/2026-05-21-message-faq.md`. 운영 배포는 메시지 본체(약관 D-7)와 함께 보류.
+- `faq_nodes` — 자기참조 트리. `parent_id`(카테고리 NULL > item), `kind`(category|item), `label_ko/ja`, `body_ko/ja`, `action_type`(none|navigate), `action_target`(앱 해시 경로), `action_label_ko/ja`, `is_human_handoff`, `relevant_stages text[]`, `sort_order`, `active`, 감사 4컬럼. 인덱스 `(parent_id, sort_order)`·`(kind, active)`. RLS SELECT authenticated / CUD `is_campaign_admin()`. 시드 31노드(카테고리 7 + 질문 24, Q1-1 분기 + 하위 5). `action_target` 8종: `#mypage-applications`/`#activity`/`#mypage-profile-sns`/`#mypage-profile-address`/`#mypage-paypal`/`#mypage-profile-basic`/`#mypage-password`/`#mypage-email-settings`
+- `faq_interactions` — 측정. `influencer_id`/`application_id`/`faq_node_id`, `action`(viewed|resolved|handoff), `view_count`, `last_viewed_at`. `viewed` 부분 유니크 `(influencer_id, application_id, faq_node_id) WHERE action='viewed' AND application_id IS NOT NULL`. RLS INSERT 본인행 / SELECT `is_admin()`
+- `record_faq_interaction(application_id, faq_node_id, action)` RPC — SECURITY DEFINER + `search_path=''`, `influencer_id=auth.uid()` 강제, `viewed` 멱등 UPSERT(view_count+1·last_viewed_at·created_at 보존, application_id NULL 은 수동 UPSERT), resolved/handoff append
+- 관리자 페인 `#adminPane-faq`(campaign_admin 이상) — 좌우 2단 마스터-디테일(카테고리 | 질문 + 측정 배지[조회수·직접문의 전환수]). 편집 모달 한/일 2열 + 화면이동 드롭다운 + handoff 토글 + 단계 다중선택 + 미리보기. `dev/js/admin.js`(loadFaqPane), storage 함수 8종은 `dev/lib/storage.js`. **2단 마스터-디테일이라 다른 목록 페인의 `admin-card` 구조 미적용(사양서 §4 의도된 예외)**
 
 ### 메일·기준 데이터·알림
 - `lookup_values` — 캠페인 기준 데이터. `kind`(channel/category/content_type/ng_item/reject_reason/blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`. channel 만 recruit_types 사용
