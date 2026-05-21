@@ -9701,8 +9701,8 @@ async function renderMyApplyList() {
         items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
       if (items.length) {
-        // 영수증 제출 / 리뷰 캡쳐 등 종류별 라벨이 둘 이상이면 세로로 쌓이도록 column 배치
-        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${items.join('')}</div>`;
+        // 결과물 종류별 상태 라벨 — 카드 본문 맨 아래 가로 한 줄(왼쪽 정렬, 넘치면 줄바꿈)
+        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${items.join('')}</div>`;
       }
     }
     const cautionLine = a.caution_agreed_at
@@ -9719,8 +9719,9 @@ async function renderMyApplyList() {
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
         ${cancelledLine}
+        ${delivBadgeLine}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}<div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
 }
