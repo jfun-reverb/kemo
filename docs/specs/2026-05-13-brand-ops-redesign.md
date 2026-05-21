@@ -849,3 +849,34 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 ### 미구현 (후속 작업)
 - 캠페인 편집 화면 「신청」 드롭다운의 link/unlink RPC 통일 (캠페인 저장 핵심 로직 변경이라 별도 PR)
 - 캠페인 미니카드 결과물 제출률 진행바 (detail RPC 확장 또는 별도 집계 필요)
+
+---
+
+## 18. 구현 결과 — 운영 현황 카드 사유 배너 (PR 5)
+
+**구현일:** 2026-05-22
+**브랜치:** feature/brand-ops-alert
+**관련 마이그레이션:** 148 (`148_brand_ops_alert_reasons.sql`)
+
+### 배경
+PR 3(운영 현황 페인)에서 카드 우측에 alert_level 배지(긴급/대응 필요/주의)만 표시하고, 경고 라인은 D-3·7일취소 두 가지만 부분 노출했다. **왜** 그 카드가 긴급/주의가 됐는지(모집률 저조·D-1 임박 등)는 화면에서 알 수 없어, 운영자가 사유를 카드만 보고 파악하도록 색 배너로 노출.
+
+### 변경 사항
+- **마이그레이션 148** — `get_brand_ops_overview` 를 DROP + CREATE 재정의 (반환 TABLE 19 → 22컬럼). 추가 컬럼:
+  - `alert_reasons text[]` — alert 발생 조건 코드 배열 (한국어 완성문구 아님). 코드 5종: `recruit_low_deadline_near`(모집률<30 & 마감7일내), `cancel_7d_high`(7일취소≥5), `d1_imminent`(D-1), `d3_imminent`(D-3이면서 D-1 아님 = `d3>d1`), `recruit_low`(모집률<50 & 마감 여유)
+  - `soonest_deadline date` — 가장 임박한 active 캠페인 deadline
+  - `d1_count bigint` — D-1 임박 active 캠페인 수
+  - **임계값은 120 기준 그대로** (alert_level 결정 규칙 불변). `flag_agg` CTE 로 임계값을 1회만 계산해 alert_level·alert_reasons 가 같은 boolean 플래그를 재참조 → 둘이 어긋날 수 없음
+- **화면(`dev/js/admin-brand-ops.js`)** — 기존 `warnLine`(warns 배열) 제거. 신규:
+  - `brandOpsAlertReasonLines(b)` — alert_reasons 코드 배열을 서버 수치(`recruit_rate`/`soonest_deadline`/`d1_count`/`d3_count`/`cancel_7d`)로 한국어 문구 조립
+  - `brandOpsDaysUntil(dateStr)` — 마감일까지 남은 일수
+  - `BRAND_OPS_REASON_ORDER` — 배너 표시 순서(모집 → 마감 → 취소)
+  - `renderBrandOpsCard()` 에서 결과물 승인률 바 아래에 색 배너 렌더 (`alert.bg` 배경 + `alert.color` 글씨/아이콘). **정상 카드는 alert_reasons 빈 배열 → 배너 미표시**
+  - 「마감 3일 이내」 건수는 `d3_count - d1_count`(D-1 제외분)로 표시해 D-1 줄과 중복 카운트 방지
+
+### 초안 대비 변경
+- PR 3 의 "클라이언트는 색·라벨만 매핑" 방침 위에 **사유 문구 조립 로직만 추가** (임계값 판정은 여전히 서버). SQL 에 한국어를 넣지 않고 코드 배열만 반환 → 문구 수정·다국어가 화면에서 가능
+
+### 구현 중 기술 결정
+- 반환 TABLE 컬럼 추가는 `CREATE OR REPLACE` 불가 → `DROP FUNCTION` 후 `CREATE` (롤백은 120 정의 재실행)
+- `b.alert_reasons` 없을 때(구버전 RPC 응답) `(b.alert_reasons || [])` 로 graceful — 배너 미표시

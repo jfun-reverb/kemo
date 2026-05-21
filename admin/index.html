@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779402897';
+  var CURRENT_BUILD = 'v1779406781';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1729,7 +1729,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-22 07:34 · 02c7018</span>
+          <span class="admin-build-text">2026-05-22 08:39 · 2dcf5b7</span>
         </div>
       </div>
     </aside>
@@ -12352,7 +12352,7 @@ async function saveBrandAssign() {
 // ════════════════════════════════════════════════════════════════════
 // SECTION: BRAND OPS — 운영 현황 페인 (브랜드 운영 재설계 PR 3)
 //   브랜드별 진행 상황을 카드 그리드로. alert_level 4단계로 경고 강조.
-//   데이터: get_brand_ops_overview RPC (마이그레이션 120, 19컬럼).
+//   데이터: get_brand_ops_overview RPC (마이그레이션 148, 22컬럼 — alert_reasons 사유 배너).
 //   임계값 계산은 전부 서버(RPC)에서 끝나 클라이언트는 색·라벨만 매핑.
 //   PR 4 의 브랜드 상세 페인(adminPane-brand-ops-detail)으로 진입.
 // ════════════════════════════════════════════════════════════════════
@@ -12375,6 +12375,43 @@ var BRAND_OPS_ALERT = {
 };
 // 정렬 시 경고 우선순위
 var BRAND_OPS_ALERT_RANK = { danger: 0, warning: 1, caution: 2, normal: 3 };
+// 사유 배너 표시 순서 (모집 → 마감 → 취소)
+var BRAND_OPS_REASON_ORDER = ['recruit_low_deadline_near', 'recruit_low', 'd1_imminent', 'd3_imminent', 'cancel_7d_high'];
+
+// 날짜(YYYY-MM-DD)까지 남은 일수 (오늘=0, 과거=음수)
+function brandOpsDaysUntil(dateStr) {
+  if (!dateStr) return null;
+  var d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return null;
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((d - today) / 86400000);
+}
+
+// alert_reasons 코드 배열 → 한국어 배너 문구 배열 (서버가 준 수치로 조립)
+function brandOpsAlertReasonLines(b) {
+  var reasons = (b.alert_reasons || []).slice().sort(function(a, c) {
+    return BRAND_OPS_REASON_ORDER.indexOf(a) - BRAND_OPS_REASON_ORDER.indexOf(c);
+  });
+  var rate = (b.recruit_rate != null) ? Number(b.recruit_rate).toFixed(0) : '—';
+  var lines = [];
+  reasons.forEach(function(code) {
+    if (code === 'recruit_low_deadline_near') {
+      var dleft = brandOpsDaysUntil(b.soonest_deadline);
+      var dtxt = (dleft !== null) ? (' · 마감 ' + (dleft <= 0 ? '오늘' : dleft + '일 남음')) : '';
+      lines.push('모집률 ' + rate + '%' + dtxt);
+    } else if (code === 'recruit_low') {
+      lines.push('모집률 ' + rate + '% (마감 여유)');
+    } else if (code === 'd1_imminent') {
+      lines.push('마감 하루 전 ' + (b.d1_count || 0) + '건');
+    } else if (code === 'd3_imminent') {
+      var n = (b.d3_count || 0) - (b.d1_count || 0);   // D-1 제외한 D-3 구간 건수
+      if (n > 0) lines.push('마감 3일 이내 ' + n + '건');
+    } else if (code === 'cancel_7d_high') {
+      lines.push('최근 7일 취소 ' + (b.cancel_7d || 0) + '건');
+    }
+  });
+  return lines;
+}
 
 async function loadBrandOps() {
   var grid = $('brandOpsGrid');
@@ -12466,12 +12503,13 @@ function renderBrandOpsCard(b) {
     ? '<span style="background:' + alert.bg + ';color:' + alert.color + ';font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px' + (alert.pulse ? ';animation:brandOpsPulse 1.2s ease-in-out infinite' : '') + '">' + esc(alert.label) + '</span>'
     : '';
 
-  // 경고 라인 (D-3 임박 / 7일 취소)
-  var warns = [];
-  if ((b.d3_count||0) > 0) warns.push('마감 임박 ' + b.d3_count + '건');
-  if ((b.cancel_7d||0) > 0) warns.push('7일 취소 ' + b.cancel_7d + '건');
-  var warnLine = warns.length
-    ? '<div style="margin-top:6px;font-size:11px;color:' + alert.color + ';display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">warning</span>' + esc(warns.join(' · ')) + '</div>'
+  // 사유 배너: alert_reasons(서버 코드 배열) → 한국어 문구. 정상 카드는 빈 배열 → 미표시
+  var reasonLines = brandOpsAlertReasonLines(b);
+  var banner = reasonLines.length
+    ? '<div style="margin-top:8px;background:' + alert.bg + ';border:1px solid ' + alert.color + '33;border-radius:6px;padding:6px 8px;display:flex;gap:6px;align-items:flex-start">'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px;color:' + alert.color + ';flex-shrink:0;margin-top:1px">warning</span>'
+      + '<div style="font-size:11px;color:' + alert.color + ';line-height:1.55;font-weight:600">' + reasonLines.map(esc).join('<br>') + '</div>'
+      + '</div>'
     : '';
 
   return '<div class="brand-ops-card" style="border-left:4px solid ' + alert.color + '" onclick="openBrandOpsDetail(\'' + esc(b.brand_id) + '\')">'
@@ -12489,7 +12527,7 @@ function renderBrandOpsCard(b) {
     + '</div>'
     + brandOpsRateBar('모집률', b.recruit_rate, b.approved_total, b.slots_total)
     + brandOpsRateBar('결과물 승인률', b.deliverable_rate, b.deliverable_approved, b.deliverable_total)
-    + warnLine
+    + banner
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--line)">'
       + '<span style="font-size:10px;color:var(--muted)">최근 활동 ' + (b.last_activity_at ? fmtDate(b.last_activity_at) : '—') + '</span>'
       + '<span style="font-size:11px;color:var(--pink);font-weight:600">상세 보기 →</span>'
