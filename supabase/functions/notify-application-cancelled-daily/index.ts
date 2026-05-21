@@ -137,7 +137,7 @@ interface CampaignRow {
 }
 
 interface InfluencerRow {
-  auth_id: string;
+  id: string;
   name: string | null;
   name_kanji: string | null;
   name_kana: string | null;
@@ -411,13 +411,13 @@ Deno.serve(async (req: Request) => {
   if (userIds.length > 0) {
     const { data: infls, error: infErr } = await sb
       .from("influencers")
-      .select("auth_id, name, name_kanji, name_kana")
-      .in("auth_id", userIds);
+      .select("id, name, name_kanji, name_kana")
+      .in("id", userIds);
     if (infErr) {
       console.warn("[notify-cancel-daily] influencer lookup failed", infErr);
     } else {
       (infls || []).forEach((row: InfluencerRow) => {
-        influencerMap.set(row.auth_id, row);
+        influencerMap.set(row.id, row);
       });
     }
   }
@@ -488,7 +488,7 @@ Deno.serve(async (req: Request) => {
   const renderCard = (r: CancelledRow): string => {
     const camp = campaignMap.get(r.campaign_id) || null;
     const infl = influencerMap.get(r.user_id) || {
-      auth_id: r.user_id,
+      id: r.user_id,
       name: null,
       name_kanji: null,
       name_kana: null,

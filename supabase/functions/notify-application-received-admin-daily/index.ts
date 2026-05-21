@@ -197,7 +197,7 @@ interface CampRow {
   recruit_type: string | null;
 }
 interface InflRow {
-  auth_id: string;
+  id: string;
   name: string | null;
   name_kanji: string | null;
   name_kana: string | null;
@@ -276,9 +276,9 @@ Deno.serve(async (req: Request) => {
   const inflMap = new Map<string, InflRow>();
   if (userIds.length > 0) {
     const { data: infls } = await sb.from("influencers")
-      .select("auth_id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube")
-      .in("auth_id", userIds);
-    (infls || []).forEach((i: InflRow) => inflMap.set(i.auth_id, i));
+      .select("id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube")
+      .in("id", userIds);
+    (infls || []).forEach((i: InflRow) => inflMap.set(i.id, i));
   }
 
   const emailMap = new Map<string, string>();
