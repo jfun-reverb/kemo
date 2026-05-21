@@ -76,16 +76,8 @@ function renderNavMenu() {
     `).join('');
     html += `</div>`;
     html += divider;
-    // 메시지 — 응모이력으로 이동 (응모건 카드 메시지 버튼에서 대화 진입). 미읽음 배지 별도
-    html += `<button class="nav-item" data-nav="messages" onclick="navigate('mypage');openMypageSub('applications');closeNavPanel()">
-      <span class="material-icons-round notranslate nav-icon" translate="no">forum</span>
-      <span class="nav-label">${esc(t('messaging.navMenu'))}</span>
-      <span class="notif-badge hidden" data-role="nav-msg-badge"></span>
-    </button>`;
-    html += divider;
-    // 관리자/일반 모두 알림 메뉴 노출 (본인 알림만 받음)
-    html += navItemHtml({nav:'notif', icon:'notifications', label: t('menu.notifications'), onclick:"closeNavPanel();openNotifModal()", badge:true});
-    html += divider;
+    // 메시지 메뉴 항목 제거: 응모이력과 목적지 중복(응모건 카드 메시지 버튼으로 진입), 답장은 알림(message_received)으로 확인.
+    // 알림도 계정 카드 우측 벨로 이전됨. 아코디언 뒤 divider 가 로그아웃 구분선 역할.
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
     // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크 (확인 후 LINE 안내)
     html += `<button class="nav-withdraw" onclick="closeNavPanel();handleWithdraw()">${esc(t('mypage.withdraw'))}</button>`;
@@ -97,7 +89,8 @@ function renderNavMenu() {
     html += navItemHtml({nav:'signup', icon:'person_add', label: t('nav.signup'), onclick:"navigate('signup');closeNavPanel()"});
   }
   menu.innerHTML = html;
-  refreshNotifBadge();
+  applyNotifBadge(_lastUnread);  // 캐시값으로 즉시 복원 (재렌더 직후 stale 가드로 fetch 스킵돼도 배지 유지)
+  refreshNotifBadge();           // 백그라운드 최신화
   updateNavMsgBadge();
 }
 
@@ -123,18 +116,20 @@ function navItemHtml(it) {
 function navAccountCardHtml() {
   const p = (typeof currentUserProfile === 'object' && currentUserProfile) ? currentUserProfile : {};
   const displayName = p.name_kanji || p.name || (currentUser && currentUser.email) || '';
-  const av = ((displayName || 'U') + '')[0].toUpperCase();
   const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
   const primary = (p.primary_sns && snsMap[p.primary_sns]) ? snsMap[p.primary_sns] : (p.ig || p.x || p.tiktok || p.youtube || '');
   const handle = primary ? '@' + primary : '';
   const email = (currentUser && currentUser.email) || '';
   return `<div class="nav-account">
-    <div class="nav-account-av">${esc(av)}</div>
     <div class="nav-account-info">
       <div class="nav-account-name">${esc(displayName)}</div>
       ${handle ? `<div class="nav-account-handle">${esc(handle)}</div>` : ''}
       <div class="nav-account-email">${esc(email)}</div>
     </div>
+    <button class="nav-account-notif" onclick="closeNavPanel();openNotifModal()" aria-label="${esc(t('menu.notifications'))}">
+      <span class="material-icons-round notranslate" translate="no">notifications</span>
+      <span class="notif-badge hidden" data-role="nav-badge"></span>
+    </button>
   </div>`;
 }
 
@@ -153,6 +148,7 @@ function toggleMypageAccordion() {
 // ── 배지 자동 갱신 (30초 폴링 + 탭 포커스, 로그인 상태에만 동작) ──
 let _notifPollTimer = null;
 let _notifLastFetchAt = 0;
+let _lastUnread = 0;  // 마지막으로 조회한 미읽음 수 캐시 — 재렌더 시 배지 즉시 복원용
 const _NOTIF_STALE_MS = 5000;  // 5초 이내 중복 요청은 스킵
 
 function startNotifPolling() {
@@ -172,10 +168,8 @@ function startNotifPolling() {
 function stopNotifPolling() {
   if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
   _notifLastFetchAt = 0;
-  // 배지 즉시 숨김
-  const gnbBadge = $('gnbNotifBadge');
-  if (gnbBadge) gnbBadge.classList.add('hidden');
-  document.querySelectorAll('[data-role="nav-badge"]').forEach(b => b.classList.add('hidden'));
+  _lastUnread = 0;
+  applyNotifBadge(0);  // 배지 즉시 숨김 (로그아웃 등)
 }
 
 // 탭 포커스 이벤트는 매번 등록해도 부작용 없으므로 초기화 시 한 번
@@ -200,13 +194,7 @@ if (typeof window !== 'undefined') {
 // ── 미읽음 배지 갱신 (stale 가드 적용) ──
 async function refreshNotifBadge(opts) {
   const force = !!(opts && opts.force);
-  const gnbBadge = $('gnbNotifBadge');
-  const navBadges = document.querySelectorAll('[data-role="nav-badge"]');
-  if (!currentUser) {
-    if (gnbBadge) gnbBadge.classList.add('hidden');
-    navBadges.forEach(b => b.classList.add('hidden'));
-    return;
-  }
+  if (!currentUser) { _lastUnread = 0; applyNotifBadge(0); return; }
   // 5초 이내 중복 호출 스킵 (force=true면 강제 갱신)
   const now = Date.now();
   if (!force && now - _notifLastFetchAt < _NOTIF_STALE_MS) return;
@@ -217,12 +205,20 @@ async function refreshNotifBadge(opts) {
     const items = await fetchMyNotifications({unreadOnly: true, limit: 30});
     unread = items.length;
   } catch(e) {}
+  _lastUnread = unread;
+  applyNotifBadge(unread);
+}
+
+// 미읽음 수를 현재 DOM 의 배지들(GNB + 햄버거)에 동기 반영.
+// renderNavMenu 재렌더로 배지 element 가 교체돼도 캐시값(_lastUnread)으로 즉시 복원하기 위해 분리.
+function applyNotifBadge(unread) {
   const txt = unread > 9 ? '9+' : String(unread);
+  const gnbBadge = $('gnbNotifBadge');
   if (gnbBadge) {
     if (unread > 0) { gnbBadge.textContent = txt; gnbBadge.classList.remove('hidden'); }
     else gnbBadge.classList.add('hidden');
   }
-  navBadges.forEach(b => {
+  document.querySelectorAll('[data-role="nav-badge"]').forEach(b => {
     if (unread > 0) { b.textContent = txt; b.classList.remove('hidden'); }
     else b.classList.add('hidden');
   });
