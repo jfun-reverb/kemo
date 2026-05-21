@@ -379,6 +379,7 @@ const FAQ_STATUS_NAV = {
   receipt: '#activity',
   visit: '#activity',
   post_deadline: '#activity',
+  post_overdue: '#activity',
   reviewing: '#activity',
   partial_reject: '#activity',
   all_reject: '#activity',
@@ -452,6 +453,8 @@ function _buildFaqCtx(camp) {
   const minF = camp?.min_followers || 0;
   if (minF > 0) ctx.required = minF;
   const p = (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null) || {};
+  // qoo10 은 자체 팔로워 개념이 없어 신청 시 Instagram ID·팔로워를 필수로 받고 그 값으로
+  // 최소 팔로워를 검증한다(application.js 와 동일). 따라서 여기서도 ig_followers 를 폴백으로 쓴다.
   const followerMap = {
     instagram: p.ig_followers || 0, x: p.x_followers || 0,
     tiktok: p.tiktok_followers || 0, youtube: p.youtube_followers || 0, qoo10: p.ig_followers || 0,

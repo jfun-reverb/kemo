@@ -415,7 +415,14 @@ function faqComputeStatus(status, delivs, camp) {
     if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
     if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
     if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
+    if (phase === 'post') {
+      // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
+      // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
+      // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
+      const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
+      if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
+      return { key: 'post_deadline', stage: 'approved_post' };
+    }
     return { key: 'approved_fallback', stage: null };
   }
   return { key: 'fallback', stage: null };

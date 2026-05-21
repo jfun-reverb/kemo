@@ -2258,7 +2258,14 @@ function faqComputeStatus(status, delivs, camp) {
     if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
     if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
     if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
+    if (phase === 'post') {
+      // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
+      // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
+      // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
+      const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
+      if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
+      return { key: 'post_deadline', stage: 'approved_post' };
+    }
     return { key: 'approved_fallback', stage: null };
   }
   return { key: 'fallback', stage: null };
@@ -2937,6 +2944,7 @@ window.I18N_JA = {
       receipt: '商品ご購入後、レシートをご提出ください（提出期限 {date}）。',
       visit: 'ご訪問後、投稿をご提出ください。',
       post_deadline: '成果物の提出期限：{date}',
+      post_overdue: '提出期限を過ぎています。',
       reviewing: 'ご提出いただいた成果物を確認中です。',
       partial_reject: '一部の成果物が差し戻されました。差し戻し分をご確認の上、再提出ください。',
       all_reject: '成果物が差し戻されました。理由をご確認の上、再提出ください。',
@@ -3551,6 +3559,7 @@ window.I18N_KO = {
       receipt: '상품 구매 후 영수증을 제출해 주세요 (제출 기한 {date}).',
       visit: '방문 후 게시물을 제출해 주세요.',
       post_deadline: '결과물 제출 기한: {date}',
+      post_overdue: '제출 기한이 지났습니다.',
       reviewing: '제출하신 결과물을 확인 중입니다.',
       partial_reject: '일부 결과물이 반려되었습니다. 반려된 항목을 확인 후 재제출해 주세요.',
       all_reject: '결과물이 반려되었습니다. 사유를 확인 후 재제출해 주세요.',
@@ -10818,6 +10827,7 @@ const FAQ_STATUS_NAV = {
   receipt: '#activity',
   visit: '#activity',
   post_deadline: '#activity',
+  post_overdue: '#activity',
   reviewing: '#activity',
   partial_reject: '#activity',
   all_reject: '#activity',
@@ -10891,6 +10901,8 @@ function _buildFaqCtx(camp) {
   const minF = camp?.min_followers || 0;
   if (minF > 0) ctx.required = minF;
   const p = (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null) || {};
+  // qoo10 은 자체 팔로워 개념이 없어 신청 시 Instagram ID·팔로워를 필수로 받고 그 값으로
+  // 최소 팔로워를 검증한다(application.js 와 동일). 따라서 여기서도 ig_followers 를 폴백으로 쓴다.
   const followerMap = {
     instagram: p.ig_followers || 0, x: p.x_followers || 0,
     tiktok: p.tiktok_followers || 0, youtube: p.youtube_followers || 0, qoo10: p.ig_followers || 0,
