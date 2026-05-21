@@ -574,5 +574,33 @@ window.I18N_KO = {
     navMenu: '메시지',
     notifTitle: '운영팀 메시지',
     pendingNotice: '운영팀이 순차적으로 확인 후 회신드립니다. 답변까지 시간이 걸릴 수 있습니다.',
+    // 응모건 메시지 — 상태 한 줄 (§3 매핑)
+    statusLine: {
+      goBtn: '화면 열기',
+      reasonLabel: '반려 사유',
+      pending: '현재 심사 중입니다. 결과는 별도로 안내드립니다.',
+      approved_purchase_before: '당첨되셨습니다. 곧 구매 안내가 시작됩니다.',
+      receipt: '상품 구매 후 영수증을 제출해 주세요 (제출 기한 {date}).',
+      visit: '방문 후 게시물을 제출해 주세요.',
+      post_deadline: '결과물 제출 기한: {date}',
+      reviewing: '제출하신 결과물을 확인 중입니다.',
+      partial_reject: '일부 결과물이 반려되었습니다. 반려된 항목을 확인 후 재제출해 주세요.',
+      all_reject: '결과물이 반려되었습니다. 사유를 확인 후 재제출해 주세요.',
+      done: '모든 미션이 완료되었습니다. 감사합니다.',
+      rejected: '이번에는 인연이 없었습니다.',
+      cancelled: '취소된 응모입니다.',
+      approved_fallback: '당첨 후 각 단계는 응모이력에서 확인할 수 있습니다.',
+      fallback: '응모 상태는 응모이력에서 확인할 수 있습니다.',
+    },
+    // 자동응답(FAQ)
+    faq: {
+      intro: '자주 묻는 질문에서 찾으시는 내용을 골라 주세요.',
+      contactBtn: '직접 문의하기',
+      resolvedBtn: '해결됐어요',
+      resolvedToast: '도움이 되어 기쁩니다.',
+      back: '뒤로',
+      backToCategories: '목록으로',
+      unavailable: '현재 안내할 수 있는 항목이 없습니다. 아래 「직접 문의하기」로 연락 주세요.',
+    },
   },
 };

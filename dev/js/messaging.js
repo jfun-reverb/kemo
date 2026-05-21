@@ -15,6 +15,13 @@ let _msgSending = false;
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
 let _msgLastCount = 0;       // 현재 표시 중인 메시지 수 (도착 감지 기준)
 
+// FAQ (자동응답) 상태 — 메시지 0건 모달에서만 노출 (PR B)
+let _faqNodes = [];          // active=true 노드 (이번 모달 캐시)
+let _faqStage = null;        // 현재 응모건 단계 태그 (relevant_stages 매칭용)
+let _faqCtx = {};            // 동적 치환 컨텍스트 ({required, current})
+let _faqApp = null;          // 현재 응모건
+let _faqCamp = null;         // 현재 캠페인
+
 // 모달 열린 동안 30초마다 새 메시지 도착만 가볍게 확인 — 자동 표시 없이 안내 띠만
 function _startMsgPoll() {
   _stopMsgPoll();
@@ -75,11 +82,16 @@ async function openMessageModal(applicationId) {
   const thread = $('msgModalThread');
   if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
 
+  // 개인화 상태 한 줄 — 0건/1건+ 모두 상단 표시 (§3)
+  renderAppStatusLine(app, camp);
+
   try {
     const msgs = await fetchApplicationMessages(applicationId);
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0;
     _toggleMsgNewBanner(false);
+    // 메시지 0건 → FAQ 트리 노출 / 1건+ → 스레드만 (§5 흐름)
+    await toggleFaqTree((msgs?.length || 0) === 0, app, camp);
     // 열람 시 본인 미열람 읽음 처리 후 응모이력 배지 갱신
     await markApplicationMessagesRead(applicationId);
     // 같은 응모건의 message_received 알림도 읽음 처리 (햄버거 알림 배지 잔존 방지)
@@ -101,6 +113,11 @@ function closeMessageModal() {
   _toggleMsgNewBanner(false);
   _msgCurrentAppId = null;
   _msgPendingFiles = [];
+  // FAQ 상태 정리
+  const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
+  const ft = $('msgFaqTree'); if (ft) { ft.style.display = 'none'; ft.innerHTML = ''; }
+  const thread = $('msgModalThread'); if (thread) thread.style.display = '';
+  _faqNodes = []; _faqStage = null; _faqCtx = {}; _faqApp = null; _faqCamp = null;
 }
 
 // 메시지 스레드 렌더 (게시판형 — 위→아래 누적 카드)
@@ -291,6 +308,8 @@ async function sendMessageFromModal() {
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0; // 내가 보낸 메시지로 「새 메시지 도착」 띠가 오인 표시되지 않도록
     _toggleMsgNewBanner(false);
+    // 메시지가 생겼으니 FAQ 트리는 닫고 스레드만 (§5)
+    await toggleFaqTree(false, _faqApp, _faqCamp);
   } catch (e) {
     console.error('[sendMessageFromModal]', e);
     // 의도된 RPC 예외(RAISE EXCEPTION = SQLSTATE P0001, 일본어 안내문)만 그대로 노출.
@@ -300,4 +319,360 @@ async function sendMessageFromModal() {
     _msgSending = false;
     if (sendBtn) sendBtn.disabled = false;
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// FAQ (자동응답 가이드) — PR B
+//   사양서 docs/specs/2026-05-21-message-faq.md §3·§3-0·§5·§5-1
+//   인플 UI = 일본어(ja 기본) / KO·JA 토글. 데이터는 클라이언트 보유분으로 계산(신규 서버 호출 최소).
+// ════════════════════════════════════════════════════════════════════
+
+// 현재 언어 (없으면 ja)
+function _faqLang() { return (typeof getLang === 'function') ? getLang() : 'ja'; }
+// 노드/문구 양국어 선택 헬퍼 (값 없으면 반대 언어로 폴백)
+function _faqPick(row, base) {
+  const lang = _faqLang();
+  return (lang === 'ko' ? row[base + '_ko'] : row[base + '_ja']) || row[base + '_ja'] || row[base + '_ko'] || '';
+}
+
+// 응모건 단계 태그 판정 (§3-3) — 상태 한 줄 케이스와 1:1
+//   반환: {key, stage} key=문구용 케이스, stage=relevant_stages 매칭 태그(null=태그 없음)
+function _computeFaqStatus(app, camp) {
+  const status = app?.status;
+  if (status === 'cancelled') return { key: 'cancelled', stage: null };
+  if (status === 'rejected')  return { key: 'rejected',  stage: 'rejected' };
+  if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
+
+  if (status === 'approved') {
+    // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
+    const delivs = (typeof _myDelivsByApp !== 'undefined' ? _myDelivsByApp[app.id] : null) || [];
+    if (delivs.length) {
+      const allApproved = delivs.every(d => d.status === 'approved');
+      const anyRejected = delivs.some(d => d.status === 'rejected');
+      if (allApproved) return { key: 'done', stage: 'done' };
+      if (anyRejected) {
+        const allRejected = delivs.every(d => d.status === 'rejected');
+        return { key: allRejected ? 'all_reject' : 'partial_reject', stage: 'approved_post' };
+      }
+      // pending(검수 대기) 포함, rejected 없음
+      return { key: 'reviewing', stage: 'approved_post' };
+    }
+    // ② 결과물이 없으면 캠페인 일정으로 (기존 _computeCancelPhase 패턴)
+    const phase = (typeof _computeCancelPhase === 'function') ? _computeCancelPhase(camp) : 'other';
+    const isVisit = camp?.recruit_type === 'visit';
+    if (phase === 'recruit') {
+      // 구매/방문 기간 전 = 당첨 안내 대기
+      return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
+    }
+    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
+    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
+    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
+    // 일정 누락 등 → 무난한 폴백
+    return { key: 'approved_fallback', stage: null };
+  }
+  return { key: 'fallback', stage: null };
+}
+
+// 상태 케이스 → 관련 화면 바로가기 (없으면 null)
+const FAQ_STATUS_NAV = {
+  pending: '#mypage-applications',
+  approved_purchase_before: '#mypage-applications',
+  receipt: '#activity',
+  visit: '#activity',
+  post_deadline: '#activity',
+  reviewing: '#activity',
+  partial_reject: '#activity',
+  all_reject: '#activity',
+  rejected: '#mypage-applications',
+  cancelled: '#mypage-applications',
+  done: null,
+  approved_fallback: '#mypage-applications',
+  fallback: '#mypage-applications',
+};
+
+// 반려 사유 — reject_reason 이 lookup 코드면 일본어 라벨로, 자유텍스트면 그대로 (§3-4 ②)
+function _faqRejectReason(app) {
+  const delivs = (typeof _myDelivsByApp !== 'undefined' ? _myDelivsByApp[app.id] : null) || [];
+  const reasons = delivs.filter(d => d.status === 'rejected' && d.reject_reason)
+    .map(d => {
+      const raw = d.reject_reason;
+      if (typeof getLookupLabel === 'function') {
+        const label = getLookupLabel('reject_reason', raw, _faqLang());
+        if (label) return label;
+      }
+      return raw;
+    });
+  return reasons.length ? reasons.join(' / ') : '';
+}
+
+// 개인화 상태 한 줄 렌더 (§3) — 0건/1건+ 공통
+function renderAppStatusLine(app, camp) {
+  const el = $('msgStatusLine');
+  if (!el) return;
+  if (!app) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const { key, stage } = _computeFaqStatus(app, camp);
+  _faqStage = stage;
+
+  // 마감일 치환용 (영수증/제출 기한 케이스)
+  const deadlineMs = (key === 'receipt')
+    ? Date.parse(camp?.purchase_end || camp?.submission_end || '')
+    : (key === 'post_deadline' ? Date.parse(camp?.submission_end || '') : NaN);
+  const mmdd = isNaN(deadlineMs) ? '' : formatMMDD(deadlineMs);
+
+  let text = (t(`messaging.statusLine.${key}`) || '').replace('{date}', mmdd);
+
+  // 반려 케이스는 실제 사유를 덧붙임 (esc 필수)
+  let extra = '';
+  if (key === 'partial_reject' || key === 'all_reject') {
+    const reason = _faqRejectReason(app);
+    if (reason) extra = `<div class="msg-status-reason">${esc(t('messaging.statusLine.reasonLabel'))}: ${esc(reason)}</div>`;
+  }
+
+  const navTarget = FAQ_STATUS_NAV[key];
+  let navBtn = '';
+  if (navTarget) {
+    navBtn = `<button type="button" class="msg-status-nav" onclick="faqNavigate('${esc(navTarget)}')">${esc(t('messaging.statusLine.goBtn'))}</button>`;
+  }
+
+  el.innerHTML = `<div class="msg-status-row"><span class="msg-status-text">${esc(text)}</span>${navBtn}</div>${extra}`;
+  el.style.display = text ? '' : 'none';
+}
+
+// MM/DD 포맷 (ja-JP)
+function formatMMDD(ms) {
+  if (isNaN(ms)) return '';
+  const d = new Date(ms);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ── FAQ 트리 ──
+
+// 동적 치환 컨텍스트 계산 (§5-1) — {required}=캠페인 min_followers, {current}=본인 대표 SNS 팔로워
+function _buildFaqCtx(camp) {
+  const ctx = {};
+  const minF = camp?.min_followers || 0;
+  if (minF > 0) ctx.required = minF;
+  const p = (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null) || {};
+  const followerMap = {
+    instagram: p.ig_followers || 0, x: p.x_followers || 0,
+    tiktok: p.tiktok_followers || 0, youtube: p.youtube_followers || 0, qoo10: p.ig_followers || 0,
+  };
+  const primary = (p.primary_sns || (camp?.channel || '').split(',')[0] || '').trim();
+  const cur = followerMap[primary];
+  if (cur && cur > 0) ctx.current = cur;
+  return ctx;
+}
+
+// 본문 동적 치환 (§5-1) — 화이트리스트 토큰만, 값 없으면 그 토큰이 든 줄 통째 생략, 치환값 esc
+const FAQ_TOKEN_WHITELIST = ['required', 'current'];
+function renderFaqBody(text, ctx) {
+  if (!text) return '';
+  ctx = ctx || {};
+  const lines = String(text).split('\n');
+  const kept = [];
+  for (const line of lines) {
+    const tokens = (line.match(/\{([a-z]+)\}/g) || []).map(s => s.slice(1, -1));
+    // 화이트리스트 토큰 중 값이 없는 게 있으면 그 줄 통째 생략
+    const hasMissing = tokens.some(tok => FAQ_TOKEN_WHITELIST.includes(tok) && (ctx[tok] === undefined || ctx[tok] === null || ctx[tok] === ''));
+    if (hasMissing) continue;
+    kept.push(line);
+  }
+  // esc 먼저 → 화이트리스트 토큰만 치환(치환값도 esc) → 줄바꿈 <br>
+  let html = esc(kept.join('\n'));
+  html = html.replace(/\{([a-z]+)\}/g, (m, tok) => {
+    if (FAQ_TOKEN_WHITELIST.includes(tok) && ctx[tok] !== undefined && ctx[tok] !== null && ctx[tok] !== '') {
+      return esc(String(ctx[tok]));
+    }
+    return m; // 화이트리스트 외 토큰은 원문 유지 (사용자 답변에 우연히 들어간 중괄호 보호)
+  });
+  return html.replace(/\n/g, '<br>');
+}
+
+// FAQ 트리 노출/숨김 토글 — show=true(메시지 0건)면 트리 로드 + 스레드 숨김
+async function toggleFaqTree(show, app, camp) {
+  const tree = $('msgFaqTree');
+  const thread = $('msgModalThread');
+  if (!tree) return;
+  if (!show) {
+    tree.style.display = 'none';
+    tree.innerHTML = '';
+    if (thread) thread.style.display = '';
+    return;
+  }
+  // 메시지 0건 — 스레드 영역 숨기고 FAQ 트리 표시
+  if (thread) thread.style.display = 'none';
+  tree.style.display = '';
+  _faqApp = app; _faqCamp = camp;
+  _faqCtx = _buildFaqCtx(camp);
+  tree.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  try {
+    const all = await fetchFaqNodes();
+    _faqNodes = (all || []).filter(n => n.active);  // 인플 화면은 active=true 만
+  } catch (e) {
+    console.error('[toggleFaqTree]', e);
+    _faqNodes = [];
+  }
+  renderFaqCategories();
+}
+
+// 단계 일치 우선 정렬 (§3 맞춤 노출) — relevant_stages 에 현재 단계가 있으면 위로
+function _faqStageWeight(node) {
+  if (!_faqStage) return 1;
+  const stages = Array.isArray(node.relevant_stages) ? node.relevant_stages : [];
+  return stages.includes(_faqStage) ? 0 : 1;
+}
+function _faqSortNodes(arr) {
+  return arr.slice().sort((a, b) => {
+    const w = _faqStageWeight(a) - _faqStageWeight(b);
+    if (w !== 0) return w;
+    return (a.sort_order || 0) - (b.sort_order || 0);
+  });
+}
+
+// 카테고리 칩 목록 렌더 (1단)
+function renderFaqCategories() {
+  const tree = $('msgFaqTree');
+  if (!tree) return;
+  const cats = _faqSortNodes(_faqNodes.filter(n => n.kind === 'category' && !n.parent_id));
+  if (!cats.length) {
+    tree.innerHTML = `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`;
+    return;
+  }
+  const chips = cats.map(c =>
+    `<button type="button" class="msg-faq-chip" onclick="openFaqCategory('${esc(c.id)}')">${esc(_faqPick(c, 'label'))}</button>`
+  ).join('');
+  tree.innerHTML = `
+    <div class="msg-faq-intro">${esc(t('messaging.faq.intro'))}</div>
+    <div class="msg-faq-chips">${chips}</div>
+    <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
+  `;
+  tree.scrollTop = 0;
+}
+
+// 카테고리 선택 → 질문 목록 (2단)
+function openFaqCategory(catId) {
+  const tree = $('msgFaqTree');
+  const cat = _faqNodes.find(n => n.id === catId);
+  if (!tree || !cat) return;
+  const items = _faqSortNodes(_faqNodes.filter(n => n.kind === 'item' && n.parent_id === catId));
+  const list = items.map(q =>
+    `<button type="button" class="msg-faq-q" onclick="openFaqItem('${esc(q.id)}')">${esc(_faqPick(q, 'label'))}<span class="material-icons-round notranslate" translate="no">chevron_right</span></button>`
+  ).join('');
+  tree.innerHTML = `
+    <button type="button" class="msg-faq-back" onclick="renderFaqCategories()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.backToCategories'))}</button>
+    <div class="msg-faq-cat-title">${esc(_faqPick(cat, 'label'))}</div>
+    <div class="msg-faq-qlist">${list || `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`}</div>
+    <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
+  `;
+  tree.scrollTop = 0;
+}
+
+// 질문 선택 → 답변 카드 또는 분기(자식 item) 또는 바로 직접 문의(handoff)
+function openFaqItem(itemId) {
+  const tree = $('msgFaqTree');
+  const node = _faqNodes.find(n => n.id === itemId);
+  if (!tree || !node) return;
+
+  // handoff=true → 바로 직접 문의 모드 ('handoff' 기록)
+  if (node.is_human_handoff) {
+    faqStartDirectContact(itemId);
+    return;
+  }
+
+  // 자식 item 을 가진 분기 노드(예: Q1-1)는 하위 펼침
+  const children = _faqSortNodes(_faqNodes.filter(n => n.kind === 'item' && n.parent_id === itemId));
+  if (children.length) {
+    const list = children.map(q =>
+      `<button type="button" class="msg-faq-q" onclick="openFaqItem('${esc(q.id)}')">${esc(_faqPick(q, 'label'))}<span class="material-icons-round notranslate" translate="no">chevron_right</span></button>`
+    ).join('');
+    const parentCatId = node.parent_id;
+    tree.innerHTML = `
+      <button type="button" class="msg-faq-back" onclick="openFaqCategory('${esc(parentCatId)}')"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
+      <div class="msg-faq-cat-title">${esc(_faqPick(node, 'label'))}</div>
+      <div class="msg-faq-qlist">${list}</div>
+      <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
+    `;
+    tree.scrollTop = 0;
+    return;
+  }
+
+  // 답변 카드 — 'viewed' 기록(서버 멱등)
+  recordFaqInteraction(_msgCurrentAppId, itemId, 'viewed');
+
+  const bodyHtml = renderFaqBody(_faqPick(node, 'body'), _faqCtx);
+  // 화면 이동 버튼 (action_type='navigate' + action_target)
+  let actionBtn = '';
+  if (node.action_type === 'navigate' && node.action_target) {
+    const actLabel = _faqPick(node, 'action_label') || t('messaging.statusLine.goBtn');
+    actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate('${esc(node.action_target)}')"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
+  }
+  const parentCatId = node.parent_id;
+  // 부모가 분기 노드일 수도(자식 item) — 뒤로 시 부모 카테고리/분기로
+  const parent = _faqNodes.find(n => n.id === parentCatId);
+  const backFn = parent && parent.kind === 'item'
+    ? `openFaqItem('${esc(parentCatId)}')`
+    : `openFaqCategory('${esc(parentCatId)}')`;
+
+  tree.innerHTML = `
+    <button type="button" class="msg-faq-back" onclick="${backFn}"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
+    <div class="msg-faq-answer">
+      <div class="msg-faq-answer-q">${esc(_faqPick(node, 'label'))}</div>
+      <div class="msg-faq-answer-body">${bodyHtml}</div>
+      ${actionBtn}
+    </div>
+    <div class="msg-faq-answer-actions">
+      <button type="button" class="msg-faq-resolved-btn" onclick="faqMarkResolved('${esc(itemId)}')">${esc(t('messaging.faq.resolvedBtn'))}</button>
+      <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact('${esc(itemId)}')">${esc(t('messaging.faq.contactBtn'))}</button>
+    </div>
+  `;
+  tree.scrollTop = 0;
+}
+
+// [解決しました] → 'resolved' 기록 + 안내
+async function faqMarkResolved(itemId) {
+  await recordFaqInteraction(_msgCurrentAppId, itemId, 'resolved');
+  toast(t('messaging.faq.resolvedToast'));
+  closeMessageModal();
+}
+
+// [直接お問い合わせ] → FAQ 트리 닫고 입력 모드 노출 + 'handoff' 기록
+async function faqStartDirectContact(itemId) {
+  await recordFaqInteraction(_msgCurrentAppId, itemId || null, 'handoff');
+  // FAQ 트리 숨기고 빈 스레드 + 입력란 노출 (메시지 0건 상태 유지)
+  const tree = $('msgFaqTree');
+  const thread = $('msgModalThread');
+  if (tree) { tree.style.display = 'none'; tree.innerHTML = ''; }
+  if (thread) {
+    thread.style.display = '';
+    thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
+  }
+  const inputEl = $('msgModalInput');
+  if (inputEl) { try { inputEl.focus(); } catch (_e) {} }
+}
+
+// FAQ 화면 이동 — 모달 닫고 해시 경로로 라우팅 (§8-2 고정값)
+function faqNavigate(target) {
+  if (!target) return;
+  const app = _faqApp;
+  closeMessageModal();
+  // #activity 는 appId/campId 필요 → openActivityPage 직접 호출
+  if (target === '#activity') {
+    if (app && typeof openActivityPage === 'function') {
+      openActivityPage(app.id, app.campaign_id, 'mypage');
+      return;
+    }
+    if (typeof navigate === 'function') navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+    return;
+  }
+  // #mypage-* → 마이페이지 서브 (sub = 'profile-sns' 등)
+  if (target.startsWith('#mypage-')) {
+    const sub = target.replace('#mypage-', '');
+    if (typeof navigate === 'function') navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub(sub);
+    return;
+  }
+  // 기타 해시 — 일반 라우팅
+  const page = target.replace('#', '');
+  if (typeof navigate === 'function') navigate(page);
 }
