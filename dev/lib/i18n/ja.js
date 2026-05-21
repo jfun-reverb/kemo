@@ -248,6 +248,8 @@ window.I18N_JA = {
       errorNoteRequired: '補足説明を入力してください',
       errorAck: '同意のチェックが必要です',
       errorGeneric: '取消に失敗しました。再度お試しください',
+      errorNotFound: '対象の応募が見つかりませんでした。画面を更新してもう一度お試しください',
+      reasonNowRequired: '現在は取消理由の入力が必要です。下記を選択・記入のうえ、もう一度お試しください',
     },
     cancelDetail: {
       title: '取消の詳細',
