@@ -592,7 +592,7 @@ window.I18N_KO = {
       approved_fallback: '당첨 후 각 단계는 응모이력에서 확인할 수 있습니다.',
       fallback: '응모 상태는 응모이력에서 확인할 수 있습니다.',
     },
-    // 자동응답(FAQ)
+    // 자동응답(FAQ·문의 게이트)
     faq: {
       intro: '자주 묻는 질문에서 찾으시는 내용을 골라 주세요.',
       contactBtn: '직접 문의하기',
@@ -601,6 +601,13 @@ window.I18N_KO = {
       back: '뒤로',
       backToCategories: '목록으로',
       unavailable: '현재 안내할 수 있는 항목이 없습니다. 아래 「직접 문의하기」로 연락 주세요.',
+      // 문의 게이트 (PR B-rev)
+      openBtn: '자주 묻는 질문',
+      allTitle: '자주 묻는 질문',
+      suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
+      gateTitle: '문의하기 전에, 여기서 해결되는지 확인해 보세요',
+      gateResolvedBtn: '해결됐어요',
+      gateProceedBtn: '그래도 문의하기',
     },
   },
 };

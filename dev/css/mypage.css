@@ -103,8 +103,8 @@
 .msg-status-nav:hover{background:#EAF1FF}
 .msg-status-reason{margin-top:6px;font-size:12px;line-height:1.5;color:#8A3B3B;background:#FDECEC;border-radius:8px;padding:6px 10px;word-break:break-word}
 
-/* ── FAQ 트리 (#msgFaqTree, §5) ── */
-.msg-faq-tree{flex:1;overflow-y:auto;padding:16px;background:var(--surface-dim,#f7f7f8);display:flex;flex-direction:column;gap:12px}
+/* ── FAQ 전체 보기 오버레이 (#msgFaqTree) — 스레드 위에 떠서 표시 (PR B-rev) ── */
+.msg-faq-tree{position:absolute;left:0;right:0;top:0;bottom:0;z-index:4;overflow-y:auto;padding:16px;background:var(--surface-dim,#f7f7f8);display:flex;flex-direction:column;gap:12px}
 .msg-faq-intro{font-size:13px;line-height:1.6;color:var(--text)}
 .msg-faq-chips{display:flex;flex-direction:column;gap:8px}
 .msg-faq-chip{text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer}
@@ -125,6 +125,32 @@
 .msg-faq-resolved-btn{border:none;background:var(--primary,#E8629A);color:#fff;font-size:14px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer}
 .msg-faq-contact-link{border:1px solid var(--outline);background:#fff;color:var(--muted);font-size:13px;font-weight:600;padding:11px;border-radius:10px;cursor:pointer}
 .msg-faq-contact-link:hover{background:#fafafa}
+/* FAQ 전체 보기 오버레이 상단 헤더 (카테고리 1단 닫기) */
+.msg-faq-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.msg-faq-overlay-title{font-size:15px;font-weight:700;color:var(--text)}
+.msg-faq-overlay-close{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:36px;min-height:36px;align-items:center;justify-content:center}
+
+/* ── 문의 게이트 (#msgFaqGate, PR B-rev) ── */
+.msg-faq-gate{margin-bottom:8px}
+.msg-faq-suggest{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;padding:10px;background:#F4F8FF;border:1px solid #DCE7FB;border-radius:10px}
+.msg-faq-suggest-head{font-size:12px;font-weight:700;color:#23416E;margin-bottom:2px}
+.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--text);cursor:pointer}
+.msg-faq-suggest-item:hover{background:#fafbff}
+.msg-faq-suggest-item .material-icons-round{flex-shrink:0;font-size:18px;color:#2563EB}
+.msg-faq-suggest-q{flex:1;min-width:0}
+.msg-faq-suggest-chev{color:var(--muted)!important}
+.msg-faq-open-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--text);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
+.msg-faq-open-btn:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
+.msg-faq-open-btn .material-icons-round{font-size:18px;color:var(--muted)}
+
+/* 보내기 게이트 1회 확인 시트 (#msgFaqGateSheet) */
+.msg-faq-sheet{position:absolute;inset:0;z-index:5;display:none}
+.msg-faq-sheet[style*="display: none"]{display:none}
+.msg-faq-sheet-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+.msg-faq-sheet-panel{position:absolute;left:0;right:0;bottom:0;background:var(--surface,#fff);border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:80%;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.msg-faq-sheet-title{font-size:15px;font-weight:700;line-height:1.5;color:var(--text)}
+.msg-faq-sheet-cards{display:flex;flex-direction:column;gap:6px}
+.msg-faq-sheet-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 
 /* ── 첨부 이미지 라이트박스 (메시지 모달 위) ── */
 .msg-lightbox{position:fixed;inset:0;z-index:1300;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.85);padding:20px}

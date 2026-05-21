@@ -612,7 +612,7 @@ window.I18N_JA = {
       approved_fallback: 'ご当選後の各ステップは、応募履歴からご確認いただけます。',
       fallback: 'ご応募の状況は、応募履歴からご確認いただけます。',
     },
-    // 自動応答（FAQ）
+    // 自動応答（FAQ・お問い合わせゲート）
     faq: {
       intro: 'よくあるご質問から、お探しの内容をお選びください。',
       contactBtn: '直接お問い合わせ',
@@ -621,6 +621,13 @@ window.I18N_JA = {
       back: 'もどる',
       backToCategories: '一覧にもどる',
       unavailable: '現在ご案内できる項目がありません。下の「直接お問い合わせ」からご連絡ください。',
+      // お問い合わせゲート (PR B-rev)
+      openBtn: 'よくある質問',
+      allTitle: 'よくある質問',
+      suggestHead: 'こちらで解決できるか確認してみましょう',
+      gateTitle: 'お問い合わせの前に、こちらで解決できるか確認しましょう',
+      gateResolvedBtn: '解決しました',
+      gateProceedBtn: 'それでもお問い合わせ',
     },
   },
 };
