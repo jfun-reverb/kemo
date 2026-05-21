@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779367895';
+  var CURRENT_BUILD = 'v1779369510';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1654,6 +1654,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
+        <div class="admin-si" data-pane="brand-ops" id="adminBrandOpsSi" onclick="navAdminPaneReload('brand-ops')"><span class="si-icon material-icons-round">monitor_heart</span><span class="si-text">운영 현황</span></div>
         <div class="admin-si-lbl">캠페인</div>
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
@@ -1661,7 +1662,6 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si-lbl">브랜드 서베이</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
-        <div class="admin-si" data-pane="brand-ops" id="adminBrandOpsSi" onclick="navAdminPaneReload('brand-ops')"><span class="si-icon material-icons-round">monitor_heart</span><span class="si-text">운영 현황</span></div>
         <div class="admin-si" data-pane="companies" id="adminCompaniesSi" onclick="navAdminPaneReload('companies')"><span class="si-icon material-icons-round">corporate_fare</span><span class="si-text">회사 관리</span></div>
         <div class="admin-si" data-pane="brands" id="adminBrandsSi" onclick="navAdminPaneReload('brands')"><span class="si-icon material-icons-round">business</span><span class="si-text">브랜드 관리</span></div>
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
@@ -1686,7 +1686,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-21 21:51 · 95187a6</span>
+          <span class="admin-build-text">2026-05-21 22:18 · c2007d5</span>
         </div>
       </div>
     </aside>
@@ -12213,6 +12213,7 @@ async function saveBrandAssign() {
 
 var _brandOpsCache = [];      // get_brand_ops_overview 전체 행
 var _brandOpsCompanies = [];  // 회사 드롭다운용
+var _brandOpsTypesByBrand = {}; // brand_id → {monitor,gifting,visit} 캠페인 타입 집계
 
 // 브랜드 상세 진입 (PR 4) — brand-ops-detail 서브 페인으로 전환
 function openBrandOpsDetail(brandId) {
@@ -12236,8 +12237,16 @@ async function loadBrandOps() {
   // 회사 드롭다운(전체/회사별/미분류) — 최초 1회 또는 매 로드 시 갱신
   _brandOpsCompanies = await fetchCompanies({ status: 'all' });
   fillBrandOpsCompanyFilter();
-  // 전체 브랜드 집계를 받아 클라이언트에서 회사/미분류 필터링
-  _brandOpsCache = await getBrandOpsOverview(null);
+  // 전체 브랜드 집계 + 캠페인(타입 라벨용)을 병렬로
+  var results = await Promise.all([getBrandOpsOverview(null), fetchCampaigns()]);
+  _brandOpsCache = results[0];
+  // 브랜드별 캠페인 타입 집계 (한 브랜드에 여러 타입 가능)
+  _brandOpsTypesByBrand = {};
+  (results[1] || []).forEach(function(c){
+    if (!c.brand_id || !c.recruit_type) return;
+    if (!_brandOpsTypesByBrand[c.brand_id]) _brandOpsTypesByBrand[c.brand_id] = {};
+    _brandOpsTypesByBrand[c.brand_id][c.recruit_type] = true;
+  });
   renderBrandOpsCards();
   // 최근 신청 — 대시보드에서 이관 (renderRecentAppsTable 는 admin.js)
   loadBrandOpsRecentApps();
@@ -12328,15 +12337,24 @@ function renderBrandOpsCard(b) {
     ? '<div style="margin-top:6px;font-size:11px;color:' + alert.color + ';display:flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">warning</span>' + esc(warns.join(' · ')) + '</div>'
     : '';
 
+  // 캠페인 타입 라벨 (브랜드별 캠페인 recruit_type 집계)
+  var types = _brandOpsTypesByBrand[b.brand_id] || {};
+  var typePills = ['monitor','gifting','visit']
+    .filter(function(t){ return types[t]; })
+    .map(function(t){ return getRecruitTypeBadgeKoSm(t); })
+    .join(' ');
+  var typeLine = typePills ? '<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">' + typePills + '</div>' : '';
+
   return '<div class="brand-ops-card" style="border-left:4px solid ' + alert.color + '" onclick="openBrandOpsDetail(\'' + esc(b.brand_id) + '\')">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       + '<div style="min-width:0">'
-        + '<div style="font-size:11px;color:var(--muted)">' + esc(b.company_name_ko || '미분류') + ' · ' + esc(b.brand_no || '—') + '</div>'
-        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + '</div>'
+        + '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.company_name_ko || '미분류') + '</div>'
+        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + ' <span style="font-size:11px;font-weight:400;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
         + (b.brand_name_ja ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ja) + '</div>' : '')
       + '</div>'
       + badge
     + '</div>'
+    + typeLine
     + '<div style="display:flex;gap:14px;margin-top:8px;font-size:12px">'
       + '<div><span style="color:var(--muted)">진행 신청</span> <b style="color:var(--ink)">' + (b.open_applications||0) + '</b></div>'
       + '<div><span style="color:var(--muted)">진행 캠페인</span> <b style="color:var(--ink)">' + (b.active_campaigns||0) + '</b></div>'
