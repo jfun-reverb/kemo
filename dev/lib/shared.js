@@ -404,6 +404,9 @@ const PANE_REFRESHERS = {
   },
   'brand-ops': async () => {
     if (typeof loadBrandOps === 'function') await loadBrandOps();
+  },
+  'brand-ops-detail': async () => {
+    if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
   }
 };
 async function refreshPane(paneId) {

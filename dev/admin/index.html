@@ -1325,6 +1325,26 @@
           </div>
         </div>
 
+        <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->
+        <div id="adminPane-brand-ops-detail" class="admin-pane">
+          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+        </div>
+
+        <!-- LINK CAMPAIGN MODAL (캠페인 ↔ 신청 연결) -->
+        <div class="modal-overlay" id="linkCampaignModal" style="z-index:614">
+          <div class="modal" style="max-width:480px;width:94vw;border-radius:16px;margin:auto;max-height:84vh;display:flex;flex-direction:column">
+            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:14px;font-weight:700;color:var(--ink)">캠페인을 신청에 연결</div>
+              <button class="btn btn-ghost btn-xs" onclick="closeLinkCampaignModal()" style="padding:4px 10px">✕</button>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="linkCampaignModalBody"></div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn btn-ghost btn-sm" onclick="closeLinkCampaignModal()">닫기</button>
+              <button id="linkCampaignSaveBtn" class="btn btn-primary btn-sm" onclick="saveLinkCampaign()">연결</button>
+            </div>
+          </div>
+        </div>
+
         <!-- COMPANIES (회사 관리) PANE -->
         <div id="adminPane-companies" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">

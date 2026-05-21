@@ -819,3 +819,33 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 - PR 3 — 운영 현황 페인 (브랜드 카드 그리드, `get_brand_ops_overview`)
 - PR 4 — 브랜드 상세 페인 + 캠페인↔신청 연결/해제 UI
   (CLAUDE.md 「운영 현황 페인」·「캠페인 ↔ 신청 연결/해제」 항목은 데이터베이스(RPC)는 존재하나 화면 미구현 상태로 선반영돼 있음)
+
+---
+
+## 17. 구현 결과 — PR 3(운영 현황 페인) + PR 4(브랜드 상세 + 연결/해제)
+
+**구현일:** 2026-05-21 (개발 구현, dev 머지)
+**관련 파일:**
+- 신규 `dev/js/admin-brand-ops.js` — 운영 현황 카드 그리드(PR 3) + 브랜드 상세 페인(PR 4)
+- `dev/lib/storage.js` — getBrandOpsOverview, getBrandOpsDetail, linkCampaignToApplication, unlinkCampaignFromApplication
+- `dev/admin/index.html` — 사이드바 「운영 현황」(현황 대시보드 다음) + adminPane-brand-ops(카드 그리드 + 최근 신청) + adminPane-brand-ops-detail(브랜드 상세) + linkCampaignModal. 대시보드 「최근 신청」 제거(운영 현황 이관)
+- `dev/js/admin.js` — loaders 'brand-ops'/'brand-ops-detail', sidePane 매핑 brand-ops-detail→brand-ops, renderRecentAppsTable 함수 추출
+- `dev/admin/app.js` — subToParent 'brand-ops-detail':'brand-ops'
+- `dev/lib/shared.js` — PANE_REFRESHERS 'brand-ops'/'brand-ops-detail'
+- `dev/css/admin.css` — .brand-ops-grid, .brand-ops-card, brandOpsPulse, .brand-ops-mini-grid/card
+- `dev/build.sh` — ADMIN_JS_FILES 에 js/admin-brand-ops.js
+
+### 사용자 확인 결정사항 (2026-05-21)
+- 브랜드 상세: **별도 화면**(페인). 모달 아님
+- 미니카드 지표: 화면에서 추가 집계(승인 신청 수 = applications status approved). 결과물 집계는 detail RPC 미제공이라 미니카드에서 생략, 모집 진행바만
+- 대시보드 「최근 신청」: 운영 현황으로 이전(renderRecentAppsTable 추출)
+- 캠페인 편집 화면 「신청」 연결 통일: 처음엔 "이번에 같이"였으나, 캠페인 저장(source_application_id 직접 UPDATE) 핵심 로직 + 채번 트랜잭션이라 회귀 위험 큼 → **별도 작업으로 분리**(미구현). 브랜드 상세 화면 연결/해제는 link/unlink RPC 사용해 채번 일관성 확보됨
+
+### 초안 대비 변경 사항
+- alert_level 임계값은 get_brand_ops_overview(120)에서 계산 완료 → 클라이언트는 색·라벨만 매핑
+- 운영 현황 카드는 mountLazyList(테이블 전용) 대신 전체 렌더(브랜드 수 적음)
+- 신규 마이그레이션 없음 (RPC 120·121 운영 적용 완료)
+
+### 미구현 (후속 작업)
+- 캠페인 편집 화면 「신청」 드롭다운의 link/unlink RPC 통일 (캠페인 저장 핵심 로직 변경이라 별도 PR)
+- 캠페인 미니카드 결과물 제출률 진행바 (detail RPC 확장 또는 별도 집계 필요)
