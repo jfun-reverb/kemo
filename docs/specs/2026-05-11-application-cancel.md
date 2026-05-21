@@ -626,4 +626,4 @@ ls supabase/migrations/ | tail -5
 
 **향후 과제(백로그):** Tomoko류 실제 에러 화면 확보 시 (가)/(나) 확정. gifting "모집 마감 후 ~ 제출 마감 전" 구간이 `other`로 떨어져 사유를 요구하는 UX가 사용자에게 혼란스러운지 별도 검토(정책 vs UX).
 
-**배포:** dev 푸시 `d26caaa`. 운영 반영은 (개발서버 확인 후 결정 — 사용자 판단 대기).
+**배포:** dev 푸시 `d26caaa`. **운영 반영 완료 (PR #247, 2026-05-21).** dev 빌드 산출물에는 운영 보류 중인 응모건 메시지 기능이 포함되어 cherry-pick 불가 → main 기준으로 소스만 적용 후 재빌드(`index.html` messaging 참조 0건 검증). 운영 자동 배포(globalreverb.com).
