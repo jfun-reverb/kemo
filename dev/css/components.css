@@ -148,7 +148,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-item.on .nav-icon{color:var(--pink)}
 .nav-item .nav-label{flex:1}
 .nav-item .notif-badge{position:static;margin-left:auto}
-.nav-subitem{display:flex;align-items:center;min-height:48px;padding:12px 20px 12px 54px;cursor:pointer;font-size:14px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
+.nav-subitem{display:flex;align-items:center;width:100%;box-sizing:border-box;min-height:48px;padding:12px 20px 12px 54px;cursor:pointer;font-size:14px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
 .nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
 .nav-divider{height:1px;background:var(--line);margin:6px 14px}
 .nav-divider-sub{height:1px;background:var(--line);margin:0 20px 0 54px;opacity:.6}
