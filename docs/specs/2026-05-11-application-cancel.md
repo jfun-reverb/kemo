@@ -588,3 +588,28 @@ ls supabase/migrations/ | tail -5
 ### 잔존 작업 (다음 배포 사이클)
 - main merge (현재 dev 잠재)
 - 위반 등록 자동화 정책 (§13-2 — 데이터 축적 후)
+
+---
+
+## 15. 데드락 버그 수정 (2026-05-21)
+
+**증상:** 인플루언서가 응모를 취소하려 해도 계속 에러만 나고 취소가 안 됨. (실사용자 Tomoko 사례 — "실수로 신청 → 취소하려는데 에러", 스크린샷 3장)
+
+**원인 (코드로 확정):**
+- 취소 화면은 단계(phase)에 따라 갈린다 — `recruit`이면 사유 입력란을 숨긴 **간단 취소**, 그 외엔 사유+동의 필수.
+- 클라이언트 `_computeCancelPhase`(`dev/js/mypage.js`)와 서버 `cancel_application` RPC(마이그레이션 104)가 단계를 **각자 독립 계산**한다. 클라이언트는 `Date.parse`(UTC 자정 해석), 서버는 `now()` + `::timestamptz`(DB 타임존 기준). 경계 날짜에서 두 판정이 갈릴 수 있음.
+- 클라이언트가 `recruit`으로 판정해 사유란을 숨겼는데(`isSimple=true`, 사유·동의를 `null/false`로 전송) 서버가 비-recruit로 판정하면 `reason_required`/`acknowledgement_required`로 거부 → 화면엔 사유란이 없는데 서버는 사유를 요구 → 무한 데드락.
+- 부차: 클라이언트 에러 매핑에 `application_not_found`가 빠져 일반 오류(errorGeneric)로 표시됨.
+
+**수정 (A안 — 자동 복구, 마이그레이션 없음):**
+- `submitCancelApplicationFromPage`: 간단(recruit) 모드에서 서버가 `reason_required`/`acknowledgement_required`로 거부하면 → hidden phase를 `other`로 보정 + 사유 입력란을 자동으로 펼침(`_revealCancelReasonFields('other')`) + 안내문 표시 후 재입력 대기. 두 번째 제출(사유란 펼쳐진 상태)부터는 정상 검증 경로. phase 계산이 어떻게 엇갈리든 데드락이 풀린다.
+- 박스 표시/사유 카탈로그 로드 로직을 헬퍼 2종(`_showCancelSimpleMode` / `_revealCancelReasonFields`)으로 추출해 진입 시·자동 복구에서 공통 사용.
+- 에러 매핑에 `application_not_found` → `appHistory.cancel.errorNotFound` 추가.
+- i18n 신규 키 2종: `appHistory.cancel.errorNotFound`, `appHistory.cancel.reasonNowRequired` (ja/ko 양쪽).
+- 부수 수정: 기존 경고 카피 키 생성이 `warning${phase}`를 그대로 써서 i18n에 없는 `warningRecruit` 키를 시도하던 문제 → `['purchase','visit','post']` 화이트리스트 + 그 외 `warningOther` 폴백으로 정리.
+
+**근본 해결(C안 — 서버 단일 판정)은 후속 백로그:** 서버에 단계 판정 함수를 두고 클라이언트가 그대로 따르게 하면 불일치 자체가 사라지나, 신규 마이그레이션·운영 DB 적용·진입 시 통신 1회 추가가 필요해 별도 검증 사이클로 분리. A안으로 출혈을 먼저 멈춤.
+
+**관련 파일:** `dev/js/mypage.js`, `dev/lib/i18n/{ja,ko}.js`. **DB/RPC 변경 없음.**
+
+**검증:** reverb-reviewer GO(헬퍼 추출 동작 동일성·무한 루프 차단·키 정합 확인). reverb-qa-tester light(응모 취소 정상 경로 + 에러 메시지). 배포: (개발서버 검증 후 운영 배포 여부 결정)

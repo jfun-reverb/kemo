@@ -241,6 +241,8 @@ window.I18N_KO = {
       errorNoteRequired: '추가 설명을 입력해주세요',
       errorAck: '동의 체크가 필요합니다',
       errorGeneric: '취소에 실패했습니다. 다시 시도해주세요',
+      errorNotFound: '대상 응모를 찾을 수 없습니다. 화면을 새로고침한 뒤 다시 시도해주세요',
+      reasonNowRequired: '현재는 취소 사유 입력이 필요합니다. 아래를 선택·작성한 뒤 다시 시도해주세요',
     },
     cancelDetail: {
       title: '취소 상세',
