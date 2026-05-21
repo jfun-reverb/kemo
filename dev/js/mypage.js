@@ -214,7 +214,7 @@ async function renderMyApplyList() {
     // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
     // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
     // monitor 캠페인은 영수증·리뷰 캡쳐 두 단계가 별도 진행 → 라벨도 두 줄로 표시.
-    let delivBadgeLine = '';
+    let delivItemsHtml = '';
     if (a.status === 'approved') {
       const ds = (_myDelivsByApp[a.id] || []);
       // kind별로 가장 최신 1건만 추출 (재제출 시 더 최근 행 우선)
@@ -236,11 +236,10 @@ async function renderMyApplyList() {
         else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
         items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
-      if (items.length) {
-        // 결과물 종류별 상태 라벨 — 카드 본문 맨 아래 가로 한 줄(왼쪽 정렬, 넘치면 줄바꿈)
-        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${items.join('')}</div>`;
-      }
+      delivItemsHtml = items.join('');
     }
+    // 응모 상태 배지(당첨/심사중 등) + 결과물 상태 배지를 카드 본문 맨 아래 가로 한 줄로 모음
+    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status)}${delivItemsHtml}</div>`;
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
@@ -251,11 +250,11 @@ async function renderMyApplyList() {
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
+        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
         ${cancelledLine}
-        ${delivBadgeLine}
+        ${badgeRow}
       </div>
       <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
     </div>`;
