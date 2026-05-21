@@ -180,7 +180,7 @@ function switchAdminPane(pane, el, pushHistory) {
   // 사이드바 활성 상태를 data-pane 속성으로 검색
   if (!el) {
     const sidePane = {'add-campaign':'campaigns','edit-campaign':'campaigns',
-      'camp-applicants':'campaigns'}[pane] || pane;
+      'camp-applicants':'campaigns','brand-ops-detail':'brand-ops'}[pane] || pane;
     el = document.querySelector('.admin-si[data-pane="'+sidePane+'"]');
   }
   if (el) el.classList.add('on');
@@ -197,6 +197,7 @@ function switchAdminPane(pane, el, pushHistory) {
     'brand-applications': loadBrandApplications,
     'brand-dashboard': loadBrandDashboard,
     'brand-ops': loadBrandOps,
+    'brand-ops-detail': loadBrandOpsDetail,
     'companies': loadCompanies,
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,

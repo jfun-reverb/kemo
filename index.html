@@ -2239,6 +2239,9 @@ const PANE_REFRESHERS = {
   },
   'brand-ops': async () => {
     if (typeof loadBrandOps === 'function') await loadBrandOps();
+  },
+  'brand-ops-detail': async () => {
+    if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
   }
 };
 async function refreshPane(paneId) {
@@ -5230,6 +5233,51 @@ async function getBrandOpsDetail(brandId) {
     if (error) throw error;
     return data || null;
   } catch(e) { console.error('[getBrandOpsDetail]', e); return null; }
+}
+
+// ── 캠페인↔신청 연결/해제 (마이그레이션 121) ──────────────────────────────
+// 반환 성공: {ok:true, data:{campaign_id, old_no, new_no, application_id, unchanged}}
+// 반환 실패: {ok:false, error:string, code:string}
+//   에러 코드 42501 = 권한 부족 (campaign_admin 이상 필요)
+//   에러 코드 22023 = 잘못된 인자 (캠페인/신청 없음, 다른 브랜드, brand_id NULL 등)
+
+// 캠페인을 광고주 신청에 연결. 새 채번 B{4자리}-A{3자리}-C{3자리} 발급.
+// unchanged=true 면 이미 같은 신청에 연결된 상태(no-op, 번호 변경 없음)
+async function linkCampaignToApplication(campaignId, applicationId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('link_campaign_to_application', {
+        p_campaign_id:    campaignId,
+        p_application_id: applicationId
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data};
+  } catch(e) {
+    console.error('[linkCampaignToApplication]', e);
+    return {ok: false, error: e?.message || 'unknown', code: e?.code || ''};
+  }
+}
+
+// 캠페인을 신청에서 해제(직접 등록 캠페인으로 환원). 새 채번 B{4자리}-C{3자리} 발급.
+// unchanged=true 면 이미 직접 등록 캠페인 상태(no-op, 번호 변경 없음)
+async function unlinkCampaignFromApplication(campaignId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('unlink_campaign_from_application', {
+        p_campaign_id: campaignId
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data};
+  } catch(e) {
+    console.error('[unlinkCampaignFromApplication]', e);
+    return {ok: false, error: e?.message || 'unknown', code: e?.code || ''};
+  }
 }
 
 // 회사 생성(id 없음) / 수정(id 있음) 통합

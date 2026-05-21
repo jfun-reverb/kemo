@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 데이터 컨텍스트가 필요한 하위 패널은 부모 패널로 리다이렉트
   var initHash = location.hash.replace('#','') || 'dashboard';
-  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers'};
+  var subToParent = {'edit-campaign':'campaigns','camp-applicants':'campaigns','influencer-detail':'influencers','brand-ops-detail':'brand-ops'};
   if (subToParent[initHash]) {
     initHash = subToParent[initHash];
     history.replaceState({pane: initHash}, '', '#' + initHash);

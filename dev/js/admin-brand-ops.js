@@ -9,9 +9,10 @@
 var _brandOpsCache = [];      // get_brand_ops_overview 전체 행
 var _brandOpsCompanies = [];  // 회사 드롭다운용
 
-// 브랜드 상세 진입 — PR 4 에서 brand-ops-detail 페인으로 교체 예정
+// 브랜드 상세 진입 (PR 4) — brand-ops-detail 서브 페인으로 전환
 function openBrandOpsDetail(brandId) {
-  toast('브랜드 상세 화면은 준비 중입니다 (다음 단계)');
+  _brandOpsDetailId = brandId;
+  switchAdminPane('brand-ops-detail');
 }
 
 // alert_level → 색·라벨 매핑 (관리자 UI 한국어)
@@ -143,4 +144,208 @@ function renderBrandOpsCard(b) {
       + '<span style="font-size:11px;color:var(--pink);font-weight:600">상세 보기 →</span>'
     + '</div>'
     + '</div>';
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: BRAND OPS DETAIL — 브랜드 상세 페인 (PR 4)
+//   get_brand_ops_detail RPC(jsonb) + 캠페인별 승인 수는 화면에서 추가 집계.
+//   신청 연결 캠페인 ↔ 직접 등록 캠페인 연결/해제 (link/unlink RPC).
+// ════════════════════════════════════════════════════════════════════
+
+var _brandOpsDetailId = null;
+var _brandOpsDetailData = null;
+var _brandOpsApprByCamp = {};   // campaign_id → 승인 신청 수 (인플루언서 응모)
+
+async function loadBrandOpsDetail() {
+  var body = $('brandOpsDetailBody');
+  if (!_brandOpsDetailId) {
+    if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">운영 현황에서 브랜드를 선택하세요</div>';
+    return;
+  }
+  if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
+
+  var results = await Promise.all([getBrandOpsDetail(_brandOpsDetailId), fetchApplications()]);
+  var detail = results[0];
+  var apps = results[1] || [];
+  _brandOpsDetailData = detail;
+  if (!detail || !detail.brand) {
+    if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">브랜드 정보를 불러올 수 없습니다</div>';
+    return;
+  }
+  // 캠페인별 승인 수 집계 (인플루언서 응모 = applications, status approved)
+  _brandOpsApprByCamp = {};
+  apps.forEach(function(a){
+    if (a.status === 'approved') _brandOpsApprByCamp[a.campaign_id] = (_brandOpsApprByCamp[a.campaign_id] || 0) + 1;
+  });
+  renderBrandOpsDetail(detail);
+}
+
+function renderBrandOpsDetail(d) {
+  var body = $('brandOpsDetailBody');
+  if (!body) return;
+  var b = d.brand || {};
+  var company = d.company;
+  var apps = d.applications || [];
+  var external = d.external_campaigns || [];
+
+  // 요약 KPI 집계
+  var allCamps = [];
+  apps.forEach(function(a){ (a.campaigns||[]).forEach(function(c){ allCamps.push(c); }); });
+  external.forEach(function(c){ allCamps.push(c); });
+  var openApps = apps.filter(function(a){ return a.status !== 'done' && a.status !== 'rejected'; }).length;
+  var activeCamps = allCamps.filter(function(c){ return c.status === 'active' || c.status === 'scheduled'; }).length;
+
+  // 헤더 (빵부스러기 + 액션)
+  var crumb = (company ? esc(company.name_ko || '') + ' › ' : '미분류 › ') + esc(b.name || '');
+  var html = ''
+    + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">'
+      + '<div>'
+        + '<button class="btn btn-ghost btn-xs" onclick="switchAdminPane(\'brand-ops\')" style="margin-bottom:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">arrow_back</span> 운영 현황</button>'
+        + '<div style="font-size:11px;color:var(--muted)">' + crumb + '</div>'
+        + '<div style="font-size:18px;font-weight:700;color:var(--ink)">' + esc(b.name || '—') + ' <span style="font-size:12px;font-weight:500;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
+      + '</div>'
+      + '<button class="btn btn-ghost btn-sm" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">edit</span> 브랜드 정보</button>'
+    + '</div>';
+
+  // 요약 KPI 바
+  html += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">'
+    + brandOpsKpi('진행 신청', openApps)
+    + brandOpsKpi('전체 신청', apps.length)
+    + brandOpsKpi('진행 캠페인', activeCamps)
+    + brandOpsKpi('전체 캠페인', allCamps.length)
+    + '</div>';
+
+  // 신청 아코디언
+  html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:8px 0">광고주 신청 (' + apps.length + ')</div>';
+  if (apps.length === 0) {
+    html += '<div style="color:var(--muted);font-size:13px;padding:12px 0">연결된 광고주 신청이 없습니다</div>';
+  } else {
+    html += apps.map(function(a){ return renderBrandOpsAppBlock(a); }).join('');
+  }
+
+  // 직접 등록 캠페인 (신청 미연결)
+  html += '<div style="font-size:14px;font-weight:700;color:var(--ink);margin:18px 0 8px">직접 등록 캠페인 (' + external.length + ')</div>';
+  if (external.length === 0) {
+    html += '<div style="color:var(--muted);font-size:13px;padding:12px 0">직접 등록 캠페인이 없습니다</div>';
+  } else {
+    html += '<div class="brand-ops-mini-grid">' + external.map(function(c){ return renderCampMiniCard(c, true); }).join('') + '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+function brandOpsKpi(label, val) {
+  return '<div style="flex:1;min-width:110px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px">'
+    + '<div style="font-size:11px;color:var(--muted)">' + esc(label) + '</div>'
+    + '<div style="font-size:20px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums">' + (val||0) + '</div>'
+    + '</div>';
+}
+
+function renderBrandOpsAppBlock(a) {
+  var open = (a.status !== 'done' && a.status !== 'rejected');
+  var camps = a.campaigns || [];
+  var quote = a.final_quote_krw || a.estimated_krw;
+  return '<details class="brand-ops-app"' + (open ? ' open' : '') + ' style="border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:0 12px">'
+    + '<summary style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer;list-style:none">'
+      + '<span style="font-weight:600;color:var(--ink);font-size:13px">' + esc(a.application_no || '신청') + '</span>'
+      + '<span style="font-size:11px;color:var(--muted)">' + esc(brandOpsFormTypeLabel(a.form_type)) + '</span>'
+      + '<span style="font-size:11px;background:#F0F0F0;color:#555;padding:2px 8px;border-radius:10px">' + esc(a.status || '') + '</span>'
+      + (quote ? '<span style="font-size:11px;color:var(--muted)">견적 ' + Number(quote).toLocaleString() + '원</span>' : '')
+      + '<span style="margin-left:auto;font-size:11px;color:var(--muted)">캠페인 ' + camps.length + '</span>'
+    + '</summary>'
+    + '<div style="padding:0 0 12px">'
+      + (camps.length ? '<div class="brand-ops-mini-grid">' + camps.map(function(c){ return renderCampMiniCard(c, false, a.id); }).join('') + '</div>'
+                      : '<div style="color:var(--muted);font-size:12px;padding:6px 0">연결된 캠페인 없음</div>')
+    + '</div>'
+    + '</details>';
+}
+
+function brandOpsFormTypeLabel(ft) {
+  return ft === 'reviewer' ? '리뷰어' : ft === 'seeding' ? '시딩' : (ft || '');
+}
+
+function renderCampMiniCard(c, isExternal, applicationId) {
+  var approved = _brandOpsApprByCamp[c.id] || 0;
+  var slots = c.slots || 0;
+  var pct = slots > 0 ? Math.min(100, Math.round(approved / slots * 100)) : 0;
+  var dday = '';
+  if (c.deadline) {
+    var diff = Math.ceil((new Date(c.deadline) - new Date()) / 86400000);
+    dday = diff >= 0 ? ('D-' + diff) : '마감';
+  }
+  var statusBadge = '<span style="font-size:10px;background:#EEF2FF;color:#5B7CFF;padding:1px 7px;border-radius:8px">' + esc(c.status || '') + '</span>';
+
+  // 연결/해제 버튼: 직접 등록(external)이면 「신청에 연결」, 신청 연결됨이면 「연결 해제」
+  var linkBtn = isExternal
+    ? '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openLinkCampaignModal(\'' + esc(c.id) + '\')">신청에 연결</button>'
+    : '<button class="btn btn-ghost btn-xs" style="color:#c0392b" onclick="event.stopPropagation();confirmUnlinkCampaign(\'' + esc(c.id) + '\')">연결 해제</button>';
+
+  return '<div class="brand-ops-mini-card">'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
+      + '<div style="min-width:0">'
+        + '<div style="font-size:10px;color:var(--muted)">' + esc(c.campaign_no || '—') + '</div>'
+        + '<div style="font-weight:600;font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.title || c.product_ko || '—') + '</div>'
+      + '</div>' + statusBadge
+    + '</div>'
+    + brandOpsRateBar('모집', slots > 0 ? pct : null, approved, slots)
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'
+      + '<span style="font-size:10px;color:var(--muted)">' + (dday ? esc(dday) : '') + '</span>'
+      + '<span style="display:flex;gap:4px">'
+        + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampPreviewModal(\'' + esc(c.id) + '\')">상세</button>'
+        + linkBtn
+      + '</span>'
+    + '</div>'
+    + '</div>';
+}
+
+// ── 연결 모달 ──
+var _linkCampaignId = null;
+
+function openLinkCampaignModal(campaignId) {
+  if (!_brandOpsDetailData) return;
+  _linkCampaignId = campaignId;
+  var apps = _brandOpsDetailData.applications || [];
+  var body = $('linkCampaignModalBody');
+  if (body) {
+    if (apps.length === 0) {
+      body.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:12px 0">이 브랜드에 연결할 광고주 신청이 없습니다. 먼저 신청을 등록하세요.</div>';
+    } else {
+      body.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">이 캠페인을 연결할 광고주 신청을 선택하세요. 연결 시 캠페인 번호가 신청 기준으로 재발급됩니다.</div>'
+        + apps.map(function(a){
+            return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer">'
+              + '<input type="radio" name="linkAppChoice" value="' + esc(a.id) + '">'
+              + '<span style="flex:1;font-size:13px;color:var(--ink)">' + esc(a.application_no || '신청') + ' <span style="font-size:11px;color:var(--muted)">· ' + esc(brandOpsFormTypeLabel(a.form_type)) + ' · ' + esc(a.status||'') + '</span></span>'
+              + '</label>';
+          }).join('');
+    }
+  }
+  openModal('linkCampaignModal');
+}
+
+function closeLinkCampaignModal() { closeModal('linkCampaignModal'); _linkCampaignId = null; }
+
+async function saveLinkCampaign() {
+  if (!_linkCampaignId) { toast('연결할 캠페인이 없습니다'); return; }
+  var sel = document.querySelector('input[name="linkAppChoice"]:checked');
+  if (!sel) { toast('연결할 신청을 선택하세요'); return; }
+  var appId = sel.value;
+  var btn = $('linkCampaignSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '연결 중…'; }
+  var res = await linkCampaignToApplication(_linkCampaignId, appId);
+  if (btn) { btn.disabled = false; btn.textContent = '연결'; }
+  if (!res.ok) { toast('연결 실패: ' + friendlyError({ message: res.error })); return; }
+  if (res.data && res.data.unchanged) toast('이미 해당 신청에 연결돼 있습니다');
+  else toast('연결 완료 · 번호 ' + (res.data ? res.data.new_no : '재발급'));
+  closeLinkCampaignModal();
+  await loadBrandOpsDetail();
+}
+
+async function confirmUnlinkCampaign(campaignId) {
+  var ok = await showConfirm('이 캠페인의 신청 연결을 해제할까요? 캠페인 번호가 직접 등록 기준으로 재발급됩니다.');
+  if (!ok) return;
+  var res = await unlinkCampaignFromApplication(campaignId);
+  if (!res.ok) { toast('해제 실패: ' + friendlyError({ message: res.error })); return; }
+  if (res.data && res.data.unchanged) toast('이미 직접 등록 상태입니다');
+  else toast('연결 해제 · 번호 ' + (res.data ? res.data.new_no : '재발급'));
+  await loadBrandOpsDetail();
 }
