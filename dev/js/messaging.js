@@ -15,12 +15,21 @@ let _msgSending = false;
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
 let _msgLastCount = 0;       // 현재 표시 중인 메시지 수 (도착 감지 기준)
 
-// FAQ (자동응답) 상태 — 메시지 0건 모달에서만 노출 (PR B)
+// FAQ (자동응답·문의 게이트) 상태 (PR B-rev)
 let _faqNodes = [];          // active=true 노드 (이번 모달 캐시)
 let _faqStage = null;        // 현재 응모건 단계 태그 (relevant_stages 매칭용)
 let _faqCtx = {};            // 동적 치환 컨텍스트 ({required, current})
 let _faqApp = null;          // 현재 응모건
 let _faqCamp = null;         // 현재 캠페인
+let _faqLoaded = false;      // 이번 모달에서 노드 로드 완료 여부
+let _faqOpenedAny = false;   // 이번 모달에서 답변 카드를 한 번이라도 열어봤는지 (게이트 1회 확인 판정)
+let _faqSuggestTimer = null; // 실시간 제안 디바운스 타이머
+let _faqOverlayOpen = false; // 「よくある質問」 전체 보기 오버레이 열림 여부
+
+// 게이트 동작 상수 (매직넘버 회피)
+const FAQ_SUGGEST_MAX = 4;            // 입력란 위 실시간 제안 최대 카드 수
+const FAQ_SUGGEST_DEBOUNCE_MS = 350;  // 입력 중 제안 갱신 디바운스(ms)
+const FAQ_KEYWORD_MIN_LEN = 2;        // 입력어 매칭 시 무시할 최소 토큰 길이
 
 // 모달 열린 동안 30초마다 새 메시지 도착만 가볍게 확인 — 자동 표시 없이 안내 띠만
 function _startMsgPoll() {
@@ -63,6 +72,9 @@ async function openMessageModal(applicationId) {
   if (!applicationId) return;
   _msgCurrentAppId = applicationId;
   _msgPendingFiles = [];
+  _faqLoaded = false;
+  _faqOpenedAny = false;
+  _faqOverlayOpen = false;
   const m = $('msgModal');
   if (!m) return;
 
@@ -85,13 +97,17 @@ async function openMessageModal(applicationId) {
   // 개인화 상태 한 줄 — 0건/1건+ 모두 상단 표시 (§3)
   renderAppStatusLine(app, camp);
 
+  // 문의 게이트 셋업 (PR B-rev) — 입력란 옆 「よくある質問」 버튼·제안 영역 항상 노출.
+  //   FAQ 트리는 0건/1건+ 무관하게 입력으로 동작하는 게이트로 전환(0건 한정 트리 메뉴 폐기).
+  await setupFaqGate(app, camp);
+
   try {
     const msgs = await fetchApplicationMessages(applicationId);
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0;
     _toggleMsgNewBanner(false);
-    // 메시지 0건 → FAQ 트리 노출 / 1건+ → 스레드만 (§5 흐름)
-    await toggleFaqTree((msgs?.length || 0) === 0, app, camp);
+    // 스레드는 항상 표시(0건이면 안내 문구). 게이트 오버레이는 닫힌 상태로 시작.
+    closeFaqOverlay();
     // 열람 시 본인 미열람 읽음 처리 후 응모이력 배지 갱신
     await markApplicationMessagesRead(applicationId);
     // 같은 응모건의 message_received 알림도 읽음 처리 (햄버거 알림 배지 잔존 방지)
@@ -111,13 +127,17 @@ function closeMessageModal() {
   document.body.style.overflow = '';
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
+  if (_faqSuggestTimer) { clearTimeout(_faqSuggestTimer); _faqSuggestTimer = null; }
   _msgCurrentAppId = null;
   _msgPendingFiles = [];
-  // FAQ 상태 정리
+  // 게이트·상태 영역 정리
   const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
-  const ft = $('msgFaqTree'); if (ft) { ft.style.display = 'none'; ft.innerHTML = ''; }
+  const sg = $('msgFaqSuggest'); if (sg) { sg.style.display = 'none'; sg.innerHTML = ''; }
+  const ov = $('msgFaqTree'); if (ov) { ov.style.display = 'none'; ov.innerHTML = ''; }
+  const gate = $('msgFaqGate'); if (gate) gate.style.display = 'none';
   const thread = $('msgModalThread'); if (thread) thread.style.display = '';
   _faqNodes = []; _faqStage = null; _faqCtx = {}; _faqApp = null; _faqCamp = null;
+  _faqLoaded = false; _faqOpenedAny = false; _faqOverlayOpen = false;
 }
 
 // 메시지 스레드 렌더 (게시판형 — 위→아래 누적 카드)
@@ -281,6 +301,14 @@ async function sendMessageFromModal() {
   const body = (inputEl?.value || '').trim();
   if (!body && !_msgPendingFiles.length) { toast(t('messaging.emptyInput')); return; }
 
+  // ── 문의 게이트 1회 확인 (PR B-rev §2 결정 1) ──
+  //   아직 어떤 FAQ 답변도 안 열어봤고(_faqOpenedAny=false) + 유사 후보가 있으면
+  //   딱 1회만 확인 시트 노출. 이미 봤거나 후보 없으면 바로 전송.
+  if (!_faqOpenedAny) {
+    const cands = _faqFindCandidates(body);
+    if (cands.length) { openFaqGateSheet(cands); return; }
+  }
+
   _msgSending = true;
   const sendBtn = $('msgModalSendBtn');
   if (sendBtn) sendBtn.disabled = true;
@@ -308,8 +336,9 @@ async function sendMessageFromModal() {
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0; // 내가 보낸 메시지로 「새 메시지 도착」 띠가 오인 표시되지 않도록
     _toggleMsgNewBanner(false);
-    // 메시지가 생겼으니 FAQ 트리는 닫고 스레드만 (§5)
-    await toggleFaqTree(false, _faqApp, _faqCamp);
+    // 게이트 오버레이·제안은 닫고 스레드만 (대화가 시작됨)
+    closeFaqOverlay();
+    _faqHideSuggest();
   } catch (e) {
     console.error('[sendMessageFromModal]', e);
     // 의도된 RPC 예외(RAISE EXCEPTION = SQLSTATE P0001, 일본어 안내문)만 그대로 노출.
@@ -458,31 +487,186 @@ function renderFaqBody(text, ctx) {
   return html.replace(/\n/g, '<br>');
 }
 
-// FAQ 트리 노출/숨김 토글 — show=true(메시지 0건)면 트리 로드 + 스레드 숨김
-async function toggleFaqTree(show, app, camp) {
-  const tree = $('msgFaqTree');
-  const thread = $('msgModalThread');
-  if (!tree) return;
-  if (!show) {
-    tree.style.display = 'none';
-    tree.innerHTML = '';
-    if (thread) thread.style.display = '';
-    return;
-  }
-  // 메시지 0건 — 스레드 영역 숨기고 FAQ 트리 표시
-  if (thread) thread.style.display = 'none';
-  tree.style.display = '';
+// ── 문의 게이트 셋업 (PR B-rev) ──
+//   모달 열릴 때 1회: 노드 로드 + 입력 영역 옆 「よくある質問」 버튼·제안 영역 준비.
+//   메시지 건수와 무관하게 입력 게이트로 동작(0건 한정 트리 메뉴 폐기).
+async function setupFaqGate(app, camp) {
   _faqApp = app; _faqCamp = camp;
   _faqCtx = _buildFaqCtx(camp);
-  tree.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
+  _faqHideSuggest();
+  const gate = $('msgFaqGate');
+  if (gate) gate.style.display = '';
+  // 노드 1회 로드 (active=true 만)
   try {
     const all = await fetchFaqNodes();
-    _faqNodes = (all || []).filter(n => n.active);  // 인플 화면은 active=true 만
+    _faqNodes = (all || []).filter(n => n.active);
+    _faqLoaded = true;
   } catch (e) {
-    console.error('[toggleFaqTree]', e);
+    console.error('[setupFaqGate]', e);
     _faqNodes = [];
+    _faqLoaded = true;
   }
-  renderFaqCategories();
+  // 진입 시 입력어 없이 단계 기반 제안 1차 노출
+  _faqRenderSuggest(_faqFindCandidates(''));
+}
+
+// 입력 textarea 변경 → 디바운스 후 제안 갱신 (HTML oninput 에서 호출)
+function onMsgInputChanged() {
+  if (_faqOverlayOpen) return;  // 전체 보기 중에는 제안 갱신 보류
+  if (_faqSuggestTimer) clearTimeout(_faqSuggestTimer);
+  _faqSuggestTimer = setTimeout(() => {
+    const inputEl = $('msgModalInput');
+    const txt = (inputEl?.value || '').trim();
+    _faqRenderSuggest(_faqFindCandidates(txt));
+  }, FAQ_SUGGEST_DEBOUNCE_MS);
+}
+
+// 유사 후보 선별 (§2 결정 2) — 단계 일치로 후보를 깔고, 입력어가 질문 제목에 포함되면 가중치 상향
+//   입력 비어도 단계 기반으로 항상 결과. 답변 노드(handoff 아닌 item, body 보유)만 후보.
+function _faqFindCandidates(inputText) {
+  if (!_faqLoaded || !_faqNodes.length) return [];
+  const items = _faqNodes.filter(n =>
+    n.kind === 'item' && !n.is_human_handoff && (n.body_ja || n.body_ko)
+  );
+  // 입력어 토큰 (공백 분리 + 짧은 토큰 제거)
+  const tokens = String(inputText || '')
+    .toLowerCase()
+    .split(/[\s、。,.!?！？]+/)
+    .map(s => s.trim())
+    .filter(s => s.length >= FAQ_KEYWORD_MIN_LEN);
+
+  const scored = items.map(node => {
+    let score = 0;
+    // 단계 일치 가중치 (relevant_stages 에 현재 단계 포함)
+    if (_faqStage) {
+      const stages = Array.isArray(node.relevant_stages) ? node.relevant_stages : [];
+      if (stages.includes(_faqStage)) score += 3;
+    }
+    // 입력어가 질문 제목(양국어)에 포함되면 가중치 상향
+    if (tokens.length) {
+      const label = `${node.label_ja || ''} ${node.label_ko || ''}`.toLowerCase();
+      for (const tok of tokens) { if (label.includes(tok)) score += 2; }
+    }
+    return { node, score, sort: node.sort_order || 0 };
+  });
+
+  // 입력어가 있으면 매칭(score 일부)만, 없으면 단계 후보 + 일반 순. 점수 내림차순 → sort_order
+  const hasInput = tokens.length > 0;
+  let pool = scored;
+  if (hasInput) {
+    const matched = scored.filter(s => s.score > 0);
+    pool = matched.length ? matched : scored;  // 매칭 0건이면 단계 기반 폴백
+  }
+  pool.sort((a, b) => (b.score - a.score) || (a.sort - b.sort));
+  return pool.slice(0, FAQ_SUGGEST_MAX).map(s => s.node);
+}
+
+// 입력란 위 실시간 제안 카드 렌더 (§2 결정 1·4)
+function _faqRenderSuggest(cands) {
+  const box = $('msgFaqSuggest');
+  if (!box) return;
+  if (!cands || !cands.length) { _faqHideSuggest(); return; }
+  const cards = cands.map(n =>
+    `<button type="button" class="msg-faq-suggest-item" onclick="openFaqItemById('${esc(n.id)}')">
+      <span class="material-icons-round notranslate" translate="no">help_outline</span>
+      <span class="msg-faq-suggest-q">${esc(_faqPick(n, 'label'))}</span>
+      <span class="material-icons-round notranslate msg-faq-suggest-chev" translate="no">chevron_right</span>
+    </button>`
+  ).join('');
+  box.innerHTML = `<div class="msg-faq-suggest-head">${esc(t('messaging.faq.suggestHead'))}</div>${cards}`;
+  box.style.display = '';
+}
+
+function _faqHideSuggest() {
+  const box = $('msgFaqSuggest');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+
+// 제안 카드 클릭 → 전체 보기 오버레이를 열고 그 답변을 바로 표시
+function openFaqItemById(itemId) {
+  if (!_faqOverlayOpen) openFaqOverlay(/*skipRender*/ true);
+  openFaqItem(itemId);
+}
+
+// ── 「よくある質問」 전체 보기 오버레이 (대화 중 상시 진입, §2 결정 4) ──
+function openFaqOverlay(skipRender) {
+  const ov = $('msgFaqTree');
+  if (!ov) return;
+  _faqOverlayOpen = true;
+  ov.style.display = '';
+  if (!skipRender) renderFaqCategories();
+}
+
+function closeFaqOverlay() {
+  const ov = $('msgFaqTree');
+  if (ov) { ov.style.display = 'none'; ov.innerHTML = ''; }
+  _faqOverlayOpen = false;
+}
+
+// HTML 「よくある質問」 버튼 onclick — 토글
+function toggleFaqOverlay() {
+  if (_faqOverlayOpen) { closeFaqOverlay(); return; }
+  if (!_faqLoaded) return;
+  openFaqOverlay(false);
+}
+
+// ── 보내기 게이트 확인 시트 (§2 결정 1) ──
+//   "이 안내로 해결되나요?" — [解決しました](resolved·전송 취소) / [それでもお問い合わせ](handoff·전송 진행)
+function openFaqGateSheet(cands) {
+  const sheet = $('msgFaqGateSheet');
+  if (!sheet) { _faqProceedSend(); return; }  // 시트 없으면 게이트 무시하고 전송
+  const cards = (cands || []).map(n =>
+    `<button type="button" class="msg-faq-suggest-item" onclick="faqGateOpenAnswer('${esc(n.id)}')">
+      <span class="material-icons-round notranslate" translate="no">help_outline</span>
+      <span class="msg-faq-suggest-q">${esc(_faqPick(n, 'label'))}</span>
+      <span class="material-icons-round notranslate msg-faq-suggest-chev" translate="no">chevron_right</span>
+    </button>`
+  ).join('');
+  sheet.innerHTML = `
+    <div class="msg-faq-sheet-backdrop" onclick="closeFaqGateSheet()"></div>
+    <div class="msg-faq-sheet-panel" role="dialog" aria-modal="true">
+      <div class="msg-faq-sheet-title">${esc(t('messaging.faq.gateTitle'))}</div>
+      <div class="msg-faq-sheet-cards">${cards}</div>
+      <div class="msg-faq-sheet-actions">
+        <button type="button" class="msg-faq-resolved-btn" onclick="faqGateResolved()">${esc(t('messaging.faq.gateResolvedBtn'))}</button>
+        <button type="button" class="msg-faq-contact-link" onclick="faqGateProceed()">${esc(t('messaging.faq.gateProceedBtn'))}</button>
+      </div>
+    </div>
+  `;
+  sheet.style.display = '';
+}
+
+function closeFaqGateSheet() {
+  const sheet = $('msgFaqGateSheet');
+  if (sheet) { sheet.style.display = 'none'; sheet.innerHTML = ''; }
+}
+
+// 확인 시트에서 후보 답변 열기 → 시트 닫고 전체 보기 오버레이로 답변 표시 (= viewed 기록·_faqOpenedAny)
+function faqGateOpenAnswer(itemId) {
+  closeFaqGateSheet();
+  openFaqItemById(itemId);
+}
+
+// [解決しました] — resolved 기록 + 전송 취소
+async function faqGateResolved() {
+  closeFaqGateSheet();
+  await recordFaqInteraction(_msgCurrentAppId, null, 'resolved');
+  toast(t('messaging.faq.resolvedToast'));
+  closeMessageModal();
+}
+
+// [それでもお問い合わせ] — handoff 기록 + 전송 진행 (게이트 통과 표시)
+async function faqGateProceed() {
+  closeFaqGateSheet();
+  await recordFaqInteraction(_msgCurrentAppId, null, 'handoff');
+  _faqOpenedAny = true;  // 게이트 통과 — 다시 확인하지 않음
+  _faqProceedSend();
+}
+
+// 게이트 통과 후 실제 전송 재호출
+function _faqProceedSend() {
+  _faqOpenedAny = true;
+  sendMessageFromModal();
 }
 
 // 단계 일치 우선 정렬 (§3 맞춤 노출) — relevant_stages 에 현재 단계가 있으면 위로
@@ -512,11 +696,22 @@ function renderFaqCategories() {
     `<button type="button" class="msg-faq-chip" onclick="openFaqCategory('${esc(c.id)}')">${esc(_faqPick(c, 'label'))}</button>`
   ).join('');
   tree.innerHTML = `
+    ${_faqOverlayHeaderHtml(t('messaging.faq.allTitle'))}
     <div class="msg-faq-intro">${esc(t('messaging.faq.intro'))}</div>
     <div class="msg-faq-chips">${chips}</div>
     <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
   `;
   tree.scrollTop = 0;
+}
+
+// 전체 보기 오버레이 상단 헤더(제목 + 닫기) — 카테고리 1단에서만 닫기 노출
+function _faqOverlayHeaderHtml(title) {
+  return `<div class="msg-faq-overlay-head">
+    <span class="msg-faq-overlay-title">${esc(title || '')}</span>
+    <button type="button" class="msg-faq-overlay-close" onclick="closeFaqOverlay()" aria-label="close">
+      <span class="material-icons-round notranslate" translate="no">close</span>
+    </button>
+  </div>`;
 }
 
 // 카테고리 선택 → 질문 목록 (2단)
@@ -566,8 +761,9 @@ function openFaqItem(itemId) {
     return;
   }
 
-  // 답변 카드 — 'viewed' 기록(서버 멱등)
+  // 답변 카드 — 'viewed' 기록(서버 멱등) + 게이트 통과 표시(답변을 봤으므로 보내기 시 재확인 안 함)
   recordFaqInteraction(_msgCurrentAppId, itemId, 'viewed');
+  _faqOpenedAny = true;
 
   const bodyHtml = renderFaqBody(_faqPick(node, 'body'), _faqCtx);
   // 화면 이동 버튼 (action_type='navigate' + action_target)
@@ -605,17 +801,11 @@ async function faqMarkResolved(itemId) {
   closeMessageModal();
 }
 
-// [直接お問い合わせ] → FAQ 트리 닫고 입력 모드 노출 + 'handoff' 기록
+// [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록 (게이트 통과 표시)
 async function faqStartDirectContact(itemId) {
   await recordFaqInteraction(_msgCurrentAppId, itemId || null, 'handoff');
-  // FAQ 트리 숨기고 빈 스레드 + 입력란 노출 (메시지 0건 상태 유지)
-  const tree = $('msgFaqTree');
-  const thread = $('msgModalThread');
-  if (tree) { tree.style.display = 'none'; tree.innerHTML = ''; }
-  if (thread) {
-    thread.style.display = '';
-    thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
-  }
+  _faqOpenedAny = true;  // 직접 문의 의사 표명 — 보내기 시 게이트 재확인 안 함
+  closeFaqOverlay();
   const inputEl = $('msgModalInput');
   if (inputEl) { try { inputEl.focus(); } catch (_e) {} }
 }
