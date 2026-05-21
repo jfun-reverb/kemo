@@ -2230,6 +2230,9 @@ const PANE_REFRESHERS = {
   },
   'messages': async () => {
     if (typeof refreshInboxData === 'function') await refreshInboxData();
+  },
+  'companies': async () => {
+    if (typeof loadCompanies === 'function') await loadCompanies();
   }
 };
 async function refreshPane(paneId) {
@@ -5166,6 +5169,151 @@ async function insertBrand(payload) {
     return {ok: true, data: result};
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
+// ── companies 마스터 (migration 118) ────────────────────────
+
+// 회사 목록 조회 (status 필터 + name_ko/name_ja/business_no 검색)
+// 1000행 캡 대응 pagination loop 포함
+async function fetchCompanies({ status = 'active', search } = {}) {
+  if (!db) return [];
+  try {
+    var q = db?.from('companies')
+      .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+    // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
+    if (status && status !== 'all') q = q.eq('status', status);
+    // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
+    if (search && search.trim()) {
+      const s = search.trim();
+      q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
+    }
+    var pageSize = 1000, from = 0, out = [];
+    while (true) {
+      const {data, error} = await q.range(from, from + pageSize - 1).order('name_ko', {ascending: true});
+      if (error) throw error;
+      const rows = data || [];
+      out = out.concat(rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  } catch(e) { console.error('[fetchCompanies]', e); return []; }
+}
+
+// 회사 생성(id 없음) / 수정(id 있음) 통합
+// name_normalized 는 DB 트리거가 자동 계산 (name_ko 저장만 하면 됨)
+async function upsertCompany(payload) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      if (payload.id) {
+        // 수정: id 를 조건으로 UPDATE
+        const {id, ...patch} = payload;
+        const {data, error} = await db?.from('companies').update(patch).eq('id', id).select('*').maybeSingle();
+        if (error) throw error;
+        return data;
+      } else {
+        // 신규 생성
+        const {data, error} = await db?.from('companies').insert(payload).select('*').maybeSingle();
+        if (error) throw error;
+        return data;
+      }
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[upsertCompany]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 브랜드 일괄 회사 할당
+// companyId = null 이면 brands.company_id = NULL (미분류로 복귀)
+// brandIds = [] 이면 아무 행도 건드리지 않음
+async function assignBrandsToCompany(companyId, brandIds) {
+  if (!db) return {ok:false, error:'no_db'};
+  if (!brandIds || brandIds.length === 0) return {ok: true, data: []};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brands')
+        .update({company_id: companyId || null})
+        .in('id', brandIds)
+        .select('id, name, company_id');
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[assignBrandsToCompany]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 회사 보관(archived) / 복원(active) 전환
+async function archiveCompany(companyId, archive) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('companies')
+        .update({status: archive ? 'archived' : 'active'})
+        .eq('id', companyId)
+        .select('id, status')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[archiveCompany]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 회사 완전 삭제 — 소속 브랜드가 0건일 때만 허용
+// 소속 브랜드가 있으면 에러 throw (화면에서 friendlyError 로 안내)
+async function deleteCompanyHard(companyId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      // 1) 소속 브랜드 수 확인
+      const {count, error: cntErr} = await db?.from('brands')
+        .select('id', {count: 'exact', head: true})
+        .eq('company_id', companyId);
+      if (cntErr) throw cntErr;
+      if (count > 0) {
+        const err = new Error('소속 브랜드가 있어 삭제할 수 없습니다. 브랜드를 다른 회사로 이동하거나 미분류로 해제한 뒤 다시 시도하세요.');
+        err.code = 'HAS_BRANDS';
+        throw err;
+      }
+      // 2) 삭제 실행
+      const {error: delErr} = await db?.from('companies').delete().eq('id', companyId);
+      if (delErr) throw delErr;
+      return true;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[deleteCompanyHard]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
+}
+
+// 브랜드 할당 모달용 조회
+// unassignedOnly=true → company_id IS NULL 인 미분류 브랜드만
+// companyId 지정 시 → 현재 소속(= companyId) + 미분류 양쪽 모두 반환
+// search → name 부분일치
+// 1000행 캡 대응 pagination loop 포함
+async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search } = {}) {
+  if (!db) return [];
+  try {
+    var q = db?.from('brands')
+      .select('id, name, company_id, brand_seq');
+    if (companyId) {
+      // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
+      q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+    } else if (unassignedOnly) {
+      q = q.is('company_id', null);
+    }
+    if (search && search.trim()) {
+      q = q.ilike('name', `%${search.trim()}%`);
+    }
+    var pageSize = 1000, from = 0, out = [];
+    while (true) {
+      const {data, error} = await q.range(from, from + pageSize - 1).order('name', {ascending: true});
+      if (error) throw error;
+      const rows = data || [];
+      out = out.concat(rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
+}
+
 async function fetchBrandApplicationsByBrand(brandId) {
   if (!db || !brandId) return [];
   try {

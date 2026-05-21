@@ -395,6 +395,9 @@ const PANE_REFRESHERS = {
   },
   'messages': async () => {
     if (typeof refreshInboxData === 'function') await refreshInboxData();
+  },
+  'companies': async () => {
+    if (typeof loadCompanies === 'function') await loadCompanies();
   }
 };
 async function refreshPane(paneId) {

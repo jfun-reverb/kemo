@@ -195,6 +195,7 @@ function switchAdminPane(pane, el, pushHistory) {
     'deliverables': loadDeliverables,
     'brand-applications': loadBrandApplications,
     'brand-dashboard': loadBrandDashboard,
+    'companies': loadCompanies,
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox
