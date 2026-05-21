@@ -9169,9 +9169,9 @@ function renderNavMenu() {
       <span class="nav-label">${esc(t('tab.mypage'))}</span>
       <span class="material-icons-round notranslate nav-accordion-arrow" translate="no" id="navMypageArrow">${_navMypageOpen ? 'expand_less' : 'expand_more'}</span>
     </button>`;
-    // 未登録 배지 계산 (mypage.js computeProfileBadges 공용).
-    // 관리자 계정은 인플루언서 프로필이 비어 전 항목 미등록으로 떠 노이즈가 되므로 배지 생략.
-    const b = (!isAdmin && typeof computeProfileBadges === 'function')
+    // 未登録 배지 계산 (mypage.js computeProfileBadges 공용). 마이페이지 랜딩 화면과 동일하게
+    // 모든 계정에서 미입력 항목에 배지 표시 (관리자도 인플루언서로 활동 시 입력 필요).
+    const b = (typeof computeProfileBadges === 'function')
       ? computeProfileBadges(typeof currentUserProfile !== 'undefined' ? currentUserProfile : {})
       : {hasName:true, hasSns:true, hasAddress:true, hasPaypal:true};
     const subs = [
