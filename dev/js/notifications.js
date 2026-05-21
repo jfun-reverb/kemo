@@ -76,14 +76,8 @@ function renderNavMenu() {
     `).join('');
     html += `</div>`;
     html += divider;
-    // 메시지 — 응모이력으로 이동 (응모건 카드 메시지 버튼에서 대화 진입). 미읽음 배지 별도
-    html += `<button class="nav-item" data-nav="messages" onclick="navigate('mypage');openMypageSub('applications');closeNavPanel()">
-      <span class="material-icons-round notranslate nav-icon" translate="no">forum</span>
-      <span class="nav-label">${esc(t('messaging.navMenu'))}</span>
-      <span class="notif-badge hidden" data-role="nav-msg-badge"></span>
-    </button>`;
-    // 알림은 계정 카드 우측 아이콘으로 이전 (navAccountCardHtml). 하단 메뉴 항목 제거
-    html += divider;
+    // 메시지 메뉴 항목 제거: 응모이력과 목적지 중복(응모건 카드 메시지 버튼으로 진입), 답장은 알림(message_received)으로 확인.
+    // 알림도 계정 카드 우측 벨로 이전됨. 아코디언 뒤 divider 가 로그아웃 구분선 역할.
     html += navItemHtml({nav:'logout', icon:'logout', label: t('mypage.menu.logout'), onclick:"closeNavPanel();handleLogout()"});
     // 회원 탈퇴 — 마이페이지 랜딩에서 이전한 부차적 링크 (확인 후 LINE 안내)
     html += `<button class="nav-withdraw" onclick="closeNavPanel();handleWithdraw()">${esc(t('mypage.withdraw'))}</button>`;
