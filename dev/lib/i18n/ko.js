@@ -549,6 +549,8 @@ window.I18N_KO = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name} 관련 문의',
+    refresh: '최신 메시지로 새로고침',
+    newArrived: '새 메시지가 도착했습니다 (탭하여 새로고침)',
     loading: '불러오는 중...',
     loadError: '메시지를 불러오지 못했습니다',
     emptyThread: '아직 메시지가 없습니다. 아래 입력란에서 문의할 수 있습니다.',

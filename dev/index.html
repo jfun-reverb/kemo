@@ -252,9 +252,16 @@ window._supabaseLoaded = false;
   <div class="msg-modal-body">
     <div class="msg-modal-header">
       <div id="msgModalTitle" class="msg-modal-title"></div>
+      <button class="msg-refresh-btn" onclick="refreshMessageModal()" data-i18n-attr="title:messaging.refresh,aria-label:messaging.refresh" title="更新" aria-label="最新のメッセージに更新">
+        <span class="material-icons-round notranslate" translate="no">refresh</span>
+      </button>
       <button class="msg-close-btn" onclick="closeMessageModal()" aria-label="Close">
         <span class="material-icons-round notranslate" translate="no">close</span>
       </button>
+    </div>
+    <div id="msgNewBanner" class="msg-new-banner" style="display:none" onclick="refreshMessageModal()">
+      <span class="material-icons-round notranslate" translate="no">arrow_downward</span>
+      <span data-i18n="messaging.newArrived">新しいメッセージが届きました（タップで更新）</span>
     </div>
     <div id="msgModalThread" class="msg-modal-thread"></div>
     <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>

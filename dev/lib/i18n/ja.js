@@ -569,6 +569,8 @@ window.I18N_JA = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name}に関するお問い合わせ',
+    refresh: '最新のメッセージに更新',
+    newArrived: '新しいメッセージが届きました（タップで更新）',
     loading: '読み込み中...',
     loadError: 'メッセージの読み込みに失敗しました',
     emptyThread: 'まだメッセージはありません。下の入力欄からお問い合わせできます。',
