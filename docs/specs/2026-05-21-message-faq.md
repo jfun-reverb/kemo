@@ -500,4 +500,21 @@
 - **`{required}`/`{current}` 플레이스홀더**: Q1-1-c 본문에 그대로 시드(PR B에서 동적 치환). `ON CONFLICT DO NOTHING`이라 운영자 수정분도 보호
 - storage 함수 8종(`dev/lib/storage.js`) + 관리자 페인(`dev/js/admin.js` `loadFaqPane` 외, +366줄) + `PANE_REFRESHERS('faq')` + `dev/css/admin.css`
 
-### PR B / B2 / C — (미착수)
+### PR B (인플루언서 화면) — 2026-05-21
+
+**구현일:** 2026-05-21
+**파일:** `dev/js/messaging.js`(+375줄, 304→679), `dev/index.html`, `dev/lib/i18n/{ja,ko}.js`, `dev/css/mypage.css`. **DB 변경 없음**(PR A의 `fetchFaqNodes`·`recordFaqInteraction` 재사용)
+
+#### 구현된 것
+- **개인화 상태 한 줄** `_computeFaqStatus(app, camp)` — §3-0 판정 순서 그대로(취소→비선정→심사중→승인 시 결과물 우선[전부승인=완료/일부반려/전부반려/검수중]→결과물 없으면 일정[당첨/영수증/방문/제출기한]→폴백). 결과물은 `_myDelivsByApp`, 일정은 `_computeCancelPhase` 패턴 재사용. `renderAppStatusLine`이 i18n 문구 + 화면 바로가기 버튼 렌더
+- **사유 표시(§3-4 ②)** — 반려 케이스에 `deliverables.reject_reason`을 `getLookupLabel('reject_reason', code, lang)` 변환(없으면 자유텍스트) + `esc()`
+- **FAQ 트리** — `openMessageModal` 분기(메시지 0건=상태 한 줄+FAQ 트리 / 1건+=상태 한 줄+스레드). `fetchFaqNodes`→active만→트리, `relevant_stages` 일치 노드 위로 정렬, 카테고리→질문→답변, Q1-1 분기 노드 하위 펼침. 답변 진입=`viewed`, [解決しました]=`resolved`, [直接お問い合わせ]·handoff 노드=`handoff` 기록
+- **동적 치환(§5-1)** `renderFaqBody(text, ctx)` — 화이트리스트 `{required}`(min_followers)/`{current}`(대표 SNS 팔로워)만, 값 없으면 그 토큰 줄 통째 생략, 치환값 `esc()`
+- 화면이동: `#activity`→`openActivityPage(app.id, campId)`, `#mypage-*`→`navigate('mypage')`+`openMypageSub(sub)`. 언어 `getLang()` ja 기본
+
+#### 검증
+- reviewer GO (§3-0 판정·§5-1 치환·반려 사유 esc 정합 확인. Warning 1건=backFn onclick 보간은 parentCatId가 UUID+esc라 실질 안전). qa-tester: Light(상태 한 줄·FAQ 트리 탐색)
+
+### PR B2 / C — (미착수)
+- PR B2: 관리자 메시지 화면 응모건 상태 한 줄(§3-1) + 결과물 상태 집계
+- PR C: 관리자 FAQ 열람 이력 패널(§3-2)
