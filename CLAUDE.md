@@ -143,6 +143,7 @@
 
 ### 브랜드 서베이 (광고주 신청 관리)
 - **현황 대시보드**(`/admin#brand-dashboard`): KPI 8개 + 견적 합계(예상·확정) + **전환 깔때기 10단계** + 폼·상태 도넛 2개 + 일별 추이 바차트(7/30/90일) + 최근 신청 5건 + 장기 대기(new 3일+) + Vercel Web Analytics 외부 링크
+- **회사 관리 페인**(`/admin#companies`): 회사(`companies`) 마스터 CRUD + 브랜드 일괄 할당. 사이드바 「현황 대시보드」 다음·「브랜드 관리」 앞. 회사 1개 = 브랜드 N개 (4단 계층 회사>브랜드>신청>캠페인). 목록 컬럼(회사명 한·일·소속 브랜드 수·담당자·상태·작업) + 상태 필터(active 기본) + 검색(회사명 한·일·사업자번호). 추가/수정 모달 12필드(`name_ko` 필수), 브랜드 할당 모달(현재 소속+미분류 다중 체크박스 일괄 할당, 미분류 인디케이터 클릭 진입 가능), 보관/복귀 토글, 소속 0건 시 완전 삭제. SELECT 모든 관리자(campaign_manager 는 행 클릭 시 읽기 전용 모달)·CUD `is_campaign_admin()` 이상(클라이언트 버튼 비활성+안내 가드). 기존 「브랜드 관리」(`admin-brand.js`)의 자유텍스트 `company_name` 과는 분리 유지(별개 정규화 엔티티). 로직 `dev/js/admin-company.js`, 데이터 함수 `storage.js`(fetchCompanies/upsertCompany/assignBrandsToCompany/archiveCompany/deleteCompanyHard/fetchBrandsForAssign). 마이그레이션 118~121. 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md` PR 2
 - **신청 관리**(`/admin#brand-applications`, **UI 라벨: "브랜드 서베이"**): 내부 용어·DB(`brand_applications`)·라우트·함수명은 `광고주 신청` 그대로. 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근(`is_admin()`)
 - **리스트**: 필터(폼타입/상태/기간/검색) + pending(new) 배지 + 상세 모달(제품 테이블·견적·견적서 URL·OT 시트 URL·입금 날짜 `paid_at` 인라인 편집·제품별 multi-entry 메모·낙관적 락 version)
 - **상태 전이 10단계**: `new → reviewing → quoted → paid → kakao_room_created → orient_sheet_sent → schedule_sent → campaign_registered → done` / `rejected`. "되돌리기"(any → new). 깔때기·드롭다운·통계 표시 순서는 실제 영업 워크플로에 맞게 정렬. `kakao_room_created`(카톡방 생성)는 입금 확인 후 카카오 단톡방 개설 가시화

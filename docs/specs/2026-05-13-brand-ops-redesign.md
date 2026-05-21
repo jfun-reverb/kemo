@@ -784,3 +784,38 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 - [ ] 121 적용 직후 `SELECT proname FROM pg_proc WHERE proname IN ('_accumulate_legacy_no','link_campaign_to_application','unlink_campaign_from_application')` 3행 확인
 - [ ] 권한 확인: `has_function_privilege('authenticated', 'public.link_campaign_to_application(uuid,uuid)', 'EXECUTE')` true
 - [ ] PR 2 (회사 관리 페인) 작업 시작은 운영 배포 완료 이후
+
+---
+
+## 16. 구현 결과 — PR 2 (회사 관리 페인)
+
+**구현일:** 2026-05-21 (개발 구현, dev 머지 대기)
+**관련 파일:**
+- 신규 `dev/js/admin-company.js` — 회사 CRUD + 브랜드 일괄 할당 페인 로직
+- `dev/lib/storage.js` — 데이터 함수 6종 (fetchCompanies / upsertCompany / assignBrandsToCompany / archiveCompany / deleteCompanyHard / fetchBrandsForAssign)
+- `dev/admin/index.html` — 사이드바 「회사 관리」 메뉴(브랜드 관리 앞) + `adminPane-companies` 페인 + `companyModal` + `brandAssignModal`
+- `dev/js/admin.js` switchAdminPane loaders `'companies': loadCompanies` 1줄
+- `dev/lib/shared.js` PANE_REFRESHERS `'companies'` 1줄
+- `dev/build.sh` ADMIN_JS_FILES 에 `js/admin-company.js` 등록
+
+### 초안 대비 변경 사항
+
+#### 달라진 것 (사양서/HANDOFF 가정과 실제 코드 차이)
+- **「브랜드 관리」(`brands`) 페인이 이미 구현돼 있었음** — HANDOFF(2026-05-18)는 "브랜드 관리는 라벨만 존재, 미구현"으로 가정했으나, 구현 착수 시점에 `admin-brand.js`에 `loadBrandsPane`/`renderBrandsList`/브랜드 상세 모달이 완성돼 있었음. 그 페인의 "회사명"은 자유 텍스트 `brands.company_name`.
+- **회사 개념 분리 유지로 결정** (사용자 확인) — 이번 PR 2 는 정규화 엔티티 `companies` + `brands.company_id` 만 다루고, 기존 자유텍스트 `company_name` 은 손대지 않음. 두 표기가 한동안 공존. 향후 통합은 별도 결정.
+
+#### 사용자 확인 결정사항 (2026-05-21)
+- 회사 개념: 분리 유지 (기존 브랜드 관리 자유텍스트 회사명 미변경)
+- 사이드바 위치: 현황 대시보드 → 회사 관리 → 브랜드 관리 → 신청 목록
+- 브랜드 할당 조회: 전용 함수 `fetchBrandsForAssign` 신규 (현재 소속 + 미분류 서버측)
+- 권한 표시: campaign_manager 는 CUD 버튼 비활성 + 안내, 행 클릭 시 읽기 전용 모달로 열람만 허용
+
+### 구현 중 기술 결정 사항
+- 신규 마이그레이션 없음 — 데이터베이스(118~121)·트리거·행 단위 보안 정책 모두 PR 1 에서 완료. supabase-expert 점검 결과 `name_normalized`(BEFORE INSERT OR UPDATE OF name_ko) · `total_brands`(AFTER INS/DEL/UPD OF company_id, OLD-1·NEW+1) · RLS(SELECT is_admin / CUD is_campaign_admin) 모두 정상.
+- storage 함수는 throw 대신 `{ok, error, code}` 반환(기존 updateBrand 패턴) → 화면은 `res.ok` 확인. 삭제는 소속 0건 검증 후 `code:'HAS_BRANDS'` 로 화면 안내.
+- admin.js 핫스팟은 loaders 1줄만 수정, 본체는 신규 파일 `admin-company.js` 로 분리.
+
+### 미구현 (후속 PR)
+- PR 3 — 운영 현황 페인 (브랜드 카드 그리드, `get_brand_ops_overview`)
+- PR 4 — 브랜드 상세 페인 + 캠페인↔신청 연결/해제 UI
+  (CLAUDE.md 「운영 현황 페인」·「캠페인 ↔ 신청 연결/해제」 항목은 데이터베이스(RPC)는 존재하나 화면 미구현 상태로 선반영돼 있음)
