@@ -56,14 +56,13 @@
 .apply-msg-btn:hover{background:var(--surface-dim)}
 .apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:8px}
 
-/* ── 응모건 메시지 모달 (게시판형) ── */
-.msg-modal{position:fixed;inset:0;z-index:1200;display:none}
-.msg-modal.on{display:block}
-.msg-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-.msg-modal-body{position:absolute;left:0;right:0;bottom:0;top:0;max-width:480px;margin:0 auto;background:var(--bg,#fff);display:flex;flex-direction:column}
+/* ── 응모건 메시지 페이지 (게시판형, 2026-05-22 모달→페이지 전환) ── */
+/* appShell 내부 .page. 헤더·입력영역 고정 + 스레드만 스크롤. 키보드는 appShell 의
+   visualViewport 패턴이 자동 대응하므로 모달용 키보드 코드(_attachMsgKeyboardFit 등) 제거. */
+#page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
+.msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
 .msg-modal-title{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.msg-close-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
 .msg-refresh-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
 .msg-new-banner{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:var(--pink,#E8629A);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .msg-new-banner .material-icons-round{font-size:16px}

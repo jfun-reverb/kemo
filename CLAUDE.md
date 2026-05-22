@@ -107,7 +107,7 @@
 - **알림 모달**: deliverables.status 트리거로 생성된 rejected/changed/approved 3종. 항목 클릭 시 읽음 처리 + 활동관리로 이동. "모두 읽음" 버튼
 - **활동관리**: 승인된 캠페인에서 결과물 제출. recruit_type 분기 — monitor=영수증(이미지 + 주문번호·구매일·구매금액 3종 필수), gifting/visit=SNS 게시물 URL(자동 채널 판별 + 실패 시 수동 드롭다운). 모두 `deliverables` 직접 INSERT + `submit_deliverable` RPC. 반려된 결과물은 상단 빨간 배너에 사유 표시, 재제출 시 pending 복귀 (동일 URL 은 `post_submissions` 배열에 날짜 누적). `submission_end` 경과 시 폼 비활성
 - **응모이력**: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터. 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
-- **응모건 메시지**(PR 1, 개발 검증 중): 응모이력 카드의 메시지 버튼(미읽음 배지) → 게시판형 풀스크린 모달. 운영팀에 텍스트+이미지(자동 압축/HEIC 변환, 최대 5장) 발송, 25분 내 본인 회수, 숨김·회수 메시지는 가림(placeholder) 표시. 본문/첨부 마스킹은 서버(`get_application_messages` RPC). `dev/js/messaging.js`. 관리자 발신·GNB 메뉴·알림은 PR 2
+- **응모건 메시지**(PR 1, 개발 검증 중): 응모이력 카드의 메시지 버튼(미읽음 배지) → 게시판형 **페이지**(`#page-messages`, 해시 `#messages-{id}`, 2026-05-22 모달→페이지 전환 — 모바일 키보드가 모달을 가리던 문제 해결, `#appShell` 키보드 패턴 상속). 헤더 뒤로가기→응모이력. **취소(cancelled) 응모는 진입 차단**(toast 안내). 운영팀에 텍스트+이미지(자동 압축/HEIC 변환, 최대 5장) 발송, 25분 내 본인 회수, 숨김·회수 메시지는 가림(placeholder) 표시. 본문/첨부 마스킹은 서버(`get_application_messages` RPC). 진입 `openMessagesPage(appId, from)`·이탈 정리 `cleanupMessagesPage()`(navigate 훅). `dev/js/messaging.js`. 관리자 발신·GNB 메뉴·알림은 PR 2
 - **본인 응모 취소**: `cancel_application(uuid, reason_code, reason_note, acknowledged)` RPC — 본인 검증·결과물 승인 차단·구매기간 이후 사유·동의 강제
 - **홈 하단 푸터**: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
 - **성능 최적화**: preconnect(Supabase/Fonts/jsDelivr), 캠페인 카드/마이페이지 썸네일 lazy loading + decoding=async, Supabase Storage 이미지 transform(`/render/image/public/?width=&quality=`)으로 썸네일 용량 축소, 이미지 로드 실패 시 원본 URL 자동 폴백

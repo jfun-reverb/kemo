@@ -583,14 +583,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 .apply-msg-btn:hover{background:var(--surface-dim)}
 .apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:8px}
 
-/* ── 응모건 메시지 모달 (게시판형) ── */
-.msg-modal{position:fixed;inset:0;z-index:1200;display:none}
-.msg-modal.on{display:block}
-.msg-modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-.msg-modal-body{position:absolute;left:0;right:0;bottom:0;top:0;max-width:480px;margin:0 auto;background:var(--bg,#fff);display:flex;flex-direction:column}
+/* ── 응모건 메시지 페이지 (게시판형, 2026-05-22 모달→페이지 전환) ── */
+/* appShell 내부 .page. 헤더·입력영역 고정 + 스레드만 스크롤. 키보드는 appShell 의
+   visualViewport 패턴이 자동 대응하므로 모달용 키보드 코드(_attachMsgKeyboardFit 등) 제거. */
+#page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
+.msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0}
 .msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
 .msg-modal-title{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.msg-close-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
 .msg-refresh-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
 .msg-new-banner{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:var(--pink,#E8629A);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .msg-new-banner .material-icons-round{font-size:16px}
@@ -894,51 +893,48 @@ textarea.form-input{resize:vertical;min-height:80px}
 </div>
 
 <!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
-<div id="msgModal" class="msg-modal" aria-hidden="true">
-  <div class="msg-modal-backdrop" onclick="closeMessageModal()"></div>
-  <div class="msg-modal-body">
-    <div class="msg-modal-header">
-      <div id="msgModalTitle" class="msg-modal-title"></div>
-      <button class="msg-refresh-btn" onclick="refreshMessageModal()" data-i18n-attr="title:messaging.refresh,aria-label:messaging.refresh" title="更新" aria-label="最新のメッセージに更新">
-        <span class="material-icons-round notranslate" translate="no">refresh</span>
-      </button>
-      <button class="msg-close-btn" onclick="closeMessageModal()" aria-label="Close">
-        <span class="material-icons-round notranslate" translate="no">close</span>
-      </button>
-    </div>
-    <div id="msgNewBanner" class="msg-new-banner" style="display:none" onclick="refreshMessageModal()">
-      <span class="material-icons-round notranslate" translate="no">arrow_downward</span>
-      <span data-i18n="messaging.newArrived">新しいメッセージが届きました（タップで更新）</span>
-    </div>
-    <div id="msgStatusLine" class="msg-status-line" style="display:none"></div>
-    <div id="msgModalThread" class="msg-modal-thread"></div>
-    <!-- FAQ 전체 보기 오버레이 (「よくある質問」 버튼으로 토글, 카테고리→질문→답변) -->
-    <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
-    <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
-    <div class="msg-modal-input-area">
-      <!-- 문의 게이트: 실시간 제안 + 「よくある質問」 버튼 (PR B-rev) -->
-      <div id="msgFaqGate" class="msg-faq-gate" style="display:none">
-        <div id="msgFaqSuggest" class="msg-faq-suggest" style="display:none"></div>
-        <button type="button" class="msg-faq-open-btn" onclick="toggleFaqOverlay()">
-          <span class="material-icons-round notranslate" translate="no">quiz</span>
-          <span data-i18n="messaging.faq.openBtn">よくある質問</span>
-        </button>
-      </div>
-      <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
-      <div class="msg-input-row">
-        <label class="msg-attach-btn" aria-label="attach image">
-          <span class="material-icons-round notranslate" translate="no">image</span>
-          <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
-        </label>
-        <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()"></textarea>
-        <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
-          <span class="material-icons-round notranslate" translate="no">send</span>
-        </button>
-      </div>
-    </div>
-    <!-- 보내기 게이트 1회 확인 시트 -->
-    <div id="msgFaqGateSheet" class="msg-faq-sheet" style="display:none"></div>
+<div id="page-messages" class="page">
+  <div class="msg-modal-header">
+    <button class="msg-back-btn" onclick="navigateBackFromMessages()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
+      <span class="material-icons-round notranslate" translate="no">arrow_back</span>
+    </button>
+    <div id="msgModalTitle" class="msg-modal-title"></div>
+    <button class="msg-refresh-btn" onclick="refreshMessageModal()" data-i18n-attr="title:messaging.refresh,aria-label:messaging.refresh" title="更新" aria-label="最新のメッセージに更新">
+      <span class="material-icons-round notranslate" translate="no">refresh</span>
+    </button>
   </div>
+  <div id="msgNewBanner" class="msg-new-banner" style="display:none" onclick="refreshMessageModal()">
+    <span class="material-icons-round notranslate" translate="no">arrow_downward</span>
+    <span data-i18n="messaging.newArrived">新しいメッセージが届きました（タップで更新）</span>
+  </div>
+  <div id="msgStatusLine" class="msg-status-line" style="display:none"></div>
+  <div id="msgModalThread" class="msg-modal-thread"></div>
+  <!-- FAQ 전체 보기 오버레이 (「よくある質問」 버튼으로 토글, 카테고리→질문→답변) -->
+  <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
+  <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
+  <div class="msg-modal-input-area">
+    <!-- 문의 게이트: 실시간 제안 + 「よくある質問」 버튼 (PR B-rev) -->
+    <div id="msgFaqGate" class="msg-faq-gate" style="display:none">
+      <div id="msgFaqSuggest" class="msg-faq-suggest" style="display:none"></div>
+      <button type="button" class="msg-faq-open-btn" onclick="toggleFaqOverlay()">
+        <span class="material-icons-round notranslate" translate="no">quiz</span>
+        <span data-i18n="messaging.faq.openBtn">よくある質問</span>
+      </button>
+    </div>
+    <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
+    <div class="msg-input-row">
+      <label class="msg-attach-btn" aria-label="attach image">
+        <span class="material-icons-round notranslate" translate="no">image</span>
+        <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
+      </label>
+      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()"></textarea>
+      <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
+        <span class="material-icons-round notranslate" translate="no">send</span>
+      </button>
+    </div>
+  </div>
+  <!-- 보내기 게이트 1회 확인 시트 -->
+  <div id="msgFaqGateSheet" class="msg-faq-sheet" style="display:none"></div>
 </div>
 
 <!-- 메시지 첨부 이미지 라이트박스 (메시지 모달 위, 배경/닫기 클릭 시 닫힘) -->
@@ -2910,6 +2906,7 @@ window.I18N_JA = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name}に関するお問い合わせ',
+    cancelledBlocked: 'キャンセルされた応募はメッセージをご利用いただけません。',
     refresh: '最新のメッセージに更新',
     newArrived: '新しいメッセージが届きました（タップで更新）',
     loading: '読み込み中...',
@@ -3525,6 +3522,7 @@ window.I18N_KO = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name} 관련 문의',
+    cancelledBlocked: '취소된 응모는 메시지를 이용할 수 없습니다.',
     refresh: '최신 메시지로 새로고침',
     newArrived: '새 메시지가 도착했습니다 (탭하여 새로고침)',
     loading: '불러오는 중...',
@@ -9577,10 +9575,10 @@ function renderNotifModal(items) {
 async function onNotifItemClick(id, kind, refTable, refId) {
   await markNotificationRead(id);
   closeNotifModal();
-  // 메시지 알림 → 응모건 메시지 모달 직접 오픈 (사양서 §5-5)
+  // 메시지 알림 → 응모건 메시지 페이지 직접 오픈 (사양서 §5-5, 2026-05-22 모달→페이지 전환)
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
-    if (typeof openMessageModal === 'function') openMessageModal(refId);
+    if (typeof openMessagesPage === 'function') openMessagesPage(refId, 'mypage');
     refreshNotifBadge();
     return;
   }
@@ -9872,7 +9870,7 @@ async function renderMyApplyList() {
       : '';
     // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
     const msgUnread = _myMsgUnreadByApp[a.id] || 0;
-    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessageModal('${a.id}')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
+    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
@@ -10458,6 +10456,7 @@ const MSG_WITHDRAW_LIMIT_MS = 25 * 60 * 1000;  // 본인 회수 25분 (§3-5 ②
 const MSG_MAX_ATTACH = 5;                       // 메시지당 첨부 최대 5장 (§3-2)
 
 let _msgCurrentAppId = null;
+let _msgFrom = 'mypage';     // 메시지 페이지 진입 출처 (뒤로가기 목적지 결정)
 let _msgPendingFiles = [];   // 업로드 대기 File 배열 (압축 전 원본)
 let _msgSending = false;
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
@@ -10478,7 +10477,6 @@ let _faqOverlayOpen = false; // 「よくある質問」 전체 보기 오버레
 const FAQ_SUGGEST_MAX = 4;            // 입력란 위 실시간 제안 최대 카드 수
 const FAQ_SUGGEST_DEBOUNCE_MS = 350;  // 입력 중 제안 갱신 디바운스(ms)
 const FAQ_KEYWORD_MIN_LEN = 2;        // 입력어 매칭 시 무시할 최소 토큰 길이
-const FAQ_GATE_HIDE_KB_PX = 150;      // 키보드로 viewport 가 이만큼(px) 줄면 입력란 위 게이트 숨김
 
 // 모달 열린 동안 30초마다 새 메시지 도착만 가볍게 확인 — 자동 표시 없이 안내 띠만
 function _startMsgPoll() {
@@ -10489,41 +10487,6 @@ function _stopMsgPoll() {
   if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
 }
 
-// 모바일 키보드 대응 — 모달이 열린 동안 visualViewport 높이에 맞춰 모달 본문을 줄여
-//   하단 입력란이 키보드에 가려지지 않게 한다 (appShell 과 동일 패턴, app.js 참고).
-let _msgVVAdjust = null;
-function _attachMsgKeyboardFit() {
-  if (!window.visualViewport) return;
-  _detachMsgKeyboardFit();  // 재진입 시 이전 리스너 중복 등록 방지 (모달 여닫기 반복 가드)
-  const body = document.querySelector('#msgModal .msg-modal-body');
-  if (!body) return;
-  _msgVVAdjust = function () {
-    const vv = window.visualViewport;
-    body.style.top = vv.offsetTop + 'px';
-    body.style.height = vv.height + 'px';
-    body.style.bottom = 'auto';
-    // 키보드로 화면이 줄면 입력란 위 FAQ 게이트(추천+「よくある質問」 버튼)를 숨겨 입력 공간 확보.
-    //   키보드를 내리면 다시 표시. 게이트는 모달 열린 동안만 활성(setupFaqGate)이라 별도 가드 불필요.
-    // _faqLoaded 후에만 토글 — setupFaqGate(await) 완료 전 빈 게이트가 깜빡이지 않게.
-    const gate = document.querySelector('#msgFaqGate');
-    if (gate && _faqLoaded) {
-      const kbOpen = (window.innerHeight - vv.height) > FAQ_GATE_HIDE_KB_PX;
-      gate.style.display = kbOpen ? 'none' : '';
-    }
-  };
-  _msgVVAdjust();
-  window.visualViewport.addEventListener('resize', _msgVVAdjust);
-  window.visualViewport.addEventListener('scroll', _msgVVAdjust);
-}
-function _detachMsgKeyboardFit() {
-  if (window.visualViewport && _msgVVAdjust) {
-    window.visualViewport.removeEventListener('resize', _msgVVAdjust);
-    window.visualViewport.removeEventListener('scroll', _msgVVAdjust);
-  }
-  _msgVVAdjust = null;
-  const body = document.querySelector('#msgModal .msg-modal-body');
-  if (body) { body.style.top = ''; body.style.height = ''; body.style.bottom = ''; }
-}
 async function _checkNewMessages() {
   if (!_msgCurrentAppId || document.hidden) return;
   try {
@@ -10552,16 +10515,35 @@ async function refreshMessageModal() {
   } catch (e) { console.error('[refreshMessageModal]', e); }
 }
 
-// 응모건 메시지 모달 열기
-async function openMessageModal(applicationId) {
+// 응모건 메시지 페이지 열기 (모달→페이지 전환, 2026-05-22)
+//   from: 'mypage' — 뒤로가기 시 응모이력으로 복귀. 해시 #messages-{id} 로 새로고침 복원.
+async function openMessagesPage(applicationId, from, pushHistory) {
   if (!applicationId) return;
+  // 알림·새로고침으로 직접 진입 시 _myApps/allCampaigns 캐시가 비어 제목·취소 판별이
+  //   부정확할 수 있어 먼저 보장한다(응모이력 경유 진입이면 이미 로드돼 즉시 통과).
+  if ((typeof _myApps === 'undefined' || !_myApps || !_myApps.length) && typeof loadMyApplications === 'function') {
+    try { await loadMyApplications(); } catch (_e) {}
+  }
+  // 취소된 응모는 메시지 진입 차단 (사용자 결정 2026-05-22)
+  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(applicationId)) {
+    if (typeof toast === 'function') toast(t('messaging.cancelledBlocked'));
+    return;
+  }
   _msgCurrentAppId = applicationId;
+  _msgFrom = from || 'mypage';
   _msgPendingFiles = [];
   _faqLoaded = false;
   _faqOpenedAny = false;
   _faqOverlayOpen = false;
-  const m = $('msgModal');
-  if (!m) return;
+
+  // 페이지 활성화 (navigate 가 #messages-{id} 해시 push → 새로고침 복원 가능).
+  //   pushHistory=false 면 히스토리 미기록 (뒤로가기·새로고침 복원 시 중복 방지).
+  //   같은 페이지(messages→messages 다른 응모건)면 navigate 가 cleanup 을 건너뛰므로
+  //   위에서 상태를 명시 초기화하고 아래에서 폴링을 재시작한다.
+  if (typeof navigate === 'function') navigate('messages-' + applicationId, pushHistory);
+
+  const page = $('page-messages');
+  if (!page) return;
 
   // 헤더 제목: 「{캠페인명}に関するお問い合わせ」
   const app = (typeof _myApps !== 'undefined' ? _myApps : []).find(a => a.id === applicationId);
@@ -10569,10 +10551,6 @@ async function openMessageModal(applicationId) {
   const titleEl = $('msgModalTitle');
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
 
-  m.classList.add('on');
-  m.setAttribute('aria-hidden', 'false');  // 모달 열림 — 내부 포커스 가능 (WAI-ARIA)
-  document.body.style.overflow = 'hidden';
-  _attachMsgKeyboardFit();  // 키보드 열려도 입력란이 보이도록 모달 높이를 viewport 에 맞춤
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
   if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
@@ -10600,18 +10578,22 @@ async function openMessageModal(applicationId) {
     if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(applicationId);
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
     if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
-    _startMsgPoll(); // 모달 열린 동안 새 메시지 도착 감지 시작
+    _startMsgPoll(); // 페이지 열린 동안 새 메시지 도착 감지 시작
   } catch (e) {
-    console.error('[openMessageModal]', e);
+    console.error('[openMessagesPage]', e);
     if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
   }
 }
 
-function closeMessageModal() {
-  const m = $('msgModal');
-  if (m) { m.classList.remove('on'); m.setAttribute('aria-hidden', 'true'); }
-  document.body.style.overflow = '';
-  _detachMsgKeyboardFit();
+// 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
+function navigateBackFromMessages() {
+  navigate('mypage');
+  if (typeof openMypageSub === 'function') openMypageSub('applications');
+}
+
+// 메시지 페이지를 떠날 때 정리 (navigate 의 페이지 전환 훅 + 직접 호출 공용).
+//   모달이 아니라 페이지이므로 표시/숨김은 navigate 가 관리하고, 여기선 폴링·상태만 정리.
+function cleanupMessagesPage() {
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
   if (_faqSuggestTimer) { clearTimeout(_faqSuggestTimer); _faqSuggestTimer = null; }
@@ -11142,7 +11124,7 @@ async function faqGateResolved() {
   closeFaqGateSheet();
   await recordFaqInteraction(_msgCurrentAppId, null, 'resolved');
   toast(t('messaging.faq.resolvedToast'));
-  closeMessageModal();
+  navigateBackFromMessages();
 }
 
 // [それでもお問い合わせ] — handoff 기록 + 전송 진행 (게이트 통과 표시)
@@ -11288,7 +11270,7 @@ function openFaqItem(itemId) {
 async function faqMarkResolved(itemId) {
   await recordFaqInteraction(_msgCurrentAppId, itemId, 'resolved');
   toast(t('messaging.faq.resolvedToast'));
-  closeMessageModal();
+  navigateBackFromMessages();
 }
 
 // [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록 (게이트 통과 표시)
@@ -11304,7 +11286,7 @@ async function faqStartDirectContact(itemId) {
 function faqNavigate(target) {
   if (!target) return;
   const app = _faqApp;
-  closeMessageModal();
+  // 페이지 떠남 — 아래 navigate/openActivityPage 호출이 cleanup 훅을 부른다(별도 닫기 불필요)
   // #activity 는 appId/campId 필요 → openActivityPage 직접 호출
   if (target === '#activity') {
     if (app && typeof openActivityPage === 'function') {
@@ -11363,9 +11345,20 @@ function navigate(page, pushHistory) {
   if (page.startsWith('detail-')) {
     pageName = 'detail';
   }
+  // messages-{id} — 응모건 메시지 페이지 (모달→페이지 전환, 2026-05-22)
+  if (page.startsWith('messages-')) {
+    pageName = 'messages';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
+  }
+
+  // 메시지 페이지를 떠나면 폴링·상태 정리 (같은 페이지 내 다른 응모건 이동은 제외)
+  const _prevActivePage = document.querySelector('#appShell .page.active');
+  if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
+      && typeof cleanupMessagesPage === 'function') {
+    cleanupMessagesPage();
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -11453,6 +11446,9 @@ window.addEventListener('popstate', function(e) {
     if (sub) openMypageSub(sub); else closeMypageSub();
   } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
+  } else if (page.startsWith('messages-')) {
+    if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
+    else navigate('mypage', false);
   } else {
     navigate(page, false);
   }
@@ -11479,7 +11475,7 @@ window.addEventListener('langchange', function() {
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', 'app-cancel':'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -11714,6 +11710,11 @@ async function init() {
     const sub = hash.replace('mypage-','');
     navigate('mypage', false);
     openMypageSub(sub);
+  } else if (hash && hash.startsWith('messages-')) {
+    // 응모건 메시지 페이지 새로고침 복원 — openMessagesPage 가 캐시(_myApps) 보장
+    const appId = hash.replace('messages-','');
+    if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
+    else navigate('mypage', false);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
@@ -11734,6 +11735,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const initPage = inRecovery ? 'reset-pw'
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
+    : initHash.startsWith('messages-') ? 'messages'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash);
   const initEl = $('page-' + initPage);
