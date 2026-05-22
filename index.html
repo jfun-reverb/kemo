@@ -6514,6 +6514,15 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// 입력 지연 처리 (연타 시 마지막 호출만 실행) — 검색창 등 고빈도 입력에 사용
+function debounce(fn, wait = 300) {
+  let timer = null;
+  return function(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn.apply(this, args); }, wait);
+  };
+}
+
 // 필수 필드 경고 표시/해제
 function markRequired(id, msg) {
   const el = $(id);

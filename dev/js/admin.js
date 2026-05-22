@@ -460,6 +460,8 @@ var adminCampSortDir = '';
 // ════════════════════════════════════════════════════════════════════
 
 function filterAdminCampaigns() { loadAdminCampaigns(true); }
+// 검색창 전용 — 글자 연타 시 마지막 입력만 반영(0.3초). 드롭다운 필터는 즉시 호출 유지.
+const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 function resetCampSort() {
   adminCampSortKey = '';
@@ -832,6 +834,15 @@ function applyImageCropsToList(imgList, cropsMap) {
 var campsLazy = null;
 const CAMPS_PAGE_SIZE = 50;
 
+// 캠페인 목록의 신청 카운트(승인/대기)용 신청 데이터 캐시.
+// 검색/필터/정렬(useCache=true)에서는 재사용해 호주 서버 전건 재조회를 막는다.
+// 페인 재진입·실데이터 갱신(useCache=false) 시에만 새로 fetch (allCampaigns 와 동일한 갱신 정책).
+// ⚠️ 이 캐시는 useCache=falsy(인자 없는 호출) 경로로만 갱신된다.
+//    신청 승인/반려 후 캠페인 페인으로 돌아오면 switchAdminPane('campaigns') → loaders.campaigns()
+//    가 loadAdminCampaigns 를 인자 없이 호출하므로 자동 갱신된다.
+//    loadAdminCampaigns(true) 직접 호출은 캐시를 갱신하지 않으니, 신청 상태가 바뀐 직후 경로에서는 쓰지 말 것.
+var _campListApps = null;
+
 // 캠페인 다중 선택 — 현재 필터/정렬 적용된 캠페인 리스트 캐시
 // loadAdminCampaigns 가 매 호출마다 갱신. toggleCampSelectAll·updateCampSelectionUI 에서 참조
 var _currentFilteredCamps = [];
@@ -884,7 +895,8 @@ async function loadAdminCampaigns(useCache) {
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
-  const allApps = await fetchApplications();
+  // useCache(검색/필터/정렬)면 캐시 재사용 → 네트워크 0회. 캐시가 비어있으면 1회만 조회.
+  const allApps = (useCache && _campListApps) ? _campListApps : (_campListApps = await fetchApplications());
 
   // 정렬
   const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
@@ -1037,8 +1049,10 @@ async function loadAdminCampaigns(useCache) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
     campsBody.innerHTML = camps.length ? camps.map((c, i) => buildCampRow(c, i, camps.length)).join('') : emptyHtml;
+  } else if (campsLazy) {
+    // 인스턴스 재생성 없이 행만 교체 (sentinel 정리·스크롤 복귀는 reset 내부 처리)
+    campsLazy.reset(camps);
   } else {
-    if (campsLazy) campsLazy.destroy();
     campsLazy = mountLazyList({
       tbody: campsBody,
       scrollRoot: campsBody.closest('.admin-table-wrap'),

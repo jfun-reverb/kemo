@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779427892';
+  var CURRENT_BUILD = 'v1779431914';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1729,7 +1729,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-22 14:31 · 4c49a38</span>
+          <span class="admin-build-text">2026-05-22 15:38 · 43a7c63</span>
         </div>
       </div>
     </aside>
@@ -1838,7 +1838,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
+                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="debouncedFilterAdminCampaigns()">
                 </div>
               </div>
             </div>
@@ -7490,6 +7490,15 @@ new MutationObserver(() => {
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// 입력 지연 처리 (연타 시 마지막 호출만 실행) — 검색창 등 고빈도 입력에 사용
+function debounce(fn, wait = 300) {
+  let timer = null;
+  return function(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn.apply(this, args); }, wait);
+  };
 }
 
 // 필수 필드 경고 표시/해제
@@ -14165,6 +14174,8 @@ var adminCampSortDir = '';
 // ════════════════════════════════════════════════════════════════════
 
 function filterAdminCampaigns() { loadAdminCampaigns(true); }
+// 검색창 전용 — 글자 연타 시 마지막 입력만 반영(0.3초). 드롭다운 필터는 즉시 호출 유지.
+const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 function resetCampSort() {
   adminCampSortKey = '';
@@ -14537,6 +14548,15 @@ function applyImageCropsToList(imgList, cropsMap) {
 var campsLazy = null;
 const CAMPS_PAGE_SIZE = 50;
 
+// 캠페인 목록의 신청 카운트(승인/대기)용 신청 데이터 캐시.
+// 검색/필터/정렬(useCache=true)에서는 재사용해 호주 서버 전건 재조회를 막는다.
+// 페인 재진입·실데이터 갱신(useCache=false) 시에만 새로 fetch (allCampaigns 와 동일한 갱신 정책).
+// ⚠️ 이 캐시는 useCache=falsy(인자 없는 호출) 경로로만 갱신된다.
+//    신청 승인/반려 후 캠페인 페인으로 돌아오면 switchAdminPane('campaigns') → loaders.campaigns()
+//    가 loadAdminCampaigns 를 인자 없이 호출하므로 자동 갱신된다.
+//    loadAdminCampaigns(true) 직접 호출은 캐시를 갱신하지 않으니, 신청 상태가 바뀐 직후 경로에서는 쓰지 말 것.
+var _campListApps = null;
+
 // 캠페인 다중 선택 — 현재 필터/정렬 적용된 캠페인 리스트 캐시
 // loadAdminCampaigns 가 매 호출마다 갱신. toggleCampSelectAll·updateCampSelectionUI 에서 참조
 var _currentFilteredCamps = [];
@@ -14589,7 +14609,8 @@ async function loadAdminCampaigns(useCache) {
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
-  const allApps = await fetchApplications();
+  // useCache(검색/필터/정렬)면 캐시 재사용 → 네트워크 0회. 캐시가 비어있으면 1회만 조회.
+  const allApps = (useCache && _campListApps) ? _campListApps : (_campListApps = await fetchApplications());
 
   // 정렬
   const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
@@ -14742,8 +14763,10 @@ async function loadAdminCampaigns(useCache) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
     campsBody.innerHTML = camps.length ? camps.map((c, i) => buildCampRow(c, i, camps.length)).join('') : emptyHtml;
+  } else if (campsLazy) {
+    // 인스턴스 재생성 없이 행만 교체 (sentinel 정리·스크롤 복귀는 reset 내부 처리)
+    campsLazy.reset(camps);
   } else {
-    if (campsLazy) campsLazy.destroy();
     campsLazy = mountLazyList({
       tbody: campsBody,
       scrollRoot: campsBody.closest('.admin-table-wrap'),
