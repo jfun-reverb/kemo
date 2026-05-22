@@ -350,13 +350,32 @@ function brandOpsCampTypeChannel(c) {
     + '</div>';
 }
 
-// 미니카드 기간: 모집 범위(recruit_start~deadline) + 제출 마감
-function brandOpsCampPeriod(c) {
-  var recruitRange = (c.recruit_start ? brandOpsShortDate(c.recruit_start) : '상시') + '~' + (c.deadline ? brandOpsShortDate(c.deadline) : '');
-  return '<div style="font-size:10px;color:var(--muted);margin-top:6px">'
-    + '모집 ' + esc(recruitRange)
-    + (c.submission_end ? ' · 제출마감 ' + esc(brandOpsShortDate(c.submission_end)) : '')
-    + '</div>';
+// M/D~M/D 기간 범위 (한쪽만 있으면 그쪽만)
+function brandOpsDateRange(s, e) {
+  var ss = brandOpsShortDate(s), ee = brandOpsShortDate(e);
+  if (ss && ee) return ss + '~' + ee;
+  if (ee) return '~' + ee;
+  if (ss) return ss + '~';
+  return '';
+}
+
+// 진행바 하단 날짜 줄 (작은 글씨)
+function brandOpsMiniDateLine(text) {
+  return text ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:4px">' + esc(text) + '</div>' : '';
+}
+
+// 제출 진행바 하단 텍스트: 리뷰어=구매기간 / 방문형=방문기간 + 제출마감
+function brandOpsSubmitDateText(c) {
+  var parts = [];
+  if (c.recruit_type === 'monitor') {
+    var pr = brandOpsDateRange(c.purchase_start, c.purchase_end);
+    if (pr) parts.push('구매 ' + pr);
+  } else if (c.recruit_type === 'visit') {
+    var vr = brandOpsDateRange(c.visit_start, c.visit_end);
+    if (vr) parts.push('방문 ' + vr);
+  }
+  if (c.submission_end) parts.push('제출마감 ' + brandOpsShortDate(c.submission_end));
+  return parts.join(' · ');
 }
 
 function renderCampMiniCard(c, isExternal, applicationId) {
@@ -393,9 +412,10 @@ function renderCampMiniCard(c, isExternal, applicationId) {
       + '</div>'
     + '</div>'
     + brandOpsRateBar('모집', recruitPct, approved, slots)
+    + brandOpsMiniDateLine((function(){ var r = brandOpsDateRange(c.recruit_start, c.deadline); return r ? '모집 ' + r : ''; })())
     + brandOpsRateBar('제출', submitPct, submittedInf, approved)
+    + brandOpsMiniDateLine(brandOpsSubmitDateText(c))
     + brandOpsRateBar('결과물 승인', approvePct, delivApproved, delivTotal)
-    + brandOpsCampPeriod(c)
     + '<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:8px;gap:4px">'
       + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampPreviewModal(\'' + esc(c.id) + '\')">상세</button>'
       + linkBtn
