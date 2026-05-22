@@ -10478,6 +10478,7 @@ let _faqOverlayOpen = false; // 「よくある質問」 전체 보기 오버레
 const FAQ_SUGGEST_MAX = 4;            // 입력란 위 실시간 제안 최대 카드 수
 const FAQ_SUGGEST_DEBOUNCE_MS = 350;  // 입력 중 제안 갱신 디바운스(ms)
 const FAQ_KEYWORD_MIN_LEN = 2;        // 입력어 매칭 시 무시할 최소 토큰 길이
+const FAQ_GATE_HIDE_KB_PX = 150;      // 키보드로 viewport 가 이만큼(px) 줄면 입력란 위 게이트 숨김
 
 // 모달 열린 동안 30초마다 새 메시지 도착만 가볍게 확인 — 자동 표시 없이 안내 띠만
 function _startMsgPoll() {
@@ -10501,6 +10502,14 @@ function _attachMsgKeyboardFit() {
     body.style.top = vv.offsetTop + 'px';
     body.style.height = vv.height + 'px';
     body.style.bottom = 'auto';
+    // 키보드로 화면이 줄면 입력란 위 FAQ 게이트(추천+「よくある質問」 버튼)를 숨겨 입력 공간 확보.
+    //   키보드를 내리면 다시 표시. 게이트는 모달 열린 동안만 활성(setupFaqGate)이라 별도 가드 불필요.
+    // _faqLoaded 후에만 토글 — setupFaqGate(await) 완료 전 빈 게이트가 깜빡이지 않게.
+    const gate = document.querySelector('#msgFaqGate');
+    if (gate && _faqLoaded) {
+      const kbOpen = (window.innerHeight - vv.height) > FAQ_GATE_HIDE_KB_PX;
+      gate.style.display = kbOpen ? 'none' : '';
+    }
   };
   _msgVVAdjust();
   window.visualViewport.addEventListener('resize', _msgVVAdjust);
