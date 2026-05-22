@@ -164,8 +164,9 @@ function renderBrandOpsCard(b) {
   return '<div class="brand-ops-card" style="border-left:4px solid ' + alert.color + '" onclick="openBrandOpsDetail(\'' + esc(b.brand_id) + '\')">'
     + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'
       + '<div style="min-width:0">'
-        + '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.company_name_ko || '미분류') + '</div>'
-        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + ' <span style="font-size:11px;font-weight:400;color:var(--muted)">' + esc(b.brand_no || '') + '</span></div>'
+        + '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px">' + esc(b.company_name_ko || '미분류') + '</div>'
+        + (b.brand_no ? '<div style="font-size:11px;font-weight:400;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_no) + '</div>' : '')
+        + '<div style="font-weight:700;color:var(--ink);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ko || '—') + '</div>'
         + (b.brand_name_ja ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(b.brand_name_ja) + '</div>' : '')
       + '</div>'
       + badge
