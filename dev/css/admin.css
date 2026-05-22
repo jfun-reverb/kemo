@@ -20,8 +20,8 @@
 .brand-ops-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
 @keyframes brandOpsPulse{0%,100%{opacity:1}50%{opacity:.45}}
 /* 브랜드 상세 — 캠페인 미니카드 그리드 */
-.brand-ops-mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-.brand-ops-mini-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
+.brand-ops-mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.brand-ops-mini-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
 .brand-ops-app summary::-webkit-details-marker{display:none}
 /* 다중 선택 드롭다운 */
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
