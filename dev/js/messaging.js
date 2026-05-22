@@ -30,6 +30,7 @@ let _faqOverlayOpen = false; // 「よくある質問」 전체 보기 오버레
 const FAQ_SUGGEST_MAX = 4;            // 입력란 위 실시간 제안 최대 카드 수
 const FAQ_SUGGEST_DEBOUNCE_MS = 350;  // 입력 중 제안 갱신 디바운스(ms)
 const FAQ_KEYWORD_MIN_LEN = 2;        // 입력어 매칭 시 무시할 최소 토큰 길이
+const FAQ_GATE_HIDE_KB_PX = 150;      // 키보드로 viewport 가 이만큼(px) 줄면 입력란 위 게이트 숨김
 
 // 모달 열린 동안 30초마다 새 메시지 도착만 가볍게 확인 — 자동 표시 없이 안내 띠만
 function _startMsgPoll() {
@@ -38,6 +39,42 @@ function _startMsgPoll() {
 }
 function _stopMsgPoll() {
   if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
+}
+
+// 모바일 키보드 대응 — 모달이 열린 동안 visualViewport 높이에 맞춰 모달 본문을 줄여
+//   하단 입력란이 키보드에 가려지지 않게 한다 (appShell 과 동일 패턴, app.js 참고).
+let _msgVVAdjust = null;
+function _attachMsgKeyboardFit() {
+  if (!window.visualViewport) return;
+  _detachMsgKeyboardFit();  // 재진입 시 이전 리스너 중복 등록 방지 (모달 여닫기 반복 가드)
+  const body = document.querySelector('#msgModal .msg-modal-body');
+  if (!body) return;
+  _msgVVAdjust = function () {
+    const vv = window.visualViewport;
+    body.style.top = vv.offsetTop + 'px';
+    body.style.height = vv.height + 'px';
+    body.style.bottom = 'auto';
+    // 키보드로 화면이 줄면 입력란 위 FAQ 게이트(추천+「よくある質問」 버튼)를 숨겨 입력 공간 확보.
+    //   키보드를 내리면 다시 표시. 게이트는 모달 열린 동안만 활성(setupFaqGate)이라 별도 가드 불필요.
+    // _faqLoaded 후에만 토글 — setupFaqGate(await) 완료 전 빈 게이트가 깜빡이지 않게.
+    const gate = document.querySelector('#msgFaqGate');
+    if (gate && _faqLoaded) {
+      const kbOpen = (window.innerHeight - vv.height) > FAQ_GATE_HIDE_KB_PX;
+      gate.style.display = kbOpen ? 'none' : '';
+    }
+  };
+  _msgVVAdjust();
+  window.visualViewport.addEventListener('resize', _msgVVAdjust);
+  window.visualViewport.addEventListener('scroll', _msgVVAdjust);
+}
+function _detachMsgKeyboardFit() {
+  if (window.visualViewport && _msgVVAdjust) {
+    window.visualViewport.removeEventListener('resize', _msgVVAdjust);
+    window.visualViewport.removeEventListener('scroll', _msgVVAdjust);
+  }
+  _msgVVAdjust = null;
+  const body = document.querySelector('#msgModal .msg-modal-body');
+  if (body) { body.style.top = ''; body.style.height = ''; body.style.bottom = ''; }
 }
 async function _checkNewMessages() {
   if (!_msgCurrentAppId || document.hidden) return;
@@ -87,6 +124,7 @@ async function openMessageModal(applicationId) {
   m.classList.add('on');
   m.setAttribute('aria-hidden', 'false');  // 모달 열림 — 내부 포커스 가능 (WAI-ARIA)
   document.body.style.overflow = 'hidden';
+  _attachMsgKeyboardFit();  // 키보드 열려도 입력란이 보이도록 모달 높이를 viewport 에 맞춤
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
   if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
@@ -125,6 +163,7 @@ function closeMessageModal() {
   const m = $('msgModal');
   if (m) { m.classList.remove('on'); m.setAttribute('aria-hidden', 'true'); }
   document.body.style.overflow = '';
+  _detachMsgKeyboardFit();
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
   if (_faqSuggestTimer) { clearTimeout(_faqSuggestTimer); _faqSuggestTimer = null; }
@@ -379,6 +418,7 @@ const FAQ_STATUS_NAV = {
   receipt: '#activity',
   visit: '#activity',
   post_deadline: '#activity',
+  post_overdue: '#activity',
   reviewing: '#activity',
   partial_reject: '#activity',
   all_reject: '#activity',
@@ -452,6 +492,8 @@ function _buildFaqCtx(camp) {
   const minF = camp?.min_followers || 0;
   if (minF > 0) ctx.required = minF;
   const p = (typeof currentUserProfile !== 'undefined' ? currentUserProfile : null) || {};
+  // qoo10 은 자체 팔로워 개념이 없어 신청 시 Instagram ID·팔로워를 필수로 받고 그 값으로
+  // 최소 팔로워를 검증한다(application.js 와 동일). 따라서 여기서도 ig_followers 를 폴백으로 쓴다.
   const followerMap = {
     instagram: p.ig_followers || 0, x: p.x_followers || 0,
     tiktok: p.tiktok_followers || 0, youtube: p.youtube_followers || 0, qoo10: p.ig_followers || 0,
