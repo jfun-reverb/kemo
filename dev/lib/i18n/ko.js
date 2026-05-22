@@ -549,6 +549,7 @@ window.I18N_KO = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name} 관련 문의',
+    cancelledBlocked: '취소된 응모는 메시지를 이용할 수 없습니다.',
     refresh: '최신 메시지로 새로고침',
     newArrived: '새 메시지가 도착했습니다 (탭하여 새로고침)',
     loading: '불러오는 중...',

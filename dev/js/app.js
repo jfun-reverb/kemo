@@ -34,9 +34,20 @@ function navigate(page, pushHistory) {
   if (page.startsWith('detail-')) {
     pageName = 'detail';
   }
+  // messages-{id} — 응모건 메시지 페이지 (모달→페이지 전환, 2026-05-22)
+  if (page.startsWith('messages-')) {
+    pageName = 'messages';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
+  }
+
+  // 메시지 페이지를 떠나면 폴링·상태 정리 (같은 페이지 내 다른 응모건 이동은 제외)
+  const _prevActivePage = document.querySelector('#appShell .page.active');
+  if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
+      && typeof cleanupMessagesPage === 'function') {
+    cleanupMessagesPage();
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -124,6 +135,9 @@ window.addEventListener('popstate', function(e) {
     if (sub) openMypageSub(sub); else closeMypageSub();
   } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
+  } else if (page.startsWith('messages-')) {
+    if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
+    else navigate('mypage', false);
   } else {
     navigate(page, false);
   }
@@ -150,7 +164,7 @@ window.addEventListener('langchange', function() {
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', 'app-cancel':'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -385,6 +399,11 @@ async function init() {
     const sub = hash.replace('mypage-','');
     navigate('mypage', false);
     openMypageSub(sub);
+  } else if (hash && hash.startsWith('messages-')) {
+    // 응모건 메시지 페이지 새로고침 복원 — openMessagesPage 가 캐시(_myApps) 보장
+    const appId = hash.replace('messages-','');
+    if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
+    else navigate('mypage', false);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
@@ -405,6 +424,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const initPage = inRecovery ? 'reset-pw'
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
+    : initHash.startsWith('messages-') ? 'messages'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash);
   const initEl = $('page-' + initPage);

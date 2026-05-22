@@ -297,10 +297,10 @@ function renderNotifModal(items) {
 async function onNotifItemClick(id, kind, refTable, refId) {
   await markNotificationRead(id);
   closeNotifModal();
-  // 메시지 알림 → 응모건 메시지 모달 직접 오픈 (사양서 §5-5)
+  // 메시지 알림 → 응모건 메시지 페이지 직접 오픈 (사양서 §5-5, 2026-05-22 모달→페이지 전환)
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
-    if (typeof openMessageModal === 'function') openMessageModal(refId);
+    if (typeof openMessagesPage === 'function') openMessagesPage(refId, 'mypage');
     refreshNotifBadge();
     return;
   }
