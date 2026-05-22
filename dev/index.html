@@ -267,28 +267,19 @@ window._supabaseLoaded = false;
   <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
   <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
   <div class="msg-modal-input-area">
-    <!-- 문의 게이트: 실시간 제안 + 「よくある質問」 버튼 (PR B-rev) -->
-    <div id="msgFaqGate" class="msg-faq-gate" style="display:none">
-      <div id="msgFaqSuggest" class="msg-faq-suggest" style="display:none"></div>
-      <button type="button" class="msg-faq-open-btn" onclick="toggleFaqOverlay()">
-        <span class="material-icons-round notranslate" translate="no">quiz</span>
-        <span data-i18n="messaging.faq.openBtn">よくある質問</span>
-      </button>
-    </div>
+    <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
     <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
     <div class="msg-input-row">
       <label class="msg-attach-btn" aria-label="attach image">
         <span class="material-icons-round notranslate" translate="no">image</span>
         <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
       </label>
-      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()" onfocus="onMsgInputFocus()" onblur="onMsgInputBlur()"></textarea>
+      <textarea id="msgModalInput" class="msg-input" rows="2"></textarea>
       <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
         <span class="material-icons-round notranslate" translate="no">send</span>
       </button>
     </div>
   </div>
-  <!-- 보내기 게이트 1회 확인 시트 -->
-  <div id="msgFaqGateSheet" class="msg-faq-sheet" style="display:none"></div>
 </div>
 
 <!-- 메시지 첨부 이미지 라이트박스 (메시지 모달 위, 배경/닫기 클릭 시 닫힘) -->

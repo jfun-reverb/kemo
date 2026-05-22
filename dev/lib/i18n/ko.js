@@ -607,9 +607,6 @@ window.I18N_KO = {
       openBtn: '자주 묻는 질문',
       allTitle: '자주 묻는 질문',
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
-      gateTitle: '문의하기 전에, 여기서 해결되는지 확인해 보세요',
-      gateResolvedBtn: '해결됐어요',
-      gateProceedBtn: '그래도 문의하기',
     },
   },
 };

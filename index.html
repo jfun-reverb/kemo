@@ -656,27 +656,20 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-faq-overlay-title{font-size:15px;font-weight:700;color:var(--text)}
 .msg-faq-overlay-close{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:36px;min-height:36px;align-items:center;justify-content:center}
 
-/* ── 문의 게이트 (#msgFaqGate, PR B-rev) ── */
-.msg-faq-gate{margin-bottom:8px;min-height:0;overflow-y:auto}
-.msg-faq-suggest{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;padding:10px;background:#F4F8FF;border:1px solid #DCE7FB;border-radius:10px}
-.msg-faq-suggest-head{font-size:12px;font-weight:700;color:#23416E;margin-bottom:2px}
-.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--text);cursor:pointer}
+/* ── 봇 안내 카드 (스레드 맨 위, 게이트→봇 카드 전환 2026-05-22) — 추천 질문·전체 보기 진입 ── */
+.msg-card-bot{align-self:stretch;background:#F4F8FF;border:1px solid #DCE7FB}
+.msg-card-bot-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#23416E;margin-bottom:8px}
+.msg-card-bot-head .material-icons-round{font-size:18px;color:#2563EB}
+.msg-faq-botcard-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.msg-faq-botcard-all{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--text);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
+.msg-faq-botcard-all:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
+.msg-faq-botcard-all .material-icons-round{font-size:18px;color:var(--muted)}
+/* 봇 카드 추천 질문 항목 */
+.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--text);cursor:pointer}
 .msg-faq-suggest-item:hover{background:#fafbff}
 .msg-faq-suggest-item .material-icons-round{flex-shrink:0;font-size:18px;color:#2563EB}
 .msg-faq-suggest-q{flex:1;min-width:0}
 .msg-faq-suggest-chev{color:var(--muted)!important}
-.msg-faq-open-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--text);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
-.msg-faq-open-btn:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
-.msg-faq-open-btn .material-icons-round{font-size:18px;color:var(--muted)}
-
-/* 보내기 게이트 1회 확인 시트 (#msgFaqGateSheet) */
-.msg-faq-sheet{position:absolute;inset:0;z-index:5;display:none}
-.msg-faq-sheet[style*="display: none"]{display:none}
-.msg-faq-sheet-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-.msg-faq-sheet-panel{position:absolute;left:0;right:0;bottom:0;background:var(--surface,#fff);border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:80%;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
-.msg-faq-sheet-title{font-size:15px;font-weight:700;line-height:1.5;color:var(--text)}
-.msg-faq-sheet-cards{display:flex;flex-direction:column;gap:6px}
-.msg-faq-sheet-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 
 /* ── 첨부 이미지 라이트박스 (메시지 모달 위) ── */
 .msg-lightbox{position:fixed;inset:0;z-index:1300;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.85);padding:20px}
@@ -913,28 +906,19 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
   <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
   <div class="msg-modal-input-area">
-    <!-- 문의 게이트: 실시간 제안 + 「よくある質問」 버튼 (PR B-rev) -->
-    <div id="msgFaqGate" class="msg-faq-gate" style="display:none">
-      <div id="msgFaqSuggest" class="msg-faq-suggest" style="display:none"></div>
-      <button type="button" class="msg-faq-open-btn" onclick="toggleFaqOverlay()">
-        <span class="material-icons-round notranslate" translate="no">quiz</span>
-        <span data-i18n="messaging.faq.openBtn">よくある質問</span>
-      </button>
-    </div>
+    <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
     <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
     <div class="msg-input-row">
       <label class="msg-attach-btn" aria-label="attach image">
         <span class="material-icons-round notranslate" translate="no">image</span>
         <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
       </label>
-      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()" onfocus="onMsgInputFocus()" onblur="onMsgInputBlur()"></textarea>
+      <textarea id="msgModalInput" class="msg-input" rows="2"></textarea>
       <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
         <span class="material-icons-round notranslate" translate="no">send</span>
       </button>
     </div>
   </div>
-  <!-- 보내기 게이트 1회 확인 시트 -->
-  <div id="msgFaqGateSheet" class="msg-faq-sheet" style="display:none"></div>
 </div>
 
 <!-- 메시지 첨부 이미지 라이트박스 (메시지 모달 위, 배경/닫기 클릭 시 닫힘) -->
@@ -2964,9 +2948,6 @@ window.I18N_JA = {
       openBtn: 'よくある質問',
       allTitle: 'よくある質問',
       suggestHead: 'こちらで解決できるか確認してみましょう',
-      gateTitle: 'お問い合わせの前に、こちらで解決できるか確認しましょう',
-      gateResolvedBtn: '解決しました',
-      gateProceedBtn: 'それでもお問い合わせ',
     },
   },
 };
@@ -3580,9 +3561,6 @@ window.I18N_KO = {
       openBtn: '자주 묻는 질문',
       allTitle: '자주 묻는 질문',
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
-      gateTitle: '문의하기 전에, 여기서 해결되는지 확인해 보세요',
-      gateResolvedBtn: '해결됐어요',
-      gateProceedBtn: '그래도 문의하기',
     },
   },
 };
@@ -10469,14 +10447,10 @@ let _faqCtx = {};            // 동적 치환 컨텍스트 ({required, current})
 let _faqApp = null;          // 현재 응모건
 let _faqCamp = null;         // 현재 캠페인
 let _faqLoaded = false;      // 이번 모달에서 노드 로드 완료 여부
-let _faqOpenedAny = false;   // 이번 모달에서 답변 카드를 한 번이라도 열어봤는지 (게이트 1회 확인 판정)
-let _faqSuggestTimer = null; // 실시간 제안 디바운스 타이머
 let _faqOverlayOpen = false; // 「よくある質問」 전체 보기 오버레이 열림 여부
 
-// 게이트 동작 상수 (매직넘버 회피)
-const FAQ_SUGGEST_MAX = 4;            // 입력란 위 실시간 제안 최대 카드 수
-const FAQ_SUGGEST_DEBOUNCE_MS = 350;  // 입력 중 제안 갱신 디바운스(ms)
-const FAQ_KEYWORD_MIN_LEN = 2;        // 입력어 매칭 시 무시할 최소 토큰 길이
+// 봇 안내 카드 추천 질문 최대 개수
+const FAQ_SUGGEST_MAX = 4;
 
 // 모달 열린 동안 30초마다 새 메시지 도착만 가볍게 확인 — 자동 표시 없이 안내 띠만
 function _startMsgPoll() {
@@ -10533,7 +10507,6 @@ async function openMessagesPage(applicationId, from, pushHistory) {
   _msgFrom = from || 'mypage';
   _msgPendingFiles = [];
   _faqLoaded = false;
-  _faqOpenedAny = false;
   _faqOverlayOpen = false;
 
   // 페이지 활성화 (navigate 가 #messages-{id} 해시 push → 새로고침 복원 가능).
@@ -10596,17 +10569,13 @@ function navigateBackFromMessages() {
 function cleanupMessagesPage() {
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
-  if (_faqSuggestTimer) { clearTimeout(_faqSuggestTimer); _faqSuggestTimer = null; }
   _msgCurrentAppId = null;
   _msgPendingFiles = [];
-  // 게이트·상태 영역 정리
+  // 상태 한 줄·전체 보기 오버레이 정리 (봇 카드는 스레드 일부라 thread 비우면 함께 사라짐)
   const sl = $('msgStatusLine'); if (sl) { sl.style.display = 'none'; sl.innerHTML = ''; }
-  const sg = $('msgFaqSuggest'); if (sg) { sg.style.display = 'none'; sg.innerHTML = ''; }
   const ov = $('msgFaqTree'); if (ov) { ov.style.display = 'none'; ov.innerHTML = ''; }
-  const gate = $('msgFaqGate'); if (gate) gate.style.display = 'none';
-  const thread = $('msgModalThread'); if (thread) thread.style.display = '';
   _faqNodes = []; _faqStage = null; _faqCtx = {}; _faqApp = null; _faqCamp = null;
-  _faqLoaded = false; _faqOpenedAny = false; _faqOverlayOpen = false;
+  _faqLoaded = false; _faqOverlayOpen = false;
 }
 
 // 메시지 스레드 렌더 (게시판형 — 위→아래 누적 카드)
@@ -10614,12 +10583,14 @@ function renderMessageThread(messages) {
   const thread = $('msgModalThread');
   if (!thread) return;
   updateMsgPendingNotice(messages);  // 관리자 미응답 안내 토글
+  // 스레드 맨 위 봇 안내 카드 (게이트→봇 카드 전환 2026-05-22) — 0건/N건 공통 prepend
+  const botCard = _faqBotCardHtml();
   if (!messages || !messages.length) {
-    thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
+    thread.innerHTML = botCard + `<div class="msg-empty">${esc(t('messaging.emptyThread'))}</div>`;
     return;
   }
   const now = Date.now();
-  thread.innerHTML = messages.map(msg => {
+  thread.innerHTML = botCard + messages.map(msg => {
     const mine = msg.sender_kind === 'influencer';
     const senderLabel = mine ? t('messaging.you') : t('messaging.adminTeam');
     const timeStr = formatDateTime(msg.created_at);
@@ -10770,14 +10741,8 @@ async function sendMessageFromModal() {
   const body = (inputEl?.value || '').trim();
   if (!body && !_msgPendingFiles.length) { toast(t('messaging.emptyInput')); return; }
 
-  // ── 문의 게이트 1회 확인 (PR B-rev §2 결정 1) ──
-  //   아직 어떤 FAQ 답변도 안 열어봤고(_faqOpenedAny=false) + 유사 후보가 있으면
-  //   딱 1회만 확인 시트 노출. 이미 봤거나 후보 없으면 바로 전송.
-  if (!_faqOpenedAny) {
-    const cands = _faqFindCandidates(body);
-    if (cands.length) { openFaqGateSheet(cands); return; }
-  }
-
+  // 봇 안내 카드 방식(2026-05-22): 발송을 가로채는 게이트 폐기 — 발송은 항상 바로 진행.
+  //   FAQ 추천은 스레드 맨 위 봇 카드(_faqBotCardHtml)로 상시 노출.
   _msgSending = true;
   const sendBtn = $('msgModalSendBtn');
   if (sendBtn) sendBtn.disabled = true;
@@ -10805,9 +10770,8 @@ async function sendMessageFromModal() {
     renderMessageThread(msgs);
     _msgLastCount = msgs?.length || 0; // 내가 보낸 메시지로 「새 메시지 도착」 띠가 오인 표시되지 않도록
     _toggleMsgNewBanner(false);
-    // 게이트 오버레이·제안은 닫고 스레드만 (대화가 시작됨)
+    // 전체 보기 오버레이는 닫고 스레드만 (봇 카드는 renderMessageThread 가 다시 그림)
     closeFaqOverlay();
-    _faqHideSuggest();
   } catch (e) {
     console.error('[sendMessageFromModal]', e);
     // 의도된 RPC 예외(RAISE EXCEPTION = SQLSTATE P0001, 일본어 안내문)만 그대로 노출.
@@ -10959,16 +10923,12 @@ function renderFaqBody(text, ctx) {
   return html.replace(/\n/g, '<br>');
 }
 
-// ── 문의 게이트 셋업 (PR B-rev) ──
-//   모달 열릴 때 1회: 노드 로드 + 입력 영역 옆 「よくある質問」 버튼·제안 영역 준비.
-//   메시지 건수와 무관하게 입력 게이트로 동작(0건 한정 트리 메뉴 폐기).
+// ── FAQ 노드 로드 (게이트→봇 카드 전환 2026-05-22) ──
+//   진입 시 1회 active 노드 로드만. 추천 안내는 renderMessageThread 가 스레드 맨 위
+//   봇 카드(_faqBotCardHtml)로 그린다. 입력란 위 고정 게이트는 폐기.
 async function setupFaqGate(app, camp) {
   _faqApp = app; _faqCamp = camp;
   _faqCtx = _buildFaqCtx(camp);
-  _faqHideSuggest();
-  const gate = $('msgFaqGate');
-  if (gate) gate.style.display = '';
-  // 노드 1회 로드 (active=true 만)
   try {
     const all = await fetchFaqNodes();
     _faqNodes = (all || []).filter(n => n.active);
@@ -10978,95 +10938,38 @@ async function setupFaqGate(app, camp) {
     _faqNodes = [];
     _faqLoaded = true;
   }
-  // 진입 시 입력어 없이 단계 기반 제안 1차 노출
-  _faqRenderSuggest(_faqFindCandidates(''));
-  // 노드 로드 중 빠른 포커스→블러로 게이트가 숨겨졌고 지금 입력란에 포커스가 없으면 복원
-  //   (포커스가 아직 입력란에 있으면 onMsgInputBlur 가 나중에 복원).
-  if (gate && document.activeElement !== $('msgModalInput')) gate.style.display = '';
 }
 
-// 입력 textarea 변경 → 디바운스 후 제안 갱신 (HTML oninput 에서 호출)
-function onMsgInputChanged() {
-  if (_faqOverlayOpen) return;  // 전체 보기 중에는 제안 갱신 보류
-  if (_faqSuggestTimer) clearTimeout(_faqSuggestTimer);
-  _faqSuggestTimer = setTimeout(() => {
-    const inputEl = $('msgModalInput');
-    const txt = (inputEl?.value || '').trim();
-    _faqRenderSuggest(_faqFindCandidates(txt));
-  }, FAQ_SUGGEST_DEBOUNCE_MS);
-}
-
-// 입력란 포커스(입력 중) — 입력란 위 FAQ 게이트(추천 카드 + 「よくある質問」 버튼)를 숨겨
-//   입력 공간을 확보한다. 페이지 전환(2026-05-22) 후 키보드 감지 대신 포커스 이벤트로 처리(사용자 요청).
-//   입력란에서 벗어나면(blur) 복원하되, _faqLoaded 후에만 복원해 setupFaqGate 완료 전 빈 게이트 깜빡임을 막는다.
-function onMsgInputFocus() {
-  const gate = $('msgFaqGate');
-  if (gate) gate.style.display = 'none';
-}
-function onMsgInputBlur() {
-  const gate = $('msgFaqGate');
-  if (gate && _faqLoaded) gate.style.display = '';
-}
-
-// 유사 후보 선별 (§2 결정 2) — 단계 일치로 후보를 깔고, 입력어가 질문 제목에 포함되면 가중치 상향
-//   입력 비어도 단계 기반으로 항상 결과. 답변 노드(handoff 아닌 item, body 보유)만 후보.
-function _faqFindCandidates(inputText) {
+// 추천 후보 — 현재 단계(relevant_stages) 우선, 답변 노드(handoff 아닌 item, body 보유)만 상위 N개.
+//   입력어 실시간 매칭은 봇 카드형 전환(2026-05-22)으로 폐기 — 단계 기반만.
+function _faqFindCandidates() {
   if (!_faqLoaded || !_faqNodes.length) return [];
   const items = _faqNodes.filter(n =>
     n.kind === 'item' && !n.is_human_handoff && (n.body_ja || n.body_ko)
   );
-  // 입력어 토큰 (공백 분리 + 짧은 토큰 제거)
-  const tokens = String(inputText || '')
-    .toLowerCase()
-    .split(/[\s、。,.!?！？]+/)
-    .map(s => s.trim())
-    .filter(s => s.length >= FAQ_KEYWORD_MIN_LEN);
-
-  const scored = items.map(node => {
-    let score = 0;
-    // 단계 일치 가중치 (relevant_stages 에 현재 단계 포함)
-    if (_faqStage) {
-      const stages = Array.isArray(node.relevant_stages) ? node.relevant_stages : [];
-      if (stages.includes(_faqStage)) score += 3;
-    }
-    // 입력어가 질문 제목(양국어)에 포함되면 가중치 상향
-    if (tokens.length) {
-      const label = `${node.label_ja || ''} ${node.label_ko || ''}`.toLowerCase();
-      for (const tok of tokens) { if (label.includes(tok)) score += 2; }
-    }
-    return { node, score, sort: node.sort_order || 0 };
-  });
-
-  // 입력어가 있으면 매칭(score 일부)만, 없으면 단계 후보 + 일반 순. 점수 내림차순 → sort_order
-  const hasInput = tokens.length > 0;
-  let pool = scored;
-  if (hasInput) {
-    const matched = scored.filter(s => s.score > 0);
-    pool = matched.length ? matched : scored;  // 매칭 0건이면 단계 기반 폴백
-  }
-  pool.sort((a, b) => (b.score - a.score) || (a.sort - b.sort));
-  return pool.slice(0, FAQ_SUGGEST_MAX).map(s => s.node);
+  return _faqSortNodes(items).slice(0, FAQ_SUGGEST_MAX);
 }
 
-// 입력란 위 실시간 제안 카드 렌더 (§2 결정 1·4)
-function _faqRenderSuggest(cands) {
-  const box = $('msgFaqSuggest');
-  if (!box) return;
-  if (!cands || !cands.length) { _faqHideSuggest(); return; }
-  const cards = cands.map(n =>
+// 스레드 맨 위 봇 안내 카드 HTML (게이트→봇 카드 전환 2026-05-22).
+//   "먼저 확인해보세요" + 단계 기반 추천 질문 + 「よくある質問」 전체 보기 진입.
+//   클라이언트 전용 가상 카드(application_messages 에 저장 안 함). 노드 로드 전엔 빈 문자열.
+function _faqBotCardHtml() {
+  if (!_faqLoaded) return '';
+  const cards = _faqFindCandidates().map(n =>
     `<button type="button" class="msg-faq-suggest-item" onclick="openFaqItemById('${esc(n.id)}')">
       <span class="material-icons-round notranslate" translate="no">help_outline</span>
       <span class="msg-faq-suggest-q">${esc(_faqPick(n, 'label'))}</span>
       <span class="material-icons-round notranslate msg-faq-suggest-chev" translate="no">chevron_right</span>
     </button>`
   ).join('');
-  box.innerHTML = `<div class="msg-faq-suggest-head">${esc(t('messaging.faq.suggestHead'))}</div>${cards}`;
-  box.style.display = '';
-}
-
-function _faqHideSuggest() {
-  const box = $('msgFaqSuggest');
-  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+  return `<div class="msg-card msg-card-bot">
+    <div class="msg-card-bot-head"><span class="material-icons-round notranslate" translate="no">support_agent</span>${esc(t('messaging.faq.suggestHead'))}</div>
+    ${cards ? `<div class="msg-faq-botcard-list">${cards}</div>` : ''}
+    <button type="button" class="msg-faq-botcard-all" onclick="toggleFaqOverlay()">
+      <span class="material-icons-round notranslate" translate="no">quiz</span>
+      <span>${esc(t('messaging.faq.openBtn'))}</span>
+    </button>
+  </div>`;
 }
 
 // 제안 카드 클릭 → 전체 보기 오버레이를 열고 그 답변을 바로 표시
@@ -11095,65 +10998,6 @@ function toggleFaqOverlay() {
   if (_faqOverlayOpen) { closeFaqOverlay(); return; }
   if (!_faqLoaded) return;
   openFaqOverlay(false);
-}
-
-// ── 보내기 게이트 확인 시트 (§2 결정 1) ──
-//   "이 안내로 해결되나요?" — [解決しました](resolved·전송 취소) / [それでもお問い合わせ](handoff·전송 진행)
-function openFaqGateSheet(cands) {
-  const sheet = $('msgFaqGateSheet');
-  if (!sheet) { _faqProceedSend(); return; }  // 시트 없으면 게이트 무시하고 전송
-  const cards = (cands || []).map(n =>
-    `<button type="button" class="msg-faq-suggest-item" onclick="faqGateOpenAnswer('${esc(n.id)}')">
-      <span class="material-icons-round notranslate" translate="no">help_outline</span>
-      <span class="msg-faq-suggest-q">${esc(_faqPick(n, 'label'))}</span>
-      <span class="material-icons-round notranslate msg-faq-suggest-chev" translate="no">chevron_right</span>
-    </button>`
-  ).join('');
-  sheet.innerHTML = `
-    <div class="msg-faq-sheet-backdrop" onclick="closeFaqGateSheet()"></div>
-    <div class="msg-faq-sheet-panel" role="dialog" aria-modal="true">
-      <div class="msg-faq-sheet-title">${esc(t('messaging.faq.gateTitle'))}</div>
-      <div class="msg-faq-sheet-cards">${cards}</div>
-      <div class="msg-faq-sheet-actions">
-        <button type="button" class="msg-faq-resolved-btn" onclick="faqGateResolved()">${esc(t('messaging.faq.gateResolvedBtn'))}</button>
-        <button type="button" class="msg-faq-contact-link" onclick="faqGateProceed()">${esc(t('messaging.faq.gateProceedBtn'))}</button>
-      </div>
-    </div>
-  `;
-  sheet.style.display = '';
-}
-
-function closeFaqGateSheet() {
-  const sheet = $('msgFaqGateSheet');
-  if (sheet) { sheet.style.display = 'none'; sheet.innerHTML = ''; }
-}
-
-// 확인 시트에서 후보 답변 열기 → 시트 닫고 전체 보기 오버레이로 답변 표시 (= viewed 기록·_faqOpenedAny)
-function faqGateOpenAnswer(itemId) {
-  closeFaqGateSheet();
-  openFaqItemById(itemId);
-}
-
-// [解決しました] — resolved 기록 + 전송 취소
-async function faqGateResolved() {
-  closeFaqGateSheet();
-  await recordFaqInteraction(_msgCurrentAppId, null, 'resolved');
-  toast(t('messaging.faq.resolvedToast'));
-  navigateBackFromMessages();
-}
-
-// [それでもお問い合わせ] — handoff 기록 + 전송 진행 (게이트 통과 표시)
-async function faqGateProceed() {
-  closeFaqGateSheet();
-  await recordFaqInteraction(_msgCurrentAppId, null, 'handoff');
-  _faqOpenedAny = true;  // 게이트 통과 — 다시 확인하지 않음
-  _faqProceedSend();
-}
-
-// 게이트 통과 후 실제 전송 재호출
-function _faqProceedSend() {
-  _faqOpenedAny = true;
-  sendMessageFromModal();
 }
 
 // 단계 일치 우선 정렬 (§3 맞춤 노출) — relevant_stages 에 현재 단계가 있으면 위로
@@ -11248,9 +11092,8 @@ function openFaqItem(itemId) {
     return;
   }
 
-  // 답변 카드 — 'viewed' 기록(서버 멱등) + 게이트 통과 표시(답변을 봤으므로 보내기 시 재확인 안 함)
+  // 답변 카드 — 'viewed' 기록(서버 멱등)
   recordFaqInteraction(_msgCurrentAppId, itemId, 'viewed');
-  _faqOpenedAny = true;
 
   const bodyHtml = renderFaqBody(_faqPick(node, 'body'), _faqCtx);
   // 화면 이동 버튼 (action_type='navigate' + action_target)
@@ -11288,10 +11131,9 @@ async function faqMarkResolved(itemId) {
   navigateBackFromMessages();
 }
 
-// [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록 (게이트 통과 표시)
+// [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록
 async function faqStartDirectContact(itemId) {
   await recordFaqInteraction(_msgCurrentAppId, itemId || null, 'handoff');
-  _faqOpenedAny = true;  // 직접 문의 의사 표명 — 보내기 시 게이트 재확인 안 함
   closeFaqOverlay();
   const inputEl = $('msgModalInput');
   if (inputEl) { try { inputEl.focus(); } catch (_e) {} }
