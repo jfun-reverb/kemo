@@ -627,9 +627,6 @@ window.I18N_JA = {
       openBtn: 'よくある質問',
       allTitle: 'よくある質問',
       suggestHead: 'こちらで解決できるか確認してみましょう',
-      gateTitle: 'お問い合わせの前に、こちらで解決できるか確認しましょう',
-      gateResolvedBtn: '解決しました',
-      gateProceedBtn: 'それでもお問い合わせ',
     },
   },
 };

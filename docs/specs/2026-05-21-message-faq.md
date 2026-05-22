@@ -566,4 +566,26 @@
 - CSS 이름 충돌 회피: 상태 한 줄 컨테이너 `.adm-msg-statusline`(기존 `.adm-msg-status`=숨김/회수 배지와 구분)
 - reviewer GO(db?.from 3곳 교정, 인플 회귀 없음 확인) + supabase-expert OK(faq_interactions/applications/deliverables SELECT 모두 is_admin 정합). qa-tester: Light
 
+### PR B-rev2 (봇 안내 카드 재전환) — 2026-05-22
+
+**파일:** `dev/js/messaging.js`, `dev/index.html`, `dev/lib/i18n/{ja,ko}.js`, `dev/css/mypage.css`. **DB 변경 없음**(PR A RPC 재사용).
+
+#### 배경
+게이트형(PR B-rev)에서 두 문제 보고:
+1. **입력란 위 고정 게이트가 키보드 올라올 때 입력·발송 영역을 가림** (사용자 지적)
+2. **발송 버튼 무반응** — 낙첨(비승인) 캠페인에서 텍스트 입력 후 발송을 눌러도 아무 반응 없음. 원인 의심: 발송을 가로채는 「보내기 1회 확인」 게이트 흐름
+
+#### 변경 — 게이트 폐기, 봇 안내 카드로
+- **입력란 위 고정 게이트 폐기** → **스레드 맨 위 봇 안내 카드**(`_faqBotCardHtml`): 추천 질문(단계 맞춤 정렬) + 「よくある質問」 전체 보기 버튼. `renderMessageThread` 가 0건/N건 공통 prepend. textarea 의 oninput/onfocus/onblur 핸들러·실시간 제안 디바운스 제거
+- **발송 게이트(보내기 1회 확인 시트) 폐기** → `sendMessageFromModal` 에서 게이트 블록 제거, **발송은 항상 바로 진행**. 게이트 전용 함수 6종(`openFaqGateSheet`/`closeFaqGateSheet`/`faqGateOpenAnswer`/`faqGateResolved`/`faqGateProceed`/`_faqProceedSend`) + `_faqOpenedAny` 변수 + `#msgFaqGateSheet` 요소 + i18n `gate*` 키 3종(ja/ko) + `.msg-faq-sheet*` CSS 제거
+- **측정 연속성 유지:** 봇 카드 질문 클릭 → `openFaqItemById` → `recordFaqInteraction(...,'viewed')`. 답변 화면 「解決しました」=`faqMarkResolved`(resolved), 「直接お問い合わせ」=`faqStartDirectContact`(handoff). 전체 보기 오버레이(`toggleFaqOverlay`) 그대로
+
+#### 초안(게이트형) 대비 변경
+- **달라진 것:** PR B-rev 의 "실시간 제안 + 보내기 1회 확인" 게이트를 "스레드 상단 상시 봇 카드"로. FAQ 유도는 유지(상시 노출)하되 **발송을 막지 않음**. LINE/문의 최소화 의도는 봇 카드 상시 노출로 달성
+- **빠진 것:** 보내기 직전 확인 시트(`resolved`/`handoff` 분기) — 발송 흐름 단순화 우선. resolved/handoff 측정은 답변 화면·오버레이 경로로 계속 기록됨
+
+#### 기술 결정
+- 발송 무반응의 직접 원인은 자동 재현(브라우저 자동화 불안정)으로 미확정이나, 발송을 가로채는 게이트 경로 자체를 제거해 "발송이 막히는" 구조를 없앰 — 게이트가 원인이면 해소, 그 외 원인이면 발송 시도가 RPC 까지 진행돼 에러가 표면화(진단 가능)
+- reviewer GO (게이트 잔존 참조 0, 봇 카드/오버레이/측정 경로 정상, esc 유지). qa-tester: 발송 플로우 변경이라 full 권장이나 브라우저 자동화 불안정 → 개발서버 수동 검증
+
 ### PR D — 운영 배포 (메시지 PR 5 약관과 함께, 미착수)
