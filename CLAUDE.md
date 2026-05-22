@@ -152,7 +152,7 @@
 - **가격체크**: `products[i].price_check` (`'higher'|'lower'|'equal'`, optional) — 마켓 등록 가격 vs 신청 금액 비교. 신청 목록 표 「가격체크」 드롭다운 컬럼 토글. 미선택이면 키 자체 없음
 - **URL 입력 자동 prefix**: `normalizeBrandUrlInput(raw)` — 스킴 없는 입력(`example.com`) 에 `https://` 자동 prefix, 위험 스킴(javascript:, data:) 차단. 견적서/오리엔시트 셀 적용
 - **엑셀 내보내기**: 페인 헤더에 엑셀 다운로드 버튼 — 신청일·신청번호·폼타입·업체/브랜드명·담당자·이메일·연락처·세금계산서 주소·예상견적·상태
-- **운영 현황 페인**: 회사(`companies`) 기반 브랜드 카드 그리드. `get_brand_ops_overview(p_company_id)` 19컬럼 + alert_level 4단계(`danger`/`warning`/`caution`/`normal`). 브랜드 상세 진입 시 `get_brand_ops_detail(p_brand_id)` jsonb 통합 반환(brand/company/applications/external_campaigns). 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md`
+- **운영 현황 페인**: 회사(`companies`) 기반 브랜드 카드 그리드. `get_brand_ops_overview(p_company_id)` 22컬럼 + alert_level 4단계(`danger`/`warning`/`caution`/`normal`). 카드에 **사유 배너**(긴급/대응 필요/주의 카드 한정, 정상 카드는 미표시) — 서버가 `alert_reasons text[]`(조건 코드 배열: `recruit_low_deadline_near`/`cancel_7d_high`/`d1_imminent`/`d3_imminent`/`recruit_low`) + `soonest_deadline`/`d1_count` 를 주면 화면(`brandOpsAlertReasonLines`)이 한국어 문구로 조립(예: 「모집률 28% · 마감 5일 남음」, 「마감 하루 전 2건」, 「최근 7일 취소 5건」). 임계값은 마이그레이션 120 기준 그대로(148 은 출력 컬럼만 추가). 브랜드 상세 진입 시 `get_brand_ops_detail(p_brand_id)` jsonb 통합 반환(brand/company/applications/external_campaigns). 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md`
 - **캠페인 ↔ 신청 연결/해제**: `link_campaign_to_application` / `unlink_campaign_from_application` RPC. 같은 brand_id 검증 후 채번 재발급 + `legacy_no` 콤마 누적 + `numbering_legacy_map` UPSERT. 동시성 `pg_advisory_xact_lock` 2단 잠금. 멱등성 `unchanged:true` 반환. 가드 `is_campaign_admin()` 이상
 
 ### 인플루언서 관리
@@ -204,7 +204,7 @@
 - `brand_app_daily_counter` — 일자별(JST) 채번 카운터. SECURITY DEFINER 트리거 전용
 - `companies` — 회사 마스터 (1개 회사 = N 개 brands, 4단 계층: 회사 > 브랜드 > 신청 > 캠페인). `name_ko`(NOT NULL)/`name_ja`/`name_en` + `name_normalized` UNIQUE NOT NULL(자동 정규화 트리거) + `business_no` + `address` + `homepage_url` + `contact_*` 3종 + `billing_email`/`billing_address`/`memo` + `status CHECK(active|archived)` + `total_brands` 자동 재계산. RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상
 - `brands` — 브랜드 마스터. `name`, `name_normalized`(자동 정규화), `brand_seq` UNIQUE, `company_id` FK ON DELETE SET NULL
-- `get_brand_ops_overview(p_company_id uuid)` — 운영 현황 19컬럼 집계 RPC (`SECURITY DEFINER + SET search_path='' + is_admin()`)
+- `get_brand_ops_overview(p_company_id uuid)` — 운영 현황 22컬럼 집계 RPC (`SECURITY DEFINER + SET search_path='' + is_admin()`). 마이그레이션 148 로 `alert_reasons text[]`(alert 발생 조건 코드 배열) + `soonest_deadline date` + `d1_count bigint` 출력 추가(카드 사유 배너용). 임계값은 120 기준 유지, `flag_agg` CTE 로 임계값 1회 계산 후 alert_level/alert_reasons 가 동일 플래그 재참조
 - `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb 통합 RPC
 - `link_campaign_to_application` / `unlink_campaign_from_application` — 캠페인↔신청 연결/해제 RPC (`is_campaign_admin()` 이상, advisory_xact_lock 2단)
 
