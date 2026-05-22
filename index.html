@@ -609,14 +609,14 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-attach-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
 .msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
 .msg-pending-notice{flex-shrink:0;padding:10px 14px;background:#FFF6E5;color:#8A6D3B;font-size:12px;line-height:1.5;border-top:1px solid var(--outline);text-align:center}
-.msg-modal-input-area{flex-shrink:0;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
-.msg-attach-preview{display:flex;flex-wrap:wrap;gap:6px}
+.msg-modal-input-area{flex-shrink:0;display:flex;flex-direction:column;max-height:60%;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
+.msg-attach-preview{flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px}
 .msg-attach-preview:not(:empty){margin-bottom:8px}
 .msg-attach-pending{position:relative;width:56px;height:56px;border-radius:8px;overflow:hidden}
 .msg-attach-pending img{width:100%;height:100%;object-fit:cover}
 .msg-attach-remove{position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .msg-attach-remove .material-icons-round{font-size:14px}
-.msg-input-row{display:flex;align-items:flex-end;gap:8px}
+.msg-input-row{flex-shrink:0;display:flex;align-items:flex-end;gap:8px}
 .msg-attach-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface-dim)}
 .msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;max-height:120px;font-family:inherit}
 .msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
@@ -658,7 +658,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-faq-overlay-close{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:36px;min-height:36px;align-items:center;justify-content:center}
 
 /* ── 문의 게이트 (#msgFaqGate, PR B-rev) ── */
-.msg-faq-gate{margin-bottom:8px}
+.msg-faq-gate{margin-bottom:8px;min-height:0;overflow-y:auto}
 .msg-faq-suggest{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;padding:10px;background:#F4F8FF;border:1px solid #DCE7FB;border-radius:10px}
 .msg-faq-suggest-head{font-size:12px;font-weight:700;color:#23416E;margin-bottom:2px}
 .msg-faq-suggest-item{display:flex;align-items:center;gap:8px;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--text);cursor:pointer}
@@ -10487,6 +10487,34 @@ function _startMsgPoll() {
 function _stopMsgPoll() {
   if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
 }
+
+// 모바일 키보드 대응 — 모달이 열린 동안 visualViewport 높이에 맞춰 모달 본문을 줄여
+//   하단 입력란이 키보드에 가려지지 않게 한다 (appShell 과 동일 패턴, app.js 참고).
+let _msgVVAdjust = null;
+function _attachMsgKeyboardFit() {
+  if (!window.visualViewport) return;
+  _detachMsgKeyboardFit();  // 재진입 시 이전 리스너 중복 등록 방지 (모달 여닫기 반복 가드)
+  const body = document.querySelector('#msgModal .msg-modal-body');
+  if (!body) return;
+  _msgVVAdjust = function () {
+    const vv = window.visualViewport;
+    body.style.top = vv.offsetTop + 'px';
+    body.style.height = vv.height + 'px';
+    body.style.bottom = 'auto';
+  };
+  _msgVVAdjust();
+  window.visualViewport.addEventListener('resize', _msgVVAdjust);
+  window.visualViewport.addEventListener('scroll', _msgVVAdjust);
+}
+function _detachMsgKeyboardFit() {
+  if (window.visualViewport && _msgVVAdjust) {
+    window.visualViewport.removeEventListener('resize', _msgVVAdjust);
+    window.visualViewport.removeEventListener('scroll', _msgVVAdjust);
+  }
+  _msgVVAdjust = null;
+  const body = document.querySelector('#msgModal .msg-modal-body');
+  if (body) { body.style.top = ''; body.style.height = ''; body.style.bottom = ''; }
+}
 async function _checkNewMessages() {
   if (!_msgCurrentAppId || document.hidden) return;
   try {
@@ -10535,6 +10563,7 @@ async function openMessageModal(applicationId) {
   m.classList.add('on');
   m.setAttribute('aria-hidden', 'false');  // 모달 열림 — 내부 포커스 가능 (WAI-ARIA)
   document.body.style.overflow = 'hidden';
+  _attachMsgKeyboardFit();  // 키보드 열려도 입력란이 보이도록 모달 높이를 viewport 에 맞춤
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
   if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
@@ -10573,6 +10602,7 @@ function closeMessageModal() {
   const m = $('msgModal');
   if (m) { m.classList.remove('on'); m.setAttribute('aria-hidden', 'true'); }
   document.body.style.overflow = '';
+  _detachMsgKeyboardFit();
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
   if (_faqSuggestTimer) { clearTimeout(_faqSuggestTimer); _faqSuggestTimer = null; }

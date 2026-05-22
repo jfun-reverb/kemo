@@ -39,6 +39,34 @@ function _startMsgPoll() {
 function _stopMsgPoll() {
   if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
 }
+
+// 모바일 키보드 대응 — 모달이 열린 동안 visualViewport 높이에 맞춰 모달 본문을 줄여
+//   하단 입력란이 키보드에 가려지지 않게 한다 (appShell 과 동일 패턴, app.js 참고).
+let _msgVVAdjust = null;
+function _attachMsgKeyboardFit() {
+  if (!window.visualViewport) return;
+  _detachMsgKeyboardFit();  // 재진입 시 이전 리스너 중복 등록 방지 (모달 여닫기 반복 가드)
+  const body = document.querySelector('#msgModal .msg-modal-body');
+  if (!body) return;
+  _msgVVAdjust = function () {
+    const vv = window.visualViewport;
+    body.style.top = vv.offsetTop + 'px';
+    body.style.height = vv.height + 'px';
+    body.style.bottom = 'auto';
+  };
+  _msgVVAdjust();
+  window.visualViewport.addEventListener('resize', _msgVVAdjust);
+  window.visualViewport.addEventListener('scroll', _msgVVAdjust);
+}
+function _detachMsgKeyboardFit() {
+  if (window.visualViewport && _msgVVAdjust) {
+    window.visualViewport.removeEventListener('resize', _msgVVAdjust);
+    window.visualViewport.removeEventListener('scroll', _msgVVAdjust);
+  }
+  _msgVVAdjust = null;
+  const body = document.querySelector('#msgModal .msg-modal-body');
+  if (body) { body.style.top = ''; body.style.height = ''; body.style.bottom = ''; }
+}
 async function _checkNewMessages() {
   if (!_msgCurrentAppId || document.hidden) return;
   try {
@@ -87,6 +115,7 @@ async function openMessageModal(applicationId) {
   m.classList.add('on');
   m.setAttribute('aria-hidden', 'false');  // 모달 열림 — 내부 포커스 가능 (WAI-ARIA)
   document.body.style.overflow = 'hidden';
+  _attachMsgKeyboardFit();  // 키보드 열려도 입력란이 보이도록 모달 높이를 viewport 에 맞춤
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
   if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
@@ -125,6 +154,7 @@ function closeMessageModal() {
   const m = $('msgModal');
   if (m) { m.classList.remove('on'); m.setAttribute('aria-hidden', 'true'); }
   document.body.style.overflow = '';
+  _detachMsgKeyboardFit();
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
   if (_faqSuggestTimer) { clearTimeout(_faqSuggestTimer); _faqSuggestTimer = null; }
