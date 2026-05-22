@@ -927,7 +927,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <span class="material-icons-round notranslate" translate="no">image</span>
         <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
       </label>
-      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()"></textarea>
+      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()" onfocus="onMsgInputFocus()" onblur="onMsgInputBlur()"></textarea>
       <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
         <span class="material-icons-round notranslate" translate="no">send</span>
       </button>
@@ -10980,6 +10980,9 @@ async function setupFaqGate(app, camp) {
   }
   // 진입 시 입력어 없이 단계 기반 제안 1차 노출
   _faqRenderSuggest(_faqFindCandidates(''));
+  // 노드 로드 중 빠른 포커스→블러로 게이트가 숨겨졌고 지금 입력란에 포커스가 없으면 복원
+  //   (포커스가 아직 입력란에 있으면 onMsgInputBlur 가 나중에 복원).
+  if (gate && document.activeElement !== $('msgModalInput')) gate.style.display = '';
 }
 
 // 입력 textarea 변경 → 디바운스 후 제안 갱신 (HTML oninput 에서 호출)
@@ -10991,6 +10994,18 @@ function onMsgInputChanged() {
     const txt = (inputEl?.value || '').trim();
     _faqRenderSuggest(_faqFindCandidates(txt));
   }, FAQ_SUGGEST_DEBOUNCE_MS);
+}
+
+// 입력란 포커스(입력 중) — 입력란 위 FAQ 게이트(추천 카드 + 「よくある質問」 버튼)를 숨겨
+//   입력 공간을 확보한다. 페이지 전환(2026-05-22) 후 키보드 감지 대신 포커스 이벤트로 처리(사용자 요청).
+//   입력란에서 벗어나면(blur) 복원하되, _faqLoaded 후에만 복원해 setupFaqGate 완료 전 빈 게이트 깜빡임을 막는다.
+function onMsgInputFocus() {
+  const gate = $('msgFaqGate');
+  if (gate) gate.style.display = 'none';
+}
+function onMsgInputBlur() {
+  const gate = $('msgFaqGate');
+  if (gate && _faqLoaded) gate.style.display = '';
 }
 
 // 유사 후보 선별 (§2 결정 2) — 단계 일치로 후보를 깔고, 입력어가 질문 제목에 포함되면 가중치 상향
