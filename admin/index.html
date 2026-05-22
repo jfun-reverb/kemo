@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779421987';
+  var CURRENT_BUILD = 'v1779427510';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1729,7 +1729,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-22 12:53 · 58176d4</span>
+          <span class="admin-build-text">2026-05-22 14:25 · a5dc33e</span>
         </div>
       </div>
     </aside>
@@ -12708,13 +12708,32 @@ function brandOpsCampTypeChannel(c) {
     + '</div>';
 }
 
-// 미니카드 기간: 모집 범위(recruit_start~deadline) + 제출 마감
-function brandOpsCampPeriod(c) {
-  var recruitRange = (c.recruit_start ? brandOpsShortDate(c.recruit_start) : '상시') + '~' + (c.deadline ? brandOpsShortDate(c.deadline) : '');
-  return '<div style="font-size:10px;color:var(--muted);margin-top:6px">'
-    + '모집 ' + esc(recruitRange)
-    + (c.submission_end ? ' · 제출마감 ' + esc(brandOpsShortDate(c.submission_end)) : '')
-    + '</div>';
+// M/D~M/D 기간 범위 (한쪽만 있으면 그쪽만)
+function brandOpsDateRange(s, e) {
+  var ss = brandOpsShortDate(s), ee = brandOpsShortDate(e);
+  if (ss && ee) return ss + '~' + ee;
+  if (ee) return '~' + ee;
+  if (ss) return ss + '~';
+  return '';
+}
+
+// 진행바 하단 날짜 줄 (작은 글씨)
+function brandOpsMiniDateLine(text) {
+  return text ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:4px">' + esc(text) + '</div>' : '';
+}
+
+// 제출 진행바 하단 텍스트: 리뷰어=구매기간 / 방문형=방문기간 + 제출마감
+function brandOpsSubmitDateText(c) {
+  var parts = [];
+  if (c.recruit_type === 'monitor') {
+    var pr = brandOpsDateRange(c.purchase_start, c.purchase_end);
+    if (pr) parts.push('구매 ' + pr);
+  } else if (c.recruit_type === 'visit') {
+    var vr = brandOpsDateRange(c.visit_start, c.visit_end);
+    if (vr) parts.push('방문 ' + vr);
+  }
+  if (c.submission_end) parts.push('제출마감 ' + brandOpsShortDate(c.submission_end));
+  return parts.join(' · ');
 }
 
 function renderCampMiniCard(c, isExternal, applicationId) {
@@ -12751,9 +12770,10 @@ function renderCampMiniCard(c, isExternal, applicationId) {
       + '</div>'
     + '</div>'
     + brandOpsRateBar('모집', recruitPct, approved, slots)
+    + brandOpsMiniDateLine((function(){ var r = brandOpsDateRange(c.recruit_start, c.deadline); return r ? '모집 ' + r : ''; })())
     + brandOpsRateBar('제출', submitPct, submittedInf, approved)
+    + brandOpsMiniDateLine(brandOpsSubmitDateText(c))
     + brandOpsRateBar('결과물 승인', approvePct, delivApproved, delivTotal)
-    + brandOpsCampPeriod(c)
     + '<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:8px;gap:4px">'
       + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampPreviewModal(\'' + esc(c.id) + '\')">상세</button>'
       + linkBtn
