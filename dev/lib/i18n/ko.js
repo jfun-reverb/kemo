@@ -583,6 +583,7 @@ window.I18N_KO = {
       receipt: '상품 구매 후 영수증을 제출해 주세요 (제출 기한 {date}).',
       visit: '방문 후 게시물을 제출해 주세요.',
       post_deadline: '결과물 제출 기한: {date}',
+      post_overdue: '제출 기한이 지났습니다.',
       reviewing: '제출하신 결과물을 확인 중입니다.',
       partial_reject: '일부 결과물이 반려되었습니다. 반려된 항목을 확인 후 재제출해 주세요.',
       all_reject: '결과물이 반려되었습니다. 사유를 확인 후 재제출해 주세요.',

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779406781';
+  var CURRENT_BUILD = 'v1779410163';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1729,7 +1729,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-22 08:39 · 2dcf5b7</span>
+          <span class="admin-build-text">2026-05-22 09:36 · bde06b8</span>
         </div>
       </div>
     </aside>
@@ -4804,7 +4804,14 @@ function faqComputeStatus(status, delivs, camp) {
     if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
     if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
     if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
-    if (phase === 'post')     return { key: 'post_deadline', stage: 'approved_post' };
+    if (phase === 'post') {
+      // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
+      // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
+      // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
+      const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
+      if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
+      return { key: 'post_deadline', stage: 'approved_post' };
+    }
     return { key: 'approved_fallback', stage: null };
   }
   return { key: 'fallback', stage: null };
@@ -13197,6 +13204,7 @@ const ADM_STATUS_LINE_KO = {
   receipt: '상품 구매 후 영수증을 제출해 주세요 (제출 기한 {date}).',
   visit: '방문 후 게시물을 제출해 주세요.',
   post_deadline: '결과물 제출 기한: {date}',
+  post_overdue: '제출 기한이 지났습니다.',
   reviewing: '제출하신 결과물을 확인 중입니다.',
   partial_reject: '일부 결과물이 반려되었습니다. 반려된 항목을 확인 후 재제출해 주세요.',
   all_reject: '결과물이 반려되었습니다. 사유를 확인 후 재제출해 주세요.',
