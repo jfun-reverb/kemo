@@ -92,13 +92,21 @@
 
 ## 구현 결과
 
-**구현일:** (개발 세션이 채울 것)
-**관련 커밋:** (개발 세션이 채울 것)
+**구현일:** 2026-05-22
+**관련 커밋:** feature/campaign-list-diet PR (PR 1 = feature/campaign-list-perf #266 이미 머지됨)
 
 ### 초안 대비 변경 사항
 - 추가된 것:
-- 빠진 것:
+  - `fetchCampaignsForAdminList()` — ADMIN_LIST_COLUMNS 컬럼셋(23개)으로 SELECT, autoOpenCampaigns/autoCloseCampaigns 포함
+  - `fetchApplicationsCountLite()` — campaign_id + status 2컬럼만 SELECT
+  - `ADMIN_LIST_COLUMNS` 상수 — storage.js 최상단 선언, 목록에서 참조하는 컬럼 전수 분석 후 확정
+- 빠진 것: 없음 (사양서 전체 반영)
 - 달라진 것:
+  - `fetchCampaignsForAdminList` 에서 autoOpenCampaigns/autoCloseCampaigns 호출 포함 (사양서 주석 "전환은 fetchCampaigns 경로에서만"에서 변경 — reviewer 경고 2 해소)
+  - `changeCampStatus` 의 `allCampaigns = await fetchCampaigns()` 이중 조회 제거 (reviewer 경고 1 해소)
+  - `renderCampaigns(allCampaigns)` dead code 제거 (admin 빌드에 campaign.js 미포함)
 
 ### 구현 중 기술 결정 사항
--
+- `allCampaigns` 사용처 전수 분석: buildCampRow, changeCampStatus, moveCampOrder, loadCampApplicants, renderCautionHistoryModal, 엑셀 내보내기 4종 — 무거운 컬럼(participation_steps/caution_items/ng_items/리치텍스트)을 참조하는 곳이 없음을 확인 → 설계 분기 (가) 적용
+- autoOpenCampaigns/autoCloseCampaigns 는 status/recruit_start/deadline 만 참조하므로 라이트 컬럼셋에서도 정상 작동 확인
+- 마이그레이션 없음 (DB 구조 변경 없이 클라이언트 SELECT 컬럼 조정만)
