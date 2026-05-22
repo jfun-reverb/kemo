@@ -281,7 +281,7 @@ window._supabaseLoaded = false;
         <span class="material-icons-round notranslate" translate="no">image</span>
         <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
       </label>
-      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()"></textarea>
+      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()" onfocus="onMsgInputFocus()" onblur="onMsgInputBlur()"></textarea>
       <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
         <span class="material-icons-round notranslate" translate="no">send</span>
       </button>
