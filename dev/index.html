@@ -247,51 +247,48 @@ window._supabaseLoaded = false;
 </div>
 
 <!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
-<div id="msgModal" class="msg-modal" aria-hidden="true">
-  <div class="msg-modal-backdrop" onclick="closeMessageModal()"></div>
-  <div class="msg-modal-body">
-    <div class="msg-modal-header">
-      <div id="msgModalTitle" class="msg-modal-title"></div>
-      <button class="msg-refresh-btn" onclick="refreshMessageModal()" data-i18n-attr="title:messaging.refresh,aria-label:messaging.refresh" title="更新" aria-label="最新のメッセージに更新">
-        <span class="material-icons-round notranslate" translate="no">refresh</span>
-      </button>
-      <button class="msg-close-btn" onclick="closeMessageModal()" aria-label="Close">
-        <span class="material-icons-round notranslate" translate="no">close</span>
-      </button>
-    </div>
-    <div id="msgNewBanner" class="msg-new-banner" style="display:none" onclick="refreshMessageModal()">
-      <span class="material-icons-round notranslate" translate="no">arrow_downward</span>
-      <span data-i18n="messaging.newArrived">新しいメッセージが届きました（タップで更新）</span>
-    </div>
-    <div id="msgStatusLine" class="msg-status-line" style="display:none"></div>
-    <div id="msgModalThread" class="msg-modal-thread"></div>
-    <!-- FAQ 전체 보기 오버레이 (「よくある質問」 버튼으로 토글, 카테고리→질문→답변) -->
-    <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
-    <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
-    <div class="msg-modal-input-area">
-      <!-- 문의 게이트: 실시간 제안 + 「よくある質問」 버튼 (PR B-rev) -->
-      <div id="msgFaqGate" class="msg-faq-gate" style="display:none">
-        <div id="msgFaqSuggest" class="msg-faq-suggest" style="display:none"></div>
-        <button type="button" class="msg-faq-open-btn" onclick="toggleFaqOverlay()">
-          <span class="material-icons-round notranslate" translate="no">quiz</span>
-          <span data-i18n="messaging.faq.openBtn">よくある質問</span>
-        </button>
-      </div>
-      <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
-      <div class="msg-input-row">
-        <label class="msg-attach-btn" aria-label="attach image">
-          <span class="material-icons-round notranslate" translate="no">image</span>
-          <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
-        </label>
-        <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()"></textarea>
-        <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
-          <span class="material-icons-round notranslate" translate="no">send</span>
-        </button>
-      </div>
-    </div>
-    <!-- 보내기 게이트 1회 확인 시트 -->
-    <div id="msgFaqGateSheet" class="msg-faq-sheet" style="display:none"></div>
+<div id="page-messages" class="page">
+  <div class="msg-modal-header">
+    <button class="msg-back-btn" onclick="navigateBackFromMessages()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
+      <span class="material-icons-round notranslate" translate="no">arrow_back</span>
+    </button>
+    <div id="msgModalTitle" class="msg-modal-title"></div>
+    <button class="msg-refresh-btn" onclick="refreshMessageModal()" data-i18n-attr="title:messaging.refresh,aria-label:messaging.refresh" title="更新" aria-label="最新のメッセージに更新">
+      <span class="material-icons-round notranslate" translate="no">refresh</span>
+    </button>
   </div>
+  <div id="msgNewBanner" class="msg-new-banner" style="display:none" onclick="refreshMessageModal()">
+    <span class="material-icons-round notranslate" translate="no">arrow_downward</span>
+    <span data-i18n="messaging.newArrived">新しいメッセージが届きました（タップで更新）</span>
+  </div>
+  <div id="msgStatusLine" class="msg-status-line" style="display:none"></div>
+  <div id="msgModalThread" class="msg-modal-thread"></div>
+  <!-- FAQ 전체 보기 오버레이 (「よくある質問」 버튼으로 토글, 카테고리→질문→답변) -->
+  <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
+  <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
+  <div class="msg-modal-input-area">
+    <!-- 문의 게이트: 실시간 제안 + 「よくある質問」 버튼 (PR B-rev) -->
+    <div id="msgFaqGate" class="msg-faq-gate" style="display:none">
+      <div id="msgFaqSuggest" class="msg-faq-suggest" style="display:none"></div>
+      <button type="button" class="msg-faq-open-btn" onclick="toggleFaqOverlay()">
+        <span class="material-icons-round notranslate" translate="no">quiz</span>
+        <span data-i18n="messaging.faq.openBtn">よくある質問</span>
+      </button>
+    </div>
+    <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
+    <div class="msg-input-row">
+      <label class="msg-attach-btn" aria-label="attach image">
+        <span class="material-icons-round notranslate" translate="no">image</span>
+        <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
+      </label>
+      <textarea id="msgModalInput" class="msg-input" rows="2" oninput="onMsgInputChanged()" onfocus="onMsgInputFocus()" onblur="onMsgInputBlur()"></textarea>
+      <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
+        <span class="material-icons-round notranslate" translate="no">send</span>
+      </button>
+    </div>
+  </div>
+  <!-- 보내기 게이트 1회 확인 시트 -->
+  <div id="msgFaqGateSheet" class="msg-faq-sheet" style="display:none"></div>
 </div>
 
 <!-- 메시지 첨부 이미지 라이트박스 (메시지 모달 위, 배경/닫기 클릭 시 닫힘) -->

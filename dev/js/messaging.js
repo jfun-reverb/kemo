@@ -10,6 +10,7 @@ const MSG_WITHDRAW_LIMIT_MS = 25 * 60 * 1000;  // 본인 회수 25분 (§3-5 ②
 const MSG_MAX_ATTACH = 5;                       // 메시지당 첨부 최대 5장 (§3-2)
 
 let _msgCurrentAppId = null;
+let _msgFrom = 'mypage';     // 메시지 페이지 진입 출처 (뒤로가기 목적지 결정)
 let _msgPendingFiles = [];   // 업로드 대기 File 배열 (압축 전 원본)
 let _msgSending = false;
 let _msgPollTimer = null;    // 모달 열린 동안 새 메시지 도착 감지 타이머
@@ -30,7 +31,6 @@ let _faqOverlayOpen = false; // 「よくある質問」 전체 보기 오버레
 const FAQ_SUGGEST_MAX = 4;            // 입력란 위 실시간 제안 최대 카드 수
 const FAQ_SUGGEST_DEBOUNCE_MS = 350;  // 입력 중 제안 갱신 디바운스(ms)
 const FAQ_KEYWORD_MIN_LEN = 2;        // 입력어 매칭 시 무시할 최소 토큰 길이
-const FAQ_GATE_HIDE_KB_PX = 150;      // 키보드로 viewport 가 이만큼(px) 줄면 입력란 위 게이트 숨김
 
 // 모달 열린 동안 30초마다 새 메시지 도착만 가볍게 확인 — 자동 표시 없이 안내 띠만
 function _startMsgPoll() {
@@ -41,41 +41,6 @@ function _stopMsgPoll() {
   if (_msgPollTimer) { clearInterval(_msgPollTimer); _msgPollTimer = null; }
 }
 
-// 모바일 키보드 대응 — 모달이 열린 동안 visualViewport 높이에 맞춰 모달 본문을 줄여
-//   하단 입력란이 키보드에 가려지지 않게 한다 (appShell 과 동일 패턴, app.js 참고).
-let _msgVVAdjust = null;
-function _attachMsgKeyboardFit() {
-  if (!window.visualViewport) return;
-  _detachMsgKeyboardFit();  // 재진입 시 이전 리스너 중복 등록 방지 (모달 여닫기 반복 가드)
-  const body = document.querySelector('#msgModal .msg-modal-body');
-  if (!body) return;
-  _msgVVAdjust = function () {
-    const vv = window.visualViewport;
-    body.style.top = vv.offsetTop + 'px';
-    body.style.height = vv.height + 'px';
-    body.style.bottom = 'auto';
-    // 키보드로 화면이 줄면 입력란 위 FAQ 게이트(추천+「よくある質問」 버튼)를 숨겨 입력 공간 확보.
-    //   키보드를 내리면 다시 표시. 게이트는 모달 열린 동안만 활성(setupFaqGate)이라 별도 가드 불필요.
-    // _faqLoaded 후에만 토글 — setupFaqGate(await) 완료 전 빈 게이트가 깜빡이지 않게.
-    const gate = document.querySelector('#msgFaqGate');
-    if (gate && _faqLoaded) {
-      const kbOpen = (window.innerHeight - vv.height) > FAQ_GATE_HIDE_KB_PX;
-      gate.style.display = kbOpen ? 'none' : '';
-    }
-  };
-  _msgVVAdjust();
-  window.visualViewport.addEventListener('resize', _msgVVAdjust);
-  window.visualViewport.addEventListener('scroll', _msgVVAdjust);
-}
-function _detachMsgKeyboardFit() {
-  if (window.visualViewport && _msgVVAdjust) {
-    window.visualViewport.removeEventListener('resize', _msgVVAdjust);
-    window.visualViewport.removeEventListener('scroll', _msgVVAdjust);
-  }
-  _msgVVAdjust = null;
-  const body = document.querySelector('#msgModal .msg-modal-body');
-  if (body) { body.style.top = ''; body.style.height = ''; body.style.bottom = ''; }
-}
 async function _checkNewMessages() {
   if (!_msgCurrentAppId || document.hidden) return;
   try {
@@ -104,16 +69,35 @@ async function refreshMessageModal() {
   } catch (e) { console.error('[refreshMessageModal]', e); }
 }
 
-// 응모건 메시지 모달 열기
-async function openMessageModal(applicationId) {
+// 응모건 메시지 페이지 열기 (모달→페이지 전환, 2026-05-22)
+//   from: 'mypage' — 뒤로가기 시 응모이력으로 복귀. 해시 #messages-{id} 로 새로고침 복원.
+async function openMessagesPage(applicationId, from, pushHistory) {
   if (!applicationId) return;
+  // 알림·새로고침으로 직접 진입 시 _myApps/allCampaigns 캐시가 비어 제목·취소 판별이
+  //   부정확할 수 있어 먼저 보장한다(응모이력 경유 진입이면 이미 로드돼 즉시 통과).
+  if ((typeof _myApps === 'undefined' || !_myApps || !_myApps.length) && typeof loadMyApplications === 'function') {
+    try { await loadMyApplications(); } catch (_e) {}
+  }
+  // 취소된 응모는 메시지 진입 차단 (사용자 결정 2026-05-22)
+  if (typeof isApplicationCancelled === 'function' && isApplicationCancelled(applicationId)) {
+    if (typeof toast === 'function') toast(t('messaging.cancelledBlocked'));
+    return;
+  }
   _msgCurrentAppId = applicationId;
+  _msgFrom = from || 'mypage';
   _msgPendingFiles = [];
   _faqLoaded = false;
   _faqOpenedAny = false;
   _faqOverlayOpen = false;
-  const m = $('msgModal');
-  if (!m) return;
+
+  // 페이지 활성화 (navigate 가 #messages-{id} 해시 push → 새로고침 복원 가능).
+  //   pushHistory=false 면 히스토리 미기록 (뒤로가기·새로고침 복원 시 중복 방지).
+  //   같은 페이지(messages→messages 다른 응모건)면 navigate 가 cleanup 을 건너뛰므로
+  //   위에서 상태를 명시 초기화하고 아래에서 폴링을 재시작한다.
+  if (typeof navigate === 'function') navigate('messages-' + applicationId, pushHistory);
+
+  const page = $('page-messages');
+  if (!page) return;
 
   // 헤더 제목: 「{캠페인명}に関するお問い合わせ」
   const app = (typeof _myApps !== 'undefined' ? _myApps : []).find(a => a.id === applicationId);
@@ -121,10 +105,6 @@ async function openMessageModal(applicationId) {
   const titleEl = $('msgModalTitle');
   if (titleEl) titleEl.textContent = t('messaging.titleFor').replace('{name}', camp.title || '');
 
-  m.classList.add('on');
-  m.setAttribute('aria-hidden', 'false');  // 모달 열림 — 내부 포커스 가능 (WAI-ARIA)
-  document.body.style.overflow = 'hidden';
-  _attachMsgKeyboardFit();  // 키보드 열려도 입력란이 보이도록 모달 높이를 viewport 에 맞춤
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
   if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
@@ -152,18 +132,22 @@ async function openMessageModal(applicationId) {
     if (typeof markMessageNotificationsRead === 'function') await markMessageNotificationsRead(applicationId);
     if (typeof refreshMyMsgUnread === 'function') await refreshMyMsgUnread();
     if (typeof refreshNotifBadge === 'function') refreshNotifBadge({force: true});
-    _startMsgPoll(); // 모달 열린 동안 새 메시지 도착 감지 시작
+    _startMsgPoll(); // 페이지 열린 동안 새 메시지 도착 감지 시작
   } catch (e) {
-    console.error('[openMessageModal]', e);
+    console.error('[openMessagesPage]', e);
     if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loadError'))}</div>`;
   }
 }
 
-function closeMessageModal() {
-  const m = $('msgModal');
-  if (m) { m.classList.remove('on'); m.setAttribute('aria-hidden', 'true'); }
-  document.body.style.overflow = '';
-  _detachMsgKeyboardFit();
+// 메시지 페이지 뒤로가기 — 응모이력으로 복귀 (헤더 戻る 버튼)
+function navigateBackFromMessages() {
+  navigate('mypage');
+  if (typeof openMypageSub === 'function') openMypageSub('applications');
+}
+
+// 메시지 페이지를 떠날 때 정리 (navigate 의 페이지 전환 훅 + 직접 호출 공용).
+//   모달이 아니라 페이지이므로 표시/숨김은 navigate 가 관리하고, 여기선 폴링·상태만 정리.
+function cleanupMessagesPage() {
   _stopMsgPoll();
   _toggleMsgNewBanner(false);
   if (_faqSuggestTimer) { clearTimeout(_faqSuggestTimer); _faqSuggestTimer = null; }
@@ -550,6 +534,9 @@ async function setupFaqGate(app, camp) {
   }
   // 진입 시 입력어 없이 단계 기반 제안 1차 노출
   _faqRenderSuggest(_faqFindCandidates(''));
+  // 노드 로드 중 빠른 포커스→블러로 게이트가 숨겨졌고 지금 입력란에 포커스가 없으면 복원
+  //   (포커스가 아직 입력란에 있으면 onMsgInputBlur 가 나중에 복원).
+  if (gate && document.activeElement !== $('msgModalInput')) gate.style.display = '';
 }
 
 // 입력 textarea 변경 → 디바운스 후 제안 갱신 (HTML oninput 에서 호출)
@@ -561,6 +548,18 @@ function onMsgInputChanged() {
     const txt = (inputEl?.value || '').trim();
     _faqRenderSuggest(_faqFindCandidates(txt));
   }, FAQ_SUGGEST_DEBOUNCE_MS);
+}
+
+// 입력란 포커스(입력 중) — 입력란 위 FAQ 게이트(추천 카드 + 「よくある質問」 버튼)를 숨겨
+//   입력 공간을 확보한다. 페이지 전환(2026-05-22) 후 키보드 감지 대신 포커스 이벤트로 처리(사용자 요청).
+//   입력란에서 벗어나면(blur) 복원하되, _faqLoaded 후에만 복원해 setupFaqGate 완료 전 빈 게이트 깜빡임을 막는다.
+function onMsgInputFocus() {
+  const gate = $('msgFaqGate');
+  if (gate) gate.style.display = 'none';
+}
+function onMsgInputBlur() {
+  const gate = $('msgFaqGate');
+  if (gate && _faqLoaded) gate.style.display = '';
 }
 
 // 유사 후보 선별 (§2 결정 2) — 단계 일치로 후보를 깔고, 입력어가 질문 제목에 포함되면 가중치 상향
@@ -694,7 +693,7 @@ async function faqGateResolved() {
   closeFaqGateSheet();
   await recordFaqInteraction(_msgCurrentAppId, null, 'resolved');
   toast(t('messaging.faq.resolvedToast'));
-  closeMessageModal();
+  navigateBackFromMessages();
 }
 
 // [それでもお問い合わせ] — handoff 기록 + 전송 진행 (게이트 통과 표시)
@@ -840,7 +839,7 @@ function openFaqItem(itemId) {
 async function faqMarkResolved(itemId) {
   await recordFaqInteraction(_msgCurrentAppId, itemId, 'resolved');
   toast(t('messaging.faq.resolvedToast'));
-  closeMessageModal();
+  navigateBackFromMessages();
 }
 
 // [直接お問い合わせ] → 전체 보기 오버레이 닫고 입력란 포커스 + 'handoff' 기록 (게이트 통과 표시)
@@ -856,7 +855,7 @@ async function faqStartDirectContact(itemId) {
 function faqNavigate(target) {
   if (!target) return;
   const app = _faqApp;
-  closeMessageModal();
+  // 페이지 떠남 — 아래 navigate/openActivityPage 호출이 cleanup 훅을 부른다(별도 닫기 불필요)
   // #activity 는 appId/campId 필요 → openActivityPage 직접 호출
   if (target === '#activity') {
     if (app && typeof openActivityPage === 'function') {

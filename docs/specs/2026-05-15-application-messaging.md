@@ -1328,6 +1328,25 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 
 ## 구현 결과
 
+### 후속 — 인플루언서 메시지: 모달 → 페이지 전환 (2026-05-22)
+
+**구현일:** 2026-05-22
+**관련 커밋:** feature/message-faq (PR #258 후속)
+
+**배경:** 모바일에서 메시지 입력란 탭 시 키보드가 올라오면 모달(`#msgModal`)이 통째로 사라지는 버그. 모달 + visualViewport 높이 조정 방식의 한계.
+
+**변경:**
+- `#msgModal`(`.msg-modal` 오버레이) → `#page-messages`(`.page`, `#appShell` 내부). 페이지는 기존 모바일 키보드 패턴(`#appShell` `position:fixed` + visualViewport)을 상속해 키보드 가림 문제 근본 해결.
+- 진입 `openMessagesPage(applicationId, from, pushHistory)` — 캐시 보장(`_myApps` 비면 `loadMyApplications`) + 취소건 차단(`isApplicationCancelled`→toast `messaging.cancelledBlocked`) + `navigate('messages-'+id)` 라우팅.
+- 이탈 정리 `cleanupMessagesPage()` — navigate 의 페이지 전환 훅(이전 active 가 `page-messages` 이고 다른 페이지로 가면 호출)에서 폴링 정지·상태 초기화.
+- 헤더 뒤로가기 `navigateBackFromMessages()` → 응모이력 복귀.
+- 라우팅 5곳에 `messages-{id}` 분기: `navigate`/`popstate`/초기 해시 복원/DOMContentLoaded initPage/`updateActiveNav`. 해시 `#messages-{id}` 로 새로고침 복원(detail 패턴).
+- 모달용 키보드 코드(`_attachMsgKeyboardFit`/`_detachMsgKeyboardFit`/`_msgVVAdjust`/`FAQ_GATE_HIDE_KB_PX`) 전부 제거.
+- 진입점 교체: `dev/js/mypage.js`(메시지 버튼), `dev/js/notifications.js`(message_received 알림) → `openMessagesPage`.
+
+**사용자 결정:** 뒤로가기 버튼 둠 / 취소 응모 진입 차단 / 개발서버까지만 배포(메시지 운영 보류 유지).
+**DB 변경:** 없음.
+
 ### PR 1 — 기반 인프라 + 인플루언서 메시지 (2026-05-20)
 
 **구현일:** 2026-05-20
