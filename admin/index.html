@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779427701';
+  var CURRENT_BUILD = 'v1779427892';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -445,8 +445,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .brand-ops-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
 @keyframes brandOpsPulse{0%,100%{opacity:1}50%{opacity:.45}}
 /* 브랜드 상세 — 캠페인 미니카드 그리드 */
-.brand-ops-mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-.brand-ops-mini-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px}
+.brand-ops-mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.brand-ops-mini-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}
 .brand-ops-app summary::-webkit-details-marker{display:none}
 /* 다중 선택 드롭다운 */
 .admin-filter-group{display:flex;flex-direction:column;gap:2px}
@@ -1729,7 +1729,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-22 14:28 · e2f7a33</span>
+          <span class="admin-build-text">2026-05-22 14:31 · 4c49a38</span>
         </div>
       </div>
     </aside>
@@ -12661,16 +12661,95 @@ function brandOpsFormTypeLabel(ft) {
   return ft === 'reviewer' ? '리뷰어' : ft === 'seeding' ? '시딩' : (ft || '');
 }
 
-function renderCampMiniCard(c, isExternal, applicationId) {
-  var approved = _brandOpsApprByCamp[c.id] || 0;
-  var slots = c.slots || 0;
-  var pct = slots > 0 ? Math.min(100, Math.round(approved / slots * 100)) : 0;
-  var dday = '';
-  if (c.deadline) {
-    var diff = Math.ceil((new Date(c.deadline) - new Date()) / 86400000);
-    dday = diff >= 0 ? ('D-' + diff) : '마감';
+// 캠페인 상태 한글 라벨·색 (운영 현황 미니카드 전용)
+var BRAND_OPS_CAMP_STATUS_KO = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '종료', expired: '노출마감' };
+var BRAND_OPS_CAMP_STATUS_COLOR = {
+  active:    { bg: '#E8F5E9', color: '#2E7D32' },
+  scheduled: { bg: '#E3F2FD', color: '#1565C0' },
+  closed:    { bg: '#F5F5F5', color: '#757575' },
+  draft:     { bg: '#FFF8E1', color: '#F9A825' },
+  expired:   { bg: '#FAFAFA', color: '#9E9E9E' }
+};
+// 캠페인 모집 타입 한글 (admin.js 의 RECRUIT_TYPE_LABEL_KO 폴백)
+var BRAND_OPS_RECRUIT_TYPE_KO = { monitor: '리뷰어', gifting: '기프팅', visit: '방문형' };
+
+// M/D 짧은 날짜
+function brandOpsShortDate(d) {
+  if (!d) return '';
+  var dt = new Date(d);
+  if (isNaN(dt)) return '';
+  return (dt.getMonth() + 1) + '/' + dt.getDate();
+}
+
+// 채널 문자열(콤마구분) → 한글 라벨, 복수면 channel_match 구분자
+function brandOpsChannelText(channel, match) {
+  if (!channel) return '';
+  var sep = match === 'and' ? ' & ' : ' · ';
+  return channel.split(',').map(function(ch) {
+    ch = ch.trim();
+    return (typeof getChannelLabel === 'function') ? getChannelLabel(ch) : ch;
+  }).filter(Boolean).join(sep);
+}
+
+// 미니카드 썸네일 (img1 없으면 placeholder)
+function brandOpsCampThumb(c) {
+  return c.img1
+    ? '<img src="' + esc(imgThumb(c.img1, 128)) + '" data-orig="' + esc(c.img1) + '" onerror="this.onerror=null;this.src=this.dataset.orig" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#f0f0f0">'
+    : '<div style="width:56px;height:56px;border-radius:8px;flex-shrink:0;background:#f0f0f0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="font-size:22px;color:#bbb">image</span></div>';
+}
+
+// 미니카드 상단: 모집 타입 + 채널
+function brandOpsCampTypeChannel(c) {
+  var typeKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined' && RECRUIT_TYPE_LABEL_KO[c.recruit_type]) || BRAND_OPS_RECRUIT_TYPE_KO[c.recruit_type] || c.recruit_type || '';
+  var chText = brandOpsChannelText(c.channel, c.channel_match);
+  return '<div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted);margin-bottom:3px">'
+    + (typeKo ? '<span style="background:#F3E9F0;color:var(--pink);font-weight:600;padding:1px 6px;border-radius:6px;flex-shrink:0">' + esc(typeKo) + '</span>' : '')
+    + (chText ? '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(chText) + '</span>' : '')
+    + '</div>';
+}
+
+// M/D~M/D 기간 범위 (한쪽만 있으면 그쪽만)
+function brandOpsDateRange(s, e) {
+  var ss = brandOpsShortDate(s), ee = brandOpsShortDate(e);
+  if (ss && ee) return ss + '~' + ee;
+  if (ee) return '~' + ee;
+  if (ss) return ss + '~';
+  return '';
+}
+
+// 진행바 하단 날짜 줄 (작은 글씨)
+function brandOpsMiniDateLine(text) {
+  return text ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;margin-bottom:4px">' + esc(text) + '</div>' : '';
+}
+
+// 제출 진행바 하단 텍스트: 리뷰어=구매기간 / 방문형=방문기간 + 제출마감
+function brandOpsSubmitDateText(c) {
+  var parts = [];
+  if (c.recruit_type === 'monitor') {
+    var pr = brandOpsDateRange(c.purchase_start, c.purchase_end);
+    if (pr) parts.push('구매 ' + pr);
+  } else if (c.recruit_type === 'visit') {
+    var vr = brandOpsDateRange(c.visit_start, c.visit_end);
+    if (vr) parts.push('방문 ' + vr);
   }
-  var statusBadge = '<span style="font-size:10px;background:#EEF2FF;color:#5B7CFF;padding:1px 7px;border-radius:8px">' + esc(c.status || '') + '</span>';
+  if (c.submission_end) parts.push('제출마감 ' + brandOpsShortDate(c.submission_end));
+  return parts.join(' · ');
+}
+
+function renderCampMiniCard(c, isExternal, applicationId) {
+  // 모집: 승인 인플 / slots (RPC approved_app_count 우선, 없으면 화면 집계 폴백)
+  var approved = (c.approved_app_count != null) ? c.approved_app_count : (_brandOpsApprByCamp[c.id] || 0);
+  var slots = c.slots || 0;
+  var recruitPct = slots > 0 ? Math.min(100, Math.round(approved / slots * 100)) : null;
+  // 제출률: 결과물 제출 인플 / 승인 인플   ·   승인률: 승인 결과물 / 제출 결과물
+  var submittedInf = c.deliv_submitted_inf || 0;
+  var submitPct = approved > 0 ? Math.min(100, Math.round(submittedInf / approved * 100)) : null;
+  var delivTotal = c.deliv_total || 0, delivApproved = c.deliv_approved || 0;
+  var approvePct = delivTotal > 0 ? Math.min(100, Math.round(delivApproved / delivTotal * 100)) : null;
+
+  var stKo = BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '';
+  var stColor = BRAND_OPS_CAMP_STATUS_COLOR[c.status] || { bg: '#F5F5F5', color: '#757575' };
+  var statusBadge = '<span style="font-size:10px;background:' + stColor.bg + ';color:' + stColor.color + ';padding:1px 7px;border-radius:8px;white-space:nowrap;flex-shrink:0">' + esc(stKo) + '</span>';
 
   // 연결/해제 버튼: 직접 등록(external)이면 「신청에 연결」, 신청 연결됨이면 「연결 해제」
   var linkBtn = isExternal
@@ -12678,19 +12757,26 @@ function renderCampMiniCard(c, isExternal, applicationId) {
     : '<button class="btn btn-ghost btn-xs" style="color:#c0392b" onclick="event.stopPropagation();confirmUnlinkCampaign(\'' + esc(c.id) + '\')">연결 해제</button>';
 
   return '<div class="brand-ops-mini-card">'
-    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
-      + '<div style="min-width:0">'
-        + '<div style="font-size:10px;color:var(--muted)">' + esc(c.campaign_no || '—') + '</div>'
-        + '<div style="font-weight:600;font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.title || c.product_ko || '—') + '</div>'
-      + '</div>' + statusBadge
+    + '<div style="display:flex;gap:10px;align-items:flex-start">'
+      + brandOpsCampThumb(c)
+      + '<div style="min-width:0;flex:1">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">'
+          + '<div style="min-width:0">'
+            + brandOpsCampTypeChannel(c)
+            + '<div style="font-weight:600;font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(c.title || c.product_ko || '—') + '</div>'
+          + '</div>'
+          + statusBadge
+        + '</div>'
+      + '</div>'
     + '</div>'
-    + brandOpsRateBar('모집', slots > 0 ? pct : null, approved, slots)
-    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'
-      + '<span style="font-size:10px;color:var(--muted)">' + (dday ? esc(dday) : '') + '</span>'
-      + '<span style="display:flex;gap:4px">'
-        + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampPreviewModal(\'' + esc(c.id) + '\')">상세</button>'
-        + linkBtn
-      + '</span>'
+    + brandOpsRateBar('모집', recruitPct, approved, slots)
+    + brandOpsMiniDateLine((function(){ var r = brandOpsDateRange(c.recruit_start, c.deadline); return r ? '모집 ' + r : ''; })())
+    + brandOpsRateBar('제출', submitPct, submittedInf, approved)
+    + brandOpsMiniDateLine(brandOpsSubmitDateText(c))
+    + brandOpsRateBar('결과물 승인', approvePct, delivApproved, delivTotal)
+    + '<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:8px;gap:4px">'
+      + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampPreviewModal(\'' + esc(c.id) + '\')">상세</button>'
+      + linkBtn
     + '</div>'
     + '</div>';
 }

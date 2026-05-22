@@ -205,7 +205,7 @@
 - `companies` — 회사 마스터 (1개 회사 = N 개 brands, 4단 계층: 회사 > 브랜드 > 신청 > 캠페인). `name_ko`(NOT NULL)/`name_ja`/`name_en` + `name_normalized` UNIQUE NOT NULL(자동 정규화 트리거) + `business_no` + `address` + `homepage_url` + `contact_*` 3종 + `billing_email`/`billing_address`/`memo` + `status CHECK(active|archived)` + `total_brands` 자동 재계산. RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상
 - `brands` — 브랜드 마스터. `name`, `name_normalized`(자동 정규화), `brand_seq` UNIQUE, `company_id` FK ON DELETE SET NULL
 - `get_brand_ops_overview(p_company_id uuid)` — 운영 현황 22컬럼 집계 RPC (`SECURITY DEFINER + SET search_path='' + is_admin()`). 마이그레이션 148 로 `alert_reasons text[]`(alert 발생 조건 코드 배열) + `soonest_deadline date` + `d1_count bigint` 출력 추가(카드 사유 배너용). 임계값은 120 기준 유지, `flag_agg` CTE 로 임계값 1회 계산 후 alert_level/alert_reasons 가 동일 플래그 재참조
-- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb 통합 RPC
+- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb 통합 RPC. 마이그레이션 149 로 캠페인 항목(신청 내부·외부 양쪽)에 `channel`/`channel_match`/`img1`(썸네일)/`recruit_start`/`submission_end` + 결과물 집계 `approved_app_count`(승인 신청 수)·`deliv_submitted_inf`(결과물 제출 distinct 인플)·`deliv_total`·`deliv_approved` 추가. 마이그레이션 150 으로 `purchase_start`/`purchase_end`(리뷰어 구매기간)·`visit_start`/`visit_end`(방문형 방문기간) 4키 추가. 미니카드가 모집률·제출률(제출인플/승인인플)·승인률(승인결과물/제출결과물) 3개 진행바 + 각 진행바 하단 날짜(모집 진행바=모집 시작~마감, 제출 진행바=리뷰어 구매기간/방문형 방문기간 + 제출마감) 표시에 사용
 - `link_campaign_to_application` / `unlink_campaign_from_application` — 캠페인↔신청 연결/해제 RPC (`is_campaign_admin()` 이상, advisory_xact_lock 2단)
 
 ### 인플루언서·관리자
