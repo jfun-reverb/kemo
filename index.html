@@ -4261,6 +4261,18 @@ async function fetchPendingDeliverableCount() {
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
 }
 
+// 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
+async function fetchPendingApplicationCount() {
+  if (!db) return 0;
+  try {
+    const {count, error} = await db?.from('applications')
+      .select('id', {count: 'exact', head: true})
+      .eq('status', 'pending');
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[fetchPendingApplicationCount]', e); return 0; }
+}
+
 // 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
 async function fetchDeliverables(filters) {
   if (!db) return [];

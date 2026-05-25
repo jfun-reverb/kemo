@@ -75,26 +75,22 @@ async function init() {
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
 
-    // campaigns/influencers/applications 3개 병렬 fetch — 순차 대기 제거
-    var preloaded = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
-    allCampaigns = preloaded[0].slice();
-
-    // 신청 뱃지 업데이트
-    var _pending = preloaded[2].filter(function(a){return a.status==='pending'});
-    if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>999?'999+':_pending.length)+'</span>':'');
-
-    // 결과물 관리 사이드바 배지 — 검수 대기(pending) 개수
+    // 사이드바 배지 3종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
+    if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
-
-    // 광고주 신청 pending 배지 (신규 brand_applications)
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
 
-    // URL 해시가 있으면 해당 패널로 이동
+    // PR 3 부트 경량화 — 진입 화면(hash)에 필요한 데이터만 로드
+    //  - dashboard: KPI·차트용 무거운 3종(캠페인/인플/신청 전건)을 여기서만 로드
+    //  - 그 외 페인: 각 페인 loader 가 자기 데이터를 스스로 fetch → 무거운 3종 스킵
+    //    (allCampaigns 는 shared.js 에서 []로 초기화. 캠페인 페인은 loadAdminCampaigns 가 lite 로 채움)
     var hash = location.hash.replace('#','');
     if (hash && hash !== 'dashboard') {
       await Promise.resolve(switchAdminPane(hash, null, false));
     } else {
       history.replaceState({pane:'dashboard'}, '', '#dashboard');
+      var preloaded = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
+      allCampaigns = preloaded[0].slice();
       await loadAdminData(preloaded);
     }
   } catch(e) {
