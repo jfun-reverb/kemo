@@ -147,6 +147,6 @@
 
 **효과:** 신청 전건 전송(3페이지 ~1.5초)을 캠페인 수만큼의 작은 집계 행 1회 호출로 대체.
 
-**검증:** reviewer GO(Warning: REVOKE 보완·사양서 추가 반영). 동작 변경(취소 제외)이라 qa 에서 숫자 확인.
+**검증:** reviewer GO(Warning: REVOKE 보완·사양서 추가 반영). qa light 7/7 PASS — 카운트 정합성(목록=신청자 보기), 취소 제외 확인(신청 3건 전부 취소된 캠페인이 `0/1명`), RPC 정상 호출 86~151ms.
 
-**관련 PR:** (배포 후 채움)
+**관련 PR:** 개발 #274 (feature/campaign-count-agg), 운영 #275 (hotfix/campaign-count-agg-prod) — 2026-05-25 양쪽 반영 확인. 마이그레이션 151 개발 DB(Tokyo)·운영 DB(Sydney) 양쪽 SQL Editor 적용 완료.
