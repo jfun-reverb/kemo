@@ -3461,19 +3461,29 @@ async function fetchCampaignsForAdminList() {
   }
 }
 
-// 관리자 캠페인 목록 전용 신청 카운트 조회 — campaign_id + status 만 select.
-// buildCampRow 의 「N건 / M명」 표시와 승인/대기 카운트에만 쓴다.
-// fetchApplications 와 달리 status 필터 없이 전건을 가져온다 (각 상태 카운트 합산 필요).
-async function fetchApplicationsCountLite() {
-  if (!db) return [];
+// 관리자 캠페인 목록 전용 신청 집계 조회 — 서버 집계 함수(get_campaign_application_counts) 호출.
+// 반환: { [campaign_id]: { total, approved, pending } } 맵.
+//   total   = 취소(cancelled) 제외한 전체 신청 수 (PR 4 확정 동작 변경)
+//   approved = 승인 수, pending = 대기 수
+// 신청 전건(약 3,000건)을 클라이언트로 전송하던 방식에서 서버 집계 1회 호출로 전환.
+// DEMO_MODE 또는 호출 실패 시 빈 맵({}) 반환 — 카운트 0으로 폴백.
+async function fetchCampaignApplicationCounts() {
+  if (!db) return {};
   try {
-    return await fetchAllPaged(() =>
-      db.from('applications')
-        .select('campaign_id,status')
-        .order('campaign_id', { ascending: true })
-    );
+    const { data, error } = await db.rpc('get_campaign_application_counts');
+    if (error) throw error;
+    // 배열을 campaign_id 키 맵으로 변환
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        total:    Number(row.total    || 0),
+        approved: Number(row.approved || 0),
+        pending:  Number(row.pending  || 0),
+      };
+      return map;
+    }, {});
   } catch(e) {
-    return [];
+    console.error('fetchCampaignApplicationCounts:', e);
+    return {};
   }
 }
 
