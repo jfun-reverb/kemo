@@ -132,3 +132,21 @@
 **결정/검증:** 배지는 백그라운드 처리(체감 우선), 신청 배지 count 통일. DB 변경 없음. reviewer GO(Warning: db?.from 통일 반영). qa full 10/10 PASS(전 페인 새로고침·배지 정확성, 콘솔 에러 0).
 
 **관련 PR:** 개발 #271 (feature/admin-boot-lite), 운영 #272 (hotfix/admin-boot-lite-prod) — 2026-05-25 양쪽 운영 반영 확인. qa Warning: `#camp-applicants` URL 직접 진입 시 스피너 무한(PR 3 이전과 동일한 기존 동작, 운영은 버튼 진입만이라 무해).
+
+---
+
+## PR 4 — 신청 카운트 데이터베이스 집계
+
+**배경:** PR 3 이후에도 캠페인 목록의 신청 카운트(총/승인/대기)는 `fetchApplicationsCountLite()` 가 applications (campaign_id, status) 를 전건(약 3,000건 3페이지 ~1.5초) 조회해 브라우저에서 셌다.
+
+**변경:**
+- 마이그레이션 151 `get_campaign_application_counts()` RPC 신설 — `TABLE(campaign_id, total, approved, pending)` 를 `GROUP BY campaign_id` 로 한 번에 집계. SECURITY DEFINER + `SET search_path=''` + `is_admin()` 가드 + PUBLIC/anon REVOKE + authenticated GRANT.
+- **`total` 은 취소(cancelled) 제외** (`COUNT(*) FILTER (WHERE status <> 'cancelled')`) — 사용자 확정 동작 변경(기존은 취소 포함이었음). approved/pending 은 기존과 동일.
+- `dev/lib/storage.js`: `fetchCampaignApplicationCounts()`(rpc → campaign_id별 집계 맵) 신설, `fetchApplicationsCountLite()` 제거.
+- `dev/js/admin.js`: `_campListApps`(행 배열) → `_campListCounts`(집계 맵). buildCampRow·정렬키·신청자 보기 버튼이 맵 조회로 전환. 캐시 정책(useCache 재사용·페인 재진입 갱신)은 유지.
+
+**효과:** 신청 전건 전송(3페이지 ~1.5초)을 캠페인 수만큼의 작은 집계 행 1회 호출로 대체.
+
+**검증:** reviewer GO(Warning: REVOKE 보완·사양서 추가 반영). 동작 변경(취소 제외)이라 qa 에서 숫자 확인.
+
+**관련 PR:** (배포 후 채움)

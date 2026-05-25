@@ -34,5 +34,7 @@ BEGIN
 END;
 $$;
 
--- authenticated 에만 실행 권한 부여 (anon 미부여)
+-- 기본 PUBLIC EXECUTE 회수 후 authenticated 에만 부여 (anon 미부여 — 함수 존재 노출 차단)
+REVOKE ALL ON FUNCTION public.get_campaign_application_counts() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_campaign_application_counts() FROM anon;
 GRANT EXECUTE ON FUNCTION public.get_campaign_application_counts() TO authenticated;
