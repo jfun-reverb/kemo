@@ -215,6 +215,7 @@ async function saveMyAdminInfo() {
 }
 
 async function changeMyAdminPassword() {
+  if (!db) return;
   const cur = $('myAdminCurrentPw')?.value;
   const nw = $('myAdminNewPw')?.value;
   const nw2 = $('myAdminNewPw2')?.value;
@@ -268,6 +269,7 @@ function openEditAdmin(id, email, name, role) {
 }
 
 async function saveAdmin() {
+  if (!db) return;
   const err = $('adminFormError');
   err.style.display = 'none';
   const editId = $('editAdminId').value;
@@ -326,6 +328,7 @@ function closeDeleteAdminModal() {
 }
 
 async function executeRemoveRole() {
+  if (!db) return;
   const authId = document.getElementById('deleteAdminAuthId').value;
   if (!authId) return;
   try {
@@ -340,6 +343,7 @@ async function executeRemoveRole() {
 }
 
 async function executeDeleteCompletely() {
+  if (!db) return;
   const authId = document.getElementById('deleteAdminAuthId').value;
   if (!authId) return;
   try {
@@ -362,6 +366,7 @@ function openResetPwModal(authId, email) {
 }
 
 async function executeResetPw() {
+  if (!db) return;
   const authId = $('resetPwTargetId').value;
   const newPw = $('resetPwNew').value;
   const err = $('resetPwError');
@@ -378,6 +383,7 @@ async function executeResetPw() {
 }
 
 async function sendResetEmail() {
+  if (!db) return;
   const email = $('resetPwTargetEmail').textContent;
   try {
     const {error} = await db.auth.resetPasswordForEmail(email);
