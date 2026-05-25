@@ -129,6 +129,6 @@
 
 **효과:** 캠페인(및 대시보드 외) 페인 새로고침 시 인플 전건·무거운 campaigns/applications 조회 제거 + 이중 조회 해소.
 
-**결정/검증:** 배지는 백그라운드 처리(체감 우선), 신청 배지 count 통일. DB 변경 없음. reviewer GO(Warning: db?.from 통일 반영). qa full 권장(전 페인 새로고침 영향).
+**결정/검증:** 배지는 백그라운드 처리(체감 우선), 신청 배지 count 통일. DB 변경 없음. reviewer GO(Warning: db?.from 통일 반영). qa full 10/10 PASS(전 페인 새로고침·배지 정확성, 콘솔 에러 0).
 
-**관련 PR:** (개발/운영 — 배포 후 채움)
+**관련 PR:** 개발 #271 (feature/admin-boot-lite), 운영 #272 (hotfix/admin-boot-lite-prod) — 2026-05-25 양쪽 운영 반영 확인. qa Warning: `#camp-applicants` URL 직접 진입 시 스피너 무한(PR 3 이전과 동일한 기존 동작, 운영은 버튼 진입만이라 무해).
