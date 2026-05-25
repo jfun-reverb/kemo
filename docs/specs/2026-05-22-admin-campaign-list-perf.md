@@ -92,8 +92,11 @@
 
 ## 구현 결과
 
-**구현일:** 2026-05-22
-**관련 커밋:** feature/campaign-list-diet PR (PR 1 = feature/campaign-list-perf #266 이미 머지됨)
+**구현일:** PR 1 = 2026-05-22, PR 2 = 2026-05-25
+**관련 PR:**
+- 개발(dev): PR 1 #266 (feature/campaign-list-perf), PR 2 #268 (feature/campaign-list-diet)
+- 운영(main): PR 1 #267 (hotfix/campaign-perf-prod), PR 2 #269 (hotfix/campaign-diet-prod) — dev 통째 머지 대신 소스만 재적용 후 재빌드(보류 기능 분리). 2026-05-25 양쪽 운영 반영 확인 (www.globalreverb.com)
+- 운영 검증: PR 1 qa light 7/7 PASS, PR 2 qa light 7/7 PASS (편집 폼 무거운 필드·엑셀 내보내기 회귀 없음)
 
 ### 초안 대비 변경 사항
 - 추가된 것:
