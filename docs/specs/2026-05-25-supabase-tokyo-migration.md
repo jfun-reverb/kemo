@@ -38,7 +38,7 @@
 
 1. **데이터베이스 구조 + 데이터** — 마이그레이션 파일 다수(`supabase/migrations/`) + 실데이터. 구조는 파일로 보관돼 있어 재현 가능, 데이터는 dump/restore.
 2. **로그인 사용자(`auth.users` ~1,700명) + `auth.identities`** — 비밀번호 해시 포함. **가장 신중해야 할 부분**(누락 시 전원 로그인 불가). 이관 방법 확정 필요(§8).
-3. **저장소(Storage) 파일** — 알려진 버킷: `campaign-images`, `application-message-attachments`, `influencer-flag-evidence`. **대시보드에서 전체 버킷 목록·정책 재확인 필요**.
+3. **저장소(Storage) 파일** — **실측(2026-05-25): 574MB 전부 `campaign-images` 단일 버킷에 집중(1,135파일)**. `application-message-attachments`·`influencer-flag-evidence` 버킷은 파일 0(메시지 기능 운영 보류·증빙 미사용) → **빈 버킷 구조+정책만 도쿄에 생성**. 실제 파일 복사는 `campaign-images` 하나뿐이라 단순(도구로 일괄). 대시보드에서 버킷 목록·정책 최종 확인.
 4. **Edge Function 7개** — `notify-admin-daily-digest`, `notify-application-cancelled-daily`, `notify-application-received-admin-daily`, `notify-brand-application`, `notify-campaign-promo-digest`, `notify-deliverable-decision`, `notify-influencer-daily-digest`. 새 프로젝트로 재배포 + 환경변수(secrets) 재설정.
 5. **예약 작업(pg_cron)** — 마이그레이션 113(응모 취소 다이제스트)·142(홍보 메일)·144(메시지) 등에서 등록한 스케줄. 새 프로젝트에 재등록(cron은 데이터로 안 딸려옴).
 6. **수동 설정**(대시보드, 코드로 안 옮겨짐):
