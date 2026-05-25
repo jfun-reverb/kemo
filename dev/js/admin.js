@@ -836,14 +836,14 @@ function applyImageCropsToList(imgList, cropsMap) {
 var campsLazy = null;
 const CAMPS_PAGE_SIZE = 50;
 
-// 캠페인 목록의 신청 카운트(승인/대기)용 신청 데이터 캐시.
-// 검색/필터/정렬(useCache=true)에서는 재사용해 호주 서버 전건 재조회를 막는다.
+// 캠페인 목록의 신청 집계 캐시 — { [campaign_id]: {total, approved, pending} } 맵.
+// 검색/필터/정렬(useCache=true)에서는 재사용해 서버 재조회를 막는다.
 // 페인 재진입·실데이터 갱신(useCache=false) 시에만 새로 fetch (allCampaigns 와 동일한 갱신 정책).
 // ⚠️ 이 캐시는 useCache=falsy(인자 없는 호출) 경로로만 갱신된다.
 //    신청 승인/반려 후 캠페인 페인으로 돌아오면 switchAdminPane('campaigns') → loaders.campaigns()
 //    가 loadAdminCampaigns 를 인자 없이 호출하므로 자동 갱신된다.
 //    loadAdminCampaigns(true) 직접 호출은 캐시를 갱신하지 않으니, 신청 상태가 바뀐 직후 경로에서는 쓰지 말 것.
-var _campListApps = null;
+var _campListCounts = null;
 
 // 캠페인 다중 선택 — 현재 필터/정렬 적용된 캠페인 리스트 캐시
 // loadAdminCampaigns 가 매 호출마다 갱신. toggleCampSelectAll·updateCampSelectionUI 에서 참조
@@ -898,12 +898,12 @@ async function loadAdminCampaigns(useCache) {
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
-  // useCache(검색/필터/정렬)면 캐시 재사용 → 네트워크 0회. 캐시가 비어있으면 1회만 조회.
-  // PR 2 데이터 다이어트: campaign_id + status 만 select (buildCampRow 카운트 전용)
-  const allApps = (useCache && _campListApps) ? _campListApps : (_campListApps = await fetchApplicationsCountLite());
+  // useCache(검색/필터/정렬)면 캐시 재사용 → 서버 재조회 0회. 캐시가 비어있으면 1회만 조회.
+  // PR 4 서버 집계: 신청 전건 전송 대신 서버 집계 함수 1회 호출로 전환.
+  const counts = (useCache && _campListCounts) ? _campListCounts : (_campListCounts = await fetchCampaignApplicationCounts());
 
   // 정렬
-  const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
+  const appCount = id => (counts[id]?.total || 0);
   if (adminReorderMode) {
     camps.sort((a,b) => {
       if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
@@ -956,9 +956,9 @@ async function loadAdminCampaigns(useCache) {
   const campsBody = $('adminCampsBody');
   if (!campsBody) return;
   const buildCampRow = (c, i, totalLen) => {
-    const campApps = allApps.filter(a=>a.campaign_id===c.id);
-    const approvedCnt = campApps.filter(a=>a.status==='approved').length;
-    const pendingCnt = campApps.filter(a=>a.status==='pending').length;
+    const cc = counts[c.id] || { total: 0, approved: 0, pending: 0 };
+    const approvedCnt = cc.approved;
+    const pendingCnt  = cc.pending;
     const pct = c.slots > 0 ? Math.round(approvedCnt/c.slots*100) : 0;
     const barColor = pct>=100?'var(--red)':pct>=60?'var(--gold)':'var(--green)';
     const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,idx,a)=>a.indexOf(v)===idx);
@@ -1008,8 +1008,8 @@ async function loadAdminCampaigns(useCache) {
           <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:4px"></div>
           </div>
-          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;color:${campApps.length>0?'var(--ink)':'var(--muted)'};border-color:var(--line)" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
-            ${campApps.length} / ${c.slots}명
+          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;color:${cc.total>0?'var(--ink)':'var(--muted)'};border-color:var(--line)" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
+            ${cc.total} / ${c.slots}명
           </button>
           <span style="font-size:10px;font-weight:600;color:${approvedCnt>0?'var(--pink)':'var(--muted)'}">${approvedCnt}승인${pendingCnt>0?` · <span style="color:var(--gold)">${pendingCnt}대기</span>`:''}</span>
         </div>
