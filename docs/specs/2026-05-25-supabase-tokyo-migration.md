@@ -124,5 +124,47 @@
 
 ---
 
+## 부록 A — 리허설 실행 절차 (개발자용)
+
+> ⚠️ **주의 1**: 메인 작업 폴더(`reverb-jp`)가 **운영 프로젝트(시드니)에 링크**돼 있음(2026-05-25 확인 — `supabase db dump`가 운영 호스트 사용). 리허설의 **복원·초기화 같은 쓰기 명령이 운영을 건드리지 않도록**, 리허설은 **별도 디렉터리에서 연습 프로젝트로 `supabase link` 후** 진행할 것.
+> ⚠️ **주의 2**: 이 환경엔 `pg_dump`/`psql` 미설치. 복원(psql)·일부 백업에 PostgreSQL 클라이언트 설치 필요.
+> ✅ **확인됨**: 로그인 사용자(auth)는 `supabase db dump --schema auth` 로 백업 가능(dry-run 검증). 이게 본 이관의 핵심 불확실 요소였음.
+
+### Step 1 — 도쿄 연습 프로젝트 생성 (대시보드)
+- New project → Region **Northeast Asia (Tokyo) `ap-northeast-1`** → ref·DB password 확보.
+
+### Step 2 — 운영 백업 (읽기 전용, 시드니)
+```
+supabase link --project-ref twofagomeizrtkwlhsuv
+supabase db dump --role-only       -f roles.sql
+supabase db dump                   -f schema.sql   # public 등 스키마
+supabase db dump --data-only --use-copy -f data.sql
+supabase db dump --schema auth     -f auth.sql     # 로그인 사용자(비번 해시 포함)
+```
+
+### Step 3 — 연습 프로젝트로 복원 (도쿄)
+```
+# 연습 프로젝트 connection string 사용. 순서 주의: roles → schema → auth → data
+psql "<연습 connection string>" -f roles.sql
+psql "<연습 connection string>" -f schema.sql
+psql "<연습 connection string>" -f auth.sql
+psql "<연습 connection string>" -f data.sql
+```
+
+### Step 4 — 저장소 복사 (`campaign-images` 574MB / 1,135파일)
+- rclone 또는 다운로드→업로드 스크립트로 `campaign-images` 버킷 복사.
+- 빈 버킷(`application-message-attachments`·`influencer-flag-evidence`)은 구조+접근 정책만 생성.
+
+### Step 5 — 검증 (리허설 성공 판정)
+- 연습 프로젝트 anon key로 임시 환경에서 **기존 사용자 로그인 테스트**(비밀번호 그대로 되는지 = auth 이관 성공 여부, 가장 중요).
+- 데이터 건수 대조(인플 1,412 / 신청 등).
+- **전체 소요시간 기록** → 본 이관 다운타임 정밀 추정.
+
+### 리허설로 확정할 것
+- auth 복원 후 로그인 성공 여부(✓/✗) → 실패 시 Supabase 권장 방법 재확인.
+- 단계별 소요시간 → 다운타임 윈도우 확정.
+
+---
+
 ## 실행 이력
 (실제 이관 진행 시 단계별 결과·소요시간·문제점을 여기 기록)
