@@ -113,3 +113,22 @@
 - `allCampaigns` 사용처 전수 분석: buildCampRow, changeCampStatus, moveCampOrder, loadCampApplicants, renderCautionHistoryModal, 엑셀 내보내기 4종 — 무거운 컬럼(participation_steps/caution_items/ng_items/리치텍스트)을 참조하는 곳이 없음을 확인 → 설계 분기 (가) 적용
 - autoOpenCampaigns/autoCloseCampaigns 는 status/recruit_start/deadline 만 참조하므로 라이트 컬럼셋에서도 정상 작동 확인
 - 마이그레이션 없음 (DB 구조 변경 없이 클라이언트 SELECT 컬럼 조정만)
+
+---
+
+## PR 3 — 부트(첫 로드) 경량화
+
+**배경:** 운영서버 실측 결과, 새로고침 시 진입 화면과 무관하게 부트(`dev/admin/app.js`)가 무거운 3종(campaigns `select *` 1.7초 / influencers 약1,700명 1.7초 / applications 약3,000건 3페이지 3.9초)을 전건 조회해 ~4.6초 블로킹. 캠페인 페인은 이를 버리고 lite 재조회(이중). 합계 체감 ~7초.
+
+**핵심 발견:** 부트의 무거운 3종은 사실상 대시보드 전용. 다른 페인은 각자 loader 가 자기 데이터를 fetch. 부트 공통 필요 최소 = 사이드바 배지 3종(전부 head count).
+
+**변경:**
+- `dev/lib/storage.js`: `fetchPendingApplicationCount()` 신설 — applications status=pending head count (기존 fetchPendingDeliverableCount/fetchBrandAppPendingCount 패턴).
+- `dev/js/admin.js`: `refreshApplySidebarBadge()` 신설 — 신청 배지를 가벼운 count 로 갱신. `loadAdminData` 인라인 배지는 유지(대시보드는 apps 전건 보유 → 추가 쿼리 회피).
+- `dev/admin/app.js` 부트: 배지 3종을 백그라운드(await 없이) 발사 + hash 분기 — `dashboard` 면 그 안에서만 무거운 3종 Promise.all + allCampaigns 채움 + loadAdminData, 그 외 페인은 `switchAdminPane(hash)` 만(무거운 3종 스킵).
+
+**효과:** 캠페인(및 대시보드 외) 페인 새로고침 시 인플 전건·무거운 campaigns/applications 조회 제거 + 이중 조회 해소.
+
+**결정/검증:** 배지는 백그라운드 처리(체감 우선), 신청 배지 count 통일. DB 변경 없음. reviewer GO(Warning: db?.from 통일 반영). qa full 권장(전 페인 새로고침 영향).
+
+**관련 PR:** (개발/운영 — 배포 후 채움)
