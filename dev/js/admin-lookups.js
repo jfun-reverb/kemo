@@ -755,6 +755,11 @@ function openMiniEditorLinkPopover(aEl, contentDiv) {
   _positionMenuInViewport(pop, rect, {placement: 'below', gap: 6});
   _miniEditorLinkPopover = pop;
 
+  _bindMiniEditorLinkPopoverEvents(pop, aEl, contentDiv, href);
+}
+
+// 링크 팝오버 이벤트 바인딩 (openMiniEditorLinkPopover 길이 축소 목적 분리)
+function _bindMiniEditorLinkPopoverEvents(pop, aEl, contentDiv, href) {
   const input = pop.querySelector('.melp-url');
   const btnCopy = pop.querySelector('.melp-copy');
   const btnOpen = pop.querySelector('.melp-open');

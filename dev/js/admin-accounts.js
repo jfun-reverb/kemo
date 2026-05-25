@@ -64,6 +64,13 @@ async function loadAdminAccounts() {
     fetchAdminEmailSubscriptions(adminIds),
     _getAdminEmailKinds()
   ]);
+
+  _renderAdminAccountsTable(admins, subs, kinds, isSuper);
+  applyLookupMenuVisibility();
+}
+
+// 관리자 목록 테이블 렌더 (loadAdminAccounts 길이 축소 목적 분리)
+function _renderAdminAccountsTable(admins, subs, kinds, isSuper) {
   const kindLabel = code => (kinds.find(k => k.code === code) || {}).name_ko || code;
 
   const roleLabel = r => r === 'super_admin'
@@ -101,8 +108,6 @@ async function loadAdminAccounts() {
       ${(isSuper && a.auth_id !== currentUser?.id) ? `<button class="btn btn-ghost btn-xs" style="color:#B3261E" data-email="${esc(a.email)}" data-auth-id="${a.auth_id}" onclick="openDeleteAdminModal('${a.id}',this.dataset.authId,this.dataset.email)">삭제</button>` : ''}
     </div></td>
   </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>';
-
-  applyLookupMenuVisibility();
 }
 
 // ──────────────────────────────────────
