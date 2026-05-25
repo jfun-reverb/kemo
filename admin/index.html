@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779707232';
+  var CURRENT_BUILD = 'v1779710450';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1729,7 +1729,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-25 20:07 · f31093c</span>
+          <span class="admin-build-text">2026-05-25 21:00 · 5e33ac1</span>
         </div>
       </div>
     </aside>
@@ -17966,7 +17966,7 @@ function renderRecentAppsTable(apps, camps, users) {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${imgThumb(thumbUrl,96,70)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? `<img src="${esc(imgThumb(thumbUrl,96,70))}" data-orig="${esc(thumbUrl)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
             <div>${typeLabel}</div>
@@ -18945,6 +18945,7 @@ async function saveMyAdminInfo() {
 }
 
 async function changeMyAdminPassword() {
+  if (!db) return;
   const cur = $('myAdminCurrentPw')?.value;
   const nw = $('myAdminNewPw')?.value;
   const nw2 = $('myAdminNewPw2')?.value;
@@ -18998,6 +18999,7 @@ function openEditAdmin(id, email, name, role) {
 }
 
 async function saveAdmin() {
+  if (!db) return;
   const err = $('adminFormError');
   err.style.display = 'none';
   const editId = $('editAdminId').value;
@@ -19056,6 +19058,7 @@ function closeDeleteAdminModal() {
 }
 
 async function executeRemoveRole() {
+  if (!db) return;
   const authId = document.getElementById('deleteAdminAuthId').value;
   if (!authId) return;
   try {
@@ -19070,6 +19073,7 @@ async function executeRemoveRole() {
 }
 
 async function executeDeleteCompletely() {
+  if (!db) return;
   const authId = document.getElementById('deleteAdminAuthId').value;
   if (!authId) return;
   try {
@@ -19092,6 +19096,7 @@ function openResetPwModal(authId, email) {
 }
 
 async function executeResetPw() {
+  if (!db) return;
   const authId = $('resetPwTargetId').value;
   const newPw = $('resetPwNew').value;
   const err = $('resetPwError');
@@ -19108,6 +19113,7 @@ async function executeResetPw() {
 }
 
 async function sendResetEmail() {
+  if (!db) return;
   const email = $('resetPwTargetEmail').textContent;
   try {
     const {error} = await db.auth.resetPasswordForEmail(email);
