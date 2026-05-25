@@ -288,7 +288,8 @@ function renderSignupKPIs(users) {
   $('kpiWeekRange').textContent = `${fmt(weekAgo)} ~ ${fmt(now)}`;
 }
 
-function renderSignupChart(users, days) {
+// 가입 추이 시리즈 집계 (전체=월별 / 그 외=최근 days 일별) — 렌더 함수 길이 축소 목적 분리
+function _computeSignupSeries(users, days) {
   const now = new Date();
   const labels = [];
   const counts = [];
@@ -317,6 +318,11 @@ function renderSignupChart(users, days) {
       counts.push(count);
     }
   }
+  return { labels, counts };
+}
+
+function renderSignupChart(users, days) {
+  const { labels, counts } = _computeSignupSeries(users, days);
 
   const canvas = $('signupChart');
   if (!canvas) return;
