@@ -80,7 +80,9 @@
 - **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — 별도 Vercel 프로젝트 `reverb-sales`(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com` 서브도메인. anon 으로 `submit_brand_application` RPC 경유 `brand_applications` INSERT. Vercel `cleanUrls`+catch-all rewrite 로 `/reviewer` → `reviewer.html`. 파일 업로드 기능 없음 (텍스트 입력만)
 - 배포용: 루트 `index.html` (build.sh 로 생성)
 - 개발 폴더 구조:
-  - `dev/js/` — app, ui, campaign, application, auth, mypage, admin, admin-brand
+  - `dev/js/` — 인플루언서: app, ui, campaign, application, auth, mypage, notifications, messaging
+    - 관리자(admin.js 페인 분리 완료, 2026-05-25): `admin.js`(캠페인 목록·폼만 잔류) + `admin-core.js`(공용 헬퍼: 페인 라우팅·다중필터·확인모달·라이트박스·태그입력) + `admin-notices.js` + `admin-faq.js` + `admin-influencers.js` + `admin-deliverables.js` + `admin-excel.js` + `admin-dashboard.js` + `admin-applications.js`(신청+신청자) + `admin-accounts.js`(내계정+관리자계정) + `admin-lookups.js`(기준데이터+번들3종+미니에디터) + `admin-brand.js`/`admin-company.js`/`admin-brand-ops.js`/`admin-messaging.js`(브랜드 서베이)
+    - 빌드는 ES 모듈이 아니라 단순 이어붙이기(concat) — 전역 스코프 1개. `admin-core.js`가 다른 admin-* 파일보다 앞, `admin.js`가 페인 파일들보다 뒤, `admin/app.js`가 맨 마지막 (build.sh `ADMIN_JS_FILES` 순서)
   - `dev/css/` — base, components, campaign, auth, mypage, admin
   - `dev/lib/` — supabase(설정), shared(전역변수), storage(DB/Storage API)
   - `dev/build.sh` — dev/ → 루트 index.html 빌드
