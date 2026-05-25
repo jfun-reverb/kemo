@@ -362,6 +362,8 @@ async function loadAdminData(preloaded) {
   renderProfileCompletion(users);
   // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
   renderAddressDistribution(users);
+  // 대시보드는 apps 전건을 KPI용으로 이미 보유 → 추가 count 쿼리 없이 인라인 계산.
+  // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
   refreshDelivSidebarBadge();
 
@@ -6970,6 +6972,16 @@ async function refreshDelivSidebarBadge() {
   try {
     const n = await fetchPendingDeliverableCount();
     el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">fact_check</span><span class="si-text">결과물 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+  } catch(e) { /* 무시 */ }
+}
+
+// 신청 관리 사이드바 배지 — 대기(pending) 개수 (가벼운 count 쿼리, 전건 fetch 불필요)
+async function refreshApplySidebarBadge() {
+  const el = $('adminApplySi');
+  if (!el) return;
+  try {
+    const n = await fetchPendingApplicationCount();
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
   } catch(e) { /* 무시 */ }
 }
 
