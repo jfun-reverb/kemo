@@ -841,7 +841,8 @@ function getCurrentFilteredCamps() { return _currentFilteredCamps; }
 
 async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
-  let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
+  // PR 2 데이터 다이어트: 목록 전용 가벼운 함수 사용 (participation_steps 등 무거운 컬럼 제외)
+  let camps = useCache ? allCampaigns.slice() : await fetchCampaignsForAdminList();
   if (!useCache) allCampaigns = camps.slice();
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
@@ -887,7 +888,8 @@ async function loadAdminCampaigns(useCache) {
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
   // useCache(검색/필터/정렬)면 캐시 재사용 → 네트워크 0회. 캐시가 비어있으면 1회만 조회.
-  const allApps = (useCache && _campListApps) ? _campListApps : (_campListApps = await fetchApplications());
+  // PR 2 데이터 다이어트: campaign_id + status 만 select (buildCampRow 카운트 전용)
+  const allApps = (useCache && _campListApps) ? _campListApps : (_campListApps = await fetchApplicationsCountLite());
 
   // 정렬
   const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
@@ -2979,9 +2981,9 @@ async function changeCampStatus(campId, newStatus) {
   }
   try {
     await updateCampaign(campId, {status: newStatus});
-    allCampaigns = await fetchCampaigns();
+    // PR 2: loadAdminCampaigns 가 fetchCampaignsForAdminList 로 allCampaigns 를 갱신.
+    //        기존 fetchCampaigns() 이중 조회 제거. renderCampaigns 는 admin 빌드에 없어 dead code.
     loadAdminCampaigns();
-    if (typeof renderCampaigns === 'function') renderCampaigns(allCampaigns);
   } catch(e) {
     toast('상태 변경 오류','error');
   }
