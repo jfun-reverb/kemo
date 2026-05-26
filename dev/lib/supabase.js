@@ -5,8 +5,8 @@
 // staging:    dev.globalreverb.com, *.vercel.app, localhost, 127.0.0.1, file://
 const SUPABASE_ENVS = {
   production: {
-    url: 'https://twofagomeizrtkwlhsuv.supabase.co',
-    key: 'sb_publishable_3KgWYIf5w5J727Q2g3Cl7Q_ETD1Swps'
+    url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co',
+    key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP'
   },
   staging: {
     url: 'https://qysmxtipobomefudyixw.supabase.co',
