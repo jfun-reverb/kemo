@@ -200,3 +200,17 @@ psql "<연습 connection string>" -f data.sql
 11. 롤백: 코드 production만 시드니로 되돌려 재배포(DNS 무변경).
 
 **도쿄 DB password 보안:** Phase A 작업에 사용한 도쿄 DB password는 이관 완료 후 재설정 권장. BREVO API 키도 스크린샷 일부 노출돼 재생성 권장.
+
+### 2026-05-27 — 컷오버(Phase B) 완료 ✅ (globalreverb.com 도쿄 전환)
+
+새벽 컷오버 실행. **다운타임 사실상 0**(데이터 dump~배포 사이 새벽 트래픽 0, 신규 데이터 유입 없음 확인).
+
+1. **최종 데이터 dump+복원**: 시드니 link 복귀 → auth-data(6.8MB) + public-data(16MB) dump → 도쿄 복원(`session_replication_role=replica` 파이프 psql). ⚠️ **direct 연결(IPv6) 불가** — 작업 PC 네트워크가 IPv4 only로 바뀌어 `db.<ref>.supabase.co` DNS 실패. **pooler(IPv4)로 우회**: 도쿄 `aws-1-ap-northeast-1.pooler.supabase.com:5432` user `postgres.<ref>`, 시드니 `aws-1-ap-southeast-2.pooler...`. 복원 ERROR(buckets_vectors/supabase_functions)는 무시가능.
+2. **행 수 최종 대조**: auth.users/influencers 1,421 · campaigns 119 · applications 2,983 · deliverables 1,037 · brand_applications 33 — 시드니=도쿄 **완전 일치**.
+3. **저장소 증분**: 1차(1,181) 이후 신규 29개 → 도쿄 업로드, 총 1,210 일치.
+4. **웹훅 트리거 2개**: 대시보드 "Enable webhooks"로 supabase_functions 활성 후, SQL로 `notify-brand-application`(brand_applications)·`notify-deliverable-decision`(notifications) 생성(도쿄 URL + 도쿄 service_role).
+5. **pg_cron 전환**: 도쿄에 3개 등록(admin/influencer 다이제스트 daily, promo 월·목) — `vault.create_secret(도쿄 service_role, 'edge_function_jwt')` 선행. 시드니 3개 `cron.unschedule`(메일 중복 차단). 첫 자동 발송 = 2026-05-27 09:00 KST.
+6. **코드 전환·배포**: `SUPABASE_ENVS.production` + preconnect + sales 폼 도쿄로. ⚠️ **dev→main 전체 머지 금지**(dev에 운영 보류 기능 다수) → main 기준 worktree에서 도쿄 치환만 + 재빌드 → PR #294 머지(운영 배포). origin/main 머지 충돌은 빌드 산출물(admin/index.html)뿐, 재빌드로 해소. Netlify 체크 fail은 미사용 잔존 연동(Vercel만 사용) → `--admin` 머지.
+7. **검증**: globalreverb.com·admin·sales 전부 도쿄 반영(curl -L) · 이미지 public 200 · Edge Function 401(정상) · **관리자 기존 비번 로그인 성공**(auth 이관 확정).
+
+**남은 후속:** ① 시드니 프로젝트 1주 보존(롤백 대비) 후 폐기 ② 도쿄 DB password 재설정 + Brevo API 키 재생성(노출) ③ 개인정보처리방침 국외이전 호주→일본 갱신(`/약관확인`) ④ 2026-05-27 09:00 첫 cron 메일 발송 모니터링 ⑤ dev 브랜치 도쿄 전환 커밋(7887f50)은 추후 dev→main(보류기능 운영 배포) 시 정합.
