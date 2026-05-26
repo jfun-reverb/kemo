@@ -167,4 +167,36 @@ psql "<연습 connection string>" -f data.sql
 ---
 
 ## 실행 이력
-(실제 이관 진행 시 단계별 결과·소요시간·문제점을 여기 기록)
+
+### 2026-05-26 — Phase A 사전준비 (다운타임 0) 실행
+
+**도쿄 신규 운영 프로젝트:** `nrwtujmlbktxjgdwlpjj` (ap-northeast-1 Tokyo, **Micro** 등급, t4g.micro). URL `https://nrwtujmlbktxjgdwlpjj.supabase.co`.
+
+**완료 항목:**
+1. **CLI 업그레이드** 2.90.0 → 2.101.0 (`supabase storage` 명령이 `--experimental` 플래그 필수 — 이게 핵심. 2.90에선 usage만 출력).
+2. **시드니 구조 백업** (`supabase db dump`, 읽기 전용): roles.sql / schema.sql(public 구조). `db dump`는 pg_dump에 `--exclude-schema`로 auth·storage·cron·supabase_functions 등 제외 + 일반 트리거를 `CREATE OR REPLACE TRIGGER`로 변환(이벤트 트리거만 제외). → schema.sql에 `CREATE TRIGGER` 0개로 보이지만 `CREATE OR REPLACE TRIGGER` 37개 포함(놀라지 말 것).
+3. **구조 복원** (psql): roles → schema. 결과 검증 = 시드니와 일치: **테이블 43·함수 76·정책(RLS) 104·트리거 35**(웹훅 2개는 supabase_functions 스키마 없어 복원 실패 — 예상된 무시가능 오류). RLS 활성 43/43.
+4. **신규 가입 트리거 별도 적용** — `on_auth_user_created`(auth.users AFTER INSERT → public.handle_new_user)는 auth 스키마라 schema.sql에 없음. 014 마이그레이션에서 추출해 도쿄에 수동 적용(누락 시 신규 회원가입 깨짐 — 반드시 챙길 것).
+5. **Storage 버킷·정책**: 운영 실제 버킷은 **2개뿐**(`campaign-images` public, `influencer-flag-evidence` 비공개 10MB) — `application-message-attachments`는 메시지 기능 운영 보류라 운영에 없음. `storage.objects` 정책 9개(campaign_images 4 + flag_evidence 4 + receipts 1) 추출·적용.
+6. **저장소 다운로드** (시드니→로컬): `supabase storage cp -r ss:///campaign-images <local> --experimental`. **1,181파일/682MB**(이미지 1,156 + avif 25). 시드니 실제도 1,181 = 완전 일치(목록의 1,192는 폴더 라인 11개 포함). 호주 거리라 다운로드만 수십 분.
+7. **저장소 업로드** (로컬→도쿄): link 도쿄 전환 후 업로드. ⚠️ **함정**: `cp -r <local>/campaign-images ss:///campaign-images`는 소스 basename을 덧붙여 `campaign-images/campaign-images/...` **중첩** 발생 → 중첩분 `storage rm -r --yes` 삭제 후 **하위 폴더별**(`cp -r <local>/campaign-images/campaigns ss:///campaign-images` 식, content·campaigns·receipts 3개)로 재업로드해야 올바른 경로. **최종 검증 완료**: 도쿄 1,181 = 로컬 1,181(campaigns 136·content 4·receipts 1,041 폴더 분포 일치, 중첩 없음). (2026-05-26 완료)
+8. **Edge Function 7개 배포** (`functions deploy --project-ref` 도쿄): 전부 ACTIVE.
+9. **Edge secret 5개**: BREVO_API_KEY(신규 생성 `reverb-jp-edge-tokyo`) · NOTIFY_ADMIN_EMAILS(`younggeun.kim@jfun.co.kr`) · BREVO_SENDER_NAME · PUBLIC_ADMIN_URL · PUBLIC_SITE_URL. 뒤 3개는 해시값이 시드니와 일치 확인. (SUPABASE_* 7개는 런타임 자동 주입이라 설정 안 함)
+10. **대시보드 수동설정(사용자)**: URL Config(Site URL globalreverb.com + Redirect 2개) · Confirm email ON · Custom SMTP(Brevo: smtp-relay.brevo.com:587, Login a2de8e001@smtp-brevo.com, 신규 SMTP key `reverb-jp-production-tokyo`, sender noreply@globalreverb.com / REVERB JP) · Rate limit email **100**. ⚠️ Brevo의 IP 차단("Activate for SMTP/API keys") 누르지 않음(Supabase 발송과 비호환).
+
+**Phase A 종료 시점 상태:** 도쿄에 구조+트리거+가입트리거+저장소+함수+secret+인증/SMTP 설정 완료. **데이터(auth+public)·pg_cron·웹훅트리거·코드주소교체만 컷오버에 남김.**
+
+### 컷오버(Phase B) 체크리스트 — 다음 단계
+1. (선택) 사용자 점검 공지.
+2. 시드니 **쓰기 중단**(새벽 윈도우).
+3. **link 시드니로 복귀** 후 최종 dump: auth 데이터(`--schema auth --data-only --use-copy`) + public 데이터(`--data-only --use-copy`, auth 중복 주의). 약 2분.
+4. 도쿄 복원: `SET session_replication_role=replica;` 파이프 psql로 auth → public 순.
+5. **저장소 증분**: Phase A(2026-05-26) 이후 시드니 신규 파일만 재다운로드+업로드(`cp` + 파일 수 재대조).
+6. **웹훅 트리거 2개 재생성**: 도쿄 대시보드 Database → Webhooks로 `notify-brand-application`(brand_applications INSERT)·`notify-deliverable-decision`(notifications INSERT) 생성(도쿄 URL + 도쿄 service_role). supabase_functions 스키마는 첫 웹훅 생성 시 자동 활성.
+7. **pg_cron 등록(도쿄)** + **시드니 cron 해제**(메일 중복 차단). 다이제스트 cron SQL은 각 Edge Function README/index.ts 주석, 홍보메일은 마이그레이션 142.
+8. **코드 교체**: `dev/lib/supabase.js` production → url `https://nrwtujmlbktxjgdwlpjj.supabase.co` / key `sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP`. reviewer→빌드→main 배포.
+9. **검증**: 기존 비번 로그인 · 행수 대조 · 이미지 표시 · 메일 1회.
+10. **개인정보처리방침** 국외이전 경유지 호주→일본 갱신(`/약관확인`).
+11. 롤백: 코드 production만 시드니로 되돌려 재배포(DNS 무변경).
+
+**도쿄 DB password 보안:** Phase A 작업에 사용한 도쿄 DB password는 이관 완료 후 재설정 권장. BREVO API 키도 스크린샷 일부 노출돼 재생성 권장.
