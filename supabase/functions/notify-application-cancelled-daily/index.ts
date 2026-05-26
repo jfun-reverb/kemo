@@ -137,7 +137,7 @@ interface CampaignRow {
 }
 
 interface InfluencerRow {
-  auth_id: string;
+  id: string;
   name: string | null;
   name_kanji: string | null;
   name_kana: string | null;
@@ -197,7 +197,9 @@ import { TEMPLATES } from "./templates.ts";
 function loadTemplate(name: string): string {
   const html = TEMPLATES[name];
   if (!html) throw new Error(`template not registered: ${name}`);
-  return html;
+  // HTML 주석 제거 — 주석 안 placeholder 가 치환되면서 발생하는 중첩 주석
+  // → 조기 종료 → 본문 누출 버그 차단 (2026-05-18 admin-daily-digest 발견 동일 패턴)
+  return html.replace(/<!--[\s\S]*?-->/g, "");
 }
 
 function render(html: string, data: Record<string, string>): string {
@@ -409,13 +411,13 @@ Deno.serve(async (req: Request) => {
   if (userIds.length > 0) {
     const { data: infls, error: infErr } = await sb
       .from("influencers")
-      .select("auth_id, name, name_kanji, name_kana")
-      .in("auth_id", userIds);
+      .select("id, name, name_kanji, name_kana")
+      .in("id", userIds);
     if (infErr) {
       console.warn("[notify-cancel-daily] influencer lookup failed", infErr);
     } else {
       (infls || []).forEach((row: InfluencerRow) => {
-        influencerMap.set(row.auth_id, row);
+        influencerMap.set(row.id, row);
       });
     }
   }
@@ -486,7 +488,7 @@ Deno.serve(async (req: Request) => {
   const renderCard = (r: CancelledRow): string => {
     const camp = campaignMap.get(r.campaign_id) || null;
     const infl = influencerMap.get(r.user_id) || {
-      auth_id: r.user_id,
+      id: r.user_id,
       name: null,
       name_kanji: null,
       name_kana: null,
@@ -588,41 +590,57 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  try {
-    await sendBrevoEmail({
-      to: adminEmails.map((e) => ({ email: e })),
-      subject,
-      htmlContent: html,
-      textContent: text,
-    });
-  } catch (e) {
-    const msg = (e as Error).message || "brevo send error";
-    console.error("[notify-cancel-daily] send failed", msg);
+  // 관리자별 1통씩 분리 발송 (To 헤더 노출 차단)
+  let successCount = 0;
+  const failures: string[] = [];
+  for (const email of adminEmails) {
+    try {
+      await sendBrevoEmail({
+        to: [{ email }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      });
+      successCount++;
+    } catch (e) {
+      const msg = (e as Error).message || "brevo send error";
+      console.error("[notify-cancel-daily] send failed", email, msg);
+      failures.push(`${email}(${msg})`);
+    }
+  }
+
+  if (successCount === 0) {
     await logRun(sb, {
       digest_date: digestDate,
       status: "failed",
-      recipients_count: adminEmails.length,
+      recipients_count: 0,
       cancelled_count: rows.length,
-      error_message: msg,
+      error_message: `all ${adminEmails.length} sends failed: ${failures[0] ?? "unknown"}`,
     });
     return new Response(
-      JSON.stringify({ error: msg, stage: "send" }),
+      JSON.stringify({ error: "all sends failed", stage: "send", attempted: adminEmails.length, failed: failures.length }),
       { status: 500, headers: { "content-type": "application/json" } },
     );
   }
 
-  // 9. 성공 로그
+  // 9. 성공 (전부 또는 일부) 로그
+  const errMsg = failures.length > 0
+    ? `${successCount}/${adminEmails.length} sent. failed: ${failures.join("; ")}`
+    : null;
   await logRun(sb, {
     digest_date: digestDate,
     status: "sent",
-    recipients_count: adminEmails.length,
+    recipients_count: successCount,
     cancelled_count: rows.length,
+    error_message: errMsg,
   });
 
   console.log("[notify-cancel-daily] done", {
     digestDate,
     cancelled: rows.length,
-    recipients: adminEmails.length,
+    attempted: adminEmails.length,
+    succeeded: successCount,
+    failed: failures.length,
   });
 
   return new Response(
@@ -630,7 +648,9 @@ Deno.serve(async (req: Request) => {
       ok: true,
       digestDate,
       cancelled_count: rows.length,
-      recipients_count: adminEmails.length,
+      attempted: adminEmails.length,
+      succeeded: successCount,
+      failed: failures.length,
     }),
     { status: 200, headers: { "content-type": "application/json" } },
   );

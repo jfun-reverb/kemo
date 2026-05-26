@@ -2,7 +2,7 @@
 
 - **작성일**: 2026-05-13
 - **작성**: 기획 세션
-- **상태**: 개발 착수 전 (미구현)
+- **상태**: ✅ 운영 배포 완료 + 검증 완료 (2026-05-13) → ⚠️ **2026-05-18 deprecated** — 관리자 통합 다이제스트(`notify-admin-daily-digest`, 마이그레이션 132)로 흡수. cron 해제 완료. Edge Function 코드는 2주 보존 후 정리 예정 (§10 구현 결과 + §10 하단 deprecated 메모 참조)
 - **관련 Edge Function**: `notify-application-cancelled-daily`
 - **관련 파일**: `docs/email-templates/application-cancelled-daily.html`, `index.ts`
 
@@ -335,3 +335,12 @@ supabase functions deploy notify-application-cancelled-daily   --project-ref two
 supabase functions deploy notify-influencer-daily-digest        --project-ref twofagomeizrtkwlhsuv  # 신규
 supabase functions deploy notify-application-received-admin-daily --project-ref twofagomeizrtkwlhsuv  # 신규
 ```
+
+### ⚠️ 2026-05-18 deprecated — 관리자 통합 다이제스트로 흡수
+
+**2026-05-18 메일 파이프라인 통합 PR 2** (`notify-admin-daily-digest`, 마이그레이션 132) 에서 `notify-application-cancelled-daily` 기능이 §2 응모 취소 섹션으로 통합되었습니다.
+
+- **cron 해제 완료**: `pg_cron` 의 `application-cancel-daily-digest` 잡 비활성화 (운영 DB)
+- **Edge Function 코드 보존**: 롤백 대비 2주간 코드 유지 예정 → 2026-06-01 이후 별도 정리 PR 에서 삭제
+- **`application_cancel_digest_runs` 로그 테이블**: 신규 `admin_daily_digest_runs` 와 병존 — 정리 PR 에서 함께 처리 예정
+- **관련 사양서**: `docs/specs/2026-05-18-mail-pipeline-consolidation.md` §13~§14

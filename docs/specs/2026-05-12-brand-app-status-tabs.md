@@ -285,3 +285,35 @@ function renderBrandAppStatusTabs(baseCounts) {
 - D(브랜드 서베이 모집비), F(미니 에디터 이미지) 등 후속 사양은 영향 없음
 - PR #184·#187·#188·#189·#190 등 다른 후속 PR은 본 보강과 충돌 없음 — 같은 파일 안 다른 함수
 - 보강은 단일 hotfix PR로 신속 진행 권장
+
+---
+
+## 12. 구현 결과
+
+**구현일**: 2026-05-12 ~ 2026-05-14 (7개 PR 머지)
+**운영 적용일**: 운영 자동 배포 (main 머지 즉시)
+**관련 마이그레이션**: 없음 (순수 클라이언트 UI 변경 — DB 스키마 영향 0)
+**관련 PR (시간순)**:
+- `99f876b feat(brand-survey): replace status dropdown with 11 horizontal tabs (PR #182)` — 본 사양 초기 구현
+- `ded0167 ui(brand-survey): move status tabs below filters, above the list card (PR #184)` — 레이아웃 정리
+- `470fa1b ui(brand-survey): clarify count label unit (신청 vs 제품)` — 카운트 단위 명확화
+- `b5f6da4 ui(brand-survey): unify counts to 신청 단위 (card + tabs)` — 신청 단위로 통일
+- `411fcd9 ui(brand-survey): group rows by application + match tab labels to modal` — 행 그룹화
+- `63d46bc ui(brand-survey): row-count basis for all counts (tabs + card header)` — 카운트 기준 재정렬
+- `436940b fix(brand-survey): harden brand-applications pane against stale state crashes` — §11 보강(stale 상태 방어)
+
+### 초안 대비 변경 사항
+- **추가된 것**:
+  - §11 「긴급 보강 — stale 상태 방어」 (2026-05-12 PR #182 머지 후 회귀 대응) — 본 사양 작성 시점엔 없던 보강
+  - 카운트 단위가 「신청」 단위로 통일됨 (초안에서 「제품 vs 신청」 양쪽 논의 후 신청 단위 결정 — 470fa1b·b5f6da4·63d46bc 3차례 반복 정렬)
+  - 행 그룹화 (`411fcd9`) — 신청 1건의 제품 2개 이상일 때 같은 행 묶음으로 표시
+- **빠진 것**: 없음
+- **달라진 것**:
+  - 초기 PR #182 의 11단계 탭이 brand_applications 상태 추가(`kakao_room_created` 마이그레이션 076) 와 자동 동기화됨
+
+### 구현 중 기술 결정 사항
+- 탭 라벨이 상세 모달과 동일하게 매칭(`411fcd9`) — 사용자가 탭 클릭 후 상세 모달 열 때 컨텍스트 일관성 보장
+- stale 상태 회귀 (`_brandApps`·`_brandAppHistoryCounts`·`_brandAppMemoSummaries` null 안전) §11 보강으로 차단
+
+### 후속 작업
+- 본 사양에서 도입된 11단계 탭 패턴이 다른 페인(캠페인 관리·신청 관리 등) 에도 확장 적용 가능 — 별도 사양으로 결정 시 진행

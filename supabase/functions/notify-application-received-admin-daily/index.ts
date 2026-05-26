@@ -122,7 +122,9 @@ async function resolveAdminEmails(sb: ReturnType<typeof createClient>): Promise<
 function loadTemplate(name: string): string {
   const html = TEMPLATES[name];
   if (!html) throw new Error(`template not registered: ${name}`);
-  return html;
+  // HTML 주석 제거 — 주석 안 placeholder 가 치환되면서 발생하는 중첩 주석
+  // → 조기 종료 → 본문 누출 버그 차단 (2026-05-18 admin-daily-digest 발견 동일 패턴)
+  return html.replace(/<!--[\s\S]*?-->/g, "");
 }
 
 function render(html: string, data: Record<string, string>): string {
@@ -195,7 +197,7 @@ interface CampRow {
   recruit_type: string | null;
 }
 interface InflRow {
-  auth_id: string;
+  id: string;
   name: string | null;
   name_kanji: string | null;
   name_kana: string | null;
@@ -274,9 +276,9 @@ Deno.serve(async (req: Request) => {
   const inflMap = new Map<string, InflRow>();
   if (userIds.length > 0) {
     const { data: infls } = await sb.from("influencers")
-      .select("auth_id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube")
-      .in("auth_id", userIds);
-    (infls || []).forEach((i: InflRow) => inflMap.set(i.auth_id, i));
+      .select("id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube")
+      .in("id", userIds);
+    (infls || []).forEach((i: InflRow) => inflMap.set(i.id, i));
   }
 
   const emailMap = new Map<string, string>();
@@ -363,23 +365,39 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  try {
-    await sendBrevoEmail({
-      to: adminEmails.map((e) => ({ email: e })),
-      subject, htmlContent: html, textContent: text,
-    });
-  } catch (e) {
-    const msg = (e as Error).message || "brevo send error";
-    await logRun(sb, { digest_date: digestDate, status: "failed", total_applications: rows.length, recipient_count: adminEmails.length, error_message: msg });
-    return new Response(JSON.stringify({ error: msg, stage: "send" }), { status: 500, headers: { "content-type": "application/json" } });
+  // 관리자별 1통씩 분리 발송 (To 헤더 노출 차단)
+  let successCount = 0;
+  const failures: string[] = [];
+  for (const email of adminEmails) {
+    try {
+      await sendBrevoEmail({
+        to: [{ email }],
+        subject, htmlContent: html, textContent: text,
+      });
+      successCount++;
+    } catch (e) {
+      const msg = (e as Error).message || "brevo send error";
+      console.error("[notify-application-received-admin-daily] send failed", email, msg);
+      failures.push(`${email}(${msg})`);
+    }
   }
 
-  await logRun(sb, { digest_date: digestDate, status: "sent", total_applications: rows.length, recipient_count: adminEmails.length });
+  if (successCount === 0) {
+    await logRun(sb, { digest_date: digestDate, status: "failed", total_applications: rows.length, recipient_count: 0, error_message: `all ${adminEmails.length} sends failed: ${failures[0] ?? "unknown"}` });
+    return new Response(JSON.stringify({ error: "all sends failed", stage: "send", attempted: adminEmails.length, failed: failures.length }), { status: 500, headers: { "content-type": "application/json" } });
+  }
+
+  const errMsg = failures.length > 0
+    ? `${successCount}/${adminEmails.length} sent. failed: ${failures.join("; ")}`
+    : null;
+  await logRun(sb, { digest_date: digestDate, status: "sent", total_applications: rows.length, recipient_count: successCount, error_message: errMsg });
 
   return new Response(JSON.stringify({
     ok: true, digestDate,
     total_applications: rows.length,
-    recipient_count: adminEmails.length,
+    attempted: adminEmails.length,
+    succeeded: successCount,
+    failed: failures.length,
     campaigns: campIdsSorted.length,
   }), { status: 200, headers: { "content-type": "application/json" } });
 });

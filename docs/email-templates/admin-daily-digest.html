@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<!--
+  Mail: 관리자 일일 통합 다이제스트 (admin daily digest)
+  Trigger: pg_cron 매일 UTC 00:00 (= 한국시간 오전 9시) → Edge Function notify-admin-daily-digest
+  Window:  전일 한국시간 0시~24시
+  To:      get_subscribed_admin_emails('application_cancel') ∪
+           get_subscribed_admin_emails('application_received') ∪ env.NOTIFY_ADMIN_EMAILS
+  Lang:    KO
+  Skip:    4섹션 모두 0건이면 메일 미발송 + 발송 로그 status='skipped_no_data'
+
+  4섹션 구조:
+    1. 캠페인 신청 접수 (received) — applications.created_at 윈도우
+    2. 응모 취소 (cancelled) — cancelled_at 윈도우, cancel_phase != 'recruit'
+    3. 결과물 제출 (submitted) — deliverable_events.action='submit' 윈도우
+    4. 재처리 일감 (reprocessed) — deliverable_events.action IN ('resubmit','revert')
+                                  + application_events.action='revert_to_pending'
+
+  Subject (Edge Function이 동적 생성):
+    [REVERB] 관리자 일일 요약 — {{digest_date}} (총 {{total_count}}건)
+
+  Top-level Placeholders:
+    {{digest_date}}              대상일 (YYYY-MM-DD, 한국시간 전일 기준)
+    {{total_count}}              4섹션 합산 총 건수
+    {{summary_chip_html}}        섹션별 건수 칩 HTML (0건 섹션 생략)
+    {{section_received_html}}    섹션 1 본문 (0건이면 빈 문자열)
+    {{section_cancelled_html}}   섹션 2 본문 (0건이면 빈 문자열)
+    {{section_submitted_html}}   섹션 3 본문 (0건이면 빈 문자열)
+    {{section_reprocessed_html}} 섹션 4 본문 (0건이면 빈 문자열)
+    {{admin_pane_url}}           관리자 페이지 딥링크
+
+  관련 사양:
+    docs/specs/2026-05-18-mail-pipeline-consolidation.md §13~§14
+    docs/specs/2026-05-18-HANDOFF-mail-pipeline-consolidation.md §5
+-->
+<div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:1000px">
+  <h2 style="color:#5B6BBF;margin:0 0 6px">관리자 일일 통합 요약</h2>
+  <p style="margin:0 0 16px;color:#666;font-size:13px">REVERB JP 관리자 알림 · 매일 한국시간 오전 9시 발송</p>
+
+  <table style="border-collapse:collapse;width:100%;font-size:13px;margin:0 0 16px;background:#F5F7FC;border-radius:8px;overflow:hidden">
+    <tr>
+      <td style="padding:12px 16px;color:#888;width:90px">대상일</td>
+      <td style="padding:12px 16px;font-weight:700">{{digest_date}}</td>
+    </tr>
+    <tr>
+      <td style="padding:12px 16px;color:#888;border-top:1px solid #E2E7F2">총합</td>
+      <td style="padding:12px 16px;font-weight:700;color:#5B6BBF;border-top:1px solid #E2E7F2">{{total_count}}건</td>
+    </tr>
+  </table>
+
+  <div style="margin:0 0 20px;line-height:2">{{summary_chip_html}}</div>
+
+  {{section_received_html}}
+  {{section_cancelled_html}}
+  {{section_submitted_html}}
+  {{section_reprocessed_html}}
+
+  <a href="{{admin_pane_url}}" style="display:inline-block;background:#5B6BBF;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-top:8px">관리자 페이지에서 보기</a>
+
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    본 메일은 자동 발송됩니다. 회신 시 응답이 어렵습니다.<br>
+    수신 설정 변경은 관리자 페이지 → 관리자 계정 → 메일 수신 설정.
+  </p>
+</div>

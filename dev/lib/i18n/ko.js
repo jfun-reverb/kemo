@@ -143,8 +143,18 @@ window.I18N_KO = {
       address: '배송지',
       paypal: 'PayPal',
       password: '비밀번호 변경',
+      emailSettings: '메일 수신 설정',
       logout: '로그아웃',
       language: '言語 / 언어',
+    },
+    emailSettings: {
+      title: '메일 수신 설정',
+      marketingLabel: '캠페인 정보 안내 메일',
+      marketingDesc: '새 캠페인이 공개되면 매주 월·목요일 아침에 안내 메일을 보내드립니다.',
+      txTitle: '업무 알림 메일 (상시 발송)',
+      txDesc: '응모 접수·승인·반려, 결과물 검수 결과, 제출 기한 안내 등 중요한 알림은 수신을 거부할 수 없습니다.',
+      savedOn: '메일 수신 설정을 변경했습니다',
+      savedOff: '캠페인 정보 메일 수신을 중지했습니다',
     },
     withdraw: '회원 탈퇴',
     withdrawConfirm: '정말 탈퇴하시겠습니까?',
@@ -158,6 +168,17 @@ window.I18N_KO = {
       diffNote: '※ 동의 시점의 문구가 계속 유효합니다. 현재 문구는 이후 신규 응모자에게 적용됩니다.',
       empty: '주의사항 데이터가 없습니다',
     },
+  },
+
+  // 메일 1-click 수신거부 페이지
+  unsubscribe: {
+    loading: '확인 중입니다...',
+    successTitle: '메일 수신을 중지했습니다',
+    successDesc: '앞으로 캠페인 정보 안내 메일은 보내지 않습니다. 응모 현황·심사 결과 등 업무 알림 메일은 계속 발송됩니다.',
+    backToMypage: '마이페이지로',
+    invalidTitle: '링크가 유효하지 않습니다',
+    invalidDesc: '이 수신거부 링크가 유효하지 않거나 만료됐을 수 있습니다. 번거로우시겠지만 마이페이지의 「메일 수신 설정」에서 변경해 주세요.',
+    toTop: '홈으로',
   },
 
   appHistory: {
@@ -220,6 +241,8 @@ window.I18N_KO = {
       errorNoteRequired: '추가 설명을 입력해주세요',
       errorAck: '동의 체크가 필요합니다',
       errorGeneric: '취소에 실패했습니다. 다시 시도해주세요',
+      errorNotFound: '대상 응모를 찾을 수 없습니다. 화면을 새로고침한 뒤 다시 시도해주세요',
+      reasonNowRequired: '현재는 취소 사유 입력이 필요합니다. 아래를 선택·작성한 뒤 다시 시도해주세요',
     },
     cancelDetail: {
       title: '취소 상세',

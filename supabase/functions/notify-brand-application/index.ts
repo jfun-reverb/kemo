@@ -143,7 +143,10 @@ async function loadTemplate(name: string): Promise<string> {
   const cached = TEMPLATE_CACHE.get(name);
   if (cached) return cached;
   const url = new URL(`./_templates/${name}.html`, import.meta.url);
-  const html = await Deno.readTextFile(url);
+  const raw = await Deno.readTextFile(url);
+  // HTML 주석 제거 — 주석 안 placeholder 가 치환되면서 발생하는 중첩 주석
+  // → 조기 종료 → 본문 누출 버그 차단 (2026-05-18 admin-daily-digest 발견 동일 패턴)
+  const html = raw.replace(/<!--[\s\S]*?-->/g, "");
   TEMPLATE_CACHE.set(name, html);
   return html;
 }
@@ -357,26 +360,30 @@ Deno.serve(async (req: Request) => {
 
     const results = { admin: false, brand: false, errors: [] as string[] };
 
-    // 1) 관리자 알림
-    try {
-      if (adminEmails.length > 0) {
-        const { subject, html, text } = await buildAdminEmail(row, adminUrl);
-        console.log("[notify-brand-application] sending admin email", { to: adminEmails, subject });
-        await sendBrevoEmail({
-          to: adminEmails.map((e) => ({ email: e })),
-          subject,
-          htmlContent: html,
-          textContent: text,
-        });
-        results.admin = true;
-        console.log("[notify-brand-application] admin email sent");
-      } else {
-        console.warn("[notify-brand-application] no admin emails, skipping admin notification");
+    // 1) 관리자 알림 — 관리자별 1통씩 분리 발송 (To 헤더 노출 차단)
+    if (adminEmails.length > 0) {
+      const { subject, html, text } = await buildAdminEmail(row, adminUrl);
+      console.log("[notify-brand-application] sending admin email", { recipients: adminEmails.length, subject });
+      let adminSuccess = 0;
+      for (const e of adminEmails) {
+        try {
+          await sendBrevoEmail({
+            to: [{ email: e }],
+            subject,
+            htmlContent: html,
+            textContent: text,
+          });
+          adminSuccess++;
+        } catch (err) {
+          const msg = (err as Error).message;
+          console.error("[notify-brand-application] admin email failed", e, msg);
+          results.errors.push(`admin[${e}]: ${msg}`);
+        }
       }
-    } catch (e) {
-      const msg = (e as Error).message;
-      console.error("[notify-brand-application] admin email failed", msg);
-      results.errors.push(`admin: ${msg}`);
+      results.admin = adminSuccess > 0;
+      console.log("[notify-brand-application] admin emails done", { attempted: adminEmails.length, succeeded: adminSuccess });
+    } else {
+      console.warn("[notify-brand-application] no admin emails, skipping admin notification");
     }
 
     // 2) 브랜드 접수 확인

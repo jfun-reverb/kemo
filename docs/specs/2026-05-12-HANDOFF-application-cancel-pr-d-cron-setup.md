@@ -4,6 +4,14 @@
 > **대상 작업**: A-PR-D — 응모 취소 일일 요약 메일
 > **본 PR의 코드 변경**: dev 머지 완료
 > **본 HANDOFF의 대상**: 운영자가 양 서버(개발·운영)에 수동 실행해야 하는 SQL·CLI
+>
+> ## ✅ 작업 완료
+>
+> - **2026-05-12**: 마이그레이션 113 양 DB 적용 + Edge Function `notify-application-cancelled-daily` 배포 + `application-cancel-daily-digest` cron 등록
+> - **2026-05-13**: 버그 수정 (`607f52b` 주석 안 플레이스홀더 누출 + 인플루언서 이메일 「-」 표시 + 시점별 그룹화) → release `9ed247c` 운영 적용
+> - **2026-05-18**: 메일 파이프라인 PR 2 (`docs/specs/2026-05-18-mail-pipeline-consolidation.md`) 에서 본 cron 해제 + 관리자 통합 다이제스트(`notify-admin-daily-digest`) §2 응모 취소 섹션으로 흡수. Edge Function 코드 + 로그 테이블 `application_cancel_digest_runs` 는 운영 안정화 2주 후 별도 정리 PR 에서 삭제 예정
+>
+> 본 HANDOFF 의 절차(§1~§7) 는 2026-05-12 작업의 기록 보존용. 현재 운영 cron 은 `notify-admin-daily-digest` + `notify-influencer-daily-digest` 2종 active.
 
 ---
 

@@ -39,7 +39,8 @@ function renderNavMenu() {
       {sub:'profile-sns', label: t('mypage.menu.sns')},
       {sub:'profile-address', label: t('mypage.menu.address')},
       {sub:'paypal', label: t('mypage.menu.paypal')},
-      {sub:'password', label: t('mypage.menu.password')}
+      {sub:'password', label: t('mypage.menu.password')},
+      {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
     html += subs.map((s, i) => `
       ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}

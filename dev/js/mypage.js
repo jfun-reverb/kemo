@@ -23,6 +23,11 @@ async function loadMyPage() {
   $('mypageHandle').textContent = primary ? `@${primary}` : t('profile.unregistered');
   $('mypageEmail').textContent = currentUser.email;
 
+  // 메일 수신 설정 토글 — 발송 로직(get_promo_digest_targets)이 marketing_opt_in=true 만 대상이므로
+  // true 일 때만 ON 표시 (NULL/false 는 OFF)
+  const mktToggle = $('emailMarketingToggle');
+  if (mktToggle) mktToggle.checked = (p.marketing_opt_in === true);
+
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
   setVal('profileNameKana', p.name_kana);
@@ -383,6 +388,26 @@ async function changePassword() {
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
 }
 
+// 메일 수신 설정 토글 (ON=재구독 / OFF=수신거부)
+// ON 은 동의 시각 기록 의무로 resubscribe_marketing() RPC, OFF 는 동의 철회라 직접 UPDATE.
+async function toggleMarketingEmail(checked) {
+  if (!currentUser) { navigate('login'); return; }
+  const toggle = $('emailMarketingToggle');
+  try {
+    const res = checked ? await resubscribeMarketing() : await updateMarketingOptIn(false);
+    if (!res || !res.ok) throw new Error(res?.error || 'unknown');
+    currentUserProfile = Object.assign(currentUserProfile || {}, {
+      marketing_opt_in: checked,
+      marketing_unsubscribed_at: checked ? null : new Date().toISOString()
+    });
+    toast(t(checked ? 'mypage.emailSettings.savedOn' : 'mypage.emailSettings.savedOff'), 'success');
+  } catch(e) {
+    // 실패 시 토글 원상복구
+    if (toggle) toggle.checked = !checked;
+    toast(friendlyErrorJa(e), 'error');
+  }
+}
+
 function openMypageSub(sub) {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
@@ -533,45 +558,12 @@ async function openCancelModalFor(appId) {
   const campNameEl = $('cancelPageCampaign');
   if (campNameEl) campNameEl.textContent = camp.title || app.campaign_id || '';
   const isSimple = phase === 'recruit';
-  const warnBox   = $('cancelPageWarning');
-  const reasonBox = $('cancelPageReason');
-  const noteBox   = $('cancelPageNoteWrap');
-  const ackBox    = $('cancelPageAckWrap');
-  const simpleBody = $('cancelPageSimpleBody');
-  if (warnBox)   warnBox.style.display   = isSimple ? 'none' : 'block';
-  if (reasonBox) reasonBox.style.display = isSimple ? 'none' : 'block';
-  if (noteBox)   noteBox.style.display   = isSimple ? 'none' : 'block';
-  if (ackBox)    ackBox.style.display    = isSimple ? 'none' : 'block';
-  if (simpleBody) simpleBody.style.display = isSimple ? 'block' : 'none';
-  // 경고 카피
-  const warnTextEl = $('cancelPageWarningText');
-  if (warnTextEl && !isSimple) {
-    const key = `appHistory.cancel.warning${phase.charAt(0).toUpperCase()}${phase.slice(1)}`;
-    warnTextEl.textContent = t(key);
-  }
-  // 사유 셀렉트: 카탈로그 캐시
-  if (!isSimple) {
-    if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
-    const sel = $('cancelPageReasonSelect');
-    if (sel) {
-      const lang = (typeof getLang === 'function') ? getLang() : 'ja';
-      const pickLabel = (r) => (lang === 'ko' ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko));
-      const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
-      const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(pickLabel(r))}</option>`).join('');
-      sel.innerHTML = placeholder + opts;
-      sel.value = '';
-      // 카테고리 선택 시 textarea placeholder 를 카테고리별 가이드로 갱신.
-      // 사용자가 어떤 내용을 입력해야 하는지 안내.
-      sel.onchange = () => _syncCancelNotePlaceholder(sel.value);
-    }
-    const note = $('cancelPageNote');
-    if (note) {
-      note.value = '';
-      // 초기 placeholder: 기본 가이드 (카테고리 미선택 상태)
-      note.placeholder = t('appHistory.cancel.notePlaceholderDefault');
-    }
-    const ack = $('cancelPageAck');
-    if (ack) ack.checked = false;
+  // 단계별 화면 분기 — recruit 는 간단 취소, 그 외는 사유 입력 모드.
+  // 두 모드 전환 로직은 데드락 자동 복구에서도 재사용하도록 헬퍼로 분리.
+  if (isSimple) {
+    _showCancelSimpleMode();
+  } else {
+    await _revealCancelReasonFields(phase);
   }
   // phase + appId hidden
   const phaseEl = $('cancelPagePhase');
@@ -591,6 +583,54 @@ async function openCancelModalFor(appId) {
   // #appShell 이 position:fixed + overflow:hidden 이라 iOS Safari 의 자동
   // 스크롤이 .page.active 내부 컨테이너에서 작동하지 않으므로 직접 처리.
   _attachCancelPageFocusScroll();
+}
+
+// 간단 취소 모드 — 사유/동의/경고 박스 숨김, 간단 안내만 표시 (recruit 단계)
+function _showCancelSimpleMode() {
+  const boxes = ['cancelPageWarning','cancelPageReason','cancelPageNoteWrap','cancelPageAckWrap']
+    .map(id => $(id));
+  boxes.forEach(b => { if (b) b.style.display = 'none'; });
+  const simpleBody = $('cancelPageSimpleBody');
+  if (simpleBody) simpleBody.style.display = 'block';
+}
+
+// 사유 입력 모드로 전환 — 박스 표시 + 경고 카피 + 사유 카탈로그 로드 + 입력 초기화.
+// 진입 시(비-recruit)와 데드락 자동 복구(서버가 사유를 요구)에서 공통 호출.
+async function _revealCancelReasonFields(phase) {
+  const boxes = ['cancelPageWarning','cancelPageReason','cancelPageNoteWrap','cancelPageAckWrap']
+    .map(id => $(id));
+  boxes.forEach(b => { if (b) b.style.display = 'block'; });
+  const simpleBody = $('cancelPageSimpleBody');
+  if (simpleBody) simpleBody.style.display = 'none';
+  // 경고 카피 — 단계별 문구, recruit/미상이면 일반 문구(warningOther)
+  const warnTextEl = $('cancelPageWarningText');
+  if (warnTextEl) {
+    const valid = ['purchase','visit','post'];
+    const key = valid.includes(phase)
+      ? `appHistory.cancel.warning${phase.charAt(0).toUpperCase()}${phase.slice(1)}`
+      : 'appHistory.cancel.warningOther';
+    warnTextEl.textContent = t(key);
+  }
+  // 사유 셀렉트 카탈로그 로드 + 입력 초기화
+  if (!_cancelReasonsCache) _cancelReasonsCache = await fetchCancelReasons();
+  const sel = $('cancelPageReasonSelect');
+  if (sel) {
+    const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+    const pickLabel = (r) => (lang === 'ko' ? (r.name_ko || r.name_ja) : (r.name_ja || r.name_ko));
+    const placeholder = `<option value="">${esc(t('appHistory.cancel.reasonSelect'))}</option>`;
+    const opts = _cancelReasonsCache.map(r => `<option value="${esc(r.code)}">${esc(pickLabel(r))}</option>`).join('');
+    sel.innerHTML = placeholder + opts;
+    sel.value = '';
+    // 카테고리 선택 시 textarea placeholder 를 카테고리별 가이드로 갱신
+    sel.onchange = () => _syncCancelNotePlaceholder(sel.value);
+  }
+  const note = $('cancelPageNote');
+  if (note) {
+    note.value = '';
+    note.placeholder = t('appHistory.cancel.notePlaceholderDefault');
+  }
+  const ack = $('cancelPageAck');
+  if (ack) ack.checked = false;
 }
 
 // 카테고리 코드별 textarea placeholder 동기화
@@ -676,12 +716,22 @@ async function submitCancelApplicationFromPage() {
   });
   if (submitBtn) submitBtn.disabled = false;
   if (!res.ok) {
+    // 데드락 자동 복구: 화면은 간단(recruit) 모드인데 서버가 사유·동의를 요구하면
+    // 클라이언트/서버 단계 판정이 엇갈린 것. 사유 입력란을 펼쳐 재입력받는다.
+    if (isSimple && (res.error === 'reason_required' || res.error === 'acknowledgement_required')) {
+      const phaseEl = $('cancelPagePhase');
+      if (phaseEl) phaseEl.value = 'other'; // 비-recruit 로 보정 → 재제출 시 사유 검증 경로 진입
+      await _revealCancelReasonFields('other');
+      showErr(t('appHistory.cancel.reasonNowRequired'));
+      return;
+    }
     const errKey = {
       'not_owner':                    'appHistory.cancel.errorOwner',
       'invalid_status':               'appHistory.cancel.errorStatus',
       'deliverable_already_approved': 'appHistory.cancel.errorDeliverable',
       'reason_required':              'appHistory.cancel.errorReason',
-      'acknowledgement_required':     'appHistory.cancel.errorAck'
+      'acknowledgement_required':     'appHistory.cancel.errorAck',
+      'application_not_found':        'appHistory.cancel.errorNotFound'
     }[res.error] || 'appHistory.cancel.errorGeneric';
     showErr(t(errKey));
     return;

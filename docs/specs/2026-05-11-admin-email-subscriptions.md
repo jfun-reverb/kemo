@@ -2,9 +2,9 @@
 
 > **작성일**: 2026-05-11
 > **작성 세션**: 고문(메인 폴더)
-> **상태**: 사양 확정. 코드 작업 대기
+> **상태**: ✅ **운영 배포 완료 (2026-05-11)** — 마이그레이션 103 양 DB 적용 + 관리자 페인 「메일 수신 설정」 모달 가동 중. 구현 결과 섹션 참조
 > **연관 사양**: `docs/specs/2026-05-11-application-cancel.md` (§6-1 수신자 로직이 본 사양 결과를 사용)
-> **예상 PR 분할**: 1개 (DB + UI + Edge Function 영향 통합)
+> **예상 PR 분할**: 1개 (DB + UI + Edge Function 영향 통합) — 실제 단일 commit `7153b03` 으로 처리됨
 
 ---
 
@@ -345,4 +345,32 @@ ls supabase/migrations/ | tail -5
 ## 12. 미해결
 
 - 메일 종류 카탈로그에 미래 추가 후보가 있는지: 본 사양 범위 외. 운영팀 요청 시 lookup 한 줄 추가
-- `admins.receive_brand_notify` 컬럼 정식 DROP 시점: 본 사양 머지 후 1~2 배포 사이클 안정성 확인 후 별도 마이그레이션
+- `admins.receive_brand_notify` 컬럼 정식 DROP 시점: 본 사양 머지 후 1~2 배포 사이클 안정성 확인 후 별도 마이그레이션 → **2026-05-18 기준 아직 DROP 안 됨 (deprecated 유지)**
+
+---
+
+## 13. 구현 결과
+
+**구현일**: 2026-05-11
+**운영 적용일**: 2026-05-11 (양 DB)
+**관련 커밋**: `7153b03 feat(admin): split admin email subscriptions into per-kind table`
+**관련 마이그레이션**: 103 (`admin_email_subscriptions` 테이블 + `get_subscribed_admin_emails()` 원격 호출 함수(RPC) + `lookup_values(kind='admin_email_kind')` 시드)
+
+### 초안 대비 변경 사항
+- **추가된 것**:
+  - `admin_email_kind` lookup 시드 2건 (`brand_notify`, `application_cancel`) — 초안의 「초기 2종」 결정대로
+  - 2026-05-18 마이그레이션 130 시점에 `application_received` 추가 (3종) — 본 사양과 별개 신청 접수 일일 요약 메일 도입에 따른 추가
+  - 2026-05-18 마이그레이션 130 안에서 「전체 관리자 기본 ON」 시드 자동화 — 신규 lookup 추가 시 모든 관리자에게 자동 구독 ON
+- **빠진 것**: 없음
+- **달라진 것**:
+  - `admins.receive_brand_notify` 컬럼은 즉시 DROP 안 함 (deprecated 유지) — 안정성 보강 후 별도 마이그레이션 예정
+  - 본 사양에서 메일 종류 추가는 「lookup 한 줄 추가」 라고 명시했는데, 실제 운영에서 마이그레이션 130 추가 시 lookup_values + admin_email_subscriptions 시드 두 곳 모두 갱신 필요했음 — UX 충실히 유지하려면 「신규 lookup 추가 → 기본 ON 시드 추가」 2단계로 정착
+
+### 구현 중 기술 결정 사항
+- 행 단위 보안 정책(RLS): SELECT 는 관리자 전체 (`is_admin()`), INSERT/UPDATE/DELETE 는 본인 또는 super_admin (분리 정책)
+- `get_subscribed_admin_emails(p_mail_kind text) RETURNS TABLE(email text)` — Edge Function 들의 표준 수신자 조회 헬퍼. 매번 admin_email_subscriptions JOIN admins 패턴 반복 제거
+- 관리자 페인 「설정」 모달은 본인은 항상 편집 가능, super_admin 은 타 관리자도 편집 가능. 클라이언트 + 행 단위 보안 정책 양쪽 가드
+
+### 후속 작업
+- **마이그레이션 130 (2026-05-18)**: `application_received` 메일 종류 추가 (PR 「캠페인 신청 접수 일일 요약」)
+- **마이그레이션 132 (2026-05-18, PR 2)**: 관리자 통합 다이제스트(`notify-admin-daily-digest`) 에서 합집합 수신자 패턴 사용 — `get_subscribed_admin_emails('application_cancel') ∪ get_subscribed_admin_emails('application_received')` ∪ env. 본 사양의 헬퍼 함수가 핵심 인프라로 동작

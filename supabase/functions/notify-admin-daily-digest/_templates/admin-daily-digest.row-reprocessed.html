@@ -1,0 +1,40 @@
+<!--
+  Row partial: 섹션 4 (재처리 일감) — 캠페인별 그룹 카드
+  Edge Function 이 캠페인 기준으로 그룹화 후 본 견본을 캠페인마다 1회 render.
+
+  종류 3종:
+    - 결과물 재제출 (deliverable_events action='resubmit')
+    - 결과물 되돌리기 (deliverable_events action='revert')
+    - 신청 되돌리기 (application_events action='revert_to_pending')
+
+  Row Placeholders:
+    {{campaign_no}}             캠페인 번호 (【...】)
+    {{campaign_title}}          캠페인 제목
+    {{recruit_type_ko}}         모집 타입 (리뷰어 / 기프팅 / 방문형)
+    {{reprocess_count}}         이 캠페인에서 재처리된 건수
+    {{reprocess_rows_html}}     인플별 <tr> 누적 HTML
+                                컬럼 7종: 이름(한자) / 이름(가나) / 이메일 / SNS / 종류(칩) / 처리 운영자 / 시각
+-->
+<div style="border:1px solid #E5E0F4;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
+  <div style="font-size:12px;color:#888;margin-bottom:4px">
+    <span style="font-family:monospace">{{campaign_no}}</span> · {{recruit_type_ko}}
+  </div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">{{campaign_title}}</div>
+  <div style="font-size:11px;color:#6F40A6;font-weight:700;margin-bottom:6px">재처리 {{reprocess_count}}건</div>
+  <table style="border-collapse:collapse;width:100%;font-size:12px">
+    <thead>
+      <tr style="background:#F5EFFB;color:#6F40A6">
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(한자)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(가나)</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이메일</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">SNS</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">종류</th>
+        <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">처리 운영자</th>
+        <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">시각</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{reprocess_rows_html}}
+    </tbody>
+  </table>
+</div>

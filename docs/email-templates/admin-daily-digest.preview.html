@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>미리보기 — 관리자 일일 통합 다이제스트 (KO)</title>
+<style>
+  body{font-family:'Noto Sans KR',Arial,sans-serif;background:#f5f5f5;padding:40px 20px;color:#222}
+  .preview-wrap{max-width:1060px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08);padding:32px}
+  .preview-note{font-size:11px;color:#888;border-left:3px solid #5B6BBF;padding:8px 12px;margin-bottom:24px;background:#F5F7FC;line-height:1.6}
+  .preview-subject{font-size:12px;color:#666;background:#FAFAFC;border:1px solid #E2E7F2;border-radius:6px;padding:8px 12px;margin-bottom:18px}
+  .preview-subject b{color:#222}
+</style>
+</head>
+<body>
+<div class="preview-wrap">
+  <div class="preview-note">
+    이 페이지는 메일 본문 미리보기입니다. 실제 메일은 Brevo SMTP 로 발송되며,
+    Edge Function <code>notify-admin-daily-digest</code> 가 placeholder 치환을 담당합니다.<br>
+    아래 본문은 4섹션 모두 데이터가 있는 상태의 샘플입니다. 0건 섹션은 실제 메일에서 통째로 생략됩니다.
+  </div>
+  <div class="preview-subject">
+    <b>제목:</b> [REVERB] 관리자 일일 요약 — 2026-05-19 (총 9건)
+  </div>
+
+  <!-- 메인 wrapper (admin-daily-digest.html) -->
+  <div style="font-family:'Noto Sans KR',Arial,sans-serif;color:#222;max-width:1000px">
+    <h2 style="color:#5B6BBF;margin:0 0 6px">관리자 일일 통합 요약</h2>
+    <p style="margin:0 0 16px;color:#666;font-size:13px">REVERB JP 관리자 알림 · 매일 한국시간 오전 9시 발송</p>
+
+    <table style="border-collapse:collapse;width:100%;font-size:13px;margin:0 0 16px;background:#F5F7FC;border-radius:8px;overflow:hidden">
+      <tr>
+        <td style="padding:12px 16px;color:#888;width:90px">대상일</td>
+        <td style="padding:12px 16px;font-weight:700">2026-05-19</td>
+      </tr>
+      <tr>
+        <td style="padding:12px 16px;color:#888;border-top:1px solid #E2E7F2">총합</td>
+        <td style="padding:12px 16px;font-weight:700;color:#5B6BBF;border-top:1px solid #E2E7F2">9건</td>
+      </tr>
+    </table>
+
+    <!-- summary chip (0건 섹션은 생략됨) -->
+    <div style="margin:0 0 20px;line-height:2">
+      <span style="background:#FFF5F8;color:#C8789C;padding:3px 10px;border-radius:6px;font-weight:700;font-size:12px;margin-right:6px">접수 2건</span>
+      <span style="background:#FFE4E9;color:#E8344E;padding:3px 10px;border-radius:6px;font-weight:700;font-size:12px;margin-right:6px">취소 2건</span>
+      <span style="background:#E4F0FF;color:#1F5DBF;padding:3px 10px;border-radius:6px;font-weight:700;font-size:12px;margin-right:6px">제출 3건</span>
+      <span style="background:#F0E6FA;color:#6F40A6;padding:3px 10px;border-radius:6px;font-weight:700;font-size:12px;margin-right:6px">재처리 2건</span>
+    </div>
+
+    <!-- ───────────── 섹션 1: 캠페인 신청 접수 ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#F5F7FC;border-left:4px solid #C8789C;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 캠페인 신청 접수</span>
+        <span style="font-size:12px;color:#5B6BBF;font-weight:700">2건</span>
+      </div>
+      <div style="padding:12px 14px;background:#fff">
+        <!-- row-received: 캠페인별 그룹 카드 -->
+        <div style="border:1px solid #E2E7F2;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
+          <div style="font-size:12px;color:#888;margin-bottom:4px">
+            <span style="font-family:monospace">【B0018-A002-C001】</span> · 리뷰어
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">바이오옴8X 모공 보습 미용액 30ml</div>
+          <div style="font-size:11px;color:#5B6BBF;font-weight:700;margin-bottom:6px">신청 2건</div>
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead>
+              <tr style="background:#F5F7FC;color:#5B6BBF">
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(한자)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이름(가나)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">이메일</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">SNS</th>
+                <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #E2E7F2">신청 시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F0F2F8">桜</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F0F2F8">サクラ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8">sakura.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8">
+                  <a href="https://www.instagram.com/sakura_jp/" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@sakura_jp</a>
+                  <span style="color:#888;font-size:11px">· IG</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #F0F2F8">21:34</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F0F2F8">結衣</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F0F2F8">ユイ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8">yui.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8">
+                  <a href="https://www.tiktok.com/@yui_beauty" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@yui_beauty</a>
+                  <span style="color:#888;font-size:11px">· TT</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #F0F2F8">23:12</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── 섹션 2: 응모 취소 (캠페인 그룹 + 표) ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#F5F7FC;border-left:4px solid #E8344E;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 응모 취소</span>
+        <span style="font-size:12px;color:#5B6BBF;font-weight:700">2건</span>
+      </div>
+      <div style="padding:12px 14px;background:#fff">
+        <!-- 캠페인별 그룹 카드 (같은 캠페인에 인플 2명 취소 케이스) -->
+        <div style="border:1px solid #F4DDE0;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
+          <div style="font-size:12px;color:#888;margin-bottom:4px">
+            <span style="font-family:monospace">【B0018-A002-C001】</span> · 리뷰어
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">바이오옴8X 모공 보습 미용액 30ml</div>
+          <div style="font-size:11px;color:#E8344E;font-weight:700;margin-bottom:6px">취소 2건</div>
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead>
+              <tr style="background:#FDF1F3;color:#E8344E">
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이름(한자)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이름(가나)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">이메일</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">SNS</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">시점</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">사유</th>
+                <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #F4DDE0">취소시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">春香</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F8E5E8">ハルカ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">haruka.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">
+                  <a href="https://www.instagram.com/haruka_life/" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@haruka_life</a>
+                  <span style="color:#888;font-size:11px">· IG</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">
+                  <span style="background:#FFE4E9;color:#E8344E;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">구매기간</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">
+                  제품과 콘셉트 불일치
+                  <br><span style="color:#888;font-size:11px;line-height:1.5">샘플 수령 후 피부 톤과 맞지 않아 부득이하게 취소합니다.</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #F8E5E8">2026-05-18 13:42 JST</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">美咲</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F8E5E8">ミサキ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">misaki@example.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">
+                  <a href="https://www.youtube.com/@misaki_vlog" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@misaki_vlog</a>
+                  <span style="color:#888;font-size:11px">· YT</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">
+                  <span style="background:#FFF0D6;color:#A06A14;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">결과물 제출기간</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">개인 사정</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #F8E5E8">2026-05-18 18:05 JST</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── 섹션 3: 결과물 제출 (캠페인 그룹 + 표 + 제출 내역 링크) ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#F5F7FC;border-left:4px solid #1F5DBF;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 결과물 제출</span>
+        <span style="font-size:12px;color:#5B6BBF;font-weight:700">3건</span>
+      </div>
+      <div style="padding:12px 14px;background:#fff">
+        <div style="border:1px solid #DCE6F0;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
+          <div style="font-size:12px;color:#888;margin-bottom:4px">
+            <span style="font-family:monospace">【B0018-A002-C001】</span> · 리뷰어
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">바이오옴8X 모공 보습 미용액 30ml</div>
+          <div style="font-size:11px;color:#1F5DBF;font-weight:700;margin-bottom:6px">제출 3건</div>
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead>
+              <tr style="background:#EEF4FC;color:#1F5DBF">
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이름(한자)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이름(가나)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">이메일</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">SNS</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">종류</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">제출 내역</th>
+                <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #DCE6F0">제출시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">桜</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E5ECF4">サクラ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">sakura.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">
+                  <a href="https://www.instagram.com/sakura_jp/" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@sakura_jp</a>
+                  <span style="color:#888;font-size:11px">· IG</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">
+                  <span style="background:#E4F0FF;color:#1F5DBF;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">영수증</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E5ECF4">
+                  <a href="https://example.supabase.co/storage/v1/object/public/receipts/sample.jpg" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">영수증 이미지 보기</a>
+                  <br><span style="color:#888;font-size:11px;line-height:1.5">주문 ABC-12345 · 구매일 2026-05-17 · 금액 ¥3,200</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E5ECF4">11:22</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">春香</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E5ECF4">ハルカ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">haruka.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">
+                  <a href="https://www.instagram.com/haruka_life/" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@haruka_life</a>
+                  <span style="color:#888;font-size:11px">· IG</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">
+                  <span style="background:#E0F1E4;color:#1F7A3D;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">리뷰 이미지</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E5ECF4">
+                  <a href="https://example.supabase.co/storage/v1/object/public/reviews/sample.jpg" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">리뷰 이미지 보기</a>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E5ECF4">14:08</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">結衣</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E5ECF4">ユイ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">yui.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">
+                  <a href="https://www.tiktok.com/@yui_beauty" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@yui_beauty</a>
+                  <span style="color:#888;font-size:11px">· TT</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">
+                  <span style="background:#FFF0D6;color:#A06A14;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">게시 URL</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E5ECF4">
+                  <a href="https://www.tiktok.com/@yui_beauty/video/1234567890" target="_blank" rel="noopener noreferrer" style="color:#1F5DBF;text-decoration:none;font-weight:700">게시 보기</a>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E5ECF4">19:48</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── 섹션 4: 재처리 일감 (캠페인 그룹 + 표) ───────────── -->
+    <div style="margin:0 0 18px;border:1px solid #E2E7F2;border-radius:10px;overflow:hidden">
+      <div style="padding:10px 14px;background:#F5F7FC;border-left:4px solid #6F40A6;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:700;font-size:14px;color:#222">▶ 재처리 일감</span>
+        <span style="font-size:12px;color:#5B6BBF;font-weight:700">2건</span>
+      </div>
+      <div style="padding:12px 14px;background:#fff">
+        <div style="border:1px solid #E5E0F4;border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff">
+          <div style="font-size:12px;color:#888;margin-bottom:4px">
+            <span style="font-family:monospace">【B0018-A002-C001】</span> · 리뷰어
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.4">바이오옴8X 모공 보습 미용액 30ml</div>
+          <div style="font-size:11px;color:#6F40A6;font-weight:700;margin-bottom:6px">재처리 2건</div>
+          <table style="border-collapse:collapse;width:100%;font-size:12px">
+            <thead>
+              <tr style="background:#F5EFFB;color:#6F40A6">
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(한자)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이름(가나)</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">이메일</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">SNS</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">종류</th>
+                <th style="padding:6px 8px;text-align:left;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">처리 운영자</th>
+                <th style="padding:6px 8px;text-align:right;font-weight:700;font-size:11px;border-bottom:1px solid #E5E0F4">시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">桜</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E8E2F5">サクラ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">sakura.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">
+                  <a href="https://www.instagram.com/sakura_jp/" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@sakura_jp</a>
+                  <span style="color:#888;font-size:11px">· IG</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">
+                  <span style="background:#F0E6FA;color:#6F40A6;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">결과물 재제출</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E8E2F5">김운영</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E8E2F5">15:07</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">春香</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E8E2F5">ハルカ</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">haruka.test@reverb.jp</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">
+                  <a href="https://www.instagram.com/haruka_life/" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@haruka_life</a>
+                  <span style="color:#888;font-size:11px">· IG</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">
+                  <span style="background:#E5E0F4;color:#5B6BBF;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px">신청 되돌리기</span>
+                </td>
+                <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E8E2F5">박관리</td>
+                <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E8E2F5">16:33</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <a href="#" style="display:inline-block;background:#5B6BBF;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;margin-top:8px">관리자 페이지에서 보기</a>
+
+    <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+      본 메일은 자동 발송됩니다. 회신 시 응답이 어렵습니다.<br>
+      수신 설정 변경은 관리자 페이지 → 관리자 계정 → 메일 수신 설정.
+    </p>
+  </div>
+</div>
+</body>
+</html>

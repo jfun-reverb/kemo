@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779817064';
+  var CURRENT_BUILD = 'v1779817177';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -52,6 +52,9 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/ko.js"></script>
 <style id="admin-cloak">body{visibility:hidden!important}</style>
+<!-- Vercel Web Analytics + Speed Insights (운영 사용자 실측 Core Web Vitals 수집) -->
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 <style>
 /* ══════════════════════════════════
    BASE — 초기화, 변수, 레이아웃 (Material Design 3)
@@ -1519,7 +1522,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-27 02:37 · 091068d</span>
+          <span class="admin-build-text">2026-05-27 02:39 · a484efc</span>
         </div>
       </div>
     </aside>
@@ -1635,7 +1638,7 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
+                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="debouncedFilterAdminCampaigns()">
                 </div>
               </div>
             </div>
@@ -4263,6 +4266,71 @@ async function fetchCampaigns() {
   }
 }
 
+// 관리자 캠페인 목록 전용 조회 — 목록 렌더·검색·필터·정렬에 필요한 컬럼만 select.
+// participation_steps / caution_items / ng_items / description / appeal / guide 등
+// 무거운 jsonb·리치텍스트 컬럼은 제외해 페이로드를 절약한다.
+// ※ fetchCampaigns 는 인플루언서 앱·복제·편집 등 다른 곳에서도 공유하므로 건드리지 않는다.
+// ※ autoOpenCampaigns / autoCloseCampaigns 는 status / recruit_start / deadline 만 참조하므로
+//    목록 전용 컬럼셋에서도 문제없이 실행된다. 목록 진입 시 자동 전환을 유지하기 위해 여기서도 호출.
+const ADMIN_LIST_COLUMNS = [
+  'id', 'title', 'brand', 'brand_ko', 'product', 'product_ko',
+  'campaign_no', 'legacy_no',
+  'recruit_type', 'channel', 'status',
+  'slots', 'view_count',
+  'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
+  'image_url', 'image_crops', 'emoji',
+  'recruit_start', 'deadline',
+  'purchase_start', 'purchase_end',
+  'visit_start', 'visit_end',
+  'submission_end',
+  'order_index', 'created_at', 'updated_at',
+].join(',');
+
+async function fetchCampaignsForAdminList() {
+  if (!db) return DEMO_CAMPAIGNS.slice();
+  try {
+    const data = await fetchAllPaged(() =>
+      db.from('campaigns')
+        .select(ADMIN_LIST_COLUMNS)
+        .order('order_index', { ascending: true, nullsFirst: false })
+    );
+    if (data.length > 0) {
+      await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
+      await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      return data;
+    }
+    return DEMO_CAMPAIGNS.slice();
+  } catch(e) {
+    return DEMO_CAMPAIGNS.slice();
+  }
+}
+
+// 관리자 캠페인 목록 전용 신청 집계 조회 — 서버 집계 함수(get_campaign_application_counts) 호출.
+// 반환: { [campaign_id]: { total, approved, pending } } 맵.
+//   total   = 취소(cancelled) 제외한 전체 신청 수 (PR 4 확정 동작 변경)
+//   approved = 승인 수, pending = 대기 수
+// 신청 전건(약 3,000건)을 클라이언트로 전송하던 방식에서 서버 집계 1회 호출로 전환.
+// DEMO_MODE 또는 호출 실패 시 빈 맵({}) 반환 — 카운트 0으로 폴백.
+async function fetchCampaignApplicationCounts() {
+  if (!db) return {};
+  try {
+    const { data, error } = await db.rpc('get_campaign_application_counts');
+    if (error) throw error;
+    // 배열을 campaign_id 키 맵으로 변환
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        total:    Number(row.total    || 0),
+        approved: Number(row.approved || 0),
+        pending:  Number(row.pending  || 0),
+      };
+      return map;
+    }, {});
+  } catch(e) {
+    console.error('fetchCampaignApplicationCounts:', e);
+    return {};
+  }
+}
+
 // 모집 시작일 도래 캠페인 자동 활성화 (scheduled → active)
 //   recruit_start 가 오늘(JST 자정 기준) 이하이고 status='scheduled' 면 active 로 전환.
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
@@ -4660,6 +4728,18 @@ async function fetchPendingDeliverableCount() {
     if (error) throw error;
     return count || 0;
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
+}
+
+// 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
+async function fetchPendingApplicationCount() {
+  if (!db) return 0;
+  try {
+    const {count, error} = await db?.from('applications')
+      .select('id', {count: 'exact', head: true})
+      .eq('status', 'pending');
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[fetchPendingApplicationCount]', e); return 0; }
 }
 
 // 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
@@ -6141,6 +6221,70 @@ async function saveAdminEmailSubscriptions(adminId, subscribedKinds, allKinds) {
   }
 }
 
+// ── 마케팅(캠페인 홍보) 메일 수신거부·재구독 ──
+// 마이그레이션 140 의 함수 사용. 수신거부 토큰 인프라.
+
+// [수신거부 라우트] 메일 1-click 익명 수신거부.
+// 비로그인 상태에서 토큰만으로 호출되므로 세션 갱신(retryWithRefresh) 불필요.
+// 반환: {ok:true, name} | {ok:false, error}
+async function unsubscribeByToken(token) {
+  if (!db) return {ok: false, error: 'no_db'};
+  if (!token) return {ok: false, error: 'invalid_token'};
+  try {
+    const {data, error} = await db.rpc('unsubscribe_by_token', { p_token: token });
+    if (error) throw error;
+    // data: {success:bool, name?, reason?}
+    if (data && data.success) return {ok: true, name: data.name || ''};
+    return {ok: false, error: data?.reason || 'invalid_token'};
+  } catch(e) {
+    // 잘못된 UUID 형식 등은 무효 토큰으로 처리
+    console.error('[unsubscribeByToken]', e);
+    return {ok: false, error: 'invalid_token'};
+  }
+}
+
+// [마이페이지 토글 ON] 마케팅 메일 재구독 — 로그인 본인.
+// resubscribe_marketing() 이 marketing_agreed_at=now() 를 갱신해
+// 특정전자메일법(특정전자메일의 송신 적정화법) 「동의 근거 기록」 의무를 충족하므로
+// 직접 UPDATE 대신 반드시 이 RPC 사용.
+async function resubscribeMarketing() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db.rpc('resubscribe_marketing');
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[resubscribeMarketing]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// [마이페이지 토글] 마케팅 메일 수신 설정 — 로그인 본인.
+// 동의 철회(OFF)는 동의 시각 기록 의무가 없으므로 본인 행을 직접 UPDATE.
+// 동의(ON)는 동의 근거(marketing_agreed_at) 기록을 위해 resubscribeMarketing() 으로 위임 —
+// 직접 UPDATE 로 ON 하면 동의 시각이 안 남아 특정전자메일법 위반 소지가 있어 차단.
+async function updateMarketingOptIn(value) {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return {ok: false, error: 'no_session'};
+  // ON 은 동의 근거 기록 의무로 RPC 경로로 위임 (오용 차단)
+  if (value) return await resubscribeMarketing();
+  try {
+    await retryWithRefresh(async () => {
+      // 이미 OFF 인 경우는 갱신하지 않아 최초 수신거부 시각을 보존 (marketing_opt_in=true 일 때만)
+      const {error} = await db.from('influencers')
+        .update({ marketing_opt_in: false, marketing_unsubscribed_at: new Date().toISOString() })
+        .eq('id', currentUser.id)
+        .eq('marketing_opt_in', true);
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[updateMarketingOptIn]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
 
 // ══════════════════════════════════════
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
@@ -6158,6 +6302,15 @@ new MutationObserver(() => {
 function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// 입력 지연 처리 (연타 시 마지막 호출만 실행) — 검색창 등 고빈도 입력에 사용
+function debounce(fn, wait = 300) {
+  let timer = null;
+  return function(...args) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn.apply(this, args); }, wait);
+  };
 }
 
 // 필수 필드 경고 표시/해제
@@ -10843,6 +10996,13 @@ function friendlyError(msg) {
 // ════════════════════════════════════════════════════════════════════
 
 function switchAdminPane(pane, el, pushHistory) {
+  // Vercel Web Analytics — 관리자 앱 페인별 접속 카운트
+  try {
+    if (typeof window.va === 'function') {
+      window.va('event', { name: 'pv_admin', page: pane });
+    }
+  } catch (e) { /* analytics 실패 무시 */ }
+
   initMultiFilters();
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
@@ -11046,6 +11206,8 @@ async function loadAdminData(preloaded) {
   renderProfileCompletion(users);
   // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
   renderAddressDistribution(users);
+  // 대시보드는 apps 전건을 KPI용으로 이미 보유 → 추가 count 쿼리 없이 인라인 계산.
+  // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
   refreshDelivSidebarBadge();
 
@@ -11061,7 +11223,7 @@ async function loadAdminData(preloaded) {
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${imgThumb(thumbUrl,160)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? `<img src="${imgThumb(thumbUrl,96,70)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0">
             <div>${typeLabel}</div>
@@ -11135,6 +11297,8 @@ var adminCampSortDir = '';
 // ════════════════════════════════════════════════════════════════════
 
 function filterAdminCampaigns() { loadAdminCampaigns(true); }
+// 검색창 전용 — 글자 연타 시 마지막 입력만 반영(0.3초). 드롭다운 필터는 즉시 호출 유지.
+const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 function resetCampSort() {
   adminCampSortKey = '';
@@ -11507,6 +11671,15 @@ function applyImageCropsToList(imgList, cropsMap) {
 var campsLazy = null;
 const CAMPS_PAGE_SIZE = 50;
 
+// 캠페인 목록의 신청 집계 캐시 — { [campaign_id]: {total, approved, pending} } 맵.
+// 검색/필터/정렬(useCache=true)에서는 재사용해 서버 재조회를 막는다.
+// 페인 재진입·실데이터 갱신(useCache=false) 시에만 새로 fetch (allCampaigns 와 동일한 갱신 정책).
+// ⚠️ 이 캐시는 useCache=falsy(인자 없는 호출) 경로로만 갱신된다.
+//    신청 승인/반려 후 캠페인 페인으로 돌아오면 switchAdminPane('campaigns') → loaders.campaigns()
+//    가 loadAdminCampaigns 를 인자 없이 호출하므로 자동 갱신된다.
+//    loadAdminCampaigns(true) 직접 호출은 캐시를 갱신하지 않으니, 신청 상태가 바뀐 직후 경로에서는 쓰지 말 것.
+var _campListCounts = null;
+
 // 캠페인 다중 선택 — 현재 필터/정렬 적용된 캠페인 리스트 캐시
 // loadAdminCampaigns 가 매 호출마다 갱신. toggleCampSelectAll·updateCampSelectionUI 에서 참조
 var _currentFilteredCamps = [];
@@ -11514,7 +11687,8 @@ function getCurrentFilteredCamps() { return _currentFilteredCamps; }
 
 async function loadAdminCampaigns(useCache) {
   updateCampTableHead();
-  let camps = useCache ? allCampaigns.slice() : await fetchCampaigns();
+  // PR 2 데이터 다이어트: 목록 전용 가벼운 함수 사용 (participation_steps 등 무거운 컬럼 제외)
+  let camps = useCache ? allCampaigns.slice() : await fetchCampaignsForAdminList();
   if (!useCache) allCampaigns = camps.slice();
 
   // 상태·모집타입별 건수 요약 (필터 전 전체 기준)
@@ -11559,10 +11733,12 @@ async function loadAdminCampaigns(useCache) {
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
-  const allApps = await fetchApplications();
+  // useCache(검색/필터/정렬)면 캐시 재사용 → 서버 재조회 0회. 캐시가 비어있으면 1회만 조회.
+  // PR 4 서버 집계: 신청 전건 전송 대신 서버 집계 함수 1회 호출로 전환.
+  const counts = (useCache && _campListCounts) ? _campListCounts : (_campListCounts = await fetchCampaignApplicationCounts());
 
   // 정렬
-  const appCount = id => allApps.filter(a=>a.campaign_id===id).length;
+  const appCount = id => (counts[id]?.total || 0);
   if (adminReorderMode) {
     camps.sort((a,b) => {
       if (a.order_index!=null&&b.order_index!=null) return a.order_index-b.order_index;
@@ -11615,9 +11791,9 @@ async function loadAdminCampaigns(useCache) {
   const campsBody = $('adminCampsBody');
   if (!campsBody) return;
   const buildCampRow = (c, i, totalLen) => {
-    const campApps = allApps.filter(a=>a.campaign_id===c.id);
-    const approvedCnt = campApps.filter(a=>a.status==='approved').length;
-    const pendingCnt = campApps.filter(a=>a.status==='pending').length;
+    const cc = counts[c.id] || { total: 0, approved: 0, pending: 0 };
+    const approvedCnt = cc.approved;
+    const pendingCnt  = cc.pending;
     const pct = c.slots > 0 ? Math.round(approvedCnt/c.slots*100) : 0;
     const barColor = pct>=100?'var(--red)':pct>=60?'var(--gold)':'var(--green)';
     const imgs = [c.img1,c.img2,c.img3,c.img4,c.img5,c.img6,c.img7,c.img8,c.image_url].filter(Boolean).filter((v,idx,a)=>a.indexOf(v)===idx);
@@ -11634,7 +11810,7 @@ async function loadAdminCampaigns(useCache) {
       <td style="min-width:300px;max-width:380px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:44px;height:44px;flex-shrink:0;border-radius:8px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:160, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? renderCroppedImg(thumbUrl, (c.image_crops||{}).img1, {thumb:96, quality:70, lazy:true}) : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:20px">${esc(c.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">inventory_2</span>'}</span>`}
             ${imgCount > 1 ? `<span style="position:absolute;bottom:0;left:0;background:rgba(0,0,0,.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:0 4px 0 0">+${imgCount}</span>` : ''}
           </div>
           <div style="min-width:0;flex:1">
@@ -11667,8 +11843,8 @@ async function loadAdminCampaigns(useCache) {
           <div style="width:48px;height:8px;background:var(--line);border-radius:4px;overflow:hidden">
             <div style="width:${Math.min(pct,100)}%;height:100%;background:${barColor};border-radius:4px"></div>
           </div>
-          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;color:${campApps.length>0?'var(--ink)':'var(--muted)'};border-color:var(--line)" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
-            ${campApps.length} / ${c.slots}명
+          <button class="btn btn-ghost btn-xs" style="padding:2px 8px 4px;font-weight:700;color:${cc.total>0?'var(--ink)':'var(--muted)'};border-color:var(--line)" data-camp-title="${esc(c.title)}" onclick="openCampApplicants('${c.id}',this.dataset.campTitle)">
+            ${cc.total} / ${c.slots}명
           </button>
           <span style="font-size:10px;font-weight:600;color:${approvedCnt>0?'var(--pink)':'var(--muted)'}">${approvedCnt}승인${pendingCnt>0?` · <span style="color:var(--gold)">${pendingCnt}대기</span>`:''}</span>
         </div>
@@ -11712,8 +11888,10 @@ async function loadAdminCampaigns(useCache) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
     campsBody.innerHTML = camps.length ? camps.map((c, i) => buildCampRow(c, i, camps.length)).join('') : emptyHtml;
+  } else if (campsLazy) {
+    // 인스턴스 재생성 없이 행만 교체 (sentinel 정리·스크롤 복귀는 reset 내부 처리)
+    campsLazy.reset(camps);
   } else {
-    if (campsLazy) campsLazy.destroy();
     campsLazy = mountLazyList({
       tbody: campsBody,
       scrollRoot: campsBody.closest('.admin-table-wrap'),
@@ -13649,9 +13827,9 @@ async function changeCampStatus(campId, newStatus) {
   }
   try {
     await updateCampaign(campId, {status: newStatus});
-    allCampaigns = await fetchCampaigns();
+    // PR 2: loadAdminCampaigns 가 fetchCampaignsForAdminList 로 allCampaigns 를 갱신.
+    //        기존 fetchCampaigns() 이중 조회 제거. renderCampaigns 는 admin 빌드에 없어 dead code.
     loadAdminCampaigns();
-    if (typeof renderCampaigns === 'function') renderCampaigns(allCampaigns);
   } catch(e) {
     toast('상태 변경 오류','error');
   }
@@ -14898,7 +15076,7 @@ async function renderAppCampList() {
       <td style="max-width:260px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
-            ${thumbUrl ? `<img src="${imgThumb(thumbUrl,160)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
+            ${thumbUrl ? `<img src="${imgThumb(thumbUrl,96,70)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
@@ -17641,6 +17819,16 @@ async function refreshDelivSidebarBadge() {
   } catch(e) { /* 무시 */ }
 }
 
+// 신청 관리 사이드바 배지 — 대기(pending) 개수 (가벼운 count 쿼리, 전건 fetch 불필요)
+async function refreshApplySidebarBadge() {
+  const el = $('adminApplySi');
+  if (!el) return;
+  try {
+    const n = await fetchPendingApplicationCount();
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+  } catch(e) { /* 무시 */ }
+}
+
 var delivLazy = null;
 const DELIV_PAGE_SIZE = 50;
 
@@ -20305,26 +20493,22 @@ async function init() {
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
 
-    // campaigns/influencers/applications 3개 병렬 fetch — 순차 대기 제거
-    var preloaded = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
-    allCampaigns = preloaded[0].slice();
-
-    // 신청 뱃지 업데이트
-    var _pending = preloaded[2].filter(function(a){return a.status==='pending'});
-    if ($('adminApplySi')) $('adminApplySi').innerHTML = '<span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span>' + (_pending.length>0?'<span class="admin-si-badge">'+(_pending.length>999?'999+':_pending.length)+'</span>':'');
-
-    // 결과물 관리 사이드바 배지 — 검수 대기(pending) 개수
+    // 사이드바 배지 3종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
+    if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
-
-    // 광고주 신청 pending 배지 (신규 brand_applications)
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
 
-    // URL 해시가 있으면 해당 패널로 이동
+    // PR 3 부트 경량화 — 진입 화면(hash)에 필요한 데이터만 로드
+    //  - dashboard: KPI·차트용 무거운 3종(캠페인/인플/신청 전건)을 여기서만 로드
+    //  - 그 외 페인: 각 페인 loader 가 자기 데이터를 스스로 fetch → 무거운 3종 스킵
+    //    (allCampaigns 는 shared.js 에서 []로 초기화. 캠페인 페인은 loadAdminCampaigns 가 lite 로 채움)
     var hash = location.hash.replace('#','');
     if (hash && hash !== 'dashboard') {
       await Promise.resolve(switchAdminPane(hash, null, false));
     } else {
       history.replaceState({pane:'dashboard'}, '', '#dashboard');
+      var preloaded = await Promise.all([fetchCampaigns(), fetchInfluencers(), fetchApplications()]);
+      allCampaigns = preloaded[0].slice();
       await loadAdminData(preloaded);
     }
   } catch(e) {

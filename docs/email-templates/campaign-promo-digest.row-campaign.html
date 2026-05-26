@@ -1,0 +1,53 @@
+<!--
+  Row partial: 캠페인 카드 1개 (新着 섹션, 締切間近 섹션 공통 사용)
+  Edge Function 이 캠페인별로 본 견본을 1회 render.
+
+  레이아웃: 좌(이미지) / 우(정보 + 버튼) 수평 분할 — table 기반 (메일 클라이언트 호환).
+  이미지 폭 ~40%, 정보 폭 ~60%.
+
+  D-1 칩은 deadline_d1 섹션에서만 채움. 신규 섹션 카드에서는 d1_chip_html = "" (빈 문자열).
+  slots 행은 monitor (리뷰어) 캠페인에서만 채움. 다른 타입은 slots_row_html = "".
+
+  Row Placeholders:
+    {{img_url}}              캠페인 썸네일 (Supabase Storage URL, safeExternalUrl 검증 통과)
+    {{recruit_type_ja}}      모집 타입 (レビュアー / ギフティング / 訪問型)
+    {{type_chip_bg}}         모집 타입 칩 배경색
+    {{type_chip_fg}}         모집 타입 칩 글자색
+    {{brand}}                브랜드명
+    {{title}}                캠페인 제목
+    {{d1_chip_html}}         「締切間近 D-1」 칩 HTML (신규 섹션은 "", D-1 섹션만 채움)
+    {{reward}}               리워드 표기
+    {{deadline_label}}       마감 표기 (「あと N日」 또는 「明日まで」)
+    {{slots_row_html}}       잔여 슬롯 행 (monitor 만 채움, 다른 타입은 "")
+    {{detail_url}}           캠페인 상세 URL (?promo_token={token} 포함)
+-->
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #E2E7F2;border-radius:10px;margin-bottom:14px;background:#fff">
+  <tr>
+    <td width="40%" valign="top" style="padding:12px 0 12px 12px">
+      <img src="{{img_url}}" alt="{{img_alt}}" width="200" height="200" style="width:100%;max-width:200px;height:200px;object-fit:cover;border-radius:8px;display:block;background:#eeeeee">
+    </td>
+    <td width="60%" valign="top" style="padding:12px 14px 12px 12px">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;line-height:1.6">
+        <span style="background:{{type_chip_bg}};color:{{type_chip_fg}};padding:2px 8px;border-radius:4px;font-weight:700">{{recruit_type_ja}}</span>
+        <span style="margin-left:6px">{{brand}}</span>
+        {{d1_chip_html}}
+      </div>
+
+      <h3 style="font-size:14px;font-weight:700;margin:6px 0 8px;line-height:1.4;color:#222">{{title}}</h3>
+
+      <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:10px">
+        <tr>
+          <td style="color:#888;width:70px;padding:2px 0">報酬</td>
+          <td style="padding:2px 0">{{reward}}</td>
+        </tr>
+        <tr>
+          <td style="color:#888;padding:2px 0">締切</td>
+          <td style="color:#E8344E;font-weight:700;padding:2px 0">{{deadline_label}}</td>
+        </tr>
+        {{slots_row_html}}
+      </table>
+
+      <a href="{{detail_url}}" style="display:inline-block;background:#C8789C;color:#fff;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px">詳細を見る</a>
+    </td>
+  </tr>
+</table>

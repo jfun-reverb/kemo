@@ -55,6 +55,9 @@
 <link rel="stylesheet" href="../css/components.css">
 <link rel="stylesheet" href="../css/admin.css">
 <style id="admin-cloak">body{visibility:hidden!important}</style>
+<!-- Vercel Web Analytics + Speed Insights (운영 사용자 실측 Core Web Vitals 수집) -->
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body style="background:#F8F5F8">
 <!-- 글로벌 요소 -->
@@ -240,7 +243,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="filterAdminCampaigns()">
+                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="debouncedFilterAdminCampaigns()">
                 </div>
               </div>
             </div>

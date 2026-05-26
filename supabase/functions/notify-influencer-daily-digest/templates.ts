@@ -52,9 +52,11 @@ export const TEMPLATES: Record<string, string> = {
   </div>
 
   <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
-    このメールは応募活動に関する重要なお知らせです。<br>
     REVERB JP のメンバーシップに紐づいて自動送信されています。<br>
-    お問い合わせは LINE @reverb.jp までお願いいたします。
+    お問い合わせは LINE <a href="https://line.me/R/ti/p/@reverb.jp" style="color:#999;text-decoration:underline">@reverb.jp</a> までお願いいたします。<br>
+    <br>
+    © JFUN Corp. · 株式会社ジェイファン<br>
+    <a href="https://globalreverb.com" style="color:#999;text-decoration:underline">https://globalreverb.com</a>
   </p>
 </div>`,
   "influencer-daily-digest.row-received": `<!--
@@ -68,7 +70,7 @@ export const TEMPLATES: Record<string, string> = {
   Row Placeholders:
     {{campaign_no}}     캠페인 번호 (예: 【CAMP-2026-0042】 또는 【B0018-A002-C001】)
     {{campaign_title}}  캠페인 제목
-    {{recruit_type_jp}} 모집 타입 일본어 (リビュアー / ギフティング / 訪問型)
+    {{recruit_type_jp}} 모집 타입 일본어 (レビュアー / ギフティング / 訪問型)
     {{applied_at_jst}}  신청 시각 (예: 2026年5月18日 21:34)
 -->
 <div style="border:1px solid #F0E1E4;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#FFFAFC">

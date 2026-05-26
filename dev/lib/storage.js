@@ -52,6 +52,71 @@ async function fetchCampaigns() {
   }
 }
 
+// 관리자 캠페인 목록 전용 조회 — 목록 렌더·검색·필터·정렬에 필요한 컬럼만 select.
+// participation_steps / caution_items / ng_items / description / appeal / guide 등
+// 무거운 jsonb·리치텍스트 컬럼은 제외해 페이로드를 절약한다.
+// ※ fetchCampaigns 는 인플루언서 앱·복제·편집 등 다른 곳에서도 공유하므로 건드리지 않는다.
+// ※ autoOpenCampaigns / autoCloseCampaigns 는 status / recruit_start / deadline 만 참조하므로
+//    목록 전용 컬럼셋에서도 문제없이 실행된다. 목록 진입 시 자동 전환을 유지하기 위해 여기서도 호출.
+const ADMIN_LIST_COLUMNS = [
+  'id', 'title', 'brand', 'brand_ko', 'product', 'product_ko',
+  'campaign_no', 'legacy_no',
+  'recruit_type', 'channel', 'status',
+  'slots', 'view_count',
+  'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
+  'image_url', 'image_crops', 'emoji',
+  'recruit_start', 'deadline',
+  'purchase_start', 'purchase_end',
+  'visit_start', 'visit_end',
+  'submission_end',
+  'order_index', 'created_at', 'updated_at',
+].join(',');
+
+async function fetchCampaignsForAdminList() {
+  if (!db) return DEMO_CAMPAIGNS.slice();
+  try {
+    const data = await fetchAllPaged(() =>
+      db.from('campaigns')
+        .select(ADMIN_LIST_COLUMNS)
+        .order('order_index', { ascending: true, nullsFirst: false })
+    );
+    if (data.length > 0) {
+      await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
+      await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      return data;
+    }
+    return DEMO_CAMPAIGNS.slice();
+  } catch(e) {
+    return DEMO_CAMPAIGNS.slice();
+  }
+}
+
+// 관리자 캠페인 목록 전용 신청 집계 조회 — 서버 집계 함수(get_campaign_application_counts) 호출.
+// 반환: { [campaign_id]: { total, approved, pending } } 맵.
+//   total   = 취소(cancelled) 제외한 전체 신청 수 (PR 4 확정 동작 변경)
+//   approved = 승인 수, pending = 대기 수
+// 신청 전건(약 3,000건)을 클라이언트로 전송하던 방식에서 서버 집계 1회 호출로 전환.
+// DEMO_MODE 또는 호출 실패 시 빈 맵({}) 반환 — 카운트 0으로 폴백.
+async function fetchCampaignApplicationCounts() {
+  if (!db) return {};
+  try {
+    const { data, error } = await db.rpc('get_campaign_application_counts');
+    if (error) throw error;
+    // 배열을 campaign_id 키 맵으로 변환
+    return (data || []).reduce((map, row) => {
+      map[row.campaign_id] = {
+        total:    Number(row.total    || 0),
+        approved: Number(row.approved || 0),
+        pending:  Number(row.pending  || 0),
+      };
+      return map;
+    }, {});
+  } catch(e) {
+    console.error('fetchCampaignApplicationCounts:', e);
+    return {};
+  }
+}
+
 // 모집 시작일 도래 캠페인 자동 활성화 (scheduled → active)
 //   recruit_start 가 오늘(JST 자정 기준) 이하이고 status='scheduled' 면 active 로 전환.
 //   deadline 이 이미 경과한 경우는 autoCloseCampaigns 가 이어서 닫음.
@@ -449,6 +514,18 @@ async function fetchPendingDeliverableCount() {
     if (error) throw error;
     return count || 0;
   } catch(e) { console.error('[fetchPendingDeliverableCount]', e); return 0; }
+}
+
+// 신청 관리 사이드바 배지용 — 대기(pending) 신청 개수만 가볍게 조회 (전건 fetch 대체)
+async function fetchPendingApplicationCount() {
+  if (!db) return 0;
+  try {
+    const {count, error} = await db?.from('applications')
+      .select('id', {count: 'exact', head: true})
+      .eq('status', 'pending');
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[fetchPendingApplicationCount]', e); return 0; }
 }
 
 // 관리자용: 결과물 리스트 + 캠페인/인플루언서 정보 조인
@@ -1926,6 +2003,70 @@ async function saveAdminEmailSubscriptions(adminId, subscribedKinds, allKinds) {
     return {ok: true};
   } catch(e) {
     console.error('[saveAdminEmailSubscriptions]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// ── 마케팅(캠페인 홍보) 메일 수신거부·재구독 ──
+// 마이그레이션 140 의 함수 사용. 수신거부 토큰 인프라.
+
+// [수신거부 라우트] 메일 1-click 익명 수신거부.
+// 비로그인 상태에서 토큰만으로 호출되므로 세션 갱신(retryWithRefresh) 불필요.
+// 반환: {ok:true, name} | {ok:false, error}
+async function unsubscribeByToken(token) {
+  if (!db) return {ok: false, error: 'no_db'};
+  if (!token) return {ok: false, error: 'invalid_token'};
+  try {
+    const {data, error} = await db.rpc('unsubscribe_by_token', { p_token: token });
+    if (error) throw error;
+    // data: {success:bool, name?, reason?}
+    if (data && data.success) return {ok: true, name: data.name || ''};
+    return {ok: false, error: data?.reason || 'invalid_token'};
+  } catch(e) {
+    // 잘못된 UUID 형식 등은 무효 토큰으로 처리
+    console.error('[unsubscribeByToken]', e);
+    return {ok: false, error: 'invalid_token'};
+  }
+}
+
+// [마이페이지 토글 ON] 마케팅 메일 재구독 — 로그인 본인.
+// resubscribe_marketing() 이 marketing_agreed_at=now() 를 갱신해
+// 특정전자메일법(특정전자메일의 송신 적정화법) 「동의 근거 기록」 의무를 충족하므로
+// 직접 UPDATE 대신 반드시 이 RPC 사용.
+async function resubscribeMarketing() {
+  if (!db) return {ok: false, error: 'no_db'};
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db.rpc('resubscribe_marketing');
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[resubscribeMarketing]', e);
+    return {ok: false, error: e?.message || 'unknown'};
+  }
+}
+
+// [마이페이지 토글] 마케팅 메일 수신 설정 — 로그인 본인.
+// 동의 철회(OFF)는 동의 시각 기록 의무가 없으므로 본인 행을 직접 UPDATE.
+// 동의(ON)는 동의 근거(marketing_agreed_at) 기록을 위해 resubscribeMarketing() 으로 위임 —
+// 직접 UPDATE 로 ON 하면 동의 시각이 안 남아 특정전자메일법 위반 소지가 있어 차단.
+async function updateMarketingOptIn(value) {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return {ok: false, error: 'no_session'};
+  // ON 은 동의 근거 기록 의무로 RPC 경로로 위임 (오용 차단)
+  if (value) return await resubscribeMarketing();
+  try {
+    await retryWithRefresh(async () => {
+      // 이미 OFF 인 경우는 갱신하지 않아 최초 수신거부 시각을 보존 (marketing_opt_in=true 일 때만)
+      const {error} = await db.from('influencers')
+        .update({ marketing_opt_in: false, marketing_unsubscribed_at: new Date().toISOString() })
+        .eq('id', currentUser.id)
+        .eq('marketing_opt_in', true);
+      if (error) throw error;
+    });
+    return {ok: true};
+  } catch(e) {
+    console.error('[updateMarketingOptIn]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
 }

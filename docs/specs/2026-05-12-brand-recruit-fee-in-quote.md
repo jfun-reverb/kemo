@@ -3,6 +3,7 @@
 > **작성일**: 2026-05-12
 > **작성 세션**: 메인 폴더 (개발1, 사용자 인계 진행)
 > **선행**: PR #177 운영 배포 완료, PR #178 dev 머지
+> **상태**: ✅ **운영 배포 완료** — 마이그레이션 111 (`recalc_brand_application_totals()` 함수 재정의 + BEFORE INSERT OR UPDATE 트리거) 양 DB 적용. 구현 결과 §10 참조
 
 ---
 
@@ -212,3 +213,27 @@ Q3. 운영 적용 시점
 10. 운영 SQL Editor에 111 적용
 11. 운영 검증
 ```
+
+---
+
+## 10. 구현 결과
+
+**구현일**: 2026-05-12
+**운영 적용일**: 2026-05-12 (양 DB)
+**관련 커밋**: `0041d59 feat(brand-survey): include recruit_fee_krw in estimated_krw trigger`
+**관련 마이그레이션**: 111 (`recalc_brand_application_totals()` 함수 재정의 — reviewer 공식에 모집비·이체수수료 합산 추가)
+
+### 초안 대비 변경 사항
+- **추가된 것**:
+  - 트리거 시점이 `BEFORE INSERT` → `BEFORE INSERT OR UPDATE OF products, form_type` 으로 확장됨 (UPDATE 시 estimated_krw 미갱신 버그 수정 — 초안의 「INSERT/UPDATE 시 재계산」 결정대로 정착)
+  - 이체수수료(`transfer_fee_krw`) 합산도 함께 반영 (마이그레이션 092 의 기본값 2500 자동 적용 패턴과 결합)
+- **빠진 것**: 없음
+- **달라진 것**:
+  - 모집비 컬럼명은 본 사양 「`products[i].recruit_fee_krw`」 그대로 사용 — 클라이언트 인라인 편집 UI 도 본 사양 결정 유지
+
+### 구현 중 기술 결정 사항
+- 기존 BEFORE INSERT 만 동작하던 트리거를 INSERT + UPDATE 양쪽 대응으로 확장 — products 배열이 클라이언트에서 수정될 때마다 자동 재계산
+- recalc 함수 SECURITY DEFINER + `SET search_path=''` + `public.` prefix 일관 적용
+
+### 후속 작업
+- **2026-05-12 추가 마이그레이션 114~116**: 제품별 4플래그 (입금여부) 재설계 — 관련 사양서 `2026-05-13-brand-app-product-payment-flags.md`. 본 사양의 견적 계산과 별개로 입금 상태 칩 UI 추가
