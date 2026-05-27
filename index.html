@@ -10622,6 +10622,8 @@ async function openMessagesPage(applicationId, from, pushHistory) {
     inputEl.style.height = ''; // 1줄로 리셋
     if (!inputEl._autosizeBound) {
       // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
+      // 전제: #msgModalInput DOM 은 페이지 생명주기 동안 재사용(cleanupMessagesPage 가 제거 안 함).
+      //       향후 cleanup 이 입력창을 재생성하면 _autosizeBound 가 stale 이 되므로 그때 플래그 재설계 필요.
       inputEl.addEventListener('input', () => {
         inputEl.style.height = 'auto';
         inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
