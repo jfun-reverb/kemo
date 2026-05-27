@@ -4,7 +4,8 @@
 > - 기능명 「메시지」 → 「お問い合わせ／문의하기」 전면 리브랜딩
 > - 시행일 **2026-05-27(즉시)**, "추가되었습니다/개정되었습니다" 완료형
 > - 항목 구조: 기능 / 위치 / 사용 / 보관
-> - **실제 발송 문안의 최신본은 코드가 source**: 메일 = `supabase/functions/notify-policy-change/`(index.ts subject·text + _templates html), 앱 공지 = i18n `policyNotice` 키(`dev/lib/i18n/{ja,ko}.js`)
+> - **통지 수단 = 앱 공지(로그인 팝업·홈 배너)만. 도입 통지 메일(notify-policy-change)은 발송 안 함** (2026-05-27 사용자 결정). 메일 발송기·발송 로그(마이그레이션 153) 코드는 보존(운영 호출만 안 함, 향후 재사용)
+> - 앱 공지 문안 source: i18n `policyNotice` 키(`dev/lib/i18n/{ja,ko}.js`). 메일 문안(아래 본문·`notify-policy-change`)은 미발송이나 이력 보존
 > - 아래 본문은 초안(사전 통지·「메시지」 버전) — 이력 참고용으로 보존
 >
 > 인플루언서 대상이므로 **일본어가 실제 발송본**, 한국어는 검토용 병기.

@@ -600,8 +600,7 @@ function renderPolicyNoticeBanner() {
   const isHome = (h === '' || h === '#' || h === '#home');
   const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed && !_isPolicyNoticeDismissed();
   if (!show) { wrap.style.display = 'none'; return; }
-  const textEl = document.getElementById('policyNoticeBannerText');
-  if (textEl) textEl.textContent = t('policyNotice.banner');
+  // 배너 텍스트는 data-i18n="policyNotice.banner" 가 담당 → 언어 토글 시 applyI18n 이 자동 갱신
   wrap.style.display = '';
 }
 
