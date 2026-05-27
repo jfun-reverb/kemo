@@ -11868,6 +11868,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         _vvLastVh = vh; _vvLastTop = offsetTop;
         appShell.style.height = vh + 'px';
         appShell.style.top = offsetTop + 'px';
+        // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
+        var _ap = appShell.querySelector('.page.active');
+        if (_ap && _ap.id === 'page-messages') {
+          var _th = document.getElementById('msgModalThread');
+          if (_th) _th.scrollTop = _th.scrollHeight;
+        }
       });
     }
     window.visualViewport.addEventListener('resize', adjustHeight);
