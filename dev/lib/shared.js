@@ -506,3 +506,90 @@ function normalizeSnsFields(profile) {
   if ('youtube' in out) out.youtube = extractSnsHandle('youtube',   out.youtube);
   return out;
 }
+
+// ══════════════════════════════════════
+// 정책 변경 사전 통지 (메시지 기능 약관 개정, 2026-05-27)
+//   - 로그인 1회 팝업 + 홈 상단 배너(시행일까지 노출). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
+//   - 시행일 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
+//   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
+// ══════════════════════════════════════
+const POLICY_NOTICE = {
+  id: 'message2026',            // localStorage 키 식별자 (다음 통지와 충돌 방지)
+  effectiveDate: '2026-07-01',  // 시행일 = 통지 게시일 + 30일. ※ 운영 배포 직전 확정값으로 1줄 수정
+};
+var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
+
+// 시행일 미경과(오늘 KST < 시행일)일 때만 노출
+function _policyNoticeActive() {
+  try { return Date.now() < new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00').getTime(); }
+  catch (e) { return false; }
+}
+function _policyNoticeSeenKey() { return 'reverb.policyNotice.' + POLICY_NOTICE.id; }
+
+// 시행일을 현재 언어(ja/ko)에 맞게 표기 (운영은 ja 고정)
+function _policyEffectiveLabel() {
+  const d = new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return POLICY_NOTICE.effectiveDate;
+  const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+  const lang = (typeof getLang === 'function' ? getLang() : 'ja');
+  return lang === 'ko' ? `${y}년 ${m}월 ${day}일` : `${y}年${m}月${day}日`;
+}
+
+// 로그인 직후 1회 팝업 (init 말미 + SIGNED_IN 훅에서 공통 호출 — 내부 가드로 중복 방지)
+function maybeShowPolicyNotice() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (!modal) return;                                  // 관리자 페이지 등 마크업 없으면 무시
+  if (!currentUser || currentUser._isAdmin) return;    // 로그인 회원만 (관리자 제외)
+  if (!_policyNoticeActive()) return;                  // 시행일 경과 시 침묵
+  let seen = false;
+  try { seen = localStorage.getItem(_policyNoticeSeenKey()) === '1'; } catch (e) {}
+  if (seen) return;                                    // 이미 본 사람 (1회 제한)
+  openPolicyNoticeModal();
+}
+
+function openPolicyNoticeModal() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (!modal) return;
+  const titleEl = document.getElementById('policyNoticeTitle');
+  const bodyEl  = document.getElementById('policyNoticeBody');
+  if (titleEl) titleEl.textContent = t('policyNotice.title');
+  if (bodyEl) {
+    // 본문은 자사 고정 문자열(i18n) + 시행일 상수만 주입 — 외부 입력 없음. 시행일은 esc 처리.
+    bodyEl.innerHTML = t('policyNotice.body').replace('{date}', esc(_policyEffectiveLabel()));
+  }
+  modal.classList.add('on');
+}
+
+// 닫으면 다시 안 뜨도록 기록 (1회 제한)
+function closePolicyNotice() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (modal) modal.classList.remove('on');
+  try { localStorage.setItem(_policyNoticeSeenKey(), '1'); } catch (e) {}
+}
+
+// 팝업 「자세히 보기」 → 팝업 닫고(본 것으로 기록) 개인정보처리방침 전문 페이지로
+function openPolicyNoticeLegal() {
+  closePolicyNotice();
+  if (typeof openLegalPage === 'function') openLegalPage('privacy');
+}
+
+// 홈 상단 배너 — 홈 진입 시(navigate 'home') 호출. 닫기는 이번 방문만 숨김(부활).
+function renderPolicyNoticeBanner() {
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (!wrap) return;
+  const show = currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
+  if (!show) { wrap.style.display = 'none'; return; }
+  const textEl = document.getElementById('policyNoticeBannerText');
+  if (textEl) textEl.textContent = t('policyNotice.banner');
+  wrap.style.display = '';
+}
+
+function dismissPolicyNoticeBanner() {
+  _policyBannerDismissed = true;
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// 배너 「자세히 보기」 → 요약 배너에서 전체 내용(팝업) 재오픈.
+//   seen 플래그 무관(의도): 자동 1회 팝업만 제한하고, 배너 수동 재오픈은 시행일까지 몇 번이든 허용.
+function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }

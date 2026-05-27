@@ -231,6 +231,25 @@ textarea.form-input{resize:vertical;min-height:80px}
 #legalModal .legal-body dd{margin:0 0 4px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
+/* ── 정책 변경 사전 통지 팝업 (#legalModal 시트 패턴 재사용, z-index 580: notif 500 위 / alert 600·legal 800 아래) ── */
+#policyNoticeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:580;align-items:flex-end;justify-content:center}
+#policyNoticeModal.on{display:flex}
+#policyNoticeModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#policyNoticeModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+#policyNoticeModal .legal-title{font-size:15px;font-weight:700}
+#policyNoticeModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
+#policyNoticeModal .legal-body{padding:18px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--ink)}
+.policy-notice-actions{flex-shrink:0;display:flex;gap:8px;padding:12px 16px 18px;border-top:1px solid var(--line)}
+.policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
+.policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
+/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글) */
+#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B}
+#policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
+#policyNoticeBanner .pn-banner-text{flex:1}
+#policyNoticeBanner .pn-banner-detail{flex-shrink:0;background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap}
+#policyNoticeBanner .pn-banner-close{flex-shrink:0;background:none;border:none;color:#B08A4A;cursor:pointer;padding:0;line-height:1;display:flex;align-items:center}
+
 /* ── LEGAL PAGE ── */
 #page-legal{background:#fff}
 .legal-page-head{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}

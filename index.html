@@ -319,6 +319,25 @@ textarea.form-input{resize:vertical;min-height:80px}
 #legalModal .legal-body dd{margin:0 0 4px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 
+/* ── 정책 변경 사전 통지 팝업 (#legalModal 시트 패턴 재사용, z-index 580: notif 500 위 / alert 600·legal 800 아래) ── */
+#policyNoticeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:580;align-items:flex-end;justify-content:center}
+#policyNoticeModal.on{display:flex}
+#policyNoticeModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#policyNoticeModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+#policyNoticeModal .legal-title{font-size:15px;font-weight:700}
+#policyNoticeModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
+#policyNoticeModal .legal-body{padding:18px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--ink)}
+.policy-notice-actions{flex-shrink:0;display:flex;gap:8px;padding:12px 16px 18px;border-top:1px solid var(--line)}
+.policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
+.policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
+/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글) */
+#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B}
+#policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
+#policyNoticeBanner .pn-banner-text{flex:1}
+#policyNoticeBanner .pn-banner-detail{flex-shrink:0;background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap}
+#policyNoticeBanner .pn-banner-close{flex-shrink:0;background:none;border:none;color:#B08A4A;cursor:pointer;padding:0;line-height:1;display:flex;align-items:center}
+
 /* ── LEGAL PAGE ── */
 #page-legal{background:#fff}
 .legal-page-head{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
@@ -743,6 +762,21 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
+<!-- ── 정책 변경 사전 통지 팝업 (메시지 기능 약관 개정, 시행일 경과 시 자동 비노출) ── -->
+<div id="policyNoticeModal" onclick="if(event.target===this)closePolicyNotice()">
+  <div class="legal-sheet">
+    <div class="legal-head">
+      <div class="legal-title" id="policyNoticeTitle"></div>
+      <button class="legal-close" onclick="closePolicyNotice()" aria-label="閉じる">×</button>
+    </div>
+    <div class="legal-body" id="policyNoticeBody"></div>
+    <div class="policy-notice-actions">
+      <button class="policy-notice-detail" onclick="openPolicyNoticeLegal()" data-i18n="policyNotice.detailBtn"></button>
+      <button class="policy-notice-confirm" onclick="closePolicyNotice()" data-i18n="policyNotice.closeBtn"></button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 알럿 모달 ── -->
 <div class="modal-overlay" id="alertModal" style="z-index:600">
   <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
@@ -932,6 +966,15 @@ textarea.form-input{resize:vertical;min-height:80px}
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
 <div id="page-home" class="page">
+  <!-- 정책 변경 사전 통지 배너 (로그인 회원·시행일까지·닫으면 이번 방문만 숨김) -->
+  <div class="container" id="policyNoticeBannerWrap" style="display:none;padding-top:14px;padding-bottom:0">
+    <div id="policyNoticeBanner">
+      <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
+      <span class="pn-banner-text" id="policyNoticeBannerText"></span>
+      <button class="pn-banner-detail" onclick="openPolicyNoticeFromBanner()" data-i18n="policyNotice.detailBtn"></button>
+      <button class="pn-banner-close" onclick="dismissPolicyNoticeBanner()" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
+    </div>
+  </div>
   <section class="hero">
     <div class="container hero-inner">
       <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
@@ -2330,6 +2373,93 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
+// 정책 변경 사전 통지 (메시지 기능 약관 개정, 2026-05-27)
+//   - 로그인 1회 팝업 + 홈 상단 배너(시행일까지 노출). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
+//   - 시행일 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
+//   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
+// ══════════════════════════════════════
+const POLICY_NOTICE = {
+  id: 'message2026',            // localStorage 키 식별자 (다음 통지와 충돌 방지)
+  effectiveDate: '2026-07-01',  // 시행일 = 통지 게시일 + 30일. ※ 운영 배포 직전 확정값으로 1줄 수정
+};
+var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
+
+// 시행일 미경과(오늘 KST < 시행일)일 때만 노출
+function _policyNoticeActive() {
+  try { return Date.now() < new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00').getTime(); }
+  catch (e) { return false; }
+}
+function _policyNoticeSeenKey() { return 'reverb.policyNotice.' + POLICY_NOTICE.id; }
+
+// 시행일을 현재 언어(ja/ko)에 맞게 표기 (운영은 ja 고정)
+function _policyEffectiveLabel() {
+  const d = new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return POLICY_NOTICE.effectiveDate;
+  const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+  const lang = (typeof getLang === 'function' ? getLang() : 'ja');
+  return lang === 'ko' ? `${y}년 ${m}월 ${day}일` : `${y}年${m}月${day}日`;
+}
+
+// 로그인 직후 1회 팝업 (init 말미 + SIGNED_IN 훅에서 공통 호출 — 내부 가드로 중복 방지)
+function maybeShowPolicyNotice() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (!modal) return;                                  // 관리자 페이지 등 마크업 없으면 무시
+  if (!currentUser || currentUser._isAdmin) return;    // 로그인 회원만 (관리자 제외)
+  if (!_policyNoticeActive()) return;                  // 시행일 경과 시 침묵
+  let seen = false;
+  try { seen = localStorage.getItem(_policyNoticeSeenKey()) === '1'; } catch (e) {}
+  if (seen) return;                                    // 이미 본 사람 (1회 제한)
+  openPolicyNoticeModal();
+}
+
+function openPolicyNoticeModal() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (!modal) return;
+  const titleEl = document.getElementById('policyNoticeTitle');
+  const bodyEl  = document.getElementById('policyNoticeBody');
+  if (titleEl) titleEl.textContent = t('policyNotice.title');
+  if (bodyEl) {
+    // 본문은 자사 고정 문자열(i18n) + 시행일 상수만 주입 — 외부 입력 없음. 시행일은 esc 처리.
+    bodyEl.innerHTML = t('policyNotice.body').replace('{date}', esc(_policyEffectiveLabel()));
+  }
+  modal.classList.add('on');
+}
+
+// 닫으면 다시 안 뜨도록 기록 (1회 제한)
+function closePolicyNotice() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (modal) modal.classList.remove('on');
+  try { localStorage.setItem(_policyNoticeSeenKey(), '1'); } catch (e) {}
+}
+
+// 팝업 「자세히 보기」 → 팝업 닫고(본 것으로 기록) 개인정보처리방침 전문 페이지로
+function openPolicyNoticeLegal() {
+  closePolicyNotice();
+  if (typeof openLegalPage === 'function') openLegalPage('privacy');
+}
+
+// 홈 상단 배너 — 홈 진입 시(navigate 'home') 호출. 닫기는 이번 방문만 숨김(부활).
+function renderPolicyNoticeBanner() {
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (!wrap) return;
+  const show = currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
+  if (!show) { wrap.style.display = 'none'; return; }
+  const textEl = document.getElementById('policyNoticeBannerText');
+  if (textEl) textEl.textContent = t('policyNotice.banner');
+  wrap.style.display = '';
+}
+
+function dismissPolicyNoticeBanner() {
+  _policyBannerDismissed = true;
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// 배너 「자세히 보기」 → 요약 배너에서 전체 내용(팝업) 재오픈.
+//   seen 플래그 무관(의도): 자동 1회 팝업만 제한하고, 배너 수동 재오픈은 시행일까지 몇 번이든 허용.
+function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
+
+// ══════════════════════════════════════
 // i18n — 일본어 (기본)
 // ══════════════════════════════════════
 window.I18N_JA = {
@@ -2960,6 +3090,14 @@ window.I18N_JA = {
       suggestHead: 'こちらで解決できるか確認してみましょう',
     },
   },
+  // 政策変更の事前告知（メッセージ機能の規約改定、2026-05-27）
+  policyNotice: {
+    title: '「メッセージ」機能の追加・規約改定のお知らせ',
+    body: '応募したキャンペーンごとに、運営チームへ直接お問い合わせができる「メッセージ」機能を追加します。<br><br>・送れるもの：文章と画像<br>・保管期間：応募終了後1年（退会時に削除）<br>・見られる人：ご本人と運営チームのみ<br><br>これにともない、利用規約・プライバシーポリシーを一部改定します。全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。<br><br>施行日：{date}<br>ご不明な点は公式LINE @reverb.jp まで。',
+    banner: '「メッセージ」機能の追加にともない、規約・プライバシーポリシーを改定します。',
+    detailBtn: '詳しく見る',
+    closeBtn: '閉じる',
+  },
 };
 
 // ══════════════════════════════════════
@@ -3572,6 +3710,14 @@ window.I18N_KO = {
       allTitle: '자주 묻는 질문',
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
     },
+  },
+  // 정책 변경 사전 통지 (메시지 기능 약관 개정, 2026-05-27)
+  policyNotice: {
+    title: '「메시지」 기능 추가·약관 개정 안내',
+    body: '응모하신 캠페인별로 운영팀에 직접 문의할 수 있는 「메시지」 기능을 추가합니다.<br><br>· 보낼 수 있는 것: 글과 이미지<br>· 보관 기간: 응모 종료 후 1년 (탈퇴 시 삭제)<br>· 볼 수 있는 사람: 본인과 운영팀만<br><br>이에 따라 이용약관·개인정보처리방침을 일부 개정합니다. 전문은 앱 하단 「이용약관」「개인정보처리방침」에서 확인하실 수 있습니다.<br><br>시행일: {date}<br>문의는 공식 LINE @reverb.jp 으로.',
+    banner: '「메시지」 기능 추가에 따라 약관·개인정보처리방침을 개정합니다.',
+    detailBtn: '자세히 보기',
+    closeBtn: '닫기',
   },
 };
 
@@ -11365,7 +11511,7 @@ function navigate(page, pushHistory) {
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
-  if (pageName === 'home') loadCampaigns();
+  if (pageName === 'home') { loadCampaigns(); if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner(); }
   if (pageName === 'campaigns') loadCampaignsPage();
   if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
@@ -11618,6 +11764,9 @@ async function init() {
           updateGnb();
           // 로그인 시 알림 폴링 시작
           if (typeof startNotifPolling === 'function') startNotifPolling();
+          // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
+          if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
+          if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -11693,6 +11842,11 @@ async function init() {
   // 초기화 완료 — cloak 해제
   const cloak = document.getElementById('app-cloak');
   if (cloak) cloak.remove();
+
+  // 정책 변경 사전 통지 — 이미 로그인된 채 진입한 회원에게 1회 팝업 + 홈 배너 갱신.
+  //   초기 해시 #home 은 navigate('home') 미경유(replaceState 만)라 배너 훅이 안 걸려 여기서 직접 호출.
+  if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
+  if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
