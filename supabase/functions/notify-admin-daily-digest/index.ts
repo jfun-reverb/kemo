@@ -209,6 +209,45 @@ function snsCellHtml(infl: {
   return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@${handle}</a> <span style="color:#888;font-size:11px">· ${label}</span>`;
 }
 
+// 모집 채널 기준 SNS 셀 HTML — 캠페인이 모집하는 채널 중 인플루언서가 등록한 것만,
+// 각 채널 아이디 + 팔로워 수를 한 줄씩(<br> 구분) 표시.
+// 폴백(모집 채널이 없거나 인플루언서가 그 채널을 하나도 등록 안 함) → 기존 대표 SNS 셀.
+function recruitSnsCellHtml(
+  infl: {
+    primary_sns: string | null;
+    ig: string | null; tiktok: string | null; x: string | null; youtube: string | null;
+    ig_followers?: number | null; tiktok_followers?: number | null;
+    x_followers?: number | null; youtube_followers?: number | null;
+  },
+  channelCsv: string | null,
+): string {
+  const codes = (channelCsv || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!codes.length) return snsCellHtml(infl);
+
+  const defs: Record<string, { handle: string | null; followers: number | null | undefined; label: string; url: (h: string) => string }> = {
+    instagram: { handle: infl.ig,      followers: infl.ig_followers,      label: "IG", url: (h) => `https://www.instagram.com/${h}/` },
+    tiktok:    { handle: infl.tiktok,  followers: infl.tiktok_followers,  label: "TT", url: (h) => `https://www.tiktok.com/@${h}` },
+    x:         { handle: infl.x,       followers: infl.x_followers,       label: "X",  url: (h) => `https://x.com/${h}` },
+    youtube:   { handle: infl.youtube, followers: infl.youtube_followers, label: "YT", url: (h) => `https://www.youtube.com/@${h}` },
+  };
+
+  const lines: string[] = [];
+  for (const code of codes) {
+    const def = defs[code];
+    if (!def || !def.handle) continue;   // 그 채널 미등록은 줄 생략
+    const h = escapeHtml(stripAtPrefix(def.handle));
+    const url = escapeHtml(def.url(stripAtPrefix(def.handle)));
+    const label = escapeHtml(def.label);
+    const fol = (def.followers && def.followers > 0)
+      ? ` ${def.followers.toLocaleString("en-US")}`
+      : "";
+    lines.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:#5B6BBF;text-decoration:none">@${h}</a> <span style="color:#888;font-size:11px">· ${label}${fol}</span>`);
+  }
+  // 모집 채널 중 등록된 핸들이 하나도 없으면 대표 SNS 폴백
+  if (!lines.length) return snsCellHtml(infl);
+  return lines.join("<br>");
+}
+
 function loadTemplate(name: string): string {
   const html = TEMPLATES[name];
   if (!html) throw new Error(`template not registered: ${name}`);
@@ -340,6 +379,7 @@ interface CampaignRow {
   campaign_no: string | null;
   title: string | null;
   recruit_type: string | null;
+  channel: string | null;   // 모집 채널 콤마 구분 (예 "instagram,x")
 }
 interface InfluencerRow {
   id: string;
@@ -351,6 +391,10 @@ interface InfluencerRow {
   tiktok: string | null;
   x: string | null;
   youtube: string | null;
+  ig_followers: number | null;
+  x_followers: number | null;
+  tiktok_followers: number | null;
+  youtube_followers: number | null;
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -401,7 +445,7 @@ function renderReceivedSection(args: {
       const kanji = i ? influencerNameKanji(i) : "-";
       const kana  = i ? influencerNameKana(i)  : "-";
       const email = args.emailMap.get(a.user_id) || "-";
-      const snsHtml = i ? snsCellHtml(i) : "-";
+      const snsHtml = i ? recruitSnsCellHtml(i, camp?.channel ?? null) : "-";
       const appliedAt = formatJstHmin(a.created_at);
       return `<tr>
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F0F2F8">${escapeHtml(kanji)}</td>
@@ -469,6 +513,7 @@ function renderCancelledSection(args: {
       const infl = args.influencerMap.get(r.user_id) || {
         id: r.user_id, name: null, name_kanji: null, name_kana: null,
         primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
+        ig_followers: null, x_followers: null, tiktok_followers: null, youtube_followers: null,
       };
       const reasonLabel = r.cancel_reason_code
         ? args.reasonMap.get(r.cancel_reason_code) || r.cancel_reason_code
@@ -481,7 +526,7 @@ function renderCancelledSection(args: {
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">${escapeHtml(influencerNameKanji(infl))}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F8E5E8">${escapeHtml(influencerNameKana(infl))}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">${escapeHtml(args.emailMap.get(r.user_id) || "-")}</td>
-        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">${snsCellHtml(infl)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F8E5E8">${recruitSnsCellHtml(infl, camp?.channel ?? null)}</td>
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">${phaseChipHtml(r.cancel_phase)}</td>
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F8E5E8">${reasonCell}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #F8E5E8">${escapeHtml(formatJstFull(r.cancelled_at))}</td>
@@ -601,13 +646,14 @@ function renderSubmittedSection(args: {
       const fallbackInfl = {
         id: d?.user_id || "", name: null, name_kanji: null, name_kana: null,
         primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
+        ig_followers: null, x_followers: null, tiktok_followers: null, youtube_followers: null,
       };
       const i = infl || fallbackInfl;
       return `<tr>
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">${escapeHtml(influencerNameKanji(i))}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E5ECF4">${escapeHtml(influencerNameKana(i))}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">${escapeHtml((d && args.emailMap.get(d.user_id)) || "-")}</td>
-        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">${snsCellHtml(i)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E5ECF4">${recruitSnsCellHtml(i, camp?.channel ?? null)}</td>
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E5ECF4">${kindChipHtml(d?.kind ?? null)}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E5ECF4">${submitContentCellHtml(d)}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E5ECF4">${escapeHtml(formatJstHmin(ev.created_at))}</td>
@@ -683,13 +729,14 @@ function renderReprocessedSection(args: {
       const fallbackInfl = {
         id: it.user_id || "", name: null, name_kanji: null, name_kana: null,
         primary_sns: null, ig: null, tiktok: null, x: null, youtube: null,
+        ig_followers: null, x_followers: null, tiktok_followers: null, youtube_followers: null,
       };
       const i = infl || fallbackInfl;
       return `<tr>
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">${escapeHtml(influencerNameKanji(i))}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #E8E2F5">${escapeHtml(influencerNameKana(i))}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">${escapeHtml((it.user_id && args.emailMap.get(it.user_id)) || "-")}</td>
-        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">${snsCellHtml(i)}</td>
+        <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #E8E2F5">${recruitSnsCellHtml(i, camp?.channel ?? null)}</td>
         <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #E8E2F5">${reprocessTypeChipHtml(it.type)}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#444;border-bottom:1px solid #E8E2F5">${escapeHtml(it.actor_name || "-")}</td>
         <td style="padding:6px 8px;vertical-align:top;color:#888;font-size:11px;text-align:right;border-bottom:1px solid #E8E2F5">${escapeHtml(formatJstHmin(it.created_at))}</td>
@@ -937,7 +984,7 @@ Deno.serve(async (req: Request) => {
     if (campaignIds.size > 0) {
       const { data: camps, error } = await sb
         .from("campaigns")
-        .select("id, campaign_no, title, recruit_type")
+        .select("id, campaign_no, title, recruit_type, channel")
         .in("id", [...campaignIds]);
       if (error) {
         console.warn("[notify-admin-daily] campaign lookup failed", error);
@@ -950,7 +997,7 @@ Deno.serve(async (req: Request) => {
     if (userIds.size > 0) {
       const { data: infls, error } = await sb
         .from("influencers")
-        .select("id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube")
+        .select("id, name, name_kanji, name_kana, primary_sns, ig, tiktok, x, youtube, ig_followers, x_followers, tiktok_followers, youtube_followers")
         .in("id", [...userIds]);
       if (error) {
         console.warn("[notify-admin-daily] influencer lookup failed", error);
