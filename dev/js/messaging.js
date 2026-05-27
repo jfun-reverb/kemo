@@ -103,7 +103,18 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
-  if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
+  if (inputEl) {
+    inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder');
+    inputEl.style.height = ''; // 1줄로 리셋
+    if (!inputEl._autosizeBound) {
+      // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
+      inputEl.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+      });
+      inputEl._autosizeBound = true;
+    }
+  }
 
   const thread = $('msgModalThread');
   if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
@@ -159,7 +170,6 @@ function cleanupMessagesPage() {
 function renderMessageThread(messages) {
   const thread = $('msgModalThread');
   if (!thread) return;
-  updateMsgPendingNotice(messages);  // 관리자 미응답 안내 토글
   // 스레드 맨 위 봇 안내 카드 (게이트→봇 카드 전환 2026-05-22) — 0건/N건 공통 prepend
   const botCard = _faqBotCardHtml();
   if (!messages || !messages.length) {
@@ -167,7 +177,7 @@ function renderMessageThread(messages) {
     return;
   }
   const now = Date.now();
-  thread.innerHTML = botCard + messages.map(msg => {
+  const cardsHtml = messages.map(msg => {
     const mine = msg.sender_kind === 'influencer';
     const senderLabel = mine ? t('messaging.you') : t('messaging.adminTeam');
     const timeStr = formatDateTime(msg.created_at);
@@ -215,24 +225,19 @@ function renderMessageThread(messages) {
       ${attachHtml}
     </div>`;
   }).join('');
+  // 운영팀 미응답 안내 — 마지막 살아있는 메시지가 인플 발신이면 대화 맨 아래 인라인 표시.
+  //   (기존 입력창 위 고정 배너 #msgPendingNotice → 대화 영역 안으로 이동, 대화 공간 확보 2026-05-27)
+  const visibleMsgs = messages.filter(m => !m.mask_state || m.mask_state === 'visible');
+  const lastVisible = visibleMsgs[visibleMsgs.length - 1];
+  const pendingHtml = (lastVisible && lastVisible.sender_kind === 'influencer')
+    ? `<div class="msg-pending-inline">${esc(t('messaging.pendingNotice'))}</div>` : '';
+  thread.innerHTML = botCard + cardsHtml + pendingHtml;
   // 최신 메시지로 스크롤
   thread.scrollTop = thread.scrollHeight;
 }
 
-// 관리자 미응답 안내 배너 — 마지막 살아있는 메시지가 인플루언서 발신이면 표시,
-//   관리자가 답하면(마지막이 admin) 자동으로 사라짐
-function updateMsgPendingNotice(messages) {
-  const notice = $('msgPendingNotice');
-  if (!notice) return;
-  const visible = (messages || []).filter(m => !m.mask_state || m.mask_state === 'visible');
-  const last = visible[visible.length - 1];
-  if (last && last.sender_kind === 'influencer') {
-    notice.textContent = t('messaging.pendingNotice');
-    notice.style.display = '';
-  } else {
-    notice.style.display = 'none';
-  }
-}
+// (updateMsgPendingNotice 폐기 2026-05-27 — 운영팀 미응답 안내를 renderMessageThread 의
+//  대화 맨 아래 인라인(.msg-pending-inline)으로 이동. 입력창 위 고정 배너 제거로 대화 공간 확보)
 
 // 첨부 썸네일 signed URL 비동기 로드 (5분 시한)
 async function loadMsgAttachThumb(elId, path) {
@@ -340,7 +345,7 @@ async function sendMessageFromModal() {
     }
     await sendApplicationMessage(_msgCurrentAppId, body, attachments);
     // 입력 초기화 + 재로드
-    if (inputEl) inputEl.value = '';
+    if (inputEl) { inputEl.value = ''; inputEl.style.height = ''; } // 전송 후 1줄로 리셋
     _msgPendingFiles = [];
     renderMsgAttachPreview();
     const msgs = await fetchApplicationMessages(_msgCurrentAppId);

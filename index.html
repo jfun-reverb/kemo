@@ -607,7 +607,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .msg-attach-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
 .msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
-.msg-pending-notice{flex-shrink:0;padding:10px 14px;background:#FFF6E5;color:#8A6D3B;font-size:12px;line-height:1.5;border-top:1px solid var(--outline);text-align:center}
+.msg-pending-inline{align-self:center;max-width:90%;margin:4px auto 0;padding:8px 14px;background:#FFF6E5;color:#8A6D3B;font-size:12px;line-height:1.5;border-radius:10px;text-align:center}
 .msg-modal-input-area{flex-shrink:0;display:flex;flex-direction:column;max-height:60%;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
 .msg-attach-preview{flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px}
 .msg-attach-preview:not(:empty){margin-bottom:8px}
@@ -617,12 +617,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-attach-remove .material-icons-round{font-size:14px}
 .msg-input-row{flex-shrink:0;display:flex;align-items:flex-end;gap:8px}
 .msg-attach-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface-dim)}
-.msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;max-height:120px;font-family:inherit}
+.msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;min-height:40px;max-height:120px;box-sizing:border-box;font-family:inherit}
 .msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .msg-send-btn:disabled{opacity:.5;cursor:default}
 
 /* ── 개인화 상태 한 줄 (#msgStatusLine, §3) ── */
-.msg-status-line{flex-shrink:0;padding:12px 16px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
+.msg-status-line{flex-shrink:0;padding:7px 14px;font-size:13px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
 .msg-status-row{display:flex;align-items:center;gap:10px}
 .msg-status-text{flex:1;font-size:13px;line-height:1.5;font-weight:600;color:#23416E}
 .msg-status-nav{flex-shrink:0;border:1px solid #B6CEF5;background:#fff;color:#2563EB;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
@@ -904,7 +904,6 @@ textarea.form-input{resize:vertical;min-height:80px}
   <div id="msgModalThread" class="msg-modal-thread"></div>
   <!-- FAQ 전체 보기 오버레이 (「よくある質問」 버튼으로 토글, 카테고리→질문→답변) -->
   <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
-  <div id="msgPendingNotice" class="msg-pending-notice" style="display:none"></div>
   <div class="msg-modal-input-area">
     <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
     <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
@@ -913,7 +912,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <span class="material-icons-round notranslate" translate="no">image</span>
         <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
       </label>
-      <textarea id="msgModalInput" class="msg-input" rows="2"></textarea>
+      <textarea id="msgModalInput" class="msg-input" rows="1"></textarea>
       <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
         <span class="material-icons-round notranslate" translate="no">send</span>
       </button>
@@ -10618,7 +10617,18 @@ async function openMessagesPage(applicationId, from, pushHistory) {
 
   renderMsgAttachPreview();
   const inputEl = $('msgModalInput');
-  if (inputEl) { inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder'); }
+  if (inputEl) {
+    inputEl.value = ''; inputEl.placeholder = t('messaging.placeholder');
+    inputEl.style.height = ''; // 1줄로 리셋
+    if (!inputEl._autosizeBound) {
+      // 카톡식 1줄 시작 + 입력 따라 자동 확장(최대 120px). 대화 영역 확보 (2026-05-27)
+      inputEl.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+      });
+      inputEl._autosizeBound = true;
+    }
+  }
 
   const thread = $('msgModalThread');
   if (thread) thread.innerHTML = `<div class="msg-empty">${esc(t('messaging.loading'))}</div>`;
@@ -10674,7 +10684,6 @@ function cleanupMessagesPage() {
 function renderMessageThread(messages) {
   const thread = $('msgModalThread');
   if (!thread) return;
-  updateMsgPendingNotice(messages);  // 관리자 미응답 안내 토글
   // 스레드 맨 위 봇 안내 카드 (게이트→봇 카드 전환 2026-05-22) — 0건/N건 공통 prepend
   const botCard = _faqBotCardHtml();
   if (!messages || !messages.length) {
@@ -10682,7 +10691,7 @@ function renderMessageThread(messages) {
     return;
   }
   const now = Date.now();
-  thread.innerHTML = botCard + messages.map(msg => {
+  const cardsHtml = messages.map(msg => {
     const mine = msg.sender_kind === 'influencer';
     const senderLabel = mine ? t('messaging.you') : t('messaging.adminTeam');
     const timeStr = formatDateTime(msg.created_at);
@@ -10730,24 +10739,19 @@ function renderMessageThread(messages) {
       ${attachHtml}
     </div>`;
   }).join('');
+  // 운영팀 미응답 안내 — 마지막 살아있는 메시지가 인플 발신이면 대화 맨 아래 인라인 표시.
+  //   (기존 입력창 위 고정 배너 #msgPendingNotice → 대화 영역 안으로 이동, 대화 공간 확보 2026-05-27)
+  const visibleMsgs = messages.filter(m => !m.mask_state || m.mask_state === 'visible');
+  const lastVisible = visibleMsgs[visibleMsgs.length - 1];
+  const pendingHtml = (lastVisible && lastVisible.sender_kind === 'influencer')
+    ? `<div class="msg-pending-inline">${esc(t('messaging.pendingNotice'))}</div>` : '';
+  thread.innerHTML = botCard + cardsHtml + pendingHtml;
   // 최신 메시지로 스크롤
   thread.scrollTop = thread.scrollHeight;
 }
 
-// 관리자 미응답 안내 배너 — 마지막 살아있는 메시지가 인플루언서 발신이면 표시,
-//   관리자가 답하면(마지막이 admin) 자동으로 사라짐
-function updateMsgPendingNotice(messages) {
-  const notice = $('msgPendingNotice');
-  if (!notice) return;
-  const visible = (messages || []).filter(m => !m.mask_state || m.mask_state === 'visible');
-  const last = visible[visible.length - 1];
-  if (last && last.sender_kind === 'influencer') {
-    notice.textContent = t('messaging.pendingNotice');
-    notice.style.display = '';
-  } else {
-    notice.style.display = 'none';
-  }
-}
+// (updateMsgPendingNotice 폐기 2026-05-27 — 운영팀 미응답 안내를 renderMessageThread 의
+//  대화 맨 아래 인라인(.msg-pending-inline)으로 이동. 입력창 위 고정 배너 제거로 대화 공간 확보)
 
 // 첨부 썸네일 signed URL 비동기 로드 (5분 시한)
 async function loadMsgAttachThumb(elId, path) {
@@ -10855,7 +10859,7 @@ async function sendMessageFromModal() {
     }
     await sendApplicationMessage(_msgCurrentAppId, body, attachments);
     // 입력 초기화 + 재로드
-    if (inputEl) inputEl.value = '';
+    if (inputEl) { inputEl.value = ''; inputEl.style.height = ''; } // 전송 후 1줄로 리셋
     _msgPendingFiles = [];
     renderMsgAttachPreview();
     const msgs = await fetchApplicationMessages(_msgCurrentAppId);
