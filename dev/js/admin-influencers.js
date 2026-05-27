@@ -44,14 +44,11 @@ function renderInfluencersPane(users) {
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
-  const matchSearch = (u) => {
-    if (!searchQ) return true;
-    const bag = [
-      u.name_kanji, u.name, u.name_kana, u.email,
-      u.ig, u.x, u.tiktok, u.youtube,
-    ].filter(Boolean).join(' ').toLowerCase();
-    return bag.includes(searchQ);
-  };
+  // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
+  const matchSearch = (u) => matchSearchTokens(searchQ, [
+    u.name_kanji, u.name, u.name_kana, u.email,
+    u.ig, u.x, u.tiktok, u.youtube,
+  ]);
   const filtered = users.filter(u => {
     if (verifiedSel === 'verified' && !u.is_verified) return false;
     if (verifiedSel === 'unverified' && u.is_verified) return false;

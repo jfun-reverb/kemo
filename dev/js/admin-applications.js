@@ -39,15 +39,15 @@ async function loadCampApplicants() {
   if (filter) apps = apps.filter(a=>a.status===filter);
   if (searchQ) {
     const users = await fetchInfluencers();
+    // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
     apps = apps.filter(a => {
       const u = users.find(x => x.email === a.user_email) || {};
-      const bag = [
+      return matchSearchTokens(searchQ, [
         a.user_name, a.user_email,
         u.name_kanji, u.name, u.name_kana,
         a.ig_id, a.user_ig,
         u.ig, u.x, u.tiktok, u.youtube,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return bag.includes(searchQ);
+      ]);
     });
   }
   const approved = apps.filter(a=>a.status==='approved').length;
@@ -328,21 +328,15 @@ async function renderAppCampList() {
   const campFilterVals = getMultiFilterValues('appCampMulti');
   if (campFilterVals.length) apps = apps.filter(a => campFilterVals.includes(a.campaign_id));
 
-  // 검색 필터
+  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   if (searchVal) {
     apps = apps.filter(a => {
       const camp = camps.find(c => c.id === a.campaign_id) || {};
-      return (camp.title||'').toLowerCase().includes(searchVal)
-        || (camp.brand||'').toLowerCase().includes(searchVal)
-        || (camp.brand_ko||'').toLowerCase().includes(searchVal)
-        || (camp.product||'').toLowerCase().includes(searchVal)
-        || (camp.product_ko||'').toLowerCase().includes(searchVal)
-        || (camp.campaign_no||'').toLowerCase().includes(searchVal)
-        || (a.user_name||'').toLowerCase().includes(searchVal)
-        || (a.user_email||'').toLowerCase().includes(searchVal)
-        || (a.cancel_reason||'').toLowerCase().includes(searchVal)
-        || (a.cancel_reason_code||'').toLowerCase().includes(searchVal);
+      return matchSearchTokens(searchVal, [
+        camp.title, camp.brand, camp.brand_ko, camp.product, camp.product_ko, camp.campaign_no,
+        a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code,
+      ]);
     });
   }
 

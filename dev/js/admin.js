@@ -255,9 +255,12 @@ async function loadAdminCampaigns(useCache) {
   const statusVals = getMultiFilterValues('campStatusMulti');
   if (statusVals.length) camps = camps.filter(c => statusVals.includes(c.status));
 
-  // 검색 필터
+  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
-  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal) || (c.brand_ko||'').toLowerCase().includes(searchVal) || (c.product||'').toLowerCase().includes(searchVal) || (c.product_ko||'').toLowerCase().includes(searchVal) || (c.campaign_no||'').toLowerCase().includes(searchVal));
+  if (searchVal) {
+    camps = camps.filter(c => matchSearchTokens(searchVal,
+      [c.title, c.brand, c.brand_ko, c.product, c.product_ko, c.campaign_no]));
+  }
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
