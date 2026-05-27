@@ -451,14 +451,24 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Pull-to-Refresh 등록 (1회) — appShell 단일 리스너
   if (typeof setupPTR === 'function') setupPTR();
 
-  // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절
+  // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절.
+  //   resize·scroll 이 키보드 애니메이션 중 연속 발생하므로 requestAnimationFrame 으로
+  //   1프레임 1회로 묶고, 값이 실제 바뀔 때만 스타일 적용 → 리플로우 반복(깜빡임) 방지 (2026-05-27).
   if (window.visualViewport) {
     var appShell = $('appShell');
+    var _vvLastVh = -1, _vvLastTop = -1, _vvRaf = false;
     function adjustHeight() {
-      var vh = window.visualViewport.height;
-      var offsetTop = window.visualViewport.offsetTop;
-      appShell.style.height = vh + 'px';
-      appShell.style.top = offsetTop + 'px';
+      if (_vvRaf) return;
+      _vvRaf = true;
+      requestAnimationFrame(function() {
+        _vvRaf = false;
+        var vh = Math.round(window.visualViewport.height);
+        var offsetTop = Math.round(window.visualViewport.offsetTop);
+        if (vh === _vvLastVh && offsetTop === _vvLastTop) return; // 변경 없으면 skip
+        _vvLastVh = vh; _vvLastTop = offsetTop;
+        appShell.style.height = vh + 'px';
+        appShell.style.top = offsetTop + 'px';
+      });
     }
     window.visualViewport.addEventListener('resize', adjustHeight);
     window.visualViewport.addEventListener('scroll', adjustHeight);
