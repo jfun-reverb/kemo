@@ -78,21 +78,24 @@ function campaignStatusLabelKey(camp) {
 ## 구현 결과
 
 **구현일:** 2026-05-27
-**관련 커밋:** PR #(이번 PR) — feature/campaign-status-label
+**관련 커밋:** PR #317 (A안 — 라벨 분기, 선행) → 그 위 **B안(실제 상태 분리) 재설계** feature/campaign-status-split
 
-### 구현 범위
-- `dev/lib/shared.js`: `campaignStatusLabelKey(camp)` 헬퍼(closed → submission_end 경과 시 `closed_done` 아니면 `closed_recruit`) + `CAMPAIGN_STATUS_LABEL`·`CAMPAIGN_STATUS_BADGE_CLASS` 매핑(공용)
-- `dev/js/admin.js`: 목록 배지 `statusBadge(camp)` 헬퍼 사용(동적 구분), 요약/필터칩·stLabels·빠른토글 라벨 변경
-- `dev/js/admin-core.js`: 캠페인 상태 필터 드롭다운 라벨
-- `dev/css/components.css`: `.badge-done`(남보라 #5E35B1, 핑크와 구분) 신규
+> ⚠️ **A안 → B안 재설계**: PR #317로 "라벨만 분기"(A안)를 먼저 구현했으나, 사용자가 "종료가 진짜 close이고 모집마감이 별도 상태로 추가되는 게 맞다"며 **실제 DB 상태 분리(B안)**를 선택. reverb-planner 비교 후 **방식 ㄱ(closed=모집마감 식별자 유지 + 신규 `ended`=종료)** 채택(기존 closed 참조 영향 최소).
 
-### 초안 대비 변경 사항
-- **추가**: `expired` 라벨 "노출마감"→**"노출종료"** 통일(사양서 §2 — 모집마감/종료/노출종료 단어 구분).
-- **방법**: 필터·요약·빠른토글은 §4-1 추천안대로 `status='closed'` 한 항목을 **"모집마감·종료"** 묶음 표기(DB status 하나라 분리 안 함). **목록 배지만** `campaignStatusLabelKey`로 동적 구분.
-- **정렬(§4 line 280)**: `statusOrder`는 status 기준 그대로(closed 묶음). 모집마감/종료 세분 정렬은 미적용(closed 내 순서 무관).
-- **빠짐(follow-up)**: 노출 토글 영역(`dev/js/admin.js` `_renderCampVisibilityToggle`, 구 line 688·3520·3522)의 `closed:'종료'`는 **status 문자열만 받고 camp 객체(submission_end)가 없어** 동적 구분 구조상 불가 → 현행 유지. 노출 토글 옆 상태 텍스트에서는 「종료」가 그대로 보임. 필요 시 호출부에서 camp 전달하도록 별도 리팩토링.
-- **인플루언서 화면(§5)**: 1차 관리자만, 인플 일본어 라벨(`募集締切`)은 현행 유지(미착수).
+### 구현 범위 (B안)
+- **마이그레이션 156**(`156_campaign_status_ended.sql`): campaigns.status CHECK 에 `ended` 추가 + 백필(closed + submission_end 경과 → ended) + 락 트리거(075·108) 재정의(closed/ended/expired 3종 보호컬럼 변경 차단 — 108이 expired 빠뜨린 회귀도 정상화)
+- **자동 전이**(`dev/lib/storage.js`): `autoEndCampaigns`(closed + submission_end 경과 → ended, fetchCampaigns/fetchCampaignsForAdminList 호출) + `computeCampaignStatus` ended 분기 + 노출토글 select submission_end
+- **관리자**(`dev/lib/shared.js`·`admin.js`·`admin-core.js`): `campaignStatusLabelKey` ended→종료 + closed 안전망, 요약/필터칩·stLabels·빠른토글·필터·statusOrder·편집폼 락(`isLocked`/origStatus)·노출토글 labels 모두 **closed=모집마감/ended=종료 분리**. `.badge-done`(남보라) 
+- **인플루언서**(`dev/js/campaign.js`·`application.js`·i18n): `visibleCamps` ended 노출, 카드 `isClosedLike`(closed+ended 마감동작) + ended 오버레이(終了), 응모버튼 ended 비활성(endedBtn), 상태 필터 탭 「終了」 추가, i18n `status.campaign.ended`/`detail.endedBtn`/`detail.endedOverlay`/`campaigns.statusEnded`(終了/종료)
+
+### 초안(A안) 대비 변경 사항
+- **A안 폐기**: "라벨만 분기"(submission_end로 화면만 갈음) → **실제 상태 ended 분리**. `campaignStatusLabelKey`는 ended 직접 반환 + closed의 submission_end 경과분은 자동 전이 전 **안전망**으로 종료 표시.
+- **필터·요약·빠른토글**: A안 "모집마감·종료 묶음" → B안 **모집마감/종료 분리**(DB 상태가 둘이라).
+- **인플 화면**: A안 "현행 유지" → B안 **종료 별도 표시**(終了 오버레이·탭·응모차단). 사용자 결정.
+- **expired**: "노출마감"→"노출종료" 통일은 A안에서 이어받음.
 
 ### 구현 중 기술 결정
-- DB·신규 status·전이 트리거 없음. 화면 라벨·배지 클래스만 분기.
-- `campaignStatusLabelKey`는 `submission_end` 없으면(null) `closed_recruit`(모집마감) 폴백 — 제출 마감일 미설정 캠페인은 모집마감으로 표시.
+- 신규 트리거 대신 클라이언트 `autoEndCampaigns`(autoClose와 동일 방식 — submission_end는 표시·정렬용이라 실시간성 불필요).
+- 백필 KST 판정(`submission_end < KST today`)과 `autoEndCampaigns`(submission_end 23:59:59 < now 자정) 경계 일치.
+- closed→ended UPDATE 는 status 만 변경(보호컬럼 미변경)이라 락 트리거 통과.
+- 운영 미배포(FAQ·메시지·이 작업 모두 보류) — 개발 DB 156 적용만, 운영은 본체 출시 시.

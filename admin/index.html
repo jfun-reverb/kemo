@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779881971';
+  var CURRENT_BUILD = 'v1779884809';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1752,7 +1752,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-27 20:39 · cf44b52</span>
+          <span class="admin-build-text">2026-05-27 21:26 · 4f72963</span>
         </div>
       </div>
     </aside>
@@ -5027,16 +5027,18 @@ function dismissPolicyNoticeBanner() {
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
 
 // ══════════════════════════════════════
-// 캠페인 상태 표시 라벨 (관리자 — closed 를 submission_end 경과로 「모집마감」↔「종료」 구분)
-//   status 값은 그대로, 화면 라벨만 분기 (DB 변경·신규 상태·전이 없음).
-//   사양서 docs/specs/2026-05-27-campaign-status-label.md
+// 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
+//   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
+//   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
+//   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
 // ══════════════════════════════════════
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
+  if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
   if (s === 'closed') {
     const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
-    if (sub && Date.now() > sub) return 'closed_done';   // 결과물 제출 마감 경과 — 활동 완전 종료
-    return 'closed_recruit';                             // 모집만 마감, 제출 진행 중(노출 유지)
+    if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
+    return 'closed_recruit';                               // 모집마감(제출 진행 중)
   }
   return s; // draft / scheduled / active / expired
 }
@@ -5094,6 +5096,7 @@ async function fetchCampaigns() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
@@ -5134,6 +5137,7 @@ async function fetchCampaignsForAdminList() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
     return DEMO_CAMPAIGNS.slice();
@@ -5214,6 +5218,29 @@ async function autoCloseCampaigns(camps) {
   return camps;
 }
 
+// 결과물 제출 마감(submission_end) 경과한 closed(모집마감) 캠페인을 ended(종료)로 자동 전이.
+//   autoCloseCampaigns 와 동일 방식(목록 조회 시 전이). status 만 변경 — 락 트리거(156)는 보호컬럼 미변경이라 통과.
+async function autoEndCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const toEnd = camps.filter(c => {
+    if (c.status !== 'closed' || !c.submission_end) return false;
+    const se = new Date(c.submission_end);
+    se.setHours(23, 59, 59, 999);
+    return now > se;
+  });
+  if (!toEnd.length) return camps;
+  const results = await Promise.allSettled(toEnd.map(c => {
+    c.status = 'ended';
+    return db.from('campaigns').update({ status: 'ended' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoEndCampaigns 실패:', toEnd[i]?.id, r.reason);
+  });
+  return camps;
+}
+
 // 캠페인 「노출」 토글 — 사양서 2026-05-13-campaign-visibility-toggle.md
 //   OFF 클릭 시: status = 'expired' (수동 노출마감, 인플 화면 완전 비노출)
 //   ON  클릭 시: status 를 날짜 기준 자동 재계산 (scheduled/active/closed)
@@ -5228,7 +5255,7 @@ async function toggleCampaignVisibility(campId, visible) {
     return 'expired';
   }
   // ON: 현재 row 조회 후 날짜 기반 상태 계산
-  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline').eq('id', campId).maybeSingle();
+  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline, submission_end').eq('id', campId).maybeSingle();
   if (e1) throw e1;
   if (!row) return null;
   const newStatus = computeCampaignStatus(row);
@@ -5239,7 +5266,8 @@ async function toggleCampaignVisibility(campId, visible) {
   return newStatus;
 }
 
-// 날짜 기준 캠페인 상태 자동 계산 — recruit_start 미도래=scheduled / deadline 경과=closed / 그 외=active
+// 날짜 기준 캠페인 상태 자동 계산
+//   recruit_start 미도래=scheduled / 모집 마감(deadline 경과) → 제출 마감(submission_end)까지 경과면 ended(종료), 아니면 closed(모집마감) / 그 외=active
 function computeCampaignStatus(camp) {
   const now = new Date();
   if (camp.recruit_start) {
@@ -5250,7 +5278,15 @@ function computeCampaignStatus(camp) {
   if (camp.deadline) {
     const dl = new Date(camp.deadline);
     dl.setHours(23, 59, 59, 999);
-    if (dl < now) return 'closed';
+    if (dl < now) {
+      // 모집 마감 — 결과물 제출 마감까지 지났으면 종료(ended)
+      if (camp.submission_end) {
+        const se = new Date(camp.submission_end);
+        se.setHours(23, 59, 59, 999);
+        if (se < now) return 'ended';
+      }
+      return 'closed';
+    }
   }
   return 'active';
 }
@@ -8859,7 +8895,7 @@ function initMultiFilters() {
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => filterAdminCampaigns());
   createMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'모집마감·종료'},{value:'expired',label:'노출종료'}
+    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'모집마감'},{value:'ended',label:'종료'},{value:'expired',label:'노출종료'}
   ], () => filterAdminCampaigns());
   // 신청관리
   createMultiFilter('appTypeMulti', '전체 타입', [
@@ -20739,14 +20775,14 @@ async function loadAdminCampaigns(useCache) {
     {value:'draft',     label:'준비',     count: stCounts.draft || 0},
     {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
     {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'closed',    label:'모집마감·종료', count: stCounts.closed || 0},
+    {value:'closed',    label:'모집마감', count: stCounts.closed || 0},
+    {value:'ended',     label:'종료',     count: stCounts.ended || 0},
     {value:'expired',   label:'노출종료', count: stCounts.expired || 0},
   ], () => filterAdminCampaigns());
-  // 필터·요약은 status(closed/expired) 기준이라 closed 는 DB상 하나 → 「모집마감·종료」 묶음 표기.
-  //   목록 배지만 submission_end 경과로 「모집마감」/「종료」 동적 구분(statusBadge).
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감·종료',expired:'노출종료'};
-  // 노출 그룹(scheduled/active/closed)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
-  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',expired:'#666666'};
+  // closed(모집마감)·ended(종료)는 실제 DB 상태(마이그레이션 156)라 필터·요약·배지 모두 분리.
+  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감',ended:'종료',expired:'노출종료'};
+  // 노출 그룹(scheduled/active/closed/ended)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
+  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',ended:'#5E35B1',expired:'#666666'};
   const el = $('adminCampStatusCounts');
   if (el) el.innerHTML = Object.keys(stLabels).filter(k=>stCounts[k]).map(k =>
     `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
@@ -20782,7 +20818,7 @@ async function loadAdminCampaigns(useCache) {
     });
   } else if (adminCampSortKey) {
     const dir = adminCampSortDir === 'asc' ? 1 : -1;
-    const statusOrder = {draft:0,scheduled:1,active:2,closed:3,expired:4};
+    const statusOrder = {draft:0,scheduled:1,active:2,closed:3,ended:4,expired:5};
     const getVal = {
       status: c => statusOrder[c.status]??99,
       created: c => new Date(c.created_at).getTime(),
@@ -21189,8 +21225,8 @@ async function openEditCampaign(campId) {
 //   대상: 주의사항(caution) / 참여방법(participation) 요약 카드의 「편집」 버튼
 //   조건: status === 'closed' 또는 'expired' 일 때 비활성화 + 잠금 메시지 노출
 function applyEditFormSensitiveLocks(status) {
-  const isLocked = status === 'closed' || status === 'expired';
-  const lockLabel = status === 'expired' ? '노출마감' : '종료';
+  const isLocked = status === 'closed' || status === 'ended' || status === 'expired';
+  const lockLabel = status === 'expired' ? '노출마감' : status === 'ended' ? '종료' : '모집마감';
   ['Pset', 'Cset', 'Nset'].forEach(kind => {
     const card = $('editCamp' + kind + 'Summary');
     if (!card) return;
@@ -22269,7 +22305,7 @@ async function saveCampaignEdit() {
     let _historyAppCount = 0;
     let _historyBypassAck = false;
     let change = {cautionChanged:false, participationChanged:false, ngChanged:false, anyChanged:false};
-    if (origStatus === 'closed' || origStatus === 'expired') {
+    if (origStatus === 'closed' || origStatus === 'ended' || origStatus === 'expired') {
       delete updates.caution_set_id;
       delete updates.caution_items;
       delete updates.participation_set_id;
@@ -22801,7 +22837,8 @@ function toggleStatusDropdown(badgeEl) {
     {val:'draft',     label:'준비',     cls:'badge-gray'},
     {val:'scheduled', label:'모집예정', cls:'badge-blue'},
     {val:'active',    label:'모집중',   cls:'badge-green'},
-    {val:'closed',    label:'모집마감·종료', cls:'badge-pink'},
+    {val:'closed',    label:'모집마감', cls:'badge-pink'},
+    {val:'ended',     label:'종료',     cls:'badge-done'},
     {val:'expired',   label:'노출종료', cls:'badge-expired'}
   ];
 
@@ -24022,7 +24059,7 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
   toggle.setAttribute('aria-checked', isOff ? 'false' : 'true');
   toggle.disabled = isDraft;
   if (statusEl) {
-    var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '종료', expired: '노출마감 (수동)' };
+    var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출마감 (수동)' };
     statusEl.textContent = '상태: ' + (labels[status] || status || '미정');
     statusEl.classList.toggle('is-off', isOff);
   }

@@ -43,6 +43,7 @@ async function fetchCampaigns() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
@@ -83,6 +84,7 @@ async function fetchCampaignsForAdminList() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
     return DEMO_CAMPAIGNS.slice();
@@ -163,6 +165,29 @@ async function autoCloseCampaigns(camps) {
   return camps;
 }
 
+// 결과물 제출 마감(submission_end) 경과한 closed(모집마감) 캠페인을 ended(종료)로 자동 전이.
+//   autoCloseCampaigns 와 동일 방식(목록 조회 시 전이). status 만 변경 — 락 트리거(156)는 보호컬럼 미변경이라 통과.
+async function autoEndCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const toEnd = camps.filter(c => {
+    if (c.status !== 'closed' || !c.submission_end) return false;
+    const se = new Date(c.submission_end);
+    se.setHours(23, 59, 59, 999);
+    return now > se;
+  });
+  if (!toEnd.length) return camps;
+  const results = await Promise.allSettled(toEnd.map(c => {
+    c.status = 'ended';
+    return db.from('campaigns').update({ status: 'ended' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoEndCampaigns 실패:', toEnd[i]?.id, r.reason);
+  });
+  return camps;
+}
+
 // 캠페인 「노출」 토글 — 사양서 2026-05-13-campaign-visibility-toggle.md
 //   OFF 클릭 시: status = 'expired' (수동 노출마감, 인플 화면 완전 비노출)
 //   ON  클릭 시: status 를 날짜 기준 자동 재계산 (scheduled/active/closed)
@@ -177,7 +202,7 @@ async function toggleCampaignVisibility(campId, visible) {
     return 'expired';
   }
   // ON: 현재 row 조회 후 날짜 기반 상태 계산
-  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline').eq('id', campId).maybeSingle();
+  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline, submission_end').eq('id', campId).maybeSingle();
   if (e1) throw e1;
   if (!row) return null;
   const newStatus = computeCampaignStatus(row);
@@ -188,7 +213,8 @@ async function toggleCampaignVisibility(campId, visible) {
   return newStatus;
 }
 
-// 날짜 기준 캠페인 상태 자동 계산 — recruit_start 미도래=scheduled / deadline 경과=closed / 그 외=active
+// 날짜 기준 캠페인 상태 자동 계산
+//   recruit_start 미도래=scheduled / 모집 마감(deadline 경과) → 제출 마감(submission_end)까지 경과면 ended(종료), 아니면 closed(모집마감) / 그 외=active
 function computeCampaignStatus(camp) {
   const now = new Date();
   if (camp.recruit_start) {
@@ -199,7 +225,15 @@ function computeCampaignStatus(camp) {
   if (camp.deadline) {
     const dl = new Date(camp.deadline);
     dl.setHours(23, 59, 59, 999);
-    if (dl < now) return 'closed';
+    if (dl < now) {
+      // 모집 마감 — 결과물 제출 마감까지 지났으면 종료(ended)
+      if (camp.submission_end) {
+        const se = new Date(camp.submission_end);
+        se.setHours(23, 59, 59, 999);
+        if (se < now) return 'ended';
+      }
+      return 'closed';
+    }
   }
   return 'active';
 }

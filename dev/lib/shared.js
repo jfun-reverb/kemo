@@ -615,16 +615,18 @@ function dismissPolicyNoticeBanner() {
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
 
 // ══════════════════════════════════════
-// 캠페인 상태 표시 라벨 (관리자 — closed 를 submission_end 경과로 「모집마감」↔「종료」 구분)
-//   status 값은 그대로, 화면 라벨만 분기 (DB 변경·신규 상태·전이 없음).
-//   사양서 docs/specs/2026-05-27-campaign-status-label.md
+// 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
+//   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
+//   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
+//   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
 // ══════════════════════════════════════
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
+  if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
   if (s === 'closed') {
     const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
-    if (sub && Date.now() > sub) return 'closed_done';   // 결과물 제출 마감 경과 — 활동 완전 종료
-    return 'closed_recruit';                             // 모집만 마감, 제출 진행 중(노출 유지)
+    if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
+    return 'closed_recruit';                               // 모집마감(제출 진행 중)
   }
   return s; // draft / scheduled / active / expired
 }

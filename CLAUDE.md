@@ -129,7 +129,7 @@
 - **참여방법·주의사항·NG 미니 에디터**: 굵게/기울이기/링크/이미지 첨부 가능. 이미지는 `campaign-images/content/` 업로드 (5MB / jpg·png·webp) → `<img class="rich-img">` 삽입. 클릭 팝오버로 Small/Medium/Large/Original 크기 조정. XSS 방어는 src 화이트리스트 (https + `*.supabase.co`)
 - **캠페인 목록**: 썸네일+이미지수, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드+제품+campaign_no), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨, 승인수/모집수 표시 + 대기 배지
 - **캠페인 미리보기**: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
-- **캠페인 상태 5단계**: `draft` → `scheduled` → `active` → `closed`, `expired`(노출마감). 자동 전이 2종: `scheduled→active`(recruit_start 도래), `active→closed`(deadline 경과). `expired` 는 운영자 「캠페인 노출」 토글 OFF 로만 진입. `closed` 는 운영자 OFF 까지 인플 화면에 노출(募集締切 오버레이). 노출 그룹(scheduled/active/closed) 컬러 배지, 비노출 그룹(draft/expired) 회색·점선
+- **캠페인 상태 6단계**: `draft` → `scheduled` → `active` → `closed`(모집마감) → `ended`(종료), `expired`(노출마감). 자동 전이 3종: `scheduled→active`(recruit_start 도래), `active→closed`(deadline 경과), `closed→ended`(submission_end 경과 — `autoEndCampaigns`, 마이그레이션 156). `expired` 는 운영자 「캠페인 노출」 토글 OFF 로만 진입. `closed`(모집마감)·`ended`(종료) 는 운영자 OFF 까지 인플 화면에 노출(closed=募集締切, ended=終了 오버레이). 노출 그룹(scheduled/active/closed/ended) 컬러 배지(closed=핑크, ended=남보라 `badge-done`), 비노출 그룹(draft/expired) 회색·점선
 - **캠페인 노출 토글**: 등록/편집 폼 최상단 + 목록 「상태」 컬럼 빠른 토글. OFF 시 확인 모달 후 status=expired, ON 시 자연 상태 재계산. draft 는 비활성. `toggleCampaignVisibility` + `computeCampaignStatus`
 - **자동 시작·종료**: `fetchCampaigns` 호출 시 `autoOpenCampaigns()` → `autoCloseCampaigns()`. deadline 지난 캠페인은 active/scheduled 저장 불가
 - **날짜 입력**: flatpickr range picker 2개(모집·구매/방문) + single picker 1개(`submission_end`). 모집 종료일 선택 시 `submission_end` +14일 자동 제안. 구매·방문 기간은 모집 시작~결과물 제출 마감 윈도우로 자동 clamp. monitor 일 때 콘텐츠 종류 옵션 영상/이미지만 자동 필터링
