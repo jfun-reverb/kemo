@@ -95,11 +95,9 @@
 .msg-send-btn:disabled{opacity:.5;cursor:default}
 
 /* ── 개인화 상태 한 줄 (#msgStatusLine, §3) ── */
-.msg-status-line{flex-shrink:0;padding:7px 14px;font-size:13px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
+.msg-status-line{flex-shrink:0;padding:5px 14px;font-size:12px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
 .msg-status-row{display:flex;align-items:center;gap:10px}
-.msg-status-text{flex:1;font-size:13px;line-height:1.5;font-weight:600;color:#23416E}
-.msg-status-nav{flex-shrink:0;border:1px solid #B6CEF5;background:#fff;color:#2563EB;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
-.msg-status-nav:hover{background:#EAF1FF}
+.msg-status-text{flex:1;font-size:12px;line-height:1.5;font-weight:600;color:#23416E}
 .msg-status-reason{margin-top:6px;font-size:12px;line-height:1.5;color:#8A3B3B;background:#FDECEC;border-radius:8px;padding:6px 10px;word-break:break-word}
 
 /* ── FAQ 전체 보기 오버레이 (#msgFaqTree) — 스레드 위에 떠서 표시 (PR B-rev) ── */

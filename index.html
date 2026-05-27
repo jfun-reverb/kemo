@@ -5,7 +5,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#ffffff">
 <title>REVERB Seeding</title>
 <link id="appFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23e91e63'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>R</text></svg>">
@@ -642,11 +642,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .msg-send-btn:disabled{opacity:.5;cursor:default}
 
 /* ── 개인화 상태 한 줄 (#msgStatusLine, §3) ── */
-.msg-status-line{flex-shrink:0;padding:7px 14px;font-size:13px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
+.msg-status-line{flex-shrink:0;padding:5px 14px;font-size:12px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
 .msg-status-row{display:flex;align-items:center;gap:10px}
-.msg-status-text{flex:1;font-size:13px;line-height:1.5;font-weight:600;color:#23416E}
-.msg-status-nav{flex-shrink:0;border:1px solid #B6CEF5;background:#fff;color:#2563EB;font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
-.msg-status-nav:hover{background:#EAF1FF}
+.msg-status-text{flex:1;font-size:12px;line-height:1.5;font-weight:600;color:#23416E}
 .msg-status-reason{margin-top:6px;font-size:12px;line-height:1.5;color:#8A3B3B;background:#FDECEC;border-radius:8px;padding:6px 10px;word-break:break-word}
 
 /* ── FAQ 전체 보기 오버레이 (#msgFaqTree) — 스레드 위에 떠서 표시 (PR B-rev) ── */
@@ -11051,23 +11049,7 @@ function _computeFaqStatus(app, camp) {
   return faqComputeStatus(app?.status, delivs, camp);
 }
 
-// 상태 케이스 → 관련 화면 바로가기 (없으면 null)
-const FAQ_STATUS_NAV = {
-  pending: '#mypage-applications',
-  approved_purchase_before: '#mypage-applications',
-  receipt: '#activity',
-  visit: '#activity',
-  post_deadline: '#activity',
-  post_overdue: '#activity',
-  reviewing: '#activity',
-  partial_reject: '#activity',
-  all_reject: '#activity',
-  rejected: '#mypage-applications',
-  cancelled: '#mypage-applications',
-  done: null,
-  approved_fallback: '#mypage-applications',
-  fallback: '#mypage-applications',
-};
+// (FAQ_STATUS_NAV 제거 2026-05-27 — 상태줄 '화면 열기' 버튼 삭제로 미사용)
 
 // 반려 사유 — reject_reason 이 lookup 코드면 일본어 라벨로, 자유텍스트면 그대로 (§3-4 ②)
 function _faqRejectReason(app) {
@@ -11107,13 +11089,8 @@ function renderAppStatusLine(app, camp) {
     if (reason) extra = `<div class="msg-status-reason">${esc(t('messaging.statusLine.reasonLabel'))}: ${esc(reason)}</div>`;
   }
 
-  const navTarget = FAQ_STATUS_NAV[key];
-  let navBtn = '';
-  if (navTarget) {
-    navBtn = `<button type="button" class="msg-status-nav" onclick="faqNavigate('${esc(navTarget)}')">${esc(t('messaging.statusLine.goBtn'))}</button>`;
-  }
-
-  el.innerHTML = `<div class="msg-status-row"><span class="msg-status-text">${esc(text)}</span>${navBtn}</div>${extra}`;
+  // '화면 열기' 버튼 제거 (2026-05-27 사용자 요청) — 상태 한 줄만 표시해 영역 더 슬림하게
+  el.innerHTML = `<div class="msg-status-row"><span class="msg-status-text">${esc(text)}</span></div>${extra}`;
   el.style.display = text ? '' : 'none';
 }
 
@@ -11876,14 +11853,30 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Pull-to-Refresh 등록 (1회) — appShell 단일 리스너
   if (typeof setupPTR === 'function') setupPTR();
 
-  // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절
+  // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절.
+  //   resize·scroll 이 키보드 애니메이션 중 연속 발생하므로 requestAnimationFrame 으로
+  //   1프레임 1회로 묶고, 값이 실제 바뀔 때만 스타일 적용 → 리플로우 반복(깜빡임) 방지 (2026-05-27).
   if (window.visualViewport) {
     var appShell = $('appShell');
+    var _vvLastVh = -1, _vvLastTop = -1, _vvRaf = false;
     function adjustHeight() {
-      var vh = window.visualViewport.height;
-      var offsetTop = window.visualViewport.offsetTop;
-      appShell.style.height = vh + 'px';
-      appShell.style.top = offsetTop + 'px';
+      if (_vvRaf) return;
+      _vvRaf = true;
+      requestAnimationFrame(function() {
+        _vvRaf = false;
+        var vh = Math.round(window.visualViewport.height);
+        var offsetTop = Math.round(window.visualViewport.offsetTop);
+        if (vh === _vvLastVh && offsetTop === _vvLastTop) return; // 변경 없으면 skip
+        _vvLastVh = vh; _vvLastTop = offsetTop;
+        appShell.style.height = vh + 'px';
+        appShell.style.top = offsetTop + 'px';
+        // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
+        var _ap = appShell.querySelector('.page.active');
+        if (_ap && _ap.id === 'page-messages') {
+          var _th = document.getElementById('msgModalThread');
+          if (_th) _th.scrollTop = _th.scrollHeight;
+        }
+      });
     }
     window.visualViewport.addEventListener('resize', adjustHeight);
     window.visualViewport.addEventListener('scroll', adjustHeight);
