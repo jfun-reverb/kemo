@@ -508,20 +508,21 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
-// 정책 변경 사전 통지 (메시지 기능 약관 개정, 2026-05-27)
-//   - 로그인 1회 팝업 + 홈 상단 배너(시행일까지 노출). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
-//   - 시행일 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
+// 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
+//   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
+//   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  id: 'message2026',            // localStorage 키 식별자 (다음 통지와 충돌 방지)
-  effectiveDate: '2026-07-01',  // 시행일 = 통지 게시일 + 30일. ※ 운영 배포 직전 확정값으로 1줄 수정
+  id: 'inquiry2026',            // localStorage 키 식별자. 이전 'message2026'에서 변경 → 이미 본 사람도 새 안내 재노출
+  effectiveDate: '2026-05-27',  // 시행일(완료형 표기용). ※ 운영 출시일로 1줄 수정
+  noticeUntil: '2026-06-10',    // 노출 종료일 = 시행일 + 14일. 이 날 0시(KST)부터 자동 비노출. ※ 운영 출시 시 함께 조정
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
-// 시행일 미경과(오늘 KST < 시행일)일 때만 노출
+// 출시 안내: 노출 종료일(noticeUntil) 전까지만 노출. 시행일은 완료형 표기용이라 판정에 안 씀
 function _policyNoticeActive() {
-  try { return Date.now() < new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00').getTime(); }
+  try { return Date.now() < new Date(POLICY_NOTICE.noticeUntil + 'T00:00:00+09:00').getTime(); }
   catch (e) { return false; }
 }
 function _policyNoticeSeenKey() { return 'reverb.policyNotice.' + POLICY_NOTICE.id; }
@@ -540,7 +541,7 @@ function maybeShowPolicyNotice() {
   const modal = document.getElementById('policyNoticeModal');
   if (!modal) return;                                  // 관리자 페이지 등 마크업 없으면 무시
   if (!currentUser || currentUser._isAdmin) return;    // 로그인 회원만 (관리자 제외)
-  if (!_policyNoticeActive()) return;                  // 시행일 경과 시 침묵
+  if (!_policyNoticeActive()) return;                  // 노출 종료일 경과 시 침묵
   let seen = false;
   try { seen = localStorage.getItem(_policyNoticeSeenKey()) === '1'; } catch (e) {}
   if (seen) return;                                    // 이미 본 사람 (1회 제한)

@@ -331,8 +331,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
 .policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
-/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글) */
-#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B}
+/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글 + 홈 스크롤 컨테이너 상단 sticky 고정) */
+#policyNoticeBannerWrap{position:sticky;top:0;z-index:50;background:#E5E5E5;padding:10px 14px}
+#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 #policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
 #policyNoticeBanner .pn-banner-text{flex:1}
 #policyNoticeBanner .pn-banner-detail{flex-shrink:0;background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap}
@@ -762,7 +763,7 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
-<!-- ── 정책 변경 사전 통지 팝업 (메시지 기능 약관 개정, 시행일 경과 시 자동 비노출) ── -->
+<!-- ── 정책 변경 통지 팝업 (문의하기 기능 추가·약관 개정, 노출 종료일 경과 시 자동 비노출) ── -->
 <div id="policyNoticeModal" onclick="if(event.target===this)closePolicyNotice()">
   <div class="legal-sheet">
     <div class="legal-head">
@@ -966,8 +967,8 @@ textarea.form-input{resize:vertical;min-height:80px}
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
 <div id="page-home" class="page">
-  <!-- 정책 변경 사전 통지 배너 (로그인 회원·시행일까지·닫으면 이번 방문만 숨김) -->
-  <div class="container" id="policyNoticeBannerWrap" style="display:none;padding-top:14px;padding-bottom:0">
+  <!-- 문의하기 출시 안내 배너 (로그인 회원·노출 종료일까지·닫으면 이번 방문만 숨김). 홈 스크롤 시 상단 고정(sticky) -->
+  <div id="policyNoticeBannerWrap" style="display:none">
     <div id="policyNoticeBanner">
       <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
       <span class="pn-banner-text" id="policyNoticeBannerText"></span>
@@ -2373,20 +2374,21 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
-// 정책 변경 사전 통지 (메시지 기능 약관 개정, 2026-05-27)
-//   - 로그인 1회 팝업 + 홈 상단 배너(시행일까지 노출). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
-//   - 시행일 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
+// 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
+//   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
+//   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  id: 'message2026',            // localStorage 키 식별자 (다음 통지와 충돌 방지)
-  effectiveDate: '2026-07-01',  // 시행일 = 통지 게시일 + 30일. ※ 운영 배포 직전 확정값으로 1줄 수정
+  id: 'inquiry2026',            // localStorage 키 식별자. 이전 'message2026'에서 변경 → 이미 본 사람도 새 안내 재노출
+  effectiveDate: '2026-05-27',  // 시행일(완료형 표기용). ※ 운영 출시일로 1줄 수정
+  noticeUntil: '2026-06-10',    // 노출 종료일 = 시행일 + 14일. 이 날 0시(KST)부터 자동 비노출. ※ 운영 출시 시 함께 조정
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
-// 시행일 미경과(오늘 KST < 시행일)일 때만 노출
+// 출시 안내: 노출 종료일(noticeUntil) 전까지만 노출. 시행일은 완료형 표기용이라 판정에 안 씀
 function _policyNoticeActive() {
-  try { return Date.now() < new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00').getTime(); }
+  try { return Date.now() < new Date(POLICY_NOTICE.noticeUntil + 'T00:00:00+09:00').getTime(); }
   catch (e) { return false; }
 }
 function _policyNoticeSeenKey() { return 'reverb.policyNotice.' + POLICY_NOTICE.id; }
@@ -2405,7 +2407,7 @@ function maybeShowPolicyNotice() {
   const modal = document.getElementById('policyNoticeModal');
   if (!modal) return;                                  // 관리자 페이지 등 마크업 없으면 무시
   if (!currentUser || currentUser._isAdmin) return;    // 로그인 회원만 (관리자 제외)
-  if (!_policyNoticeActive()) return;                  // 시행일 경과 시 침묵
+  if (!_policyNoticeActive()) return;                  // 노출 종료일 경과 시 침묵
   let seen = false;
   try { seen = localStorage.getItem(_policyNoticeSeenKey()) === '1'; } catch (e) {}
   if (seen) return;                                    // 이미 본 사람 (1회 제한)
@@ -3030,12 +3032,12 @@ window.I18N_JA = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name}に関するお問い合わせ',
-    cancelledBlocked: 'キャンセルされた応募はメッセージをご利用いただけません。',
-    refresh: '最新のメッセージに更新',
-    newArrived: '新しいメッセージが届きました（タップで更新）',
+    cancelledBlocked: 'キャンセルされた応募はお問い合わせをご利用いただけません。',
+    refresh: '最新のお問い合わせに更新',
+    newArrived: '運営から新しい返信が届きました（タップで更新）',
     loading: '読み込み中...',
-    loadError: 'メッセージの読み込みに失敗しました',
-    emptyThread: 'まだメッセージはありません。下の入力欄からお問い合わせできます。',
+    loadError: 'お問い合わせの読み込みに失敗しました',
+    emptyThread: 'まだお問い合わせはありません。下の入力欄から運営チームへお問い合わせいただけます。',
     you: '本人',
     adminTeam: '運営チーム',
     maskHiddenByAdmin: '[管理者により非表示処理されたメッセージ]',
@@ -3044,17 +3046,17 @@ window.I18N_JA = {
     withdraw: '取り消す',
     withdrawConfirm: 'このメッセージを取り消しますか？',
     withdrawFailed: 'メッセージの取り消しに失敗しました',
-    placeholder: 'メッセージを入力...',
+    placeholder: 'お問い合わせ内容を入力...',
     attachMax: '添付は最大{n}枚までです',
     attachTooLarge: '画像が大きすぎます。別の画像をお試しください',
     attachUploadFailed: '画像のアップロードに失敗しました',
     attachError: '画像を開けませんでした',
-    emptyInput: 'メッセージを入力してください',
+    emptyInput: 'お問い合わせ内容を入力してください',
     sendFailed: '送信に失敗しました',
-    btnLabel: 'メッセージ',
+    btnLabel: 'お問い合わせ',
     unreadBadge: '未読',
-    navMenu: 'メッセージ',
-    notifTitle: '運営からのメッセージ',
+    navMenu: 'お問い合わせ',
+    notifTitle: '運営からの返信',
     pendingNotice: '運営が順次確認のうえ、ご返信いたします。お返事までお時間をいただく場合がございます。',
     // 応募件メッセージ — 状態の1行表示（§3 マッピング）
     statusLine: {
@@ -3090,11 +3092,11 @@ window.I18N_JA = {
       suggestHead: 'こちらで解決できるか確認してみましょう',
     },
   },
-  // 政策変更の事前告知（メッセージ機能の規約改定、2026-05-27）
+  // 政策変更の告知（お問い合わせ機能の追加・規約改定、2026-05-27 即時施行・リリース案内）
   policyNotice: {
-    title: '「メッセージ」機能の追加・規約改定のお知らせ',
-    body: '応募したキャンペーンごとに、運営チームへ直接お問い合わせができる「メッセージ」機能を追加します。<br><br>・送れるもの：文章と画像<br>・保管期間：応募終了後1年（退会時に削除）<br>・見られる人：ご本人と運営チームのみ<br><br>これにともない、利用規約・プライバシーポリシーを一部改定します。全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。<br><br>施行日：{date}<br>ご不明な点は公式LINE @reverb.jp まで。',
-    banner: '「メッセージ」機能の追加にともない、規約・プライバシーポリシーを改定します。',
+    title: '「お問い合わせ」機能の追加・規約改定のお知らせ',
+    body: '応募したキャンペーンごとに、運営チームへ直接お問い合わせができる「お問い合わせ」機能が追加されました。<br><br>・機能：メッセージと画像の送信<br>・場所：応募履歴ページのキャンペーンごと<br>・利用：ご本人と運営チーム<br>・保管期間：応募終了後1年（退会時に削除）<br><br>これにともない、利用規約・プライバシーポリシーを一部改定しました。全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。<br><br>施行日：{date}',
+    banner: '「お問い合わせ」機能の追加にともない、規約・プライバシーポリシーを改定しました。',
     detailBtn: '詳しく見る',
     closeBtn: '閉じる',
   },
@@ -3651,12 +3653,12 @@ window.I18N_KO = {
   // 응모건 메시지 (인플루언서 ↔ 관리자)
   messaging: {
     titleFor: '{name} 관련 문의',
-    cancelledBlocked: '취소된 응모는 메시지를 이용할 수 없습니다.',
-    refresh: '최신 메시지로 새로고침',
-    newArrived: '새 메시지가 도착했습니다 (탭하여 새로고침)',
+    cancelledBlocked: '취소된 응모는 문의하기를 이용할 수 없습니다.',
+    refresh: '최신 문의로 새로고침',
+    newArrived: '운영팀에서 새 답변이 도착했습니다 (탭하여 새로고침)',
     loading: '불러오는 중...',
-    loadError: '메시지를 불러오지 못했습니다',
-    emptyThread: '아직 메시지가 없습니다. 아래 입력란에서 문의할 수 있습니다.',
+    loadError: '문의를 불러오지 못했습니다',
+    emptyThread: '아직 문의가 없습니다. 아래 입력란에서 운영팀에 문의할 수 있습니다.',
     you: '본인',
     adminTeam: '운영팀',
     maskHiddenByAdmin: '[관리자에 의해 숨김 처리된 메시지]',
@@ -3665,17 +3667,17 @@ window.I18N_KO = {
     withdraw: '취소',
     withdrawConfirm: '이 메시지를 취소할까요?',
     withdrawFailed: '메시지 취소에 실패했습니다',
-    placeholder: '메시지를 입력...',
+    placeholder: '문의 내용을 입력...',
     attachMax: '첨부는 최대 {n}장까지입니다',
     attachTooLarge: '이미지가 너무 큽니다. 다른 이미지를 시도해 주세요',
     attachUploadFailed: '이미지 업로드에 실패했습니다',
     attachError: '이미지를 열 수 없습니다',
-    emptyInput: '메시지를 입력해 주세요',
+    emptyInput: '문의 내용을 입력해 주세요',
     sendFailed: '전송에 실패했습니다',
-    btnLabel: '메시지',
+    btnLabel: '문의하기',
     unreadBadge: '미읽음',
-    navMenu: '메시지',
-    notifTitle: '운영팀 메시지',
+    navMenu: '문의하기',
+    notifTitle: '운영팀 답변',
     pendingNotice: '운영팀이 순차적으로 확인 후 회신드립니다. 답변까지 시간이 걸릴 수 있습니다.',
     // 응모건 메시지 — 상태 한 줄 (§3 매핑)
     statusLine: {
@@ -3711,11 +3713,11 @@ window.I18N_KO = {
       suggestHead: '여기서 해결되는지 먼저 확인해 보세요',
     },
   },
-  // 정책 변경 사전 통지 (메시지 기능 약관 개정, 2026-05-27)
+  // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
   policyNotice: {
-    title: '「메시지」 기능 추가·약관 개정 안내',
-    body: '응모하신 캠페인별로 운영팀에 직접 문의할 수 있는 「메시지」 기능을 추가합니다.<br><br>· 보낼 수 있는 것: 글과 이미지<br>· 보관 기간: 응모 종료 후 1년 (탈퇴 시 삭제)<br>· 볼 수 있는 사람: 본인과 운영팀만<br><br>이에 따라 이용약관·개인정보처리방침을 일부 개정합니다. 전문은 앱 하단 「이용약관」「개인정보처리방침」에서 확인하실 수 있습니다.<br><br>시행일: {date}<br>문의는 공식 LINE @reverb.jp 으로.',
-    banner: '「메시지」 기능 추가에 따라 약관·개인정보처리방침을 개정합니다.',
+    title: '「문의하기」 기능 추가·약관 개정 안내',
+    body: '응모하신 캠페인별로 운영팀에 직접 문의할 수 있는 「문의하기」 기능이 추가되었습니다.<br><br>· 기능: 메시지 및 이미지<br>· 위치: 응모 이력 페이지 내 캠페인별<br>· 사용: 본인과 운영팀<br>· 보관 기간: 응모 종료 후 1년 (탈퇴 시 삭제)<br><br>이에 따라 이용약관·개인정보처리방침이 일부 개정되었습니다. 전문은 앱 하단 「이용약관」「개인정보처리방침」에서 확인하실 수 있습니다.<br><br>시행일: {date}',
+    banner: '「문의하기」 기능 추가에 따라 약관·개인정보처리방침을 개정했습니다.',
     detailBtn: '자세히 보기',
     closeBtn: '닫기',
   },

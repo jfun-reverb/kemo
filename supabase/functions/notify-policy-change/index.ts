@@ -79,15 +79,17 @@ async function sendBrevoEmail(params: {
 function buildMail(effectiveDate: string): { subject: string; html: string; text: string } {
   const tpl = loadTemplate("policy-change-notice");
   const html = render(tpl, { effective_date: effectiveDate });
-  const subject = "【REVERB JP】「メッセージ」機能の追加と、規約・プライバシーポリシー改定のお知らせ";
+  const subject = "【REVERB JP】「お問い合わせ」機能の追加と、規約・プライバシーポリシー改定のお知らせ";
   const text = [
     "REVERB JP をご利用いただきありがとうございます。",
     "",
-    "応募したキャンペーンごとに運営チームへ直接お問い合わせができる「メッセージ」機能を追加します。",
-    "あわせて、利用規約とプライバシーポリシーを一部改定いたします。",
+    "応募したキャンペーンごとに運営チームへ直接お問い合わせができる「お問い合わせ」機能が追加されました。",
+    "あわせて、利用規約とプライバシーポリシーを一部改定しました。",
     "",
-    "■ 新しく集める情報：メッセージの本文・添付画像（保管期間：応募終了後1年 / 退会時に削除）",
-    "■ メッセージを見られる人：ご本人と運営チームのみ",
+    "■ 機能：メッセージと画像の送信",
+    "■ 場所：応募履歴ページのキャンペーンごと",
+    "■ 利用：ご本人と運営チーム",
+    "■ 保管期間：応募終了後1年（退会時に削除）",
     `■ 施行日：${effectiveDate}`,
     "",
     "改定後の規約全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。",
