@@ -389,23 +389,7 @@ function _computeFaqStatus(app, camp) {
   return faqComputeStatus(app?.status, delivs, camp);
 }
 
-// 상태 케이스 → 관련 화면 바로가기 (없으면 null)
-const FAQ_STATUS_NAV = {
-  pending: '#mypage-applications',
-  approved_purchase_before: '#mypage-applications',
-  receipt: '#activity',
-  visit: '#activity',
-  post_deadline: '#activity',
-  post_overdue: '#activity',
-  reviewing: '#activity',
-  partial_reject: '#activity',
-  all_reject: '#activity',
-  rejected: '#mypage-applications',
-  cancelled: '#mypage-applications',
-  done: null,
-  approved_fallback: '#mypage-applications',
-  fallback: '#mypage-applications',
-};
+// (FAQ_STATUS_NAV 제거 2026-05-27 — 상태줄 '화면 열기' 버튼 삭제로 미사용)
 
 // 반려 사유 — reject_reason 이 lookup 코드면 일본어 라벨로, 자유텍스트면 그대로 (§3-4 ②)
 function _faqRejectReason(app) {
@@ -445,13 +429,8 @@ function renderAppStatusLine(app, camp) {
     if (reason) extra = `<div class="msg-status-reason">${esc(t('messaging.statusLine.reasonLabel'))}: ${esc(reason)}</div>`;
   }
 
-  const navTarget = FAQ_STATUS_NAV[key];
-  let navBtn = '';
-  if (navTarget) {
-    navBtn = `<button type="button" class="msg-status-nav" onclick="faqNavigate('${esc(navTarget)}')">${esc(t('messaging.statusLine.goBtn'))}</button>`;
-  }
-
-  el.innerHTML = `<div class="msg-status-row"><span class="msg-status-text">${esc(text)}</span>${navBtn}</div>${extra}`;
+  // '화면 열기' 버튼 제거 (2026-05-27 사용자 요청) — 상태 한 줄만 표시해 영역 더 슬림하게
+  el.innerHTML = `<div class="msg-status-row"><span class="msg-status-text">${esc(text)}</span></div>${extra}`;
   el.style.display = text ? '' : 'none';
 }
 
