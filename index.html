@@ -772,7 +772,7 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="legal-body" id="policyNoticeBody"></div>
     <div class="policy-notice-actions">
       <button class="policy-notice-detail" onclick="openPolicyNoticeLegal()" data-i18n="policyNotice.detailBtn"></button>
-      <button class="policy-notice-confirm" onclick="closePolicyNotice()" data-i18n="policyNotice.closeBtn"></button>
+      <button class="policy-notice-confirm" onclick="neverShowPolicyNotice()" data-i18n="policyNotice.closeBtn"></button>
     </div>
   </div>
 </div>
@@ -2426,11 +2426,28 @@ function openPolicyNoticeModal() {
   modal.classList.add('on');
 }
 
-// 닫으면 다시 안 뜨도록 기록 (1회 제한)
+// 닫으면 자동 팝업이 다시 안 뜨도록 기록 (헤더 ×·배경 클릭 — 이번 닫기. 배너는 노출 종료일까지 유지)
 function closePolicyNotice() {
   const modal = document.getElementById('policyNoticeModal');
   if (modal) modal.classList.remove('on');
   try { localStorage.setItem(_policyNoticeSeenKey(), '1'); } catch (e) {}
+}
+
+// 「다시 보지 않기」 — 팝업 + 헤더 배너(토스트) 모두 영구 종료(이 공지 한정).
+//   seen(자동 팝업 차단) + dismissed(배너 영구 비노출) 둘 다 기록.
+function _policyNoticeDismissedKey() { return _policyNoticeSeenKey() + '.dismissed'; }
+function _isPolicyNoticeDismissed() {
+  try { return localStorage.getItem(_policyNoticeDismissedKey()) === '1'; } catch (e) { return false; }
+}
+function neverShowPolicyNotice() {
+  try {
+    localStorage.setItem(_policyNoticeSeenKey(), '1');
+    localStorage.setItem(_policyNoticeDismissedKey(), '1');
+  } catch (e) {}
+  const modal = document.getElementById('policyNoticeModal');
+  if (modal) modal.classList.remove('on');
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (wrap) wrap.style.display = 'none';
 }
 
 // 팝업 「자세히 보기」 → 팝업 닫고(본 것으로 기록) 개인정보처리방침 전문 페이지로
@@ -2446,7 +2463,7 @@ function renderPolicyNoticeBanner() {
   if (!wrap) return;
   const h = location.hash;
   const isHome = (h === '' || h === '#' || h === '#home');
-  const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
+  const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed && !_isPolicyNoticeDismissed();
   if (!show) { wrap.style.display = 'none'; return; }
   const textEl = document.getElementById('policyNoticeBannerText');
   if (textEl) textEl.textContent = t('policyNotice.banner');
@@ -3100,7 +3117,7 @@ window.I18N_JA = {
     body: '応募したキャンペーンごとに、運営チームへ直接お問い合わせができる「お問い合わせ」機能が追加されました。<br><br>・機能：メッセージと画像の送信<br>・場所：応募履歴ページのキャンペーンごと<br>・利用：ご本人と運営チーム<br>・保管期間：応募終了後1年（退会時に削除）<br><br>これにともない、利用規約・プライバシーポリシーを一部改定しました。全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。<br><br>施行日：{date}',
     banner: '「お問い合わせ」機能の追加にともない、規約・プライバシーポリシーを改定しました。',
     detailBtn: '詳しく見る',
-    closeBtn: '閉じる',
+    closeBtn: '今後表示しない',
   },
 };
 
@@ -3721,7 +3738,7 @@ window.I18N_KO = {
     body: '응모하신 캠페인별로 운영팀에 직접 문의할 수 있는 「문의하기」 기능이 추가되었습니다.<br><br>· 기능: 메시지 및 이미지<br>· 위치: 응모 이력 페이지 내 캠페인별<br>· 사용: 본인과 운영팀<br>· 보관 기간: 응모 종료 후 1년 (탈퇴 시 삭제)<br><br>이에 따라 이용약관·개인정보처리방침이 일부 개정되었습니다. 전문은 앱 하단 「이용약관」「개인정보처리방침」에서 확인하실 수 있습니다.<br><br>시행일: {date}',
     banner: '「문의하기」 기능 추가에 따라 약관·개인정보처리방침을 개정했습니다.',
     detailBtn: '자세히 보기',
-    closeBtn: '닫기',
+    closeBtn: '다시 보지 않기',
   },
 };
 
