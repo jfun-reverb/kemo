@@ -215,27 +215,22 @@ FAQ 31노드(`faq_nodes` 시드) 답변을 실제 코드·약관과 1:1 대조. 
 ## 구현 결과
 
 **구현일:** 2026-05-27
-**관련 커밋:** (커밋 후 기재)
+**관련 커밋:** PR 1 — #315 (마이그레이션 154, `3b6d46b`) / PR 2 — `cfdf75d` (마이그레이션 155)
 
-### 구현 범위 (PR 2 — FAQ 문구 정정 묶음)
-- 마이그레이션 155(`supabase/migrations/155_faq_nodes_text_fix.sql`) — `faq_nodes` UPDATE 23개
-- 마이그레이션 146(`supabase/migrations/146_faq_nodes_and_interactions.sql`) 시드 파일 동기화
+### 구현 범위 (PR 1·2 모두 완료)
+- **PR 1 (신청 승인 알림 신설)**: 마이그레이션 154(`154_application_approved_notification.sql`) — `notifications.kind` CHECK 에 `application_approved` 추가 + `record_application_status_event()`(131 트리거 함수) 확장(pending/rejected→approved 시 알림 INSERT, 되돌리기 후 재승인 중복 방지). `dev/js/notifications.js` iconMap(celebration) + CLAUDE.md 갱신. PR #315 dev 머지 + 개발 DB 적용 완료.
+- **PR 2 (FAQ 문구 정정)**: 마이그레이션 155(`155_faq_nodes_text_fix.sql`) — `faq_nodes` UPDATE 23개 + 146 시드 동기화. cfdf75d dev 머지 + 개발 DB 적용 완료.
 
 ### 초안 대비 변경 사항
-
-#### 추가된 것
-- 없음
-
-#### 빠진 것
-- **PR 1(신청 승인 알림 신설 — 마이그레이션 155 예상)은 이 PR에 포함하지 않음.** 사양서 §2 「정정 1」은 PR 1로 분리. 다음 마이그레이션 번호는 156이 됨.
-  - 이유: 정정2~6은 순수 데이터 UPDATE라 트리거/구조 변경 없음. 승인 알림은 `notifications.kind` CHECK 추가 + 트리거 신설이라 범위가 크고 테스트 필요 — 별도 PR로 진행이 안전.
-
-#### 달라진 것
-- 사양서 §6 「방법 A(관리자 FAQ 편집 화면)」 대신 **방법 B(UPDATE 마이그레이션)** 선택. 이유: 23개 노드를 화면 클릭으로 수동 편집하면 오탈자·누락 위험이 크고, 146 시드 파일과의 동기화 보장이 어려움. 마이그레이션이 재실행 멱등성 + 시드 동기화를 동시에 달성.
-- Q1-1 분기 노드(body_ko=`원인을 골라 주세요.`)도 UPDATE 포함 — 실질 내용 변경은 없으나 일관성을 위해 포함.
+- **마이그레이션 번호**: 사양서는 PR 1=155 예상(153 미성년·154 LIPS 예약 가정)이었으나, 미성년·LIPS 미착수 + 153=정책통지로 사용되어 **PR 1=154, PR 2=155** 로 당겨짐.
+- **PR 2 방법**: 사양서 §6 방법 A(관리자 편집) 대신 **방법 B(UPDATE 마이그레이션)** 선택 — 23개 멱등 UPDATE + 146 시드 동기화 동시 달성, 수동 편집 오탈자·누락 위험 회피.
+- **승인 알림 클릭 이동**: 사양서 §2 「활동관리 또는 응모이력」 중 **응모이력**(else 분기, ref_table='applications'). 활동관리 직행은 campaign_id 추가 조회 필요해 보류.
+- **미착수**: 18세 항목(정정 4)은 연령 정책 PR과 함께, stage 보강(리뷰어/기프팅 구분)은 별도 판단 — 1차는 문구 유형 구분으로 대응(사양서 §5-2/5-3 그대로).
 
 ### 구현 중 기술 결정 사항
-- 마이그레이션 번호: 155 (154_application_approved_notification.sql 다음)
-- 모든 UPDATE는 `WHERE id = '<고정 UUID>'::uuid` 조건으로 멱등 보장
-- `body_ja`(일본어) 변경은 정정2·정정3·정정5·정정6 해당 노드(Q1-1-c, Q3-1, Q3-2, Q3-3, Q4-1)만 — 나머지 노드는 일본어 문구 정정 없이 한국어 줄바꿈만
-- 트리거·행 단위 보안 정책(RLS)·함수 변경 없음(데이터 UPDATE 만)
+- 승인 알림(154): 신규 트리거 대신 기존 `record_application_status_event()` 확장(동일 `AFTER UPDATE OF status` 이벤트 트리거 중복 회피). SECURITY DEFINER + search_path=''. 중복 방지 = 미읽음 `application_approved` 존재 시 INSERT 스킵.
+- FAQ(155): 모든 UPDATE `WHERE id='<UUID>'` 멱등. `body_ja` 정정은 정정2·3·5·6 노드(Q1-1-c·Q3-1·Q3-2·Q3-3·Q4-1)만, 나머지는 `body_ko` 줄바꿈만. 트리거·RLS·함수 변경 없음(데이터 UPDATE).
+- 운영 미배포(FAQ·메시지 보류) — 운영 DB 적용은 본체 출시 시 154·155 함께.
+
+### 절차 이슈 (기록 — 재발 방지)
+- **PR 2(cfdf75d)가 reviewer 검수·feature 브랜치·PR 없이 dev 에 직접 커밋·push됨**(reverb-supabase-expert). 사후 reverb-reviewer 검수 GO(내용 문제 없음)로 유지. supabase-expert 는 마이그레이션 파일 작성까지만 하고 커밋/push 는 메인 세션이 reviewer 게이트 후 진행하는 흐름을 지킬 것.
