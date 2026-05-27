@@ -24,6 +24,7 @@ let _faqApp = null;          // 현재 응모건
 let _faqCamp = null;         // 현재 캠페인
 let _faqLoaded = false;      // 이번 모달에서 노드 로드 완료 여부
 let _faqOverlayOpen = false; // 「よくある質問」 전체 보기 오버레이 열림 여부
+let _faqNav = [];            // FAQ 오버레이 화면 히스토리 스택 [{view:'cats'|'category'|'item', id?}] — 뒤로가기 경로 추적
 
 // 봇 안내 카드 추천 질문 최대 개수
 const FAQ_SUGGEST_MAX = 4;
@@ -551,6 +552,7 @@ function _faqBotCardHtml() {
 // 제안 카드 클릭 → 전체 보기 오버레이를 열고 그 답변을 바로 표시
 function openFaqItemById(itemId) {
   if (!_faqOverlayOpen) openFaqOverlay(/*skipRender*/ true);
+  _faqNav = []; // 게이트(봇 카드) 추천에서 직접 진입 → 스택 초기화 (뒤로 = 오버레이 닫고 메시지 화면으로)
   openFaqItem(itemId);
 }
 
@@ -567,6 +569,18 @@ function closeFaqOverlay() {
   const ov = $('msgFaqTree');
   if (ov) { ov.style.display = 'none'; ov.innerHTML = ''; }
   _faqOverlayOpen = false;
+  _faqNav = [];
+}
+
+// FAQ 오버레이 뒤로가기 — 히스토리 스택 기준 "직전에 본 화면"으로.
+//   스택이 비면(게이트에서 바로 진입한 경우) 오버레이를 닫아 메시지 화면으로 복귀.
+function faqBack() {
+  _faqNav.pop(); // 현재 화면 제거
+  const prev = _faqNav[_faqNav.length - 1];
+  if (!prev) { closeFaqOverlay(); return; }
+  if (prev.view === 'cats') renderFaqCategories({ noPush: true });
+  else if (prev.view === 'category') openFaqCategory(prev.id, { noPush: true });
+  else if (prev.view === 'item') openFaqItem(prev.id, { noPush: true });
 }
 
 // HTML 「よくある質問」 버튼 onclick — 토글
@@ -591,9 +605,10 @@ function _faqSortNodes(arr) {
 }
 
 // 카테고리 칩 목록 렌더 (1단)
-function renderFaqCategories() {
+function renderFaqCategories(opts) {
   const tree = $('msgFaqTree');
   if (!tree) return;
+  if (!opts || !opts.noPush) _faqNav = [{ view: 'cats' }];
   const cats = _faqSortNodes(_faqNodes.filter(n => n.kind === 'category' && !n.parent_id));
   if (!cats.length) {
     tree.innerHTML = `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`;
@@ -622,16 +637,17 @@ function _faqOverlayHeaderHtml(title) {
 }
 
 // 카테고리 선택 → 질문 목록 (2단)
-function openFaqCategory(catId) {
+function openFaqCategory(catId, opts) {
   const tree = $('msgFaqTree');
   const cat = _faqNodes.find(n => n.id === catId);
   if (!tree || !cat) return;
+  if (!opts || !opts.noPush) _faqNav.push({ view: 'category', id: catId });
   const items = _faqSortNodes(_faqNodes.filter(n => n.kind === 'item' && n.parent_id === catId));
   const list = items.map(q =>
     `<button type="button" class="msg-faq-q" onclick="openFaqItem('${esc(q.id)}')">${esc(_faqPick(q, 'label'))}<span class="material-icons-round notranslate" translate="no">chevron_right</span></button>`
   ).join('');
   tree.innerHTML = `
-    <button type="button" class="msg-faq-back" onclick="renderFaqCategories()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.backToCategories'))}</button>
+    <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.backToCategories'))}</button>
     <div class="msg-faq-cat-title">${esc(_faqPick(cat, 'label'))}</div>
     <div class="msg-faq-qlist">${list || `<div class="msg-empty">${esc(t('messaging.faq.unavailable'))}</div>`}</div>
     <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
@@ -640,7 +656,7 @@ function openFaqCategory(catId) {
 }
 
 // 질문 선택 → 답변 카드 또는 분기(자식 item) 또는 바로 직접 문의(handoff)
-function openFaqItem(itemId) {
+function openFaqItem(itemId, opts) {
   const tree = $('msgFaqTree');
   const node = _faqNodes.find(n => n.id === itemId);
   if (!tree || !node) return;
@@ -651,6 +667,9 @@ function openFaqItem(itemId) {
     return;
   }
 
+  // 화면 히스토리 스택에 기록 (뒤로가기 경로 추적)
+  if (!opts || !opts.noPush) _faqNav.push({ view: 'item', id: itemId });
+
   // 자식 item 을 가진 분기 노드(예: Q1-1)는 하위 펼침
   const children = _faqSortNodes(_faqNodes.filter(n => n.kind === 'item' && n.parent_id === itemId));
   if (children.length) {
@@ -659,7 +678,7 @@ function openFaqItem(itemId) {
     ).join('');
     const parentCatId = node.parent_id;
     tree.innerHTML = `
-      <button type="button" class="msg-faq-back" onclick="openFaqCategory('${esc(parentCatId)}')"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
+      <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
       <div class="msg-faq-cat-title">${esc(_faqPick(node, 'label'))}</div>
       <div class="msg-faq-qlist">${list}</div>
       <button type="button" class="msg-faq-contact-link" onclick="faqStartDirectContact(null)">${esc(t('messaging.faq.contactBtn'))}</button>
@@ -678,15 +697,8 @@ function openFaqItem(itemId) {
     const actLabel = _faqPick(node, 'action_label') || t('messaging.statusLine.goBtn');
     actionBtn = `<button type="button" class="msg-faq-action-btn" onclick="faqNavigate('${esc(node.action_target)}')"><span class="material-icons-round notranslate" translate="no">open_in_new</span>${esc(actLabel)}</button>`;
   }
-  const parentCatId = node.parent_id;
-  // 부모가 분기 노드일 수도(자식 item) — 뒤로 시 부모 카테고리/분기로
-  const parent = _faqNodes.find(n => n.id === parentCatId);
-  const backFn = parent && parent.kind === 'item'
-    ? `openFaqItem('${esc(parentCatId)}')`
-    : `openFaqCategory('${esc(parentCatId)}')`;
-
   tree.innerHTML = `
-    <button type="button" class="msg-faq-back" onclick="${backFn}"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
+    <button type="button" class="msg-faq-back" onclick="faqBack()"><span class="material-icons-round notranslate" translate="no">arrow_back</span>${esc(t('messaging.faq.back'))}</button>
     <div class="msg-faq-answer">
       <div class="msg-faq-answer-q">${esc(_faqPick(node, 'label'))}</div>
       <div class="msg-faq-answer-body">${bodyHtml}</div>
