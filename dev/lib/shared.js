@@ -574,11 +574,14 @@ function openPolicyNoticeLegal() {
   if (typeof openLegalPage === 'function') openLegalPage('privacy');
 }
 
-// 홈 상단 배너 — 홈 진입 시(navigate 'home') 호출. 닫기는 이번 방문만 숨김(부활).
+// 홈 상단 배너 — fixed 오버레이라 홈에서만 노출. 닫기는 이번 방문만 숨김(부활).
+//   홈 여부를 함수 자체에서 판정 → 로그인 직후·초기 로드 등 navigate 미경유 호출에서도 타 페이지 노출 방지.
 function renderPolicyNoticeBanner() {
   const wrap = document.getElementById('policyNoticeBannerWrap');
   if (!wrap) return;
-  const show = currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
+  const h = location.hash;
+  const isHome = (h === '' || h === '#' || h === '#home');
+  const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
   if (!show) { wrap.style.display = 'none'; return; }
   const textEl = document.getElementById('policyNoticeBannerText');
   if (textEl) textEl.textContent = t('policyNotice.banner');
