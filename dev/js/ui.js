@@ -726,13 +726,8 @@ function buildLegalContent(kind) {
       <p>REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。</p>
     `;
   }
-  if (kind === 'terms' || kind === 'privacy') {
-    return `
-      <p>${kind==='terms'?'利用規約':'個人情報処理方針'}の日本語版は現在準備中です。</p>
-      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a>）までお問い合わせください。</p>
-      <p style="font-size:11px;color:var(--muted);margin-top:18px">施行予定日: 2026年5月1日</p>
-    `;
-  }
+  // terms·privacy 는 별도 페이지(#page-legal, openLegalPage/legal.js)로 표시.
+  // 과거 모달 placeholder 분기는 제거됨 — about(회사정보)만 모달 사용.
   return '';
 }
 
