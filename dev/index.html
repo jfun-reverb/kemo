@@ -384,8 +384,8 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px">@reverb_jp をフォロー →</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
           </div>
         </div>
         <!-- LINE 카드 -->
@@ -395,9 +395,9 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px">Reverbチャンネル登録はRequiredです <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
+            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>
       </div>
@@ -407,17 +407,17 @@ window._supabaseLoaded = false;
   <!-- ── FOOTER ── -->
   <footer class="site-footer">
     <div class="container">
-      <div class="footer-brand">株式会社ジェイファン</div>
+      <div class="footer-brand" data-i18n="footer.companyName">株式会社ジェイファン</div>
       <dl class="footer-info">
-        <div><dt>会社名</dt><dd>株式会社ジェイファン</dd></div>
-        <div><dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd></div>
-        <div><dt>代表者</dt><dd>ジュ・ヒョンホ</dd></div>
-        <div><dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd></div>
+        <div><dt data-i18n="footer.companyLabel">会社名</dt><dd data-i18n="footer.companyName">株式会社ジェイファン</dd></div>
+        <div><dt data-i18n="footer.locationLabel">所在地</dt><dd data-i18n="footer.locationValue">ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd></div>
+        <div><dt data-i18n="footer.representativeLabel">代表者</dt><dd data-i18n="footer.representativeValue">ジュ・ヒョンホ</dd></div>
+        <div><dt data-i18n="footer.contactLabel">お問い合わせ</dt><dd><span data-i18n="footer.officialLine">公式LINE</span> <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd></div>
       </dl>
       <div class="footer-links">
-        <a href="#about" onclick="event.preventDefault();openLegalModal('about')">会社紹介</a>
-        <a href="#terms" onclick="event.preventDefault();openLegalPage('terms','ja')">利用規約</a>
-        <a href="#privacy" onclick="event.preventDefault();openLegalPage('privacy','ja')">個人情報処理方針</a>
+        <a href="#about" onclick="event.preventDefault();openLegalModal('about')" data-i18n="legal.about">会社紹介</a>
+        <a href="#terms" onclick="event.preventDefault();openLegalPage('terms')" data-i18n="legal.termsTitle">利用規約</a>
+        <a href="#privacy" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a>
       </div>
       <div class="footer-sns">
         <a href="https://www.instagram.com/reverb_jp" target="_blank" rel="noopener" aria-label="Instagram">
@@ -488,8 +488,8 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px">@reverb_jp をフォロー →</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
           </div>
         </div>
         <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
@@ -498,9 +498,9 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録はRequiredです <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>
       </div>
