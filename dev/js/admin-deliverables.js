@@ -217,14 +217,14 @@ async function renderDeliverablesList() {
     const s = g.result ? g.result.status : 'none';
     return resultStatusVals.includes(s);
   });
+  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   if (search) filtered = filtered.filter(g => {
     const inf = g.influencer || {};
     const camp = g.campaign || {};
-    const n = (inf.name || '') + ' ' + (inf.name_kana || '') + ' ' + (inf.email || '');
-    return n.toLowerCase().includes(search)
-      || (camp.title || '').toLowerCase().includes(search)
-      || (camp.brand || '').toLowerCase().includes(search)
-      || (camp.campaign_no || '').toLowerCase().includes(search);
+    return matchSearchTokens(search, [
+      inf.name, inf.name_kana, inf.email,
+      camp.title, camp.brand, camp.campaign_no,
+    ]);
   });
 
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivCampMulti'], 'delivSearch');
