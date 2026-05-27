@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779877582';
+  var CURRENT_BUILD = 'v1779877931';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1750,7 +1750,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-27 19:26 · e63e4b4</span>
+          <span class="admin-build-text">2026-05-27 19:32 · 3e7c446</span>
         </div>
       </div>
     </aside>
@@ -7893,9 +7893,13 @@ function getLookupLabelsJoined(kind, csv, sep, lang) {
   return csv.split(',').map(s => s.trim()).filter(Boolean)
     .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
-// 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
-function getRecruitTypeLabelJa(t) {
-  return t==='monitor'?'レビュアー':t==='gifting'?'ギフティング':t==='visit'?'訪問':'';
+// 모집 타입 라벨 (인플루언서 페이지 — 현재 언어 i18n. 함수명은 레거시 유지, 관리자는 getRecruitTypeBadgeKo 별도)
+function getRecruitTypeLabelJa(rt) {
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드 i18n 미포함 방어
+  const key = rt === 'monitor' ? 'campaigns.typeMonitor'
+            : rt === 'gifting' ? 'campaigns.typeGifting'
+            : rt === 'visit'   ? 'campaigns.typeVisit' : null;
+  return key ? _t(key) : '';
 }
 function getRecruitTypeBadgeKo(t) {
   if (t==='monitor') return '<span class="badge badge-blue">리뷰어</span>';
