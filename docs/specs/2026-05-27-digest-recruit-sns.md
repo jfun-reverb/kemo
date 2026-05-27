@@ -148,7 +148,8 @@ interface InfluencerRow {
 ## 구현 결과
 
 **구현일:** 2026-05-27
-**관련 커밋:** feature/digest-recruit-sns (PR dev)
+**관련 커밋:** feature/digest-recruit-sns (dev PR #297)
+**배포 상태:** 개발 Edge Function 배포 완료 + **운영 Edge Function 배포 완료**(twofagomeizrtkwlhsuv, 2026-05-27). DB 변경 없어 마이그레이션 불필요. 운영 main 코드 미머지(Edge Function deploy 로만 반영 — 보류 기능 회피). **검증 대기**: 다음 관리자 일일 다이제스트 자동 발송(KST 매일 09:00, 첫 적용 2026-05-28 목)에서 신청자 SNS 칸의 모집채널 기준 아이디+팔로워 표시 확인.
 
 ### 초안 대비 변경 사항
 - 추가된 것: 없음 (초안대로 구현 — 인터페이스 2개 확장 + 헬퍼 1개 + 쿼리 2곳 + 호출부 4곳)

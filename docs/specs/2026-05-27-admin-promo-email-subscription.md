@@ -99,7 +99,8 @@
 ## 구현 결과
 
 **구현일:** 2026-05-27
-**관련 커밋:** feature/admin-promo-email (PR 1 마이그레이션 152 #298 dev 머지 / PR 2 Edge Function)
+**관련 커밋:** PR 1 마이그레이션 152 (dev #298) / PR 2 Edge Function (dev #300)
+**배포 상태:** 개발 적용 완료(152 SQL + Edge Function 배포 + 함수 스모크) + **운영 적용 완료**(2026-05-27): 운영 DB(twofagomeizrtkwlhsuv) 152 SQL Editor 실행 + 시드 4행 확인 + 함수 스모크(D-1 3건 반환 정상) + Edge Function `notify-campaign-promo-digest` 운영 배포. 운영 main 코드 미머지(Edge Function deploy + 운영 SQL 로만 반영 — 보류 기능 회피). **검증 대기**: 다음 캠페인 홍보 메일 자동 발송(KST 월·목 09:00, 첫 적용 2026-05-28 목)에서 `campaign_promo` 토글 켠 관리자에게 관리자 홍보 메일 도착 확인.
 
 ### 초안 대비 변경 사항
 - 추가된 것: 관리자 전용 메인 틀 `campaign-promo-digest.admin.html` 신규 (docs 원본 + sync 매핑 + templates.ts 인라인). 한국어 머리말·제목·푸터 + 일본어 카드. 수신거부 링크 없음(관리자는 메일 설정에서 끔 안내).
@@ -113,4 +114,4 @@
 - 관리자 본문은 `renderSection`/`renderCampaignCard` 재사용(token="" — 클릭 추적 안 함).
 - `get_subscribed_admin_emails` 반환 `TABLE(email text)` → `adminEmails: string[]` 타입 명시 + `filter((e): e is string => e.length>0)` 로 deno check 통과.
 - 개발 DB 적용: 152 SQL Editor 실행 + 시드 4행 확인 + 함수 스모크(빈 풀 정상 반환) 완료. 개발 Edge Function 배포 = 환경 동기화(발송 테스트는 정책상 운영에서).
-- 운영 적용(PR 3): dev→main + 운영 DB 152 + 운영 Edge Function 배포 + 관리자 본인 메일 수동 검증 — 사용자 확인 후.
+- 운영 적용(PR 3, 2026-05-27 완료): **전체 dev→main 머지 없이** 운영 DB 152 SQL Editor + 운영 Edge Function deploy 로만 반영(보류 기능 main 머지 회피 — [[project_pending_features_prod_deploy]] 전체 머지 시 코드 형상 일치). 발송 검증은 정책상 수동 강제 발송 대신 다음 정기 자동 발송(목 09:00) 모니터링으로 대체 — 비정기 수동 호출 시 인플루언서 대량 발송 위험 때문.
