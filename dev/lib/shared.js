@@ -613,3 +613,26 @@ function dismissPolicyNoticeBanner() {
 // 배너 「자세히 보기」 → 요약 배너에서 전체 내용(팝업) 재오픈.
 //   seen 플래그 무관(의도): 자동 1회 팝업만 제한하고, 배너 수동 재오픈은 시행일까지 몇 번이든 허용.
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
+
+// ══════════════════════════════════════
+// 캠페인 상태 표시 라벨 (관리자 — closed 를 submission_end 경과로 「모집마감」↔「종료」 구분)
+//   status 값은 그대로, 화면 라벨만 분기 (DB 변경·신규 상태·전이 없음).
+//   사양서 docs/specs/2026-05-27-campaign-status-label.md
+// ══════════════════════════════════════
+function campaignStatusLabelKey(camp) {
+  const s = camp && camp.status;
+  if (s === 'closed') {
+    const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
+    if (sub && Date.now() > sub) return 'closed_done';   // 결과물 제출 마감 경과 — 활동 완전 종료
+    return 'closed_recruit';                             // 모집만 마감, 제출 진행 중(노출 유지)
+  }
+  return s; // draft / scheduled / active / expired
+}
+const CAMPAIGN_STATUS_LABEL = {
+  draft: '준비', scheduled: '모집예정', active: '모집중',
+  closed_recruit: '모집마감', closed_done: '종료', expired: '노출종료'
+};
+const CAMPAIGN_STATUS_BADGE_CLASS = {
+  draft: 'badge-gray', scheduled: 'badge-blue', active: 'badge-green',
+  closed_recruit: 'badge-pink', closed_done: 'badge-done', expired: 'badge-expired'
+};

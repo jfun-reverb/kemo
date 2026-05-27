@@ -261,7 +261,7 @@ function initMultiFilters() {
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => filterAdminCampaigns());
   createMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'종료'},{value:'expired',label:'노출마감'}
+    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'모집마감·종료'},{value:'expired',label:'노출종료'}
   ], () => filterAdminCampaigns());
   // 신청관리
   createMultiFilter('appTypeMulti', '전체 타입', [
