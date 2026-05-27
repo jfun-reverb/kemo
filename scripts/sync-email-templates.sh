@@ -34,7 +34,7 @@ SYNC_GROUPS=(
   "notify-influencer-daily-digest|influencer-daily-digest.html,influencer-daily-digest.row-received.html,influencer-daily-digest.row-approved.html,influencer-daily-digest.row-rejected.html,influencer-daily-digest.row-deadline.html"
   "notify-application-received-admin-daily|application-received-admin-daily.html,application-received-admin-daily.row.html"
   "notify-admin-daily-digest|admin-daily-digest.html,admin-daily-digest.section.html,admin-daily-digest.row-received.html,admin-daily-digest.row-cancelled.html,admin-daily-digest.row-submitted.html,admin-daily-digest.row-reprocessed.html"
-  "notify-campaign-promo-digest|campaign-promo-digest.html,campaign-promo-digest.section.html,campaign-promo-digest.row-campaign.html"
+  "notify-campaign-promo-digest|campaign-promo-digest.html,campaign-promo-digest.section.html,campaign-promo-digest.row-campaign.html,campaign-promo-digest.admin.html"
 )
 
 if [[ ! -d "$SRC_DIR" ]]; then
