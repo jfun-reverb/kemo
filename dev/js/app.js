@@ -184,7 +184,10 @@ function setupPTR() {
   if (appShell.dataset.ptrBound === '1') return;
   appShell.dataset.ptrBound = '1';
 
-  const PTR_BLOCKLIST = ['page-login','page-signup','page-forgot','page-reset-pw'];
+  // page-messages 는 스크롤이 페이지가 아니라 내부 #msgModalThread 에서 일어나 page.scrollTop 이
+  //   항상 0 → PTR 이 "최상단"으로 오인해 이전 메시지 스크롤 중 새로고침이 발동. 헤더 새로고침 버튼이
+  //   있으므로 PTR 비활성 (2026-05-27).
+  const PTR_BLOCKLIST = ['page-login','page-signup','page-forgot','page-reset-pw','page-messages'];
   const RESISTANCE = 0.5;     // 당기는 거리에 0.5 곱해 자연스러운 저항감
   const TRIGGER_AT = 90;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
                               // — 실제 손가락 이동 거리 약 180px
