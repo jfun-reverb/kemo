@@ -561,11 +561,28 @@ function openPolicyNoticeModal() {
   modal.classList.add('on');
 }
 
-// 닫으면 다시 안 뜨도록 기록 (1회 제한)
+// 닫으면 자동 팝업이 다시 안 뜨도록 기록 (헤더 ×·배경 클릭 — 이번 닫기. 배너는 노출 종료일까지 유지)
 function closePolicyNotice() {
   const modal = document.getElementById('policyNoticeModal');
   if (modal) modal.classList.remove('on');
   try { localStorage.setItem(_policyNoticeSeenKey(), '1'); } catch (e) {}
+}
+
+// 「다시 보지 않기」 — 팝업 + 헤더 배너(토스트) 모두 영구 종료(이 공지 한정).
+//   seen(자동 팝업 차단) + dismissed(배너 영구 비노출) 둘 다 기록.
+function _policyNoticeDismissedKey() { return _policyNoticeSeenKey() + '.dismissed'; }
+function _isPolicyNoticeDismissed() {
+  try { return localStorage.getItem(_policyNoticeDismissedKey()) === '1'; } catch (e) { return false; }
+}
+function neverShowPolicyNotice() {
+  try {
+    localStorage.setItem(_policyNoticeSeenKey(), '1');
+    localStorage.setItem(_policyNoticeDismissedKey(), '1');
+  } catch (e) {}
+  const modal = document.getElementById('policyNoticeModal');
+  if (modal) modal.classList.remove('on');
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (wrap) wrap.style.display = 'none';
 }
 
 // 팝업 「자세히 보기」 → 팝업 닫고(본 것으로 기록) 개인정보처리방침 전문 페이지로
@@ -581,7 +598,7 @@ function renderPolicyNoticeBanner() {
   if (!wrap) return;
   const h = location.hash;
   const isHome = (h === '' || h === '#' || h === '#home');
-  const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
+  const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed && !_isPolicyNoticeDismissed();
   if (!show) { wrap.style.display = 'none'; return; }
   const textEl = document.getElementById('policyNoticeBannerText');
   if (textEl) textEl.textContent = t('policyNotice.banner');
