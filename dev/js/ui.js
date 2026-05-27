@@ -698,7 +698,8 @@ function closeLoginPrompt(e) {
 
 // ── 회사정보 / 이용약관 / 개인정보 모달 ──
 function openLegalModal(kind) {
-  const titles = {about:'会社紹介', terms:'利用規約', privacy:'個人情報処理方針'};
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드엔 i18n 미포함 → 방어
+  const titles = {about: _t('legal.about'), terms: _t('legal.termsTitle'), privacy: _t('legal.privacyTitle')};
   const $t = document.getElementById('legalTitle');
   const $b = document.getElementById('legalBody');
   const $m = document.getElementById('legalModal');
@@ -714,16 +715,17 @@ function closeLegalModal() {
   document.body.style.overflow = '';
 }
 function buildLegalContent(kind) {
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드엔 i18n 미포함 → 방어
   if (kind === 'about') {
     return `
-      <h3>会社情報</h3>
+      <h3>${esc(_t('footer.aboutHeading'))}</h3>
       <dl>
-        <dt>会社名</dt><dd>株式会社ジェイファン（JFUN Corp.）</dd>
-        <dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd>
-        <dt>代表者</dt><dd>ジュ・ヒョンホ</dd>
-        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd>
+        <dt>${esc(_t('footer.companyLabel'))}</dt><dd>${esc(_t('footer.companyName'))}（JFUN Corp.）</dd>
+        <dt>${esc(_t('footer.locationLabel'))}</dt><dd>${esc(_t('footer.locationValue'))}</dd>
+        <dt>${esc(_t('footer.representativeLabel'))}</dt><dd>${esc(_t('footer.representativeValue'))}</dd>
+        <dt>${esc(_t('footer.contactLabel'))}</dt><dd>${esc(_t('footer.officialLine'))} <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd>
       </dl>
-      <p>REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。</p>
+      <p>${esc(_t('footer.aboutText'))}</p>
     `;
   }
   // terms·privacy 는 별도 페이지(#page-legal, openLegalPage/legal.js)로 표시.

@@ -303,6 +303,20 @@ window.I18N_KO = {
     about: '회사 소개',
   },
 
+  // 푸터 회사 정보
+  footer: {
+    aboutHeading: '회사 정보',
+    companyLabel: '회사명',
+    locationLabel: '소재지',
+    representativeLabel: '대표자',
+    contactLabel: '문의',
+    companyName: '주식회사 제이펀',
+    locationValue: '서울특별시 금천구 가산디지털1로 128 STX V타워 1201호',
+    representativeValue: '주현호',
+    officialLine: '공식 LINE',
+    aboutText: 'REVERB는 일본에서 활동하는 인플루언서와 한국 인기 K브랜드를 잇는 체험형 플랫폼입니다.',
+  },
+
   detail: {
     recruitType: '모집 타입',
     recruitPeriod: '모집 기간',

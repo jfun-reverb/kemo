@@ -315,6 +315,20 @@ window.I18N_JA = {
     about: '会社紹介',
   },
 
+  // 푸터 회사 정보
+  footer: {
+    aboutHeading: '会社情報',
+    companyLabel: '会社名',
+    locationLabel: '所在地',
+    representativeLabel: '代表者',
+    contactLabel: 'お問い合わせ',
+    companyName: '株式会社ジェイファン',
+    locationValue: 'ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号',
+    representativeValue: 'ジュ・ヒョンホ',
+    officialLine: '公式LINE',
+    aboutText: 'REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。',
+  },
+
   // 캠페인 상세
   detail: {
     recruitType: '募集タイプ',
