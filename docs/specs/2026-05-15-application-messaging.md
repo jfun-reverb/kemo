@@ -1394,3 +1394,28 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 
 ### PR 3~5
 (미진행 — PR 3 일괄 발송 / PR 4 메일 지연 큐 / PR 5 LINE 안내 + 약관 D-7 + 운영 배포)
+
+---
+
+## 2026-05-27 — 메시지 화면 UI 개선·버그수정 (개발서버 검증, 운영 보류 유지)
+
+> 개발서버(dev)에서 발견·수정. 전부 dev 반영 완료, reviewer GO + qa(가능분) PASS. 운영 배포는 메시지 본체(약관 통지)와 함께. FAQ 관련은 `2026-05-21-message-faq.md` 기능의 인플 화면 부분.
+
+| # | 수정 | 파일 | 내용 |
+|---|---|---|---|
+| 1 | 받은편지함 캠페인명 `(캠페인)` 누락 | admin-messaging.js | 메시지 탭 단독 진입 시 전역 `allCampaigns` 캐시가 비어 fallback → `refreshInboxData`에서 스레드 campaign_id 중 캐시 미스가 있으면 `fetchCampaigns()` 1회 재로드 |
+| 2 | FAQ 오버레이 뒤로가기 오작동 | messaging.js | 고정 부모 계층 뒤로 → 화면 히스토리 스택 `_faqNav` 도입 + `faqBack()`. 게이트(봇카드) 추천 직접 진입 시 스택 비워 뒤로=메시지 화면 복귀, 전체보기 드릴다운은 한 단계씩 |
+| 3 | 대화 영역 협소(키보드 시 눌림) | messaging.js, mypage.css, index.html | 입력창 `rows 2→1`+자동확장(최대120px), 운영팀 안내 입력창 위 **고정 배너 `#msgPendingNotice` → 대화 맨아래 인라인 `.msg-pending-inline`**, 상태줄 슬림 |
+| 4 | 이전 메시지 스크롤 중 새로고침(PTR) 발동 | app.js | PTR이 `page.scrollTop`을 보는데 메시지는 내부 `#msgModalThread` 스크롤이라 page는 항상 0 → `PTR_BLOCKLIST`에 `page-messages` 추가(헤더 새로고침 버튼 있음) |
+| 5 | 키보드 등장 시 화면 깜빡임 | app.js (**전역 공통**) | `adjustHeight`가 visualViewport resize/scroll마다 동기 리플로우 → **rAF throttle + 값 실제 변경 시에만 적용** + `Math.round`(iOS 소수점 노이즈 제거) |
+| 6 | '화면 열기' 버튼 삭제 + 상태줄 추가 슬림 | messaging.js, mypage.css, index.html | `renderAppStatusLine` navBtn·미사용 `FAQ_STATUS_NAV` 상수·`.msg-status-nav` CSS 제거. status-line `padding 7→5px·13→12px`. viewport `interactive-widget=resizes-content` 추가(키보드 점프 개선 시도) |
+| 7 | 키보드 올라올 때 마지막 메시지 안 보임(중간 노출) | app.js | `adjustHeight` rAF 콜백에서 활성 페이지가 `page-messages`면 `msgModalThread.scrollTop = scrollHeight`(최하단=마지막 메시지 유지) |
+
+### 미해결 — 키보드 등장 시 화면 "올라갔다 툭" 점프
+- iOS Safari `position:fixed` 레이아웃 + 키보드 등장 시 브라우저가 화면을 강제로 올렸다 재배치하는 **iOS 자체 동작**. 웹 코드로 완전 제거 어려움.
+- 시도·실패: `interactive-widget=resizes-content`(iOS 버전/Safari 미적용), `window.scrollTo(0,0)`(body `overflow:hidden`이라 window.scrollY 항상 0 → 무용 + iOS 간헐 상황 역효과 위험으로 **제거**, reviewer Critical).
+- 다음 후보: `appShell`의 `top` 처리(offsetTop 적용) 방식 변경. 단 전역 회귀 위험 + 효과 불확실 → 실기기 디버깅 필요한 별도 작업.
+
+### 운영 배포 메모
+- **5·7(키보드 깜빡임 throttle·thread 최하단)은 메시지와 무관한 공통 키보드 로직(app.js)** → 운영 적용 가치 있음. 단 dev→main 전체 머지는 보류기능 동반이라 **분리 배포** 필요(`project_pending_features_prod_deploy` 패턴). 사용자 개발서버 확인 후 결정 대기.
+- 1·2·3·4·6은 메시지/FAQ 기능 일부라 메시지 본체 운영 배포 시 함께.
