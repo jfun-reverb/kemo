@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779817177';
+  var CURRENT_BUILD = 'v1779846517';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1522,7 +1522,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-27 02:39 · a484efc</span>
+          <span class="admin-build-text">2026-05-27 10:48 · bac48e1</span>
         </div>
       </div>
     </aside>
@@ -4098,6 +4098,17 @@ function renderRich(el, raw) {
 // ══════════════════════════════════════
 // SNS 핸들 추출 / URL 생성
 // ══════════════════════════════════════
+// 관리자 목록 검색 공통 매칭 — 검색어를 공백(반각·전각 U+3000·연속)으로 나눈 각 단어가
+// 검색 대상 필드들에 모두 포함되면 true. 단어 순서·공백 종류 무관.
+// 일본어 제목의 전각 공백과 붙여넣은 반각 공백이 달라도 검색되도록 한다.
+// searchVal 은 호출 측에서 trim().toLowerCase() 한 값을 넘긴다.
+function matchSearchTokens(searchVal, fields) {
+  const tokens = (searchVal || '').split(/[\s　]+/).filter(Boolean);
+  if (!tokens.length) return true;
+  const haystack = fields.map(v => (v || '').toLowerCase()).join(' ');
+  return tokens.every(tok => haystack.includes(tok));
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {
@@ -11727,9 +11738,12 @@ async function loadAdminCampaigns(useCache) {
   const statusVals = getMultiFilterValues('campStatusMulti');
   if (statusVals.length) camps = camps.filter(c => statusVals.includes(c.status));
 
-  // 검색 필터
+  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
-  if (searchVal) camps = camps.filter(c => (c.title||'').toLowerCase().includes(searchVal) || (c.brand||'').toLowerCase().includes(searchVal) || (c.brand_ko||'').toLowerCase().includes(searchVal) || (c.product||'').toLowerCase().includes(searchVal) || (c.product_ko||'').toLowerCase().includes(searchVal) || (c.campaign_no||'').toLowerCase().includes(searchVal));
+  if (searchVal) {
+    camps = camps.filter(c => matchSearchTokens(searchVal,
+      [c.title, c.brand, c.brand_ko, c.product, c.product_ko, c.campaign_no]));
+  }
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
 
@@ -13903,15 +13917,15 @@ async function loadCampApplicants() {
   if (filter) apps = apps.filter(a=>a.status===filter);
   if (searchQ) {
     const users = await fetchInfluencers();
+    // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
     apps = apps.filter(a => {
       const u = users.find(x => x.email === a.user_email) || {};
-      const bag = [
+      return matchSearchTokens(searchQ, [
         a.user_name, a.user_email,
         u.name_kanji, u.name, u.name_kana,
         a.ig_id, a.user_ig,
         u.ig, u.x, u.tiktok, u.youtube,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return bag.includes(searchQ);
+      ]);
     });
   }
   const approved = apps.filter(a=>a.status==='approved').length;
@@ -14088,14 +14102,11 @@ function renderInfluencersPane(users) {
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
-  const matchSearch = (u) => {
-    if (!searchQ) return true;
-    const bag = [
-      u.name_kanji, u.name, u.name_kana, u.email,
-      u.ig, u.x, u.tiktok, u.youtube,
-    ].filter(Boolean).join(' ').toLowerCase();
-    return bag.includes(searchQ);
-  };
+  // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
+  const matchSearch = (u) => matchSearchTokens(searchQ, [
+    u.name_kanji, u.name, u.name_kana, u.email,
+    u.ig, u.x, u.tiktok, u.youtube,
+  ]);
   const filtered = users.filter(u => {
     if (verifiedSel === 'verified' && !u.is_verified) return false;
     if (verifiedSel === 'unverified' && u.is_verified) return false;
@@ -15029,21 +15040,15 @@ async function renderAppCampList() {
   const campFilterVals = getMultiFilterValues('appCampMulti');
   if (campFilterVals.length) apps = apps.filter(a => campFilterVals.includes(a.campaign_id));
 
-  // 검색 필터
+  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   if (searchVal) {
     apps = apps.filter(a => {
       const camp = camps.find(c => c.id === a.campaign_id) || {};
-      return (camp.title||'').toLowerCase().includes(searchVal)
-        || (camp.brand||'').toLowerCase().includes(searchVal)
-        || (camp.brand_ko||'').toLowerCase().includes(searchVal)
-        || (camp.product||'').toLowerCase().includes(searchVal)
-        || (camp.product_ko||'').toLowerCase().includes(searchVal)
-        || (camp.campaign_no||'').toLowerCase().includes(searchVal)
-        || (a.user_name||'').toLowerCase().includes(searchVal)
-        || (a.user_email||'').toLowerCase().includes(searchVal)
-        || (a.cancel_reason||'').toLowerCase().includes(searchVal)
-        || (a.cancel_reason_code||'').toLowerCase().includes(searchVal);
+      return matchSearchTokens(searchVal, [
+        camp.title, camp.brand, camp.brand_ko, camp.product, camp.product_ko, camp.campaign_no,
+        a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code,
+      ]);
     });
   }
 
@@ -17960,14 +17965,14 @@ async function renderDeliverablesList() {
     const s = g.result ? g.result.status : 'none';
     return resultStatusVals.includes(s);
   });
+  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   if (search) filtered = filtered.filter(g => {
     const inf = g.influencer || {};
     const camp = g.campaign || {};
-    const n = (inf.name || '') + ' ' + (inf.name_kana || '') + ' ' + (inf.email || '');
-    return n.toLowerCase().includes(search)
-      || (camp.title || '').toLowerCase().includes(search)
-      || (camp.brand || '').toLowerCase().includes(search)
-      || (camp.campaign_no || '').toLowerCase().includes(search);
+    return matchSearchTokens(search, [
+      inf.name, inf.name_kana, inf.email,
+      camp.title, camp.brand, camp.campaign_no,
+    ]);
   });
 
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivCampMulti'], 'delivSearch');
