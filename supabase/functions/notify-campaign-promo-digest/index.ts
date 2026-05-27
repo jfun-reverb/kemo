@@ -468,6 +468,82 @@ function renderMailBody(args: {
 }
 
 // ──────────────────────────────────────────────────────────────────
+// 관리자용 홍보 메일 본문 렌더 (관리자 1명당 1통, 그날 캠페인 풀 전체)
+//   인플 본문과 달리 개인화 인사·수신거부·클릭 추적 토큰 없음.
+//   섹션·카드 렌더 헬퍼는 인플 것 재사용 (token 은 빈 문자열 — 추적 안 함).
+//   머리말·제목·푸터는 한국어, 카드 본문은 원본 일본어.
+// ──────────────────────────────────────────────────────────────────
+function renderAdminPromoMailBody(args: {
+  newCampaignIds: string[];
+  newTotalCount: number;
+  d1CampaignIds: string[];
+  d1TotalCount: number;
+  campaignMap: Map<string, CampaignRow>;
+  approvedMap: Map<string, number>;
+  publicAppUrl: string;
+  todayKst: string;
+}): { html: string; subject: string; text: string } {
+  const mainTpl = loadTemplate("campaign-promo-digest.admin");
+  const sectionTpl = loadTemplate("campaign-promo-digest.section");
+  const rowTpl = loadTemplate("campaign-promo-digest.row-campaign");
+
+  const newSectionHtml = renderSection({
+    sectionTpl, rowTpl,
+    title: "新着キャンペーン",
+    color: "#C8789C",
+    campaignIds: args.newCampaignIds,
+    totalCount: args.newTotalCount,
+    campaignMap: args.campaignMap,
+    approvedMap: args.approvedMap,
+    token: "",
+    publicAppUrl: args.publicAppUrl,
+    todayKst: args.todayKst,
+    showD1Chip: false,
+  });
+
+  const deadlineSectionHtml = renderSection({
+    sectionTpl, rowTpl,
+    title: "締切間近キャンペーン",
+    color: "#E8344E",
+    campaignIds: args.d1CampaignIds,
+    totalCount: args.d1TotalCount,
+    campaignMap: args.campaignMap,
+    approvedMap: args.approvedMap,
+    token: "",
+    publicAppUrl: args.publicAppUrl,
+    todayKst: args.todayKst,
+    showD1Chip: true,
+  });
+
+  const html = render(mainTpl, {
+    new_count: String(args.newTotalCount),
+    d1_count: String(args.d1TotalCount),
+    new_section_html: newSectionHtml,
+    deadline_section_html: deadlineSectionHtml,
+  });
+
+  const n = args.newTotalCount;
+  const d = args.d1TotalCount;
+  let subject: string;
+  if (n > 0 && d > 0) {
+    subject = `[REVERB JP 관리자] 오늘의 홍보 캠페인 신규${n}건 / 마감임박${d}건`;
+  } else if (n > 0) {
+    subject = `[REVERB JP 관리자] 오늘의 홍보 캠페인 신규${n}건`;
+  } else {
+    subject = `[REVERB JP 관리자] 오늘의 홍보 캠페인 마감임박${d}건`;
+  }
+
+  const textLines = [
+    "오늘 인플루언서에게 발송된 홍보 대상 캠페인입니다 (운영 참고용).",
+  ];
+  if (n > 0) textLines.push(`· 신규: ${n}건`);
+  if (d > 0) textLines.push(`· 마감임박(D-1): ${d}건`);
+  const text = textLines.join("\n");
+
+  return { html, subject, text };
+}
+
+// ──────────────────────────────────────────────────────────────────
 // 자기재호출 (fire-and-forget)
 // ──────────────────────────────────────────────────────────────────
 function selfInvokeChained(args: {
@@ -676,6 +752,105 @@ Deno.serve(async (req: Request) => {
   };
 
   try {
+    const publicAppUrl = env("PUBLIC_APP_URL", "https://globalreverb.com").replace(/\/$/, "");
+
+    // ── 1.5 관리자 발송 (첫 배치만) ──
+    //   사양서 §2-3: 인플 대상자가 0명이어도 그날 캠페인 풀이 있으면 관리자는 받아야 하므로
+    //   인플 0건 조기 종료(아래 ── 3)보다 앞에 둔다. 관리자는 자격 매칭 없이 풀 전체를 받는다.
+    //   실패는 자체 try/catch 로 격리 — 인플 발송을 막지 않는다.
+    if (isFirstBatch) {
+      try {
+        const { data: poolData, error: poolErr } = await sb.rpc("get_promo_digest_campaign_pool", {
+          p_digest_date: digestDate,
+        });
+        if (poolErr) throw poolErr;
+        const pool = (poolData?.[0]) as {
+          new_campaign_ids: string[]; new_total_count: number;
+          deadline_d1_campaign_ids: string[]; deadline_d1_total_count: number;
+        } | undefined;
+        const adminNewIds = pool?.new_campaign_ids ?? [];
+        const adminD1Ids = pool?.deadline_d1_campaign_ids ?? [];
+
+        if (adminNewIds.length === 0 && adminD1Ids.length === 0) {
+          console.log("[notify-campaign-promo] admin: empty pool, skip");
+        } else {
+          // 관리자 수신자 (campaign_promo 구독자)
+          const { data: adminData, error: adminErr } = await sb.rpc("get_subscribed_admin_emails", {
+            p_mail_kind: "campaign_promo",
+          });
+          if (adminErr) throw adminErr;
+          const adminEmails: string[] = [...new Set<string>(
+            ((adminData || []) as { email: string | null }[])
+              .map((r) => (r.email || "").trim())
+              .filter((e): e is string => e.length > 0),
+          )];
+
+          if (adminEmails.length === 0) {
+            console.log("[notify-campaign-promo] admin: no subscribers, skip");
+          } else {
+            // 캠페인 상세 + monitor 승인 수 (관리자 풀 전용 조회 — 인플 로직과 독립)
+            const adminAllIds = [...new Set([...adminNewIds, ...adminD1Ids])];
+            const adminCampaignMap = new Map<string, CampaignRow>();
+            if (adminAllIds.length > 0) {
+              const { data: camps, error: campErr } = await sb
+                .from("campaigns")
+                .select("id, campaign_no, title, brand, brand_ko, recruit_type, deadline, slots, reward, product_price, reward_note, img1")
+                .in("id", adminAllIds);
+              if (campErr) console.warn("[notify-campaign-promo] admin campaign lookup failed", campErr);
+              else (camps || []).forEach((c: CampaignRow) => adminCampaignMap.set(c.id, c));
+            }
+            const adminMonitorIds = [...adminCampaignMap.values()]
+              .filter((c) => c.recruit_type === "monitor").map((c) => c.id);
+            const adminApprovedMap = new Map<string, number>();
+            if (adminMonitorIds.length > 0) {
+              const { data: apps } = await sb
+                .from("applications")
+                .select("campaign_id")
+                .in("campaign_id", adminMonitorIds)
+                .eq("status", "approved");
+              (apps || []).forEach((row: { campaign_id: string }) => {
+                adminApprovedMap.set(row.campaign_id, (adminApprovedMap.get(row.campaign_id) || 0) + 1);
+              });
+            }
+
+            const adminMail = renderAdminPromoMailBody({
+              newCampaignIds: adminNewIds,
+              newTotalCount: pool?.new_total_count ?? adminNewIds.length,
+              d1CampaignIds: adminD1Ids,
+              d1TotalCount: pool?.deadline_d1_total_count ?? adminD1Ids.length,
+              campaignMap: adminCampaignMap,
+              approvedMap: adminApprovedMap,
+              publicAppUrl,
+              todayKst,
+            });
+
+            // 관리자 1명당 1통 분리 발송 (To 헤더에 다른 관리자 노출 안 됨)
+            let adminSent = 0, adminFailed = 0;
+            for (const email of adminEmails) {
+              try {
+                await sendBrevoEmail({
+                  to: [{ email, name: "관리자" }],
+                  subject: adminMail.subject,
+                  htmlContent: adminMail.html,
+                  textContent: adminMail.text,
+                });
+                adminSent++;
+              } catch (e) {
+                adminFailed++;
+                console.error("[notify-campaign-promo] admin send failed", email, (e as Error).message);
+              }
+            }
+            console.log("[notify-campaign-promo] admin sent", {
+              recipients: adminEmails.length, sent: adminSent, failed: adminFailed,
+            });
+          }
+        }
+      } catch (e) {
+        // 관리자 발송 실패는 인플 발송을 막지 않음 (격리)
+        console.error("[notify-campaign-promo] admin block failed (isolated)", (e as Error).message);
+      }
+    }
+
     // ── 2. 발송 대상자 조회 (RPC) ──
     //    RPC 가 이미 발송 완료 인플 자동 제외 → chained 재호출 시 잔여 인플만 반환
     const { data: targetsData, error: rpcError } = await sb.rpc("get_promo_digest_targets", {
@@ -762,8 +937,6 @@ Deno.serve(async (req: Request) => {
     console.log("[notify-campaign-promo] batch", {
       batchOffset, batchSize: batchTargets.length, hasMore, total: targets.length,
     });
-
-    const publicAppUrl = env("PUBLIC_APP_URL", "https://globalreverb.com").replace(/\/$/, "");
 
     // ── 6. 직렬 발송 ──
     let batchSent = 0, batchSkipped = 0, batchFailed = 0;
