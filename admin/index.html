@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779870929';
+  var CURRENT_BUILD = 'v1779872029';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -352,8 +352,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
 .policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
-/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글) */
-#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B}
+/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글 + 홈 스크롤 컨테이너 상단 sticky 고정) */
+#policyNoticeBannerWrap{position:sticky;top:0;z-index:50;background:#E5E5E5;padding:10px 14px}
+#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 #policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
 #policyNoticeBanner .pn-banner-text{flex:1}
 #policyNoticeBanner .pn-banner-detail{flex-shrink:0;background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap}
@@ -1748,7 +1749,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-27 17:35 · d3e0eec</span>
+          <span class="admin-build-text">2026-05-27 17:53 · 9bd4e13</span>
         </div>
       </div>
     </aside>
@@ -4916,20 +4917,21 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
-// 정책 변경 사전 통지 (메시지 기능 약관 개정, 2026-05-27)
-//   - 로그인 1회 팝업 + 홈 상단 배너(시행일까지 노출). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
-//   - 시행일 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
+// 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
+//   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
+//   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  id: 'message2026',            // localStorage 키 식별자 (다음 통지와 충돌 방지)
-  effectiveDate: '2026-07-01',  // 시행일 = 통지 게시일 + 30일. ※ 운영 배포 직전 확정값으로 1줄 수정
+  id: 'inquiry2026',            // localStorage 키 식별자. 이전 'message2026'에서 변경 → 이미 본 사람도 새 안내 재노출
+  effectiveDate: '2026-05-27',  // 시행일(완료형 표기용). ※ 운영 출시일로 1줄 수정
+  noticeUntil: '2026-06-10',    // 노출 종료일 = 시행일 + 14일. 이 날 0시(KST)부터 자동 비노출. ※ 운영 출시 시 함께 조정
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
-// 시행일 미경과(오늘 KST < 시행일)일 때만 노출
+// 출시 안내: 노출 종료일(noticeUntil) 전까지만 노출. 시행일은 완료형 표기용이라 판정에 안 씀
 function _policyNoticeActive() {
-  try { return Date.now() < new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00').getTime(); }
+  try { return Date.now() < new Date(POLICY_NOTICE.noticeUntil + 'T00:00:00+09:00').getTime(); }
   catch (e) { return false; }
 }
 function _policyNoticeSeenKey() { return 'reverb.policyNotice.' + POLICY_NOTICE.id; }
@@ -4948,7 +4950,7 @@ function maybeShowPolicyNotice() {
   const modal = document.getElementById('policyNoticeModal');
   if (!modal) return;                                  // 관리자 페이지 등 마크업 없으면 무시
   if (!currentUser || currentUser._isAdmin) return;    // 로그인 회원만 (관리자 제외)
-  if (!_policyNoticeActive()) return;                  // 시행일 경과 시 침묵
+  if (!_policyNoticeActive()) return;                  // 노출 종료일 경과 시 침묵
   let seen = false;
   try { seen = localStorage.getItem(_policyNoticeSeenKey()) === '1'; } catch (e) {}
   if (seen) return;                                    // 이미 본 사람 (1회 제한)

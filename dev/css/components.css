@@ -243,8 +243,9 @@ textarea.form-input{resize:vertical;min-height:80px}
 .policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
 .policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
-/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글) */
-#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B}
+/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글 + 홈 스크롤 컨테이너 상단 sticky 고정) */
+#policyNoticeBannerWrap{position:sticky;top:0;z-index:50;background:#E5E5E5;padding:10px 14px}
+#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 #policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
 #policyNoticeBanner .pn-banner-text{flex:1}
 #policyNoticeBanner .pn-banner-detail{flex-shrink:0;background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap}

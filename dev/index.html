@@ -104,7 +104,7 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
-<!-- ── 정책 변경 사전 통지 팝업 (메시지 기능 약관 개정, 시행일 경과 시 자동 비노출) ── -->
+<!-- ── 정책 변경 통지 팝업 (문의하기 기능 추가·약관 개정, 노출 종료일 경과 시 자동 비노출) ── -->
 <div id="policyNoticeModal" onclick="if(event.target===this)closePolicyNotice()">
   <div class="legal-sheet">
     <div class="legal-head">
@@ -308,8 +308,8 @@ window._supabaseLoaded = false;
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
 <div id="page-home" class="page">
-  <!-- 정책 변경 사전 통지 배너 (로그인 회원·시행일까지·닫으면 이번 방문만 숨김) -->
-  <div class="container" id="policyNoticeBannerWrap" style="display:none;padding-top:14px;padding-bottom:0">
+  <!-- 문의하기 출시 안내 배너 (로그인 회원·노출 종료일까지·닫으면 이번 방문만 숨김). 홈 스크롤 시 상단 고정(sticky) -->
+  <div id="policyNoticeBannerWrap" style="display:none">
     <div id="policyNoticeBanner">
       <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
       <span class="pn-banner-text" id="policyNoticeBannerText"></span>
