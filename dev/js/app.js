@@ -88,7 +88,7 @@ function navigate(page, pushHistory) {
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
-  if (pageName === 'home') loadCampaigns();
+  if (pageName === 'home') { loadCampaigns(); if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner(); }
   if (pageName === 'campaigns') loadCampaignsPage();
   if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
@@ -341,6 +341,9 @@ async function init() {
           updateGnb();
           // 로그인 시 알림 폴링 시작
           if (typeof startNotifPolling === 'function') startNotifPolling();
+          // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
+          if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
+          if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -416,6 +419,11 @@ async function init() {
   // 초기화 완료 — cloak 해제
   const cloak = document.getElementById('app-cloak');
   if (cloak) cloak.remove();
+
+  // 정책 변경 사전 통지 — 이미 로그인된 채 진입한 회원에게 1회 팝업 + 홈 배너 갱신.
+  //   초기 해시 #home 은 navigate('home') 미경유(replaceState 만)라 배너 훅이 안 걸려 여기서 직접 호출.
+  if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
+  if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
 }
 
 document.addEventListener('DOMContentLoaded', async function() {

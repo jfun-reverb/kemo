@@ -104,6 +104,21 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- ── 정책 변경 사전 통지 팝업 (메시지 기능 약관 개정, 시행일 경과 시 자동 비노출) ── -->
+<div id="policyNoticeModal" onclick="if(event.target===this)closePolicyNotice()">
+  <div class="legal-sheet">
+    <div class="legal-head">
+      <div class="legal-title" id="policyNoticeTitle"></div>
+      <button class="legal-close" onclick="closePolicyNotice()" aria-label="閉じる">×</button>
+    </div>
+    <div class="legal-body" id="policyNoticeBody"></div>
+    <div class="policy-notice-actions">
+      <button class="policy-notice-detail" onclick="openPolicyNoticeLegal()" data-i18n="policyNotice.detailBtn"></button>
+      <button class="policy-notice-confirm" onclick="closePolicyNotice()" data-i18n="policyNotice.closeBtn"></button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 알럿 모달 ── -->
 <div class="modal-overlay" id="alertModal" style="z-index:600">
   <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;text-align:center">
@@ -293,6 +308,15 @@ window._supabaseLoaded = false;
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
 <div id="page-home" class="page">
+  <!-- 정책 변경 사전 통지 배너 (로그인 회원·시행일까지·닫으면 이번 방문만 숨김) -->
+  <div class="container" id="policyNoticeBannerWrap" style="display:none;padding-top:14px;padding-bottom:0">
+    <div id="policyNoticeBanner">
+      <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
+      <span class="pn-banner-text" id="policyNoticeBannerText"></span>
+      <button class="pn-banner-detail" onclick="openPolicyNoticeFromBanner()" data-i18n="policyNotice.detailBtn"></button>
+      <button class="pn-banner-close" onclick="dismissPolicyNoticeBanner()" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
+    </div>
+  </div>
   <section class="hero">
     <div class="container hero-inner">
       <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
