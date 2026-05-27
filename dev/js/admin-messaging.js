@@ -94,6 +94,11 @@ async function refreshInboxData() {
       appIds.length ? fetchMessagePreviews(appIds) : Promise.resolve(new Map()),
     ]);
     _inboxInflMap = inflMap; _inboxPreviewMap = prevMap;
+    // 캠페인 캐시 보강 — 메시지 탭 단독 진입·새로고침 시 전역 allCampaigns 가 비어
+    // 캠페인명이 '(캠페인)'으로 떨어지는 문제 방지. 스레드의 campaign_id 중 캐시에
+    // 없는 게 하나라도 있으면(빈 캐시·신규 캠페인 누락) 1회 재로드.
+    const needCampaignCache = _inboxThreads.some(t => t.campaign_id && !inboxCampaignById(t.campaign_id));
+    if (needCampaignCache) allCampaigns = await fetchCampaigns();
   } catch (e) {
     console.error('[refreshInboxData]', e);
     _inboxThreads = []; _inboxUnreadMap = new Map(); _inboxInflMap = {}; _inboxPreviewMap = new Map();
