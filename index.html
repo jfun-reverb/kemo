@@ -1131,6 +1131,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
           <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
           <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
+          <button id="campPageStatus-ended" class="chip" onclick="setCampPageStatus('ended',this)" data-i18n="campaigns.statusEnded">終了</button>
         </div>
       </div>
     </div>
@@ -2482,16 +2483,18 @@ function dismissPolicyNoticeBanner() {
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
 
 // ══════════════════════════════════════
-// 캠페인 상태 표시 라벨 (관리자 — closed 를 submission_end 경과로 「모집마감」↔「종료」 구분)
-//   status 값은 그대로, 화면 라벨만 분기 (DB 변경·신규 상태·전이 없음).
-//   사양서 docs/specs/2026-05-27-campaign-status-label.md
+// 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
+//   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
+//   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
+//   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
 // ══════════════════════════════════════
 function campaignStatusLabelKey(camp) {
   const s = camp && camp.status;
+  if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
   if (s === 'closed') {
     const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
-    if (sub && Date.now() > sub) return 'closed_done';   // 결과물 제출 마감 경과 — 활동 완전 종료
-    return 'closed_recruit';                             // 모집만 마감, 제출 진행 중(노출 유지)
+    if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
+    return 'closed_recruit';                               // 모집마감(제출 진행 중)
   }
   return s; // draft / scheduled / active / expired
 }
@@ -2574,6 +2577,7 @@ window.I18N_JA = {
     statusActive: '募集中',
     statusScheduled: '近日公開',
     statusClosed: '募集締切',
+    statusEnded: '終了',
     searchPlaceholder: 'キャンペーン名・ブランド検索',
   },
 
@@ -2583,6 +2587,7 @@ window.I18N_JA = {
       active: '募集中',
       scheduled: '近日公開',
       closed: '締切',
+      ended: '終了',
       draft: '準備中',
       expired: '掲載終了',
     },
@@ -2853,6 +2858,7 @@ window.I18N_JA = {
     reapplyBtn: '再応募する',
     reapplyNotice: '以前キャンセルされた応募があります。再度応募しますか？',
     closedBtn: '募集締切',
+    endedBtn: '終了',
     fullBtn: '募集終了',
     appliedBtn: '応募済み',
     manageBtn: '活動管理',
@@ -2900,6 +2906,7 @@ window.I18N_JA = {
     yourFollowers: 'あなたの {channel} フォロワー数:',
     scheduledOverlay: '近日公開',
     closedOverlay: '募集締切',
+    endedOverlay: '終了',
     fullOverlay: '募集終了',
     applyComplete: '応募完了！結果はメールでお知らせします',
   },
@@ -3226,6 +3233,7 @@ window.I18N_KO = {
     statusActive: '모집중',
     statusScheduled: '모집예정',
     statusClosed: '모집완료',
+    statusEnded: '종료',
     searchPlaceholder: '캠페인명·브랜드 검색',
   },
 
@@ -3234,6 +3242,7 @@ window.I18N_KO = {
       active: '모집중',
       scheduled: '공개 예정',
       closed: '마감',
+      ended: '종료',
       draft: '준비중',
       expired: '노출마감',
     },
@@ -3495,6 +3504,7 @@ window.I18N_KO = {
     reapplyBtn: '재응모',
     reapplyNotice: '이전에 취소한 응모가 있습니다. 다시 응모하시겠습니까?',
     closedBtn: '모집 마감',
+    endedBtn: '종료',
     fullBtn: '모집 종료',
     appliedBtn: '응모 완료',
     manageBtn: '활동 관리',
@@ -3542,6 +3552,7 @@ window.I18N_KO = {
     yourFollowers: '당신의 {channel} 팔로워 수:',
     scheduledOverlay: '공개 예정',
     closedOverlay: '모집 마감',
+    endedOverlay: '종료',
     fullOverlay: '모집 종료',
     applyComplete: '응모 완료! 결과는 메일로 안내드립니다',
   },
@@ -4027,6 +4038,7 @@ async function fetchCampaigns() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
@@ -4067,6 +4079,7 @@ async function fetchCampaignsForAdminList() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
     return DEMO_CAMPAIGNS.slice();
@@ -4147,6 +4160,29 @@ async function autoCloseCampaigns(camps) {
   return camps;
 }
 
+// 결과물 제출 마감(submission_end) 경과한 closed(모집마감) 캠페인을 ended(종료)로 자동 전이.
+//   autoCloseCampaigns 와 동일 방식(목록 조회 시 전이). status 만 변경 — 락 트리거(156)는 보호컬럼 미변경이라 통과.
+async function autoEndCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const toEnd = camps.filter(c => {
+    if (c.status !== 'closed' || !c.submission_end) return false;
+    const se = new Date(c.submission_end);
+    se.setHours(23, 59, 59, 999);
+    return now > se;
+  });
+  if (!toEnd.length) return camps;
+  const results = await Promise.allSettled(toEnd.map(c => {
+    c.status = 'ended';
+    return db.from('campaigns').update({ status: 'ended' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoEndCampaigns 실패:', toEnd[i]?.id, r.reason);
+  });
+  return camps;
+}
+
 // 캠페인 「노출」 토글 — 사양서 2026-05-13-campaign-visibility-toggle.md
 //   OFF 클릭 시: status = 'expired' (수동 노출마감, 인플 화면 완전 비노출)
 //   ON  클릭 시: status 를 날짜 기준 자동 재계산 (scheduled/active/closed)
@@ -4161,7 +4197,7 @@ async function toggleCampaignVisibility(campId, visible) {
     return 'expired';
   }
   // ON: 현재 row 조회 후 날짜 기반 상태 계산
-  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline').eq('id', campId).maybeSingle();
+  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline, submission_end').eq('id', campId).maybeSingle();
   if (e1) throw e1;
   if (!row) return null;
   const newStatus = computeCampaignStatus(row);
@@ -4172,7 +4208,8 @@ async function toggleCampaignVisibility(campId, visible) {
   return newStatus;
 }
 
-// 날짜 기준 캠페인 상태 자동 계산 — recruit_start 미도래=scheduled / deadline 경과=closed / 그 외=active
+// 날짜 기준 캠페인 상태 자동 계산
+//   recruit_start 미도래=scheduled / 모집 마감(deadline 경과) → 제출 마감(submission_end)까지 경과면 ended(종료), 아니면 closed(모집마감) / 그 외=active
 function computeCampaignStatus(camp) {
   const now = new Date();
   if (camp.recruit_start) {
@@ -4183,7 +4220,15 @@ function computeCampaignStatus(camp) {
   if (camp.deadline) {
     const dl = new Date(camp.deadline);
     dl.setHours(23, 59, 59, 999);
-    if (dl < now) return 'closed';
+    if (dl < now) {
+      // 모집 마감 — 결과물 제출 마감까지 지났으면 종료(ended)
+      if (camp.submission_end) {
+        const se = new Date(camp.submission_end);
+        se.setHours(23, 59, 59, 999);
+        if (se < now) return 'ended';
+      }
+      return 'closed';
+    }
   }
   return 'active';
 }
@@ -7708,10 +7753,10 @@ async function loadCampaigns() {
 }
 
 // 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
-//   scheduled / active / closed = 노출 (closed 는 募集締切 오버레이)
+//   scheduled / active / closed(모집마감) / ended(종료) = 노출 (closed=募集締切, ended=終了 오버레이)
 //   draft / expired = 비노출 (expired 는 운영자가 수동 토글 OFF 한 캠페인)
 function visibleCamps(camps) {
-  return camps.filter(c => c.status === 'active' || c.status === 'scheduled' || c.status === 'closed');
+  return camps.filter(c => c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended');
 }
 
 // 인플루언서 노출 캠페인의 정렬: 모집중(active) > 모집예정(scheduled) > 모집완료(closed)
@@ -7720,7 +7765,7 @@ function visibleCamps(camps) {
 //   2차: deadline (모집 종료일) 최신순 — recruit_start가 없을 때 fallback
 //   3차: created_at 최신순 — 둘 다 없을 때 fallback
 function sortByStatusAndDeadline(camps) {
-  const order = {active: 0, scheduled: 1, closed: 2};
+  const order = {active: 0, scheduled: 1, closed: 2, ended: 3};
   const ts = (c) => new Date(c.recruit_start || c.deadline || c.created_at || 0).getTime();
   return camps.slice().sort((a, b) => {
     const sa = order[a.status] ?? 99;
@@ -7752,7 +7797,7 @@ function buildChannelFilters(camps) {
 }
 
 // 캠페인 페이지 — 모집 유형 + 상태 + 검색 필터
-let campPageStatusFilter = 'all';   // all | active | scheduled | closed
+let campPageStatusFilter = 'all';   // all | active | scheduled | closed | ended
 let campPageSearch = '';
 
 async function loadCampaignsPage() {
@@ -7948,20 +7993,23 @@ function buildCampCards(camps) {
     const isFull = c.recruit_type === 'monitor' && (c.applied_count||0) >= c.slots;
     const isScheduled = c.status === 'scheduled';
     const isClosed = c.status === 'closed';
-    const isActive = !isFull && !isScheduled && !isClosed;
+    const isEnded = c.status === 'ended';
+    const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
+    const isActive = !isFull && !isScheduled && !isClosedLike;
     const isClickable = !isScheduled;
     const reward = c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
-    const isNew = !isScheduled && !isClosed && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
+    const isNew = !isScheduled && !isClosedLike && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
     const typeLabel = getRecruitTypeLabelJa(c.recruit_type);
-    const dimImage = isFull || isScheduled || isClosed;
+    const dimImage = isFull || isScheduled || isClosedLike;
     return `<div class="camp-card" onclick="${isClickable?'openCampaign(\''+c.id+'\')':''}" style="${!isClickable?'opacity:.85;cursor:default':''}">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
         ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
-        ${isFull&&!isScheduled&&!isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
+        ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(94,53,177,.85);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
+        ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;gap:4px">
           <span style="${isActive?'background:#E2F0E9;color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px':'visibility:hidden'}">${isActive?t('campaign.badgeRecruiting'):''}</span>
           ${isNew&&!isFull?`<span style="background:var(--pink);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeNew')}</span>`:''}
@@ -8539,6 +8587,7 @@ async function openCampaign(id) {
       floatApplyBtn.onclick = () => openActivityPage(_myApp.id, id, 'detail');
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='closed') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (camp.status==='ended') { floatApplyBtn.textContent=t('detail.endedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (isFull) { floatApplyBtn.textContent=t('detail.fullBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (hasCancelledHistory) {
       // 사양 §4-9: 본인이 과거 취소한 캠페인 → 「再応募する」 라벨 + 안내 박스
@@ -8549,7 +8598,7 @@ async function openCampaign(id) {
     // 재응모 안내 박스 (버튼 위에 회색 한 줄)
     const reapplyNoticeId = 'detailReapplyNotice';
     let reapplyNotice = document.getElementById(reapplyNoticeId);
-    if (hasCancelledHistory && !alreadyApplied && _myApp?.status !== 'approved' && camp.status !== 'closed' && !isFull) {
+    if (hasCancelledHistory && !alreadyApplied && _myApp?.status !== 'approved' && camp.status !== 'closed' && camp.status !== 'ended' && !isFull) {
       if (!reapplyNotice) {
         reapplyNotice = document.createElement('div');
         reapplyNotice.id = reapplyNoticeId;

@@ -258,6 +258,7 @@ async function openCampaign(id) {
       floatApplyBtn.onclick = () => openActivityPage(_myApp.id, id, 'detail');
     } else if (alreadyApplied) { floatApplyBtn.textContent=t('detail.appliedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (camp.status==='closed') { floatApplyBtn.textContent=t('detail.closedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
+    else if (camp.status==='ended') { floatApplyBtn.textContent=t('detail.endedBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (isFull) { floatApplyBtn.textContent=t('detail.fullBtn'); floatApplyBtn.disabled=true; floatApplyBtn.className='btn btn-ghost btn-sm'; floatApplyBtn.onclick=()=>handleFloatApply(); }
     else if (hasCancelledHistory) {
       // 사양 §4-9: 본인이 과거 취소한 캠페인 → 「再応募する」 라벨 + 안내 박스
@@ -268,7 +269,7 @@ async function openCampaign(id) {
     // 재응모 안내 박스 (버튼 위에 회색 한 줄)
     const reapplyNoticeId = 'detailReapplyNotice';
     let reapplyNotice = document.getElementById(reapplyNoticeId);
-    if (hasCancelledHistory && !alreadyApplied && _myApp?.status !== 'approved' && camp.status !== 'closed' && !isFull) {
+    if (hasCancelledHistory && !alreadyApplied && _myApp?.status !== 'approved' && camp.status !== 'closed' && camp.status !== 'ended' && !isFull) {
       if (!reapplyNotice) {
         reapplyNotice = document.createElement('div');
         reapplyNotice.id = reapplyNoticeId;

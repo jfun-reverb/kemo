@@ -236,14 +236,14 @@ async function loadAdminCampaigns(useCache) {
     {value:'draft',     label:'준비',     count: stCounts.draft || 0},
     {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
     {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'closed',    label:'모집마감·종료', count: stCounts.closed || 0},
+    {value:'closed',    label:'모집마감', count: stCounts.closed || 0},
+    {value:'ended',     label:'종료',     count: stCounts.ended || 0},
     {value:'expired',   label:'노출종료', count: stCounts.expired || 0},
   ], () => filterAdminCampaigns());
-  // 필터·요약은 status(closed/expired) 기준이라 closed 는 DB상 하나 → 「모집마감·종료」 묶음 표기.
-  //   목록 배지만 submission_end 경과로 「모집마감」/「종료」 동적 구분(statusBadge).
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감·종료',expired:'노출종료'};
-  // 노출 그룹(scheduled/active/closed)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
-  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',expired:'#666666'};
+  // closed(모집마감)·ended(종료)는 실제 DB 상태(마이그레이션 156)라 필터·요약·배지 모두 분리.
+  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감',ended:'종료',expired:'노출종료'};
+  // 노출 그룹(scheduled/active/closed/ended)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
+  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',ended:'#5E35B1',expired:'#666666'};
   const el = $('adminCampStatusCounts');
   if (el) el.innerHTML = Object.keys(stLabels).filter(k=>stCounts[k]).map(k =>
     `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
@@ -279,7 +279,7 @@ async function loadAdminCampaigns(useCache) {
     });
   } else if (adminCampSortKey) {
     const dir = adminCampSortDir === 'asc' ? 1 : -1;
-    const statusOrder = {draft:0,scheduled:1,active:2,closed:3,expired:4};
+    const statusOrder = {draft:0,scheduled:1,active:2,closed:3,ended:4,expired:5};
     const getVal = {
       status: c => statusOrder[c.status]??99,
       created: c => new Date(c.created_at).getTime(),
@@ -686,8 +686,8 @@ async function openEditCampaign(campId) {
 //   대상: 주의사항(caution) / 참여방법(participation) 요약 카드의 「편집」 버튼
 //   조건: status === 'closed' 또는 'expired' 일 때 비활성화 + 잠금 메시지 노출
 function applyEditFormSensitiveLocks(status) {
-  const isLocked = status === 'closed' || status === 'expired';
-  const lockLabel = status === 'expired' ? '노출마감' : '종료';
+  const isLocked = status === 'closed' || status === 'ended' || status === 'expired';
+  const lockLabel = status === 'expired' ? '노출마감' : status === 'ended' ? '종료' : '모집마감';
   ['Pset', 'Cset', 'Nset'].forEach(kind => {
     const card = $('editCamp' + kind + 'Summary');
     if (!card) return;
@@ -1766,7 +1766,7 @@ async function saveCampaignEdit() {
     let _historyAppCount = 0;
     let _historyBypassAck = false;
     let change = {cautionChanged:false, participationChanged:false, ngChanged:false, anyChanged:false};
-    if (origStatus === 'closed' || origStatus === 'expired') {
+    if (origStatus === 'closed' || origStatus === 'ended' || origStatus === 'expired') {
       delete updates.caution_set_id;
       delete updates.caution_items;
       delete updates.participation_set_id;
@@ -2298,7 +2298,8 @@ function toggleStatusDropdown(badgeEl) {
     {val:'draft',     label:'준비',     cls:'badge-gray'},
     {val:'scheduled', label:'모집예정', cls:'badge-blue'},
     {val:'active',    label:'모집중',   cls:'badge-green'},
-    {val:'closed',    label:'모집마감·종료', cls:'badge-pink'},
+    {val:'closed',    label:'모집마감', cls:'badge-pink'},
+    {val:'ended',     label:'종료',     cls:'badge-done'},
     {val:'expired',   label:'노출종료', cls:'badge-expired'}
   ];
 
@@ -3519,7 +3520,7 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
   toggle.setAttribute('aria-checked', isOff ? 'false' : 'true');
   toggle.disabled = isDraft;
   if (statusEl) {
-    var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '종료', expired: '노출마감 (수동)' };
+    var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출마감 (수동)' };
     statusEl.textContent = '상태: ' + (labels[status] || status || '미정');
     statusEl.classList.toggle('is-off', isOff);
   }
