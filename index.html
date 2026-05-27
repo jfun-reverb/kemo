@@ -6979,9 +6979,13 @@ function getLookupLabelsJoined(kind, csv, sep, lang) {
   return csv.split(',').map(s => s.trim()).filter(Boolean)
     .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
-// 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
-function getRecruitTypeLabelJa(t) {
-  return t==='monitor'?'レビュアー':t==='gifting'?'ギフティング':t==='visit'?'訪問':'';
+// 모집 타입 라벨 (인플루언서 페이지 — 현재 언어 i18n. 함수명은 레거시 유지, 관리자는 getRecruitTypeBadgeKo 별도)
+function getRecruitTypeLabelJa(rt) {
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드 i18n 미포함 방어
+  const key = rt === 'monitor' ? 'campaigns.typeMonitor'
+            : rt === 'gifting' ? 'campaigns.typeGifting'
+            : rt === 'visit'   ? 'campaigns.typeVisit' : null;
+  return key ? _t(key) : '';
 }
 function getRecruitTypeBadgeKo(t) {
   if (t==='monitor') return '<span class="badge badge-blue">리뷰어</span>';
@@ -8358,7 +8362,7 @@ async function openCampaign(id) {
           const ROW = 'display:flex;border-top:1px solid #faf5f9';
           const rows = [];
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.productName')}</div><div style="${VAL}">${esc(camp.product)||'—'}</div></div>`);
-          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const t=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)','レビュアー'],gifting:['var(--gold-l)','var(--gold)','ギフティング'],visit:['#E8F7EF','#0E7E4A','訪問']};const m=map[t];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${m[2]}</span>`:'—'})()}</div></div>`);
+          rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitType')}</div><div style="${VAL}">${(()=>{const rt=camp.recruit_type;const map={monitor:['var(--blue-l)','var(--blue)'],gifting:['var(--gold-l)','var(--gold)'],visit:['#E8F7EF','#0E7E4A']};const m=map[rt];return m?`<span style="background:${m[0]};color:${m[1]};font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">${esc(getRecruitTypeLabelJa(rt))}</span>`:'—'})()}</div></div>`);
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.channel')}</div><div style="${VAL};display:flex;gap:6px;flex-wrap:wrap;align-items:center">${(()=>{const sep = camp.channel_match === 'and' ? '&' : 'or'; return (camp.channel||'').split(',').map(s=>s.trim()).filter(Boolean).map(code=>`<span style="background:var(--light-pink);color:var(--dark-pink);font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px">${esc(getChannelLabel(code))}</span>`).join(`<span style="color:var(--muted);font-size:11px;font-weight:600">${sep}</span>`);})()}</div></div>`);
           if (camp.content_types) {
             const ctList = camp.content_types.split(',').map(c => c.trim()).filter(Boolean);

@@ -201,9 +201,13 @@ function getLookupLabelsJoined(kind, csv, sep, lang) {
   return csv.split(',').map(s => s.trim()).filter(Boolean)
     .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
-// 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
-function getRecruitTypeLabelJa(t) {
-  return t==='monitor'?'レビュアー':t==='gifting'?'ギフティング':t==='visit'?'訪問':'';
+// 모집 타입 라벨 (인플루언서 페이지 — 현재 언어 i18n. 함수명은 레거시 유지, 관리자는 getRecruitTypeBadgeKo 별도)
+function getRecruitTypeLabelJa(rt) {
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드 i18n 미포함 방어
+  const key = rt === 'monitor' ? 'campaigns.typeMonitor'
+            : rt === 'gifting' ? 'campaigns.typeGifting'
+            : rt === 'visit'   ? 'campaigns.typeVisit' : null;
+  return key ? _t(key) : '';
 }
 function getRecruitTypeBadgeKo(t) {
   if (t==='monitor') return '<span class="badge badge-blue">리뷰어</span>';
