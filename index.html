@@ -331,9 +331,10 @@ textarea.form-input{resize:vertical;min-height:80px}
 .policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
 .policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
 .policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
-/* 홈 상단 배너 (래퍼 #policyNoticeBannerWrap 가 표시 토글 + 홈 스크롤 컨테이너 상단 sticky 고정) */
-#policyNoticeBannerWrap{position:sticky;top:0;z-index:50;background:#E5E5E5;padding:10px 14px}
-#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+/* 홈 상단 배너 — GNB(.gnb height:56px) 바로 아래에 fixed 오버레이로 떠서 hero 위에 겹침(콘텐츠 안 밀림).
+   #appShell 이 transform 보유 → 자손 position:fixed 는 appShell(480px) 기준. 홈 외 페이지는 app.js navigate 에서 숨김. */
+#policyNoticeBannerWrap{position:fixed;top:56px;left:0;right:0;z-index:90;padding:10px 14px;pointer-events:none}
+#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:auto}
 #policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
 #policyNoticeBanner .pn-banner-text{flex:1}
 #policyNoticeBanner .pn-banner-detail{flex-shrink:0;background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap}
@@ -2438,11 +2439,14 @@ function openPolicyNoticeLegal() {
   if (typeof openLegalPage === 'function') openLegalPage('privacy');
 }
 
-// 홈 상단 배너 — 홈 진입 시(navigate 'home') 호출. 닫기는 이번 방문만 숨김(부활).
+// 홈 상단 배너 — fixed 오버레이라 홈에서만 노출. 닫기는 이번 방문만 숨김(부활).
+//   홈 여부를 함수 자체에서 판정 → 로그인 직후·초기 로드 등 navigate 미경유 호출에서도 타 페이지 노출 방지.
 function renderPolicyNoticeBanner() {
   const wrap = document.getElementById('policyNoticeBannerWrap');
   if (!wrap) return;
-  const show = currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
+  const h = location.hash;
+  const isHome = (h === '' || h === '#' || h === '#home');
+  const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed;
   if (!show) { wrap.style.display = 'none'; return; }
   const textEl = document.getElementById('policyNoticeBannerText');
   if (textEl) textEl.textContent = t('policyNotice.banner');
@@ -11491,6 +11495,7 @@ function navigate(page, pushHistory) {
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
   if (pageName === 'home') { loadCampaigns(); if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner(); }
+  else { const _pnb = document.getElementById('policyNoticeBannerWrap'); if (_pnb) _pnb.style.display = 'none'; }  // 배너는 fixed 오버레이 → 홈 외 페이지에선 숨김
   if (pageName === 'campaigns') loadCampaignsPage();
   if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
