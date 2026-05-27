@@ -236,10 +236,12 @@ async function loadAdminCampaigns(useCache) {
     {value:'draft',     label:'준비',     count: stCounts.draft || 0},
     {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
     {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'closed',    label:'종료',     count: stCounts.closed || 0},
-    {value:'expired',   label:'노출마감', count: stCounts.expired || 0},
+    {value:'closed',    label:'모집마감·종료', count: stCounts.closed || 0},
+    {value:'expired',   label:'노출종료', count: stCounts.expired || 0},
   ], () => filterAdminCampaigns());
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'종료',expired:'노출마감'};
+  // 필터·요약은 status(closed/expired) 기준이라 closed 는 DB상 하나 → 「모집마감·종료」 묶음 표기.
+  //   목록 배지만 submission_end 경과로 「모집마감」/「종료」 동적 구분(statusBadge).
+  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감·종료',expired:'노출종료'};
   // 노출 그룹(scheduled/active/closed)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
   const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',expired:'#666666'};
   const el = $('adminCampStatusCounts');
@@ -295,17 +297,17 @@ async function loadAdminCampaigns(useCache) {
   const isFiltered = searchVal || typeVals.length > 0 || statusVals.length > 0 || !!adminCampSortKey;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
-  const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',closed:'종료',expired:'노출마감'};
-  // 노출 그룹(scheduled/active/closed)과 비노출 그룹(draft/expired)을 색·점선으로 구분
-  //   scheduled=파랑, active=초록, closed=핑크(게시 기간 살아있는 동안 노출 중)
-  //   draft=회색+점선, expired=비노출 강조 회색+점선
-  const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',closed:'badge-pink',expired:'badge-expired'};
-  const statusBadge = s => {
-    const cls = statusBadgeClass[s]||'badge-gray';
+  // 상태 배지 — closed 는 submission_end 경과 여부로 「모집마감」/「종료」 자동 구분 (shared.js campaignStatusLabelKey)
+  //   노출 그룹(scheduled/active/closed)과 비노출 그룹(draft/expired)을 색·점선으로 구분
+  //   scheduled=파랑, active=초록, closed_recruit=핑크(모집마감·제출 진행), closed_done=남보라(활동 종료), draft/expired=회색+점선
+  const statusBadge = camp => {
+    const key = campaignStatusLabelKey(camp);
+    const cls = CAMPAIGN_STATUS_BADGE_CLASS[key] || 'badge-gray';
+    const label = CAMPAIGN_STATUS_LABEL[key] || camp.status;
     // draft만 점선 인라인 — expired는 .badge-expired 자체에 dashed 정의되어 있어 인라인 불필요
-    const dashed = s==='draft' ? 'border:1.5px dashed var(--muted);' : '';
+    const dashed = camp.status==='draft' ? 'border:1.5px dashed var(--muted);' : '';
     return `<div style="position:relative;display:inline-block">
-      <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
+      <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${label}<span style="font-size:10px;opacity:.7">▾</span></span>
     </div>`;
   };
   // 캠페인 노출 토글 (사양서 2026-05-13) — 별도 「노출」 컬럼. draft 비활성, expired=OFF, 그 외=ON
@@ -367,7 +369,7 @@ async function loadAdminCampaigns(useCache) {
           ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(ps)}</div>`:''}
         </td>`;
       })()}
-      <td style="white-space:nowrap;min-width:90px">${statusBadge(c.status)}</td>
+      <td style="white-space:nowrap;min-width:90px">${statusBadge(c)}</td>
       <td style="text-align:center;white-space:nowrap;min-width:64px">${visibilityToggle(c.status)}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
@@ -2296,8 +2298,8 @@ function toggleStatusDropdown(badgeEl) {
     {val:'draft',     label:'준비',     cls:'badge-gray'},
     {val:'scheduled', label:'모집예정', cls:'badge-blue'},
     {val:'active',    label:'모집중',   cls:'badge-green'},
-    {val:'closed',    label:'종료',     cls:'badge-pink'},
-    {val:'expired',   label:'노출마감', cls:'badge-expired'}
+    {val:'closed',    label:'모집마감·종료', cls:'badge-pink'},
+    {val:'expired',   label:'노출종료', cls:'badge-expired'}
   ];
 
   const dd = document.createElement('div');

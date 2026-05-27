@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779879509';
+  var CURRENT_BUILD = 'v1779881971';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -160,9 +160,11 @@ img{display:block;max-width:100%}
 .badge-gold{background:var(--gold-l);color:var(--gold)}
 .badge-blue{background:var(--blue-l);color:var(--blue)}
 .badge-gray{background:var(--surface-dim);color:var(--muted);border:1px solid var(--outline)}
-/* 캠페인 상태 노출 그룹용 — closed(모집 끝났지만 게시 기간 살아있어 인플루언서 화면에 노출 중) */
+/* 캠페인 상태 노출 그룹용 — closed_recruit(모집마감·결과물 제출 진행 중, 인플 화면 노출) */
 .badge-pink{background:#FFE4EC;color:#B91C5C;border:1px solid #FFB8D0}
-/* 캠페인 상태 비노출 강조 — expired(노출마감, 영구 비노출) */
+/* 캠페인 상태 — closed_done(결과물 제출 마감 경과, 활동 완전 종료. 아직 노출이나 핑크와 구분되는 남보라) */
+.badge-done{background:#EDE7F6;color:#5E35B1;border:1px solid #C9B8E8}
+/* 캠페인 상태 비노출 강조 — expired(노출종료, 영구 비노출) */
 .badge-expired{background:#EEEEEE;color:#666666;border:1.5px dashed #999999;opacity:.85}
 /* NG 사항 배지 — 진한 빨강 계열 (badge-pink 분홍과 명확히 구분, cp-sec-bg-ng 톤과 일관) */
 .badge-ng{background:#FFEBEE;color:#B71C1C;border:1px solid #EF9A9A}
@@ -1750,7 +1752,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-27 19:58 · a12c4a2</span>
+          <span class="admin-build-text">2026-05-27 20:39 · cf44b52</span>
         </div>
       </div>
     </aside>
@@ -5023,6 +5025,29 @@ function dismissPolicyNoticeBanner() {
 // 배너 「자세히 보기」 → 요약 배너에서 전체 내용(팝업) 재오픈.
 //   seen 플래그 무관(의도): 자동 1회 팝업만 제한하고, 배너 수동 재오픈은 시행일까지 몇 번이든 허용.
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
+
+// ══════════════════════════════════════
+// 캠페인 상태 표시 라벨 (관리자 — closed 를 submission_end 경과로 「모집마감」↔「종료」 구분)
+//   status 값은 그대로, 화면 라벨만 분기 (DB 변경·신규 상태·전이 없음).
+//   사양서 docs/specs/2026-05-27-campaign-status-label.md
+// ══════════════════════════════════════
+function campaignStatusLabelKey(camp) {
+  const s = camp && camp.status;
+  if (s === 'closed') {
+    const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
+    if (sub && Date.now() > sub) return 'closed_done';   // 결과물 제출 마감 경과 — 활동 완전 종료
+    return 'closed_recruit';                             // 모집만 마감, 제출 진행 중(노출 유지)
+  }
+  return s; // draft / scheduled / active / expired
+}
+const CAMPAIGN_STATUS_LABEL = {
+  draft: '준비', scheduled: '모집예정', active: '모집중',
+  closed_recruit: '모집마감', closed_done: '종료', expired: '노출종료'
+};
+const CAMPAIGN_STATUS_BADGE_CLASS = {
+  draft: 'badge-gray', scheduled: 'badge-blue', active: 'badge-green',
+  closed_recruit: 'badge-pink', closed_done: 'badge-done', expired: 'badge-expired'
+};
 
 // ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
@@ -8834,7 +8859,7 @@ function initMultiFilters() {
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => filterAdminCampaigns());
   createMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'종료'},{value:'expired',label:'노출마감'}
+    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'모집마감·종료'},{value:'expired',label:'노출종료'}
   ], () => filterAdminCampaigns());
   // 신청관리
   createMultiFilter('appTypeMulti', '전체 타입', [
@@ -20714,10 +20739,12 @@ async function loadAdminCampaigns(useCache) {
     {value:'draft',     label:'준비',     count: stCounts.draft || 0},
     {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
     {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'closed',    label:'종료',     count: stCounts.closed || 0},
-    {value:'expired',   label:'노출마감', count: stCounts.expired || 0},
+    {value:'closed',    label:'모집마감·종료', count: stCounts.closed || 0},
+    {value:'expired',   label:'노출종료', count: stCounts.expired || 0},
   ], () => filterAdminCampaigns());
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'종료',expired:'노출마감'};
+  // 필터·요약은 status(closed/expired) 기준이라 closed 는 DB상 하나 → 「모집마감·종료」 묶음 표기.
+  //   목록 배지만 submission_end 경과로 「모집마감」/「종료」 동적 구분(statusBadge).
+  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감·종료',expired:'노출종료'};
   // 노출 그룹(scheduled/active/closed)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
   const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',expired:'#666666'};
   const el = $('adminCampStatusCounts');
@@ -20773,17 +20800,17 @@ async function loadAdminCampaigns(useCache) {
   const isFiltered = searchVal || typeVals.length > 0 || statusVals.length > 0 || !!adminCampSortKey;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
-  const statusLabel = {draft:'준비',scheduled:'모집예정',active:'모집중',closed:'종료',expired:'노출마감'};
-  // 노출 그룹(scheduled/active/closed)과 비노출 그룹(draft/expired)을 색·점선으로 구분
-  //   scheduled=파랑, active=초록, closed=핑크(게시 기간 살아있는 동안 노출 중)
-  //   draft=회색+점선, expired=비노출 강조 회색+점선
-  const statusBadgeClass = {draft:'badge-gray',scheduled:'badge-blue',active:'badge-green',closed:'badge-pink',expired:'badge-expired'};
-  const statusBadge = s => {
-    const cls = statusBadgeClass[s]||'badge-gray';
+  // 상태 배지 — closed 는 submission_end 경과 여부로 「모집마감」/「종료」 자동 구분 (shared.js campaignStatusLabelKey)
+  //   노출 그룹(scheduled/active/closed)과 비노출 그룹(draft/expired)을 색·점선으로 구분
+  //   scheduled=파랑, active=초록, closed_recruit=핑크(모집마감·제출 진행), closed_done=남보라(활동 종료), draft/expired=회색+점선
+  const statusBadge = camp => {
+    const key = campaignStatusLabelKey(camp);
+    const cls = CAMPAIGN_STATUS_BADGE_CLASS[key] || 'badge-gray';
+    const label = CAMPAIGN_STATUS_LABEL[key] || camp.status;
     // draft만 점선 인라인 — expired는 .badge-expired 자체에 dashed 정의되어 있어 인라인 불필요
-    const dashed = s==='draft' ? 'border:1.5px dashed var(--muted);' : '';
+    const dashed = camp.status==='draft' ? 'border:1.5px dashed var(--muted);' : '';
     return `<div style="position:relative;display:inline-block">
-      <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${statusLabel[s]||s}<span style="font-size:10px;opacity:.7">▾</span></span>
+      <span class="badge ${cls}" style="cursor:pointer;${dashed}display:inline-flex;align-items:center;gap:3px" onclick="toggleStatusDropdown(this)">${label}<span style="font-size:10px;opacity:.7">▾</span></span>
     </div>`;
   };
   // 캠페인 노출 토글 (사양서 2026-05-13) — 별도 「노출」 컬럼. draft 비활성, expired=OFF, 그 외=ON
@@ -20845,7 +20872,7 @@ async function loadAdminCampaigns(useCache) {
           ${ps?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(ps)}</div>`:''}
         </td>`;
       })()}
-      <td style="white-space:nowrap;min-width:90px">${statusBadge(c.status)}</td>
+      <td style="white-space:nowrap;min-width:90px">${statusBadge(c)}</td>
       <td style="text-align:center;white-space:nowrap;min-width:64px">${visibilityToggle(c.status)}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
@@ -22774,8 +22801,8 @@ function toggleStatusDropdown(badgeEl) {
     {val:'draft',     label:'준비',     cls:'badge-gray'},
     {val:'scheduled', label:'모집예정', cls:'badge-blue'},
     {val:'active',    label:'모집중',   cls:'badge-green'},
-    {val:'closed',    label:'종료',     cls:'badge-pink'},
-    {val:'expired',   label:'노출마감', cls:'badge-expired'}
+    {val:'closed',    label:'모집마감·종료', cls:'badge-pink'},
+    {val:'expired',   label:'노출종료', cls:'badge-expired'}
   ];
 
   const dd = document.createElement('div');
