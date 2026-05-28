@@ -262,13 +262,38 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 
 ## 구현 결과
 
-(개발 세션이 채울 것)
-
-**구현일:**
-**관련 커밋:**
+**구현일:** 2026-05-28 (개발서버 dev 머지 완료)
+**관련 PR:**
+- PR 1 — DB + RPC + storage.js 래퍼 (#347, merge commit `7107972`)
+- 핫픽스 — `lookup_values_kind_check` 보강 (#348, merge commit `28f7406`)
+- PR 2 — 결과물 관리 페인 UI (#349, merge commit `39829ec`)
+- PR 3 — 진행 현황 마커 + 엑셀 컬럼 + 인플 화면 안내 (이 PR)
+**운영 배포:** 보류 (개발서버 검토 완료 후 사용자 결정 대기)
 
 ### 초안 대비 변경 사항
--
+
+#### 추가된 것
+- **`lookup_values_kind_check` CHECK 확장** (PR 1 핫픽스 #348) — 마이그레이션 160 본문에 `admin_proxy_reason` kind 등록 누락 → SQL Editor 첫 적용 시 23514 위반 → 섹션 1-b 신설로 DROP/ADD 패턴 보강. 멱등성 유지
+- **super_admin 전용 회수 RPC** `admin_revoke_proxy_deliverable(p_deliverable_id, p_reason)` — 사용자 결정 2026-05-28 「되돌리기 비활성 + 회수 버튼 분리」. `deliverable_events.action='admin_proxy_revoke'` audit 1건 INSERT 후 DELETE. `deliverable_events.deliverable_id ON DELETE CASCADE` 동작으로 audit 도 함께 삭제 — 운영 매뉴얼·검수 모달 안내 박스에 명시
+- **UNIQUE 사전 체크** RPC 본문 — `post` URL 중복 / `review_image` 채널 중복 시 한국어 친화 RAISE (23505)
+- **신청 상태 가드** — RPC 가 `applications.status='approved'` 만 허용 (사용자 결정. pending/rejected 신청은 모달 드롭다운에도 미노출)
+- **부분 인덱스** `idx_deliverables_proxy ON (submitted_by_admin) WHERE submitted_by_admin IS NOT NULL` — 「대리 등록만 보기」 필터·엑셀 컬럼 채움 쿼리 가속
+- **`fetchDeliverablesByCampaign` SELECT 컬럼 4종 추가** (PR 3 reviewer Critical) — camp-applicants 페인 ⊕ 마커 식별을 위해 필수
+- **`admin-deliverables.js` 인라인 `_adminDetectChannelFromUrl`** — admin 빌드에 `application.js` 미포함이라 채널 자동 판별 미러 복제
+
+#### 빠진 것 (후속 hotfix 분리)
+- **다중 캠페인 결과물 엑셀 통합 시트의 「대리 등록」 컬럼** — `dev/js/admin-excel.js` line 545~ 영역. 후속 hotfix로 분리 (시간 절약). 단일 캠페인 결과물 엑셀 W컬럼은 PR 3 에 포함
+- **monitor 그룹 시트 `_buildMonitorGroupSheet`의 「대리 등록」 컬럼** — 사양 2(다중채널 결과물) PR 4 영역. `review_image` 대리 등록 자체가 사양 2 운영 후 활성이라 우선순위 낮음. 사양 2 운영 시점에 함께 적용
+- **모달 `confirm()` / `prompt()` → `showConfirm` 교체** — PR 2 reviewer WARN 2. 회수 빈도 낮음 + UI 일관성은 후속 개선 PR로 분리
 
 ### 구현 중 기술 결정 사항
--
+
+- **마이그레이션 번호**: 사양서 작성 시 「착수 시 재확인」 명시 → 실착수 시점 159가 최신 확인 후 **160** 사용
+- **`deliverable_events.action` CHECK + `notifications.kind` CHECK 확장**을 사양서 §3 본문에는 SQL 명시 없었으나, planner 검토에서 누락 식별 → 마이그레이션 160 섹션 3·4에 DROP/ADD 패턴으로 보강
+- **`actor_id` 컬럼 명칭** — 사양서 §3-3 RPC 본문 `changed_by` 가 035 실제 컬럼명 `actor_id` 와 불일치 → 실제 컬럼명으로 보정
+- **`campaign_id`** — `deliverables.campaign_id NOT NULL` 확인 후 RPC INSERT 에 누락 없도록 `v_app_campaign_id` 변수 추가 (사양서 §3-3 본문 누락분 보완)
+- **인플 사유 메모(자유 텍스트) 미노출 정책** — 운영 내부 정보로 사양서 §6 명시. `activityProxyNoticeJa(deliverable)` 가 사유 라벨(`shipping_delay` 등 시드 4종)만 일본어로 표시. 「メモ」 필드 자체를 노출 X
+- **인플 화면 일본어 문구** — 사용자 결정 §1 표 「運営側で登録 — {사유 라벨}」 그대로
+- **사유 코드 한국어 매핑 시드 4건 인라인** — `_proxyReasonLabelKo` (admin-deliverables.js), `_excelProxyReasonKo` (admin-excel.js), `activityProxyNoticeJa` 의 `REASON_JA` (application.js) 3곳에 각각 인라인 매핑. 추후 lookup_values 에 5번째 코드 추가되면 영문 코드 폴백 (관리자가 `#lookups` 페인에서 추가하면 자동으로 본 함수에서 영문 그대로 노출 + UI 식별 가능)
+- **`admin_revoke_proxy_deliverable` audit 영구 보존 미지원** — `deliverable_events.deliverable_id ON DELETE CASCADE` 로 결과물 DELETE 시 audit 도 함께 삭제됨. 향후 영구 감사 필요 시 별도 `admin_proxy_revoke_log` audit-only 테이블 분리 권장 (현재는 운영 빈도 낮음 + 운영자 매뉴얼로 보완)
+- **개발서버 검토만 완료** — PR 1·2·3 모두 dev 머지·개발 DB 적용·스모크 완료. 운영 배포는 별도 협의 (메시지 본체 PR 5·6 보류 분과 일정 묶기 가능)
