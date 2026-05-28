@@ -487,6 +487,43 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 시트1 캠페인 정보 (기존 유지)
     _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
+    // ── monitor 다채널 캠페인은 단일 엑셀과 동일한 형식의 별도 시트로 분리 (사양 2 PR 3 단계 b)
+    //   사용자 의도: '같은 정보를 한 건만 볼지 여러 건을 볼지의 차이' — 다중도 단일 시트 형식 그대로,
+    //   다만 캠페인 N개를 한 파일에 시트로 묶음. 비monitor·monitor 채널 없음은 아래 통합 시트로 폴백.
+    var monitorMultiCamps = camps.filter(function(c) {
+      return c.recruit_type === 'monitor' && (c.channel || '').split(',').map(function(x){return x.trim();}).filter(Boolean).length > 0;
+    });
+    var monitorMultiIds = {};
+    monitorMultiCamps.forEach(function(c){ monitorMultiIds[c.id] = true; });
+    if (monitorMultiCamps.length > 0) {
+      try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
+      // 시트명 충돌 방지 — 31자 제한 + 동명이인 처리
+      var usedSheetNames = {};
+      var pickSheetName = function(c) {
+        var base = (c.campaign_no || c.title || '결과물').replace(/[\\\/\?\*\[\]:]/g, '_').substring(0, 28);
+        if (!base) base = '결과물';
+        var name = base, i = 2;
+        while (usedSheetNames[name]) { name = base.substring(0, 28 - String(i).length - 1) + '_' + i; i++; }
+        usedSheetNames[name] = true;
+        return name;
+      };
+      for (var mi = 0; mi < monitorMultiCamps.length; mi++) {
+        var mc = monitorMultiCamps[mi];
+        var mcDelivs = allDelivs.filter(function(d){ return d.campaign_id === mc.id; });
+        var mcChannels = (mc.channel || '').split(',').map(function(x){return x.trim();}).filter(Boolean);
+        await _exportCampDelivsMonitorMulti(mc, mcDelivs, usersById, mcChannels, {
+          wb: wb,
+          sheetName: pickSheetName(mc),
+          imgBuffers: imgBuffers,  // 위에서 일괄 다운로드한 버퍼 재사용
+          skipDownload: true
+        });
+      }
+    }
+
+    // 통합 시트는 monitor 다채널 외 캠페인의 결과물만 그룹핑
+    groupList = groupList.filter(function(g) { return !(g.camp && monitorMultiIds[g.camp.id]); });
+    var hasOtherCamps = groupList.length > 0;
+
     // 시트2 결과물 — 24컬럼 (캠페인 2 + 인플루언서 7 + 영수증 9 + 결과물 6)
     // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL (마이그레이션 128)
     var ws = wb.addWorksheet('결과물');
@@ -1054,23 +1091,33 @@ function _excelColLetter(n) {
 // 사양 2 PR 3 — 단일 캠페인 monitor 다채널 엑셀.
 // 결과물 6컬럼을 캠페인 채널 수만큼 N개 펼침. 헤더 3행에 채널별 그룹 헤더,
 // 본문 행 단위 = application_id, 채널별 review_image 미제출 채널은 공란.
-async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels) {
-  // ── 1) 이미지 사전 다운로드 (receipt + review_image 모두) ────────────────────
-  var imgBuffers = {};
-  await Promise.all(delivs.filter(function(d){
-    return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
-  }).map(async function(d) {
-    try {
-      var url = d.receipt_url;
-      if (url && !/^https?:\/\//.test(url) && db?.storage) {
-        var sig = await db?.storage?.from('campaign-images').createSignedUrl(url, 3600);
-        url = sig?.data?.signedUrl;
-      }
-      if (!url) return;
-      var result = await imgToJpegArrayBuffer(url, 400, 400);
-      if (result && result.buffer && result.buffer.byteLength > 0) imgBuffers[d.id] = result;
-    } catch(e) { console.warn('[excel-multi] receipt fetch failed', d.id, e); }
-  }));
+async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels, opts) {
+  // opts = { wb, sheetName, imgBuffers, skipDownload } — 다중 엑셀에서 시트 추가형으로 재사용.
+  //   wb 전달 시 자체 워크북 생성하지 않고 그 wb 에 시트 추가, 다운로드도 외부 책임.
+  //   imgBuffers 전달 시 사전 다운로드된 버퍼 재사용 (다중에서 1회 일괄 다운로드).
+  opts = opts || {};
+  var externalWb = opts.wb || null;
+  var externalSheetName = opts.sheetName || '결과물';
+  var externalImgBuffers = opts.imgBuffers || null;
+  var skipDownload = !!opts.skipDownload || !!externalWb;
+  // ── 1) 이미지 사전 다운로드 (receipt + review_image 모두) — 외부 전달 시 재사용 ─
+  var imgBuffers = externalImgBuffers || {};
+  if (!externalImgBuffers) {
+    await Promise.all(delivs.filter(function(d){
+      return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
+    }).map(async function(d) {
+      try {
+        var url = d.receipt_url;
+        if (url && !/^https?:\/\//.test(url) && db?.storage) {
+          var sig = await db?.storage?.from('campaign-images').createSignedUrl(url, 3600);
+          url = sig?.data?.signedUrl;
+        }
+        if (!url) return;
+        var result = await imgToJpegArrayBuffer(url, 400, 400);
+        if (result && result.buffer && result.buffer.byteLength > 0) imgBuffers[d.id] = result;
+      } catch(e) { console.warn('[excel-multi] receipt fetch failed', d.id, e); }
+    }));
+  }
 
   // ── 2) application_id 단위 그룹핑 — receipt + reviewByCh{channel: deliv} ─────
   var groups = {};
@@ -1106,11 +1153,13 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
   };
 
-  // ── 4) 워크북 + 헤더 3행 ─────────────────────────────────────────────────
-  var wb = new ExcelJS.Workbook();
-  wb.creator = 'REVERB JP Admin';
-  wb.created = new Date();
-  var ws = wb.addWorksheet('결과물');
+  // ── 4) 워크북 + 헤더 3행 — 외부 wb 전달 시 시트만 추가 ────────────────────
+  var wb = externalWb || new ExcelJS.Workbook();
+  if (!externalWb) {
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+  }
+  var ws = wb.addWorksheet(externalSheetName);
 
   // row 1: 캠페인 제목 머지
   ws.mergeCells('A1:' + lastColLetter + '1');
@@ -1250,7 +1299,8 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     });
   });
 
-  // ── 6) 파일 저장 ──────────────────────────────────────────────────────
+  // ── 6) 파일 저장 — skipDownload 면 시트만 빌드 후 종료 (다중 엑셀에서 사용) ──
+  if (skipDownload) return ws;
   var buffer = await wb.xlsx.writeBuffer();
   var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
