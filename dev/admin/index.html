@@ -1138,9 +1138,26 @@
             </div>
           </div>
           <div class="inbox-3pane stage-campaigns">
-            <div class="inbox-col inbox-col-camps" id="inboxCampaigns"></div>
-            <div class="inbox-col inbox-col-threads" id="inboxThreads"></div>
-            <div class="inbox-col inbox-col-view" id="inboxThreadView"></div>
+            <div class="inbox-col inbox-col-camps">
+              <div class="inbox-col-header" onclick="setInboxStageCampaigns()" title="클릭하면 캠페인 목록을 넓게 봅니다">
+                <span>캠페인</span>
+                <span class="material-icons-round notranslate inbox-col-header-icon" translate="no">unfold_more</span>
+              </div>
+              <div class="inbox-col-body" id="inboxCampaigns"></div>
+            </div>
+            <div class="inbox-col inbox-col-threads">
+              <div class="inbox-col-header" onclick="setInboxStageThreads()" title="클릭하면 대화 목록을 넓게 봅니다">
+                <span>대화 목록</span>
+                <span class="material-icons-round notranslate inbox-col-header-icon" translate="no">unfold_more</span>
+              </div>
+              <div class="inbox-col-body" id="inboxThreads"></div>
+            </div>
+            <div class="inbox-col inbox-col-view">
+              <div class="inbox-col-header inbox-col-header-static">
+                <span>대화 내용</span>
+              </div>
+              <div class="inbox-col-body" id="inboxThreadView"></div>
+            </div>
           </div>
         </div>
 
