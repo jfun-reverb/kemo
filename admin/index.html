@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779960768';
+  var CURRENT_BUILD = 'v1779964216';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1833,7 +1833,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 18:32 · 00cc4e3</span>
+          <span class="admin-build-text">2026-05-28 19:30 · 8fcce11</span>
         </div>
       </div>
     </aside>
@@ -17522,7 +17522,16 @@ function renderDeliverableEventsTimeline(events, scopeId) {
   var recent = events.slice(0, VISIBLE);
   var rest = events.slice(VISIBLE);
   var renderItem = function(e) {
-    var labelMap = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'};
+    // 마이그레이션 160·161 신규 action 코드 2종 한국어 라벨 매핑 추가
+    var labelMap = {
+      submit: '제출',
+      resubmit: '재제출',
+      approve: '승인',
+      reject: '반려',
+      revert: '되돌리기',
+      admin_proxy_submit: '관리자 대리 등록',
+      admin_proxy_revoke: '관리자 대리 등록 회수'
+    };
     var label = labelMap[e.action] || e.action;
     var transition = e.from_status
       ? ' · ' + esc(statusLabelKo(e.from_status)) + ' → ' + esc(statusLabelKo(e.to_status))
