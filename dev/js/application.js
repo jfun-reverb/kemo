@@ -584,7 +584,7 @@ async function openActivityPage(applicationId, campaignId, from) {
           <div style="font-size:36px;color:var(--muted);margin-bottom:12px"><span class="material-icons-round notranslate" translate="no" style="font-size:48px">cancel</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="appHistory.cancelBlocked.title">この応募はキャンセルされました</div>
           <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7" data-i18n="appHistory.cancelBlocked.body">応募履歴に戻る場合は下のボタンをタップ</div>
-          <button class="btn btn-primary" onclick="navigate('mypage');openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
+          <button class="btn btn-primary" onclick="navigate('mypage', false);openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
         // 페이지 헤더 + 안내. 다른 폼/섹션은 모두 가린다.
         const main = root.querySelector('.page-content') || root;
         // 기존 자식 모두 숨김 후 안내만 노출

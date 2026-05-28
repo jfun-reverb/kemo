@@ -432,11 +432,14 @@ async function toggleMarketingEmail(checked) {
   }
 }
 
-function openMypageSub(sub) {
+function openMypageSub(sub, pushHistory) {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
   if (target) target.classList.add('active');
-  history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
+  // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
+  if (pushHistory !== false) {
+    history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
+  }
 }
 
 // 마이페이지 랜딩(목차) 화면이 제거되어, 서브 화면을 닫으면 응모이력을 기본 화면으로 보여준다.

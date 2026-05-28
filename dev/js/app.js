@@ -133,7 +133,9 @@ window.addEventListener('popstate', function(e) {
   if (page === 'mypage' || page.startsWith('mypage-')) {
     navigate('mypage', false);
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
-    if (sub) openMypageSub(sub); else closeMypageSub();
+    // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
+    // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
+    if (sub) openMypageSub(sub, false); else closeMypageSub();
   } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
@@ -405,7 +407,8 @@ async function init() {
   } else if (hash && hash.startsWith('mypage-')) {
     const sub = hash.replace('mypage-','');
     navigate('mypage', false);
-    openMypageSub(sub);
+    // 새로고침 init — URL 이 이미 #mypage-sub 라 openMypageSub 의 pushState 는 동일 entry 중복.
+    openMypageSub(sub, false);
   } else if (hash && hash.startsWith('messages-')) {
     // 응모건 메시지 페이지 새로고침 복원 — openMessagesPage 가 캐시(_myApps) 보장
     const appId = hash.replace('messages-','');
@@ -413,9 +416,12 @@ async function init() {
     else navigate('mypage', false);
   } else if (hash === 'activity') {
     // 활동관리 페이지 새로고침 — _activityAppId·_activityCamp 글로벌이 NULL 이라 데이터 복원 불가.
-    // 빈 폼만 노출되어 사용자 혼란(영수증·결과물 내역 안 보임, 뒤로가기 무반응) → 응모이력으로 안전 폴백.
+    // 빈 폼·뒤로가기 회귀 → 응모이력으로 안전 폴백.
+    // history 정리: 현재 entry 의 URL/state 자체를 #mypage-applications 로 replaceState
+    // (#activity entry 가 stack 에 남으면 뒤로가기 시 또 마주침). openMypageSub 도 false 로 호출.
+    history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
     navigate('mypage', false);
-    if (typeof openMypageSub === 'function') openMypageSub('applications');
+    if (typeof openMypageSub === 'function') openMypageSub('applications', false);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
