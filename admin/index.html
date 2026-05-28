@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779941496';
+  var CURRENT_BUILD = 'v1779942828';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1752,7 +1752,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 13:11 · f28fcc5</span>
+          <span class="admin-build-text">2026-05-28 13:33 · 18deb4c</span>
         </div>
       </div>
     </aside>
@@ -16307,8 +16307,10 @@ async function renderDeliverablesList() {
     infMissingMap = await fetchInfluencersByIds(userIds);
   }
 
-  // 신청(application_id) 단위 group — 한 신청에 영수증·결과물 둘 다 묶음
-  // result 슬롯 = review_image (monitor) 또는 post (gifting/visit)
+  // 신청(application_id) 단위 group — 한 신청에 영수증·결과물 묶음
+  //   result 슬롯 = post (gifting/visit) 단일
+  //   reviewByChannel 슬롯 = monitor 캠페인의 채널별 review_image 최신 1개 매핑 ({channel_code: deliverable})
+  //   사양 §5-1 정합: 채널별 별개 결과물을 셀 안에 N개 노출 (행 분리 대신 셀 내 미니 행)
   const groups = new Map();
   const upsertGroup = (appId, camp, inf) => {
     if (!groups.has(appId)) {
@@ -16316,8 +16318,9 @@ async function renderDeliverablesList() {
         application_id: appId,
         campaign: camp || null,
         influencer: inf || null,
-        receipt: null,    // kind === 'receipt' 최신
-        result: null,     // kind === 'review_image' 또는 'post' 최신
+        receipt: null,             // kind === 'receipt' 최신
+        result: null,              // kind === 'post' 최신 (gifting/visit 전용)
+        reviewByChannel: {},       // monitor: {channel_code: review_image deliverable 최신}
         latest_submitted_at: null,
       });
     }
@@ -16332,7 +16335,13 @@ async function renderDeliverablesList() {
     const subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
       if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
-    } else if (d.kind === 'review_image' || d.kind === 'post') {
+    } else if (d.kind === 'review_image') {
+      // 채널별 최신 1개 (post_channel NULL 레거시는 무시 — grandfather)
+      if (d.post_channel) {
+        const prev = g.reviewByChannel[d.post_channel];
+        if (!prev || subAt > (prev.submitted_at || '')) g.reviewByChannel[d.post_channel] = d;
+      }
+    } else if (d.kind === 'post') {
       if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
     }
     if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
@@ -16342,6 +16351,25 @@ async function renderDeliverablesList() {
       if (groups.has(app.id)) continue;
       upsertGroup(app.id, campMap.get(app.campaign_id) || null, infMissingMap[app.user_id] || null);
     }
+  }
+
+  // monitor 신청의 「대표 결과물 상태」 계산 — 필터·정렬에서 사용
+  //   우선순위: rejected > pending > approved > none. 채널 1개라도 비완료면 그 상태.
+  //   gifting/visit 는 g.result(post) 그대로.
+  for (const g of groups.values()) {
+    const rt = g.campaign?.recruit_type;
+    if (rt !== 'monitor') continue;
+    const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+    if (channels.length === 0) {
+      g.result_status_repr = 'none';  // 채널 없는 레거시
+      continue;
+    }
+    const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
+    let repr = 'approved';
+    if (states.includes('rejected')) repr = 'rejected';
+    else if (states.includes('pending')) repr = 'pending';
+    else if (states.includes('none')) repr = 'none';
+    g.result_status_repr = repr;
   }
 
   // 옵션별 카운트 — 사용자가 「리스트에 해당하는 건수」를 미리 보고 선택할 수 있도록
@@ -16358,7 +16386,10 @@ async function renderDeliverablesList() {
     if (rt) recruitTypeCounts[rt] = (recruitTypeCounts[rt] || 0) + 1;
     const rs = g.receipt ? g.receipt.status : 'none';
     if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
-    const xs = g.result ? g.result.status : 'none';
+    // monitor: 채널별 review_image 종합 대표 상태(result_status_repr) / gifting·visit: g.result(post)
+    const xs = (rt === 'monitor')
+      ? (g.result_status_repr || 'none')
+      : (g.result ? g.result.status : 'none');
     if (xs in resultStatusCounts) resultStatusCounts[xs]++;
   }
 
@@ -16393,7 +16424,11 @@ async function renderDeliverablesList() {
     return receiptStatusVals.includes(s);
   });
   if (resultStatusVals.length > 0) filtered = filtered.filter(g => {
-    const s = g.result ? g.result.status : 'none';
+    // monitor: reviewByChannel 종합 대표 상태(g.result_status_repr) / gifting·visit: g.result(post)
+    const rt = g.campaign?.recruit_type;
+    const s = (rt === 'monitor')
+      ? (g.result_status_repr || 'none')
+      : (g.result ? g.result.status : 'none');
     return resultStatusVals.includes(s);
   });
   // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
@@ -16414,8 +16449,13 @@ async function renderDeliverablesList() {
     filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
   } else {
     filtered.sort((a, b) => {
-      const aPending = (a.receipt?.status === 'pending') || (a.result?.status === 'pending') ? 0 : 1;
-      const bPending = (b.receipt?.status === 'pending') || (b.result?.status === 'pending') ? 0 : 1;
+      // 검수대기 우선: 영수증 pending 또는 결과물 pending(monitor=대표·gifting/visit=post)
+      const resPending = (g) => {
+        const rt = g.campaign?.recruit_type;
+        return (rt === 'monitor') ? (g.result_status_repr === 'pending') : (g.result?.status === 'pending');
+      };
+      const aPending = (a.receipt?.status === 'pending') || resPending(a) ? 0 : 1;
+      const bPending = (b.receipt?.status === 'pending') || resPending(b) ? 0 : 1;
       if (aPending !== bPending) return aPending - bPending;
       return (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || '');
     });
@@ -16451,13 +16491,16 @@ function renderDelivAppRow(g) {
   const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
 
   const receiptCell = renderDelivStatusCell(g.receipt, 'receipt', rt);
-  const resultCell = renderDelivStatusCell(g.result, 'result', rt);
+  // monitor: 채널별 review_image N개 미니 행 / gifting·visit: 기존 g.result(post) 단일 셀
+  const resultCell = (rt === 'monitor')
+    ? renderDelivResultCellMonitor(g)
+    : renderDelivStatusCell(g.result, 'result', rt);
 
   // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
-  // (CLAUDE.md: monitor=영수증, gifting/visit=SNS 게시 URL)
   const useReceipt = rt === 'monitor';
+  // monitor 완료 = 영수증 승인 + 채널별 review_image 모두 승인 (대표 상태 = approved)
   const completed = useReceipt
-    ? (g.receipt?.status === 'approved' && g.result?.status === 'approved')
+    ? (g.receipt?.status === 'approved' && g.result_status_repr === 'approved')
     : (g.result?.status === 'approved');
   const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
 
@@ -16478,6 +16521,49 @@ function renderDelivAppRow(g) {
     <td>${submittedCell}</td>
     <td><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
   </tr>`;
+}
+
+// monitor 캠페인 결과물 셀 — 채널별 review_image N개 미니 행 (사양 §5-1)
+//   채널 라벨 + 상태 배지 + 썸네일(있을 때). 검수는 행 우측 「검수」 버튼으로 일괄 모달.
+//   채널 없는 레거시 monitor 캠페인은 「—」 단일 표시.
+function renderDelivResultCellMonitor(g) {
+  const camp = g.campaign || {};
+  const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+  if (channels.length === 0) {
+    return '<span style="font-size:11px;color:var(--muted)">—</span>';
+  }
+  const byCh = g.reviewByChannel || {};
+  const chLabel = function(code) {
+    return (typeof getLookupLabel === 'function')
+      ? (getLookupLabel('channel', code, 'ko') || code)
+      : code;
+  };
+  return channels.map(function(ch) {
+    const d = byCh[ch];
+    const label = '<span style="font-size:10px;font-weight:600;color:var(--ink)">' + esc(chLabel(ch)) + '</span>';
+    if (!d) {
+      return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0">'
+        + label
+        + '<span style="font-size:10px;color:var(--muted);background:#f5f5f5;padding:1px 6px;border-radius:3px">미제출</span>'
+        + '</div>';
+    }
+    let thumb = '';
+    if (d.receipt_url) {
+      const thumbUrl = (typeof imgThumb === 'function') ? imgThumb(d.receipt_url, 48, 80) : d.receipt_url;
+      thumb = '<img src="' + esc(thumbUrl) + '" data-orig="' + esc(d.receipt_url) + '" loading="lazy" decoding="async" '
+        + 'style="width:22px;height:22px;border-radius:3px;object-fit:cover;cursor:pointer;background:#f5f5f5" '
+        + 'onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" '
+        + 'onclick="event.stopPropagation();openImageLightbox(\'' + esc(d.receipt_url) + '\')">';
+    }
+    let badge;
+    if (d.status === 'approved')      badge = '<span style="font-size:10px;background:#E4F5E8;color:#2D7A3E;font-weight:600;padding:1px 6px;border-radius:3px">승인</span>';
+    else if (d.status === 'rejected') badge = '<span style="font-size:10px;background:#FFE4E4;color:#C33;font-weight:600;padding:1px 6px;border-radius:3px">비승인</span>';
+    else if (d.status === 'draft')    badge = '<span style="font-size:10px;background:#e5e7eb;color:#555;font-weight:600;padding:1px 6px;border-radius:3px">임시</span>';
+    else                              badge = '<span style="font-size:10px;background:#FFF4E4;color:#B8741A;font-weight:600;padding:1px 6px;border-radius:3px">검수대기</span>';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0">'
+      + thumb + label + badge
+      + '</div>';
+  }).join('');
 }
 
 // 영수증·결과물 셀 — slot: 'receipt' | 'result', rt: campaign.recruit_type
