@@ -996,7 +996,16 @@ function renderDeliverableEventsTimeline(events, scopeId) {
   var recent = events.slice(0, VISIBLE);
   var rest = events.slice(VISIBLE);
   var renderItem = function(e) {
-    var labelMap = {submit:'제출', resubmit:'재제출', approve:'승인', reject:'반려', revert:'되돌리기'};
+    // 마이그레이션 160·161 신규 action 코드 2종 한국어 라벨 매핑 추가
+    var labelMap = {
+      submit: '제출',
+      resubmit: '재제출',
+      approve: '승인',
+      reject: '반려',
+      revert: '되돌리기',
+      admin_proxy_submit: '관리자 대리 등록',
+      admin_proxy_revoke: '관리자 대리 등록 회수'
+    };
     var label = labelMap[e.action] || e.action;
     var transition = e.from_status
       ? ' · ' + esc(statusLabelKo(e.from_status)) + ' → ' + esc(statusLabelKo(e.to_status))
