@@ -567,8 +567,11 @@ async function openActivityPage(applicationId, campaignId, from) {
   // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
   // 진입한 경우에도 동일 분기.
   const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
-  if (typeof navigate === 'function') navigate('activity');
   if (isCancelled) {
+    // 차단 안내 패널을 보여주려면 페이지 전환 필요. 정상 진입은 함수 끝의 navigate 가 처리하므로
+    // 여기서는 cancelled 분기 한정으로만 호출 — 정상 진입에서 navigate 2회 호출되어 뒤로가기 1번이
+    // 무반응이던 회귀 해소 (2026-05-28 핫픽스).
+    if (typeof navigate === 'function') navigate('activity');
     const root = $('page-activity');
     if (root) {
       // 첫 차단 진입일 때만 안내 패널 삽입. 이후 다른 신청 열면 원래 폼이 다시 표시되어야 하므로 plain 패널만 추가.
