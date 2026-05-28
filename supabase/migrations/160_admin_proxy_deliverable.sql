@@ -94,9 +94,42 @@ COMMENT ON COLUMN public.deliverables.submitted_by_admin_at IS
 
 
 -- ============================================================
+-- 섹션 1-b: lookup_values.kind CHECK 확장 — admin_proxy_reason 추가
+--   현재 (144 누적): 11종 — channel/category/content_type/ng_item/reject_reason/
+--   blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason/
+--   message_hide_reason
+--   추가: admin_proxy_reason (12종 → 12종 + 1)
+--   DROP CONSTRAINT IF EXISTS 패턴으로 멱등성 확보 (재실행 안전)
+-- ============================================================
+
+ALTER TABLE public.lookup_values DROP CONSTRAINT IF EXISTS lookup_values_kind_check;
+
+ALTER TABLE public.lookup_values
+  ADD CONSTRAINT lookup_values_kind_check
+  CHECK (kind IN (
+    'channel',
+    'category',
+    'content_type',
+    'ng_item',
+    'reject_reason',
+    'blacklist_reason',
+    'violation_reason',
+    'caution',
+    'admin_email_kind',
+    'cancel_reason',
+    'message_hide_reason',
+    'admin_proxy_reason'
+  ));
+
+COMMENT ON COLUMN public.lookup_values.kind IS
+  'channel | category | content_type | ng_item | reject_reason | blacklist_reason | violation_reason | caution | admin_email_kind | cancel_reason | message_hide_reason | admin_proxy_reason';
+
+
+-- ============================================================
 -- 섹션 2: lookup_values — 사유 코드 4건 시드 (admin_proxy_reason kind)
 --   기준 데이터 관리 페인(#lookups)에서 운영자가 추가·수정 가능.
 --   ON CONFLICT (kind, code) DO NOTHING — 재실행 안전
+--   섹션 1-b 의 CHECK 확장이 선행되어야 INSERT 가능
 -- ============================================================
 
 INSERT INTO public.lookup_values (kind, code, name_ko, name_ja, sort_order, active)
