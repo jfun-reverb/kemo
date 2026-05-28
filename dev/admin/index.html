@@ -1036,6 +1036,10 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
+              <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
+                <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
+                관리자 대리 등록
+              </button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -1059,6 +1063,13 @@
                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
                   <input type="checkbox" id="delivIncludeMissing" onchange="renderDeliverablesList()" checked style="margin:0">
                   <span>포함</span>
+                </label>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>대리 등록</label>
+                <label class="deliv-proxy-filter-label" title="관리자가 대리 등록한 결과물만 표시">
+                  <input type="checkbox" id="delivProxyOnly" onchange="renderDeliverablesList()" style="margin:0">
+                  <span>만 보기</span>
                 </label>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
@@ -2508,6 +2519,102 @@
     <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeDelivRejectModal()">취소</button>
       <button class="btn btn-primary" onclick="submitDelivReject()" style="background:#C33;border-color:#C33">반려 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 결과물 대리 등록·자동 승인 모달 (마이그레이션 160 — admin_create_deliverable_proxy RPC) -->
+<div class="modal-overlay" id="adminProxyDelivModal" style="z-index:620">
+  <div class="modal" style="max-width:620px;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">관리자 결과물 대리 등록</div>
+      <button class="modal-close" onclick="closeAdminProxyModal()" aria-label="닫기">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:18px 22px;overflow-y:auto">
+      <div style="padding:10px 12px;background:#FEF3C7;border:1px solid #FBBF24;border-radius:8px;font-size:12px;line-height:1.55;color:#92400E;margin-bottom:16px">
+        <strong>주의:</strong> 본 기능은 인플루언서가 배송 지연 등 사유로 결과물을 직접 등록할 수 없을 때 운영자가 대신 등록·즉시 승인하는 도구입니다. 인플루언서에게 「結果物が登録されました」 알림이 발송됩니다.
+      </div>
+      <div class="admin-proxy-modal-form">
+        <!-- 1. 신청 선택 (approved 만) -->
+        <div class="form-row required">
+          <label>신청 선택</label>
+          <select id="adminProxyApp" class="form-input" onchange="onAdminProxyAppChange()">
+            <option value="">— 승인된 신청을 선택하세요 —</option>
+          </select>
+          <span class="form-help">캠페인 + 인플루언서 이름으로 검색됩니다. 승인 완료된 신청만 표시됩니다.</span>
+        </div>
+
+        <!-- 2. 결과물 종류 선택 (캠페인 recruit_type 따라 노출) -->
+        <div class="form-row required">
+          <label>결과물 종류</label>
+          <select id="adminProxyKind" class="form-input" onchange="onAdminProxyKindChange()" disabled>
+            <option value="">— 먼저 신청을 선택하세요 —</option>
+          </select>
+          <span class="form-help">선택된 신청의 캠페인 모집 유형에 맞는 종류만 노출됩니다.</span>
+        </div>
+
+        <!-- 3-a. 영수증 폼 (receipt) -->
+        <div id="adminProxyReceiptSection" class="admin-proxy-kind-section">
+          <div class="kind-section-title">영수증 정보</div>
+          <div class="form-row required">
+            <label>영수증 이미지</label>
+            <input type="file" id="adminProxyReceiptImage" accept="image/*" onchange="onAdminProxyImageChange('receipt')">
+            <img id="adminProxyReceiptPreview" class="admin-proxy-image-preview" alt="영수증 미리보기">
+          </div>
+          <div class="form-row required"><label>주문번호</label><input type="text" id="adminProxyOrderNo" placeholder="예: 12341234"></div>
+          <div class="form-row required"><label>구매일</label><input type="date" id="adminProxyPurchaseDate"></div>
+          <div class="form-row required"><label>구매금액 (¥)</label><input type="number" id="adminProxyPurchaseAmount" min="0" step="1" placeholder="예: 1000"></div>
+        </div>
+
+        <!-- 3-b. 게시물 URL 폼 (post) -->
+        <div id="adminProxyPostSection" class="admin-proxy-kind-section">
+          <div class="kind-section-title">게시물 URL</div>
+          <div class="form-row required">
+            <label>게시물 URL</label>
+            <input type="url" id="adminProxyPostUrl" placeholder="https://www.instagram.com/p/... 또는 https://www.tiktok.com/@..." oninput="onAdminProxyPostUrlInput()">
+            <span class="form-help">URL 입력 시 채널이 자동 판별됩니다. 실패하면 아래 수동 선택.</span>
+          </div>
+          <div class="form-row required">
+            <label>채널 (자동 판별 / 수동)</label>
+            <select id="adminProxyPostChannel" class="form-input">
+              <option value="">— 자동 판별 대기 —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 3-c. 리뷰 이미지 폼 (review_image — 사양 2 운영 후 자동 활성) -->
+        <div id="adminProxyReviewImageSection" class="admin-proxy-kind-section">
+          <div class="kind-section-title">리뷰 이미지 (채널별)</div>
+          <div class="form-row required">
+            <label>채널 선택</label>
+            <select id="adminProxyReviewChannel" class="form-input">
+              <option value="">— 캠페인 채널 중 선택 —</option>
+            </select>
+          </div>
+          <div class="form-row required">
+            <label>리뷰 이미지</label>
+            <input type="file" id="adminProxyReviewImage" accept="image/*" onchange="onAdminProxyImageChange('review_image')">
+            <img id="adminProxyReviewPreview" class="admin-proxy-image-preview" alt="리뷰 이미지 미리보기">
+          </div>
+        </div>
+
+        <!-- 4. 사유 코드 (필수) + 메모 (선택) -->
+        <div class="form-row required">
+          <label>사유 코드</label>
+          <select id="adminProxyReasonCode" class="form-input">
+            <option value="">— 사유를 선택하세요 —</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>사유 메모 (선택)</label>
+          <textarea id="adminProxyReason" placeholder="예: 6/12 도착 확인, 인플 LINE 협의 완료" maxlength="500"></textarea>
+          <span class="form-help">운영 내부 메모. 인플루언서 화면에는 노출되지 않습니다.</span>
+        </div>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeAdminProxyModal()">취소</button>
+      <button class="btn btn-primary" id="adminProxySubmitBtn" onclick="submitAdminProxyDelivProxy()">대리 등록 및 자동 승인</button>
     </div>
   </div>
 </div>
