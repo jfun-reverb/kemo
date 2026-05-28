@@ -511,8 +511,10 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     };
     var usedSheetNames = {'캠페인 정보': true};  // 시트1 이름 충돌 방지
     var pickGroupSheetName = function(channels) {
-      var labels = channels.map(chLabelOf).join('/');
-      var base = ('리뷰 · ' + labels).replace(/[\\\/\?\*\[\]:]/g, function(m){ return m === '/' ? '/' : '_'; });
+      // ExcelJS 시트명 금지 문자(* ? : \ / [ ]) 회피 — '/'/':'/'\'/'?' 등은 시트명에 못 씀.
+      // 채널 구분자는 '+' 사용. 라벨 자체에 금지 문자가 있으면 '_' 치환.
+      var labels = channels.map(chLabelOf).join('+');
+      var base = ('리뷰 · ' + labels).replace(/[\\\/\?\*\[\]:]/g, '_');
       base = base.substring(0, 28);
       var name = base, i = 2;
       while (usedSheetNames[name]) { name = base.substring(0, 28 - String(i).length - 1) + '_' + i; i++; }
