@@ -705,3 +705,25 @@ interface DeliverableInfo {
 - 섹션 3 영수증 행에 이미지 링크 + 주문번호·구매일·금액 정상 표시
 - 섹션 3 게시 URL 행에 게시 링크 정상 표시
 - 같은 캠페인에 인플 N명 케이스 (미리보기 시나리오: 섹션 2 2명·섹션 3 3명·섹션 4 2명 모두 같은 캠페인 B0018-A002-C001) 시각 확인
+
+---
+
+## 버그 수정 — 인플루언서 조회 키 (2026-05-21)
+
+**증상:** 운영 일일 통합 다이제스트 메일의 4개 섹션 모두에서 인플루언서 이름(한자/가나)·SNS가 전부 「-」로 나오고 이메일만 정상 표시됨. (사용자 보고: 신청 접수 섹션 19건 전원 이름·SNS 공란)
+
+**원인:** 인플루언서 조회를 존재하지 않는 컬럼 `auth_id`로 수행. `influencers` 테이블의 기본 키 `id`가 곧 `auth.users.id`이고 `applications.user_id`도 이 값과 같다 (회원가입 INSERT·로그인 조회·`notify-deliverable-decision` 모두 `id` 기준). `auth_id` 컬럼은 추가된 적이 없어 `.in("auth_id", userIds)` 조회가 0건 → `influencerMap`이 비어 이름·SNS가 폴백 「-」로 떨어짐. 이메일만 `auth.admin.getUserById`로 별도 조회되어 생존.
+
+**수정:** 조회 키를 `id`로 교정.
+- `.select("auth_id, ...")` → `.select("id, ...")`
+- `.in("auth_id", userIds)` → `.in("id", userIds)`
+- `influencerMap.set(i.auth_id, i)` → `.set(i.id, i)` (get 키는 `r.user_id` 그대로 — 동일 값)
+- `InfluencerRow.auth_id` 타입 + 폴백 객체 3곳 `auth_id: r.user_id` → `id: r.user_id`
+
+**영향 함수 (동일 버그 동시 교정):**
+- `notify-admin-daily-digest` (가동 중) — 운영 배포 완료
+- `notify-application-cancelled-daily` / `notify-application-received-admin-daily` (cron 해제·미사용) — 회귀 방지 차원 코드만 교정, 운영 함수 배포는 재활성화 시
+
+**배포:** dev 푸시(`29dc314`) → 운영 cherry-pick PR #246 머지(dev에 운영 보류 중인 응모건 메시지 PR 1·2가 있어 전체 머지 불가) → 운영 Edge Function `notify-admin-daily-digest` 재배포 → 운영 강제 재발송(`admin_daily_digest_runs` digest_date='2026-05-20' 행 삭제 후 cron 동일 방식 호출)으로 이름·SNS 정상 출력 검증 완료.
+
+**관련 메모리:** `project_influencer_join_key.md` (재발 방지 — Edge Function의 인플루언서 join은 항상 `id` 기준)

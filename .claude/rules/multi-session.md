@@ -51,6 +51,7 @@
 - `supabase/migrations/`는 번호 순차 파일로 관리됨. 새 파일을 만들기 전 반드시 `ls supabase/migrations/ | tail -5` 로 마지막 번호를 확인
 - **규칙**: 마이그레이션 새 파일 추가는 **한 세션에서만** 진행. 다른 세션은 그 PR이 dev에 머지된 후 `git pull origin dev` → 자기 worktree에 반영 후 그다음 번호 사용
 - Claude가 마이그레이션 추가 작업 받으면 자동 점검: 다른 worktree에서 같은 번호 작업 중인지 확인이 어려우므로, 사용자에게 「마이그레이션 새로 만들 일이 다른 세션에서도 있나?」 한 번 묻기
+- **worktree에서 만든 마이그레이션 파일은 메인 폴더 트리에 안 보인다** — 사용자에게 "SQL Editor에서 실행" 안내 시 반드시 **파일 절대경로를 먼저 명시**할 것. 상세: `.claude/rules/supabase.md` 「마이그레이션/SQL 실행 안내 시 절대경로 명시」
 
 ### 빌드 산출물 (`index.html`/`admin/index.html`)
 - `dev/build.sh`는 `index.html`/`admin/index.html`을 덮어씀

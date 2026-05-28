@@ -104,6 +104,15 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 - `supabase/seed/*.sql` — 초기 데이터 투입용 (lookup_values, test_influencers 등)
 - Supabase 대시보드 SQL Editor의 저장된 스니펫은 삭제 무관 (repo 파일이 source of truth)
 
+### 마이그레이션/SQL 실행 안내 시 절대경로 명시 (필수, 2026-05-21)
+- 마이그레이션·SQL 파일을 생성한 뒤 사용자에게 "SQL Editor에서 실행해 주세요" 라고 안내할 때, **반드시 그 파일의 절대경로를 한 줄로 먼저 제시**한다.
+  - 예: `/Users/younggeunkim/Documents/projects/reverb-jp-message-faq/supabase/migrations/146_xxx.sql`
+- 특히 worktree(별도 작업 폴더)에서 작업 중이면 파일이 **메인 폴더(`reverb-jp`)의 migrations 목록에는 보이지 않는다**. 사용자가 평소 보는 VS Code 트리는 메인 폴더라서 "파일을 안 만들어줬다"고 오해한다.
+- 안내 형식: ① 절대경로 한 줄 → ② "이 파일을 열어 전체 복사 → 개발(또는 운영) SQL Editor에 붙여넣고 Run" 순서.
+- VS Code에서 안 보인다고 하면 `File > Add Folder to Workspace`로 해당 worktree 폴더를 함께 여는 방법도 안내.
+
+**Why:** 개발 세션이 worktree에서 만든 마이그레이션 파일이 사용자가 보는 메인 폴더 트리에 안 떠서 "언제부턴가 파일을 안 올려준다"는 오해가 반복됨. 파일은 정상 생성됐고 위치만 다른 것 (2026-05-21 진단). 메모리 `feedback_migration_abspath_in_worktree.md` 와 함께 영구 적용.
+
 ## 계정 열거 방지
 - 정의·구현 패턴(비밀번호 찾기 조건부 메시지 등)은 `.claude/rules/security.md` 「계정 열거 방지 (Account Enumeration)」 정의처 참조
 

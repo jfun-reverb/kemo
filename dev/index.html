@@ -5,7 +5,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#ffffff">
 <title>REVERB Seeding</title>
 <link id="appFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23e91e63'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>R</text></svg>">
@@ -101,6 +101,21 @@ window._supabaseLoaded = false;
       <button class="legal-close" onclick="closeLegalModal()" aria-label="閉じる">×</button>
     </div>
     <div class="legal-body" id="legalBody"></div>
+  </div>
+</div>
+
+<!-- ── 정책 변경 통지 팝업 (문의하기 기능 추가·약관 개정, 노출 종료일 경과 시 자동 비노출) ── -->
+<div id="policyNoticeModal" onclick="if(event.target===this)closePolicyNotice()">
+  <div class="legal-sheet">
+    <div class="legal-head">
+      <div class="legal-title" id="policyNoticeTitle"></div>
+      <button class="legal-close" onclick="closePolicyNotice()" aria-label="閉じる">×</button>
+    </div>
+    <div class="legal-body" id="policyNoticeBody"></div>
+    <div class="policy-notice-actions">
+      <button class="policy-notice-detail" onclick="openPolicyNoticeLegal()" data-i18n="policyNotice.detailBtn"></button>
+      <button class="policy-notice-confirm" onclick="neverShowPolicyNotice()" data-i18n="policyNotice.closeBtn"></button>
+    </div>
   </div>
 </div>
 
@@ -246,10 +261,62 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- 응모건 메시지 모달 (인플루언서 ↔ 관리자, 게시판형) -->
+<div id="page-messages" class="page">
+  <div class="msg-modal-header">
+    <button class="msg-back-btn" onclick="navigateBackFromMessages()" data-i18n-attr="aria-label:common.back" aria-label="戻る">
+      <span class="material-icons-round notranslate" translate="no">arrow_back</span>
+    </button>
+    <div id="msgModalTitle" class="msg-modal-title"></div>
+    <button class="msg-refresh-btn" onclick="refreshMessageModal()" data-i18n-attr="title:messaging.refresh,aria-label:messaging.refresh" title="更新" aria-label="最新のメッセージに更新">
+      <span class="material-icons-round notranslate" translate="no">refresh</span>
+    </button>
+  </div>
+  <div id="msgNewBanner" class="msg-new-banner" style="display:none" onclick="refreshMessageModal()">
+    <span class="material-icons-round notranslate" translate="no">arrow_downward</span>
+    <span data-i18n="messaging.newArrived">新しいメッセージが届きました（タップで更新）</span>
+  </div>
+  <div id="msgStatusLine" class="msg-status-line" style="display:none"></div>
+  <div id="msgModalThread" class="msg-modal-thread"></div>
+  <!-- FAQ 전체 보기 오버레이 (「よくある質問」 버튼으로 토글, 카테고리→질문→답변) -->
+  <div id="msgFaqTree" class="msg-faq-tree" style="display:none"></div>
+  <div class="msg-modal-input-area">
+    <!-- FAQ 안내는 스레드 맨 위 봇 카드(_faqBotCardHtml)로 이동 (게이트→봇 카드 전환 2026-05-22) -->
+    <div id="msgModalAttachPreview" class="msg-attach-preview"></div>
+    <div class="msg-input-row">
+      <label class="msg-attach-btn" aria-label="attach image">
+        <span class="material-icons-round notranslate" translate="no">image</span>
+        <input id="msgModalAttachInput" type="file" accept="image/*" multiple style="display:none" onchange="onMsgAttachSelected(this)">
+      </label>
+      <textarea id="msgModalInput" class="msg-input" rows="1"></textarea>
+      <button id="msgModalSendBtn" class="msg-send-btn" onclick="sendMessageFromModal()" aria-label="send">
+        <span class="material-icons-round notranslate" translate="no">send</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 메시지 첨부 이미지 라이트박스 (메시지 모달 위, 배경/닫기 클릭 시 닫힘) -->
+<div id="msgLightbox" class="msg-lightbox" aria-hidden="true" onclick="closeMsgLightbox()">
+  <button class="msg-lightbox-close" aria-label="Close">
+    <span class="material-icons-round notranslate" translate="no">close</span>
+  </button>
+  <img id="msgLightboxImg" src="" alt="">
+</div>
+
 <!-- ══════════════════════════════════
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
 <div id="page-home" class="page">
+  <!-- 문의하기 출시 안내 배너 (로그인 회원·노출 종료일까지·닫으면 이번 방문만 숨김). 홈 스크롤 시 상단 고정(sticky) -->
+  <div id="policyNoticeBannerWrap" style="display:none">
+    <div id="policyNoticeBanner">
+      <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
+      <span class="pn-banner-text" id="policyNoticeBannerText" data-i18n="policyNotice.banner"></span>
+      <button class="pn-banner-detail" onclick="openPolicyNoticeFromBanner()" data-i18n="policyNotice.detailBtn"></button>
+      <button class="pn-banner-close" onclick="dismissPolicyNoticeBanner()" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
+    </div>
+  </div>
   <section class="hero">
     <div class="container hero-inner">
       <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
@@ -317,8 +384,8 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px">@reverb_jp をフォロー →</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
           </div>
         </div>
         <!-- LINE 카드 -->
@@ -328,9 +395,9 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:#fff;margin-bottom:3px">REVERB <span style="font-size:11px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px">Reverbチャンネル登録はRequiredです <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
+            <div style="font-size:12px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.8);margin-top:3px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#fff;margin-top:5px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>
       </div>
@@ -340,17 +407,17 @@ window._supabaseLoaded = false;
   <!-- ── FOOTER ── -->
   <footer class="site-footer">
     <div class="container">
-      <div class="footer-brand">株式会社ジェイファン</div>
+      <div class="footer-brand" data-i18n="footer.companyName">株式会社ジェイファン</div>
       <dl class="footer-info">
-        <div><dt>会社名</dt><dd>株式会社ジェイファン</dd></div>
-        <div><dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd></div>
-        <div><dt>代表者</dt><dd>ジュ・ヒョンホ</dd></div>
-        <div><dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd></div>
+        <div><dt data-i18n="footer.companyLabel">会社名</dt><dd data-i18n="footer.companyName">株式会社ジェイファン</dd></div>
+        <div><dt data-i18n="footer.locationLabel">所在地</dt><dd data-i18n="footer.locationValue">ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd></div>
+        <div><dt data-i18n="footer.representativeLabel">代表者</dt><dd data-i18n="footer.representativeValue">ジュ・ヒョンホ</dd></div>
+        <div><dt data-i18n="footer.contactLabel">お問い合わせ</dt><dd><span data-i18n="footer.officialLine">公式LINE</span> <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd></div>
       </dl>
       <div class="footer-links">
-        <a href="#about" onclick="event.preventDefault();openLegalModal('about')">会社紹介</a>
-        <a href="#terms" onclick="event.preventDefault();openLegalPage('terms','ja')">利用規約</a>
-        <a href="#privacy" onclick="event.preventDefault();openLegalPage('privacy','ja')">個人情報処理方針</a>
+        <a href="#about" onclick="event.preventDefault();openLegalModal('about')" data-i18n="legal.about">会社紹介</a>
+        <a href="#terms" onclick="event.preventDefault();openLegalPage('terms')" data-i18n="legal.termsTitle">利用規約</a>
+        <a href="#privacy" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a>
       </div>
       <div class="footer-sns">
         <a href="https://www.instagram.com/reverb_jp" target="_blank" rel="noopener" aria-label="Instagram">
@@ -404,6 +471,7 @@ window._supabaseLoaded = false;
           <button id="campPageStatus-active" class="chip" onclick="setCampPageStatus('active',this)" data-i18n="campaigns.statusActive">募集中</button>
           <button id="campPageStatus-scheduled" class="chip" onclick="setCampPageStatus('scheduled',this)" data-i18n="campaigns.statusScheduled">近日公開</button>
           <button id="campPageStatus-closed" class="chip" onclick="setCampPageStatus('closed',this)" data-i18n="campaigns.statusClosed">募集締切</button>
+          <button id="campPageStatus-ended" class="chip" onclick="setCampPageStatus('ended',this)" data-i18n="campaigns.statusEnded">終了</button>
         </div>
       </div>
     </div>
@@ -421,8 +489,8 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">INSTAGRAM</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px">@reverb_jp をフォロー →</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.igFollowCta">公式アカウントをフォローして最新キャンペーン情報を受け取る</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:2px" data-i18n="detail.igFollowSub">@reverb_jp をフォロー →</div>
           </div>
         </div>
         <div style="background:linear-gradient(135deg,#3AC05A 0%,#06A434 100%);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="window.open('https://line.me/R/ti/p/@reverb.jp','_blank')">
@@ -431,9 +499,9 @@ window._supabaseLoaded = false;
           </div>
           <div style="flex:1">
             <div style="font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:#fff;margin-bottom:2px">REVERB <span style="font-size:10px;font-weight:600;opacity:.85">LINE</span></div>
-            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
-            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px">友だち検索「@reverb.jp」</div>
-            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px">Reverbチャンネル登録はRequiredです <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
+            <div style="font-size:11px;color:rgba(255,255,255,.95);font-weight:600;line-height:1.5" data-i18n="detail.lineAddCta">LINE公式アカウントを追加して最新キャンペーン情報を受け取りましょう。</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.8);margin-top:2px" data-i18n="detail.lineAddSub">友だち検索「@reverb.jp」</div>
+            <div style="display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;color:#fff;margin-top:4px"><span data-i18n="detail.channelRequired">Reverbチャンネル登録は必須です</span> <span class="material-icons-round notranslate" translate="no" style="font-size:10px;vertical-align:middle">check</span></div>
           </div>
         </div>
       </div>
@@ -841,76 +909,11 @@ window._supabaseLoaded = false;
   </div>
 </div>
 <div id="page-mypage" class="page">
-  <!-- リスト画面 -->
-  <div id="mypage-list" class="mypage-view active">
-    <div class="mypage-header">
-      <div class="container">
-        <div class="mypage-profile">
-          <div class="mypage-av" id="mypageAv">U</div>
-          <div>
-            <div class="mypage-name" id="mypageName">—</div>
-            <div class="mypage-handle" id="mypageHandle">—</div>
-            <div class="mypage-email" id="mypageEmail" style="font-size:11px;color:var(--muted);margin-top:1px">—</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="container mypage-wrap" style="padding-top:0">
-      <div class="mypage-menu">
-        <div class="mypage-menu-item" onclick="openMypageSub('applications')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">history</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.applications">応募履歴</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-basic')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">person</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.basic">基本情報</span>
-          <span id="menuBadgeName" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-sns')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">share</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
-          <span id="menuBadgeSns" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('profile-address')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">local_shipping</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.address">配送先</span>
-          <span id="menuBadgeAddress" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('paypal')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">account_balance_wallet</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.paypal">PayPal</span>
-          <span id="menuBadgePaypal" class="mypage-menu-badge" data-i18n="common.unregistered" style="display:none">未登録</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('password')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">lock</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.password">パスワード変更</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="openMypageSub('email-settings')">
-          <span class="material-icons-round" style="font-size:20px;color:var(--primary)">mail</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.emailSettings">メール受信設定</span>
-          <span class="material-icons-round mypage-menu-arrow">chevron_right</span>
-        </div>
-        <div class="mypage-menu-item" onclick="handleLogout()">
-          <span class="material-icons-round" style="font-size:20px;color:var(--on-surface-variant)">logout</span>
-          <span class="mypage-menu-label" data-i18n="mypage.menu.logout" style="color:var(--on-surface-variant)">ログアウト</span>
-        </div>
-      </div>
-      <div style="margin-top:20px;padding-left:14px">
-        <span style="font-size:11px;color:var(--muted);cursor:pointer;opacity:.6" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</span>
-      </div>
-    </div>
-  </div>
+  <!-- 랜딩(목차) 화면은 햄버거 메뉴로 흡수되어 제거됨. 기본 화면은 응모이력(mypage-sub-applications) -->
 
   <!-- 応募履歴 -->
   <div id="mypage-sub-applications" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
@@ -937,7 +940,6 @@ window._supabaseLoaded = false;
   <!-- 基本情報 -->
   <div id="mypage-sub-profile-basic" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.basic">基本情報</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -964,7 +966,6 @@ window._supabaseLoaded = false;
   <!-- SNSアカウント -->
   <div id="mypage-sub-profile-sns" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.sns">SNSアカウント</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1008,7 +1009,6 @@ window._supabaseLoaded = false;
   <!-- 配送先 -->
   <div id="mypage-sub-profile-address" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.address">配送先</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1036,7 +1036,6 @@ window._supabaseLoaded = false;
   <!-- PayPal -->
   <div id="mypage-sub-paypal" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.paypal">PayPal</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1056,7 +1055,6 @@ window._supabaseLoaded = false;
   <!-- パスワード変更 -->
   <div id="mypage-sub-password" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.menu.password">パスワード変更</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1092,7 +1090,6 @@ window._supabaseLoaded = false;
   <!-- メール受信設定 -->
   <div id="mypage-sub-email-settings" class="mypage-view">
     <div class="mypage-sub-header">
-      <span class="material-icons-round mypage-back" onclick="closeMypageSub()">arrow_back</span>
       <span class="mypage-sub-title" data-i18n="mypage.emailSettings.title">メール受信設定</span>
     </div>
     <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
@@ -1166,6 +1163,7 @@ window._supabaseLoaded = false;
 <script src="lib/i18n/ja.js"></script>
 <script src="lib/i18n/ko.js"></script>
 <script src="lib/i18n/index.js"></script>
+<script src="lib/image-compress.js"></script>
 <script src="lib/storage.js"></script>
 <script src="lib/legal.js"></script>
 <script src="js/ui.js"></script>
@@ -1173,6 +1171,7 @@ window._supabaseLoaded = false;
 <script src="js/auth.js"></script>
 <script src="js/application.js"></script>
 <script src="js/mypage.js"></script>
+<script src="js/messaging.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

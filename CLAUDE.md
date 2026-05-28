@@ -19,7 +19,7 @@
 - 스테이징 (인플루언서): https://dev.globalreverb.com
 - 스테이징 (관리자): https://dev.globalreverb.com/admin/ (admin@kemo.jp / admin1234)
 - GitHub: github.com/jfun-reverb/kemo
-- Supabase (production): https://twofagomeizrtkwlhsuv.supabase.co (🇦🇺 Sydney `ap-southeast-2`, Pro/NANO)
+- Supabase (production): https://nrwtujmlbktxjgdwlpjj.supabase.co (🇯🇵 Tokyo `ap-northeast-1`, Pro/NANO) — 2026-05-27 도쿄 이관 완료
 - Supabase (staging): https://qysmxtipobomefudyixw.supabase.co (🇯🇵 Tokyo `ap-northeast-1`, Pro/MICRO)
 - LINE: @reverb.jp
 
@@ -44,6 +44,7 @@
 - **인플루언서 일일 다이제스트** (`notify-influencer-daily-digest`): pg_cron 매일 UTC 00:00. 인플루언서별 어제 신청·승인·반려 + 오늘 D-5/D-1 영수증·결과물 마감 4섹션 1통. 4섹션 모두 0건은 스킵. `deadline_reminder_email_sent` UNIQUE 4-tuple 로 임박 메일 재발송 차단. marketing_opt_in 무시 (트랜잭션 성격)
 - **인플루언서 메일 푸터 통일 패턴** (2026-05-19 확정, 사용자 명시): 인플 대상 메일(`notify-influencer-daily-digest`, `notify-deliverable-decision` 6종, `notify-campaign-promo-digest`)은 **4줄 푸터 필수** — ①「REVERB JP のメンバーシップに紐づいて自動送信されています。」 ②「お問い合わせは LINE @reverb.jp までお願いいたします。」 ③「© JFUN Corp. · 株式会社ジェイファン」 ④`https://globalreverb.com`. 글자색 `#999`, 링크 underline. deliverable 메일은 placeholder(`{{help_line_url}}`/`{{site_url}}`) 유지, 그 외는 LINE/사이트 URL 하드코딩. 관리자/광고주 메일은 통일 대상 외. 신규 인플 메일 추가 시 본 패턴 그대로 적용 의무
 - **캠페인 홍보 메일 다이제스트** (`notify-campaign-promo-digest`, 2026-05-19 PR 2): pg_cron 매주 월·목 UTC 00:00 (=KST 09:00, cron 등록은 PR 5 영역). `get_promo_digest_targets(date)` RPC 로 `marketing_opt_in=true` + 자격 매칭 인플 조회. 신규(`新着`) + D-1 임박(`締切間近`) 2섹션, 카드 최대 5건 + 「他 N件」 안내. 같은 캠페인 인플당 최대 2회 노출 (`campaign_promo_exposure` UNIQUE) + 클릭한 캠페인은 자동 제외 (`campaign_promo_email_clicks`). 200명/호출 배치 + chained 자기재호출(fire-and-forget). `campaign_promo_digest_runs.digest_date UNIQUE` mutex (중복 호출 차단) + `campaign_promo_digest_sent (influencer_id, digest_date) UNIQUE` 멱등 (재호출·chained 안전). 인플당 1통씩 분리 발송 (To 헤더 노출 차단). 마이그레이션 139·140·141·143 의존
+- **캠페인 홍보 메일 — 관리자 동시 발송** (2026-05-27, 마이그레이션 152): 위 인플 홍보 메일 함수의 **첫 배치(`isFirstBatch`)에서 관리자에게도 동시 발송**. 별도 cron 없이 같은 주 2회 스케줄에 편승. 관리자 「메일 받기 설정」에서 `campaign_promo` 토글을 켠 관리자(`get_subscribed_admin_emails('campaign_promo')`)가 대상. `get_promo_digest_campaign_pool(date)` RPC 로 그날 홍보 풀(신규+D-1) 전체 조회 — 인플과 달리 자격 매칭·응모/노출/클릭 제외 없음(관리자는 응모 주체 아님). 인플 대상자 0명이어도 풀이 있으면 관리자 발송(인플 0건 조기 종료보다 앞에 위치). 관리자 1명당 1통 분리 발송, 자체 try/catch 격리(실패해도 인플 발송 안 막음). 메일 종류 시드 `campaign_promo` 1줄로 관리자 모달 토글 자동 노출(앱 코드 무수정). 머리말·제목·푸터 한국어 + 캠페인 카드 일본어, 관리자 전용 메인 틀 `campaign-promo-digest.admin`(수신거부 링크 없음). 사양서 `docs/specs/2026-05-27-admin-promo-email-subscription.md`
 - **메일 템플릿 소스**: `docs/email-templates/` 가 source of truth. Edge Function 은 `_templates/` 미러를 `Deno.readTextFile + render({{key}})` 로 읽음. 배포 전 항상 `scripts/sync-email-templates.sh` 로 동기화
 - **카탈로그**: `docs/email-templates/index.html`
 - **관리자 일괄 발송 메일 수신자 분리** (2026-05-19): 관리자 N명에게 보내는 메일은 모두 **관리자 한 명당 1통씩 분리 발송**. To 헤더에 다른 관리자 이메일이 노출되지 않음. 적용 함수: `notify-admin-daily-digest`, `notify-brand-application` (관리자 알림 부분), `notify-application-received-admin-daily` / `notify-application-cancelled-daily` (cron 해제 deprecated 2종도 회귀 방지 차원에서 동일 패턴). 부분 실패(N명 중 일부 실패) 시 `status='sent'` + `recipients_count`=성공 수 + `error_message`에 실패 명단 누적 (전원 실패만 `status='failed'`). 인플루언서 메일은 원래부터 1명씩 발송이라 영향 없음
@@ -80,7 +81,9 @@
 - **광고주 신청 앱(sales)**: `sales/{index,reviewer,seeding}.html` — 별도 Vercel 프로젝트 `reverb-sales`(Root Directory=`sales/`), `sales.globalreverb.com` / `sales-dev.globalreverb.com` 서브도메인. anon 으로 `submit_brand_application` RPC 경유 `brand_applications` INSERT. Vercel `cleanUrls`+catch-all rewrite 로 `/reviewer` → `reviewer.html`. 파일 업로드 기능 없음 (텍스트 입력만)
 - 배포용: 루트 `index.html` (build.sh 로 생성)
 - 개발 폴더 구조:
-  - `dev/js/` — app, ui, campaign, application, auth, mypage, admin, admin-brand
+  - `dev/js/` — 인플루언서: app, ui, campaign, application, auth, mypage, notifications, messaging
+    - 관리자(admin.js 페인 분리 완료, 2026-05-25): `admin.js`(캠페인 목록·폼만 잔류) + `admin-core.js`(공용 헬퍼: 페인 라우팅·다중필터·확인모달·라이트박스·태그입력) + `admin-notices.js` + `admin-faq.js` + `admin-influencers.js` + `admin-deliverables.js` + `admin-excel.js` + `admin-dashboard.js` + `admin-applications.js`(신청+신청자) + `admin-accounts.js`(내계정+관리자계정) + `admin-lookups.js`(기준데이터+번들3종+미니에디터) + `admin-brand.js`/`admin-company.js`/`admin-brand-ops.js`/`admin-messaging.js`(브랜드 서베이)
+    - 빌드는 ES 모듈이 아니라 단순 이어붙이기(concat) — 전역 스코프 1개. `admin-core.js`가 다른 admin-* 파일보다 앞, `admin.js`가 페인 파일들보다 뒤, `admin/app.js`가 맨 마지막 (build.sh `ADMIN_JS_FILES` 순서)
   - `dev/css/` — base, components, campaign, auth, mypage, admin
   - `dev/lib/` — supabase(설정), shared(전역변수), storage(DB/Storage API)
   - `dev/build.sh` — dev/ → 루트 index.html 빌드
@@ -92,7 +95,7 @@
 - **회원가입**: 1단계 폼 (이름 한자/가나 + 이메일 + 비밀번호), 추가정보는 마이페이지에서 입력
 - **로그인/로그아웃**: 이메일+비밀번호, 세션 복원, 관리자 로그인 시 admin 페이지 자동 오픈
 - **비밀번호 재설정**: 이메일 입력 → Supabase 재설정 메일 발송 → 앱 내 새 비밀번호 설정 (`#page-forgot`, `#page-reset-pw`)
-- **GNB**: 비로그인 시 Log In/Sign Up 버튼, 로그인 시 우측 햄버거 메뉴 (홈/캠페인/마이페이지/알림/로그아웃), 관리자는 Admin 버튼
+- **GNB**: 비로그인 시 Log In/Sign Up 버튼, 로그인 시 우측 햄버거 메뉴 (계정 카드[우측 알림 벨] + 홈/캠페인/마이페이지 아코디언/로그아웃/회원탈퇴), 관리자는 Admin 버튼
 - **회원가입 이메일 확인**: 운영서버 한정 Supabase Confirm sign-up 활성, 가입 후 확인 메일 안내 화면 표시, 미확인 시 로그인/신청 차단. 개발서버는 Confirm email OFF. auth.js 는 `data.session` 유무로 자동 분기
 - **캠페인 목록**: 채널필터(동적 생성), 모집유형 필터(리뷰어/기프팅/방문형). 노출 대상은 active + scheduled + closed(노출 ON)
 - **캠페인 카드 배지**: 좌상단 `募集中`(active), 우상단 `NEW`(7일 이내), 제목 위 `締切間近`(deadline<5일 또는 잔여 slots≤30%), 콘텐츠 종류 아래 모집타입 pill + `{applied}/{slots}名` 슬롯 카운트, 이미지 좌하단 첫 채널+`+N`
@@ -100,13 +103,14 @@
 - **캠페인 신청**: 이메일 인증 필수, 필수정보 사전체크(채널별 SNS / zip+prefecture+city+phone / PayPal 이메일) → 동기메시지 + 배송지 + PR태그 동의, 중복신청 방지, 최소 팔로워수 미달 시 알럿 차단
 - **주의사항 동의**: 캠페인의 `caution_items` 가 있으면 ①상세 "주의 사항" 섹션 + ②신청 모달 상단 빨간 박스 양쪽 렌더. 모달 하단 "全ての注意事項を確認しました" 단일 체크박스 + 미체크 시 차단. 동의 시 `applications.caution_agreed_at` + `caution_snapshot`(jsonb) 저장. 캠페인 items 스냅샷을 신청 시점 그대로 보존 → 번들 수정 후에도 기존 신청 데이터 영향 없음. 응모이력에 동의 시각 작은 배지 노출
 - **응모 차단**: 리뷰어(monitor) 캠페인은 `applied_count >= slots` 일 때 신규 응모 차단 (기프팅·방문형은 초과 응모 허용)
-- **마이페이지**: 리스트 → 상세 페이지 네비게이션, 메뉴 応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/メール受信設定/ログアウト, 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지 + 붉은 테두리
+- **마이페이지**: 랜딩(목차) 화면 없이 입력 폼 화면 7종(応募履歴/基本情報/SNSアカウント/配送先/PayPal/パスワード変更/メール受信設定)의 컨테이너(`#mypage-list` 제거, 햄버거 메뉴로 흡수). 진입은 GNB 햄버거 「マイページ」 아코디언 서브항목. 폼 화면에는 백버튼 없음(햄버거로 이동 + 브라우저 뒤로가기). `navigate('mypage')`·`#mypage`/`#mypage-*` popstate 는 모두 応募履歴(`closeMypageSub`)로 복귀. 대표SNS 선택 가능, 필수 미입력 항목 "未登録" 배지(햄버거 서브항목에 표시, `computeProfileBadges` 헬퍼 공용)
 - **메일 수신 설정**(`#mypage-email-settings`, 2026-05-20 PR 4): 마케팅(캠페인 홍보) 메일 ON/OFF 토글 + 업무 알림 메일(응모 접수·검수·마감) 상시 발송 안내 박스. 토글 ON → `resubscribe_marketing()` 원격 호출 함수(동의 시각 `marketing_agreed_at` 갱신 — 특정전자메일법 동의 근거 기록), OFF → `influencers.marketing_opt_in=false` + `marketing_unsubscribed_at` 본인 행 직접 UPDATE. `storage.js` 의 `resubscribeMarketing()`/`updateMarketingOptIn(value)` (ON 은 내부적으로 RPC 위임해 동의시각 누락 차단)
 - **메일 수신거부 라우트**(`#unsubscribe?token=...`, 2026-05-20 PR 3): 홍보 메일 본문 하단 1-click 수신거부 링크. 비로그인 상태에서 토큰만으로 동작 — `unsubscribe_by_token(token)` 익명 RPC 호출 후 성공/무효 화면 표시. 잘못된·만료 토큰은 「リンクが無効です」 안내. `app.js` 가 쿼리 붙은 해시(`#unsubscribe?token=`)를 파싱해 `handleUnsubscribePage(token)` 실행
-- **GNB 햄버거 메뉴**: 상단 우측 ☰ 버튼에 미읽음 알림 배지(9+), 클릭 시 우측 슬라이드 패널. 비로그인은 로그인/회원가입, 인증 페이지에선 햄버거 숨김, 관리자는 알림 항목 없음
+- **GNB 햄버거 메뉴**: 상단 우측 ☰ 버튼에 미읽음 알림 배지(9+), 클릭 시 우측 슬라이드 패널. 로그인 시 구성 — 최상단 계정 카드(이름·SNS핸들·이메일 + **우측 알림 벨 아이콘**·미읽음 배지, 아바타 없음) → 홈/캠페인 → 「マイページ」 접기/펼치기 아코디언(기본 펼침, 클릭 시 토글만·화면 이동 없음, 서브 7종 각 `min-height:48px`, 기본정보/SNS/배송지/PayPal 「未登録」 배지) → ログアウト → 하단 退会する(`margin-top` 으로 간격) 링크. **メッセージ 메뉴 항목은 제거**(응모이력과 목적지 중복 — 응모건 메시지는 응모이력 카드의 메시지 버튼으로 진입, 답장은 `message_received` 알림으로 확인). **通知도 별도 항목이 아니라 계정 카드 우측 벨로 통합**. 열 때 프로필 비동기 새로고침으로 계정 카드·배지 최신화(미읽음 수는 `_lastUnread` 캐시 → 재렌더 시 `applyNotifBadge` 로 즉시 복원). flex 레이아웃에서 1px 구분선·항목이 찌부러지지 않게 `.nav-menu>*{flex-shrink:0}` 필수. 비로그인은 로그인/회원가입, 인증 페이지에선 햄버거 숨김. 마이페이지 랜딩 화면 흡수(2026-05-22)
 - **알림 모달**: deliverables.status 트리거로 생성된 rejected/changed/approved 3종. 항목 클릭 시 읽음 처리 + 활동관리로 이동. "모두 읽음" 버튼
 - **활동관리**: 승인된 캠페인에서 결과물 제출. recruit_type 분기 — monitor=영수증(이미지 + 주문번호·구매일·구매금액 3종 필수), gifting/visit=SNS 게시물 URL(자동 채널 판별 + 실패 시 수동 드롭다운). 모두 `deliverables` 직접 INSERT + `submit_deliverable` RPC. 반려된 결과물은 상단 빨간 배너에 사유 표시, 재제출 시 pending 복귀 (동일 URL 은 `post_submissions` 배열에 날짜 누적). `submission_end` 경과 시 폼 비활성
 - **응모이력**: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터. 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
+- **응모건 메시지**(PR 1, 개발 검증 중): 응모이력 카드의 메시지 버튼(미읽음 배지) → 게시판형 **페이지**(`#page-messages`, 해시 `#messages-{id}`, 2026-05-22 모달→페이지 전환 — 모바일 키보드가 모달을 가리던 문제 해결, `#appShell` 키보드 패턴 상속). 헤더 뒤로가기→응모이력. **취소(cancelled) 응모는 진입 차단**(toast 안내). 운영팀에 텍스트+이미지(자동 압축/HEIC 변환, 최대 5장) 발송, 25분 내 본인 회수, 숨김·회수 메시지는 가림(placeholder) 표시. 본문/첨부 마스킹은 서버(`get_application_messages` RPC). 진입 `openMessagesPage(appId, from)`·이탈 정리 `cleanupMessagesPage()`(navigate 훅). `dev/js/messaging.js`. 관리자 발신·GNB 메뉴·알림은 PR 2
 - **본인 응모 취소**: `cancel_application(uuid, reason_code, reason_note, acknowledged)` RPC — 본인 검증·결과물 승인 차단·구매기간 이후 사유·동의 강제
 - **홈 하단 푸터**: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
 - **성능 최적화**: preconnect(Supabase/Fonts/jsDelivr), 캠페인 카드/마이페이지 썸네일 lazy loading + decoding=async, Supabase Storage 이미지 transform(`/render/image/public/?width=&quality=`)으로 썸네일 용량 축소, 이미지 로드 실패 시 원본 URL 자동 폴백
@@ -125,7 +129,7 @@
 - **참여방법·주의사항·NG 미니 에디터**: 굵게/기울이기/링크/이미지 첨부 가능. 이미지는 `campaign-images/content/` 업로드 (5MB / jpg·png·webp) → `<img class="rich-img">` 삽입. 클릭 팝오버로 Small/Medium/Large/Original 크기 조정. XSS 방어는 src 화이트리스트 (https + `*.supabase.co`)
 - **캠페인 목록**: 썸네일+이미지수, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드+제품+campaign_no), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨, 승인수/모집수 표시 + 대기 배지
 - **캠페인 미리보기**: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
-- **캠페인 상태 5단계**: `draft` → `scheduled` → `active` → `closed`, `expired`(노출마감). 자동 전이 2종: `scheduled→active`(recruit_start 도래), `active→closed`(deadline 경과). `expired` 는 운영자 「캠페인 노출」 토글 OFF 로만 진입. `closed` 는 운영자 OFF 까지 인플 화면에 노출(募集締切 오버레이). 노출 그룹(scheduled/active/closed) 컬러 배지, 비노출 그룹(draft/expired) 회색·점선
+- **캠페인 상태 6단계**: `draft` → `scheduled` → `active` → `closed`(모집마감) → `ended`(종료), `expired`(노출마감). 자동 전이 3종: `scheduled→active`(recruit_start 도래), `active→closed`(deadline 경과), `closed→ended`(submission_end 경과 — `autoEndCampaigns`, 마이그레이션 156). `expired` 는 운영자 「캠페인 노출」 토글 OFF 로만 진입. `closed`(모집마감)·`ended`(종료) 는 운영자 OFF 까지 인플 화면에 노출(closed=募集締切, ended=終了 오버레이). 노출 그룹(scheduled/active/closed/ended) 컬러 배지(closed=핑크, ended=남보라 `badge-done`), 비노출 그룹(draft/expired) 회색·점선
 - **캠페인 노출 토글**: 등록/편집 폼 최상단 + 목록 「상태」 컬럼 빠른 토글. OFF 시 확인 모달 후 status=expired, ON 시 자연 상태 재계산. draft 는 비활성. `toggleCampaignVisibility` + `computeCampaignStatus`
 - **자동 시작·종료**: `fetchCampaigns` 호출 시 `autoOpenCampaigns()` → `autoCloseCampaigns()`. deadline 지난 캠페인은 active/scheduled 저장 불가
 - **날짜 입력**: flatpickr range picker 2개(모집·구매/방문) + single picker 1개(`submission_end`). 모집 종료일 선택 시 `submission_end` +14일 자동 제안. 구매·방문 기간은 모집 시작~결과물 제출 마감 윈도우로 자동 clamp. monitor 일 때 콘텐츠 종류 옵션 영상/이미지만 자동 필터링
@@ -142,6 +146,7 @@
 
 ### 브랜드 서베이 (광고주 신청 관리)
 - **현황 대시보드**(`/admin#brand-dashboard`): KPI 8개 + 견적 합계(예상·확정) + **전환 깔때기 10단계** + 폼·상태 도넛 2개 + 일별 추이 바차트(7/30/90일) + 최근 신청 5건 + 장기 대기(new 3일+) + Vercel Web Analytics 외부 링크
+- **회사 관리 페인**(`/admin#companies`): 회사(`companies`) 마스터 CRUD + 브랜드 일괄 할당. 사이드바 「현황 대시보드」 다음·「브랜드 관리」 앞. 회사 1개 = 브랜드 N개 (4단 계층 회사>브랜드>신청>캠페인). 목록 컬럼(회사명 한·일·소속 브랜드 수·담당자·상태·작업) + 상태 필터(active 기본) + 검색(회사명 한·일·사업자번호). 추가/수정 모달 12필드(`name_ko` 필수), 브랜드 할당 모달(현재 소속+미분류 다중 체크박스 일괄 할당, 미분류 인디케이터 클릭 진입 가능), 보관/복귀 토글, 소속 0건 시 완전 삭제. SELECT 모든 관리자(campaign_manager 는 행 클릭 시 읽기 전용 모달)·CUD `is_campaign_admin()` 이상(클라이언트 버튼 비활성+안내 가드). 기존 「브랜드 관리」(`admin-brand.js`)의 자유텍스트 `company_name` 과는 분리 유지(별개 정규화 엔티티). 로직 `dev/js/admin-company.js`, 데이터 함수 `storage.js`(fetchCompanies/upsertCompany/assignBrandsToCompany/archiveCompany/deleteCompanyHard/fetchBrandsForAssign). 마이그레이션 118~121. 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md` PR 2
 - **신청 관리**(`/admin#brand-applications`, **UI 라벨: "브랜드 서베이"**): 내부 용어·DB(`brand_applications`)·라우트·함수명은 `광고주 신청` 그대로. 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근(`is_admin()`)
 - **리스트**: 필터(폼타입/상태/기간/검색) + pending(new) 배지 + 상세 모달(제품 테이블·견적·견적서 URL·OT 시트 URL·입금 날짜 `paid_at` 인라인 편집·제품별 multi-entry 메모·낙관적 락 version)
 - **상태 전이 10단계**: `new → reviewing → quoted → paid → kakao_room_created → orient_sheet_sent → schedule_sent → campaign_registered → done` / `rejected`. "되돌리기"(any → new). 깔때기·드롭다운·통계 표시 순서는 실제 영업 워크플로에 맞게 정렬. `kakao_room_created`(카톡방 생성)는 입금 확인 후 카카오 단톡방 개설 가시화
@@ -150,7 +155,7 @@
 - **가격체크**: `products[i].price_check` (`'higher'|'lower'|'equal'`, optional) — 마켓 등록 가격 vs 신청 금액 비교. 신청 목록 표 「가격체크」 드롭다운 컬럼 토글. 미선택이면 키 자체 없음
 - **URL 입력 자동 prefix**: `normalizeBrandUrlInput(raw)` — 스킴 없는 입력(`example.com`) 에 `https://` 자동 prefix, 위험 스킴(javascript:, data:) 차단. 견적서/오리엔시트 셀 적용
 - **엑셀 내보내기**: 페인 헤더에 엑셀 다운로드 버튼 — 신청일·신청번호·폼타입·업체/브랜드명·담당자·이메일·연락처·세금계산서 주소·예상견적·상태
-- **운영 현황 페인**: 회사(`companies`) 기반 브랜드 카드 그리드. `get_brand_ops_overview(p_company_id)` 19컬럼 + alert_level 4단계(`danger`/`warning`/`caution`/`normal`). 브랜드 상세 진입 시 `get_brand_ops_detail(p_brand_id)` jsonb 통합 반환(brand/company/applications/external_campaigns). 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md`
+- **운영 현황 페인**: 회사(`companies`) 기반 브랜드 카드 그리드. `get_brand_ops_overview(p_company_id)` 22컬럼 + alert_level 4단계(`danger`/`warning`/`caution`/`normal`). 카드에 **사유 배너**(긴급/대응 필요/주의 카드 한정, 정상 카드는 미표시) — 서버가 `alert_reasons text[]`(조건 코드 배열: `recruit_low_deadline_near`/`cancel_7d_high`/`d1_imminent`/`d3_imminent`/`recruit_low`) + `soonest_deadline`/`d1_count` 를 주면 화면(`brandOpsAlertReasonLines`)이 한국어 문구로 조립(예: 「모집률 28% · 마감 5일 남음」, 「마감 하루 전 2건」, 「최근 7일 취소 5건」). 임계값은 마이그레이션 120 기준 그대로(148 은 출력 컬럼만 추가). 브랜드 상세 진입 시 `get_brand_ops_detail(p_brand_id)` jsonb 통합 반환(brand/company/applications/external_campaigns). 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md`
 - **캠페인 ↔ 신청 연결/해제**: `link_campaign_to_application` / `unlink_campaign_from_application` RPC. 같은 brand_id 검증 후 채번 재발급 + `legacy_no` 콤마 누적 + `numbering_legacy_map` UPSERT. 동시성 `pg_advisory_xact_lock` 2단 잠금. 멱등성 `unchanged:true` 반환. 가드 `is_campaign_admin()` 이상
 
 ### 인플루언서 관리
@@ -160,6 +165,7 @@
 
 ### 기준 데이터·번들·관리자 계정
 - **기준 데이터 관리**(`/admin#lookups`): 채널/카테고리/콘텐츠 종류/NG 사항/반려사유/블랙리스트·위반 사유/주의사항/취소 사유/메일 종류 등을 한국어·일본어로 관리(campaign_admin 이상). 항목 활성/비활성 토글, 순서 변경 모드, 사용 중이면 hard delete 차단(soft delete 만). 채널은 모집 타입(monitor/gifting/visit) 다중 지정. code 는 자동 생성·UI 비공개
+- **자주 묻는 질문(FAQ) 관리**(`/admin#faq`, campaign_admin 이상, PR A — 개발 검증 중): 응모건 메시지 자동응답 등록 페인. 좌우 2단(카테고리 | 질문 + 측정 배지[조회수·직접문의 전환수]) + 편집 모달(한/일 2열·화면이동 드롭다운·handoff·단계 다중선택·미리보기). 운영 배포는 메시지 본체와 함께 보류
 - **주의사항 번들**(`caution_sets`): 캠페인 등록/편집 폼 콘텐츠 가이드 섹션에 "주의사항" 영역 — 번들 드롭다운(recruit_type 필터) + "번들 다시 불러오기" + 인라인 items 편집(본문 한/일, 선택적 링크). 캠페인 저장 시 스냅샷 복사. 신청 행 메시지 셀에 "주의사항 동의 ✓ {시각}" 작은 배지 (msgCell 헬퍼)
 - **참여방법 번들**(`participation_sets`): 1~6단계 묶음, 각 단계 title/desc ko·ja, recruit_types[] 태깅으로 필터링. 캠페인 저장 시 스냅샷 복사(`participation_steps jsonb`). 인라인 개별 수정 + "번들 다시 불러오기" 지원
 - **NG 번들**(`ng_sets`): caution_sets 패턴 미러링. items 구조 `{html_ko, html_ja}` 2필드 (DOMPurify sanitize, inline 서식만). `campaigns.ng_set_id` + `ng_items jsonb` 스냅샷. 인플루언서는 jsonb 우선 + legacy `campaigns.ng` 폴백
@@ -201,8 +207,8 @@
 - `brand_app_daily_counter` — 일자별(JST) 채번 카운터. SECURITY DEFINER 트리거 전용
 - `companies` — 회사 마스터 (1개 회사 = N 개 brands, 4단 계층: 회사 > 브랜드 > 신청 > 캠페인). `name_ko`(NOT NULL)/`name_ja`/`name_en` + `name_normalized` UNIQUE NOT NULL(자동 정규화 트리거) + `business_no` + `address` + `homepage_url` + `contact_*` 3종 + `billing_email`/`billing_address`/`memo` + `status CHECK(active|archived)` + `total_brands` 자동 재계산. RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상
 - `brands` — 브랜드 마스터. `name`, `name_normalized`(자동 정규화), `brand_seq` UNIQUE, `company_id` FK ON DELETE SET NULL
-- `get_brand_ops_overview(p_company_id uuid)` — 운영 현황 19컬럼 집계 RPC (`SECURITY DEFINER + SET search_path='' + is_admin()`)
-- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb 통합 RPC
+- `get_brand_ops_overview(p_company_id uuid)` — 운영 현황 22컬럼 집계 RPC (`SECURITY DEFINER + SET search_path='' + is_admin()`). 마이그레이션 148 로 `alert_reasons text[]`(alert 발생 조건 코드 배열) + `soonest_deadline date` + `d1_count bigint` 출력 추가(카드 사유 배너용). 임계값은 120 기준 유지, `flag_agg` CTE 로 임계값 1회 계산 후 alert_level/alert_reasons 가 동일 플래그 재참조
+- `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb 통합 RPC. 마이그레이션 149 로 캠페인 항목(신청 내부·외부 양쪽)에 `channel`/`channel_match`/`img1`(썸네일)/`recruit_start`/`submission_end` + 결과물 집계 `approved_app_count`(승인 신청 수)·`deliv_submitted_inf`(결과물 제출 distinct 인플)·`deliv_total`·`deliv_approved` 추가. 마이그레이션 150 으로 `purchase_start`/`purchase_end`(리뷰어 구매기간)·`visit_start`/`visit_end`(방문형 방문기간) 4키 추가. 미니카드가 모집률·제출률(제출인플/승인인플)·승인률(승인결과물/제출결과물) 3개 진행바 + 각 진행바 하단 날짜(모집 진행바=모집 시작~마감, 제출 진행바=리뷰어 구매기간/방문형 방문기간 + 제출마감) 표시에 사용
 - `link_campaign_to_application` / `unlink_campaign_from_application` — 캠페인↔신청 연결/해제 RPC (`is_campaign_admin()` 이상, advisory_xact_lock 2단)
 
 ### 인플루언서·관리자
@@ -213,12 +219,31 @@
 - `admin_notice_reads` — 관리자별 읽음 기록. `(admin_id, notice_id, read_at)` UNIQUE. `upsert_admin_notice_read` RPC. 미읽음 카운트 = published - reads(by admin)
 - `influencer_flags` — 인플루언서 관리자 마킹 이력. `influencer_id`, `action`(verify/violation/blacklist/clear), `reasons text[]` (blacklist_reason ∪ violation_reason lookup), `memo`, `evidence_paths text[]`, `updated_at/by/by_name`. 위반 행만 UPDATE RLS
 
+### 응모건 메시지 (인플루언서 ↔ 관리자, PR 1·2 — 개발 검증 중, 마이그레이션 144·145)
+> 응모(신청)건 단위 양방향 메시지. PR 1: 인플루언서 발신 + 모달 + 응모이력 진입. PR 2(마이그레이션 145): 관리자 발신(받은편지함 3단 페인 `#adminPane-messages` + 응모행 「메시지」 버튼 3개 페인 + 메시지 모달) + 강제 숨김/복구 + 수동 응대 완료 + 인플 GNB 「メッセージ」 메뉴 + 알림 `message_received`. 관리자 로직은 `dev/js/admin-messaging.js` 분리. 사양서 `docs/specs/2026-05-15-application-messaging.md`. 일괄 발송(PR 3)·메일 지연 큐(PR 4)·LINE 안내+약관 D-7(PR 5)은 미구현. 운영 배포는 PR 5 약관 통지와 함께(현재 보류).
+- `application_messages` — 메시지 본문. `application_id` FK CASCADE, `sender_kind`(influencer|admin), `sender_id/name`, `body`, `attachments jsonb`(`[{path,name,size,mime}]`), `read_by_influencer_at`, 강제숨김 4컬럼(`hidden_by_admin_at/_id/_reason_code/_memo`), 본인회수(`self_withdrawn_at`/`_by_kind`), 메일큐(`email_send_at`/`email_sent_at`/`email_skip_reason`), `broadcast_id` FK. RLS SELECT 본인 응모건 또는 `is_admin()`, INSERT/UPDATE 는 RPC 만 (sender_kind 변조 차단)
+- `application_message_admin_reads` — 관리자 개인별 읽음. `(message_id, admin_auth_id)` PK
+- `application_message_resolutions` — 응모건 응대 완료. `application_id` PK, `resolution_method`(auto_replied|manual)
+- `application_message_broadcasts` — 일괄 발송 그룹 (테이블만 PR 1, bulk/withdraw RPC 는 PR 3)
+- `application_message_hide_history` — 숨김/회수 audit (append-only, SELECT super_admin)
+- 뷰 `application_message_summary`(`security_invoker=true` — 인플 본인 행만 RLS 상속, 관리자는 전체. 컬럼: message_count·unread_for_influencer·unresolved_for_admin_team·last_message_at) + RPC: `get_application_messages`(호출자 역할별 4종 마스킹), `send_application_message`(rate limit 100/h + 자동 응대/reopen + **관리자 발신 시 message_received 알림 INSERT** — 145), `mark_application_messages_read`, `withdraw_own_message`(25분 한도 + rate limit 50/h + 첨부 클라 삭제), `application_message_admin_unread_counts`(is_admin 가드). PR 2 신규(145): `mark_application_resolved`(is_admin — 수동 응대 완료), `hide_application_message`(is_campaign_admin — 강제 숨김 + hide_history INSERT), `unhide_application_message`(is_super_admin — 복구, 사유 메모 필수). 모두 SECURITY DEFINER + `search_path=''`
+- lookup `message_hide_reason` 7종 시드 + Storage 버킷 `application-message-attachments`(비공개, 응모건 폴더 기반 정책). 첨부는 클라 압축(`dev/lib/image-compress.js`, HEIC→JPEG/2048px) 후 업로드
+
+### 자동응답(FAQ 가이드형, PR A — 개발 검증 중, 마이그레이션 146)
+> 응모건 메시지 위에 얹는 선택지 트리형 자주 묻는 질문(FAQ). PR A: 테이블 2개 + 기록 RPC + 시드 18문안 + 관리자 등록 페인. 인플 화면(개인화 상태 한 줄·FAQ 트리·동적 치환)은 PR B, 관리자 응대 보조는 PR B2·C. 사양서 `docs/specs/2026-05-21-message-faq.md`. 운영 배포는 메시지 본체(약관 D-7)와 함께 보류.
+- `faq_nodes` — 자기참조 트리. `parent_id`(카테고리 NULL > item), `kind`(category|item), `label_ko/ja`, `body_ko/ja`, `action_type`(none|navigate), `action_target`(앱 해시 경로), `action_label_ko/ja`, `is_human_handoff`, `relevant_stages text[]`, `sort_order`, `active`, 감사 4컬럼. 인덱스 `(parent_id, sort_order)`·`(kind, active)`. RLS SELECT authenticated / CUD `is_campaign_admin()`. 시드 31노드(카테고리 7 + 질문 24, Q1-1 분기 + 하위 5). `action_target` 8종: `#mypage-applications`/`#activity`/`#mypage-profile-sns`/`#mypage-profile-address`/`#mypage-paypal`/`#mypage-profile-basic`/`#mypage-password`/`#mypage-email-settings`
+- `faq_interactions` — 측정. `influencer_id`/`application_id`/`faq_node_id`, `action`(viewed|resolved|handoff), `view_count`, `last_viewed_at`. `viewed` 부분 유니크 `(influencer_id, application_id, faq_node_id) WHERE action='viewed' AND application_id IS NOT NULL`. RLS INSERT 본인행 / SELECT `is_admin()`
+- `record_faq_interaction(application_id, faq_node_id, action)` RPC — SECURITY DEFINER + `search_path=''`, `influencer_id=auth.uid()` 강제, `viewed` 멱등 UPSERT(view_count+1·last_viewed_at·created_at 보존, application_id NULL 은 수동 UPSERT), resolved/handoff append
+- 관리자 페인 `#adminPane-faq`(campaign_admin 이상) — 좌우 2단 마스터-디테일(카테고리 | 질문 + 측정 배지[조회수·직접문의 전환수]). 편집 모달 한/일 2열 + 화면이동 드롭다운 + handoff 토글 + 단계 다중선택 + 미리보기. `dev/js/admin-faq.js`(loadFaqPane), storage 함수 8종은 `dev/lib/storage.js`. **2단 마스터-디테일이라 다른 목록 페인의 `admin-card` 구조 미적용(사양서 §4 의도된 예외)**
+- 인플루언서 화면(PR B-rev 게이트형, `dev/js/messaging.js`) — 메시지 모달 상단 개인화 상태 한 줄(§3-0 판정: 결과물 상태 우선 → 일정) 항상 표시. **FAQ는 「문의 게이트」**: 문의 입력 중 유사 FAQ 실시간 제안(응모 단계 일치 + 입력어 질문 제목 포함 매칭, 상위 4개) + [보내기] 시 답변 미열람·후보 있으면 1회 확인 시트(「解決しました」=resolved·전송취소 / 「それでもお問い合わせ」=handoff·전송진행) + 입력란 옆 「よくある質問」 버튼(대화 중 상시 재호출, 전체 카테고리 트리 오버레이). 답변 열람=viewed. 동적 치환 `{required}`(min_followers)/`{current}`(대표 SNS 팔로워, §5-1 — 값 없으면 줄 생략) + 반려 사유 `reject_reason` 표시(§3-4 ②). 화면이동 `navigate(action_target)`. DB 변경 없이 PR A RPC 재사용. (초안 §5 "0건 시 FAQ 트리 메뉴"에서 게이트형으로 전환 — 사용자 의도)
+- 관리자 응대 보조(PR B2·C, `dev/js/admin-messaging.js`) — 메시지 스레드 상단에 응모건 상태 한 줄(§3-1, 한국어, 모집타입+단계+결과물 여부) + 「FAQ 열람 이력」 접이식 패널(§3-2, 시간순·viewed 횟수·handoff) + 직접문의 메시지 위 「직전 열람」 칩. 인플과 **동일 판정**: 판정 로직 `dev/lib/shared.js`의 `faqComputeStatus`/`faqComputeCancelPhase` 공용 함수로 추출(인플 messaging.js도 위임). storage `fetchApplicationStatusBundle`(status+결과물 집계)·`fetchFaqInteractionsForApp`(이력+faq_nodes 역참조, RLS is_admin). DB 변경 없음
+
 ### 메일·기준 데이터·알림
 - `lookup_values` — 캠페인 기준 데이터. `kind`(channel/category/content_type/ng_item/reject_reason/blacklist_reason/violation_reason/caution/admin_email_kind/cancel_reason), `code`, `name_ko`, `name_ja`, `sort_order`, `active`, `recruit_types[]`. channel 만 recruit_types 사용
 - `participation_sets` — 참여방법 번들. `name_ko`/`ja`, `recruit_types[]`, `steps jsonb`, `sort_order`, `active`. `campaigns.participation_steps jsonb` + `participation_set_id` FK ON DELETE SET NULL 로 스냅샷·원본 참조
 - `caution_sets` — 주의사항 번들. items 구조 `{text_ko, text_ja, link_url?, link_label_ko?, link_label_ja?, text_after_ko?, text_after_ja?}`. `campaigns.caution_items jsonb` + `caution_set_id` FK ON DELETE SET NULL. RLS SELECT 관리자 (인플은 campaigns 스냅샷 경유)
 - `ng_sets` — NG 사항 번들. items 구조 `{html_ko, html_ja}` (DOMPurify, inline 서식만). `campaigns.ng_set_id` + `ng_items jsonb` 스냅샷. RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상. 신청자 동의 시점 스냅샷 없음 (NG는 표시용 가이드라인)
-- `notifications` — 인플루언서 알림. `kind`(deliverable_rejected/deliverable_changed/deliverable_approved), `ref_table`/`ref_id`, `read_at`. deliverables.status 전이 트리거로 자동 생성, 재제출 시 미읽음 알림 자동 dismiss
+- `notifications` — 인플루언서 알림. `kind`(deliverable_rejected/deliverable_changed/deliverable_approved/application_cancelled/message_received/application_approved), `ref_table`/`ref_id`, `title`, `body`, `read_at`. deliverables.status 전이 트리거로 자동 생성(deliverable_*), 재제출 시 미읽음 알림 자동 dismiss. `message_received`(마이그레이션 145)는 관리자가 응모건 메시지에 답장 시 send RPC 가 INSERT(ref_table='applications', 미읽음 중복 방지). `application_approved`(마이그레이션 154)는 신청 pending/rejected→approved 전이 시 `record_application_status_event()` 트리거가 INSERT(ref_table='applications', 미읽음 중복 방지 — 되돌리기 후 재승인 대응, title「キャンペーンに当選しました」). 알림 모달에서 `message_received` 클릭 시 메시지 모달 직접 오픈, `application_approved`/`application_cancelled`는 응모이력으로 이동(kind 로 분기 — ref_table='applications' 공유하므로 kind 한정 필수)
 - `admin_daily_digest_runs` — 관리자 통합 다이제스트 발송 로그. `digest_date` UNIQUE(중복 호출 차단 + INSERT 선행 mutex) + `status CHECK(sent|skipped_no_data|failed)` + `sections_summary jsonb`(`{received, cancelled, submitted, reprocessed}`) + `recipients_count` + `error_message` + `run_at`. RLS SELECT `is_admin()`, INSERT 는 service_role 만 우회
 - `influencer_daily_digest_runs` / `application_received_admin_digest_runs` — 메일 파이프라인 운영 로그. `digest_date` UNIQUE
 - `deadline_reminder_email_sent` — 영수증/결과물 D-5·D-1 임박 메일 재발송 차단. UNIQUE 4-tuple `(influencer_id, campaign_id, kind, d_minus)`
@@ -229,6 +254,7 @@
   - `campaign_promo_email_clicks` — CTA 클릭 추적. `(campaign_id, influencer_id)` UNIQUE + `click_count`/`first_clicked_at`/`last_clicked_at`. 클릭된 페어는 다음 다이제스트 매칭에서 자동 제외
   - 4종 모두 RLS SELECT `is_admin()` 한정, INSERT/UPDATE/DELETE 정책 없음 → service_role만 우회
   - 헬퍼 함수 4종(마이그레이션 141): `_meets_min_followers`(internal, PUBLIC+anon REVOKE), `get_promo_digest_targets(date)`(authenticated 한정), `mark_promo_digest_sent(...)`(authenticated 한정), `track_promo_click(uuid, uuid)`(익명 anon GRANT)
+  - `get_promo_digest_campaign_pool(date)` RPC(authenticated 한정, 마이그레이션 152): 관리자 홍보 메일용 그날 캠페인 풀(신규+D-1) ID 배열 + 총수 반환. `get_promo_digest_targets` 와 캠페인 선정 조건 동기화, 단 개인화 제외(채널 매칭·팔로워·응모/노출/클릭) 없이 풀 전체. `SECURITY DEFINER` + `search_path=''`
   - `influencers.unsubscribe_by_token(uuid)` RPC(익명 anon GRANT, 메일 1-click 수신거부) + `resubscribe_marketing()`(authenticated 본인만, 마이페이지 재구독, 마이그레이션 140)
 - 헬퍼 함수 `_yesterday_kst_window()` STABLE — 어제 KST 윈도우 + 오늘 KST 날짜 반환 (SQL Editor 디버깅용)
 

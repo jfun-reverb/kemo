@@ -43,6 +43,7 @@ async function fetchCampaigns() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       // expired 전이는 운영자 「캠페인 노출」 토글로 수동 처리 (자동 전이 제거 — migration 129)
       return data;
     }
@@ -83,6 +84,7 @@ async function fetchCampaignsForAdminList() {
     if (data.length > 0) {
       await autoOpenCampaigns(data);   // scheduled → active (recruit_start 도래)
       await autoCloseCampaigns(data);  // active → closed (deadline 경과)
+      await autoEndCampaigns(data);    // closed → ended (submission_end 경과)
       return data;
     }
     return DEMO_CAMPAIGNS.slice();
@@ -163,6 +165,29 @@ async function autoCloseCampaigns(camps) {
   return camps;
 }
 
+// 결과물 제출 마감(submission_end) 경과한 closed(모집마감) 캠페인을 ended(종료)로 자동 전이.
+//   autoCloseCampaigns 와 동일 방식(목록 조회 시 전이). status 만 변경 — 락 트리거(156)는 보호컬럼 미변경이라 통과.
+async function autoEndCampaigns(camps) {
+  if (!db) return camps;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const toEnd = camps.filter(c => {
+    if (c.status !== 'closed' || !c.submission_end) return false;
+    const se = new Date(c.submission_end);
+    se.setHours(23, 59, 59, 999);
+    return now > se;
+  });
+  if (!toEnd.length) return camps;
+  const results = await Promise.allSettled(toEnd.map(c => {
+    c.status = 'ended';
+    return db.from('campaigns').update({ status: 'ended' }).eq('id', c.id);
+  }));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.warn('autoEndCampaigns 실패:', toEnd[i]?.id, r.reason);
+  });
+  return camps;
+}
+
 // 캠페인 「노출」 토글 — 사양서 2026-05-13-campaign-visibility-toggle.md
 //   OFF 클릭 시: status = 'expired' (수동 노출마감, 인플 화면 완전 비노출)
 //   ON  클릭 시: status 를 날짜 기준 자동 재계산 (scheduled/active/closed)
@@ -177,7 +202,7 @@ async function toggleCampaignVisibility(campId, visible) {
     return 'expired';
   }
   // ON: 현재 row 조회 후 날짜 기반 상태 계산
-  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline').eq('id', campId).maybeSingle();
+  const {data: row, error: e1} = await db.from('campaigns').select('id, recruit_start, deadline, submission_end').eq('id', campId).maybeSingle();
   if (e1) throw e1;
   if (!row) return null;
   const newStatus = computeCampaignStatus(row);
@@ -188,7 +213,8 @@ async function toggleCampaignVisibility(campId, visible) {
   return newStatus;
 }
 
-// 날짜 기준 캠페인 상태 자동 계산 — recruit_start 미도래=scheduled / deadline 경과=closed / 그 외=active
+// 날짜 기준 캠페인 상태 자동 계산
+//   recruit_start 미도래=scheduled / 모집 마감(deadline 경과) → 제출 마감(submission_end)까지 경과면 ended(종료), 아니면 closed(모집마감) / 그 외=active
 function computeCampaignStatus(camp) {
   const now = new Date();
   if (camp.recruit_start) {
@@ -199,7 +225,15 @@ function computeCampaignStatus(camp) {
   if (camp.deadline) {
     const dl = new Date(camp.deadline);
     dl.setHours(23, 59, 59, 999);
-    if (dl < now) return 'closed';
+    if (dl < now) {
+      // 모집 마감 — 결과물 제출 마감까지 지났으면 종료(ended)
+      if (camp.submission_end) {
+        const se = new Date(camp.submission_end);
+        se.setHours(23, 59, 59, 999);
+        if (se < now) return 'ended';
+      }
+      return 'closed';
+    }
   }
   return 'active';
 }
@@ -616,6 +650,26 @@ async function markNotificationRead(notificationId) {
       if (error) throw error;
     });
   } catch(e) { console.error('[markNotificationRead]', e); }
+}
+
+// 특정 응모건의 미읽음 message_received 알림 일괄 읽음 처리
+// (응모이력에서 메시지 모달을 직접 열람한 경우 — 알림 모달을 거치지 않아도
+//  해당 건 알림이 남지 않도록). RLS 는 markNotificationRead 와 동일 (본인 행 UPDATE).
+async function markMessageNotificationsRead(applicationId) {
+  if (!db || !applicationId) return;
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+  if (!uid) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('user_id', uid)
+        .eq('kind', 'message_received')
+        .eq('ref_id', applicationId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markMessageNotificationsRead]', e); }
 }
 
 // 알림 1건 삭제 (본인만)
@@ -1606,6 +1660,224 @@ async function insertBrand(payload) {
     return {ok: true, data: result};
   } catch(e) { console.error('[insertBrand]', e); return {ok:false, error: e?.message || 'unknown'}; }
 }
+// ── companies 마스터 (migration 118) ────────────────────────
+
+// 회사 목록 조회 (status 필터 + name_ko/name_ja/business_no 검색)
+// 1000행 캡 대응 pagination loop 포함
+async function fetchCompanies({ status = 'active', search } = {}) {
+  if (!db) return [];
+  try {
+    var q = db?.from('companies')
+      .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+    // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
+    if (status && status !== 'all') q = q.eq('status', status);
+    // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
+    if (search && search.trim()) {
+      const s = search.trim();
+      q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
+    }
+    var pageSize = 1000, from = 0, out = [];
+    while (true) {
+      const {data, error} = await q.range(from, from + pageSize - 1).order('name_ko', {ascending: true});
+      if (error) throw error;
+      const rows = data || [];
+      out = out.concat(rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  } catch(e) { console.error('[fetchCompanies]', e); return []; }
+}
+
+// 운영 현황 페인 — 브랜드 카드 그리드용 핵심 지표 집계
+// companyId 지정 시 해당 회사 소속 브랜드만, null 이면 전체 브랜드
+// 반환: 행 배열(19컬럼), 오류 시 [] 반환
+// 서버 집계 함수(데이터베이스에 미리 만든 명령 — get_brand_ops_overview)를 호출
+async function getBrandOpsOverview(companyId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_brand_ops_overview', {
+      p_company_id: companyId || null
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[getBrandOpsOverview]', e); return []; }
+}
+
+// 운영 현황 페인 — 브랜드 상세 페인용 신청·캠페인 통합 jsonb 반환
+// 반환: { brand, company, applications, external_campaigns } 객체, 오류 시 null 반환
+async function getBrandOpsDetail(brandId) {
+  if (!db) return null;
+  try {
+    const {data, error} = await db.rpc('get_brand_ops_detail', {
+      p_brand_id: brandId
+    });
+    if (error) throw error;
+    return data || null;
+  } catch(e) { console.error('[getBrandOpsDetail]', e); return null; }
+}
+
+// ── 캠페인↔신청 연결/해제 (마이그레이션 121) ──────────────────────────────
+// 반환 성공: {ok:true, data:{campaign_id, old_no, new_no, application_id, unchanged}}
+// 반환 실패: {ok:false, error:string, code:string}
+//   에러 코드 42501 = 권한 부족 (campaign_admin 이상 필요)
+//   에러 코드 22023 = 잘못된 인자 (캠페인/신청 없음, 다른 브랜드, brand_id NULL 등)
+
+// 캠페인을 광고주 신청에 연결. 새 채번 B{4자리}-A{3자리}-C{3자리} 발급.
+// unchanged=true 면 이미 같은 신청에 연결된 상태(no-op, 번호 변경 없음)
+async function linkCampaignToApplication(campaignId, applicationId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('link_campaign_to_application', {
+        p_campaign_id:    campaignId,
+        p_application_id: applicationId
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data};
+  } catch(e) {
+    console.error('[linkCampaignToApplication]', e);
+    return {ok: false, error: e?.message || 'unknown', code: e?.code || ''};
+  }
+}
+
+// 캠페인을 신청에서 해제(직접 등록 캠페인으로 환원). 새 채번 B{4자리}-C{3자리} 발급.
+// unchanged=true 면 이미 직접 등록 캠페인 상태(no-op, 번호 변경 없음)
+async function unlinkCampaignFromApplication(campaignId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db.rpc('unlink_campaign_from_application', {
+        p_campaign_id: campaignId
+      });
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data};
+  } catch(e) {
+    console.error('[unlinkCampaignFromApplication]', e);
+    return {ok: false, error: e?.message || 'unknown', code: e?.code || ''};
+  }
+}
+
+// 회사 생성(id 없음) / 수정(id 있음) 통합
+// name_normalized 는 DB 트리거가 자동 계산 (name_ko 저장만 하면 됨)
+async function upsertCompany(payload) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      if (payload.id) {
+        // 수정: id 를 조건으로 UPDATE
+        const {id, ...patch} = payload;
+        const {data, error} = await db?.from('companies').update(patch).eq('id', id).select('*').maybeSingle();
+        if (error) throw error;
+        return data;
+      } else {
+        // 신규 생성
+        const {data, error} = await db?.from('companies').insert(payload).select('*').maybeSingle();
+        if (error) throw error;
+        return data;
+      }
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[upsertCompany]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 브랜드 일괄 회사 할당
+// companyId = null 이면 brands.company_id = NULL (미분류로 복귀)
+// brandIds = [] 이면 아무 행도 건드리지 않음
+async function assignBrandsToCompany(companyId, brandIds) {
+  if (!db) return {ok:false, error:'no_db'};
+  if (!brandIds || brandIds.length === 0) return {ok: true, data: []};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('brands')
+        .update({company_id: companyId || null})
+        .in('id', brandIds)
+        .select('id, name, company_id');
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[assignBrandsToCompany]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 회사 보관(archived) / 복원(active) 전환
+async function archiveCompany(companyId, archive) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      const {data, error} = await db?.from('companies')
+        .update({status: archive ? 'archived' : 'active'})
+        .eq('id', companyId)
+        .select('id, status')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[archiveCompany]', e); return {ok:false, error: e?.message || 'unknown'}; }
+}
+
+// 회사 완전 삭제 — 소속 브랜드가 0건일 때만 허용
+// 소속 브랜드가 있으면 에러 throw (화면에서 friendlyError 로 안내)
+async function deleteCompanyHard(companyId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const result = await retryWithRefresh(async () => {
+      // 1) 소속 브랜드 수 확인
+      const {count, error: cntErr} = await db?.from('brands')
+        .select('id', {count: 'exact', head: true})
+        .eq('company_id', companyId);
+      if (cntErr) throw cntErr;
+      if (count > 0) {
+        const err = new Error('소속 브랜드가 있어 삭제할 수 없습니다. 브랜드를 다른 회사로 이동하거나 미분류로 해제한 뒤 다시 시도하세요.');
+        err.code = 'HAS_BRANDS';
+        throw err;
+      }
+      // 2) 삭제 실행
+      const {error: delErr} = await db?.from('companies').delete().eq('id', companyId);
+      if (delErr) throw delErr;
+      return true;
+    });
+    return {ok: true, data: result};
+  } catch(e) { console.error('[deleteCompanyHard]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
+}
+
+// 브랜드 할당 모달용 조회
+// unassignedOnly=true → company_id IS NULL 인 미분류 브랜드만
+// companyId 지정 시 → 현재 소속(= companyId) + 미분류 양쪽 모두 반환
+// search → name 부분일치
+// 1000행 캡 대응 pagination loop 포함
+async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search } = {}) {
+  if (!db) return [];
+  try {
+    var q = db?.from('brands')
+      .select('id, name, company_id, brand_seq');
+    if (companyId) {
+      // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
+      q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+    } else if (unassignedOnly) {
+      q = q.is('company_id', null);
+    }
+    if (search && search.trim()) {
+      q = q.ilike('name', `%${search.trim()}%`);
+    }
+    var pageSize = 1000, from = 0, out = [];
+    while (true) {
+      const {data, error} = await q.range(from, from + pageSize - 1).order('name', {ascending: true});
+      if (error) throw error;
+      const rows = data || [];
+      out = out.concat(rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
+}
+
 async function fetchBrandApplicationsByBrand(brandId) {
   if (!db || !brandId) return [];
   try {
@@ -2069,5 +2341,359 @@ async function updateMarketingOptIn(value) {
     console.error('[updateMarketingOptIn]', e);
     return {ok: false, error: e?.message || 'unknown'};
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 응모건 단위 메시지 (인플루언서 ↔ 관리자) — PR 1
+//   사양서 docs/specs/2026-05-15-application-messaging.md §4
+//   마이그레이션 144. 본문/첨부 마스킹은 get_application_messages RPC 서버측 처리.
+// ════════════════════════════════════════════════════════════════════
+const MSG_ATTACH_BUCKET = 'application-message-attachments';
+
+// 응모건의 메시지 목록 (마스킹 적용된 행) — 인플루언서·관리자 공용.
+// get_application_messages RPC 가 호출자 역할(본인 인플 / is_admin)에 따라 마스킹.
+async function fetchApplicationMessages(applicationId) {
+  if (!db || !applicationId) return [];
+  const {data, error} = await db.rpc('get_application_messages', { p_application_id: applicationId });
+  if (error) throw error;
+  return data || [];
+}
+
+// 메시지 발송 (인플루언서·관리자 공용, sender_kind 는 서버가 판별).
+// attachments: [{path, name, size, mime}] — uploadMessageAttachment() 반환값 배열
+async function sendApplicationMessage(applicationId, body, attachments = []) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_application_message', {
+      p_application_id: applicationId,
+      p_body: body || '',
+      p_attachments: attachments,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 본인 미열람 메시지를 읽음 처리 (관리자: 개인별 / 인플루언서: read_by_influencer_at).
+async function markApplicationMessagesRead(applicationId) {
+  if (!db || !applicationId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_application_messages_read', { p_application_id: applicationId });
+    if (error) throw error;
+  });
+}
+
+// 본인 메시지 회수 (25분 한도, RPC 가 시간/본인 검증). 성공 후 첨부 Storage 즉시 삭제 (§3-5 ②).
+// attachmentPaths: 회수할 메시지의 attachments[].path 배열 (없으면 빈 배열)
+async function withdrawOwnMessage(messageId, attachmentPaths = []) {
+  if (!db || !messageId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('withdraw_own_message', { p_message_id: messageId });
+    if (error) throw error;
+  });
+  if (attachmentPaths && attachmentPaths.length) {
+    // 본인 회수는 첨부 즉시 삭제 (개인정보 최소화). 실패해도 회수 자체는 성공이므로 경고만.
+    try { await db.storage.from(MSG_ATTACH_BUCKET).remove(attachmentPaths); }
+    catch (e) { console.warn('[withdrawOwnMessage] 첨부 삭제 실패', e); }
+  }
+}
+
+// 첨부 이미지 업로드 — 압축/HEIC 변환(image-compress.js) 후 비공개 버킷에 저장.
+// 반환: {path, name, size, mime} (send 의 attachments 배열에 그대로 push)
+async function uploadMessageAttachment(file, applicationId) {
+  if (!db) throw new Error('DB 미연결');
+  const compressed = await compressImageFile(file);  // image-compress.js — too_large/decode_failed 등 예외 가능
+  const uuid = crypto.randomUUID ? crypto.randomUUID()
+    : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `${applicationId}/${uuid}.jpg`;
+  const {error} = await db.storage.from(MSG_ATTACH_BUCKET)
+    .upload(path, compressed, { contentType: 'image/jpeg', upsert: false, cacheControl: '3600' });
+  if (error) throw error;
+  return { path, name: file.name || 'image.jpg', size: compressed.size, mime: 'image/jpeg' };
+}
+
+// 첨부 이미지 signed URL (5분 시한, §9). 라이트박스/썸네일 표시용
+async function getMessageAttachmentSignedUrl(path, expiresIn = 300) {
+  if (!db || !path) return null;
+  const {data, error} = await db.storage.from(MSG_ATTACH_BUCKET).createSignedUrl(path, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl || null;
+}
+
+// 인플루언서 GNB 미읽음 메시지 응모건 목록 (security_invoker 뷰 — 본인 행만 RLS 적용).
+async function fetchInfluencerUnreadMessageThreads() {
+  if (!db || typeof currentUser === 'undefined' || !currentUser) return [];
+  const {data, error} = await db.from('application_message_summary')
+    .select('application_id, campaign_id, unread_for_influencer, last_message_at')
+    .gt('unread_for_influencer', 0)
+    .order('last_message_at', { ascending: false });
+  if (error) { console.warn('[fetchInfluencerUnreadMessageThreads]', error); return []; }
+  return data || [];
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 응모건 메시지 — 관리자 발신/숨김/응대 (PR 2)
+//   마이그레이션 145. 관리자 받은편지함·강제 숨김/복구·응대 완료.
+// ════════════════════════════════════════════════════════════════════
+
+// 응모건 수동 응대 완료 마킹 (모든 관리자 — 사양서 §3-4). RPC mark_application_resolved.
+async function markApplicationResolved(applicationId) {
+  if (!db || !applicationId) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('mark_application_resolved', { p_application_id: applicationId });
+    if (error) throw error;
+  });
+}
+
+// 메시지 강제 숨김 (campaign_admin 이상). reasonCode 는 lookup_values(kind='message_hide_reason').code.
+async function hideApplicationMessage(messageId, reasonCode, reasonMemo = null) {
+  if (!db || !messageId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('hide_application_message', {
+      p_message_id: messageId,
+      p_reason_code: reasonCode,
+      p_reason_memo: reasonMemo || null,
+    });
+    if (error) throw error;
+  });
+}
+
+// 강제 숨김 복구 (super_admin 한정). reasonMemo 필수.
+async function unhideApplicationMessage(messageId, reasonMemo) {
+  if (!db || !messageId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('unhide_application_message', {
+      p_message_id: messageId,
+      p_reason_memo: reasonMemo,
+    });
+    if (error) throw error;
+  });
+}
+
+// 관리자 본인 미열람 메시지 수 (응모건별). RPC application_message_admin_unread_counts.
+// 반환: Map<application_id, unread_count> (응모행 배지·받은편지함 개인 강조용)
+async function fetchAdminMessageUnreadCounts() {
+  if (!db) return new Map();
+  const {data, error} = await db.rpc('application_message_admin_unread_counts', { p_admin_auth_id: null });
+  if (error) { console.warn('[fetchAdminMessageUnreadCounts]', error); return new Map(); }
+  const map = new Map();
+  (data || []).forEach(r => map.set(r.application_id, Number(r.unread_count) || 0));
+  return map;
+}
+
+// 관리자 받은편지함 대화 목록 — application_message_summary 뷰 조회.
+//   security_invoker=true 라 관리자 호출 시 전체 응모건 RLS 통과.
+//   message_count>0 (메시지 있는 건만) + last_message_at 최근순. 1000행 cap 대응 pagination.
+//   opts: { sinceMonths(기본 6), campaignId(선택) }
+async function fetchAdminMessageThreads(opts = {}) {
+  if (!db) return [];
+  const sinceMonths = opts.sinceMonths || 6;
+  const sinceIso = new Date(Date.now() - sinceMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
+  const cols = 'application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at';
+  const rows = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    let q = db?.from('application_message_summary')
+      .select(cols)
+      .gt('message_count', 0)
+      .gte('last_message_at', sinceIso)
+      .order('last_message_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
+    const {data, error} = await q;
+    if (error) { console.warn('[fetchAdminMessageThreads]', error); break; }
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return rows;
+}
+
+// 받은편지함 최근 메시지 미리보기 — 응모건별 마지막 「살아있는」 메시지 본문.
+//   숨김/회수 메시지는 제외(미리보기 노출 부적절). created_at 내림차순 후 클라에서 첫 행=최신.
+//   반환: Map<application_id, {body, sender_kind, created_at}>
+//   ⚠️ PostgREST 1000행 cap: 청크당 application 100개 + limit 1000. 한 청크 내
+//      메시지 밀도가 매우 높으면(application 평균 10건 초과) 뒤쪽 응모건 미리보기가
+//      누락될 수 있음. 미리보기는 보조 정보라 치명적이지 않음. 정밀도 필요 시
+//      차후 「응모건당 최신 1건」 전용 RPC 로 개선 권장.
+async function fetchMessagePreviews(applicationIds) {
+  if (!db || !applicationIds || !applicationIds.length) return new Map();
+  const map = new Map();
+  const CHUNK = 100;  // application_id 청크 (청크당 1000행 cap 내 평균 10건 커버)
+  for (let i = 0; i < applicationIds.length; i += CHUNK) {
+    const ids = applicationIds.slice(i, i + CHUNK);
+    const {data, error} = await db?.from('application_messages')
+      .select('application_id, body, sender_kind, created_at')
+      .in('application_id', ids)
+      .is('hidden_by_admin_at', null)
+      .is('self_withdrawn_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    if (error) { console.warn('[fetchMessagePreviews]', error); continue; }
+    (data || []).forEach(m => { if (!map.has(m.application_id)) map.set(m.application_id, m); });
+  }
+  return map;
+}
+
+// 응모건 단위 숨김/복구 이력 (super_admin — append-only audit). 메시지 모달 하단 패널용.
+//   hide_history 는 message_id 만 가지므로 application_messages inner join 으로 응모건 필터.
+//   RLS SELECT 는 super_admin 한정 (144) — 매니저 호출 시 빈 배열.
+async function fetchApplicationHideHistory(applicationId) {
+  if (!db || !applicationId) return [];
+  const {data, error} = await db.from('application_message_hide_history')
+    .select('id, message_id, action, by_user_kind, by_name, reason_code, reason_memo, at, application_messages!inner(application_id)')
+    .eq('application_messages.application_id', applicationId)
+    .order('at', { ascending: false });
+  if (error) { console.warn('[fetchApplicationHideHistory]', error); return []; }
+  return data || [];
+}
+
+// ══════════════════════════════════════
+// FAQ (자동응답) — 마이그레이션 146
+// ══════════════════════════════════════
+
+// 관리자용 전체 노드 (active 무관) — 트리 렌더용. sort_order → created_at 정렬
+async function fetchFaqNodes() {
+  if (!db) return [];
+  const {data, error} = await db?.from('faq_nodes')
+    .select('*')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) { console.warn('[fetchFaqNodes]', error); return []; }
+  return data || [];
+}
+
+// 노드별 측정 집계 — { faq_node_id: {viewed, handoff, resolved} } (1000행 cap 대응 페이지네이션)
+async function fetchFaqInteractionStats() {
+  if (!db) return {};
+  const out = {};
+  let from = 0;
+  while (true) {
+    const { data, error } = await db?.from('faq_interactions')
+      .select('faq_node_id, action, view_count')
+      .range(from, from + 999);
+    if (error) { console.warn('[fetchFaqInteractionStats]', error); break; }
+    (data || []).forEach(r => {
+      if (!r.faq_node_id) return;
+      const s = out[r.faq_node_id] || (out[r.faq_node_id] = { viewed: 0, handoff: 0, resolved: 0 });
+      if (r.action === 'viewed') s.viewed += (r.view_count || 1);
+      else if (r.action === 'handoff') s.handoff += 1;
+      else if (r.action === 'resolved') s.resolved += 1;
+    });
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+  return out;
+}
+
+// 노드 추가 (호출측에서 created_by/updated_by 채워 전달)
+async function insertFaqNode(row) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { data, error } = await db?.from('faq_nodes').insert(row).select().maybeSingle();
+      if (error) throw error;
+      return { ok: true, data };
+    });
+  } catch (e) { console.error('[insertFaqNode]', e); return { ok: false, error: e?.message }; }
+}
+
+// 노드 수정 (updated_at 은 트리거 자동 갱신)
+async function updateFaqNode(id, updates) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { error } = await db?.from('faq_nodes').update(updates).eq('id', id);
+      if (error) throw error;
+      return { ok: true };
+    });
+  } catch (e) { console.error('[updateFaqNode]', e); return { ok: false, error: e?.message }; }
+}
+
+async function setFaqNodeActive(id, active) {
+  return await updateFaqNode(id, { active: !!active });
+}
+
+// 순서 교환 — 두 노드의 sort_order 를 맞바꿈 (호출측에서 현재 sort 값 전달)
+async function swapFaqNodeOrder(idA, sortA, idB, sortB) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const e1 = (await db?.from('faq_nodes').update({ sort_order: sortB }).eq('id', idA)).error;
+      const e2 = (await db?.from('faq_nodes').update({ sort_order: sortA }).eq('id', idB)).error;
+      if (e1 || e2) throw (e1 || e2);
+      return { ok: true };
+    });
+  } catch (e) { console.error('[swapFaqNodeOrder]', e); return { ok: false, error: e?.message }; }
+}
+
+// 노드 삭제 (카테고리 삭제 시 자식 ON DELETE CASCADE)
+async function deleteFaqNode(id) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { error } = await db?.from('faq_nodes').delete().eq('id', id);
+      if (error) throw error;
+      return { ok: true };
+    });
+  } catch (e) { console.error('[deleteFaqNode]', e); return { ok: false, error: e?.message }; }
+}
+
+// FAQ 상호작용 기록 (RPC record_faq_interaction) — PR B 인플 화면 + PR A 스모크
+//   action: 'viewed' | 'resolved' | 'handoff'. viewed 는 서버에서 멱등 UPSERT.
+async function recordFaqInteraction(applicationId, faqNodeId, action) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    return await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('record_faq_interaction', {
+        p_application_id: applicationId || null,
+        p_faq_node_id: faqNodeId || null,
+        p_action: action
+      });
+      if (error) throw error;
+      return { ok: true, data };
+    });
+  } catch (e) { console.error('[recordFaqInteraction]', e); return { ok: false, error: e?.message }; }
+}
+
+// 관리자 응모건 상태 한 줄(§3-1)용 — 응모 1건의 status + 결과물 status 배열을 함께 조회.
+//   §3-0 판정이 결과물 상태를 일정보다 먼저 보므로 status 와 결과물 집계가 모두 필요.
+//   반환: { status, delivs:[{status}] } (없으면 null)
+async function fetchApplicationStatusBundle(applicationId) {
+  if (!db || !applicationId) return null;
+  try {
+    const [{ data: app }, { data: delivs }] = await Promise.all([
+      db?.from('applications').select('id, status').eq('id', applicationId).maybeSingle(),
+      db?.from('deliverables').select('status').eq('application_id', applicationId).neq('status', 'draft'),
+    ]);
+    if (!app) return null;
+    return { status: app.status, delivs: (delivs || []).map(d => ({ status: d.status })) };
+  } catch (e) { console.error('[fetchApplicationStatusBundle]', e); return null; }
+}
+
+// 관리자 FAQ 열람 이력 패널(§3-2)용 — 한 응모건의 faq_interactions 를 시간순 + faq_nodes 역참조.
+//   RLS SELECT 는 is_admin() (마이그레이션 146). faq_node_id 가 SET NULL 된 행은 노드 제목 없이 표시.
+//   반환: 시간순(created_at 오름차순) 배열 [{action, view_count, created_at, last_viewed_at,
+//          faq_node_id, label_ko, body_ko}]
+async function fetchFaqInteractionsForApp(applicationId) {
+  if (!db || !applicationId) return [];
+  try {
+    const { data, error } = await db?.from('faq_interactions')
+      .select('id, faq_node_id, action, view_count, created_at, last_viewed_at, faq_nodes:faq_node_id (label_ko, body_ko)')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: true });
+    if (error) { console.warn('[fetchFaqInteractionsForApp]', error); return []; }
+    return (data || []).map(r => ({
+      id: r.id,
+      faq_node_id: r.faq_node_id,
+      action: r.action,
+      view_count: r.view_count,
+      created_at: r.created_at,
+      last_viewed_at: r.last_viewed_at,
+      label_ko: r.faq_nodes?.label_ko || '',
+      body_ko: r.faq_nodes?.body_ko || '',
+    }));
+  } catch (e) { console.error('[fetchFaqInteractionsForApp]', e); return []; }
 }
 

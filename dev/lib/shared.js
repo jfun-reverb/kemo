@@ -370,6 +370,76 @@ function snsProfileUrl(channel, handle) {
 }
 
 // ──────────────────────────────────────
+// 응모건 상태 한 줄 판정 (FAQ §3-0) — 인플(messaging.js)·관리자(admin-messaging.js) 공용
+// ──────────────────────────────────────
+// 순수 함수로 추출해 양쪽이 동일 결과를 내도록 보장한다(사양서 §3-1 "동일 결과 대조").
+// 인플 측은 _myDelivsByApp 전역과 _computeCancelPhase 를 쓰지만, 이 함수는
+// 결과물 배열·캠페인 객체를 인자로 받아 전역 의존 없이 동작한다.
+
+// 캠페인 일정 → 현재 단계(recruit/purchase/visit/post/other). mypage.js _computeCancelPhase 와 동일 로직.
+function faqComputeCancelPhase(camp) {
+  if (!camp) return 'other';
+  const now = Date.now();
+  const toMs = (d) => d ? Date.parse(d) : null;
+  const recruitDeadline = toMs(camp.deadline);
+  const purchaseStart = toMs(camp.purchase_start);
+  const purchaseEnd   = toMs(camp.purchase_end);
+  const visitStart    = toMs(camp.visit_start);
+  const visitEnd      = toMs(camp.visit_end);
+  const submissionEnd = toMs(camp.submission_end);
+  if (purchaseStart && now >= purchaseStart && (!purchaseEnd || now <= purchaseEnd)) return 'purchase';
+  if (visitStart    && now >= visitStart    && (!visitEnd    || now <= visitEnd))    return 'visit';
+  if (submissionEnd && now > submissionEnd) return 'post';
+  if (purchaseEnd   && now > purchaseEnd)   return 'post';
+  if (visitEnd      && now > visitEnd)      return 'post';
+  if (recruitDeadline && now <= recruitDeadline) return 'recruit';
+  return 'other';
+}
+
+// 응모 상태 + 결과물 배열 + 캠페인 → {key, stage} (§3-0 판정 순서)
+//   status: applications.status (pending/approved/rejected/cancelled)
+//   delivs: 해당 응모건의 deliverables 배열([{status}, ...]) — 없으면 []
+//   camp:   캠페인 객체(recruit_type·일정 필드)
+//   key:   상태 한 줄 문구 케이스, stage: relevant_stages 매칭 태그(null=태그 없음)
+function faqComputeStatus(status, delivs, camp) {
+  if (status === 'cancelled') return { key: 'cancelled', stage: null };
+  if (status === 'rejected')  return { key: 'rejected',  stage: 'rejected' };
+  if (status === 'pending')   return { key: 'pending',   stage: 'pending' };
+
+  if (status === 'approved') {
+    const ds = Array.isArray(delivs) ? delivs : [];
+    // ① 결과물 상태를 일정보다 먼저 본다 (§3-0)
+    if (ds.length) {
+      const allApproved = ds.every(d => d.status === 'approved');
+      const anyRejected = ds.some(d => d.status === 'rejected');
+      if (allApproved) return { key: 'done', stage: 'done' };
+      if (anyRejected) {
+        const allRejected = ds.every(d => d.status === 'rejected');
+        return { key: allRejected ? 'all_reject' : 'partial_reject', stage: 'approved_post' };
+      }
+      // pending(검수 대기) 포함, rejected 없음
+      return { key: 'reviewing', stage: 'approved_post' };
+    }
+    // ② 결과물이 없으면 캠페인 일정으로
+    const phase = faqComputeCancelPhase(camp);
+    const isVisit = camp?.recruit_type === 'visit';
+    if (phase === 'recruit') return { key: 'approved_purchase_before', stage: isVisit ? 'approved_visit' : 'approved_purchase' };
+    if (phase === 'purchase') return { key: 'receipt', stage: 'approved_purchase' };
+    if (phase === 'visit')    return { key: 'visit',   stage: 'approved_visit' };
+    if (phase === 'post') {
+      // 제출 마감(submission_end)이 없거나 이미 지났으면 'post_overdue'(기한 경과),
+      // 마감이 아직 미래면(구매/방문 기간만 종료) 기존 'post_deadline'(날짜 안내).
+      // stage 는 둘 다 approved_post 로 유지해 FAQ 트리 노드 매칭에 영향 없게 한다.
+      const subEnd = camp?.submission_end ? Date.parse(camp.submission_end) : NaN;
+      if (isNaN(subEnd) || Date.now() > subEnd) return { key: 'post_overdue', stage: 'approved_post' };
+      return { key: 'post_deadline', stage: 'approved_post' };
+    }
+    return { key: 'approved_fallback', stage: null };
+  }
+  return { key: 'fallback', stage: null };
+}
+
+// ──────────────────────────────────────
 // 관리자 페인 자동 갱신 헬퍼
 // ──────────────────────────────────────
 // 모달에서 저장한 직후 해당 페인의 목록·집계 영역이 stale 상태로 남는 패턴을
@@ -391,6 +461,9 @@ const PANE_REFRESHERS = {
   'lookups': async () => {
     if (typeof renderLookupsTable === 'function') await renderLookupsTable();
   },
+  'faq': async () => {
+    if (typeof loadFaqPane === 'function') await loadFaqPane();
+  },
   'admin-accounts': async () => {
     if (typeof loadAdminAccounts === 'function') await loadAdminAccounts();
   },
@@ -403,6 +476,18 @@ const PANE_REFRESHERS = {
   'campaigns': async () => {
     // 관리자 캠페인 목록 갱신 — `loadCampaigns`(인플루언서 함수) 오참조 버그 수정
     if (typeof loadAdminCampaigns === 'function') await loadAdminCampaigns();
+  },
+  'messages': async () => {
+    if (typeof refreshInboxData === 'function') await refreshInboxData();
+  },
+  'companies': async () => {
+    if (typeof loadCompanies === 'function') await loadCompanies();
+  },
+  'brand-ops': async () => {
+    if (typeof loadBrandOps === 'function') await loadBrandOps();
+  },
+  'brand-ops-detail': async () => {
+    if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
   }
 };
 async function refreshPane(paneId) {
@@ -421,3 +506,135 @@ function normalizeSnsFields(profile) {
   if ('youtube' in out) out.youtube = extractSnsHandle('youtube',   out.youtube);
   return out;
 }
+
+// ══════════════════════════════════════
+// 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
+//   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
+//   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
+//   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
+// ══════════════════════════════════════
+const POLICY_NOTICE = {
+  id: 'inquiry2026',            // localStorage 키 식별자. 이전 'message2026'에서 변경 → 이미 본 사람도 새 안내 재노출
+  effectiveDate: '2026-05-28',  // 시행일(완료형 표기용) = 운영 출시일 2026-05-28
+  noticeUntil: '2026-06-11',    // 노출 종료일 = 시행일 + 14일. 이 날 0시(KST)부터 자동 비노출
+};
+var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
+
+// 출시 안내: 노출 종료일(noticeUntil) 전까지만 노출. 시행일은 완료형 표기용이라 판정에 안 씀
+function _policyNoticeActive() {
+  try { return Date.now() < new Date(POLICY_NOTICE.noticeUntil + 'T00:00:00+09:00').getTime(); }
+  catch (e) { return false; }
+}
+function _policyNoticeSeenKey() { return 'reverb.policyNotice.' + POLICY_NOTICE.id; }
+
+// 시행일을 현재 언어(ja/ko)에 맞게 표기 (운영은 ja 고정)
+function _policyEffectiveLabel() {
+  const d = new Date(POLICY_NOTICE.effectiveDate + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return POLICY_NOTICE.effectiveDate;
+  const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+  const lang = (typeof getLang === 'function' ? getLang() : 'ja');
+  return lang === 'ko' ? `${y}년 ${m}월 ${day}일` : `${y}年${m}月${day}日`;
+}
+
+// 로그인 직후 1회 팝업 (init 말미 + SIGNED_IN 훅에서 공통 호출 — 내부 가드로 중복 방지)
+function maybeShowPolicyNotice() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (!modal) return;                                  // 관리자 페이지 등 마크업 없으면 무시
+  if (!currentUser || currentUser._isAdmin) return;    // 로그인 회원만 (관리자 제외)
+  if (!_policyNoticeActive()) return;                  // 노출 종료일 경과 시 침묵
+  let seen = false;
+  try { seen = localStorage.getItem(_policyNoticeSeenKey()) === '1'; } catch (e) {}
+  if (seen) return;                                    // 이미 본 사람 (1회 제한)
+  openPolicyNoticeModal();
+}
+
+function openPolicyNoticeModal() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (!modal) return;
+  const titleEl = document.getElementById('policyNoticeTitle');
+  const bodyEl  = document.getElementById('policyNoticeBody');
+  if (titleEl) titleEl.textContent = t('policyNotice.title');
+  if (bodyEl) {
+    // 본문은 자사 고정 문자열(i18n) + 시행일 상수만 주입 — 외부 입력 없음. 시행일은 esc 처리.
+    bodyEl.innerHTML = t('policyNotice.body').replace('{date}', esc(_policyEffectiveLabel()));
+  }
+  modal.classList.add('on');
+}
+
+// 닫으면 자동 팝업이 다시 안 뜨도록 기록 (헤더 ×·배경 클릭 — 이번 닫기. 배너는 노출 종료일까지 유지)
+function closePolicyNotice() {
+  const modal = document.getElementById('policyNoticeModal');
+  if (modal) modal.classList.remove('on');
+  try { localStorage.setItem(_policyNoticeSeenKey(), '1'); } catch (e) {}
+}
+
+// 「다시 보지 않기」 — 팝업 + 헤더 배너(토스트) 모두 영구 종료(이 공지 한정).
+//   seen(자동 팝업 차단) + dismissed(배너 영구 비노출) 둘 다 기록.
+function _policyNoticeDismissedKey() { return _policyNoticeSeenKey() + '.dismissed'; }
+function _isPolicyNoticeDismissed() {
+  try { return localStorage.getItem(_policyNoticeDismissedKey()) === '1'; } catch (e) { return false; }
+}
+function neverShowPolicyNotice() {
+  try {
+    localStorage.setItem(_policyNoticeSeenKey(), '1');
+    localStorage.setItem(_policyNoticeDismissedKey(), '1');
+  } catch (e) {}
+  const modal = document.getElementById('policyNoticeModal');
+  if (modal) modal.classList.remove('on');
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// 팝업 「자세히 보기」 → 팝업 닫고(본 것으로 기록) 개인정보처리방침 전문 페이지로
+function openPolicyNoticeLegal() {
+  closePolicyNotice();
+  if (typeof openLegalPage === 'function') openLegalPage('privacy');
+}
+
+// 홈 상단 배너 — fixed 오버레이라 홈에서만 노출. 닫기는 이번 방문만 숨김(부활).
+//   홈 여부를 함수 자체에서 판정 → 로그인 직후·초기 로드 등 navigate 미경유 호출에서도 타 페이지 노출 방지.
+function renderPolicyNoticeBanner() {
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (!wrap) return;
+  const h = location.hash;
+  const isHome = (h === '' || h === '#' || h === '#home');
+  const show = isHome && currentUser && !currentUser._isAdmin && _policyNoticeActive() && !_policyBannerDismissed && !_isPolicyNoticeDismissed();
+  if (!show) { wrap.style.display = 'none'; return; }
+  // 배너 텍스트는 data-i18n="policyNotice.banner" 가 담당 → 언어 토글 시 applyI18n 이 자동 갱신
+  wrap.style.display = '';
+}
+
+function dismissPolicyNoticeBanner() {
+  _policyBannerDismissed = true;
+  const wrap = document.getElementById('policyNoticeBannerWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// 배너 「자세히 보기」 → 요약 배너에서 전체 내용(팝업) 재오픈.
+//   seen 플래그 무관(의도): 자동 1회 팝업만 제한하고, 배너 수동 재오픈은 시행일까지 몇 번이든 허용.
+function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
+
+// ══════════════════════════════════════
+// 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
+//   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
+//   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
+//   사양서 docs/specs/2026-05-27-campaign-status-label.md (B안 — 상태 분리)
+// ══════════════════════════════════════
+function campaignStatusLabelKey(camp) {
+  const s = camp && camp.status;
+  if (s === 'ended') return 'closed_done';                 // 종료 (실제 상태)
+  if (s === 'closed') {
+    const sub = camp.submission_end ? Date.parse(camp.submission_end) : null;
+    if (sub && Date.now() > sub) return 'closed_done';     // 자동 전이 전 안전망 — 제출 마감 경과 = 종료
+    return 'closed_recruit';                               // 모집마감(제출 진행 중)
+  }
+  return s; // draft / scheduled / active / expired
+}
+const CAMPAIGN_STATUS_LABEL = {
+  draft: '준비', scheduled: '모집예정', active: '모집중',
+  closed_recruit: '모집마감', closed_done: '종료', expired: '노출종료'
+};
+const CAMPAIGN_STATUS_BADGE_CLASS = {
+  draft: 'badge-gray', scheduled: 'badge-blue', active: 'badge-green',
+  closed_recruit: 'badge-pink', closed_done: 'badge-done', expired: 'badge-expired'
+};

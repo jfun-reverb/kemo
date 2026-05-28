@@ -784,3 +784,141 @@ SELECT * FROM get_brand_ops_overview() LIMIT 5;
 - [ ] 121 적용 직후 `SELECT proname FROM pg_proc WHERE proname IN ('_accumulate_legacy_no','link_campaign_to_application','unlink_campaign_from_application')` 3행 확인
 - [ ] 권한 확인: `has_function_privilege('authenticated', 'public.link_campaign_to_application(uuid,uuid)', 'EXECUTE')` true
 - [ ] PR 2 (회사 관리 페인) 작업 시작은 운영 배포 완료 이후
+
+---
+
+## 16. 구현 결과 — PR 2 (회사 관리 페인)
+
+**구현일:** 2026-05-21 (개발 구현, dev 머지 대기)
+**관련 파일:**
+- 신규 `dev/js/admin-company.js` — 회사 CRUD + 브랜드 일괄 할당 페인 로직
+- `dev/lib/storage.js` — 데이터 함수 6종 (fetchCompanies / upsertCompany / assignBrandsToCompany / archiveCompany / deleteCompanyHard / fetchBrandsForAssign)
+- `dev/admin/index.html` — 사이드바 「회사 관리」 메뉴(브랜드 관리 앞) + `adminPane-companies` 페인 + `companyModal` + `brandAssignModal`
+- `dev/js/admin.js` switchAdminPane loaders `'companies': loadCompanies` 1줄
+- `dev/lib/shared.js` PANE_REFRESHERS `'companies'` 1줄
+- `dev/build.sh` ADMIN_JS_FILES 에 `js/admin-company.js` 등록
+
+### 초안 대비 변경 사항
+
+#### 달라진 것 (사양서/HANDOFF 가정과 실제 코드 차이)
+- **「브랜드 관리」(`brands`) 페인이 이미 구현돼 있었음** — HANDOFF(2026-05-18)는 "브랜드 관리는 라벨만 존재, 미구현"으로 가정했으나, 구현 착수 시점에 `admin-brand.js`에 `loadBrandsPane`/`renderBrandsList`/브랜드 상세 모달이 완성돼 있었음. 그 페인의 "회사명"은 자유 텍스트 `brands.company_name`.
+- **회사 개념 분리 유지로 결정** (사용자 확인) — 이번 PR 2 는 정규화 엔티티 `companies` + `brands.company_id` 만 다루고, 기존 자유텍스트 `company_name` 은 손대지 않음. 두 표기가 한동안 공존. 향후 통합은 별도 결정.
+
+#### 사용자 확인 결정사항 (2026-05-21)
+- 회사 개념: 분리 유지 (기존 브랜드 관리 자유텍스트 회사명 미변경)
+- 사이드바 위치: 현황 대시보드 → 회사 관리 → 브랜드 관리 → 신청 목록
+- 브랜드 할당 조회: 전용 함수 `fetchBrandsForAssign` 신규 (현재 소속 + 미분류 서버측)
+- 권한 표시: campaign_manager 는 CUD 버튼 비활성 + 안내, 행 클릭 시 읽기 전용 모달로 열람만 허용
+
+### 구현 중 기술 결정 사항
+- 신규 마이그레이션 없음 — 데이터베이스(118~121)·트리거·행 단위 보안 정책 모두 PR 1 에서 완료. supabase-expert 점검 결과 `name_normalized`(BEFORE INSERT OR UPDATE OF name_ko) · `total_brands`(AFTER INS/DEL/UPD OF company_id, OLD-1·NEW+1) · RLS(SELECT is_admin / CUD is_campaign_admin) 모두 정상.
+- storage 함수는 throw 대신 `{ok, error, code}` 반환(기존 updateBrand 패턴) → 화면은 `res.ok` 확인. 삭제는 소속 0건 검증 후 `code:'HAS_BRANDS'` 로 화면 안내.
+- admin.js 핫스팟은 loaders 1줄만 수정, 본체는 신규 파일 `admin-company.js` 로 분리.
+
+### 미구현 (후속 PR)
+- PR 3 — 운영 현황 페인 (브랜드 카드 그리드, `get_brand_ops_overview`)
+- PR 4 — 브랜드 상세 페인 + 캠페인↔신청 연결/해제 UI
+  (CLAUDE.md 「운영 현황 페인」·「캠페인 ↔ 신청 연결/해제」 항목은 데이터베이스(RPC)는 존재하나 화면 미구현 상태로 선반영돼 있음)
+
+---
+
+## 17. 구현 결과 — PR 3(운영 현황 페인) + PR 4(브랜드 상세 + 연결/해제)
+
+**구현일:** 2026-05-21 (개발 구현, dev 머지)
+**관련 파일:**
+- 신규 `dev/js/admin-brand-ops.js` — 운영 현황 카드 그리드(PR 3) + 브랜드 상세 페인(PR 4)
+- `dev/lib/storage.js` — getBrandOpsOverview, getBrandOpsDetail, linkCampaignToApplication, unlinkCampaignFromApplication
+- `dev/admin/index.html` — 사이드바 「운영 현황」(현황 대시보드 다음) + adminPane-brand-ops(카드 그리드 + 최근 신청) + adminPane-brand-ops-detail(브랜드 상세) + linkCampaignModal. 대시보드 「최근 신청」 제거(운영 현황 이관)
+- `dev/js/admin.js` — loaders 'brand-ops'/'brand-ops-detail', sidePane 매핑 brand-ops-detail→brand-ops, renderRecentAppsTable 함수 추출
+- `dev/admin/app.js` — subToParent 'brand-ops-detail':'brand-ops'
+- `dev/lib/shared.js` — PANE_REFRESHERS 'brand-ops'/'brand-ops-detail'
+- `dev/css/admin.css` — .brand-ops-grid, .brand-ops-card, brandOpsPulse, .brand-ops-mini-grid/card
+- `dev/build.sh` — ADMIN_JS_FILES 에 js/admin-brand-ops.js
+
+### 사용자 확인 결정사항 (2026-05-21)
+- 브랜드 상세: **별도 화면**(페인). 모달 아님
+- 미니카드 지표: 화면에서 추가 집계(승인 신청 수 = applications status approved). 결과물 집계는 detail RPC 미제공이라 미니카드에서 생략, 모집 진행바만
+- 대시보드 「최근 신청」: 운영 현황으로 이전(renderRecentAppsTable 추출)
+- 캠페인 편집 화면 「신청」 연결 통일: 처음엔 "이번에 같이"였으나, 캠페인 저장(source_application_id 직접 UPDATE) 핵심 로직 + 채번 트랜잭션이라 회귀 위험 큼 → **별도 작업으로 분리**(미구현). 브랜드 상세 화면 연결/해제는 link/unlink RPC 사용해 채번 일관성 확보됨
+
+### 초안 대비 변경 사항
+- alert_level 임계값은 get_brand_ops_overview(120)에서 계산 완료 → 클라이언트는 색·라벨만 매핑
+- 운영 현황 카드는 mountLazyList(테이블 전용) 대신 전체 렌더(브랜드 수 적음)
+- 신규 마이그레이션 없음 (RPC 120·121 운영 적용 완료)
+
+### 미구현 (후속 작업)
+- 캠페인 편집 화면 「신청」 드롭다운의 link/unlink RPC 통일 (캠페인 저장 핵심 로직 변경이라 별도 PR)
+- 캠페인 미니카드 결과물 제출률 진행바 (detail RPC 확장 또는 별도 집계 필요)
+
+---
+
+## 18. 구현 결과 — 운영 현황 카드 사유 배너 (PR 5)
+
+**구현일:** 2026-05-22
+**브랜치:** feature/brand-ops-alert
+**관련 마이그레이션:** 148 (`148_brand_ops_alert_reasons.sql`)
+
+### 배경
+PR 3(운영 현황 페인)에서 카드 우측에 alert_level 배지(긴급/대응 필요/주의)만 표시하고, 경고 라인은 D-3·7일취소 두 가지만 부분 노출했다. **왜** 그 카드가 긴급/주의가 됐는지(모집률 저조·D-1 임박 등)는 화면에서 알 수 없어, 운영자가 사유를 카드만 보고 파악하도록 색 배너로 노출.
+
+### 변경 사항
+- **마이그레이션 148** — `get_brand_ops_overview` 를 DROP + CREATE 재정의 (반환 TABLE 19 → 22컬럼). 추가 컬럼:
+  - `alert_reasons text[]` — alert 발생 조건 코드 배열 (한국어 완성문구 아님). 코드 5종: `recruit_low_deadline_near`(모집률<30 & 마감7일내), `cancel_7d_high`(7일취소≥5), `d1_imminent`(D-1), `d3_imminent`(D-3이면서 D-1 아님 = `d3>d1`), `recruit_low`(모집률<50 & 마감 여유)
+  - `soonest_deadline date` — 가장 임박한 active 캠페인 deadline
+  - `d1_count bigint` — D-1 임박 active 캠페인 수
+  - **임계값은 120 기준 그대로** (alert_level 결정 규칙 불변). `flag_agg` CTE 로 임계값을 1회만 계산해 alert_level·alert_reasons 가 같은 boolean 플래그를 재참조 → 둘이 어긋날 수 없음
+- **화면(`dev/js/admin-brand-ops.js`)** — 기존 `warnLine`(warns 배열) 제거. 신규:
+  - `brandOpsAlertReasonLines(b)` — alert_reasons 코드 배열을 서버 수치(`recruit_rate`/`soonest_deadline`/`d1_count`/`d3_count`/`cancel_7d`)로 한국어 문구 조립
+  - `brandOpsDaysUntil(dateStr)` — 마감일까지 남은 일수
+  - `BRAND_OPS_REASON_ORDER` — 배너 표시 순서(모집 → 마감 → 취소)
+  - `renderBrandOpsCard()` 에서 결과물 승인률 바 아래에 색 배너 렌더 (`alert.bg` 배경 + `alert.color` 글씨/아이콘). **정상 카드는 alert_reasons 빈 배열 → 배너 미표시**
+  - 「마감 3일 이내」 건수는 `d3_count - d1_count`(D-1 제외분)로 표시해 D-1 줄과 중복 카운트 방지
+
+### 초안 대비 변경
+- PR 3 의 "클라이언트는 색·라벨만 매핑" 방침 위에 **사유 문구 조립 로직만 추가** (임계값 판정은 여전히 서버). SQL 에 한국어를 넣지 않고 코드 배열만 반환 → 문구 수정·다국어가 화면에서 가능
+
+### 구현 중 기술 결정
+- 반환 TABLE 컬럼 추가는 `CREATE OR REPLACE` 불가 → `DROP FUNCTION` 후 `CREATE` (롤백은 120 정의 재실행)
+- `b.alert_reasons` 없을 때(구버전 RPC 응답) `(b.alert_reasons || [])` 로 graceful — 배너 미표시
+
+---
+
+## 19. 구현 결과 — 상세 페인 캠페인 미니카드 재설계 (PR 6)
+
+**구현일:** 2026-05-22
+**브랜치:** feature/brand-ops-alert
+**관련 마이그레이션:** 149 (`149_brand_ops_detail_camp_expand.sql`)
+
+### 배경
+PR 4 의 캠페인 미니카드는 캠페인번호·제목·영문 상태·모집 진행바·D-day 만 표시했고, 결과물 집계는 detail RPC 미제공이라 생략됐다(§미구현 백로그). 운영자가 미니카드만으로 캠페인 진행을 파악하도록 정보를 보강.
+
+### 사용자 결정 (AskUserQuestion)
+- 데이터 확장 방식: **상세 RPC 확장** (화면 별도 조회·혼합 대신)
+- 제출률 분모: **승인된 인플 수**
+- 표시 형태: **제출률 + 승인률 2줄** (모집 진행바 포함 총 3개 바)
+- 기간: **모집기간 범위(recruit_start~deadline) + 제출 마감(submission_end)**
+
+### 변경 사항
+- **마이그레이션 149** — `get_brand_ops_detail` CREATE OR REPLACE. 캠페인 jsonb(신청 내부·외부 서브쿼리 양쪽)에 9키 추가: `channel`, `channel_match`, `img1`, `recruit_start`, `submission_end`, `approved_app_count`, `deliv_submitted_inf`(distinct user_id), `deliv_total`, `deliv_approved`. SECURITY DEFINER + search_path='' + is_admin() 유지, jsonb 하위호환(키 추가만)
+- **화면(`dev/js/admin-brand-ops.js`)** — `renderCampMiniCard` 전면 재작성:
+  - 썸네일 좌측(`img1`, 56px, 없으면 placeholder 아이콘) + 우측 정보 영역
+  - 상단 모집 타입(리뷰어/기프팅/방문형) pill + 채널(`channel`+`channel_match` 구분자)
+  - 캠페인번호 숨김 / 상태 한글 배지(`준비·모집예정·모집중·종료·노출마감`, 상태별 색)
+  - 모집(승인/slots) · 제출(제출인플/승인인플) · 결과물 승인(승인결과물/제출결과물) 3개 진행바
+  - 기간: 모집 `M/D~M/D` + 제출마감 `M/D`
+  - 헬퍼 분리: `brandOpsCampThumb`/`brandOpsCampTypeChannel`/`brandOpsCampPeriod`/`brandOpsShortDate`/`brandOpsChannelText`, 상수 `BRAND_OPS_CAMP_STATUS_KO`/`_COLOR`/`BRAND_OPS_RECRUIT_TYPE_KO`
+- **CSS(`dev/css/admin.css`)** — `.brand-ops-mini-grid` minmax 220→280px (썸네일+3줄 수용)
+
+### 구현 중 기술 결정
+- 제출률 분모(승인 인플 수)는 RPC `approved_app_count` 우선, 없으면 화면 `_brandOpsApprByCamp` 폴백 → 구버전 RPC 응답에도 graceful
+- 분모 0(slots/승인/제출결과물 0) 은 `brandOpsRateBar` 가 `null`→「—」 처리
+- 상태 한글은 신청상태(`getStatusBadgeKo`)와 별개라 캠페인 전용 매핑 상수를 미니카드에 로컬 정의
+- `deliverables.user_id` 실재 확인(마이그레이션 035) → applications 경유 없이 직접 distinct 집계
+
+### 후속 — 진행바 하단 날짜 + 구매·방문 기간 (마이그레이션 150, 2026-05-22)
+- **마이그레이션 150** (`150_brand_ops_detail_camp_periods.sql`): `get_brand_ops_detail` 캠페인 jsonb(양쪽 서브쿼리)에 `purchase_start`/`purchase_end`/`visit_start`/`visit_end` 4키 추가 (149의 9키 유지). CREATE OR REPLACE, 하위호환
+- **화면**: 통합 기간 줄(`brandOpsCampPeriod`) 제거 → 각 진행바 하단에 날짜 배치
+  - 모집 진행바 하단: 「모집 {recruit_start}~{deadline}」 (`brandOpsDateRange` 한쪽만 있으면 그쪽만)
+  - 제출 진행바 하단: 리뷰어=「구매 {purchase_start}~{purchase_end}」 / 방문형=「방문 {visit_start}~{visit_end}」 + 「제출마감 {submission_end}」 (`brandOpsSubmitDateText`)
+  - 결과물 승인 진행바: 날짜 없음
+- 헬퍼: `brandOpsDateRange`/`brandOpsMiniDateLine`/`brandOpsSubmitDateText`

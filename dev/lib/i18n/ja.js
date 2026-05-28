@@ -68,6 +68,7 @@ window.I18N_JA = {
     statusActive: '募集中',
     statusScheduled: '近日公開',
     statusClosed: '募集締切',
+    statusEnded: '終了',
     searchPlaceholder: 'キャンペーン名・ブランド検索',
   },
 
@@ -77,6 +78,7 @@ window.I18N_JA = {
       active: '募集中',
       scheduled: '近日公開',
       closed: '締切',
+      ended: '終了',
       draft: '準備中',
       expired: '掲載終了',
     },
@@ -315,6 +317,20 @@ window.I18N_JA = {
     about: '会社紹介',
   },
 
+  // 푸터 회사 정보
+  footer: {
+    aboutHeading: '会社情報',
+    companyLabel: '会社名',
+    locationLabel: '所在地',
+    representativeLabel: '代表者',
+    contactLabel: 'お問い合わせ',
+    companyName: '株式会社ジェイファン',
+    locationValue: 'ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号',
+    representativeValue: 'ジュ・ヒョンホ',
+    officialLine: '公式LINE',
+    aboutText: 'REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。',
+  },
+
   // 캠페인 상세
   detail: {
     recruitType: '募集タイプ',
@@ -333,6 +349,7 @@ window.I18N_JA = {
     reapplyBtn: '再応募する',
     reapplyNotice: '以前キャンセルされた応募があります。再度応募しますか？',
     closedBtn: '募集締切',
+    endedBtn: '終了',
     fullBtn: '募集終了',
     appliedBtn: '応募済み',
     manageBtn: '活動管理',
@@ -380,6 +397,7 @@ window.I18N_JA = {
     yourFollowers: 'あなたの {channel} フォロワー数:',
     scheduledOverlay: '近日公開',
     closedOverlay: '募集締切',
+    endedOverlay: '終了',
     fullOverlay: '募集終了',
     applyComplete: '応募完了！結果はメールでお知らせします',
   },
@@ -564,5 +582,77 @@ window.I18N_JA = {
   // 채널 라벨
   channelLabel: {
     other: 'その他',
+  },
+
+  // 응모건 메시지 (인플루언서 ↔ 관리자)
+  messaging: {
+    titleFor: '{name}に関するお問い合わせ',
+    cancelledBlocked: 'キャンセルされた応募はお問い合わせをご利用いただけません。',
+    refresh: '最新のお問い合わせに更新',
+    newArrived: '運営から新しい返信が届きました（タップで更新）',
+    loading: '読み込み中...',
+    loadError: 'お問い合わせの読み込みに失敗しました',
+    emptyThread: 'まだお問い合わせはありません。下の入力欄から運営チームへお問い合わせいただけます。',
+    you: '本人',
+    adminTeam: '運営チーム',
+    maskHiddenByAdmin: '[管理者により非表示処理されたメッセージ]',
+    maskSelfWithdrawn: '[本人が取り消したメッセージ]',
+    maskAdminWithdrawn: '[管理者が取り消したメッセージ]',
+    withdraw: '取り消す',
+    withdrawConfirm: 'このメッセージを取り消しますか？',
+    withdrawFailed: 'メッセージの取り消しに失敗しました',
+    placeholder: 'お問い合わせ内容を入力...',
+    attachMax: '添付は最大{n}枚までです',
+    attachTooLarge: '画像が大きすぎます。別の画像をお試しください',
+    attachUploadFailed: '画像のアップロードに失敗しました',
+    attachError: '画像を開けませんでした',
+    emptyInput: 'お問い合わせ内容を入力してください',
+    sendFailed: '送信に失敗しました',
+    btnLabel: 'お問い合わせ',
+    unreadBadge: '未読',
+    navMenu: 'お問い合わせ',
+    notifTitle: '運営からの返信',
+    pendingNotice: '運営が順次確認のうえ、ご返信いたします。お返事までお時間をいただく場合がございます。',
+    // 応募件メッセージ — 状態の1行表示（§3 マッピング）
+    statusLine: {
+      goBtn: '画面を開く',
+      reasonLabel: '差し戻しの理由',
+      pending: '現在、審査中です。結果は別途ご連絡します。',
+      approved_purchase_before: '当選されました。まもなく購入のご案内が始まります。',
+      receipt: '商品ご購入後、レシートをご提出ください（提出期限 {date}）。',
+      visit: 'ご訪問後、投稿をご提出ください。',
+      post_deadline: '成果物の提出期限：{date}',
+      post_overdue: '提出期限を過ぎています。',
+      reviewing: 'ご提出いただいた成果物を確認中です。',
+      partial_reject: '一部の成果物が差し戻されました。差し戻し分をご確認の上、再提出ください。',
+      all_reject: '成果物が差し戻されました。理由をご確認の上、再提出ください。',
+      done: '全てのミッションが完了しました。ありがとうございました。',
+      rejected: '今回はご縁がありませんでした。',
+      cancelled: '取り消された応募です。',
+      approved_fallback: 'ご当選後の各ステップは、応募履歴からご確認いただけます。',
+      fallback: 'ご応募の状況は、応募履歴からご確認いただけます。',
+    },
+    // 自動応答（FAQ・お問い合わせゲート）
+    faq: {
+      intro: 'よくあるご質問から、お探しの内容をお選びください。',
+      contactBtn: '直接お問い合わせ',
+      resolvedBtn: '解決しました',
+      resolvedToast: 'お役に立ててうれしいです。',
+      back: 'もどる',
+      backToCategories: '一覧にもどる',
+      unavailable: '現在ご案内できる項目がありません。下の「直接お問い合わせ」からご連絡ください。',
+      // お問い合わせゲート (PR B-rev)
+      openBtn: 'よくある質問',
+      allTitle: 'よくある質問',
+      suggestHead: 'こちらで解決できるか確認してみましょう',
+    },
+  },
+  // 政策変更の告知（お問い合わせ機能の追加・規約改定、2026-05-27 即時施行・リリース案内）
+  policyNotice: {
+    title: '「お問い合わせ」機能の追加・規約改定のお知らせ',
+    body: '応募したキャンペーンごとに、運営チームへ直接お問い合わせができる「お問い合わせ」機能が追加されました。<br><br>・機能：メッセージと画像の送信<br>・場所：応募履歴ページのキャンペーンごと<br>・利用：ご本人と運営チーム<br>・保管期間：応募終了後1年（退会時に削除）<br><br>これにともない、利用規約・プライバシーポリシーを一部改定しました。全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。<br><br>施行日：{date}',
+    banner: '「お問い合わせ」機能の追加にともない、規約・プライバシーポリシーを改定しました。',
+    detailBtn: '詳しく見る',
+    closeBtn: '今後表示しない',
   },
 };

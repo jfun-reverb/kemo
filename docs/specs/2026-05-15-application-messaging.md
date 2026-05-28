@@ -1221,6 +1221,8 @@ GRANT EXECUTE ON FUNCTION public.withdraw_broadcast TO authenticated;
 
 ## 8. 약관·개인정보 영향 (중요)
 
+> **⚠️ 2026-05-20 사용자 결정**: 개발 착수 단계에서는 「D-7 사전 통지·약관 갱신」을 **일단 보류**하고 PR 1~4 구현을 먼저 진행하기로 함. 단 이는 영구 면제가 아니라 **개발 우선 진행을 위한 보류**이며, **PR 5(LINE 전환 + 약관) 운영 배포 직전에 D-7 사전 통지·정책 4종 갱신을 반드시 재논의·집행**해야 한다 (한국 개인정보 보호법 + 일본 개인정보보호법 중대 변경 트리거). 메인 세션이 운영 배포 시점에 이 항목을 다시 띄울 것.
+
 ### 8-1. /약관확인 분석 결과 (2026-05-18 메인 세션 검증)
 
 #### 중대 변경 판단
@@ -1326,14 +1328,94 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 
 ## 구현 결과
 
-**구현일:** (개발 세션이 채울 것)
-**관련 커밋:** (개발 세션이 채울 것)
-**PR:** (PR-1~4 링크 차례로)
+### 후속 — 인플루언서 메시지: 모달 → 페이지 전환 (2026-05-22)
 
-### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+**구현일:** 2026-05-22
+**관련 커밋:** feature/message-faq (PR #258 후속)
 
-### 구현 중 기술 결정 사항
--
+**배경:** 모바일에서 메시지 입력란 탭 시 키보드가 올라오면 모달(`#msgModal`)이 통째로 사라지는 버그. 모달 + visualViewport 높이 조정 방식의 한계.
+
+**변경:**
+- `#msgModal`(`.msg-modal` 오버레이) → `#page-messages`(`.page`, `#appShell` 내부). 페이지는 기존 모바일 키보드 패턴(`#appShell` `position:fixed` + visualViewport)을 상속해 키보드 가림 문제 근본 해결.
+- 진입 `openMessagesPage(applicationId, from, pushHistory)` — 캐시 보장(`_myApps` 비면 `loadMyApplications`) + 취소건 차단(`isApplicationCancelled`→toast `messaging.cancelledBlocked`) + `navigate('messages-'+id)` 라우팅.
+- 이탈 정리 `cleanupMessagesPage()` — navigate 의 페이지 전환 훅(이전 active 가 `page-messages` 이고 다른 페이지로 가면 호출)에서 폴링 정지·상태 초기화.
+- 헤더 뒤로가기 `navigateBackFromMessages()` → 응모이력 복귀.
+- 라우팅 5곳에 `messages-{id}` 분기: `navigate`/`popstate`/초기 해시 복원/DOMContentLoaded initPage/`updateActiveNav`. 해시 `#messages-{id}` 로 새로고침 복원(detail 패턴).
+- 모달용 키보드 코드(`_attachMsgKeyboardFit`/`_detachMsgKeyboardFit`/`_msgVVAdjust`/`FAQ_GATE_HIDE_KB_PX`) 전부 제거.
+- 진입점 교체: `dev/js/mypage.js`(메시지 버튼), `dev/js/notifications.js`(message_received 알림) → `openMessagesPage`.
+
+**사용자 결정:** 뒤로가기 버튼 둠 / 취소 응모 진입 차단 / 개발서버까지만 배포(메시지 운영 보류 유지).
+**DB 변경:** 없음.
+
+### PR 1 — 기반 인프라 + 인플루언서 메시지 (2026-05-20)
+
+**구현일:** 2026-05-20
+**관련 커밋:** 95cbb41 (DB+연동 계층), 0e47156 (인플 모달 UI) — feature/application-messaging
+**PR:** (작업 폴더 PR 생성 예정)
+
+#### 초안 대비 변경 사항
+- **추가된 것**:
+  - 마스킹 조회 RPC `get_application_messages(uuid)` — 사양서엔 "뷰 또는 RPC" 선택으로 열려 있었으나, 호출자 역할별 4종 마스킹 분기를 RPC 로 구현(클라 마스킹은 본문이 네트워크로 노출돼 부적합). §9 비대칭 그대로.
+  - 공통 이미지 압축 헬퍼 `dev/lib/image-compress.js` (HEIC→JPEG + Canvas 2048px/0.85) — §10 에 신규 파일로 예고됐던 것을 PR 1 에서 선구현.
+  - `application_message_summary` 뷰에 `security_invoker=true` (인플루언서 직접 조회 시 RLS 상속), `application_message_admin_unread_counts` 에 is_admin 가드 — 초안에 명시 안 됐던 보안 보강.
+- **빠진 것 (PR 2 로 이동)**:
+  - GNB 햄버거 「メッセージ」 메뉴(§5-2) + 알림 `message_received`(§5-5): 관리자 발신이 있어야 인플루언서 미읽음·알림이 생기는데 관리자 발신 UI 가 PR 2 → PR 2(관리자 발신)와 함께 연동하기로 사용자 결정(2026-05-20). PR 1 에 빈 껍데기만 넣으면 표시 데이터·테스트 불가.
+  - 응모 종료 후 90일 입력창 비활성 UX: send RPC 가 90일 차단하므로 PR 1 은 발송 실패 토스트로 처리, 입력창 자동 비활성 UX 는 후속.
+- **달라진 것**:
+  - PR 1 테이블 5개 전부 생성(broadcast/hide_history 포함). 관련 RPC(bulk/hide/unhide/withdraw_broadcast/mark_resolved)는 PR 2·3 에서 추가.
+  - Storage 버킷·정책을 마이그레이션 SQL 안에 포함(Dashboard 수동 아님).
+
+#### 구현 중 기술 결정 사항
+- 마이그레이션 **144** 단일 파일(테이블 5개 + 컬럼 + 뷰 + 마스킹/발송/읽음/회수 RPC + rate limit + lookup 시드 + Storage). 보안 보강을 별도 145 로 했다가 미적용 상태라 144 에 통합.
+- 본인 회수 첨부 삭제: SQL RPC 에서 storage 삭제 불가 → `withdrawOwnMessage()` 가 RPC 성공 후 클라이언트에서 `storage.remove()` 호출(§9 채택안).
+- Rate limit: send 100/시간, withdraw 50/시간 (함수 내 최근 1시간 count 가드).
+- 인플 메시지 로직은 `dev/js/messaging.js` 신규 파일로 분리(인플 코드 비대화 방지).
+
+### PR 2 — 관리자 발신 + GNB 메뉴 + 인플 알림 (2026-05-20)
+
+**구현일:** 2026-05-20
+**관련 브랜치/커밋:** `feature/application-messaging-pr2` (dev PR 예정)
+**마이그레이션:** 145 (`145_application_messages_pr2.sql`)
+
+#### 초안 대비 변경 사항
+- **추가된 것:**
+  - 받은편지함을 **3단 패널**(좌: 캠페인 / 중: 대화 상대 / 우: 대화 내용)로 구현 (사용자 결정 — 사양서 §5-4의 단일 받은편지함보다 확장. 관리자 PC 전체폭 활용)
+  - 응모 행 「메시지」 버튼은 **별도 컬럼 대신 인플루언서 셀 안**에 삽입(3개 페인 표 헤더 변경 없이 일관 적용). 공통 헬퍼 `renderApplicantMsgBtn(app)`
+  - 숨김 이력은 **응모건 단위 조회**(`fetchApplicationHideHistory` — hide_history ⨝ application_messages) + 메시지 모달 하단 접이식 패널(super_admin 한정)
+- **빠진 것:** 일괄 발송(BCC)·메일 지연 큐·LINE 안내는 사양대로 PR 3~5로 분리(범위 외)
+- **달라진 것:** `mark_application_resolved` 권한을 초안 추정의 campaign_admin 이상이 아닌 **is_admin()**(모든 관리자)으로 확정 — 사양서 §3-4 「모든 관리자 발신·열람·응대완료 마킹」 충실. 자동 응대(send RPC)도 is_admin 이라 수동도 동일 등급
+
+#### 구현 중 기술 결정 사항
+- **선결작업 통합(마이그레이션 145 단일 파일):** `notifications.kind` CHECK 제약 확장(message_received) + `send_application_message` 재정의(144 본문 보존 + 관리자 발신 시 알림 INSERT, 미읽음 중복 방지) + 신규 RPC 3종을 한 파일에. 144 통합 패턴과 일관
+- **알림 클릭 분기 회귀 방지:** `application_cancelled` 알림도 `ref_table='applications'` 이므로 `onNotifItemClick`에서 `kind='message_received'` 로 한정(reviewer 가 잡은 회귀). 알림 onclick 에 kind 인자 추가
+- **admin.js 핫스팟 회피:** 관리자 로직 전부 신규 `dev/js/admin-messaging.js` 분리. admin.js 변경은 페인 로더 1줄 + 응모행 버튼/미열람맵 로딩 3곳으로 최소화. build.sh ADMIN_JS_FILES 에 admin.js 앞 등록
+- **데이터 계층 재사용:** 받은편지함은 144의 `application_message_summary` 뷰(security_invoker — 관리자 전체 조회) + `application_message_admin_unread_counts`(본인 미열람) + `fetchInfluencersByIds`(이름 보강)로 구성. 145에 뷰/집계 추가 없음
+- **GNB 메시지 배지:** `_myMsgUnreadByApp`(mypage.js) 합계 → `updateNavMsgBadge()`. 햄버거 열 때 `refreshMyMsgUnread` 백그라운드 최신화
+
+### PR 3~5
+(미진행 — PR 3 일괄 발송 / PR 4 메일 지연 큐 / PR 5 LINE 안내 + 약관 D-7 + 운영 배포)
+
+---
+
+## 2026-05-27 — 메시지 화면 UI 개선·버그수정 (개발서버 검증, 운영 보류 유지)
+
+> 개발서버(dev)에서 발견·수정. 전부 dev 반영 완료, reviewer GO + qa(가능분) PASS. 운영 배포는 메시지 본체(약관 통지)와 함께. FAQ 관련은 `2026-05-21-message-faq.md` 기능의 인플 화면 부분.
+
+| # | 수정 | 파일 | 내용 |
+|---|---|---|---|
+| 1 | 받은편지함 캠페인명 `(캠페인)` 누락 | admin-messaging.js | 메시지 탭 단독 진입 시 전역 `allCampaigns` 캐시가 비어 fallback → `refreshInboxData`에서 스레드 campaign_id 중 캐시 미스가 있으면 `fetchCampaigns()` 1회 재로드 |
+| 2 | FAQ 오버레이 뒤로가기 오작동 | messaging.js | 고정 부모 계층 뒤로 → 화면 히스토리 스택 `_faqNav` 도입 + `faqBack()`. 게이트(봇카드) 추천 직접 진입 시 스택 비워 뒤로=메시지 화면 복귀, 전체보기 드릴다운은 한 단계씩 |
+| 3 | 대화 영역 협소(키보드 시 눌림) | messaging.js, mypage.css, index.html | 입력창 `rows 2→1`+자동확장(최대120px), 운영팀 안내 입력창 위 **고정 배너 `#msgPendingNotice` → 대화 맨아래 인라인 `.msg-pending-inline`**, 상태줄 슬림 |
+| 4 | 이전 메시지 스크롤 중 새로고침(PTR) 발동 | app.js | PTR이 `page.scrollTop`을 보는데 메시지는 내부 `#msgModalThread` 스크롤이라 page는 항상 0 → `PTR_BLOCKLIST`에 `page-messages` 추가(헤더 새로고침 버튼 있음) |
+| 5 | 키보드 등장 시 화면 깜빡임 | app.js (**전역 공통**) | `adjustHeight`가 visualViewport resize/scroll마다 동기 리플로우 → **rAF throttle + 값 실제 변경 시에만 적용** + `Math.round`(iOS 소수점 노이즈 제거) |
+| 6 | '화면 열기' 버튼 삭제 + 상태줄 추가 슬림 | messaging.js, mypage.css, index.html | `renderAppStatusLine` navBtn·미사용 `FAQ_STATUS_NAV` 상수·`.msg-status-nav` CSS 제거. status-line `padding 7→5px·13→12px`. viewport `interactive-widget=resizes-content` 추가(키보드 점프 개선 시도) |
+| 7 | 키보드 올라올 때 마지막 메시지 안 보임(중간 노출) | app.js | `adjustHeight` rAF 콜백에서 활성 페이지가 `page-messages`면 `msgModalThread.scrollTop = scrollHeight`(최하단=마지막 메시지 유지) |
+
+### 미해결 — 키보드 등장 시 화면 "올라갔다 툭" 점프
+- iOS Safari `position:fixed` 레이아웃 + 키보드 등장 시 브라우저가 화면을 강제로 올렸다 재배치하는 **iOS 자체 동작**. 웹 코드로 완전 제거 어려움.
+- 시도·실패: `interactive-widget=resizes-content`(iOS 버전/Safari 미적용), `window.scrollTo(0,0)`(body `overflow:hidden`이라 window.scrollY 항상 0 → 무용 + iOS 간헐 상황 역효과 위험으로 **제거**, reviewer Critical).
+- 다음 후보: `appShell`의 `top` 처리(offsetTop 적용) 방식 변경. 단 전역 회귀 위험 + 효과 불확실 → 실기기 디버깅 필요한 별도 작업.
+
+### 운영 배포 메모
+- **5·7(키보드 깜빡임 throttle·thread 최하단)은 메시지와 무관한 공통 키보드 로직(app.js)** → 운영 적용 가치 있음. 단 dev→main 전체 머지는 보류기능 동반이라 **분리 배포** 필요(`project_pending_features_prod_deploy` 패턴). 사용자 개발서버 확인 후 결정 대기.
+- 1·2·3·4·6은 메시지/FAQ 기능 일부라 메시지 본체 운영 배포 시 함께.

@@ -24,7 +24,7 @@ echo "🔨 REVERB JP 빌드 시작..."
 # 1. CLIENT 빌드 → ../index.html
 # ══════════════════════════════════════
 CLIENT_CSS_FILES=("css/base.css" "css/components.css" "css/campaign.css" "css/auth.css" "css/mypage.css")
-CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/storage.js" "lib/legal.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/notifications.js" "js/mypage.js" "js/app.js")
+CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/image-compress.js" "lib/storage.js" "lib/legal.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/notifications.js" "js/mypage.js" "js/messaging.js" "js/app.js")
 
 : > "$BUILD_TMP/client.css"
 for f in "${CLIENT_CSS_FILES[@]}"; do
@@ -75,7 +75,7 @@ PYTHON_SCRIPT
 mkdir -p ../admin
 
 ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "js/ui.js" "js/admin-brand.js" "js/admin.js" "admin/app.js")
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "js/ui.js" "js/admin-core.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do

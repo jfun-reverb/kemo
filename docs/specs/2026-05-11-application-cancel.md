@@ -588,3 +588,42 @@ ls supabase/migrations/ | tail -5
 ### 잔존 작업 (다음 배포 사이클)
 - main merge (현재 dev 잠재)
 - 위반 등록 자동화 정책 (§13-2 — 데이터 축적 후)
+
+---
+
+## 15. 데드락 버그 수정 (2026-05-21)
+
+**증상:** 인플루언서가 응모를 취소하려 해도 계속 에러만 나고 취소가 안 됨. (실사용자 Tomoko 사례 — "실수로 신청 → 취소하려는데 에러", 스크린샷 3장)
+
+**원인 (코드로 확정):**
+- 취소 화면은 단계(phase)에 따라 갈린다 — `recruit`이면 사유 입력란을 숨긴 **간단 취소**, 그 외엔 사유+동의 필수.
+- 클라이언트 `_computeCancelPhase`(`dev/js/mypage.js`)와 서버 `cancel_application` RPC(마이그레이션 104)가 단계를 **각자 독립 계산**한다. 클라이언트는 `Date.parse`(UTC 자정 해석), 서버는 `now()` + `::timestamptz`(DB 타임존 기준). 경계 날짜에서 두 판정이 갈릴 수 있음.
+- 클라이언트가 `recruit`으로 판정해 사유란을 숨겼는데(`isSimple=true`, 사유·동의를 `null/false`로 전송) 서버가 비-recruit로 판정하면 `reason_required`/`acknowledgement_required`로 거부 → 화면엔 사유란이 없는데 서버는 사유를 요구 → 무한 데드락.
+- 부차: 클라이언트 에러 매핑에 `application_not_found`가 빠져 일반 오류(errorGeneric)로 표시됨.
+
+**수정 (A안 — 자동 복구, 마이그레이션 없음):**
+- `submitCancelApplicationFromPage`: 간단(recruit) 모드에서 서버가 `reason_required`/`acknowledgement_required`로 거부하면 → hidden phase를 `other`로 보정 + 사유 입력란을 자동으로 펼침(`_revealCancelReasonFields('other')`) + 안내문 표시 후 재입력 대기. 두 번째 제출(사유란 펼쳐진 상태)부터는 정상 검증 경로. phase 계산이 어떻게 엇갈리든 데드락이 풀린다.
+- 박스 표시/사유 카탈로그 로드 로직을 헬퍼 2종(`_showCancelSimpleMode` / `_revealCancelReasonFields`)으로 추출해 진입 시·자동 복구에서 공통 사용.
+- 에러 매핑에 `application_not_found` → `appHistory.cancel.errorNotFound` 추가.
+- i18n 신규 키 2종: `appHistory.cancel.errorNotFound`, `appHistory.cancel.reasonNowRequired` (ja/ko 양쪽).
+- 부수 수정: 기존 경고 카피 키 생성이 `warning${phase}`를 그대로 써서 i18n에 없는 `warningRecruit` 키를 시도하던 문제 → `['purchase','visit','post']` 화이트리스트 + 그 외 `warningOther` 폴백으로 정리.
+
+**근본 해결(C안 — 서버 단일 판정)은 후속 백로그:** 서버에 단계 판정 함수를 두고 클라이언트가 그대로 따르게 하면 불일치 자체가 사라지나, 신규 마이그레이션·운영 DB 적용·진입 시 통신 1회 추가가 필요해 별도 검증 사이클로 분리. A안으로 출혈을 먼저 멈춤.
+
+**관련 파일:** `dev/js/mypage.js`, `dev/lib/i18n/{ja,ko}.js`. **DB/RPC 변경 없음.**
+
+**검증:** reverb-reviewer GO(헬퍼 추출 동작 동일성·무한 루프 차단·키 정합 확인). reverb-qa-tester light(응모 취소 정상 경로 + 에러 메시지 PASS).
+
+### 원인 재평가 (2026-05-21) — 중요
+
+수정 후 실제 데이터로 원인을 검증한 결과, **앞 문단의 "시간대 9시간 차이" 진단은 이 환경(운영)에서는 성립하지 않음**을 확인했다:
+- 운영 DB `current_setting('TimeZone')` = **UTC**. date 컬럼을 `::timestamptz` 캐스팅하면 UTC 자정이고, 클라이언트 `Date.parse('YYYY-MM-DD')`도 UTC 자정 → **클라이언트와 서버의 단계 판정이 동일**. 따라서 시간대 차이로 인한 데드락은 평상시 발생하지 않는다.
+- 데드락이 이론상 가능한 경우는 ① 마감 자정(UTC 0시 = KST 09:00) 경계를 "취소 화면 연 시각 ~ 제출 시각" 사이에 넘나들 때(드묾), ② 사용자 기기 시계 오차 — 둘 다 희귀.
+- Tomoko(동명이인 다수, 安里智子 등) 신청 데이터 분석: gifting 캠페인은 구매·방문 기간이 없어 `deadline`만 지나면 곧장 `other` 단계가 되고 `other`는 사유·동의 필수. 즉 "모집 마감 후라 간단 취소가 안 되고 사유를 요구"하는 것은 **의도된 정책**이며 클라/서버 둘 다 `other`로 보므로 데드락 아님. 화면에 사유란이 정상 표시됐을 것.
+- **결론:** Tomoko가 본 "에러"의 진짜 원인은 미확정. 가장 가능성 높은 것은 (가) 마감 후 신청이라 사유·동의를 요구받았으나 미입력으로 반복 실패 → 사용자가 "취소 불가"로 인지, (나) 이미 취소/오래된 신청 재시도 → `application_not_found`(기존엔 errorGeneric로 두루뭉술). 정확한 에러 화면/캠페인 미확보로 더 좁히지 못함(사용자 결정: 재현 안 되면 보류).
+
+**이번 수정의 성격:** 근본 원인 직격은 아닐 수 있으나 **무해한 안전망 + 표시 개선**으로 유지 가치 있음 — ① 자정 경계/시계 오차 데드락(희귀)의 복구 경로, ② `application_not_found` 명확한 메시지, ③ `warningRecruit` 키 누락 버그 수정. 향후 DB 타임존이 비-UTC로 바뀌어도 안전.
+
+**향후 과제(백로그):** Tomoko류 실제 에러 화면 확보 시 (가)/(나) 확정. gifting "모집 마감 후 ~ 제출 마감 전" 구간이 `other`로 떨어져 사유를 요구하는 UX가 사용자에게 혼란스러운지 별도 검토(정책 vs UX).
+
+**배포:** dev 푸시 `d26caaa`. **운영 반영 완료 (PR #247, 2026-05-21).** dev 빌드 산출물에는 운영 보류 중인 응모건 메시지 기능이 포함되어 cherry-pick 불가 → main 기준으로 소스만 적용 후 재빌드(`index.html` messaging 참조 0건 검증). 운영 자동 배포(globalreverb.com).

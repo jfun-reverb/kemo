@@ -24,10 +24,10 @@ async function loadCampaigns() {
 }
 
 // 인플루언서에게 보이는 캠페인 — migration 129 이후 status 만으로 판별
-//   scheduled / active / closed = 노출 (closed 는 募集締切 오버레이)
+//   scheduled / active / closed(모집마감) / ended(종료) = 노출 (closed=募集締切, ended=終了 오버레이)
 //   draft / expired = 비노출 (expired 는 운영자가 수동 토글 OFF 한 캠페인)
 function visibleCamps(camps) {
-  return camps.filter(c => c.status === 'active' || c.status === 'scheduled' || c.status === 'closed');
+  return camps.filter(c => c.status === 'active' || c.status === 'scheduled' || c.status === 'closed' || c.status === 'ended');
 }
 
 // 인플루언서 노출 캠페인의 정렬: 모집중(active) > 모집예정(scheduled) > 모집완료(closed)
@@ -36,7 +36,7 @@ function visibleCamps(camps) {
 //   2차: deadline (모집 종료일) 최신순 — recruit_start가 없을 때 fallback
 //   3차: created_at 최신순 — 둘 다 없을 때 fallback
 function sortByStatusAndDeadline(camps) {
-  const order = {active: 0, scheduled: 1, closed: 2};
+  const order = {active: 0, scheduled: 1, closed: 2, ended: 3};
   const ts = (c) => new Date(c.recruit_start || c.deadline || c.created_at || 0).getTime();
   return camps.slice().sort((a, b) => {
     const sa = order[a.status] ?? 99;
@@ -68,7 +68,7 @@ function buildChannelFilters(camps) {
 }
 
 // 캠페인 페이지 — 모집 유형 + 상태 + 검색 필터
-let campPageStatusFilter = 'all';   // all | active | scheduled | closed
+let campPageStatusFilter = 'all';   // all | active | scheduled | closed | ended
 let campPageSearch = '';
 
 async function loadCampaignsPage() {
@@ -264,20 +264,23 @@ function buildCampCards(camps) {
     const isFull = c.recruit_type === 'monitor' && (c.applied_count||0) >= c.slots;
     const isScheduled = c.status === 'scheduled';
     const isClosed = c.status === 'closed';
-    const isActive = !isFull && !isScheduled && !isClosed;
+    const isEnded = c.status === 'ended';
+    const isClosedLike = isClosed || isEnded;   // 모집마감·종료 모두 마감 처리(노출·딤·응모불가)
+    const isActive = !isFull && !isScheduled && !isClosedLike;
     const isClickable = !isScheduled;
     const reward = c.reward > 0 ? t('campaign.rewardProduct').replace('{reward}',c.reward.toLocaleString()) : c.product_price > 0 ? t('campaign.rewardFreeStrong') : t('campaign.rewardFreeSimple');
-    const isNew = !isScheduled && !isClosed && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
+    const isNew = !isScheduled && !isClosedLike && (Date.now()-new Date(c.created_at).getTime()) < 7*24*3600*1000;
     const bgGrad = getCampGrad(c.category);
     const typeLabel = getRecruitTypeLabelJa(c.recruit_type);
-    const dimImage = isFull || isScheduled || isClosed;
+    const dimImage = isFull || isScheduled || isClosedLike;
     return `<div class="camp-card" onclick="${isClickable?'openCampaign(\''+c.id+'\')':''}" style="${!isClickable?'opacity:.85;cursor:default':''}">
       <div class="camp-img" style="background:${c.image_url?'#f0f0f0':bgGrad};position:relative">
         ${c.image_url?`<div style="position:absolute;inset:0;${dimImage?'filter:brightness(.5)':''}">${renderCroppedImg(c.image_url, (c.image_crops||{}).img1, {thumb:480, lazy:true})}</div>`:''}
         <div class="camp-img-overlay"></div>
         ${isScheduled?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(200,120,163,.9);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.scheduledOverlay')}</span></div>`:''}
         ${isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.closedOverlay')}</span></div>`:''}
-        ${isFull&&!isScheduled&&!isClosed?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
+        ${isEnded?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.endedOverlay')}</span></div>`:''}
+        ${isFull&&!isScheduled&&!isClosedLike?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:4"><span style="background:rgba(0,0,0,.7);color:#fff;font-size:12px;font-weight:700;padding:7px 18px;border-radius:20px;letter-spacing:.04em">${t('detail.fullOverlay')}</span></div>`:''}
         <div class="camp-badges" style="z-index:5;position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;gap:4px">
           <span style="${isActive?'background:#E2F0E9;color:#0E7E4A;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px':'visibility:hidden'}">${isActive?t('campaign.badgeRecruiting'):''}</span>
           ${isNew&&!isFull?`<span style="background:var(--pink);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px">${t('campaign.badgeNew')}</span>`:''}

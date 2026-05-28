@@ -2,28 +2,17 @@
    MY PAGE — マイページ (リスト → 詳細)
 ══════════════════════════════════ */
 .mypage-wrap{padding:16px 0 calc(var(--tab-h) + 16px)}
-.mypage-header{background:var(--surface);border-bottom:1px solid var(--outline);padding:20px 0;margin-bottom:16px}
-.mypage-profile{display:flex;align-items:center;gap:14px}
-.mypage-av{width:52px;height:52px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0}
-.mypage-name{font-size:17px;font-weight:700;margin-bottom:2px}
-.mypage-handle{font-size:12px;color:var(--on-surface-variant)}
+/* 랜딩(목차) 화면 관련 스타일(mypage-header / mypage-profile / mypage-av / mypage-name /
+   mypage-handle / mypage-menu 계열)은 햄버거 메뉴 흡수로 제거됨. 계정 카드·아코디언·未登録
+   배지 스타일은 components.css 의 nav-account, nav-accordion, nav-unreg-badge 계열 참조. */
 
 /* リスト/詳細の表示切替 */
 .mypage-view{display:none;height:100%;overflow-y:auto}
 .mypage-view.active{display:block}
 
-/* メニューリスト */
-.mypage-menu{display:flex;flex-direction:column;gap:0}
-.mypage-menu-item{display:flex;align-items:center;gap:14px;padding:14px 4px 14px 14px;cursor:pointer;transition:background .15s;border-bottom:1px solid var(--outline)}
-.mypage-menu-item:hover{background:var(--surface-dim);border-radius:var(--r8)}
-.mypage-menu-label{flex:1;font-size:14px;font-weight:500;color:var(--ink)}
-.mypage-menu-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap}
-.mypage-menu-arrow{font-size:20px;color:var(--on-surface-variant)}
-
 /* サブページヘッダー */
 .mypage-sub-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:10}
-.mypage-back{font-size:24px;color:var(--ink);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s}
-.mypage-back:hover{background:var(--surface-dim)}
+/* .mypage-back(폼 화면 뒤로가기 버튼)은 제거됨 — 햄버거 메뉴로 이동/브라우저 뒤로가기 사용 (2026-05-22) */
 .mypage-sub-title{font-size:16px;font-weight:700;color:var(--ink)}
 
 /* 応募履歴 */
@@ -60,3 +49,101 @@
 .lang-toggle .lang-btn{border:0;background:transparent;color:var(--muted);font-size:12px;font-weight:600;padding:5px 10px;cursor:pointer;transition:.15s}
 .lang-toggle .lang-btn.on{background:var(--primary);color:#fff}
 .lang-toggle .lang-btn:not(.on):hover{background:var(--outline)}
+
+/* ── 응모이력 메시지 버튼/배지 ── */
+.apply-item-actions{display:flex;align-items:center;gap:2px}
+.apply-msg-btn{position:relative;min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:20px;cursor:pointer;color:var(--muted)}
+.apply-msg-btn:hover{background:var(--surface-dim)}
+.apply-msg-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;background:var(--pink,#e84a7f);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;border-radius:8px}
+
+/* ── 응모건 메시지 페이지 (게시판형, 2026-05-22 모달→페이지 전환) ── */
+/* appShell 내부 .page. 헤더·입력영역 고정 + 스레드만 스크롤. 키보드는 appShell 의
+   visualViewport 패턴이 자동 대응하므로 모달용 키보드 코드(_attachMsgKeyboardFit 등) 제거. */
+#page-messages.page.active{display:flex;flex-direction:column;overflow:hidden;padding:0;background:var(--bg,#fff);position:relative}
+.msg-back-btn{flex-shrink:0;width:32px;height:32px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);padding:0}
+.msg-modal-header{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--outline);background:var(--surface,#fff)}
+.msg-modal-title{flex:1;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-refresh-btn{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:40px;min-height:40px;align-items:center;justify-content:center}
+.msg-new-banner{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:var(--pink,#E8629A);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.msg-new-banner .material-icons-round{font-size:16px}
+.msg-modal-thread{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--surface-dim,#f7f7f8)}
+.msg-empty{text-align:center;color:var(--muted);font-size:13px;padding:32px 16px;line-height:1.6}
+.msg-card{background:#fff;border:1px solid var(--outline);border-radius:10px;padding:10px 12px;max-width:88%;align-self:flex-start}
+.msg-card.mine{align-self:flex-end;background:#eef4ff;border-color:#cfe0ff}
+.msg-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.msg-sender{font-size:12px;font-weight:700;color:var(--text)}
+.msg-time{font-size:11px;color:var(--muted)}
+.msg-card-body{font-size:14px;line-height:1.6;color:var(--text);word-break:break-word}
+.msg-card-masked .msg-masked-body{font-size:13px;color:var(--muted);font-style:italic}
+.msg-withdraw-btn{margin-left:auto;border:none;background:transparent;color:var(--pink,#e84a7f);font-size:12px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px}
+.msg-withdraw-btn:hover{background:rgba(232,74,127,.1)}
+.msg-attachments{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.msg-attach-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted)}
+.msg-attach-thumb img{width:100%;height:100%;object-fit:cover}
+.msg-pending-inline{align-self:center;max-width:90%;margin:4px auto 0;padding:8px 14px;background:#FFF6E5;color:#8A6D3B;font-size:12px;line-height:1.5;border-radius:10px;text-align:center}
+.msg-modal-input-area{flex-shrink:0;display:flex;flex-direction:column;max-height:60%;border-top:1px solid var(--outline);padding:10px 12px;background:var(--surface,#fff)}
+.msg-attach-preview{flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px}
+.msg-attach-preview:not(:empty){margin-bottom:8px}
+.msg-attach-pending{position:relative;width:56px;height:56px;border-radius:8px;overflow:hidden}
+.msg-attach-pending img{width:100%;height:100%;object-fit:cover}
+.msg-attach-remove{position:absolute;top:2px;right:2px;width:20px;height:20px;border:none;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.msg-attach-remove .material-icons-round{font-size:14px}
+.msg-input-row{flex-shrink:0;display:flex;align-items:flex-end;gap:8px}
+.msg-attach-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);background:var(--surface-dim)}
+.msg-input{flex:1;resize:none;border:1px solid var(--outline);border-radius:12px;padding:9px 12px;font-size:16px;line-height:1.5;min-height:40px;max-height:120px;box-sizing:border-box;font-family:inherit}
+.msg-send-btn{flex-shrink:0;width:40px;height:40px;border-radius:20px;border:none;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.msg-send-btn:disabled{opacity:.5;cursor:default}
+
+/* ── 개인화 상태 한 줄 (#msgStatusLine, §3) ── */
+.msg-status-line{flex-shrink:0;padding:5px 14px;font-size:12px;background:#F4F8FF;border-bottom:1px solid var(--outline)}
+.msg-status-row{display:flex;align-items:center;gap:10px}
+.msg-status-text{flex:1;font-size:12px;line-height:1.5;font-weight:600;color:#23416E}
+.msg-status-reason{margin-top:6px;font-size:12px;line-height:1.5;color:#8A3B3B;background:#FDECEC;border-radius:8px;padding:6px 10px;word-break:break-word}
+
+/* ── FAQ 전체 보기 오버레이 (#msgFaqTree) — 스레드 위에 떠서 표시 (PR B-rev) ── */
+.msg-faq-tree{position:absolute;left:0;right:0;top:0;bottom:0;z-index:4;overflow-y:auto;padding:16px;background:var(--surface-dim,#f7f7f8);display:flex;flex-direction:column;gap:12px}
+.msg-faq-intro{font-size:13px;line-height:1.6;color:var(--text)}
+.msg-faq-chips{display:flex;flex-direction:column;gap:8px}
+.msg-faq-chip{text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer}
+.msg-faq-chip:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
+.msg-faq-back{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;padding:2px 0}
+.msg-faq-back .material-icons-round{font-size:18px}
+.msg-faq-cat-title{font-size:14px;font-weight:700;color:var(--text)}
+.msg-faq-qlist{display:flex;flex-direction:column;gap:8px}
+.msg-faq-q{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;border:1px solid var(--outline);background:#fff;border-radius:10px;padding:13px 14px;font-size:14px;line-height:1.4;color:var(--text);cursor:pointer}
+.msg-faq-q:hover{background:#fafafa}
+.msg-faq-q .material-icons-round{flex-shrink:0;font-size:20px;color:var(--muted)}
+.msg-faq-answer{background:#fff;border:1px solid var(--outline);border-radius:12px;padding:14px}
+.msg-faq-answer-q{font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px}
+.msg-faq-answer-body{font-size:14px;line-height:1.7;color:var(--text);word-break:break-word}
+.msg-faq-action-btn{margin-top:12px;display:inline-flex;align-items:center;gap:6px;border:1px solid #B6CEF5;background:#F4F8FF;color:#2563EB;font-size:13px;font-weight:700;padding:9px 14px;border-radius:9px;cursor:pointer}
+.msg-faq-action-btn .material-icons-round{font-size:17px}
+.msg-faq-answer-actions{display:flex;flex-direction:column;gap:8px}
+.msg-faq-resolved-btn{border:none;background:var(--primary,#E8629A);color:#fff;font-size:14px;font-weight:700;padding:12px;border-radius:10px;cursor:pointer}
+.msg-faq-contact-link{border:1px solid var(--outline);background:#fff;color:var(--muted);font-size:13px;font-weight:600;padding:11px;border-radius:10px;cursor:pointer}
+.msg-faq-contact-link:hover{background:#fafafa}
+/* FAQ 전체 보기 오버레이 상단 헤더 (카테고리 1단 닫기) */
+.msg-faq-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.msg-faq-overlay-title{font-size:15px;font-weight:700;color:var(--text)}
+.msg-faq-overlay-close{border:none;background:transparent;cursor:pointer;color:var(--muted);display:inline-flex;min-width:36px;min-height:36px;align-items:center;justify-content:center}
+
+/* ── 봇 안내 카드 (스레드 맨 위, 게이트→봇 카드 전환 2026-05-22) — 추천 질문·전체 보기 진입 ── */
+.msg-card-bot{align-self:stretch;background:#F4F8FF;border:1px solid #DCE7FB}
+.msg-card-bot-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#23416E;margin-bottom:8px}
+.msg-card-bot-head .material-icons-round{font-size:18px;color:#2563EB}
+.msg-faq-botcard-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.msg-faq-botcard-all{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--outline);background:#fff;color:var(--text);font-size:13px;font-weight:600;padding:8px 12px;border-radius:9px;cursor:pointer}
+.msg-faq-botcard-all:hover{background:#fafafa;border-color:var(--pink,#E8629A)}
+.msg-faq-botcard-all .material-icons-round{font-size:18px;color:var(--muted)}
+/* 봇 카드 추천 질문 항목 */
+.msg-faq-suggest-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:1px solid #DCE7FB;background:#fff;border-radius:8px;padding:10px 10px;font-size:13px;line-height:1.4;color:var(--text);cursor:pointer}
+.msg-faq-suggest-item:hover{background:#fafbff}
+.msg-faq-suggest-item .material-icons-round{flex-shrink:0;font-size:18px;color:#2563EB}
+.msg-faq-suggest-q{flex:1;min-width:0}
+.msg-faq-suggest-chev{color:var(--muted)!important}
+
+/* ── 첨부 이미지 라이트박스 (메시지 모달 위) ── */
+.msg-lightbox{position:fixed;inset:0;z-index:1300;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.85);padding:20px}
+.msg-lightbox.on{display:flex}
+.msg-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+.msg-lightbox-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}

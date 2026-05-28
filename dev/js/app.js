@@ -34,9 +34,20 @@ function navigate(page, pushHistory) {
   if (page.startsWith('detail-')) {
     pageName = 'detail';
   }
+  // messages-{id} — 응모건 메시지 페이지 (모달→페이지 전환, 2026-05-22)
+  if (page.startsWith('messages-')) {
+    pageName = 'messages';
+  }
   // #unsubscribe?token=... — 해시에 쿼리가 붙은 형태. 페이지명만 분리
   if (page.startsWith('unsubscribe')) {
     pageName = 'unsubscribe';
+  }
+
+  // 메시지 페이지를 떠나면 폴링·상태 정리 (같은 페이지 내 다른 응모건 이동은 제외)
+  const _prevActivePage = document.querySelector('#appShell .page.active');
+  if (_prevActivePage && _prevActivePage.id === 'page-messages' && pageName !== 'messages'
+      && typeof cleanupMessagesPage === 'function') {
+    cleanupMessagesPage();
   }
 
   // Vercel Web Analytics — 인플 앱 페이지별 접속 카운트
@@ -77,7 +88,8 @@ function navigate(page, pushHistory) {
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
-  if (pageName === 'home') loadCampaigns();
+  if (pageName === 'home') { loadCampaigns(); if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner(); }
+  else { const _pnb = document.getElementById('policyNoticeBannerWrap'); if (_pnb) _pnb.style.display = 'none'; }  // 배너는 fixed 오버레이 → 홈 외 페이지에선 숨김
   if (pageName === 'campaigns') loadCampaignsPage();
   if (pageName === 'mypage') {
     if (!currentUser) { navigate('login'); return; }
@@ -116,14 +128,17 @@ async function handleUnsubscribePage(token) {
 // 브라우저 뒤로가기/앞으로가기 버튼 처리
 window.addEventListener('popstate', function(e) {
   const page = e.state?.page || location.hash.replace('#','') || 'home';
-  if (page === 'mypage' && e.state?.sub) {
+  // 마이페이지: state.page='mypage'(서브 동반) 또는 해시가 '#mypage-xxx'(state 유실)인 경우 모두 처리.
+  // 랜딩 화면 제거 후 closeMypageSub 가 응모이력으로 복귀하므로 빈 화면이 나오지 않도록 한다.
+  if (page === 'mypage' || page.startsWith('mypage-')) {
     navigate('mypage', false);
-    openMypageSub(e.state.sub);
-  } else if (page === 'mypage' && !e.state?.sub) {
-    navigate('mypage', false);
-    closeMypageSub();
+    const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
+    if (sub) openMypageSub(sub); else closeMypageSub();
   } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
+  } else if (page.startsWith('messages-')) {
+    if (typeof openMessagesPage === 'function') openMessagesPage(page.replace('messages-',''), 'mypage', false);
+    else navigate('mypage', false);
   } else {
     navigate(page, false);
   }
@@ -150,7 +165,7 @@ window.addEventListener('langchange', function() {
 
 // Step 3: 햄버거 메뉴 활성 페이지 하이라이트
 function updateActiveNav(page) {
-  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', 'app-cancel':'mypage'};
+  const map = {home:'home', detail:'home', mypage:'mypage', campaigns:'campaigns', activity:'mypage', messages:'mypage', 'app-cancel':'mypage'};
   const active = map[page] || 'home';
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
@@ -170,7 +185,10 @@ function setupPTR() {
   if (appShell.dataset.ptrBound === '1') return;
   appShell.dataset.ptrBound = '1';
 
-  const PTR_BLOCKLIST = ['page-login','page-signup','page-forgot','page-reset-pw'];
+  // page-messages 는 스크롤이 페이지가 아니라 내부 #msgModalThread 에서 일어나 page.scrollTop 이
+  //   항상 0 → PTR 이 "최상단"으로 오인해 이전 메시지 스크롤 중 새로고침이 발동. 헤더 새로고침 버튼이
+  //   있으므로 PTR 비활성 (2026-05-27).
+  const PTR_BLOCKLIST = ['page-login','page-signup','page-forgot','page-reset-pw','page-messages'];
   const RESISTANCE = 0.5;     // 당기는 거리에 0.5 곱해 자연스러운 저항감
   const TRIGGER_AT = 90;      // 인디케이터 활성화 임계값(px, RESISTANCE 적용 후)
                               // — 실제 손가락 이동 거리 약 180px
@@ -200,6 +218,8 @@ function setupPTR() {
     const page = document.querySelector('#appShell .page.active');
     if (!page) return;
     if (PTR_BLOCKLIST.includes(page.id)) return;
+    // 모달/오버레이 등 활성 페이지 바깥을 터치하면 PTR 비활성 — 모달 내부 스크롤과 충돌 방지
+    if (!page.contains(e.target)) return;
     if ((page.scrollTop || 0) > 0) return;
     activePage = page;
     startY = e.touches[0].clientY;
@@ -322,6 +342,9 @@ async function init() {
           updateGnb();
           // 로그인 시 알림 폴링 시작
           if (typeof startNotifPolling === 'function') startNotifPolling();
+          // 정책 변경 사전 통지 — 로그인 직후 1회 팝업 + 홈 배너 갱신
+          if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
+          if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
         }
       }
       if (event === 'SIGNED_OUT' || event === 'SESSION_EXPIRED') {
@@ -383,6 +406,11 @@ async function init() {
     const sub = hash.replace('mypage-','');
     navigate('mypage', false);
     openMypageSub(sub);
+  } else if (hash && hash.startsWith('messages-')) {
+    // 응모건 메시지 페이지 새로고침 복원 — openMessagesPage 가 캐시(_myApps) 보장
+    const appId = hash.replace('messages-','');
+    if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
+    else navigate('mypage', false);
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
@@ -392,6 +420,11 @@ async function init() {
   // 초기화 완료 — cloak 해제
   const cloak = document.getElementById('app-cloak');
   if (cloak) cloak.remove();
+
+  // 정책 변경 사전 통지 — 이미 로그인된 채 진입한 회원에게 1회 팝업 + 홈 배너 갱신.
+  //   초기 해시 #home 은 navigate('home') 미경유(replaceState 만)라 배너 훅이 안 걸려 여기서 직접 호출.
+  if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
+  if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -403,6 +436,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const initPage = inRecovery ? 'reset-pw'
     : (initHash.startsWith('detail-') ? 'detail'
     : initHash.startsWith('mypage-') ? 'mypage'
+    : initHash.startsWith('messages-') ? 'messages'
     : initHash.startsWith('unsubscribe') ? 'unsubscribe'
     : initHash);
   const initEl = $('page-' + initPage);
@@ -418,14 +452,30 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Pull-to-Refresh 등록 (1회) — appShell 단일 리스너
   if (typeof setupPTR === 'function') setupPTR();
 
-  // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절
+  // 모바일 키보드 대응: visualViewport로 appShell 높이 동적 조절.
+  //   resize·scroll 이 키보드 애니메이션 중 연속 발생하므로 requestAnimationFrame 으로
+  //   1프레임 1회로 묶고, 값이 실제 바뀔 때만 스타일 적용 → 리플로우 반복(깜빡임) 방지 (2026-05-27).
   if (window.visualViewport) {
     var appShell = $('appShell');
+    var _vvLastVh = -1, _vvLastTop = -1, _vvRaf = false;
     function adjustHeight() {
-      var vh = window.visualViewport.height;
-      var offsetTop = window.visualViewport.offsetTop;
-      appShell.style.height = vh + 'px';
-      appShell.style.top = offsetTop + 'px';
+      if (_vvRaf) return;
+      _vvRaf = true;
+      requestAnimationFrame(function() {
+        _vvRaf = false;
+        var vh = Math.round(window.visualViewport.height);
+        var offsetTop = Math.round(window.visualViewport.offsetTop);
+        if (vh === _vvLastVh && offsetTop === _vvLastTop) return; // 변경 없으면 skip
+        _vvLastVh = vh; _vvLastTop = offsetTop;
+        appShell.style.height = vh + 'px';
+        appShell.style.top = offsetTop + 'px';
+        // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
+        var _ap = appShell.querySelector('.page.active');
+        if (_ap && _ap.id === 'page-messages') {
+          var _th = document.getElementById('msgModalThread');
+          if (_th) _th.scrollTop = _th.scrollHeight;
+        }
+      });
     }
     window.visualViewport.addEventListener('resize', adjustHeight);
     window.visualViewport.addEventListener('scroll', adjustHeight);

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!--
+  Mail: 캠페인 홍보 메일 다이제스트 — 관리자용 (admin copy)
+  Trigger: 인플루언서 홍보 메일 함수 notify-campaign-promo-digest 의 "첫 배치" 에서
+           관리자 발송 블록이 함께 호출 (별도 cron 없음, 같은 주 2회 스케줄에 편승)
+  To: 관리자 1명당 1통 (To 헤더에 다른 관리자 이메일 노출 안 됨)
+  대상: 관리자 「메일 받기 설정」 에서 캠페인 홍보 메일(campaign_promo) 토글을 켠 관리자
+  Lang: 머리말·안내·푸터는 한국어, 캠페인 카드(제목·리워드·모집유형)는 원본 일본어 그대로
+
+  내용: 그날 홍보 대상이 된 캠페인 전체(신규 + 마감 D-1) 1통.
+        인플루언서와 달리 자격 매칭/개인화 없음 — 그날 풀 전체.
+  Skip: 그날 홍보 캠페인 풀이 비면 관리자 발송 자체 생략.
+
+  Subject (Edge Function 동적 생성):
+    [REVERB JP 관리자] 오늘의 홍보 캠페인 신규N건 / 마감임박M건
+    또는 신규만 / 마감임박만 분기
+
+  Top-level Placeholders:
+    {{new_count}}              신규 캠페인 총수 (머리말 표시용)
+    {{d1_count}}               마감임박 캠페인 총수 (머리말 표시용)
+    {{new_section_html}}       섹션 1 본문 (0건이면 빈 문자열로 통째 생략)
+    {{deadline_section_html}}  섹션 2 본문 (0건이면 빈 문자열로 통째 생략)
+
+  관련 사양:
+    docs/specs/2026-05-27-admin-promo-email-subscription.md §2
+-->
+<div style="font-family:'Noto Sans KR','Hiragino Sans',Arial,sans-serif;color:#222;max-width:600px;margin:0 auto">
+  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:20px">오늘의 캠페인 홍보 메일</h2>
+  <p style="margin:0 0 18px;color:#666;font-size:13px">인플루언서에게 발송된 오늘의 홍보 대상 캠페인입니다 (운영 참고용)</p>
+
+  <p style="margin:0 0 14px;font-size:14px;line-height:1.6">
+    오늘 홍보 대상 캠페인: <strong>신규 {{new_count}}건</strong> · <strong>마감임박 {{d1_count}}건</strong><br>
+    아래 카드는 인플루언서가 받은 메일과 동일한 일본어 본문입니다.
+  </p>
+
+  {{new_section_html}}
+  {{deadline_section_html}}
+
+  <p style="margin:24px 0 0;color:#999;font-size:11px;line-height:1.6">
+    이 메일은 관리자 「메일 받기 설정」 에서 '캠페인 홍보 메일' 을 켜두셔서 받고 있습니다.<br>
+    수신을 끄려면 관리자 페이지 → 관리자 계정 → 「메일받기」 설정에서 변경하세요.<br>
+    <br>
+    © JFUN Corp. · 株式会社ジェイファン
+  </p>
+</div>

@@ -1,6 +1,21 @@
 // ══════════════════════════════════════
 // MY PAGE
 // ══════════════════════════════════════
+
+// 프로필 미등록 항목 계산 — 마이페이지 폼 필수 경고 + 햄버거 메뉴 未登録 배지 공용.
+// 순수 함수로 분리해 renderNavMenu(햄버거 열 때)에서도 동일 기준으로 호출한다.
+function computeProfileBadges(profile) {
+  const p = profile || {};
+  // 이름은 한자·가나 둘 다 채워져야 등록으로 간주 ("-"는 미등록)
+  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
+  const nameKana = ((p.name_kana || '') + '').trim();
+  const hasName = !!(nameKanji && nameKanji !== '-' && nameKana && nameKana !== '-');
+  const hasSns = !!(p.ig || p.x || p.tiktok || p.youtube);
+  const hasAddress = !!(p.zip && p.prefecture && p.city && p.phone);
+  const hasPaypal = !!p.paypal_email;
+  return {hasName, hasSns, hasAddress, hasPaypal};
+}
+
 async function loadMyPage() {
   if (!currentUser) { navigate('login'); return; }
   // 진입 시마다 인플루언서 프로필 새로고침 — 관리자 화면이나 다른 탭에서 변경된
@@ -12,16 +27,11 @@ async function loadMyPage() {
     } catch(e) { /* 네트워크 실패 시 stale 그대로 사용 */ }
   }
   const p = currentUserProfile || {};
-  const displayName = p.name_kanji || p.name || currentUser.email;
-  $('mypageAv').textContent = (displayName||'U')[0].toUpperCase();
-  $('mypageName').textContent = displayName;
-  // Stage 6 알림은 햄버거 메뉴 모달로 이전 (refreshNotifBadge에서 처리)
+  // 계정정보(아바타·이름·핸들·이메일)와 메뉴 목차는 햄버거 메뉴(renderNavMenu)로 이전됨.
+  // 마이페이지 랜딩 화면(#mypage-list)이 제거되어 여기서 직접 채우지 않는다.
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
-  // SNS 대표 계정: primary_sns 설정 → 미설정 시 자동 선택
-  const snsMap = {instagram: p.ig, x: p.x, tiktok: p.tiktok, youtube: p.youtube};
-  const primary = p.primary_sns && snsMap[p.primary_sns] ? snsMap[p.primary_sns] : p.ig || p.x || p.tiktok || p.youtube || '';
-  $('mypageHandle').textContent = primary ? `@${primary}` : t('profile.unregistered');
-  $('mypageEmail').textContent = currentUser.email;
+  // 햄버거 메뉴의 계정 카드·未登録 배지를 최신 프로필로 갱신
+  if (typeof renderNavMenu === 'function') renderNavMenu();
 
   // 메일 수신 설정 토글 — 발송 로직(get_promo_digest_targets)이 marketing_opt_in=true 만 대상이므로
   // true 일 때만 ON 표시 (NULL/false 는 OFF)
@@ -66,22 +76,8 @@ async function loadMyPage() {
   setVal('paypalEmail', p.paypal_email);
   setVal('paypalEmailConfirm', p.paypal_email);
 
-  // 미등록 배지 표시
-  // 이름은 한자·가나 둘 다 채워져야 등록으로 간주 ("-"는 미등록)
-  const nameKanji = ((p.name_kanji || p.name || '') + '').trim();
-  const nameKana = ((p.name_kana || '') + '').trim();
-  const hasName = nameKanji && nameKanji !== '-' && nameKana && nameKana !== '-';
-  const hasSns = p.ig || p.x || p.tiktok || p.youtube;
-  const hasAddress = p.zip && p.prefecture && p.city && p.phone;
-  const hasPaypal = !!p.paypal_email;
-  const badgeName = $('menuBadgeName');
-  const badgeSns = $('menuBadgeSns');
-  const badgeAddr = $('menuBadgeAddress');
-  const badgePaypal = $('menuBadgePaypal');
-  if (badgeName) badgeName.style.display = hasName ? 'none' : '';
-  if (badgeSns) badgeSns.style.display = hasSns ? 'none' : '';
-  if (badgeAddr) badgeAddr.style.display = hasAddress ? 'none' : '';
-  if (badgePaypal) badgePaypal.style.display = hasPaypal ? 'none' : '';
+  // 미등록 여부 계산 — 햄버거 메뉴 未登録 배지(renderNavMenu)와 아래 필수 경고 공용
+  const {hasSns, hasPaypal} = computeProfileBadges(p);
 
   // 필수 필드 경고 표시
   const reqMsg = t('profile.requiredHint');
@@ -131,6 +127,7 @@ function renderMyApplyTabs() {
 }
 
 let _myDelivsByApp = {};
+let _myMsgUnreadByApp = {};  // 응모건별 인플루언서 미읽음 메시지 수 (배지용)
 
 async function renderMyApplyList() {
   const container = $('myApplicationsList');
@@ -147,6 +144,12 @@ async function renderMyApplyList() {
       _myDelivsByApp = {};
       delivs.forEach(d => { (_myDelivsByApp[d.application_id] ||= []).push(d); });
     } catch(e) { _myDelivsByApp = {}; }
+    // 메시지 미읽음 배지 — application_message_summary 뷰 (security_invoker, 본인 행만)
+    try {
+      const threads = await fetchInfluencerUnreadMessageThreads();
+      _myMsgUnreadByApp = {};
+      threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+    } catch(e) { _myMsgUnreadByApp = {}; }
   }
 
   // 캠페인 상태 필터
@@ -211,7 +214,7 @@ async function renderMyApplyList() {
     // Stage 6: 결과물 상태 배지 — 당첨(approved) 신청 행 카드 하단에 「{종류} {상태}」 라벨로 노출.
     // 단순 「승인」만으론 영수증 승인/결과물 승인 구분이 안 되므로 종류 prefix를 붙임.
     // monitor 캠페인은 영수증·리뷰 캡쳐 두 단계가 별도 진행 → 라벨도 두 줄로 표시.
-    let delivBadgeLine = '';
+    let delivItemsHtml = '';
     if (a.status === 'approved') {
       const ds = (_myDelivsByApp[a.id] || []);
       // kind별로 가장 최신 1건만 추출 (재제출 시 더 최근 행 우선)
@@ -233,26 +236,47 @@ async function renderMyApplyList() {
         else if (d.status === 'rejected') { bg = '#FFE4E4'; color = '#C33'; }
         items.push(`<span style="display:inline-block;background:${bg};color:${color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px">${esc(kindLabel)} ${esc(statusLabel)}</span>`);
       }
-      if (items.length) {
-        // 영수증 제출 / 리뷰 캡쳐 등 종류별 라벨이 둘 이상이면 세로로 쌓이도록 column 배치
-        delivBadgeLine = `<div class="apply-item-deliv" style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${items.join('')}</div>`;
-      }
+      delivItemsHtml = items.join('');
     }
+    // 응모 상태 배지(당첨/심사중 등) + 결과물 상태 배지를 카드 본문 맨 아래 가로 한 줄로 모음
+    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status)}${delivItemsHtml}</div>`;
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';
+    // 메시지 버튼 + 미읽음 배지 (모든 응모 카드 — 응모건 단위 운영팀 문의)
+    const msgUnread = _myMsgUnreadByApp[a.id] || 0;
+    const msgBtn = `<button type="button" class="apply-msg-btn" onclick="event.stopPropagation();openMessagesPage('${a.id}','mypage')" aria-label="${esc(t('messaging.btnLabel'))}"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">chat_bubble_outline</span>${msgUnread>0?`<span class="apply-msg-badge">${msgUnread>9?'9+':msgUnread}</span>`:''}</button>`;
     return `<div class="apply-item" style="cursor:pointer;position:relative" ${clickAction}>
       <div class="apply-thumb">${thumb}</div>
       <div class="apply-item-info">
         ${camp.recruit_type ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin-bottom:2px">${esc(getRecruitTypeLabelJa(camp.recruit_type))}</div>` : ''}
-        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span class="apply-item-name-status">${getStatusBadge(a.status)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
+        <div class="apply-item-name" style="display:flex;align-items:center;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1">${esc(camp.title||a.campaign_id)}</span></div>
         <div class="apply-item-meta">${esc(camp.brand||'')} · ${t('appHistory.applyDate')} ${formatDate(a.created_at)}</div>
         ${cautionLine}
         ${cancelledLine}
+        ${badgeRow}
       </div>
-      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${delivBadgeLine}${menuHtml ? `<div class="apply-item-menu">${menuHtml}</div>` : ''}</div>
+      <div class="apply-item-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div class="apply-item-actions" style="display:flex;align-items:center;gap:2px">${msgBtn}${menuHtml}</div></div>
     </div>`;
   }).join('');
+}
+
+// 메시지 모달에서 읽음 처리/닫은 뒤 응모이력 미읽음 배지 갱신
+async function refreshMyMsgUnread(opts) {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  try {
+    const threads = await fetchInfluencerUnreadMessageThreads();
+    _myMsgUnreadByApp = {};
+    threads.forEach(th => { _myMsgUnreadByApp[th.application_id] = th.unread_for_influencer; });
+  } catch(e) { /* 무시 */ }
+  // GNB 「メッセージ」 미읽음 배지 갱신 (햄버거 메뉴)
+  if (typeof updateNavMsgBadge === 'function') updateNavMsgBadge();
+  // 폴링·화면복귀 호출(skipRerender)은 햄버거 배지만 갱신 — 응모이력 재렌더로 인한
+  // 30초마다 깜빡임·스크롤 튐 방지. 사용자가 응모이력 진입/메시지 모달 열 때만 카드 배지 재렌더.
+  if (opts && opts.skipRerender) return;
+  if ($('myApplicationsList') && typeof renderMyApplyList === 'function') {
+    try { await renderMyApplyList(); } catch(e) { /* 무시 */ }
+  }
 }
 
 // ── Phase 2: 주의사항 비교 (응모이력 셀 토글) ──
@@ -415,10 +439,13 @@ function openMypageSub(sub) {
   history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
 }
 
+// 마이페이지 랜딩(목차) 화면이 제거되어, 서브 화면을 닫으면 응모이력을 기본 화면으로 보여준다.
+// 폼 화면의 뒤로가기 버튼·navigate('mypage')·popstate(#mypage) 진입 시 빈 화면 방지.
 function closeMypageSub() {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
-  $('mypage-list').classList.add('active');
-  history.pushState({page:'mypage'}, '', '#mypage');
+  const def = $('mypage-sub-applications');
+  if (def) def.classList.add('active');
+  history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
 }
 
 // 언어 토글 버튼 상태 업데이트

@@ -51,9 +51,11 @@
 .badge-gold{background:var(--gold-l);color:var(--gold)}
 .badge-blue{background:var(--blue-l);color:var(--blue)}
 .badge-gray{background:var(--surface-dim);color:var(--muted);border:1px solid var(--outline)}
-/* 캠페인 상태 노출 그룹용 — closed(모집 끝났지만 게시 기간 살아있어 인플루언서 화면에 노출 중) */
+/* 캠페인 상태 노출 그룹용 — closed_recruit(모집마감·결과물 제출 진행 중, 인플 화면 노출) */
 .badge-pink{background:#FFE4EC;color:#B91C5C;border:1px solid #FFB8D0}
-/* 캠페인 상태 비노출 강조 — expired(노출마감, 영구 비노출) */
+/* 캠페인 상태 — closed_done(결과물 제출 마감 경과, 활동 완전 종료. 아직 노출이나 핑크와 구분되는 남보라) */
+.badge-done{background:#EDE7F6;color:#5E35B1;border:1px solid #C9B8E8}
+/* 캠페인 상태 비노출 강조 — expired(노출종료, 영구 비노출) */
 .badge-expired{background:#EEEEEE;color:#666666;border:1.5px dashed #999999;opacity:.85}
 /* NG 사항 배지 — 진한 빨강 계열 (badge-pink 분홍과 명확히 구분, cp-sec-bg-ng 톤과 일관) */
 .badge-ng{background:#FFEBEE;color:#B71C1C;border:1px solid #EF9A9A}
@@ -133,12 +135,14 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-panel[aria-hidden="false"] .nav-panel-backdrop{opacity:1}
 .nav-panel-body{position:absolute;top:0;right:0;bottom:0;width:min(320px,82vw);background:#fff;transform:translateX(100%);transition:transform .25s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
 .nav-panel[aria-hidden="false"] .nav-panel-body{transform:translateX(0)}
-.nav-panel-header{display:flex;align-items:center;gap:8px;padding:10px 12px 4px}
+.nav-panel-header{display:flex;align-items:center;gap:8px;padding:10px 12px 4px;flex-shrink:0}
 .nav-admin-btn{background:var(--pink);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer}
 .nav-admin-btn:hover{background:var(--dark-pink)}
 .nav-panel-close{background:transparent;border:none;padding:8px;cursor:pointer;border-radius:8px}
 .nav-panel-close:hover{background:var(--surface-dim)}
-.nav-menu{display:flex;flex-direction:column;padding:8px 0}
+.nav-menu{display:flex;flex-direction:column;padding:8px 0;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* 메뉴가 길어 넘칠 때 flex-shrink 로 항목·구분선(1px)이 찌부러지는 것 방지. 넘치면 .nav-menu 가 스크롤 */
+.nav-menu>*{flex-shrink:0}
 .nav-item{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;font-size:15px;color:var(--ink);border:none;background:transparent;text-align:left;transition:background .15s}
 .nav-item:hover{background:var(--surface-dim)}
 .nav-item.on{background:var(--light-pink);color:var(--pink);font-weight:700}
@@ -146,10 +150,28 @@ textarea.form-input{resize:vertical;min-height:80px}
 .nav-item.on .nav-icon{color:var(--pink)}
 .nav-item .nav-label{flex:1}
 .nav-item .notif-badge{position:static;margin-left:auto}
-.nav-subitem{display:flex;align-items:center;padding:11px 20px 11px 54px;cursor:pointer;font-size:13px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
+.nav-subitem{display:flex;align-items:center;width:100%;box-sizing:border-box;min-height:48px;padding:12px 20px 12px 54px;cursor:pointer;font-size:14px;color:var(--muted);border:none;background:transparent;text-align:left;transition:background .15s}
 .nav-subitem:hover{background:var(--surface-dim);color:var(--ink)}
 .nav-divider{height:1px;background:var(--line);margin:6px 14px}
 .nav-divider-sub{height:1px;background:var(--line);margin:0 20px 0 54px;opacity:.6}
+
+/* ── 햄버거 계정 카드 + 마이페이지 아코디언 (마이페이지 랜딩 화면 흡수) ── */
+.nav-account{display:flex;align-items:center;gap:8px;padding:14px 20px}
+.nav-account-info{min-width:0;flex:1}
+.nav-account-notif{position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;background:transparent;border:none;cursor:pointer;padding:10px;border-radius:50%;color:var(--muted);-webkit-tap-highlight-color:transparent}
+.nav-account-notif:hover{background:var(--surface-dim)}
+.nav-account-notif:active{background:var(--surface-dim)}
+.nav-account-notif .material-icons-round{font-size:24px}
+.nav-account-name{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-account-handle{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-account-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.nav-accordion-head .nav-accordion-arrow{font-size:20px;color:var(--muted);margin-left:auto;flex-shrink:0;transition:transform .2s}
+.nav-accordion{overflow:hidden;max-height:0;transition:max-height .25s ease}
+.nav-accordion.open{max-height:1000px}
+.nav-subitem .nav-label{flex:1}
+.nav-unreg-badge{font-size:10px;font-weight:700;color:var(--red);border:1px solid var(--red);border-radius:4px;padding:1px 6px;white-space:nowrap;margin-left:8px}
+.nav-withdraw{display:block;width:100%;margin-top:16px;background:transparent;border:none;text-align:left;padding:12px 20px;font-size:11px;color:var(--muted);opacity:.6;cursor:pointer}
+.nav-withdraw:hover{opacity:.9;text-decoration:underline}
 
 /* ── NOTIF MODAL (슬라이드업 시트) ── */
 .notif-modal{position:fixed;inset:0;z-index:500;pointer-events:none}
@@ -210,6 +232,27 @@ textarea.form-input{resize:vertical;min-height:80px}
 #legalModal .legal-body dt{font-weight:600;color:var(--muted);margin-top:6px;font-size:12px}
 #legalModal .legal-body dd{margin:0 0 4px}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* ── 정책 변경 사전 통지 팝업 (#legalModal 시트 패턴 재사용, z-index 580: notif 500 위 / alert 600·legal 800 아래) ── */
+#policyNoticeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:580;align-items:flex-end;justify-content:center}
+#policyNoticeModal.on{display:flex}
+#policyNoticeModal .legal-sheet{width:100%;max-width:480px;max-height:90vh;background:#fff;border-radius:18px 18px 0 0;display:flex;flex-direction:column;animation:slideUp .28s cubic-bezier(.2,0,0,1)}
+#policyNoticeModal .legal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex-shrink:0}
+#policyNoticeModal .legal-title{font-size:15px;font-weight:700}
+#policyNoticeModal .legal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1}
+#policyNoticeModal .legal-body{padding:18px;overflow-y:auto;font-size:13px;line-height:1.7;color:var(--ink)}
+.policy-notice-actions{flex-shrink:0;display:flex;gap:8px;padding:12px 16px 18px;border-top:1px solid var(--line)}
+.policy-notice-actions button{flex:1;padding:12px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.policy-notice-detail{background:#fff;border:1px solid var(--primary);color:var(--primary)}
+.policy-notice-confirm{background:var(--primary);border:1px solid var(--primary);color:#fff}
+/* 홈 상단 배너 — GNB(.gnb height:56px) 바로 아래에 fixed 오버레이로 떠서 hero 위에 겹침(콘텐츠 안 밀림).
+   #appShell 이 transform 보유 → 자손 position:fixed 는 appShell(480px) 기준. 홈 외 페이지는 app.js navigate 에서 숨김. */
+#policyNoticeBannerWrap{position:fixed;top:56px;left:0;right:0;z-index:90;padding:10px 14px;pointer-events:none}
+#policyNoticeBanner{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#FFF6E5;border:1px solid #F0D9A8;border-radius:12px;font-size:12.5px;line-height:1.5;color:#8A6D3B;box-shadow:0 4px 14px rgba(0,0,0,.18);pointer-events:auto}
+#policyNoticeBanner .pn-banner-icon{flex-shrink:0;font-size:18px;color:#C8923A}
+#policyNoticeBanner .pn-banner-text{flex:1}
+#policyNoticeBanner .pn-banner-detail{flex-shrink:0;background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap}
+#policyNoticeBanner .pn-banner-close{flex-shrink:0;background:none;border:none;color:#B08A4A;cursor:pointer;padding:0;line-height:1;display:flex;align-items:center}
 
 /* ── LEGAL PAGE ── */
 #page-legal{background:#fff}

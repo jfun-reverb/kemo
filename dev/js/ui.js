@@ -201,9 +201,13 @@ function getLookupLabelsJoined(kind, csv, sep, lang) {
   return csv.split(',').map(s => s.trim()).filter(Boolean)
     .map(v => getLookupLabel(kind, v, lang)).join(sep || ', ');
 }
-// 모집 타입 라벨 (인플루언서 페이지: 일본어, 관리자: 한국어)
-function getRecruitTypeLabelJa(t) {
-  return t==='monitor'?'レビュアー':t==='gifting'?'ギフティング':t==='visit'?'訪問':'';
+// 모집 타입 라벨 (인플루언서 페이지 — 현재 언어 i18n. 함수명은 레거시 유지, 관리자는 getRecruitTypeBadgeKo 별도)
+function getRecruitTypeLabelJa(rt) {
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드 i18n 미포함 방어
+  const key = rt === 'monitor' ? 'campaigns.typeMonitor'
+            : rt === 'gifting' ? 'campaigns.typeGifting'
+            : rt === 'visit'   ? 'campaigns.typeVisit' : null;
+  return key ? _t(key) : '';
 }
 function getRecruitTypeBadgeKo(t) {
   if (t==='monitor') return '<span class="badge badge-blue">리뷰어</span>';
@@ -698,7 +702,8 @@ function closeLoginPrompt(e) {
 
 // ── 회사정보 / 이용약관 / 개인정보 모달 ──
 function openLegalModal(kind) {
-  const titles = {about:'会社紹介', terms:'利用規約', privacy:'個人情報処理方針'};
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드엔 i18n 미포함 → 방어
+  const titles = {about: _t('legal.about'), terms: _t('legal.termsTitle'), privacy: _t('legal.privacyTitle')};
   const $t = document.getElementById('legalTitle');
   const $b = document.getElementById('legalBody');
   const $m = document.getElementById('legalModal');
@@ -714,25 +719,21 @@ function closeLegalModal() {
   document.body.style.overflow = '';
 }
 function buildLegalContent(kind) {
+  const _t = (typeof t === 'function') ? t : (k) => k;  // admin 빌드엔 i18n 미포함 → 방어
   if (kind === 'about') {
     return `
-      <h3>会社情報</h3>
+      <h3>${esc(_t('footer.aboutHeading'))}</h3>
       <dl>
-        <dt>会社名</dt><dd>株式会社ジェイファン（JFUN Corp.）</dd>
-        <dt>所在地</dt><dd>ソウル市 衿川区 加山デジタル1路 128 STX V-Tower 1201号</dd>
-        <dt>代表者</dt><dd>ジュ・ヒョンホ</dd>
-        <dt>お問い合わせ</dt><dd>公式LINE <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd>
+        <dt>${esc(_t('footer.companyLabel'))}</dt><dd>${esc(_t('footer.companyName'))}（JFUN Corp.）</dd>
+        <dt>${esc(_t('footer.locationLabel'))}</dt><dd>${esc(_t('footer.locationValue'))}</dd>
+        <dt>${esc(_t('footer.representativeLabel'))}</dt><dd>${esc(_t('footer.representativeValue'))}</dd>
+        <dt>${esc(_t('footer.contactLabel'))}</dt><dd>${esc(_t('footer.officialLine'))} <a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a></dd>
       </dl>
-      <p>REVERBは、日本で活動するインフルエンサーの皆さまと、韓国の人気Kブランドをつなぐ体験型プラットフォームです。</p>
+      <p>${esc(_t('footer.aboutText'))}</p>
     `;
   }
-  if (kind === 'terms' || kind === 'privacy') {
-    return `
-      <p>${kind==='terms'?'利用規約':'個人情報処理方針'}の日本語版は現在準備中です。</p>
-      <p>ご質問は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener">@reverb.jp</a>）までお問い合わせください。</p>
-      <p style="font-size:11px;color:var(--muted);margin-top:18px">施行予定日: 2026年5月1日</p>
-    `;
-  }
+  // terms·privacy 는 별도 페이지(#page-legal, openLegalPage/legal.js)로 표시.
+  // 과거 모달 placeholder 분기는 제거됨 — about(회사정보)만 모달 사용.
   return '';
 }
 

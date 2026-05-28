@@ -140,14 +140,13 @@ async function renderLegalPage() {
     if (lang === 'ja') {
       body.innerHTML = `
         <div style="padding:40px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8">
-          <div style="font-size:32px;margin-bottom:12px"><span class="material-icons-round notranslate" translate="no">translate</span></div>
-          <div style="font-weight:700;color:var(--ink);margin-bottom:6px">日本語版は現在準備中です</div>
-          <div>正式な日本語訳は施行日（2026年5月1日）までに公開予定です。</div>
-          <div style="margin-top:12px">韓国語版を確認するか、公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener" style="color:var(--pink)">@reverb.jp</a>）までお問い合わせください。</div>
-          <button class="btn btn-ghost" style="margin-top:16px" onclick="setLegalLang('ko')">韓国語版を見る</button>
+          <div style="font-size:32px;margin-bottom:12px"><span class="material-icons-round notranslate" translate="no">cloud_off</span></div>
+          <div style="font-weight:700;color:var(--ink);margin-bottom:6px">読み込みに失敗しました</div>
+          <div>通信状況をご確認のうえ、もう一度お試しください。</div>
+          <div style="margin-top:12px">問題が続く場合は公式LINE（<a href="https://line.me/R/ti/p/@reverb.jp" target="_blank" rel="noopener" style="color:var(--pink)">@reverb.jp</a>）までお問い合わせください。</div>
         </div>`;
     } else {
-      body.innerHTML = `<div style="padding:40px 16px;text-align:center;color:var(--muted)">문서를 불러올 수 없습니다.</div>`;
+      body.innerHTML = `<div style="padding:40px 16px;text-align:center;color:var(--muted)">문서를 불러올 수 없습니다. 네트워크 상태를 확인 후 다시 시도해 주세요.</div>`;
     }
   }
 }

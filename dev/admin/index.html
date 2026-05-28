@@ -100,17 +100,21 @@
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
         <div class="admin-si-lbl">캠페인</div>
+        <div class="admin-si" data-pane="brand-ops" id="adminBrandOpsSi" onclick="navAdminPaneReload('brand-ops')"><span class="si-icon material-icons-round">monitor_heart</span><span class="si-text">운영 현황</span></div>
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
         <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
+        <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si-lbl">브랜드 서베이</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
+        <div class="admin-si" data-pane="companies" id="adminCompaniesSi" onclick="navAdminPaneReload('companies')"><span class="si-icon material-icons-round">corporate_fare</span><span class="si-text">회사 관리</span></div>
         <div class="admin-si" data-pane="brands" id="adminBrandsSi" onclick="navAdminPaneReload('brands')"><span class="si-icon material-icons-round">business</span><span class="si-text">브랜드 관리</span></div>
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
+        <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
@@ -210,13 +214,6 @@
             </div>
           </div>
 
-          <div class="admin-card">
-            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
-            <table class="data-table" id="recentAppsTable">
-              <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
-              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
-            </table>
-          </div>
         </div>
 
         <!-- CAMPAIGNS PANE -->
@@ -1099,6 +1096,52 @@
         </div>
 
         <!-- BRAND DASHBOARD (광고주 서베이 현황) PANE -->
+        <!-- 메시지 받은편지함 (3단: 캠페인 / 대화 상대 / 대화 내용) -->
+        <div id="adminPane-messages" class="admin-pane">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>기간</label>
+                <select class="admin-select" onchange="changeInboxSince(this.value)">
+                  <option value="6">최근 6개월</option>
+                  <option value="3">최근 3개월</option>
+                  <option value="12">최근 1년</option>
+                  <option value="120">전체</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>정렬</label>
+                <select class="admin-select" onchange="changeInboxSort(this.value)">
+                  <option value="recent">최근 메시지순</option>
+                  <option value="unresolved">미응대 우선</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>미응대</label>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
+                  <input type="checkbox" onchange="toggleInboxUnresolved(this.checked)" style="margin:0">
+                  <span>미응대만</span>
+                </label>
+              </div>
+              <div class="admin-filter-group" style="margin-left:auto;flex:1;min-width:200px;max-width:320px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 검색" oninput="searchInbox(this.value)">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="inbox-3pane stage-campaigns">
+            <div class="inbox-col inbox-col-camps" id="inboxCampaigns"></div>
+            <div class="inbox-col inbox-col-threads" id="inboxThreads"></div>
+            <div class="inbox-col inbox-col-view" id="inboxThreadView"></div>
+          </div>
+        </div>
+
         <div id="adminPane-brand-dashboard" class="admin-pane">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
             <div>
@@ -1233,6 +1276,161 @@
         </div>
 
         <!-- BRANDS (브랜드 마스터) PANE -->
+        <!-- BRAND OPS (운영 현황) PANE -->
+        <div id="adminPane-brand-ops" class="admin-pane">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:18px;font-weight:700;color:var(--ink)">운영 현황</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드별 진행 상황을 한눈에. 경고 단계가 높은 브랜드부터 표시됩니다</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="loadBrandOps()" style="display:inline-flex;align-items:center;gap:4px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">refresh</span> 새로고침
+              </button>
+            </div>
+            <div class="admin-filter-bar">
+              <div class="admin-filter-group">
+                <label>회사</label>
+                <select id="brandOpsCompanyFilter" class="admin-filter" onchange="renderBrandOpsCards()"><option value="">전체 회사</option></select>
+              </div>
+              <div class="admin-filter-group">
+                <label>정렬</label>
+                <select id="brandOpsSortFilter" class="admin-filter" onchange="renderBrandOpsCards()">
+                  <option value="alert">경고 우선</option>
+                  <option value="campaigns">진행 캠페인 많은 순</option>
+                  <option value="activity">최근 활동 순</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="brandOpsSearch" name="brandops-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드명 · 회사명 · 브랜드번호" oninput="renderBrandOpsCards()">
+                </div>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <span id="brandOpsTotalCount" style="font-size:12px;color:var(--muted);padding-bottom:6px"></span>
+              </div>
+            </div>
+          </div>
+          <div id="brandOpsGrid" class="brand-ops-grid"></div>
+
+          <div class="admin-card" style="margin-top:16px">
+            <div class="admin-card-header"><span class="admin-card-title">최근 신청</span><button class="btn btn-ghost btn-xs" onclick="switchAdminPane('applications',null)">전체 보기</button></div>
+            <table class="data-table" id="recentAppsTable">
+              <thead><tr><th>캠페인</th><th>인플루언서</th><th>신청 사유</th><th>신청일</th><th>상태</th><th>처리</th></tr></thead>
+              <tbody id="recentAppsBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">운영 현황을 열면 표시됩니다</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- BRAND OPS DETAIL (브랜드 상세) PANE -->
+        <div id="adminPane-brand-ops-detail" class="admin-pane">
+          <div id="brandOpsDetailBody"><div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div></div>
+        </div>
+
+        <!-- LINK CAMPAIGN MODAL (캠페인 ↔ 신청 연결) -->
+        <div class="modal-overlay" id="linkCampaignModal" style="z-index:614">
+          <div class="modal" style="max-width:480px;width:94vw;border-radius:16px;margin:auto;max-height:84vh;display:flex;flex-direction:column">
+            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:14px;font-weight:700;color:var(--ink)">캠페인을 신청에 연결</div>
+              <button class="btn btn-ghost btn-xs" onclick="closeLinkCampaignModal()" style="padding:4px 10px">✕</button>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="linkCampaignModalBody"></div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn btn-ghost btn-sm" onclick="closeLinkCampaignModal()">닫기</button>
+              <button id="linkCampaignSaveBtn" class="btn btn-primary btn-sm" onclick="saveLinkCampaign()">연결</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPANIES (회사 관리) PANE -->
+        <div id="adminPane-companies" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:18px;font-weight:700;color:var(--ink)">회사 관리</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">회사 마스터. 회사 1개에 브랜드 여러 개가 소속됩니다</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span id="companiesUnassignedIndicator" onclick="if(canEditCompanies())openBrandAssignModal(null)" style="display:none;font-size:12px;color:#c0392b;cursor:pointer;background:#FDECEA;padding:4px 10px;border-radius:8px"></span>
+                <button id="companyAddBtn" class="btn btn-primary btn-sm" onclick="openCompanyModal(null)" style="display:inline-flex;align-items:center;gap:4px">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span> 회사 추가
+                </button>
+              </div>
+            </div>
+            <div class="admin-filter-bar">
+              <div class="admin-filter-group">
+                <label>상태</label>
+                <select id="companiesStatusFilter" class="admin-filter" onchange="loadCompanies()">
+                  <option value="active" selected>active</option>
+                  <option value="archived">archived</option>
+                  <option value="all">전체</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="companiesSearch" name="company-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="회사명(한·일) · 사업자등록번호" oninput="loadCompanies()">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px;flex:1">
+                <span class="admin-card-title">회사 목록</span>
+                <span id="companiesTotalCount" style="font-size:12px;color:var(--muted)"></span>
+              </div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th style="width:220px">회사명 (한국어)</th>
+                  <th style="width:200px">회사명 (일본어)</th>
+                  <th style="width:90px;text-align:center">소속 브랜드</th>
+                  <th style="width:220px">담당자</th>
+                  <th style="width:100px">상태</th>
+                  <th style="width:240px">작업</th>
+                </tr></thead>
+                <tbody id="companiesTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPANY ADD/EDIT MODAL -->
+        <div class="modal-overlay" id="companyModal" style="z-index:612">
+          <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+              <div id="companyModalTitle" style="font-size:14px;font-weight:700;color:var(--ink)">새 회사 추가</div>
+              <button class="btn btn-ghost btn-xs" onclick="closeCompanyModal()" style="padding:4px 10px">✕</button>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="companyModalBody"></div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn btn-ghost btn-sm" onclick="closeCompanyModal()">닫기</button>
+              <button id="companySaveBtn" class="btn btn-primary btn-sm" onclick="saveCompany()">저장</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- BRAND ASSIGN MODAL -->
+        <div class="modal-overlay" id="brandAssignModal" style="z-index:613">
+          <div class="modal" style="max-width:520px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+              <div id="brandAssignModalTitle" style="font-size:14px;font-weight:700;color:var(--ink)">브랜드 할당</div>
+              <button class="btn btn-ghost btn-xs" onclick="closeBrandAssignModal()" style="padding:4px 10px">✕</button>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="brandAssignModalBody"></div>
+            <div class="modal-footer" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+              <button class="btn btn-ghost btn-sm" onclick="closeBrandAssignModal()">닫기</button>
+              <button id="brandAssignSaveBtn" class="btn btn-primary btn-sm" onclick="saveBrandAssign()">저장</button>
+            </div>
+          </div>
+        </div>
+
         <div id="adminPane-brands" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
@@ -1439,6 +1637,46 @@
                 <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>
               </tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ (자동응답) PANE -->
+        <div id="adminPane-faq" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">자주 묻는 질문 (자동응답)</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">응모건 메시지에서 인플루언서가 묻기 전에 셀프 해결하도록 안내하는 질문·답변을 관리합니다 (campaign_admin 이상)</div>
+              </div>
+            </div>
+          </div>
+          <div class="faq-split">
+            <!-- 좌측: 카테고리 목록 -->
+            <div class="faq-col faq-col-cats">
+              <div class="faq-col-header">
+                <span class="faq-col-title">카테고리</span>
+                <button class="btn btn-ghost btn-xs" id="btnFaqCatReorder" onclick="toggleFaqReorder('category')">순서 변경</button>
+              </div>
+              <div class="faq-list" id="faqCatList">
+                <div style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>
+              </div>
+              <div class="faq-col-footer">
+                <button class="btn btn-primary btn-sm" style="width:100%" onclick="openFaqEditModal(null, null, 'category')">+ 카테고리 추가</button>
+              </div>
+            </div>
+            <!-- 우측: 선택 카테고리의 질문 목록 -->
+            <div class="faq-col faq-col-items">
+              <div class="faq-col-header">
+                <span class="faq-col-title" id="faqItemsTitle">질문</span>
+                <button class="btn btn-ghost btn-xs" id="btnFaqItemReorder" onclick="toggleFaqReorder('item')" style="display:none">순서 변경</button>
+              </div>
+              <div class="faq-list" id="faqItemList">
+                <div style="text-align:center;color:var(--muted);padding:32px">좌측에서 카테고리를 선택하세요</div>
+              </div>
+              <div class="faq-col-footer" id="faqItemFooter" style="display:none">
+                <button class="btn btn-primary btn-sm" style="width:100%" onclick="openFaqAddItem()">+ 질문 추가</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1967,6 +2205,113 @@
   </div>
 </div>
 
+<!-- FAQ (자동응답) 편집 모달 -->
+<div class="modal-overlay" id="faqEditModal" style="z-index:600">
+  <div class="modal" style="max-width:880px;border-radius:20px;margin:auto;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-body" style="padding:24px;overflow-y:auto">
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="faqModalTitle">질문 추가</div>
+      <input type="hidden" id="faqEditId">
+      <input type="hidden" id="faqEditParentId">
+      <input type="hidden" id="faqEditKind">
+
+      <!-- 질문 제목 / 카테고리명 — 한·일 2열 -->
+      <div class="faq-bilingual">
+        <div class="form-group">
+          <label class="form-label" id="faqLabelKoLabel">질문 제목 (한국어) <span style="color:var(--red)">*</span></label>
+          <input type="text" id="faqLabelKo" class="form-input" placeholder="예: 영수증을 어떻게 올리나요">
+        </div>
+        <div class="form-group">
+          <label class="form-label" id="faqLabelJaLabel">질문 제목 (일본어) <span style="color:var(--red)">*</span></label>
+          <input type="text" id="faqLabelJa" class="form-input" placeholder="例: レシートはどう提出しますか">
+        </div>
+      </div>
+
+      <!-- 답변 본문 — item 일 때만 표시, 한·일 2열 -->
+      <div id="faqBodyGroup">
+        <div class="faq-bilingual">
+          <div class="form-group">
+            <label class="form-label">답변 본문 (한국어)</label>
+            <textarea id="faqBodyKo" class="form-input" rows="8" style="resize:vertical;font-size:13px;line-height:1.6" placeholder="번호 단계(1. 2. 3.)로 끊어서 작성"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">답변 본문 (일본어) <span style="font-size:11px;font-weight:400;color:var(--muted)">— 인플루언서 노출</span></label>
+            <textarea id="faqBodyJa" class="form-input" rows="8" style="resize:vertical;font-size:13px;line-height:1.6" placeholder="番号の手順（1. 2. 3.）で区切って記入"></textarea>
+          </div>
+        </div>
+
+        <!-- 화면 이동 -->
+        <div class="form-group">
+          <label class="form-label">앱 화면 이동 버튼</label>
+          <select id="faqActionTarget" class="form-input" onchange="onFaqActionTargetChange()">
+            <option value="">(없음)</option>
+            <option value="#mypage-applications">응모이력</option>
+            <option value="#activity">활동관리(결과물 제출)</option>
+            <option value="#mypage-profile-sns">SNS 계정</option>
+            <option value="#mypage-profile-address">배송지</option>
+            <option value="#mypage-paypal">PayPal</option>
+            <option value="#mypage-profile-basic">기본정보</option>
+            <option value="#mypage-password">비밀번호 변경</option>
+            <option value="#mypage-email-settings">메일 수신 설정</option>
+          </select>
+        </div>
+        <div class="faq-bilingual" id="faqActionLabelGroup" style="display:none">
+          <div class="form-group">
+            <label class="form-label">버튼 라벨 (한국어)</label>
+            <input type="text" id="faqActionLabelKo" class="form-input" placeholder="예: 결과물 제출 화면 보기">
+          </div>
+          <div class="form-group">
+            <label class="form-label">버튼 라벨 (일본어)</label>
+            <input type="text" id="faqActionLabelJa" class="form-input" placeholder="例: 成果物提出を開く">
+          </div>
+        </div>
+
+        <!-- handoff 토글 -->
+        <div class="form-group" style="display:flex;align-items:center;gap:10px">
+          <label class="lookup-toggle" title="직접 문의로 바로" style="margin:0">
+            <input type="checkbox" id="faqHandoff" onchange="onFaqHandoffChange()">
+            <span class="lookup-toggle-slider"></span>
+          </label>
+          <span style="font-size:13px;color:var(--ink)">선택 시 답변 없이 바로 「직접 문의」로 연결 (handoff)</span>
+        </div>
+
+        <!-- 맞춤 노출 단계 -->
+        <div class="form-group">
+          <label class="form-label">맞춤 노출 단계 <span style="font-size:11px;font-weight:400;color:var(--muted)">(미선택 = 모든 단계 노출)</span></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="pending"> 심사중</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_purchase"> 승인-구매기간</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_visit"> 승인-방문기간</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="approved_post"> 승인-제출단계</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="rejected"> 비승인</label>
+            <label class="faq-stage-chip"><input type="checkbox" name="faqStage" value="done"> 완료</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 활성 여부 -->
+      <div class="form-group" style="display:flex;align-items:center;gap:10px">
+        <label class="lookup-toggle" title="활성" style="margin:0">
+          <input type="checkbox" id="faqActive" checked>
+          <span class="lookup-toggle-slider"></span>
+        </label>
+        <span style="font-size:13px;color:var(--ink)">활성 (인플루언서에게 노출)</span>
+      </div>
+
+      <!-- 미리보기 토글 (item 만) -->
+      <div id="faqPreviewWrap">
+        <button type="button" class="btn btn-ghost btn-xs" onclick="toggleFaqPreview()"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">visibility</span> <span id="faqPreviewToggleLabel">미리보기 (일본어 화면)</span></button>
+        <div id="faqPreviewBox" class="faq-preview" style="display:none"></div>
+      </div>
+
+      <div id="faqEditError" class="form-error" style="display:none;margin:8px 0"></div>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="closeModal('faqEditModal')">취소</button>
+        <button class="btn btn-primary" onclick="saveFaqNode()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 참여방법 번들 편집 모달 -->
 <div class="modal-overlay" id="psetEditModal" style="z-index:600">
   <div class="modal" style="max-width:640px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
@@ -2355,6 +2700,46 @@
         <button class="btn btn-primary" style="min-width:100px" onclick="resolveConfirmModal(true)">확인</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- 응모건 메시지 모달 (응모 행 「메시지」 버튼 진입) -->
+<div class="modal-overlay" id="admMsgModal" style="z-index:640">
+  <div class="modal" style="max-width:720px;width:96vw;border-radius:16px;margin:auto;max-height:86vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)" id="admMsgModalTitle">메시지</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeAdminMessageModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" id="admMsgModalBody" style="padding:0;overflow:hidden;flex:1;display:flex;flex-direction:column"></div>
+  </div>
+</div>
+
+<!-- 강제 숨김 사유 모달 -->
+<div class="modal-overlay" id="admHideModal" style="z-index:650">
+  <div class="modal" style="max-width:440px;border-radius:18px;margin:auto;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)">메시지 숨김</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeHideModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+      <label style="font-size:13px;color:var(--muted)">숨김 사유
+        <select id="admHideReasonSelect" class="admin-select" style="width:100%;margin-top:6px"></select>
+      </label>
+      <label style="font-size:13px;color:var(--muted)">메모 (선택)
+        <textarea id="admHideMemo" rows="3" style="width:100%;margin-top:6px;font-size:14px" placeholder="추가 설명 (선택)"></textarea>
+      </label>
+    </div>
+    <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeHideModal()">취소</button>
+      <button class="btn btn-primary" onclick="confirmHideMessage()">숨김</button>
+    </div>
+  </div>
+</div>
+
+<!-- 메시지 첨부 라이트박스 -->
+<div class="modal-overlay" id="admMsgLightbox" style="z-index:660" onclick="closeAdmMsgLightbox()">
+  <div style="margin:auto;max-width:92vw;max-height:88vh;display:flex;align-items:center;justify-content:center">
+    <img id="admMsgLightboxImg" src="" alt="" style="max-width:92vw;max-height:88vh;border-radius:8px">
   </div>
 </div>
 
