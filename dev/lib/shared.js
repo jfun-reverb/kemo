@@ -310,17 +310,6 @@ function matchSearchTokens(searchVal, fields) {
 
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
-// 관리자 목록 검색 공통 매칭 — 검색어를 공백(반각·전각 U+3000·연속)으로 나눈 각 단어가
-// 검색 대상 필드들에 모두 포함되면 true. 단어 순서·공백 종류 무관.
-// 일본어 제목의 전각 공백과 붙여넣은 반각 공백이 달라도 검색되도록 한다.
-// searchVal 은 호출 측에서 trim().toLowerCase() 한 값을 넘긴다.
-function matchSearchTokens(searchVal, fields) {
-  const tokens = (searchVal || '').split(/[\s　]+/).filter(Boolean);
-  if (!tokens.length) return true;
-  const haystack = fields.map(v => (v || '').toLowerCase()).join(' ');
-  return tokens.every(tok => haystack.includes(tok));
-}
-
 function extractSnsHandle(channel, raw) {
   if (!raw) return '';
   let s = String(raw).trim();

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779936208';
+  var CURRENT_BUILD = 'v1779936651';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1752,7 +1752,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 11:43 · 1b3ab93</span>
+          <span class="admin-build-text">2026-05-28 11:50 · 3ab125c</span>
         </div>
       </div>
     </aside>
@@ -4722,17 +4722,6 @@ function matchSearchTokens(searchVal, fields) {
 
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
-// 관리자 목록 검색 공통 매칭 — 검색어를 공백(반각·전각 U+3000·연속)으로 나눈 각 단어가
-// 검색 대상 필드들에 모두 포함되면 true. 단어 순서·공백 종류 무관.
-// 일본어 제목의 전각 공백과 붙여넣은 반각 공백이 달라도 검색되도록 한다.
-// searchVal 은 호출 측에서 trim().toLowerCase() 한 값을 넘긴다.
-function matchSearchTokens(searchVal, fields) {
-  const tokens = (searchVal || '').split(/[\s　]+/).filter(Boolean);
-  if (!tokens.length) return true;
-  const haystack = fields.map(v => (v || '').toLowerCase()).join(' ');
-  return tokens.every(tok => haystack.includes(tok));
-}
-
 function extractSnsHandle(channel, raw) {
   if (!raw) return '';
   let s = String(raw).trim();
