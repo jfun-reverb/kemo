@@ -65,6 +65,27 @@ async function loadMessagesInbox() {
   updateInboxStage();
 }
 
+// 캠페인 영역 확장 — 헤더 클릭 시 캠페인·대화 선택 모두 해제 → updateInboxStage 가 stage-campaigns 로 전환.
+//   (사용자: '캠페인 제목 영역 클릭하면 캠페인 영역이 넓어지게')
+function setInboxStageCampaigns() {
+  _inboxSelectedCampaign = null;
+  _admMsgAppId = null;
+  const v = document.getElementById('inboxThreadView');
+  if (v) v.innerHTML = '';
+  renderInboxCampaignList();
+  renderInboxThreadList();
+  updateInboxStage();
+}
+
+// 대화 목록 영역 확장 — 대화 선택만 해제하고 캠페인 선택은 유지 → stage-threads (캠페인 선택 상태일 때만 의미).
+function setInboxStageThreads() {
+  _admMsgAppId = null;
+  const v = document.getElementById('inboxThreadView');
+  if (v) v.innerHTML = '';
+  renderInboxThreadList();
+  updateInboxStage();
+}
+
 // 단계 진행형 너비 — 선택 진척에 따라 활성 단을 넓힘 (메신저 드릴다운)
 //   캠페인 미선택 → 캠페인 목록 전체폭 / 캠페인 선택 → 대화 상대 목록 확대 / 대화 선택 → 대화 내용 확대
 function updateInboxStage() {

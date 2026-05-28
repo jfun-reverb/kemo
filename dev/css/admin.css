@@ -1074,7 +1074,25 @@
    ════════════════════════════════════════════════════════════ */
 /* 받은편지함 3단 패널 — 단계 진행형 너비 */
 .inbox-3pane{display:flex;gap:0;flex:1;min-height:0;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
-.inbox-col{overflow-y:auto;min-height:0}
+.inbox-col{display:flex;flex-direction:column;min-height:0;min-width:0}
+.inbox-col-body{flex:1;overflow-y:auto;min-height:0}
+/* 각 영역 상단 제목 헤더 — 캠페인·대화 목록은 클릭으로 영역 확장 토글, 대화 내용은 정적 */
+.inbox-col-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 14px;font-size:13px;font-weight:700;color:var(--ink);background:var(--surface-dim);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;transition:background .15s ease}
+.inbox-col-header:hover{background:var(--light-pink)}
+.inbox-col-header-static{cursor:default}
+.inbox-col-header-static:hover{background:var(--surface-dim)}
+/* 화살표는 좌우 방향(↔) — Material Icons unfold_more(↑↓)를 90도 회전. 기본은 숨김. */
+.inbox-col-header-icon{font-size:16px;color:var(--muted);opacity:.7;transform:rotate(90deg);display:none}
+/* 좁아진(비활성) 영역에만 화살표 표시 — 클릭하면 그 영역이 넓어진다는 시그널 */
+.inbox-3pane.stage-threads .inbox-col-camps .inbox-col-header-icon,
+.inbox-3pane.stage-view .inbox-col-camps .inbox-col-header-icon,
+.inbox-3pane.stage-campaigns .inbox-col-threads .inbox-col-header-icon,
+.inbox-3pane.stage-view .inbox-col-threads .inbox-col-header-icon{display:inline-block}
+/* 이미 넓어진 영역의 헤더는 클릭 효과 없음 → cursor default + hover 무반응 */
+.inbox-3pane.stage-campaigns .inbox-col-camps .inbox-col-header,
+.inbox-3pane.stage-threads .inbox-col-threads .inbox-col-header{cursor:default}
+.inbox-3pane.stage-campaigns .inbox-col-camps .inbox-col-header:hover,
+.inbox-3pane.stage-threads .inbox-col-threads .inbox-col-header:hover{background:var(--surface-dim)}
 .inbox-col-camps{border-right:1px solid var(--line);background:var(--surface-container-low)}
 .inbox-col-threads{border-right:1px solid var(--line)}
 .inbox-col-view{display:flex;flex-direction:column}
