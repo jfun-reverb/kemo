@@ -1354,6 +1354,8 @@ textarea.form-input{resize:vertical;min-height:80px}
             <option value="tiktok">TikTok</option>
             <option value="youtube">YouTube</option>
             <option value="qoo10">Qoo10</option>
+            <option value="lips">LIPS</option>
+            <option value="cosme">@cosme</option>
             <option value="other">その他</option>
           </select>
           <div class="form-hint" style="font-size:11px;color:var(--muted);margin-top:4px" data-i18n="activity.postChannelHint">URLからチャンネルを自動判別できませんでした</div>
@@ -9035,13 +9037,15 @@ function detectChannelFromUrl(url) {
     if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) return 'youtube';
     if (host === 'x.com' || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'x';
     if (host.includes('qoo10.jp')) return 'qoo10';
+    if (host.includes('lipscosme.com')) return 'lips';
+    if (host === 'cosme.net' || host.endsWith('.cosme.net')) return 'cosme';
     return null;
   } catch(e) { return null; }
 }
 
 const CHANNEL_LABELS = {
   instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube',
-  x: 'X (Twitter)', qoo10: 'Qoo10'
+  x: 'X (Twitter)', qoo10: 'Qoo10', lips: 'LIPS', cosme: '@cosme'
 };
 function getChannelLabelLocal(code) {
   return CHANNEL_LABELS[code] || t('channelLabel.other');
