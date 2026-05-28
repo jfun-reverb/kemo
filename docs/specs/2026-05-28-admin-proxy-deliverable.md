@@ -229,9 +229,9 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 - 진행 시점: **별도 PR 5 로 다음 세션**에 진행
 
 **필요한 변경 영역**:
-1. **마이그레이션 161**:
+1. **마이그레이션 162** (착수 시점에 `ls supabase/migrations/ | tail -3` 으로 최신 재확인 — 본 사양 갱신 시점 161 까지 사용 중):
    - `deliverables` 컬럼 추가 — `submitted_by_admin_evidence jsonb NULL` (배열, `[{path, name, size, mime}]`)
-   - `admin_create_deliverable_proxy` RPC 시그니처 확장 — `p_evidence_paths jsonb DEFAULT '[]'::jsonb` 추가 (DEFAULT 두면 기존 클라 호출도 호환)
+   - `admin_create_deliverable_proxy` RPC 시그니처 확장 — `p_evidence_paths jsonb DEFAULT '[]'::jsonb` 추가 (DEFAULT 두면 기존 클라 호출도 호환). 161 에 추가된 `v_reason_label` 변수·사유 라벨 lookup 로직 유지
    - `admin_revoke_proxy_deliverable` RPC 본문 보강 — DELETE 직전 `submitted_by_admin_evidence` jsonb 에서 `path` 추출 후 `storage.objects` 정리 호출 (또는 별도 헬퍼 함수 `_delete_proxy_evidence(paths)` 신설)
 2. **Storage 버킷 신설**: `admin-proxy-evidence`
    - 비공개 (public=false)
@@ -336,3 +336,4 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 - **사유 코드 한국어 매핑 시드 4건 인라인** — `_proxyReasonLabelKo` (admin-deliverables.js), `_excelProxyReasonKo` (admin-excel.js), `activityProxyNoticeJa` 의 `REASON_JA` (application.js) 3곳에 각각 인라인 매핑. 추후 lookup_values 에 5번째 코드 추가되면 영문 코드 폴백 (관리자가 `#lookups` 페인에서 추가하면 자동으로 본 함수에서 영문 그대로 노출 + UI 식별 가능)
 - **`admin_revoke_proxy_deliverable` audit 영구 보존 미지원** — `deliverable_events.deliverable_id ON DELETE CASCADE` 로 결과물 DELETE 시 audit 도 함께 삭제됨. 향후 영구 감사 필요 시 별도 `admin_proxy_revoke_log` audit-only 테이블 분리 권장 (현재는 운영 빈도 낮음 + 운영자 매뉴얼로 보완)
 - **개발서버 검토만 완료** — PR 1·2·3 모두 dev 머지·개발 DB 적용·스모크 완료. 운영 배포는 별도 협의 (메시지 본체 PR 5·6 보류 분과 일정 묶기 가능)
+- **알림 body 표현 확정 (마이그레이션 161, 2026-05-28 사용자 발견 정정)**: §11 시나리오 6 의 초안 표현 「結果物が登録されました — 배송 지연으로 운영 측에서 등록」 → 실제 구현은 title `結果物が登録されました` + body `運営側で結果物を登録・承認しました。理由: {사유 라벨 일본어}` (사유 메모는 운영 내부로 인플 알림 미포함, §6 정책 일치)
