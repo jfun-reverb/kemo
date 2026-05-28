@@ -1295,3 +1295,18 @@
 
 /* 「대리 등록만 보기」 필터 토글 */
 .deliv-proxy-filter-label{display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px;color:var(--ink)}
+
+/* ─── 관리자 대리 등록 모달 — 검색 가능 드롭다운 (combobox) ────────── */
+.admin-proxy-combobox{position:relative}
+.admin-proxy-combobox-input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
+.admin-proxy-combobox-input:disabled{background:#F3F4F6;color:var(--muted);cursor:not-allowed}
+.admin-proxy-combobox-input:focus{outline:none;border-color:var(--pink)}
+.admin-proxy-combobox-list{display:none;position:absolute;top:100%;left:0;right:0;z-index:10;max-height:240px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,.06);margin-top:-1px}
+.admin-proxy-combobox-list.open{display:block}
+.admin-proxy-combobox-list .item{padding:8px 10px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line)}
+.admin-proxy-combobox-list .item:last-child{border-bottom:none}
+.admin-proxy-combobox-list .item:hover,
+.admin-proxy-combobox-list .item.focused{background:#FFF5F8;color:var(--dark-pink)}
+.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:#F9FAFB}
+.admin-proxy-combobox-list .item-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.admin-proxy-combobox-list .empty{padding:14px 10px;text-align:center;color:var(--muted);font-size:12px}
