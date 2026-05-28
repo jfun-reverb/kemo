@@ -124,7 +124,7 @@
 ### 캠페인 관리
 - CRUD + 복제 + 삭제(확인모달) + 순서변경 모드 + 더보기 메뉴(결과물 엑셀·신청자 엑셀·변경 이력)
 - **캠페인 번호 채번**: `B{brand_seq}-A{app_seq}-C{camp_seq}` (외부 캠페인은 `B{brand_seq}-C{ext_seq}`). 자릿수 brand 4/신청 3/캠 3. 신규 INSERT 시 트리거 자동 채번. 캠페인 등록 폼은 brands 드롭다운 + 신청 cascade + 신규 brand 인라인 모달 패턴. 기존 v1 `CAMP-YYYY-NNNN`/`JFUN-{Q|N}-YYYYMMDD-NNN` 은 `legacy_no` 컬럼·`numbering_legacy_map` 에 보존
-- **캠페인 등록/편집 폼**: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드). 모집타입 라디오버튼 UI, 채널은 복수 선택 체크박스(Instagram/X/Qoo10/TikTok/YouTube, 콤마 구분 저장 `"instagram,x"`). 채널 2개+ 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match`. 자격 검증은 `primary_channel` 단일 기준
+- **캠페인 등록/편집 폼**: 4개 섹션 그룹핑 (기본정보/제품정보/모집조건/콘텐츠가이드). 모집타입 라디오버튼 UI, 채널은 복수 선택 체크박스(Instagram/X/Qoo10/TikTok/YouTube/LIPS/@cosme, 콤마 구분 저장 `"instagram,x"`. LIPS·@cosme는 리뷰어형 전용 — `lookup_values.recruit_types=['monitor']`). 채널 2개+ 선택 시 `or`/`&` 라디오 노출 → `campaigns.channel_match`. 자격 검증은 `primary_channel` 단일 기준
 - **콘텐츠 가이드 리치 텍스트** (Quill v2, 3개 필드): Notion 복사·붙여넣기 서식 유지. 이미지 태그는 저장 시 제거. XSS 방어 DOMPurify 저장+렌더 이중 sanitize. 헬퍼는 `dev/lib/shared.js`
 - **참여방법·주의사항·NG 미니 에디터**: 굵게/기울이기/링크/이미지 첨부 가능. 이미지는 `campaign-images/content/` 업로드 (5MB / jpg·png·webp) → `<img class="rich-img">` 삽입. 클릭 팝오버로 Small/Medium/Large/Original 크기 조정. XSS 방어는 src 화이트리스트 (https + `*.supabase.co`)
 - **캠페인 목록**: 썸네일+이미지수, 상태/타입 드롭다운 필터, 검색(캠페인명+브랜드+제품+campaign_no), 헤더 정렬(조회/신청/등록일/수정일 ▲▼), D-day 라벨, 승인수/모집수 표시 + 대기 배지

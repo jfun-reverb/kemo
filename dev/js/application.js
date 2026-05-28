@@ -706,13 +706,15 @@ function detectChannelFromUrl(url) {
     if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) return 'youtube';
     if (host === 'x.com' || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'x';
     if (host.includes('qoo10.jp')) return 'qoo10';
+    if (host.includes('lipscosme.com')) return 'lips';
+    if (host === 'cosme.net' || host.endsWith('.cosme.net')) return 'cosme';
     return null;
   } catch(e) { return null; }
 }
 
 const CHANNEL_LABELS = {
   instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube',
-  x: 'X (Twitter)', qoo10: 'Qoo10'
+  x: 'X (Twitter)', qoo10: 'Qoo10', lips: 'LIPS', cosme: '@cosme'
 };
 function getChannelLabelLocal(code) {
   return CHANNEL_LABELS[code] || t('channelLabel.other');
