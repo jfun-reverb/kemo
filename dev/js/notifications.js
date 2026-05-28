@@ -295,7 +295,14 @@ function renderNotifModal(items) {
 }
 
 async function onNotifItemClick(id, kind, refTable, refId) {
-  await markNotificationRead(id);
+  // 같은 참조(결과물·신청)에 대한 트리거 다건 INSERT 시 한 번 클릭으로 일괄 정리
+  //   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected 2건).
+  //   ref 없는 일반 알림만 단일 read.
+  if (refTable && refId) {
+    await markNotificationsReadByRef(refTable, refId);
+  } else {
+    await markNotificationRead(id);
+  }
   closeNotifModal();
   // 메시지 알림 → 응모건 메시지 페이지 직접 오픈 (사양서 §5-5, 2026-05-22 모달→페이지 전환)
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
