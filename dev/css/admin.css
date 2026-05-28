@@ -952,6 +952,10 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* 채널 2개 이상 monitor — 영수증 + 채널별 결과물 패널 3개 이상이면 wrap 그리드 */
+.deliv-combined-grid.deliv-combined-grid-multi {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
 @media (max-width: 900px) {
   .deliv-combined-grid {
     grid-template-columns: 1fr;
