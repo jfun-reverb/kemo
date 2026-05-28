@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779965092';
+  var CURRENT_BUILD = 'v1779965503';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1833,7 +1833,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 19:44 · e1392c7</span>
+          <span class="admin-build-text">2026-05-28 19:51 · fc8e2f8</span>
         </div>
       </div>
     </aside>
@@ -2796,12 +2796,12 @@ textarea.form-input{resize:vertical;min-height:80px}
               <thead><tr>
                 <th style="width:90px">모집 타입</th>
                 <th>캠페인</th>
-                <th style="width:180px">구매기간</th>
-                <th style="width:130px">결과물 제출 마감</th>
+                <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
+                <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
                 <th style="width:170px">영수증</th>
                 <th style="width:170px">결과물</th>
-                <th style="width:120px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
+                <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:90px">처리</th>
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
@@ -16806,6 +16806,20 @@ async function renderDeliverablesList() {
   if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
     filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
+  } else if (_delivSort.col === 'purchase') {
+    // 구매기간 시작일 기준 정렬 (monitor=purchase_start, visit=visit_start, gifting=빈값)
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      const aStart = (a.campaign?.purchase_start || a.campaign?.visit_start || '');
+      const bStart = (b.campaign?.purchase_start || b.campaign?.visit_start || '');
+      return aStart.localeCompare(bStart) * dir;
+    });
+  } else if (_delivSort.col === 'submission_end') {
+    // 결과물 제출 마감일 기준 정렬
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      return (a.campaign?.submission_end || '').localeCompare(b.campaign?.submission_end || '') * dir;
+    });
   } else {
     filtered.sort((a, b) => {
       // 검수대기 우선: 영수증 pending 또는 결과물 pending(monitor=대표·gifting/visit=post)
@@ -16864,7 +16878,7 @@ function renderDelivAppRow(g) {
   const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
 
   const submittedCell = g.latest_submitted_at
-    ? `<span style="font-size:12px">${formatDate(g.latest_submitted_at)}</span>`
+    ? `<span style="font-size:12px">${formatDateTime(g.latest_submitted_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">미제출</span>';
 
   const campNoBadge = camp.campaign_no
