@@ -197,25 +197,57 @@ async function renderDeliverablesList() {
     g.result_status_repr = repr;
   }
 
-  // 옵션별 카운트 — 사용자가 「리스트에 해당하는 건수」를 미리 보고 선택할 수 있도록
-  // 다른 필터는 무시하고 「전체 데이터에서 그 옵션 만족하는 group 수」 기준
+  // 옵션별 카운트 — 표준 multi-filter 패턴: 「자기 자신 필터 제외 + 다른 모든 필터 적용」 후 그룹 수.
+  // 사용자가 카운트 = 실제 결과로 신뢰 가능. 동시 필터 적용 시 0건 표시도 정확.
+  // (이전 패턴: 모든 필터 무시 독립 집계 → 카운트 19인데 실제 0건 사례 발생 — 2026-05-28 사용자 보고)
   const allGroups = Array.from(groups.values());
+  // 자기 자신 필터를 skip 인자로 지정하면 그 필터만 무시. 나머지는 모두 AND 적용.
+  const passesFilters = (g, opts) => {
+    opts = opts || {};
+    if (!opts.skipRecruit && recruitTypeVals.length > 0 && !recruitTypeVals.includes(g.campaign?.recruit_type)) return false;
+    if (!opts.skipCamp && delivCampVals.length > 0 && !delivCampVals.includes(g.campaign?.id)) return false;
+    if (!opts.skipReceipt && receiptStatusVals.length > 0) {
+      const s = g.receipt ? g.receipt.status : 'none';
+      if (!receiptStatusVals.includes(s)) return false;
+    }
+    if (!opts.skipResult && resultStatusVals.length > 0) {
+      const rt2 = g.campaign?.recruit_type;
+      const s = (rt2 === 'monitor') ? (g.result_status_repr || 'none') : (g.result ? g.result.status : 'none');
+      if (!resultStatusVals.includes(s)) return false;
+    }
+    if (search) {
+      const inf = g.influencer || {};
+      const camp = g.campaign || {};
+      if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email, camp.title, camp.brand, camp.campaign_no])) return false;
+    }
+    return true;
+  };
   const campCounts = {};
-  const recruitTypeCounts = {};
+  const recruitTypeCounts = {monitor:0, gifting:0, visit:0};
   const receiptStatusCounts = {pending:0, approved:0, rejected:0, none:0};
   const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0};
   for (const g of allGroups) {
-    const cid = g.campaign?.id;
-    if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
-    const rt = g.campaign?.recruit_type;
-    if (rt) recruitTypeCounts[rt] = (recruitTypeCounts[rt] || 0) + 1;
-    const rs = g.receipt ? g.receipt.status : 'none';
-    if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
-    // monitor: 채널별 review_image 종합 대표 상태(result_status_repr) / gifting·visit: g.result(post)
-    const xs = (rt === 'monitor')
-      ? (g.result_status_repr || 'none')
-      : (g.result ? g.result.status : 'none');
-    if (xs in resultStatusCounts) resultStatusCounts[xs]++;
+    // 캠페인 카운트: 자기 자신(캠페인 필터) 제외
+    if (passesFilters(g, {skipCamp: true})) {
+      const cid = g.campaign?.id;
+      if (cid) campCounts[cid] = (campCounts[cid] || 0) + 1;
+    }
+    // 모집 타입 카운트: 자기 자신(모집 타입 필터) 제외
+    if (passesFilters(g, {skipRecruit: true})) {
+      const rt = g.campaign?.recruit_type;
+      if (rt && (rt in recruitTypeCounts)) recruitTypeCounts[rt]++;
+    }
+    // 영수증 상태 카운트: 자기 자신(영수증 필터) 제외 → 결과물·캠페인·모집타입·검색 모두 적용
+    if (passesFilters(g, {skipReceipt: true})) {
+      const rs = g.receipt ? g.receipt.status : 'none';
+      if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
+    }
+    // 결과물 상태 카운트: 자기 자신(결과물 필터) 제외 → 영수증·캠페인·모집타입·검색 모두 적용
+    if (passesFilters(g, {skipResult: true})) {
+      const rt = g.campaign?.recruit_type;
+      const xs = (rt === 'monitor') ? (g.result_status_repr || 'none') : (g.result ? g.result.status : 'none');
+      if (xs in resultStatusCounts) resultStatusCounts[xs]++;
+    }
   }
 
   // 캠페인 드롭다운 sync — 카운트 + subLabel(캠페인 번호) 포함
