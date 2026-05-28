@@ -819,6 +819,16 @@ async function exportCampaignDeliverables(campId) {
     var userById = {};
     (users || []).forEach(function(u){ if (u && u.id) userById[u.id] = u; });
 
+    // 3-1) monitor + 캠페인 채널 N개면 채널별 결과물 컬럼 펼침 (사양 2 PR 3, 2026-05-28)
+    //   gifting/visit·채널 없는 레거시 monitor는 기존 22컬럼 단일 결과물 코드 그대로.
+    var campChannels = (camp.recruit_type === 'monitor')
+      ? (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean)
+      : [];
+    if (campChannels.length > 0) {
+      try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
+      return await _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels);
+    }
+
     // 4) 영수증·리뷰 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
     //    receipt(영수증) + review_image(monitor 2단계 리뷰 캡처) 모두 receipt_url 컬럼을 재사용
     var imgBuffers = {};
