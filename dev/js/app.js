@@ -411,6 +411,11 @@ async function init() {
     const appId = hash.replace('messages-','');
     if (typeof openMessagesPage === 'function') openMessagesPage(appId, 'mypage', false);
     else navigate('mypage', false);
+  } else if (hash === 'activity') {
+    // 활동관리 페이지 새로고침 — _activityAppId·_activityCamp 글로벌이 NULL 이라 데이터 복원 불가.
+    // 빈 폼만 노출되어 사용자 혼란(영수증·결과물 내역 안 보임, 뒤로가기 무반응) → 응모이력으로 안전 폴백.
+    navigate('mypage', false);
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
   } else if (hash && hash !== 'home') {
     navigate(hash, false);
   } else {
