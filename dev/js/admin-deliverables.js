@@ -663,6 +663,13 @@ async function openDelivCombined(applicationId) {
   const modal = $('delivCombinedModal');
   if (!modal) return;
   _delivCombinedRefreshAppId = applicationId;
+  // 검수 모달 「대리 등록」 버튼은 campaign_admin 이상에게만 노출 (campaign_manager 차단)
+  // RPC 자체에 is_campaign_admin() 가드 있어 우회 시도해도 안전하지만, UI 일관성 차원에서 사전 차단
+  const proxyBtn = $('delivCombinedProxyBtn');
+  if (proxyBtn) {
+    const isManager = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager');
+    proxyBtn.style.display = isManager ? 'none' : '';
+  }
   openModal('delivCombinedModal');
   await renderDelivCombinedBody(applicationId);
 }
@@ -1109,7 +1116,7 @@ let _adminProxyApps = [];       // approved 신청 + 캠페인 + 인플 join
 let _adminProxyReasons = [];    // admin_proxy_reason lookup 캐시
 let _adminProxyChannels = {};   // channel code → name_ko 라벨
 
-async function openAdminProxyModal() {
+async function openAdminProxyModal(presetAppId) {
   const m = $('adminProxyDelivModal');
   if (!m) return;
   _resetAdminProxyForm();
@@ -1124,12 +1131,33 @@ async function openAdminProxyModal() {
     _adminProxyApps = appsResult;
     _adminProxyReasons = reasonsResult;
     _adminProxyChannels = channelsResult;
-    _populateAdminProxyAppDropdown();
     _populateAdminProxyReasonDropdown();
+    // 검수 모달에서 진입한 경우 캠페인·인플 자동 선택
+    if (presetAppId) {
+      const app = _adminProxyApps.find(a => a.id === presetAppId);
+      if (app) {
+        selectAdminProxyCamp(app.campaign_id, /*silent*/true);
+        selectAdminProxyInf(app.id, /*silent*/true);
+      }
+    }
   } catch (err) {
     console.error('[admin-proxy] 데이터 로드 실패', err);
     toast('데이터 로드 실패: ' + (err.message || err), 'error');
   }
+}
+
+// 검수 모달에서 「대리 등록」 진입 — 현재 신청 ID 가져와서 자동 선택
+// _delivCombinedRefreshAppId 는 openDelivCombined() 가 저장하는 신청 ID
+async function openAdminProxyFromCombined() {
+  const appId = (typeof _delivCombinedRefreshAppId !== 'undefined' && _delivCombinedRefreshAppId)
+    ? _delivCombinedRefreshAppId
+    : null;
+  if (!appId) {
+    toast('현재 신청을 식별할 수 없습니다. 결과물 목록의 「검수」 버튼으로 다시 열어주세요.', 'error');
+    return;
+  }
+  closeDelivCombined();
+  await openAdminProxyModal(appId);
 }
 
 function closeAdminProxyModal() {
@@ -1139,8 +1167,20 @@ function closeAdminProxyModal() {
 }
 
 function _resetAdminProxyForm() {
-  ['adminProxyApp','adminProxyKind','adminProxyOrderNo','adminProxyPurchaseDate','adminProxyPurchaseAmount','adminProxyPostUrl','adminProxyPostChannel','adminProxyReviewChannel','adminProxyReasonCode','adminProxyReason'].forEach(id => {
+  // combobox 2종 + kind/사유/메모/이미지/파일 입력 초기화
+  ['adminProxyApp','adminProxyCampId','adminProxyKind','adminProxyOrderNo','adminProxyPurchaseDate','adminProxyPurchaseAmount','adminProxyPostUrl','adminProxyPostChannel','adminProxyReviewChannel','adminProxyReasonCode','adminProxyReason'].forEach(id => {
     const el = $(id); if (el) el.value = '';
+  });
+  // combobox 검색 input (text)
+  ['adminProxyCampInput','adminProxyInfInput'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  // 인플 input 은 캠페인 미선택 시 disabled
+  const infInput = $('adminProxyInfInput');
+  if (infInput) infInput.disabled = true;
+  // 리스트 닫기
+  ['adminProxyCampList','adminProxyInfList'].forEach(id => {
+    const el = $(id); if (el) { el.classList.remove('open'); el.innerHTML = ''; }
   });
   ['adminProxyReceiptImage','adminProxyReviewImage'].forEach(id => {
     const el = $(id); if (el) el.value = '';
@@ -1152,7 +1192,7 @@ function _resetAdminProxyForm() {
     const el = $(id); if (el) el.classList.remove('active');
   });
   const kindSelect = $('adminProxyKind');
-  if (kindSelect) { kindSelect.innerHTML = '<option value="">— 먼저 신청을 선택하세요 —</option>'; kindSelect.disabled = true; }
+  if (kindSelect) { kindSelect.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSelect.disabled = true; }
 }
 
 async function _loadAdminProxyApprovedApps() {
@@ -1202,19 +1242,6 @@ async function _loadAdminProxyChannelLabels() {
   return map;
 }
 
-function _populateAdminProxyAppDropdown() {
-  const sel = $('adminProxyApp');
-  if (!sel) return;
-  const opts = ['<option value="">— 승인된 신청을 선택하세요 —</option>'];
-  _adminProxyApps.forEach(a => {
-    const inf = a.influencers || {};
-    const camp = a.campaigns || {};
-    const label = `${camp.campaign_no || '—'} · ${camp.title || ''} (${camp.brand || ''}) · ${inf.name || ''}${inf.name_kana ? '(' + inf.name_kana + ')' : ''}`;
-    opts.push(`<option value="${esc(a.id)}">${esc(label)}</option>`);
-  });
-  sel.innerHTML = opts.join('');
-}
-
 function _populateAdminProxyReasonDropdown() {
   const sel = $('adminProxyReasonCode');
   if (!sel) return;
@@ -1225,24 +1252,150 @@ function _populateAdminProxyReasonDropdown() {
   sel.innerHTML = opts.join('');
 }
 
-function onAdminProxyAppChange() {
-  const appId = $('adminProxyApp')?.value;
-  const kindSel = $('adminProxyKind');
-  if (!kindSel) return;
-  // 종류 옵션 분기
-  if (!appId) {
-    kindSel.innerHTML = '<option value="">— 먼저 신청을 선택하세요 —</option>';
-    kindSel.disabled = true;
-    onAdminProxyKindChange();
+// ── combobox: 캠페인 검색·선택 ────────────────────────────────────
+function showAdminProxyCampList() {
+  const list = $('adminProxyCampList');
+  if (!list) return;
+  list.classList.add('open');
+  _renderAdminProxyCampList($('adminProxyCampInput')?.value || '');
+}
+
+function onAdminProxyCampInput() {
+  const q = $('adminProxyCampInput')?.value || '';
+  // 입력 시 hidden 비움 (선택 확정 전 상태)
+  const hid = $('adminProxyCampId'); if (hid) hid.value = '';
+  // 캠페인 변경되면 인플·종류 모두 리셋
+  _resetAdminProxyInfState();
+  _renderAdminProxyCampList(q);
+  showAdminProxyCampList();
+}
+
+function _renderAdminProxyCampList(query) {
+  const list = $('adminProxyCampList');
+  if (!list) return;
+  // 캠페인 후보 = 승인 신청이 있는 캠페인 unique (id 기준)
+  const campMap = new Map();
+  _adminProxyApps.forEach(a => {
+    if (!a.campaigns) return;
+    if (!campMap.has(a.campaigns.id)) campMap.set(a.campaigns.id, a.campaigns);
+  });
+  const q = (query || '').trim().toLowerCase();
+  const filtered = Array.from(campMap.values()).filter(c => {
+    if (!q) return true;
+    return matchSearchTokens(q, [c.title, c.brand, c.campaign_no]);
+  });
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">일치하는 캠페인 없음</div>';
     return;
   }
-  const app = _adminProxyApps.find(a => a.id === appId);
+  list.innerHTML = filtered.slice(0, 100).map(c => {
+    const meta = `${c.brand || ''} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
+    return `<div class="item" onmousedown="selectAdminProxyCamp('${esc(c.id)}')">
+      <div>${esc(c.title || '제목 없음')}</div>
+      <div class="item-meta">${esc(meta)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectAdminProxyCamp(campId, silent) {
+  const app = _adminProxyApps.find(a => a.campaign_id === campId);
   if (!app || !app.campaigns) return;
+  const camp = app.campaigns;
+  const hid = $('adminProxyCampId'); if (hid) hid.value = campId;
+  const inp = $('adminProxyCampInput');
+  if (inp) inp.value = `${camp.title || ''} (${camp.brand || ''})`;
+  const list = $('adminProxyCampList'); if (list) list.classList.remove('open');
+  // 인플 input 활성화 + 검색 리스트 미리 렌더
+  const infInput = $('adminProxyInfInput');
+  if (infInput) { infInput.disabled = false; infInput.value = ''; }
+  const infHid = $('adminProxyApp'); if (infHid) infHid.value = '';
+  _renderAdminProxyInfList('');
+  // 종류 옵션도 리셋 (인플 미선택 상태)
+  const kindSel = $('adminProxyKind');
+  if (kindSel) { kindSel.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSel.disabled = true; }
+  onAdminProxyKindChange();
+  if (!silent && infInput) infInput.focus();
+}
+
+// ── combobox: 인플 검색·선택 (선택된 캠페인 내) ───────────────────
+function showAdminProxyInfList() {
+  const list = $('adminProxyInfList');
+  if (!list) return;
+  list.classList.add('open');
+  _renderAdminProxyInfList($('adminProxyInfInput')?.value || '');
+}
+
+function onAdminProxyInfInput() {
+  const q = $('adminProxyInfInput')?.value || '';
+  // 입력 시 hidden 비움 (선택 확정 전 상태)
+  const hid = $('adminProxyApp'); if (hid) hid.value = '';
+  // 인플 변경되면 종류 리셋
+  const kindSel = $('adminProxyKind');
+  if (kindSel) { kindSel.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSel.disabled = true; }
+  onAdminProxyKindChange();
+  _renderAdminProxyInfList(q);
+  showAdminProxyInfList();
+}
+
+function _renderAdminProxyInfList(query) {
+  const list = $('adminProxyInfList');
+  if (!list) return;
+  const campId = $('adminProxyCampId')?.value;
+  if (!campId) {
+    list.innerHTML = '<div class="empty">먼저 캠페인을 선택하세요</div>';
+    return;
+  }
+  const inCampApps = _adminProxyApps.filter(a => a.campaign_id === campId);
+  const q = (query || '').trim().toLowerCase();
+  const filtered = inCampApps.filter(a => {
+    if (!q) return true;
+    const inf = a.influencers || {};
+    return matchSearchTokens(q, [inf.name, inf.name_kana, inf.email]);
+  });
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">' + (q ? '일치하는 인플루언서 없음' : '승인된 인플루언서 없음') + '</div>';
+    return;
+  }
+  list.innerHTML = filtered.slice(0, 100).map(a => {
+    const inf = a.influencers || {};
+    const meta = `${inf.name_kana || ''}${inf.name_kana && inf.email ? ' · ' : ''}${inf.email || ''}`;
+    return `<div class="item" onmousedown="selectAdminProxyInf('${esc(a.id)}')">
+      <div>${esc(inf.name || '이름 없음')}</div>
+      <div class="item-meta">${esc(meta)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectAdminProxyInf(appId, silent) {
+  const app = _adminProxyApps.find(a => a.id === appId);
+  if (!app) return;
+  const inf = app.influencers || {};
+  const hid = $('adminProxyApp'); if (hid) hid.value = appId;
+  const inp = $('adminProxyInfInput');
+  if (inp) inp.value = `${inf.name || ''}${inf.name_kana ? ' (' + inf.name_kana + ')' : ''}`;
+  const list = $('adminProxyInfList'); if (list) list.classList.remove('open');
+  // 결과물 종류 옵션 활성화 (기존 onAdminProxyAppChange 로직 인라인)
+  _refreshAdminProxyKindOptions(app);
+}
+
+function _resetAdminProxyInfState() {
+  // 캠페인 변경 또는 폼 초기화 시 인플 + 종류 모두 리셋
+  const infInput = $('adminProxyInfInput');
+  if (infInput) { infInput.value = ''; infInput.disabled = true; }
+  const infHid = $('adminProxyApp'); if (infHid) infHid.value = '';
+  const infList = $('adminProxyInfList'); if (infList) { infList.classList.remove('open'); infList.innerHTML = ''; }
+  const kindSel = $('adminProxyKind');
+  if (kindSel) { kindSel.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSel.disabled = true; }
+  onAdminProxyKindChange();
+}
+
+function _refreshAdminProxyKindOptions(app) {
+  const kindSel = $('adminProxyKind');
+  if (!kindSel || !app || !app.campaigns) return;
   const rt = app.campaigns.recruit_type;
   const opts = ['<option value="">— 결과물 종류 선택 —</option>'];
   if (rt === 'monitor') {
     opts.push('<option value="receipt">영수증 (영수증·주문번호·구매일·금액)</option>');
-    // review_image 는 사양 2 운영 후 자동 활성 — 채널이 등록되어 있고 lookup 캐시에 코드가 있으면 노출
     const channels = (app.campaigns.channel || '').split(',').map(s => s.trim()).filter(Boolean);
     if (channels.length > 0) {
       opts.push('<option value="review_image">리뷰 이미지 (채널별)</option>');
@@ -1254,6 +1407,18 @@ function onAdminProxyAppChange() {
   kindSel.disabled = false;
   onAdminProxyKindChange();
 }
+
+// 외부 클릭 시 combobox 리스트 자동 닫기 (모달 외 클릭 또는 다른 영역 클릭)
+document.addEventListener('click', function(e) {
+  const camp = $('adminProxyCampCombobox');
+  const inf = $('adminProxyInfCombobox');
+  if (camp && !camp.contains(e.target)) {
+    const list = $('adminProxyCampList'); if (list) list.classList.remove('open');
+  }
+  if (inf && !inf.contains(e.target)) {
+    const list = $('adminProxyInfList'); if (list) list.classList.remove('open');
+  }
+});
 
 function onAdminProxyKindChange() {
   const kind = $('adminProxyKind')?.value;
