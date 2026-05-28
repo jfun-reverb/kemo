@@ -574,7 +574,7 @@ async function fetchDeliverables(filters) {
         reject_reason, reject_template_code,
         reviewed_by, reviewed_at, submitted_at, updated_at,
         application_id, user_id, campaign_id,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -650,6 +650,27 @@ async function markNotificationRead(notificationId) {
       if (error) throw error;
     });
   } catch(e) { console.error('[markNotificationRead]', e); }
+}
+
+// 특정 참조(ref_table+ref_id)의 미읽음 알림 일괄 읽음 처리.
+//   같은 결과물(deliverables)·신청(applications)에 대해 trigger 가 여러 건 INSERT 한 경우
+//   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected)
+//   사용자가 알림 1건 클릭만으로 해당 참조의 모든 미읽음을 일괄 정리.
+async function markNotificationsReadByRef(refTable, refId) {
+  if (!db || !refTable || !refId) return;
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+  if (!uid) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('user_id', uid)
+        .eq('ref_table', refTable)
+        .eq('ref_id', refId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markNotificationsReadByRef]', e); }
 }
 
 // 특정 응모건의 미읽음 message_received 알림 일괄 읽음 처리
@@ -768,6 +789,35 @@ async function insertDraftDeliverable(payload) {
   if (!db) return null;
   let id = null;
   await retryWithRefresh(async () => {
+    // review_image + post_channel 지정 시: 마이그레이션 158 UNIQUE 부분 인덱스 충돌 방지.
+    //   DELETE+INSERT 패턴은 RLS DELETE 정책 부재 또는 트랜잭션 분리로 0행 삭제 시 UNIQUE 위반
+    //   ('이미 등록된 데이터' 토스트) 발생 — 사양 §3-2 「재제출은 기존 행 UPDATE」 권고로 전환.
+    //   기존 행 있으면 status='draft' 로 되돌리고 이미지·반려사유 비움. 없으면 아래 INSERT 진행.
+    //   (deliverable_events 이력은 037 트리거가 status 전이 시 자동 INSERT)
+    if (payload.kind === 'review_image' && payload.post_channel) {
+      const {data: existing, error: selErr} = await db?.from('deliverables')
+        .select('id')
+        .eq('application_id', payload.application_id)
+        .eq('kind', 'review_image')
+        .eq('post_channel', payload.post_channel)
+        .maybeSingle();
+      if (selErr) throw selErr;
+      if (existing?.id) {
+        const {error: upErr} = await db?.from('deliverables')
+          .update({
+            status: 'draft',
+            receipt_url: payload.receipt_url || null,
+            reject_reason: null,
+            reject_template_code: null,
+            reviewed_by: null,
+            reviewed_at: null
+          })
+          .eq('id', existing.id);
+        if (upErr) throw upErr;
+        id = existing.id;
+        return;  // 기존 행 갱신 완료 — INSERT 스킵
+      }
+    }
     const row = {
       application_id: payload.application_id,
       user_id: payload.user_id,

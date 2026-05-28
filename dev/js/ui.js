@@ -144,6 +144,20 @@ function dDayLabel(d) {
   const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
   return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
 }
+// 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
+//   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
+//   둘 다 없으면 '—', 있으면 'YYYY/M/D ~ YYYY/M/D' + 종료일 기준 D배지.
+function periodRangeCell(s, e) {
+  if (!s && !e) return '<span style="color:var(--muted)">—</span>';
+  const startTxt = s ? formatDate(s) : '—';
+  const endTxt   = e ? formatDate(e) : '—';
+  return startTxt + ' ~ ' + endTxt + (e ? ' ' + dDayLabel(e) : '');
+}
+// 관리자 목록 표 — 단일 마감일 셀 + D배지 공용 헬퍼 (결과물 제출 마감 등).
+function periodSingleCell(d) {
+  if (!d) return '<span style="color:var(--muted)">—</span>';
+  return formatDate(d) + ' ' + dDayLabel(d);
+}
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
 // 유료 플랜 전용 기능 — 실패 시 onerror에서 원본 URL로 폴백

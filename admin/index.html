@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779936651';
+  var CURRENT_BUILD = 'v1779950889';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -574,9 +574,14 @@ textarea.form-input{resize:vertical;min-height:80px}
 #brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
 #brandAppTableBody tr.app-stripe-odd  > td:first-child{border-left:4px solid #8a8a8a}
 
-/* 브랜드 서베이 신청 목록 — 컬럼 경계 시각화 (액션 버튼이 다음 열과 헷갈리지 않게) */
-#brandAppTableBody tr > td{border-right:1px solid rgba(0,0,0,.05)}
-#brandAppTableBody tr > td:last-child{border-right:none}
+/* 관리자 목록 표 — 세로(열) 구분선 공통 (캠페인·신청·결과물·인플루언서·브랜드 서베이 등 11개 표 통일).
+   기존 #brandAppTableBody / #adminPane-campaigns 전용 규칙은 본 공통 규칙으로 흡수.
+   가로(행) 구분선은 .data-table 공통 규칙에서 별도 처리. */
+.data-table thead th{border-right:1px solid rgba(0,0,0,.06)}
+.data-table thead th:last-child{border-right:none}
+.data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
+.data-table tbody td:last-child{border-right:none}
+
 .status-tab-btn.zero-count .tab-count{color:#ccc}
 
 /* ─── 캠페인/신청/결과물/브랜드 관리 페인: 가로 스크롤 + 첫 컬럼 sticky-left
@@ -622,9 +627,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 #adminPane-campaigns .data-table thead th{white-space:nowrap}
 
-/* 컬럼 간 세로 보더 (브랜드 서베이 신청 목록 패턴) */
-#adminPane-campaigns .data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
-#adminPane-campaigns .data-table tbody td:last-child{border-right:none}
+/* (세로 보더는 .data-table 공통 규칙에서 처리 — 위쪽 「관리자 목록 표 세로 구분선 공통」 참조) */
 
 /* 신청 관리 — 첫 컬럼(캠페인) 좌측 고정 */
 #adminPane-applications .admin-table-wrap{overflow-x:auto}
@@ -638,16 +641,19 @@ textarea.form-input{resize:vertical;min-height:80px}
 #adminPane-applications .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-applications .data-table thead th{white-space:nowrap}
 
-/* 결과물 관리 — 첫 컬럼은 모집 타입(좁은 칩)이라 두 번째 컬럼(캠페인) 고정 */
+/* 결과물 관리 — 모집타입(1) + 캠페인(2) 양쪽 좌측 고정. 가로 스크롤 시 두 컬럼 어긋남 방지. */
 #adminPane-deliverables .admin-table-wrap{overflow-x:auto}
 #adminPane-deliverables .data-table{min-width:1200px}
 #adminPane-deliverables .data-table th:nth-child(1),
 #adminPane-deliverables .data-table td:nth-child(1){width:90px;min-width:90px;max-width:90px;box-sizing:border-box}
+#adminPane-deliverables .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
+#adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
 #adminPane-deliverables .data-table th:nth-child(2),
 #adminPane-deliverables .data-table td:nth-child(2){width:240px;min-width:240px;max-width:240px;box-sizing:border-box}
 #adminPane-deliverables .data-table tbody td:nth-child(2){position:sticky;left:90px;z-index:3;background:var(--surface)}
+#adminPane-deliverables .data-table thead th:nth-child(2){left:90px;z-index:7;background:var(--surface-dim)}
+#adminPane-deliverables .data-table tbody tr:hover td:nth-child(1),
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
-#adminPane-deliverables .data-table thead th:nth-child(2){left:90px;z-index:7}
 #adminPane-deliverables .data-table tbody td:nth-child(2),
 #adminPane-deliverables .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-deliverables .data-table thead th{white-space:nowrap}
@@ -1400,6 +1406,10 @@ textarea.form-input{resize:vertical;min-height:80px}
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* 채널 2개 이상 monitor — 영수증 + 채널별 결과물 패널 3개 이상이면 wrap 그리드 */
+.deliv-combined-grid.deliv-combined-grid-multi {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
 @media (max-width: 900px) {
   .deliv-combined-grid {
     grid-template-columns: 1fr;
@@ -1512,7 +1522,25 @@ textarea.form-input{resize:vertical;min-height:80px}
    ════════════════════════════════════════════════════════════ */
 /* 받은편지함 3단 패널 — 단계 진행형 너비 */
 .inbox-3pane{display:flex;gap:0;flex:1;min-height:0;height:calc(100vh - 150px);border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
-.inbox-col{overflow-y:auto;min-height:0}
+.inbox-col{display:flex;flex-direction:column;min-height:0;min-width:0}
+.inbox-col-body{flex:1;overflow-y:auto;min-height:0}
+/* 각 영역 상단 제목 헤더 — 캠페인·대화 목록은 클릭으로 영역 확장 토글, 대화 내용은 정적 */
+.inbox-col-header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 14px;font-size:13px;font-weight:700;color:var(--ink);background:var(--surface-dim);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;transition:background .15s ease}
+.inbox-col-header:hover{background:var(--light-pink)}
+.inbox-col-header-static{cursor:default}
+.inbox-col-header-static:hover{background:var(--surface-dim)}
+/* 화살표는 좌우 방향(↔) — Material Icons unfold_more(↑↓)를 90도 회전. 기본은 숨김. */
+.inbox-col-header-icon{font-size:16px;color:var(--muted);opacity:.7;transform:rotate(90deg);display:none}
+/* 좁아진(비활성) 영역에만 화살표 표시 — 클릭하면 그 영역이 넓어진다는 시그널 */
+.inbox-3pane.stage-threads .inbox-col-camps .inbox-col-header-icon,
+.inbox-3pane.stage-view .inbox-col-camps .inbox-col-header-icon,
+.inbox-3pane.stage-campaigns .inbox-col-threads .inbox-col-header-icon,
+.inbox-3pane.stage-view .inbox-col-threads .inbox-col-header-icon{display:inline-block}
+/* 이미 넓어진 영역의 헤더는 클릭 효과 없음 → cursor default + hover 무반응 */
+.inbox-3pane.stage-campaigns .inbox-col-camps .inbox-col-header,
+.inbox-3pane.stage-threads .inbox-col-threads .inbox-col-header{cursor:default}
+.inbox-3pane.stage-campaigns .inbox-col-camps .inbox-col-header:hover,
+.inbox-3pane.stage-threads .inbox-col-threads .inbox-col-header:hover{background:var(--surface-dim)}
 .inbox-col-camps{border-right:1px solid var(--line);background:var(--surface-container-low)}
 .inbox-col-threads{border-right:1px solid var(--line)}
 .inbox-col-view{display:flex;flex-direction:column}
@@ -1752,7 +1780,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 11:50 · 3ab125c</span>
+          <span class="admin-build-text">2026-05-28 15:48 · b32b809</span>
         </div>
       </div>
     </aside>
@@ -2704,13 +2732,15 @@ textarea.form-input{resize:vertical;min-height:80px}
               <thead><tr>
                 <th style="width:90px">모집 타입</th>
                 <th>캠페인</th>
+                <th style="width:180px">구매기간</th>
+                <th style="width:130px">결과물 제출 마감</th>
                 <th>인플루언서</th>
                 <th style="width:170px">영수증</th>
                 <th style="width:170px">결과물</th>
                 <th style="width:120px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:90px">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2757,9 +2787,26 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
           </div>
           <div class="inbox-3pane stage-campaigns">
-            <div class="inbox-col inbox-col-camps" id="inboxCampaigns"></div>
-            <div class="inbox-col inbox-col-threads" id="inboxThreads"></div>
-            <div class="inbox-col inbox-col-view" id="inboxThreadView"></div>
+            <div class="inbox-col inbox-col-camps">
+              <div class="inbox-col-header" onclick="setInboxStageCampaigns()" title="클릭하면 캠페인 목록을 넓게 봅니다">
+                <span>캠페인</span>
+                <span class="material-icons-round notranslate inbox-col-header-icon" translate="no">unfold_more</span>
+              </div>
+              <div class="inbox-col-body" id="inboxCampaigns"></div>
+            </div>
+            <div class="inbox-col inbox-col-threads">
+              <div class="inbox-col-header" onclick="setInboxStageThreads()" title="클릭하면 대화 목록을 넓게 봅니다">
+                <span>대화 목록</span>
+                <span class="material-icons-round notranslate inbox-col-header-icon" translate="no">unfold_more</span>
+              </div>
+              <div class="inbox-col-body" id="inboxThreads"></div>
+            </div>
+            <div class="inbox-col inbox-col-view">
+              <div class="inbox-col-header inbox-col-header-static">
+                <span>대화 내용</span>
+              </div>
+              <div class="inbox-col-body" id="inboxThreadView"></div>
+            </div>
           </div>
         </div>
 
@@ -5627,7 +5674,7 @@ async function fetchDeliverables(filters) {
         reject_reason, reject_template_code,
         reviewed_by, reviewed_at, submitted_at, updated_at,
         application_id, user_id, campaign_id,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -5703,6 +5750,27 @@ async function markNotificationRead(notificationId) {
       if (error) throw error;
     });
   } catch(e) { console.error('[markNotificationRead]', e); }
+}
+
+// 특정 참조(ref_table+ref_id)의 미읽음 알림 일괄 읽음 처리.
+//   같은 결과물(deliverables)·신청(applications)에 대해 trigger 가 여러 건 INSERT 한 경우
+//   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected)
+//   사용자가 알림 1건 클릭만으로 해당 참조의 모든 미읽음을 일괄 정리.
+async function markNotificationsReadByRef(refTable, refId) {
+  if (!db || !refTable || !refId) return;
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+  if (!uid) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('user_id', uid)
+        .eq('ref_table', refTable)
+        .eq('ref_id', refId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markNotificationsReadByRef]', e); }
 }
 
 // 특정 응모건의 미읽음 message_received 알림 일괄 읽음 처리
@@ -5821,6 +5889,35 @@ async function insertDraftDeliverable(payload) {
   if (!db) return null;
   let id = null;
   await retryWithRefresh(async () => {
+    // review_image + post_channel 지정 시: 마이그레이션 158 UNIQUE 부분 인덱스 충돌 방지.
+    //   DELETE+INSERT 패턴은 RLS DELETE 정책 부재 또는 트랜잭션 분리로 0행 삭제 시 UNIQUE 위반
+    //   ('이미 등록된 데이터' 토스트) 발생 — 사양 §3-2 「재제출은 기존 행 UPDATE」 권고로 전환.
+    //   기존 행 있으면 status='draft' 로 되돌리고 이미지·반려사유 비움. 없으면 아래 INSERT 진행.
+    //   (deliverable_events 이력은 037 트리거가 status 전이 시 자동 INSERT)
+    if (payload.kind === 'review_image' && payload.post_channel) {
+      const {data: existing, error: selErr} = await db?.from('deliverables')
+        .select('id')
+        .eq('application_id', payload.application_id)
+        .eq('kind', 'review_image')
+        .eq('post_channel', payload.post_channel)
+        .maybeSingle();
+      if (selErr) throw selErr;
+      if (existing?.id) {
+        const {error: upErr} = await db?.from('deliverables')
+          .update({
+            status: 'draft',
+            receipt_url: payload.receipt_url || null,
+            reject_reason: null,
+            reject_template_code: null,
+            reviewed_by: null,
+            reviewed_at: null
+          })
+          .eq('id', existing.id);
+        if (upErr) throw upErr;
+        id = existing.id;
+        return;  // 기존 행 갱신 완료 — INSERT 스킵
+      }
+    }
     const row = {
       application_id: payload.application_id,
       user_id: payload.user_id,
@@ -7896,6 +7993,20 @@ function dDayLabel(d) {
   const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
   const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
   return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+}
+// 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
+//   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
+//   둘 다 없으면 '—', 있으면 'YYYY/M/D ~ YYYY/M/D' + 종료일 기준 D배지.
+function periodRangeCell(s, e) {
+  if (!s && !e) return '<span style="color:var(--muted)">—</span>';
+  const startTxt = s ? formatDate(s) : '—';
+  const endTxt   = e ? formatDate(e) : '—';
+  return startTxt + ' ~ ' + endTxt + (e ? ' ' + dDayLabel(e) : '');
+}
+// 관리자 목록 표 — 단일 마감일 셀 + D배지 공용 헬퍼 (결과물 제출 마감 등).
+function periodSingleCell(d) {
+  if (!d) return '<span style="color:var(--muted)">—</span>';
+  return formatDate(d) + ' ' + dDayLabel(d);
 }
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
@@ -13746,6 +13857,27 @@ async function loadMessagesInbox() {
   updateInboxStage();
 }
 
+// 캠페인 영역 확장 — 헤더 클릭 시 캠페인·대화 선택 모두 해제 → updateInboxStage 가 stage-campaigns 로 전환.
+//   (사용자: '캠페인 제목 영역 클릭하면 캠페인 영역이 넓어지게')
+function setInboxStageCampaigns() {
+  _inboxSelectedCampaign = null;
+  _admMsgAppId = null;
+  const v = document.getElementById('inboxThreadView');
+  if (v) v.innerHTML = '';
+  renderInboxCampaignList();
+  renderInboxThreadList();
+  updateInboxStage();
+}
+
+// 대화 목록 영역 확장 — 대화 선택만 해제하고 캠페인 선택은 유지 → stage-threads (캠페인 선택 상태일 때만 의미).
+function setInboxStageThreads() {
+  _admMsgAppId = null;
+  const v = document.getElementById('inboxThreadView');
+  if (v) v.innerHTML = '';
+  renderInboxThreadList();
+  updateInboxStage();
+}
+
 // 단계 진행형 너비 — 선택 진척에 따라 활성 단을 넓힘 (메신저 드릴다운)
 //   캠페인 미선택 → 캠페인 목록 전체폭 / 캠페인 선택 → 대화 상대 목록 확대 / 대화 선택 → 대화 내용 확대
 function updateInboxStage() {
@@ -16257,8 +16389,10 @@ const DELIV_PAGE_SIZE = 50;
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
+  // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
+  try { await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
 
   // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
   const campsForFilter = await fetchCampaigns().catch(() => []);
@@ -16294,8 +16428,10 @@ async function renderDeliverablesList() {
     infMissingMap = await fetchInfluencersByIds(userIds);
   }
 
-  // 신청(application_id) 단위 group — 한 신청에 영수증·결과물 둘 다 묶음
-  // result 슬롯 = review_image (monitor) 또는 post (gifting/visit)
+  // 신청(application_id) 단위 group — 한 신청에 영수증·결과물 묶음
+  //   result 슬롯 = post (gifting/visit) 단일
+  //   reviewByChannel 슬롯 = monitor 캠페인의 채널별 review_image 최신 1개 매핑 ({channel_code: deliverable})
+  //   사양 §5-1 정합: 채널별 별개 결과물을 셀 안에 N개 노출 (행 분리 대신 셀 내 미니 행)
   const groups = new Map();
   const upsertGroup = (appId, camp, inf) => {
     if (!groups.has(appId)) {
@@ -16303,8 +16439,9 @@ async function renderDeliverablesList() {
         application_id: appId,
         campaign: camp || null,
         influencer: inf || null,
-        receipt: null,    // kind === 'receipt' 최신
-        result: null,     // kind === 'review_image' 또는 'post' 최신
+        receipt: null,             // kind === 'receipt' 최신
+        result: null,              // kind === 'post' 최신 (gifting/visit 전용)
+        reviewByChannel: {},       // monitor: {channel_code: review_image deliverable 최신}
         latest_submitted_at: null,
       });
     }
@@ -16319,7 +16456,13 @@ async function renderDeliverablesList() {
     const subAt = d.submitted_at || '';
     if (d.kind === 'receipt') {
       if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
-    } else if (d.kind === 'review_image' || d.kind === 'post') {
+    } else if (d.kind === 'review_image') {
+      // 채널별 최신 1개 (post_channel NULL 레거시는 무시 — grandfather)
+      if (d.post_channel) {
+        const prev = g.reviewByChannel[d.post_channel];
+        if (!prev || subAt > (prev.submitted_at || '')) g.reviewByChannel[d.post_channel] = d;
+      }
+    } else if (d.kind === 'post') {
       if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
     }
     if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
@@ -16329,6 +16472,25 @@ async function renderDeliverablesList() {
       if (groups.has(app.id)) continue;
       upsertGroup(app.id, campMap.get(app.campaign_id) || null, infMissingMap[app.user_id] || null);
     }
+  }
+
+  // monitor 신청의 「대표 결과물 상태」 계산 — 필터·정렬에서 사용
+  //   우선순위: rejected > pending > approved > none. 채널 1개라도 비완료면 그 상태.
+  //   gifting/visit 는 g.result(post) 그대로.
+  for (const g of groups.values()) {
+    const rt = g.campaign?.recruit_type;
+    if (rt !== 'monitor') continue;
+    const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+    if (channels.length === 0) {
+      g.result_status_repr = 'none';  // 채널 없는 레거시
+      continue;
+    }
+    const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
+    let repr = 'approved';
+    if (states.includes('rejected')) repr = 'rejected';
+    else if (states.includes('pending')) repr = 'pending';
+    else if (states.includes('none')) repr = 'none';
+    g.result_status_repr = repr;
   }
 
   // 옵션별 카운트 — 사용자가 「리스트에 해당하는 건수」를 미리 보고 선택할 수 있도록
@@ -16345,7 +16507,10 @@ async function renderDeliverablesList() {
     if (rt) recruitTypeCounts[rt] = (recruitTypeCounts[rt] || 0) + 1;
     const rs = g.receipt ? g.receipt.status : 'none';
     if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
-    const xs = g.result ? g.result.status : 'none';
+    // monitor: 채널별 review_image 종합 대표 상태(result_status_repr) / gifting·visit: g.result(post)
+    const xs = (rt === 'monitor')
+      ? (g.result_status_repr || 'none')
+      : (g.result ? g.result.status : 'none');
     if (xs in resultStatusCounts) resultStatusCounts[xs]++;
   }
 
@@ -16380,7 +16545,11 @@ async function renderDeliverablesList() {
     return receiptStatusVals.includes(s);
   });
   if (resultStatusVals.length > 0) filtered = filtered.filter(g => {
-    const s = g.result ? g.result.status : 'none';
+    // monitor: reviewByChannel 종합 대표 상태(g.result_status_repr) / gifting·visit: g.result(post)
+    const rt = g.campaign?.recruit_type;
+    const s = (rt === 'monitor')
+      ? (g.result_status_repr || 'none')
+      : (g.result ? g.result.status : 'none');
     return resultStatusVals.includes(s);
   });
   // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
@@ -16401,8 +16570,13 @@ async function renderDeliverablesList() {
     filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
   } else {
     filtered.sort((a, b) => {
-      const aPending = (a.receipt?.status === 'pending') || (a.result?.status === 'pending') ? 0 : 1;
-      const bPending = (b.receipt?.status === 'pending') || (b.result?.status === 'pending') ? 0 : 1;
+      // 검수대기 우선: 영수증 pending 또는 결과물 pending(monitor=대표·gifting/visit=post)
+      const resPending = (g) => {
+        const rt = g.campaign?.recruit_type;
+        return (rt === 'monitor') ? (g.result_status_repr === 'pending') : (g.result?.status === 'pending');
+      };
+      const aPending = (a.receipt?.status === 'pending') || resPending(a) ? 0 : 1;
+      const bPending = (b.receipt?.status === 'pending') || resPending(b) ? 0 : 1;
       if (aPending !== bPending) return aPending - bPending;
       return (b.latest_submitted_at || '').localeCompare(a.latest_submitted_at || '');
     });
@@ -16420,7 +16594,7 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
@@ -16438,13 +16612,16 @@ function renderDelivAppRow(g) {
   const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
 
   const receiptCell = renderDelivStatusCell(g.receipt, 'receipt', rt);
-  const resultCell = renderDelivStatusCell(g.result, 'result', rt);
+  // monitor: 채널별 review_image N개 미니 행 / gifting·visit: 기존 g.result(post) 단일 셀
+  const resultCell = (rt === 'monitor')
+    ? renderDelivResultCellMonitor(g)
+    : renderDelivStatusCell(g.result, 'result', rt);
 
   // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
-  // (CLAUDE.md: monitor=영수증, gifting/visit=SNS 게시 URL)
   const useReceipt = rt === 'monitor';
+  // monitor 완료 = 영수증 승인 + 채널별 review_image 모두 승인 (대표 상태 = approved)
   const completed = useReceipt
-    ? (g.receipt?.status === 'approved' && g.result?.status === 'approved')
+    ? (g.receipt?.status === 'approved' && g.result_status_repr === 'approved')
     : (g.result?.status === 'approved');
   const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
 
@@ -16456,15 +16633,67 @@ function renderDelivAppRow(g) {
     ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);margin-right:6px">${esc(camp.campaign_no)}</span>`
     : '';
 
+  // 구매기간(리뷰어 monitor) / 방문기간(visit) 분기. gifting 은 빈칸(—).
+  // 셀 헬퍼는 ui.js 의 공용 periodRangeCell·periodSingleCell (캠페인 관리와 공용).
+  const ps = (rt === 'monitor') ? camp.purchase_start
+           : (rt === 'visit')   ? camp.visit_start  : '';
+  const pe = (rt === 'monitor') ? camp.purchase_end
+           : (rt === 'visit')   ? camp.visit_end    : '';
+
   return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
     <td>${rtBadge}</td>
     <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
+    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
     <td>${submittedCell}</td>
     <td><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
   </tr>`;
+}
+
+// monitor 캠페인 결과물 셀 — 채널별 review_image N개 미니 행 (사양 §5-1)
+//   채널 라벨 + 상태 배지 + 썸네일(있을 때). 검수는 행 우측 「검수」 버튼으로 일괄 모달.
+//   채널 없는 레거시 monitor 캠페인은 「—」 단일 표시.
+function renderDelivResultCellMonitor(g) {
+  const camp = g.campaign || {};
+  const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+  if (channels.length === 0) {
+    return '<span style="font-size:11px;color:var(--muted)">—</span>';
+  }
+  const byCh = g.reviewByChannel || {};
+  const chLabel = function(code) {
+    return (typeof getLookupLabel === 'function')
+      ? (getLookupLabel('channel', code, 'ko') || code)
+      : code;
+  };
+  return channels.map(function(ch) {
+    const d = byCh[ch];
+    const label = '<span style="font-size:10px;font-weight:600;color:var(--ink)">' + esc(chLabel(ch)) + '</span>';
+    if (!d) {
+      return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0">'
+        + label
+        + '<span style="font-size:10px;color:var(--muted);background:#f5f5f5;padding:1px 6px;border-radius:3px">미제출</span>'
+        + '</div>';
+    }
+    let thumb = '';
+    if (d.receipt_url) {
+      const thumbUrl = (typeof imgThumb === 'function') ? imgThumb(d.receipt_url, 48, 80) : d.receipt_url;
+      thumb = '<img src="' + esc(thumbUrl) + '" data-orig="' + esc(d.receipt_url) + '" loading="lazy" decoding="async" '
+        + 'style="width:22px;height:22px;border-radius:3px;object-fit:cover;cursor:pointer;background:#f5f5f5" '
+        + 'onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" '
+        + 'onclick="event.stopPropagation();openImageLightbox(\'' + esc(d.receipt_url) + '\')">';
+    }
+    let badge;
+    if (d.status === 'approved')      badge = '<span style="font-size:10px;background:#E4F5E8;color:#2D7A3E;font-weight:600;padding:1px 6px;border-radius:3px">승인</span>';
+    else if (d.status === 'rejected') badge = '<span style="font-size:10px;background:#FFE4E4;color:#C33;font-weight:600;padding:1px 6px;border-radius:3px">비승인</span>';
+    else if (d.status === 'draft')    badge = '<span style="font-size:10px;background:#e5e7eb;color:#555;font-weight:600;padding:1px 6px;border-radius:3px">임시</span>';
+    else                              badge = '<span style="font-size:10px;background:#FFF4E4;color:#B8741A;font-weight:600;padding:1px 6px;border-radius:3px">검수대기</span>';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:2px 0">'
+      + thumb + label + badge
+      + '</div>';
+  }).join('');
 }
 
 // 영수증·결과물 셀 — slot: 'receipt' | 'result', rt: campaign.recruit_type
@@ -16745,7 +16974,7 @@ async function renderDelivCombinedBody(applicationId) {
       order_number, purchase_date, purchase_amount,
       reject_reason, reject_template_code,
       submitted_at, reviewed_at, updated_at, reviewed_by,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -16757,7 +16986,7 @@ async function renderDelivCombinedBody(applicationId) {
 
   // 2차 fallback: deliverable이 0건(미제출 토글 ON으로 진입한 케이스)이면 applications에서 직접 fetch
   if (!camp && db) {
-    const appRes = await db?.from('applications').select('user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)').eq('id', applicationId).maybeSingle();
+    const appRes = await db?.from('applications').select('user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)').eq('id', applicationId).maybeSingle();
     if (appRes?.error) console.error('[deliv-combined app]', appRes.error);
     const app = appRes?.data || null;
     if (app) {
@@ -16783,13 +17012,39 @@ async function renderDelivCombinedBody(applicationId) {
 
   // submitted_at 내림차순으로 정렬되어 있으므로 find = 최신 1건
   const receipt = allDelivs.find(d => d.kind === 'receipt') || null;
-  const result = allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null;
+  // monitor 채널 추출 + 채널별 review_image 최신 1개 매핑 (사양 2 PR 3d — 패널 N개 펼침)
+  const campChannels = (rt === 'monitor') ? (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean) : [];
+  const reviewByCh = {};
+  if (rt === 'monitor') {
+    allDelivs.filter(d => d.kind === 'review_image' && d.post_channel).forEach(d => {
+      const prev = reviewByCh[d.post_channel];
+      if (!prev || new Date(d.created_at) > new Date(prev.created_at)) reviewByCh[d.post_channel] = d;
+    });
+  }
+  const isMonitorMulti = rt === 'monitor' && campChannels.length > 0;
+  // 그 외(gifting/visit + 채널 없는 monitor 레거시)는 결과물 단일 (review_image OR post 최신)
+  const result = isMonitorMulti ? null : (allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null);
 
-  // 변경 이력 (제출/재제출/승인/반려/되돌리기 타임라인) — deliverable별 events fetch
-  const [receiptEvents, resultEvents] = await Promise.all([
-    receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
-    result ? fetchDeliverableEvents(result.id) : Promise.resolve([]),
-  ]);
+  // 변경 이력 fetch — monitor + 채널 N개면 채널별 병렬, 그 외는 result 단일
+  let receiptEvents = [];
+  let resultEvents = [];
+  const reviewEventsByCh = {};
+  if (isMonitorMulti) {
+    const reviewIds = campChannels.map(ch => reviewByCh[ch]?.id || null);
+    const fetched = await Promise.all([
+      receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
+      ...reviewIds.map(id => id ? fetchDeliverableEvents(id) : Promise.resolve([])),
+    ]);
+    receiptEvents = fetched[0];
+    reviewIds.forEach((id, i) => { if (id) reviewEventsByCh[id] = fetched[1 + i]; });
+  } else {
+    const fetched = await Promise.all([
+      receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
+      result ? fetchDeliverableEvents(result.id) : Promise.resolve([]),
+    ]);
+    receiptEvents = fetched[0];
+    resultEvents = fetched[1];
+  }
 
   // 영수증 패널은 monitor에서만 노출. gifting/visit은 영수증 단계 없음.
   const showReceipt = rt === 'monitor';
@@ -16801,8 +17056,67 @@ async function renderDelivCombinedBody(applicationId) {
   const receiptStatusBadge = receipt ? delivStatusBadge(receipt.status) : '';
   const resultStatusBadge = result ? delivStatusBadge(result.status) : '';
 
+  // 같은 신청의 「채널별 리뷰 이미지 상태 요약」 박스 (모달 하단)
+  //   사용자 Q6 결정 — 모달 하단 회색 박스. monitor + 채널 N개 캠페인에서만 노출.
+  //   각 채널의 최신 행 상태를 한 줄로 보여줘 검수자가 다른 채널 검수 누락을 인지하도록.
+  //   채널별 개별 검수는 각 행 클릭으로 별도 모달.
+  // campChannels·reviewByCh 는 위(결과물 패널 분기)에서 이미 계산됨 — 재사용
+  let channelSummaryBox = '';
+  if (isMonitorMulti) {
+    const stLabel = function(r) {
+      if (!r) return '<span style="color:var(--muted)">미제출</span>';
+      if (r.status === 'approved') return '<span style="color:#2D7A3E">✓ 승인</span>';
+      if (r.status === 'rejected') return '<span style="color:#C33">✗ 반려</span>';
+      if (r.status === 'draft') return '<span style="color:var(--muted)">임시저장</span>';
+      return '<span style="color:#B8741A">검수중</span>';
+    };
+    const chLabel = function(code) {
+      return (typeof getLookupLabel === 'function')
+        ? (getLookupLabel('channel', code, 'ko') || code)
+        : code;
+    };
+    const items = campChannels.map(function(ch) {
+      return '<span><strong>' + esc(chLabel(ch)) + '</strong> ' + stLabel(reviewByCh[ch] || null) + '</span>';
+    });
+    const receiptItem = '<span><strong>영수증</strong> ' + stLabel(receipt) + '</span>';
+    channelSummaryBox = `
+      <div style="margin-top:16px;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:12px;line-height:1.8">
+        <div style="font-weight:600;color:var(--muted);font-size:11px;margin-bottom:4px">같은 신청의 채널별 결과물 상태</div>
+        ${receiptItem} · ${items.join(' · ')}
+      </div>`;
+  }
+
+  // 결과물 패널 렌더 — monitor + 채널 N개면 채널별 패널 N개, 그 외는 단일 result 패널
+  let resultPanelsHtml = '';
+  if (isMonitorMulti) {
+    const chLabelFn = function(code) {
+      return (typeof getLookupLabel === 'function')
+        ? (getLookupLabel('channel', code, 'ko') || code)
+        : code;
+    };
+    resultPanelsHtml = campChannels.map(function(ch) {
+      const d = reviewByCh[ch] || null;
+      const statusBadge = d ? delivStatusBadge(d.status) : '';
+      const events = (d && reviewEventsByCh[d.id]) ? reviewEventsByCh[d.id] : [];
+      const chLabelStr = chLabelFn(ch);
+      return '<div class="deliv-combined-panel">'
+        + '<div class="deliv-combined-panel-header"><span>「' + esc(chLabelStr) + '」 리뷰 ' + stepLabel2 + '</span>' + statusBadge + '</div>'
+        + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(d, events) + '</div>'
+        + '</div>';
+    }).join('');
+  } else {
+    resultPanelsHtml = '<div class="deliv-combined-panel">'
+      + '<div class="deliv-combined-panel-header"><span>' + esc(resultLabel) + ' ' + stepLabel2 + '</span>' + resultStatusBadge + '</div>'
+      + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(result, resultEvents) + '</div>'
+      + '</div>';
+  }
+
+  // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
+  const totalPanels = (showReceipt ? 1 : 1) + (isMonitorMulti ? campChannels.length : 1);
+  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
+
   body.innerHTML = `
-    <div class="deliv-combined-grid">
+    <div class="${gridClass}">
       ${showReceipt
         ? `<div class="deliv-combined-panel">
             <div class="deliv-combined-panel-header"><span>영수증 ${stepLabel}</span>${receiptStatusBadge}</div>
@@ -16812,11 +17126,9 @@ async function renderDelivCombinedBody(applicationId) {
             <div class="deliv-combined-panel-header" style="color:var(--muted)"><span>영수증 (해당 없음)</span></div>
             <div class="deliv-combined-panel-body" style="color:var(--muted);text-align:center;padding:40px;font-size:13px">이 모집 타입은 영수증 단계가 없습니다.</div>
           </div>`}
-      <div class="deliv-combined-panel">
-        <div class="deliv-combined-panel-header"><span>${esc(resultLabel)} ${stepLabel2}</span>${resultStatusBadge}</div>
-        <div class="deliv-combined-panel-body">${renderDelivPanelContent(result, resultEvents)}</div>
-      </div>
+      ${resultPanelsHtml}
     </div>
+    ${channelSummaryBox}
   `;
 }
 
@@ -17539,6 +17851,59 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 시트1 캠페인 정보 (기존 유지)
     _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
+    // ── monitor 캠페인을 채널 조합별로 그룹화해 시트 분리 (사양 2 PR 3 단계 b)
+    //   사용자 의도: 캠페인별 시트가 아닌 「리뷰 · {채널 조합}」 시트. 같은 채널 구성 캠페인은 한 시트에 묶임.
+    //   예: 「리뷰 · Qoo10」 / 「리뷰 · Qoo10/LIPS」 / 「리뷰 · @cosme」
+    //   비monitor·monitor 채널 없음 캠페인은 아래 통합 시트로 폴백.
+    try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
+    var monitorGroups = {};  // {sortedKey: {channels:[code...], campIds:Set}}
+    camps.forEach(function(c) {
+      if (c.recruit_type !== 'monitor') return;
+      var chs = (c.channel || '').split(',').map(function(x){return x.trim();}).filter(Boolean).slice().sort();
+      if (chs.length === 0) return;
+      var key = chs.join('|');
+      if (!monitorGroups[key]) monitorGroups[key] = {channels: chs, campIds: {}};
+      monitorGroups[key].campIds[c.id] = true;
+    });
+    var monitorCovered = {};  // monitor 그룹으로 처리된 캠페인 id (통합 시트에서 제외 대상)
+    Object.values(monitorGroups).forEach(function(g) {
+      Object.keys(g.campIds).forEach(function(id){ monitorCovered[id] = true; });
+    });
+
+    var chLabelOf = function(code) {
+      return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
+    };
+    var usedSheetNames = {'캠페인 정보': true};  // 시트1 이름 충돌 방지
+    var pickGroupSheetName = function(channels) {
+      // ExcelJS 시트명 금지 문자(* ? : \ / [ ]) 회피 — '/'/':'/'\'/'?' 등은 시트명에 못 씀.
+      // 채널 구분자는 '+' 사용. 라벨 자체에 금지 문자가 있으면 '_' 치환.
+      var labels = channels.map(chLabelOf).join('+');
+      var base = ('리뷰 · ' + labels).replace(/[\\\/\?\*\[\]:]/g, '_');
+      base = base.substring(0, 28);
+      var name = base, i = 2;
+      while (usedSheetNames[name]) { name = base.substring(0, 28 - String(i).length - 1) + '_' + i; i++; }
+      usedSheetNames[name] = true;
+      return name;
+    };
+    var groupKeys = Object.keys(monitorGroups).sort(function(a,b) {
+      return monitorGroups[a].channels.length - monitorGroups[b].channels.length || a.localeCompare(b);
+    });
+    for (var gi = 0; gi < groupKeys.length; gi++) {
+      var grp = monitorGroups[groupKeys[gi]];
+      var grpCamps = camps.filter(function(c){ return grp.campIds[c.id]; });
+      var grpDelivs = allDelivs.filter(function(d){ return grp.campIds[d.campaign_id]; });
+      var sheetName = pickGroupSheetName(grp.channels);
+      _buildMonitorGroupSheet(wb, sheetName, grpCamps, grp.channels, grpDelivs, usersById, imgBuffers);
+    }
+
+    // 통합 시트는 monitor 그룹으로 처리된 캠페인 외 결과물만 (비monitor + monitor 채널 없음)
+    groupList = groupList.filter(function(g) { return !(g.camp && monitorCovered[g.camp.id]); });
+    var hasOtherCamps = groupList.length > 0;
+
+    // 통합 시트 — monitor 그룹으로 처리되지 않은 결과물(비monitor + monitor 채널 없음)만 있을 때 생성.
+    //   monitor 그룹만 있고 통합 대상이 없으면 빈 시트 생성하지 않음 (사용자 지적: '탭이 세개나 생겨').
+    if (hasOtherCamps) {
+
     // 시트2 결과물 — 24컬럼 (캠페인 2 + 인플루언서 7 + 영수증 9 + 결과물 6)
     // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL (마이그레이션 128)
     var ws = wb.addWorksheet('결과물');
@@ -17672,6 +18037,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         ws.addImage(sImgId, 'W' + rowNum + ':W' + rowNum);
       }
     });
+    }  // end if (hasOtherCamps)
 
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -17870,6 +18236,16 @@ async function exportCampaignDeliverables(campId) {
     var users = await fetchInfluencers();
     var userById = {};
     (users || []).forEach(function(u){ if (u && u.id) userById[u.id] = u; });
+
+    // 3-1) monitor + 캠페인 채널 N개면 채널별 결과물 컬럼 펼침 (사양 2 PR 3, 2026-05-28)
+    //   gifting/visit·채널 없는 레거시 monitor는 기존 22컬럼 단일 결과물 코드 그대로.
+    var campChannels = (camp.recruit_type === 'monitor')
+      ? (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean)
+      : [];
+    if (campChannels.length > 0) {
+      try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
+      return await _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels);
+    }
 
     // 4) 영수증·리뷰 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
     //    receipt(영수증) + review_image(monitor 2단계 리뷰 캡처) 모두 receipt_url 컬럼을 재사용
@@ -18080,6 +18456,424 @@ async function exportCampaignDeliverables(campId) {
   } finally {
     _markExportEnd();
   }
+}
+
+// 엑셀 컬럼 번호 → 알파벳 변환 (1=A, 27=AA, 28=AB ...)
+function _excelColLetter(n) {
+  var s = '';
+  while (n > 0) {
+    var r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+// 사양 2 PR 3 — 단일 캠페인 monitor 다채널 엑셀.
+// 결과물 6컬럼을 캠페인 채널 수만큼 N개 펼침. 헤더 3행에 채널별 그룹 헤더,
+// 본문 행 단위 = application_id, 채널별 review_image 미제출 채널은 공란.
+async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels, opts) {
+  // opts = { wb, sheetName, imgBuffers, skipDownload } — 다중 엑셀에서 시트 추가형으로 재사용.
+  //   wb 전달 시 자체 워크북 생성하지 않고 그 wb 에 시트 추가, 다운로드도 외부 책임.
+  //   imgBuffers 전달 시 사전 다운로드된 버퍼 재사용 (다중에서 1회 일괄 다운로드).
+  opts = opts || {};
+  var externalWb = opts.wb || null;
+  var externalSheetName = opts.sheetName || '결과물';
+  var externalImgBuffers = opts.imgBuffers || null;
+  var skipDownload = !!opts.skipDownload || !!externalWb;
+  // ── 1) 이미지 사전 다운로드 (receipt + review_image 모두) — 외부 전달 시 재사용 ─
+  var imgBuffers = externalImgBuffers || {};
+  if (!externalImgBuffers) {
+    await Promise.all(delivs.filter(function(d){
+      return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
+    }).map(async function(d) {
+      try {
+        var url = d.receipt_url;
+        if (url && !/^https?:\/\//.test(url) && db?.storage) {
+          var sig = await db?.storage?.from('campaign-images').createSignedUrl(url, 3600);
+          url = sig?.data?.signedUrl;
+        }
+        if (!url) return;
+        var result = await imgToJpegArrayBuffer(url, 400, 400);
+        if (result && result.buffer && result.buffer.byteLength > 0) imgBuffers[d.id] = result;
+      } catch(e) { console.warn('[excel-multi] receipt fetch failed', d.id, e); }
+    }));
+  }
+
+  // ── 2) application_id 단위 그룹핑 — receipt + reviewByCh{channel: deliv} ─────
+  var groups = {};
+  delivs.forEach(function(d) {
+    var key = d.application_id || ('user-' + d.user_id);
+    if (!groups[key]) groups[key] = {key:key, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}, latest:''};
+    var g = groups[key];
+    var subAt = d.updated_at || d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image' && d.post_channel) {
+      var prev = g.reviewByCh[d.post_channel];
+      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+    }
+    if (subAt > g.latest) g.latest = subAt;
+  });
+  var groupList = Object.values(groups).sort(function(a, b) {
+    var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
+    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+  });
+
+  // ── 3) 컬럼 계산 — 인플 7 + 영수증 9 + 채널별 6 × N ─────────────────────────
+  var INFO_COLS = 7, RECEIPT_COLS = 9, CH_COLS = 6;
+  var N = campChannels.length;
+  var totalCols = INFO_COLS + RECEIPT_COLS + CH_COLS * N;
+  var lastColLetter = _excelColLetter(totalCols);
+  var receiptStart = INFO_COLS + 1;              // 8
+  var receiptEnd   = INFO_COLS + RECEIPT_COLS;   // 16
+  var receiptImgCol = receiptEnd - 1;            // 15 (이미지 컬럼)
+
+  // 채널별 라벨 (lookup_values name_ko, 폴백 code)
+  var chLabelOf = function(code) {
+    return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
+  };
+
+  // ── 4) 워크북 + 헤더 3행 — 외부 wb 전달 시 시트만 추가 ────────────────────
+  var wb = externalWb || new ExcelJS.Workbook();
+  if (!externalWb) {
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+  }
+  var ws = wb.addWorksheet(externalSheetName);
+
+  // row 1: 캠페인 제목 머지
+  ws.mergeCells('A1:' + lastColLetter + '1');
+  var t = ws.getCell('A1');
+  t.value = (camp.campaign_no ? camp.campaign_no + '  ' : '') + (camp.title || '');
+  t.font = {bold:true, size:14};
+  t.alignment = {vertical:'middle'};
+  ws.getRow(1).height = 26;
+
+  // row 2: 메타 정보 머지
+  ws.mergeCells('A2:' + lastColLetter + '2');
+  var m = ws.getCell('A2');
+  m.value = '브랜드: ' + (camp.brand || '—')
+    + '  ·  신청 건수: ' + groupList.length + '건'
+    + '  ·  결과물 합계: ' + delivs.length + '건'
+    + '  ·  채널: ' + campChannels.map(chLabelOf).join(', ')
+    + '  ·  생성일: ' + new Date().toLocaleString('ko-KR');
+  m.font = {color:{argb:'FF888888'}, size:11};
+  ws.getRow(2).height = 20;
+
+  // row 3: 그룹 헤더 (인플루언서 / 영수증 / 채널 N개 리뷰)
+  ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
+  ws.mergeCells('H3:P3'); ws.getCell('H3').value = '영수증';
+  campChannels.forEach(function(ch, i) {
+    var s = INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS;
+    var e = s + CH_COLS - 1;
+    var sL = _excelColLetter(s), eL = _excelColLetter(e);
+    ws.mergeCells(sL + '3:' + eL + '3');
+    ws.getCell(sL + '3').value = '「' + chLabelOf(ch) + '」 리뷰';
+  });
+  ['A3','H3'].concat(campChannels.map(function(_, i){ return _excelColLetter(INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
+    var c = ws.getCell(addr);
+    c.font = {bold:true, color:{argb:'FF222222'}};
+    c.alignment = {vertical:'middle', horizontal:'center'};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFE8E8E8'}};
+  });
+  ws.getRow(3).height = 22;
+
+  // row 4: 컬럼 헤더
+  var headerValues = [
+    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
+  ];
+  campChannels.forEach(function() {
+    headerValues.push('타입', '제출일', '검수일', '상태', '이미지', 'URL');
+  });
+  ws.getRow(4).values = headerValues;
+  ws.getRow(4).font = {bold:true, color:{argb:'FF222222'}};
+  ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F0F0'}};
+  ws.getRow(4).alignment = {vertical:'middle', horizontal:'center'};
+  ws.getRow(4).height = 24;
+
+  // 컬럼 너비
+  var colWidths = [
+    18, 18, 28, 36, 36, 36, 36,         // 인플 7
+    12, 12, 12, 10, 18, 12, 12, 16, 32  // 영수증 9
+  ];
+  campChannels.forEach(function() { colWidths.push(12, 12, 12, 10, 16, 32); });
+  ws.columns = colWidths.map(function(w) { return {width:w}; });
+
+  // 결과물 6컬럼 값 계산 헬퍼 (단일 함수와 동일 패턴, 인라인)
+  var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
+  var renderDeliv6 = function(d) {
+    if (!d) return ['', '', '', '', '', ''];
+    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
+    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var st = statusLabelMap[d.status] || d.status || '';
+    var urlVal = '';
+    if (d.receipt_url) {
+      var iu = /^https?:\/\//.test(d.receipt_url)
+        ? d.receipt_url
+        : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
+      urlVal = {text:'리뷰 이미지 보기', hyperlink:iu};
+    }
+    return ['리뷰 이미지', sub, rev, st, '', urlVal];
+  };
+  var renderReceipt9 = function(d) {
+    if (!d) return ['', '', '', '', '', '', '', '', ''];
+    var base = renderDeliv6(d);  // base[0]='리뷰 이미지' 라서 type 만 영수증으로 교체
+    base[0] = '영수증';
+    if (d.receipt_url && base[5] && base[5].text) base[5].text = '영수증 보기';
+    var orderNo = d.order_number || '';
+    var purchaseDate = d.purchase_date || '';
+    var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
+      ? '' : Number(d.purchase_amount);
+    return [base[0], base[1], base[2], base[3], orderNo, purchaseDate, amt, base[4], base[5]];
+  };
+
+  // ── 5) 본문 행 ────────────────────────────────────────────────────────
+  groupList.forEach(function(g, i) {
+    var rowNum = 5 + i;
+    var u = userById[g.user_id] || {};
+    var row = ws.getRow(rowNum);
+    row.height = 84;
+
+    var receiptCells = renderReceipt9(g.receipt);
+    var vals = [
+      u.name_kanji || u.name || '—',
+      u.name_kana || '',
+      u.email || '',
+      _excelSnsUrl('instagram', u.ig),
+      _excelSnsUrl('tiktok', u.tiktok),
+      _excelSnsUrl('x', u.x),
+      _excelSnsUrl('youtube', u.youtube),
+      receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
+    ];
+    campChannels.forEach(function(ch) {
+      var cells = renderDeliv6(g.reviewByCh[ch]);
+      vals.push(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5]);
+    });
+    row.values = vals;
+    row.alignment = {vertical:'middle', wrapText:true};
+
+    // 하이퍼링크 셀 스타일 — 영수증 URL(컬럼 16) + 채널별 URL(채널 시작 + 5)
+    var linkCols = [16];
+    campChannels.forEach(function(_, ci) {
+      linkCols.push(INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 5);  // URL = 채널 시작 + 5
+    });
+    linkCols.forEach(function(col) {
+      var c = row.getCell(col);
+      if (c && c.value && c.value.hyperlink) c.font = {color:{argb:'FFE8344E'}, underline:true};
+    });
+
+    // 이미지 임베드 — 영수증(O열=15) + 채널별 review_image(채널 시작 + 4)
+    if (g.receipt && imgBuffers[g.receipt.id]) {
+      var rImgId = wb.addImage({buffer:imgBuffers[g.receipt.id].buffer, extension:imgBuffers[g.receipt.id].ext});
+      ws.addImage(rImgId, _excelColLetter(receiptImgCol) + rowNum + ':' + _excelColLetter(receiptImgCol) + rowNum);
+    }
+    campChannels.forEach(function(ch, ci) {
+      var d = g.reviewByCh[ch];
+      if (d && imgBuffers[d.id]) {
+        var dImgId = wb.addImage({buffer:imgBuffers[d.id].buffer, extension:imgBuffers[d.id].ext});
+        var imgCol = INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 4;  // 이미지 = 채널 시작 + 4
+        var imgColL = _excelColLetter(imgCol);
+        ws.addImage(dImgId, imgColL + rowNum + ':' + imgColL + rowNum);
+      }
+    });
+  });
+
+  // ── 6) 파일 저장 — skipDownload 면 시트만 빌드 후 종료 (다중 엑셀에서 사용) ──
+  if (skipDownload) return ws;
+  var buffer = await wb.xlsx.writeBuffer();
+  var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
+  var today = new Date().toISOString().slice(0, 10);
+  var fname = (camp.campaign_no || camp.id.slice(0,8)) + '_' + safeBrand + '_결과물_' + today + '.xlsx';
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = fname;
+  link.click();
+  setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
+  toast('엑셀 다운로드 완료 (' + groupList.length + '건, 채널 ' + N + '개)');
+}
+
+// 사양 2 PR 3 단계 b — 다중 엑셀의 「리뷰 · {채널 조합}」 그룹 시트 빌더.
+//   같은 채널 구성(예: qoo10, qoo10/lips)의 캠페인 N개를 한 시트에 묶음.
+//   컬럼 = 캠페인 2 + 인플 7 + 영수증 9 + 채널 N × 6.
+//   행 = (campaign_id, application_id) 단위.
+function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, userById, imgBuffers) {
+  // 그룹핑
+  var groups = {};
+  delivs.forEach(function(d) {
+    var key = d.campaign_id + '|' + (d.application_id || ('user-' + d.user_id));
+    if (!groups[key]) {
+      var camp = grpCamps.find(function(c){ return c.id === d.campaign_id; }) || {};
+      groups[key] = {key:key, camp:camp, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}};
+    }
+    var g = groups[key];
+    var subAt = d.updated_at || d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image' && d.post_channel) {
+      var prev = g.reviewByCh[d.post_channel];
+      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+    }
+  });
+  var groupList = Object.values(groups).sort(function(a, b) {
+    var ca = (a.camp.campaign_no || '').toString();
+    var cb = (b.camp.campaign_no || '').toString();
+    if (ca !== cb) return ca.localeCompare(cb, 'ja');
+    var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
+    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+  });
+
+  // 컬럼 계산
+  var CAMP_COLS = 2, INFO_COLS = 7, RECEIPT_COLS = 9, CH_COLS = 6;
+  var N = channels.length;
+  var totalCols = CAMP_COLS + INFO_COLS + RECEIPT_COLS + CH_COLS * N;
+  var lastColLetter = _excelColLetter(totalCols);
+  var receiptImgCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS - 1;  // 영수증 이미지 컬럼
+
+  var chLabelOf = function(code) {
+    return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
+  };
+
+  var ws = wb.addWorksheet(sheetName);
+
+  // row 1: 그룹 제목
+  ws.mergeCells('A1:' + lastColLetter + '1');
+  var t = ws.getCell('A1');
+  t.value = '채널 조합 「' + channels.map(chLabelOf).join(' / ') + '」  (' + grpCamps.length + '개 캠페인)';
+  t.font = {bold:true, size:14};
+  t.alignment = {vertical:'middle'};
+  ws.getRow(1).height = 26;
+
+  // row 2: 메타
+  ws.mergeCells('A2:' + lastColLetter + '2');
+  var m = ws.getCell('A2');
+  m.value = '캠페인 ' + grpCamps.length + '개  ·  신청 ' + groupList.length + '건  ·  결과물 ' + delivs.length + '건  ·  생성일: ' + new Date().toLocaleString('ko-KR');
+  m.font = {color:{argb:'FF888888'}, size:11};
+  ws.getRow(2).height = 20;
+
+  // row 3: 그룹 헤더 (캠페인 / 인플 / 영수증 / 채널 N개)
+  ws.mergeCells('A3:B3'); ws.getCell('A3').value = '캠페인';
+  ws.mergeCells('C3:I3'); ws.getCell('C3').value = '인플루언서 정보';
+  ws.mergeCells('J3:R3'); ws.getCell('J3').value = '영수증';
+  channels.forEach(function(ch, i) {
+    var s = CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS;
+    var e = s + CH_COLS - 1;
+    ws.mergeCells(_excelColLetter(s) + '3:' + _excelColLetter(e) + '3');
+    ws.getCell(_excelColLetter(s) + '3').value = '「' + chLabelOf(ch) + '」 리뷰';
+  });
+  ['A3','C3','J3'].concat(channels.map(function(_, i){ return _excelColLetter(CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
+    var c = ws.getCell(addr);
+    c.font = {bold:true, color:{argb:'FF222222'}};
+    c.alignment = {vertical:'middle', horizontal:'center'};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFE8E8E8'}};
+  });
+  ws.getRow(3).height = 22;
+
+  // row 4: 컬럼 헤더
+  var headerValues = [
+    '캠페인 번호', '캠페인 제목',
+    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
+  ];
+  channels.forEach(function() {
+    headerValues.push('타입', '제출일', '검수일', '상태', '이미지', 'URL');
+  });
+  ws.getRow(4).values = headerValues;
+  ws.getRow(4).font = {bold:true, color:{argb:'FF222222'}};
+  ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F0F0'}};
+  ws.getRow(4).alignment = {vertical:'middle', horizontal:'center'};
+  ws.getRow(4).height = 24;
+
+  var colWidths = [
+    18, 28,
+    18, 18, 28, 36, 36, 36, 36,
+    12, 12, 12, 10, 18, 12, 12, 16, 32
+  ];
+  channels.forEach(function() { colWidths.push(12, 12, 12, 10, 16, 32); });
+  ws.columns = colWidths.map(function(w) { return {width:w}; });
+
+  var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
+  var renderDeliv6 = function(d) {
+    if (!d) return ['', '', '', '', '', ''];
+    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
+    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var st = statusLabelMap[d.status] || d.status || '';
+    var urlVal = '';
+    if (d.receipt_url) {
+      var iu = /^https?:\/\//.test(d.receipt_url) ? d.receipt_url
+        : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
+      urlVal = {text:'리뷰 이미지 보기', hyperlink:iu};
+    }
+    return ['리뷰 이미지', sub, rev, st, '', urlVal];
+  };
+  var renderReceipt9 = function(d) {
+    if (!d) return ['', '', '', '', '', '', '', '', ''];
+    var base = renderDeliv6(d);
+    base[0] = '영수증';
+    if (d.receipt_url && base[5] && base[5].text) base[5].text = '영수증 보기';
+    var orderNo = d.order_number || '';
+    var purchaseDate = d.purchase_date || '';
+    var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
+      ? '' : Number(d.purchase_amount);
+    return [base[0], base[1], base[2], base[3], orderNo, purchaseDate, amt, base[4], base[5]];
+  };
+
+  // 본문
+  groupList.forEach(function(g, i) {
+    var rowNum = 5 + i;
+    var u = userById[g.user_id] || {};
+    var cc = g.camp || {};
+    var row = ws.getRow(rowNum);
+    row.height = 84;
+
+    var receiptCells = renderReceipt9(g.receipt);
+    var vals = [
+      cc.campaign_no || '', cc.title || '',
+      u.name_kanji || u.name || '—',
+      u.name_kana || '',
+      u.email || '',
+      _excelSnsUrl('instagram', u.ig),
+      _excelSnsUrl('tiktok', u.tiktok),
+      _excelSnsUrl('x', u.x),
+      _excelSnsUrl('youtube', u.youtube),
+      receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
+    ];
+    channels.forEach(function(ch) {
+      var cells = renderDeliv6(g.reviewByCh[ch]);
+      vals.push(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5]);
+    });
+    row.values = vals;
+    row.alignment = {vertical:'middle', wrapText:true};
+
+    var receiptUrlCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS;  // 18
+    var linkCols = [receiptUrlCol];
+    channels.forEach(function(_, ci) {
+      linkCols.push(CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 5);
+    });
+    linkCols.forEach(function(col) {
+      var cell = row.getCell(col);
+      if (cell && cell.value && cell.value.hyperlink) cell.font = {color:{argb:'FFE8344E'}, underline:true};
+    });
+
+    if (g.receipt && imgBuffers[g.receipt.id]) {
+      var rImgId = wb.addImage({buffer:imgBuffers[g.receipt.id].buffer, extension:imgBuffers[g.receipt.id].ext});
+      var imgColL = _excelColLetter(receiptImgCol);
+      ws.addImage(rImgId, imgColL + rowNum + ':' + imgColL + rowNum);
+    }
+    channels.forEach(function(ch, ci) {
+      var d = g.reviewByCh[ch];
+      if (d && imgBuffers[d.id]) {
+        var dImgId = wb.addImage({buffer:imgBuffers[d.id].buffer, extension:imgBuffers[d.id].ext});
+        var imgCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 4;
+        var imgColL = _excelColLetter(imgCol);
+        ws.addImage(dImgId, imgColL + rowNum + ':' + imgColL + rowNum);
+      }
+    });
+  });
+
+  return ws;
 }
 
 
@@ -20925,25 +21719,15 @@ async function loadAdminCampaigns(useCache) {
         // 모집기간·구매기간·결과물 제출 마감 — 2026-05-15 컬럼 3종.
         //   각 셀 종료일 옆에 D-day 라벨 (모집 마감·구매 마감·결과물 마감 임박 시각화)
         //   recruit_type 별 분기: monitor=purchase_*, visit=visit_*, gifting=빈칸
+        // 셀 헬퍼는 dev/js/ui.js 의 공용 periodRangeCell/periodSingleCell (결과물 관리와 공용).
         var ps = (c.recruit_type === 'monitor') ? c.purchase_start
                : (c.recruit_type === 'visit')   ? c.visit_start  : '';
         var pe = (c.recruit_type === 'monitor') ? c.purchase_end
                : (c.recruit_type === 'visit')   ? c.visit_end    : '';
-        // 기간 셀: 시작 ~ 종료 + 종료일 기준 D-day 라벨
-        var rangeCell = function(s, e) {
-          if (!s && !e) return '<span style="color:var(--muted)">—</span>';
-          var startTxt = s ? formatDate(s) : '—';
-          var endTxt   = e ? formatDate(e) : '—';
-          return startTxt + ' ~ ' + endTxt + (e ? ' ' + dDayLabel(e) : '');
-        };
-        var singleCell = function(d) {
-          if (!d) return '<span style="color:var(--muted)">—</span>';
-          return formatDate(d) + ' ' + dDayLabel(d);
-        };
         return `
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(c.recruit_start, c.deadline)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(ps, pe)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${singleCell(c.submission_end)}</td>`;
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(c.recruit_start, c.deadline)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(c.submission_end)}</td>`;
       })()}
       <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
@@ -22252,6 +23036,13 @@ async function saveCampaignEdit() {
     }
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
+    const editRecruitType = recruitTypeEl?.value || 'monitor';
+    const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
+    // 리뷰어형 캠페인은 채널 1개+ 강제 (사양 2 PR 1, 2026-05-28 — 결과물 채널별 카드 N개와 정합)
+    if (editRecruitType === 'monitor' && !editChannel) {
+      toast('리뷰어형 캠페인은 채널을 1개 이상 선택해야 합니다','error');
+      return;
+    }
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
 
     const updates = {
@@ -22263,8 +23054,8 @@ async function saveCampaignEdit() {
       product_ko: gv('editCampProductKo')?.trim() || null,
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
-      recruit_type: recruitTypeEl?.value||'monitor',
-      channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
+      recruit_type: editRecruitType,
+      channel: editChannel,
       channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
       primary_channel: (recruitTypeEl?.value === 'monitor') ? null : (gv('editCampPrimaryChannel') || null),
@@ -24217,10 +25008,13 @@ async function init() {
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
 
-    // 사이드바 배지 3종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
+    // 사이드바 배지 4종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
+    // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
+    // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
+    if (typeof refreshInboxData === 'function') refreshInboxData();
 
     // PR 3 부트 경량화 — 진입 화면(hash)에 필요한 데이터만 로드
     //  - dashboard: KPI·차트용 무거운 3종(캠페인/인플/신청 전건)을 여기서만 로드

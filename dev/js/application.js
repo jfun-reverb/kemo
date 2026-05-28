@@ -555,7 +555,7 @@ let _activityFrom = 'detail'; // 'detail' or 'mypage'
 // 마지막 loadDeliverablesForActivity() 결과 — draft 추가 함수의 마감 후 가드 판정에 사용
 let _activityLastDelivs = [];
 let _receiptImgData = null;
-let _reviewImgData = null;  // monitor 2단계 — 리뷰 게시물 캡쳐 (이미지 base64)
+let _reviewImgDataByChannel = {};  // monitor 2단계 — 채널별 리뷰 캡쳐 base64 ({channel: dataUrl})
 
 async function openActivityPage(applicationId, campaignId, from) {
   _activityAppId = applicationId;
@@ -567,8 +567,11 @@ async function openActivityPage(applicationId, campaignId, from) {
   // 회색 안내 화면만 보여주고 폼은 DOM 비공개. 헤더 알림에서 과거 이력으로
   // 진입한 경우에도 동일 분기.
   const isCancelled = (typeof isApplicationCancelled === 'function') && isApplicationCancelled(applicationId);
-  if (typeof navigate === 'function') navigate('activity');
   if (isCancelled) {
+    // 차단 안내 패널을 보여주려면 페이지 전환 필요. 정상 진입은 함수 끝의 navigate 가 처리하므로
+    // 여기서는 cancelled 분기 한정으로만 호출 — 정상 진입에서 navigate 2회 호출되어 뒤로가기 1번이
+    // 무반응이던 회귀 해소 (2026-05-28 핫픽스).
+    if (typeof navigate === 'function') navigate('activity');
     const root = $('page-activity');
     if (root) {
       // 첫 차단 진입일 때만 안내 패널 삽입. 이후 다른 신청 열면 원래 폼이 다시 표시되어야 하므로 plain 패널만 추가.
@@ -581,7 +584,7 @@ async function openActivityPage(applicationId, campaignId, from) {
           <div style="font-size:36px;color:var(--muted);margin-bottom:12px"><span class="material-icons-round notranslate" translate="no" style="font-size:48px">cancel</span></div>
           <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px" data-i18n="appHistory.cancelBlocked.title">この応募はキャンセルされました</div>
           <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7" data-i18n="appHistory.cancelBlocked.body">応募履歴に戻る場合は下のボタンをタップ</div>
-          <button class="btn btn-primary" onclick="navigate('mypage');openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
+          <button class="btn btn-primary" onclick="navigate('mypage', false);openMypageSub('applications')" data-i18n="appHistory.cancelBlocked.backBtn">応募履歴に戻る</button>`;
         // 페이지 헤더 + 안내. 다른 폼/섹션은 모두 가린다.
         const main = root.querySelector('.page-content') || root;
         // 기존 자식 모두 숨김 후 안내만 노출
@@ -681,9 +684,9 @@ async function openActivityPage(applicationId, campaignId, from) {
     const ra = $('receiptAmount'); if (ra) ra.value = '';
   }
   if (isMonitor) {
-    const rp2 = $('reviewImagePreview'); if (rp2) rp2.innerHTML = '';
-    const rf2 = $('reviewImageFile'); if (rf2) rf2.value = '';
-    _reviewImgData = null;
+    // 채널별 카드 컨테이너는 renderActivityReviewImageList 가 재렌더 시 초기화하므로
+    // 여기서는 in-memory 상태(_reviewImgDataByChannel)만 비움
+    _reviewImgDataByChannel = {};
   }
   if (showPost) {
     const urlEl = $('postUrlInput'); if (urlEl) urlEl.value = '';
@@ -706,16 +709,29 @@ function detectChannelFromUrl(url) {
     if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) return 'youtube';
     if (host === 'x.com' || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'x';
     if (host.includes('qoo10.jp')) return 'qoo10';
+    if (host.includes('lipscosme.com')) return 'lips';
+    if (host === 'cosme.net' || host.endsWith('.cosme.net')) return 'cosme';
     return null;
   } catch(e) { return null; }
 }
 
 const CHANNEL_LABELS = {
   instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube',
-  x: 'X (Twitter)', qoo10: 'Qoo10'
+  x: 'X (Twitter)', qoo10: 'Qoo10', lips: 'LIPS', cosme: '@cosme'
 };
+// 채널 라벨 해석 우선순위:
+//   ① lookup_values 의 현재 언어 라벨 (관리자가 추가한 신규 채널 — 자동 생성 code 'channel-XXXX' 포함)
+//   ② CHANNEL_LABELS 하드코딩 (Instagram·TikTok·YouTube·X·Qoo10·LIPS·@cosme 등 표준 채널)
+//   ③ i18n '기타' 폴백
 function getChannelLabelLocal(code) {
-  return CHANNEL_LABELS[code] || t('channelLabel.other');
+  if (!code) return '';
+  if (typeof getLookupLabel === 'function') {
+    const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+    const lbl = getLookupLabel('channel', code, lang);
+    if (lbl) return lbl;
+  }
+  if (CHANNEL_LABELS[code]) return CHANNEL_LABELS[code];
+  return t('channelLabel.other');
 }
 
 function onPostUrlInputChange() {
@@ -729,7 +745,7 @@ function onPostUrlInputChange() {
   }
   const ch = detectChannelFromUrl(url);
   if (ch) {
-    if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetected').replace('{channel}', CHANNEL_LABELS[ch]);
+    if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetected').replace('{channel}', getChannelLabelLocal(ch));
     if (detectedLbl) detectedLbl.style.color = 'var(--dark-pink)';
     if (manualWrap) manualWrap.style.display = 'none';
   } else {
@@ -740,7 +756,9 @@ function onPostUrlInputChange() {
 }
 
 function navigateBackFromActivity() {
-  if (_activityFrom === 'mypage') {
+  // 새로고침으로 직접 진입한 경우 _activityCampId·_activityFrom 모두 NULL —
+  // openCampaign(undefined) 무반응 회귀 방지. 안전하게 응모이력으로 폴백.
+  if (_activityFrom === 'mypage' || !_activityCampId) {
     navigate('mypage');
     openMypageSub('applications');
   } else {
@@ -802,15 +820,23 @@ async function loadDeliverablesForActivity() {
   if (showImage) renderActivityReceiptList(all.filter(d => d.kind === 'receipt'));
   if (showPost) renderActivityPostList(all.filter(d => d.kind === 'post'));
 
-  // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(리뷰 캡쳐) 영역 활성화
+  // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(채널별 리뷰 캡쳐) 영역 활성화
+  // 채널 없는 레거시 monitor 캠페인은 STEP 2 영역 자체를 숨김 (grandfather, 영수증만 받음)
   if (isMonitor) {
-    const receiptApproved = all.some(d => d.kind === 'receipt' && d.status === 'approved');
-    const gatedNote = $('reviewImageGatedNote');
-    const body = $('reviewImageBody');
-    if (gatedNote) gatedNote.style.display = receiptApproved ? 'none' : '';
-    if (body) body.style.display = receiptApproved ? '' : 'none';
-    if (receiptApproved) {
-      renderActivityReviewImageList(all.filter(d => d.kind === 'review_image'));
+    const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+    const section = $('reviewImageSection');
+    if (channels.length === 0) {
+      if (section) section.style.display = 'none';
+    } else {
+      if (section) section.style.display = '';
+      const receiptApproved = all.some(d => d.kind === 'receipt' && d.status === 'approved');
+      const gatedNote = $('reviewImageGatedNote');
+      const body = $('reviewImageBody');
+      if (gatedNote) gatedNote.style.display = receiptApproved ? 'none' : '';
+      if (body) body.style.display = receiptApproved ? '' : 'none';
+      if (receiptApproved) {
+        renderActivityReviewImageList(all.filter(d => d.kind === 'review_image'), channels);
+      }
     }
   }
 
@@ -876,13 +902,9 @@ function applyFormGating(allDelivs) {
       buttonIds: ['addReceiptBtn', 'submitImagesBtn']
     }, receiptDisabled);
   }
-  if (isMonitor) {
-    _setFormDisabled({
-      labelId: 'reviewImageFileLabel',
-      inputIds: ['reviewImageFile'],
-      buttonIds: ['addReviewImageBtn', 'submitReviewImageBtn']
-    }, reviewDisabled);
-  }
+  // monitor 채널별 리뷰 카드는 renderActivityReviewImageList 가 카드 단위로 폼 disabled 처리.
+  // 통합 제출 버튼(submitReviewImageBtn)은 draft 행이 있을 때만 노출되므로 별도 비활성 불필요.
+  // reviewRejected/reviewDisabled 변수는 위 마감 안내문 분기(anyRejected)에서 계속 사용.
   if (showPost) {
     _setFormDisabled({
       labelId: null,
@@ -971,63 +993,85 @@ function renderActivityReceiptList(delivs) {
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
 }
 
-// monitor 2단계 — 리뷰 캡쳐 결과물 리스트 렌더 + 1장 제약(클라이언트 차단)
-function renderActivityReviewImageList(delivs) {
+// monitor 2단계 — 캠페인 채널 수만큼 「채널별 리뷰 이미지 카드」를 N개 동적 렌더.
+//   채널별로: 해당 채널의 최신 1건 행 표시(승인/검수중/반려) + 행이 없거나 최신이 반려이면 업로드 폼 노출.
+//   채널 간 독립: A 채널 검수중 + B 채널 미제출 + C 채널 반려 동시 가능.
+//   기존 채널 없는 monitor 캠페인(`post_channel=NULL` 레거시 행)은 §2 정정에 따라 STEP 2 영역 자체를 숨김 → 이 함수가 호출되지 않음.
+function renderActivityReviewImageList(delivs, channels) {
   const container = $('reviewImageList');
   if (!container) return;
   const submitBtn = $('submitReviewImageBtn');
-  const addBtn = $('addReviewImageBtn');
-  const maxNote = $('reviewImageMaxNote');
-  const formBox = $('reviewImageForm');
-  // 1장 제약: 어떤 상태든(draft/pending/approved) 1건이라도 있으면 추가 불가
-  //   active 판정은 kind별 가장 최신 1건 기준 — 같은 application에 옛 pending 누적되어도
-  //   가장 최신이 rejected면 재제출 form 노출 (renderActivityList 와 동일 패턴)
-  const latestPerKind = {};
-  (delivs || []).forEach(function(d) {
-    var prev = latestPerKind[d.kind];
-    if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestPerKind[d.kind] = d;
-  });
-  const activeCount = Object.values(latestPerKind).filter(function(d) { return d.status !== 'rejected'; }).length;
-  const reachedMax = activeCount >= 1;
-  if (formBox) formBox.style.display = reachedMax ? 'none' : '';
-  if (addBtn) addBtn.style.display = reachedMax ? 'none' : '';
-  if (maxNote) maxNote.style.display = reachedMax ? '' : 'none';
+  const camp = _activityCamp || {};
+  const submissionEnd = camp.submission_end || null;
+  const isAfterDeadline = submissionEnd ? (new Date(submissionEnd + 'T23:59:59') < new Date()) : false;
 
-  if (!delivs || !delivs.length) {
-    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">${t('activity.noReviewImage')}</div>`;
-    if (submitBtn) submitBtn.style.display = 'none';
-    return;
-  }
+  // 채널 코드 → 최신 1건 매핑 (post_channel 기준, NULL 레거시 행은 무시)
+  const latestByChannel = {};
+  (delivs || []).forEach(function(d) {
+    if (!d.post_channel) return;  // NULL 레거시 행 무시
+    const prev = latestByChannel[d.post_channel];
+    if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestByChannel[d.post_channel] = d;
+  });
+
   let hasDraft = false;
-  container.innerHTML = delivs.map(r => {
-    const isDraft = r.status === 'draft';
-    if (isDraft) hasDraft = true;
-    const stBadge = isDraft
-      ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
-      : activityStatusBadge(r.status);
-    const rightCol = isDraft
-      ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(r.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
-      : `<div style="font-size:10px;color:var(--muted)">${formatDate(r.submitted_at || r.created_at)}</div>`;
-    const reasonBox = (r.status === 'rejected' && r.reject_reason)
-      ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
-      : '';
+  container.innerHTML = (channels || []).map(function(ch) {
+    const chLabel = getChannelLabelLocal(ch) || ch;
+    const row = latestByChannel[ch];
+    // 폼 표시 조건: 행 없음 OR 최신이 rejected. 마감 후 반려 없으면 폼 비활성.
+    const needForm = !row || row.status === 'rejected';
+    const formDisabled = isAfterDeadline && !(row && row.status === 'rejected');
+    let cardBody = '';
+
+    if (row) {
+      const isDraft = row.status === 'draft';
+      if (isDraft) hasDraft = true;
+      const stBadge = isDraft
+        ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
+        : activityStatusBadge(row.status);
+      const rightCol = isDraft
+        ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(row.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
+        : `<div style="font-size:10px;color:var(--muted)">${formatDate(row.submitted_at || row.created_at)}</div>`;
+      const reasonBox = (row.status === 'rejected' && row.reject_reason)
+        ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(row.reject_reason)}</div>`
+        : '';
+      const thumb = row.receipt_url
+        ? `<img src="${esc(imgThumb(row.receipt_url,112,80))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(row.receipt_url)}','_blank')">`
+        : '';
+      cardBody += `
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">${thumb}</div>
+          <div style="flex:1;min-width:0">${stBadge}</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${rightCol}</div>
+        </div>
+        ${reasonBox}`;
+    }
+
+    if (needForm) {
+      // 카드별 업로드 폼: 채널 코드를 ID 접미사로 사용해 카드 간 격리
+      const disabledAttr = formDisabled ? 'disabled' : '';
+      const disabledStyle = formDisabled ? 'opacity:0.5;pointer-events:none' : '';
+      cardBody += `
+        <div style="margin-top:${row ? '12' : '0'}px;background:var(--bg);border:1.5px dashed var(--outline);border-radius:12px;padding:14px;${disabledStyle}">
+          <div id="reviewImagePreview-${esc(ch)}" style="margin-bottom:8px"></div>
+          <label style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;background:var(--pink);color:#fff;border-radius:var(--r-full);font-size:13px;font-weight:600;cursor:pointer">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:18px">add_a_photo</span>
+            <span data-i18n="activity.imageBtn">画像を選択</span>
+            <input type="file" accept="image/*" style="display:none" ${disabledAttr} onchange="previewReviewImage(this, '${esc(ch)}')">
+          </label>
+          <button class="btn btn-ghost btn-block" style="margin-top:10px" ${disabledAttr} onclick="addDraftReviewImage('${esc(ch)}')" data-i18n="activity.addDraftBtn">リストに追加</button>
+        </div>`;
+    }
+
     return `
-    <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5">
-          ${r.receipt_url ? `<img src="${esc(imgThumb(r.receipt_url,112,80))}" data-orig="${esc(r.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(r.receipt_url)}','_blank')">` : ''}
-        </div>
-        <div style="flex:1;min-width:0">
-          ${stBadge}
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          ${rightCol}
-        </div>
-      </div>
-      ${reasonBox}
-    </div>`;
+      <div style="padding:14px;background:var(--surface);border:1px solid var(--outline);border-radius:14px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px">「${esc(chLabel)}」<span data-i18n="activity.reviewImageOfChannelLabel">のレビュー画像</span></div>
+        ${cardBody}
+      </div>`;
   }).join('');
+
   if (submitBtn) submitBtn.style.display = hasDraft ? '' : 'none';
+  // 카드별 data-i18n 처리 (renderActivityReviewImageList 가 동적으로 마크업을 갈아끼우므로 호출 후 i18n 적용)
+  if (typeof applyI18n === 'function') applyI18n(container);
 }
 
 function renderActivityPostList(delivs) {
@@ -1046,7 +1090,7 @@ function renderActivityPostList(delivs) {
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
-    const chLabel = CHANNEL_LABELS[d.post_channel] || d.post_channel || '—';
+    const chLabel = getChannelLabelLocal(d.post_channel) || d.post_channel || '—';
     const actionBtn = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : '';
@@ -1084,15 +1128,15 @@ function previewReceipt(input) {
   reader.readAsDataURL(file);
 }
 
-// monitor 2단계 — 리뷰 게시물 캡쳐 미리보기
-function previewReviewImage(input) {
+// monitor 2단계 — 채널별 리뷰 캡쳐 미리보기 (채널 코드를 인자로 받아 격리)
+function previewReviewImage(input, channel) {
   const file = input.files[0];
-  if (!file) return;
+  if (!file || !channel) return;
   const reader = new FileReader();
   reader.onload = e => {
-    _reviewImgData = e.target.result;
-    const prev = $('reviewImagePreview');
-    if (prev) prev.innerHTML = `<img src="${_reviewImgData}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
+    _reviewImgDataByChannel[channel] = e.target.result;
+    const prev = document.getElementById('reviewImagePreview-' + channel);
+    if (prev) prev.innerHTML = `<img src="${_reviewImgDataByChannel[channel]}" style="max-width:100%;max-height:200px;border-radius:10px;margin-bottom:8px">`;
   };
   reader.readAsDataURL(file);
 }
@@ -1199,32 +1243,36 @@ async function addDraftImage() {
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }
 }
 
-// monitor 2단계 — 리뷰 게시물 캡쳐 draft 추가 (1장 제약은 UI에서 form 자체를 숨김)
-async function addDraftReviewImage() {
-  if (!_reviewImgData) { toast(t('activity.needReviewImage'),'error'); return; }
+// monitor 2단계 — 채널별 리뷰 캡쳐 draft 추가. payload에 post_channel 채워 신청+채널 유니크 인덱스(마이그레이션 158)와 정합.
+async function addDraftReviewImage(channel) {
+  if (!channel) { toast(t('activity.needReviewImage'),'error'); return; }
+  const imgData = _reviewImgDataByChannel[channel];
+  if (!imgData) { toast(t('activity.needReviewImage'),'error'); return; }
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end;
-  // 마감 후라도 review_image 에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
+  // 마감 후라도 같은 채널 리뷰에 반려 이력이 있으면 재제출 허용 (관리자 책임 정책)
+  const channelRejected = (_activityLastDelivs || [])
+    .filter(d => d.kind === 'review_image' && d.post_channel === channel && d.status !== 'draft')
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
   if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()
-      && !_latestNonDraftIsRejected(_activityLastDelivs, 'review_image')) {
+      && !(channelRejected && channelRejected.status === 'rejected')) {
     toast(t('activity.afterDeadline'),'error'); return;
   }
   try {
     toast(t('activity.uploading'),'');
-    const fileName = `review_${currentUser.id}_${Date.now()}.jpg`;
-    const imgUrl = await uploadImage(_reviewImgData, fileName, 'receipts');
+    const fileName = `review_${channel}_${currentUser.id}_${Date.now()}.jpg`;
+    const imgUrl = await uploadImage(imgData, fileName, 'receipts');
     const id = await insertDraftDeliverable({
       application_id: _activityAppId,
       user_id: currentUser.id,
       campaign_id: _activityCampId,
       kind: 'review_image',
+      post_channel: channel,
       receipt_url: imgUrl
     });
     if (!id) { toast(t('activity.saveFail'), 'error'); return; }
-    _reviewImgData = null;
-    const prev = $('reviewImagePreview'); if (prev) prev.innerHTML = '';
-    const fileEl = $('reviewImageFile'); if (fileEl) fileEl.value = '';
+    _reviewImgDataByChannel[channel] = null;
     toast(t('activity.draftAdded'), 'success');
     await loadDeliverablesForActivity();
   } catch(e) { toast(friendlyErrorJa(e), 'error'); }

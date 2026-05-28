@@ -487,6 +487,59 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 시트1 캠페인 정보 (기존 유지)
     _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
+    // ── monitor 캠페인을 채널 조합별로 그룹화해 시트 분리 (사양 2 PR 3 단계 b)
+    //   사용자 의도: 캠페인별 시트가 아닌 「리뷰 · {채널 조합}」 시트. 같은 채널 구성 캠페인은 한 시트에 묶임.
+    //   예: 「리뷰 · Qoo10」 / 「리뷰 · Qoo10/LIPS」 / 「리뷰 · @cosme」
+    //   비monitor·monitor 채널 없음 캠페인은 아래 통합 시트로 폴백.
+    try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
+    var monitorGroups = {};  // {sortedKey: {channels:[code...], campIds:Set}}
+    camps.forEach(function(c) {
+      if (c.recruit_type !== 'monitor') return;
+      var chs = (c.channel || '').split(',').map(function(x){return x.trim();}).filter(Boolean).slice().sort();
+      if (chs.length === 0) return;
+      var key = chs.join('|');
+      if (!monitorGroups[key]) monitorGroups[key] = {channels: chs, campIds: {}};
+      monitorGroups[key].campIds[c.id] = true;
+    });
+    var monitorCovered = {};  // monitor 그룹으로 처리된 캠페인 id (통합 시트에서 제외 대상)
+    Object.values(monitorGroups).forEach(function(g) {
+      Object.keys(g.campIds).forEach(function(id){ monitorCovered[id] = true; });
+    });
+
+    var chLabelOf = function(code) {
+      return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
+    };
+    var usedSheetNames = {'캠페인 정보': true};  // 시트1 이름 충돌 방지
+    var pickGroupSheetName = function(channels) {
+      // ExcelJS 시트명 금지 문자(* ? : \ / [ ]) 회피 — '/'/':'/'\'/'?' 등은 시트명에 못 씀.
+      // 채널 구분자는 '+' 사용. 라벨 자체에 금지 문자가 있으면 '_' 치환.
+      var labels = channels.map(chLabelOf).join('+');
+      var base = ('리뷰 · ' + labels).replace(/[\\\/\?\*\[\]:]/g, '_');
+      base = base.substring(0, 28);
+      var name = base, i = 2;
+      while (usedSheetNames[name]) { name = base.substring(0, 28 - String(i).length - 1) + '_' + i; i++; }
+      usedSheetNames[name] = true;
+      return name;
+    };
+    var groupKeys = Object.keys(monitorGroups).sort(function(a,b) {
+      return monitorGroups[a].channels.length - monitorGroups[b].channels.length || a.localeCompare(b);
+    });
+    for (var gi = 0; gi < groupKeys.length; gi++) {
+      var grp = monitorGroups[groupKeys[gi]];
+      var grpCamps = camps.filter(function(c){ return grp.campIds[c.id]; });
+      var grpDelivs = allDelivs.filter(function(d){ return grp.campIds[d.campaign_id]; });
+      var sheetName = pickGroupSheetName(grp.channels);
+      _buildMonitorGroupSheet(wb, sheetName, grpCamps, grp.channels, grpDelivs, usersById, imgBuffers);
+    }
+
+    // 통합 시트는 monitor 그룹으로 처리된 캠페인 외 결과물만 (비monitor + monitor 채널 없음)
+    groupList = groupList.filter(function(g) { return !(g.camp && monitorCovered[g.camp.id]); });
+    var hasOtherCamps = groupList.length > 0;
+
+    // 통합 시트 — monitor 그룹으로 처리되지 않은 결과물(비monitor + monitor 채널 없음)만 있을 때 생성.
+    //   monitor 그룹만 있고 통합 대상이 없으면 빈 시트 생성하지 않음 (사용자 지적: '탭이 세개나 생겨').
+    if (hasOtherCamps) {
+
     // 시트2 결과물 — 24컬럼 (캠페인 2 + 인플루언서 7 + 영수증 9 + 결과물 6)
     // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL (마이그레이션 128)
     var ws = wb.addWorksheet('결과물');
@@ -620,6 +673,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         ws.addImage(sImgId, 'W' + rowNum + ':W' + rowNum);
       }
     });
+    }  // end if (hasOtherCamps)
 
     var buf = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -818,6 +872,16 @@ async function exportCampaignDeliverables(campId) {
     var users = await fetchInfluencers();
     var userById = {};
     (users || []).forEach(function(u){ if (u && u.id) userById[u.id] = u; });
+
+    // 3-1) monitor + 캠페인 채널 N개면 채널별 결과물 컬럼 펼침 (사양 2 PR 3, 2026-05-28)
+    //   gifting/visit·채널 없는 레거시 monitor는 기존 22컬럼 단일 결과물 코드 그대로.
+    var campChannels = (camp.recruit_type === 'monitor')
+      ? (camp.channel || '').split(',').map(function(c){ return c.trim(); }).filter(Boolean)
+      : [];
+    if (campChannels.length > 0) {
+      try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
+      return await _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels);
+    }
 
     // 4) 영수증·리뷰 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
     //    receipt(영수증) + review_image(monitor 2단계 리뷰 캡처) 모두 receipt_url 컬럼을 재사용
@@ -1028,6 +1092,424 @@ async function exportCampaignDeliverables(campId) {
   } finally {
     _markExportEnd();
   }
+}
+
+// 엑셀 컬럼 번호 → 알파벳 변환 (1=A, 27=AA, 28=AB ...)
+function _excelColLetter(n) {
+  var s = '';
+  while (n > 0) {
+    var r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+// 사양 2 PR 3 — 단일 캠페인 monitor 다채널 엑셀.
+// 결과물 6컬럼을 캠페인 채널 수만큼 N개 펼침. 헤더 3행에 채널별 그룹 헤더,
+// 본문 행 단위 = application_id, 채널별 review_image 미제출 채널은 공란.
+async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels, opts) {
+  // opts = { wb, sheetName, imgBuffers, skipDownload } — 다중 엑셀에서 시트 추가형으로 재사용.
+  //   wb 전달 시 자체 워크북 생성하지 않고 그 wb 에 시트 추가, 다운로드도 외부 책임.
+  //   imgBuffers 전달 시 사전 다운로드된 버퍼 재사용 (다중에서 1회 일괄 다운로드).
+  opts = opts || {};
+  var externalWb = opts.wb || null;
+  var externalSheetName = opts.sheetName || '결과물';
+  var externalImgBuffers = opts.imgBuffers || null;
+  var skipDownload = !!opts.skipDownload || !!externalWb;
+  // ── 1) 이미지 사전 다운로드 (receipt + review_image 모두) — 외부 전달 시 재사용 ─
+  var imgBuffers = externalImgBuffers || {};
+  if (!externalImgBuffers) {
+    await Promise.all(delivs.filter(function(d){
+      return (d.kind === 'receipt' || d.kind === 'review_image') && d.receipt_url;
+    }).map(async function(d) {
+      try {
+        var url = d.receipt_url;
+        if (url && !/^https?:\/\//.test(url) && db?.storage) {
+          var sig = await db?.storage?.from('campaign-images').createSignedUrl(url, 3600);
+          url = sig?.data?.signedUrl;
+        }
+        if (!url) return;
+        var result = await imgToJpegArrayBuffer(url, 400, 400);
+        if (result && result.buffer && result.buffer.byteLength > 0) imgBuffers[d.id] = result;
+      } catch(e) { console.warn('[excel-multi] receipt fetch failed', d.id, e); }
+    }));
+  }
+
+  // ── 2) application_id 단위 그룹핑 — receipt + reviewByCh{channel: deliv} ─────
+  var groups = {};
+  delivs.forEach(function(d) {
+    var key = d.application_id || ('user-' + d.user_id);
+    if (!groups[key]) groups[key] = {key:key, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}, latest:''};
+    var g = groups[key];
+    var subAt = d.updated_at || d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image' && d.post_channel) {
+      var prev = g.reviewByCh[d.post_channel];
+      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+    }
+    if (subAt > g.latest) g.latest = subAt;
+  });
+  var groupList = Object.values(groups).sort(function(a, b) {
+    var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
+    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+  });
+
+  // ── 3) 컬럼 계산 — 인플 7 + 영수증 9 + 채널별 6 × N ─────────────────────────
+  var INFO_COLS = 7, RECEIPT_COLS = 9, CH_COLS = 6;
+  var N = campChannels.length;
+  var totalCols = INFO_COLS + RECEIPT_COLS + CH_COLS * N;
+  var lastColLetter = _excelColLetter(totalCols);
+  var receiptStart = INFO_COLS + 1;              // 8
+  var receiptEnd   = INFO_COLS + RECEIPT_COLS;   // 16
+  var receiptImgCol = receiptEnd - 1;            // 15 (이미지 컬럼)
+
+  // 채널별 라벨 (lookup_values name_ko, 폴백 code)
+  var chLabelOf = function(code) {
+    return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
+  };
+
+  // ── 4) 워크북 + 헤더 3행 — 외부 wb 전달 시 시트만 추가 ────────────────────
+  var wb = externalWb || new ExcelJS.Workbook();
+  if (!externalWb) {
+    wb.creator = 'REVERB JP Admin';
+    wb.created = new Date();
+  }
+  var ws = wb.addWorksheet(externalSheetName);
+
+  // row 1: 캠페인 제목 머지
+  ws.mergeCells('A1:' + lastColLetter + '1');
+  var t = ws.getCell('A1');
+  t.value = (camp.campaign_no ? camp.campaign_no + '  ' : '') + (camp.title || '');
+  t.font = {bold:true, size:14};
+  t.alignment = {vertical:'middle'};
+  ws.getRow(1).height = 26;
+
+  // row 2: 메타 정보 머지
+  ws.mergeCells('A2:' + lastColLetter + '2');
+  var m = ws.getCell('A2');
+  m.value = '브랜드: ' + (camp.brand || '—')
+    + '  ·  신청 건수: ' + groupList.length + '건'
+    + '  ·  결과물 합계: ' + delivs.length + '건'
+    + '  ·  채널: ' + campChannels.map(chLabelOf).join(', ')
+    + '  ·  생성일: ' + new Date().toLocaleString('ko-KR');
+  m.font = {color:{argb:'FF888888'}, size:11};
+  ws.getRow(2).height = 20;
+
+  // row 3: 그룹 헤더 (인플루언서 / 영수증 / 채널 N개 리뷰)
+  ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
+  ws.mergeCells('H3:P3'); ws.getCell('H3').value = '영수증';
+  campChannels.forEach(function(ch, i) {
+    var s = INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS;
+    var e = s + CH_COLS - 1;
+    var sL = _excelColLetter(s), eL = _excelColLetter(e);
+    ws.mergeCells(sL + '3:' + eL + '3');
+    ws.getCell(sL + '3').value = '「' + chLabelOf(ch) + '」 리뷰';
+  });
+  ['A3','H3'].concat(campChannels.map(function(_, i){ return _excelColLetter(INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
+    var c = ws.getCell(addr);
+    c.font = {bold:true, color:{argb:'FF222222'}};
+    c.alignment = {vertical:'middle', horizontal:'center'};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFE8E8E8'}};
+  });
+  ws.getRow(3).height = 22;
+
+  // row 4: 컬럼 헤더
+  var headerValues = [
+    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
+  ];
+  campChannels.forEach(function() {
+    headerValues.push('타입', '제출일', '검수일', '상태', '이미지', 'URL');
+  });
+  ws.getRow(4).values = headerValues;
+  ws.getRow(4).font = {bold:true, color:{argb:'FF222222'}};
+  ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F0F0'}};
+  ws.getRow(4).alignment = {vertical:'middle', horizontal:'center'};
+  ws.getRow(4).height = 24;
+
+  // 컬럼 너비
+  var colWidths = [
+    18, 18, 28, 36, 36, 36, 36,         // 인플 7
+    12, 12, 12, 10, 18, 12, 12, 16, 32  // 영수증 9
+  ];
+  campChannels.forEach(function() { colWidths.push(12, 12, 12, 10, 16, 32); });
+  ws.columns = colWidths.map(function(w) { return {width:w}; });
+
+  // 결과물 6컬럼 값 계산 헬퍼 (단일 함수와 동일 패턴, 인라인)
+  var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
+  var renderDeliv6 = function(d) {
+    if (!d) return ['', '', '', '', '', ''];
+    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
+    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var st = statusLabelMap[d.status] || d.status || '';
+    var urlVal = '';
+    if (d.receipt_url) {
+      var iu = /^https?:\/\//.test(d.receipt_url)
+        ? d.receipt_url
+        : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
+      urlVal = {text:'리뷰 이미지 보기', hyperlink:iu};
+    }
+    return ['리뷰 이미지', sub, rev, st, '', urlVal];
+  };
+  var renderReceipt9 = function(d) {
+    if (!d) return ['', '', '', '', '', '', '', '', ''];
+    var base = renderDeliv6(d);  // base[0]='리뷰 이미지' 라서 type 만 영수증으로 교체
+    base[0] = '영수증';
+    if (d.receipt_url && base[5] && base[5].text) base[5].text = '영수증 보기';
+    var orderNo = d.order_number || '';
+    var purchaseDate = d.purchase_date || '';
+    var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
+      ? '' : Number(d.purchase_amount);
+    return [base[0], base[1], base[2], base[3], orderNo, purchaseDate, amt, base[4], base[5]];
+  };
+
+  // ── 5) 본문 행 ────────────────────────────────────────────────────────
+  groupList.forEach(function(g, i) {
+    var rowNum = 5 + i;
+    var u = userById[g.user_id] || {};
+    var row = ws.getRow(rowNum);
+    row.height = 84;
+
+    var receiptCells = renderReceipt9(g.receipt);
+    var vals = [
+      u.name_kanji || u.name || '—',
+      u.name_kana || '',
+      u.email || '',
+      _excelSnsUrl('instagram', u.ig),
+      _excelSnsUrl('tiktok', u.tiktok),
+      _excelSnsUrl('x', u.x),
+      _excelSnsUrl('youtube', u.youtube),
+      receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
+    ];
+    campChannels.forEach(function(ch) {
+      var cells = renderDeliv6(g.reviewByCh[ch]);
+      vals.push(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5]);
+    });
+    row.values = vals;
+    row.alignment = {vertical:'middle', wrapText:true};
+
+    // 하이퍼링크 셀 스타일 — 영수증 URL(컬럼 16) + 채널별 URL(채널 시작 + 5)
+    var linkCols = [16];
+    campChannels.forEach(function(_, ci) {
+      linkCols.push(INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 5);  // URL = 채널 시작 + 5
+    });
+    linkCols.forEach(function(col) {
+      var c = row.getCell(col);
+      if (c && c.value && c.value.hyperlink) c.font = {color:{argb:'FFE8344E'}, underline:true};
+    });
+
+    // 이미지 임베드 — 영수증(O열=15) + 채널별 review_image(채널 시작 + 4)
+    if (g.receipt && imgBuffers[g.receipt.id]) {
+      var rImgId = wb.addImage({buffer:imgBuffers[g.receipt.id].buffer, extension:imgBuffers[g.receipt.id].ext});
+      ws.addImage(rImgId, _excelColLetter(receiptImgCol) + rowNum + ':' + _excelColLetter(receiptImgCol) + rowNum);
+    }
+    campChannels.forEach(function(ch, ci) {
+      var d = g.reviewByCh[ch];
+      if (d && imgBuffers[d.id]) {
+        var dImgId = wb.addImage({buffer:imgBuffers[d.id].buffer, extension:imgBuffers[d.id].ext});
+        var imgCol = INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 4;  // 이미지 = 채널 시작 + 4
+        var imgColL = _excelColLetter(imgCol);
+        ws.addImage(dImgId, imgColL + rowNum + ':' + imgColL + rowNum);
+      }
+    });
+  });
+
+  // ── 6) 파일 저장 — skipDownload 면 시트만 빌드 후 종료 (다중 엑셀에서 사용) ──
+  if (skipDownload) return ws;
+  var buffer = await wb.xlsx.writeBuffer();
+  var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
+  var today = new Date().toISOString().slice(0, 10);
+  var fname = (camp.campaign_no || camp.id.slice(0,8)) + '_' + safeBrand + '_결과물_' + today + '.xlsx';
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = fname;
+  link.click();
+  setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
+  toast('엑셀 다운로드 완료 (' + groupList.length + '건, 채널 ' + N + '개)');
+}
+
+// 사양 2 PR 3 단계 b — 다중 엑셀의 「리뷰 · {채널 조합}」 그룹 시트 빌더.
+//   같은 채널 구성(예: qoo10, qoo10/lips)의 캠페인 N개를 한 시트에 묶음.
+//   컬럼 = 캠페인 2 + 인플 7 + 영수증 9 + 채널 N × 6.
+//   행 = (campaign_id, application_id) 단위.
+function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, userById, imgBuffers) {
+  // 그룹핑
+  var groups = {};
+  delivs.forEach(function(d) {
+    var key = d.campaign_id + '|' + (d.application_id || ('user-' + d.user_id));
+    if (!groups[key]) {
+      var camp = grpCamps.find(function(c){ return c.id === d.campaign_id; }) || {};
+      groups[key] = {key:key, camp:camp, application_id:d.application_id, user_id:d.user_id, receipt:null, reviewByCh:{}};
+    }
+    var g = groups[key];
+    var subAt = d.updated_at || d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.updated_at || g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image' && d.post_channel) {
+      var prev = g.reviewByCh[d.post_channel];
+      if (!prev || subAt > (prev.updated_at || prev.submitted_at || '')) g.reviewByCh[d.post_channel] = d;
+    }
+  });
+  var groupList = Object.values(groups).sort(function(a, b) {
+    var ca = (a.camp.campaign_no || '').toString();
+    var cb = (b.camp.campaign_no || '').toString();
+    if (ca !== cb) return ca.localeCompare(cb, 'ja');
+    var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
+    return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
+  });
+
+  // 컬럼 계산
+  var CAMP_COLS = 2, INFO_COLS = 7, RECEIPT_COLS = 9, CH_COLS = 6;
+  var N = channels.length;
+  var totalCols = CAMP_COLS + INFO_COLS + RECEIPT_COLS + CH_COLS * N;
+  var lastColLetter = _excelColLetter(totalCols);
+  var receiptImgCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS - 1;  // 영수증 이미지 컬럼
+
+  var chLabelOf = function(code) {
+    return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
+  };
+
+  var ws = wb.addWorksheet(sheetName);
+
+  // row 1: 그룹 제목
+  ws.mergeCells('A1:' + lastColLetter + '1');
+  var t = ws.getCell('A1');
+  t.value = '채널 조합 「' + channels.map(chLabelOf).join(' / ') + '」  (' + grpCamps.length + '개 캠페인)';
+  t.font = {bold:true, size:14};
+  t.alignment = {vertical:'middle'};
+  ws.getRow(1).height = 26;
+
+  // row 2: 메타
+  ws.mergeCells('A2:' + lastColLetter + '2');
+  var m = ws.getCell('A2');
+  m.value = '캠페인 ' + grpCamps.length + '개  ·  신청 ' + groupList.length + '건  ·  결과물 ' + delivs.length + '건  ·  생성일: ' + new Date().toLocaleString('ko-KR');
+  m.font = {color:{argb:'FF888888'}, size:11};
+  ws.getRow(2).height = 20;
+
+  // row 3: 그룹 헤더 (캠페인 / 인플 / 영수증 / 채널 N개)
+  ws.mergeCells('A3:B3'); ws.getCell('A3').value = '캠페인';
+  ws.mergeCells('C3:I3'); ws.getCell('C3').value = '인플루언서 정보';
+  ws.mergeCells('J3:R3'); ws.getCell('J3').value = '영수증';
+  channels.forEach(function(ch, i) {
+    var s = CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS;
+    var e = s + CH_COLS - 1;
+    ws.mergeCells(_excelColLetter(s) + '3:' + _excelColLetter(e) + '3');
+    ws.getCell(_excelColLetter(s) + '3').value = '「' + chLabelOf(ch) + '」 리뷰';
+  });
+  ['A3','C3','J3'].concat(channels.map(function(_, i){ return _excelColLetter(CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
+    var c = ws.getCell(addr);
+    c.font = {bold:true, color:{argb:'FF222222'}};
+    c.alignment = {vertical:'middle', horizontal:'center'};
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFE8E8E8'}};
+  });
+  ws.getRow(3).height = 22;
+
+  // row 4: 컬럼 헤더
+  var headerValues = [
+    '캠페인 번호', '캠페인 제목',
+    '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
+  ];
+  channels.forEach(function() {
+    headerValues.push('타입', '제출일', '검수일', '상태', '이미지', 'URL');
+  });
+  ws.getRow(4).values = headerValues;
+  ws.getRow(4).font = {bold:true, color:{argb:'FF222222'}};
+  ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F0F0'}};
+  ws.getRow(4).alignment = {vertical:'middle', horizontal:'center'};
+  ws.getRow(4).height = 24;
+
+  var colWidths = [
+    18, 28,
+    18, 18, 28, 36, 36, 36, 36,
+    12, 12, 12, 10, 18, 12, 12, 16, 32
+  ];
+  channels.forEach(function() { colWidths.push(12, 12, 12, 10, 16, 32); });
+  ws.columns = colWidths.map(function(w) { return {width:w}; });
+
+  var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
+  var renderDeliv6 = function(d) {
+    if (!d) return ['', '', '', '', '', ''];
+    var sub = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ko-KR') : '';
+    var rev = d.reviewed_at ? new Date(d.reviewed_at).toLocaleDateString('ko-KR') : '';
+    var st = statusLabelMap[d.status] || d.status || '';
+    var urlVal = '';
+    if (d.receipt_url) {
+      var iu = /^https?:\/\//.test(d.receipt_url) ? d.receipt_url
+        : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
+      urlVal = {text:'리뷰 이미지 보기', hyperlink:iu};
+    }
+    return ['리뷰 이미지', sub, rev, st, '', urlVal];
+  };
+  var renderReceipt9 = function(d) {
+    if (!d) return ['', '', '', '', '', '', '', '', ''];
+    var base = renderDeliv6(d);
+    base[0] = '영수증';
+    if (d.receipt_url && base[5] && base[5].text) base[5].text = '영수증 보기';
+    var orderNo = d.order_number || '';
+    var purchaseDate = d.purchase_date || '';
+    var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
+      ? '' : Number(d.purchase_amount);
+    return [base[0], base[1], base[2], base[3], orderNo, purchaseDate, amt, base[4], base[5]];
+  };
+
+  // 본문
+  groupList.forEach(function(g, i) {
+    var rowNum = 5 + i;
+    var u = userById[g.user_id] || {};
+    var cc = g.camp || {};
+    var row = ws.getRow(rowNum);
+    row.height = 84;
+
+    var receiptCells = renderReceipt9(g.receipt);
+    var vals = [
+      cc.campaign_no || '', cc.title || '',
+      u.name_kanji || u.name || '—',
+      u.name_kana || '',
+      u.email || '',
+      _excelSnsUrl('instagram', u.ig),
+      _excelSnsUrl('tiktok', u.tiktok),
+      _excelSnsUrl('x', u.x),
+      _excelSnsUrl('youtube', u.youtube),
+      receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
+    ];
+    channels.forEach(function(ch) {
+      var cells = renderDeliv6(g.reviewByCh[ch]);
+      vals.push(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5]);
+    });
+    row.values = vals;
+    row.alignment = {vertical:'middle', wrapText:true};
+
+    var receiptUrlCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS;  // 18
+    var linkCols = [receiptUrlCol];
+    channels.forEach(function(_, ci) {
+      linkCols.push(CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 5);
+    });
+    linkCols.forEach(function(col) {
+      var cell = row.getCell(col);
+      if (cell && cell.value && cell.value.hyperlink) cell.font = {color:{argb:'FFE8344E'}, underline:true};
+    });
+
+    if (g.receipt && imgBuffers[g.receipt.id]) {
+      var rImgId = wb.addImage({buffer:imgBuffers[g.receipt.id].buffer, extension:imgBuffers[g.receipt.id].ext});
+      var imgColL = _excelColLetter(receiptImgCol);
+      ws.addImage(rImgId, imgColL + rowNum + ':' + imgColL + rowNum);
+    }
+    channels.forEach(function(ch, ci) {
+      var d = g.reviewByCh[ch];
+      if (d && imgBuffers[d.id]) {
+        var dImgId = wb.addImage({buffer:imgBuffers[d.id].buffer, extension:imgBuffers[d.id].ext});
+        var imgCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 4;
+        var imgColL = _excelColLetter(imgCol);
+        ws.addImage(dImgId, imgColL + rowNum + ':' + imgColL + rowNum);
+      }
+    });
+  });
+
+  return ws;
 }
 
 
