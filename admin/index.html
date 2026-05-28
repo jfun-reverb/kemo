@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779943923';
+  var CURRENT_BUILD = 'v1779944584';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -574,9 +574,14 @@ textarea.form-input{resize:vertical;min-height:80px}
 #brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
 #brandAppTableBody tr.app-stripe-odd  > td:first-child{border-left:4px solid #8a8a8a}
 
-/* 브랜드 서베이 신청 목록 — 컬럼 경계 시각화 (액션 버튼이 다음 열과 헷갈리지 않게) */
-#brandAppTableBody tr > td{border-right:1px solid rgba(0,0,0,.05)}
-#brandAppTableBody tr > td:last-child{border-right:none}
+/* 관리자 목록 표 — 세로(열) 구분선 공통 (캠페인·신청·결과물·인플루언서·브랜드 서베이 등 11개 표 통일).
+   기존 #brandAppTableBody / #adminPane-campaigns 전용 규칙은 본 공통 규칙으로 흡수.
+   가로(행) 구분선은 .data-table 공통 규칙에서 별도 처리. */
+.data-table thead th{border-right:1px solid rgba(0,0,0,.06)}
+.data-table thead th:last-child{border-right:none}
+.data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
+.data-table tbody td:last-child{border-right:none}
+
 .status-tab-btn.zero-count .tab-count{color:#ccc}
 
 /* ─── 캠페인/신청/결과물/브랜드 관리 페인: 가로 스크롤 + 첫 컬럼 sticky-left
@@ -622,9 +627,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 #adminPane-campaigns .data-table thead th{white-space:nowrap}
 
-/* 컬럼 간 세로 보더 (브랜드 서베이 신청 목록 패턴) */
-#adminPane-campaigns .data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
-#adminPane-campaigns .data-table tbody td:last-child{border-right:none}
+/* (세로 보더는 .data-table 공통 규칙에서 처리 — 위쪽 「관리자 목록 표 세로 구분선 공통」 참조) */
 
 /* 신청 관리 — 첫 컬럼(캠페인) 좌측 고정 */
 #adminPane-applications .admin-table-wrap{overflow-x:auto}
@@ -1756,7 +1759,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 13:52 · ae8dd4f</span>
+          <span class="admin-build-text">2026-05-28 14:03 · fa8b4bb</span>
         </div>
       </div>
     </aside>
@@ -2708,13 +2711,15 @@ textarea.form-input{resize:vertical;min-height:80px}
               <thead><tr>
                 <th style="width:90px">모집 타입</th>
                 <th>캠페인</th>
+                <th style="width:180px">구매기간</th>
+                <th style="width:130px">결과물 제출 마감</th>
                 <th>인플루언서</th>
                 <th style="width:170px">영수증</th>
                 <th style="width:170px">결과물</th>
                 <th style="width:120px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:90px">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -5631,7 +5636,7 @@ async function fetchDeliverables(filters) {
         reject_reason, reject_template_code,
         reviewed_by, reviewed_at, submitted_at, updated_at,
         application_id, user_id, campaign_id,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -7913,6 +7918,20 @@ function dDayLabel(d) {
   const text = diff === 0 ? 'D-Day' : diff > 0 ? `D-${diff}` : `D+${Math.abs(diff)}`;
   const color = diff <= 0 ? '#B3261E' : diff <= 3 ? 'var(--gold)' : 'var(--muted)';
   return `<span style="font-size:9px;font-weight:600;color:${color};background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px;margin-left:4px">${text}</span>`;
+}
+// 관리자 목록 표 — 기간(시작~종료) 셀 + D배지 공용 헬퍼.
+//   캠페인 관리·결과물 관리 양쪽이 동일 형식으로 사용 (모집기간·구매기간·방문기간).
+//   둘 다 없으면 '—', 있으면 'YYYY/M/D ~ YYYY/M/D' + 종료일 기준 D배지.
+function periodRangeCell(s, e) {
+  if (!s && !e) return '<span style="color:var(--muted)">—</span>';
+  const startTxt = s ? formatDate(s) : '—';
+  const endTxt   = e ? formatDate(e) : '—';
+  return startTxt + ' ~ ' + endTxt + (e ? ' ' + dDayLabel(e) : '');
+}
+// 관리자 목록 표 — 단일 마감일 셀 + D배지 공용 헬퍼 (결과물 제출 마감 등).
+function periodSingleCell(d) {
+  if (!d) return '<span style="color:var(--muted)">—</span>';
+  return formatDate(d) + ' ' + dDayLabel(d);
 }
 // Supabase Storage 이미지 변환 URL (썸네일 최적화)
 // /object/public/ → /render/image/public/?width=W&quality=Q
@@ -16274,7 +16293,7 @@ const DELIV_PAGE_SIZE = 50;
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
 
   // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
@@ -16477,7 +16496,7 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
@@ -16516,9 +16535,18 @@ function renderDelivAppRow(g) {
     ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);margin-right:6px">${esc(camp.campaign_no)}</span>`
     : '';
 
+  // 구매기간(리뷰어 monitor) / 방문기간(visit) 분기. gifting 은 빈칸(—).
+  // 셀 헬퍼는 ui.js 의 공용 periodRangeCell·periodSingleCell (캠페인 관리와 공용).
+  const ps = (rt === 'monitor') ? camp.purchase_start
+           : (rt === 'visit')   ? camp.visit_start  : '';
+  const pe = (rt === 'monitor') ? camp.purchase_end
+           : (rt === 'visit')   ? camp.visit_end    : '';
+
   return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
     <td>${rtBadge}</td>
     <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
+    <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
@@ -21111,25 +21139,15 @@ async function loadAdminCampaigns(useCache) {
         // 모집기간·구매기간·결과물 제출 마감 — 2026-05-15 컬럼 3종.
         //   각 셀 종료일 옆에 D-day 라벨 (모집 마감·구매 마감·결과물 마감 임박 시각화)
         //   recruit_type 별 분기: monitor=purchase_*, visit=visit_*, gifting=빈칸
+        // 셀 헬퍼는 dev/js/ui.js 의 공용 periodRangeCell/periodSingleCell (결과물 관리와 공용).
         var ps = (c.recruit_type === 'monitor') ? c.purchase_start
                : (c.recruit_type === 'visit')   ? c.visit_start  : '';
         var pe = (c.recruit_type === 'monitor') ? c.purchase_end
                : (c.recruit_type === 'visit')   ? c.visit_end    : '';
-        // 기간 셀: 시작 ~ 종료 + 종료일 기준 D-day 라벨
-        var rangeCell = function(s, e) {
-          if (!s && !e) return '<span style="color:var(--muted)">—</span>';
-          var startTxt = s ? formatDate(s) : '—';
-          var endTxt   = e ? formatDate(e) : '—';
-          return startTxt + ' ~ ' + endTxt + (e ? ' ' + dDayLabel(e) : '');
-        };
-        var singleCell = function(d) {
-          if (!d) return '<span style="color:var(--muted)">—</span>';
-          return formatDate(d) + ' ' + dDayLabel(d);
-        };
         return `
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(c.recruit_start, c.deadline)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(ps, pe)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${singleCell(c.submission_end)}</td>`;
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(c.recruit_start, c.deadline)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(c.submission_end)}</td>`;
       })()}
       <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>

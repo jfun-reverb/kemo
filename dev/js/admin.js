@@ -386,25 +386,15 @@ async function loadAdminCampaigns(useCache) {
         // 모집기간·구매기간·결과물 제출 마감 — 2026-05-15 컬럼 3종.
         //   각 셀 종료일 옆에 D-day 라벨 (모집 마감·구매 마감·결과물 마감 임박 시각화)
         //   recruit_type 별 분기: monitor=purchase_*, visit=visit_*, gifting=빈칸
+        // 셀 헬퍼는 dev/js/ui.js 의 공용 periodRangeCell/periodSingleCell (결과물 관리와 공용).
         var ps = (c.recruit_type === 'monitor') ? c.purchase_start
                : (c.recruit_type === 'visit')   ? c.visit_start  : '';
         var pe = (c.recruit_type === 'monitor') ? c.purchase_end
                : (c.recruit_type === 'visit')   ? c.visit_end    : '';
-        // 기간 셀: 시작 ~ 종료 + 종료일 기준 D-day 라벨
-        var rangeCell = function(s, e) {
-          if (!s && !e) return '<span style="color:var(--muted)">—</span>';
-          var startTxt = s ? formatDate(s) : '—';
-          var endTxt   = e ? formatDate(e) : '—';
-          return startTxt + ' ~ ' + endTxt + (e ? ' ' + dDayLabel(e) : '');
-        };
-        var singleCell = function(d) {
-          if (!d) return '<span style="color:var(--muted)">—</span>';
-          return formatDate(d) + ' ' + dDayLabel(d);
-        };
         return `
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(c.recruit_start, c.deadline)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${rangeCell(ps, pe)}</td>
-      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${singleCell(c.submission_end)}</td>`;
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(c.recruit_start, c.deadline)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(c.submission_end)}</td>`;
       })()}
       <td style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap">${(c.view_count||0).toLocaleString()}</td>
       <td style="font-size:11px;color:var(--muted);white-space:nowrap">${formatDate(c.created_at)}</td>
