@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779946566';
+  var CURRENT_BUILD = 'v1779946849';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1762,7 +1762,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 14:36 · 3a07890</span>
+          <span class="admin-build-text">2026-05-28 14:40 · db59881</span>
         </div>
       </div>
     </aside>
@@ -24459,10 +24459,13 @@ async function init() {
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
 
-    // 사이드바 배지 3종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
+    // 사이드바 배지 4종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
+    // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
+    // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
+    if (typeof refreshInboxData === 'function') refreshInboxData();
 
     // PR 3 부트 경량화 — 진입 화면(hash)에 필요한 데이터만 로드
     //  - dashboard: KPI·차트용 무거운 3종(캠페인/인플/신청 전건)을 여기서만 로드
