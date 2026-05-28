@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779939145';
+  var CURRENT_BUILD = 'v1779940993';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1752,7 +1752,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 12:32 · 0b58642</span>
+          <span class="admin-build-text">2026-05-28 13:03 · b49723f</span>
         </div>
       </div>
     </aside>
@@ -5821,6 +5821,19 @@ async function insertDraftDeliverable(payload) {
   if (!db) return null;
   let id = null;
   await retryWithRefresh(async () => {
+    // review_image + post_channel 지정 시: 마이그레이션 158 UNIQUE 부분 인덱스
+    //   (application_id, post_channel) WHERE kind='review_image' AND post_channel IS NOT NULL
+    // 충돌 방지 — 같은 신청+같은 채널의 기존 review_image 행(반려·승인·검수중 포함)을
+    // 모두 삭제 후 새 draft INSERT. 사양 §3-2 「재제출은 기존 행 교체」 정합.
+    // (이력은 deliverable_events 트리거 037이 보존)
+    if (payload.kind === 'review_image' && payload.post_channel) {
+      const {error: delErr} = await db?.from('deliverables')
+        .delete()
+        .eq('application_id', payload.application_id)
+        .eq('kind', 'review_image')
+        .eq('post_channel', payload.post_channel);
+      if (delErr) throw delErr;
+    }
     const row = {
       application_id: payload.application_id,
       user_id: payload.user_id,
@@ -22252,6 +22265,13 @@ async function saveCampaignEdit() {
     }
 
     const recruitTypeEl = document.querySelector('input[name="editRecruitType"]:checked');
+    const editRecruitType = recruitTypeEl?.value || 'monitor';
+    const editChannel = Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(',');
+    // 리뷰어형 캠페인은 채널 1개+ 강제 (사양 2 PR 1, 2026-05-28 — 결과물 채널별 카드 N개와 정합)
+    if (editRecruitType === 'monitor' && !editChannel) {
+      toast('리뷰어형 캠페인은 채널을 1개 이상 선택해야 합니다','error');
+      return;
+    }
     const contentTypes = Array.from(document.querySelectorAll('input[name="editContentType"]:checked')).map(c=>c.value).join(',');
 
     const updates = {
@@ -22263,8 +22283,8 @@ async function saveCampaignEdit() {
       product_ko: gv('editCampProductKo')?.trim() || null,
       product_url: cleanUrl(gv('editCampProductUrl')),
       slots: parseInt(gv('editCampSlots'))||20,
-      recruit_type: recruitTypeEl?.value||'monitor',
-      channel: Array.from(document.querySelectorAll('input[name="editChannel"]:checked')).map(c=>c.value).join(','),
+      recruit_type: editRecruitType,
+      channel: editChannel,
       channel_match: document.querySelector('input[name="editChannelMatch"]:checked')?.value || 'or',
       min_followers: (recruitTypeEl?.value === 'monitor') ? 0 : (parseInt(gv('editCampMinFollowers'))||0),
       primary_channel: (recruitTypeEl?.value === 'monitor') ? null : (gv('editCampPrimaryChannel') || null),
