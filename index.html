@@ -4755,18 +4755,34 @@ async function insertDraftDeliverable(payload) {
   if (!db) return null;
   let id = null;
   await retryWithRefresh(async () => {
-    // review_image + post_channel 지정 시: 마이그레이션 158 UNIQUE 부분 인덱스
-    //   (application_id, post_channel) WHERE kind='review_image' AND post_channel IS NOT NULL
-    // 충돌 방지 — 같은 신청+같은 채널의 기존 review_image 행(반려·승인·검수중 포함)을
-    // 모두 삭제 후 새 draft INSERT. 사양 §3-2 「재제출은 기존 행 교체」 정합.
-    // (이력은 deliverable_events 트리거 037이 보존)
+    // review_image + post_channel 지정 시: 마이그레이션 158 UNIQUE 부분 인덱스 충돌 방지.
+    //   DELETE+INSERT 패턴은 RLS DELETE 정책 부재 또는 트랜잭션 분리로 0행 삭제 시 UNIQUE 위반
+    //   ('이미 등록된 데이터' 토스트) 발생 — 사양 §3-2 「재제출은 기존 행 UPDATE」 권고로 전환.
+    //   기존 행 있으면 status='draft' 로 되돌리고 이미지·반려사유 비움. 없으면 아래 INSERT 진행.
+    //   (deliverable_events 이력은 037 트리거가 status 전이 시 자동 INSERT)
     if (payload.kind === 'review_image' && payload.post_channel) {
-      const {error: delErr} = await db?.from('deliverables')
-        .delete()
+      const {data: existing, error: selErr} = await db?.from('deliverables')
+        .select('id')
         .eq('application_id', payload.application_id)
         .eq('kind', 'review_image')
-        .eq('post_channel', payload.post_channel);
-      if (delErr) throw delErr;
+        .eq('post_channel', payload.post_channel)
+        .maybeSingle();
+      if (selErr) throw selErr;
+      if (existing?.id) {
+        const {error: upErr} = await db?.from('deliverables')
+          .update({
+            status: 'draft',
+            receipt_url: payload.receipt_url || null,
+            reject_reason: null,
+            reject_template_code: null,
+            reviewed_by: null,
+            reviewed_at: null
+          })
+          .eq('id', existing.id);
+        if (upErr) throw upErr;
+        id = existing.id;
+        return;  // 기존 행 갱신 완료 — INSERT 스킵
+      }
     }
     const row = {
       application_id: payload.application_id,
