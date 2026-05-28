@@ -17,7 +17,7 @@
 | 사유 입력 | **사유 코드 드롭다운(필수) + 자유 메모(선택)** |
 | 인플루언서 알림 | **발송** — 「관리자가 결과물을 대신 등록·승인했습니다」 |
 | 표시 | 결과물 목록·검수 모달·진행 현황·엑셀에 「대리 등록」 배지·컬럼 |
-| 마이그레이션 번호 | 작업 시점 `ls supabase/migrations/` 재확인 (본 사양 작성 시 156이 최신) |
+| 마이그레이션 번호 | 작업 시점 `ls supabase/migrations/` 재확인 (본 사양 작성 시 **159가 최신**, 따라서 착수 시 160 이상). `deliverable_events.action` enum/CHECK 에 `admin_proxy_submit` 코드 추가 시 CLAUDE.md `Database Schema` → `deliverable_events` 섹션 동시 갱신 의무 |
 
 ## 2. 결과물 종류별 입력 폼 (대리 등록 모달)
 
