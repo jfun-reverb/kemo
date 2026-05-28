@@ -652,6 +652,27 @@ async function markNotificationRead(notificationId) {
   } catch(e) { console.error('[markNotificationRead]', e); }
 }
 
+// 특정 참조(ref_table+ref_id)의 미읽음 알림 일괄 읽음 처리.
+//   같은 결과물(deliverables)·신청(applications)에 대해 trigger 가 여러 건 INSERT 한 경우
+//   (예: 관리자가 검수대기 되돌리기 후 재처리 → deliverable_changed + deliverable_rejected)
+//   사용자가 알림 1건 클릭만으로 해당 참조의 모든 미읽음을 일괄 정리.
+async function markNotificationsReadByRef(refTable, refId) {
+  if (!db || !refTable || !refId) return;
+  const uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+  if (!uid) return;
+  try {
+    await retryWithRefresh(async () => {
+      const {error} = await db?.from('notifications')
+        .update({read_at: new Date().toISOString()})
+        .eq('user_id', uid)
+        .eq('ref_table', refTable)
+        .eq('ref_id', refId)
+        .is('read_at', null);
+      if (error) throw error;
+    });
+  } catch(e) { console.error('[markNotificationsReadByRef]', e); }
+}
+
 // 특정 응모건의 미읽음 message_received 알림 일괄 읽음 처리
 // (응모이력에서 메시지 모달을 직접 열람한 경우 — 알림 모달을 거치지 않아도
 //  해당 건 알림이 남지 않도록). RLS 는 markNotificationRead 와 동일 (본인 행 UPDATE).
