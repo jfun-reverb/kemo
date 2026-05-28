@@ -302,13 +302,34 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 
 ## 구현 결과
 
-**구현일:** 2026-05-28 (개발서버 dev 머지 완료)
-**관련 PR:**
+**구현일:** 2026-05-28
+**운영 배포 완료일:** 2026-05-28 (묶음 A — main `325251c` + 핫픽스 7건 후속)
+**관련 PR (dev 머지 순):**
 - PR 1 — DB + RPC + storage.js 래퍼 (#347, merge commit `7107972`)
 - 핫픽스 — `lookup_values_kind_check` 보강 (#348, merge commit `28f7406`)
 - PR 2 — 결과물 관리 페인 UI (#349, merge commit `39829ec`)
-- PR 3 — 진행 현황 마커 + 엑셀 컬럼 + 인플 화면 안내 (이 PR)
-**운영 배포:** 보류 (개발서버 검토 완료 후 사용자 결정 대기)
+- PR 3 — 진행 현황 마커 + 엑셀 컬럼 + 인플 화면 안내 + 모달 schema cache 핫픽스 (#350, merge commit `5ad53c8`)
+- UX 개선 — combobox 2단 검색 + 검수 모달 진입점 + 권한 가드 (#351, merge commit `1328072`)
+- 마이그레이션 161 — 알림 body privacy fix (사유 메모 제거, #353, merge commit `9c74465`)
+- **묶음 A 운영 배포 — dev → main (#355, main `325251c`)** — 2026-05-28 10:28 UTC
+
+**운영 출시 직후 핫픽스 7건 (모두 main 머지):**
+- #357 (`11b4f20`) — 변경 이력 타임라인 `admin_proxy_submit`/`admin_proxy_revoke` 한국어 라벨
+- #359 (`f6d22cd`) — 캠페인 진행 현황 ⊕ → 「대리 N」 텍스트 배지 + 검수 합본 모달 SELECT `submitted_by_admin*` 4컬럼 누락 보강 (qa S5 PARTIAL 해소)
+- #361 — 결과물 셀 status 배지 「승인+대리」 중복 → 「대리 등록」 단일 표기
+- #363 (`c86c907`) — 캠페인 진행 현황의 「상세」 진입을 결과물 관리 페인과 동일한 합본 모달로 통일 (`openDelivCombined`)
+- #365 — 결과물 관리 페인 정렬 컬럼 2종(구매기간·결과물 제출 마감) 추가 + 「최근 제출」 시:분 표시
+- #367 (`4f2bd00`) — multi-filter 옵션 카운트 정확화 (「자기 자신 필터 제외 + 다른 모든 필터 AND 적용」 표준 패턴) — 사용자 보고 「19건인데 0건 표시」 해소
+- #369 — 결과물 상태에 「채널 미분류」 옵션 신설 (사양 2 전 `post_channel=NULL` 레거시 review_image 385건 별도 카테고리)
+
+**운영 DB 적용 완료:**
+- 마이그레이션 160 — SQL Editor 적용
+- 마이그레이션 161 — SQL Editor 적용
+
+**진단 결과 (운영 데이터, 2026-05-28):**
+- 승인 신청 전체 = 1674건
+- 결과물 0건 신청 = 1215건 (진짜 미제출)
+- 레거시 `post_channel=NULL` review_image 행 가진 신청 = 385건 (사양 2 전 데이터, 「채널 미분류」 별도 카테고리로 분리됨)
 
 ### 초안 대비 변경 사항
 
