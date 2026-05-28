@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779947254';
+  var CURRENT_BUILD = 'v1779947476';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1529,7 +1529,18 @@ textarea.form-input{resize:vertical;min-height:80px}
 .inbox-col-header:hover{background:var(--light-pink)}
 .inbox-col-header-static{cursor:default}
 .inbox-col-header-static:hover{background:var(--surface-dim)}
-.inbox-col-header-icon{font-size:16px;color:var(--muted);opacity:.7}
+/* 화살표는 좌우 방향(↔) — Material Icons unfold_more(↑↓)를 90도 회전. 기본은 숨김. */
+.inbox-col-header-icon{font-size:16px;color:var(--muted);opacity:.7;transform:rotate(90deg);display:none}
+/* 좁아진(비활성) 영역에만 화살표 표시 — 클릭하면 그 영역이 넓어진다는 시그널 */
+.inbox-3pane.stage-threads .inbox-col-camps .inbox-col-header-icon,
+.inbox-3pane.stage-view .inbox-col-camps .inbox-col-header-icon,
+.inbox-3pane.stage-campaigns .inbox-col-threads .inbox-col-header-icon,
+.inbox-3pane.stage-view .inbox-col-threads .inbox-col-header-icon{display:inline-block}
+/* 이미 넓어진 영역의 헤더는 클릭 효과 없음 → cursor default + hover 무반응 */
+.inbox-3pane.stage-campaigns .inbox-col-camps .inbox-col-header,
+.inbox-3pane.stage-threads .inbox-col-threads .inbox-col-header{cursor:default}
+.inbox-3pane.stage-campaigns .inbox-col-camps .inbox-col-header:hover,
+.inbox-3pane.stage-threads .inbox-col-threads .inbox-col-header:hover{background:var(--surface-dim)}
 .inbox-col-camps{border-right:1px solid var(--line);background:var(--surface-container-low)}
 .inbox-col-threads{border-right:1px solid var(--line)}
 .inbox-col-view{display:flex;flex-direction:column}
@@ -1769,7 +1780,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 14:47 · 0889008</span>
+          <span class="admin-build-text">2026-05-28 14:51 · 2192be7</span>
         </div>
       </div>
     </aside>
