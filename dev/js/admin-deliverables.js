@@ -696,6 +696,7 @@ async function renderDelivCombinedBody(applicationId) {
       order_number, purchase_date, purchase_amount,
       reject_reason, reject_template_code,
       submitted_at, reviewed_at, updated_at, reviewed_by,
+      submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
       campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);

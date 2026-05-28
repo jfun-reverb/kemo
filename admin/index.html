@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779964216';
+  var CURRENT_BUILD = 'v1779964640';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1833,7 +1833,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 19:30 · 8fcce11</span>
+          <span class="admin-build-text">2026-05-28 19:37 · 0ba1934</span>
         </div>
       </div>
     </aside>
@@ -17222,6 +17222,7 @@ async function renderDelivCombinedBody(applicationId) {
       order_number, purchase_date, purchase_amount,
       reject_reason, reject_template_code,
       submitted_at, reviewed_at, updated_at, reviewed_by,
+      submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
       campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
@@ -20273,10 +20274,11 @@ function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPost
   if (counts.approved) parts.push(`<span style="color:#2D7A3E">승인 ${counts.approved}</span>`);
   if (counts.pending) parts.push(`<span style="color:#B8741A">검수대기 ${counts.pending}</span>`);
   if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
-  // 마이그레이션 160: 결과물 중 1개라도 대리 등록이면 ⊕ 마커 + 호버 툴팁
+  // 마이그레이션 160: 결과물 중 1개라도 대리 등록이면 「대리 N」 텍스트 배지 + 호버 툴팁
+  // 결과물 관리 페인의 「대리」 배지와 일관성 (사용자 결정 2026-05-28: 기호 단독→텍스트 배지)
   const proxyCount = list.filter(d => d.submitted_by_admin).length;
   const proxyMarker = proxyCount > 0
-    ? ` <span style="display:inline-block;background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:9px;font-weight:700;padding:0 4px;border-radius:3px;line-height:14px" title="관리자 대리 등록 ${proxyCount}건">⊕${proxyCount > 1 ? proxyCount : ''}</span>`
+    ? ` <span style="display:inline-block;background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;line-height:14px;white-space:nowrap" title="관리자 대리 등록 ${proxyCount}건">대리${proxyCount > 1 ? ' ' + proxyCount : ''}</span>`
     : '';
   const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
   const completeBadge = complete
