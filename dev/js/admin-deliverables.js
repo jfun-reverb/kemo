@@ -93,6 +93,8 @@ async function renderDeliverablesList() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
+  // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
+  try { await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
 
   // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
   const campsForFilter = await fetchCampaigns().catch(() => []);

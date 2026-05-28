@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779944584';
+  var CURRENT_BUILD = 'v1779946022';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1759,7 +1759,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 14:03 · fa8b4bb</span>
+          <span class="admin-build-text">2026-05-28 14:27 · 076fd63</span>
         </div>
       </div>
     </aside>
@@ -5636,7 +5636,7 @@ async function fetchDeliverables(filters) {
         reject_reason, reject_template_code,
         reviewed_by, reviewed_at, submitted_at, updated_at,
         application_id, user_id, campaign_id,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -16295,6 +16295,8 @@ async function renderDeliverablesList() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
+  // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
+  try { await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
 
   // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
   const campsForFilter = await fetchCampaigns().catch(() => []);
