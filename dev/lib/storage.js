@@ -768,6 +768,19 @@ async function insertDraftDeliverable(payload) {
   if (!db) return null;
   let id = null;
   await retryWithRefresh(async () => {
+    // review_image + post_channel 지정 시: 마이그레이션 158 UNIQUE 부분 인덱스
+    //   (application_id, post_channel) WHERE kind='review_image' AND post_channel IS NOT NULL
+    // 충돌 방지 — 같은 신청+같은 채널의 기존 review_image 행(반려·승인·검수중 포함)을
+    // 모두 삭제 후 새 draft INSERT. 사양 §3-2 「재제출은 기존 행 교체」 정합.
+    // (이력은 deliverable_events 트리거 037이 보존)
+    if (payload.kind === 'review_image' && payload.post_channel) {
+      const {error: delErr} = await db?.from('deliverables')
+        .delete()
+        .eq('application_id', payload.application_id)
+        .eq('kind', 'review_image')
+        .eq('post_channel', payload.post_channel);
+      if (delErr) throw delErr;
+    }
     const row = {
       application_id: payload.application_id,
       user_id: payload.user_id,
