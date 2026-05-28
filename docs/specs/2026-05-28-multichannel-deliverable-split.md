@@ -308,3 +308,87 @@ GROUP BY c.id, c.title, c.channel;
 ### 후속 PR
 - **PR 3 (사양 2 PR 2)** — 관리자 검수 모달 「다른 채널 상태 안내 박스」(모달 하단 회색) + 진행현황 채널별 칩 + 알림 본문 채널 라벨 + i18n
 - **PR 4 (사양 2 PR 3)** — 엑셀 채널별 컬럼 분리. 단일 캠페인은 6컬럼×채널 수 펼침, 다중 캠페인은 합집합 분리 (사용자 결정)
+
+---
+
+## 구현 결과 — PR 3a (검수 모달 「채널 상태 박스」, #323)
+
+**구현일:** 2026-05-28
+- `dev/js/admin-deliverables.js` `renderDelivCombinedBody` 본문 끝에 회색 박스 추가 (monitor + 채널 N개일 때만)
+- 「영수증 ✓·Qoo10 검수중·@cosme 미제출」 형식 한 줄 — `lookup_values.name_ko` 라벨
+- 채널 0개 monitor 캠페인 미노출, gifting/visit 영향 없음
+
+## 구현 결과 — 동적 채널 라벨 lookup 핫픽스 (#324)
+
+**구현일:** 2026-05-28
+관리자 lookups 페인에서 추가한 신규 채널의 자동 생성 code(`channel-XXXX`)가 인플 화면에 코드 그대로 노출되던 회귀. `getChannelLabelLocal` 헬퍼에 `getLookupLabel` 우선 분기 추가하고 `activity.postChannelDetected`·`renderActivityReviewImageList`·`renderActivityPostList` 3곳 사용처 통일.
+
+## 구현 결과 — PR 3b (결과물 관리 채널별 미니 행, #325)
+
+**구현일:** 2026-05-28
+- `groups` 자료구조: `result` 슬롯을 post 전용으로 좁히고 `reviewByChannel = {}` 슬롯 신규
+- `result_status_repr` 별도 루프로 계산 (rejected > pending > approved > none 우선순위)
+- 필터·정렬·옵션 카운트·완료 보더 모두 monitor 분기로 `result_status_repr` 사용
+- `renderDelivResultCellMonitor(g)` 신규: 캠페인 채널마다 라벨+상태배지+썸네일 미니 행. 채널 없는 레거시 monitor는 `—` 단일
+
+## 구현 결과 — PR 3c (알림 트리거 채널 라벨, #326, 마이그레이션 159)
+
+**구현일:** 2026-05-28
+- 037 트리거 함수 `notify_deliverable_status()` CREATE OR REPLACE
+- review_image + 채널 라벨 있음 → 「「{채널}」のレビュー画像が承認/差し戻し/結果変更されました」
+- 폴백(레거시 NULL 또는 lookup 미스) → 기존 일반 문구
+- 신규 「승인 알림」 분기 추가 (037에 없던 분기) — receipt/post 승인 시에도 `deliverable_approved` 알림 발생 (사양 §8 정합)
+
+## 구현 결과 — PR 3d (검수 모달 result 패널 채널별 N개, #327)
+
+**구현일:** 2026-05-28
+- `renderDelivCombinedBody`의 SELECT에 `campaign.channel` 추가
+- `campChannels` + `reviewByCh` + `isMonitorMulti` 변수 추가, events 채널별 병렬 Promise.all
+- monitor 다채널이면 결과물 패널 N개 펼침 (영수증 패널 + 채널별 결과물 패널 N개)
+- 패널 총수 3+면 `deliv-combined-grid-multi` 클래스로 auto-fit minmax 그리드 wrap
+- gifting/visit·채널 없는 레거시는 기존 단일 패널 유지
+
+## 구현 결과 — fetchDeliverables channel 누락 + lookup 캐시 핫픽스 (#332)
+
+**구현일:** 2026-05-28
+- `fetchDeliverables` campaigns join select 에 `channel` 컬럼 추가 (PR #329 HANDOFF에서 누락)
+- `renderDeliverablesList` 시작에 `fetchLookups('channel')` 호출 추가 → `getLookupLabel` 캐시 보장
+- 결과물 관리 셀 '—' 표시 및 검수 모달 패널 제목 코드 노출 회귀 동시 해소
+
+## 구현 결과 — review_image 재제출 UPDATE 패턴 (#334)
+
+**구현일:** 2026-05-28
+- 사양 §3-2 「재제출은 기존 행 UPDATE」 권고 정합
+- DELETE+INSERT → SELECT+UPDATE 전환 (RLS DELETE 정책 부재 시 UNIQUE 158 충돌 우회)
+- 기존 행 status='draft' 복귀 + receipt_url 교체 + reject_reason/reject_template_code/reviewed_by/reviewed_at 비움
+
+## 구현 결과 — PR 4 단계 a (단일 캠페인 엑셀 채널별 펼침, #338)
+
+**구현일:** 2026-05-28
+- `_excelColLetter(n)` 헬퍼 신규 (1=A, 27=AA, …)
+- `_exportCampDelivsMonitorMulti` 함수 신규 — monitor + 채널 N개일 때 결과물 6컬럼을 채널 수만큼 펼침
+- 진입점: `exportCampaignDeliverables` 시작에 monitor + 채널 N개 분기 추가 (gifting/visit·채널 없는 monitor는 기존 22컬럼)
+- 헤더 3행 (캠페인/메타/그룹 헤더 인플 7·영수증 9·채널 N개), 본문 1 신청 = 1행, 이미지 임베드 영수증·채널별
+- 채널 라벨은 `getLookupLabel('channel', code, 'ko')` 우선, 폴백 code
+
+## 구현 결과 — PR 4 단계 b (다중 엑셀 채널 조합 그룹 시트, #340·#341·#342)
+
+**구현일:** 2026-05-28
+**진화 과정 (사용자 의도 명확화 3단계)**
+1. (#340) 캠페인별 시트 분리 — 사용자 지적 "탭이 세개나" → 폐기
+2. (#341) **채널 조합별 그룹 시트** — 같은 채널 구성 캠페인을 한 시트에 묶음 (사용자 결정)
+3. (#342) 시트명 `/` → `+` (ExcelJS 시트명 금지 문자 회피)
+
+**최종 구조**
+- 시트1: 캠페인 정보 (기존)
+- 시트2~: `리뷰 · {채널 라벨1+채널 라벨2+…}` (예: `리뷰 · Qoo10`, `리뷰 · Qoo10+LIPS`, `리뷰 · @cosme`)
+- 마지막 (있을 때만): 통합 시트 (비monitor + monitor 채널 없음 캠페인 결과물, 기존 24컬럼)
+
+**구현 헬퍼·함수**
+- `_exportCampDelivsMonitorMulti` 시그니처에 `opts={wb, sheetName, imgBuffers, skipDownload}` 추가 (단일/다중 재사용)
+- `_buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, userById, imgBuffers)` 신규 — 캠페인 N개를 한 시트에 묶는 그룹 시트 (캠페인 2 + 인플 7 + 영수증 9 + 채널 N×6 컬럼)
+- 다중 함수가 monitor 캠페인을 정렬된 channel 키로 그룹화 + `_buildMonitorGroupSheet` 호출
+- 통합 시트는 `hasOtherCamps` true 일 때만 생성 (빈 시트 회귀 방지)
+
+## 사양 §6-2 「다중 캠페인 엑셀 정책」 확정 결과
+사양 §6-2 권고(단순 라벨 vs 합집합 분리) → 실제 구현은 **채널 조합별 그룹 시트 분리** (제3 옵션). 사용자가 단일·다중 형식 일치 의도("같은 정보를 한건만 vs 여러건")를 명시. 사양서 §6-2 권고는 향후 갱신 권장.
