@@ -635,6 +635,43 @@ async function renderDelivCombinedBody(applicationId) {
   const receiptStatusBadge = receipt ? delivStatusBadge(receipt.status) : '';
   const resultStatusBadge = result ? delivStatusBadge(result.status) : '';
 
+  // 같은 신청의 「채널별 리뷰 이미지 상태 요약」 박스 (모달 하단)
+  //   사용자 Q6 결정 — 모달 하단 회색 박스. monitor + 채널 N개 캠페인에서만 노출.
+  //   각 채널의 최신 행 상태를 한 줄로 보여줘 검수자가 다른 채널 검수 누락을 인지하도록.
+  //   채널별 개별 검수는 각 행 클릭으로 별도 모달.
+  let channelSummaryBox = '';
+  if (rt === 'monitor') {
+    const campChannels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+    if (campChannels.length > 0) {
+      const latestByCh = {};
+      allDelivs.filter(d => d.kind === 'review_image' && d.post_channel).forEach(d => {
+        const prev = latestByCh[d.post_channel];
+        if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestByCh[d.post_channel] = d;
+      });
+      const stLabel = function(r) {
+        if (!r) return '<span style="color:var(--muted)">미제출</span>';
+        if (r.status === 'approved') return '<span style="color:#2D7A3E">✓ 승인</span>';
+        if (r.status === 'rejected') return '<span style="color:#C33">✗ 반려</span>';
+        if (r.status === 'draft') return '<span style="color:var(--muted)">임시저장</span>';
+        return '<span style="color:#B8741A">검수중</span>';
+      };
+      const chLabel = function(code) {
+        return (typeof getLookupLabel === 'function')
+          ? (getLookupLabel('channel', code, 'ko') || code)
+          : code;
+      };
+      const items = campChannels.map(function(ch) {
+        return '<span><strong>' + esc(chLabel(ch)) + '</strong> ' + stLabel(latestByCh[ch]) + '</span>';
+      });
+      const receiptItem = '<span><strong>영수증</strong> ' + stLabel(receipt) + '</span>';
+      channelSummaryBox = `
+        <div style="margin-top:16px;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:12px;line-height:1.8">
+          <div style="font-weight:600;color:var(--muted);font-size:11px;margin-bottom:4px">같은 신청의 채널별 결과물 상태</div>
+          ${receiptItem} · ${items.join(' · ')}
+        </div>`;
+    }
+  }
+
   body.innerHTML = `
     <div class="deliv-combined-grid">
       ${showReceipt
@@ -651,6 +688,7 @@ async function renderDelivCombinedBody(applicationId) {
         <div class="deliv-combined-panel-body">${renderDelivPanelContent(result, resultEvents)}</div>
       </div>
     </div>
+    ${channelSummaryBox}
   `;
 }
 
