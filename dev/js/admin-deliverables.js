@@ -280,6 +280,20 @@ async function renderDeliverablesList() {
   if (_delivSort.col === 'submitted') {
     const dir = _delivSort.dir === 'desc' ? -1 : 1;
     filtered.sort((a, b) => (a.latest_submitted_at || '').localeCompare(b.latest_submitted_at || '') * dir);
+  } else if (_delivSort.col === 'purchase') {
+    // 구매기간 시작일 기준 정렬 (monitor=purchase_start, visit=visit_start, gifting=빈값)
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      const aStart = (a.campaign?.purchase_start || a.campaign?.visit_start || '');
+      const bStart = (b.campaign?.purchase_start || b.campaign?.visit_start || '');
+      return aStart.localeCompare(bStart) * dir;
+    });
+  } else if (_delivSort.col === 'submission_end') {
+    // 결과물 제출 마감일 기준 정렬
+    const dir = _delivSort.dir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+      return (a.campaign?.submission_end || '').localeCompare(b.campaign?.submission_end || '') * dir;
+    });
   } else {
     filtered.sort((a, b) => {
       // 검수대기 우선: 영수증 pending 또는 결과물 pending(monitor=대표·gifting/visit=post)
@@ -338,7 +352,7 @@ function renderDelivAppRow(g) {
   const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
 
   const submittedCell = g.latest_submitted_at
-    ? `<span style="font-size:12px">${formatDate(g.latest_submitted_at)}</span>`
+    ? `<span style="font-size:12px">${formatDateTime(g.latest_submitted_at)}</span>`
     : '<span style="font-size:11px;color:var(--muted)">미제출</span>';
 
   const campNoBadge = camp.campaign_no
