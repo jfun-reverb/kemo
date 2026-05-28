@@ -69,7 +69,7 @@ function renderNavMenu() {
     html += `<div class="nav-accordion${_navMypageOpen ? ' open' : ''}" id="navMypageAccordion">`;
     html += subs.map((s, i) => `
       ${i>0 ? '<div class="nav-divider-sub"></div>' : ''}
-      <button class="nav-subitem" onclick="navigate('mypage');openMypageSub('${s.sub}');closeNavPanel()">
+      <button class="nav-subitem" onclick="navigate('mypage', false);openMypageSub('${s.sub}');closeNavPanel()">
         <span class="nav-label">${esc(s.label)}</span>
         ${s.unreg ? `<span class="nav-unreg-badge">${esc(t('common.unregistered'))}</span>` : ''}
       </button>
@@ -320,7 +320,7 @@ async function onNotifItemClick(id, kind, refTable, refId) {
     toast(t('notif.refMissing'), 'warn');
   } else {
     // ref 없는 일반 알림: 응모이력으로 이동
-    if (typeof navigate === 'function') { navigate('mypage'); openMypageSub('applications'); }
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('applications'); }
   }
   refreshNotifBadge();
 }
