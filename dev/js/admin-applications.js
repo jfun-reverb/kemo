@@ -182,9 +182,12 @@ function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPost
     ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">완료</div>'
     : '';
   const latest = list[0];
+  // 사용자 결정 2026-05-28: 캠페인 진행 현황의 「상세」 진입을 결과물 관리 페인과 동일한
+  // 합본 검수 모달(영수증+결과물 한 화면)로 통일. application_id 로 진입.
+  const appId = (latest && latest.application_id) || '';
   return `<div style="font-size:10px">${parts.join(' · ')}${proxyMarker}</div>
     ${completeBadge}
-    <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivDetail('${latest.id}')">상세</button>`;
+    <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivCombined('${esc(appId)}')">상세</button>`;
 }
 
 // Stage 5: 완료 판정 — channel_match별
