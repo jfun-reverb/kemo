@@ -430,10 +430,12 @@ function renderDelivStatusCell(d, slot, rt) {
       preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
     }
   }
-  const proxyBadge = d.submitted_by_admin
-    ? `<span class="deliv-proxy-badge" title="관리자 대리 등록"><span class="material-icons-round">support_agent</span>대리</span>`
-    : '';
-  return `<div style="display:flex;align-items:center;gap:6px">${preview}${delivStatusBadge(d.status)}${proxyBadge}</div>`;
+  // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
+  // 사용자 결정 2026-05-28: 「승인 + 작은 대리 마커」 중복 → 단일 「대리 등록」 배지로 통합
+  const statusBadgeHtml = d.submitted_by_admin
+    ? `<span style="background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
+    : delivStatusBadge(d.status);
+  return `<div style="display:flex;align-items:center;gap:6px">${preview}${statusBadgeHtml}</div>`;
 }
 
 function statusLabelKo(status) {
