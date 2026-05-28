@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779950705';
+  var CURRENT_BUILD = 'v1779950889';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1780,7 +1780,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 15:45 · 7bffd98</span>
+          <span class="admin-build-text">2026-05-28 15:48 · b32b809</span>
         </div>
       </div>
     </aside>
@@ -17875,8 +17875,10 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     };
     var usedSheetNames = {'캠페인 정보': true};  // 시트1 이름 충돌 방지
     var pickGroupSheetName = function(channels) {
-      var labels = channels.map(chLabelOf).join('/');
-      var base = ('리뷰 · ' + labels).replace(/[\\\/\?\*\[\]:]/g, function(m){ return m === '/' ? '/' : '_'; });
+      // ExcelJS 시트명 금지 문자(* ? : \ / [ ]) 회피 — '/'/':'/'\'/'?' 등은 시트명에 못 씀.
+      // 채널 구분자는 '+' 사용. 라벨 자체에 금지 문자가 있으면 '_' 치환.
+      var labels = channels.map(chLabelOf).join('+');
+      var base = ('리뷰 · ' + labels).replace(/[\\\/\?\*\[\]:]/g, '_');
       base = base.substring(0, 28);
       var name = base, i = 2;
       while (usedSheetNames[name]) { name = base.substring(0, 28 - String(i).length - 1) + '_' + i; i++; }
