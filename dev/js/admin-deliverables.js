@@ -665,7 +665,7 @@ async function renderDelivCombinedBody(applicationId) {
       order_number, purchase_date, purchase_amount,
       reject_reason, reject_template_code,
       submitted_at, reviewed_at, updated_at, reviewed_by,
-      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)
+      campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);
     allDelivs = delivRes?.data || [];
@@ -677,7 +677,7 @@ async function renderDelivCombinedBody(applicationId) {
 
   // 2차 fallback: deliverable이 0건(미제출 토글 ON으로 진입한 케이스)이면 applications에서 직접 fetch
   if (!camp && db) {
-    const appRes = await db?.from('applications').select('user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand, recruit_type)').eq('id', applicationId).maybeSingle();
+    const appRes = await db?.from('applications').select('user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)').eq('id', applicationId).maybeSingle();
     if (appRes?.error) console.error('[deliv-combined app]', appRes.error);
     const app = appRes?.data || null;
     if (app) {
@@ -703,13 +703,39 @@ async function renderDelivCombinedBody(applicationId) {
 
   // submitted_at 내림차순으로 정렬되어 있으므로 find = 최신 1건
   const receipt = allDelivs.find(d => d.kind === 'receipt') || null;
-  const result = allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null;
+  // monitor 채널 추출 + 채널별 review_image 최신 1개 매핑 (사양 2 PR 3d — 패널 N개 펼침)
+  const campChannels = (rt === 'monitor') ? (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean) : [];
+  const reviewByCh = {};
+  if (rt === 'monitor') {
+    allDelivs.filter(d => d.kind === 'review_image' && d.post_channel).forEach(d => {
+      const prev = reviewByCh[d.post_channel];
+      if (!prev || new Date(d.created_at) > new Date(prev.created_at)) reviewByCh[d.post_channel] = d;
+    });
+  }
+  const isMonitorMulti = rt === 'monitor' && campChannels.length > 0;
+  // 그 외(gifting/visit + 채널 없는 monitor 레거시)는 결과물 단일 (review_image OR post 최신)
+  const result = isMonitorMulti ? null : (allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null);
 
-  // 변경 이력 (제출/재제출/승인/반려/되돌리기 타임라인) — deliverable별 events fetch
-  const [receiptEvents, resultEvents] = await Promise.all([
-    receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
-    result ? fetchDeliverableEvents(result.id) : Promise.resolve([]),
-  ]);
+  // 변경 이력 fetch — monitor + 채널 N개면 채널별 병렬, 그 외는 result 단일
+  let receiptEvents = [];
+  let resultEvents = [];
+  const reviewEventsByCh = {};
+  if (isMonitorMulti) {
+    const reviewIds = campChannels.map(ch => reviewByCh[ch]?.id || null);
+    const fetched = await Promise.all([
+      receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
+      ...reviewIds.map(id => id ? fetchDeliverableEvents(id) : Promise.resolve([])),
+    ]);
+    receiptEvents = fetched[0];
+    reviewIds.forEach((id, i) => { if (id) reviewEventsByCh[id] = fetched[1 + i]; });
+  } else {
+    const fetched = await Promise.all([
+      receipt ? fetchDeliverableEvents(receipt.id) : Promise.resolve([]),
+      result ? fetchDeliverableEvents(result.id) : Promise.resolve([]),
+    ]);
+    receiptEvents = fetched[0];
+    resultEvents = fetched[1];
+  }
 
   // 영수증 패널은 monitor에서만 노출. gifting/visit은 영수증 단계 없음.
   const showReceipt = rt === 'monitor';
@@ -725,41 +751,63 @@ async function renderDelivCombinedBody(applicationId) {
   //   사용자 Q6 결정 — 모달 하단 회색 박스. monitor + 채널 N개 캠페인에서만 노출.
   //   각 채널의 최신 행 상태를 한 줄로 보여줘 검수자가 다른 채널 검수 누락을 인지하도록.
   //   채널별 개별 검수는 각 행 클릭으로 별도 모달.
+  // campChannels·reviewByCh 는 위(결과물 패널 분기)에서 이미 계산됨 — 재사용
   let channelSummaryBox = '';
-  if (rt === 'monitor') {
-    const campChannels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
-    if (campChannels.length > 0) {
-      const latestByCh = {};
-      allDelivs.filter(d => d.kind === 'review_image' && d.post_channel).forEach(d => {
-        const prev = latestByCh[d.post_channel];
-        if (!prev || new Date(d.created_at) > new Date(prev.created_at)) latestByCh[d.post_channel] = d;
-      });
-      const stLabel = function(r) {
-        if (!r) return '<span style="color:var(--muted)">미제출</span>';
-        if (r.status === 'approved') return '<span style="color:#2D7A3E">✓ 승인</span>';
-        if (r.status === 'rejected') return '<span style="color:#C33">✗ 반려</span>';
-        if (r.status === 'draft') return '<span style="color:var(--muted)">임시저장</span>';
-        return '<span style="color:#B8741A">검수중</span>';
-      };
-      const chLabel = function(code) {
-        return (typeof getLookupLabel === 'function')
-          ? (getLookupLabel('channel', code, 'ko') || code)
-          : code;
-      };
-      const items = campChannels.map(function(ch) {
-        return '<span><strong>' + esc(chLabel(ch)) + '</strong> ' + stLabel(latestByCh[ch]) + '</span>';
-      });
-      const receiptItem = '<span><strong>영수증</strong> ' + stLabel(receipt) + '</span>';
-      channelSummaryBox = `
-        <div style="margin-top:16px;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:12px;line-height:1.8">
-          <div style="font-weight:600;color:var(--muted);font-size:11px;margin-bottom:4px">같은 신청의 채널별 결과물 상태</div>
-          ${receiptItem} · ${items.join(' · ')}
-        </div>`;
-    }
+  if (isMonitorMulti) {
+    const stLabel = function(r) {
+      if (!r) return '<span style="color:var(--muted)">미제출</span>';
+      if (r.status === 'approved') return '<span style="color:#2D7A3E">✓ 승인</span>';
+      if (r.status === 'rejected') return '<span style="color:#C33">✗ 반려</span>';
+      if (r.status === 'draft') return '<span style="color:var(--muted)">임시저장</span>';
+      return '<span style="color:#B8741A">검수중</span>';
+    };
+    const chLabel = function(code) {
+      return (typeof getLookupLabel === 'function')
+        ? (getLookupLabel('channel', code, 'ko') || code)
+        : code;
+    };
+    const items = campChannels.map(function(ch) {
+      return '<span><strong>' + esc(chLabel(ch)) + '</strong> ' + stLabel(reviewByCh[ch] || null) + '</span>';
+    });
+    const receiptItem = '<span><strong>영수증</strong> ' + stLabel(receipt) + '</span>';
+    channelSummaryBox = `
+      <div style="margin-top:16px;padding:12px 14px;background:#f7f7f7;border-radius:8px;font-size:12px;line-height:1.8">
+        <div style="font-weight:600;color:var(--muted);font-size:11px;margin-bottom:4px">같은 신청의 채널별 결과물 상태</div>
+        ${receiptItem} · ${items.join(' · ')}
+      </div>`;
   }
 
+  // 결과물 패널 렌더 — monitor + 채널 N개면 채널별 패널 N개, 그 외는 단일 result 패널
+  let resultPanelsHtml = '';
+  if (isMonitorMulti) {
+    const chLabelFn = function(code) {
+      return (typeof getLookupLabel === 'function')
+        ? (getLookupLabel('channel', code, 'ko') || code)
+        : code;
+    };
+    resultPanelsHtml = campChannels.map(function(ch) {
+      const d = reviewByCh[ch] || null;
+      const statusBadge = d ? delivStatusBadge(d.status) : '';
+      const events = (d && reviewEventsByCh[d.id]) ? reviewEventsByCh[d.id] : [];
+      const chLabelStr = chLabelFn(ch);
+      return '<div class="deliv-combined-panel">'
+        + '<div class="deliv-combined-panel-header"><span>「' + esc(chLabelStr) + '」 리뷰 ' + stepLabel2 + '</span>' + statusBadge + '</div>'
+        + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(d, events) + '</div>'
+        + '</div>';
+    }).join('');
+  } else {
+    resultPanelsHtml = '<div class="deliv-combined-panel">'
+      + '<div class="deliv-combined-panel-header"><span>' + esc(resultLabel) + ' ' + stepLabel2 + '</span>' + resultStatusBadge + '</div>'
+      + '<div class="deliv-combined-panel-body">' + renderDelivPanelContent(result, resultEvents) + '</div>'
+      + '</div>';
+  }
+
+  // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
+  const totalPanels = (showReceipt ? 1 : 1) + (isMonitorMulti ? campChannels.length : 1);
+  const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
+
   body.innerHTML = `
-    <div class="deliv-combined-grid">
+    <div class="${gridClass}">
       ${showReceipt
         ? `<div class="deliv-combined-panel">
             <div class="deliv-combined-panel-header"><span>영수증 ${stepLabel}</span>${receiptStatusBadge}</div>
@@ -769,10 +817,7 @@ async function renderDelivCombinedBody(applicationId) {
             <div class="deliv-combined-panel-header" style="color:var(--muted)"><span>영수증 (해당 없음)</span></div>
             <div class="deliv-combined-panel-body" style="color:var(--muted);text-align:center;padding:40px;font-size:13px">이 모집 타입은 영수증 단계가 없습니다.</div>
           </div>`}
-      <div class="deliv-combined-panel">
-        <div class="deliv-combined-panel-header"><span>${esc(resultLabel)} ${stepLabel2}</span>${resultStatusBadge}</div>
-        <div class="deliv-combined-panel-body">${renderDelivPanelContent(result, resultEvents)}</div>
-      </div>
+      ${resultPanelsHtml}
     </div>
     ${channelSummaryBox}
   `;
