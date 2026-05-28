@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779964904';
+  var CURRENT_BUILD = 'v1779965092';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1833,7 +1833,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 19:41 · 8f945ad</span>
+          <span class="admin-build-text">2026-05-28 19:44 · e1392c7</span>
         </div>
       </div>
     </aside>
@@ -20287,9 +20287,12 @@ function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPost
     ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">완료</div>'
     : '';
   const latest = list[0];
+  // 사용자 결정 2026-05-28: 캠페인 진행 현황의 「상세」 진입을 결과물 관리 페인과 동일한
+  // 합본 검수 모달(영수증+결과물 한 화면)로 통일. application_id 로 진입.
+  const appId = (latest && latest.application_id) || '';
   return `<div style="font-size:10px">${parts.join(' · ')}${proxyMarker}</div>
     ${completeBadge}
-    <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivDetail('${latest.id}')">상세</button>`;
+    <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivCombined('${esc(appId)}')">상세</button>`;
 }
 
 // Stage 5: 완료 판정 — channel_match별
