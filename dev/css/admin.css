@@ -1257,3 +1257,56 @@
 .faq-pv-line{margin:2px 0}
 .faq-pv-step{margin:2px 0;padding-left:4px}
 .faq-pv-btn{display:inline-flex;align-items:center;gap:4px;margin-top:10px;padding:8px 14px;background:var(--pink);color:#fff;border-radius:10px;font-size:13px;font-weight:600}
+
+/* ─── 관리자 결과물 대리 등록 (마이그레이션 160) ────────────────── */
+/* 목록 행 배지: 대리 등록 식별 마커 */
+.deliv-proxy-badge{display:inline-flex;align-items:center;gap:2px;margin-left:6px;padding:2px 6px;background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;border-radius:4px;font-size:11px;font-weight:600;line-height:1;white-space:nowrap;vertical-align:middle}
+.deliv-proxy-badge .material-icons-round{font-size:12px}
+
+/* 검수 모달 상단 안내 박스 */
+.deliv-proxy-notice{margin:0 0 14px;padding:10px 12px;background:#FEF3C7;border:1px solid #FBBF24;border-radius:8px;font-size:12px;line-height:1.55;color:#92400E}
+.deliv-proxy-notice strong{color:#78350F}
+.deliv-proxy-notice .deliv-proxy-meta{margin-top:4px;font-size:11px;color:#92400E;opacity:.85}
+.deliv-proxy-notice .deliv-proxy-cascade{display:block;margin-top:6px;padding-top:6px;border-top:1px dashed #FBBF24;font-size:11px;color:#78350F}
+
+/* 회수 버튼 (super_admin 전용) */
+.deliv-proxy-revoke-btn{margin-left:auto;padding:6px 12px;background:#DC2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.deliv-proxy-revoke-btn:hover{background:#B91C1C}
+.deliv-proxy-revoke-btn[disabled]{background:#9CA3AF;cursor:not-allowed}
+
+/* 대리 등록 모달 폼 */
+.admin-proxy-modal-form{display:flex;flex-direction:column;gap:14px;padding:6px 0}
+.admin-proxy-modal-form .form-row{display:flex;flex-direction:column;gap:4px}
+.admin-proxy-modal-form .form-row label{font-size:12px;font-weight:600;color:var(--ink)}
+.admin-proxy-modal-form .form-row .form-help{font-size:11px;color:var(--muted)}
+.admin-proxy-modal-form .form-row.required label::after{content:" *";color:#DC2626}
+.admin-proxy-modal-form select,
+.admin-proxy-modal-form input[type="text"],
+.admin-proxy-modal-form input[type="date"],
+.admin-proxy-modal-form input[type="number"],
+.admin-proxy-modal-form input[type="url"],
+.admin-proxy-modal-form textarea{padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
+.admin-proxy-modal-form textarea{min-height:64px;resize:vertical}
+.admin-proxy-kind-section{display:none;padding:12px;background:#F9FAFB;border:1px solid var(--line);border-radius:8px}
+.admin-proxy-kind-section.active{display:block}
+.admin-proxy-kind-section .kind-section-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
+.admin-proxy-image-preview{margin-top:6px;max-width:180px;max-height:180px;border:1px solid var(--line);border-radius:6px;display:none}
+.admin-proxy-image-preview[src]{display:block}
+
+/* 「대리 등록만 보기」 필터 토글 */
+.deliv-proxy-filter-label{display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px;color:var(--ink)}
+
+/* ─── 관리자 대리 등록 모달 — 검색 가능 드롭다운 (combobox) ────────── */
+.admin-proxy-combobox{position:relative}
+.admin-proxy-combobox-input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;background:#fff}
+.admin-proxy-combobox-input:disabled{background:#F3F4F6;color:var(--muted);cursor:not-allowed}
+.admin-proxy-combobox-input:focus{outline:none;border-color:var(--pink)}
+.admin-proxy-combobox-list{display:none;position:absolute;top:100%;left:0;right:0;z-index:10;max-height:240px;overflow-y:auto;background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 6px 6px;box-shadow:0 4px 12px rgba(0,0,0,.06);margin-top:-1px}
+.admin-proxy-combobox-list.open{display:block}
+.admin-proxy-combobox-list .item{padding:8px 10px;font-size:13px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line)}
+.admin-proxy-combobox-list .item:last-child{border-bottom:none}
+.admin-proxy-combobox-list .item:hover,
+.admin-proxy-combobox-list .item.focused{background:#FFF5F8;color:var(--dark-pink)}
+.admin-proxy-combobox-list .item.disabled{color:var(--muted);cursor:not-allowed;background:#F9FAFB}
+.admin-proxy-combobox-list .item-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.admin-proxy-combobox-list .empty{padding:14px 10px;text-align:center;color:var(--muted);font-size:12px}

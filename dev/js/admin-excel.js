@@ -955,10 +955,12 @@ async function exportCampaignDeliverables(campId) {
     ws.getRow(2).height = 20;
 
     // 그룹 헤더 (3행) — 인플루언서 7컬럼 / 영수증 9컬럼 / 결과물 6컬럼 (마이그레이션 128로 영수증 6→9 확장)
+    // 마이그레이션 160: W컬럼 「대리 등록」 추가 (1컬럼, 신청 단위 통합 표시)
     ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
     ws.mergeCells('H3:P3'); ws.getCell('H3').value = '영수증';
     ws.mergeCells('Q3:V3'); ws.getCell('Q3').value = '결과물';
-    ['A3','H3','Q3'].forEach(function(addr) {
+    ws.getCell('W3').value = '대리 등록';
+    ['A3','H3','Q3','W3'].forEach(function(addr) {
       var c = ws.getCell(addr);
       c.font = {bold: true, color: {argb: 'FF222222'}};
       c.alignment = {vertical: 'middle', horizontal: 'center'};
@@ -968,21 +970,24 @@ async function exportCampaignDeliverables(campId) {
 
     // 컬럼 헤더 (4행)
     // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL
+    // W컬럼 「관리자 · 사유」: 영수증 또는 결과물 중 1건이라도 대리 등록이면 표시
     ws.getRow(4).values = [
       '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
-      '타입', '제출일', '검수일', '상태', '이미지', 'URL'
+      '타입', '제출일', '검수일', '상태', '이미지', 'URL',
+      '관리자 · 사유'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
     ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증 9컬럼·결과물 6컬럼)
+    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증 9컬럼·결과물 6컬럼·대리 등록 1컬럼)
     ws.columns = [
       {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 18}, {width: 12}, {width: 12}, {width: 16}, {width: 32},
-      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
+      {width: 28}
     ];
 
     // SNS URL 변환은 공용 _excelSnsUrl 헬퍼 사용 (handle → 전체 URL)
@@ -1035,6 +1040,17 @@ async function exportCampaignDeliverables(campId) {
 
       var receiptCells = renderReceiptCells9(g.receipt);
       var resultCells = renderDeliverableCells(g.result);
+      // 마이그레이션 160: 대리 등록 1컬럼 — 영수증 또는 결과물 중 1건이라도 submitted_by_admin 이면 "사유 라벨 (영수증/결과물 표시)" 한 줄
+      var proxyParts = [];
+      if (g.receipt && g.receipt.submitted_by_admin) {
+        var rReason = _excelProxyReasonKo(g.receipt.submitted_by_admin_reason_code);
+        proxyParts.push('영수증 · ' + rReason);
+      }
+      if (g.result && g.result.submitted_by_admin) {
+        var dReason = _excelProxyReasonKo(g.result.submitted_by_admin_reason_code);
+        proxyParts.push('결과물 · ' + dReason);
+      }
+      var proxyCell = proxyParts.length ? proxyParts.join(' / ') : '';
 
       row.values = [
         // 인플루언서 정보 7컬럼
@@ -1048,7 +1064,9 @@ async function exportCampaignDeliverables(campId) {
         // 영수증 9컬럼
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼
-        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5]
+        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5],
+        // 대리 등록 1컬럼
+        proxyCell
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
 
@@ -1513,3 +1531,15 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
 }
 
 
+
+// 마이그레이션 160: 엑셀 대리 등록 사유 코드 → 한국어 라벨 (시드 4건 인라인, 관리자 엑셀 한국어 UI)
+function _excelProxyReasonKo(code) {
+  if (!code) return '—';
+  var map = {
+    shipping_delay:      '배송 지연',
+    system_error:        '시스템 오류',
+    inflexible_deadline: '기간 외 합의 처리',
+    other:               '기타'
+  };
+  return map[code] || code;
+}

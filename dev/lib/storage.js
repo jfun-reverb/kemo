@@ -574,6 +574,7 @@ async function fetchDeliverables(filters) {
         reject_reason, reject_template_code,
         reviewed_by, reviewed_at, submitted_at, updated_at,
         application_id, user_id, campaign_id,
+        submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
@@ -760,7 +761,7 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason')
+      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at')
       .eq('campaign_id', campaignId)
       .order('submitted_at', {ascending: false});
     if (error) throw error;
@@ -856,6 +857,56 @@ async function updateReceiptAdmin(deliverableId, orderNumber, purchaseDate, purc
       p_order_number:    orderNumber,
       p_purchase_date:   purchaseDate,
       p_purchase_amount: purchaseAmount
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// ─── 관리자 결과물 대리 등록·자동 승인 (마이그레이션 160) ──────────────────
+// campaign_admin 이상만 호출 가능. RPC가 권한·신청 상태(approved)·필수 필드·UNIQUE 사전 체크함.
+// payload 형태:
+//   { applicationId, kind: 'receipt'|'post'|'review_image',
+//     postChannel, imageUrl, postUrl,
+//     orderNumber, purchaseDate, purchaseAmount,
+//     reasonCode, reason }
+// 반환: 신규 deliverable id (uuid)
+async function adminCreateDeliverableProxy(payload) {
+  if (!db) throw new Error('DB 미연결');
+  if (!payload || !payload.applicationId || !payload.kind || !payload.reasonCode) {
+    throw new Error('필수 입력 누락: applicationId / kind / reasonCode');
+  }
+  let newId = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('admin_create_deliverable_proxy', {
+      p_application_id:  payload.applicationId,
+      p_kind:            payload.kind,
+      p_post_channel:    payload.postChannel || null,
+      p_image_url:       payload.imageUrl    || null,
+      p_post_url:        payload.postUrl     || null,
+      p_order_number:    payload.orderNumber || null,
+      p_purchase_date:   payload.purchaseDate || null,
+      p_purchase_amount: payload.purchaseAmount ?? null,
+      p_reason_code:     payload.reasonCode,
+      p_reason:          payload.reason || null
+    });
+    if (error) throw error;
+    newId = data;
+  });
+  return newId;
+}
+
+// 대리 등록 회수 (super_admin 전용, 마이그레이션 160).
+// 잘못 등록된 대리 등록 결과물을 삭제 + audit 1건 기록.
+async function adminRevokeProxyDeliverable(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('admin_revoke_proxy_deliverable', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
     });
     if (error) throw error;
     ok = true;

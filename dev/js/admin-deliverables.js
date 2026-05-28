@@ -44,6 +44,7 @@ function resetDelivFiltersAndSort() {
   resetMultiFilter('delivCampMulti', '전체 캠페인');
   const q = $('delivSearch'); if (q) q.value = '';
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = false;
+  const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
   _delivSort = {col: null, dir: null};
   renderDeliverablesList();
 }
@@ -115,6 +116,7 @@ async function renderDeliverablesList() {
   const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
   const delivCampVals = getMultiFilterValues('delivCampMulti');
   const includeMissing = !!$('delivIncludeMissing')?.checked;
+  const proxyOnly = !!$('delivProxyOnly')?.checked;
   const search = ($('delivSearch')?.value || '').trim().toLowerCase();
 
   // deliverables 전체 조회 (status·kind는 클라이언트에서 분기)
@@ -263,6 +265,14 @@ async function renderDeliverablesList() {
       camp.title, camp.brand, camp.campaign_no,
     ]);
   });
+  // 「대리 등록만 보기」 필터 (마이그레이션 160) — 신청 그룹 안 deliverable 중 1개라도 submitted_by_admin 있으면 통과
+  // reviewByChannel 은 monitor 캠페인의 채널별 review_image 결과물 맵 (사양 2 운영 후 채워짐)
+  if (proxyOnly) {
+    filtered = filtered.filter(g => {
+      const all = [g.receipt, g.result, ...Object.values(g.reviewByChannel || {})].filter(Boolean);
+      return all.some(d => d && d.submitted_by_admin);
+    });
+  }
 
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivCampMulti'], 'delivSearch');
 
@@ -420,7 +430,10 @@ function renderDelivStatusCell(d, slot, rt) {
       preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
     }
   }
-  return `<div style="display:flex;align-items:center;gap:6px">${preview}${delivStatusBadge(d.status)}</div>`;
+  const proxyBadge = d.submitted_by_admin
+    ? `<span class="deliv-proxy-badge" title="관리자 대리 등록"><span class="material-icons-round">support_agent</span>대리</span>`
+    : '';
+  return `<div style="display:flex;align-items:center;gap:6px">${preview}${delivStatusBadge(d.status)}${proxyBadge}</div>`;
 }
 
 function statusLabelKo(status) {
@@ -650,6 +663,13 @@ async function openDelivCombined(applicationId) {
   const modal = $('delivCombinedModal');
   if (!modal) return;
   _delivCombinedRefreshAppId = applicationId;
+  // 검수 모달 「대리 등록」 버튼은 campaign_admin 이상에게만 노출 (campaign_manager 차단)
+  // RPC 자체에 is_campaign_admin() 가드 있어 우회 시도해도 안전하지만, UI 일관성 차원에서 사전 차단
+  const proxyBtn = $('delivCombinedProxyBtn');
+  if (proxyBtn) {
+    const isManager = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'campaign_manager');
+    proxyBtn.style.display = isManager ? 'none' : '';
+  }
   openModal('delivCombinedModal');
   await renderDelivCombinedBody(applicationId);
 }
@@ -1023,6 +1043,13 @@ function renderDelivPanelContent(d, events) {
     return '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">아직 제출되지 않았습니다.</div>';
   }
   let html = '';
+  // 관리자 대리 등록 행 (마이그레이션 160) — 상단 안내 박스 + 회수 버튼은 하단 별도 영역
+  if (d.submitted_by_admin) {
+    const reasonLabel = _proxyReasonLabelKo(d.submitted_by_admin_reason_code);
+    const at = d.submitted_by_admin_at ? formatDate(d.submitted_by_admin_at) : '';
+    const memo = d.submitted_by_admin_reason ? `<div class="deliv-proxy-meta">메모: ${esc(d.submitted_by_admin_reason)}</div>` : '';
+    html += `<div class="deliv-proxy-notice"><strong>관리자 대리 등록</strong> — 사유: ${esc(reasonLabel)}${at ? ' · ' + esc(at) : ''}${memo}<span class="deliv-proxy-cascade">회수 시 audit 로그도 함께 삭제됩니다 (영구 감사 미보존).</span></div>`;
+  }
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
       ${d.receipt_url
@@ -1049,11 +1076,26 @@ function renderDelivPanelContent(d, events) {
     html += renderDeliverableEventsTimeline(events, 'panel-' + d.id);
     html += '</div>';
   }
+  // 대리 등록 행은 일반 「되돌리기」 비활성 + super_admin 전용 「대리 등록 회수」 버튼 (사용자 결정 2026-05-28)
+  const isProxy = !!d.submitted_by_admin;
+  const isSuperAdmin = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'super_admin');
   if (d.status === 'pending') {
-    html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
-      <button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:12px;padding:6px 12px" onclick="openDelivRejectModal('${esc(d.id)}', ${d.version})">반려</button>
+    html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;align-items:center">`;
+    if (isProxy && isSuperAdmin) {
+      html += `<button class="deliv-proxy-revoke-btn" onclick="revokeAdminProxyDeliv('${esc(d.id)}')" title="잘못 등록한 대리 등록을 회수합니다">대리 등록 회수</button>`;
+    }
+    html += `<button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:12px;padding:6px 12px" onclick="openDelivRejectModal('${esc(d.id)}', ${d.version})">반려</button>
       <button class="btn btn-primary btn-sm" style="font-size:12px;padding:6px 12px" onclick="approveDeliv('${esc(d.id)}', ${d.version})">승인</button>
     </div>`;
+  } else if (isProxy) {
+    // 대리 등록 행: 「되돌리기」 비활성 + super_admin은 「대리 등록 회수」만 가능
+    html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;align-items:center">`;
+    if (isSuperAdmin) {
+      html += `<button class="deliv-proxy-revoke-btn" onclick="revokeAdminProxyDeliv('${esc(d.id)}')" title="잘못 등록한 대리 등록을 회수합니다">대리 등록 회수</button>`;
+    } else {
+      html += `<span style="font-size:11px;color:var(--muted)">대리 등록 행은 super_admin 만 회수 가능합니다.</span>`;
+    }
+    html += `</div>`;
   } else {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end">
       <button class="btn btn-ghost btn-sm" style="font-size:12px;padding:6px 12px" onclick="revertDeliv('${esc(d.id)}', ${d.version})">검수대기로 되돌리기</button>
@@ -1063,3 +1105,519 @@ function renderDelivPanelContent(d, events) {
 }
 
 
+
+// ============================================================
+// 관리자 결과물 대리 등록·자동 승인 (마이그레이션 160)
+// 사양서: docs/specs/2026-05-28-admin-proxy-deliverable.md
+// RPC: admin_create_deliverable_proxy / admin_revoke_proxy_deliverable
+// ============================================================
+
+let _adminProxyApps = [];       // approved 신청 + 캠페인 + 인플 join
+let _adminProxyReasons = [];    // admin_proxy_reason lookup 캐시
+let _adminProxyChannels = {};   // channel code → name_ko 라벨
+
+async function openAdminProxyModal(presetAppId) {
+  const m = $('adminProxyDelivModal');
+  if (!m) return;
+  _resetAdminProxyForm();
+  m.style.display = 'flex';
+  // 데이터 병렬 로드
+  try {
+    const [appsResult, reasonsResult, channelsResult] = await Promise.all([
+      _loadAdminProxyApprovedApps(),
+      _loadAdminProxyReasons(),
+      _loadAdminProxyChannelLabels()
+    ]);
+    _adminProxyApps = appsResult;
+    _adminProxyReasons = reasonsResult;
+    _adminProxyChannels = channelsResult;
+    _populateAdminProxyReasonDropdown();
+    // 검수 모달에서 진입한 경우 캠페인·인플 자동 선택
+    if (presetAppId) {
+      const app = _adminProxyApps.find(a => a.id === presetAppId);
+      if (app) {
+        selectAdminProxyCamp(app.campaign_id, /*silent*/true);
+        selectAdminProxyInf(app.id, /*silent*/true);
+      }
+    }
+  } catch (err) {
+    console.error('[admin-proxy] 데이터 로드 실패', err);
+    toast('데이터 로드 실패: ' + (err.message || err), 'error');
+  }
+}
+
+// 검수 모달에서 「대리 등록」 진입 — 현재 신청 ID 가져와서 자동 선택
+// _delivCombinedRefreshAppId 는 openDelivCombined() 가 저장하는 신청 ID
+async function openAdminProxyFromCombined() {
+  const appId = (typeof _delivCombinedRefreshAppId !== 'undefined' && _delivCombinedRefreshAppId)
+    ? _delivCombinedRefreshAppId
+    : null;
+  if (!appId) {
+    toast('현재 신청을 식별할 수 없습니다. 결과물 목록의 「검수」 버튼으로 다시 열어주세요.', 'error');
+    return;
+  }
+  closeDelivCombined();
+  await openAdminProxyModal(appId);
+}
+
+function closeAdminProxyModal() {
+  const m = $('adminProxyDelivModal');
+  if (m) m.style.display = 'none';
+  _resetAdminProxyForm();
+}
+
+function _resetAdminProxyForm() {
+  // combobox 2종 + kind/사유/메모/이미지/파일 입력 초기화
+  ['adminProxyApp','adminProxyCampId','adminProxyKind','adminProxyOrderNo','adminProxyPurchaseDate','adminProxyPurchaseAmount','adminProxyPostUrl','adminProxyPostChannel','adminProxyReviewChannel','adminProxyReasonCode','adminProxyReason'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  // combobox 검색 input (text)
+  ['adminProxyCampInput','adminProxyInfInput'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  // 인플 input 은 캠페인 미선택 시 disabled
+  const infInput = $('adminProxyInfInput');
+  if (infInput) infInput.disabled = true;
+  // 리스트 닫기
+  ['adminProxyCampList','adminProxyInfList'].forEach(id => {
+    const el = $(id); if (el) { el.classList.remove('open'); el.innerHTML = ''; }
+  });
+  ['adminProxyReceiptImage','adminProxyReviewImage'].forEach(id => {
+    const el = $(id); if (el) el.value = '';
+  });
+  ['adminProxyReceiptPreview','adminProxyReviewPreview'].forEach(id => {
+    const el = $(id); if (el) el.removeAttribute('src');
+  });
+  ['adminProxyReceiptSection','adminProxyPostSection','adminProxyReviewImageSection'].forEach(id => {
+    const el = $(id); if (el) el.classList.remove('active');
+  });
+  const kindSelect = $('adminProxyKind');
+  if (kindSelect) { kindSelect.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSelect.disabled = true; }
+}
+
+async function _loadAdminProxyApprovedApps() {
+  // PostgREST schema cache 가 applications.campaign_id / applications.user_id 의 FK 임베드를
+  // 인식 못 하는 사례(스키마 새로고침 지연 등)가 있어 분리 쿼리 + 클라이언트 join 패턴 사용.
+  if (!db) return [];
+  // 1. approved 신청만 (status·reviewed_at 정렬)
+  const {data: apps, error} = await db?.from('applications')
+    .select('id, status, campaign_id, user_id, reviewed_at')
+    .eq('status', 'approved')
+    .order('reviewed_at', {ascending: false})
+    .limit(500);
+  if (error) throw error;
+  if (!apps || !apps.length) return [];
+  // 2. 관련 캠페인 + 인플 별도 IN 쿼리 (병렬)
+  const campIds = [...new Set(apps.map(a => a.campaign_id).filter(Boolean))];
+  const userIds = [...new Set(apps.map(a => a.user_id).filter(Boolean))];
+  const [campRes, infRes] = await Promise.all([
+    campIds.length ? db?.from('campaigns').select('id, title, brand, recruit_type, channel, campaign_no').in('id', campIds) : {data: []},
+    userIds.length ? db?.from('influencers').select('id, name, name_kana, email').in('id', userIds) : {data: []}
+  ]);
+  const campMap = {};
+  (campRes?.data || []).forEach(c => { campMap[c.id] = c; });
+  const infMap = {};
+  (infRes?.data || []).forEach(u => { infMap[u.id] = u; });
+  // 3. 클라이언트 join — 캠페인·인플 둘 다 있는 것만 노출 (RLS 누락 행 자동 필터)
+  return apps
+    .map(a => ({...a, campaigns: campMap[a.campaign_id], influencers: infMap[a.user_id]}))
+    .filter(a => a.campaigns && a.influencers);
+}
+
+async function _loadAdminProxyReasons() {
+  if (!db) return [];
+  const {data, error} = await db?.from('lookup_values').select('code, name_ko, sort_order, active')
+    .eq('kind', 'admin_proxy_reason').eq('active', true).order('sort_order', {ascending: true});
+  if (error) throw error;
+  return data || [];
+}
+
+async function _loadAdminProxyChannelLabels() {
+  if (!db) return {};
+  const {data, error} = await db?.from('lookup_values').select('code, name_ko, name_ja')
+    .eq('kind', 'channel').eq('active', true);
+  if (error) return {};
+  const map = {};
+  (data || []).forEach(r => { map[r.code] = r.name_ja || r.name_ko || r.code; });
+  return map;
+}
+
+function _populateAdminProxyReasonDropdown() {
+  const sel = $('adminProxyReasonCode');
+  if (!sel) return;
+  const opts = ['<option value="">— 사유를 선택하세요 —</option>'];
+  _adminProxyReasons.forEach(r => {
+    opts.push(`<option value="${esc(r.code)}">${esc(r.name_ko)}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+}
+
+// ── combobox: 캠페인 검색·선택 ────────────────────────────────────
+function showAdminProxyCampList() {
+  const list = $('adminProxyCampList');
+  if (!list) return;
+  list.classList.add('open');
+  _renderAdminProxyCampList($('adminProxyCampInput')?.value || '');
+}
+
+function onAdminProxyCampInput() {
+  const q = $('adminProxyCampInput')?.value || '';
+  // 입력 시 hidden 비움 (선택 확정 전 상태)
+  const hid = $('adminProxyCampId'); if (hid) hid.value = '';
+  // 캠페인 변경되면 인플·종류 모두 리셋
+  _resetAdminProxyInfState();
+  _renderAdminProxyCampList(q);
+  showAdminProxyCampList();
+}
+
+function _renderAdminProxyCampList(query) {
+  const list = $('adminProxyCampList');
+  if (!list) return;
+  // 캠페인 후보 = 승인 신청이 있는 캠페인 unique (id 기준)
+  const campMap = new Map();
+  _adminProxyApps.forEach(a => {
+    if (!a.campaigns) return;
+    if (!campMap.has(a.campaigns.id)) campMap.set(a.campaigns.id, a.campaigns);
+  });
+  const q = (query || '').trim().toLowerCase();
+  const filtered = Array.from(campMap.values()).filter(c => {
+    if (!q) return true;
+    return matchSearchTokens(q, [c.title, c.brand, c.campaign_no]);
+  });
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">일치하는 캠페인 없음</div>';
+    return;
+  }
+  list.innerHTML = filtered.slice(0, 100).map(c => {
+    const meta = `${c.brand || ''} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
+    return `<div class="item" onmousedown="selectAdminProxyCamp('${esc(c.id)}')">
+      <div>${esc(c.title || '제목 없음')}</div>
+      <div class="item-meta">${esc(meta)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectAdminProxyCamp(campId, silent) {
+  const app = _adminProxyApps.find(a => a.campaign_id === campId);
+  if (!app || !app.campaigns) return;
+  const camp = app.campaigns;
+  const hid = $('adminProxyCampId'); if (hid) hid.value = campId;
+  const inp = $('adminProxyCampInput');
+  if (inp) inp.value = `${camp.title || ''} (${camp.brand || ''})`;
+  const list = $('adminProxyCampList'); if (list) list.classList.remove('open');
+  // 인플 input 활성화 + 검색 리스트 미리 렌더
+  const infInput = $('adminProxyInfInput');
+  if (infInput) { infInput.disabled = false; infInput.value = ''; }
+  const infHid = $('adminProxyApp'); if (infHid) infHid.value = '';
+  _renderAdminProxyInfList('');
+  // 종류 옵션도 리셋 (인플 미선택 상태)
+  const kindSel = $('adminProxyKind');
+  if (kindSel) { kindSel.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSel.disabled = true; }
+  onAdminProxyKindChange();
+  if (!silent && infInput) infInput.focus();
+}
+
+// ── combobox: 인플 검색·선택 (선택된 캠페인 내) ───────────────────
+function showAdminProxyInfList() {
+  const list = $('adminProxyInfList');
+  if (!list) return;
+  list.classList.add('open');
+  _renderAdminProxyInfList($('adminProxyInfInput')?.value || '');
+}
+
+function onAdminProxyInfInput() {
+  const q = $('adminProxyInfInput')?.value || '';
+  // 입력 시 hidden 비움 (선택 확정 전 상태)
+  const hid = $('adminProxyApp'); if (hid) hid.value = '';
+  // 인플 변경되면 종류 리셋
+  const kindSel = $('adminProxyKind');
+  if (kindSel) { kindSel.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSel.disabled = true; }
+  onAdminProxyKindChange();
+  _renderAdminProxyInfList(q);
+  showAdminProxyInfList();
+}
+
+function _renderAdminProxyInfList(query) {
+  const list = $('adminProxyInfList');
+  if (!list) return;
+  const campId = $('adminProxyCampId')?.value;
+  if (!campId) {
+    list.innerHTML = '<div class="empty">먼저 캠페인을 선택하세요</div>';
+    return;
+  }
+  const inCampApps = _adminProxyApps.filter(a => a.campaign_id === campId);
+  const q = (query || '').trim().toLowerCase();
+  const filtered = inCampApps.filter(a => {
+    if (!q) return true;
+    const inf = a.influencers || {};
+    return matchSearchTokens(q, [inf.name, inf.name_kana, inf.email]);
+  });
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">' + (q ? '일치하는 인플루언서 없음' : '승인된 인플루언서 없음') + '</div>';
+    return;
+  }
+  list.innerHTML = filtered.slice(0, 100).map(a => {
+    const inf = a.influencers || {};
+    const meta = `${inf.name_kana || ''}${inf.name_kana && inf.email ? ' · ' : ''}${inf.email || ''}`;
+    return `<div class="item" onmousedown="selectAdminProxyInf('${esc(a.id)}')">
+      <div>${esc(inf.name || '이름 없음')}</div>
+      <div class="item-meta">${esc(meta)}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectAdminProxyInf(appId, silent) {
+  const app = _adminProxyApps.find(a => a.id === appId);
+  if (!app) return;
+  const inf = app.influencers || {};
+  const hid = $('adminProxyApp'); if (hid) hid.value = appId;
+  const inp = $('adminProxyInfInput');
+  if (inp) inp.value = `${inf.name || ''}${inf.name_kana ? ' (' + inf.name_kana + ')' : ''}`;
+  const list = $('adminProxyInfList'); if (list) list.classList.remove('open');
+  // 결과물 종류 옵션 활성화 (기존 onAdminProxyAppChange 로직 인라인)
+  _refreshAdminProxyKindOptions(app);
+}
+
+function _resetAdminProxyInfState() {
+  // 캠페인 변경 또는 폼 초기화 시 인플 + 종류 모두 리셋
+  const infInput = $('adminProxyInfInput');
+  if (infInput) { infInput.value = ''; infInput.disabled = true; }
+  const infHid = $('adminProxyApp'); if (infHid) infHid.value = '';
+  const infList = $('adminProxyInfList'); if (infList) { infList.classList.remove('open'); infList.innerHTML = ''; }
+  const kindSel = $('adminProxyKind');
+  if (kindSel) { kindSel.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSel.disabled = true; }
+  onAdminProxyKindChange();
+}
+
+function _refreshAdminProxyKindOptions(app) {
+  const kindSel = $('adminProxyKind');
+  if (!kindSel || !app || !app.campaigns) return;
+  const rt = app.campaigns.recruit_type;
+  const opts = ['<option value="">— 결과물 종류 선택 —</option>'];
+  if (rt === 'monitor') {
+    opts.push('<option value="receipt">영수증 (영수증·주문번호·구매일·금액)</option>');
+    const channels = (app.campaigns.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (channels.length > 0) {
+      opts.push('<option value="review_image">리뷰 이미지 (채널별)</option>');
+    }
+  } else {
+    opts.push('<option value="post">게시물 URL</option>');
+  }
+  kindSel.innerHTML = opts.join('');
+  kindSel.disabled = false;
+  onAdminProxyKindChange();
+}
+
+// 외부 클릭 시 combobox 리스트 자동 닫기 (모달 외 클릭 또는 다른 영역 클릭)
+document.addEventListener('click', function(e) {
+  const camp = $('adminProxyCampCombobox');
+  const inf = $('adminProxyInfCombobox');
+  if (camp && !camp.contains(e.target)) {
+    const list = $('adminProxyCampList'); if (list) list.classList.remove('open');
+  }
+  if (inf && !inf.contains(e.target)) {
+    const list = $('adminProxyInfList'); if (list) list.classList.remove('open');
+  }
+});
+
+function onAdminProxyKindChange() {
+  const kind = $('adminProxyKind')?.value;
+  ['adminProxyReceiptSection','adminProxyPostSection','adminProxyReviewImageSection'].forEach(id => {
+    const el = $(id); if (el) el.classList.remove('active');
+  });
+  if (kind === 'receipt') {
+    $('adminProxyReceiptSection')?.classList.add('active');
+  } else if (kind === 'post') {
+    $('adminProxyPostSection')?.classList.add('active');
+    _populateAdminProxyPostChannelOptions();
+  } else if (kind === 'review_image') {
+    $('adminProxyReviewImageSection')?.classList.add('active');
+    _populateAdminProxyReviewChannelOptions();
+  }
+}
+
+function _populateAdminProxyPostChannelOptions() {
+  const sel = $('adminProxyPostChannel');
+  if (!sel) return;
+  const appId = $('adminProxyApp')?.value;
+  const app = _adminProxyApps.find(a => a.id === appId);
+  const channels = (app?.campaigns?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  const opts = ['<option value="">— 자동 판별 대기 (또는 수동 선택) —</option>'];
+  channels.forEach(c => {
+    const label = _adminProxyChannels[c] || c;
+    opts.push(`<option value="${esc(c)}">${esc(label)}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+}
+
+function _populateAdminProxyReviewChannelOptions() {
+  const sel = $('adminProxyReviewChannel');
+  if (!sel) return;
+  const appId = $('adminProxyApp')?.value;
+  const app = _adminProxyApps.find(a => a.id === appId);
+  const channels = (app?.campaigns?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  const opts = ['<option value="">— 캠페인 채널 중 선택 —</option>'];
+  channels.forEach(c => {
+    const label = _adminProxyChannels[c] || c;
+    opts.push(`<option value="${esc(c)}">${esc(label)}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+}
+
+// admin 빌드는 application.js 미포함이라 자체 채널 판별 인라인 (application.js 의 detectChannelFromUrl 미러)
+function _adminDetectChannelFromUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    if (host.includes('instagram.com')) return 'instagram';
+    if (host.includes('tiktok.com')) return 'tiktok';
+    if (host === 'youtube.com' || host === 'youtu.be' || host.endsWith('.youtube.com')) return 'youtube';
+    if (host === 'x.com' || host === 'twitter.com' || host.endsWith('.twitter.com')) return 'x';
+    if (host.includes('qoo10.jp')) return 'qoo10';
+    if (host.includes('lipscosme.com')) return 'lips';
+    if (host === 'cosme.net' || host.endsWith('.cosme.net')) return 'cosme';
+    return null;
+  } catch(e) { return null; }
+}
+
+function onAdminProxyPostUrlInput() {
+  const url = $('adminProxyPostUrl')?.value || '';
+  if (!url) return;
+  const guess = _adminDetectChannelFromUrl(url);
+  if (!guess) return;
+  const sel = $('adminProxyPostChannel');
+  if (!sel) return;
+  // 캠페인에 해당 채널이 등록된 경우만 자동 선택
+  const exists = Array.from(sel.options).some(o => o.value === guess);
+  if (exists) sel.value = guess;
+}
+
+function onAdminProxyImageChange(kind) {
+  const inputId = kind === 'receipt' ? 'adminProxyReceiptImage' : 'adminProxyReviewImage';
+  const previewId = kind === 'receipt' ? 'adminProxyReceiptPreview' : 'adminProxyReviewPreview';
+  const file = $(inputId)?.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = $(previewId);
+    if (img) img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitAdminProxyDelivProxy() {
+  const appId = $('adminProxyApp')?.value;
+  const kind = $('adminProxyKind')?.value;
+  const reasonCode = $('adminProxyReasonCode')?.value;
+  const reason = ($('adminProxyReason')?.value || '').trim() || null;
+  if (!appId) return toast('신청을 선택하세요', 'error');
+  if (!kind) return toast('결과물 종류를 선택하세요', 'error');
+  if (!reasonCode) return toast('사유 코드를 선택하세요', 'error');
+
+  // kind 별 필수 필드 + 이미지 업로드
+  const payload = {applicationId: appId, kind, reasonCode, reason};
+  try {
+    if (kind === 'receipt') {
+      const file = $('adminProxyReceiptImage')?.files?.[0];
+      const orderNo = ($('adminProxyOrderNo')?.value || '').trim();
+      const date = $('adminProxyPurchaseDate')?.value;
+      const amount = $('adminProxyPurchaseAmount')?.value;
+      if (!file) return toast('영수증 이미지를 업로드하세요', 'error');
+      if (!orderNo) return toast('주문번호를 입력하세요', 'error');
+      if (!date) return toast('구매일을 선택하세요', 'error');
+      if (!amount) return toast('구매금액을 입력하세요', 'error');
+      const base64 = await _fileToBase64(file);
+      const url = await uploadImage(base64, 'receipt-' + Date.now() + '.jpg', 'receipts');
+      payload.imageUrl = url;
+      payload.orderNumber = orderNo;
+      payload.purchaseDate = date;
+      payload.purchaseAmount = parseFloat(amount);
+    } else if (kind === 'post') {
+      const url = ($('adminProxyPostUrl')?.value || '').trim();
+      const channel = $('adminProxyPostChannel')?.value;
+      if (!url) return toast('게시물 URL을 입력하세요', 'error');
+      if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
+      payload.postUrl = url;
+      payload.postChannel = channel;
+    } else if (kind === 'review_image') {
+      const file = $('adminProxyReviewImage')?.files?.[0];
+      const channel = $('adminProxyReviewChannel')?.value;
+      if (!channel) return toast('채널을 선택하세요', 'error');
+      if (!file) return toast('리뷰 이미지를 업로드하세요', 'error');
+      const base64 = await _fileToBase64(file);
+      const imageUrl = await uploadImage(base64, 'review-' + Date.now() + '.jpg', 'review-images');
+      payload.imageUrl = imageUrl;
+      payload.postChannel = channel;
+    }
+  } catch (uploadErr) {
+    console.error('[admin-proxy] 이미지 업로드 실패', uploadErr);
+    return toast('이미지 업로드 실패: ' + (uploadErr.message || uploadErr), 'error');
+  }
+
+  // 마지막 확인
+  if (!confirm('인플루언서에게 「結果物が登録されました」 알림이 발송됩니다. 진행할까요?')) return;
+
+  const btn = $('adminProxySubmitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
+  try {
+    const newId = await adminCreateDeliverableProxy(payload);
+    toast('대리 등록·자동 승인 완료 (id ' + (newId || '').slice(0, 8) + ')', 'success');
+    closeAdminProxyModal();
+    if (typeof refreshPane === 'function') await refreshPane('deliverables');
+    else if (typeof renderDeliverablesList === 'function') await renderDeliverablesList();
+  } catch (err) {
+    console.error('[admin-proxy] RPC 실패', err);
+    toast('대리 등록 실패: ' + (err.message || err), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '대리 등록 및 자동 승인'; }
+  }
+}
+
+function _fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function revokeAdminProxyDeliv(deliverableId) {
+  if (!deliverableId) return;
+  if (typeof currentAdminInfo === 'undefined' || currentAdminInfo?.role !== 'super_admin') {
+    return toast('대리 등록 회수는 super_admin 권한이 필요합니다', 'error');
+  }
+  const reason = prompt('회수 사유를 입력하세요 (예: 잘못된 이미지 업로드, 금액 오타 등)');
+  if (reason === null) return; // 취소
+  if (!reason.trim()) return toast('회수 사유는 비워둘 수 없습니다', 'error');
+  if (!confirm('대리 등록을 회수합니다. 결과물 행과 audit 로그가 삭제됩니다 (복구 불가). 진행할까요?')) return;
+  try {
+    await adminRevokeProxyDeliverable(deliverableId, reason.trim());
+    toast('대리 등록 회수 완료', 'success');
+    closeDelivCombined();
+    if (typeof refreshPane === 'function') await refreshPane('deliverables');
+    else if (typeof renderDeliverablesList === 'function') await renderDeliverablesList();
+  } catch (err) {
+    console.error('[admin-proxy] 회수 실패', err);
+    toast('회수 실패: ' + (err.message || err), 'error');
+  }
+}
+
+// 마이그레이션 160 admin_proxy_reason 시드 4건 한국어 매핑 (관리자 UI)
+// lookup_values 에서 추가 코드가 생기면 그것은 영문 코드 그대로 폴백
+const _ADMIN_PROXY_REASON_KO = {
+  shipping_delay:      '배송 지연',
+  system_error:        '시스템 오류',
+  inflexible_deadline: '기간 외 합의 처리',
+  other:               '기타'
+};
+function _proxyReasonLabelKo(code) {
+  if (!code) return '—';
+  // 모달이 열려 있어 _adminProxyReasons 캐시가 있으면 우선 사용
+  if (Array.isArray(_adminProxyReasons) && _adminProxyReasons.length) {
+    const row = _adminProxyReasons.find(r => r.code === code);
+    if (row) return row.name_ko;
+  }
+  return _ADMIN_PROXY_REASON_KO[code] || code;
+}
