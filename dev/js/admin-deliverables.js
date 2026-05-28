@@ -146,6 +146,7 @@ async function renderDeliverablesList() {
         receipt: null,             // kind === 'receipt' 최신
         result: null,              // kind === 'post' 최신 (gifting/visit 전용)
         reviewByChannel: {},       // monitor: {channel_code: review_image deliverable 최신}
+        hasLegacyReviewImage: false, // 사양 2 전 post_channel NULL 인 review_image 행 존재 여부
         latest_submitted_at: null,
       });
     }
@@ -161,10 +162,13 @@ async function renderDeliverablesList() {
     if (d.kind === 'receipt') {
       if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
     } else if (d.kind === 'review_image') {
-      // 채널별 최신 1개 (post_channel NULL 레거시는 무시 — grandfather)
       if (d.post_channel) {
+        // 사양 2 정책: 채널별 최신 1개 매칭
         const prev = g.reviewByChannel[d.post_channel];
         if (!prev || subAt > (prev.submitted_at || '')) g.reviewByChannel[d.post_channel] = d;
+      } else {
+        // 사양 2 전 레거시 행 (post_channel NULL) — 별도 플래그로 트래킹
+        g.hasLegacyReviewImage = true;
       }
     } else if (d.kind === 'post') {
       if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
@@ -179,21 +183,27 @@ async function renderDeliverablesList() {
   }
 
   // monitor 신청의 「대표 결과물 상태」 계산 — 필터·정렬에서 사용
-  //   우선순위: rejected > pending > approved > none. 채널 1개라도 비완료면 그 상태.
+  //   우선순위: rejected > pending > approved > legacy_no_channel > none
+  //   - 채널별 매칭 안 됐는데 hasLegacyReviewImage=true 이면 'legacy_no_channel' (사양 2 전 데이터)
+  //   - 완전히 review_image 행이 없으면 'none' (진짜 미제출)
   //   gifting/visit 는 g.result(post) 그대로.
   for (const g of groups.values()) {
     const rt = g.campaign?.recruit_type;
     if (rt !== 'monitor') continue;
     const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     if (channels.length === 0) {
-      g.result_status_repr = 'none';  // 채널 없는 레거시
+      // 채널 미등록 monitor 캠페인 — 레거시 행 있으면 legacy 표시
+      g.result_status_repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
       continue;
     }
     const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
     let repr = 'approved';
     if (states.includes('rejected')) repr = 'rejected';
     else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) repr = 'none';
+    else if (states.includes('none')) {
+      // 채널별 미제출 — 레거시 NULL channel 행 있으면 legacy_no_channel
+      repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
+    }
     g.result_status_repr = repr;
   }
 
@@ -225,7 +235,8 @@ async function renderDeliverablesList() {
   const campCounts = {};
   const recruitTypeCounts = {monitor:0, gifting:0, visit:0};
   const receiptStatusCounts = {pending:0, approved:0, rejected:0, none:0};
-  const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0};
+  // legacy_no_channel: 사양 2 전 post_channel NULL 인 review_image 행이 있는 monitor 신청 (385건, 2026-05-28)
+  const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0, legacy_no_channel:0};
   for (const g of allGroups) {
     // 캠페인 카운트: 자기 자신(캠페인 필터) 제외
     if (passesFilters(g, {skipCamp: true})) {
@@ -266,10 +277,11 @@ async function renderDeliverablesList() {
     {value:'none',     label:'미제출',  count: receiptStatusCounts.none},
   ], () => renderDeliverablesList());
   syncMultiFilter('delivResultStatusMulti', '전체', [
-    {value:'pending',  label:'검수대기', count: resultStatusCounts.pending},
-    {value:'approved', label:'승인',    count: resultStatusCounts.approved},
-    {value:'rejected', label:'비승인',  count: resultStatusCounts.rejected},
-    {value:'none',     label:'미제출',  count: resultStatusCounts.none},
+    {value:'pending',           label:'검수대기',   count: resultStatusCounts.pending},
+    {value:'approved',          label:'승인',       count: resultStatusCounts.approved},
+    {value:'rejected',          label:'비승인',     count: resultStatusCounts.rejected},
+    {value:'legacy_no_channel', label:'채널 미분류', count: resultStatusCounts.legacy_no_channel},
+    {value:'none',              label:'미제출',     count: resultStatusCounts.none},
   ], () => renderDeliverablesList());
 
   // 필터 적용
