@@ -126,9 +126,14 @@
 #brandAppTableBody tr.app-stripe-even > td:first-child{border-left:4px solid #d4d4d4}
 #brandAppTableBody tr.app-stripe-odd  > td:first-child{border-left:4px solid #8a8a8a}
 
-/* 브랜드 서베이 신청 목록 — 컬럼 경계 시각화 (액션 버튼이 다음 열과 헷갈리지 않게) */
-#brandAppTableBody tr > td{border-right:1px solid rgba(0,0,0,.05)}
-#brandAppTableBody tr > td:last-child{border-right:none}
+/* 관리자 목록 표 — 세로(열) 구분선 공통 (캠페인·신청·결과물·인플루언서·브랜드 서베이 등 11개 표 통일).
+   기존 #brandAppTableBody / #adminPane-campaigns 전용 규칙은 본 공통 규칙으로 흡수.
+   가로(행) 구분선은 .data-table 공통 규칙에서 별도 처리. */
+.data-table thead th{border-right:1px solid rgba(0,0,0,.06)}
+.data-table thead th:last-child{border-right:none}
+.data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
+.data-table tbody td:last-child{border-right:none}
+
 .status-tab-btn.zero-count .tab-count{color:#ccc}
 
 /* ─── 캠페인/신청/결과물/브랜드 관리 페인: 가로 스크롤 + 첫 컬럼 sticky-left
@@ -174,9 +179,7 @@
 
 #adminPane-campaigns .data-table thead th{white-space:nowrap}
 
-/* 컬럼 간 세로 보더 (브랜드 서베이 신청 목록 패턴) */
-#adminPane-campaigns .data-table tbody td{border-right:1px solid rgba(0,0,0,.06)}
-#adminPane-campaigns .data-table tbody td:last-child{border-right:none}
+/* (세로 보더는 .data-table 공통 규칙에서 처리 — 위쪽 「관리자 목록 표 세로 구분선 공통」 참조) */
 
 /* 신청 관리 — 첫 컬럼(캠페인) 좌측 고정 */
 #adminPane-applications .admin-table-wrap{overflow-x:auto}
