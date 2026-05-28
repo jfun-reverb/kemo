@@ -9050,8 +9050,19 @@ const CHANNEL_LABELS = {
   instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube',
   x: 'X (Twitter)', qoo10: 'Qoo10', lips: 'LIPS', cosme: '@cosme'
 };
+// 채널 라벨 해석 우선순위:
+//   ① lookup_values 의 현재 언어 라벨 (관리자가 추가한 신규 채널 — 자동 생성 code 'channel-XXXX' 포함)
+//   ② CHANNEL_LABELS 하드코딩 (Instagram·TikTok·YouTube·X·Qoo10·LIPS·@cosme 등 표준 채널)
+//   ③ i18n '기타' 폴백
 function getChannelLabelLocal(code) {
-  return CHANNEL_LABELS[code] || t('channelLabel.other');
+  if (!code) return '';
+  if (typeof getLookupLabel === 'function') {
+    const lang = (typeof getLang === 'function') ? getLang() : 'ja';
+    const lbl = getLookupLabel('channel', code, lang);
+    if (lbl) return lbl;
+  }
+  if (CHANNEL_LABELS[code]) return CHANNEL_LABELS[code];
+  return t('channelLabel.other');
 }
 
 function onPostUrlInputChange() {
@@ -9065,7 +9076,7 @@ function onPostUrlInputChange() {
   }
   const ch = detectChannelFromUrl(url);
   if (ch) {
-    if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetected').replace('{channel}', CHANNEL_LABELS[ch]);
+    if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetected').replace('{channel}', getChannelLabelLocal(ch));
     if (detectedLbl) detectedLbl.style.color = 'var(--dark-pink)';
     if (manualWrap) manualWrap.style.display = 'none';
   } else {
@@ -9333,7 +9344,7 @@ function renderActivityReviewImageList(delivs, channels) {
 
   let hasDraft = false;
   container.innerHTML = (channels || []).map(function(ch) {
-    const chLabel = CHANNEL_LABELS[ch] || ch;
+    const chLabel = getChannelLabelLocal(ch) || ch;
     const row = latestByChannel[ch];
     // 폼 표시 조건: 행 없음 OR 최신이 rejected. 마감 후 반려 없으면 폼 비활성.
     const needForm = !row || row.status === 'rejected';
@@ -9408,7 +9419,7 @@ function renderActivityPostList(delivs) {
     const stBadge = isDraft
       ? `<span style="background:#e5e7eb;color:#555;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('activity.draftBadge')}</span>`
       : activityStatusBadge(d.status);
-    const chLabel = CHANNEL_LABELS[d.post_channel] || d.post_channel || '—';
+    const chLabel = getChannelLabelLocal(d.post_channel) || d.post_channel || '—';
     const actionBtn = isDraft
       ? `<button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="deleteDraft('${esc(d.id)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete</span></button>`
       : '';
