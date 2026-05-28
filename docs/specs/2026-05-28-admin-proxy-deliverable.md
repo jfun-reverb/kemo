@@ -219,6 +219,45 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 - **PR 3 — 진행 현황 칩 + 엑셀 + 인플 화면 배지**:
   - 캠페인 진행 현황 마커
   - 엑셀 컬럼 추가
+
+### PR 5 — 사유 증빙 파일 첨부 (다음 세션 백로그, 2026-05-28 사용자 결정)
+
+**사용자 결정 4건**:
+- 첨부 형식: **이미지 + PDF** (jpg·png·webp·gif·pdf)
+- 개수 제한: **최대 5장 · 장당 5MB**
+- 회수 시: **Storage 자동 삭제** (deliverables 행 + audit + Storage 파일 전부 정리 — 운영 흔적 완전 제거, 기존 CASCADE 정책과 일관)
+- 진행 시점: **별도 PR 5 로 다음 세션**에 진행
+
+**필요한 변경 영역**:
+1. **마이그레이션 161**:
+   - `deliverables` 컬럼 추가 — `submitted_by_admin_evidence jsonb NULL` (배열, `[{path, name, size, mime}]`)
+   - `admin_create_deliverable_proxy` RPC 시그니처 확장 — `p_evidence_paths jsonb DEFAULT '[]'::jsonb` 추가 (DEFAULT 두면 기존 클라 호출도 호환)
+   - `admin_revoke_proxy_deliverable` RPC 본문 보강 — DELETE 직전 `submitted_by_admin_evidence` jsonb 에서 `path` 추출 후 `storage.objects` 정리 호출 (또는 별도 헬퍼 함수 `_delete_proxy_evidence(paths)` 신설)
+2. **Storage 버킷 신설**: `admin-proxy-evidence`
+   - 비공개 (public=false)
+   - 정책: `is_campaign_admin()` 만 SELECT/INSERT, super_admin 만 DELETE
+   - 경로 규칙 권고: `{deliverable_id}/{file_uuid}.{ext}`
+3. **UI 변경 (`dev/admin/index.html` + `dev/js/admin-deliverables.js`)**:
+   - 사유 메모 영역 아래 「증빙 첨부 (선택)」 섹션
+   - 파일 입력 `<input type="file" multiple accept="image/*,application/pdf">` 또는 드래그&드롭
+   - 클라 검증: 5장 한도, 장당 5MB, MIME 화이트리스트
+   - 미리보기 — 이미지는 썸네일, PDF 는 파일명·아이콘
+   - 모달 제출 시 Storage 업로드 → path 배열 → RPC `p_evidence_paths` 전달
+   - 검수 모달 「대리 등록」 안내 박스에 증빙 다운로드 링크 노출 (`getPublicUrl` 또는 signed URL — 비공개 버킷이라 signed URL 필요. 만료 시간 60분 권장)
+   - 인플 화면(`dev/js/application.js`)에는 증빙 미노출 (운영 내부 정보)
+4. **회수 동작**:
+   - super_admin 「대리 등록 회수」 → RPC `admin_revoke_proxy_deliverable` 호출
+   - RPC 가 deliverables 행에서 `submitted_by_admin_evidence` 의 path 배열 추출 → Storage API 로 일괄 DELETE
+   - audit `admin_proxy_revoke` 1건 → deliverables 행 DELETE → CASCADE 로 audit 도 삭제 (기존 정책 그대로)
+
+**에이전트 호출 의무 (PR 5 착수 시)**:
+- `reverb-planner` — PR 5 착수 직전 (Storage 정책 + RPC 시그니처 확장 + UI 신규 영역)
+- `reverb-supabase-expert` — 마이그레이션 161 + Storage 버킷 + 정책 작성
+- `reverb-reviewer` — 모든 commit 직전
+- `reverb-qa-tester` Light — 증빙 첨부 흐름 + 회수 시 Storage 정리 회귀
+
+**의존**:
+- 본 사양 PR 1·2·3 dev 머지 완료 후 진행 (PR 1·2·3 + UX 개선 PR 351 까지 머지 끝). 운영 배포는 PR 5 까지 묶어서 협의 권장
   - 인플 활동관리 배지
 
 ## 10. 게이트·QA
