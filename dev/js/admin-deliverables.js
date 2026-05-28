@@ -1156,14 +1156,32 @@ function _resetAdminProxyForm() {
 }
 
 async function _loadAdminProxyApprovedApps() {
+  // PostgREST schema cache 가 applications.campaign_id / applications.user_id 의 FK 임베드를
+  // 인식 못 하는 사례(스키마 새로고침 지연 등)가 있어 분리 쿼리 + 클라이언트 join 패턴 사용.
   if (!db) return [];
-  const {data, error} = await db?.from('applications').select(`
-    id, status, campaign_id, user_id,
-    campaigns:campaign_id (id, title, brand, recruit_type, channel, campaign_no),
-    influencers:user_id (id, name, name_kana, email)
-  `).eq('status', 'approved').order('reviewed_at', {ascending: false}).limit(500);
+  // 1. approved 신청만 (status·reviewed_at 정렬)
+  const {data: apps, error} = await db?.from('applications')
+    .select('id, status, campaign_id, user_id, reviewed_at')
+    .eq('status', 'approved')
+    .order('reviewed_at', {ascending: false})
+    .limit(500);
   if (error) throw error;
-  return (data || []).filter(a => a.campaigns && a.influencers);
+  if (!apps || !apps.length) return [];
+  // 2. 관련 캠페인 + 인플 별도 IN 쿼리 (병렬)
+  const campIds = [...new Set(apps.map(a => a.campaign_id).filter(Boolean))];
+  const userIds = [...new Set(apps.map(a => a.user_id).filter(Boolean))];
+  const [campRes, infRes] = await Promise.all([
+    campIds.length ? db?.from('campaigns').select('id, title, brand, recruit_type, channel, campaign_no').in('id', campIds) : {data: []},
+    userIds.length ? db?.from('influencers').select('id, name, name_kana, email').in('id', userIds) : {data: []}
+  ]);
+  const campMap = {};
+  (campRes?.data || []).forEach(c => { campMap[c.id] = c; });
+  const infMap = {};
+  (infRes?.data || []).forEach(u => { infMap[u.id] = u; });
+  // 3. 클라이언트 join — 캠페인·인플 둘 다 있는 것만 노출 (RLS 누락 행 자동 필터)
+  return apps
+    .map(a => ({...a, campaigns: campMap[a.campaign_id], influencers: infMap[a.user_id]}))
+    .filter(a => a.campaigns && a.influencers);
 }
 
 async function _loadAdminProxyReasons() {

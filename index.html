@@ -4748,7 +4748,7 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason')
+      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at')
       .eq('campaign_id', campaignId)
       .order('submitted_at', {ascending: false});
     if (error) throw error;
@@ -9410,6 +9410,10 @@ function renderActivityReceiptList(delivs) {
     const reasonBox = (r.status === 'rejected' && r.reject_reason)
       ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(r.reject_reason)}</div>`
       : '';
+    // 마이그레이션 160: 관리자 대리 등록 행이면 한 줄 일본어 설명 상시 노출 (사용자 결정 2026-05-28)
+    const proxyBox = r.submitted_by_admin
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(r)}</div>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:12px">
@@ -9423,6 +9427,7 @@ function renderActivityReceiptList(delivs) {
           ${rightCol}
         </div>
       </div>
+      ${proxyBox}
       ${reasonBox}
     </div>`;
   }).join('');
@@ -9470,6 +9475,10 @@ function renderActivityReviewImageList(delivs, channels) {
       const reasonBox = (row.status === 'rejected' && row.reject_reason)
         ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(row.reject_reason)}</div>`
         : '';
+      // 마이그레이션 160: 관리자 대리 등록 노랑 박스 (사양 2 운영 후 review_image 대리 등록 활성)
+      const proxyBox = row.submitted_by_admin
+        ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(row)}</div>`
+        : '';
       const thumb = row.receipt_url
         ? `<img src="${esc(imgThumb(row.receipt_url,112,80))}" data-orig="${esc(row.receipt_url)}" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;cursor:pointer;background:#f5f5f5" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" onclick="window.open('${esc(row.receipt_url)}','_blank')">`
         : '';
@@ -9479,6 +9488,7 @@ function renderActivityReviewImageList(delivs, channels) {
           <div style="flex:1;min-width:0">${stBadge}</div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${rightCol}</div>
         </div>
+        ${proxyBox}
         ${reasonBox}`;
     }
 
@@ -9533,6 +9543,10 @@ function renderActivityPostList(delivs) {
     const reasonBox = (d.status === 'rejected' && d.reject_reason)
       ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF5F5;border-left:3px solid #C33;border-radius:6px;font-size:11px;color:#C33;white-space:pre-wrap;line-height:1.5">${esc(d.reject_reason)}</div>`
       : '';
+    // 마이그레이션 160: 관리자 대리 등록 노랑 박스
+    const proxyBox = d.submitted_by_admin
+      ? `<div style="margin-top:8px;padding:8px 10px;background:#FEF3C7;border-left:3px solid #FBBF24;border-radius:6px;font-size:11px;color:#92400E;line-height:1.5">${activityProxyNoticeJa(d)}</div>`
+      : '';
     return `
     <div style="padding:12px;background:var(--surface);border:1px solid var(--outline);border-radius:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
@@ -9541,6 +9555,7 @@ function renderActivityPostList(delivs) {
       </div>
       <a href="${esc(d.post_url||'')}" target="_blank" rel="noopener" style="font-size:12px;color:var(--dark-pink);word-break:break-all;text-decoration:none">${esc(d.post_url||'')}</a>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">${formatDate(d.submitted_at)}</div>
+      ${proxyBox}
       ${reasonBox}
     </div>`;
   }).join('');
@@ -9551,6 +9566,22 @@ function activityStatusBadge(status) {
   if (status === 'approved') return `<span style="background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.approved')}</span>`;
   if (status === 'rejected') return `<span style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.rejected')}</span>`;
   return `<span style="background:#FFF4E4;color:#B8741A;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px">${t('delivStatus.pending')}</span>`;
+}
+
+// 마이그레이션 160: 인플 화면 「운영 측에서 등록」 한 줄 일본어 안내 (사용자 결정 2026-05-28)
+// 사유 메모(자유 텍스트)는 운영 내부 정보이므로 노출하지 않고 사유 라벨만 노출.
+function activityProxyNoticeJa(deliverable) {
+  if (!deliverable || !deliverable.submitted_by_admin) return '';
+  const code = deliverable.submitted_by_admin_reason_code || '';
+  // 시드 4건 인라인 일본어 매핑 (마이그레이션 160 lookup_values admin_proxy_reason)
+  const REASON_JA = {
+    shipping_delay:      '配送遅延',
+    system_error:        'システムエラー',
+    inflexible_deadline: '期間外協議',
+    other:               'その他'
+  };
+  const reasonJa = REASON_JA[code] || code || '—';
+  return `運営側で登録 — ${esc(reasonJa)}`;
 }
 
 function previewReceipt(input) {

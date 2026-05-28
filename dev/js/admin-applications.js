@@ -171,12 +171,17 @@ function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPost
   if (counts.approved) parts.push(`<span style="color:#2D7A3E">승인 ${counts.approved}</span>`);
   if (counts.pending) parts.push(`<span style="color:#B8741A">검수대기 ${counts.pending}</span>`);
   if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
+  // 마이그레이션 160: 결과물 중 1개라도 대리 등록이면 ⊕ 마커 + 호버 툴팁
+  const proxyCount = list.filter(d => d.submitted_by_admin).length;
+  const proxyMarker = proxyCount > 0
+    ? ` <span style="display:inline-block;background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:9px;font-weight:700;padding:0 4px;border-radius:3px;line-height:14px" title="관리자 대리 등록 ${proxyCount}건">⊕${proxyCount > 1 ? proxyCount : ''}</span>`
+    : '';
   const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
   const completeBadge = complete
     ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">완료</div>'
     : '';
   const latest = list[0];
-  return `<div style="font-size:10px">${parts.join(' · ')}</div>
+  return `<div style="font-size:10px">${parts.join(' · ')}${proxyMarker}</div>
     ${completeBadge}
     <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivDetail('${latest.id}')">상세</button>`;
 }

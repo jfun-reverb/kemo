@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779958413';
+  var CURRENT_BUILD = 'v1779959438';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1818,7 +1818,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 17:53 · aed1c8e</span>
+          <span class="admin-build-text">2026-05-28 18:10 · c6169d5</span>
         </div>
       </div>
     </aside>
@@ -6006,7 +6006,7 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason')
+      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at')
       .eq('campaign_id', campaignId)
       .order('submitted_at', {ascending: false});
     if (error) throw error;
@@ -17650,14 +17650,32 @@ function _resetAdminProxyForm() {
 }
 
 async function _loadAdminProxyApprovedApps() {
+  // PostgREST schema cache 가 applications.campaign_id / applications.user_id 의 FK 임베드를
+  // 인식 못 하는 사례(스키마 새로고침 지연 등)가 있어 분리 쿼리 + 클라이언트 join 패턴 사용.
   if (!db) return [];
-  const {data, error} = await db?.from('applications').select(`
-    id, status, campaign_id, user_id,
-    campaigns:campaign_id (id, title, brand, recruit_type, channel, campaign_no),
-    influencers:user_id (id, name, name_kana, email)
-  `).eq('status', 'approved').order('reviewed_at', {ascending: false}).limit(500);
+  // 1. approved 신청만 (status·reviewed_at 정렬)
+  const {data: apps, error} = await db?.from('applications')
+    .select('id, status, campaign_id, user_id, reviewed_at')
+    .eq('status', 'approved')
+    .order('reviewed_at', {ascending: false})
+    .limit(500);
   if (error) throw error;
-  return (data || []).filter(a => a.campaigns && a.influencers);
+  if (!apps || !apps.length) return [];
+  // 2. 관련 캠페인 + 인플 별도 IN 쿼리 (병렬)
+  const campIds = [...new Set(apps.map(a => a.campaign_id).filter(Boolean))];
+  const userIds = [...new Set(apps.map(a => a.user_id).filter(Boolean))];
+  const [campRes, infRes] = await Promise.all([
+    campIds.length ? db?.from('campaigns').select('id, title, brand, recruit_type, channel, campaign_no').in('id', campIds) : {data: []},
+    userIds.length ? db?.from('influencers').select('id, name, name_kana, email').in('id', userIds) : {data: []}
+  ]);
+  const campMap = {};
+  (campRes?.data || []).forEach(c => { campMap[c.id] = c; });
+  const infMap = {};
+  (infRes?.data || []).forEach(u => { infMap[u.id] = u; });
+  // 3. 클라이언트 join — 캠페인·인플 둘 다 있는 것만 노출 (RLS 누락 행 자동 필터)
+  return apps
+    .map(a => ({...a, campaigns: campMap[a.campaign_id], influencers: infMap[a.user_id]}))
+    .filter(a => a.campaigns && a.influencers);
 }
 
 async function _loadAdminProxyReasons() {
@@ -18890,10 +18908,12 @@ async function exportCampaignDeliverables(campId) {
     ws.getRow(2).height = 20;
 
     // 그룹 헤더 (3행) — 인플루언서 7컬럼 / 영수증 9컬럼 / 결과물 6컬럼 (마이그레이션 128로 영수증 6→9 확장)
+    // 마이그레이션 160: W컬럼 「대리 등록」 추가 (1컬럼, 신청 단위 통합 표시)
     ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
     ws.mergeCells('H3:P3'); ws.getCell('H3').value = '영수증';
     ws.mergeCells('Q3:V3'); ws.getCell('Q3').value = '결과물';
-    ['A3','H3','Q3'].forEach(function(addr) {
+    ws.getCell('W3').value = '대리 등록';
+    ['A3','H3','Q3','W3'].forEach(function(addr) {
       var c = ws.getCell(addr);
       c.font = {bold: true, color: {argb: 'FF222222'}};
       c.alignment = {vertical: 'middle', horizontal: 'center'};
@@ -18903,21 +18923,24 @@ async function exportCampaignDeliverables(campId) {
 
     // 컬럼 헤더 (4행)
     // 영수증 9컬럼: 타입 / 제출일 / 검수일 / 상태 / 주문번호 / 구매일 / 구매금액 / 이미지 / URL
+    // W컬럼 「관리자 · 사유」: 영수증 또는 결과물 중 1건이라도 대리 등록이면 표시
     ws.getRow(4).values = [
       '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
-      '타입', '제출일', '검수일', '상태', '이미지', 'URL'
+      '타입', '제출일', '검수일', '상태', '이미지', 'URL',
+      '관리자 · 사유'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
     ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증 9컬럼·결과물 6컬럼)
+    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증 9컬럼·결과물 6컬럼·대리 등록 1컬럼)
     ws.columns = [
       {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 18}, {width: 12}, {width: 12}, {width: 16}, {width: 32},
-      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
+      {width: 28}
     ];
 
     // SNS URL 변환은 공용 _excelSnsUrl 헬퍼 사용 (handle → 전체 URL)
@@ -18970,6 +18993,17 @@ async function exportCampaignDeliverables(campId) {
 
       var receiptCells = renderReceiptCells9(g.receipt);
       var resultCells = renderDeliverableCells(g.result);
+      // 마이그레이션 160: 대리 등록 1컬럼 — 영수증 또는 결과물 중 1건이라도 submitted_by_admin 이면 "사유 라벨 (영수증/결과물 표시)" 한 줄
+      var proxyParts = [];
+      if (g.receipt && g.receipt.submitted_by_admin) {
+        var rReason = _excelProxyReasonKo(g.receipt.submitted_by_admin_reason_code);
+        proxyParts.push('영수증 · ' + rReason);
+      }
+      if (g.result && g.result.submitted_by_admin) {
+        var dReason = _excelProxyReasonKo(g.result.submitted_by_admin_reason_code);
+        proxyParts.push('결과물 · ' + dReason);
+      }
+      var proxyCell = proxyParts.length ? proxyParts.join(' / ') : '';
 
       row.values = [
         // 인플루언서 정보 7컬럼
@@ -18983,7 +19017,9 @@ async function exportCampaignDeliverables(campId) {
         // 영수증 9컬럼
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼
-        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5]
+        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5],
+        // 대리 등록 1컬럼
+        proxyCell
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
 
@@ -19448,6 +19484,18 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
 }
 
 
+
+// 마이그레이션 160: 엑셀 대리 등록 사유 코드 → 한국어 라벨 (시드 4건 인라인, 관리자 엑셀 한국어 UI)
+function _excelProxyReasonKo(code) {
+  if (!code) return '—';
+  var map = {
+    shipping_delay:      '배송 지연',
+    system_error:        '시스템 오류',
+    inflexible_deadline: '기간 외 합의 처리',
+    other:               '기타'
+  };
+  return map[code] || code;
+}
 
 // ═════════════════════════════════════════════════════════════════
 // REVERB ADMIN — dev/js/admin-dashboard.js
@@ -20019,12 +20067,17 @@ function renderDelivCell(list, appStatus, selectedChannels, channelMatch, isPost
   if (counts.approved) parts.push(`<span style="color:#2D7A3E">승인 ${counts.approved}</span>`);
   if (counts.pending) parts.push(`<span style="color:#B8741A">검수대기 ${counts.pending}</span>`);
   if (counts.rejected) parts.push(`<span style="color:#C33">반려 ${counts.rejected}</span>`);
+  // 마이그레이션 160: 결과물 중 1개라도 대리 등록이면 ⊕ 마커 + 호버 툴팁
+  const proxyCount = list.filter(d => d.submitted_by_admin).length;
+  const proxyMarker = proxyCount > 0
+    ? ` <span style="display:inline-block;background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:9px;font-weight:700;padding:0 4px;border-radius:3px;line-height:14px" title="관리자 대리 등록 ${proxyCount}건">⊕${proxyCount > 1 ? proxyCount : ''}</span>`
+    : '';
   const complete = isApplicationComplete(list, selectedChannels, channelMatch, isPostType);
   const completeBadge = complete
     ? '<div style="display:inline-block;margin-top:3px;background:#E4F5E8;color:#2D7A3E;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px">완료</div>'
     : '';
   const latest = list[0];
-  return `<div style="font-size:10px">${parts.join(' · ')}</div>
+  return `<div style="font-size:10px">${parts.join(' · ')}${proxyMarker}</div>
     ${completeBadge}
     <button class="btn btn-ghost btn-xs" style="margin-top:3px;font-size:10px;padding:2px 6px" onclick="openDelivDetail('${latest.id}')">상세</button>`;
 }
