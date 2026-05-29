@@ -169,10 +169,17 @@ lookupEditModal · faqEditModal · psetEditModal · csetEditModal · nsetEditMod
 ## 10. 약관·법률 영향
 없음 (순수 UI 구조).
 
-## 11. 구현 결과 (개발 세션이 채울 것)
-```
-구현일:
-관련 커밋/PR:
-초안 대비 변경:
-구현 중 기술 결정:
-```
+## 11. 구현 결과
+
+**구현일:** 2026-05-29
+**관련 커밋/PR:** dev PR #379·#380·#381(미분리 5개 + 계정 4개 + footer 전역 CSS) + #382(adminProxy .open 회귀) → 운영 dev→main PR #383(main 9e26ae5).
+
+### 초안 대비 변경
+- **추가**: 관리자 계정 모달 4개(addAdmin·resetPw·deleteAdmin·adminEmailSubs) footer 클래스화(초안 미분리 5개 외 추가 통일). adminProxyDelivModal `.open` 전환(display 직접 조작이라 드래그 미적용 회귀 + 잔류 버그 동시 해소).
+- **달라진 것**: footer/header CSS 스코프 — 초안은 `#page-admin` 한정 권고였으나, **미분리 모달이 #page-admin 밖(body 직속)이라 스코프가 안 먹어** 전역 정의로 변경(admin.css가 관리자 빌드 전용이라 인플 영향 0). `.modal-header`/`.modal-title`도 전역 표준화(border-bottom·16px).
+- **빠진 것**: PR 3(분리형 모달 인라인 footer 클래스 교체) — 백로그. adminNoticeEditModal footer(id 인라인)도 미통일.
+
+### 구현 중 기술 결정
+- 미분리 5개 재구조화 시 제목 div의 `id`(xxxModalTitle) + 폼 필드 id 전부 보존 → 저장/렌더 함수 무변경(검증 완료).
+- **교훈(핵심)**: 드래그 적용 MutationObserver가 overlay `class` 변화만 감지하므로, 모달은 반드시 `classList.add('open')`으로 열 것. `style.display` 직접 조작 모달은 드래그 미적용(adminProxy 회귀).
+- 인라인 style 가진 모달은 인라인 우선이라 기존 외관 유지, 인라인 없는 모달만 전역 표준 적용.

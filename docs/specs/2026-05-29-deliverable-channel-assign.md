@@ -281,15 +281,18 @@ async function assignReviewImageChannel(deliverableId, postChannel) {
 
 ---
 
-## 9. 구현 결과 (개발 세션이 채울 것)
+## 9. 구현 결과
 
-```
-구현일:
-관련 커밋/PR:
+**구현일:** 2026-05-29
+**관련 커밋/PR:** dev PR #373(마이그 162 + storage + UI) → 운영 dev→main PR #374. 백필 패치는 운영 직접 적용.
+
 ### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+- 추가된 것: 단일채널 백필 패치(`supabase/patches/2026-05-29-backfill-...sql`, 운영 340행 적용) — 다채널 채널지정 RPC와 별개로 단일채널 367건은 데이터 백필로 즉시 해결(NOT EXISTS + DISTINCT ON 충돌 회피). 사용자 결정으로 구버전 NULL 29건은 삭제 안 하고 보존(과거 제출·승인 이력).
+- 빠진 것: PR 3(오지정 해제 버튼 + 셀 "채널 미분류 N" 칩) — 백로그.
+- 달라진 것: 없음(설계 5종 추천안 전체 수용).
+
 ### 구현 중 기술 결정 사항
-- 확정 마이그레이션 번호:
-```
+- **확정 마이그레이션 번호: 162** (admin-proxy PR 5는 163으로 밀림 — 메모리 정정).
+- delete RPC의 audit INSERT 제거(CASCADE로 즉시 소멸하는 무의미 코드) + 한계 주석.
+- assign RPC 해제 분기 `pending/draft` 허용(초안 pending만 → draft 추가, reviewer 지적).
+- 운영 배포 완료. 운영자가 다채널 26건 검수 모달에서 채널 지정 완료. 남은 다채널 2건은 두 채널 다 신버전 채워진 중복.
