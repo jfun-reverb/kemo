@@ -341,9 +341,8 @@ async function renderAppCampList() {
   const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
   if (searchVal) {
     apps = apps.filter(a => {
-      const camp = camps.find(c => c.id === a.campaign_id) || {};
+      // 검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
       return matchSearchTokens(searchVal, [
-        camp.title, camp.brand, camp.brand_ko, camp.product, camp.product_ko, camp.campaign_no,
         a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code,
       ]);
     });

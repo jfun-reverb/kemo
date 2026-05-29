@@ -226,9 +226,9 @@ async function renderDeliverablesList() {
       if (!resultStatusVals.includes(s)) return false;
     }
     if (search) {
+      // 검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
       const inf = g.influencer || {};
-      const camp = g.campaign || {};
-      if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email, camp.title, camp.brand, camp.campaign_no])) return false;
+      if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
     }
     return true;
   };
@@ -300,14 +300,10 @@ async function renderDeliverablesList() {
       : (g.result ? g.result.status : 'none');
     return resultStatusVals.includes(s);
   });
-  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
+  // 검색 필터 — 인플루언서 전용(단어 단위 AND, 전각/반각 공백 무관). 캠페인은 검색형 드롭다운으로 분리
   if (search) filtered = filtered.filter(g => {
     const inf = g.influencer || {};
-    const camp = g.campaign || {};
-    return matchSearchTokens(search, [
-      inf.name, inf.name_kana, inf.email,
-      camp.title, camp.brand, camp.campaign_no,
-    ]);
+    return matchSearchTokens(search, [inf.name, inf.name_kana, inf.email]);
   });
   // 「대리 등록만 보기」 필터 (마이그레이션 160) — 신청 그룹 안 deliverable 중 1개라도 submitted_by_admin 있으면 통과
   // reviewByChannel 은 monitor 캠페인의 채널별 review_image 결과물 맵 (사양 2 운영 후 채워짐)
