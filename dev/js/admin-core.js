@@ -620,8 +620,8 @@ function makeModalDraggableResizable(modalEl) {
   };
 
   // ── 드래그(이동) 핸들 결정 ──
-  //   기본은 .modal-header. 헤더 없는 모달(lookup/pset/cset/nset/faq 등)은
-  //   .modal-body 안 첫 요소(제목 div, id=xxxModalTitle)를 드래그 핸들로 사용.
+  //   기본은 .modal-header 를 드래그 핸들로 사용(2026-05-29 구조 통일로 표준 모달은 모두 header 보유).
+  //   .modal-header 없는 비표준 모달만 .modal-body 첫 요소를 fallback 핸들로 사용.
   let dragHandle = modalEl.querySelector('.modal-header');
   if (!dragHandle) {
     const bodyEl = modalEl.querySelector('.modal-body');

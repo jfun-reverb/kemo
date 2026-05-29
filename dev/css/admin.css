@@ -1343,3 +1343,18 @@
 .modal-rsz-nw{top:0;left:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
+
+/* ── 관리자 모달 표준 footer (2026-05-29 모달 구조 통일) ── */
+/* 인플 공용 .modal 에 영향 없도록 #page-admin 스코프 한정 (인플 앱 .modal-footer 사용처 0 확인). */
+/* 다수 모달이 이미 class="modal-footer"+인라인 style 로 쓰던 패턴을 클래스 규칙화 + flex-shrink:0 보강 */
+/* (리사이즈로 세로 짧게 줄여도 버튼 영역이 찌부러지지 않고 하단 고정). 폭/패딩 인라인은 기존 우선. */
+#page-admin .modal-footer{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:flex-end;
+  padding:14px 22px;
+  border-top:1px solid var(--line);
+  flex-shrink:0;
+}
+#page-admin .modal-footer-aux{ margin-right:auto; }  /* 좌측 보조요소(상태 pill·삭제 버튼) 고정 */
