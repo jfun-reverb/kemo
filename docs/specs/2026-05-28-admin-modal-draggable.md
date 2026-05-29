@@ -271,6 +271,20 @@ function openInfluencerDetailModal(id) {
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-(개발 세션이 작업 분할 A~C 진행 후 작성)
+**구현일:** 2026-05-29
+**관련 커밋/PR:** dev — 초판(afa6244) + 수정 PR #377·#378(정중앙·폭튐·헤더없는모달·8방향) → 운영 dev→main PR #383(main 9e26ae5).
+
+### 초안 대비 변경 사항
+- **추가**: 8방향 리사이즈(초안은 우하단 `resize:both` 1방향, v2 백로그였으나 사용자 요청으로 상하좌우+4모서리 핸들 + 방향별 커서로 구현). 가로 폭 확장(드래그/리사이즈 시 max-width/height 해제, dataset.origMaxW 백업·재열림 복원).
+- **달라진 것**:
+  - 초안 "현재 상태: 화면 가운데 고정"은 부정확 — 실제는 하단 바텀시트(`align-items:flex-end`). 정중앙은 `transform:translate(-50%,-50%)`로 구현(초안의 rect 측정 방식은 렌더 타이밍에 중앙 하단 치우침 발생 → transform으로 교체).
+  - 초안 CSS `width:480px` 강제 제거 → 각 모달 인라인 max-width(480~1280px) 존중(width 강제 시 전 모달이 480으로 좁아지는 버그).
+  - 적용 방식: 초안의 "open 함수마다 헬퍼 호출" 대신 MutationObserver(overlay .open 감지) 단일 지점 — open 방식(openModal/classList) 혼재 대응. 단 display 직접 조작 모달은 미감지(adminProxy 별도 .open 전환, [[project_deliverable_channel_assign]] 후속 통일에서 처리).
+- **빠진 것**: 위치·크기 localStorage 저장, 더블클릭 최대화 — v2 백로그.
+
+### 구현 중 기술 결정 사항
+- `pinPosition()`: 드래그/리사이즈 시작 시 현재 크기 px 고정 → 그 다음 max 해제(순서 중요, 안 그러면 width:94vw 튐). transform 조건 `!== 'none'`(빈 문자열 포함, 안 하면 왼쪽 튐).
+- 드래그 핸들: `.modal-header` 우선 → 없으면 `.modal-body` 첫 요소 fallback.
+- 인플 빌드 격리(admin.css/admin-core.js 관리자 빌드 전용). [[project_admin_modal_ux]] 통합 기록.

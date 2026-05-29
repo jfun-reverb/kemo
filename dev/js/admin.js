@@ -98,7 +98,8 @@ function syncCampMultiFilter(containerId, sortedCamps, onChange, counts) {
     subLabel: c.campaign_no || '',
     count: counts ? (counts[c.id] || 0) : null
   }));
-  syncMultiFilter(containerId, '전체 캠페인', options, onChange);
+  // 캠페인 목록이 길어 검색형 활성화 (delivCampMulti·appCampMulti 양쪽 자동 통일)
+  syncMultiFilter(containerId, '전체 캠페인', options, onChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
 }
 
 // ════════════════════════════════════════════════════════════════════

@@ -1009,7 +1009,7 @@
                 <label>검색</label>
                 <div style="position:relative">
                   <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="appSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 인플루언서명 · 캠페인번호 검색" oninput="renderAppCampList()">
+                  <input type="search" id="appSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 이메일 검색" oninput="renderAppCampList()">
                 </div>
               </div>
             </div>
@@ -1041,6 +1041,7 @@
                 관리자 대리 등록
               </button>
             </div>
+            <!-- 모든 필터 항상 노출 (한 영역, 줄바꿈 허용). 텍스트 검색만 돋보기 버튼으로 토글 -->
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>캠페인</label>
@@ -1051,16 +1052,24 @@
                 <div id="delivRecruitTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
-                <label>영수증 상태</label>
+                <label>채널</label>
+                <div id="delivChannelMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 채널</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>영수증 상태 <span class="material-icons-round notranslate" translate="no" title="영수증은 리뷰어 캠페인 전용입니다. 영수증 상태로 거르면 기프팅·방문형은 표시되지 않습니다." style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
                 <div id="delivReceiptStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
-                <label>결과물 상태</label>
+                <label>결과물 상태 <span class="material-icons-round notranslate" translate="no" title="다중채널 캠페인은 채널별 상태가 상태 종류마다 따로 집계됩니다. (예: 인스타 승인 + X 검수대기 → 승인·검수대기 양쪽 건수에 포함)" style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
                 <div id="delivResultStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
               </div>
+              <div class="admin-filter-group">
+                <label>최근 제출일</label>
+                <input type="text" id="delivSubmittedRange" class="admin-filter-search" readonly placeholder="기간 선택" style="min-width:170px;cursor:pointer;background:#fff">
+              </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>미제출</label>
-                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
+                <label>결과물 미제출</label>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px" title="승인됐지만 결과물을 한 건도 제출하지 않은 신청을 함께 표시합니다. (다중채널에서 일부 채널만 미제출인 경우는 '결과물 상태=미제출'로 거르세요)">
                   <input type="checkbox" id="delivIncludeMissing" onchange="renderDeliverablesList()" checked style="margin:0">
                   <span>포함</span>
                 </label>
@@ -1074,13 +1083,20 @@
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnDelivSearchToggle" onclick="toggleDelivSearch()" title="인플루언서명 · 이메일 검색">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">search</span>
+                </button>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
                 <button class="btn btn-ghost btn-xs" id="btnDelivFilterReset" onclick="resetDelivFiltersAndSort()" style="display:none">초기화</button>
               </div>
-              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+              <!-- 텍스트 검색 입력 (기본 숨김 — 돋보기 버튼으로 토글) -->
+              <div class="admin-filter-group" id="delivSearchBox" style="display:none;flex:1;min-width:220px">
                 <label>검색</label>
                 <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="delivSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 캠페인명 · 캠페인번호 검색" oninput="renderDeliverablesList()">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="delivSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="인플루언서명 · 이메일 검색" oninput="renderDeliverablesList()">
                 </div>
               </div>
             </div>
