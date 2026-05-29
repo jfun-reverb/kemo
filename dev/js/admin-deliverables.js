@@ -194,6 +194,7 @@ async function renderDeliverablesList() {
     if (channels.length === 0) {
       // 채널 미등록 monitor 캠페인 — 레거시 행 있으면 legacy 표시
       g.result_status_repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
+      g.result_states = [g.result_status_repr];
       continue;
     }
     const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
@@ -205,6 +206,10 @@ async function renderDeliverablesList() {
       repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
     }
     g.result_status_repr = repr;
+    // 필터 ANY 매칭용 상태 집합 — 채널별 상태(미제출=none) + 레거시 NULL channel 행 있으면 legacy_no_channel
+    const stateSet = new Set(states);
+    if (g.hasLegacyReviewImage) stateSet.add('legacy_no_channel');
+    g.result_states = [...stateSet];
   }
 
   // 옵션별 카운트 — 표준 multi-filter 패턴: 「자기 자신 필터 제외 + 다른 모든 필터 적용」 후 그룹 수.
@@ -217,13 +222,21 @@ async function renderDeliverablesList() {
     if (!opts.skipRecruit && recruitTypeVals.length > 0 && !recruitTypeVals.includes(g.campaign?.recruit_type)) return false;
     if (!opts.skipCamp && delivCampVals.length > 0 && !delivCampVals.includes(g.campaign?.id)) return false;
     if (!opts.skipReceipt && receiptStatusVals.length > 0) {
+      // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 영수증 단계가 없음
+      if (g.campaign?.recruit_type !== 'monitor') return false;
       const s = g.receipt ? g.receipt.status : 'none';
       if (!receiptStatusVals.includes(s)) return false;
     }
     if (!opts.skipResult && resultStatusVals.length > 0) {
       const rt2 = g.campaign?.recruit_type;
-      const s = (rt2 === 'monitor') ? (g.result_status_repr || 'none') : (g.result ? g.result.status : 'none');
-      if (!resultStatusVals.includes(s)) return false;
+      if (rt2 === 'monitor') {
+        // 다중채널: 채널별 상태 중 하나라도 선택값에 들면 통과 (ANY)
+        const states = g.result_states || ['none'];
+        if (!states.some(s => resultStatusVals.includes(s))) return false;
+      } else {
+        const s = g.result ? g.result.status : 'none';
+        if (!resultStatusVals.includes(s)) return false;
+      }
     }
     if (search) {
       // 검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
@@ -248,16 +261,21 @@ async function renderDeliverablesList() {
       const rt = g.campaign?.recruit_type;
       if (rt && (rt in recruitTypeCounts)) recruitTypeCounts[rt]++;
     }
-    // 영수증 상태 카운트: 자기 자신(영수증 필터) 제외 → 결과물·캠페인·모집타입·검색 모두 적용
-    if (passesFilters(g, {skipReceipt: true})) {
+    // 영수증 상태 카운트: 리뷰어(monitor) 그룹만 합산 (기프팅·방문형 'none' 오집계 차단)
+    if (passesFilters(g, {skipReceipt: true}) && g.campaign?.recruit_type === 'monitor') {
       const rs = g.receipt ? g.receipt.status : 'none';
       if (rs in receiptStatusCounts) receiptStatusCounts[rs]++;
     }
     // 결과물 상태 카운트: 자기 자신(결과물 필터) 제외 → 영수증·캠페인·모집타입·검색 모두 적용
     if (passesFilters(g, {skipResult: true})) {
       const rt = g.campaign?.recruit_type;
-      const xs = (rt === 'monitor') ? (g.result_status_repr || 'none') : (g.result ? g.result.status : 'none');
-      if (xs in resultStatusCounts) resultStatusCounts[xs]++;
+      if (rt === 'monitor') {
+        // 다중채널: 그룹이 가진 상태 종류마다 +1 (ANY 매칭과 정합 — 중복 집계 허용)
+        [...new Set(g.result_states || ['none'])].forEach(s => { if (s in resultStatusCounts) resultStatusCounts[s]++; });
+      } else {
+        const xs = g.result ? g.result.status : 'none';
+        if (xs in resultStatusCounts) resultStatusCounts[xs]++;
+      }
     }
   }
 
@@ -276,28 +294,37 @@ async function renderDeliverablesList() {
     {value:'rejected', label:'비승인',  count: receiptStatusCounts.rejected},
     {value:'none',     label:'미제출',  count: receiptStatusCounts.none},
   ], () => renderDeliverablesList());
-  syncMultiFilter('delivResultStatusMulti', '전체', [
-    {value:'pending',           label:'검수대기',   count: resultStatusCounts.pending},
-    {value:'approved',          label:'승인',       count: resultStatusCounts.approved},
-    {value:'rejected',          label:'비승인',     count: resultStatusCounts.rejected},
-    {value:'legacy_no_channel', label:'채널 미분류', count: resultStatusCounts.legacy_no_channel},
-    {value:'none',              label:'미제출',     count: resultStatusCounts.none},
-  ], () => renderDeliverablesList());
+  const delivResultOpts = [
+    {value:'pending',  label:'검수대기', count: resultStatusCounts.pending},
+    {value:'approved', label:'승인',    count: resultStatusCounts.approved},
+    {value:'rejected', label:'비승인',  count: resultStatusCounts.rejected},
+  ];
+  // 채널 미분류(레거시 NULL channel)는 건수>0일 때만 노출 — 채널 강제 이후 신규 0건
+  if (resultStatusCounts.legacy_no_channel > 0) {
+    delivResultOpts.push({value:'legacy_no_channel', label:'채널 미분류', count: resultStatusCounts.legacy_no_channel});
+  }
+  delivResultOpts.push({value:'none', label:'미제출', count: resultStatusCounts.none});
+  syncMultiFilter('delivResultStatusMulti', '전체', delivResultOpts, () => renderDeliverablesList());
 
   // 필터 적용
   let filtered = Array.from(groups.values());
   if (recruitTypeVals.length > 0) filtered = filtered.filter(g => g.campaign && recruitTypeVals.includes(g.campaign.recruit_type));
   if (delivCampVals.length > 0) filtered = filtered.filter(g => g.campaign && delivCampVals.includes(g.campaign.id));
   if (receiptStatusVals.length > 0) filtered = filtered.filter(g => {
+    // 영수증은 리뷰어(monitor) 전용 — 기프팅·방문형은 표시 안 함
+    if (g.campaign?.recruit_type !== 'monitor') return false;
     const s = g.receipt ? g.receipt.status : 'none';
     return receiptStatusVals.includes(s);
   });
   if (resultStatusVals.length > 0) filtered = filtered.filter(g => {
-    // monitor: reviewByChannel 종합 대표 상태(g.result_status_repr) / gifting·visit: g.result(post)
     const rt = g.campaign?.recruit_type;
-    const s = (rt === 'monitor')
-      ? (g.result_status_repr || 'none')
-      : (g.result ? g.result.status : 'none');
+    if (rt === 'monitor') {
+      // 다중채널: 채널별 상태 중 하나라도 선택값에 들면 통과 (ANY)
+      const states = g.result_states || ['none'];
+      return states.some(s => resultStatusVals.includes(s));
+    }
+    // gifting·visit: g.result(post)
+    const s = g.result ? g.result.status : 'none';
     return resultStatusVals.includes(s);
   });
   // 검색 필터 — 인플루언서 전용(단어 단위 AND, 전각/반각 공백 무관). 캠페인은 검색형 드롭다운으로 분리

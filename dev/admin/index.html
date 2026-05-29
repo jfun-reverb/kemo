@@ -1051,16 +1051,16 @@
                 <div id="delivRecruitTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
-                <label>영수증 상태</label>
+                <label>영수증 상태 <span class="material-icons-round notranslate" translate="no" title="영수증은 리뷰어 캠페인 전용입니다. 영수증 상태로 거르면 기프팅·방문형은 표시되지 않습니다." style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
                 <div id="delivReceiptStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
-                <label>결과물 상태</label>
+                <label>결과물 상태 <span class="material-icons-round notranslate" translate="no" title="다중채널 캠페인은 채널별 상태가 상태 종류마다 따로 집계됩니다. (예: 인스타 승인 + X 검수대기 → 승인·검수대기 양쪽 건수에 포함)" style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
                 <div id="delivResultStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>미제출</label>
-                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px">
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;height:32px" title="승인됐지만 결과물을 한 건도 제출하지 않은 신청을 함께 표시합니다. (다중채널에서 일부 채널만 미제출인 경우는 '결과물 상태=미제출'로 거르세요)">
                   <input type="checkbox" id="delivIncludeMissing" onchange="renderDeliverablesList()" checked style="margin:0">
                   <span>포함</span>
                 </label>
