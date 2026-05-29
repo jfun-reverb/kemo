@@ -1344,11 +1344,21 @@
 .modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
 
-/* ── 관리자 모달 표준 footer (2026-05-29 모달 구조 통일) ── */
-/* 인플 공용 .modal 에 영향 없도록 #page-admin 스코프 한정 (인플 앱 .modal-footer 사용처 0 확인). */
-/* 다수 모달이 이미 class="modal-footer"+인라인 style 로 쓰던 패턴을 클래스 규칙화 + flex-shrink:0 보강 */
-/* (리사이즈로 세로 짧게 줄여도 버튼 영역이 찌부러지지 않고 하단 고정). 폭/패딩 인라인은 기존 우선. */
-#page-admin .modal-footer{
+/* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
+/* admin.css 는 관리자 빌드 전용(인플 빌드 CLIENT_CSS 에 미포함)이라 전역 정의해도 인플 영향 0. */
+/* 미분리 모달 등은 #page-admin 밖(body 직속)이라 #page-admin 스코프가 안 먹음 → 전역으로 정의. */
+/* 인라인 header/footer style 가진 기존 모달은 인라인 우선(기존 외관 유지), 인라인 없는 모달은 아래 표준 적용. */
+/* components.css 의 .modal-header/.modal-title 보다 뒤에 로드되어 관리자 모달에서만 덮음. */
+.modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:18px 22px 12px;
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+}
+.modal-title{ font-size:16px; font-weight:700; color:var(--ink); }
+.modal-footer{
   display:flex;
   gap:8px;
   align-items:center;
@@ -1357,4 +1367,4 @@
   border-top:1px solid var(--line);
   flex-shrink:0;
 }
-#page-admin .modal-footer-aux{ margin-right:auto; }  /* 좌측 보조요소(상태 pill·삭제 버튼) 고정 */
+.modal-footer-aux{ margin-right:auto; }  /* 좌측 보조요소(상태 pill·삭제 버튼) 고정 */
