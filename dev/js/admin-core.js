@@ -556,3 +556,86 @@ function closeImageLightbox() {
   const img = $('imageLightboxImg');
   if (img) img.src = '';
 }
+
+// ──────────────────────────────────────
+// 관리자 모달 드래그·리사이즈 (2026-05-29, 사양서 docs/specs/2026-05-28-admin-modal-draggable.md)
+//   - 큰 입력/상세/검수 모달만 대상 (DRAGGABLE_ADMIN_MODALS 화이트리스트). 작은 확인·알럿·라이트박스는 제외.
+//   - 적용 시점: overlay 에 .open 이 붙는 순간을 MutationObserver 로 감지 → open 방식(openModal/직접 classList) 무관 일괄 적용.
+//   - 매 열림: 화면 가운데로 위치·크기 초기화 (사양서 결정 — 위치 저장은 v2).
+//   - mousemove/mouseup 리스너는 모달당 1회만 등록(dataset.dragInit 가드, 중복 누적 방지). 헤더 드래그, 닫기·입력 요소 제외, 헤더 일부 항상 화면 안(클램프).
+// ──────────────────────────────────────
+const DRAGGABLE_ADMIN_MODALS = new Set([
+  // 인플루언서
+  'influencerFullDetailModal', 'infDetailModal', 'influencerFlagEditModal',
+  // 캠페인·번들
+  'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
+  // 신청·결과물
+  'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
+  // 브랜드 서베이·회사
+  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal',
+  // 공지·기준데이터·계정
+  'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
+  // 메시지
+  'admMsgModal', 'admHideModal',
+]);
+
+function makeModalDraggableResizable(modalEl) {
+  if (!modalEl) return;
+  modalEl.classList.add('draggable');
+
+  // 이전 resize 흔적 제거 후 화면 가운데로 초기화 (매 열림). overlay 가 display:flex 로 열린 뒤라 레이아웃 직후 측정.
+  modalEl.style.width = '';
+  modalEl.style.height = '';
+  requestAnimationFrame(() => {
+    const rect = modalEl.getBoundingClientRect();
+    modalEl.style.left = Math.max(8, (window.innerWidth - rect.width) / 2) + 'px';
+    modalEl.style.top = Math.max(8, (window.innerHeight - rect.height) / 2) + 'px';
+  });
+
+  if (modalEl.dataset.dragInit) return;  // 드래그 리스너는 모달당 1회만 등록
+  modalEl.dataset.dragInit = '1';
+
+  const header = modalEl.querySelector('.modal-header');
+  if (!header) return;
+
+  let drag = null;
+  header.addEventListener('mousedown', (e) => {
+    // 닫기 버튼·입력 요소·링크는 드래그 제외
+    if (e.target.closest('.modal-close, input, textarea, select, button, a')) return;
+    const rect = modalEl.getBoundingClientRect();
+    drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    // 화면 밖 완전 이탈 방지 — 헤더 일부(가로 100px·세로 60px)는 항상 화면 안
+    const left = Math.max(-100, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
+    const top = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
+    modalEl.style.left = left + 'px';
+    modalEl.style.top = top + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!drag) return;
+    drag = null;
+    document.body.style.userSelect = '';
+  });
+}
+
+// overlay 에 .open 이 추가되면 화이트리스트 모달에 드래그·리사이즈 적용
+function _applyDraggableIfOpen(overlay) {
+  if (!overlay.classList.contains('open')) return;
+  if (!DRAGGABLE_ADMIN_MODALS.has(overlay.id)) return;
+  const modal = overlay.querySelector('.modal');
+  if (modal) makeModalDraggableResizable(modal);
+}
+
+// 관리자 부트 시 1회 호출 (admin/app.js). 정적 overlay(index.html) 전부에 class 변화 옵저버 부착.
+function initDraggableModals() {
+  document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+    if (overlay.dataset.dragObserved) return;
+    overlay.dataset.dragObserved = '1';
+    new MutationObserver(() => _applyDraggableIfOpen(overlay))
+      .observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  });
+}
