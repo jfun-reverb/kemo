@@ -191,3 +191,10 @@
 - **초안 대비 변경:** 없음(§설계 3·5·6 그대로).
 - **구현 중 결정**: ① 기간/채널 날짜·매칭 모두 브라우저 로컬 기준(`delivLocalDate`)으로 통일해 UTC 혼선 차단. ② 기간 필터 활성 시 다른 드롭다운 카운트도 **기간 교집합 기준으로 집계됨**(passesFilters 내부 AND, skipDate 없음 — PR1·2 「나머지 AND」 원칙과 정합, 의도된 동작). ③ `delivChannelMulti`는 init 없이 sync 첫 호출로 생성(`delivCampMulti`와 동일 패턴).
 - reviewer GO(Warning 2건 모두 코드 문제 아님), qa 권장 light.
+
+### PR 3 후속 — 레이아웃 재변경 (사용자 요청, 구현 완료)
+**구현일:** 2026-05-29 · 사용자 요청: "필터들 기본 출력으로 다 보이게, 검색은 버튼 클릭 시 펼침. 가능하면 숨기지 않는 게 좋겠다."
+- §설계 6의 「기본줄 + 더보기 접이식」을 **폐지** → 모든 필터 드롭다운(캠페인·모집타입·채널·영수증·결과물상태·최근제출일·결과물미제출·대리등록)을 **단일 flex-wrap 영역에 항상 노출**(줄바꿈 허용).
+- 텍스트 검색창만 **돋보기 버튼(`btnDelivSearchToggle`) 토글**로 전환(`toggleDelivSearch`) — 평소 숨김, 클릭 시 펼침+focus, 접을 때 검색어 있으면 비우고 갱신. 검색어 있으면 버튼 강조(`.active`)+검색창 펼침 유지.
+- 제거: `toggleDelivMoreFilters`·`updateDelivMoreFilterBadge`·`_delivMoreOpen`·`#delivMoreFilters`·더보기 배지/caret·`.deliv-more-badge`.
+- reviewer GO(검색창 장식 아이콘 translate 누락 1건 반영 후), qa 권장 light.
