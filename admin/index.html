@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780026491';
+  var CURRENT_BUILD = 'v1780029877';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1763,17 +1763,17 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* 기본 .modal 은 화면 하단 바텀시트(components.css align-items:flex-end). */
 /* .draggable 부여 시 position:absolute 로 overlay flex 정렬에서 빠져나와 자유 위치 카드로 전환. */
 /* 관리자 큰 입력/상세/검수 모달만 대상 — 인플 모달·작은 확인 모달은 .draggable 미부여로 자연 격리. */
+/* 위치만 absolute 로 전환하고 정중앙(transform)에 띄움. 크기는 각 모달 인라인 style 그대로 존중. */
+/* (width 강제 금지 — 모달마다 max-width 480~1280px 다름. left/top 계산 대신 transform 으로 렌더 타이밍 무관 정중앙) */
 .modal.draggable{
   position:absolute;
-  width:480px;
-  max-width:92vw;
-  max-height:90vh;        /* none 이면 긴 본문이 화면 넘침 → 90vh 상한 + 본문 내부 스크롤 */
-  min-width:360px;
-  min-height:240px;
-  border-radius:16px;     /* 바텀시트 28px 28px 0 0 → 4모서리 둥근 카드 */
-  overflow:hidden;        /* resize:both 작동 조건 (visible 이면 핸들 안 나옴) */
-  resize:both;
-  display:flex;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  margin:0;               /* 인라인 margin:auto 무효화 */
+  min-width:320px;
+  min-height:160px;
+  display:flex;           /* 인라인 flex 없는 모달(addAdmin/adminEmailSubs/lookupEdit)도 본문 스크롤 보장 */
   flex-direction:column;
 }
 .modal.draggable .modal-header{cursor:move;user-select:none;flex-shrink:0}
@@ -1781,6 +1781,16 @@ textarea.form-input{resize:vertical;min-height:80px}
 .modal.draggable .modal-header button,
 .modal.draggable .modal-header input{cursor:pointer}
 .modal.draggable .modal-body{flex:1 1 auto;overflow-y:auto;min-height:0}
+/* 8방향 리사이즈 핸들 — 모달 안쪽 가장자리(overflow:hidden 이어도 안 잘림). 무늬 없이 커서만으로 표시 */
+.modal-rsz{position:absolute;z-index:5}
+.modal-rsz-n {top:0;left:12px;right:12px;height:6px;cursor:ns-resize}
+.modal-rsz-s {bottom:0;left:12px;right:12px;height:6px;cursor:ns-resize}
+.modal-rsz-e {top:12px;bottom:12px;right:0;width:6px;cursor:ew-resize}
+.modal-rsz-w {top:12px;bottom:12px;left:0;width:6px;cursor:ew-resize}
+.modal-rsz-ne{top:0;right:0;width:14px;height:14px;cursor:nesw-resize}
+.modal-rsz-nw{top:0;left:0;width:14px;height:14px;cursor:nwse-resize}
+.modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
+.modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
 
 </style>
 </head>
@@ -1856,7 +1866,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-29 12:48 · afa6244</span>
+          <span class="admin-build-text">2026-05-29 13:44 · d26fce2</span>
         </div>
       </div>
     </aside>
@@ -9612,42 +9622,94 @@ function makeModalDraggableResizable(modalEl) {
   if (!modalEl) return;
   modalEl.classList.add('draggable');
 
-  // 이전 resize 흔적 제거 후 화면 가운데로 초기화 (매 열림). overlay 가 display:flex 로 열린 뒤라 레이아웃 직후 측정.
+  // 최초 1회: 모달 원래 인라인 max-width/max-height 백업 (열 때마다 기본 크기 복원용).
+  if (modalEl.dataset.origMaxW === undefined) {
+    modalEl.dataset.origMaxW = modalEl.style.maxWidth || '';
+    modalEl.dataset.origMaxH = modalEl.style.maxHeight || '';
+  }
+
+  // 매 열림 초기화 — 위치·크기·최대치 제거 → CSS 기본(정중앙 transform) + 모달 원래 크기·최대폭 복원.
+  modalEl.style.left = '';
+  modalEl.style.top = '';
+  modalEl.style.transform = '';
   modalEl.style.width = '';
   modalEl.style.height = '';
-  requestAnimationFrame(() => {
-    const rect = modalEl.getBoundingClientRect();
-    modalEl.style.left = Math.max(8, (window.innerWidth - rect.width) / 2) + 'px';
-    modalEl.style.top = Math.max(8, (window.innerHeight - rect.height) / 2) + 'px';
-  });
+  modalEl.style.maxWidth = modalEl.dataset.origMaxW;
+  modalEl.style.maxHeight = modalEl.dataset.origMaxH;
 
-  if (modalEl.dataset.dragInit) return;  // 드래그 리스너는 모달당 1회만 등록
+  if (modalEl.dataset.dragInit) return;  // 핸들·리스너는 모달당 1회만 등록
   modalEl.dataset.dragInit = '1';
 
-  const header = modalEl.querySelector('.modal-header');
-  if (!header) return;
+  // transform 기반 정중앙 → 드래그/리사이즈 시작 시 1회 left/top/width/height px 로 고정(transform 해제).
+  //   + max-width/height 제한 해제 → 리사이즈로 화면 끝까지 넓게 볼 수 있음(닫았다 열면 위 초기화로 기본 크기 복원).
+  const pinPosition = () => {
+    modalEl.style.maxWidth = 'none';
+    modalEl.style.maxHeight = 'none';
+    // 인라인 transform 이 '' (CSS translate(-50%,-50%) 활성) 또는 다른 값이면 px 로 고정.
+    // 'none'(이미 고정됨)일 때만 스킵 — 빈 문자열을 falsy 로 누락하면 드래그 시작 시 모달이 왼쪽으로 튐.
+    if (modalEl.style.transform !== 'none') {
+      const r = modalEl.getBoundingClientRect();
+      modalEl.style.left = r.left + 'px';
+      modalEl.style.top = r.top + 'px';
+      modalEl.style.width = r.width + 'px';
+      modalEl.style.height = r.height + 'px';
+      modalEl.style.transform = 'none';
+    }
+  };
 
+  // ── 헤더 드래그(이동) ──
+  const header = modalEl.querySelector('.modal-header');
   let drag = null;
-  header.addEventListener('mousedown', (e) => {
-    // 닫기 버튼·입력 요소·링크는 드래그 제외
-    if (e.target.closest('.modal-close, input, textarea, select, button, a')) return;
-    const rect = modalEl.getBoundingClientRect();
-    drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
+  if (header) {
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.modal-close, input, textarea, select, button, a')) return;
+      pinPosition();
+      const r = modalEl.getBoundingClientRect();
+      drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+  }
+
+  // ── 8방향 리사이즈 핸들 (상하좌우 + 4모서리). 커서만으로 표시, 무늬 없음 ──
+  let rsz = null;
+  const MINW = 320, MINH = 160;
+  ['n','s','e','w','ne','nw','se','sw'].forEach((dir) => {
+    const h = document.createElement('div');
+    h.className = 'modal-rsz modal-rsz-' + dir;
+    h.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pinPosition();
+      const r = modalEl.getBoundingClientRect();
+      rsz = { dir, x: e.clientX, y: e.clientY, w: r.width, h: r.height, l: r.left, t: r.top };
+      document.body.style.userSelect = 'none';
+    });
+    modalEl.appendChild(h);
   });
+
+  // 공용 mousemove/mouseup — 드래그·리사이즈 모두 처리 (모달당 1쌍, dragInit 가드로 중복 없음)
   document.addEventListener('mousemove', (e) => {
-    if (!drag) return;
-    // 화면 밖 완전 이탈 방지 — 헤더 일부(가로 100px·세로 60px)는 항상 화면 안
-    const left = Math.max(-100, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
-    const top = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
-    modalEl.style.left = left + 'px';
-    modalEl.style.top = top + 'px';
+    if (drag) {
+      const left = Math.max(-100, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
+      const top = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
+      modalEl.style.left = left + 'px';
+      modalEl.style.top = top + 'px';
+    } else if (rsz) {
+      const dx = e.clientX - rsz.x, dy = e.clientY - rsz.y;
+      let w = rsz.w, h = rsz.h, l = rsz.l, t = rsz.t;
+      if (rsz.dir.includes('e')) w = Math.max(MINW, rsz.w + dx);
+      if (rsz.dir.includes('s')) h = Math.max(MINH, rsz.h + dy);
+      if (rsz.dir.includes('w')) { w = Math.max(MINW, rsz.w - dx); l = rsz.l + (rsz.w - w); }
+      if (rsz.dir.includes('n')) { h = Math.max(MINH, rsz.h - dy); t = rsz.t + (rsz.h - h); }
+      modalEl.style.width = w + 'px';
+      modalEl.style.height = h + 'px';
+      modalEl.style.left = l + 'px';
+      modalEl.style.top = t + 'px';
+    }
   });
   document.addEventListener('mouseup', () => {
-    if (!drag) return;
-    drag = null;
-    document.body.style.userSelect = '';
+    if (drag || rsz) { drag = null; rsz = null; document.body.style.userSelect = ''; }
   });
 }
 
