@@ -41,11 +41,16 @@ function resetDelivFiltersAndSort() {
   resetMultiFilter('delivRecruitTypeMulti', '전체 타입');
   resetMultiFilter('delivReceiptStatusMulti', '전체');
   resetMultiFilter('delivResultStatusMulti', '전체');
+  resetMultiFilter('delivChannelMulti', '전체 채널');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
   const q = $('delivSearch'); if (q) q.value = '';
   // 미제출 포함은 기본값 ON(HTML checked)과 일치하게 복원 — 초기화 후 전체 건수가 보이도록
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
+  // 최근 제출일 기간 초기화
+  _delivSubmittedFrom = ''; _delivSubmittedTo = '';
+  if (_delivSubmittedFp) _delivSubmittedFp.clear();
+  const dr = $('delivSubmittedRange'); if (dr) dr.classList.remove('filter-active');
   _delivSort = {col: null, dir: null};
   renderDeliverablesList();
 }
@@ -90,13 +95,85 @@ async function refreshApplySidebarBadge() {
 var delivLazy = null;
 const DELIV_PAGE_SIZE = 50;
 
+// 최근 제출일 기간 필터 상태 (브라우저 로컬 = 운영자 KST 기준 YYYY-MM-DD)
+var _delivSubmittedFrom = '';
+var _delivSubmittedTo = '';
+var _delivSubmittedFp = null;
+var _delivMoreOpen = false;
+
+// timestamptz ISO → 브라우저 로컬 날짜(YYYY-MM-DD). 기간 필터 비교용 (운영자 KST 기준)
+function delivLocalDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// 결과물 그룹의 채널 매칭 — monitor=캠페인 채널 기준, gifting/visit=결과물 post_channel 기준.
+// 채널 미상(채널 미등록 monitor 캠페인 / post_channel 없는 gifting·visit)은 '__none__' 값에 매칭.
+function delivGroupMatchesChannel(g, channelVals) {
+  if (!channelVals || channelVals.length === 0) return true;
+  const rt = g.campaign?.recruit_type;
+  if (rt === 'monitor') {
+    const chans = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+    if (chans.length === 0) return channelVals.includes('__none__');
+    return chans.some(c => channelVals.includes(c));
+  }
+  const pc = g.result?.post_channel;
+  return pc ? channelVals.includes(pc) : channelVals.includes('__none__');
+}
+
+// 최근 제출일 range picker mount (1회). 양끝 선택 완료 시에만 즉시 필터 반영.
+function setupDelivSubmittedRange() {
+  if (typeof flatpickr === 'undefined') return;
+  const el = $('delivSubmittedRange');
+  if (!el || _delivSubmittedFp) return;
+  const fmt = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+  _delivSubmittedFp = flatpickr(el, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: (flatpickr.l10ns && flatpickr.l10ns.ko) ? 'ko' : 'default',
+    showMonths: 1,
+    onChange: function(selectedDates) {
+      _delivSubmittedFrom = fmt(selectedDates[0]);
+      _delivSubmittedTo = fmt(selectedDates[1]);
+      el.classList.toggle('filter-active', !!(_delivSubmittedFrom || _delivSubmittedTo));
+      if (selectedDates.length === 0 || selectedDates.length === 2) renderDeliverablesList();
+    }
+  });
+}
+
+// 더보기 영역 펼침/접힘 토글
+function toggleDelivMoreFilters() {
+  _delivMoreOpen = !_delivMoreOpen;
+  const box = $('delivMoreFilters');
+  const caret = $('delivMoreCaret');
+  if (box) box.style.display = _delivMoreOpen ? 'flex' : 'none';
+  if (caret) caret.textContent = _delivMoreOpen ? 'expand_less' : 'expand_more';
+}
+
+// 더보기 영역에 적용된 필터 수 → 버튼 배지 (닫혀 있어도 적용 사실 인지)
+function updateDelivMoreFilterBadge() {
+  let n = 0;
+  if (getMultiFilterValues('delivRecruitTypeMulti').length > 0) n++;
+  if (getMultiFilterValues('delivChannelMulti').length > 0) n++;
+  if (getMultiFilterValues('delivReceiptStatusMulti').length > 0) n++;
+  if (_delivSubmittedFrom || _delivSubmittedTo) n++;
+  const im = $('delivIncludeMissing'); if (im && !im.checked) n++;   // 기본 ON → OFF면 사용자가 변경
+  const po = $('delivProxyOnly'); if (po && po.checked) n++;
+  const badge = $('delivMoreFilterBadge');
+  if (badge) { badge.textContent = n > 0 ? String(n) : ''; badge.style.display = n > 0 ? '' : 'none'; }
+}
+
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
+  setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
-  try { await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
+  let channelLookup = [];
+  try { channelLookup = await fetchLookups('channel'); } catch(e) { /* 캐시 실패해도 폴백 code 노출이라 화면 깨짐 없음 */ }
 
   // 캠페인 리스트 로드 + 모집타입↔캠페인 캐스케이드
   const campsForFilter = await fetchCampaigns().catch(() => []);
@@ -115,6 +192,7 @@ async function renderDeliverablesList() {
 
   const receiptStatusVals = getMultiFilterValues('delivReceiptStatusMulti');
   const resultStatusVals = getMultiFilterValues('delivResultStatusMulti');
+  const channelVals = getMultiFilterValues('delivChannelMulti');
   const delivCampVals = getMultiFilterValues('delivCampMulti');
   const includeMissing = !!$('delivIncludeMissing')?.checked;
   const proxyOnly = !!$('delivProxyOnly')?.checked;
@@ -244,6 +322,13 @@ async function renderDeliverablesList() {
       const inf = g.influencer || {};
       if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
     }
+    if (!opts.skipChannel && channelVals.length > 0 && !delivGroupMatchesChannel(g, channelVals)) return false;
+    if (_delivSubmittedFrom || _delivSubmittedTo) {
+      const d = delivLocalDate(g.latest_submitted_at);
+      if (!d) return false;  // 제출일 없는 그룹(미제출 포함)은 기간 필터 적용 시 제외
+      if (_delivSubmittedFrom && d < _delivSubmittedFrom) return false;
+      if (_delivSubmittedTo && d > _delivSubmittedTo) return false;
+    }
     return true;
   };
   const campCounts = {};
@@ -251,6 +336,7 @@ async function renderDeliverablesList() {
   const receiptStatusCounts = {pending:0, approved:0, rejected:0, none:0};
   // legacy_no_channel: 사양 2 전 post_channel NULL 인 review_image 행이 있는 monitor 신청 (385건, 2026-05-28)
   const resultStatusCounts = {pending:0, approved:0, rejected:0, none:0, legacy_no_channel:0};
+  const channelCounts = {};  // {channel_code: n} + '__none__': 채널 미상 n
   for (const g of allGroups) {
     // 캠페인 카운트: 자기 자신(캠페인 필터) 제외
     if (passesFilters(g, {skipCamp: true})) {
@@ -276,6 +362,18 @@ async function renderDeliverablesList() {
       } else {
         const xs = g.result ? g.result.status : 'none';
         if (xs in resultStatusCounts) resultStatusCounts[xs]++;
+      }
+    }
+    // 채널 카운트: 자기 자신(채널 필터) 제외 → monitor=캠페인 채널마다, gifting/visit=post_channel, 미상=__none__
+    if (passesFilters(g, {skipChannel: true})) {
+      const rt = g.campaign?.recruit_type;
+      if (rt === 'monitor') {
+        const chans = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+        if (chans.length === 0) channelCounts['__none__'] = (channelCounts['__none__'] || 0) + 1;
+        else chans.forEach(c => { channelCounts[c] = (channelCounts[c] || 0) + 1; });
+      } else {
+        const key = g.result?.post_channel || '__none__';
+        channelCounts[key] = (channelCounts[key] || 0) + 1;
       }
     }
   }
@@ -306,6 +404,16 @@ async function renderDeliverablesList() {
   }
   delivResultOpts.push({value:'none', label:'미제출', count: resultStatusCounts.none});
   syncMultiFilter('delivResultStatusMulti', '전체', delivResultOpts, () => renderDeliverablesList());
+  // 채널 드롭다운 — lookup(channel) active 항목 + 채널 미상(__none__)은 건수>0일 때만
+  const delivChannelOpts = channelLookup.map(ch => ({
+    value: ch.code,
+    label: ch.name_ko || ch.code,
+    count: channelCounts[ch.code] || 0,
+  }));
+  if ((channelCounts['__none__'] || 0) > 0) {
+    delivChannelOpts.push({value:'__none__', label:'채널 미상', count: channelCounts['__none__']});
+  }
+  syncMultiFilter('delivChannelMulti', '전체 채널', delivChannelOpts, () => renderDeliverablesList());
 
   // 필터 적용
   let filtered = Array.from(groups.values());
@@ -328,6 +436,16 @@ async function renderDeliverablesList() {
     const s = g.result ? g.result.status : 'none';
     return resultStatusVals.includes(s);
   });
+  // 채널 필터 — monitor=캠페인 채널, gifting/visit=post_channel, 미상=__none__
+  if (channelVals.length > 0) filtered = filtered.filter(g => delivGroupMatchesChannel(g, channelVals));
+  // 최근 제출일 기간 필터 — 그룹의 latest_submitted_at(로컬 날짜)이 선택 범위 안 (양끝 포함, 제출일 없으면 제외)
+  if (_delivSubmittedFrom || _delivSubmittedTo) filtered = filtered.filter(g => {
+    const d = delivLocalDate(g.latest_submitted_at);
+    if (!d) return false;
+    if (_delivSubmittedFrom && d < _delivSubmittedFrom) return false;
+    if (_delivSubmittedTo && d > _delivSubmittedTo) return false;
+    return true;
+  });
   // 검색 필터 — 인플루언서 전용(단어 단위 AND, 전각/반각 공백 무관). 캠페인은 검색형 드롭다운으로 분리
   if (search) filtered = filtered.filter(g => {
     const inf = g.influencer || {};
@@ -342,7 +460,13 @@ async function renderDeliverablesList() {
     });
   }
 
-  updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivCampMulti'], 'delivSearch');
+  // 더보기 배지 갱신 + 초기화 버튼 노출 — 기본줄·더보기 필터(기간·미제출OFF·대리등록 포함) 중 하나라도 활성이면 노출
+  updateDelivMoreFilterBadge();
+  updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
+  const _delivMoreActive = (_delivSubmittedFrom || _delivSubmittedTo)
+    || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
+    || ($('delivProxyOnly') && $('delivProxyOnly').checked);
+  if (_delivMoreActive) { const rb = $('btnDelivFilterReset'); if (rb) rb.style.display = ''; }
 
   // 정렬: 수동 sort 있으면 그대로, 없으면 검수대기 우선 → 최근 제출일 내림차순
   if (_delivSort.col === 'submitted') {
