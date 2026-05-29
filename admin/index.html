@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780026491';
+  var CURRENT_BUILD = 'v1780035503';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1763,17 +1763,17 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* 기본 .modal 은 화면 하단 바텀시트(components.css align-items:flex-end). */
 /* .draggable 부여 시 position:absolute 로 overlay flex 정렬에서 빠져나와 자유 위치 카드로 전환. */
 /* 관리자 큰 입력/상세/검수 모달만 대상 — 인플 모달·작은 확인 모달은 .draggable 미부여로 자연 격리. */
+/* 위치만 absolute 로 전환하고 정중앙(transform)에 띄움. 크기는 각 모달 인라인 style 그대로 존중. */
+/* (width 강제 금지 — 모달마다 max-width 480~1280px 다름. left/top 계산 대신 transform 으로 렌더 타이밍 무관 정중앙) */
 .modal.draggable{
   position:absolute;
-  width:480px;
-  max-width:92vw;
-  max-height:90vh;        /* none 이면 긴 본문이 화면 넘침 → 90vh 상한 + 본문 내부 스크롤 */
-  min-width:360px;
-  min-height:240px;
-  border-radius:16px;     /* 바텀시트 28px 28px 0 0 → 4모서리 둥근 카드 */
-  overflow:hidden;        /* resize:both 작동 조건 (visible 이면 핸들 안 나옴) */
-  resize:both;
-  display:flex;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  margin:0;               /* 인라인 margin:auto 무효화 */
+  min-width:320px;
+  min-height:160px;
+  display:flex;           /* 인라인 flex 없는 모달(addAdmin/adminEmailSubs/lookupEdit)도 본문 스크롤 보장 */
   flex-direction:column;
 }
 .modal.draggable .modal-header{cursor:move;user-select:none;flex-shrink:0}
@@ -1781,6 +1781,41 @@ textarea.form-input{resize:vertical;min-height:80px}
 .modal.draggable .modal-header button,
 .modal.draggable .modal-header input{cursor:pointer}
 .modal.draggable .modal-body{flex:1 1 auto;overflow-y:auto;min-height:0}
+/* 8방향 리사이즈 핸들 — 모달 안쪽 가장자리(overflow:hidden 이어도 안 잘림). 무늬 없이 커서만으로 표시 */
+.modal-rsz{position:absolute;z-index:5}
+.modal-rsz-n {top:0;left:12px;right:12px;height:6px;cursor:ns-resize}
+.modal-rsz-s {bottom:0;left:12px;right:12px;height:6px;cursor:ns-resize}
+.modal-rsz-e {top:12px;bottom:12px;right:0;width:6px;cursor:ew-resize}
+.modal-rsz-w {top:12px;bottom:12px;left:0;width:6px;cursor:ew-resize}
+.modal-rsz-ne{top:0;right:0;width:14px;height:14px;cursor:nesw-resize}
+.modal-rsz-nw{top:0;left:0;width:14px;height:14px;cursor:nwse-resize}
+.modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
+.modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
+
+/* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
+/* admin.css 는 관리자 빌드 전용(인플 빌드 CLIENT_CSS 에 미포함)이라 전역 정의해도 인플 영향 0. */
+/* 미분리 모달 등은 #page-admin 밖(body 직속)이라 #page-admin 스코프가 안 먹음 → 전역으로 정의. */
+/* 인라인 header/footer style 가진 기존 모달은 인라인 우선(기존 외관 유지), 인라인 없는 모달은 아래 표준 적용. */
+/* components.css 의 .modal-header/.modal-title 보다 뒤에 로드되어 관리자 모달에서만 덮음. */
+.modal-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:18px 22px 12px;
+  border-bottom:1px solid var(--line);
+  flex-shrink:0;
+}
+.modal-title{ font-size:16px; font-weight:700; color:var(--ink); }
+.modal-footer{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:flex-end;
+  padding:14px 22px;
+  border-top:1px solid var(--line);
+  flex-shrink:0;
+}
+.modal-footer-aux{ margin-right:auto; }  /* 좌측 보조요소(상태 pill·삭제 버튼) 고정 */
 
 </style>
 </head>
@@ -1856,7 +1891,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-29 12:48 · afa6244</span>
+          <span class="admin-build-text">2026-05-29 15:18 · c3298d2</span>
         </div>
       </div>
     </aside>
@@ -3559,7 +3594,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 <!-- 관리자 추가 모달 -->
 <div class="modal-overlay" id="addAdminModal">
-  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title" id="addAdminModalTitle">관리자 추가</div>
       <div class="modal-close" onclick="closeModal('addAdminModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -3586,17 +3621,17 @@ textarea.form-input{resize:vertical;min-height:80px}
         추가 시 초대 이메일이 발송됩니다. 받는 분이 이메일 링크로 직접 비밀번호를 설정해야 로그인 가능합니다.
       </div>
       <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeModal('addAdminModal')" style="flex:1">취소</button>
-        <button class="btn btn-primary" onclick="saveAdmin()" style="flex:1" id="adminFormBtn">추가</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addAdminModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveAdmin()" id="adminFormBtn">추가</button>
     </div>
   </div>
 </div>
 
 <!-- 비밀번호 초기화 모달 -->
 <div class="modal-overlay" id="resetPwModal">
-  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">비밀번호 초기화</div>
       <div class="modal-close" onclick="closeModal('resetPwModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -3614,20 +3649,20 @@ textarea.form-input{resize:vertical;min-height:80px}
         </div>
       </div>
       <div id="resetPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeModal('resetPwModal')" style="flex:1">취소</button>
-        <button class="btn btn-primary" onclick="executeResetPw()" style="flex:1">초기화</button>
-      </div>
       <div style="margin-top:12px;text-align:center">
         <button class="btn btn-ghost btn-xs" onclick="sendResetEmail()" style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">email</span> 이메일로 재설정 링크 보내기</button>
       </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('resetPwModal')">취소</button>
+      <button class="btn btn-primary" onclick="executeResetPw()">초기화</button>
     </div>
   </div>
 </div>
 
 <!-- 관리자 삭제 옵션 모달 -->
 <div class="modal-overlay" id="deleteAdminModal">
-  <div class="modal" style="max-width:420px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">관리자 삭제</div>
       <div class="modal-close" onclick="closeDeleteAdminModal()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -3649,9 +3684,9 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div style="font-size:11px;color:var(--muted);white-space:normal">auth, 인플루언서 프로필, 응모, 영수증 전부 삭제. 복구 불가.</div>
       </button>
 
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeDeleteAdminModal()" style="flex:1">취소</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDeleteAdminModal()">취소</button>
     </div>
   </div>
 </div>
@@ -3687,7 +3722,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 <!-- 관리자 메일 받기 설정 모달 -->
 <div class="modal-overlay" id="adminEmailSubsModal">
-  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">메일 받기 설정</div>
       <div class="modal-close" onclick="closeModal('adminEmailSubsModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -3696,10 +3731,10 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="adminEmailSubsHeader" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
       <div style="font-size:12px;color:var(--ink);margin-bottom:10px">받을 메일을 선택하세요.</div>
       <div id="adminEmailSubsBody"></div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeModal('adminEmailSubsModal')" style="flex:1">취소</button>
-        <button class="btn btn-primary" onclick="saveAdminEmailSubsFromModal()" style="flex:1">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('adminEmailSubsModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveAdminEmailSubsFromModal()">저장</button>
     </div>
   </div>
 </div>
@@ -3926,9 +3961,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 <!-- 기준 데이터 추가/편집 모달 -->
 <div class="modal-overlay" id="lookupEditModal" style="z-index:600">
-  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="lookupModalTitle">항목 추가</div>
+      <div class="modal-close" onclick="closeModal('lookupEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="lookupModalTitle">항목 추가</div>
       <input type="hidden" id="lookupEditId">
       <input type="hidden" id="lookupEditKind">
       <div class="form-group">
@@ -3950,10 +3988,10 @@ textarea.form-input{resize:vertical;min-height:80px}
         </div>
       </div>
       <div id="lookupEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('lookupEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveLookupEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('lookupEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveLookupEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -3961,8 +3999,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- FAQ (자동응답) 편집 모달 -->
 <div class="modal-overlay" id="faqEditModal" style="z-index:600">
   <div class="modal" style="max-width:880px;border-radius:20px;margin:auto;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="faqModalTitle">질문 추가</div>
+      <div class="modal-close" onclick="closeModal('faqEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="faqModalTitle">질문 추가</div>
       <input type="hidden" id="faqEditId">
       <input type="hidden" id="faqEditParentId">
       <input type="hidden" id="faqEditKind">
@@ -4057,10 +4098,10 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
 
       <div id="faqEditError" class="form-error" style="display:none;margin:8px 0"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('faqEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveFaqNode()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('faqEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveFaqNode()">저장</button>
     </div>
   </div>
 </div>
@@ -4068,8 +4109,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- 참여방법 번들 편집 모달 -->
 <div class="modal-overlay" id="psetEditModal" style="z-index:600">
   <div class="modal" style="max-width:640px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="psetModalTitle">참여방법 번들 추가</div>
+      <div class="modal-close" onclick="closeModal('psetEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="psetModalTitle">참여방법 번들 추가</div>
       <input type="hidden" id="psetEditId">
       <div class="form-group">
         <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
@@ -4093,10 +4137,10 @@ textarea.form-input{resize:vertical;min-height:80px}
         <button type="button" class="btn btn-ghost btn-xs" id="psetAddStepBtn" onclick="psetAddStep()" style="margin-top:8px">+ 단계 추가</button>
       </div>
       <div id="psetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -4120,8 +4164,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- 주의사항 번들 편집 모달 (migration 069 — caution_sets) -->
 <div class="modal-overlay" id="csetEditModal" style="z-index:600">
   <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="csetModalTitle">주의사항 번들 추가</div>
+      <div class="modal-close" onclick="closeModal('csetEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="csetModalTitle">주의사항 번들 추가</div>
       <input type="hidden" id="csetEditId">
       <div class="form-group">
         <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
@@ -4145,10 +4192,10 @@ textarea.form-input{resize:vertical;min-height:80px}
         <button type="button" class="btn btn-ghost btn-xs" id="csetAddItemBtn" onclick="csetAddItem()" style="margin-top:8px">+ 항목 추가</button>
       </div>
       <div id="csetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('csetEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveCsetEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('csetEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveCsetEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -4156,8 +4203,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 <!-- NG 사항 번들 추가/편집 모달 (기준 데이터 페인 — migration 107) -->
 <div class="modal-overlay" id="nsetEditModal" style="z-index:600">
   <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="nsetModalTitle">NG 사항 번들 추가</div>
+      <div class="modal-close" onclick="closeModal('nsetEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="nsetModalTitle">NG 사항 번들 추가</div>
       <input type="hidden" id="nsetEditId">
       <div class="form-group">
         <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
@@ -4181,10 +4231,10 @@ textarea.form-input{resize:vertical;min-height:80px}
         <button type="button" class="btn btn-ghost btn-xs" id="nsetAddItemBtn" onclick="nsetAddItem()" style="margin-top:8px">+ 항목 추가</button>
       </div>
       <div id="nsetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('nsetEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveNgSetEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('nsetEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveNgSetEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -9612,42 +9662,105 @@ function makeModalDraggableResizable(modalEl) {
   if (!modalEl) return;
   modalEl.classList.add('draggable');
 
-  // 이전 resize 흔적 제거 후 화면 가운데로 초기화 (매 열림). overlay 가 display:flex 로 열린 뒤라 레이아웃 직후 측정.
+  // 최초 1회: 모달 원래 인라인 max-width/max-height 백업 (열 때마다 기본 크기 복원용).
+  if (modalEl.dataset.origMaxW === undefined) {
+    modalEl.dataset.origMaxW = modalEl.style.maxWidth || '';
+    modalEl.dataset.origMaxH = modalEl.style.maxHeight || '';
+  }
+
+  // 매 열림 초기화 — 위치·크기·최대치 제거 → CSS 기본(정중앙 transform) + 모달 원래 크기·최대폭 복원.
+  modalEl.style.left = '';
+  modalEl.style.top = '';
+  modalEl.style.transform = '';
   modalEl.style.width = '';
   modalEl.style.height = '';
-  requestAnimationFrame(() => {
-    const rect = modalEl.getBoundingClientRect();
-    modalEl.style.left = Math.max(8, (window.innerWidth - rect.width) / 2) + 'px';
-    modalEl.style.top = Math.max(8, (window.innerHeight - rect.height) / 2) + 'px';
-  });
+  modalEl.style.maxWidth = modalEl.dataset.origMaxW;
+  modalEl.style.maxHeight = modalEl.dataset.origMaxH;
 
-  if (modalEl.dataset.dragInit) return;  // 드래그 리스너는 모달당 1회만 등록
+  if (modalEl.dataset.dragInit) return;  // 핸들·리스너는 모달당 1회만 등록
   modalEl.dataset.dragInit = '1';
 
-  const header = modalEl.querySelector('.modal-header');
-  if (!header) return;
+  // transform 기반 정중앙 → 드래그/리사이즈 시작 시 1회 left/top/width/height px 로 고정(transform 해제).
+  //   + max-width/height 제한 해제 → 리사이즈로 화면 끝까지 넓게 볼 수 있음(닫았다 열면 위 초기화로 기본 크기 복원).
+  const pinPosition = () => {
+    // 인라인 transform 이 '' (CSS translate(-50%,-50%) 활성) 또는 다른 값이면 px 로 고정.
+    // 'none'(이미 고정됨)일 때만 스킵 — 빈 문자열을 falsy 로 누락하면 드래그 시작 시 모달이 왼쪽으로 튐.
+    if (modalEl.style.transform !== 'none') {
+      const r = modalEl.getBoundingClientRect();   // ★ max 해제 전 현재 크기 측정 (94vw 등이 max 풀리며 튀는 것 방지)
+      modalEl.style.left = r.left + 'px';
+      modalEl.style.top = r.top + 'px';
+      modalEl.style.width = r.width + 'px';
+      modalEl.style.height = r.height + 'px';
+      modalEl.style.transform = 'none';
+    }
+    // width/height 를 현재 px 로 고정한 뒤에 max 제한 해제 → 리사이즈로만 넓어지고 클릭 즉시 튀지 않음.
+    modalEl.style.maxWidth = 'none';
+    modalEl.style.maxHeight = 'none';
+  };
 
+  // ── 드래그(이동) 핸들 결정 ──
+  //   기본은 .modal-header 를 드래그 핸들로 사용(2026-05-29 구조 통일로 표준 모달은 모두 header 보유).
+  //   .modal-header 없는 비표준 모달만 .modal-body 첫 요소를 fallback 핸들로 사용.
+  let dragHandle = modalEl.querySelector('.modal-header');
+  if (!dragHandle) {
+    const bodyEl = modalEl.querySelector('.modal-body');
+    if (bodyEl && bodyEl.firstElementChild) {
+      dragHandle = bodyEl.firstElementChild;
+      dragHandle.style.cursor = 'move';
+      dragHandle.style.userSelect = 'none';
+    }
+  }
   let drag = null;
-  header.addEventListener('mousedown', (e) => {
-    // 닫기 버튼·입력 요소·링크는 드래그 제외
-    if (e.target.closest('.modal-close, input, textarea, select, button, a')) return;
-    const rect = modalEl.getBoundingClientRect();
-    drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
+  if (dragHandle) {
+    dragHandle.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.modal-close, input, textarea, select, button, a')) return;
+      pinPosition();
+      const r = modalEl.getBoundingClientRect();
+      drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+  }
+
+  // ── 8방향 리사이즈 핸들 (상하좌우 + 4모서리). 커서만으로 표시, 무늬 없음 ──
+  let rsz = null;
+  const MINW = 320, MINH = 160;
+  ['n','s','e','w','ne','nw','se','sw'].forEach((dir) => {
+    const h = document.createElement('div');
+    h.className = 'modal-rsz modal-rsz-' + dir;
+    h.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pinPosition();
+      const r = modalEl.getBoundingClientRect();
+      rsz = { dir, x: e.clientX, y: e.clientY, w: r.width, h: r.height, l: r.left, t: r.top };
+      document.body.style.userSelect = 'none';
+    });
+    modalEl.appendChild(h);
   });
+
+  // 공용 mousemove/mouseup — 드래그·리사이즈 모두 처리 (모달당 1쌍, dragInit 가드로 중복 없음)
   document.addEventListener('mousemove', (e) => {
-    if (!drag) return;
-    // 화면 밖 완전 이탈 방지 — 헤더 일부(가로 100px·세로 60px)는 항상 화면 안
-    const left = Math.max(-100, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
-    const top = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
-    modalEl.style.left = left + 'px';
-    modalEl.style.top = top + 'px';
+    if (drag) {
+      const left = Math.max(-100, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
+      const top = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
+      modalEl.style.left = left + 'px';
+      modalEl.style.top = top + 'px';
+    } else if (rsz) {
+      const dx = e.clientX - rsz.x, dy = e.clientY - rsz.y;
+      let w = rsz.w, h = rsz.h, l = rsz.l, t = rsz.t;
+      if (rsz.dir.includes('e')) w = Math.max(MINW, rsz.w + dx);
+      if (rsz.dir.includes('s')) h = Math.max(MINH, rsz.h + dy);
+      if (rsz.dir.includes('w')) { w = Math.max(MINW, rsz.w - dx); l = rsz.l + (rsz.w - w); }
+      if (rsz.dir.includes('n')) { h = Math.max(MINH, rsz.h - dy); t = rsz.t + (rsz.h - h); }
+      modalEl.style.width = w + 'px';
+      modalEl.style.height = h + 'px';
+      modalEl.style.left = l + 'px';
+      modalEl.style.top = t + 'px';
+    }
   });
   document.addEventListener('mouseup', () => {
-    if (!drag) return;
-    drag = null;
-    document.body.style.userSelect = '';
+    if (drag || rsz) { drag = null; rsz = null; document.body.style.userSelect = ''; }
   });
 }
 
@@ -17926,7 +18039,7 @@ async function openAdminProxyModal(presetAppId) {
   const m = $('adminProxyDelivModal');
   if (!m) return;
   _resetAdminProxyForm();
-  m.style.display = 'flex';
+  m.classList.add('open');  // display 직접 조작 대신 .open (드래그 MutationObserver 감지 + 잔류 방지)
   // 데이터 병렬 로드
   try {
     const [appsResult, reasonsResult, channelsResult] = await Promise.all([
@@ -17968,7 +18081,7 @@ async function openAdminProxyFromCombined() {
 
 function closeAdminProxyModal() {
   const m = $('adminProxyDelivModal');
-  if (m) m.style.display = 'none';
+  if (m) m.classList.remove('open');  // .open 제거로 닫기 (display:flex 잔류 방지)
   _resetAdminProxyForm();
 }
 

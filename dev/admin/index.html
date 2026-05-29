@@ -1834,7 +1834,7 @@
 
 <!-- 관리자 추가 모달 -->
 <div class="modal-overlay" id="addAdminModal">
-  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title" id="addAdminModalTitle">관리자 추가</div>
       <div class="modal-close" onclick="closeModal('addAdminModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -1861,17 +1861,17 @@
         추가 시 초대 이메일이 발송됩니다. 받는 분이 이메일 링크로 직접 비밀번호를 설정해야 로그인 가능합니다.
       </div>
       <div id="adminFormError" class="form-error" style="display:none;margin-bottom:10px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeModal('addAdminModal')" style="flex:1">취소</button>
-        <button class="btn btn-primary" onclick="saveAdmin()" style="flex:1" id="adminFormBtn">추가</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addAdminModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveAdmin()" id="adminFormBtn">추가</button>
     </div>
   </div>
 </div>
 
 <!-- 비밀번호 초기화 모달 -->
 <div class="modal-overlay" id="resetPwModal">
-  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:400px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">비밀번호 초기화</div>
       <div class="modal-close" onclick="closeModal('resetPwModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -1889,20 +1889,20 @@
         </div>
       </div>
       <div id="resetPwError" class="form-error" style="display:none;margin-bottom:10px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeModal('resetPwModal')" style="flex:1">취소</button>
-        <button class="btn btn-primary" onclick="executeResetPw()" style="flex:1">초기화</button>
-      </div>
       <div style="margin-top:12px;text-align:center">
         <button class="btn btn-ghost btn-xs" onclick="sendResetEmail()" style="font-size:11px;color:var(--muted)"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-2px">email</span> 이메일로 재설정 링크 보내기</button>
       </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('resetPwModal')">취소</button>
+      <button class="btn btn-primary" onclick="executeResetPw()">초기화</button>
     </div>
   </div>
 </div>
 
 <!-- 관리자 삭제 옵션 모달 -->
 <div class="modal-overlay" id="deleteAdminModal">
-  <div class="modal" style="max-width:420px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">관리자 삭제</div>
       <div class="modal-close" onclick="closeDeleteAdminModal()"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -1924,9 +1924,9 @@
         <div style="font-size:11px;color:var(--muted);white-space:normal">auth, 인플루언서 프로필, 응모, 영수증 전부 삭제. 복구 불가.</div>
       </button>
 
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeDeleteAdminModal()" style="flex:1">취소</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDeleteAdminModal()">취소</button>
     </div>
   </div>
 </div>
@@ -1962,7 +1962,7 @@
 
 <!-- 관리자 메일 받기 설정 모달 -->
 <div class="modal-overlay" id="adminEmailSubsModal">
-  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto">
+  <div class="modal" style="max-width:440px;border-radius:24px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
       <div class="modal-title">메일 받기 설정</div>
       <div class="modal-close" onclick="closeModal('adminEmailSubsModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
@@ -1971,10 +1971,10 @@
       <div id="adminEmailSubsHeader" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
       <div style="font-size:12px;color:var(--ink);margin-bottom:10px">받을 메일을 선택하세요.</div>
       <div id="adminEmailSubsBody"></div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-ghost" onclick="closeModal('adminEmailSubsModal')" style="flex:1">취소</button>
-        <button class="btn btn-primary" onclick="saveAdminEmailSubsFromModal()" style="flex:1">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('adminEmailSubsModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveAdminEmailSubsFromModal()">저장</button>
     </div>
   </div>
 </div>
@@ -2203,9 +2203,12 @@
 
 <!-- 기준 데이터 추가/편집 모달 -->
 <div class="modal-overlay" id="lookupEditModal" style="z-index:600">
-  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="lookupModalTitle">항목 추가</div>
+      <div class="modal-close" onclick="closeModal('lookupEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="lookupModalTitle">항목 추가</div>
       <input type="hidden" id="lookupEditId">
       <input type="hidden" id="lookupEditKind">
       <div class="form-group">
@@ -2227,10 +2230,10 @@
         </div>
       </div>
       <div id="lookupEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('lookupEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveLookupEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('lookupEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveLookupEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -2238,8 +2241,11 @@
 <!-- FAQ (자동응답) 편집 모달 -->
 <div class="modal-overlay" id="faqEditModal" style="z-index:600">
   <div class="modal" style="max-width:880px;border-radius:20px;margin:auto;max-height:92vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="faqModalTitle">질문 추가</div>
+      <div class="modal-close" onclick="closeModal('faqEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="faqModalTitle">질문 추가</div>
       <input type="hidden" id="faqEditId">
       <input type="hidden" id="faqEditParentId">
       <input type="hidden" id="faqEditKind">
@@ -2334,10 +2340,10 @@
       </div>
 
       <div id="faqEditError" class="form-error" style="display:none;margin:8px 0"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('faqEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveFaqNode()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('faqEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveFaqNode()">저장</button>
     </div>
   </div>
 </div>
@@ -2345,8 +2351,11 @@
 <!-- 참여방법 번들 편집 모달 -->
 <div class="modal-overlay" id="psetEditModal" style="z-index:600">
   <div class="modal" style="max-width:640px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="psetModalTitle">참여방법 번들 추가</div>
+      <div class="modal-close" onclick="closeModal('psetEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="psetModalTitle">참여방법 번들 추가</div>
       <input type="hidden" id="psetEditId">
       <div class="form-group">
         <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
@@ -2370,10 +2379,10 @@
         <button type="button" class="btn btn-ghost btn-xs" id="psetAddStepBtn" onclick="psetAddStep()" style="margin-top:8px">+ 단계 추가</button>
       </div>
       <div id="psetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('psetEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="savePsetEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -2397,8 +2406,11 @@
 <!-- 주의사항 번들 편집 모달 (migration 069 — caution_sets) -->
 <div class="modal-overlay" id="csetEditModal" style="z-index:600">
   <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="csetModalTitle">주의사항 번들 추가</div>
+      <div class="modal-close" onclick="closeModal('csetEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="csetModalTitle">주의사항 번들 추가</div>
       <input type="hidden" id="csetEditId">
       <div class="form-group">
         <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
@@ -2422,10 +2434,10 @@
         <button type="button" class="btn btn-ghost btn-xs" id="csetAddItemBtn" onclick="csetAddItem()" style="margin-top:8px">+ 항목 추가</button>
       </div>
       <div id="csetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('csetEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveCsetEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('csetEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveCsetEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -2433,8 +2445,11 @@
 <!-- NG 사항 번들 추가/편집 모달 (기준 데이터 페인 — migration 107) -->
 <div class="modal-overlay" id="nsetEditModal" style="z-index:600">
   <div class="modal" style="max-width:720px;border-radius:20px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div class="modal-title" id="nsetModalTitle">NG 사항 번들 추가</div>
+      <div class="modal-close" onclick="closeModal('nsetEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
+    </div>
     <div class="modal-body" style="padding:24px;overflow-y:auto">
-      <div style="font-size:16px;font-weight:700;margin-bottom:14px" id="nsetModalTitle">NG 사항 번들 추가</div>
       <input type="hidden" id="nsetEditId">
       <div class="form-group">
         <label class="form-label">번들 이름 (한국어) <span style="color:var(--red)">*</span></label>
@@ -2458,10 +2473,10 @@
         <button type="button" class="btn btn-ghost btn-xs" id="nsetAddItemBtn" onclick="nsetAddItem()" style="margin-top:8px">+ 항목 추가</button>
       </div>
       <div id="nsetEditError" class="form-error" style="display:none;margin-bottom:8px"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
-        <button class="btn btn-ghost" onclick="closeModal('nsetEditModal')">취소</button>
-        <button class="btn btn-primary" onclick="saveNgSetEdit()">저장</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('nsetEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveNgSetEdit()">저장</button>
     </div>
   </div>
 </div>
