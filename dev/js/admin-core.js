@@ -403,7 +403,7 @@ function resetMultiFilter(containerId, allLabel) {
   if (!wrap) return;
   const btn = wrap.querySelector('.mf-btn');
   const allCb = wrap.querySelector('input[value="all"]');
-  const items = wrap.querySelectorAll('.mf-drop input:not([value="all"])');
+  const items = wrap.querySelectorAll('.mf-drop input[type="checkbox"]:not([value="all"])');
   if (allCb) { allCb.checked = true; allCb.indeterminate = false; }
   items.forEach(c => c.checked = true); // 전체 = 모든 항목 체크 표시
   if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
@@ -417,20 +417,20 @@ function updateFilterResetBtn(btnId, multiIds, searchId) {
 }
 // 다중 선택 드롭다운 공통 헬퍼 — 옵션 리스트 변화 시에만 재생성, 이전 선택 상태 보존
 // options: [{value, label}]
-function syncMultiFilter(containerId, allLabel, options, onChange) {
+function syncMultiFilter(containerId, allLabel, options, onChange, opts = {}) {
   const wrap = $(containerId);
   if (!wrap) return;
   const drop = wrap.querySelector('.mf-drop');
   if (!drop) return;
-  // 옵션 키에 count·subLabel 포함 — 카운트 변경 시 재생성되어 (NN) 라벨 즉시 반영
-  const newKey = options.map(o => `${o.value}:${o.count ?? ''}:${o.subLabel || ''}`).join('|');
+  // 옵션 키에 count·subLabel·searchable 포함 — 카운트/검색형 변경 시 재생성되어 (NN) 라벨·검색창 즉시 반영
+  const newKey = options.map(o => `${o.value}:${o.count ?? ''}:${o.subLabel || ''}`).join('|') + (opts.searchable ? '|__search' : '');
   if (wrap.dataset.optKey === newKey && drop.children.length > 0) return;
   const prev = getMultiFilterValues(containerId);
-  createMultiFilter(containerId, allLabel, options, onChange);
+  createMultiFilter(containerId, allLabel, options, onChange, opts);
   wrap.dataset.optKey = newKey;
   if (prev.length > 0) {
-    // 일부 선택 상태 복원 — 모두 해제 후 prev 항목만 체크
-    const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
+    // 일부 선택 상태 복원 — 모두 해제 후 prev 항목만 체크 (검색 input[type=search] 제외)
+    const itemCbs = [...drop.querySelectorAll('input[type="checkbox"]:not([value="all"])')];
     itemCbs.forEach(c => c.checked = false);
     prev.forEach(v => {
       const cb = drop.querySelector(`input[value="${CSS && CSS.escape ? CSS.escape(v) : v.replace(/"/g,'\\"')}"]`);
@@ -448,7 +448,7 @@ function syncMultiFilter(containerId, allLabel, options, onChange) {
 // options = [{value, label, subLabel?, count?}]
 //   - subLabel(있으면): 라벨 아래 회색 작은 글씨 (예: 캠페인 번호 B0019-C001)
 //   - count(0 이상의 정수면 표시, null/undefined면 미표시): 라벨 옆 (NN) 건수
-function createMultiFilter(containerId, allLabel, options, onChange) {
+function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) {
   const wrap = $(containerId);
   if (!wrap) return;
   const btn = wrap.querySelector('.mf-btn');
@@ -460,15 +460,28 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
     const subHtml = o.subLabel ? `<div class="mf-item-sub">${esc(o.subLabel)}</div>` : '';
     return `<label class="mf-item${o.subLabel ? ' has-sub' : ''}"><input type="checkbox" value="${esc(o.value)}" data-label="${esc(o.label)}"><div class="mf-item-text"><div class="mf-item-label">${esc(o.label)}${countHtml}</div>${subHtml}</div></label>`;
   };
+  // 검색형(opt-in) — 옵션이 많은 드롭다운(캠페인 등)에서만 사용. 기본 false → 기존 전 페인 무영향
+  const searchHtml = opts.searchable
+    ? `<div class="mf-search-box"><input type="search" class="mf-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="${esc(opts.searchPlaceholder || '検索')}"></div>`
+    : '';
+  const emptyHtml = opts.searchable ? `<div class="mf-search-empty" style="display:none">일치하는 항목이 없습니다</div>` : '';
   // 드롭다운 아이템 생성 — 초기 상태: 모두 비체크 = 필터 없음 (전체 표시)
-  drop.innerHTML = `<label class="mf-item all-item"><input type="checkbox" value="all"><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
-    + options.map(renderOptionItem).join('');
+  drop.innerHTML = searchHtml
+    + `<label class="mf-item all-item"><input type="checkbox" value="all"><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
+    + options.map(renderOptionItem).join('')
+    + emptyHtml;
   btn.textContent = allLabel;
-  // 토글
-  btn.onclick = (e) => { e.stopPropagation(); drop.classList.toggle('open'); };
-  // 체크 로직
+  // 토글 — 검색형이면 열 때 검색 input 포커스
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    drop.classList.toggle('open');
+    if (opts.searchable && drop.classList.contains('open')) {
+      const si = drop.querySelector('.mf-search'); if (si) setTimeout(() => si.focus(), 0);
+    }
+  };
+  // 체크 로직 — 옵션 체크박스만 (검색 input[type=search] 은 제외)
   const allCb = drop.querySelector('input[value="all"]');
-  const itemCbs = [...drop.querySelectorAll('input:not([value="all"])')];
+  const itemCbs = [...drop.querySelectorAll('input[type="checkbox"]:not([value="all"])')];
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
     if (selected.length === itemCbs.length) {
@@ -502,6 +515,24 @@ function createMultiFilter(containerId, allLabel, options, onChange) {
     update();
   };
   itemCbs.forEach(c => { c.onchange = update; });
+  // 검색형: 입력 시 옵션 행 show/hide (체크 상태·getMultiFilterValues 반환값 불변, 「전체」 항상 노출)
+  if (opts.searchable) {
+    const si = drop.querySelector('.mf-search');
+    const emptyEl = drop.querySelector('.mf-search-empty');
+    const optItems = [...drop.querySelectorAll('.mf-item:not(.all-item)')];
+    if (si) si.oninput = () => {
+      const q = (si.value || '').trim().toLowerCase();
+      let visible = 0;
+      optItems.forEach(item => {
+        const cb = item.querySelector('input[type="checkbox"]');
+        const sub = item.querySelector('.mf-item-sub')?.textContent || '';
+        const show = matchSearchTokens(q, [cb?.dataset.label || '', sub]);
+        item.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      if (emptyEl) emptyEl.style.display = visible === 0 ? '' : 'none';
+    };
+  }
   // 외부에서 prev 복원 후 다시 호출할 수 있도록 노출
   wrap._mfUpdate = update;
   // 바깥 클릭 닫기 (wrap 당 1회만 등록)
@@ -516,7 +547,7 @@ function getMultiFilterValues(containerId) {
   const allCb = wrap.querySelector('input[value="all"]');
   // 전체(모두 체크) = 필터 없음 → 빈 배열
   if (allCb?.checked && !allCb.indeterminate) return [];
-  return [...wrap.querySelectorAll('.mf-drop input:not([value="all"]):checked')].map(c => c.value);
+  return [...wrap.querySelectorAll('.mf-drop input[type="checkbox"]:not([value="all"]):checked')].map(c => c.value);
 }
 // 커스텀 confirm 모달 (Promise 반환)
 let _confirmResolver = null;
