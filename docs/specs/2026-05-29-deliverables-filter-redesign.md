@@ -172,5 +172,22 @@
 - DB·RLS·약관 영향 없음(순수 관리자 클라이언트 UI).
 - reverb-reviewer GO(Warning 2건 반영 후 재검증 GO), qa-tester 권장 light.
 
-### PR 2 — 결과물 관리 필터 정확성 (예정)
-### PR 3 — 채널 필터 + 최근 제출일 + 레이아웃 재배치 (예정)
+### PR 2 — 결과물 관리 필터 정확성 (구현 완료)
+**구현일:** 2026-05-29 · **브랜치:** `feature/deliv-filter-redesign`
+
+- **영수증 = 리뷰어(monitor) 전용**: 기프팅·방문형이 영수증 단계 없이 'none'(미제출)으로 오집계되던 버그를 필터·카운트·passesFilters 3곳에서 차단.
+- **결과물 ANY 매칭**: monitor 그룹에 `result_states`(채널별 상태 집합 + 레거시 legacy_no_channel) 추가. 필터·실제필터 모두 `states.some(...)`. 카운트는 상태 종류마다 +1(중복 집계). 정렬은 기존 `result_status_repr`(대표상태) 유지.
+- **채널 미분류 옵션**은 `resultStatusCounts.legacy_no_channel > 0`일 때만 노출.
+- 안내 문구 3종(영수증 리뷰어 전용 / 결과물 다중채널 중복집계 / 미제출 포함 tooltip), 모두 한국어.
+- **초안 대비:** QA에서 「초기화」가 미제출 포함을 기본값(ON)으로 복원 안 하던 기존 버그 발견 → 같은 사이클에서 fix.
+- reviewer GO(관리자 UI 일본어 혼입 1건 반영 후), qa light PASS(비승인·채널미분류 데이터는 개발서버 0건이라 운영 확인 권고).
+
+### PR 3 — 채널 필터 + 최근 제출일 기간 + 레이아웃 재배치 (구현 완료)
+**구현일:** 2026-05-29 · **브랜치:** `feature/deliv-filter-redesign`
+
+- **레이아웃**: 기본줄(캠페인·결과물 상태·검색·「필터 더보기」 토글·초기화) + 더보기 접이식(모집타입·채널·영수증·최근 제출일·미제출·대리등록). 닫혀 있어도 「필터 더보기」 버튼에 활성 필터 수 배지.
+- **채널 필터**: `delivChannelMulti` — `delivGroupMatchesChannel`(monitor=캠페인 채널 / gifting·visit=post_channel / 미상=`__none__`). 채널 미상 옵션은 건수>0일 때만. 카운트는 monitor 채널마다 +1.
+- **최근 제출일 기간 필터**: flatpickr range(`delivSubmittedRange`), 그룹 `latest_submitted_at` 로컬 날짜 비교(양끝 포함, 제출일 없으면 제외).
+- **초안 대비 변경:** 없음(§설계 3·5·6 그대로).
+- **구현 중 결정**: ① 기간/채널 날짜·매칭 모두 브라우저 로컬 기준(`delivLocalDate`)으로 통일해 UTC 혼선 차단. ② 기간 필터 활성 시 다른 드롭다운 카운트도 **기간 교집합 기준으로 집계됨**(passesFilters 내부 AND, skipDate 없음 — PR1·2 「나머지 AND」 원칙과 정합, 의도된 동작). ③ `delivChannelMulti`는 init 없이 sync 첫 호출로 생성(`delivCampMulti`와 동일 패턴).
+- reviewer GO(Warning 2건 모두 코드 문제 아님), qa 권장 light.

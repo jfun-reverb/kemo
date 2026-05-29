@@ -50,6 +50,9 @@
 .mf-search{width:100%;box-sizing:border-box;padding:6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;color:var(--ink);outline:none}
 .mf-search:focus{border-color:var(--primary)}
 .mf-search-empty{padding:10px 12px;font-size:12px;color:var(--muted);text-align:center}
+/* 결과물 관리 「필터 더보기」 토글 — 활성 필터 수 배지 + 기간 선택 활성 표시 */
+.deliv-more-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:2px;background:var(--primary);color:#fff;border-radius:8px;font-size:10px;font-weight:700;line-height:1}
+.admin-filter-search.filter-active{border-color:var(--primary);color:var(--primary)}
 .admin-layout{display:grid;grid-template-columns:220px 1fr;height:100vh;transition:grid-template-columns .25s ease}
 .admin-layout.collapsed{grid-template-columns:56px 1fr}
 .admin-side{background:#1A0F18;padding:0;height:100%;overflow:hidden;flex-shrink:0;transition:width .25s ease;display:flex;flex-direction:column}
