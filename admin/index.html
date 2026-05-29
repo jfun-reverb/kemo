@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779966941';
+  var CURRENT_BUILD = 'v1780024101';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1833,7 +1833,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 20:15 · dc54903</span>
+          <span class="admin-build-text">2026-05-29 12:08 · 6f76d58</span>
         </div>
       </div>
     </aside>
@@ -6182,6 +6182,39 @@ async function adminRevokeProxyDeliverable(deliverableId, reason) {
   let ok = false;
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('admin_revoke_proxy_deliverable', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 채널 미지정 review_image 행에 채널 지정 / 해제 (마이그레이션 162)
+//   postChannel 있으면 지정, NULL/빈값이면 해제(검수 전 pending/draft만). campaign_admin 이상.
+async function assignReviewImageChannel(deliverableId, postChannel) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('assign_review_image_channel', {
+      p_deliverable_id: deliverableId,
+      p_post_channel:   postChannel || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 지정 불가(빈 채널 0개) 레거시 review_image 삭제 (마이그레이션 162, super_admin 전용)
+async function deleteLegacyReviewImage(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('delete_legacy_review_image', {
       p_deliverable_id: deliverableId,
       p_reason:         reason || null
     });
