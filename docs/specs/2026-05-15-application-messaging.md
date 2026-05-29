@@ -1222,6 +1222,8 @@ GRANT EXECUTE ON FUNCTION public.withdraw_broadcast TO authenticated;
 ## 8. 약관·개인정보 영향 (중요)
 
 > **⚠️ 2026-05-20 사용자 결정**: 개발 착수 단계에서는 「D-7 사전 통지·약관 갱신」을 **일단 보류**하고 PR 1~4 구현을 먼저 진행하기로 함. 단 이는 영구 면제가 아니라 **개발 우선 진행을 위한 보류**이며, **PR 5(LINE 전환 + 약관) 운영 배포 직전에 D-7 사전 통지·정책 4종 갱신을 반드시 재논의·집행**해야 한다 (한국 개인정보 보호법 + 일본 개인정보보호법 중대 변경 트리거). 메인 세션이 운영 배포 시점에 이 항목을 다시 띄울 것.
+>
+> **🔄 2026-05-28 갱신 (사용자 결정)**: 약관 절차를 **PR 3 운영 배포 직전으로 앞당김**. PR 3 (일괄 발송) 을 PR 4·5 와 분리한 단독 트랙으로 가속하기로 함. 약관 4종 갱신 + 사전 통지 30일 + PR 3 운영 배포 순서. 상세 절차는 §PR 3 구현 계획 §8 「운영 배포 게이트」 참조. 이 갱신으로 **PR 4·5 운영 배포 의존성은 해제** — PR 5 의 약관 부분은 PR 3 단계에서 이미 처리되므로 PR 5 운영 배포는 LINE 안내 사이클만 남음.
 
 ### 8-1. /약관확인 분석 결과 (2026-05-18 메인 세션 검증)
 
@@ -1392,8 +1394,254 @@ PRIVACY_ja §5 同等行 (동일 컬럼 구조).
 - **데이터 계층 재사용:** 받은편지함은 144의 `application_message_summary` 뷰(security_invoker — 관리자 전체 조회) + `application_message_admin_unread_counts`(본인 미열람) + `fetchInfluencersByIds`(이름 보강)로 구성. 145에 뷰/집계 추가 없음
 - **GNB 메시지 배지:** `_myMsgUnreadByApp`(mypage.js) 합계 → `updateNavMsgBadge()`. 햄버거 열 때 `refreshMyMsgUnread` 백그라운드 최신화
 
-### PR 3~5
-(미진행 — PR 3 일괄 발송 / PR 4 메일 지연 큐 / PR 5 LINE 안내 + 약관 D-7 + 운영 배포)
+### PR 3 구현 계획 — 일괄 발송 (BCC) (계획 작성: 2026-05-28)
+
+> 본 섹션은 PR 3(일괄 발송) 본격 구현 들어가기 전 메인 세션(기획/설계)이 정리한 구현 계획. 사양서 §3-7 / §5-3-2 / §5-3-3 의 골격 위에 운영 패턴·결정사항을 결합. 개발 세션이 이 섹션을 받아 PR 단위로 진행. `.claude/rules/planning.md` 규칙 A·B 적용.
+
+#### 1. 현재 상태 (planning.md 규칙 A — 2026-05-28 검증)
+
+**완료 — PR 1·2 인프라 (마이그 144·145, 개발서버 적용):**
+- 테이블 5종 전부 생성 (`application_message_broadcasts` 포함 — PR 1 에서 선구현)
+- `application_messages.broadcast_id` 컬럼·인덱스·외래 키
+- `lookup_values.kind` CHECK 제약 확장 + 시드 `message_hide_reason` 7건
+- Storage 버킷 `application-message-attachments` + 행 단위 보안 정책
+- RPC 7개: send / read / withdraw_own / get_messages / admin_unread_counts / resolve / hide / unhide
+
+**미구현 (PR 3 본 범위):**
+- RPC `send_application_message_bulk` (신규)
+- RPC `withdraw_broadcast` (신규)
+- `dev/lib/storage.js` 일괄발송 함수 5종
+- `dev/js/admin-messaging.js` 일괄발송 모달·발송 이력 페인
+- 3개 응모행 페인에 다중 선택 체크박스 + 「선택된 N건에 발송」 진입
+
+**충돌 점검 — 없음:**
+- 마이그 156 (closed→ended 자동 전이) — 90일 차단은 status 안 보고 `reviewed_at`·`cancelled_at`·`deliverables.reviewed_at` 기반이라 영향 없음
+- 마이그 154 (application_approved 알림) — 일괄 발송 알림 종류는 `message_received` 따로
+- 마이그 152 (관리자 홍보 메일) — 별도 파이프라인
+
+#### 2. 결정 사항 (2026-05-28 사용자 확정)
+
+| 항목 | 결정 | 근거 |
+|---|---|---|
+| 권한 | **campaign_admin 이상** | N명 일괄 → 사고 영향 큼. RPC 가드 `public.is_campaign_admin()` |
+| 1회 한도 | **200명** | 운영 실측 한 캠페인 100명 안 넘음 + 안전 마진 2배. 데이터베이스 트랜잭션·메일 폭주 차단 |
+| 시간당 횟수 | **무제한** | 캠페인 연속 발송·같은 캠페인 안 분류별 발송이 정상 패턴 (사용자 명시) |
+| 2단계 확인 모달 | **100명 초과 시** | 1회 한도 200명의 절반. 큰 명단만 재확인 요구, 평소 운영은 한 번에 발송 가능 |
+| 같은 응모건 일괄 누적 | **허용** | 사용자 명시 "단체 정의 달리해서 여러 번 보낼 수도" |
+| 첨부 구조 | **1개 원본 + N명 공유** (같은 Storage 경로) | 용량·관리 단순. 회수 시 자연 동기. 사양서 §3-5 「관리자 처분·일괄 회수는 영구 보존」 일관 |
+| 회수 권한 | **발송자 본인 또는 super_admin** | 사양서 §3-5 ③ 유지 |
+| cancelled 응모 | **기본 필터에서 제외** | 인플 화면 cancelled 진입 차단(PR 1) → 발송해도 못 봄. 향후 명시 옵션은 v2 |
+| 운영 배포 게이트 | **약관 4종 갱신 + 사전 통지 발송 + 시행일 도래 후 PR 3 단독 운영 배포** | 2026-05-28 사용자 결정 — 약관 절차 우선 가속, PR 4·5 와 분리 트랙. 한국 개인정보 보호법(PIPA) + 일본 개인정보보호법(APPI) 중대 변경 의무 충족 후에만 가능. 절차는 본 PR 3 §8 참조 |
+| 90일 차단 | **관리자 일괄도 면제** | 개별 send 정책과 일관 (`is_admin()` 면제 분기) |
+| Rate limit | **개별 100건/시간과 별도** | 일괄 RPC 안에서는 시간 제한 없이 1회 200명만 검증 |
+
+모든 결정 사용자 확정 완료 (2026-05-28). 개발 세션은 위 표 그대로 적용.
+
+#### 3. 응모자 필터 정의 (사양서 §3-7 보강 — 2026-05-28 사용자 시나리오 반영)
+
+사용자 시나리오:
+- A) "캠페인이 변경됐어요. 결과물 제출 전에 확인" → 결과물 승인자 제외
+- B) "캠페인 X 응모자 전체 안내" → 응모 상태 전체
+
+캠페인 단위 발송 모달의 응모자 필터:
+
+| 필터 | 옵션 | 기본값 |
+|---|---|---|
+| 응모 상태 | 다중 선택: 심사중 / 승인 / 반려 (cancelled 제외) | **승인** |
+| 결과물 상태 | 다중 선택: 미제출 / 검수 중 / 승인 / 반려 (응모상태=승인일 때만 노출) | **미제출 + 검수 중 + 반려** (= 결과물 승인자 제외 패턴) |
+| 채널 | 다중 선택 (캠페인의 channel 옵션만 노출) | 전체 |
+| 최소 팔로워수 | 숫자 (생략 가능) | 비움 |
+
+**미리보기:** 「선택된 수신자 N명」 — 필터 변경 시 실시간 갱신. `count(*)` 만 가져오는 가벼운 fetch (`countBulkRecipients` storage 함수 신설).
+
+**임의 응모건 다중 선택 모드:** 페인 진입 시 사전 선택된 행 그대로 사용 (필터 미적용).
+
+#### 4. 추가 RPC 시그니처
+
+##### 4-1. send_application_message_bulk (신규)
+
+```sql
+CREATE OR REPLACE FUNCTION public.send_application_message_bulk(
+  p_application_ids     uuid[],
+  p_body                text,
+  p_attachments         jsonb DEFAULT '[]'::jsonb,
+  p_context_kind        text  DEFAULT 'manual',   -- 'campaign' | 'manual'
+  p_context_campaign_id uuid  DEFAULT NULL,
+  p_context_filter      jsonb DEFAULT NULL        -- 필터 스냅샷 (감사·재현용)
+) RETURNS uuid  -- broadcast_id
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+```
+
+**가드:**
+1. `public.is_campaign_admin()` 미만 → 예외 `権限がありません`
+2. `array_length(p_application_ids, 1) IS NULL` → 예외 `受信者がいません`
+3. `array_length(p_application_ids, 1) > 200` → 예외 `1回の一括送信は最大200名までです`
+4. body·attachment 빈값 검증 (개별 send 와 동일)
+5. 90일 차단 적용 안 함 (관리자 발신 면제, 개별 send 정책과 일관)
+
+**처리 흐름:**
+1. `application_message_broadcasts` INSERT (recipient_count 초기 0, context_* 3종 저장)
+2. FOREACH 응모건 → `applications.id` 존재 확인 → `application_messages` INSERT (`broadcast_id` 채움, sender_kind='admin')
+3. 각 응모건마다 `application_message_resolutions` UPSERT (resolution_method='auto_replied', resolved_after_message_at = 해당 응모건 마지막 인플 메시지 시각 또는 now())
+4. 각 응모건 인플에게 `notifications` INSERT (kind='message_received') — 같은 응모건 미읽음 중복은 INSERT 안 함 (개별 send 와 동일)
+5. broadcasts.recipient_count = 실제 INSERT 수 UPDATE
+6. 0건이면 broadcast 행 DELETE + 예외 `送信された応募がありません`
+
+##### 4-2. withdraw_broadcast (신규)
+
+```sql
+CREATE OR REPLACE FUNCTION public.withdraw_broadcast(
+  p_broadcast_id uuid,
+  p_reason_code  text,    -- lookup_values(kind='message_hide_reason').code
+  p_reason_memo  text DEFAULT NULL
+) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+```
+
+**가드:**
+1. `public.is_campaign_admin()` 미만 → 예외
+2. broadcast 행 존재 + (`sender_id = auth.uid()` OR `public.is_super_admin()`) — 본인 또는 super_admin 만
+3. 이미 `withdrawn_at IS NOT NULL` → 예외 `既に取り消されています` (중복 회수 차단)
+4. p_reason_code 가 `lookup_values(kind='message_hide_reason').code` 에 존재하는지 검증
+
+**처리 흐름:**
+1. `application_message_broadcasts` UPDATE — withdrawn_at, withdrawn_by, withdrawn_reason_code, withdrawn_reason_memo
+2. 해당 broadcast 의 모든 `application_messages` UPDATE — hidden_by_admin_at, hidden_by_admin_id, hidden_reason_code, hidden_reason_memo (사양서 §3-5 「broadcast 회수 = 각 메시지 강제 숨김 처리」)
+3. 각 메시지마다 `application_message_hide_history` INSERT (action='broadcast_withdraw', by_user_kind='admin')
+4. 첨부 Storage 삭제 없음 (사양서 §3-5 「관리자 처분·일괄 회수는 영구 보존」)
+5. 메일 큐는 PR 4 활성화 시점에 자동 정리 — PR 4 의 `process_pending_message_emails()` 가 hidden_by_admin_at 감지 시 `email_skip_reason='cancelled'` 마킹 (사양서 §4-6). PR 3 단독 운영 단계에서는 메일이 없으므로 무관
+
+#### 5. UI 작업 단위
+
+##### 5-1. 다중 선택 진입 (응모행 페인 → 일괄 발송)
+
+대상 페인 3개:
+- `#adminPane-applications` (신청 관리)
+- `#adminPane-camp-applicants` (캠페인별 신청자)
+- `#adminPane-deliverables` (결과물 관리) — **사양서 §5-3-2 명시 누락, 추가 권장**
+
+각 페인 행에 체크박스 컬럼 추가 (`is_campaign_admin()` 이상만 노출):
+- 헤더 체크박스 = 현재 페이지 전체 선택 (IntersectionObserver lazy-load 와 호환되도록 「현재까지 로드된 행 전체 선택」)
+- 선택된 행 수 카운터 + 「선택된 N건에 발송」 floating action bar (페인 하단 sticky)
+- 페인 필터 변경 시 선택 상태 초기화
+
+##### 5-2. 일괄 발송 모달 (2단계, 사양서 §5-3-2 보강)
+
+신규 모달 ID `#bulkMessageModal` — `dev/js/admin-messaging.js`
+
+**1단계: 발송 단위 + 필터**
+- 라디오 「캠페인 단위」 / 「임의 응모건 다중 선택」
+- 캠페인 단위:
+  - 캠페인 검색·선택 드롭다운 (active / closed / ended 캠페인만 노출, draft·expired 제외)
+  - §3 의 필터 4종
+  - 「선택된 수신자 N명」 실시간 카운트 (`countBulkRecipients`)
+- 임의 응모건: 페인에서 사전 선택된 행 그대로 사용, 수신자 리스트 미리보기 (5명 + 「他 N-5명」)
+
+**2단계: 본문 작성**
+- textarea (자동 높이, mypage 메시지와 동일 패턴)
+- 다중 첨부 (jpg/png/webp, image-compress.js HEIC→JPEG, 한 장당 5MB 한도, 최대 5장 — 사양서 §3-2 와 동일)
+- 우상단 「선택된 수신자 N명」 + 「수신자 미리보기」 접기·펼치기 (이름·캠페인명 5건 + 「他 N-5명」)
+- 「발송」 버튼 클릭 시 확인 모달:
+  - **N ≤ 50**: 「N명에게 같은 메시지를 발송합니다. 받는 사람들끼리는 서로 모릅니다 (BCC). 진행할까요?」
+  - **N > 50**: 위 문구 + 2단계 추가 확인 「N명은 평소 발송 규모보다 많습니다. 캠페인·필터를 다시 확인하셨습니까?」 + 캠페인명·필터 요약 표시 + 「확인했습니다」 체크박스 ON 후 발송 버튼 활성화
+
+##### 5-3. 발송 이력 페인 (사양서 §5-3-3)
+
+사이드바 「메시지」 페인에 탭 추가:
+- 탭 1: 받은편지함 (기존, PR 2)
+- 탭 2: **발송 이력** (신규 PR 3)
+
+발송 이력 행:
+- 발송 시각 / 본문 미리보기 (앞 60자) / 수신자 N명 / 읽음 N명 / 답장 N명 / 회수 배지
+- 컨텍스트 표시 (「캠페인 X 응모자」 / 「임의 선택 5건」)
+- 회수 시 회색 「회수됨」 배지 + 회수 시각·처리자 툴팁
+
+**권한별 가시성:**
+- super_admin: 모든 broadcast 열람
+- campaign_admin: 본인 발송분만 열람
+- campaign_manager: 발송 이력 탭 자체 비활성 (campaign_admin 미만 권한 가드)
+
+**행 클릭 시 상세 모달:**
+- 본문·첨부 원본 (회수돼도 관리자에게 보임)
+- 수신자 목록 표 (인플 이름·캠페인·읽음 상태·답장 상태)
+- 각 행 클릭 → 해당 응모건 메시지 페이지로 이동
+- 회수 버튼 (발송자 본인 또는 super_admin) → 사유 카테고리 + 자유 메모 입력 모달 → `withdraw_broadcast` RPC
+
+#### 6. 작업 분할 (PR 3 안에서 단계별 — 권장)
+
+| 단계 | 범위 | 의존성 |
+|---|---|---|
+| 3a — 데이터베이스 | 마이그레이션 16N(TBD — `supabase/migrations/` 마지막 번호 확인 후 다음 번호 사용. 작성 시점 기준 다른 일감 「관리자 프록시 결과물 제출」 이 160 staging 상태라 161 가 유력) (RPC 2종 + 권한 GRANT + 인덱스 점검) | PR 1·2 |
+| 3b — storage.js | `sendApplicationMessageBulk`, `withdrawBroadcast`, `fetchBroadcasts`, `fetchBroadcastDetail`, `countBulkRecipients` | 3a |
+| 3c — UI 다중선택 | 3개 페인 체크박스 컬럼 + floating action bar + 선택 상태 관리 | (독립) |
+| 3d — UI 일괄발송 모달 | `#bulkMessageModal` 2단계 + 필터 + 미리보기 + 2단계 확인(50명 임계) | 3a·3b·3c |
+| 3e — UI 발송 이력 페인 | 메시지 페인 탭 추가 + 발송 이력 목록 + 상세 + 회수 버튼 | 3a·3b |
+| 3f — qa·문서 | qa-tester full + FEATURE_SPEC.md + CLAUDE.md 업데이트 + 본 사양서 §구현 결과 작성 | 3a~3e |
+
+각 단계 commit 직전 `reverb-reviewer` 호출 의무 (`.claude/rules/interaction.md` 배포 전 필수 에이전트 호출).
+
+#### 7. qa 시나리오 (qa-tester 호출 시점)
+
+- BCC 보호: 인플 화면에 「N명 중 1명」 컨텍스트 노출 안 함 (사양서 §5-3-4)
+- 필터 기본값: 「결과물 승인자 제외」 패턴이 캠페인 단위 진입 시 즉시 동작
+- 권한: campaign_manager 가 페인 진입 시 다중 선택 체크박스·발송 이력 탭 비노출
+- 2단계 확인: 50명 초과 선택 시 추가 체크박스 동작
+- 한도: 201명 선택 후 RPC 호출 시 예외 발동·토스트 노출
+- 회수 권한: 발송자 본인 회수 가능 / 다른 campaign_admin 회수 불가 / super_admin 회수 가능
+- 회수 후 화면: 인플 placeholder, 관리자 원본 보임 (사양서 §3-5)
+- 발송 이력 가시성: campaign_admin 은 본인 발송분만, super_admin 은 전체
+- 첨부 공유 구조: 1개 Storage 경로가 N개 메시지에 참조됨, 정책 통과
+- 응대 자동 처리: N명 응모건 모두 `application_message_resolutions` auto_replied UPSERT 발생
+- 알림 중복 방지: 같은 응모건 미읽음 `message_received` 가 이미 있으면 추가 INSERT 안 함
+- cancelled 응모 처리: 캠페인 단위 필터 결과에 cancelled 행이 안 들어옴 (기본 제외)
+
+#### 8. 운영 배포 게이트 (2026-05-28 사용자 확정 — 약관 우선 가속)
+
+PR 3 의 운영서버 배포는 **PR 4·5 와 분리한 단독 트랙**으로 가속. 단 약관 4종 갱신·사전 통지 절차는 PR 3 운영 배포 전 반드시 완료. **2026-05-20 결정 「PR 5 운영 배포 직전 D-7 통지」가 PR 3 운영 배포 직전으로 앞당겨짐.**
+
+**필수 절차 순서** (모두 완료 후에만 PR 3 운영 배포 가능):
+
+1. **약관 4종 갱신** (`docs/TERMS_kr.md`·`docs/TERMS_ja.md`·`docs/PRIVACY_kr.md`·`docs/PRIVACY_ja.md`)
+   - 사양서 §8-2 「확정 문구 5건 (A~E)」 그대로 적용
+   - 한·일 양언어 동시 갱신 (`.claude/rules/policy.md` 영구 규칙)
+   - 문서 상단 「최종 갱신일」 + 「시행일」 명시. 시행일 = 사전 통지 발송일 + 30일
+
+2. **사전 통지 발송 시작** (메모리 `project_message_policy_notice.md` 인프라 활용)
+   - 마이그레이션 153 + Edge Function `notify-policy-change` **운영 적용** (이미 dev 완료, 운영 미적용)
+   - 인플루언서 전체에게 30일 사전 통지 메일 발송 + 앱 공지 모달
+   - 통지 본문: 「응모건 단위 단체 메시지 발송 기능 도입 + 메시지·첨부 수집 항목 신설 + 관리자 열람권 신설 + 시행일」 (사양서 §8-2 5건 요약)
+
+3. **PR 3 코드 개발 + 개발서버 검증** (위 1·2 와 병행 가능)
+   - 작업 분할 3a~3f 단계 진행
+   - 각 commit 직전 `reverb-reviewer` 호출 + 머지 전 `reverb-qa-tester` full PASS
+
+4. **시행일 도래 + PR 3 운영 배포**
+   - 사전 통지 발송 후 **30일 경과** (한국 PIPA + 일본 APPI 의무 충족)
+   - 마이그레이션 16N (TBD — 다른 일감 「관리자 프록시 결과물 제출」 이 160 사용 중. PR 3 commit 시점에 다음 사용 가능한 번호로 재할당) + PR 3 코드 운영서버 적용
+   - 발송 이력 페인·일괄 발송 모달 운영 노출
+
+**PR 4·5 와의 관계:**
+- PR 4 메일 지연 큐: PR 3 운영 적용과 **별도 트랙**. PR 4 없이도 인플 알림은 동작, 메일만 미발송. PR 3 운영 배포 후 별도 사이클에서 추가 가능
+- PR 5 LINE 안내: 별도 사이클. PR 3 운영 적용과 무관 (LINE 정책 변경은 운영 안정화 후)
+
+**메인 세션 점검 항목:**
+- 약관 4종 갱신 시점에 `/약관확인` 슬래시 커맨드로 누락 점검
+- 사전 통지 발송 후 30일 카운트다운을 메인 세션이 추적 + 시행일 도래 알림
+- PR 3 운영 배포 직전 「에이전트 호출 의무 게이트」 (`.claude/rules/git.md`) 적용
+
+#### 9. v2 백로그 (PR 3 범위 외)
+
+- 본문 템플릿 사전 저장 (자주 쓰는 「캠페인 변경 안내」 패턴) — 사용자 시나리오에서 도출
+- 발송 이력 페인 추가 필터 (캠페인·기간·발송자 multi)
+- 일괄 발송 결과 CSV 다운로드 (수신자별 읽음·답장 상태)
+- cancelled 응모 명시적 포함 옵션 (현재 기본 제외, 운영 사례 누적 시 검토)
+- 같은 응모건 일괄 발송 빈도 운영 가이드라인 (사양서 외 운영 매뉴얼에 권고치 명시)
+- campaign_admin 끼리 발송 이력 상호 가시화 (현재 본인만)
+
+---
+
+### PR 4·5
+(미진행 — PR 4 메일 지연 큐 / PR 5 LINE 안내 + 약관 사전 통지 + 운영 배포)
 
 ---
 
