@@ -75,6 +75,9 @@ async function init() {
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
 
+    // 관리자 큰 모달 드래그·리사이즈 옵저버 부착 (정적 overlay 전부, 1회)
+    if (typeof initDraggableModals === 'function') initDraggableModals();
+
     // 사이드바 배지 4종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
