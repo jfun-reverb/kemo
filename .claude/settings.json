@@ -18,6 +18,14 @@
             "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/reviewer-reminder.js"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $CLAUDE_PROJECT_DIR/.claude/hooks/dev-session-backlog.js"
+          }
+        ]
       }
     ],
     "PreToolUse": [
