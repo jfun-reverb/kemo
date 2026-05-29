@@ -20,6 +20,8 @@ brand-app-*.png
 history-*.png
 memo-*.png
 more-menu-*.png
+faq-*.png
+msg-*.png
 
 # Sales 정적 이미지 assets는 QA 패턴에서 제외
 !dev/sales/images/
