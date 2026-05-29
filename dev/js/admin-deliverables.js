@@ -43,7 +43,8 @@ function resetDelivFiltersAndSort() {
   resetMultiFilter('delivResultStatusMulti', '전체');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
   const q = $('delivSearch'); if (q) q.value = '';
-  const cb = $('delivIncludeMissing'); if (cb) cb.checked = false;
+  // 미제출 포함은 기본값 ON(HTML checked)과 일치하게 복원 — 초기화 후 전체 건수가 보이도록
+  const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
   _delivSort = {col: null, dir: null};
   renderDeliverablesList();
