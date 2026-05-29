@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779966941';
+  var CURRENT_BUILD = 'v1780020483';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1759,6 +1759,29 @@ textarea.form-input{resize:vertical;min-height:80px}
 .admin-proxy-combobox-list .item-meta{font-size:11px;color:var(--muted);margin-top:2px}
 .admin-proxy-combobox-list .empty{padding:14px 10px;text-align:center;color:var(--muted);font-size:12px}
 
+/* ── 드래그·리사이즈 가능한 관리자 모달 (2026-05-29) ── */
+/* 기본 .modal 은 화면 하단 바텀시트(components.css align-items:flex-end). */
+/* .draggable 부여 시 position:absolute 로 overlay flex 정렬에서 빠져나와 자유 위치 카드로 전환. */
+/* 관리자 큰 입력/상세/검수 모달만 대상 — 인플 모달·작은 확인 모달은 .draggable 미부여로 자연 격리. */
+.modal.draggable{
+  position:absolute;
+  width:480px;
+  max-width:92vw;
+  max-height:90vh;        /* none 이면 긴 본문이 화면 넘침 → 90vh 상한 + 본문 내부 스크롤 */
+  min-width:360px;
+  min-height:240px;
+  border-radius:16px;     /* 바텀시트 28px 28px 0 0 → 4모서리 둥근 카드 */
+  overflow:hidden;        /* resize:both 작동 조건 (visible 이면 핸들 안 나옴) */
+  resize:both;
+  display:flex;
+  flex-direction:column;
+}
+.modal.draggable .modal-header{cursor:move;user-select:none;flex-shrink:0}
+.modal.draggable .modal-header .modal-close,
+.modal.draggable .modal-header button,
+.modal.draggable .modal-header input{cursor:pointer}
+.modal.draggable .modal-body{flex:1 1 auto;overflow-y:auto;min-height:0}
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -1833,7 +1856,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 20:15 · dc54903</span>
+          <span class="admin-build-text">2026-05-29 11:08 · 6f76d58</span>
         </div>
       </div>
     </aside>
@@ -9528,6 +9551,89 @@ function closeImageLightbox() {
   closeModal('imageLightbox');
   const img = $('imageLightboxImg');
   if (img) img.src = '';
+}
+
+// ──────────────────────────────────────
+// 관리자 모달 드래그·리사이즈 (2026-05-29, 사양서 docs/specs/2026-05-28-admin-modal-draggable.md)
+//   - 큰 입력/상세/검수 모달만 대상 (DRAGGABLE_ADMIN_MODALS 화이트리스트). 작은 확인·알럿·라이트박스는 제외.
+//   - 적용 시점: overlay 에 .open 이 붙는 순간을 MutationObserver 로 감지 → open 방식(openModal/직접 classList) 무관 일괄 적용.
+//   - 매 열림: 화면 가운데로 위치·크기 초기화 (사양서 결정 — 위치 저장은 v2).
+//   - mousemove/mouseup 리스너는 모달당 1회만 등록(dataset.dragInit 가드, 중복 누적 방지). 헤더 드래그, 닫기·입력 요소 제외, 헤더 일부 항상 화면 안(클램프).
+// ──────────────────────────────────────
+const DRAGGABLE_ADMIN_MODALS = new Set([
+  // 인플루언서
+  'influencerFullDetailModal', 'infDetailModal', 'influencerFlagEditModal',
+  // 캠페인·번들
+  'campPreviewModal', 'campBundleModal', 'psetEditModal', 'csetEditModal', 'nsetEditModal', 'cautionHistoryModal',
+  // 신청·결과물
+  'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
+  // 브랜드 서베이·회사
+  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal',
+  // 공지·기준데이터·계정
+  'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
+  // 메시지
+  'admMsgModal', 'admHideModal',
+]);
+
+function makeModalDraggableResizable(modalEl) {
+  if (!modalEl) return;
+  modalEl.classList.add('draggable');
+
+  // 이전 resize 흔적 제거 후 화면 가운데로 초기화 (매 열림). overlay 가 display:flex 로 열린 뒤라 레이아웃 직후 측정.
+  modalEl.style.width = '';
+  modalEl.style.height = '';
+  requestAnimationFrame(() => {
+    const rect = modalEl.getBoundingClientRect();
+    modalEl.style.left = Math.max(8, (window.innerWidth - rect.width) / 2) + 'px';
+    modalEl.style.top = Math.max(8, (window.innerHeight - rect.height) / 2) + 'px';
+  });
+
+  if (modalEl.dataset.dragInit) return;  // 드래그 리스너는 모달당 1회만 등록
+  modalEl.dataset.dragInit = '1';
+
+  const header = modalEl.querySelector('.modal-header');
+  if (!header) return;
+
+  let drag = null;
+  header.addEventListener('mousedown', (e) => {
+    // 닫기 버튼·입력 요소·링크는 드래그 제외
+    if (e.target.closest('.modal-close, input, textarea, select, button, a')) return;
+    const rect = modalEl.getBoundingClientRect();
+    drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!drag) return;
+    // 화면 밖 완전 이탈 방지 — 헤더 일부(가로 100px·세로 60px)는 항상 화면 안
+    const left = Math.max(-100, Math.min(window.innerWidth - 100, e.clientX - drag.dx));
+    const top = Math.max(0, Math.min(window.innerHeight - 60, e.clientY - drag.dy));
+    modalEl.style.left = left + 'px';
+    modalEl.style.top = top + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!drag) return;
+    drag = null;
+    document.body.style.userSelect = '';
+  });
+}
+
+// overlay 에 .open 이 추가되면 화이트리스트 모달에 드래그·리사이즈 적용
+function _applyDraggableIfOpen(overlay) {
+  if (!overlay.classList.contains('open')) return;
+  if (!DRAGGABLE_ADMIN_MODALS.has(overlay.id)) return;
+  const modal = overlay.querySelector('.modal');
+  if (modal) makeModalDraggableResizable(modal);
+}
+
+// 관리자 부트 시 1회 호출 (admin/app.js). 정적 overlay(index.html) 전부에 class 변화 옵저버 부착.
+function initDraggableModals() {
+  document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+    if (overlay.dataset.dragObserved) return;
+    overlay.dataset.dragObserved = '1';
+    new MutationObserver(() => _applyDraggableIfOpen(overlay))
+      .observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  });
 }
 
 // ══════════════════════════════════════
@@ -25902,6 +26008,9 @@ async function init() {
 
     // 이미지 리스트 등록
     registerImgList('campImgData', campImgData);
+
+    // 관리자 큰 모달 드래그·리사이즈 옵저버 부착 (정적 overlay 전부, 1회)
+    if (typeof initDraggableModals === 'function') initDraggableModals();
 
     // 사이드바 배지 4종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
