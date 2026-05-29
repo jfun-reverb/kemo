@@ -914,6 +914,39 @@ async function adminRevokeProxyDeliverable(deliverableId, reason) {
   return ok;
 }
 
+// 채널 미지정 review_image 행에 채널 지정 / 해제 (마이그레이션 162)
+//   postChannel 있으면 지정, NULL/빈값이면 해제(검수 전 pending/draft만). campaign_admin 이상.
+async function assignReviewImageChannel(deliverableId, postChannel) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('assign_review_image_channel', {
+      p_deliverable_id: deliverableId,
+      p_post_channel:   postChannel || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 지정 불가(빈 채널 0개) 레거시 review_image 삭제 (마이그레이션 162, super_admin 전용)
+async function deleteLegacyReviewImage(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('delete_legacy_review_image', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
 // 영수증 변경 이력 조회 (모든 관리자 SELECT 가능)
 async function fetchReceiptEditHistory(deliverableId) {
   if (!db || !deliverableId) return [];

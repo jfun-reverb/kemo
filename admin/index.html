@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1779966941';
+  var CURRENT_BUILD = 'v1780024928';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1833,7 +1833,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-05-28 20:15 · dc54903</span>
+          <span class="admin-build-text">2026-05-29 12:22 · ae1b672</span>
         </div>
       </div>
     </aside>
@@ -6182,6 +6182,39 @@ async function adminRevokeProxyDeliverable(deliverableId, reason) {
   let ok = false;
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('admin_revoke_proxy_deliverable', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 채널 미지정 review_image 행에 채널 지정 / 해제 (마이그레이션 162)
+//   postChannel 있으면 지정, NULL/빈값이면 해제(검수 전 pending/draft만). campaign_admin 이상.
+async function assignReviewImageChannel(deliverableId, postChannel) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('assign_review_image_channel', {
+      p_deliverable_id: deliverableId,
+      p_post_channel:   postChannel || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 지정 불가(빈 채널 0개) 레거시 review_image 삭제 (마이그레이션 162, super_admin 전용)
+async function deleteLegacyReviewImage(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('delete_legacy_review_image', {
       p_deliverable_id: deliverableId,
       p_reason:         reason || null
     });
@@ -17420,6 +17453,49 @@ async function renderDelivCombinedBody(applicationId) {
       + '</div>';
   }
 
+  // 채널 미지정 레거시 review_image 영역 (마이그레이션 162) — isMonitorMulti 에서 post_channel NULL 행 노출.
+  //   채널별 분리 배포 전 제출된 행은 reviewByCh 에 안 담겨 패널에서 누락됨 → 여기서 별도 회색 박스로 노출.
+  //   campaign_admin 이상은 빈 채널 드롭다운으로 지정, super_admin 은 빈 채널 0개 행 삭제 가능. campaign_manager 는 읽기 전용.
+  let unassignedBox = '';
+  if (isMonitorMulti) {
+    const unassigned = allDelivs.filter(d => d.kind === 'review_image' && !d.post_channel);
+    if (unassigned.length > 0) {
+      const myRole = (typeof currentAdminInfo === 'object' && currentAdminInfo) ? currentAdminInfo.role : null;
+      const canAssign = myRole === 'super_admin' || myRole === 'campaign_admin';
+      const canDelete = myRole === 'super_admin';
+      const emptyChannels = campChannels.filter(ch => !reviewByCh[ch]);
+      const chLabelU = function(code){ return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code; };
+      const rowsHtml = unassigned.map(function(d){
+        const orig = d.receipt_url || '';
+        const thumb = orig
+          ? `<img src="${esc(typeof imgThumb === 'function' ? imgThumb(orig, 64, 60) : orig)}" data-orig="${esc(orig)}" onerror="this.src=this.dataset.orig" onclick="openImageLightbox('${esc(orig)}')" style="width:56px;height:56px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0" alt="리뷰 이미지">`
+          : '<div style="width:56px;height:56px;background:#eee;border-radius:6px;flex-shrink:0"></div>';
+        const dateStr = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('ja-JP') : '';
+        let control;
+        if (emptyChannels.length === 0) {
+          control = '<span style="font-size:12px;color:var(--muted)">지정 가능한 채널이 없습니다 (모든 채널이 이미 채워짐)</span>'
+            + (canDelete ? ` <button class="btn btn-ghost btn-sm" style="color:#C33;font-size:11px;padding:4px 8px" onclick="deleteLegacyReviewImageRow('${esc(d.id)}')">이 행 삭제</button>` : '');
+        } else if (canAssign) {
+          const opts = emptyChannels.map(ch => `<option value="${esc(ch)}">${esc(chLabelU(ch))}</option>`).join('');
+          control = `<select id="unassignCh_${esc(d.id)}" style="font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:6px">${opts}</select>`
+            + ` <button class="btn btn-primary btn-sm" style="font-size:11px;padding:5px 10px" onclick="assignDelivChannel('${esc(d.id)}')">이 채널로 지정</button>`;
+        } else {
+          control = '<span style="font-size:12px;color:var(--muted)">채널 지정 권한이 없습니다 (campaign_admin 이상)</span>';
+        }
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dotted var(--line)">
+          ${thumb}
+          <div style="flex:1;font-size:12px"><div style="color:var(--muted);margin-bottom:6px">제출일 ${esc(dateStr)}</div><div>${control}</div></div>
+        </div>`;
+      }).join('');
+      unassignedBox = `
+        <div style="margin-top:16px;padding:12px 14px;background:#FFF8E6;border:1px solid #F0D98C;border-radius:8px">
+          <div style="font-weight:700;font-size:13px;color:#8A6D1A;margin-bottom:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">report_problem</span> 채널 미지정 리뷰 이미지 (${unassigned.length}건)</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">채널 정보 없이 제출된 이미지입니다. 이미지를 확인하고 어느 채널의 리뷰인지 지정해 주세요.</div>
+          ${rowsHtml}
+        </div>`;
+    }
+  }
+
   // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
   const totalPanels = (showReceipt ? 1 : 1) + (isMonitorMulti ? campChannels.length : 1);
   const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
@@ -17438,7 +17514,33 @@ async function renderDelivCombinedBody(applicationId) {
       ${resultPanelsHtml}
     </div>
     ${channelSummaryBox}
+    ${unassignedBox}
   `;
+}
+
+// 채널 미지정 review_image 에 채널 지정 (마이그레이션 162). 드롭다운 선택값으로 assign RPC 호출 후 모달·목록 재렌더.
+async function assignDelivChannel(deliverableId) {
+  const sel = document.getElementById('unassignCh_' + deliverableId);
+  const channel = sel ? sel.value : '';
+  if (!channel) { toast('채널을 선택해주세요', 'error'); return; }
+  try {
+    await assignReviewImageChannel(deliverableId, channel);
+    toast('채널을 지정했습니다', 'success');
+    if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
+    if (typeof refreshPane === 'function') await refreshPane('deliverables');
+  } catch(e) { toast(e?.message || '채널 지정 중 오류가 발생했습니다', 'error'); }
+}
+
+// 지정 불가(빈 채널 0개) 레거시 review_image 삭제 (super_admin). 되돌릴 수 없으므로 확인 모달.
+async function deleteLegacyReviewImageRow(deliverableId) {
+  const ok = await showConfirm('이 채널 미지정 리뷰 이미지를 삭제하시겠습니까? 되돌릴 수 없습니다.');
+  if (!ok) return;
+  try {
+    await deleteLegacyReviewImage(deliverableId, '관리자 수동 삭제 (지정 불가 잉여 레거시 행)');
+    toast('삭제했습니다', 'success');
+    if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
+    if (typeof refreshPane === 'function') await refreshPane('deliverables');
+  } catch(e) { toast(e?.message || '삭제 중 오류가 발생했습니다', 'error'); }
 }
 
 // ─── 영수증 정보 블록 (마이그레이션 128) ─────────────────────
@@ -17591,7 +17693,9 @@ function renderDeliverableEventsTimeline(events, scopeId) {
       reject: '반려',
       revert: '되돌리기',
       admin_proxy_submit: '관리자 대리 등록',
-      admin_proxy_revoke: '관리자 대리 등록 회수'
+      admin_proxy_revoke: '관리자 대리 등록 회수',
+      channel_assign: '채널 지정',
+      channel_unassign: '채널 해제'
     };
     var label = labelMap[e.action] || e.action;
     var transition = e.from_status
