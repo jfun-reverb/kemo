@@ -1261,7 +1261,7 @@ async function openAdminProxyModal(presetAppId) {
   const m = $('adminProxyDelivModal');
   if (!m) return;
   _resetAdminProxyForm();
-  m.style.display = 'flex';
+  m.classList.add('open');  // display 직접 조작 대신 .open (드래그 MutationObserver 감지 + 잔류 방지)
   // 데이터 병렬 로드
   try {
     const [appsResult, reasonsResult, channelsResult] = await Promise.all([
@@ -1303,7 +1303,7 @@ async function openAdminProxyFromCombined() {
 
 function closeAdminProxyModal() {
   const m = $('adminProxyDelivModal');
-  if (m) m.style.display = 'none';
+  if (m) m.classList.remove('open');  // .open 제거로 닫기 (display:flex 잔류 방지)
   _resetAdminProxyForm();
 }
 
