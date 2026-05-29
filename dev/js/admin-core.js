@@ -604,25 +604,36 @@ function makeModalDraggableResizable(modalEl) {
   // transform 기반 정중앙 → 드래그/리사이즈 시작 시 1회 left/top/width/height px 로 고정(transform 해제).
   //   + max-width/height 제한 해제 → 리사이즈로 화면 끝까지 넓게 볼 수 있음(닫았다 열면 위 초기화로 기본 크기 복원).
   const pinPosition = () => {
-    modalEl.style.maxWidth = 'none';
-    modalEl.style.maxHeight = 'none';
     // 인라인 transform 이 '' (CSS translate(-50%,-50%) 활성) 또는 다른 값이면 px 로 고정.
     // 'none'(이미 고정됨)일 때만 스킵 — 빈 문자열을 falsy 로 누락하면 드래그 시작 시 모달이 왼쪽으로 튐.
     if (modalEl.style.transform !== 'none') {
-      const r = modalEl.getBoundingClientRect();
+      const r = modalEl.getBoundingClientRect();   // ★ max 해제 전 현재 크기 측정 (94vw 등이 max 풀리며 튀는 것 방지)
       modalEl.style.left = r.left + 'px';
       modalEl.style.top = r.top + 'px';
       modalEl.style.width = r.width + 'px';
       modalEl.style.height = r.height + 'px';
       modalEl.style.transform = 'none';
     }
+    // width/height 를 현재 px 로 고정한 뒤에 max 제한 해제 → 리사이즈로만 넓어지고 클릭 즉시 튀지 않음.
+    modalEl.style.maxWidth = 'none';
+    modalEl.style.maxHeight = 'none';
   };
 
-  // ── 헤더 드래그(이동) ──
-  const header = modalEl.querySelector('.modal-header');
+  // ── 드래그(이동) 핸들 결정 ──
+  //   기본은 .modal-header. 헤더 없는 모달(lookup/pset/cset/nset/faq 등)은
+  //   .modal-body 안 첫 요소(제목 div, id=xxxModalTitle)를 드래그 핸들로 사용.
+  let dragHandle = modalEl.querySelector('.modal-header');
+  if (!dragHandle) {
+    const bodyEl = modalEl.querySelector('.modal-body');
+    if (bodyEl && bodyEl.firstElementChild) {
+      dragHandle = bodyEl.firstElementChild;
+      dragHandle.style.cursor = 'move';
+      dragHandle.style.userSelect = 'none';
+    }
+  }
   let drag = null;
-  if (header) {
-    header.addEventListener('mousedown', (e) => {
+  if (dragHandle) {
+    dragHandle.addEventListener('mousedown', (e) => {
       if (e.target.closest('.modal-close, input, textarea, select, button, a')) return;
       pinPosition();
       const r = modalEl.getBoundingClientRect();
