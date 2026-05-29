@@ -42,3 +42,5 @@ node_modules/
 HANDOFF.md
 .vercel
 .env*.local
+modal-*.png
+*-modal.png
