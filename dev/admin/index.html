@@ -1041,38 +1041,12 @@
                 관리자 대리 등록
               </button>
             </div>
-            <!-- 기본줄: 자주 쓰는 필터 + 더보기 토글 -->
+            <!-- 모든 필터 항상 노출 (한 영역, 줄바꿈 허용). 텍스트 검색만 돋보기 버튼으로 토글 -->
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>캠페인</label>
                 <div id="delivCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
               </div>
-              <div class="admin-filter-group">
-                <label>결과물 상태 <span class="material-icons-round notranslate" translate="no" title="다중채널 캠페인은 채널별 상태가 상태 종류마다 따로 집계됩니다. (예: 인스타 승인 + X 검수대기 → 승인·검수대기 양쪽 건수에 포함)" style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
-                <div id="delivResultStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
-              </div>
-              <div class="admin-filter-group" style="flex:1;min-width:200px">
-                <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="delivSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 이메일 검색" oninput="renderDeliverablesList()">
-                </div>
-              </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <button type="button" class="btn btn-ghost btn-sm deliv-more-btn" id="btnDelivMoreFilters" onclick="toggleDelivMoreFilters()">
-                  <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">tune</span>
-                  <span>필터 더보기</span><span id="delivMoreFilterBadge" class="deliv-more-badge" style="display:none"></span>
-                  <span class="material-icons-round notranslate deliv-more-caret" translate="no" id="delivMoreCaret" style="font-size:16px;vertical-align:middle">expand_more</span>
-                </button>
-              </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnDelivFilterReset" onclick="resetDelivFiltersAndSort()" style="display:none">초기화</button>
-              </div>
-            </div>
-            <!-- 더보기 영역 (기본 닫힘) -->
-            <div id="delivMoreFilters" style="display:none;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--outline)">
               <div class="admin-filter-group">
                 <label>모집 타입</label>
                 <div id="delivRecruitTypeMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 타입</button><div class="mf-drop"></div></div>
@@ -1084,6 +1058,10 @@
               <div class="admin-filter-group">
                 <label>영수증 상태 <span class="material-icons-round notranslate" translate="no" title="영수증은 리뷰어 캠페인 전용입니다. 영수증 상태로 거르면 기프팅·방문형은 표시되지 않습니다." style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
                 <div id="delivReceiptStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>결과물 상태 <span class="material-icons-round notranslate" translate="no" title="다중채널 캠페인은 채널별 상태가 상태 종류마다 따로 집계됩니다. (예: 인스타 승인 + X 검수대기 → 승인·검수대기 양쪽 건수에 포함)" style="font-size:13px;cursor:help;color:var(--muted);vertical-align:middle">info_outline</span></label>
+                <div id="delivResultStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체</button><div class="mf-drop"></div></div>
               </div>
               <div class="admin-filter-group">
                 <label>최근 제출일</label>
@@ -1102,6 +1080,24 @@
                   <input type="checkbox" id="delivProxyOnly" onchange="renderDeliverablesList()" style="margin:0">
                   <span>만 보기</span>
                 </label>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnDelivSearchToggle" onclick="toggleDelivSearch()" title="인플루언서명 · 이메일 검색">
+                  <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">search</span>
+                </button>
+              </div>
+              <div class="admin-filter-group" style="justify-content:flex-end">
+                <label>&nbsp;</label>
+                <button class="btn btn-ghost btn-xs" id="btnDelivFilterReset" onclick="resetDelivFiltersAndSort()" style="display:none">초기화</button>
+              </div>
+              <!-- 텍스트 검색 입력 (기본 숨김 — 돋보기 버튼으로 토글) -->
+              <div class="admin-filter-group" id="delivSearchBox" style="display:none;flex:1;min-width:220px">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="delivSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="인플루언서명 · 이메일 검색" oninput="renderDeliverablesList()">
+                </div>
               </div>
             </div>
           </div>

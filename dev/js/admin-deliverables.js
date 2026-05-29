@@ -44,6 +44,9 @@ function resetDelivFiltersAndSort() {
   resetMultiFilter('delivChannelMulti', '전체 채널');
   resetMultiFilter('delivCampMulti', '전체 캠페인');
   const q = $('delivSearch'); if (q) q.value = '';
+  // 검색창 접기 + 돋보기 버튼 강조 해제
+  const sbox = $('delivSearchBox'); if (sbox) sbox.style.display = 'none';
+  const stb = $('btnDelivSearchToggle'); if (stb) stb.classList.remove('active');
   // 미제출 포함은 기본값 ON(HTML checked)과 일치하게 복원 — 초기화 후 전체 건수가 보이도록
   const cb = $('delivIncludeMissing'); if (cb) cb.checked = true;
   const cb2 = $('delivProxyOnly'); if (cb2) cb2.checked = false;
@@ -99,7 +102,6 @@ const DELIV_PAGE_SIZE = 50;
 var _delivSubmittedFrom = '';
 var _delivSubmittedTo = '';
 var _delivSubmittedFp = null;
-var _delivMoreOpen = false;
 
 // timestamptz ISO → 브라우저 로컬 날짜(YYYY-MM-DD). 기간 필터 비교용 (운영자 KST 기준)
 function delivLocalDate(iso) {
@@ -143,26 +145,15 @@ function setupDelivSubmittedRange() {
   });
 }
 
-// 더보기 영역 펼침/접힘 토글
-function toggleDelivMoreFilters() {
-  _delivMoreOpen = !_delivMoreOpen;
-  const box = $('delivMoreFilters');
-  const caret = $('delivMoreCaret');
-  if (box) box.style.display = _delivMoreOpen ? 'flex' : 'none';
-  if (caret) caret.textContent = _delivMoreOpen ? 'expand_less' : 'expand_more';
-}
-
-// 더보기 영역에 적용된 필터 수 → 버튼 배지 (닫혀 있어도 적용 사실 인지)
-function updateDelivMoreFilterBadge() {
-  let n = 0;
-  if (getMultiFilterValues('delivRecruitTypeMulti').length > 0) n++;
-  if (getMultiFilterValues('delivChannelMulti').length > 0) n++;
-  if (getMultiFilterValues('delivReceiptStatusMulti').length > 0) n++;
-  if (_delivSubmittedFrom || _delivSubmittedTo) n++;
-  const im = $('delivIncludeMissing'); if (im && !im.checked) n++;   // 기본 ON → OFF면 사용자가 변경
-  const po = $('delivProxyOnly'); if (po && po.checked) n++;
-  const badge = $('delivMoreFilterBadge');
-  if (badge) { badge.textContent = n > 0 ? String(n) : ''; badge.style.display = n > 0 ? '' : 'none'; }
+// 텍스트 검색창 토글 — 기본 숨김, 돋보기 버튼으로 펼침. 접을 때 검색어가 있으면 비우고 갱신.
+function toggleDelivSearch() {
+  const box = $('delivSearchBox');
+  const input = $('delivSearch');
+  if (!box) return;
+  const willShow = (box.style.display === 'none' || !box.style.display);
+  box.style.display = willShow ? 'flex' : 'none';
+  if (willShow) { setTimeout(() => { if (input) input.focus(); }, 0); }
+  else if (input && input.value) { input.value = ''; renderDeliverablesList(); }
 }
 
 async function renderDeliverablesList() {
@@ -460,13 +451,15 @@ async function renderDeliverablesList() {
     });
   }
 
-  // 더보기 배지 갱신 + 초기화 버튼 노출 — 기본줄·더보기 필터(기간·미제출OFF·대리등록 포함) 중 하나라도 활성이면 노출
-  updateDelivMoreFilterBadge();
+  // 초기화 버튼 노출 — 멀티필터·검색·기간·미제출OFF·대리등록 중 하나라도 활성이면 노출
   updateFilterResetBtn('btnDelivFilterReset', ['delivRecruitTypeMulti','delivReceiptStatusMulti','delivResultStatusMulti','delivChannelMulti','delivCampMulti'], 'delivSearch');
-  const _delivMoreActive = (_delivSubmittedFrom || _delivSubmittedTo)
+  const _delivExtraActive = (_delivSubmittedFrom || _delivSubmittedTo)
     || ($('delivIncludeMissing') && !$('delivIncludeMissing').checked)
     || ($('delivProxyOnly') && $('delivProxyOnly').checked);
-  if (_delivMoreActive) { const rb = $('btnDelivFilterReset'); if (rb) rb.style.display = ''; }
+  if (_delivExtraActive) { const rb = $('btnDelivFilterReset'); if (rb) rb.style.display = ''; }
+  // 검색어 있으면 돋보기 버튼 강조 + 검색창 펼친 상태 유지 (접힌 채 필터 적용 방지)
+  const _stb = $('btnDelivSearchToggle'); if (_stb) _stb.classList.toggle('active', !!search);
+  if (search) { const _sbox = $('delivSearchBox'); if (_sbox) _sbox.style.display = 'flex'; }
 
   // 정렬: 수동 sort 있으면 그대로, 없으면 검수대기 우선 → 최근 제출일 내림차순
   if (_delivSort.col === 'submitted') {
