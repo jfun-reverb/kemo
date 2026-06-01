@@ -74,7 +74,7 @@ async function handleSignup(e) {
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
-  toast('Welcome to REVERB!','success');
+  toast(t('auth.toast.welcome'),'success');
   updateGnb();
   btn.disabled=false; btn.textContent=t('auth.signup.btn');
   navigate('home');
@@ -110,7 +110,7 @@ async function handleLogin(e) {
     if (adminData) {
       currentUser._isAdmin = true;
       currentUserProfile = {name: adminData.name || 'Admin', email};
-      toast('Logged in as Admin','success'); updateGnb();
+      toast(t('auth.toast.adminLogin'),'success'); updateGnb();
       window.location.href = '/admin/';
     } else {
       const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
@@ -122,7 +122,7 @@ async function handleLogin(e) {
           currentUserProfile = {id: data.user.id, email};
         } catch(e) {}
       }
-      toast('Welcome back','success'); updateGnb(); navigate('home');
+      toast(t('auth.toast.welcomeBack'),'success'); updateGnb(); navigate('home');
     }
   } catch(e) {
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
@@ -133,7 +133,7 @@ async function handleLogin(e) {
 async function handleLogout() {
   if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
-  toast('Logged out'); updateGnb(); navigate('home');
+  toast(t('auth.toast.loggedOut')); updateGnb(); navigate('home');
 }
 
 // ── 비밀번호 재설정 ──
@@ -226,39 +226,3 @@ async function handleResetPassword(e) {
   btn.textContent = t('auth.reset.btn');
 }
 
-// ── SIGNUP STEP NAVIGATION ──
-function goStep(step) {
-  if (step === 2) {
-    const kanji = $('signupNameKanji')?.value.trim();
-    const kana = $('signupNameKana')?.value.trim();
-    const email = $('signupEmail')?.value.trim();
-    const pw = $('signupPw')?.value;
-    const pw2 = $('signupPw2')?.value;
-    const err = $('step1Error');
-    if (!kanji || !kana) { err.textContent=t('authError.enterName'); err.style.display='block'; return; }
-    if (!email) { err.textContent=t('authError.enterEmail'); err.style.display='block'; return; }
-    if (!pw || pw.length < 8) { err.textContent=t('authError.pwMin8'); err.style.display='block'; return; }
-    if (pw !== pw2) { err.textContent=t('authError.pwNoMatch'); err.style.display='block'; return; }
-    err.style.display='none';
-  }
-  if (step === 3) {
-    const ig = $('signupIg')?.value.trim();
-    const igF = $('signupIgFollowers')?.value;
-    const err = $('step2Error');
-    if (!ig) { err.textContent='Please enter Instagram ID (required)'; err.style.display='block'; return; }
-    if (!igF) { err.textContent='Please enter Instagram followers (required)'; err.style.display='block'; return; }
-    err.style.display='none';
-  }
-  [1,2,3].forEach(s => {
-    const el = $('signupStep'+s);
-    if (el) el.style.display = s === step ? 'block' : 'none';
-  });
-  [1,2,3].forEach(s => {
-    if (s === 1) return;
-    const c = $('step'+s+'circle');
-    const l = $('step'+s+'label');
-    if (c) { c.style.background = s <= step ? 'var(--pink)' : 'var(--line)'; c.style.color = s <= step ? '#fff' : 'var(--muted)'; }
-    if (l) { l.style.color = s <= step ? 'var(--pink)' : 'var(--muted)'; }
-  });
-  var _sh=$('appShell');if(_sh)_sh.scrollTop=0;else window.scrollTo(0,0);
-}

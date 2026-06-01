@@ -402,19 +402,6 @@ async function submitApplication() {
     toast(t('apply.cautionRequired'),'error'); return;
   }
 
-  const app = {
-    id: 'app-'+Date.now(),
-    user_id: currentUser.id,
-    user_email: currentUser.email,
-    user_name: currentUserProfile?.name || currentUser.email,
-    user_followers: currentUserProfile?.followers || 0,
-    campaign_id: currentCampaignId,
-    message: msg,
-    address: addr,
-    status: 'pending',
-    created_at: new Date().toISOString()
-  };
-
   const isDuplicate = await checkDuplicateApplication(currentUser.id, currentCampaignId);
   if (isDuplicate) {
     toast(t('apply.alreadyApplied'),'error'); closeModal('applyModal'); return;
@@ -529,7 +516,8 @@ function handleFloatApply() {
     const followerMap = {instagram: p.ig_followers||0, x: p.x_followers||0, tiktok: p.tiktok_followers||0, youtube: p.youtube_followers||0, qoo10: p.ig_followers||0};
     const chNameMap = {instagram:'Instagram', x:'X(Twitter)', tiktok:'TikTok', youtube:'YouTube', qoo10:'Qoo10'};
     // 기준 채널: primary_channel 우선, 없으면 첫 번째 채널로 폴백
-    const primary = (camp.primary_channel || (ch||'').split(',')[0] || 'instagram').trim();
+    // chList 는 camp.channel 을 split(',')+lowercase+trim 한 배열 (위 496줄)
+    const primary = (camp.primary_channel || chList[0] || 'instagram').trim();
     const primaryName = chNameMap[primary] || primary;
     const primaryCount = followerMap[primary] || 0;
     if (primaryCount < minF) {
@@ -1327,43 +1315,3 @@ async function submitAllDrafts(kind) {
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }
 
-// [DEAD CODE 2026-05-15] 활동관리 현행 흐름은 addDraftImage → submitDrafts 로 일원화됨.
-//   receipts 테이블 직접 INSERT 경로(submitReceipt) 는 더 이상 호출되지 않음. CLAUDE.md 명시.
-//   별도 정리 PR 에서 제거 예정. 본 함수의 마감 가드 정책은 의도적으로 동결.
-async function submitReceipt() {
-  if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
-  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
-
-  // 제출 마감 확인 (Stage 3)
-  const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end;
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
-    toast(t('activity.afterDeadline'),'error');
-    return;
-  }
-
-  try {
-    toast(t('activity.uploading'),'');
-    const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
-    const receiptUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
-
-    await insertReceipt({
-      application_id: _activityAppId,
-      user_id: currentUser.id,
-      campaign_id: _activityCampId,
-      receipt_url: receiptUrl,
-      purchase_date: $('receiptDate').value || null,
-      purchase_amount: parseInt($('receiptAmount').value) || 0
-    });
-
-    toast(t('activity.receiptSuccess'),'success');
-    _receiptImgData = null;
-    $('receiptPreview').innerHTML = '';
-    $('receiptFile').value = '';
-    $('receiptDate').value = '';
-    $('receiptAmount').value = '';
-    await loadReceipts();
-  } catch(e) {
-    toast(friendlyErrorJa(e), 'error');
-  }
-}

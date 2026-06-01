@@ -81,6 +81,12 @@ window.I18N_KO = {
   },
 
   auth: {
+    toast: {
+      welcome: 'REVERB에 오신 것을 환영합니다!',
+      welcomeBack: '다시 오신 것을 환영합니다',
+      loggedOut: '로그아웃되었습니다',
+      adminLogin: '관리자로 로그인했습니다',
+    },
     pwPolicy: '8자 이상, 영문 소문자와 특수문자(!@#$%^&* 등)를 반드시 포함하고, 영문 대소문자·숫자·특수문자 중 2가지 이상 조합해주세요.',
     pwTooShort: '비밀번호는 8자 이상이어야 합니다.',
     pwNeedLower: '비밀번호에 영문 소문자를 1개 이상 포함해주세요.',
