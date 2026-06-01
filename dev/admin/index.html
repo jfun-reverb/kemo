@@ -2658,6 +2658,18 @@
           <textarea id="adminProxyReason" placeholder="예: 6/12 도착 확인, 인플 LINE 협의 완료" maxlength="500"></textarea>
           <span class="form-help">운영 내부 메모. 인플루언서 화면에는 노출되지 않습니다.</span>
         </div>
+
+        <!-- 증빙 파일 첨부 (선택, 마이그레이션 163) -->
+        <div class="form-row" id="adminProxyEvidenceSection">
+          <label>증빙 첨부 <span style="font-weight:400;color:var(--muted)">(선택 · 최대 5장 · 장당 5MB)</span></label>
+          <input type="file" id="adminProxyEvidenceInput" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" multiple style="display:none" onchange="onAdminProxyEvidenceChange()">
+          <div id="adminProxyEvidenceDropzone" class="proxy-evidence-dropzone" onclick="document.getElementById('adminProxyEvidenceInput').click()" ondragover="event.preventDefault()" ondrop="onAdminProxyEvidenceDrop(event)">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted)">attach_file</span>
+            <span style="font-size:13px;color:var(--muted);margin-left:6px">파일 선택 또는 드래그&amp;드롭 (이미지 / PDF)</span>
+          </div>
+          <div id="adminProxyEvidencePreview" class="proxy-evidence-preview-list"></div>
+          <span class="form-help">미첨부 시에도 대리 등록은 가능합니다. campaign_admin 이상만 열람 가능.</span>
+        </div>
       </div>
     </div>
     <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
