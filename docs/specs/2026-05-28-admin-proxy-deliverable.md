@@ -362,3 +362,21 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 - **운영 배포 묶음 분리 확정 (2026-05-28 사용자 명시)**:
   - **묶음 A (선행)**: PR 1·2·3·UX 개선·161 = 마이그레이션 160·161 + RPC 본체 + 결과물 관리 UI + 진행 현황·엑셀·인플 화면 + combobox UX + 알림 body 정정. dev 누적 완료 상태, 운영 배포 후보 (메시지 본체 PR 5·6 약관 D-7 통지·다중채널 결과물 운영 분 등 다른 보류 묶음과 일정 협의 가능)
   - **묶음 B (후행, 별도 사이클)**: PR 5 = 마이그레이션 162 + 증빙 첨부 컬럼·Storage 버킷·UI 추가. **묶음 A 운영 배포 이후 독립 사이클**로 진행. dev 검증·운영 협의 모두 별도
+
+---
+
+### PR 5 — 증빙 파일 첨부 구현 결과 (2026-06-01)
+
+**구현일:** 2026-06-01
+**개발서버 배포:** PR #394 (dev 머지 `b373cb2`)
+**qa-tester Light:** 5/5 PASS
+
+**사양서 대비 변경 사항:**
+- 마이그레이션 번호: 사양서 §9 `162` → 실제 **163** (162는 채널 지정 기능이 선점)
+- 컬럼 자료형: 사양서 §9 `jsonb([{path,name,size,mime}])` → **`text[]`** (경로 문자열 배열, `influencer_flags.evidence_paths` 패턴 일치, 단순화)
+- RPC 반환 타입: `admin_revoke_proxy_deliverable` void → `text[]` (Storage 파일 삭제를 클라이언트에서 처리하기 위해, SQL에서 Storage 삭제 불가 이유)
+- 증빙 보기: 사양서의 "signed URL 생성" 방식을 검수 모달 렌더(동기 함수) 안에서 구현 불가 → **「증빙 N개 보기」 버튼 클릭 시 비동기로 signed URL 생성** 후 새 탭/라이트박스 패턴으로 변경 (응모건 메시지 첨부 패턴과 동일)
+- `onclick` 인라인 JSON 충돌 방지: `data-evidence` attribute + `JSON.parse(this.dataset.evidence)` 패턴 사용 (XSS 방어)
+- 회수 Storage 삭제 실패 처리: 회수 DB 행 삭제는 성공 처리, Storage 실패 시 `warning` toast만 (사용자 결정)
+
+**운영 배포:** 미완료 (개발서버 검증 완료, 운영 배포 별도 협의)
