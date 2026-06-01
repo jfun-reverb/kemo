@@ -489,8 +489,11 @@ async function upsertInfluencer(profile) {
 async function updateInfluencer(userId, updates) {
   if (!db) return;
   const normalized = (typeof normalizeSnsFields === 'function') ? normalizeSnsFields(updates) : updates;
-  const {error} = await db.from('influencers').update(normalized).eq('id', userId);
-  if (error) throw error;
+  // CUD 함수는 세션 만료 시 자동 갱신 후 1회 재시도 (다른 쓰기 함수와 동일 패턴)
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('influencers').update(normalized).eq('id', userId);
+    if (error) throw error;
+  });
 }
 
 // ── Applications ──
@@ -1799,19 +1802,13 @@ async function markAdminNoticeRead(noticeId) {
 async function fetchBrands(filters) {
   if (!db) return [];
   try {
-    var q = db?.from('brands')
-      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
-    if (filters?.status) q = q.eq('status', filters.status);
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('brands')
+        .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+      if (filters?.status) q = q.eq('status', filters.status);
+      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
+    });
   } catch(e) { console.error('[fetchBrands]', e); return []; }
 }
 async function fetchBrandById(id) {
@@ -1851,25 +1848,19 @@ async function insertBrand(payload) {
 async function fetchCompanies({ status = 'active', search } = {}) {
   if (!db) return [];
   try {
-    var q = db?.from('companies')
-      .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
-    // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
-    if (status && status !== 'all') q = q.eq('status', status);
-    // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
-    if (search && search.trim()) {
-      const s = search.trim();
-      q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
-    }
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('name_ko', {ascending: true});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('companies')
+        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+      // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
+      if (status && status !== 'all') q = q.eq('status', status);
+      // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
+      if (search && search.trim()) {
+        const s = search.trim();
+        q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
+      }
+      return q.order('name_ko', {ascending: true});
+    });
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
 
@@ -2038,27 +2029,21 @@ async function deleteCompanyHard(companyId) {
 async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search } = {}) {
   if (!db) return [];
   try {
-    var q = db?.from('brands')
-      .select('id, name, company_id, brand_seq');
-    if (companyId) {
-      // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
-      q = q.or(`company_id.eq.${companyId},company_id.is.null`);
-    } else if (unassignedOnly) {
-      q = q.is('company_id', null);
-    }
-    if (search && search.trim()) {
-      q = q.ilike('name', `%${search.trim()}%`);
-    }
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('name', {ascending: true});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('brands')
+        .select('id, name, company_id, brand_seq');
+      if (companyId) {
+        // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
+        q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+      } else if (unassignedOnly) {
+        q = q.is('company_id', null);
+      }
+      if (search && search.trim()) {
+        q = q.ilike('name', `%${search.trim()}%`);
+      }
+      return q.order('name', {ascending: true});
+    });
   } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
 }
 

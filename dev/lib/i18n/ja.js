@@ -86,6 +86,12 @@ window.I18N_JA = {
 
   // 인증
   auth: {
+    toast: {
+      welcome: 'REVERBへようこそ！',
+      welcomeBack: 'おかえりなさい',
+      loggedOut: 'ログアウトしました',
+      adminLogin: '管理者としてログインしました',
+    },
     pwPolicy: '8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。',
     pwTooShort: 'パスワードは8文字以上で入力してください。',
     pwNeedLower: 'パスワードに英小文字を1つ以上含めてください。',
