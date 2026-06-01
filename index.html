@@ -177,6 +177,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 #toast.success{background:var(--green)}
 #toast.error{background:#B3261E}
+#toast.warning{background:#d97706}
+#toast.info{background:#1d4ed8}
 
 /* ── MODAL (Material Bottom Sheet) ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:flex-end;justify-content:center;padding:0}
@@ -4405,6 +4407,41 @@ async function deleteFlagEvidenceFiles(paths) {
   if (error) throw error;
 }
 
+// ── 대리 등록 증빙 파일 업로드 (campaign_admin 이상, 마이그레이션 163) ──
+// file: File 객체
+// ref: deliverable_id 또는 'tmp/{timestamp}' 등 임시값
+// 반환: Storage 경로 문자열 (admin-proxy-evidence 버킷 기준)
+async function uploadProxyEvidence(file, ref) {
+  if (!db) throw new Error('DB 미연결');
+  const BUCKET = 'admin-proxy-evidence';
+  const ext = file.name ? file.name.split('.').pop().toLowerCase() : 'bin';
+  const uuid = crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).substring(2));
+  const path = `${ref}/${uuid}.${ext}`;
+  const {error} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
+  if (error) throw error;
+  return path;
+}
+
+// ── 대리 등록 증빙 signed URL 조회 (campaign_admin 이상, 마이그레이션 163) ──
+// path: uploadProxyEvidence() 반환값 (Storage 경로)
+// expiresIn: 초 단위, 기본 3600 (1시간)
+async function getProxyEvidenceSignedUrl(path, expiresIn = 3600) {
+  if (!db || !path) return null;
+  const BUCKET = 'admin-proxy-evidence';
+  const {data, error} = await db.storage.from(BUCKET).createSignedUrl(path, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl || null;
+}
+
+// ── 대리 등록 증빙 파일 삭제 (super_admin 전용, 마이그레이션 163) ──
+// paths: Storage 경로 배열
+async function deleteProxyEvidenceFiles(paths) {
+  if (!db || !paths || paths.length === 0) return;
+  const BUCKET = 'admin-proxy-evidence';
+  const {error} = await db.storage.from(BUCKET).remove(paths);
+  if (error) throw error;
+}
+
 // 모든 인플루언서의 위반 건수 집계 — { [influencer_id]: count }
 async function fetchViolationCountsByInfluencer() {
   if (!db) return {};
@@ -4562,6 +4599,7 @@ async function fetchDeliverables(filters) {
         reviewed_by, reviewed_at, submitted_at, updated_at,
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
+        submitted_by_admin_evidence,
         campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
@@ -4748,7 +4786,7 @@ async function fetchDeliverablesByCampaign(campaignId) {
   if (!db) return [];
   try {
     const {data, error} = await db?.from('deliverables')
-      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at')
+      .select('id, application_id, user_id, kind, status, reviewed_at, submitted_at, updated_at, version, post_url, post_channel, receipt_url, purchase_date, purchase_amount, reject_reason, submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence')
       .eq('campaign_id', campaignId)
       .order('submitted_at', {ascending: false});
     if (error) throw error;
@@ -4876,7 +4914,8 @@ async function adminCreateDeliverableProxy(payload) {
       p_purchase_date:   payload.purchaseDate || null,
       p_purchase_amount: payload.purchaseAmount ?? null,
       p_reason_code:     payload.reasonCode,
-      p_reason:          payload.reason || null
+      p_reason:          payload.reason || null,
+      p_evidence_paths:  payload.evidencePaths || []  // 마이그레이션 163: 증빙 경로 배열 (기본 빈 배열)
     });
     if (error) throw error;
     newId = data;
@@ -4884,21 +4923,34 @@ async function adminCreateDeliverableProxy(payload) {
   return newId;
 }
 
-// 대리 등록 회수 (super_admin 전용, 마이그레이션 160).
+// 대리 등록 회수 (super_admin 전용, 마이그레이션 160·163).
 // 잘못 등록된 대리 등록 결과물을 삭제 + audit 1건 기록.
+// 마이그레이션 163: RPC가 삭제된 증빙 파일 경로 배열을 반환 → 클라이언트에서 Storage 파일 별도 삭제.
+// Storage 삭제 실패 시 회수 자체는 성공으로 처리 (경고 토스트만).
 async function adminRevokeProxyDeliverable(deliverableId, reason) {
   if (!db) throw new Error('DB 미연결');
   if (!deliverableId) throw new Error('deliverableId 누락');
-  let ok = false;
+  let evidencePaths = [];
   await retryWithRefresh(async () => {
-    const {error} = await db.rpc('admin_revoke_proxy_deliverable', {
+    const {data, error} = await db.rpc('admin_revoke_proxy_deliverable', {
       p_deliverable_id: deliverableId,
       p_reason:         reason || null
     });
     if (error) throw error;
-    ok = true;
+    // 마이그레이션 163: RPC 반환값 = text[] (증빙 경로 배열)
+    evidencePaths = Array.isArray(data) ? data : [];
   });
-  return ok;
+  // Storage 증빙 파일 삭제 — 실패해도 회수 자체는 성공 처리 (고아 파일 경고만)
+  if (evidencePaths.length > 0) {
+    try {
+      await deleteProxyEvidenceFiles(evidencePaths);
+    } catch (storageErr) {
+      console.warn('[admin-proxy] 증빙 파일 Storage 삭제 실패 (회수는 완료됨):', storageErr);
+      // 호출부에서 toast로 경고 표시 가능하도록 에러 정보 반환
+      return {ok: true, storageDeleteFailed: true};
+    }
+  }
+  return {ok: true, storageDeleteFailed: false};
 }
 
 // 채널 미지정 review_image 행에 채널 지정 / 해제 (마이그레이션 162)

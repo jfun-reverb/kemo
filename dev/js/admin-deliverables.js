@@ -1330,7 +1330,17 @@ function renderDelivPanelContent(d, events) {
     const reasonLabel = _proxyReasonLabelKo(d.submitted_by_admin_reason_code);
     const at = d.submitted_by_admin_at ? formatDate(d.submitted_by_admin_at) : '';
     const memo = d.submitted_by_admin_reason ? `<div class="deliv-proxy-meta">메모: ${esc(d.submitted_by_admin_reason)}</div>` : '';
-    html += `<div class="deliv-proxy-notice"><strong>관리자 대리 등록</strong> — 사유: ${esc(reasonLabel)}${at ? ' · ' + esc(at) : ''}${memo}<span class="deliv-proxy-cascade">회수 시 audit 로그도 함께 삭제됩니다 (영구 감사 미보존).</span></div>`;
+    // 마이그레이션 163: 증빙 파일 보기 버튼 (campaign_admin 이상, 비동기 signed URL)
+    const evidencePaths = Array.isArray(d.submitted_by_admin_evidence) ? d.submitted_by_admin_evidence : [];
+    const evidenceBtn = evidencePaths.length > 0
+      ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px;margin-top:4px"
+           data-deliv-id="${esc(d.id)}"
+           data-evidence="${esc(JSON.stringify(evidencePaths))}"
+           onclick="openProxyEvidenceViewer(this.dataset.delivId, JSON.parse(this.dataset.evidence))">
+           증빙 ${evidencePaths.length}개 보기
+         </button>`
+      : '';
+    html += `<div class="deliv-proxy-notice"><strong>관리자 대리 등록</strong> — 사유: ${esc(reasonLabel)}${at ? ' · ' + esc(at) : ''}${memo}${evidenceBtn}<span class="deliv-proxy-cascade">회수 시 audit 로그도 함께 삭제됩니다 (영구 감사 미보존).</span></div>`;
   }
   if (d.kind === 'receipt' || d.kind === 'review_image') {
     html += `<div style="text-align:center;margin-bottom:12px">
@@ -1475,6 +1485,84 @@ function _resetAdminProxyForm() {
   });
   const kindSelect = $('adminProxyKind');
   if (kindSelect) { kindSelect.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSelect.disabled = true; }
+  // 마이그레이션 163: 증빙 파일 입력 + 미리보기 초기화
+  const evInput = $('adminProxyEvidenceInput');
+  if (evInput) evInput.value = '';
+  _renderProxyEvidencePreview([]);
+  // 내부 파일 목록 초기화
+  _proxyEvidenceFiles = [];
+}
+
+// 마이그레이션 163: 증빙 파일 목록 (File 객체 배열, 최대 5장)
+let _proxyEvidenceFiles = [];
+const _PROXY_EVIDENCE_MAX = 5;
+const _PROXY_EVIDENCE_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const _PROXY_EVIDENCE_ALLOWED_MIME = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'];
+
+function _validateProxyEvidenceFiles(files) {
+  const candidates = Array.from(files);
+  const merged = [..._proxyEvidenceFiles, ...candidates];
+  if (merged.length > _PROXY_EVIDENCE_MAX) {
+    toast(`증빙 파일은 최대 ${_PROXY_EVIDENCE_MAX}장까지 첨부 가능합니다`, 'error');
+    return null;
+  }
+  for (const f of candidates) {
+    if (!_PROXY_EVIDENCE_ALLOWED_MIME.includes(f.type)) {
+      toast(`지원하지 않는 파일 형식입니다: ${f.name} (이미지 또는 PDF만 가능)`, 'error');
+      return null;
+    }
+    if (f.size > _PROXY_EVIDENCE_MAX_SIZE) {
+      toast(`파일 크기가 5MB를 초과합니다: ${f.name}`, 'error');
+      return null;
+    }
+  }
+  return merged;
+}
+
+function onAdminProxyEvidenceChange() {
+  const input = $('adminProxyEvidenceInput');
+  if (!input || !input.files || !input.files.length) return;
+  const merged = _validateProxyEvidenceFiles(input.files);
+  if (!merged) { input.value = ''; return; }
+  _proxyEvidenceFiles = merged;
+  _renderProxyEvidencePreview(_proxyEvidenceFiles);
+  input.value = '';
+}
+
+function onAdminProxyEvidenceDrop(e) {
+  e.preventDefault();
+  const files = e.dataTransfer?.files;
+  if (!files || !files.length) return;
+  const merged = _validateProxyEvidenceFiles(files);
+  if (!merged) return;
+  _proxyEvidenceFiles = merged;
+  _renderProxyEvidencePreview(_proxyEvidenceFiles);
+}
+
+function _renderProxyEvidencePreview(files) {
+  const container = $('adminProxyEvidencePreview');
+  if (!container) return;
+  // 기존 blob URL 해제 (메모리 누수 방지)
+  container.querySelectorAll('img[src^="blob:"]').forEach(img => URL.revokeObjectURL(img.src));
+  if (!files || !files.length) { container.innerHTML = ''; return; }
+  container.innerHTML = files.map((f, i) => {
+    const isPdf = f.type === 'application/pdf';
+    const thumb = isPdf
+      ? `<span class="material-icons-round notranslate" translate="no" style="font-size:32px;color:#e74c3c;flex-shrink:0">picture_as_pdf</span>`
+      : `<img src="${URL.createObjectURL(f)}" alt="">`;
+    return `<div class="proxy-evidence-item">
+      ${thumb}
+      <span class="ev-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      <button class="ev-remove" type="button" onclick="_removeProxyEvidenceFile(${i})" title="삭제">
+        <span class="material-icons-round notranslate" translate="no" style="font-size:14px">close</span>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function _removeProxyEvidenceFile(index) {
+  _proxyEvidenceFiles.splice(index, 1);
+  _renderProxyEvidencePreview(_proxyEvidenceFiles);
 }
 
 async function _loadAdminProxyApprovedApps() {
@@ -1843,6 +1931,19 @@ async function submitAdminProxyDelivProxy() {
   const btn = $('adminProxySubmitBtn');
   if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
   try {
+    // 마이그레이션 163: 증빙 파일 Storage 업로드 (있으면) → 경로 배열 수집
+    // 임시 참조 키는 타임스탬프 (RPC 성공 후 id를 알 수 있으므로 tmp 경로 사용)
+    let evidencePaths = [];
+    if (_proxyEvidenceFiles.length > 0) {
+      if (btn) btn.textContent = '증빙 업로드 중…';
+      const tmpRef = 'tmp-' + Date.now();
+      const uploads = await Promise.all(
+        _proxyEvidenceFiles.map(f => uploadProxyEvidence(f, tmpRef))
+      );
+      evidencePaths = uploads.filter(Boolean);
+    }
+    payload.evidencePaths = evidencePaths;
+
     const newId = await adminCreateDeliverableProxy(payload);
     toast('대리 등록·자동 승인 완료 (id ' + (newId || '').slice(0, 8) + ')', 'success');
     closeAdminProxyModal();
@@ -1875,14 +1976,49 @@ async function revokeAdminProxyDeliv(deliverableId) {
   if (!reason.trim()) return toast('회수 사유는 비워둘 수 없습니다', 'error');
   if (!confirm('대리 등록을 회수합니다. 결과물 행과 audit 로그가 삭제됩니다 (복구 불가). 진행할까요?')) return;
   try {
-    await adminRevokeProxyDeliverable(deliverableId, reason.trim());
-    toast('대리 등록 회수 완료', 'success');
+    // 마이그레이션 163: adminRevokeProxyDeliverable이 {ok, storageDeleteFailed} 반환
+    const result = await adminRevokeProxyDeliverable(deliverableId, reason.trim());
+    if (result?.storageDeleteFailed) {
+      toast('대리 등록 회수 완료 (증빙 파일 일부가 Storage에 남아있을 수 있습니다)', 'warning');
+    } else {
+      toast('대리 등록 회수 완료', 'success');
+    }
     closeDelivCombined();
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
     else if (typeof renderDeliverablesList === 'function') await renderDeliverablesList();
   } catch (err) {
     console.error('[admin-proxy] 회수 실패', err);
     toast('회수 실패: ' + (err.message || err), 'error');
+  }
+}
+
+// 마이그레이션 163: 증빙 파일 보기 — 비동기 signed URL 생성 후 새 탭/라이트박스 열기
+async function openProxyEvidenceViewer(deliverableId, paths) {
+  if (!paths || !paths.length) return;
+  if (!Array.isArray(paths)) { try { paths = JSON.parse(paths); } catch(e) { return; } }
+
+  // campaign_admin 미만은 접근 불가 (Storage 정책에서도 차단됨)
+  const role = typeof currentAdminInfo !== 'undefined' ? currentAdminInfo?.role : null;
+  const allowedRoles = ['super_admin', 'campaign_admin'];
+  if (!role || !allowedRoles.includes(role)) {
+    return toast('증빙 파일은 campaign_admin 이상만 열람 가능합니다', 'error');
+  }
+
+  toast('증빙 파일 링크 생성 중…', 'info');
+  try {
+    const urls = await Promise.all(paths.map(p => getProxyEvidenceSignedUrl(p)));
+    const validUrls = urls.filter(Boolean);
+    if (!validUrls.length) return toast('증빙 파일 링크 생성에 실패했습니다', 'error');
+
+    // 이미지가 1개면 라이트박스, PDF이거나 여러 개면 새 탭 순차 오픈
+    if (validUrls.length === 1 && !paths[0].endsWith('.pdf')) {
+      openImageLightbox(validUrls[0]);
+    } else {
+      validUrls.forEach(url => window.open(url, '_blank', 'noopener'));
+    }
+  } catch (err) {
+    console.error('[proxy-evidence] signed URL 생성 실패', err);
+    toast('증빙 파일 링크 생성 실패: ' + (err.message || err), 'error');
   }
 }
 
