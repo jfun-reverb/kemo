@@ -375,27 +375,9 @@ function openCautionConsentModal(appId) {
   openModal('alertModal');
 }
 
-// 필터 select: 전체(all)가 아닌 값 선택 시 배경 흰색으로 활성 표시
 // ════════════════════════════════════════════════════════════════════
 // SECTION: CORE — 다중선택 필터 유틸 (sync/create/reset)
 // ════════════════════════════════════════════════════════════════════
-
-function highlightFilter(el) {
-  el.classList.toggle('active', el.value !== 'all');
-}
-
-// 테이블 wrap 높이를 화면에 맞춰 설정 → wrap 안에서만 스크롤
-function updateTableScrollHeight(paneId) {
-  setTimeout(() => {
-    const pane = $(paneId);
-    if (!pane) return;
-    const wrap = pane.querySelector('.admin-table-wrap');
-    if (!wrap) return;
-    const rect = wrap.getBoundingClientRect();
-    wrap.style.maxHeight = (window.innerHeight - rect.top - 16) + 'px';
-    wrap.style.overflowY = 'auto';
-  }, 0);
-}
 
 // 다중 필터 리셋
 function resetMultiFilter(containerId, allLabel) {

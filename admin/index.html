@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780279008';
+  var CURRENT_BUILD = 'v1780300422';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1948,7 +1948,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-01 10:56 · bdc5021</span>
+          <span class="admin-build-text">2026-06-01 16:53 · 4a56409</span>
         </div>
       </div>
     </aside>
@@ -5924,8 +5924,11 @@ async function upsertInfluencer(profile) {
 async function updateInfluencer(userId, updates) {
   if (!db) return;
   const normalized = (typeof normalizeSnsFields === 'function') ? normalizeSnsFields(updates) : updates;
-  const {error} = await db.from('influencers').update(normalized).eq('id', userId);
-  if (error) throw error;
+  // CUD 함수는 세션 만료 시 자동 갱신 후 1회 재시도 (다른 쓰기 함수와 동일 패턴)
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('influencers').update(normalized).eq('id', userId);
+    if (error) throw error;
+  });
 }
 
 // ── Applications ──
@@ -7234,19 +7237,13 @@ async function markAdminNoticeRead(noticeId) {
 async function fetchBrands(filters) {
   if (!db) return [];
   try {
-    var q = db?.from('brands')
-      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
-    if (filters?.status) q = q.eq('status', filters.status);
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('brands')
+        .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+      if (filters?.status) q = q.eq('status', filters.status);
+      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
+    });
   } catch(e) { console.error('[fetchBrands]', e); return []; }
 }
 async function fetchBrandById(id) {
@@ -7286,25 +7283,19 @@ async function insertBrand(payload) {
 async function fetchCompanies({ status = 'active', search } = {}) {
   if (!db) return [];
   try {
-    var q = db?.from('companies')
-      .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
-    // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
-    if (status && status !== 'all') q = q.eq('status', status);
-    // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
-    if (search && search.trim()) {
-      const s = search.trim();
-      q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
-    }
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('name_ko', {ascending: true});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('companies')
+        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+      // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
+      if (status && status !== 'all') q = q.eq('status', status);
+      // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
+      if (search && search.trim()) {
+        const s = search.trim();
+        q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
+      }
+      return q.order('name_ko', {ascending: true});
+    });
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
 
@@ -7473,27 +7464,21 @@ async function deleteCompanyHard(companyId) {
 async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search } = {}) {
   if (!db) return [];
   try {
-    var q = db?.from('brands')
-      .select('id, name, company_id, brand_seq');
-    if (companyId) {
-      // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
-      q = q.or(`company_id.eq.${companyId},company_id.is.null`);
-    } else if (unassignedOnly) {
-      q = q.is('company_id', null);
-    }
-    if (search && search.trim()) {
-      q = q.ilike('name', `%${search.trim()}%`);
-    }
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('name', {ascending: true});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('brands')
+        .select('id, name, company_id, brand_seq');
+      if (companyId) {
+        // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
+        q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+      } else if (unassignedOnly) {
+        q = q.is('company_id', null);
+      }
+      if (search && search.trim()) {
+        q = q.ilike('name', `%${search.trim()}%`);
+      }
+      return q.order('name', {ascending: true});
+    });
   } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
 }
 
@@ -9589,27 +9574,9 @@ function openCautionConsentModal(appId) {
   openModal('alertModal');
 }
 
-// 필터 select: 전체(all)가 아닌 값 선택 시 배경 흰색으로 활성 표시
 // ════════════════════════════════════════════════════════════════════
 // SECTION: CORE — 다중선택 필터 유틸 (sync/create/reset)
 // ════════════════════════════════════════════════════════════════════
-
-function highlightFilter(el) {
-  el.classList.toggle('active', el.value !== 'all');
-}
-
-// 테이블 wrap 높이를 화면에 맞춰 설정 → wrap 안에서만 스크롤
-function updateTableScrollHeight(paneId) {
-  setTimeout(() => {
-    const pane = $(paneId);
-    if (!pane) return;
-    const wrap = pane.querySelector('.admin-table-wrap');
-    if (!wrap) return;
-    const rect = wrap.getBoundingClientRect();
-    wrap.style.maxHeight = (window.innerHeight - rect.top - 16) + 'px';
-    wrap.style.overflowY = 'auto';
-  }, 0);
-}
 
 // 다중 필터 리셋
 function resetMultiFilter(containerId, allLabel) {
@@ -17841,7 +17808,7 @@ async function renderDelivCombinedBody(applicationId) {
       order_number, purchase_date, purchase_amount,
       reject_reason, reject_template_code,
       submitted_at, reviewed_at, updated_at, reviewed_by,
-      submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
+      submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at, submitted_by_admin_evidence,
       campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)
     `).eq('application_id', applicationId).neq('status', 'draft').order('submitted_at', {ascending: false});
     if (delivRes?.error) console.error('[deliv-combined deliv]', delivRes.error);

@@ -2587,6 +2587,12 @@ window.I18N_JA = {
 
   // 인증
   auth: {
+    toast: {
+      welcome: 'REVERBへようこそ！',
+      welcomeBack: 'おかえりなさい',
+      loggedOut: 'ログアウトしました',
+      adminLogin: '管理者としてログインしました',
+    },
     pwPolicy: '8文字以上、英小文字と記号（!@#$%^&*など）を必ず含め、英大文字・数字・記号のうち2種類以上の組み合わせで作成してください。',
     pwTooShort: 'パスワードは8文字以上で入力してください。',
     pwNeedLower: 'パスワードに英小文字を1つ以上含めてください。',
@@ -3242,6 +3248,12 @@ window.I18N_KO = {
   },
 
   auth: {
+    toast: {
+      welcome: 'REVERB에 오신 것을 환영합니다!',
+      welcomeBack: '다시 오신 것을 환영합니다',
+      loggedOut: '로그아웃되었습니다',
+      adminLogin: '관리자로 로그인했습니다',
+    },
     pwPolicy: '8자 이상, 영문 소문자와 특수문자(!@#$%^&* 등)를 반드시 포함하고, 영문 대소문자·숫자·특수문자 중 2가지 이상 조합해주세요.',
     pwTooShort: '비밀번호는 8자 이상이어야 합니다.',
     pwNeedLower: '비밀번호에 영문 소문자를 1개 이상 포함해주세요.',
@@ -4478,8 +4490,11 @@ async function upsertInfluencer(profile) {
 async function updateInfluencer(userId, updates) {
   if (!db) return;
   const normalized = (typeof normalizeSnsFields === 'function') ? normalizeSnsFields(updates) : updates;
-  const {error} = await db.from('influencers').update(normalized).eq('id', userId);
-  if (error) throw error;
+  // CUD 함수는 세션 만료 시 자동 갱신 후 1회 재시도 (다른 쓰기 함수와 동일 패턴)
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('influencers').update(normalized).eq('id', userId);
+    if (error) throw error;
+  });
 }
 
 // ── Applications ──
@@ -5788,19 +5803,13 @@ async function markAdminNoticeRead(noticeId) {
 async function fetchBrands(filters) {
   if (!db) return [];
   try {
-    var q = db?.from('brands')
-      .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
-    if (filters?.status) q = q.eq('status', filters.status);
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('brands')
+        .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+      if (filters?.status) q = q.eq('status', filters.status);
+      return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
+    });
   } catch(e) { console.error('[fetchBrands]', e); return []; }
 }
 async function fetchBrandById(id) {
@@ -5840,25 +5849,19 @@ async function insertBrand(payload) {
 async function fetchCompanies({ status = 'active', search } = {}) {
   if (!db) return [];
   try {
-    var q = db?.from('companies')
-      .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
-    // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
-    if (status && status !== 'all') q = q.eq('status', status);
-    // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
-    if (search && search.trim()) {
-      const s = search.trim();
-      q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
-    }
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('name_ko', {ascending: true});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('companies')
+        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+      // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
+      if (status && status !== 'all') q = q.eq('status', status);
+      // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
+      if (search && search.trim()) {
+        const s = search.trim();
+        q = q.or(`name_ko.ilike.%${s}%,name_ja.ilike.%${s}%,business_no.ilike.%${s}%`);
+      }
+      return q.order('name_ko', {ascending: true});
+    });
   } catch(e) { console.error('[fetchCompanies]', e); return []; }
 }
 
@@ -6027,27 +6030,21 @@ async function deleteCompanyHard(companyId) {
 async function fetchBrandsForAssign({ companyId, unassignedOnly = false, search } = {}) {
   if (!db) return [];
   try {
-    var q = db?.from('brands')
-      .select('id, name, company_id, brand_seq');
-    if (companyId) {
-      // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
-      q = q.or(`company_id.eq.${companyId},company_id.is.null`);
-    } else if (unassignedOnly) {
-      q = q.is('company_id', null);
-    }
-    if (search && search.trim()) {
-      q = q.ilike('name', `%${search.trim()}%`);
-    }
-    var pageSize = 1000, from = 0, out = [];
-    while (true) {
-      const {data, error} = await q.range(from, from + pageSize - 1).order('name', {ascending: true});
-      if (error) throw error;
-      const rows = data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-    return out;
+    // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
+    return await fetchAllPaged(() => {
+      var q = db.from('brands')
+        .select('id, name, company_id, brand_seq');
+      if (companyId) {
+        // 현재 소속 브랜드 + 아직 미분류 브랜드 둘 다
+        q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+      } else if (unassignedOnly) {
+        q = q.is('company_id', null);
+      }
+      if (search && search.trim()) {
+        q = q.ilike('name', `%${search.trim()}%`);
+      }
+      return q.order('name', {ascending: true});
+    });
   } catch(e) { console.error('[fetchBrandsForAssign]', e); return []; }
 }
 
@@ -8330,7 +8327,7 @@ async function handleSignup(e) {
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
-  toast('Welcome to REVERB!','success');
+  toast(t('auth.toast.welcome'),'success');
   updateGnb();
   btn.disabled=false; btn.textContent=t('auth.signup.btn');
   navigate('home');
@@ -8366,7 +8363,7 @@ async function handleLogin(e) {
     if (adminData) {
       currentUser._isAdmin = true;
       currentUserProfile = {name: adminData.name || 'Admin', email};
-      toast('Logged in as Admin','success'); updateGnb();
+      toast(t('auth.toast.adminLogin'),'success'); updateGnb();
       window.location.href = '/admin/';
     } else {
       const {data:profile} = await db.from('influencers').select('*').eq('id', data.user.id).maybeSingle();
@@ -8378,7 +8375,7 @@ async function handleLogin(e) {
           currentUserProfile = {id: data.user.id, email};
         } catch(e) {}
       }
-      toast('Welcome back','success'); updateGnb(); navigate('home');
+      toast(t('auth.toast.welcomeBack'),'success'); updateGnb(); navigate('home');
     }
   } catch(e) {
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
@@ -8389,7 +8386,7 @@ async function handleLogin(e) {
 async function handleLogout() {
   if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
-  toast('Logged out'); updateGnb(); navigate('home');
+  toast(t('auth.toast.loggedOut')); updateGnb(); navigate('home');
 }
 
 // ── 비밀번호 재설정 ──
@@ -8482,42 +8479,6 @@ async function handleResetPassword(e) {
   btn.textContent = t('auth.reset.btn');
 }
 
-// ── SIGNUP STEP NAVIGATION ──
-function goStep(step) {
-  if (step === 2) {
-    const kanji = $('signupNameKanji')?.value.trim();
-    const kana = $('signupNameKana')?.value.trim();
-    const email = $('signupEmail')?.value.trim();
-    const pw = $('signupPw')?.value;
-    const pw2 = $('signupPw2')?.value;
-    const err = $('step1Error');
-    if (!kanji || !kana) { err.textContent=t('authError.enterName'); err.style.display='block'; return; }
-    if (!email) { err.textContent=t('authError.enterEmail'); err.style.display='block'; return; }
-    if (!pw || pw.length < 8) { err.textContent=t('authError.pwMin8'); err.style.display='block'; return; }
-    if (pw !== pw2) { err.textContent=t('authError.pwNoMatch'); err.style.display='block'; return; }
-    err.style.display='none';
-  }
-  if (step === 3) {
-    const ig = $('signupIg')?.value.trim();
-    const igF = $('signupIgFollowers')?.value;
-    const err = $('step2Error');
-    if (!ig) { err.textContent='Please enter Instagram ID (required)'; err.style.display='block'; return; }
-    if (!igF) { err.textContent='Please enter Instagram followers (required)'; err.style.display='block'; return; }
-    err.style.display='none';
-  }
-  [1,2,3].forEach(s => {
-    const el = $('signupStep'+s);
-    if (el) el.style.display = s === step ? 'block' : 'none';
-  });
-  [1,2,3].forEach(s => {
-    if (s === 1) return;
-    const c = $('step'+s+'circle');
-    const l = $('step'+s+'label');
-    if (c) { c.style.background = s <= step ? 'var(--pink)' : 'var(--line)'; c.style.color = s <= step ? '#fff' : 'var(--muted)'; }
-    if (l) { l.style.color = s <= step ? 'var(--pink)' : 'var(--muted)'; }
-  });
-  var _sh=$('appShell');if(_sh)_sh.scrollTop=0;else window.scrollTo(0,0);
-}
 
 // ══════════════════════════════════════
 // CAMPAIGN DETAIL + APPLICATION
@@ -8923,19 +8884,6 @@ async function submitApplication() {
     toast(t('apply.cautionRequired'),'error'); return;
   }
 
-  const app = {
-    id: 'app-'+Date.now(),
-    user_id: currentUser.id,
-    user_email: currentUser.email,
-    user_name: currentUserProfile?.name || currentUser.email,
-    user_followers: currentUserProfile?.followers || 0,
-    campaign_id: currentCampaignId,
-    message: msg,
-    address: addr,
-    status: 'pending',
-    created_at: new Date().toISOString()
-  };
-
   const isDuplicate = await checkDuplicateApplication(currentUser.id, currentCampaignId);
   if (isDuplicate) {
     toast(t('apply.alreadyApplied'),'error'); closeModal('applyModal'); return;
@@ -9050,7 +8998,8 @@ function handleFloatApply() {
     const followerMap = {instagram: p.ig_followers||0, x: p.x_followers||0, tiktok: p.tiktok_followers||0, youtube: p.youtube_followers||0, qoo10: p.ig_followers||0};
     const chNameMap = {instagram:'Instagram', x:'X(Twitter)', tiktok:'TikTok', youtube:'YouTube', qoo10:'Qoo10'};
     // 기준 채널: primary_channel 우선, 없으면 첫 번째 채널로 폴백
-    const primary = (camp.primary_channel || (ch||'').split(',')[0] || 'instagram').trim();
+    // chList 는 camp.channel 을 split(',')+lowercase+trim 한 배열 (위 496줄)
+    const primary = (camp.primary_channel || chList[0] || 'instagram').trim();
     const primaryName = chNameMap[primary] || primary;
     const primaryCount = followerMap[primary] || 0;
     if (primaryCount < minF) {
@@ -9848,46 +9797,6 @@ async function submitAllDrafts(kind) {
   } else toast(t('activity.nothingToSubmit'), 'warn');
 }
 
-// [DEAD CODE 2026-05-15] 활동관리 현행 흐름은 addDraftImage → submitDrafts 로 일원화됨.
-//   receipts 테이블 직접 INSERT 경로(submitReceipt) 는 더 이상 호출되지 않음. CLAUDE.md 명시.
-//   별도 정리 PR 에서 제거 예정. 본 함수의 마감 가드 정책은 의도적으로 동결.
-async function submitReceipt() {
-  if (!_receiptImgData) { toast(t('activity.needImage'),'error'); return; }
-  if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
-
-  // 제출 마감 확인 (Stage 3)
-  const camp = _activityCamp || {};
-  const submissionEnd = camp.submission_end;
-  if (submissionEnd && new Date(submissionEnd + 'T23:59:59') < new Date()) {
-    toast(t('activity.afterDeadline'),'error');
-    return;
-  }
-
-  try {
-    toast(t('activity.uploading'),'');
-    const fileName = `receipt_${currentUser.id}_${Date.now()}.jpg`;
-    const receiptUrl = await uploadImage(_receiptImgData, fileName, 'receipts');
-
-    await insertReceipt({
-      application_id: _activityAppId,
-      user_id: currentUser.id,
-      campaign_id: _activityCampId,
-      receipt_url: receiptUrl,
-      purchase_date: $('receiptDate').value || null,
-      purchase_amount: parseInt($('receiptAmount').value) || 0
-    });
-
-    toast(t('activity.receiptSuccess'),'success');
-    _receiptImgData = null;
-    $('receiptPreview').innerHTML = '';
-    $('receiptFile').value = '';
-    $('receiptDate').value = '';
-    $('receiptAmount').value = '';
-    await loadReceipts();
-  } catch(e) {
-    toast(friendlyErrorJa(e), 'error');
-  }
-}
 
 // ══════════════════════════════════════
 // NOTIFICATIONS — 햄버거 배지 + 슬라이드업 모달
