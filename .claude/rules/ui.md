@@ -11,6 +11,20 @@ globs: "dev/**/*.html,dev/css/*.css,dev/js/*.js"
 - **기존 화면을 고치거나 다듬을 때** → `Skill("ui-ux-pro-max")` (review/improve 관점 우선)
 - 기존 컨벤션(모바일 480px·Material Icons·i18n·CSS 변수)을 깨지 않는 선에서 적용. 단순 로직/문구 변경이면 스킬 없이 진행 가능.
 
+## Apple Human Interface Guidelines 우선 — 인플루언서 앱 (영구, 2026-05-29 사용자 지시)
+- **인플루언서 모바일 앱**(`dev/index.html`, 480px)은 **Apple HIG(https://developer.apple.com/design/)를 최우선 디자인 기준**으로 한다.
+- **이유**: 일본 유저 대부분이 아이폰, 추후 **하이브리드앱(웹뷰 래핑) 전환 예정** → 아이폰 네이티브 느낌이 목표. (당초 Google Material 제안을 사용자가 Apple로 정정)
+- **관리자(PC)는 적용 대상 아님** — iOS HIG는 모바일 기준이라 PC 대시보드에 안 맞음. 관리자는 별도 실용 디자인 시스템 유지(`docs/specs/2026-05-29-design-system-md3.md`, compact). 색·그림자가 Material식인 것도 관리자/기존 자산 한정.
+- **적용 시 따를 것 (iOS HIG)**:
+  - 타입: 시스템 폰트(`-apple-system, system-ui` → 아이폰에서 SF Pro 자동). iOS 타입 스케일(본문 17px, Headline 17 bold, Subhead 15, Footnote 13, Caption 11~12, Large Title 34 등)
+  - 표면: 평평하게 — Material식 elevation 그림자 대신 얇은 구분선·은은한 그림자·블러(vibrancy)
+  - 모서리: iOS continuous corner 느낌, 카드 약 10~14px
+  - 컨트롤: iOS 스타일 버튼·토글 스위치·세그먼트, **최소 터치 타깃 44×44pt**, 하단 시트·스와이프 등 iOS 관습
+- **하드 제약 (반드시 인지)**:
+  - **SF Symbols 아이콘은 웹/하이브리드(WKWebView)에 라이선스상 사용 불가** → Material Icons 유지하거나 SF 유사 오픈 아이콘셋. (아이콘 세트 결정은 별도)
+  - 하이브리드는 네이티브 SwiftUI가 아니라 **웹뷰 래핑**이므로, 네이티브 컴포넌트가 아니라 **CSS로 iOS 룩앤필을 재현**.
+- 사양이 모호하면 `developer.apple.com/design`을 WebFetch로 확인. 접근성 WCAG AA 동시 준수.
+
 ## 레이아웃 분리 (절대 혼동 금지)
 - **인플루언서 페이지** (dev/index.html): 모바일 전용 max-width 480px, #appShell 내부, GNB + 우측 슬라이드 햄버거 메뉴
 - **관리자 페이지** (dev/admin/index.html): PC 전체폭, #appShell 밖, 사이드바 네비게이션

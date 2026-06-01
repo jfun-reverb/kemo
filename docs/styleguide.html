@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>REVERB JP — 디자인 시스템 스타일 가이드 (관리자)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<!-- 실제 앱 토큰(색상·그림자·모서리)을 그대로 사용 — source of truth -->
+<link rel="stylesheet" href="../dev/css/base.css">
+<style>
+/* ════════════════════════════════════════════════════════════════
+   ⚠ 아래 :root 블록은 「제안(아직 미적용)」 토큰입니다.
+   채택되면 base.css / admin.css 로 옮기고 이 블록은 삭제, 링크로 전환합니다.
+   색상·그림자·모서리(--primary/--elevation-*/--r*)는 base.css 가 이미 제공 → 재정의 안 함.
+════════════════════════════════════════════════════════════════ */
+:root{
+  /* 간격(spacing) — MD3 4dp 그리드 기반, compact */
+  --sp-0:2px; --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  /* 폰트 크기 — MD3 타입 스케일 축약(compact) */
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:14px; --fs-xl:16px; --fs-2xl:20px; --fs-3xl:24px;
+}
+
+/* ── 스타일 가이드 페이지 자체의 레이아웃 (앱과 무관) ── */
+/* ⚠ base.css 는 인플 모바일 앱용이라 html,body 에 overflow:hidden·고정높이·flex 중앙정렬·회색배경을
+   검. 독립 문서에선 이를 해제해야 스크롤·전체폭이 정상 동작 (색상·그림자·모서리 토큰만 재사용). */
+*{box-sizing:border-box}
+html,body{height:auto !important;overflow:auto !important}
+body{display:block !important;justify-content:flex-start !important;margin:0;
+  background:var(--bg,#FDFBFD) !important;color:var(--ink,#1E1320);
+  font-family:'Pretendard','Hiragino Kaku Gothic ProN',-apple-system,system-ui,sans-serif;
+  font-size:var(--fs-md);line-height:1.6}
+@media(min-width:481px){body{background:var(--bg,#FDFBFD) !important}}
+.sg-wrap{max-width:1080px;margin:0 auto;padding:var(--sp-6) var(--sp-5) 96px}
+.sg-head{padding:var(--sp-5) 0 var(--sp-4);border-bottom:2px solid var(--primary,#C878A3);margin-bottom:var(--sp-5)}
+.sg-head h1{font-size:26px;margin:0 0 var(--sp-2);color:var(--primary-dark,#7D4A6A)}
+.sg-head .lead{color:var(--muted,#7A6B78);font-size:var(--fs-lg);margin:0}
+.sg-badge-dev{display:inline-block;background:#FFE08A;color:#7a5b00;font-weight:700;
+  font-size:var(--fs-xs);padding:var(--sp-0) var(--sp-2);border-radius:var(--r8,8px);margin-bottom:var(--sp-3)}
+.sg-note{background:var(--primary-light,#FDF0F7);border:1px solid var(--outline-variant,#E0D8E0);
+  border-radius:var(--r12,12px);padding:var(--sp-4);margin:var(--sp-4) 0;font-size:var(--fs-md)}
+.sg-note b{color:var(--primary-dark,#7D4A6A)}
+
+section{margin:var(--sp-6) 0}
+section>h2{font-size:var(--fs-2xl);margin:0 0 var(--sp-2);padding-bottom:var(--sp-2);
+  border-bottom:1px solid var(--line,#EDE6ED);display:flex;align-items:center;gap:var(--sp-2)}
+section>h2 .material-icons-round{color:var(--primary,#C878A3);font-size:22px}
+h3{font-size:var(--fs-xl);margin:var(--sp-5) 0 var(--sp-2)}
+h3 .tag{font-size:var(--fs-xs);font-weight:600;padding:var(--sp-0) var(--sp-2);border-radius:var(--r-full,9999px);margin-left:var(--sp-2);vertical-align:middle}
+.tag-now{background:#FCE4EC;color:#a03a6a}
+.tag-target{background:#E6F4EA;color:#0E7E4A}
+
+table.sg-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm);margin:var(--sp-3) 0;background:#fff;border-radius:var(--r12,12px);overflow:hidden;box-shadow:var(--elevation-1)}
+.sg-tbl th,.sg-tbl td{padding:var(--sp-2) var(--sp-3);text-align:left;border-bottom:1px solid var(--line,#EDE6ED)}
+.sg-tbl th{background:var(--surface-container-low,#F8F5F8);font-weight:700;font-size:var(--fs-xs);color:var(--muted,#7A6B78);text-transform:none}
+.sg-tbl tr:last-child td{border-bottom:none}
+.sg-tbl .hi{color:#a03a6a;font-weight:700}
+.bar{display:inline-block;height:12px;background:var(--primary,#C878A3);border-radius:2px;vertical-align:middle}
+
+.sg-card{background:#fff;border:1px solid var(--outline,#EDE6ED);border-radius:var(--r16,16px);
+  padding:var(--sp-4);margin:var(--sp-3) 0;box-shadow:var(--elevation-1)}
+.sg-row{display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:center}
+.sg-row.tight{gap:var(--sp-2)}
+.cap{font-size:var(--fs-xs);color:var(--muted,#7A6B78);display:block;margin-top:var(--sp-1)}
+
+/* 간격 시각화 */
+.sp-demo{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-2);border-bottom:1px solid var(--line,#EDE6ED)}
+.sp-demo:last-child{border-bottom:none}
+.sp-demo .swatch{background:var(--baby-pink,#E0B8CA);border-radius:2px;height:20px;flex-shrink:0}
+.sp-demo code{font-size:var(--fs-md);min-width:130px;color:var(--primary-dark,#7D4A6A);font-weight:600}
+
+/* 폰트 시각화 — 큰 것부터 작은 순, 샘플과 크기 라벨을 좌우로 확실히 분리 */
+.fs-row{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-5);
+  padding:var(--sp-4) var(--sp-2);border-bottom:1px solid var(--line,#EDE6ED)}
+.fs-row:last-child{border-bottom:none}
+.fs-sample{color:var(--ink,#1E1320);font-weight:600;line-height:1.2}
+.fs-meta{text-align:right;white-space:nowrap;flex-shrink:0}
+.fs-meta .px{font-size:var(--fs-xl);font-weight:700;color:var(--primary-dark,#7D4A6A)}
+.fs-meta .tk{font-size:var(--fs-sm);color:var(--muted,#7A6B78);margin-left:var(--sp-2)}
+.fs-meta .us{display:block;font-size:var(--fs-xs);color:var(--muted,#7A6B78);margin-top:2px}
+
+/* 색상/그림자/모서리 샘플 */
+.tok-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--sp-3)}
+.tok{border-radius:var(--r12,12px);overflow:hidden;border:1px solid var(--line,#EDE6ED);background:#fff}
+.tok .chip{height:56px}
+.tok .lbl{padding:var(--sp-2);font-size:var(--fs-xs)}
+.tok .lbl b{display:block;font-size:var(--fs-sm)}
+.elev-box{height:64px;border-radius:var(--r12,12px);background:#fff;display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:var(--muted,#7A6B78)}
+.radius-box{height:64px;background:var(--primary-light,#FDF0F7);border:1px solid var(--primary,#C878A3);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:var(--primary-dark,#7D4A6A)}
+
+/* ════════════════════════════════════════════════════════════════
+   현재 혼재 버튼 — 대표 샘플 (실제 앱의 one-off / 인라인 스타일을 재현)
+   ⚠ 일부러 통일 안 된 모습을 보여주려 직접 박은 스타일입니다. 따라 만들지 마세요.
+════════════════════════════════════════════════════════════════ */
+.now-btn-1{font-size:13px;padding:6px 14px;border-radius:8px;border:1px solid #C878A3;background:#fff;color:#7D4A6A;cursor:pointer}
+.now-btn-2{font-size:11px;padding:2px 8px;border-radius:3px;border:none;background:#FEF3C7;color:#92400E;font-weight:600;cursor:pointer}
+.now-btn-3{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #ddd;background:#f5f5f5;color:#333;cursor:pointer}
+.now-btn-4{font-size:14px;padding:10px 24px;border-radius:9999px;border:none;background:#C878A3;color:#fff;font-weight:600;cursor:pointer}
+.now-btn-5{font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid #56475D;background:transparent;color:#56475D;cursor:pointer}
+.now-btn-6{font-size:13px;padding:8px 16px;border-radius:12px;border:none;background:#0E7E4A;color:#fff;cursor:pointer}
+
+/* ════════════════════════════════════════════════════════════════
+   통일안 — 관리자 버튼 표준 .abtn-* (제안, compact)
+   채택 시 admin.css 로 이동.
+════════════════════════════════════════════════════════════════ */
+.abtn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);
+  min-height:32px;padding:6px var(--sp-3);border-radius:var(--r8,8px);
+  font-size:13px;font-weight:600;line-height:1;cursor:pointer;border:1px solid transparent;
+  transition:background .15s,box-shadow .15s,transform .1s;font-family:inherit}
+.abtn:focus-visible{outline:2px solid var(--primary-dark,#7D4A6A);outline-offset:2px}
+.abtn:active{transform:scale(.97)}
+/* 비활성 — 연한 회색 바탕 (유형 무관 동일하게 회색으로 덮음) */
+.abtn[disabled]{background:#ECECEC !important;color:#9E9E9E !important;border-color:#E0E0E0 !important;box-shadow:none !important;cursor:not-allowed}
+.abtn .material-icons-round{font-size:18px}
+
+.abtn-filled{background:var(--primary,#C878A3);color:var(--on-primary,#fff);box-shadow:var(--elevation-1)}
+.abtn-filled:hover{background:var(--primary-dark,#7D4A6A);box-shadow:var(--elevation-2)}
+.abtn-outline{background:var(--surface,#fff);color:var(--on-surface,#1E1320);border-color:var(--outline-variant,#E0D8E0)}
+.abtn-outline:hover{border-color:var(--primary,#C878A3);background:var(--surface-dim,#F5F0F5)}
+.abtn-text{background:transparent;color:var(--primary-dark,#7D4A6A)}
+.abtn-text:hover{background:var(--primary-light,#FDF0F7)}
+.abtn-danger{background:#B3261E;color:#fff}
+.abtn-danger:hover{background:#8C1D17;box-shadow:var(--elevation-2)}
+
+.abtn-sm{min-height:26px;padding:4px var(--sp-2);font-size:12px}
+.abtn-sm .material-icons-round{font-size:16px}
+
+/* 버튼 유형 비교 그리드 — 칸마다 버튼 1종 + 이름 + 용도 (구분 명확히) */
+.abtn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--sp-3);margin:var(--sp-3) 0}
+.abtn-cell{border:1px solid var(--line,#EDE6ED);border-radius:var(--r12,12px);padding:var(--sp-4) var(--sp-3);text-align:center;background:var(--surface-container-low,#F8F5F8)}
+.abtn-cell .abtn{margin-bottom:var(--sp-3)}
+.abtn-cell .nm{font-size:var(--fs-sm);font-weight:700;color:var(--ink,#1E1320)}
+.abtn-cell .us{font-size:var(--fs-xs);color:var(--muted,#7A6B78);margin-top:2px;line-height:1.45}
+
+.map-arrow{color:var(--muted,#7A6B78);font-weight:700;margin:0 var(--sp-2)}
+</style>
+</head>
+<body>
+<div class="sg-wrap">
+
+  <header class="sg-head">
+    <span class="sg-badge-dev">개발 전용 · 운영 미배포</span>
+    <h1>디자인 시스템 스타일 가이드 — 관리자</h1>
+    <p class="lead">현재 흩어진 스타일을 한눈에 보고, 통일안과 나란히 비교하며 「줄이고 합치는」 작업대입니다.</p>
+  </header>
+
+  <div class="sg-note">
+    <b>사용법</b> — ① <b>1장</b>에서 지금 혼재된 간격·폰트·버튼 현황을 봅니다. ② <b>2장</b>의 통일안(라이브 렌더)과 비교해 "이건 빼자 / 이건 합치자"를 정합니다. ③ 확정된 토큰을 개발 세션이 <code>base.css</code>·<code>admin.css</code>에 이식합니다.<br>
+    색상·그림자·모서리는 이미 Material Design 3와 일치(<code>base.css</code>)하므로 손대지 않습니다. 이번 대상은 <b>간격·폰트 크기·관리자 버튼</b>입니다.<br>
+    <span style="color:var(--muted)">사양서: <code>docs/specs/2026-05-29-design-system-md3.md</code></span>
+  </div>
+
+  <!-- ══════════════ 1장. 현재 혼재 현황 (감사) ══════════════ -->
+  <section>
+    <h2><span class="material-icons-round" translate="no">warning_amber</span> 1. 현재 혼재 현황 <span class="tag tag-now">지금</span></h2>
+    <p style="color:var(--muted);font-size:var(--fs-md)">아래 수치는 <code>dev/css/admin.css</code> 실측. 추가로 <code>dev/js/admin-*.js</code> 인라인 스타일에 간격·폰트 하드코딩이 <b class="hi">858곳</b> 더 있어, CSS만 바꿔서는 화면이 안 바뀝니다.</p>
+
+    <h3>1-1. 간격 — <span class="hi">17종</span> 혼재</h3>
+    <table class="sg-tbl">
+      <thead><tr><th style="width:90px">값</th><th style="width:80px">사용 횟수</th><th>분포</th></tr></thead>
+      <tbody>
+        <tr><td class="hi">6px</td><td>35</td><td><span class="bar" style="width:140px"></span></td></tr>
+        <tr><td class="hi">2px</td><td>32</td><td><span class="bar" style="width:128px"></span></td></tr>
+        <tr><td class="hi">10px</td><td>29</td><td><span class="bar" style="width:116px"></span></td></tr>
+        <tr><td>4px</td><td>27</td><td><span class="bar" style="width:108px"></span></td></tr>
+        <tr><td>8px</td><td>21</td><td><span class="bar" style="width:84px"></span></td></tr>
+        <tr><td>12px</td><td>14</td><td><span class="bar" style="width:56px"></span></td></tr>
+        <tr><td>14px</td><td>11</td><td><span class="bar" style="width:44px"></span></td></tr>
+        <tr><td>16px</td><td>7</td><td><span class="bar" style="width:28px"></span></td></tr>
+        <tr><td colspan="3" style="color:var(--muted)">그 외 3·5·7·18·20·24·28·32·64px …</td></tr>
+      </tbody>
+    </table>
+
+    <h3>1-2. 폰트 크기 — <span class="hi">13종</span> 혼재</h3>
+    <table class="sg-tbl">
+      <thead><tr><th style="width:90px">값</th><th style="width:80px">사용 횟수</th><th>분포</th></tr></thead>
+      <tbody>
+        <tr><td class="hi">11px</td><td>45</td><td><span class="bar" style="width:135px"></span></td></tr>
+        <tr><td>12px</td><td>41</td><td><span class="bar" style="width:123px"></span></td></tr>
+        <tr><td>13px</td><td>37</td><td><span class="bar" style="width:111px"></span></td></tr>
+        <tr><td>10px</td><td>23</td><td><span class="bar" style="width:69px"></span></td></tr>
+        <tr><td>14px</td><td>9</td><td><span class="bar" style="width:27px"></span></td></tr>
+        <tr><td colspan="3" style="color:var(--muted)">그 외 9·15·16·17·18·20·22·32px …</td></tr>
+      </tbody>
+    </table>
+
+    <h3>1-3. 버튼 — 공용 미사용 + one-off <span class="hi">~18종</span> + 인라인</h3>
+    <p style="color:var(--muted);font-size:var(--fs-sm)">아래는 현재 관리자 화면에서 볼 수 있는 버튼들을 재현한 것입니다. 크기·모서리·색이 제각각인 게 문제입니다.</p>
+    <div class="sg-card">
+      <div class="sg-row">
+        <div><button class="now-btn-4">주요 액션</button><span class="cap">9999px·14px·padding 10/24</span></div>
+        <div><button class="now-btn-1">외곽 버튼</button><span class="cap">8px·13px·padding 6/14</span></div>
+        <div><button class="now-btn-6">초록 액션</button><span class="cap">12px·13px·padding 8/16</span></div>
+        <div><button class="now-btn-3">회색 버튼</button><span class="cap">6px·12px·padding 4/10</span></div>
+        <div><button class="now-btn-5">작은 외곽</button><span class="cap">4px·10px·padding 2/6</span></div>
+        <div><button class="now-btn-2">배지형</button><span class="cap">3px·11px·padding 2/8</span></div>
+      </div>
+      <p class="cap" style="margin-top:var(--sp-3)">실제 클래스 예: <code>.status-tab-btn · .pay-refresh-btn · .mf-btn · .melp-btn · .deliv-proxy-revoke-btn · .brand-trend-btn · .applicant-msg-btn · .signup-period-btn …</code></p>
+    </div>
+  </section>
+
+  <!-- ══════════════ 2장. 통일 목표안 (라이브 렌더) ══════════════ -->
+  <section>
+    <h2><span class="material-icons-round" translate="no">auto_awesome</span> 2. 통일 목표안 <span class="tag tag-target">제안 · 미적용</span></h2>
+    <p style="color:var(--muted);font-size:var(--fs-md)">아래는 이 페이지의 <code>&lt;style&gt;</code>에 넣은 제안 토큰으로 실제 렌더한 것입니다. 채택되면 <code>base.css</code>·<code>admin.css</code>로 옮깁니다. <b>compact 밀도</b> 기준.</p>
+
+    <h3>2-1. 간격 토큰 (7단계)</h3>
+    <div class="sg-card">
+      <div class="sp-demo"><code>--sp-0 · 2px</code><span class="swatch" style="width:2px"></span></div>
+      <div class="sp-demo"><code>--sp-1 · 4px</code><span class="swatch" style="width:4px"></span></div>
+      <div class="sp-demo"><code>--sp-2 · 8px</code><span class="swatch" style="width:8px"></span></div>
+      <div class="sp-demo"><code>--sp-3 · 12px</code><span class="swatch" style="width:12px"></span></div>
+      <div class="sp-demo"><code>--sp-4 · 16px</code><span class="swatch" style="width:16px"></span></div>
+      <div class="sp-demo"><code>--sp-5 · 24px</code><span class="swatch" style="width:24px"></span></div>
+      <div class="sp-demo"><code>--sp-6 · 32px</code><span class="swatch" style="width:32px"></span></div>
+    </div>
+
+    <h3>2-2. 폰트 크기 토큰 (5단계) <span class="tag tag-target">확정</span></h3>
+    <p style="color:var(--muted);font-size:var(--fs-sm)">큰 것부터 작은 순. 거의 같아 보이던 12·14px은 제거 → 5단계로 단계차이를 또렷하게.</p>
+    <div class="sg-card">
+      <div class="fs-row"><span class="fs-sample" style="font-size:24px">1,398 가나 Aa</span><span class="fs-meta"><span class="px">24px</span><span class="tk">--fs-display</span><span class="us">대시보드 KPI</span></span></div>
+      <div class="fs-row"><span class="fs-sample" style="font-size:20px">캠페인 관리 가나 Aa</span><span class="fs-meta"><span class="px">20px</span><span class="tk">--fs-title</span><span class="us">페인 제목</span></span></div>
+      <div class="fs-row"><span class="fs-sample" style="font-size:16px">제품 정보 가나다 Aa 123</span><span class="fs-meta"><span class="px">16px</span><span class="tk">--fs-subtitle</span><span class="us">소제목</span></span></div>
+      <div class="fs-row"><span class="fs-sample" style="font-size:13px">본문 기본 가나다 Aa 123</span><span class="fs-meta"><span class="px">13px</span><span class="tk">--fs-body</span><span class="us">본문·버튼 기본</span></span></div>
+      <div class="fs-row"><span class="fs-sample" style="font-size:11px">배지·캡션 가나다 Aa 123</span><span class="fs-meta"><span class="px">11px</span><span class="tk">--fs-caption</span><span class="us">배지·캡션</span></span></div>
+    </div>
+
+    <h3>2-3. 관리자 버튼 <code>.abtn-*</code> (compact) <span class="tag tag-target">4종 확정</span></h3>
+    <div class="sg-card">
+      <p class="cap" style="margin-bottom:var(--sp-2)">강조 세기 4단계 (높음 → 낮음) + 위험. 구분 안 되던 elevated·tonal 제거.</p>
+      <div class="abtn-grid">
+        <div class="abtn-cell"><button class="abtn abtn-filled">저장</button><div class="nm">filled</div><div class="us">주요 액션<br>채운 핑크</div></div>
+        <div class="abtn-cell"><button class="abtn abtn-outline">취소</button><div class="nm">outline</div><div class="us">중립·보조<br>테두리만</div></div>
+        <div class="abtn-cell"><button class="abtn abtn-text">더보기</button><div class="nm">text</div><div class="us">저강조<br>배경·테두리 없음</div></div>
+        <div class="abtn-cell"><button class="abtn abtn-danger">삭제</button><div class="nm">danger</div><div class="us">위험(삭제·회수)<br>빨강</div></div>
+      </div>
+      <p class="cap" style="margin:var(--sp-4) 0 var(--sp-2)">아이콘 동반</p>
+      <div class="sg-row tight">
+        <button class="abtn abtn-filled"><span class="material-icons-round" translate="no">add</span>새 캠페인</button>
+        <button class="abtn abtn-outline"><span class="material-icons-round" translate="no">file_download</span>엑셀</button>
+      </div>
+      <p class="cap" style="margin:var(--sp-4) 0 var(--sp-2)">크기 — 2단계 (같은 filled 로 비교)</p>
+      <div class="abtn-grid">
+        <div class="abtn-cell"><button class="abtn abtn-filled">저장</button><div class="nm">기본 · 32px</div><div class="us">폼·툴바·모달</div></div>
+        <div class="abtn-cell"><button class="abtn abtn-filled abtn-sm">승인</button><div class="nm">작게 · 26px</div><div class="us">테이블 행 인라인</div></div>
+      </div>
+      <p class="cap" style="margin:var(--sp-4) 0 var(--sp-2)">상태 — 비활성은 연한 회색 바탕</p>
+      <div class="sg-row tight">
+        <button class="abtn abtn-filled">정상</button>
+        <button class="abtn abtn-filled" disabled>비활성</button>
+        <button class="abtn abtn-outline" disabled>비활성(외곽)</button>
+      </div>
+    </div>
+
+    <h3>2-4. 이미 통일됨 — 색상·그림자·모서리 <span class="tag tag-target">base.css</span></h3>
+    <div class="sg-card">
+      <p class="cap" style="margin-bottom:var(--sp-2)">색상 역할(role)</p>
+      <div class="tok-grid">
+        <div class="tok"><div class="chip" style="background:var(--primary)"></div><div class="lbl"><b>primary</b>--primary</div></div>
+        <div class="tok"><div class="chip" style="background:var(--primary-dark)"></div><div class="lbl"><b>primary-dark</b>--primary-dark</div></div>
+        <div class="tok"><div class="chip" style="background:var(--primary-container)"></div><div class="lbl"><b>container</b>--primary-container</div></div>
+        <div class="tok"><div class="chip" style="background:var(--green)"></div><div class="lbl"><b>green</b>--green</div></div>
+        <div class="tok"><div class="chip" style="background:var(--surface-dim)"></div><div class="lbl"><b>surface-dim</b>--surface-dim</div></div>
+        <div class="tok"><div class="chip" style="background:var(--outline)"></div><div class="lbl"><b>outline</b>--outline</div></div>
+      </div>
+      <p class="cap" style="margin:var(--sp-4) 0 var(--sp-2)">그림자(elevation)</p>
+      <div class="tok-grid">
+        <div class="elev-box" style="box-shadow:var(--elevation-1)">elevation-1</div>
+        <div class="elev-box" style="box-shadow:var(--elevation-2)">elevation-2</div>
+        <div class="elev-box" style="box-shadow:var(--elevation-3)">elevation-3</div>
+        <div class="elev-box" style="box-shadow:var(--elevation-4)">elevation-4</div>
+      </div>
+      <p class="cap" style="margin:var(--sp-4) 0 var(--sp-2)">모서리(radius)</p>
+      <div class="tok-grid">
+        <div class="radius-box" style="border-radius:var(--r8)">r8</div>
+        <div class="radius-box" style="border-radius:var(--r12)">r12</div>
+        <div class="radius-box" style="border-radius:var(--r16)">r16</div>
+        <div class="radius-box" style="border-radius:var(--r24)">r24</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ 3장. 스냅(snap) 매핑 가이드 ══════════════ -->
+  <section>
+    <h2><span class="material-icons-round" translate="no">swap_horiz</span> 3. 현재값 → 토큰 매핑 가이드</h2>
+    <p style="color:var(--muted);font-size:var(--fs-md)">화면을 점진 적용할 때 혼재값을 아래 기준으로 가장 가까운 토큰에 맞춥니다(스냅). <b>전역 일괄 치환 금지</b> — 화면 단위로, before/after 비교하며.</p>
+    <div class="sg-row" style="align-items:flex-start">
+      <table class="sg-tbl" style="flex:1;min-width:280px">
+        <thead><tr><th>현재 간격</th><th>→ 토큰</th></tr></thead>
+        <tbody>
+          <tr><td>2px</td><td><span class="map-arrow">→</span><code>--sp-0</code></td></tr>
+          <tr><td>3·4·5px</td><td><span class="map-arrow">→</span><code>--sp-1</code> (4px)</td></tr>
+          <tr><td>6·7·8px</td><td><span class="map-arrow">→</span><code>--sp-2</code> (8px)</td></tr>
+          <tr><td>10·12px</td><td><span class="map-arrow">→</span><code>--sp-3</code> (12px)</td></tr>
+          <tr><td>14·16px</td><td><span class="map-arrow">→</span><code>--sp-4</code> (16px)</td></tr>
+          <tr><td>18·20·24px</td><td><span class="map-arrow">→</span><code>--sp-5</code> (24px)</td></tr>
+          <tr><td>28·32px+</td><td><span class="map-arrow">→</span><code>--sp-6</code> (32px)</td></tr>
+        </tbody>
+      </table>
+      <table class="sg-tbl" style="flex:1;min-width:280px">
+        <thead><tr><th>현재 폰트</th><th>→ 토큰 (5단계)</th></tr></thead>
+        <tbody>
+          <tr><td>9·10·11·12px</td><td><span class="map-arrow">→</span><code>--fs-caption</code> (11px)</td></tr>
+          <tr><td>13·14·15px</td><td><span class="map-arrow">→</span><code>--fs-body</code> (13px)</td></tr>
+          <tr><td>16·17·18px</td><td><span class="map-arrow">→</span><code>--fs-subtitle</code> (16px)</td></tr>
+          <tr><td>20·22px</td><td><span class="map-arrow">→</span><code>--fs-title</code> (20px)</td></tr>
+          <tr><td>24·32px</td><td><span class="map-arrow">→</span><code>--fs-display</code> (24px)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer style="margin-top:96px;padding-top:var(--sp-4);border-top:1px solid var(--line,#EDE6ED);color:var(--muted,#7A6B78);font-size:var(--fs-xs)">
+    REVERB JP 디자인 시스템 스타일 가이드 · 개발 전용(운영 미배포) · 사양서 docs/specs/2026-05-29-design-system-md3.md
+  </footer>
+
+</div>
+</body>
+</html>
