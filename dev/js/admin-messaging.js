@@ -889,12 +889,6 @@ function campaignTitleById(id) {
   const c = inboxCampaignById(id);
   return c ? (c.title || '(제목 없음)') : '(캠페인)';
 }
-function influencerNameById(id) {
-  if (!id) return '(인플루언서)';
-  const inf = _inboxInflMap && _inboxInflMap[id];
-  if (!inf) return '(인플루언서)';
-  return inf.name || inf.name_kana || inf.email || '(이름 없음)';
-}
 
 // ════════════════════════════════════════════════════════════════════
 // 일괄 발송 (BCC) — PR 3, 마이그레이션 167

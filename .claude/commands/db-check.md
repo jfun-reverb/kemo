@@ -1,7 +1,7 @@
 Supabase 데이터베이스 상태 확인:
 
 1. **연결 확인**: Supabase REST API로 각 테이블 쿼리
-   - URL: https://twofagomeizrtkwlhsuv.supabase.co
+   - URL: https://nrwtujmlbktxjgdwlpjj.supabase.co
    - anon key 사용
 2. **테이블별 확인**:
    - `campaigns` — 행 수, status별 분포 (draft/scheduled/active/closed), 최근 생성일
