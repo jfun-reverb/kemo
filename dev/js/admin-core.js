@@ -591,6 +591,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
   // 메시지
   'admMsgModal', 'admHideModal',
+  // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
+  'bulkMessageModal', 'broadcastDetailModal',
 ]);
 
 function makeModalDraggableResizable(modalEl) {

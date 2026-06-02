@@ -59,6 +59,8 @@ async function loadMessagesInbox() {
   _inboxSelectedCampaign = null;
   _inboxSearch = '';  // 페인 재진입 시 검색어 초기화 (정렬은 사용자 선택 유지)
   if (_admMsgContext === 'inbox') _admMsgAppId = null;
+  applyBulkMsgButtonVisibility();   // 일괄 발송 버튼·발송이력 탭 권한 표시 (PR 3)
+  switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
   await refreshInboxData();
@@ -892,4 +894,340 @@ function influencerNameById(id) {
   const inf = _inboxInflMap && _inboxInflMap[id];
   if (!inf) return '(인플루언서)';
   return inf.name || inf.name_kana || inf.email || '(이름 없음)';
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 일괄 발송 (BCC) — PR 3, 마이그레이션 167
+//   campaign_admin 이상. 캠페인 단위(필터) 또는 임의 다중선택(presetIds).
+//   1차는 텍스트 전용 (첨부는 RLS 경로 설계 후 후속).
+// ════════════════════════════════════════════════════════════════════
+
+const BULK_OVER_THRESHOLD = 50;   // 초과 시 2단계 확인
+const BULK_MAX = 200;             // RPC 1회 한도와 동일
+const BULK_APP_STATUSES = [
+  { code: 'pending',  label: '심사중' },
+  { code: 'approved', label: '승인' },
+  { code: 'rejected', label: '반려' },
+];
+const BULK_DELIV_STATUSES = [
+  { code: 'none',     label: '미제출' },
+  { code: 'pending',  label: '검수중' },
+  { code: 'approved', label: '승인' },
+  { code: 'rejected', label: '반려' },
+];
+
+let _bulkState = null;            // { presetIds, campaignId, recipientIds, filterSnapshot }
+let _bulkRecountTimer = null;
+let _bulkSending = false;
+let _inboxTab = 'inbox';
+
+// campaign_admin 이상만 일괄 발송 버튼·발송이력 탭 노출
+function admMsgIsCampaignAdmin() {
+  return typeof currentAdminInfo !== 'undefined'
+    && (currentAdminInfo?.role === 'super_admin' || currentAdminInfo?.role === 'campaign_admin');
+}
+function applyBulkMsgButtonVisibility() {
+  const btn = document.getElementById('bulkMsgOpenBtn');
+  if (btn) btn.style.display = admMsgIsCampaignAdmin() ? 'inline-flex' : 'none';
+  const tab = document.getElementById('inboxTabBroadcasts');
+  if (tab) tab.style.display = admMsgIsCampaignAdmin() ? '' : 'none';
+}
+
+// 받은편지함 / 발송 이력 탭 전환
+function switchInboxTab(tab) {
+  _inboxTab = tab;
+  const ti = document.getElementById('inboxTabInbox');
+  const tb = document.getElementById('inboxTabBroadcasts');
+  if (ti) ti.classList.toggle('is-active', tab === 'inbox');
+  if (tb) tb.classList.toggle('is-active', tab === 'broadcasts');
+  const main = document.getElementById('inboxMainView');
+  const bc = document.getElementById('inboxBroadcastsView');
+  if (main) main.style.display = tab === 'inbox' ? '' : 'none';
+  if (bc) bc.style.display = tab === 'broadcasts' ? '' : 'none';
+  if (tab === 'broadcasts') loadBroadcasts();
+}
+
+// ── 일괄 발송 모달 ──
+function openBulkMessageModal(presetAppIds) {
+  if (!admMsgIsCampaignAdmin()) { toast('일괄 발송 권한이 없습니다.'); return; }
+  _bulkState = {
+    presetIds: (presetAppIds && presetAppIds.length) ? presetAppIds.slice() : null,
+    campaignId: null, recipientIds: [], filterSnapshot: null,
+  };
+  document.getElementById('bulkStep1').style.display = 'flex';
+  document.getElementById('bulkStep2').style.display = 'none';
+  document.getElementById('bulkBackBtn').style.display = 'none';
+  document.getElementById('bulkNextBtn').style.display = '';
+  document.getElementById('bulkSendBtn').style.display = 'none';
+  document.getElementById('bulkBody').value = '';
+  document.getElementById('bulkConfirmOver').style.display = 'none';
+  const chk = document.getElementById('bulkConfirmCheck'); if (chk) chk.checked = false;
+  document.getElementById('bulkMsgTitle').textContent = '일괄 발송 · 대상 선택';
+
+  if (_bulkState.presetIds) {
+    // 임의 다중선택 모드 (3c 후속 진입) — 사전 선택된 응모건
+    document.getElementById('bulkCampaignPick').style.display = 'none';
+    document.getElementById('bulkFilters').style.display = 'none';
+    const info = document.getElementById('bulkPresetInfo');
+    info.style.display = 'block';
+    info.textContent = `선택된 응모건 ${_bulkState.presetIds.length}건에 발송합니다.`;
+    _bulkState.recipientIds = _bulkState.presetIds.slice();
+    updateBulkCount(_bulkState.recipientIds.length);
+    document.getElementById('bulkCountBox').style.display = 'block';
+    document.getElementById('bulkNextBtn').disabled = _bulkState.recipientIds.length === 0;
+  } else {
+    // 캠페인 단위 모드
+    document.getElementById('bulkCampaignPick').style.display = '';
+    document.getElementById('bulkPresetInfo').style.display = 'none';
+    document.getElementById('bulkFilters').style.display = 'none';
+    document.getElementById('bulkCountBox').style.display = 'none';
+    document.getElementById('bulkNextBtn').disabled = true;
+    populateBulkCampaigns();
+  }
+  openModal('bulkMessageModal');
+}
+function closeBulkMessageModal() { closeModal('bulkMessageModal'); _bulkState = null; }
+
+function populateBulkCampaigns() {
+  const sel = document.getElementById('bulkCampaignSelect');
+  const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
+    .filter(c => ['active', 'closed', 'ended'].includes(c.status))
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  sel.innerHTML = '<option value="">캠페인을 선택하세요</option>'
+    + camps.map(c => `<option value="${c.id}">${esc(c.title || '(제목 없음)')}</option>`).join('');
+  sel.value = '';
+}
+
+function onBulkCampaignChange() {
+  const id = document.getElementById('bulkCampaignSelect').value;
+  _bulkState.campaignId = id || null;
+  if (!id) {
+    document.getElementById('bulkFilters').style.display = 'none';
+    document.getElementById('bulkCountBox').style.display = 'none';
+    document.getElementById('bulkNextBtn').disabled = true;
+    return;
+  }
+  renderBulkFilters(id);
+  document.getElementById('bulkFilters').style.display = 'flex';
+  document.getElementById('bulkCountBox').style.display = 'block';
+  scheduleBulkRecount();
+}
+
+function renderBulkFilters(campaignId) {
+  // 응모 상태 (기본 승인)
+  document.getElementById('bulkAppStatus').innerHTML = BULK_APP_STATUSES.map(s =>
+    `<label class="bulk-chk"><input type="checkbox" value="${s.code}" ${s.code === 'approved' ? 'checked' : ''} onchange="scheduleBulkRecount()">${s.label}</label>`).join('');
+  // 결과물 상태 (기본 미제출+검수중+반려 = 결과물 승인자 제외 패턴)
+  document.getElementById('bulkDelivStatus').innerHTML = BULK_DELIV_STATUSES.map(s =>
+    `<label class="bulk-chk"><input type="checkbox" value="${s.code}" ${s.code !== 'approved' ? 'checked' : ''} onchange="scheduleBulkRecount()">${s.label}</label>`).join('');
+  // 채널 (캠페인 channel CSV — 해당 채널 계정 보유자)
+  const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === campaignId);
+  const chans = (camp?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  document.getElementById('bulkChannels').innerHTML = chans.length
+    ? chans.map(ch => `<label class="bulk-chk"><input type="checkbox" value="${esc(ch)}" onchange="scheduleBulkRecount()">${esc(typeof getChannelLabel === 'function' ? getChannelLabel(ch) : ch)}</label>`).join('')
+    : '<span style="font-size:12px;color:var(--muted)">채널 정보 없음</span>';
+  document.getElementById('bulkMinFollowers').value = '';
+}
+
+function collectBulkFilters() {
+  const pick = (id) => Array.from(document.querySelectorAll(`#${id} input:checked`)).map(i => i.value);
+  const appStatuses = pick('bulkAppStatus');
+  // 결과물 상태 필터는 응모상태에 승인이 포함될 때만 의미
+  const delivStatuses = appStatuses.includes('approved') ? pick('bulkDelivStatus') : [];
+  const channels = pick('bulkChannels');
+  const mf = document.getElementById('bulkMinFollowers').value;
+  return { appStatuses, deliverableStatuses: delivStatuses, channels, minFollowers: mf };
+}
+
+function scheduleBulkRecount() {
+  // 결과물 상태 블록은 응모상태 승인 포함 시만 노출
+  const appChecked = Array.from(document.querySelectorAll('#bulkAppStatus input:checked')).map(i => i.value);
+  const delivWrap = document.getElementById('bulkDelivWrap');
+  if (delivWrap) delivWrap.style.display = appChecked.includes('approved') ? '' : 'none';
+  clearTimeout(_bulkRecountTimer);
+  _bulkRecountTimer = setTimeout(recountBulk, 350);
+}
+
+async function recountBulk() {
+  if (!_bulkState || !_bulkState.campaignId) return;
+  const filters = collectBulkFilters();
+  const loading = document.getElementById('bulkCountLoading');
+  if (loading) loading.style.display = 'inline';
+  try {
+    const ids = await resolveBulkRecipients(_bulkState.campaignId, filters);
+    _bulkState.recipientIds = ids;
+    _bulkState.filterSnapshot = filters;
+    updateBulkCount(ids.length);
+    document.getElementById('bulkNextBtn').disabled = ids.length === 0;
+  } catch (e) {
+    console.error('[recountBulk]', e);
+    toast('대상 계산에 실패했습니다.');
+    updateBulkCount(0);
+    document.getElementById('bulkNextBtn').disabled = true;
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function updateBulkCount(n) {
+  const el = document.getElementById('bulkCount'); if (el) el.textContent = n;
+  const el2 = document.getElementById('bulkCount2'); if (el2) el2.textContent = n;
+}
+
+function bulkStepNext() {
+  if (!_bulkState || !_bulkState.recipientIds.length) { toast('대상이 없습니다.'); return; }
+  if (_bulkState.recipientIds.length > BULK_MAX) {
+    toast(`1회 최대 ${BULK_MAX}명까지 발송할 수 있습니다. 필터로 범위를 좁혀주세요.`); return;
+  }
+  document.getElementById('bulkStep1').style.display = 'none';
+  document.getElementById('bulkStep2').style.display = 'flex';
+  document.getElementById('bulkBackBtn').style.display = '';
+  document.getElementById('bulkNextBtn').style.display = 'none';
+  document.getElementById('bulkSendBtn').style.display = '';
+  document.getElementById('bulkMsgTitle').textContent = '일괄 발송 · 본문 작성';
+  const over = _bulkState.recipientIds.length > BULK_OVER_THRESHOLD;
+  document.getElementById('bulkConfirmOver').style.display = over ? 'block' : 'none';
+  document.getElementById('bulkOverCount').textContent = _bulkState.recipientIds.length;
+  document.getElementById('bulkSendBtn').disabled = over;  // 초과면 확인 체크 후 활성
+  const chk = document.getElementById('bulkConfirmCheck'); if (chk) chk.checked = false;
+}
+function bulkStepBack() {
+  document.getElementById('bulkStep1').style.display = 'flex';
+  document.getElementById('bulkStep2').style.display = 'none';
+  document.getElementById('bulkBackBtn').style.display = 'none';
+  document.getElementById('bulkNextBtn').style.display = '';
+  document.getElementById('bulkSendBtn').style.display = 'none';
+  document.getElementById('bulkMsgTitle').textContent = '일괄 발송 · 대상 선택';
+}
+function onBulkConfirmCheck() {
+  document.getElementById('bulkSendBtn').disabled = !document.getElementById('bulkConfirmCheck').checked;
+}
+
+async function confirmBulkSend() {
+  if (_bulkSending || !_bulkState) return;
+  const ids = _bulkState.recipientIds;
+  if (!ids.length) { toast('대상이 없습니다.'); return; }
+  const body = document.getElementById('bulkBody').value.trim();
+  if (!body) { toast('메시지를 입력하세요.'); return; }
+  _bulkSending = true;
+  document.getElementById('bulkSendBtn').disabled = true;
+  try {
+    const contextKind = _bulkState.presetIds ? 'manual' : 'campaign';
+    await sendApplicationMessageBulk(ids, body, [], contextKind, _bulkState.campaignId || null, _bulkState.filterSnapshot || null);
+    toast(`${ids.length}명에게 발송했습니다.`);
+    closeBulkMessageModal();
+    if (_inboxTab === 'broadcasts') loadBroadcasts();
+    // 받은편지함 탭의 미읽음·응대 배지 stale 방지 (발송 = 자동 응대 완료) — 비동기 갱신
+    if (typeof refreshInboxData === 'function') refreshInboxData();
+  } catch (e) {
+    console.error('[confirmBulkSend]', e);
+    toast(e?.code === 'P0001' && e?.message ? e.message : '발송에 실패했습니다.');
+    document.getElementById('bulkSendBtn').disabled = false;
+  } finally {
+    _bulkSending = false;
+  }
+}
+
+// ── 발송 이력 ──
+async function loadBroadcasts() {
+  const wrap = document.getElementById('broadcastsList');
+  if (!wrap) return;
+  wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">불러오는 중…</div>';
+  const opts = {};
+  // campaign_admin 은 본인 발송분만, super_admin 은 전체
+  if (currentAdminInfo?.role === 'campaign_admin') opts.senderId = currentAdminInfo.auth_id;
+  let rows = [];
+  try { rows = await fetchBroadcasts(opts); }
+  catch (e) { console.error('[loadBroadcasts]', e); wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">불러오기 실패</div>'; return; }
+  if (!rows.length) { wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">발송 이력이 없습니다.</div>'; return; }
+  wrap.innerHTML = rows.map(renderBroadcastRow).join('');
+}
+
+function renderBroadcastRow(r) {
+  const dt = r.created_at ? new Date(r.created_at).toLocaleString('ja-JP') : '';
+  const text = (r.body || '');
+  const preview = esc(text.slice(0, 60)) + (text.length > 60 ? '…' : '');
+  const ctx = r.context_kind === 'campaign' ? '캠페인 대상' : '임의 선택';
+  const withdrawn = r.withdrawn_at ? '<span class="broadcast-badge broadcast-badge-withdrawn">회수됨</span>' : '';
+  return `<div class="broadcast-row" onclick="openBroadcastDetail('${esc(r.id)}')">
+    <div class="broadcast-row-main">
+      <div class="broadcast-row-preview">${preview || '(본문 없음)'}</div>
+      <div class="broadcast-row-meta">${dt} · ${ctx} · 수신 ${r.recipient_count}명 ${withdrawn}</div>
+    </div>
+    <span class="material-icons-round notranslate" translate="no" style="color:var(--muted)">chevron_right</span>
+  </div>`;
+}
+
+let _curBroadcastDetail = null;
+async function openBroadcastDetail(id) {
+  const body = document.getElementById('broadcastDetailBody');
+  body.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted)">불러오는 중…</div>';
+  document.getElementById('broadcastWithdrawBtn').style.display = 'none';
+  openModal('broadcastDetailModal');
+  let detail = null;
+  try { detail = await getBroadcastDetail(id); }
+  catch (e) { console.error('[openBroadcastDetail]', e); body.innerHTML = '<div style="padding:16px;color:var(--muted)">불러오기 실패</div>'; return; }
+  if (!detail || !detail.broadcast) { body.innerHTML = '<div style="padding:16px;color:var(--muted)">정보 없음</div>'; return; }
+  _curBroadcastDetail = detail;
+  const b = detail.broadcast;
+  const recips = detail.recipients || [];
+  const dt = b.created_at ? new Date(b.created_at).toLocaleString('ja-JP') : '';
+  const readN = recips.filter(r => r.read).length;
+  const repliedN = recips.filter(r => r.replied).length;
+  const withdrawnBanner = b.withdrawn_at
+    ? `<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;font-size:12px;color:#991B1B">${new Date(b.withdrawn_at).toLocaleString('ja-JP')} 회수됨</div>` : '';
+  body.innerHTML = `
+    ${withdrawnBanner}
+    <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
+    <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
+    <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>
+    <div class="broadcast-recips">
+      ${recips.map(r => `<div class="broadcast-recip" onclick="gotoBroadcastRecipMessage('${esc(r.application_id)}')">
+        <span class="broadcast-recip-name">${esc(r.influencer_name || '(인플루언서)')}</span>
+        <span class="broadcast-recip-camp">${esc(r.campaign_title || '')}</span>
+        <span class="broadcast-recip-status">${r.read ? '읽음' : '미읽음'}${r.replied ? ' · 답장' : ''}</span>
+      </div>`).join('')}
+    </div>`;
+  const canWithdraw = !b.withdrawn_at && (b.sender_id === currentAdminInfo?.auth_id || currentAdminInfo?.role === 'super_admin');
+  document.getElementById('broadcastWithdrawBtn').style.display = canWithdraw ? '' : 'none';
+}
+function closeBroadcastDetail() { closeModal('broadcastDetailModal'); _curBroadcastDetail = null; }
+
+function gotoBroadcastRecipMessage(appId) {
+  if (!appId) return;
+  closeBroadcastDetail();
+  if (typeof openAdminMessageModal === 'function') openAdminMessageModal(appId, null);
+}
+
+// ── 일괄 회수 ──
+async function openBroadcastWithdraw() {
+  if (!_curBroadcastDetail) return;
+  const sel = document.getElementById('broadcastWithdrawReason');
+  const reasons = await loadHideReasons();
+  sel.innerHTML = reasons.map(r => `<option value="${r.code}">${esc(r.name_ko || r.name_ja || r.code)}</option>`).join('');
+  document.getElementById('broadcastWithdrawMemo').value = '';
+  openModal('broadcastWithdrawModal');
+}
+function closeBroadcastWithdraw() { closeModal('broadcastWithdrawModal'); }
+
+let _bcWithdrawing = false;
+async function confirmBroadcastWithdraw() {
+  if (_bcWithdrawing || !_curBroadcastDetail) return;
+  const id = _curBroadcastDetail.broadcast.id;
+  const code = document.getElementById('broadcastWithdrawReason').value;
+  const memo = document.getElementById('broadcastWithdrawMemo').value.trim() || null;
+  if (!code) { toast('회수 사유를 선택하세요.'); return; }
+  _bcWithdrawing = true;
+  try {
+    await withdrawBroadcast(id, code, memo);
+    toast('회수했습니다.');
+    closeBroadcastWithdraw();
+    closeBroadcastDetail();
+    loadBroadcasts();
+  } catch (e) {
+    console.error('[confirmBroadcastWithdraw]', e);
+    toast(e?.code === 'P0001' && e?.message ? e.message : '회수에 실패했습니다.');
+  } finally {
+    _bcWithdrawing = false;
+  }
 }
