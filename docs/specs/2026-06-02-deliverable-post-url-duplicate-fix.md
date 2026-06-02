@@ -82,4 +82,22 @@ CREATE UNIQUE INDEX uidx_deliverables_post_url
 - DB 변경 없음(클라이언트 로직 수정만) → `bash dev/build.sh` 재빌드 필요
 - 운영 핫픽스 성격(실사용 차단). dev 검증 후 운영 배포 여부는 사용자 확인. 보류 기능과 얽히면 메모리 `project_prod_hotfix_rebuild` 패턴(소스 diff apply + 재빌드)
 
-## 7. 구현 결과 (개발 세션이 채울 것)
+## 7. 구현 결과
+
+**구현일:** 2026-06-02
+**관련 커밋/PR:** dev #415(1차, post_url 기준) → **채널별 1건으로 정정**(feature/post-channel-fix)
+
+### 초안 대비 변경 — 경우의 수 ③ 정정 (중요)
+- 초안은 "다른 URL = 별도 행 허용"(여러 게시물)이었으나, **qa에서 데이터 정합성 문제 발견**: 관리자 결과물 관리(`admin-deliverables.js:243-244`)가 응모건당 post 1건 전제(`g.result` 단수)라, 다른 URL로 2건 생기면 **인플 화면 2건 / 관리자 화면 1건(먼저 행 가려짐)** 으로 불일치.
+- **2026-06-02 사용자 결정**: 게시물은 **채널별 1건**, 재제출(같은 URL/다른 URL)은 **같은 채널 기존 행 교체**.
+- 구현: 탐색 기준 `post_url` → **`post_channel`**(review_image 패턴), `maybeSingle` → `order(created_at).limit(1)`(과거 중복 대비), approved 차단 유지, post_url 새 값 갱신 + post_submissions append.
+- `friendlyErrorJa` + 사전: `postApproved`(승인 차단)·`postDuplicate`(uidx 안전망) 한·일.
+
+### 구현 중 기술 결정
+- 1차(#415) post_url 기준은 같은 URL 재제출만 막고 다른 URL은 별도 행 → 비즈니스(채널별 1건)와 불일치 → 채널별 교체로 재수정.
+
+### 후속 백로그 (별도 기획·사양서 필요)
+1. **관리자 결과물 관리 멀티채널 post 채널별 표시** — 현재 `g.result` 단수라 멀티채널 기프팅이면 채널별 게시물이 1건만 표시됨(가려짐). review_image처럼 채널별 배열 표시 필요.
+2. **스토리 = 이미지 제출**(1건에 여러 장) — 신규 기능. 인스타 스토리 등은 URL이 없어 이미지 제출.
+3. **채널별 1건 보장 유니크 인덱스**(DB, `(application_id, kind='post', post_channel)`) + **기존 중복 데이터 정리** — 과거 버그로 같은 채널 post 여러 행이 개발/운영 DB에 있을 수 있음. limit(1) 교체는 점진 수렴이라 잔여 중복은 별도 정리 SQL 필요.
+4. reviewer Warning: 다른 채널 같은 URL 시 `uidx_deliverables_post_url` 위반(드묾, 안전망 작동) — 채널-URL 조합 유니크 검토.
