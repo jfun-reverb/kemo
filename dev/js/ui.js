@@ -89,7 +89,9 @@ const _ERR_DICT = {
     auth: 'セッションの有効期限が切れました。再ログインしてください',
     emailUnverified: 'メールアドレスの認証が完了していません',
     credentials: 'メールアドレスまたはパスワードが正しくありません',
-    slotsFull: '募集定員に達したため、応募を受け付けておりません'
+    slotsFull: '募集定員に達したため、応募を受け付けておりません',
+    postApproved: 'この投稿は既に承認済みのため、再提出できません',
+    postDuplicate: '同じURLは既に提出済みです'
   },
   ko: {
     unknown: '오류가 발생했습니다',
@@ -104,7 +106,9 @@ const _ERR_DICT = {
     auth: '인증이 만료되었습니다. 다시 로그인해주세요',
     emailUnverified: '이메일 인증이 완료되지 않았습니다',
     credentials: '이메일 또는 비밀번호가 올바르지 않습니다',
-    slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다'
+    slotsFull: '모집 정원에 도달하여 신청이 마감되었습니다',
+    postApproved: '이미 승인된 게시물이라 다시 제출할 수 없습니다',
+    postDuplicate: '같은 URL은 이미 제출되었습니다'
   }
 };
 
@@ -115,6 +119,9 @@ function friendlyErrorJa(e) {
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');
   if (!s) return t.unknown;
+  // 게시물 URL 결과물 — 승인 차단·중복 URL 전용 안내 (일반 duplicate 보다 먼저 매칭)
+  if (e?.code === 'post_already_approved' || /既に承認済み/.test(s)) return t.postApproved;
+  if (/uidx_deliverables_post_url/.test(s)) return t.postDuplicate;
   if (/duplicate key|unique constraint|already exists/.test(s)) return t.duplicate;
   if (/permission denied|Permission denied|violates row-level security/.test(s)) return t.permission;
   if (/violates foreign key/.test(s)) return t.fk;
