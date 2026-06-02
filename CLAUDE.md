@@ -273,6 +273,7 @@
 - 페이지 전환: 관리자/인플루언서 화면 같은 탭에서 이동 (새 탭 열기 금지)
 - 깜빡임 방지: visibility:hidden cloak 기법 (인플루언서+관리자 양쪽)
 - 마이페이지 서브해시: `#mypage-applications` 등 URL 해시로 서브페이지 복원
+- 약관/정책 수정: `docs/{TERMS,PRIVACY}_{kr,ja}.md` 가 source of truth. 인플루언서 앱 푸터 약관은 `dev/lib/legal.js` 가 이 4개 md 를 **런타임 fetch + 마크다운 렌더링** — 별도 복사본 없음, 문서만 고치면 앱 반영(빌드 무관). 변경 시 한·일 동시 수정 + 부칙 갱신 (`.claude/rules/policy.md`)
 
 ## Conventions
 - 인플루언서 페이지 UI 텍스트: 일본어
