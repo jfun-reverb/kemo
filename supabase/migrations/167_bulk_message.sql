@@ -540,7 +540,9 @@ BEGIN
 
        -- ── 채널 필터 ──
        -- 인플루언서가 지정 채널 계정을 보유(핸들 컬럼 NOT NULL AND != '') 하는지 확인.
-       -- 캠페인 채널 CSV 에 있는 채널 중 관리자가 선택한 채널(p_channels) 기준.
+       -- influencers 의 SNS 핸들 컬럼은 ig / x / tiktok / youtube 4종만 존재.
+       -- Qoo10·LIPS·@cosme 는 전용 핸들 컬럼이 없음 → application.js 자격검증(491~497행)과 동일하게
+       --   Instagram(ig) 핸들 보유로 판정 (이 채널들은 인스타 핸들 기반 응모).
        AND (
          p_channels IS NULL
          OR (
@@ -548,9 +550,9 @@ BEGIN
            OR ('tiktok'    = ANY(p_channels) AND i.tiktok  IS NOT NULL AND i.tiktok  <> '')
            OR ('x'         = ANY(p_channels) AND i.x       IS NOT NULL AND i.x       <> '')
            OR ('youtube'   = ANY(p_channels) AND i.youtube IS NOT NULL AND i.youtube <> '')
-           OR ('qoo10'     = ANY(p_channels) AND i.qoo10   IS NOT NULL AND i.qoo10   <> '')
-           OR ('lips'      = ANY(p_channels) AND i.lips    IS NOT NULL AND i.lips    <> '')
-           OR ('cosme'     = ANY(p_channels) AND i.cosme   IS NOT NULL AND i.cosme   <> '')
+           OR ('qoo10'     = ANY(p_channels) AND i.ig      IS NOT NULL AND i.ig      <> '')
+           OR ('lips'      = ANY(p_channels) AND i.ig      IS NOT NULL AND i.ig      <> '')
+           OR ('cosme'     = ANY(p_channels) AND i.ig      IS NOT NULL AND i.ig      <> '')
          )
        )
 
@@ -567,10 +569,11 @@ BEGIN
                TRIM(SPLIT_PART(v_campaign_channel, ',', 1))
              )
              WHEN 'instagram' THEN COALESCE(i.ig_followers,      0)
+             WHEN 'qoo10'     THEN COALESCE(i.ig_followers,      0)  -- Qoo10 은 인스타 팔로워 기준 (application.js 516)
              WHEN 'tiktok'    THEN COALESCE(i.tiktok_followers,  0)
              WHEN 'x'         THEN COALESCE(i.x_followers,       0)
              WHEN 'youtube'   THEN COALESCE(i.youtube_followers,  0)
-             ELSE 0
+             ELSE 0  -- LIPS / @cosme: 리뷰어 전용 채널, 팔로워 미사용
            END
          ) >= p_min_followers
        )
