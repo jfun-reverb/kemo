@@ -952,7 +952,7 @@ function openBulkMessageModal(presetAppIds) {
   if (!admMsgIsCampaignAdmin()) { toast('일괄 발송 권한이 없습니다.'); return; }
   _bulkState = {
     presetIds: (presetAppIds && presetAppIds.length) ? presetAppIds.slice() : null,
-    campaignId: null, recipientIds: [], filterSnapshot: null,
+    campaignIds: [], recipientIds: [], filterSnapshot: null,
   };
   document.getElementById('bulkStep1').style.display = 'flex';
   document.getElementById('bulkStep2').style.display = 'none';
@@ -976,57 +976,69 @@ function openBulkMessageModal(presetAppIds) {
     document.getElementById('bulkCountBox').style.display = 'block';
     document.getElementById('bulkNextBtn').disabled = _bulkState.recipientIds.length === 0;
   } else {
-    // 캠페인 단위 모드
+    // 캠페인 단위 모드 (다중 캠페인 선택 가능)
     document.getElementById('bulkCampaignPick').style.display = '';
     document.getElementById('bulkPresetInfo').style.display = 'none';
     document.getElementById('bulkFilters').style.display = 'none';
     document.getElementById('bulkCountBox').style.display = 'none';
     document.getElementById('bulkNextBtn').disabled = true;
     populateBulkCampaigns();
+    if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '캠페인 선택');
+    renderBulkStatusFilters();   // 응모·결과물 상태는 캠페인 무관 — 1회 렌더(기본값)
+    document.getElementById('bulkMinFollowers').value = '';
   }
   openModal('bulkMessageModal');
 }
 function closeBulkMessageModal() { closeModal('bulkMessageModal'); _bulkState = null; }
 
 function populateBulkCampaigns() {
-  const sel = document.getElementById('bulkCampaignSelect');
   const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
     .filter(c => ['active', 'closed', 'ended'].includes(c.status))
     .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  sel.innerHTML = '<option value="">캠페인을 선택하세요</option>'
-    + camps.map(c => `<option value="${c.id}">${esc(c.title || '(제목 없음)')}</option>`).join('');
-  sel.value = '';
+  const options = camps.map(c => ({ value: c.id, label: c.title || '(제목 없음)', subLabel: c.campaign_no || '', count: null }));
+  // 결과물 관리와 동일한 검색형 다중필터 (캠페인명·번호 검색). 선택 변경 → onBulkCampaignChange
+  if (typeof syncMultiFilter === 'function') {
+    syncMultiFilter('bulkCampaignMulti', '캠페인 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
+  }
 }
 
 function onBulkCampaignChange() {
-  const id = document.getElementById('bulkCampaignSelect').value;
-  _bulkState.campaignId = id || null;
-  if (!id) {
+  const ids = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('bulkCampaignMulti') : [];
+  _bulkState.campaignIds = ids;
+  // [] = 미선택(mf-wrap 전체체크/모두해제 모두 빈 배열) → 일괄발송은 대상 0 (명시 선택 강제)
+  if (!ids.length) {
     document.getElementById('bulkFilters').style.display = 'none';
     document.getElementById('bulkCountBox').style.display = 'none';
     document.getElementById('bulkNextBtn').disabled = true;
     return;
   }
-  renderBulkFilters(id);
+  renderBulkChannelFilter(ids);   // 선택 캠페인들의 채널 합집합 (응모·결과물 상태는 1회 렌더 유지)
   document.getElementById('bulkFilters').style.display = 'flex';
   document.getElementById('bulkCountBox').style.display = 'block';
   scheduleBulkRecount();
 }
 
-function renderBulkFilters(campaignId) {
-  // 응모 상태 (기본 승인)
+// 응모·결과물 상태 체크박스 — 캠페인과 무관하므로 모달 열 때 1회만 렌더(선택 보존)
+function renderBulkStatusFilters() {
   document.getElementById('bulkAppStatus').innerHTML = BULK_APP_STATUSES.map(s =>
     `<label class="bulk-chk"><input type="checkbox" value="${s.code}" ${s.code === 'approved' ? 'checked' : ''} onchange="scheduleBulkRecount()">${s.label}</label>`).join('');
-  // 결과물 상태 (기본 미제출+검수중+반려 = 결과물 승인자 제외 패턴)
   document.getElementById('bulkDelivStatus').innerHTML = BULK_DELIV_STATUSES.map(s =>
     `<label class="bulk-chk"><input type="checkbox" value="${s.code}" ${s.code !== 'approved' ? 'checked' : ''} onchange="scheduleBulkRecount()">${s.label}</label>`).join('');
-  // 채널 (캠페인 channel CSV — 해당 채널 계정 보유자)
-  const camp = (typeof allCampaigns !== 'undefined' ? allCampaigns : []).find(c => c.id === campaignId);
-  const chans = (camp?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// 채널 체크박스 — 선택 캠페인들의 channel CSV 합집합. 재렌더 시 기존 선택 보존.
+function renderBulkChannelFilter(campaignIds) {
+  const prevSel = new Set(Array.from(document.querySelectorAll('#bulkChannels input:checked')).map(i => i.value));
+  const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : []);
+  const chanSet = new Set();
+  campaignIds.forEach(cid => {
+    const camp = camps.find(c => c.id === cid);
+    (camp?.channel || '').split(',').map(s => s.trim()).filter(Boolean).forEach(ch => chanSet.add(ch));
+  });
+  const chans = Array.from(chanSet);
   document.getElementById('bulkChannels').innerHTML = chans.length
-    ? chans.map(ch => `<label class="bulk-chk"><input type="checkbox" value="${esc(ch)}" onchange="scheduleBulkRecount()">${esc(typeof getChannelLabel === 'function' ? getChannelLabel(ch) : ch)}</label>`).join('')
+    ? chans.map(ch => `<label class="bulk-chk"><input type="checkbox" value="${esc(ch)}" ${prevSel.has(ch) ? 'checked' : ''} onchange="scheduleBulkRecount()">${esc(typeof getChannelLabel === 'function' ? getChannelLabel(ch) : ch)}</label>`).join('')
     : '<span style="font-size:12px;color:var(--muted)">채널 정보 없음</span>';
-  document.getElementById('bulkMinFollowers').value = '';
 }
 
 function collectBulkFilters() {
@@ -1049,12 +1061,19 @@ function scheduleBulkRecount() {
 }
 
 async function recountBulk() {
-  if (!_bulkState || !_bulkState.campaignId) return;
+  if (!_bulkState || !_bulkState.campaignIds || !_bulkState.campaignIds.length) return;
   const filters = collectBulkFilters();
+  const campaignIds = _bulkState.campaignIds.slice();
   const loading = document.getElementById('bulkCountLoading');
   if (loading) loading.style.display = 'inline';
   try {
-    const ids = await resolveBulkRecipients(_bulkState.campaignId, filters);
+    // 캠페인별 대상 해결 후 application_id 합집합 (캠페인마다 자기 채널·팔로워 기준 정확 적용)
+    const results = await Promise.all(campaignIds.map(cid => resolveBulkRecipients(cid, filters)));
+    // 계산 도중 선택이 바뀌었으면 폐기 (오래된 결과 반영 방지)
+    if (JSON.stringify(_bulkState.campaignIds) !== JSON.stringify(campaignIds)) return;
+    const idSet = new Set();
+    results.forEach(arr => (arr || []).forEach(id => idSet.add(id)));
+    const ids = Array.from(idSet);
     _bulkState.recipientIds = ids;
     _bulkState.filterSnapshot = filters;
     updateBulkCount(ids.length);
@@ -1113,7 +1132,11 @@ async function confirmBulkSend() {
   document.getElementById('bulkSendBtn').disabled = true;
   try {
     const contextKind = _bulkState.presetIds ? 'manual' : 'campaign';
-    await sendApplicationMessageBulk(ids, body, [], contextKind, _bulkState.campaignId || null, _bulkState.filterSnapshot || null);
+    const campIds = _bulkState.campaignIds || [];
+    // 캠페인 1개면 context_campaign_id 단일 컬럼(하위호환), 2개+면 NULL + context_filter.campaign_ids 배열
+    const contextCampaignId = (!_bulkState.presetIds && campIds.length === 1) ? campIds[0] : null;
+    const contextFilter = _bulkState.presetIds ? null : { ...(_bulkState.filterSnapshot || {}), campaign_ids: campIds };
+    await sendApplicationMessageBulk(ids, body, [], contextKind, contextCampaignId, contextFilter);
     toast(`${ids.length}명에게 발송했습니다.`);
     closeBulkMessageModal();
     if (_inboxTab === 'broadcasts') loadBroadcasts();
@@ -1147,7 +1170,10 @@ function renderBroadcastRow(r) {
   const dt = r.created_at ? new Date(r.created_at).toLocaleString('ja-JP') : '';
   const text = (r.body || '');
   const preview = esc(text.slice(0, 60)) + (text.length > 60 ? '…' : '');
-  const ctx = r.context_kind === 'campaign' ? '캠페인 대상' : '임의 선택';
+  const campCnt = (r.context_filter && Array.isArray(r.context_filter.campaign_ids)) ? r.context_filter.campaign_ids.length : (r.context_campaign_id ? 1 : 0);
+  const ctx = r.context_kind === 'campaign'
+    ? (campCnt > 1 ? `캠페인 ${campCnt}개 대상` : '캠페인 대상')
+    : '임의 선택';
   const withdrawn = r.withdrawn_at ? '<span class="broadcast-badge broadcast-badge-withdrawn">회수됨</span>' : '';
   return `<div class="broadcast-row" onclick="openBroadcastDetail('${esc(r.id)}')">
     <div class="broadcast-row-main">

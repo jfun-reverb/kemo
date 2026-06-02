@@ -3022,9 +3022,8 @@
       <div id="bulkStep1" style="display:flex;flex-direction:column;gap:14px">
         <div id="bulkPresetInfo" style="display:none;font-size:13px;color:var(--muted);background:var(--bg);border-radius:10px;padding:10px 12px"></div>
         <div id="bulkCampaignPick">
-          <label style="font-size:13px;color:var(--muted)">캠페인
-            <select id="bulkCampaignSelect" class="admin-select" onchange="onBulkCampaignChange()" style="width:100%;margin-top:6px"></select>
-          </label>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 이름·번호 검색)</span></div>
+          <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인 선택</button><div class="mf-drop" style="min-width:300px;max-width:440px;max-height:300px;overflow-y:auto"></div></div>
         </div>
         <div id="bulkFilters" style="display:none;flex-direction:column;gap:12px">
           <div>
