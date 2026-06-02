@@ -995,7 +995,18 @@ function populateBulkCampaigns() {
   const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
     .filter(c => ['active', 'closed', 'ended'].includes(c.status))
     .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  const options = camps.map(c => ({ value: c.id, label: c.title || '(제목 없음)', subLabel: c.campaign_no || '', count: null }));
+  // 드롭다운 부가설명: 캠페인 번호 · 모집타입 · 상태 · 채널 (대상 캠페인 식별 보조)
+  const _rtKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined') ? RECRUIT_TYPE_LABEL_KO : { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' };
+  const _stKo = { active:'모집중', closed:'모집마감', ended:'종료' };
+  const options = camps.map(c => {
+    const meta = [
+      c.campaign_no,
+      _rtKo[c.recruit_type],
+      _stKo[c.status],
+      (typeof getChannelLabel === 'function' ? getChannelLabel(c.channel, 'ko') : c.channel)
+    ].filter(Boolean).join(' · ');
+    return { value: c.id, label: c.title || '(제목 없음)', subLabel: meta, count: null };
+  });
   // 결과물 관리와 동일한 검색형 다중필터 (캠페인명·번호 검색). 선택 변경 → onBulkCampaignChange
   if (typeof syncMultiFilter === 'function') {
     syncMultiFilter('bulkCampaignMulti', '캠페인 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
