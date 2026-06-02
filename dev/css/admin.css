@@ -1455,3 +1455,5 @@
 /* 일괄발송 캠페인 드롭다운 — 모달 body(overflow:auto)가 absolute 드롭을 자르는 문제 회피.
    문서 흐름(static)으로 펼쳐 모달 자체 스크롤로 보이게 한다(포털 불필요, 이 드롭다운만 한정). */
 #bulkCampaignMulti .mf-drop { position: static; margin-top: 4px; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
+/* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
+#bulkCampaignMulti .mf-item-sub { font-family: inherit; }
