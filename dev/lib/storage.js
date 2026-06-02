@@ -858,22 +858,25 @@ async function insertDraftDeliverable(payload) {
         return;  // 기존 행 갱신 완료 — INSERT 스킵
       }
     }
-    // post(게시물 URL) 재제출: uidx_deliverables_post_url(application_id, kind='post', post_url) UNIQUE 충돌 방지.
-    //   탐색은 application_id + kind='post' + post_url 3개 모두 일치(다른 게시물 덮어쓰기 방지).
-    //   기존 행이 approved(승인)면 되돌리지 않고 차단(승인 결과물 draft 추락 방지),
-    //   그 외(rejected/pending/draft)면 status='draft' 로 되돌리고 반려사유 초기화 + post_submissions append + 채널 갱신.
-    //   (사양서 docs/specs/2026-06-02-deliverable-post-url-duplicate-fix.md 경우의 수 ①·③)
-    if (payload.kind === 'post' && payload.post_url) {
-      const {data: existing, error: selErr} = await db?.from('deliverables')
+    // post(게시물 URL) 제출: 채널마다 게시물 1건(교체). review_image 패턴과 동일하게 post_channel 기준 탐색.
+    //   (2026-06-02 사용자 결정: 기프팅/방문형 게시물은 채널별 1건 — 같은 채널 재제출은 같은 URL/다른 URL 모두 교체)
+    //   같은 채널의 기존 post 행이 있으면 그 행을 새 URL 로 교체(post_submissions 누적), 없으면 INSERT.
+    //   기존 행이 approved(승인)면 되돌리지 않고 차단(승인 결과물 draft 추락 방지).
+    //   ⚠️ 과거 버그(URL별 별도 행)로 같은 채널 post 가 여러 행일 수 있어 maybeSingle 대신 가장 오래된 1건 교체.
+    //   사양서 docs/specs/2026-06-02-deliverable-post-url-duplicate-fix.md (채널별 1건으로 정정)
+    if (payload.kind === 'post' && payload.post_channel) {
+      const {data: existRows, error: selErr} = await db?.from('deliverables')
         .select('id, status, post_submissions')
         .eq('application_id', payload.application_id)
         .eq('kind', 'post')
-        .eq('post_url', payload.post_url)
-        .maybeSingle();
+        .eq('post_channel', payload.post_channel)
+        .order('created_at', { ascending: true })
+        .limit(1);
       if (selErr) throw selErr;
+      const existing = existRows && existRows[0];
       if (existing?.id) {
         if (existing.status === 'approved') {
-          // 승인된 게시물은 재제출로 덮어쓰지 않음 (경우의 수 ①)
+          // 승인된 게시물은 재제출로 덮어쓰지 않음
           const apErr = new Error('この投稿は既に承認済みです。');
           apErr.code = 'post_already_approved';
           throw apErr;
@@ -882,8 +885,7 @@ async function insertDraftDeliverable(payload) {
         const {error: upErr} = await db?.from('deliverables')
           .update({
             status: 'draft',
-            // 채널이 명시 전달된 경우만 갱신 — 빈값/undefined 면 기존 채널 보존
-            ...(payload.post_channel ? { post_channel: payload.post_channel } : {}),
+            post_url: payload.post_url || null,   // 채널별 교체 — 새 URL 로 갱신
             reject_reason: null,
             reject_template_code: null,
             reviewed_by: null,
