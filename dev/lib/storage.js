@@ -2718,6 +2718,85 @@ async function fetchApplicationHideHistory(applicationId) {
   return data || [];
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 응모건 메시지 — 일괄 발송 (BCC, PR 3)
+//   마이그레이션 167. campaign_admin 이상. send_bulk / withdraw_broadcast /
+//   resolve_bulk_recipients / get_broadcast_detail RPC + 발송 이력 목록 조회.
+// ════════════════════════════════════════════════════════════════════
+
+// 일괄 발송 (관리자 → N명 BCC). applicationIds 는 이미 cancelled 제외된 배열.
+//   contextKind: 'campaign'|'manual', contextCampaignId/contextFilter 는 감사·재현용 스냅샷.
+//   반환: broadcast_id (uuid).
+async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_application_message_bulk', {
+      p_application_ids: applicationIds,
+      p_body: body || '',
+      p_attachments: attachments,
+      p_context_kind: contextKind,
+      p_context_campaign_id: contextCampaignId,
+      p_context_filter: contextFilter,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 일괄 발송 그룹 회수 (발신자 본인 또는 super_admin). 회수 시 각 메시지 강제 숨김 처리.
+//   reasonCode: lookup_values(kind='message_hide_reason').code. 첨부 Storage 는 영구 보존(삭제 안 함).
+async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
+  if (!db || !broadcastId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('withdraw_broadcast', {
+      p_broadcast_id: broadcastId,
+      p_reason_code: reasonCode,
+      p_reason_memo: reasonMemo || null,
+    });
+    if (error) throw error;
+  });
+}
+
+// 캠페인 단위 발송 대상 응모 id 해결 (cancelled 항상 제외). 미리보기 카운트 = 배열 길이.
+//   filters: { appStatuses[], deliverableStatuses[], channels[], minFollowers }
+//   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
+async function resolveBulkRecipients(campaignId, filters = {}) {
+  if (!db || !campaignId) return [];
+  const {data, error} = await db.rpc('resolve_bulk_recipients', {
+    p_campaign_id: campaignId,
+    p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
+    p_deliverable_statuses: filters.deliverableStatuses && filters.deliverableStatuses.length ? filters.deliverableStatuses : null,
+    p_channels: filters.channels && filters.channels.length ? filters.channels : null,
+    p_min_followers: (filters.minFollowers != null && filters.minFollowers !== '') ? Number(filters.minFollowers) : null,
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+// 발송 이력 목록 (관리자). application_message_broadcasts 직접 조회.
+//   RLS SELECT 는 is_admin() 전체. campaign_admin 본인분만 보려면 senderId 전달(클라 권한 분기).
+//   opts: { senderId(있으면 sender_id 필터), limit(기본 100) }
+async function fetchBroadcasts(opts = {}) {
+  if (!db) return [];
+  let q = db?.from('application_message_broadcasts')
+    .select('id, sender_id, sender_name, body, attachments, recipient_count, created_at, context_kind, context_campaign_id, context_filter, withdrawn_at, withdrawn_by, withdrawn_reason_code')
+    .order('created_at', { ascending: false })
+    .limit(opts.limit || 100);
+  if (opts.senderId) q = q.eq('sender_id', opts.senderId);
+  const {data, error} = await q;
+  if (error) { console.warn('[fetchBroadcasts]', error); return []; }
+  return data || [];
+}
+
+// 발송 이력 상세 (그룹 메타 + 수신자별 읽음·답장 상태). 권한별 가시성은 RPC 가 검증.
+//   반환: { broadcast: {...}, recipients: [{application_id, influencer_name, campaign_title, read, replied, hidden, message_id}] }
+async function getBroadcastDetail(broadcastId) {
+  if (!db || !broadcastId) return null;
+  const {data, error} = await db.rpc('get_broadcast_detail', { p_broadcast_id: broadcastId });
+  if (error) throw error;
+  return data || null;
+}
+
 // ══════════════════════════════════════
 // FAQ (자동응답) — 마이그레이션 146
 // ══════════════════════════════════════

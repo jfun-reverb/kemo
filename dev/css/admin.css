@@ -1430,3 +1430,25 @@
 .admin-detail-label { flex-shrink: 0; width: 84px; color: var(--muted); font-weight: 600; }
 .admin-input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--ink); background: #fff; }
 .admin-input:focus { outline: none; border-color: var(--pink); }
+
+/* ── 일괄 발송 / 발송 이력 (PR 3, 마이그레이션 167) ── */
+.inbox-tabs { display: flex; gap: 4px; }
+.inbox-tab { padding: 5px 12px; border: 1px solid var(--line); background: #fff; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.inbox-tab.is-active { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
+.bulk-chk-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.bulk-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink); cursor: pointer; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.bulk-chk input { margin: 0; }
+.broadcasts-list { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; }
+.broadcast-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff; }
+.broadcast-row:hover { background: var(--bg); }
+.broadcast-row-main { flex: 1; min-width: 0; }
+.broadcast-row-preview { font-size: 14px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.broadcast-row-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.broadcast-badge { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; }
+.broadcast-badge-withdrawn { background: #FEF2F2; color: #991B1B; }
+.broadcast-recips { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow: auto; }
+.broadcast-recip { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.broadcast-recip:hover { background: var(--bg); }
+.broadcast-recip-name { font-weight: 600; color: var(--ink); }
+.broadcast-recip-camp { flex: 1; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.broadcast-recip-status { font-size: 11px; color: var(--muted); }
