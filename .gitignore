@@ -27,6 +27,9 @@ errors-*.png
 toast-*.png
 inf-*.png
 regression-*.png
+activity-*.png
+broadcast-*.png
+bulk-*.png
 
 # Sales 정적 이미지 assets는 QA 패턴에서 제외
 !dev/sales/images/

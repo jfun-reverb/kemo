@@ -25,9 +25,9 @@
 
 ### 2-1. 개인정보 보호
 - **한국 PIPA** (개인정보 보호법) + **일본 APPI** (個人情報保護法) **이중 준수**
-- **국외 이전 동의**: 일본 거주자 데이터를 **호주 시드니**(Supabase 운영 — AWS Sydney 리전)로 이전함에 대한 **명시적 동의 필수**. 현재 `influencers.terms_agreed_at`, `privacy_agreed_at`에서 포괄 동의 기록 중. 추후 "국외 이전" 별도 동의 항목 분리 예정.
+- **국외 이전 동의**: 일본 거주자 데이터를 **일본 도쿄**(Supabase 운영 — AWS Tokyo `ap-northeast-1` 리전, 2026-05-27 시드니→도쿄 이관 완료)로 이전함에 대한 **명시적 동의 필수**. 현재 `influencers.terms_agreed_at`, `privacy_agreed_at`에서 포괄 동의 기록 중. 추후 "국외 이전" 별도 동의 항목 분리 예정.
 - **처리위탁 업체** (개인정보처리방침 §처리위탁 반영 대상):
-  - **Supabase Inc.** (미국 법인 / 데이터 처리 리전: 호주 시드니 AWS) — DB, Auth, Storage, Email Confirmation
+  - **Supabase Inc.** (미국 법인 / 데이터 처리 리전: 일본 도쿄 AWS) — DB, Auth, Storage, Email Confirmation
   - **Vercel Inc.** (미국) — 정적 호스팅, 엣지 함수
   - **Brevo (Sendinblue SA)** (프랑스, EU) — 트랜잭션 메일 발송 (SMTP 릴레이)
   - 각 업체별로 위탁 사항·위탁 기간·국외 이전 경유지 명시 필요
@@ -77,7 +77,7 @@
 - **신규 개인정보 수집 채널**: `brand_applications` 테이블은 인플루언서 데이터와 **별개**의 광고주 개인정보 수집 채널. 수집 항목: 담당자 이름·전화·이메일·세금계산서 이메일(reviewer). 사업자등록증 이미지 및 `brand-docs` Storage 버킷은 2026-04-21(migration 057)에 수집·저장 중단
 - **Edge Function**: `notify-brand-application` (Supabase Functions) — `brand_applications` INSERT 후 클라이언트가 호출 → `admins.receive_brand_notify=true` + env `NOTIFY_ADMIN_EMAILS` 합산 대상에게 Brevo SMTP 경유 알림 메일 발송
 - **서브도메인**: `sales.globalreverb.com` / `sales-dev.globalreverb.com` (별도 Vercel 프로젝트 `reverb-sales`, Root Directory=`sales/`). `noindex/nofollow` 메타 유지(검색 노출 차단). 별도 favicon으로 STAGING DEV 아이콘 누수 방지
-- **PIPA/APPI 일관성**: 광고주 데이터도 호주 시드니 AWS 리전(Supabase 운영)으로 국외 이전됨 → PRIVACY §5 반영 필요 (docs/PRIVACY_{kr,ja}.md §5 광고주 항목 포함됨)
+- **PIPA/APPI 일관성**: 광고주 데이터도 일본 도쿄 AWS 리전(Supabase 운영, 2026-05-27 도쿄 이관)으로 국외 이전됨 → PRIVACY §5 반영 필요 (docs/PRIVACY_{kr,ja}.md §5 광고주 항목 포함됨)
 - **처리위탁 범위**: Edge Function·Storage 모두 Supabase Inc. 위탁 내. 별도 수탁사 추가 없음 (2026-04-20 결정)
 - **광고주 자유 입력란**(운영, migration 068, 2026-04-23): `brand_applications.request_note text NULL` — 신청 폼 「기타/요청사항」 자유 입력. `submit_brand_application()` 원격 호출 함수(RPC)에 `p_request_note` 파라미터 추가. 외부 노출 형식 변경이지만 신규 수집 항목 아님 — 약관 영향 없음. 자유 입력란이라 광고주가 본인 외 제3자 정보를 입력할 위험은 운영 가이드(폼 안내 문구)로 대응
 - **신청번호 포맷 (운영)**: 서버 트리거가 v1 `JFUN-{Q|N}-YYYYMMDD-NNN`(reviewer=Q, seeding=N, 연도 4자리 숫자) 채번 — `brand_applications.application_no` UNIQUE

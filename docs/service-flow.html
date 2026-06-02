@@ -160,7 +160,7 @@ flowchart TB
     B7 -->|OK| B8[anon INSERT<br/>submit_brand_application RPC]
   end
 
-  subgraph DB["🗃 Supabase (Sydney)"]
+  subgraph DB["🗃 Supabase (Tokyo)"]
     T1[BEFORE INSERT 트리거<br/>generate_brand_application_no<br/>JST JFUN-Q|N-YYYYMMDD-NNN] --> T2[BEFORE INSERT 트리거<br/>recalc_brand_application_totals<br/>total_jpy · total_qty · estimated_krw]
     T2 --> T3[INSERT 완료<br/>status=new]
   end
