@@ -858,6 +858,44 @@ async function insertDraftDeliverable(payload) {
         return;  // 기존 행 갱신 완료 — INSERT 스킵
       }
     }
+    // post(게시물 URL) 재제출: uidx_deliverables_post_url(application_id, kind='post', post_url) UNIQUE 충돌 방지.
+    //   탐색은 application_id + kind='post' + post_url 3개 모두 일치(다른 게시물 덮어쓰기 방지).
+    //   기존 행이 approved(승인)면 되돌리지 않고 차단(승인 결과물 draft 추락 방지),
+    //   그 외(rejected/pending/draft)면 status='draft' 로 되돌리고 반려사유 초기화 + post_submissions append + 채널 갱신.
+    //   (사양서 docs/specs/2026-06-02-deliverable-post-url-duplicate-fix.md 경우의 수 ①·③)
+    if (payload.kind === 'post' && payload.post_url) {
+      const {data: existing, error: selErr} = await db?.from('deliverables')
+        .select('id, status, post_submissions')
+        .eq('application_id', payload.application_id)
+        .eq('kind', 'post')
+        .eq('post_url', payload.post_url)
+        .maybeSingle();
+      if (selErr) throw selErr;
+      if (existing?.id) {
+        if (existing.status === 'approved') {
+          // 승인된 게시물은 재제출로 덮어쓰지 않음 (경우의 수 ①)
+          const apErr = new Error('この投稿は既に承認済みです。');
+          apErr.code = 'post_already_approved';
+          throw apErr;
+        }
+        const prevSubs = Array.isArray(existing.post_submissions) ? existing.post_submissions : [];
+        const {error: upErr} = await db?.from('deliverables')
+          .update({
+            status: 'draft',
+            // 채널이 명시 전달된 경우만 갱신 — 빈값/undefined 면 기존 채널 보존
+            ...(payload.post_channel ? { post_channel: payload.post_channel } : {}),
+            reject_reason: null,
+            reject_template_code: null,
+            reviewed_by: null,
+            reviewed_at: null,
+            post_submissions: [...prevSubs, {url: payload.post_url, channel: payload.post_channel, submitted_at: new Date().toISOString()}]
+          })
+          .eq('id', existing.id);
+        if (upErr) throw upErr;
+        id = existing.id;
+        return;  // 기존 행 갱신 완료 — INSERT 스킵
+      }
+    }
     const row = {
       application_id: payload.application_id,
       user_id: payload.user_id,
