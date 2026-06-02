@@ -151,6 +151,8 @@ async function openAdminEmailSubsModal(adminId, adminName, adminEmail) {
 function _adminEmailKindDesc(code) {
   const map = {
     'brand_notify':       '광고주(브랜드)가 sales 페이지에서 신청 폼을 제출했을 때 접수 알림',
+    'daily_digest':       '신청 접수·응모 취소·결과물 제출·재처리 내역을 하루 한 통으로 묶어 매일 아침 발송',
+    'campaign_promo':     '신규·마감임박 캠페인 홍보 메일 (주 2회, 월·목 발송)',
     'application_cancel': '인플루언서가 구매기간 이후에 응모를 취소했을 때 알림'
   };
   return map[code] || '';

@@ -40,7 +40,7 @@
 
 ### 가동 중인 메일 파이프라인 (세부 구현은 `supabase/functions/*` + 사양서가 source of truth)
 - **광고주 신청 접수 알림** (`notify-brand-application`): `brand_applications` INSERT 직후 호출. 수신자 = `get_subscribed_admin_emails('brand_notify')` + env `NOTIFY_ADMIN_EMAILS`
-- **관리자 일일 통합 다이제스트** (`notify-admin-daily-digest`): pg_cron 매일 KST 09:00. 4섹션 1통(신청 접수·응모 취소·결과물 제출·재처리), 캠페인별 그룹 표. 인플 표시 4종(한자·가나·이메일·SNS링크) 통일. `admin_daily_digest_runs.digest_date UNIQUE` mutex
+- **관리자 일일 통합 다이제스트** (`notify-admin-daily-digest`): pg_cron 매일 KST 09:00. 4섹션 1통(신청 접수·응모 취소·결과물 제출·재처리), 캠페인별 그룹 표. 인플 표시 4종(한자·가나·이메일·SNS링크) 통일. `admin_daily_digest_runs.digest_date UNIQUE` mutex. 수신자 = `get_subscribed_admin_emails('daily_digest')` + env `NOTIFY_ADMIN_EMAILS` (마이그레이션 164 에서 구 `application_cancel`·`application_received` 2종 구독 → `daily_digest` 단일 구독으로 통합)
 - **인플루언서 일일 다이제스트** (`notify-influencer-daily-digest`): pg_cron 매일 KST 09:00. 어제 신청·승인·반려 + 오늘 D-5/D-1 마감 4섹션. `deadline_reminder_email_sent` 4-tuple UNIQUE 재발송 차단. marketing_opt_in 무시(트랜잭션)
 - **캠페인 홍보 메일** (`notify-campaign-promo-digest`): pg_cron 매주 월·목 KST 09:00. 신규+D-1 임박 캠페인, `marketing_opt_in=true`+자격 매칭 인플(1통씩 분리, 노출 최대 2회·클릭 시 제외). 첫 배치에서 `campaign_promo` 토글 관리자에게도 동시 발송. 사양서 `docs/specs/2026-05-27-admin-promo-email-subscription.md`
 - **공통 패턴**: ①인플 대상 메일은 **4줄 푸터 필수**(自動送信 안내·LINE @reverb.jp·© JFUN·사이트 URL, 글자색 #999) — 신규 인플 메일 추가 시 의무 ②관리자 일괄 발송은 **1명당 1통 분리**(To 헤더 노출 차단) ③부분 실패는 `status='sent'`+실패 명단 누적(전원 실패만 `failed`)
@@ -209,7 +209,7 @@
 ### 인플루언서·관리자
 - `influencers` — 인플루언서 프로필. `name`, SNS 계정+팔로워, 주소, `paypal_email`, `primary_sns`, `terms_agreed_at`, `privacy_agreed_at`, `marketing_opt_in` 등. 홍보 메일 PR 1 추가 컬럼: `unsubscribe_token uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE`(영구 1개 토큰, 메일 수신거부·클릭 추적 익명 호출 식별자), `marketing_unsubscribed_at timestamptz NULL`(수신거부 시각 감사 — 재구독 시 NULL 초기화). 기존 인플 1,398행 백필 완료 (마이그레이션 140)
 - `admins` — 관리자 계정. `auth_id`, `email`, `name`, `role`(super_admin/campaign_admin/campaign_manager)
-- `admin_email_subscriptions` — 관리자별 메일 수신 구독. `(admin_id, mail_kind)` UNIQUE. `mail_kind` 는 `lookup_values(kind='admin_email_kind')` code 참조 (시드 `brand_notify`/`application_cancel`/`application_received`). RLS SELECT 관리자 전체, CUD 본인 또는 super_admin. 헬퍼 `get_subscribed_admin_emails(p_mail_kind)`
+- `admin_email_subscriptions` — 관리자별 메일 수신 구독. `(admin_id, mail_kind)` UNIQUE. `mail_kind` 는 `lookup_values(kind='admin_email_kind')` code 참조 (활성 항목 `brand_notify`/`daily_digest`/`campaign_promo`). 구 `application_cancel`·`application_received` 는 마이그레이션 164 에서 `daily_digest`(일일 통합 메일) 단일 항목으로 통합·비활성(soft, 행·구독 이력 보존). RLS SELECT 관리자 전체, CUD 본인 또는 super_admin. 헬퍼 `get_subscribed_admin_emails(p_mail_kind)`
 - `admin_notices` — 관리자 공지. `category`(system_update/release/warning/general), `pin`(bool), `title`, `body_html`(Quill rich), `created_by`/`created_at`/`updated_at`, `status CHECK(draft|published)`, `published_at`/`published_by`/`published_by_name`. SELECT RLS 는 published OR `is_super_admin()` OR `created_by=auth.uid()` (draft 는 작성자/super 한정). XSS 방어는 저장+렌더 이중 sanitize
 - `admin_notice_reads` — 관리자별 읽음 기록. `(admin_id, notice_id, read_at)` UNIQUE. `upsert_admin_notice_read` RPC. 미읽음 카운트 = published - reads(by admin)
 - `influencer_flags` — 인플루언서 관리자 마킹 이력. `influencer_id`, `action`(verify/violation/blacklist/clear), `reasons text[]` (blacklist_reason ∪ violation_reason lookup), `memo`, `evidence_paths text[]`, `updated_at/by/by_name`. 위반 행만 UPDATE RLS
