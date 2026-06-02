@@ -30,9 +30,7 @@ SRC_DIR="$REPO_ROOT/docs/email-templates"
 SYNC_GROUPS=(
   "notify-brand-application|brand-admin-notify.html,brand-ack-reviewer.html,brand-ack-seeding.html"
   "notify-deliverable-decision|deliverable-receipt-approved.html,deliverable-receipt-rejected.html,deliverable-review-image-approved.html,deliverable-review-image-rejected.html,deliverable-post-approved.html,deliverable-post-rejected.html"
-  "notify-application-cancelled-daily|application-cancelled-daily.html,application-cancelled-daily.row.html"
   "notify-influencer-daily-digest|influencer-daily-digest.html,influencer-daily-digest.row-received.html,influencer-daily-digest.row-approved.html,influencer-daily-digest.row-rejected.html,influencer-daily-digest.row-deadline.html"
-  "notify-application-received-admin-daily|application-received-admin-daily.html,application-received-admin-daily.row.html"
   "notify-admin-daily-digest|admin-daily-digest.html,admin-daily-digest.section.html,admin-daily-digest.row-received.html,admin-daily-digest.row-cancelled.html,admin-daily-digest.row-submitted.html,admin-daily-digest.row-reprocessed.html"
   "notify-campaign-promo-digest|campaign-promo-digest.html,campaign-promo-digest.section.html,campaign-promo-digest.row-campaign.html,campaign-promo-digest.admin.html"
   "notify-policy-change|policy-change-notice.html"
@@ -80,17 +78,13 @@ for group in "${SYNC_GROUPS[@]}"; do
   # _templates 디렉토리가 Edge Function 번들에 포함 안 되는 supabase CLI
   # 동작을 회피하기 위해 templates.ts 자동 생성. 대상 함수:
   #   - notify-deliverable-decision (결과물 검수 메일 6종)
-  #   - notify-application-cancelled-daily (응모 취소 일일 요약 2종)
   #   - notify-influencer-daily-digest (인플루언서 일일 다이제스트 5종 — 마이그레이션 130)
-  #   - notify-application-received-admin-daily (관리자 접수 일일 요약 2종 — 마이그레이션 130)
-  #   - notify-admin-daily-digest (관리자 통합 다이제스트 6종 — 마이그레이션 132, PR 2)
+  #   - notify-admin-daily-digest (관리자 통합 다이제스트 6종 — 마이그레이션 132, PR 2. 구 application_cancel·received 일일요약 2종 흡수 — 마이그레이션 164)
   #   - notify-campaign-promo-digest (캠페인 홍보 메일 다이제스트 3종 — 마이그레이션 139~143, PR 2)
   # notify-brand-application 은 과거 deploy 가 _templates/ 를 포함했던 시점에
   # 등록되어 그대로 동작 중 — 추후 재배포 회귀 발생 시 동일 분기로 이동.
   if [[ "$fn_name" == "notify-deliverable-decision" ]] || \
-     [[ "$fn_name" == "notify-application-cancelled-daily" ]] || \
      [[ "$fn_name" == "notify-influencer-daily-digest" ]] || \
-     [[ "$fn_name" == "notify-application-received-admin-daily" ]] || \
      [[ "$fn_name" == "notify-admin-daily-digest" ]] || \
      [[ "$fn_name" == "notify-campaign-promo-digest" ]] || \
      [[ "$fn_name" == "notify-policy-change" ]]; then
