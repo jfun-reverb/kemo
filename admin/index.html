@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780390526';
+  var CURRENT_BUILD = 'v1780391825';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1981,7 +1981,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-02 17:55 · 60ff85e</span>
+          <span class="admin-build-text">2026-06-02 18:17 · 3a3321b</span>
         </div>
       </div>
     </aside>
@@ -15807,7 +15807,18 @@ function populateBulkCampaigns() {
   const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
     .filter(c => ['active', 'closed', 'ended'].includes(c.status))
     .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  const options = camps.map(c => ({ value: c.id, label: c.title || '(제목 없음)', subLabel: c.campaign_no || '', count: null }));
+  // 드롭다운 부가설명: 캠페인 번호 · 모집타입 · 상태 · 채널 (대상 캠페인 식별 보조)
+  const _rtKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined') ? RECRUIT_TYPE_LABEL_KO : { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' };
+  const _stKo = { active:'모집중', closed:'모집마감', ended:'종료' };
+  const options = camps.map(c => {
+    const meta = [
+      c.campaign_no,
+      _rtKo[c.recruit_type],
+      _stKo[c.status],
+      (typeof getChannelLabel === 'function' ? getChannelLabel(c.channel, 'ko') : c.channel)
+    ].filter(Boolean).join(' · ');
+    return { value: c.id, label: c.title || '(제목 없음)', subLabel: meta, count: null };
+  });
   // 결과물 관리와 동일한 검색형 다중필터 (캠페인명·번호 검색). 선택 변경 → onBulkCampaignChange
   if (typeof syncMultiFilter === 'function') {
     syncMultiFilter('bulkCampaignMulti', '캠페인 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
