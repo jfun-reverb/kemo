@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780366533';
+  var CURRENT_BUILD = 'v1780375454';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1874,6 +1874,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 }
 .proxy-evidence-item .ev-remove:hover { color: #c00; }
 
+/* 오류 로그 상세 모달 (admin-errors) — 상세 행 + 입력 (마이그레이션 165) */
+.admin-detail-row { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.admin-detail-row:last-child { border-bottom: none; }
+.admin-detail-label { flex-shrink: 0; width: 84px; color: var(--muted); font-weight: 600; }
+.admin-input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--ink); background: #fff; }
+.admin-input:focus { outline: none; border-color: var(--pink); }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -1933,6 +1940,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+        <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
@@ -1948,7 +1956,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-02 11:15 · c87bdcd</span>
+          <span class="admin-build-text">2026-06-02 13:44 · 6db118d</span>
         </div>
       </div>
     </aside>
@@ -2941,6 +2949,61 @@ textarea.form-input{resize:vertical;min-height:80px}
           </div>
         </div>
 
+        <!-- CLIENT ERROR LOGS (오류 로그) PANE — 마이그레이션 165 -->
+        <div id="adminPane-errors" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">오류 로그</div>
+              <div style="font-size:12px;color:var(--muted)">사용자 앱에서 발생한 오류 (개인정보는 자동 마스킹)</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>상태</label>
+                <select id="errFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                  <option value="open">미해결</option>
+                  <option value="resolved">해결됨</option>
+                  <option value="ignored">무시</option>
+                  <option value="">전체</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>앱</label>
+                <select id="errFilterSource" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                  <option value="">전체</option>
+                  <option value="influencer">인플루언서</option>
+                  <option value="admin">관리자</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>기간</label>
+                <select id="errFilterDays" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                  <option value="">전체</option>
+                  <option value="7">최근 7일</option>
+                  <option value="30">최근 30일</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="errSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="메시지 · 코드 검색" oninput="loadClientErrors()">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">오류 목록</span><span id="errTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr><th style="width:80px">상태</th><th>메시지</th><th style="width:120px">코드</th><th style="width:60px;text-align:center">횟수</th><th style="width:140px">최근 발생</th><th style="width:70px">상세</th></tr></thead>
+                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- BRAND DASHBOARD (광고주 서베이 현황) PANE -->
         <!-- 메시지 받은편지함 (3단: 캠페인 / 대화 상대 / 대화 내용) -->
         <div id="adminPane-messages" class="admin-pane">
@@ -3276,6 +3339,18 @@ textarea.form-input{resize:vertical;min-height:80px}
               <button class="btn btn-ghost btn-sm" onclick="closeCompanyModal()">닫기</button>
               <button id="companySaveBtn" class="btn btn-primary btn-sm" onclick="saveCompany()">저장</button>
             </div>
+          </div>
+        </div>
+
+        <!-- CLIENT ERROR DETAIL MODAL (오류 로그 상세) — 마이그레이션 165 -->
+        <div class="modal-overlay" id="clientErrorDetailModal" style="z-index:616">
+          <div class="modal" style="max-width:600px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:14px;font-weight:700;color:var(--ink)">오류 상세</div>
+              <button class="btn btn-ghost btn-xs" onclick="closeModal('clientErrorDetailModal')" style="padding:4px 10px">✕</button>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="clientErrorDetailBody"></div>
+            <div class="modal-footer" id="clientErrorDetailActions" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end"></div>
           </div>
         </div>
 
@@ -5241,6 +5316,9 @@ function faqComputeStatus(status, delivs, camp) {
 // 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
 // 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
 const PANE_REFRESHERS = {
+  'errors': async () => {
+    if (typeof loadClientErrors === 'function') await loadClientErrors();
+  },
   'influencers': async () => {
     if (typeof rerenderInfluencersFromCache === 'function') rerenderInfluencersFromCache();
     else if (typeof loadAdminInfluencers === 'function') await loadAdminInfluencers();
@@ -8301,6 +8379,53 @@ async function fetchFaqInteractionsForApp(applicationId) {
   } catch (e) { console.error('[fetchFaqInteractionsForApp]', e); return []; }
 }
 
+// ── 사용자 앱 에러 수집 (마이그레이션 165) ──
+// error-report.js 의 collectClientError 가 마스킹·디바운스 후 호출.
+// 실패는 완전 무음 (보고 실패가 앱 동작을 막으면 안 됨).
+async function reportClientError(payload) {
+  if (!db) return;
+  try { await db.rpc('report_client_error', payload); }
+  catch (e) { /* 무음 — 에러 보고 실패는 삼킨다 */ }
+}
+
+// 관리자 오류 로그 조회 (RLS: is_admin() 만). 1000행 캡 대응 pagination.
+async function fetchClientErrors(filters = {}) {
+  if (!db) return [];
+  try {
+    return await fetchAllPaged(() => {
+      let q = db.from('client_error_logs').select('*');
+      if (filters.status) q = q.eq('status', filters.status);
+      if (filters.source) q = q.eq('source', filters.source);
+      if (filters.since)  q = q.gte('last_seen_at', filters.since);
+      return q.order('last_seen_at', { ascending: false });
+    });
+  } catch (e) { console.error('[fetchClientErrors]', e); return []; }
+}
+
+// 미해결(open) 오류 건수 — 사이드바 배지용
+async function fetchClientErrorOpenCount() {
+  if (!db) return 0;
+  try {
+    const { count, error } = await db.from('client_error_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open');
+    if (error) throw error;
+    return count || 0;
+  } catch (e) { console.error('[fetchClientErrorOpenCount]', e); return 0; }
+}
+
+// 관리자 상태 변경 (resolved / ignored / open 되돌리기). resolve_client_error RPC.
+async function resolveClientError(id, status, note) {
+  if (!db) return false;
+  try {
+    await retryWithRefresh(async () => {
+      const { error } = await db.rpc('resolve_client_error', { p_id: id, p_status: status, p_note: note || null });
+      if (error) throw error;
+    });
+    return true;
+  } catch (e) { console.error('[resolveClientError]', e); return false; }
+}
+
 
 // ══════════════════════════════════════
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
@@ -8413,6 +8538,8 @@ const _ERR_DICT = {
 };
 
 function friendlyErrorJa(e) {
+  // 처리된 에러도 관리자 오류 로그로 수집 (마이그레이션 165) — 수집 실패는 무음
+  if (typeof collectClientError === 'function') { try { collectClientError(e, 'handled'); } catch(_){} }
   const lang = (typeof getLang === 'function' ? getLang() : 'ja') === 'ko' ? 'ko' : 'ja';
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');
@@ -9369,7 +9496,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'companies': loadCompanies,
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,
-    'messages': loadMessagesInbox
+    'messages': loadMessagesInbox,
+    'errors': loadClientErrors
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -22958,6 +23086,160 @@ async function saveNgSetEdit() {
   } catch(e) {
     show('저장 실패: ' + (e.message||String(e)));
   }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// REVERB ADMIN — dev/js/admin-errors.js
+// ═════════════════════════════════════════════════════════════════
+//   사용자(인플루언서) 앱 오류 로그 페인 (#adminPane-errors, 마이그레이션 165).
+//   · 목록: 상태/앱/기간 필터 + 검색 + lazy-load (loadClientErrors)
+//   · 상세 모달: 전체 메시지·스택·발생 정보 + 해결/무시/메모 (openClientErrorDetail)
+//   · 사이드바 미해결(open) 건수 배지 (updateClientErrorBadge)
+//   loadClientErrors 는 switchAdminPane(admin-core.js) loaders 가 호출 → 전역 유지.
+//   상세는 표시용 마스킹된 데이터만 다룸(개인정보는 수집 단계에서 이미 마스킹).
+// ═════════════════════════════════════════════════════════════════
+
+var clientErrorsLazy = null;
+const CLIENT_ERRORS_PAGE_SIZE = 50;
+var _clientErrorsCache = [];   // 현재 목록 (상세 모달이 id로 조회)
+var _currentClientErrorId = null;  // 상세 모달이 처리 중인 오류 id
+
+// 상태 한국어 라벨 + 색
+const CLIENT_ERR_STATUS = {
+  open:     { ko: '미해결', color: '#C33',     bg: '#FFF5F5' },
+  resolved: { ko: '해결됨', color: '#2D7A3E',  bg: '#E4F5E8' },
+  ignored:  { ko: '무시',   color: 'var(--muted)', bg: 'var(--surface-dim)' },
+};
+const CLIENT_ERR_KIND_KO = { unhandled: '미처리 예외', rejection: '비동기 거부', handled: '처리된 오류' };
+const CLIENT_ERR_SOURCE_KO = { influencer: '인플루언서', admin: '관리자' };
+
+function _clientErrStatusBadge(status) {
+  const s = CLIENT_ERR_STATUS[status] || CLIENT_ERR_STATUS.open;
+  return `<span style="display:inline-block;background:${s.bg};color:${s.color};font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px">${s.ko}</span>`;
+}
+
+async function loadClientErrors() {
+  const status = $('errFilterStatus') ? $('errFilterStatus').value : 'open';
+  const source = $('errFilterSource') ? $('errFilterSource').value : '';
+  const days   = $('errFilterDays') ? $('errFilterDays').value : '';
+  const searchQ = ($('errSearch') ? $('errSearch').value : '').trim().toLowerCase();
+
+  const filters = {};
+  if (status) filters.status = status;
+  if (source) filters.source = source;
+  if (days) {
+    const d = new Date();
+    d.setDate(d.getDate() - parseInt(days, 10));
+    filters.since = d.toISOString();
+  }
+
+  let rows = await fetchClientErrors(filters);
+  _clientErrorsCache = rows;
+  if (searchQ) {
+    rows = rows.filter(r => matchSearchTokens(searchQ, [r.message, r.error_code, r.page_hash, r.context]));
+  }
+
+  const countEl = $('errTotalCount');
+  if (countEl) countEl.textContent = `총 ${rows.length}건`;
+
+  updateClientErrorBadge();
+
+  const body = $('errTableBody');
+  if (!body) return;
+
+  const renderRow = (r) => {
+    const kindKo = CLIENT_ERR_KIND_KO[r.kind] || r.kind || '';
+    const srcKo = CLIENT_ERR_SOURCE_KO[r.source] || r.source || '';
+    const msgShort = (r.message || '').length > 90 ? (r.message || '').slice(0, 90) + '…' : (r.message || '');
+    return `<tr data-id="${esc(r.id)}">
+      <td>${_clientErrStatusBadge(r.status)}</td>
+      <td style="max-width:380px">
+        <div style="font-size:13px;color:var(--ink);word-break:break-word;cursor:pointer" onclick="openClientErrorDetail('${esc(r.id)}')">${esc(msgShort) || '—'}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(kindKo)} · ${esc(srcKo)}${r.page_hash ? ' · ' + esc(r.page_hash) : ''}</div>
+      </td>
+      <td style="font-size:11px;color:var(--muted)">${r.error_code ? esc(r.error_code) : '—'}</td>
+      <td style="text-align:center;font-weight:700;color:${r.occurrence_count > 10 ? 'var(--red)' : 'var(--ink)'}">${r.occurrence_count || 1}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDateTime(r.last_seen_at)}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openClientErrorDetail('${esc(r.id)}')">상세</button></td>
+    </tr>`;
+  };
+
+  if (clientErrorsLazy) clientErrorsLazy.destroy();
+  clientErrorsLazy = mountLazyList({
+    tbody: body,
+    scrollRoot: body.closest('.admin-table-wrap'),
+    rows,
+    renderRow,
+    pageSize: CLIENT_ERRORS_PAGE_SIZE,
+    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">최근 보고된 오류가 없습니다</td></tr>',
+  });
+}
+
+// 사이드바 미해결(open) 건수 배지
+async function updateClientErrorBadge() {
+  const badge = $('adminErrorsBadge');
+  if (!badge) return;
+  const n = await fetchClientErrorOpenCount();
+  if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.style.display = ''; }
+  else { badge.style.display = 'none'; }
+}
+
+// 상세 모달
+function openClientErrorDetail(id) {
+  const r = _clientErrorsCache.find(x => x.id === id);
+  if (!r) { toast('오류 정보를 찾을 수 없습니다', 'warn'); return; }
+  _currentClientErrorId = id;
+  const kindKo = CLIENT_ERR_KIND_KO[r.kind] || r.kind || '';
+  const srcKo = CLIENT_ERR_SOURCE_KO[r.source] || r.source || '';
+  const body = $('clientErrorDetailBody');
+  if (body) {
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        ${_clientErrStatusBadge(r.status)}
+        <span style="font-size:12px;color:var(--muted)">${esc(kindKo)} · ${esc(srcKo)} · ${r.occurrence_count || 1}회 발생</span>
+      </div>
+      <div class="admin-detail-row"><div class="admin-detail-label">메시지</div><div style="word-break:break-word;color:var(--ink)">${esc(r.message) || '—'}</div></div>
+      ${r.error_code ? `<div class="admin-detail-row"><div class="admin-detail-label">코드</div><div>${esc(r.error_code)}</div></div>` : ''}
+      ${r.page_hash ? `<div class="admin-detail-row"><div class="admin-detail-label">발생 화면</div><div>${esc(r.page_hash)}</div></div>` : ''}
+      ${r.context ? `<div class="admin-detail-row"><div class="admin-detail-label">맥락</div><div>${esc(r.context)}</div></div>` : ''}
+      <div class="admin-detail-row"><div class="admin-detail-label">최초 발생</div><div>${formatDateTime(r.first_seen_at)}</div></div>
+      <div class="admin-detail-row"><div class="admin-detail-label">최근 발생</div><div>${formatDateTime(r.last_seen_at)}</div></div>
+      ${r.user_agent ? `<div class="admin-detail-row"><div class="admin-detail-label">브라우저</div><div style="font-size:11px;color:var(--muted);word-break:break-all">${esc(r.user_agent)}</div></div>` : ''}
+      ${r.stack ? `<div class="admin-detail-row"><div class="admin-detail-label">스택</div><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;color:var(--muted);background:var(--surface-dim);padding:8px;border-radius:6px;max-height:240px;overflow:auto;margin:0">${esc(r.stack)}</pre></div>` : ''}
+      ${r.resolved_by ? `<div class="admin-detail-row"><div class="admin-detail-label">처리</div><div style="font-size:12px;color:var(--muted)">${formatDateTime(r.resolved_at)}${r.resolve_note ? ' · ' + esc(r.resolve_note) : ''}</div></div>` : ''}
+      <div style="margin-top:8px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">처리 메모 (선택)</label>
+        <input type="text" id="clientErrorNote" class="admin-input" placeholder="예: 재현 확인 후 수정 완료" value="${esc(r.resolve_note || '')}" style="width:100%">
+      </div>
+    `;
+  }
+  // 상태에 따라 버튼 노출 (open → 해결/무시, 그 외 → 미해결로 되돌리기)
+  const actions = $('clientErrorDetailActions');
+  if (actions) {
+    if (r.status === 'open') {
+      actions.innerHTML = `
+        <button class="btn btn-ghost" onclick="closeModal('clientErrorDetailModal')">닫기</button>
+        <button class="btn btn-ghost" style="color:var(--muted)" onclick="resolveClientErrorAction('ignored')">무시</button>
+        <button class="btn btn-green" onclick="resolveClientErrorAction('resolved')">해결됨</button>`;
+    } else {
+      actions.innerHTML = `
+        <button class="btn btn-ghost" onclick="closeModal('clientErrorDetailModal')">닫기</button>
+        <button class="btn btn-primary" onclick="resolveClientErrorAction('open')">미해결로 되돌리기</button>`;
+    }
+  }
+  openModal('clientErrorDetailModal');
+}
+
+async function resolveClientErrorAction(status) {
+  if (!_currentClientErrorId) return;
+  const note = $('clientErrorNote') ? $('clientErrorNote').value.trim() : '';
+  const ok = await resolveClientError(_currentClientErrorId, status, note);
+  if (!ok) { toast('처리에 실패했습니다', 'error'); return; }
+  const msgs = { resolved: '해결됨으로 처리했습니다', ignored: '무시 처리했습니다', open: '미해결로 되돌렸습니다' };
+  toast(msgs[status] || '처리했습니다', status === 'resolved' ? 'success' : '');
+  closeModal('clientErrorDetailModal');
+  _currentClientErrorId = null;
+  await refreshPane('errors');
 }
 
 // ════════════════════════════════════════════════════════════════════
