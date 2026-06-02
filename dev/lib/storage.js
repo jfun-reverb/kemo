@@ -2767,7 +2767,7 @@ async function fetchApplicationHideHistory(applicationId) {
 // 일괄 발송 (관리자 → N명 BCC). applicationIds 는 이미 cancelled 제외된 배열.
 //   contextKind: 'campaign'|'manual', contextCampaignId/contextFilter 는 감사·재현용 스냅샷.
 //   반환: broadcast_id (uuid).
-async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null) {
+async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null, title = null) {
   if (!db) throw new Error('DB 미연결');
   return await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('send_application_message_bulk', {
@@ -2777,6 +2777,7 @@ async function sendApplicationMessageBulk(applicationIds, body, attachments = []
       p_context_kind: contextKind,
       p_context_campaign_id: contextCampaignId,
       p_context_filter: contextFilter,
+      p_title: title || null,   // 관리자 전용 제목 (인플 메시지 본문 미포함)
     });
     if (error) throw error;
     return data;
@@ -2798,16 +2799,23 @@ async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
 }
 
 // 캠페인 단위 발송 대상 응모 id 해결 (cancelled 항상 제외). 미리보기 카운트 = 배열 길이.
-//   filters: { appStatuses[], deliverableStatuses[], channels[], minFollowers }
+//   filters: { appStatuses[], receiptStatuses[], postStatuses[], channels[], minFollowers,
+//              requireVerified, excludeViolation, excludeBlacklist }
+//   - receiptStatuses: 영수증(kind='receipt') 결과물 상태 / postStatuses: 게시물·리뷰이미지 상태
+//   - excludeBlacklist 기본 true (명시적 false 일 때만 블랙리스트 포함)
 //   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
 async function resolveBulkRecipients(campaignId, filters = {}) {
   if (!db || !campaignId) return [];
   const {data, error} = await db.rpc('resolve_bulk_recipients', {
     p_campaign_id: campaignId,
     p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
-    p_deliverable_statuses: filters.deliverableStatuses && filters.deliverableStatuses.length ? filters.deliverableStatuses : null,
+    p_receipt_statuses: filters.receiptStatuses && filters.receiptStatuses.length ? filters.receiptStatuses : null,
+    p_post_statuses: filters.postStatuses && filters.postStatuses.length ? filters.postStatuses : null,
     p_channels: filters.channels && filters.channels.length ? filters.channels : null,
     p_min_followers: (filters.minFollowers != null && filters.minFollowers !== '') ? Number(filters.minFollowers) : null,
+    p_require_verified: !!filters.requireVerified,
+    p_exclude_violation: !!filters.excludeViolation,
+    p_exclude_blacklist: filters.excludeBlacklist !== false,
   });
   if (error) throw error;
   return data || [];
@@ -2819,7 +2827,7 @@ async function resolveBulkRecipients(campaignId, filters = {}) {
 async function fetchBroadcasts(opts = {}) {
   if (!db) return [];
   let q = db?.from('application_message_broadcasts')
-    .select('id, sender_id, sender_name, body, attachments, recipient_count, created_at, context_kind, context_campaign_id, context_filter, withdrawn_at, withdrawn_by, withdrawn_reason_code')
+    .select('id, sender_id, sender_name, title, body, attachments, recipient_count, created_at, context_kind, context_campaign_id, context_filter, withdrawn_at, withdrawn_by, withdrawn_reason_code')
     .order('created_at', { ascending: false })
     .limit(opts.limit || 100);
   if (opts.senderId) q = q.eq('sender_id', opts.senderId);
