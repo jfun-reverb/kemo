@@ -391,6 +391,16 @@ function resetMultiFilter(containerId, allLabel) {
   items.forEach(c => c.checked = true); // 전체 = 모든 항목 체크 표시
   if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
 }
+// 모두 해제 — 일괄발송처럼 "명시 선택 강제" 맥락에서 사용.
+//   resetMultiFilter 는 "전체=모두 체크"(빈 배열 시맨틱)라 미선택 표현이 안 됨.
+//   이 헬퍼는 전체 해제 + placeholder 라벨 → getMultiFilterValues 가 [] 반환(=대상 없음으로 처리).
+function clearMultiFilter(containerId, placeholderLabel) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  wrap.querySelectorAll('.mf-drop input[type="checkbox"]').forEach(c => { c.checked = false; c.indeterminate = false; });
+  const btn = wrap.querySelector('.mf-btn');
+  if (btn) { btn.textContent = placeholderLabel || '선택'; btn.classList.remove('has-selection'); }
+}
 function updateFilterResetBtn(btnId, multiIds, searchId) {
   const btn = $(btnId);
   if (!btn) return;
