@@ -26,9 +26,9 @@
 //   - 부분 0건 → 발송, 0건 섹션은 본문에서 생략
 //
 // 수신자:
-//   get_subscribed_admin_emails('application_cancel')
-//     ∪ get_subscribed_admin_emails('application_received')
+//   get_subscribed_admin_emails('daily_digest')
 //     ∪ env.NOTIFY_ADMIN_EMAILS
+//   (migration 164: application_cancel + application_received → daily_digest 통합)
 //
 // 환경변수:
 //   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (자동 주입)
@@ -260,7 +260,8 @@ function render(html: string, data: Record<string, string>): string {
   return html.replace(/\{\{(\w+)\}\}/g, (_m, key) => data[key] ?? "");
 }
 
-// 수신자 — 두 구독 종류 합집합 + env (개별 try-catch + env 폴백)
+// 수신자 — daily_digest 구독자 + env (try-catch + env 폴백)
+// migration 164: application_cancel + application_received → daily_digest 단일 RPC
 async function resolveAdminEmails(
   sb: ReturnType<typeof createClient>,
 ): Promise<string[]> {
@@ -270,21 +271,15 @@ async function resolveAdminEmails(
     .filter(Boolean);
 
   try {
-    const [cancelRes, receivedRes] = await Promise.all([
-      sb.rpc("get_subscribed_admin_emails", { p_mail_kind: "application_cancel" }),
-      sb.rpc("get_subscribed_admin_emails", { p_mail_kind: "application_received" }),
-    ]);
-    const cancelEmails = cancelRes.error
+    const digestRes = await sb.rpc("get_subscribed_admin_emails", {
+      p_mail_kind: "daily_digest",
+    });
+    const digestEmails = digestRes.error
       ? []
-      : (cancelRes.data || [])
+      : (digestRes.data || [])
           .map((r: { email: string | null }) => (r.email || "").trim())
           .filter(Boolean);
-    const receivedEmails = receivedRes.error
-      ? []
-      : (receivedRes.data || [])
-          .map((r: { email: string | null }) => (r.email || "").trim())
-          .filter(Boolean);
-    return [...new Set([...cancelEmails, ...receivedEmails, ...fromEnv])];
+    return [...new Set([...digestEmails, ...fromEnv])];
   } catch (_e) {
     return [...new Set(fromEnv)];
   }
