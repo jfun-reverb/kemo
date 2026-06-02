@@ -58,7 +58,9 @@ DECLARE
   v_cutoff    timestamptz;
   v_deleted   integer;
 BEGIN
-  -- 3년(36개월) 이전 기준 시각
+  -- 3년(36개월) 이전 기준 시각.
+  -- 기산점은 set_at(최초 마킹 시각) — 행을 나중에 수정(updated_at 갱신)해도
+  -- 보유기간은 연장되지 않음. 개인정보 최소보유 원칙상 "위반 발생 시점부터 3년" 적용.
   v_cutoff := now() - interval '36 months';
 
   DELETE FROM public.influencer_flags
