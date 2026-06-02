@@ -86,6 +86,11 @@ async function init() {
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();
 
+    // 채널·카테고리·콘텐츠 종류 lookup 캐시 선로딩 (페인 분기보다 먼저, 모든 화면 공통).
+    // getChannelLabel 등은 동기 함수라 캐시가 없으면 @cosme(code: channel-xxxx)·LIPS 처럼
+    // CHANNEL_LABEL_FALLBACK 에 없는 채널이 코드 원문으로 노출됨. 진입 전에 1회 보장.
+    try { await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]); } catch(e) { /* 폴백 OK — 화면 깨짐 없음 */ }
+
     // PR 3 부트 경량화 — 진입 화면(hash)에 필요한 데이터만 로드
     //  - dashboard: KPI·차트용 무거운 3종(캠페인/인플/신청 전건)을 여기서만 로드
     //  - 그 외 페인: 각 페인 loader 가 자기 데이터를 스스로 fetch → 무거운 3종 스킵

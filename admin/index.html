@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780392545';
+  var CURRENT_BUILD = 'v1780392835';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1983,7 +1983,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-02 18:29 · 4bd858d</span>
+          <span class="admin-build-text">2026-06-02 18:33 · 645ad6e</span>
         </div>
       </div>
     </aside>
@@ -27586,6 +27586,11 @@ async function init() {
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();
+
+    // 채널·카테고리·콘텐츠 종류 lookup 캐시 선로딩 (페인 분기보다 먼저, 모든 화면 공통).
+    // getChannelLabel 등은 동기 함수라 캐시가 없으면 @cosme(code: channel-xxxx)·LIPS 처럼
+    // CHANNEL_LABEL_FALLBACK 에 없는 채널이 코드 원문으로 노출됨. 진입 전에 1회 보장.
+    try { await Promise.all([fetchLookups('channel'), fetchLookups('category'), fetchLookups('content_type')]); } catch(e) { /* 폴백 OK — 화면 깨짐 없음 */ }
 
     // PR 3 부트 경량화 — 진입 화면(hash)에 필요한 데이터만 로드
     //  - dashboard: KPI·차트용 무거운 3종(캠페인/인플/신청 전건)을 여기서만 로드
