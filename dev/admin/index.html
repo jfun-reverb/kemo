@@ -116,6 +116,7 @@
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
         <div class="admin-si" data-pane="admin-accounts" id="adminAccountSi" onclick="navAdminPaneReload('admin-accounts')"><span class="si-icon material-icons-round">admin_panel_settings</span><span class="si-text">관리자 계정</span></div>
+        <div class="admin-si" data-pane="errors" id="adminErrorsSi" onclick="navAdminPaneReload('errors')"><span class="si-icon material-icons-round notranslate" translate="no">bug_report</span><span class="si-text">오류 로그</span><span id="adminErrorsBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div id="sidebarAdminProfile" class="admin-si" data-pane="my-account" onclick="navAdminPaneReload('my-account')">
           <div style="width:24px;height:24px;border-radius:50%;background:var(--pink);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0" id="sidebarAdminAvatar">A</div>
           <span class="si-text" id="sidebarAdminName">관리자</span>
@@ -1124,6 +1125,61 @@
           </div>
         </div>
 
+        <!-- CLIENT ERROR LOGS (오류 로그) PANE — 마이그레이션 165 -->
+        <div id="adminPane-errors" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">오류 로그</div>
+              <div style="font-size:12px;color:var(--muted)">사용자 앱에서 발생한 오류 (개인정보는 자동 마스킹)</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>상태</label>
+                <select id="errFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                  <option value="open">미해결</option>
+                  <option value="resolved">해결됨</option>
+                  <option value="ignored">무시</option>
+                  <option value="">전체</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>앱</label>
+                <select id="errFilterSource" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                  <option value="">전체</option>
+                  <option value="influencer">인플루언서</option>
+                  <option value="admin">관리자</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>기간</label>
+                <select id="errFilterDays" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="loadClientErrors()">
+                  <option value="">전체</option>
+                  <option value="7">최근 7일</option>
+                  <option value="30">최근 30일</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="errSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="메시지 · 코드 검색" oninput="loadClientErrors()">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">오류 목록</span><span id="errTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr><th style="width:80px">상태</th><th>메시지</th><th style="width:120px">코드</th><th style="width:60px;text-align:center">횟수</th><th style="width:140px">최근 발생</th><th style="width:70px">상세</th></tr></thead>
+                <tbody id="errTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- BRAND DASHBOARD (광고주 서베이 현황) PANE -->
         <!-- 메시지 받은편지함 (3단: 캠페인 / 대화 상대 / 대화 내용) -->
         <div id="adminPane-messages" class="admin-pane">
@@ -1459,6 +1515,18 @@
               <button class="btn btn-ghost btn-sm" onclick="closeCompanyModal()">닫기</button>
               <button id="companySaveBtn" class="btn btn-primary btn-sm" onclick="saveCompany()">저장</button>
             </div>
+          </div>
+        </div>
+
+        <!-- CLIENT ERROR DETAIL MODAL (오류 로그 상세) — 마이그레이션 165 -->
+        <div class="modal-overlay" id="clientErrorDetailModal" style="z-index:616">
+          <div class="modal" style="max-width:600px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+            <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:14px;font-weight:700;color:var(--ink)">오류 상세</div>
+              <button class="btn btn-ghost btn-xs" onclick="closeModal('clientErrorDetailModal')" style="padding:4px 10px">✕</button>
+            </div>
+            <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="clientErrorDetailBody"></div>
+            <div class="modal-footer" id="clientErrorDetailActions" style="padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end"></div>
           </div>
         </div>
 

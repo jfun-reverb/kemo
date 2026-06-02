@@ -1423,3 +1423,10 @@
   padding: 0 2px;
 }
 .proxy-evidence-item .ev-remove:hover { color: #c00; }
+
+/* 오류 로그 상세 모달 (admin-errors) — 상세 행 + 입력 (마이그레이션 165) */
+.admin-detail-row { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.admin-detail-row:last-child { border-bottom: none; }
+.admin-detail-label { flex-shrink: 0; width: 84px; color: var(--muted); font-weight: 600; }
+.admin-input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--ink); background: #fff; }
+.admin-input:focus { outline: none; border-color: var(--pink); }

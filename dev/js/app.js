@@ -439,6 +439,8 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
+  // 전역 에러 수집 핸들러 등록 (가능한 일찍 — 마이그레이션 165)
+  if (typeof initErrorReporting === 'function') { try { initErrorReporting(); } catch(_){} }
   // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
   let inRecovery = false;
   try { inRecovery = sessionStorage.getItem('reverb.recovery') === '1'; } catch(e) {}
