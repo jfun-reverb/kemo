@@ -77,7 +77,7 @@
 - 배포용: 루트 `index.html` (build.sh 로 생성)
 - 개발 폴더 구조:
   - `dev/js/` — 인플루언서: app, ui, campaign, application, auth, mypage, notifications, messaging
-    - 관리자(admin.js 페인 분리 완료, 2026-05-25): `admin.js`(캠페인 목록·폼만 잔류) + `admin-core.js`(공용 헬퍼: 페인 라우팅·다중필터·확인모달·라이트박스·태그입력) + `admin-notices.js` + `admin-faq.js` + `admin-influencers.js` + `admin-deliverables.js` + `admin-excel.js` + `admin-dashboard.js` + `admin-applications.js`(신청+신청자) + `admin-accounts.js`(내계정+관리자계정) + `admin-lookups.js`(기준데이터+번들3종+미니에디터) + `admin-brand.js`/`admin-company.js`/`admin-brand-ops.js`/`admin-messaging.js`(브랜드 서베이)
+    - 관리자(admin.js 페인 분리 완료, 2026-05-25): `admin.js`(캠페인 목록·폼만 잔류) + `admin-core.js`(공용 헬퍼: 페인 라우팅·다중필터·확인모달·라이트박스·태그입력) + `admin-notices.js` + `admin-faq.js` + `admin-influencers.js` + `admin-deliverables.js` + `admin-excel.js` + `admin-dashboard.js` + `admin-applications.js`(신청+신청자) + `admin-accounts.js`(내계정+관리자계정) + `admin-lookups.js`(기준데이터+번들3종+미니에디터) + `admin-errors.js`(오류 로그 페인 — 마이그레이션 165) + `admin-brand.js`/`admin-company.js`/`admin-brand-ops.js`/`admin-messaging.js`(브랜드 서베이)
     - 빌드는 ES 모듈이 아니라 단순 이어붙이기(concat) — 전역 스코프 1개. `admin-core.js`가 다른 admin-* 파일보다 앞, `admin.js`가 페인 파일들보다 뒤, `admin/app.js`가 맨 마지막 (build.sh `ADMIN_JS_FILES` 순서)
   - `dev/css/` — base, components, campaign, auth, mypage, admin
   - `dev/lib/` — supabase(설정), shared(전역변수), storage(DB/Storage API)
@@ -172,6 +172,7 @@
   - **삭제 2택**: `remove_admin_role` (권한만 해제, 인플루언서 계정 유지) / `delete_admin_completely` (auth/influencers/applications/receipts cascade). 자기 자신 삭제 불가
 - **메일 수신 설정**(`/admin#admin-accounts`): 각 행 「메일받기」 셀에 켜진 메일 종류 회색 칩 + 「설정」 버튼. 모달에서 메일 종류별 체크박스 일괄 on/off. `admin_email_subscriptions` 테이블 + `lookup_values(kind='admin_email_kind')` 카탈로그. super_admin 은 다른 관리자 설정도 편집, 그 외는 본인만. 신규 메일 종류 추가는 `lookup_values` 한 줄 추가만으로 가능
 - **내 계정**: 이름/비밀번호 변경
+- **오류 로그**(`/admin#errors`, 마이그레이션 165, `dev/js/admin-errors.js`): 사용자(인플루언서) 앱에서 발생한 오류를 모아 보는 페인. 사이드바 「오류 로그」(미해결 건수 빨강 배지). 목록(상태[기본 미해결]·앱·기간 필터 + 메시지/코드 검색 + lazy-load) + 상세 모달(전체 메시지·스택·발생정보 + 해결/무시/메모, `resolve_client_error` RPC). 개인정보는 수집 단계에서 마스킹됨. 수집은 인플 앱 `error-report.js`(전역 핸들러 + friendlyErrorJa 훅)
 - **에러 처리**: `friendlyError()` 한국어 메시지 + 에러 코드
 - **상태 뱃지**: `getStatusBadgeKo()` 한국어 상태 표시
 

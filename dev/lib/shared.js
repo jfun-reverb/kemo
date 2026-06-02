@@ -447,6 +447,9 @@ function faqComputeStatus(status, delivs, camp) {
 // 호출하면 등록된 갱신 함수가 실행된다. 새 페인 추가 시 PANE_REFRESHERS 에만
 // 한 행을 더한다 (.claude/rules/quality.md 「관리자 모달 페인 갱신」 룰 참조).
 const PANE_REFRESHERS = {
+  'errors': async () => {
+    if (typeof loadClientErrors === 'function') await loadClientErrors();
+  },
   'influencers': async () => {
     if (typeof rerenderInfluencersFromCache === 'function') rerenderInfluencersFromCache();
     else if (typeof loadAdminInfluencers === 'function') await loadAdminInfluencers();

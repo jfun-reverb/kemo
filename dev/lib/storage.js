@@ -2875,3 +2875,41 @@ async function reportClientError(payload) {
   catch (e) { /* 무음 — 에러 보고 실패는 삼킨다 */ }
 }
 
+// 관리자 오류 로그 조회 (RLS: is_admin() 만). 1000행 캡 대응 pagination.
+async function fetchClientErrors(filters = {}) {
+  if (!db) return [];
+  try {
+    return await fetchAllPaged(() => {
+      let q = db.from('client_error_logs').select('*');
+      if (filters.status) q = q.eq('status', filters.status);
+      if (filters.source) q = q.eq('source', filters.source);
+      if (filters.since)  q = q.gte('last_seen_at', filters.since);
+      return q.order('last_seen_at', { ascending: false });
+    });
+  } catch (e) { console.error('[fetchClientErrors]', e); return []; }
+}
+
+// 미해결(open) 오류 건수 — 사이드바 배지용
+async function fetchClientErrorOpenCount() {
+  if (!db) return 0;
+  try {
+    const { count, error } = await db.from('client_error_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open');
+    if (error) throw error;
+    return count || 0;
+  } catch (e) { console.error('[fetchClientErrorOpenCount]', e); return 0; }
+}
+
+// 관리자 상태 변경 (resolved / ignored / open 되돌리기). resolve_client_error RPC.
+async function resolveClientError(id, status, note) {
+  if (!db) return false;
+  try {
+    await retryWithRefresh(async () => {
+      const { error } = await db.rpc('resolve_client_error', { p_id: id, p_status: status, p_note: note || null });
+      if (error) throw error;
+    });
+    return true;
+  } catch (e) { console.error('[resolveClientError]', e); return false; }
+}
+
