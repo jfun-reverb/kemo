@@ -2866,3 +2866,12 @@ async function fetchFaqInteractionsForApp(applicationId) {
   } catch (e) { console.error('[fetchFaqInteractionsForApp]', e); return []; }
 }
 
+// ── 사용자 앱 에러 수집 (마이그레이션 165) ──
+// error-report.js 의 collectClientError 가 마스킹·디바운스 후 호출.
+// 실패는 완전 무음 (보고 실패가 앱 동작을 막으면 안 됨).
+async function reportClientError(payload) {
+  if (!db) return;
+  try { await db.rpc('report_client_error', payload); }
+  catch (e) { /* 무음 — 에러 보고 실패는 삼킨다 */ }
+}
+

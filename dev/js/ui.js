@@ -109,6 +109,8 @@ const _ERR_DICT = {
 };
 
 function friendlyErrorJa(e) {
+  // 처리된 에러도 관리자 오류 로그로 수집 (마이그레이션 165) — 수집 실패는 무음
+  if (typeof collectClientError === 'function') { try { collectClientError(e, 'handled'); } catch(_){} }
   const lang = (typeof getLang === 'function' ? getLang() : 'ja') === 'ko' ? 'ko' : 'ja';
   const t = _ERR_DICT[lang];
   const s = String(e?.message || e || '');

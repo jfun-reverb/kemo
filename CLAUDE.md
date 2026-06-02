@@ -245,6 +245,13 @@
   - 관련 RPC: `get_promo_digest_targets(date)`(자격 매칭 인플)·`get_promo_digest_campaign_pool(date)`(관리자용 풀 전체, 개인화 제외)·`mark_promo_digest_sent`·`track_promo_click`(anon)·`unsubscribe_by_token`(anon 1-click 수신거부)·`resubscribe_marketing`(본인 재구독)
 - 헬퍼 함수 `_yesterday_kst_window()` STABLE — 어제 KST 윈도우 + 오늘 KST 날짜 반환 (SQL Editor 디버깅용)
 
+### 사용자 앱 에러 수집 (마이그레이션 165, 수집 기반 PR1·2 — 관리자 화면 PR3 예정)
+> 인플루언서 앱에서 발생한 에러를 관리자가 모아 보는 기능(실시간 아님). 수집은 백그라운드 무음, 개인정보 마스킹 필수.
+- `client_error_logs` — 에러 fingerprint 묶음 테이블. `fingerprint`+`status`(open/resolved/ignored) UNIQUE 로 같은 에러는 1행에 `occurrence_count` 누적. `source`(influencer/admin)·`kind`(unhandled/rejection/handled)·`message`/`stack`/`page_hash`(마스킹됨)·`error_code`·`user_id`(influencers FK, anon 은 NULL)·`first/last_seen_at`·`resolved_by/at/note`. RLS SELECT `is_admin()` 만, INSERT/UPDATE 는 RPC 경유
+- `report_client_error(...)` RPC — SECURITY DEFINER, **anon+authenticated** 호출. 빈값·범위 가드 + 길이 제한 + **서버측 2차 마스킹**(이메일·전화·우편번호 `\d{3}-\d{4}`·Bearer 토큰·PostgreSQL `(col)=(val)`) + open fingerprint UPSERT
+- `resolve_client_error(id, status, note)` RPC — `is_admin()` 가드, 상태 변경(resolved/ignored/open 되돌리기 시 resolved_* 초기화)
+- 클라: `dev/js/error-report.js`(전역 `window.onerror`·`unhandledrejection` 핸들러 + `friendlyErrorJa` 훅 + 1차 마스킹·fingerprint·노이즈필터·60초 디바운스·재진입가드·throw 안 함), `storage.js` `reportClientError()`. 사양서 `docs/specs/2026-06-02-client-error-reporting.md`
+
 ### RLS·인증·세션
 - 정책 요약: 캠페인 SELECT 공개, 나머지는 본인 데이터 or 관리자만 접근
 - `is_admin()` / `is_super_admin()` / `is_campaign_admin()` 함수: admins 테이블에서 auth.uid() 조회 (search_path 고정)
