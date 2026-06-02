@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780394945';
+  var CURRENT_BUILD = 'v1780395733';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1983,7 +1983,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-02 19:09 · 25bcbc4</span>
+          <span class="admin-build-text">2026-06-02 19:22 · e59f2f8</span>
         </div>
       </div>
     </aside>
@@ -4871,17 +4871,30 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="bulkStep1" style="display:flex;flex-direction:column;gap:14px">
         <div id="bulkPresetInfo" style="display:none;font-size:13px;color:var(--muted);background:var(--bg);border-radius:10px;padding:10px 12px"></div>
         <div id="bulkCampaignPick">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 이름·번호 검색)</span></div>
-          <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인 선택</button><div class="mf-drop"></div></div>
+          <!-- ① 캠페인 상태 먼저 선택 → 해당 상태 캠페인만 목록에 노출 -->
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">① 캠페인 상태 <span style="font-size:11px">(먼저 선택)</span></div>
+          <div id="bulkStatusChips" class="bulk-chk-row" style="margin-bottom:14px"></div>
+          <!-- ② 캠페인 선택 (상태 선택 후 노출) -->
+          <div id="bulkCampaignSelectWrap" style="display:none">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">② 캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 이름·번호 검색)</span></div>
+            <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인 선택</button><div class="mf-drop"></div></div>
+            <div id="bulkCampaignEmpty" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">선택한 상태의 캠페인이 없습니다. 다른 상태를 골라주세요.</div>
+          </div>
         </div>
         <div id="bulkFilters" style="display:none;flex-direction:column;gap:12px">
           <div>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">응모 상태</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">③ 응모 상태</div>
             <div id="bulkAppStatus" class="bulk-chk-row"></div>
           </div>
           <div id="bulkDelivWrap">
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">결과물 상태 <span style="font-size:11px">(응모상태 「승인」 포함 시)</span></div>
-            <div id="bulkDelivStatus" class="bulk-chk-row"></div>
+            <div id="bulkReceiptWrap" style="display:none;margin-bottom:12px">
+              <div style="font-size:13px;color:var(--muted);margin-bottom:6px">영수증 상태 <span style="font-size:11px">(리뷰어 캠페인)</span></div>
+              <div id="bulkReceiptStatus" class="bulk-chk-row"></div>
+            </div>
+            <div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:6px">결과물 상태 <span style="font-size:11px">(게시물·리뷰 이미지)</span></div>
+              <div id="bulkPostStatus" class="bulk-chk-row"></div>
+            </div>
           </div>
           <div>
             <div style="font-size:13px;color:var(--muted);margin-bottom:6px">채널 <span style="font-size:11px">(해당 채널 계정 보유자)</span></div>
@@ -4891,6 +4904,14 @@ textarea.form-input{resize:vertical;min-height:80px}
             <label style="font-size:13px;color:var(--muted)">최소 팔로워수 <span style="font-size:11px">(비우면 제한 없음)</span>
               <input type="number" id="bulkMinFollowers" min="0" class="admin-select" style="width:160px;margin-top:6px" oninput="scheduleBulkRecount()" placeholder="예: 5000">
             </label>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">④ 인플루언서 상태</div>
+            <div id="bulkInflFilters" class="bulk-chk-row">
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflVerified" onchange="scheduleBulkRecount()">인증된 인플루언서만</label>
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflNoViolation" onchange="scheduleBulkRecount()">위반 이력 제외</label>
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflNoBlacklist" checked onchange="scheduleBulkRecount()">블랙리스트 제외</label>
+            </div>
           </div>
         </div>
         <div class="bulk-count-box" id="bulkCountBox" style="display:none;background:var(--bg);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--ink)">
@@ -4903,6 +4924,11 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div id="bulkStep2" style="display:none;flex-direction:column;gap:12px">
         <div style="font-size:13px;color:var(--ink);background:var(--bg);border-radius:10px;padding:10px 12px">
           받는 사람 <b id="bulkCount2">0</b>명 — 각자의 1:1 대화방으로 도착하며 <b>서로 누가 받았는지 모릅니다(BCC)</b>.
+        </div>
+        <div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">발송 제목 <span style="font-size:11px">(관리자용 · 선택)</span></div>
+          <input type="text" id="bulkTitle" maxlength="100" style="width:100%;font-size:14px" placeholder="예: 5월 결과물 미제출자 리마인드">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">이 제목은 관리자만 볼 수 있습니다. 인플루언서에게는 아래 본문만 전달됩니다.</div>
         </div>
         <textarea id="bulkBody" rows="6" style="width:100%;font-size:14px;resize:vertical" placeholder="보낼 메시지를 입력하세요. (이번 일괄 발송은 텍스트 전용입니다)"></textarea>
         <div id="bulkConfirmOver" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px 12px">
@@ -8423,7 +8449,7 @@ async function fetchApplicationHideHistory(applicationId) {
 // 일괄 발송 (관리자 → N명 BCC). applicationIds 는 이미 cancelled 제외된 배열.
 //   contextKind: 'campaign'|'manual', contextCampaignId/contextFilter 는 감사·재현용 스냅샷.
 //   반환: broadcast_id (uuid).
-async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null) {
+async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null, title = null) {
   if (!db) throw new Error('DB 미연결');
   return await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('send_application_message_bulk', {
@@ -8433,6 +8459,7 @@ async function sendApplicationMessageBulk(applicationIds, body, attachments = []
       p_context_kind: contextKind,
       p_context_campaign_id: contextCampaignId,
       p_context_filter: contextFilter,
+      p_title: title || null,   // 관리자 전용 제목 (인플 메시지 본문 미포함)
     });
     if (error) throw error;
     return data;
@@ -8454,16 +8481,23 @@ async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
 }
 
 // 캠페인 단위 발송 대상 응모 id 해결 (cancelled 항상 제외). 미리보기 카운트 = 배열 길이.
-//   filters: { appStatuses[], deliverableStatuses[], channels[], minFollowers }
+//   filters: { appStatuses[], receiptStatuses[], postStatuses[], channels[], minFollowers,
+//              requireVerified, excludeViolation, excludeBlacklist }
+//   - receiptStatuses: 영수증(kind='receipt') 결과물 상태 / postStatuses: 게시물·리뷰이미지 상태
+//   - excludeBlacklist 기본 true (명시적 false 일 때만 블랙리스트 포함)
 //   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
 async function resolveBulkRecipients(campaignId, filters = {}) {
   if (!db || !campaignId) return [];
   const {data, error} = await db.rpc('resolve_bulk_recipients', {
     p_campaign_id: campaignId,
     p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
-    p_deliverable_statuses: filters.deliverableStatuses && filters.deliverableStatuses.length ? filters.deliverableStatuses : null,
+    p_receipt_statuses: filters.receiptStatuses && filters.receiptStatuses.length ? filters.receiptStatuses : null,
+    p_post_statuses: filters.postStatuses && filters.postStatuses.length ? filters.postStatuses : null,
     p_channels: filters.channels && filters.channels.length ? filters.channels : null,
     p_min_followers: (filters.minFollowers != null && filters.minFollowers !== '') ? Number(filters.minFollowers) : null,
+    p_require_verified: !!filters.requireVerified,
+    p_exclude_violation: !!filters.excludeViolation,
+    p_exclude_blacklist: filters.excludeBlacklist !== false,
   });
   if (error) throw error;
   return data || [];
@@ -8475,7 +8509,7 @@ async function resolveBulkRecipients(campaignId, filters = {}) {
 async function fetchBroadcasts(opts = {}) {
   if (!db) return [];
   let q = db?.from('application_message_broadcasts')
-    .select('id, sender_id, sender_name, body, attachments, recipient_count, created_at, context_kind, context_campaign_id, context_filter, withdrawn_at, withdrawn_by, withdrawn_reason_code')
+    .select('id, sender_id, sender_name, title, body, attachments, recipient_count, created_at, context_kind, context_campaign_id, context_filter, withdrawn_at, withdrawn_by, withdrawn_reason_code')
     .order('created_at', { ascending: false })
     .limit(opts.limit || 100);
   if (opts.senderId) q = q.eq('sender_id', opts.senderId);
@@ -15723,6 +15757,12 @@ const BULK_DELIV_STATUSES = [
   { code: 'approved', label: '승인' },
   { code: 'rejected', label: '반려' },
 ];
+// 일괄발송 ① 단계 — 먼저 고르는 캠페인 상태 (응모자가 존재하는 상태만)
+const BULK_CAMPAIGN_STATUSES = [
+  { code: 'active', label: '모집중' },
+  { code: 'closed', label: '모집마감' },
+  { code: 'ended',  label: '종료' },
+];
 
 let _bulkState = null;            // { presetIds, campaignId, recipientIds, filterSnapshot }
 let _bulkRecountTimer = null;
@@ -15784,24 +15824,56 @@ function openBulkMessageModal(presetAppIds) {
     document.getElementById('bulkCountBox').style.display = 'block';
     document.getElementById('bulkNextBtn').disabled = _bulkState.recipientIds.length === 0;
   } else {
-    // 캠페인 단위 모드 (다중 캠페인 선택 가능)
+    // 캠페인 단위 모드 — ① 상태 칩 먼저 → ② 캠페인 선택 → ③ 참여 조건 → ④ 인플 상태
     document.getElementById('bulkCampaignPick').style.display = '';
     document.getElementById('bulkPresetInfo').style.display = 'none';
     document.getElementById('bulkFilters').style.display = 'none';
     document.getElementById('bulkCountBox').style.display = 'none';
     document.getElementById('bulkNextBtn').disabled = true;
-    populateBulkCampaigns();
-    if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '캠페인 선택');
-    renderBulkStatusFilters();   // 응모·결과물 상태는 캠페인 무관 — 1회 렌더(기본값)
+    _bulkState.statuses = [];
+    _bulkState.hasMonitor = false;
+    renderBulkStatusChips();      // ① 캠페인 상태 칩 (미선택 상태)
+    document.getElementById('bulkCampaignSelectWrap').style.display = 'none';
+    renderBulkStatusFilters();    // 응모·영수증·결과물 status 체크박스 (기본값)
+    // 인플 상태 토글 기본값 복원 (블랙리스트 제외만 기본 켜짐)
+    const v = document.getElementById('bulkInflVerified'); if (v) v.checked = false;
+    const nv = document.getElementById('bulkInflNoViolation'); if (nv) nv.checked = false;
+    const nb = document.getElementById('bulkInflNoBlacklist'); if (nb) nb.checked = true;
     document.getElementById('bulkMinFollowers').value = '';
+    const t = document.getElementById('bulkTitle'); if (t) t.value = '';
   }
   openModal('bulkMessageModal');
 }
 function closeBulkMessageModal() { closeModal('bulkMessageModal'); _bulkState = null; }
 
-function populateBulkCampaigns() {
+// ① 캠페인 상태 칩 (다중선택). 변경 → onBulkStatusChipChange
+function renderBulkStatusChips() {
+  document.getElementById('bulkStatusChips').innerHTML = BULK_CAMPAIGN_STATUSES.map(s =>
+    `<label class="bulk-chk"><input type="checkbox" value="${s.code}" onchange="onBulkStatusChipChange()">${s.label}</label>`).join('');
+}
+
+function onBulkStatusChipChange() {
+  const statuses = Array.from(document.querySelectorAll('#bulkStatusChips input:checked')).map(i => i.value);
+  _bulkState.statuses = statuses;
+  _bulkState.campaignIds = [];
+  const selWrap = document.getElementById('bulkCampaignSelectWrap');
+  document.getElementById('bulkFilters').style.display = 'none';
+  document.getElementById('bulkCountBox').style.display = 'none';
+  document.getElementById('bulkNextBtn').disabled = true;
+  if (!statuses.length) {
+    // 상태 미선택 → ② 캠페인 선택 숨김
+    if (selWrap) selWrap.style.display = 'none';
+    return;
+  }
+  if (selWrap) selWrap.style.display = '';
+  populateBulkCampaigns(statuses);   // 선택 상태 캠페인만 목록 노출
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '캠페인 선택');
+}
+
+function populateBulkCampaigns(statuses) {
+  const allow = (statuses && statuses.length) ? statuses : ['active', 'closed', 'ended'];
   const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
-    .filter(c => ['active', 'closed', 'ended'].includes(c.status))
+    .filter(c => allow.includes(c.status))
     .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   // 드롭다운 부가설명: 캠페인 번호 · 모집타입 · 상태 · 채널 (대상 캠페인 식별 보조)
   const _rtKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined') ? RECRUIT_TYPE_LABEL_KO : { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' };
@@ -15819,6 +15891,9 @@ function populateBulkCampaigns() {
   if (typeof syncMultiFilter === 'function') {
     syncMultiFilter('bulkCampaignMulti', '캠페인 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
   }
+  // 빈 상태 안내 (선택 상태에 캠페인 0건)
+  const empty = document.getElementById('bulkCampaignEmpty');
+  if (empty) empty.style.display = camps.length ? 'none' : 'block';
 }
 
 function onBulkCampaignChange() {
@@ -15831,18 +15906,29 @@ function onBulkCampaignChange() {
     document.getElementById('bulkNextBtn').disabled = true;
     return;
   }
-  renderBulkChannelFilter(ids);   // 선택 캠페인들의 채널 합집합 (응모·결과물 상태는 1회 렌더 유지)
+  renderBulkChannelFilter(ids);        // 선택 캠페인들의 채널 합집합
+  renderBulkReceiptVisibility(ids);    // 리뷰어(monitor) 포함 시에만 영수증 필터 노출
   document.getElementById('bulkFilters').style.display = 'flex';
   document.getElementById('bulkCountBox').style.display = 'block';
   scheduleBulkRecount();
 }
 
-// 응모·결과물 상태 체크박스 — 캠페인과 무관하므로 모달 열 때 1회만 렌더(선택 보존)
+// 선택 캠페인에 리뷰어(monitor) 캠페인이 있는지 판정 → 영수증 필터 노출 여부 결정 (실제 토글은 scheduleBulkRecount)
+function renderBulkReceiptVisibility(campaignIds) {
+  const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : []);
+  _bulkState.hasMonitor = campaignIds.some(cid => {
+    const c = camps.find(x => x.id === cid);
+    return c && c.recruit_type === 'monitor';
+  });
+}
+
+// 응모·영수증·결과물 상태 체크박스 — 모달 열 때 1회 렌더(선택 보존). 영수증·결과물 동일 status 코드.
 function renderBulkStatusFilters() {
   document.getElementById('bulkAppStatus').innerHTML = BULK_APP_STATUSES.map(s =>
     `<label class="bulk-chk"><input type="checkbox" value="${s.code}" ${s.code === 'approved' ? 'checked' : ''} onchange="scheduleBulkRecount()">${s.label}</label>`).join('');
-  document.getElementById('bulkDelivStatus').innerHTML = BULK_DELIV_STATUSES.map(s =>
-    `<label class="bulk-chk"><input type="checkbox" value="${s.code}" ${s.code !== 'approved' ? 'checked' : ''} onchange="scheduleBulkRecount()">${s.label}</label>`).join('');
+  const delivChk = (s) => `<label class="bulk-chk"><input type="checkbox" value="${s.code}" ${s.code !== 'approved' ? 'checked' : ''} onchange="scheduleBulkRecount()">${s.label}</label>`;
+  document.getElementById('bulkReceiptStatus').innerHTML = BULK_DELIV_STATUSES.map(delivChk).join('');
+  document.getElementById('bulkPostStatus').innerHTML = BULK_DELIV_STATUSES.map(delivChk).join('');
 }
 
 // 채널 체크박스 — 선택 캠페인들의 channel CSV 합집합. 재렌더 시 기존 선택 보존.
@@ -15863,18 +15949,29 @@ function renderBulkChannelFilter(campaignIds) {
 function collectBulkFilters() {
   const pick = (id) => Array.from(document.querySelectorAll(`#${id} input:checked`)).map(i => i.value);
   const appStatuses = pick('bulkAppStatus');
-  // 결과물 상태 필터는 응모상태에 승인이 포함될 때만 의미
-  const delivStatuses = appStatuses.includes('approved') ? pick('bulkDelivStatus') : [];
+  const approved = appStatuses.includes('approved');
+  // 결과물·영수증 상태 필터는 응모상태 승인 포함 시만 의미. 영수증은 추가로 리뷰어 캠페인 포함 시만.
+  const postStatuses = approved ? pick('bulkPostStatus') : [];
+  const receiptStatuses = (approved && _bulkState && _bulkState.hasMonitor) ? pick('bulkReceiptStatus') : [];
   const channels = pick('bulkChannels');
   const mf = document.getElementById('bulkMinFollowers').value;
-  return { appStatuses, deliverableStatuses: delivStatuses, channels, minFollowers: mf };
+  return {
+    appStatuses, receiptStatuses, postStatuses, channels, minFollowers: mf,
+    requireVerified: document.getElementById('bulkInflVerified')?.checked || false,
+    excludeViolation: document.getElementById('bulkInflNoViolation')?.checked || false,
+    excludeBlacklist: document.getElementById('bulkInflNoBlacklist')?.checked !== false,
+  };
 }
 
 function scheduleBulkRecount() {
-  // 결과물 상태 블록은 응모상태 승인 포함 시만 노출
   const appChecked = Array.from(document.querySelectorAll('#bulkAppStatus input:checked')).map(i => i.value);
+  const approved = appChecked.includes('approved');
+  // 결과물 블록은 승인 포함 시만 노출
   const delivWrap = document.getElementById('bulkDelivWrap');
-  if (delivWrap) delivWrap.style.display = appChecked.includes('approved') ? '' : 'none';
+  if (delivWrap) delivWrap.style.display = approved ? '' : 'none';
+  // 영수증 필터는 승인 + 리뷰어(monitor) 캠페인 포함 시만 노출
+  const receiptWrap = document.getElementById('bulkReceiptWrap');
+  if (receiptWrap) receiptWrap.style.display = (approved && _bulkState && _bulkState.hasMonitor) ? '' : 'none';
   clearTimeout(_bulkRecountTimer);
   _bulkRecountTimer = setTimeout(recountBulk, 350);
 }
@@ -15955,7 +16052,8 @@ async function confirmBulkSend() {
     // 캠페인 1개면 context_campaign_id 단일 컬럼(하위호환), 2개+면 NULL + context_filter.campaign_ids 배열
     const contextCampaignId = (!_bulkState.presetIds && campIds.length === 1) ? campIds[0] : null;
     const contextFilter = _bulkState.presetIds ? null : { ...(_bulkState.filterSnapshot || {}), campaign_ids: campIds };
-    await sendApplicationMessageBulk(ids, body, [], contextKind, contextCampaignId, contextFilter);
+    const title = document.getElementById('bulkTitle')?.value.trim() || null;   // 관리자 전용 제목 (선택)
+    await sendApplicationMessageBulk(ids, body, [], contextKind, contextCampaignId, contextFilter, title);
     toast(`${ids.length}명에게 발송했습니다.`);
     closeBulkMessageModal();
     if (_inboxTab === 'broadcasts') loadBroadcasts();
@@ -15982,8 +16080,11 @@ async function loadBroadcasts() {
   try { rows = await fetchBroadcasts(opts); }
   catch (e) { console.error('[loadBroadcasts]', e); wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">불러오기 실패</div>'; return; }
   if (!rows.length) { wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">발송 이력이 없습니다.</div>'; return; }
+  _broadcastRows = rows;   // 상세 모달에서 제목(관리자 전용) 재사용용 캐시
   wrap.innerHTML = rows.map(renderBroadcastRow).join('');
 }
+
+let _broadcastRows = [];
 
 function renderBroadcastRow(r) {
   const dt = r.created_at ? new Date(r.created_at).toLocaleString('ja-JP') : '';
@@ -15994,8 +16095,10 @@ function renderBroadcastRow(r) {
     ? (campCnt > 1 ? `캠페인 ${campCnt}개 대상` : '캠페인 대상')
     : '임의 선택';
   const withdrawn = r.withdrawn_at ? '<span class="broadcast-badge broadcast-badge-withdrawn">회수됨</span>' : '';
+  const titleHtml = r.title ? `<div class="broadcast-row-title" style="font-weight:600;font-size:13px;color:var(--ink);margin-bottom:2px">${esc(r.title)}</div>` : '';
   return `<div class="broadcast-row" onclick="openBroadcastDetail('${esc(r.id)}')">
     <div class="broadcast-row-main">
+      ${titleHtml}
       <div class="broadcast-row-preview">${preview || '(본문 없음)'}</div>
       <div class="broadcast-row-meta">${dt} · ${ctx} · 수신 ${r.recipient_count}명 ${withdrawn}</div>
     </div>
@@ -16021,8 +16124,13 @@ async function openBroadcastDetail(id) {
   const repliedN = recips.filter(r => r.replied).length;
   const withdrawnBanner = b.withdrawn_at
     ? `<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:8px 12px;font-size:12px;color:#991B1B">${new Date(b.withdrawn_at).toLocaleString('ja-JP')} 회수됨</div>` : '';
+  // 제목(관리자 전용) — get_broadcast_detail 미반환이라 목록 캐시에서 조회
+  const cachedTitle = (_broadcastRows.find(x => x.id === id) || {}).title;
+  const titleHtml = cachedTitle
+    ? `<div style="font-weight:700;font-size:14px;color:var(--ink)">${esc(cachedTitle)} <span style="font-weight:400;font-size:11px;color:var(--muted)">(관리자 전용 제목)</span></div>` : '';
   body.innerHTML = `
     ${withdrawnBanner}
+    ${titleHtml}
     <div style="font-size:12px;color:var(--muted)">${dt} · ${esc(b.sender_name || '')}</div>
     <div style="background:var(--bg);border-radius:10px;padding:12px;font-size:14px;color:var(--ink);white-space:pre-wrap">${esc(b.body || '')}</div>
     <div style="font-size:13px;color:var(--ink)">수신 ${b.recipient_count}명 · 읽음 ${readN} · 답장 ${repliedN}</div>

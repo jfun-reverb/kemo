@@ -3022,17 +3022,30 @@
       <div id="bulkStep1" style="display:flex;flex-direction:column;gap:14px">
         <div id="bulkPresetInfo" style="display:none;font-size:13px;color:var(--muted);background:var(--bg);border-radius:10px;padding:10px 12px"></div>
         <div id="bulkCampaignPick">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 이름·번호 검색)</span></div>
-          <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인 선택</button><div class="mf-drop"></div></div>
+          <!-- ① 캠페인 상태 먼저 선택 → 해당 상태 캠페인만 목록에 노출 -->
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">① 캠페인 상태 <span style="font-size:11px">(먼저 선택)</span></div>
+          <div id="bulkStatusChips" class="bulk-chk-row" style="margin-bottom:14px"></div>
+          <!-- ② 캠페인 선택 (상태 선택 후 노출) -->
+          <div id="bulkCampaignSelectWrap" style="display:none">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">② 캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 이름·번호 검색)</span></div>
+            <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인 선택</button><div class="mf-drop"></div></div>
+            <div id="bulkCampaignEmpty" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">선택한 상태의 캠페인이 없습니다. 다른 상태를 골라주세요.</div>
+          </div>
         </div>
         <div id="bulkFilters" style="display:none;flex-direction:column;gap:12px">
           <div>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">응모 상태</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">③ 응모 상태</div>
             <div id="bulkAppStatus" class="bulk-chk-row"></div>
           </div>
           <div id="bulkDelivWrap">
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">결과물 상태 <span style="font-size:11px">(응모상태 「승인」 포함 시)</span></div>
-            <div id="bulkDelivStatus" class="bulk-chk-row"></div>
+            <div id="bulkReceiptWrap" style="display:none;margin-bottom:12px">
+              <div style="font-size:13px;color:var(--muted);margin-bottom:6px">영수증 상태 <span style="font-size:11px">(리뷰어 캠페인)</span></div>
+              <div id="bulkReceiptStatus" class="bulk-chk-row"></div>
+            </div>
+            <div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:6px">결과물 상태 <span style="font-size:11px">(게시물·리뷰 이미지)</span></div>
+              <div id="bulkPostStatus" class="bulk-chk-row"></div>
+            </div>
           </div>
           <div>
             <div style="font-size:13px;color:var(--muted);margin-bottom:6px">채널 <span style="font-size:11px">(해당 채널 계정 보유자)</span></div>
@@ -3042,6 +3055,14 @@
             <label style="font-size:13px;color:var(--muted)">최소 팔로워수 <span style="font-size:11px">(비우면 제한 없음)</span>
               <input type="number" id="bulkMinFollowers" min="0" class="admin-select" style="width:160px;margin-top:6px" oninput="scheduleBulkRecount()" placeholder="예: 5000">
             </label>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">④ 인플루언서 상태</div>
+            <div id="bulkInflFilters" class="bulk-chk-row">
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflVerified" onchange="scheduleBulkRecount()">인증된 인플루언서만</label>
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflNoViolation" onchange="scheduleBulkRecount()">위반 이력 제외</label>
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflNoBlacklist" checked onchange="scheduleBulkRecount()">블랙리스트 제외</label>
+            </div>
           </div>
         </div>
         <div class="bulk-count-box" id="bulkCountBox" style="display:none;background:var(--bg);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--ink)">
@@ -3054,6 +3075,11 @@
       <div id="bulkStep2" style="display:none;flex-direction:column;gap:12px">
         <div style="font-size:13px;color:var(--ink);background:var(--bg);border-radius:10px;padding:10px 12px">
           받는 사람 <b id="bulkCount2">0</b>명 — 각자의 1:1 대화방으로 도착하며 <b>서로 누가 받았는지 모릅니다(BCC)</b>.
+        </div>
+        <div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">발송 제목 <span style="font-size:11px">(관리자용 · 선택)</span></div>
+          <input type="text" id="bulkTitle" maxlength="100" style="width:100%;font-size:14px" placeholder="예: 5월 결과물 미제출자 리마인드">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">이 제목은 관리자만 볼 수 있습니다. 인플루언서에게는 아래 본문만 전달됩니다.</div>
         </div>
         <textarea id="bulkBody" rows="6" style="width:100%;font-size:14px;resize:vertical" placeholder="보낼 메시지를 입력하세요. (이번 일괄 발송은 텍스트 전용입니다)"></textarea>
         <div id="bulkConfirmOver" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px 12px">
