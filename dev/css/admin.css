@@ -1137,6 +1137,9 @@
 .inbox-thread-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .inbox-thread-chips{display:flex;align-items:center;gap:4px}
 .inbox-thread-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 「내가 보낸 순」 — 좌측 캠페인 목록 비활성, 대화 카드에 캠페인·브랜드 라벨 */
+.inbox-camp-disabled{opacity:.45;pointer-events:none}
+.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#c2185b);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-kana{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
 .inbox-thread-email{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-preview{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
