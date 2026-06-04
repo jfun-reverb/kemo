@@ -1165,6 +1165,8 @@ function scheduleBulkRecount() {
   _bulkRecountTimer = setTimeout(recountBulk, 350);
 }
 
+const BULK_RECOUNT_TIMEOUT_MS = 15000;   // 대상 계산 시간 제한 — 네트워크 지연·장애 시 「계산 중」 고착 방지
+
 async function recountBulk() {
   if (!_bulkState || !_bulkState.campaignIds || !_bulkState.campaignIds.length) return;
   const filters = collectBulkFilters();
@@ -1172,8 +1174,12 @@ async function recountBulk() {
   const loading = document.getElementById('bulkCountLoading');
   if (loading) loading.style.display = 'inline';
   try {
-    // 캠페인별 대상 해결 후 application_id 합집합 (캠페인마다 자기 채널·팔로워 기준 정확 적용)
-    const results = await Promise.all(campaignIds.map(cid => resolveBulkRecipients(cid, filters)));
+    // 캠페인별 대상 해결 후 application_id 합집합 (캠페인마다 자기 채널·팔로워 기준 정확 적용).
+    // 네트워크 hang 대비 시간 제한 — 초과 시 reject 되어 catch 로 떨어지고 loading 해제됨.
+    const results = await Promise.race([
+      Promise.all(campaignIds.map(cid => resolveBulkRecipients(cid, filters))),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('bulk_recount_timeout')), BULK_RECOUNT_TIMEOUT_MS)),
+    ]);
     // 계산 도중 선택이 바뀌었으면 폐기 (오래된 결과 반영 방지)
     if (JSON.stringify(_bulkState.campaignIds) !== JSON.stringify(campaignIds)) return;
     const idSet = new Set();
@@ -1184,8 +1190,12 @@ async function recountBulk() {
     updateBulkCount(ids.length);
     document.getElementById('bulkNextBtn').disabled = ids.length === 0;
   } catch (e) {
-    console.error('[recountBulk]', e);
-    toast('대상 계산에 실패했습니다.');
+    if (e && e.message === 'bulk_recount_timeout') {
+      toast('대상 계산이 지연됩니다. 네트워크 확인 후 필터를 다시 조정해 주세요.');
+    } else {
+      console.error('[recountBulk]', e);
+      toast('대상 계산에 실패했습니다.');
+    }
     updateBulkCount(0);
     document.getElementById('bulkNextBtn').disabled = true;
   } finally {
