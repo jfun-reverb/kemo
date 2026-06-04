@@ -3050,20 +3050,34 @@
             </div>
           </div>
           <div>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">채널 <span style="font-size:11px">(해당 채널 계정 보유자)</span></div>
-            <div id="bulkChannels" class="bulk-chk-row"></div>
-          </div>
-          <div>
-            <label style="font-size:13px;color:var(--muted)">최소 팔로워수 <span style="font-size:11px">(비우면 제한 없음)</span>
-              <input type="number" id="bulkMinFollowers" min="0" class="admin-select" style="width:160px;margin-top:6px" oninput="scheduleBulkRecount()" placeholder="예: 5000">
-            </label>
-          </div>
-          <div>
             <div style="font-size:13px;color:var(--muted);margin-bottom:6px">④ 인플루언서 상태</div>
             <div id="bulkInflFilters" class="bulk-chk-row">
               <label class="bulk-chk"><input type="checkbox" id="bulkInflVerified" onchange="scheduleBulkRecount()">인증된 인플루언서만</label>
               <label class="bulk-chk"><input type="checkbox" id="bulkInflNoViolation" onchange="scheduleBulkRecount()">위반 이력 제외</label>
               <label class="bulk-chk"><input type="checkbox" id="bulkInflNoBlacklist" checked onchange="scheduleBulkRecount()">블랙리스트 제외</label>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">지역 <span style="font-size:11px">(도도부현 · 미선택 시 전체 · 배송지 미등록 제외)</span></div>
+            <div id="bulkPrefectureMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">전체 지역</button><div class="mf-drop"></div></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">SNS 채널 <span style="font-size:11px">(인플루언서 보유 채널 · 미선택 시 전체)</span></div>
+            <div id="bulkSnsChannels" class="bulk-chk-row"></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">팔로워수 <span style="font-size:11px">(비우면 제한 없음)</span></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label class="bulk-chk"><input type="radio" name="bulkFollowerMode" value="per_channel" checked onchange="onBulkFollowerModeChange()">채널별</label>
+              <label class="bulk-chk"><input type="radio" name="bulkFollowerMode" value="sum" onchange="onBulkFollowerModeChange()">합산</label>
+              <select id="bulkFollowerChannel" class="admin-select" style="width:140px;font-size:13px" onchange="scheduleBulkRecount()">
+                <option value="instagram">Instagram</option>
+                <option value="x">X(Twitter)</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+              </select>
+              <input type="number" id="bulkMinFollowers" min="0" class="admin-select" style="width:120px;font-size:13px" oninput="scheduleBulkRecount()" placeholder="예: 5000">
+              <span style="font-size:12px;color:var(--muted)">이상</span>
             </div>
           </div>
         </div>

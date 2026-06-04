@@ -990,10 +990,16 @@ function openBulkMessageModal(presetAppIds) {
     renderBulkRecruitTypeChips();   // 모집 타입 칩 (미선택 = 전체)
     document.getElementById('bulkCampaignSelectWrap').style.display = 'none';
     renderBulkStatusFilters();    // 응모·영수증·결과물 status 체크박스 (기본값)
+    renderBulkSnsChannels();      // ④ 인플 보유 SNS 채널 4종 체크박스
+    renderBulkPrefectureMulti();  // ④ 지역(도도부현) 다중선택
+    if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkPrefectureMulti', '전체 지역');
     // 인플 상태 토글 기본값 복원 (블랙리스트 제외만 기본 켜짐)
     const v = document.getElementById('bulkInflVerified'); if (v) v.checked = false;
     const nv = document.getElementById('bulkInflNoViolation'); if (nv) nv.checked = false;
     const nb = document.getElementById('bulkInflNoBlacklist'); if (nb) nb.checked = true;
+    // 팔로워 필터 기본값: 채널별·Instagram·빈값
+    const fmPer = document.querySelector('input[name="bulkFollowerMode"][value="per_channel"]'); if (fmPer) fmPer.checked = true;
+    const fc = document.getElementById('bulkFollowerChannel'); if (fc) { fc.value = 'instagram'; fc.style.display = ''; }
     document.getElementById('bulkMinFollowers').value = '';
     const t = document.getElementById('bulkTitle'); if (t) t.value = '';
   }
@@ -1085,7 +1091,6 @@ function onBulkCampaignChange() {
     document.getElementById('bulkNextBtn').disabled = true;
     return;
   }
-  renderBulkChannelFilter(ids);        // 선택 캠페인들의 채널 합집합
   renderBulkReceiptVisibility(ids);    // 리뷰어(monitor) 포함 시에만 영수증 필터 노출
   document.getElementById('bulkFilters').style.display = 'flex';
   document.getElementById('bulkCountBox').style.display = 'block';
@@ -1110,19 +1115,28 @@ function renderBulkStatusFilters() {
   document.getElementById('bulkPostStatus').innerHTML = BULK_DELIV_STATUSES.map(delivChk).join('');
 }
 
-// 채널 체크박스 — 선택 캠페인들의 channel CSV 합집합. 재렌더 시 기존 선택 보존.
-function renderBulkChannelFilter(campaignIds) {
-  const prevSel = new Set(Array.from(document.querySelectorAll('#bulkChannels input:checked')).map(i => i.value));
-  const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : []);
-  const chanSet = new Set();
-  campaignIds.forEach(cid => {
-    const camp = camps.find(c => c.id === cid);
-    (camp?.channel || '').split(',').map(s => s.trim()).filter(Boolean).forEach(ch => chanSet.add(ch));
-  });
-  const chans = Array.from(chanSet);
-  document.getElementById('bulkChannels').innerHTML = chans.length
-    ? chans.map(ch => `<label class="bulk-chk"><input type="checkbox" value="${esc(ch)}" ${prevSel.has(ch) ? 'checked' : ''} onchange="scheduleBulkRecount()">${esc(typeof getChannelLabel === 'function' ? getChannelLabel(ch) : ch)}</label>`).join('')
-    : '<span style="font-size:12px;color:var(--muted)">채널 정보 없음</span>';
+// ④ 인플 보유 SNS 채널 — 핸들 컬럼 있는 4종만 정확 판정(Qoo10·LIPS·@cosme는 보유 데이터 없음). 모달 열 때 1회 렌더.
+const BULK_SNS_CHANNELS = [['instagram', 'Instagram'], ['x', 'X(Twitter)'], ['tiktok', 'TikTok'], ['youtube', 'YouTube']];
+function renderBulkSnsChannels() {
+  document.getElementById('bulkSnsChannels').innerHTML = BULK_SNS_CHANNELS.map(([code, label]) =>
+    `<label class="bulk-chk"><input type="checkbox" value="${code}" onchange="scheduleBulkRecount()">${label}</label>`).join('');
+}
+
+// ④ 지역(도도부현) 다중선택 — PREFECTURE_KO(일본어 키 → 한국어 라벨) 재사용. 선택 변경 → recount.
+function renderBulkPrefectureMulti() {
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  const options = Object.keys(map).map(ja => ({ value: ja, label: map[ja], subLabel: '', count: null }));
+  if (typeof syncMultiFilter === 'function') {
+    syncMultiFilter('bulkPrefectureMulti', '전체 지역', options, scheduleBulkRecount, { searchable: true, searchPlaceholder: '지역 검색' });
+  }
+}
+
+// 팔로워 모드 전환 — 채널별이면 기준 채널 select 노출, 합산이면 숨김. 변경 시 recount.
+function onBulkFollowerModeChange() {
+  const mode = document.querySelector('input[name="bulkFollowerMode"]:checked')?.value;
+  const sel = document.getElementById('bulkFollowerChannel');
+  if (sel) sel.style.display = (mode === 'per_channel') ? '' : 'none';
+  scheduleBulkRecount();
 }
 
 function collectBulkFilters() {
@@ -1132,10 +1146,14 @@ function collectBulkFilters() {
   // 결과물·영수증 상태 필터는 응모상태 승인 포함 시만 의미. 영수증은 추가로 리뷰어 캠페인 포함 시만.
   const postStatuses = approved ? pick('bulkPostStatus') : [];
   const receiptStatuses = (approved && _bulkState && _bulkState.hasMonitor) ? pick('bulkReceiptStatus') : [];
-  const channels = pick('bulkChannels');
+  const channels = pick('bulkSnsChannels');   // ④ 인플 보유 SNS 채널 (4종)
+  const prefectures = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('bulkPrefectureMulti') : [];
+  const followerMode = document.querySelector('input[name="bulkFollowerMode"]:checked')?.value || 'per_channel';
+  const followerChannel = document.getElementById('bulkFollowerChannel')?.value || 'instagram';
   const mf = document.getElementById('bulkMinFollowers').value;
   return {
-    appStatuses, receiptStatuses, postStatuses, channels, minFollowers: mf,
+    appStatuses, receiptStatuses, postStatuses, channels, prefectures,
+    followerMode, followerChannel, minFollowers: mf,
     requireVerified: document.getElementById('bulkInflVerified')?.checked || false,
     excludeViolation: document.getElementById('bulkInflNoViolation')?.checked || false,
     excludeBlacklist: document.getElementById('bulkInflNoBlacklist')?.checked !== false,

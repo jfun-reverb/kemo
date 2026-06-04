@@ -1457,5 +1457,7 @@
 #bulkCampaignMulti .mf-drop { left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,.16); border: 1px solid var(--line); }
 /* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
 #bulkCampaignMulti .mf-item-sub { font-family: inherit; }
+/* 지역(도도부현) 드롭다운 — 모달 하단이라 absolute 로 띄우면 아래가 잘림 → 문서 흐름(static)으로 펼쳐 모달 스크롤로 보이게 */
+#bulkPrefectureMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 220px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
 .mf-selected-divider { border-top: 1px solid var(--outline); margin: 4px 0; }
