@@ -111,7 +111,12 @@ function friendlyError(msg) {
   if (s.includes('timeout') || s.includes('timed out')) return '요청 시간이 초과되었습니다. [ERR_TIMEOUT_408]';
   if (s.includes('unauthorized') || s.includes('JWT')) return '인증이 만료되었습니다. 다시 로그인해주세요. [ERR_AUTH_401]';
   if (s.includes('email_not_confirmed')) return '이메일 인증이 완료되지 않았습니다. [ERR_EMAIL_UNVERIFIED]';
-  return s + ' [ERR_UNHANDLED]';
+  if (s.includes('violates check constraint') || s.includes('check_violation')) return '허용되지 않는 값입니다. 입력 내용을 다시 확인해주세요. [ERR_CHECK_23514]';
+  // DB 트리거·함수(RAISE)가 한글 안내 메시지를 던지면 그대로 보여준다 (예: 「모집마감 캠페인의 주의사항은…」)
+  if (/[가-힣]/.test(s)) return s;
+  // 미분류 영어 원문 — 화면에는 일반 안내만 노출하고, 원문은 콘솔에 기록(운영자 추적용)
+  try { console.warn('[friendlyError unhandled]', s); } catch (_) {}
+  return '처리 중 오류가 발생했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해주세요. [ERR_UNHANDLED]';
 }
 
 // ════════════════════════════════════════════════════════════════════

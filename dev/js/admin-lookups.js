@@ -87,7 +87,7 @@ async function renderLookupsTable() {
   try {
     rows = await fetchLookupsAll(_currentLookupKind);
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
     return;
   }
   if (!rows.length) {
@@ -247,7 +247,7 @@ async function moveLookup(idA, idB) {
     else await swapLookupOrder(idA, idB);
     renderLookupsTable();
   } catch(e) {
-    toast('정렬 변경 실패: ' + (e.message||String(e)),'error');
+    toast('정렬 변경 실패: ' + friendlyError(e.message||String(e)),'error');
   }
 }
 
@@ -264,7 +264,7 @@ async function toggleLookupActive(id, nextActive) {
     }
     renderLookupsTable();
   } catch(e) {
-    toast('상태 변경 실패: ' + (e.message||String(e)),'error');
+    toast('상태 변경 실패: ' + friendlyError(e.message||String(e)),'error');
   }
 }
 
@@ -280,7 +280,7 @@ async function handleLookupDelete(row) {
       toast('삭제했습니다','success');
       renderLookupsTable();
     } catch(e) {
-      toast('삭제 실패: ' + (e.message||String(e)),'error');
+      toast('삭제 실패: ' + friendlyError(e.message||String(e)),'error');
     }
     return;
   }
@@ -297,7 +297,7 @@ async function handleLookupDelete(row) {
     toast('삭제했습니다','success');
     renderLookupsTable();
   } catch(e) {
-    toast('삭제 실패: ' + (e.message||String(e)),'error');
+    toast('삭제 실패: ' + friendlyError(e.message||String(e)),'error');
   }
 }
 
@@ -332,7 +332,7 @@ async function renderPsetTable() {
   tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchParticipationSetsAll(); } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
     return;
   }
   if (!rows.length) {
@@ -468,7 +468,7 @@ async function savePsetEdit() {
     toast('저장했습니다','success');
     renderLookupsTable();
   } catch(e) {
-    show('저장 실패: ' + (e.message||String(e)));
+    show('저장 실패: ' + friendlyError(e.message||String(e)));
   }
 }
 
@@ -503,7 +503,7 @@ async function renderCsetTable() {
   tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchCautionSetsAll(); } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
     return;
   }
   if (!rows.length) {
@@ -797,7 +797,7 @@ function _bindMiniEditorLinkPopoverEvents(pop, aEl, contentDiv, href) {
         ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
       }
       toast('링크를 복사했습니다','success');
-    } catch(e) { toast('복사 실패: ' + (e.message||String(e)),'error'); }
+    } catch(e) { toast('복사 실패: ' + friendlyError(e.message||String(e)),'error'); }
   });
 
   // 새 탭으로 열기 (편집 중에도 실제 링크 확인 가능)
@@ -1021,7 +1021,7 @@ async function saveCsetEdit() {
     toast('저장했습니다','success');
     renderLookupsTable();
   } catch(e) {
-    show('저장 실패: ' + (e.message||String(e)));
+    show('저장 실패: ' + friendlyError(e.message||String(e)));
   }
 }
 
@@ -1052,7 +1052,7 @@ async function renderNgSetTable() {
   tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>`;
   let rows = [];
   try { rows = await fetchNgSetsAll(); } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(e.message||String(e))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--red);padding:24px">조회 실패: ${esc(friendlyError(e.message||String(e)))}</td></tr>`;
     return;
   }
   if (!rows.length) {
@@ -1197,6 +1197,6 @@ async function saveNgSetEdit() {
     toast('저장했습니다','success');
     renderLookupsTable();
   } catch(e) {
-    show('저장 실패: ' + (e.message||String(e)));
+    show('저장 실패: ' + friendlyError(e.message||String(e)));
   }
 }
