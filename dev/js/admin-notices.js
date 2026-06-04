@@ -160,7 +160,7 @@ async function onPublishFromView() {
     closeModal('adminNoticeViewModal');
     await loadAdminNotices();
     renderDashboardNotices();
-  } catch(e) { toast('게시 오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('게시 오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 // 보기 모달에서 "게시 회수" 클릭 — published → draft (published_at 유지)
@@ -175,7 +175,7 @@ async function onUnpublishFromView() {
     closeModal('adminNoticeViewModal');
     await loadAdminNotices();
     renderDashboardNotices();
-  } catch(e) { toast('회수 오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('회수 오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 function openAdminNoticeEdit(id) {
@@ -311,7 +311,7 @@ async function onSaveAdminNotice(mode) {
     closeModal('adminNoticeEditModal');
     await loadAdminNotices();
     renderDashboardNotices();
-  } catch(e) { toast('저장 오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('저장 오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 async function onDeleteAdminNotice() {
@@ -322,7 +322,7 @@ async function onDeleteAdminNotice() {
     toast('삭제되었습니다');
     closeModal('adminNoticeEditModal');
     await refreshPane('admin-notices');
-  } catch(e) { toast('삭제 오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('삭제 오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 // 대시보드 최근 공지 3건 렌더 — published 만 노출

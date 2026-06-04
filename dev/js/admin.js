@@ -678,7 +678,16 @@ async function openEditCampaign(campId) {
 //   조건: status === 'closed' 또는 'expired' 일 때 비활성화 + 잠금 메시지 노출
 function applyEditFormSensitiveLocks(status) {
   const isLocked = status === 'closed' || status === 'ended' || status === 'expired';
-  const lockLabel = status === 'expired' ? '노출마감' : status === 'ended' ? '종료' : '모집마감';
+  const lockLabel = status === 'expired' ? '노출종료' : status === 'ended' ? '종료' : '모집마감';
+  // 모집마감·종료·노출종료 상태에서는 상태 드롭다운을 현재 상태로 고정(임의 변경·빈값 저장 차단).
+  // 상태 되돌리기가 필요하면 「캠페인 노출」 토글로 처리한다.
+  const statusSel = $('editCampStatus');
+  if (statusSel) {
+    statusSel.disabled = isLocked;
+    statusSel.title = isLocked ? `${lockLabel} 캠페인의 상태는 변경할 수 없습니다 (「캠페인 노출」 토글로 조정)` : '';
+    statusSel.style.opacity = isLocked ? '0.6' : '';
+    statusSel.style.cursor = isLocked ? 'not-allowed' : '';
+  }
   ['Pset', 'Cset', 'Nset'].forEach(kind => {
     const card = $('editCamp' + kind + 'Summary');
     if (!card) return;
@@ -873,7 +882,7 @@ async function openCautionHistoryModal(campId) {
     _cautionHistoryState.list = Array.isArray(list) ? list : [];
     renderCautionHistoryModal();
   } catch(e) {
-    if (body) body.innerHTML = `<div style="padding:24px;color:#B3261E;font-size:13px">이력 불러오기 실패: ${esc(e.message||String(e))}</div>`;
+    if (body) body.innerHTML = `<div style="padding:24px;color:#B3261E;font-size:13px">이력 불러오기 실패: ${esc(friendlyError(e.message||String(e)))}</div>`;
   }
 }
 
@@ -1693,7 +1702,9 @@ async function saveCampaignEdit() {
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
     if (editDateErrs.length) { toast(editDateErrs[0].msg, 'error'); validateCampDateRangesInline('editCamp'); return; }
-    const editStatus = gv('editCampStatus');
+    // 빈값 가드 — 드롭다운에 없는 상태(disabled 등)거나 값이 비면 원본 상태로 폴백.
+    // 종료(ended) 캠페인 편집 시 status='' 저장으로 campaigns_status_check 위반하던 버그 방지.
+    const editStatus = gv('editCampStatus') || (_editCampOriginal && _editCampOriginal.status) || 'active';
     if (editDeadline && (editStatus === 'active' || editStatus === 'scheduled')) {
       const dl = new Date(editDeadline); dl.setHours(23,59,59,999);
       if (new Date() > dl) {
@@ -1747,7 +1758,7 @@ async function saveCampaignEdit() {
       guide: gv('editCampGuide'),
       // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
       // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
-      status: gv('editCampStatus'),
+      status: editStatus,
       ...collectCampPsetPayload('edit'),
       ...collectCampCsetPayload('edit'),
       ...collectCampNsetPayload('edit'),
@@ -3518,7 +3529,7 @@ function _renderCampVisibilityToggle(prefix, status, dateRefs) {
   toggle.setAttribute('aria-checked', isOff ? 'false' : 'true');
   toggle.disabled = isDraft;
   if (statusEl) {
-    var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출마감 (수동)' };
+    var labels = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출종료 (수동)' };
     statusEl.textContent = '상태: ' + (labels[status] || status || '미정');
     statusEl.classList.toggle('is-off', isOff);
   }
@@ -3540,7 +3551,7 @@ async function onCampVisibilityToggle(prefix) {
     if (campId) {
       try {
         await toggleCampaignVisibility(campId, false);
-        toast('캠페인 노출이 OFF (노출마감) 로 변경되었습니다');
+        toast('캠페인 노출이 OFF (노출종료) 로 변경되었습니다');
         _renderCampVisibilityToggle(prefix, 'expired', { recruit_start: toggle.dataset.recruitStart, deadline: toggle.dataset.deadline });
         // 폼 상태 드롭다운도 갱신 (있으면)
         var statusSel = $('editCampStatus');
@@ -3548,7 +3559,7 @@ async function onCampVisibilityToggle(prefix) {
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility OFF]', e);
-        toast('변경 실패: ' + (e.message || e), 'error');
+        toast('변경 실패: ' + friendlyError(e.message || e), 'error');
       }
     } else {
       // 신규 등록 폼은 아직 DB에 없음 — UI 상태만 변경
@@ -3566,7 +3577,7 @@ async function onCampVisibilityToggle(prefix) {
         await refreshPane('campaigns');
       } catch (e) {
         console.error('[toggleCampaignVisibility ON]', e);
-        toast('변경 실패: ' + (e.message || e), 'error');
+        toast('변경 실패: ' + friendlyError(e.message || e), 'error');
       }
     } else {
       // 신규 등록 폼 — 기본 active 로 가정
@@ -3590,7 +3601,7 @@ async function onCampQuickVisibilityToggle(ev, campId, currentStatus) {
     await refreshPane('campaigns');
   } catch (e) {
     console.error('[onCampQuickVisibilityToggle]', e);
-    toast('변경 실패: ' + (e.message || e), 'error');
+    toast('변경 실패: ' + friendlyError(e.message || e), 'error');
   }
 }
 

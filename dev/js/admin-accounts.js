@@ -217,7 +217,7 @@ async function saveMyAdminInfo() {
     updateSidebarProfile();
     toast('정보가 저장되었습니다','success');
   } catch(e) {
-    toast('저장 오류: ' + e.message,'error');
+    toast('저장 오류: ' + friendlyError(e.message),'error');
   }
 }
 

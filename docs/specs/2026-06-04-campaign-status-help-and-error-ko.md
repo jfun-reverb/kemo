@@ -136,13 +136,30 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-**구현일:**
-**관련 커밋·PR:**
+**구현일:** 2026-06-04
+**관련 커밋·PR:** (개발 세션 dev 머지 — 본 커밋)
+**버그 수정 방식:** 사용자 확정 = **(나) 상태 칸 고정** (AskUserQuestion 2026-06-04)
+
+### PR 1 — 종료 캠페인 편집 버그 수정 (상태 칸 고정)
+- `dev/admin/index.html` `editCampStatus` 드롭다운: `closed` 라벨 "종료"→**"모집마감"**, `expired` "노출마감"→**"노출종료"**, **`ended`(종료) 옵션 추가**. 이제 종료 캠페인을 열어도 드롭다운에 해당 값이 있어 빈 문자열이 안 됨.
+- `dev/js/admin.js` `applyEditFormSensitiveLocks`: 모집마감·종료·노출종료 상태일 때 **상태 드롭다운을 `disabled`로 고정**(임의 변경·실수 차단). lockLabel `expired` 표기도 "노출마감"→"노출종료"로 통일. 상태 되돌리기는 기존 「캠페인 노출」 토글로 처리.
+- `dev/js/admin.js` `saveCampaignEdit`: `editStatus` 빈값 가드(`gv('editCampStatus') || _editCampOriginal.status || 'active'`) + `updates.status`도 `editStatus` 사용으로 통일 → `campaigns_status_check` 위반 원천 차단.
+
+### PR 2 — 관리자 오류 메시지 한글화
+- `dev/js/admin-core.js` `friendlyError` 보강: ① `violates check constraint`(23514) 매핑 추가 ② **한글 포함 메시지는 원문 통과**(DB 트리거/함수 RAISE 한글 안내 그대로 노출) ③ **미분류 영어 원문은 「처리 중 오류가 발생했습니다 … [ERR_UNHANDLED]」 일반 안내로 치환**, 원문은 `console.warn('[friendlyError unhandled]', …)`로 기록.
+- raw 노출 호출부 일괄 `friendlyError()` 경유로 교체(prefix 유지): `admin-accounts.js`(저장 오류 1곳), `admin-notices.js`(4곳), `admin-influencers.js`(6곳), `admin-lookups.js`(`(e.message||String(e))` 12곳 전부 — toast·show·인라인 esc), `admin.js`(변경 실패 toast 3곳 + 이력 불러오기 실패 인라인 1곳).
+
+### PR 3 — 캠페인 상태 안내 모달 재작성
+- `campStatusHelpModal` 제목·본문 전면 교체. 사양서 확정 콘텐츠(① 상태·노출 6행 표, ② 「저절로 바뀜」 4줄, ③ 수정 가능/불가 표 + 각주 + 한 줄 정리)를 기존 디자인 톤(테이블·light-pink/surface-dim 박스·CSS 변수) 유지하며 적용. 영어 status 코드(draft/closed 등) 제거 → 한글 라벨로.
 
 ### 초안 대비 변경 사항
-- 추가/빠진/달라진 것:
+- **추가:** friendlyError 미경유 호출부를 사양서 지목 범위보다 넓게 일괄 교체(`admin-lookups.js`의 textContent/인라인 조회 실패까지 포함 — 일관성). 모집마감 배지색 핑크(#FCE4EC), 종료 배지색 남보라(#E8EAF6)로 목록 컬러와 정합.
+- **빠진 것:** 운영 DB `ended` 캠페인 수 진단 SQL은 코드 변경과 무관해 개발 세션에서 미실행(코드는 ended 0건이든 다수든 동일하게 안전). 운영 배포 시 확인 권고.
+- **달라진 것:** friendlyError 미분류 기록을 `client_error_logs` 자동 적재가 아닌 **`console.warn`으로 한정**. 사유 = 적재에 필요한 fingerprint/마스킹 헬퍼는 인플 앱 `error-report.js` 전용이라 관리자 빌드에 없음. 화면 일반화 + 콘솔 원문 기록으로 사양 의도(원문 숨김·추적 가능) 충족.
 
 ### 구현 중 기술 결정 사항
-- (운영 ended 캠페인 수, status 드롭다운 처리 방식, friendlyError 미분류 로그 경로 등)
+- disabled `<select>`도 JS `.value` 접근은 정상이므로 빈값은 안 나지만, 안전망으로 `saveCampaignEdit`에 원본 상태 폴백 가드 추가(이중 방어).
+- friendlyError 분기 순서: 기존 영어 매핑 → check constraint → **한글 통과** → 미분류 일반화. 한글 통과를 미분류 직전에 둬 영어 check 등은 먼저 잡고, 트리거 한글 안내만 원문 노출.
+- 마이그레이션 없음(전부 코드). DB·RLS·Auth·약관 무영향.
