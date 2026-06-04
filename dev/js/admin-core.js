@@ -389,7 +389,17 @@ function resetMultiFilter(containerId, allLabel) {
   const items = wrap.querySelectorAll('.mf-drop input[type="checkbox"]:not([value="all"])');
   if (allCb) { allCb.checked = true; allCb.indeterminate = false; }
   items.forEach(c => c.checked = true); // 전체 = 모든 항목 체크 표시
-  if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); }
+  if (btn) { btn.textContent = allLabel; btn.classList.remove('has-selection'); btn.removeAttribute('title'); }
+}
+// 모두 해제 — 일괄발송처럼 "명시 선택 강제" 맥락에서 사용.
+//   resetMultiFilter 는 "전체=모두 체크"(빈 배열 시맨틱)라 미선택 표현이 안 됨.
+//   이 헬퍼는 전체 해제 + placeholder 라벨 → getMultiFilterValues 가 [] 반환(=대상 없음으로 처리).
+function clearMultiFilter(containerId, placeholderLabel) {
+  const wrap = $(containerId);
+  if (!wrap) return;
+  wrap.querySelectorAll('.mf-drop input[type="checkbox"]').forEach(c => { c.checked = false; c.indeterminate = false; });
+  const btn = wrap.querySelector('.mf-btn');
+  if (btn) { btn.textContent = placeholderLabel || '선택'; btn.classList.remove('has-selection'); btn.removeAttribute('title'); }
 }
 function updateFilterResetBtn(btnId, multiIds, searchId) {
   const btn = $(btnId);
@@ -453,13 +463,17 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
     + `<label class="mf-item all-item"><input type="checkbox" value="all"><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
     + options.map(renderOptionItem).join('')
     + emptyHtml;
-  btn.textContent = allLabel;
-  // 토글 — 검색형이면 열 때 검색 input 포커스
+  btn.textContent = opts.placeholder || allLabel;   // placeholder(있으면 미선택 안내) 우선, 없으면 allLabel
+  // 토글 — 열 때 선택 항목을 상단으로 재정렬(체크 토글 중엔 순서 고정, 열 때만 1회), 검색형이면 검색 input 포커스
   btn.onclick = (e) => {
     e.stopPropagation();
+    const willOpen = !drop.classList.contains('open');
     drop.classList.toggle('open');
-    if (opts.searchable && drop.classList.contains('open')) {
-      const si = drop.querySelector('.mf-search'); if (si) setTimeout(() => si.focus(), 0);
+    if (willOpen) {
+      reorderSelectedFirst(drop);
+      if (opts.searchable) {
+        const si = drop.querySelector('.mf-search'); if (si) setTimeout(() => si.focus(), 0);
+      }
     }
   };
   // 체크 로직 — 옵션 체크박스만 (검색 input[type=search] 은 제외)
@@ -468,25 +482,26 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
     if (selected.length === itemCbs.length) {
-      // 모두 체크 = 전체 (필터 없음)
+      // 모두 체크 = 전체. countLabel(명시 선택형, 일괄발송 캠페인)이면 「다중 선택 N건」, 아니면 allLabel
       allCb.checked = true;
       allCb.indeterminate = false;
-      btn.textContent = allLabel;
-      btn.classList.remove('has-selection');
+      btn.textContent = opts.countLabel ? ('다중 선택 ' + selected.length + '건') : allLabel;
+      btn.removeAttribute('title');
+      btn.classList.toggle('has-selection', !!opts.countLabel);
     } else if (selected.length === 0) {
-      // 모두 해제 — 사용자가 「전체」 체크박스를 눌러 전체 해제한 표준 동작.
-      // 자동 복귀하지 않고 「선택 없음」 상태 유지. 데이터상으로는 「전체」와 같은
-      // 빈 배열을 반환하지만(필터 없음 = 전체 표시), 사용자가 다시 체크하면 정상 동작.
+      // 모두 해제 — placeholder(있으면 「선택하세요」 안내) 우선. 없으면 allLabel(미선택=전체 시맨틱).
       allCb.checked = false;
       allCb.indeterminate = false;
-      btn.textContent = allLabel;
+      btn.textContent = opts.placeholder || allLabel;
+      btn.removeAttribute('title');
       btn.classList.remove('has-selection');
     } else {
-      // 일부 — 전체는 indeterminate
+      // 일부 — 전체는 indeterminate. 1건이면 항목명, 2건 이상이면 「다중 선택 N건」(선택 항목명은 tooltip 보존)
       allCb.checked = false;
       allCb.indeterminate = true;
-      // input에 data-label 보관(subLabel/count 영향 없음)
-      btn.textContent = selected.map(c => c.dataset.label || c.parentElement.textContent.trim()).join(', ');
+      const names = selected.map(c => c.dataset.label || c.parentElement.textContent.trim());
+      btn.textContent = selected.length === 1 ? names[0] : ('다중 선택 ' + selected.length + '건');
+      btn.title = names.join(', ');
       btn.classList.add('has-selection');
     }
     onChange(getMultiFilterValues(containerId));
@@ -531,6 +546,26 @@ function getMultiFilterValues(containerId) {
   // 전체(모두 체크) = 필터 없음 → 빈 배열
   if (allCb?.checked && !allCb.indeterminate) return [];
   return [...wrap.querySelectorAll('.mf-drop input[type="checkbox"]:not([value="all"]):checked')].map(c => c.value);
+}
+
+// 드롭다운 열 때 선택된 항목을 「전체」 항목 바로 아래로 모으고 구분선 삽입(선택 항목 상단 정렬).
+// 열 때 1회만 호출 → 체크 토글 중에는 순서가 튀지 않음. 한쪽만 있으면(전부/없음) 정렬 생략.
+function reorderSelectedFirst(drop) {
+  if (!drop) return;
+  drop.querySelectorAll('.mf-selected-divider').forEach(d => d.remove());
+  const items = [...drop.querySelectorAll('.mf-item:not(.all-item)')];
+  const checked = items.filter(it => it.querySelector('input[type="checkbox"]')?.checked);
+  const unchecked = items.filter(it => !it.querySelector('input[type="checkbox"]')?.checked);
+  if (!checked.length || !unchecked.length) return;
+  // 기준점: 「전체」 항목(없으면 검색창) 뒤에 선택→구분선→미선택 순으로 재배치
+  let ref = drop.querySelector('.all-item') || drop.querySelector('.mf-search-box');
+  if (!ref) return;
+  checked.forEach(it => { ref.after(it); ref = it; });
+  const divider = document.createElement('div');
+  divider.className = 'mf-selected-divider';
+  ref.after(divider);
+  ref = divider;
+  unchecked.forEach(it => { ref.after(it); ref = it; });
 }
 // 커스텀 confirm 모달 (Promise 반환)
 let _confirmResolver = null;
@@ -591,6 +626,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
   // 메시지
   'admMsgModal', 'admHideModal',
+  // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
+  'bulkMessageModal', 'broadcastDetailModal',
 ]);
 
 function makeModalDraggableResizable(modalEl) {

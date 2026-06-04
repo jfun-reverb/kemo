@@ -193,6 +193,12 @@ campaigns, applications, influencers, influencer_flags, deliverables, deliverabl
 ### storage.js 호출 함수 (주요)
 fetchCampaigns, fetchInfluencers, fetchApplications, fetchDeliverables, fetchDeliverablesByCampaign, fetchLookupsAll, fetchParticipationSetsAll, fetchCautionSetsAll, fetchNgSetsAll, setInfluencerVerified, setInfluencerBlacklist, recordInfluencerViolation, updateDeliverableStatus
 
+### 응모건 메시지 (admin-messaging.js)
+- `loadMessagesInbox()` — 받은편지함 3단 페인(#adminPane-messages) 진입
+- `openAdminMessageModal(appId, campId)` / `sendAdminMessage()` — 응모건 1:1 메시지 모달·관리자 발신
+- `hideApplicationMessage()` / `unhideApplicationMessage()` / `markApplicationResolved()` — 강제 숨김·복구·응대 완료
+- **일괄 발송 (BCC, PR 3·마이그레이션 167)**: `openBulkMessageModal()` — 캠페인 다중선택(mf-wrap)+필터 2단계 모달 / `recountBulk()` — 캠페인별 대상 합산(resolveBulkRecipients N회) / `confirmBulkSend()` — 발송(sendApplicationMessageBulk) / `switchInboxTab()` — 받은편지함·발송이력 탭 / `loadBroadcasts()`·`openBroadcastDetail()`·`confirmBroadcastWithdraw()` — 발송 이력 목록·상세·일괄 회수(withdrawBroadcast)
+
 ### 원격 호출 함수(RPC) — 관리자 전용
 invite_admin, remove_admin_role, delete_admin_completely, update_receipt_admin, record_caution_history
 

@@ -61,8 +61,8 @@
   }
 
   function _isNoise(msg, stack) {
-    const t = (msg || '') + ' ' + (stack || '');
-    return NOISE.some((re) => re.test(t));
+    // 메시지·스택을 각각 검사 (합치면 끝에 공백이 붙어 ^...$ 앵커 정규식이 빗나감 — "Script error." 누락 버그)
+    return NOISE.some((re) => re.test(msg || '') || re.test(stack || ''));
   }
 
   // 에러 1건 수집 → 마스킹 → reportClientError RPC. 절대 throw 안 함.

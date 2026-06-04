@@ -2693,9 +2693,11 @@ async function fetchAdminMessageUnreadCounts() {
 // 관리자 받은편지함 대화 목록 — application_message_summary 뷰 조회.
 //   security_invoker=true 라 관리자 호출 시 전체 응모건 RLS 통과.
 //   message_count>0 (메시지 있는 건만) + last_message_at 최근순. 1000행 cap 대응 pagination.
-//   opts: { sinceMonths(기본 6), campaignId(선택) }
+//   opts: { sinceMonths(기본 6), campaignId(선택), fromIso/toIso(달력 절대 기간 — 있으면 sinceMonths 무시) }
+//   기간 기준 컬럼 = last_message_at (모든 정렬 모드 공통)
 async function fetchAdminMessageThreads(opts = {}) {
   if (!db) return [];
+  const useRange = !!(opts.fromIso || opts.toIso);
   const sinceMonths = opts.sinceMonths || 6;
   const sinceIso = new Date(Date.now() - sinceMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
   const cols = 'application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at';
@@ -2706,9 +2708,15 @@ async function fetchAdminMessageThreads(opts = {}) {
     let q = db?.from('application_message_summary')
       .select(cols)
       .gt('message_count', 0)
-      .gte('last_message_at', sinceIso)
       .order('last_message_at', { ascending: false })
       .range(from, from + PAGE - 1);
+    // 달력 절대 기간 우선, 없으면 상대 기간(sinceMonths)
+    if (useRange) {
+      if (opts.fromIso) q = q.gte('last_message_at', opts.fromIso);
+      if (opts.toIso) q = q.lte('last_message_at', opts.toIso);
+    } else {
+      q = q.gte('last_message_at', sinceIso);
+    }
     if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
     const {data, error} = await q;
     if (error) { console.warn('[fetchAdminMessageThreads]', error); break; }
@@ -2717,6 +2725,35 @@ async function fetchAdminMessageThreads(opts = {}) {
     from += PAGE;
   }
   return rows;
+}
+
+// 「내가 보낸 순」 정렬용 — 로그인한 본인 관리자가 발신한 응모건별 최신 발신 시각.
+//   application_messages 에서 sender_id=본인 + sender_kind='admin' 행을 created_at 내림차순 조회,
+//   application_id 별 첫(최신) 행 시각만 Map 에 보존. DB 변경 없음(관리자 SELECT 권한 사용).
+//   반환: Map<application_id, created_at(iso)>
+async function fetchAdminSentAtMap() {
+  if (!db) return new Map();
+  const {data: udata} = await (db?.auth.getUser() || {data:{user:null}});
+  const uid = udata?.user?.id;
+  if (!uid) return new Map();
+  const map = new Map();
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const {data, error} = await db?.from('application_messages')
+      .select('application_id, created_at')
+      .eq('sender_id', uid)
+      .eq('sender_kind', 'admin')
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) { console.warn('[fetchAdminSentAtMap]', error); break; }
+    for (const r of (data || [])) {
+      if (!map.has(r.application_id)) map.set(r.application_id, r.created_at);   // 내림차순 첫 행 = 최신
+    }
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return map;
 }
 
 // 받은편지함 최근 메시지 미리보기 — 응모건별 마지막 「살아있는」 메시지 본문.
@@ -2756,6 +2793,99 @@ async function fetchApplicationHideHistory(applicationId) {
     .order('at', { ascending: false });
   if (error) { console.warn('[fetchApplicationHideHistory]', error); return []; }
   return data || [];
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 응모건 메시지 — 일괄 발송 (BCC, PR 3)
+//   마이그레이션 167. campaign_admin 이상. send_bulk / withdraw_broadcast /
+//   resolve_bulk_recipients / get_broadcast_detail RPC + 발송 이력 목록 조회.
+// ════════════════════════════════════════════════════════════════════
+
+// 일괄 발송 (관리자 → N명 BCC). applicationIds 는 이미 cancelled 제외된 배열.
+//   contextKind: 'campaign'|'manual', contextCampaignId/contextFilter 는 감사·재현용 스냅샷.
+//   반환: broadcast_id (uuid).
+async function sendApplicationMessageBulk(applicationIds, body, attachments = [], contextKind = 'manual', contextCampaignId = null, contextFilter = null, title = null) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('send_application_message_bulk', {
+      p_application_ids: applicationIds,
+      p_body: body || '',
+      p_attachments: attachments,
+      p_context_kind: contextKind,
+      p_context_campaign_id: contextCampaignId,
+      p_context_filter: contextFilter,
+      p_title: title || null,   // 관리자 전용 제목 (인플 메시지 본문 미포함)
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 일괄 발송 그룹 회수 (발신자 본인 또는 super_admin). 회수 시 각 메시지 강제 숨김 처리.
+//   reasonCode: lookup_values(kind='message_hide_reason').code. 첨부 Storage 는 영구 보존(삭제 안 함).
+async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
+  if (!db || !broadcastId) throw new Error('잘못된 호출');
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('withdraw_broadcast', {
+      p_broadcast_id: broadcastId,
+      p_reason_code: reasonCode,
+      p_reason_memo: reasonMemo || null,
+    });
+    if (error) throw error;
+  });
+}
+
+// 캠페인 단위 발송 대상 응모 id 해결 (cancelled 항상 제외). 미리보기 카운트 = 배열 길이.
+//   filters: { appStatuses[], receiptStatuses[], postStatuses[], channels[](인플 보유 SNS),
+//              prefectures[](지역), followerMode('per_channel'|'sum'), followerChannel, minFollowers,
+//              requireVerified, excludeViolation, excludeBlacklist }
+//   - receiptStatuses: 영수증(kind='receipt') 결과물 상태 / postStatuses: 게시물·리뷰이미지 상태
+//   - 팔로워: minFollowers 있을 때 followerMode 로 해석(채널별=followerChannel 기준 / 합산)
+//   - excludeBlacklist 기본 true (명시적 false 일 때만 블랙리스트 포함)
+//   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
+async function resolveBulkRecipients(campaignId, filters = {}) {
+  if (!db || !campaignId) return [];
+  const hasFollower = (filters.minFollowers != null && filters.minFollowers !== '');
+  const {data, error} = await db.rpc('resolve_bulk_recipients', {
+    p_campaign_id: campaignId,
+    p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
+    p_receipt_statuses: filters.receiptStatuses && filters.receiptStatuses.length ? filters.receiptStatuses : null,
+    p_post_statuses: filters.postStatuses && filters.postStatuses.length ? filters.postStatuses : null,
+    p_channels: filters.channels && filters.channels.length ? filters.channels : null,
+    p_prefectures: filters.prefectures && filters.prefectures.length ? filters.prefectures : null,
+    p_follower_mode: hasFollower ? (filters.followerMode || 'per_channel') : null,
+    p_follower_channel: filters.followerChannel || null,
+    p_min_followers: hasFollower ? Number(filters.minFollowers) : null,
+    p_require_verified: !!filters.requireVerified,
+    p_exclude_violation: !!filters.excludeViolation,
+    p_exclude_blacklist: filters.excludeBlacklist !== false,
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+// 발송 이력 목록 (관리자). application_message_broadcasts 직접 조회.
+//   RLS SELECT 는 is_admin() 전체. campaign_admin 본인분만 보려면 senderId 전달(클라 권한 분기).
+//   opts: { senderId(있으면 sender_id 필터), limit(기본 100) }
+async function fetchBroadcasts(opts = {}) {
+  if (!db) return [];
+  let q = db?.from('application_message_broadcasts')
+    .select('id, sender_id, sender_name, title, body, attachments, recipient_count, created_at, context_kind, context_campaign_id, context_filter, withdrawn_at, withdrawn_by, withdrawn_reason_code')
+    .order('created_at', { ascending: false })
+    .limit(opts.limit || 100);
+  if (opts.senderId) q = q.eq('sender_id', opts.senderId);
+  const {data, error} = await q;
+  if (error) { console.warn('[fetchBroadcasts]', error); return []; }
+  return data || [];
+}
+
+// 발송 이력 상세 (그룹 메타 + 수신자별 읽음·답장 상태). 권한별 가시성은 RPC 가 검증.
+//   반환: { broadcast: {...}, recipients: [{application_id, influencer_name, campaign_title, read, replied, hidden, message_id}] }
+async function getBroadcastDetail(broadcastId) {
+  if (!db || !broadcastId) return null;
+  const {data, error} = await db.rpc('get_broadcast_detail', { p_broadcast_id: broadcastId });
+  if (error) throw error;
+  return data || null;
 }
 
 // ══════════════════════════════════════

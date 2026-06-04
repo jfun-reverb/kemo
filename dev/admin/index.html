@@ -1185,7 +1185,16 @@
         <div id="adminPane-messages" class="admin-pane">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">메시지</div>
+                <div class="inbox-tabs" style="display:flex;gap:4px">
+                  <button class="inbox-tab is-active" id="inboxTabInbox" onclick="switchInboxTab('inbox')">받은편지함</button>
+                  <button class="inbox-tab" id="inboxTabBroadcasts" onclick="switchInboxTab('broadcasts')">일괄발송 이력</button>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" id="bulkMsgOpenBtn" onclick="openBulkMessageModal()" style="display:none;align-items:center;gap:4px">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px">campaign</span>일괄 발송
+              </button>
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
@@ -1198,10 +1207,18 @@
                 </select>
               </div>
               <div class="admin-filter-group">
+                <label>달력 기간 <span style="font-size:10px;color:var(--muted)">(지정 시 우선)</span></label>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <input type="text" id="inboxDateRange" class="admin-select" style="width:180px" placeholder="○월 ○일 ~ ○월 ○일" readonly>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="clearInboxDateRange()" style="padding:2px 8px" title="달력 기간 해제">✕</button>
+                </div>
+              </div>
+              <div class="admin-filter-group">
                 <label>정렬</label>
                 <select class="admin-select" onchange="changeInboxSort(this.value)">
                   <option value="recent">최근 메시지순</option>
                   <option value="unresolved">미응대 우선</option>
+                  <option value="sent">내가 보낸 순</option>
                 </select>
               </div>
               <div class="admin-filter-group">
@@ -1220,7 +1237,7 @@
               </div>
             </div>
           </div>
-          <div class="inbox-3pane stage-campaigns">
+          <div class="inbox-3pane stage-campaigns" id="inboxMainView">
             <div class="inbox-col inbox-col-camps">
               <div class="inbox-col-header" onclick="setInboxStageCampaigns()" title="클릭하면 캠페인 목록을 넓게 봅니다">
                 <span>캠페인</span>
@@ -1241,6 +1258,10 @@
               </div>
               <div class="inbox-col-body" id="inboxThreadView"></div>
             </div>
+          </div>
+          <!-- 발송 이력 탭 (PR 3 일괄 발송) -->
+          <div id="inboxBroadcastsView" style="display:none;flex:1;overflow:auto;padding:4px 0">
+            <div id="broadcastsList" class="broadcasts-list"></div>
           </div>
         </div>
 
@@ -2994,6 +3015,151 @@
 <div class="modal-overlay" id="admMsgLightbox" style="z-index:660" onclick="closeAdmMsgLightbox()">
   <div style="margin:auto;max-width:92vw;max-height:88vh;display:flex;align-items:center;justify-content:center">
     <img id="admMsgLightboxImg" src="" alt="" style="max-width:92vw;max-height:88vh;border-radius:8px">
+  </div>
+</div>
+
+<!-- 일괄 발송 모달 (PR 3, 마이그레이션 167) -->
+<div class="modal-overlay" id="bulkMessageModal" style="z-index:655">
+  <div class="modal" style="max-width:720px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;min-height:min(720px,86vh);max-height:90vh">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)" id="bulkMsgTitle">일괄 발송 · 대상 선택</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBulkMessageModal()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:14px">
+      <!-- STEP 1: 대상 선택 -->
+      <div id="bulkStep1" style="display:flex;flex-direction:column;gap:14px">
+        <div id="bulkPresetInfo" style="display:none;font-size:13px;color:var(--muted);background:var(--bg);border-radius:10px;padding:10px 12px"></div>
+        <div id="bulkCampaignPick">
+          <!-- ① 캠페인 상태 + 모집 타입 먼저 선택 → 조건에 맞는 캠페인만 목록에 노출 -->
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">① 캠페인 상태 <span style="font-size:11px">(먼저 선택)</span></div>
+          <div id="bulkStatusChips" class="bulk-chk-row" style="margin-bottom:12px"></div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">모집 타입 <span style="font-size:11px">(선택 · 미선택 시 전체)</span></div>
+          <div id="bulkRecruitTypeChips" class="bulk-chk-row" style="margin-bottom:14px"></div>
+          <!-- ② 캠페인 선택 (상태 선택 후 노출). 「전체 선택」은 드롭다운 맨 위 항목으로 통일 -->
+          <div id="bulkCampaignSelectWrap" style="display:none">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">② 캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 맨 위 「전체 선택」 · 이름·번호 검색)</span></div>
+            <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인을 선택하세요</button><div class="mf-drop"></div></div>
+            <div id="bulkCampaignEmpty" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">선택한 조건의 캠페인이 없습니다. 다른 상태·타입을 골라주세요.</div>
+          </div>
+        </div>
+        <div id="bulkFilters" style="display:none;flex-direction:column;gap:12px">
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">③ 응모 상태</div>
+            <div id="bulkAppStatus" class="bulk-chk-row"></div>
+          </div>
+          <div id="bulkDelivWrap">
+            <div id="bulkReceiptWrap" style="display:none;margin-bottom:12px">
+              <div style="font-size:13px;color:var(--muted);margin-bottom:6px">영수증 상태 <span style="font-size:11px">(리뷰어 캠페인)</span></div>
+              <div id="bulkReceiptStatus" class="bulk-chk-row"></div>
+            </div>
+            <div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:6px">결과물 상태 <span style="font-size:11px">(게시물·리뷰 이미지)</span></div>
+              <div id="bulkPostStatus" class="bulk-chk-row"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">④ 인플루언서 상태</div>
+            <div id="bulkInflFilters" class="bulk-chk-row">
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflVerified" onchange="scheduleBulkRecount()">인증된 인플루언서만</label>
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflNoViolation" onchange="scheduleBulkRecount()">위반 이력 제외</label>
+              <label class="bulk-chk"><input type="checkbox" id="bulkInflNoBlacklist" checked onchange="scheduleBulkRecount()">블랙리스트 제외</label>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">지역 <span style="font-size:11px">(도도부현 · 미선택 시 전체 · 배송지 미등록 제외)</span></div>
+            <div id="bulkPrefectureMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">전체 지역</button><div class="mf-drop"></div></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">SNS 채널 <span style="font-size:11px">(인플루언서 보유 채널 · 미선택 시 전체)</span></div>
+            <div id="bulkSnsChannels" class="bulk-chk-row"></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">팔로워수 <span style="font-size:11px">(비우면 제한 없음)</span></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label class="bulk-chk"><input type="radio" name="bulkFollowerMode" value="per_channel" checked onchange="onBulkFollowerModeChange()">채널별</label>
+              <label class="bulk-chk"><input type="radio" name="bulkFollowerMode" value="sum" onchange="onBulkFollowerModeChange()">합산</label>
+              <select id="bulkFollowerChannel" class="admin-select" style="width:140px;font-size:13px" onchange="scheduleBulkRecount()">
+                <option value="instagram">Instagram</option>
+                <option value="x">X(Twitter)</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+              </select>
+              <input type="number" id="bulkMinFollowers" min="0" class="admin-select" style="width:120px;font-size:13px" oninput="scheduleBulkRecount()" placeholder="예: 5000">
+              <span style="font-size:12px;color:var(--muted)">이상</span>
+            </div>
+          </div>
+        </div>
+        <div class="bulk-count-box" id="bulkCountBox" style="display:none;background:var(--bg);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--ink)">
+          선택된 수신자 <b id="bulkCount" style="color:var(--brand,#16A34A)">0</b>명
+          <span id="bulkCountLoading" style="display:none;font-size:12px;color:var(--muted)"> · 계산 중…</span>
+          <span id="bulkCancelledNote" style="display:block;font-size:11px;color:var(--muted);margin-top:4px">취소(cancelled)한 응모는 제외됩니다.</span>
+        </div>
+      </div>
+      <!-- STEP 2: 본문 작성 -->
+      <div id="bulkStep2" style="display:none;flex-direction:column;gap:12px">
+        <div style="font-size:13px;color:var(--ink);background:var(--bg);border-radius:10px;padding:10px 12px">
+          받는 사람 <b id="bulkCount2">0</b>명 — 각자의 1:1 대화방으로 도착하며 <b>서로 누가 받았는지 모릅니다(BCC)</b>.
+        </div>
+        <div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">발송 제목 <span style="font-size:11px">(관리자용 · 선택)</span></div>
+          <input type="text" id="bulkTitle" maxlength="100" style="width:100%;font-size:14px" placeholder="예: 5월 결과물 미제출자 리마인드">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">이 제목은 관리자만 볼 수 있습니다. 인플루언서에게는 아래 본문만 전달됩니다.</div>
+        </div>
+        <textarea id="bulkBody" rows="6" style="width:100%;font-size:14px;resize:vertical" placeholder="보낼 메시지를 입력하세요. (이번 일괄 발송은 텍스트 전용입니다)"></textarea>
+        <div id="bulkConfirmOver" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px 12px">
+          <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#9A3412;cursor:pointer">
+            <input type="checkbox" id="bulkConfirmCheck" onchange="onBulkConfirmCheck()" style="margin-top:2px">
+            <span><b id="bulkOverCount">0</b>명은 평소 발송 규모보다 많습니다. 캠페인·필터를 다시 확인했습니다.</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost" id="bulkBackBtn" onclick="bulkStepBack()" style="display:none">이전</button>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="closeBulkMessageModal()">취소</button>
+        <button class="btn btn-primary" id="bulkNextBtn" onclick="bulkStepNext()" disabled>다음</button>
+        <button class="btn btn-primary" id="bulkSendBtn" onclick="confirmBulkSend()" style="display:none">발송</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 발송 이력 상세 모달 (PR 3) -->
+<div class="modal-overlay" id="broadcastDetailModal" style="z-index:655">
+  <div class="modal" style="max-width:600px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;max-height:88vh">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)">발송 상세</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBroadcastDetail()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" id="broadcastDetailBody" style="padding:16px 20px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px"></div>
+    <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeBroadcastDetail()">닫기</button>
+      <button class="btn btn-danger" id="broadcastWithdrawBtn" onclick="openBroadcastWithdraw()" style="display:none">전체 회수</button>
+    </div>
+  </div>
+</div>
+
+<!-- 일괄 회수 사유 모달 (PR 3) -->
+<div class="modal-overlay" id="broadcastWithdrawModal" style="z-index:660">
+  <div class="modal" style="max-width:440px;border-radius:18px;margin:auto;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--ink)">일괄 발송 회수</div>
+      <button class="btn btn-ghost btn-xs" onclick="closeBroadcastWithdraw()" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;color:var(--muted)">회수하면 받은 사람 모두의 화면에서 이 메시지가 가려집니다.</div>
+      <label style="font-size:13px;color:var(--muted)">회수 사유
+        <select id="broadcastWithdrawReason" class="admin-select" style="width:100%;margin-top:6px"></select>
+      </label>
+      <label style="font-size:13px;color:var(--muted)">메모 (선택)
+        <textarea id="broadcastWithdrawMemo" rows="3" style="width:100%;margin-top:6px;font-size:14px" placeholder="추가 설명 (선택)"></textarea>
+      </label>
+    </div>
+    <div class="modal-footer" style="padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeBroadcastWithdraw()">취소</button>
+      <button class="btn btn-danger" onclick="confirmBroadcastWithdraw()">회수</button>
+    </div>
   </div>
 </div>
 

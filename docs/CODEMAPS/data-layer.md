@@ -105,7 +105,7 @@
 - 운영 현황: `get_brand_ops_overview` / `get_brand_ops_detail`(≈120)
 - 홍보 메일 헬퍼: `get_promo_digest_targets` / `mark_promo_digest_sent` / `track_promo_click`(141)
 
-## 마이그레이션 최근 흐름 (125~144)
+## 마이그레이션 최근 흐름 (125~167)
 ```
 128 receipt_required_fields        영수증 필수 필드(order_number/purchase_date/purchase_amount)
 129 remove_post_deadline           campaigns.post_deadline 제거(노출 토글로 교체)
@@ -120,12 +120,35 @@
 142 promo_digest_cron               캠페인 홍보 메일 cron 스케줄
 143 promo_targets_total_counts      홍보 메일 대상 건수 집계
 144 application_messages            응모건 메시지 PR 1 (테이블/뷰/RPC/트리거)
+145 application_messages_pr2        응모건 메시지 PR 2 (관리자 발신/숨김/응대)
+146 faq_nodes_and_interactions      자동응답 FAQ 트리/측정
+147 companies_backfill              회사명 기반 회사 마스터 백필
+148 brand_ops_alert_reasons         운영 현황 사유 배너
+149 brand_ops_detail_camp_expand    브랜드 상세 캠페인 확장
+150 brand_ops_detail_camp_periods   브랜드 상세 구매/방문 기간
+151 campaign_application_counts     캠페인 신청 카운트 DB 집계
+152 admin_promo_email_subscription  관리자 홍보 메일 구독
+153 policy_notice_log               약관 30일 사전 통지 로그
+154 application_approved_notification 승인 알림 트리거
+155 faq_nodes_text_fix              FAQ 문구 정정
+156 campaign_status_ended           closed→ended 자동 전이
+157 lips_cosme_channels             LIPS/@cosme 채널(리뷰어 전용)
+158 review_image_channel_unique     리뷰어 채널별 결과물 유니크
+159 review_image_channel_notification 채널별 결과물 알림
+160 admin_proxy_deliverable         관리자 결과물 대리 등록
+161 admin_proxy_notify_reason_label 대리 등록 알림 사유 라벨
+162 review_image_channel_assign     레거시 결과물 채널 지정
+163 admin_proxy_evidence            대리 등록 증빙
+164 admin_email_consolidation       관리자 메일 종류 통합(daily_digest)
+165 client_error_logs               사용자 앱 에러 수집
+166 influencer_flags_retention      위반 기록 3년 정리 cron
+167 bulk_message                    응모건 메시지 일괄 발송(PR 3) RPC 4종
 ```
 > 정확한 번호·파일명은 항상 `ls supabase/migrations/` 로 확인.
 
 ## 환경 분기 (supabase.js)
 - `SUPABASE_ENVS` — production / staging 2개
-  - production: `twofagomeizrtkwlhsuv.supabase.co` (globalreverb.com, www.globalreverb.com)
+  - production: `nrwtujmlbktxjgdwlpjj.supabase.co` (globalreverb.com, www.globalreverb.com) — 🇯🇵 Tokyo, 2026-05-27 이관
   - staging: `qysmxtipobomefudyixw.supabase.co` (dev.globalreverb.com, localhost, 그 외 전부)
 - `resolveSupabaseEnv(hostname)` — 운영 도메인만 엄격 매칭, 나머지는 staging
 - 전역 플래그: `IS_STAGING`, `window.__REVERB_ENV__`

@@ -1137,6 +1137,9 @@
 .inbox-thread-right{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .inbox-thread-chips{display:flex;align-items:center;gap:4px}
 .inbox-thread-name{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 「내가 보낸 순」 — 좌측 캠페인 목록 비활성, 대화 카드에 캠페인·브랜드 라벨 */
+.inbox-camp-disabled{opacity:.45;pointer-events:none}
+.inbox-thread-camp{display:block;font-size:11px;font-weight:600;color:var(--dark-pink,#c2185b);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-kana{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
 .inbox-thread-email{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox-thread-preview{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}
@@ -1430,3 +1433,35 @@
 .admin-detail-label { flex-shrink: 0; width: 84px; color: var(--muted); font-weight: 600; }
 .admin-input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--ink); background: #fff; }
 .admin-input:focus { outline: none; border-color: var(--pink); }
+
+/* ── 일괄 발송 / 발송 이력 (PR 3, 마이그레이션 167) ── */
+.inbox-tabs { display: flex; gap: 4px; }
+.inbox-tab { padding: 5px 12px; border: 1px solid var(--line); background: #fff; border-radius: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.inbox-tab.is-active { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
+.bulk-chk-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.bulk-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink); cursor: pointer; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.bulk-chk input { margin: 0; }
+.broadcasts-list { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; }
+.broadcast-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff; }
+.broadcast-row:hover { background: var(--bg); }
+.broadcast-row-main { flex: 1; min-width: 0; }
+.broadcast-row-preview { font-size: 14px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.broadcast-row-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.broadcast-badge { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 11px; }
+.broadcast-badge-withdrawn { background: #FEF2F2; color: #991B1B; }
+.broadcast-recips { display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow: auto; }
+.broadcast-recip { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.broadcast-recip:hover { background: var(--bg); }
+.broadcast-recip-name { font-weight: 600; color: var(--ink); }
+.broadcast-recip-camp { flex: 1; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.broadcast-recip-status { font-size: 11px; color: var(--muted); }
+/* mf-wrap 은 기본 display:inline-block 이라 폭이 버튼 내용 기준으로 좁아짐 → 모달 안에서는 전체폭으로 */
+#bulkCampaignMulti, #bulkPrefectureMulti { display: block; width: 100%; }
+/* 캠페인 드롭다운 — 모달 overflow 안에서 absolute 는 캠페인이 많으면 잘리므로, 지역과 동일하게 문서 흐름(static)으로 아래 펼침 */
+#bulkCampaignMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
+/* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
+#bulkCampaignMulti .mf-item-sub { font-family: inherit; }
+/* 지역(도도부현) 드롭다운 — 모달 하단이라 absolute 로 띄우면 아래가 잘림 → 문서 흐름(static)으로 펼쳐 모달 스크롤로 보이게 */
+#bulkPrefectureMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 220px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
+/* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
+.mf-selected-divider { border-top: 1px solid var(--outline); margin: 4px 0; }
