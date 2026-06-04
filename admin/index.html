@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780539628';
+  var CURRENT_BUILD = 'v1780544140';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1907,6 +1907,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 #bulkCampaignMulti .mf-drop { left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,.16); border: 1px solid var(--line); }
 /* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
 #bulkCampaignMulti .mf-item-sub { font-family: inherit; }
+/* 지역(도도부현) 드롭다운 — 모달 하단이라 absolute 로 띄우면 아래가 잘림 → 문서 흐름(static)으로 펼쳐 모달 스크롤로 보이게 */
+#bulkPrefectureMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 220px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
 .mf-selected-divider { border-top: 1px solid var(--outline); margin: 4px 0; }
 
@@ -1985,7 +1987,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-04 11:20 · f4ffbb6</span>
+          <span class="admin-build-text">2026-06-04 12:35 · 529daf3</span>
         </div>
       </div>
     </aside>
@@ -4901,20 +4903,34 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
           </div>
           <div>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">채널 <span style="font-size:11px">(해당 채널 계정 보유자)</span></div>
-            <div id="bulkChannels" class="bulk-chk-row"></div>
-          </div>
-          <div>
-            <label style="font-size:13px;color:var(--muted)">최소 팔로워수 <span style="font-size:11px">(비우면 제한 없음)</span>
-              <input type="number" id="bulkMinFollowers" min="0" class="admin-select" style="width:160px;margin-top:6px" oninput="scheduleBulkRecount()" placeholder="예: 5000">
-            </label>
-          </div>
-          <div>
             <div style="font-size:13px;color:var(--muted);margin-bottom:6px">④ 인플루언서 상태</div>
             <div id="bulkInflFilters" class="bulk-chk-row">
               <label class="bulk-chk"><input type="checkbox" id="bulkInflVerified" onchange="scheduleBulkRecount()">인증된 인플루언서만</label>
               <label class="bulk-chk"><input type="checkbox" id="bulkInflNoViolation" onchange="scheduleBulkRecount()">위반 이력 제외</label>
               <label class="bulk-chk"><input type="checkbox" id="bulkInflNoBlacklist" checked onchange="scheduleBulkRecount()">블랙리스트 제외</label>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">지역 <span style="font-size:11px">(도도부현 · 미선택 시 전체 · 배송지 미등록 제외)</span></div>
+            <div id="bulkPrefectureMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">전체 지역</button><div class="mf-drop"></div></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">SNS 채널 <span style="font-size:11px">(인플루언서 보유 채널 · 미선택 시 전체)</span></div>
+            <div id="bulkSnsChannels" class="bulk-chk-row"></div>
+          </div>
+          <div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">팔로워수 <span style="font-size:11px">(비우면 제한 없음)</span></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <label class="bulk-chk"><input type="radio" name="bulkFollowerMode" value="per_channel" checked onchange="onBulkFollowerModeChange()">채널별</label>
+              <label class="bulk-chk"><input type="radio" name="bulkFollowerMode" value="sum" onchange="onBulkFollowerModeChange()">합산</label>
+              <select id="bulkFollowerChannel" class="admin-select" style="width:140px;font-size:13px" onchange="scheduleBulkRecount()">
+                <option value="instagram">Instagram</option>
+                <option value="x">X(Twitter)</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+              </select>
+              <input type="number" id="bulkMinFollowers" min="0" class="admin-select" style="width:120px;font-size:13px" oninput="scheduleBulkRecount()" placeholder="예: 5000">
+              <span style="font-size:12px;color:var(--muted)">이상</span>
             </div>
           </div>
         </div>
@@ -8485,20 +8501,26 @@ async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
 }
 
 // 캠페인 단위 발송 대상 응모 id 해결 (cancelled 항상 제외). 미리보기 카운트 = 배열 길이.
-//   filters: { appStatuses[], receiptStatuses[], postStatuses[], channels[], minFollowers,
+//   filters: { appStatuses[], receiptStatuses[], postStatuses[], channels[](인플 보유 SNS),
+//              prefectures[](지역), followerMode('per_channel'|'sum'), followerChannel, minFollowers,
 //              requireVerified, excludeViolation, excludeBlacklist }
 //   - receiptStatuses: 영수증(kind='receipt') 결과물 상태 / postStatuses: 게시물·리뷰이미지 상태
+//   - 팔로워: minFollowers 있을 때 followerMode 로 해석(채널별=followerChannel 기준 / 합산)
 //   - excludeBlacklist 기본 true (명시적 false 일 때만 블랙리스트 포함)
 //   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
 async function resolveBulkRecipients(campaignId, filters = {}) {
   if (!db || !campaignId) return [];
+  const hasFollower = (filters.minFollowers != null && filters.minFollowers !== '');
   const {data, error} = await db.rpc('resolve_bulk_recipients', {
     p_campaign_id: campaignId,
     p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
     p_receipt_statuses: filters.receiptStatuses && filters.receiptStatuses.length ? filters.receiptStatuses : null,
     p_post_statuses: filters.postStatuses && filters.postStatuses.length ? filters.postStatuses : null,
     p_channels: filters.channels && filters.channels.length ? filters.channels : null,
-    p_min_followers: (filters.minFollowers != null && filters.minFollowers !== '') ? Number(filters.minFollowers) : null,
+    p_prefectures: filters.prefectures && filters.prefectures.length ? filters.prefectures : null,
+    p_follower_mode: hasFollower ? (filters.followerMode || 'per_channel') : null,
+    p_follower_channel: filters.followerChannel || null,
+    p_min_followers: hasFollower ? Number(filters.minFollowers) : null,
     p_require_verified: !!filters.requireVerified,
     p_exclude_violation: !!filters.excludeViolation,
     p_exclude_blacklist: filters.excludeBlacklist !== false,
@@ -15869,10 +15891,16 @@ function openBulkMessageModal(presetAppIds) {
     renderBulkRecruitTypeChips();   // 모집 타입 칩 (미선택 = 전체)
     document.getElementById('bulkCampaignSelectWrap').style.display = 'none';
     renderBulkStatusFilters();    // 응모·영수증·결과물 status 체크박스 (기본값)
+    renderBulkSnsChannels();      // ④ 인플 보유 SNS 채널 4종 체크박스
+    renderBulkPrefectureMulti();  // ④ 지역(도도부현) 다중선택
+    if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkPrefectureMulti', '전체 지역');
     // 인플 상태 토글 기본값 복원 (블랙리스트 제외만 기본 켜짐)
     const v = document.getElementById('bulkInflVerified'); if (v) v.checked = false;
     const nv = document.getElementById('bulkInflNoViolation'); if (nv) nv.checked = false;
     const nb = document.getElementById('bulkInflNoBlacklist'); if (nb) nb.checked = true;
+    // 팔로워 필터 기본값: 채널별·Instagram·빈값
+    const fmPer = document.querySelector('input[name="bulkFollowerMode"][value="per_channel"]'); if (fmPer) fmPer.checked = true;
+    const fc = document.getElementById('bulkFollowerChannel'); if (fc) { fc.value = 'instagram'; fc.style.display = ''; }
     document.getElementById('bulkMinFollowers').value = '';
     const t = document.getElementById('bulkTitle'); if (t) t.value = '';
   }
@@ -15964,7 +15992,6 @@ function onBulkCampaignChange() {
     document.getElementById('bulkNextBtn').disabled = true;
     return;
   }
-  renderBulkChannelFilter(ids);        // 선택 캠페인들의 채널 합집합
   renderBulkReceiptVisibility(ids);    // 리뷰어(monitor) 포함 시에만 영수증 필터 노출
   document.getElementById('bulkFilters').style.display = 'flex';
   document.getElementById('bulkCountBox').style.display = 'block';
@@ -15989,19 +16016,28 @@ function renderBulkStatusFilters() {
   document.getElementById('bulkPostStatus').innerHTML = BULK_DELIV_STATUSES.map(delivChk).join('');
 }
 
-// 채널 체크박스 — 선택 캠페인들의 channel CSV 합집합. 재렌더 시 기존 선택 보존.
-function renderBulkChannelFilter(campaignIds) {
-  const prevSel = new Set(Array.from(document.querySelectorAll('#bulkChannels input:checked')).map(i => i.value));
-  const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : []);
-  const chanSet = new Set();
-  campaignIds.forEach(cid => {
-    const camp = camps.find(c => c.id === cid);
-    (camp?.channel || '').split(',').map(s => s.trim()).filter(Boolean).forEach(ch => chanSet.add(ch));
-  });
-  const chans = Array.from(chanSet);
-  document.getElementById('bulkChannels').innerHTML = chans.length
-    ? chans.map(ch => `<label class="bulk-chk"><input type="checkbox" value="${esc(ch)}" ${prevSel.has(ch) ? 'checked' : ''} onchange="scheduleBulkRecount()">${esc(typeof getChannelLabel === 'function' ? getChannelLabel(ch) : ch)}</label>`).join('')
-    : '<span style="font-size:12px;color:var(--muted)">채널 정보 없음</span>';
+// ④ 인플 보유 SNS 채널 — 핸들 컬럼 있는 4종만 정확 판정(Qoo10·LIPS·@cosme는 보유 데이터 없음). 모달 열 때 1회 렌더.
+const BULK_SNS_CHANNELS = [['instagram', 'Instagram'], ['x', 'X(Twitter)'], ['tiktok', 'TikTok'], ['youtube', 'YouTube']];
+function renderBulkSnsChannels() {
+  document.getElementById('bulkSnsChannels').innerHTML = BULK_SNS_CHANNELS.map(([code, label]) =>
+    `<label class="bulk-chk"><input type="checkbox" value="${code}" onchange="scheduleBulkRecount()">${label}</label>`).join('');
+}
+
+// ④ 지역(도도부현) 다중선택 — PREFECTURE_KO(일본어 키 → 한국어 라벨) 재사용. 선택 변경 → recount.
+function renderBulkPrefectureMulti() {
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  const options = Object.keys(map).map(ja => ({ value: ja, label: map[ja], subLabel: '', count: null }));
+  if (typeof syncMultiFilter === 'function') {
+    syncMultiFilter('bulkPrefectureMulti', '전체 지역', options, scheduleBulkRecount, { searchable: true, searchPlaceholder: '지역 검색' });
+  }
+}
+
+// 팔로워 모드 전환 — 채널별이면 기준 채널 select 노출, 합산이면 숨김. 변경 시 recount.
+function onBulkFollowerModeChange() {
+  const mode = document.querySelector('input[name="bulkFollowerMode"]:checked')?.value;
+  const sel = document.getElementById('bulkFollowerChannel');
+  if (sel) sel.style.display = (mode === 'per_channel') ? '' : 'none';
+  scheduleBulkRecount();
 }
 
 function collectBulkFilters() {
@@ -16011,10 +16047,14 @@ function collectBulkFilters() {
   // 결과물·영수증 상태 필터는 응모상태 승인 포함 시만 의미. 영수증은 추가로 리뷰어 캠페인 포함 시만.
   const postStatuses = approved ? pick('bulkPostStatus') : [];
   const receiptStatuses = (approved && _bulkState && _bulkState.hasMonitor) ? pick('bulkReceiptStatus') : [];
-  const channels = pick('bulkChannels');
+  const channels = pick('bulkSnsChannels');   // ④ 인플 보유 SNS 채널 (4종)
+  const prefectures = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('bulkPrefectureMulti') : [];
+  const followerMode = document.querySelector('input[name="bulkFollowerMode"]:checked')?.value || 'per_channel';
+  const followerChannel = document.getElementById('bulkFollowerChannel')?.value || 'instagram';
   const mf = document.getElementById('bulkMinFollowers').value;
   return {
-    appStatuses, receiptStatuses, postStatuses, channels, minFollowers: mf,
+    appStatuses, receiptStatuses, postStatuses, channels, prefectures,
+    followerMode, followerChannel, minFollowers: mf,
     requireVerified: document.getElementById('bulkInflVerified')?.checked || false,
     excludeViolation: document.getElementById('bulkInflNoViolation')?.checked || false,
     excludeBlacklist: document.getElementById('bulkInflNoBlacklist')?.checked !== false,

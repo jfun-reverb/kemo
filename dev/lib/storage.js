@@ -2799,20 +2799,26 @@ async function withdrawBroadcast(broadcastId, reasonCode, reasonMemo = null) {
 }
 
 // 캠페인 단위 발송 대상 응모 id 해결 (cancelled 항상 제외). 미리보기 카운트 = 배열 길이.
-//   filters: { appStatuses[], receiptStatuses[], postStatuses[], channels[], minFollowers,
+//   filters: { appStatuses[], receiptStatuses[], postStatuses[], channels[](인플 보유 SNS),
+//              prefectures[](지역), followerMode('per_channel'|'sum'), followerChannel, minFollowers,
 //              requireVerified, excludeViolation, excludeBlacklist }
 //   - receiptStatuses: 영수증(kind='receipt') 결과물 상태 / postStatuses: 게시물·리뷰이미지 상태
+//   - 팔로워: minFollowers 있을 때 followerMode 로 해석(채널별=followerChannel 기준 / 합산)
 //   - excludeBlacklist 기본 true (명시적 false 일 때만 블랙리스트 포함)
 //   반환: uuid[] (조건 만족 application id 배열, 빈 배열 가능)
 async function resolveBulkRecipients(campaignId, filters = {}) {
   if (!db || !campaignId) return [];
+  const hasFollower = (filters.minFollowers != null && filters.minFollowers !== '');
   const {data, error} = await db.rpc('resolve_bulk_recipients', {
     p_campaign_id: campaignId,
     p_app_statuses: filters.appStatuses && filters.appStatuses.length ? filters.appStatuses : null,
     p_receipt_statuses: filters.receiptStatuses && filters.receiptStatuses.length ? filters.receiptStatuses : null,
     p_post_statuses: filters.postStatuses && filters.postStatuses.length ? filters.postStatuses : null,
     p_channels: filters.channels && filters.channels.length ? filters.channels : null,
-    p_min_followers: (filters.minFollowers != null && filters.minFollowers !== '') ? Number(filters.minFollowers) : null,
+    p_prefectures: filters.prefectures && filters.prefectures.length ? filters.prefectures : null,
+    p_follower_mode: hasFollower ? (filters.followerMode || 'per_channel') : null,
+    p_follower_channel: filters.followerChannel || null,
+    p_min_followers: hasFollower ? Number(filters.minFollowers) : null,
     p_require_verified: !!filters.requireVerified,
     p_exclude_violation: !!filters.excludeViolation,
     p_exclude_blacklist: filters.excludeBlacklist !== false,
