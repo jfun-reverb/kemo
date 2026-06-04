@@ -1199,18 +1199,20 @@
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>기간</label>
-                <select class="admin-select" onchange="changeInboxSince(this.value)">
+                <select id="inboxSinceSelect" class="admin-select" onchange="changeInboxSince(this.value)">
                   <option value="6">최근 6개월</option>
                   <option value="3">최근 3개월</option>
                   <option value="12">최근 1년</option>
                   <option value="120">전체</option>
+                  <option value="custom">직접 선택</option>
                 </select>
               </div>
-              <div class="admin-filter-group">
-                <label>달력 기간 <span style="font-size:10px;color:var(--muted)">(지정 시 우선)</span></label>
-                <div style="display:flex;gap:4px;align-items:center">
-                  <input type="text" id="inboxDateRange" class="admin-select" style="width:180px" placeholder="○월 ○일 ~ ○월 ○일" readonly>
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="clearInboxDateRange()" style="padding:2px 8px" title="달력 기간 해제">✕</button>
+              <div class="admin-filter-group" id="inboxCustomRange" style="display:none">
+                <label>날짜 직접 선택</label>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="date" id="inboxDateFrom" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
+                  <span style="color:var(--muted)">~</span>
+                  <input type="date" id="inboxDateTo" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
                 </div>
               </div>
               <div class="admin-filter-group">

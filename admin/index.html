@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780551726';
+  var CURRENT_BUILD = 'v1780551862';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1568,6 +1568,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .inbox-3pane.stage-view .inbox-col-camps{flex:1}
 .inbox-3pane.stage-view .inbox-col-threads{flex:1}
 .inbox-3pane.stage-view .inbox-col-view{flex:3}
+/* 「내가 보낸 순」 평면 모드 — 좌측 캠페인 영역 숨김(캠페인 선택 무의미), 대화 목록을 넓게 */
+.inbox-3pane.inbox-flat .inbox-col-camps{display:none}
 /* 좌: 캠페인 정보 카드 (좌측 정보 + 우측 미응대 배지) */
 .inbox-camp-item{display:flex;flex-direction:row;align-items:center;gap:8px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
 .inbox-camp-item:hover{background:var(--light-pink)}
@@ -1991,7 +1993,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-04 14:42 · 2df7d11</span>
+          <span class="admin-build-text">2026-06-04 14:44 · cd2d49a</span>
         </div>
       </div>
     </aside>
@@ -3058,18 +3060,20 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>기간</label>
-                <select class="admin-select" onchange="changeInboxSince(this.value)">
+                <select id="inboxSinceSelect" class="admin-select" onchange="changeInboxSince(this.value)">
                   <option value="6">최근 6개월</option>
                   <option value="3">최근 3개월</option>
                   <option value="12">최근 1년</option>
                   <option value="120">전체</option>
+                  <option value="custom">직접 선택</option>
                 </select>
               </div>
-              <div class="admin-filter-group">
-                <label>달력 기간 <span style="font-size:10px;color:var(--muted)">(지정 시 우선)</span></label>
-                <div style="display:flex;gap:4px;align-items:center">
-                  <input type="text" id="inboxDateRange" class="admin-select" style="width:180px" placeholder="○월 ○일 ~ ○월 ○일" readonly>
-                  <button type="button" class="btn btn-ghost btn-xs" onclick="clearInboxDateRange()" style="padding:2px 8px" title="달력 기간 해제">✕</button>
+              <div class="admin-filter-group" id="inboxCustomRange" style="display:none">
+                <label>날짜 직접 선택</label>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="date" id="inboxDateFrom" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
+                  <span style="color:var(--muted)">~</span>
+                  <input type="date" id="inboxDateTo" class="admin-select" style="width:140px" onchange="applyInboxCustomRange()">
                 </div>
               </div>
               <div class="admin-filter-group">
@@ -14970,7 +14974,6 @@ let _inboxFilters = { unresolvedOnly: false, sinceMonths: 6, fromIso: null, toIs
 let _inboxSort = 'recent';              // 'recent'(최근 메시지순) | 'unresolved'(미응대 우선) | 'sent'(내가 보낸 순)
 let _inboxSearch = '';                  // 받은편지함 검색어 (인플 이름·이메일·캠페인명·미리보기)
 let _inboxSentAtMap = new Map();        // 'sent' 정렬용 — application_id → 본인 최신 발신 시각
-let _inboxDatePicker = null;            // flatpickr 인스턴스 (받은편지함 기간 달력)
 
 // 메시지 모달/패널 공용 상태
 let _admMsgAppId = null;                // 현재 열린 응모건
@@ -15013,7 +15016,6 @@ async function loadMessagesInbox() {
   switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
-  initInboxDatePicker();            // 기간 달력 1회 초기화
   await refreshInboxData();
   updateInboxStage();
 }
@@ -15045,8 +15047,13 @@ function updateInboxStage() {
   const pane = document.querySelector('.inbox-3pane');
   if (!pane) return;
   pane.classList.remove('stage-campaigns', 'stage-threads', 'stage-view');
+  const sentMode = _inboxSort === 'sent';
+  pane.classList.toggle('inbox-flat', sentMode);   // 평면 모드 = 좌측 캠페인 영역 숨김(CSS)
   const threadOpen = _admMsgContext === 'inbox' && _admMsgAppId;
-  if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
+  if (sentMode) {
+    // 「내가 보낸 순」: 좌측 숨김 → 대화 목록(중)을 넓게, 대화 열면 내용(우)
+    pane.classList.add(threadOpen ? 'stage-view' : 'stage-threads');
+  } else if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
   else if (!threadOpen) pane.classList.add('stage-threads');
   else pane.classList.add('stage-view');
 }
@@ -15257,8 +15264,24 @@ function toggleInboxUnresolved(checked) {
   renderInboxCampaignList();
   renderInboxThreadList();
 }
-function changeInboxSince(months) {
-  _inboxFilters.sinceMonths = Number(months) || 6;
+function changeInboxSince(v) {
+  const custom = document.getElementById('inboxCustomRange');
+  if (v === 'custom') {
+    // 「직접 선택」 → 날짜 입력칸 노출. 실제 적용은 날짜 입력 시 applyInboxCustomRange
+    if (custom) custom.style.display = '';
+    return;
+  }
+  if (custom) custom.style.display = 'none';
+  _inboxFilters.sinceMonths = Number(v) || 6;
+  _inboxFilters.fromIso = null; _inboxFilters.toIso = null;   // 상대 기간으로 복귀
+  refreshInboxData();
+}
+// 「직접 선택」 날짜 입력 적용 — 시작 00:00 ~ 종료 23:59 (한쪽만 입력해도 단방향 적용)
+function applyInboxCustomRange() {
+  const f = document.getElementById('inboxDateFrom')?.value;
+  const t = document.getElementById('inboxDateTo')?.value;
+  _inboxFilters.fromIso = f ? new Date(f + 'T00:00:00').toISOString() : null;
+  _inboxFilters.toIso = t ? new Date(t + 'T23:59:59').toISOString() : null;
   refreshInboxData();
 }
 function changeInboxSort(v) {
@@ -15274,34 +15297,10 @@ function changeInboxSort(v) {
   } else {
     renderInboxCampaignList();
     renderInboxThreadList();
+    updateInboxStage();   // 평면 모드(inbox-flat) 해제 → 좌측 캠페인 영역 복귀
   }
 }
 
-// 받은편지함 기간 달력(flatpickr range) — loadMessagesInbox 진입 시 1회 초기화
-function initInboxDatePicker() {
-  const input = document.getElementById('inboxDateRange');
-  if (!input || typeof flatpickr === 'undefined' || _inboxDatePicker) return;
-  _inboxDatePicker = flatpickr(input, {
-    mode: 'range', dateFormat: 'Y-m-d', locale: 'ko', maxDate: 'today',
-    onClose: (selectedDates) => {
-      if (selectedDates.length === 2) {
-        const [s, e] = selectedDates;
-        _inboxFilters.fromIso = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0).toISOString();
-        _inboxFilters.toIso = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59).toISOString();
-        refreshInboxData();
-      } else if (selectedDates.length === 0) {
-        _inboxFilters.fromIso = null; _inboxFilters.toIso = null;
-        refreshInboxData();
-      }
-    },
-  });
-}
-// 달력 기간 해제 → 상대 기간(6개월 등)으로 복귀
-function clearInboxDateRange() {
-  if (_inboxDatePicker) _inboxDatePicker.clear();
-  _inboxFilters.fromIso = null; _inboxFilters.toIso = null;
-  refreshInboxData();
-}
 // 받은편지함 검색 — 인플 이름·이메일·캠페인명으로 대화 목록 필터
 //   (대화 내용 검색은 대화창 상단 검색창에서 — 여기는 목록 찾기 전용)
 function searchInbox(query) {

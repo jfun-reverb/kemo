@@ -22,7 +22,6 @@ let _inboxFilters = { unresolvedOnly: false, sinceMonths: 6, fromIso: null, toIs
 let _inboxSort = 'recent';              // 'recent'(최근 메시지순) | 'unresolved'(미응대 우선) | 'sent'(내가 보낸 순)
 let _inboxSearch = '';                  // 받은편지함 검색어 (인플 이름·이메일·캠페인명·미리보기)
 let _inboxSentAtMap = new Map();        // 'sent' 정렬용 — application_id → 본인 최신 발신 시각
-let _inboxDatePicker = null;            // flatpickr 인스턴스 (받은편지함 기간 달력)
 
 // 메시지 모달/패널 공용 상태
 let _admMsgAppId = null;                // 현재 열린 응모건
@@ -65,7 +64,6 @@ async function loadMessagesInbox() {
   switchInboxTab('inbox');          // 페인 진입 시 받은편지함 탭 기본
   const wrap = document.getElementById('inboxThreadView');
   if (wrap) wrap.innerHTML = '<div class="inbox-empty">대화를 선택하세요.</div>';
-  initInboxDatePicker();            // 기간 달력 1회 초기화
   await refreshInboxData();
   updateInboxStage();
 }
@@ -97,8 +95,13 @@ function updateInboxStage() {
   const pane = document.querySelector('.inbox-3pane');
   if (!pane) return;
   pane.classList.remove('stage-campaigns', 'stage-threads', 'stage-view');
+  const sentMode = _inboxSort === 'sent';
+  pane.classList.toggle('inbox-flat', sentMode);   // 평면 모드 = 좌측 캠페인 영역 숨김(CSS)
   const threadOpen = _admMsgContext === 'inbox' && _admMsgAppId;
-  if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
+  if (sentMode) {
+    // 「내가 보낸 순」: 좌측 숨김 → 대화 목록(중)을 넓게, 대화 열면 내용(우)
+    pane.classList.add(threadOpen ? 'stage-view' : 'stage-threads');
+  } else if (!_inboxSelectedCampaign) pane.classList.add('stage-campaigns');
   else if (!threadOpen) pane.classList.add('stage-threads');
   else pane.classList.add('stage-view');
 }
@@ -309,8 +312,24 @@ function toggleInboxUnresolved(checked) {
   renderInboxCampaignList();
   renderInboxThreadList();
 }
-function changeInboxSince(months) {
-  _inboxFilters.sinceMonths = Number(months) || 6;
+function changeInboxSince(v) {
+  const custom = document.getElementById('inboxCustomRange');
+  if (v === 'custom') {
+    // 「직접 선택」 → 날짜 입력칸 노출. 실제 적용은 날짜 입력 시 applyInboxCustomRange
+    if (custom) custom.style.display = '';
+    return;
+  }
+  if (custom) custom.style.display = 'none';
+  _inboxFilters.sinceMonths = Number(v) || 6;
+  _inboxFilters.fromIso = null; _inboxFilters.toIso = null;   // 상대 기간으로 복귀
+  refreshInboxData();
+}
+// 「직접 선택」 날짜 입력 적용 — 시작 00:00 ~ 종료 23:59 (한쪽만 입력해도 단방향 적용)
+function applyInboxCustomRange() {
+  const f = document.getElementById('inboxDateFrom')?.value;
+  const t = document.getElementById('inboxDateTo')?.value;
+  _inboxFilters.fromIso = f ? new Date(f + 'T00:00:00').toISOString() : null;
+  _inboxFilters.toIso = t ? new Date(t + 'T23:59:59').toISOString() : null;
   refreshInboxData();
 }
 function changeInboxSort(v) {
@@ -326,34 +345,10 @@ function changeInboxSort(v) {
   } else {
     renderInboxCampaignList();
     renderInboxThreadList();
+    updateInboxStage();   // 평면 모드(inbox-flat) 해제 → 좌측 캠페인 영역 복귀
   }
 }
 
-// 받은편지함 기간 달력(flatpickr range) — loadMessagesInbox 진입 시 1회 초기화
-function initInboxDatePicker() {
-  const input = document.getElementById('inboxDateRange');
-  if (!input || typeof flatpickr === 'undefined' || _inboxDatePicker) return;
-  _inboxDatePicker = flatpickr(input, {
-    mode: 'range', dateFormat: 'Y-m-d', locale: 'ko', maxDate: 'today',
-    onClose: (selectedDates) => {
-      if (selectedDates.length === 2) {
-        const [s, e] = selectedDates;
-        _inboxFilters.fromIso = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0).toISOString();
-        _inboxFilters.toIso = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59).toISOString();
-        refreshInboxData();
-      } else if (selectedDates.length === 0) {
-        _inboxFilters.fromIso = null; _inboxFilters.toIso = null;
-        refreshInboxData();
-      }
-    },
-  });
-}
-// 달력 기간 해제 → 상대 기간(6개월 등)으로 복귀
-function clearInboxDateRange() {
-  if (_inboxDatePicker) _inboxDatePicker.clear();
-  _inboxFilters.fromIso = null; _inboxFilters.toIso = null;
-  refreshInboxData();
-}
 // 받은편지함 검색 — 인플 이름·이메일·캠페인명으로 대화 목록 필터
 //   (대화 내용 검색은 대화창 상단 검색창에서 — 여기는 목록 찾기 전용)
 function searchInbox(query) {
