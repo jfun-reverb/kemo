@@ -1036,7 +1036,7 @@ function refreshBulkCampaignList() {
   }
   if (selWrap) selWrap.style.display = '';
   populateBulkCampaigns(statuses, types);   // 상태 AND 타입 조건 캠페인만
-  if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '캠페인 선택');
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '전체 선택');
 }
 
 function populateBulkCampaigns(statuses, recruitTypes) {
@@ -1060,21 +1060,11 @@ function populateBulkCampaigns(statuses, recruitTypes) {
   });
   // 결과물 관리와 동일한 검색형 다중필터 (캠페인명·번호 검색). 선택 변경 → onBulkCampaignChange
   if (typeof syncMultiFilter === 'function') {
-    syncMultiFilter('bulkCampaignMulti', '캠페인 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
+    syncMultiFilter('bulkCampaignMulti', '전체 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
   }
   // 빈 상태 안내 (선택 조건에 캠페인 0건)
   const empty = document.getElementById('bulkCampaignEmpty');
   if (empty) empty.style.display = camps.length ? 'none' : 'block';
-}
-
-// ② 캠페인 「전체 선택」 — 현재 필터된 캠페인 전부를 명시 대상으로. mf-wrap 「전체」 체크박스 토글.
-function selectAllBulkCampaigns() {
-  const wrap = document.getElementById('bulkCampaignMulti');
-  const allCb = wrap && wrap.querySelector('input[value="all"]');
-  if (!allCb) return;
-  allCb.checked = true;
-  allCb.indeterminate = false;
-  if (typeof allCb.onchange === 'function') allCb.onchange();   // 모든 항목 체크 + onBulkCampaignChange 트리거
 }
 
 function onBulkCampaignChange() {
