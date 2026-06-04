@@ -6697,9 +6697,11 @@ async function fetchAdminMessageUnreadCounts() {
 // 관리자 받은편지함 대화 목록 — application_message_summary 뷰 조회.
 //   security_invoker=true 라 관리자 호출 시 전체 응모건 RLS 통과.
 //   message_count>0 (메시지 있는 건만) + last_message_at 최근순. 1000행 cap 대응 pagination.
-//   opts: { sinceMonths(기본 6), campaignId(선택) }
+//   opts: { sinceMonths(기본 6), campaignId(선택), fromIso/toIso(달력 절대 기간 — 있으면 sinceMonths 무시) }
+//   기간 기준 컬럼 = last_message_at (모든 정렬 모드 공통)
 async function fetchAdminMessageThreads(opts = {}) {
   if (!db) return [];
+  const useRange = !!(opts.fromIso || opts.toIso);
   const sinceMonths = opts.sinceMonths || 6;
   const sinceIso = new Date(Date.now() - sinceMonths * 30 * 24 * 60 * 60 * 1000).toISOString();
   const cols = 'application_id, influencer_id, campaign_id, message_count, unread_for_influencer, unresolved_for_admin_team, last_message_at';
@@ -6710,9 +6712,15 @@ async function fetchAdminMessageThreads(opts = {}) {
     let q = db?.from('application_message_summary')
       .select(cols)
       .gt('message_count', 0)
-      .gte('last_message_at', sinceIso)
       .order('last_message_at', { ascending: false })
       .range(from, from + PAGE - 1);
+    // 달력 절대 기간 우선, 없으면 상대 기간(sinceMonths)
+    if (useRange) {
+      if (opts.fromIso) q = q.gte('last_message_at', opts.fromIso);
+      if (opts.toIso) q = q.lte('last_message_at', opts.toIso);
+    } else {
+      q = q.gte('last_message_at', sinceIso);
+    }
     if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
     const {data, error} = await q;
     if (error) { console.warn('[fetchAdminMessageThreads]', error); break; }
@@ -6721,6 +6729,35 @@ async function fetchAdminMessageThreads(opts = {}) {
     from += PAGE;
   }
   return rows;
+}
+
+// 「내가 보낸 순」 정렬용 — 로그인한 본인 관리자가 발신한 응모건별 최신 발신 시각.
+//   application_messages 에서 sender_id=본인 + sender_kind='admin' 행을 created_at 내림차순 조회,
+//   application_id 별 첫(최신) 행 시각만 Map 에 보존. DB 변경 없음(관리자 SELECT 권한 사용).
+//   반환: Map<application_id, created_at(iso)>
+async function fetchAdminSentAtMap() {
+  if (!db) return new Map();
+  const {data: udata} = await (db?.auth.getUser() || {data:{user:null}});
+  const uid = udata?.user?.id;
+  if (!uid) return new Map();
+  const map = new Map();
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const {data, error} = await db?.from('application_messages')
+      .select('application_id, created_at')
+      .eq('sender_id', uid)
+      .eq('sender_kind', 'admin')
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) { console.warn('[fetchAdminSentAtMap]', error); break; }
+    for (const r of (data || [])) {
+      if (!map.has(r.application_id)) map.set(r.application_id, r.created_at);   // 내림차순 첫 행 = 최신
+    }
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return map;
 }
 
 // 받은편지함 최근 메시지 미리보기 — 응모건별 마지막 「살아있는」 메시지 본문.
@@ -7267,8 +7304,8 @@ async function renderLegalPage() {
   }
 
   function _isNoise(msg, stack) {
-    const t = (msg || '') + ' ' + (stack || '');
-    return NOISE.some((re) => re.test(t));
+    // 메시지·스택을 각각 검사 (합치면 끝에 공백이 붙어 ^...$ 앵커 정규식이 빗나감 — "Script error." 누락 버그)
+    return NOISE.some((re) => re.test(msg || '') || re.test(stack || ''));
   }
 
   // 에러 1건 수집 → 마스킹 → reportClientError RPC. 절대 throw 안 함.
