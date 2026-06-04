@@ -3022,14 +3022,19 @@
       <div id="bulkStep1" style="display:flex;flex-direction:column;gap:14px">
         <div id="bulkPresetInfo" style="display:none;font-size:13px;color:var(--muted);background:var(--bg);border-radius:10px;padding:10px 12px"></div>
         <div id="bulkCampaignPick">
-          <!-- ① 캠페인 상태 먼저 선택 → 해당 상태 캠페인만 목록에 노출 -->
+          <!-- ① 캠페인 상태 + 모집 타입 먼저 선택 → 조건에 맞는 캠페인만 목록에 노출 -->
           <div style="font-size:13px;color:var(--muted);margin-bottom:6px">① 캠페인 상태 <span style="font-size:11px">(먼저 선택)</span></div>
-          <div id="bulkStatusChips" class="bulk-chk-row" style="margin-bottom:14px"></div>
+          <div id="bulkStatusChips" class="bulk-chk-row" style="margin-bottom:12px"></div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:6px">모집 타입 <span style="font-size:11px">(선택 · 미선택 시 전체)</span></div>
+          <div id="bulkRecruitTypeChips" class="bulk-chk-row" style="margin-bottom:14px"></div>
           <!-- ② 캠페인 선택 (상태 선택 후 노출) -->
           <div id="bulkCampaignSelectWrap" style="display:none">
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">② 캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 이름·번호 검색)</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-size:13px;color:var(--muted)">② 캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 이름·번호 검색)</span></div>
+              <button type="button" class="btn btn-ghost btn-xs" onclick="selectAllBulkCampaigns()" style="padding:2px 10px;font-size:12px">전체 선택</button>
+            </div>
             <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인 선택</button><div class="mf-drop"></div></div>
-            <div id="bulkCampaignEmpty" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">선택한 상태의 캠페인이 없습니다. 다른 상태를 골라주세요.</div>
+            <div id="bulkCampaignEmpty" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">선택한 조건의 캠페인이 없습니다. 다른 상태·타입을 골라주세요.</div>
           </div>
         </div>
         <div id="bulkFilters" style="display:none;flex-direction:column;gap:12px">
