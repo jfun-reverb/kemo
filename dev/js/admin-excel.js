@@ -222,7 +222,7 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
   header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
   header.height = 22;
   var rtypeLabel = function(t) { return t === 'monitor' ? '리뷰어' : t === 'gifting' ? '기프팅' : t === 'visit' ? '방문형' : (t || ''); };
-  var statusKo = function(s) { return s === 'draft' ? '준비' : s === 'scheduled' ? '모집예정' : s === 'active' ? '모집중' : s === 'closed' ? '종료' : s === 'expired' ? '노출마감' : (s || ''); };
+  var statusKo = function(s) { return s === 'draft' ? '준비' : s === 'scheduled' ? '모집예정' : s === 'active' ? '모집중' : s === 'closed' ? '모집마감' : s === 'ended' ? '종료' : s === 'expired' ? '노출종료' : (s || ''); };
   // 캠페인 종류별 구매·방문 기간 매핑 (monitor=purchase_*, visit=visit_*, gifting=빈칸)
   var pickPurchStart = function(c) {
     if (c.recruit_type === 'monitor') return c.purchase_start || '';

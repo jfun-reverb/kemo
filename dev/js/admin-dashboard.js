@@ -117,8 +117,9 @@ function renderCampaignBreakdown(camps) {
     {key:'draft',     label:'준비',     color:'#9aa0a6', bg:'#F1F3F4'},
     {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
     {key:'active',    label:'모집중',   color:'#0E7E4A', bg:'#E8F7EF'},
-    {key:'closed',    label:'종료',     color:'#B91C5C', bg:'#FFE4EC'},
-    {key:'expired',   label:'노출마감', color:'#666666', bg:'#EEEEEE'},
+    {key:'closed',    label:'모집마감', color:'#B91C5C', bg:'#FFE4EC'},
+    {key:'ended',     label:'종료',     color:'#3949AB', bg:'#E8EAF6'},
+    {key:'expired',   label:'노출종료', color:'#666666', bg:'#EEEEEE'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });

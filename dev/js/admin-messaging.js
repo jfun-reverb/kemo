@@ -930,7 +930,7 @@ function updateApplicantMsgBadge(applicationId) {
 
 // 캠페인 상태 배지 (draft/scheduled/active/closed/expired — 신청 상태와 별개)
 function inboxCampStatusBadge(s) {
-  const label = {draft:'준비', scheduled:'모집예정', active:'모집중', closed:'종료', expired:'노출마감'}[s];
+  const label = {draft:'준비', scheduled:'모집예정', active:'모집중', closed:'모집마감', ended:'종료', expired:'노출종료'}[s];
   if (!label) return '';
   const cls = {draft:'badge-gray', scheduled:'badge-blue', active:'badge-green', closed:'badge-gold', expired:'badge-gray'}[s] || 'badge-gray';
   return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${label}</span>`;
