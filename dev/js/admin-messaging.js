@@ -983,8 +983,11 @@ function openBulkMessageModal(presetAppIds) {
     document.getElementById('bulkCountBox').style.display = 'none';
     document.getElementById('bulkNextBtn').disabled = true;
     _bulkState.statuses = [];
+    _bulkState.recruitTypes = [];
+    _bulkState.availableCampaignIds = [];
     _bulkState.hasMonitor = false;
-    renderBulkStatusChips();      // ① 캠페인 상태 칩 (미선택 상태)
+    renderBulkStatusChips();        // ① 캠페인 상태 칩 (미선택 상태)
+    renderBulkRecruitTypeChips();   // 모집 타입 칩 (미선택 = 전체)
     document.getElementById('bulkCampaignSelectWrap').style.display = 'none';
     renderBulkStatusFilters();    // 응모·영수증·결과물 status 체크박스 (기본값)
     // 인플 상태 토글 기본값 복원 (블랙리스트 제외만 기본 켜짐)
@@ -998,35 +1001,51 @@ function openBulkMessageModal(presetAppIds) {
 }
 function closeBulkMessageModal() { closeModal('bulkMessageModal'); _bulkState = null; }
 
-// ① 캠페인 상태 칩 (다중선택). 변경 → onBulkStatusChipChange
+// ① 캠페인 상태 칩 (다중선택). 변경 → 캠페인 목록 갱신
 function renderBulkStatusChips() {
   document.getElementById('bulkStatusChips').innerHTML = BULK_CAMPAIGN_STATUSES.map(s =>
     `<label class="bulk-chk"><input type="checkbox" value="${s.code}" onchange="onBulkStatusChipChange()">${s.label}</label>`).join('');
 }
 
-function onBulkStatusChipChange() {
+// 모집 타입 칩 (다중선택, 선택적 — 미선택 시 전체 타입). 변경 → 캠페인 목록 갱신
+function renderBulkRecruitTypeChips() {
+  const _rtKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined') ? RECRUIT_TYPE_LABEL_KO : { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' };
+  const types = [['monitor', _rtKo.monitor], ['gifting', _rtKo.gifting], ['visit', _rtKo.visit]];
+  document.getElementById('bulkRecruitTypeChips').innerHTML = types.map(([code, label]) =>
+    `<label class="bulk-chk"><input type="checkbox" value="${code}" onchange="onBulkRecruitChipChange()">${label}</label>`).join('');
+}
+
+function onBulkStatusChipChange() { refreshBulkCampaignList(); }
+function onBulkRecruitChipChange() { refreshBulkCampaignList(); }
+
+// 상태·모집타입 칩 변경 시 ② 캠페인 목록 갱신. 상태는 필수 게이트(미선택 시 ② 숨김), 타입은 선택적.
+function refreshBulkCampaignList() {
   const statuses = Array.from(document.querySelectorAll('#bulkStatusChips input:checked')).map(i => i.value);
+  const types = Array.from(document.querySelectorAll('#bulkRecruitTypeChips input:checked')).map(i => i.value);
   _bulkState.statuses = statuses;
+  _bulkState.recruitTypes = types;
   _bulkState.campaignIds = [];
   const selWrap = document.getElementById('bulkCampaignSelectWrap');
   document.getElementById('bulkFilters').style.display = 'none';
   document.getElementById('bulkCountBox').style.display = 'none';
   document.getElementById('bulkNextBtn').disabled = true;
   if (!statuses.length) {
-    // 상태 미선택 → ② 캠페인 선택 숨김
+    // 상태 미선택 → ② 캠페인 선택 숨김 (모집 타입만으론 목록 안 띄움)
     if (selWrap) selWrap.style.display = 'none';
     return;
   }
   if (selWrap) selWrap.style.display = '';
-  populateBulkCampaigns(statuses);   // 선택 상태 캠페인만 목록 노출
+  populateBulkCampaigns(statuses, types);   // 상태 AND 타입 조건 캠페인만
   if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '캠페인 선택');
 }
 
-function populateBulkCampaigns(statuses) {
+function populateBulkCampaigns(statuses, recruitTypes) {
   const allow = (statuses && statuses.length) ? statuses : ['active', 'closed', 'ended'];
+  const typeAllow = (recruitTypes && recruitTypes.length) ? recruitTypes : null;   // null = 전체 타입
   const camps = (typeof allCampaigns !== 'undefined' ? allCampaigns : [])
-    .filter(c => allow.includes(c.status))
+    .filter(c => allow.includes(c.status) && (!typeAllow || typeAllow.includes(c.recruit_type)))
     .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  _bulkState.availableCampaignIds = camps.map(c => c.id);   // 「전체 선택」용 현재 목록 전체 id
   // 드롭다운 부가설명: 캠페인 번호 · 모집타입 · 상태 · 채널 (대상 캠페인 식별 보조)
   const _rtKo = (typeof RECRUIT_TYPE_LABEL_KO !== 'undefined') ? RECRUIT_TYPE_LABEL_KO : { monitor:'리뷰어', gifting:'기프팅', visit:'방문형' };
   const _stKo = { active:'모집중', closed:'모집마감', ended:'종료' };
@@ -1043,15 +1062,33 @@ function populateBulkCampaigns(statuses) {
   if (typeof syncMultiFilter === 'function') {
     syncMultiFilter('bulkCampaignMulti', '캠페인 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
   }
-  // 빈 상태 안내 (선택 상태에 캠페인 0건)
+  // 빈 상태 안내 (선택 조건에 캠페인 0건)
   const empty = document.getElementById('bulkCampaignEmpty');
   if (empty) empty.style.display = camps.length ? 'none' : 'block';
 }
 
+// ② 캠페인 「전체 선택」 — 현재 필터된 캠페인 전부를 명시 대상으로. mf-wrap 「전체」 체크박스 토글.
+function selectAllBulkCampaigns() {
+  const wrap = document.getElementById('bulkCampaignMulti');
+  const allCb = wrap && wrap.querySelector('input[value="all"]');
+  if (!allCb) return;
+  allCb.checked = true;
+  allCb.indeterminate = false;
+  if (typeof allCb.onchange === 'function') allCb.onchange();   // 모든 항목 체크 + onBulkCampaignChange 트리거
+}
+
 function onBulkCampaignChange() {
-  const ids = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('bulkCampaignMulti') : [];
+  let ids = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('bulkCampaignMulti') : [];
+  // mf-wrap 「전체 체크」(모두 선택)는 빈배열을 반환(필터 없음 시맨틱) → 현재 필터된 전체 캠페인을 명시 대상으로 치환
+  if (!ids.length) {
+    const wrap = document.getElementById('bulkCampaignMulti');
+    const allCb = wrap && wrap.querySelector('input[value="all"]');
+    if (allCb && allCb.checked && !allCb.indeterminate) {
+      ids = (_bulkState.availableCampaignIds || []).slice();
+    }
+  }
   _bulkState.campaignIds = ids;
-  // [] = 미선택(mf-wrap 전체체크/모두해제 모두 빈 배열) → 일괄발송은 대상 0 (명시 선택 강제)
+  // [] = 모두 해제(선택 없음) → 일괄발송은 대상 0 (명시 선택 강제)
   if (!ids.length) {
     document.getElementById('bulkFilters').style.display = 'none';
     document.getElementById('bulkCountBox').style.display = 'none';
