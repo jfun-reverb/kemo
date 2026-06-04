@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780538498';
+  var CURRENT_BUILD = 'v1780539628';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1904,7 +1904,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 .broadcast-recip-status { font-size: 11px; color: var(--muted); }
 /* 일괄발송 캠페인 드롭다운 — 펼칠 때 아래 필터를 밀어내지 않도록 문서 흐름에서 띄움(absolute).
    ② 캠페인이 모달 상단이고 240px 높이 제한이라 모달 body 안에 들어가 가려지지 않음. */
-#bulkCampaignMulti .mf-drop { min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,.16); border: 1px solid var(--line); }
+#bulkCampaignMulti .mf-drop { left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,.16); border: 1px solid var(--line); }
 /* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
 #bulkCampaignMulti .mf-item-sub { font-family: inherit; }
 /* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
@@ -1985,7 +1985,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-04 11:01 · 7ca6bca</span>
+          <span class="admin-build-text">2026-06-04 11:20 · f4ffbb6</span>
         </div>
       </div>
     </aside>
@@ -10131,11 +10131,11 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
       btn.removeAttribute('title');
       btn.classList.remove('has-selection');
     } else {
-      // 일부 — 전체는 indeterminate. 닫힘 버튼은 「다중 선택 N건」(선택 항목명은 tooltip 보존)
+      // 일부 — 전체는 indeterminate. 1건이면 항목명, 2건 이상이면 「다중 선택 N건」(선택 항목명은 tooltip 보존)
       allCb.checked = false;
       allCb.indeterminate = true;
       const names = selected.map(c => c.dataset.label || c.parentElement.textContent.trim());
-      btn.textContent = '다중 선택 ' + selected.length + '건';
+      btn.textContent = selected.length === 1 ? names[0] : ('다중 선택 ' + selected.length + '건');
       btn.title = names.join(', ');
       btn.classList.add('has-selection');
     }

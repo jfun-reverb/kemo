@@ -498,11 +498,11 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
       btn.removeAttribute('title');
       btn.classList.remove('has-selection');
     } else {
-      // 일부 — 전체는 indeterminate. 닫힘 버튼은 「다중 선택 N건」(선택 항목명은 tooltip 보존)
+      // 일부 — 전체는 indeterminate. 1건이면 항목명, 2건 이상이면 「다중 선택 N건」(선택 항목명은 tooltip 보존)
       allCb.checked = false;
       allCb.indeterminate = true;
       const names = selected.map(c => c.dataset.label || c.parentElement.textContent.trim());
-      btn.textContent = '다중 선택 ' + selected.length + '건';
+      btn.textContent = selected.length === 1 ? names[0] : ('다중 선택 ' + selected.length + '건');
       btn.title = names.join(', ');
       btn.classList.add('has-selection');
     }
