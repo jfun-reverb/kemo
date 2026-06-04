@@ -1118,6 +1118,8 @@
 .inbox-3pane.stage-view .inbox-col-camps{flex:1}
 .inbox-3pane.stage-view .inbox-col-threads{flex:1}
 .inbox-3pane.stage-view .inbox-col-view{flex:3}
+/* 「내가 보낸 순」 평면 모드 — 좌측 캠페인 영역 숨김(캠페인 선택 무의미), 대화 목록을 넓게 */
+.inbox-3pane.inbox-flat .inbox-col-camps{display:none}
 /* 좌: 캠페인 정보 카드 (좌측 정보 + 우측 미응대 배지) */
 .inbox-camp-item{display:flex;flex-direction:row;align-items:center;gap:8px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left;color:var(--ink)}
 .inbox-camp-item:hover{background:var(--light-pink)}
