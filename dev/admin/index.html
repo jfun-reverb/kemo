@@ -3012,7 +3012,7 @@
 
 <!-- 일괄 발송 모달 (PR 3, 마이그레이션 167) -->
 <div class="modal-overlay" id="bulkMessageModal" style="z-index:655">
-  <div class="modal" style="max-width:560px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;max-height:88vh">
+  <div class="modal" style="max-width:720px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;min-height:min(720px,86vh);max-height:90vh">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:14px;font-weight:700;color:var(--ink)" id="bulkMsgTitle">일괄 발송 · 대상 선택</div>
       <button class="btn btn-ghost btn-xs" onclick="closeBulkMessageModal()" style="padding:4px 10px">✕</button>
@@ -3030,7 +3030,7 @@
           <!-- ② 캠페인 선택 (상태 선택 후 노출). 「전체 선택」은 드롭다운 맨 위 항목으로 통일 -->
           <div id="bulkCampaignSelectWrap" style="display:none">
             <div style="font-size:13px;color:var(--muted);margin-bottom:6px">② 캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 맨 위 「전체 선택」 · 이름·번호 검색)</span></div>
-            <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">전체 선택</button><div class="mf-drop"></div></div>
+            <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인을 선택하세요</button><div class="mf-drop"></div></div>
             <div id="bulkCampaignEmpty" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">선택한 조건의 캠페인이 없습니다. 다른 상태·타입을 골라주세요.</div>
           </div>
         </div>

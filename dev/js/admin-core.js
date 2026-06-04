@@ -463,7 +463,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
     + `<label class="mf-item all-item"><input type="checkbox" value="all"><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
     + options.map(renderOptionItem).join('')
     + emptyHtml;
-  btn.textContent = allLabel;
+  btn.textContent = opts.placeholder || allLabel;   // placeholder(있으면 미선택 안내) 우선, 없으면 allLabel
   // 토글 — 열 때 선택 항목을 상단으로 재정렬(체크 토글 중엔 순서 고정, 열 때만 1회), 검색형이면 검색 input 포커스
   btn.onclick = (e) => {
     e.stopPropagation();
@@ -482,19 +482,17 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
     if (selected.length === itemCbs.length) {
-      // 모두 체크 = 전체 (필터 없음)
+      // 모두 체크 = 전체. countLabel(명시 선택형, 일괄발송 캠페인)이면 「다중 선택 N건」, 아니면 allLabel
       allCb.checked = true;
       allCb.indeterminate = false;
-      btn.textContent = allLabel;
+      btn.textContent = opts.countLabel ? ('다중 선택 ' + selected.length + '건') : allLabel;
       btn.removeAttribute('title');
-      btn.classList.remove('has-selection');
+      btn.classList.toggle('has-selection', !!opts.countLabel);
     } else if (selected.length === 0) {
-      // 모두 해제 — 사용자가 「전체」 체크박스를 눌러 전체 해제한 표준 동작.
-      // 자동 복귀하지 않고 「선택 없음」 상태 유지. 데이터상으로는 「전체」와 같은
-      // 빈 배열을 반환하지만(필터 없음 = 전체 표시), 사용자가 다시 체크하면 정상 동작.
+      // 모두 해제 — placeholder(있으면 「선택하세요」 안내) 우선. 없으면 allLabel(미선택=전체 시맨틱).
       allCb.checked = false;
       allCb.indeterminate = false;
-      btn.textContent = allLabel;
+      btn.textContent = opts.placeholder || allLabel;
       btn.removeAttribute('title');
       btn.classList.remove('has-selection');
     } else {
