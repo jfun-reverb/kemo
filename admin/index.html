@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780544140';
+  var CURRENT_BUILD = 'v1780545220';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1902,6 +1902,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .broadcast-recip-name { font-weight: 600; color: var(--ink); }
 .broadcast-recip-camp { flex: 1; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .broadcast-recip-status { font-size: 11px; color: var(--muted); }
+/* mf-wrap 은 기본 display:inline-block 이라 폭이 버튼 내용 기준으로 좁아짐 → 모달 안에서는 전체폭으로 */
+#bulkCampaignMulti, #bulkPrefectureMulti { display: block; width: 100%; }
 /* 일괄발송 캠페인 드롭다운 — 펼칠 때 아래 필터를 밀어내지 않도록 문서 흐름에서 띄움(absolute).
    ② 캠페인이 모달 상단이고 240px 높이 제한이라 모달 body 안에 들어가 가려지지 않음. */
 #bulkCampaignMulti .mf-drop { left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,.16); border: 1px solid var(--line); }
@@ -1987,7 +1989,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-04 12:35 · 529daf3</span>
+          <span class="admin-build-text">2026-06-04 12:53 · a8f3eed</span>
         </div>
       </div>
     </aside>
