@@ -1207,10 +1207,18 @@
                 </select>
               </div>
               <div class="admin-filter-group">
+                <label>달력 기간 <span style="font-size:10px;color:var(--muted)">(지정 시 우선)</span></label>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <input type="text" id="inboxDateRange" class="admin-select" style="width:180px" placeholder="○월 ○일 ~ ○월 ○일" readonly>
+                  <button type="button" class="btn btn-ghost btn-xs" onclick="clearInboxDateRange()" style="padding:2px 8px" title="달력 기간 해제">✕</button>
+                </div>
+              </div>
+              <div class="admin-filter-group">
                 <label>정렬</label>
                 <select class="admin-select" onchange="changeInboxSort(this.value)">
                   <option value="recent">최근 메시지순</option>
                   <option value="unresolved">미응대 우선</option>
+                  <option value="sent">내가 보낸 순</option>
                 </select>
               </div>
               <div class="admin-filter-group">
