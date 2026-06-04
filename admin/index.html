@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780555373';
+  var CURRENT_BUILD = 'v1780560459';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1993,7 +1993,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-04 15:42 · b17ae48</span>
+          <span class="admin-build-text">2026-06-04 17:07 · 2091590</span>
         </div>
       </div>
     </aside>
@@ -14821,7 +14821,7 @@ function brandOpsFormTypeLabel(ft) {
 }
 
 // 캠페인 상태 한글 라벨·색 (운영 현황 미니카드 전용)
-var BRAND_OPS_CAMP_STATUS_KO = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '종료', expired: '노출마감' };
+var BRAND_OPS_CAMP_STATUS_KO = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출종료' };
 var BRAND_OPS_CAMP_STATUS_COLOR = {
   active:    { bg: '#E8F5E9', color: '#2E7D32' },
   scheduled: { bg: '#E3F2FD', color: '#1565C0' },
@@ -15924,7 +15924,7 @@ function updateApplicantMsgBadge(applicationId) {
 
 // 캠페인 상태 배지 (draft/scheduled/active/closed/expired — 신청 상태와 별개)
 function inboxCampStatusBadge(s) {
-  const label = {draft:'준비', scheduled:'모집예정', active:'모집중', closed:'종료', expired:'노출마감'}[s];
+  const label = {draft:'준비', scheduled:'모집예정', active:'모집중', closed:'모집마감', ended:'종료', expired:'노출종료'}[s];
   if (!label) return '';
   const cls = {draft:'badge-gray', scheduled:'badge-blue', active:'badge-green', closed:'badge-gold', expired:'badge-gray'}[s] || 'badge-gray';
   return `<span class="badge ${cls}" style="font-size:9px;padding:1px 6px">${label}</span>`;
@@ -20319,7 +20319,7 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
   header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
   header.height = 22;
   var rtypeLabel = function(t) { return t === 'monitor' ? '리뷰어' : t === 'gifting' ? '기프팅' : t === 'visit' ? '방문형' : (t || ''); };
-  var statusKo = function(s) { return s === 'draft' ? '준비' : s === 'scheduled' ? '모집예정' : s === 'active' ? '모집중' : s === 'closed' ? '종료' : s === 'expired' ? '노출마감' : (s || ''); };
+  var statusKo = function(s) { return s === 'draft' ? '준비' : s === 'scheduled' ? '모집예정' : s === 'active' ? '모집중' : s === 'closed' ? '모집마감' : s === 'ended' ? '종료' : s === 'expired' ? '노출종료' : (s || ''); };
   // 캠페인 종류별 구매·방문 기간 매핑 (monitor=purchase_*, visit=visit_*, gifting=빈칸)
   var pickPurchStart = function(c) {
     if (c.recruit_type === 'monitor') return c.purchase_start || '';
@@ -21760,8 +21760,9 @@ function renderCampaignBreakdown(camps) {
     {key:'draft',     label:'준비',     color:'#9aa0a6', bg:'#F1F3F4'},
     {key:'scheduled', label:'모집예정', color:'#5B7CFF', bg:'#EEF2FF'},
     {key:'active',    label:'모집중',   color:'#0E7E4A', bg:'#E8F7EF'},
-    {key:'closed',    label:'종료',     color:'#B91C5C', bg:'#FFE4EC'},
-    {key:'expired',   label:'노출마감', color:'#666666', bg:'#EEEEEE'},
+    {key:'closed',    label:'모집마감', color:'#B91C5C', bg:'#FFE4EC'},
+    {key:'ended',     label:'종료',     color:'#3949AB', bg:'#E8EAF6'},
+    {key:'expired',   label:'노출종료', color:'#666666', bg:'#EEEEEE'},
   ];
   const statusCount = {};
   camps.forEach(c => { const s=c.status||'draft'; statusCount[s]=(statusCount[s]||0)+1; });
@@ -23028,8 +23029,8 @@ async function renderLookupsTable() {
       ${rtCell}
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${JSON.stringify(r)})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" onclick='openLookupEditModal(${esc(JSON.stringify(r))})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -23267,8 +23268,8 @@ async function renderPsetTable() {
       <td style="font-size:12px;color:var(--ink)">${stepCount}개</td>
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick='openPsetEditModal(${JSON.stringify(r)})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" onclick='openPsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -23440,8 +23441,8 @@ async function renderCsetTable() {
       <td style="font-size:12px;color:var(--ink)">${itemCount}개</td>
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick='openCsetEditModal(${JSON.stringify(r)})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" onclick='openCsetEditModal(${esc(JSON.stringify(r))})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -23989,8 +23990,8 @@ async function renderNgSetTable() {
       <td style="font-size:12px;color:var(--ink)">${itemCount}개</td>
       <td>${activeToggle}</td>
       ${_lookupReorderMode ? '' : `<td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick='openNgSetEditModal(${JSON.stringify(r)})'>편집</button>
-        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${JSON.stringify(r)})'>삭제</button>
+        <button class="btn btn-ghost btn-xs" onclick='openNgSetEditModal(${esc(JSON.stringify(r))})'>편집</button>
+        <button class="btn btn-ghost btn-xs" style="color:#B3261E" onclick='handleLookupDelete(${esc(JSON.stringify(r))})'>삭제</button>
       </td>`}
     </tr>`;
   }).join('');
@@ -27397,10 +27398,12 @@ function renderCampBundleSummary(kind, formMode) {
       body.innerHTML = '<div class="summary-head" style="color:var(--muted)">번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요</div>';
       return;
     }
+    // 참여방법 desc 는 미니에디터 HTML(이미지·서식) — cset/nset 요약처럼 렌더해야 raw 태그 노출 방지
+    const renderRich = (typeof miniRichHtml === 'function') ? miniRichHtml : (x => esc(String(x||'')));
     const renderStep = (s, i, lang) => {
       const title = lang === 'ko' ? (s.title_ko || s.title_ja || '—') : (s.title_ja || s.title_ko || '—');
       const desc  = lang === 'ko' ? (s.desc_ko || s.desc_ja || '') : (s.desc_ja || s.desc_ko || '');
-      return `<div class="summary-step"><div class="summary-step-title">STEP ${i+1} · ${esc(title)}</div>${desc?`<div class="summary-step-desc">${esc(desc)}</div>`:''}</div>`;
+      return `<div class="summary-step"><div class="summary-step-title">STEP ${i+1} · ${esc(title)}</div>${desc?`<div class="summary-step-desc rich-content">${renderRich(desc)}</div>`:''}</div>`;
     };
     const koCol = steps.map((s,i) => renderStep(s, i, 'ko')).join('');
     const jaCol = steps.map((s,i) => renderStep(s, i, 'ja')).join('');

@@ -3137,10 +3137,12 @@ function renderCampBundleSummary(kind, formMode) {
       body.innerHTML = '<div class="summary-head" style="color:var(--muted)">번들 미선택 — 편집 버튼으로 단계를 추가하거나 번들을 선택하세요</div>';
       return;
     }
+    // 참여방법 desc 는 미니에디터 HTML(이미지·서식) — cset/nset 요약처럼 렌더해야 raw 태그 노출 방지
+    const renderRich = (typeof miniRichHtml === 'function') ? miniRichHtml : (x => esc(String(x||'')));
     const renderStep = (s, i, lang) => {
       const title = lang === 'ko' ? (s.title_ko || s.title_ja || '—') : (s.title_ja || s.title_ko || '—');
       const desc  = lang === 'ko' ? (s.desc_ko || s.desc_ja || '') : (s.desc_ja || s.desc_ko || '');
-      return `<div class="summary-step"><div class="summary-step-title">STEP ${i+1} · ${esc(title)}</div>${desc?`<div class="summary-step-desc">${esc(desc)}</div>`:''}</div>`;
+      return `<div class="summary-step"><div class="summary-step-title">STEP ${i+1} · ${esc(title)}</div>${desc?`<div class="summary-step-desc rich-content">${renderRich(desc)}</div>`:''}</div>`;
     };
     const koCol = steps.map((s,i) => renderStep(s, i, 'ko')).join('');
     const jaCol = steps.map((s,i) => renderStep(s, i, 'ja')).join('');

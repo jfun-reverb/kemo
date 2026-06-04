@@ -304,7 +304,7 @@ function brandOpsFormTypeLabel(ft) {
 }
 
 // 캠페인 상태 한글 라벨·색 (운영 현황 미니카드 전용)
-var BRAND_OPS_CAMP_STATUS_KO = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '종료', expired: '노출마감' };
+var BRAND_OPS_CAMP_STATUS_KO = { draft: '준비', scheduled: '모집예정', active: '모집중', closed: '모집마감', ended: '종료', expired: '노출종료' };
 var BRAND_OPS_CAMP_STATUS_COLOR = {
   active:    { bg: '#E8F5E9', color: '#2E7D32' },
   scheduled: { bg: '#E3F2FD', color: '#1565C0' },
