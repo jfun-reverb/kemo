@@ -992,7 +992,7 @@ function openBulkMessageModal(presetAppIds) {
     renderBulkStatusFilters();    // 응모·영수증·결과물 status 체크박스 (기본값)
     renderBulkSnsChannels();      // ④ 인플 보유 SNS 채널 4종 체크박스
     renderBulkPrefectureMulti();  // ④ 지역(도도부현) 다중선택
-    if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkPrefectureMulti', '전체 지역');
+    if (typeof resetMultiFilter === 'function') resetMultiFilter('bulkPrefectureMulti', '전체 지역');   // 디폴트 = 전체 지역 선택
     // 인플 상태 토글 기본값 복원 (블랙리스트 제외만 기본 켜짐)
     const v = document.getElementById('bulkInflVerified'); if (v) v.checked = false;
     const nv = document.getElementById('bulkInflNoViolation'); if (nv) nv.checked = false;
@@ -1042,7 +1042,7 @@ function refreshBulkCampaignList() {
   }
   if (selWrap) selWrap.style.display = '';
   populateBulkCampaigns(statuses, types);   // 상태 AND 타입 조건 캠페인만
-  if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '전체 선택');
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '캠페인을 선택하세요');
 }
 
 function populateBulkCampaigns(statuses, recruitTypes) {
@@ -1066,7 +1066,7 @@ function populateBulkCampaigns(statuses, recruitTypes) {
   });
   // 결과물 관리와 동일한 검색형 다중필터 (캠페인명·번호 검색). 선택 변경 → onBulkCampaignChange
   if (typeof syncMultiFilter === 'function') {
-    syncMultiFilter('bulkCampaignMulti', '전체 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
+    syncMultiFilter('bulkCampaignMulti', '전체 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색', placeholder: '캠페인을 선택하세요', countLabel: true });
   }
   // 빈 상태 안내 (선택 조건에 캠페인 0건)
   const empty = document.getElementById('bulkCampaignEmpty');

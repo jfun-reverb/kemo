@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780545220';
+  var CURRENT_BUILD = 'v1780546563';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1904,9 +1904,8 @@ textarea.form-input{resize:vertical;min-height:80px}
 .broadcast-recip-status { font-size: 11px; color: var(--muted); }
 /* mf-wrap 은 기본 display:inline-block 이라 폭이 버튼 내용 기준으로 좁아짐 → 모달 안에서는 전체폭으로 */
 #bulkCampaignMulti, #bulkPrefectureMulti { display: block; width: 100%; }
-/* 일괄발송 캠페인 드롭다운 — 펼칠 때 아래 필터를 밀어내지 않도록 문서 흐름에서 띄움(absolute).
-   ② 캠페인이 모달 상단이고 240px 높이 제한이라 모달 body 안에 들어가 가려지지 않음. */
-#bulkCampaignMulti .mf-drop { left: 0; right: 0; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: 0 6px 20px rgba(0,0,0,.16); border: 1px solid var(--line); }
+/* 캠페인 드롭다운 — 모달 overflow 안에서 absolute 는 캠페인이 많으면 잘리므로, 지역과 동일하게 문서 흐름(static)으로 아래 펼침 */
+#bulkCampaignMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 240px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 부가설명에 한글(모집타입·상태) 혼재 — 고정폭 대신 본문 폰트로 가독성 확보 (캠페인 번호 단독 드롭다운은 monospace 유지) */
 #bulkCampaignMulti .mf-item-sub { font-family: inherit; }
 /* 지역(도도부현) 드롭다운 — 모달 하단이라 absolute 로 띄우면 아래가 잘림 → 문서 흐름(static)으로 펼쳐 모달 스크롤로 보이게 */
@@ -1989,7 +1988,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-04 12:53 · a8f3eed</span>
+          <span class="admin-build-text">2026-06-04 13:16 · d2ca8f7</span>
         </div>
       </div>
     </aside>
@@ -4867,7 +4866,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 <!-- 일괄 발송 모달 (PR 3, 마이그레이션 167) -->
 <div class="modal-overlay" id="bulkMessageModal" style="z-index:655">
-  <div class="modal" style="max-width:560px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;max-height:88vh">
+  <div class="modal" style="max-width:720px;width:96vw;border-radius:18px;margin:auto;display:flex;flex-direction:column;min-height:min(720px,86vh);max-height:90vh">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:14px;font-weight:700;color:var(--ink)" id="bulkMsgTitle">일괄 발송 · 대상 선택</div>
       <button class="btn btn-ghost btn-xs" onclick="closeBulkMessageModal()" style="padding:4px 10px">✕</button>
@@ -4885,7 +4884,7 @@ textarea.form-input{resize:vertical;min-height:80px}
           <!-- ② 캠페인 선택 (상태 선택 후 노출). 「전체 선택」은 드롭다운 맨 위 항목으로 통일 -->
           <div id="bulkCampaignSelectWrap" style="display:none">
             <div style="font-size:13px;color:var(--muted);margin-bottom:6px">② 캠페인 <span style="font-size:11px">(여러 개 선택 가능 · 맨 위 「전체 선택」 · 이름·번호 검색)</span></div>
-            <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">전체 선택</button><div class="mf-drop"></div></div>
+            <div id="bulkCampaignMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">캠페인을 선택하세요</button><div class="mf-drop"></div></div>
             <div id="bulkCampaignEmpty" style="display:none;font-size:12px;color:var(--muted);margin-top:8px">선택한 조건의 캠페인이 없습니다. 다른 상태·타입을 골라주세요.</div>
           </div>
         </div>
@@ -10120,7 +10119,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
     + `<label class="mf-item all-item"><input type="checkbox" value="all"><div class="mf-item-text"><div class="mf-item-label">${esc(allLabel)}</div></div></label>`
     + options.map(renderOptionItem).join('')
     + emptyHtml;
-  btn.textContent = allLabel;
+  btn.textContent = opts.placeholder || allLabel;   // placeholder(있으면 미선택 안내) 우선, 없으면 allLabel
   // 토글 — 열 때 선택 항목을 상단으로 재정렬(체크 토글 중엔 순서 고정, 열 때만 1회), 검색형이면 검색 input 포커스
   btn.onclick = (e) => {
     e.stopPropagation();
@@ -10139,19 +10138,17 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   const update = () => {
     const selected = itemCbs.filter(c => c.checked);
     if (selected.length === itemCbs.length) {
-      // 모두 체크 = 전체 (필터 없음)
+      // 모두 체크 = 전체. countLabel(명시 선택형, 일괄발송 캠페인)이면 「다중 선택 N건」, 아니면 allLabel
       allCb.checked = true;
       allCb.indeterminate = false;
-      btn.textContent = allLabel;
+      btn.textContent = opts.countLabel ? ('다중 선택 ' + selected.length + '건') : allLabel;
       btn.removeAttribute('title');
-      btn.classList.remove('has-selection');
+      btn.classList.toggle('has-selection', !!opts.countLabel);
     } else if (selected.length === 0) {
-      // 모두 해제 — 사용자가 「전체」 체크박스를 눌러 전체 해제한 표준 동작.
-      // 자동 복귀하지 않고 「선택 없음」 상태 유지. 데이터상으로는 「전체」와 같은
-      // 빈 배열을 반환하지만(필터 없음 = 전체 표시), 사용자가 다시 체크하면 정상 동작.
+      // 모두 해제 — placeholder(있으면 「선택하세요」 안내) 우선. 없으면 allLabel(미선택=전체 시맨틱).
       allCb.checked = false;
       allCb.indeterminate = false;
-      btn.textContent = allLabel;
+      btn.textContent = opts.placeholder || allLabel;
       btn.removeAttribute('title');
       btn.classList.remove('has-selection');
     } else {
@@ -15895,7 +15892,7 @@ function openBulkMessageModal(presetAppIds) {
     renderBulkStatusFilters();    // 응모·영수증·결과물 status 체크박스 (기본값)
     renderBulkSnsChannels();      // ④ 인플 보유 SNS 채널 4종 체크박스
     renderBulkPrefectureMulti();  // ④ 지역(도도부현) 다중선택
-    if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkPrefectureMulti', '전체 지역');
+    if (typeof resetMultiFilter === 'function') resetMultiFilter('bulkPrefectureMulti', '전체 지역');   // 디폴트 = 전체 지역 선택
     // 인플 상태 토글 기본값 복원 (블랙리스트 제외만 기본 켜짐)
     const v = document.getElementById('bulkInflVerified'); if (v) v.checked = false;
     const nv = document.getElementById('bulkInflNoViolation'); if (nv) nv.checked = false;
@@ -15945,7 +15942,7 @@ function refreshBulkCampaignList() {
   }
   if (selWrap) selWrap.style.display = '';
   populateBulkCampaigns(statuses, types);   // 상태 AND 타입 조건 캠페인만
-  if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '전체 선택');
+  if (typeof clearMultiFilter === 'function') clearMultiFilter('bulkCampaignMulti', '캠페인을 선택하세요');
 }
 
 function populateBulkCampaigns(statuses, recruitTypes) {
@@ -15969,7 +15966,7 @@ function populateBulkCampaigns(statuses, recruitTypes) {
   });
   // 결과물 관리와 동일한 검색형 다중필터 (캠페인명·번호 검색). 선택 변경 → onBulkCampaignChange
   if (typeof syncMultiFilter === 'function') {
-    syncMultiFilter('bulkCampaignMulti', '전체 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
+    syncMultiFilter('bulkCampaignMulti', '전체 선택', options, onBulkCampaignChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색', placeholder: '캠페인을 선택하세요', countLabel: true });
   }
   // 빈 상태 안내 (선택 조건에 캠페인 0건)
   const empty = document.getElementById('bulkCampaignEmpty');
