@@ -661,7 +661,7 @@ async function onInfluencerVerify() {
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
     await refreshPane('influencers');
-  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 async function onInfluencerUnverify() {
@@ -674,7 +674,7 @@ async function onInfluencerUnverify() {
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
     await refreshPane('influencers');
-  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 // 위반 기록 편집 — _currentFlagsCache 에서 id로 찾아 모달 오픈
@@ -748,7 +748,7 @@ async function onSaveEditViolation() {
     _editingKeptUrlMap = {};
     if (_currentDetailInfluencer) await openInfluencerDetail(_currentDetailInfluencer.id);
     await refreshPane('influencers');
-  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 // 신청 이력의 cancelled 보조 행에서 호출 — 위반 등록 폼에 자동 prefill
@@ -814,7 +814,7 @@ async function onInfluencerRecordViolation() {
     _infViolationCounts[_currentDetailInfluencer.id] = (_infViolationCounts[_currentDetailInfluencer.id] || 0) + 1;
     rerenderInfluencersFromCache();
     await openInfluencerDetail(_currentDetailInfluencer.id);
-  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 async function onInfluencerBlacklist() {
@@ -831,7 +831,7 @@ async function onInfluencerBlacklist() {
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
     await refreshPane('influencers');
-  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 async function onInfluencerUnblacklist() {
@@ -844,7 +844,7 @@ async function onInfluencerUnblacklist() {
     _infViolationCounts = {};
     await openInfluencerDetail(_currentDetailInfluencer.id);
     await refreshPane('influencers');
-  } catch(e) { toast('오류: ' + (e.message || e), 'error'); }
+  } catch(e) { toast('오류: ' + friendlyError(e.message || e), 'error'); }
 }
 
 // 인플루언서 이름 클릭 = 어디서든 풀 상세 모달(상태 관리·이력 포함)로 통일
