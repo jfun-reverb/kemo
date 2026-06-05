@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780632122';
+  var CURRENT_BUILD = 'v1780633101';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1997,7 +1997,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-05 13:02 · 9df2e69</span>
+          <span class="admin-build-text">2026-06-05 13:18 · 4bb4a99</span>
         </div>
       </div>
     </aside>
@@ -2726,6 +2726,18 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <option value="has">위반 있음</option>
                   <option value="blacklist">블랙리스트</option>
                 </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>주소지(도도부현)</label>
+                <div id="infPrefectureMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 지역</button><div class="mf-drop" style="min-width:240px"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label id="infFollowersLabel">팔로워 (합계 기준)</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <input type="number" id="infFollowersMin" class="admin-filter" min="0" step="1" placeholder="최소" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                  <span style="color:var(--muted)">~</span>
+                  <input type="number" id="infFollowersMax" class="admin-filter" min="0" step="1" placeholder="최대" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -10303,6 +10315,24 @@ function getMultiFilterValues(containerId) {
   return [...wrap.querySelectorAll('.mf-drop input[type="checkbox"]:not([value="all"]):checked')].map(c => c.value);
 }
 
+// ── 도도부현·팔로워 공용 분류 헬퍼 (인플 조합 필터·대시보드 재사용) ──
+// prefecture 값을 「정식 도도부현 키(일본어)」 | '未登録' | '海外' 로 분류.
+//  · NULL/빈값 = 未登録, PREFECTURE_KO 키에 있으면 정식, 그 외 비어있지 않은 값 = 海外
+function classifyPrefecture(pref) {
+  const p = (pref == null) ? '' : String(pref).trim();
+  if (!p) return '未登録';
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  return map[p] ? p : '海外';
+}
+
+// 채널 기준 팔로워 수. 'all'(또는 미지정)이면 4개 채널 합계, 특정 채널이면 그 채널만.
+//  · LIPS·@cosme 는 팔로워 컬럼이 없어 합계에서 제외됨
+function followerValueByChannel(u, ch) {
+  const map = { instagram: 'ig_followers', x: 'x_followers', tiktok: 'tiktok_followers', youtube: 'youtube_followers' };
+  if (ch && map[ch]) return u[map[ch]] || 0;
+  return (u.ig_followers || 0) + (u.x_followers || 0) + (u.tiktok_followers || 0) + (u.youtube_followers || 0);
+}
+
 // 드롭다운 열 때 선택된 항목을 「전체」 항목 바로 아래로 모으고 구분선 삽입(선택 항목 상단 정렬).
 // 열 때 1회만 호출 → 체크 토글 중에는 순서가 튀지 않음. 한쪽만 있으면(전부/없음) 정렬 생략.
 function reorderSelectedFirst(drop) {
@@ -17348,7 +17378,28 @@ async function loadAdminInfluencers() {
   ]);
   infUsersCache = users;
   _infViolationCounts = violations;
+  initInfPrefectureMulti();
+  updateInfFollowersLabel();
   renderInfluencersPane(infUsersCache);
+}
+
+// 주소지(도도부현) 다중필터 옵션 초기화 — PREFECTURE_KO(일본어 키→한국어 라벨) + 미등록 + 해외.
+// syncMultiFilter 는 옵션 변화 시에만 재생성하므로 반복 호출해도 선택 상태 보존.
+function initInfPrefectureMulti() {
+  if (typeof syncMultiFilter !== 'function') return;
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  const options = Object.keys(map).map(ja => ({ value: ja, label: map[ja] }));
+  options.push({ value: '未登録', label: '미등록' });
+  options.push({ value: '海外', label: '해외' });
+  syncMultiFilter('infPrefectureMulti', '전체 지역', options, rerenderInfluencersFromCache, { searchable: true, searchPlaceholder: '지역 검색' });
+}
+
+// 팔로워 범위 기준 라벨 — 채널 선택값에 맞춰 「(채널) 기준」 표시
+function updateInfFollowersLabel() {
+  const el = $('infFollowersLabel');
+  if (!el) return;
+  const map = { all: '합계', instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' };
+  el.textContent = `팔로워 (${map[currentInfTab] || '합계'} 기준)`;
 }
 
 function rerenderInfluencersFromCache() {
@@ -17360,6 +17411,13 @@ function renderInfluencersPane(users) {
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
+  // 주소지(다중) — 미선택이면 빈 배열(=전체). classifyPrefecture 로 정식/未登録/海外 분류 후 매칭
+  const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
+  // 팔로워 범위 — 비우면 하한/상한 무제한
+  const minRaw = $('infFollowersMin')?.value;
+  const maxRaw = $('infFollowersMax')?.value;
+  const minF = (minRaw !== '' && minRaw != null) ? Number(minRaw) : null;
+  const maxF = (maxRaw !== '' && maxRaw != null) ? Number(maxRaw) : null;
   // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const matchSearch = (u) => matchSearchTokens(searchQ, [
     u.name_kanji, u.name, u.name_kana, u.email,
@@ -17373,12 +17431,20 @@ function renderInfluencersPane(users) {
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
     if (!matchSearch(u)) return false;
+    // 주소지(다중)
+    if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
+    // 팔로워 범위 (채널 선택값 기준, all=합계)
+    if (minF != null || maxF != null) {
+      const fv = followerValueByChannel(u, currentInfTab);
+      if (minF != null && fv < minF) return false;
+      if (maxF != null && fv > maxF) return false;
+    }
     return true;
   });
   const totalEl = $('infTotalCount');
   if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${users.length}명)`;
   const resetBtn = $('btnInfFilterReset');
-  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ);
+  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || minF != null || maxF != null);
   if (resetBtn) resetBtn.style.display = anyActive ? '' : 'none';
   renderInfTable(filtered, currentInfTab);
 }
@@ -17388,12 +17454,17 @@ function resetInfluencerFilters() {
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
   const s = $('infSearch'); if (s) s.value = '';
+  if (typeof resetMultiFilter === 'function') resetMultiFilter('infPrefectureMulti', '전체 지역');
+  const mn = $('infFollowersMin'); if (mn) mn.value = '';
+  const mx = $('infFollowersMax'); if (mx) mx.value = '';
   currentInfTab = 'all';
+  updateInfFollowersLabel();
   rerenderInfluencersFromCache();
 }
 
 function switchInfTabFromSelect(ch) {
   currentInfTab = ch || 'all';
+  updateInfFollowersLabel();
   rerenderInfluencersFromCache();
 }
 
