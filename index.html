@@ -2501,6 +2501,15 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
   closed_recruit: 'badge-pink', closed_done: 'badge-done', expired: 'badge-expired'
 };
 
+// 숫자 입력칸(type=number): 포커스 중 마우스 휠로 값이 바뀌는 기본 동작 차단 (오입력 방지).
+// 전역 1회 등록 → 관리자·인플 양쪽 빌드의 모든 숫자 입력칸에 일괄 적용. 휠은 페이지 스크롤만.
+document.addEventListener('wheel', function (e) {
+  const el = e.target;
+  if (el && el.tagName === 'INPUT' && el.type === 'number' && document.activeElement === el) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 // ══════════════════════════════════════
 // i18n — 일본어 (기본)
 // ══════════════════════════════════════
