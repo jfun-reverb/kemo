@@ -32,7 +32,28 @@ async function loadAdminInfluencers() {
   ]);
   infUsersCache = users;
   _infViolationCounts = violations;
+  initInfPrefectureMulti();
+  updateInfFollowersLabel();
   renderInfluencersPane(infUsersCache);
+}
+
+// 주소지(도도부현) 다중필터 옵션 초기화 — PREFECTURE_KO(일본어 키→한국어 라벨) + 미등록 + 해외.
+// syncMultiFilter 는 옵션 변화 시에만 재생성하므로 반복 호출해도 선택 상태 보존.
+function initInfPrefectureMulti() {
+  if (typeof syncMultiFilter !== 'function') return;
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  const options = Object.keys(map).map(ja => ({ value: ja, label: map[ja] }));
+  options.push({ value: '未登録', label: '미등록' });
+  options.push({ value: '海外', label: '해외' });
+  syncMultiFilter('infPrefectureMulti', '전체 지역', options, rerenderInfluencersFromCache, { searchable: true, searchPlaceholder: '지역 검색' });
+}
+
+// 팔로워 범위 기준 라벨 — 채널 선택값에 맞춰 「(채널) 기준」 표시
+function updateInfFollowersLabel() {
+  const el = $('infFollowersLabel');
+  if (!el) return;
+  const map = { all: '합계', instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' };
+  el.textContent = `팔로워 (${map[currentInfTab] || '합계'} 기준)`;
 }
 
 function rerenderInfluencersFromCache() {
@@ -44,6 +65,13 @@ function renderInfluencersPane(users) {
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
+  // 주소지(다중) — 미선택이면 빈 배열(=전체). classifyPrefecture 로 정식/未登録/海外 분류 후 매칭
+  const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
+  // 팔로워 범위 — 비우면 하한/상한 무제한
+  const minRaw = $('infFollowersMin')?.value;
+  const maxRaw = $('infFollowersMax')?.value;
+  const minF = (minRaw !== '' && minRaw != null) ? Number(minRaw) : null;
+  const maxF = (maxRaw !== '' && maxRaw != null) ? Number(maxRaw) : null;
   // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const matchSearch = (u) => matchSearchTokens(searchQ, [
     u.name_kanji, u.name, u.name_kana, u.email,
@@ -57,12 +85,20 @@ function renderInfluencersPane(users) {
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
     if (!matchSearch(u)) return false;
+    // 주소지(다중)
+    if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
+    // 팔로워 범위 (채널 선택값 기준, all=합계)
+    if (minF != null || maxF != null) {
+      const fv = followerValueByChannel(u, currentInfTab);
+      if (minF != null && fv < minF) return false;
+      if (maxF != null && fv > maxF) return false;
+    }
     return true;
   });
   const totalEl = $('infTotalCount');
   if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${users.length}명)`;
   const resetBtn = $('btnInfFilterReset');
-  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ);
+  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || minF != null || maxF != null);
   if (resetBtn) resetBtn.style.display = anyActive ? '' : 'none';
   renderInfTable(filtered, currentInfTab);
 }
@@ -72,12 +108,17 @@ function resetInfluencerFilters() {
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
   const s = $('infSearch'); if (s) s.value = '';
+  if (typeof resetMultiFilter === 'function') resetMultiFilter('infPrefectureMulti', '전체 지역');
+  const mn = $('infFollowersMin'); if (mn) mn.value = '';
+  const mx = $('infFollowersMax'); if (mx) mx.value = '';
   currentInfTab = 'all';
+  updateInfFollowersLabel();
   rerenderInfluencersFromCache();
 }
 
 function switchInfTabFromSelect(ch) {
   currentInfTab = ch || 'all';
+  updateInfFollowersLabel();
   rerenderInfluencersFromCache();
 }
 

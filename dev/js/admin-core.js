@@ -553,6 +553,24 @@ function getMultiFilterValues(containerId) {
   return [...wrap.querySelectorAll('.mf-drop input[type="checkbox"]:not([value="all"]):checked')].map(c => c.value);
 }
 
+// ── 도도부현·팔로워 공용 분류 헬퍼 (인플 조합 필터·대시보드 재사용) ──
+// prefecture 값을 「정식 도도부현 키(일본어)」 | '未登録' | '海外' 로 분류.
+//  · NULL/빈값 = 未登録, PREFECTURE_KO 키에 있으면 정식, 그 외 비어있지 않은 값 = 海外
+function classifyPrefecture(pref) {
+  const p = (pref == null) ? '' : String(pref).trim();
+  if (!p) return '未登録';
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  return map[p] ? p : '海外';
+}
+
+// 채널 기준 팔로워 수. 'all'(또는 미지정)이면 4개 채널 합계, 특정 채널이면 그 채널만.
+//  · LIPS·@cosme 는 팔로워 컬럼이 없어 합계에서 제외됨
+function followerValueByChannel(u, ch) {
+  const map = { instagram: 'ig_followers', x: 'x_followers', tiktok: 'tiktok_followers', youtube: 'youtube_followers' };
+  if (ch && map[ch]) return u[map[ch]] || 0;
+  return (u.ig_followers || 0) + (u.x_followers || 0) + (u.tiktok_followers || 0) + (u.youtube_followers || 0);
+}
+
 // 드롭다운 열 때 선택된 항목을 「전체」 항목 바로 아래로 모으고 구분선 삽입(선택 항목 상단 정렬).
 // 열 때 1회만 호출 → 체크 토글 중에는 순서가 튀지 않음. 한쪽만 있으면(전부/없음) 정렬 생략.
 function reorderSelectedFirst(drop) {

@@ -115,13 +115,18 @@ if (maxF != null && fv > maxF) return false;
 
 ## 구현 결과 (개발 세션이 채울 것)
 
-**구현일:**
-**관련 커밋·PR:**
+**구현일:** 2026-06-05 (PR 1만)
+**관련 커밋·PR:** (PR 1 — dev 머지 후 기록)
 
 ### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
+- 추가된 것: 없음 (초안 PR 1 설계 그대로)
+- 빠진 것: **PR 2(필터 결과 엑셀 내보내기 + 권한별 민감정보 열)는 이번 사이클 미착수** — 별도 PR로 진행 예정
 - 달라진 것:
+  - 결과 인원수는 사양서가 「sticky-header 표시 의무」라 했으나, 기존에 카드 헤더의 `#infTotalCount`가 이미 "N명 표시 (전체 N명)" 형식으로 존재하여 **그대로 재사용**(중복 표시 회피). 필터 활성 시 초기화 버튼이 함께 노출됨.
 
 ### 구현 중 기술 결정 사항
-- (운영 DB prefecture distinct 점검 결과, 합계 팔로워 정의, 다중필터 헬퍼 재사용 방식, 카운트 표시 위치 등)
+- **공용 헬퍼 위치**: `classifyPrefecture(pref)` + `followerValueByChannel(u, ch)`를 `admin-core.js`(다중필터 섹션, `getMultiFilterValues` 직후)에 배치. `PREFECTURE_KO`(admin-dashboard.js, 빌드상 뒤)는 `typeof` 가드 + 런타임 호출이라 안전(reviewer Warning 1: 페인 진입 시점엔 전 스크립트 로드 완료 → 실질 위험 없음 확인).
+- **다중필터 재사용**: 기존 일괄발송 `bulkPrefectureMulti`와 동일하게 `syncMultiFilter`(searchable) 사용. 단 인플 필터는 PREFECTURE_KO 47개 + 「未登録」 + 「海外」 옵션을 추가(일괄발송은 서버 RPC 매칭이라 未登録/海外 미포함). value는 일본어 정식 키(`大阪府`)·`未登録`·`海外`.
+- **합계 팔로워 정의**: `ig+x+tiktok+youtube_followers`, 각 NULL=0. LIPS·@cosme는 팔로워 컬럼 없어 합계 제외. 채널 선택값(`currentInfTab`) 기준이며 'all'이면 합계.
+- **운영 DB prefecture distinct 점검**: 미수행(개발 세션이 운영 DB 직접 쿼리 안 함). 비정식 표기(`大阪` 등 府 누락)는 `海外`로 분류되는 한계 존재 — 사양서 「의심 3번」대로 운영 실데이터 검증 권고로 남김.
+- **백로그(reviewer Warning 2)**: 추후 채널 드롭다운에 LIPS·@cosme 추가 시 `followerValueByChannel` map에 없어 합계 폴백 → 그때 함께 처리.
