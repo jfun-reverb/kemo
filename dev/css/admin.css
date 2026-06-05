@@ -9,6 +9,11 @@
 /* 필터 공통 */
 .admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
 .admin-filter.active{background-color:#fff}
+/* 숫자 입력칸: 증감 화살표(스피너) 제거 → 직접 입력만. 드롭다운용 우측 패딩도 정상화 */
+.admin-filter.no-spinner{padding-right:8px}
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.no-spinner[type=number]{-moz-appearance:textfield;appearance:textfield}
 .admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
 /* 페이지 제목 + 필터 영역 */
 .admin-sticky-header{padding-bottom:12px}
