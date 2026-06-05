@@ -1,3 +1,6 @@
+# Claude Code worktrees (전시장 폴더 — 메인 폴더 git add -A 사고 차단)
+.claude/worktrees/
+
 # Supabase CLI cache & local bundles
 supabase/.temp/
 supabase/bundle/
