@@ -198,6 +198,7 @@ window.I18N_JA = {
   // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)
   appHistory: {
     title: '応募履歴',
+    inProgress: '進行中',
     all: 'すべて',
     pending: '審査中',
     approved: '当選',
@@ -220,6 +221,8 @@ window.I18N_JA = {
     sortOldest: '古い順',
     emptyAll: 'まだ応募したキャンペーンはありません',
     emptyFiltered: '該当する応募はありません',
+    emptyInProgress: '進行中の応募はありません',
+    showAll: 'すべて表示',
     emptySub: '今すぐKブランド体験団に応募してみましょう！',
     emptyBtn: 'キャンペーンを見る',
     applyDate: '応募日',

@@ -104,7 +104,7 @@
 - **GNB 햄버거 메뉴**: 상단 우측 ☰ 버튼에 미읽음 알림 배지(9+), 클릭 시 우측 슬라이드 패널. 로그인 시 구성 — 최상단 계정 카드(이름·SNS핸들·이메일 + **우측 알림 벨 아이콘**·미읽음 배지, 아바타 없음) → 홈/캠페인 → 「マイページ」 접기/펼치기 아코디언(기본 펼침, 클릭 시 토글만·화면 이동 없음, 서브 7종 각 `min-height:48px`, 기본정보/SNS/배송지/PayPal 「未登録」 배지) → ログアウト → 하단 退会する(`margin-top` 으로 간격) 링크. **メッセージ 메뉴 항목은 제거**(응모이력과 목적지 중복 — 응모건 메시지는 응모이력 카드의 메시지 버튼으로 진입, 답장은 `message_received` 알림으로 확인). **通知도 별도 항목이 아니라 계정 카드 우측 벨로 통합**. 열 때 프로필 비동기 새로고침으로 계정 카드·배지 최신화(미읽음 수는 `_lastUnread` 캐시 → 재렌더 시 `applyNotifBadge` 로 즉시 복원). flex 레이아웃에서 1px 구분선·항목이 찌부러지지 않게 `.nav-menu>*{flex-shrink:0}` 필수. 비로그인은 로그인/회원가입, 인증 페이지에선 햄버거 숨김. 마이페이지 랜딩 화면 흡수(2026-05-22)
 - **알림 모달**: deliverables.status 트리거로 생성된 rejected/changed/approved 3종. 항목 클릭 시 읽음 처리 + 활동관리로 이동. "모두 읽음" 버튼
 - **활동관리**: 승인된 캠페인에서 결과물 제출. recruit_type 분기 — monitor=영수증(이미지 + 주문번호·구매일·구매금액 3종 필수), gifting/visit=SNS 게시물 URL(자동 채널 판별 + 실패 시 수동 드롭다운). 모두 `deliverables` 직접 INSERT + `submit_deliverable` RPC. 반려된 결과물은 상단 빨간 배너에 사유 표시, 재제출 시 pending 복귀 (동일 URL 은 `post_submissions` 배열에 날짜 누적). `submission_end` 경과 시 폼 비활성
-- **응모이력**: 상태별 탭 필터(전체/심사중/승인/비승인), 캠페인상태/정렬 필터. 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
+- **응모이력**: 제목 우측 **상태 드롭다운**(進行中[심사중+당첨, 진입 기본]/すべて/審査中/当選/落選/取消, 각 건수 병기), 캠페인상태/채널/정렬 필터. 진입 시 進行中만 노출, 진행중 0건이면 「すべて表示」 안내. 승인 캠페인 클릭→활동관리, 기타→캠페인 상세
 - **응모건 메시지**(운영 배포 완료 2026-05-28): 응모이력 카드의 메시지 버튼(미읽음 배지) → 게시판형 **페이지**(`#page-messages`, 해시 `#messages-{id}`, 2026-05-22 모달→페이지 전환 — 모바일 키보드가 모달을 가리던 문제 해결, `#appShell` 키보드 패턴 상속). 헤더 뒤로가기→응모이력. **취소(cancelled) 응모는 진입 차단**(toast 안내). 운영팀에 텍스트+이미지(자동 압축/HEIC 변환, 최대 5장) 발송, 25분 내 본인 회수, 숨김·회수 메시지는 가림(placeholder) 표시. 본문/첨부 마스킹은 서버(`get_application_messages` RPC). 진입 `openMessagesPage(appId, from)`·이탈 정리 `cleanupMessagesPage()`(navigate 훅). `dev/js/messaging.js`. 관리자 발신·GNB 메뉴·알림 포함 운영 배포 완료
 - **본인 응모 취소**: `cancel_application(uuid, reason_code, reason_note, acknowledged)` RPC — 본인 검증·결과물 승인 차단·구매기간 이후 사유·동의 강제
 - **홈 하단 푸터**: 株式会社ジェイファン 회사 정보 + 会社紹介/利用規約/個人情報処理方針 링크 (슬라이드업 모달), Instagram·X SNS 아이콘
@@ -141,7 +141,7 @@
 
 ### 브랜드 서베이 (광고주 신청 관리)
 - **현황 대시보드**(`/admin#brand-dashboard`): KPI 8개 + 견적 합계(예상·확정) + **전환 깔때기 10단계** + 폼·상태 도넛 2개 + 일별 추이 바차트(7/30/90일) + 최근 신청 5건 + 장기 대기(new 3일+) + Vercel Web Analytics 외부 링크
-- **회사 관리 페인**(`/admin#companies`): 회사(`companies`) 마스터 CRUD + 브랜드 일괄 할당(4단 계층 회사>브랜드>신청>캠페인). 목록(회사명 한·일·브랜드 수·담당자·상태) + 상태 필터 + 검색. 추가/수정 모달(`name_ko` 필수) + 브랜드 할당 모달(미분류 다중 체크박스) + 보관/복귀 + 소속 0건 시 완전 삭제. SELECT 모든 관리자(campaign_manager 는 읽기 전용)·CUD `is_campaign_admin()` 이상. 기존 「브랜드 관리」 자유텍스트 `company_name` 과는 분리. `dev/js/admin-company.js`. 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md` PR 2
+- **회사 관리 페인**(`/admin#companies`): 회사(`companies`) 마스터 CRUD + 브랜드 일괄 할당(4단 계층 회사>브랜드>신청>캠페인). 목록(회사명 한·일·브랜드 수·상태[한글 활성/보관]) + 상태 필터 + 검색. 추가/수정 모달(`name_ko` 필수, 담당자 입력칸 없음) + 브랜드 할당 모달(미분류 다중 체크박스) + 보관/복귀 + 소속 0건 시 완전 삭제. SELECT 모든 관리자(campaign_manager 는 읽기 전용)·CUD `is_campaign_admin()` 이상. **브랜드 관리 폼은 회사 드롭다운으로 `company_id` 연결**(2026-06-05 일원화 — 자유텍스트 `company_name` 입력 폐지·드롭다운 선택 회사명 동기화 보존, 신규 회사 인라인 등록은 회사 모달 중첩, 사업자번호·청구이메일은 읽기전용 카드, 담당자는 브랜드 정보로 이관). `dev/js/admin-company.js`. 사양서 `docs/specs/2026-05-13-brand-ops-redesign.md` PR 2 + `2026-06-04-brand-company-linking.md`
 - **신청 관리**(`/admin#brand-applications`, **UI 라벨: "브랜드 서베이"**): 내부 용어·DB(`brand_applications`)·라우트·함수명은 `광고주 신청` 그대로. 영업팀이 비공개 URL(`sales.globalreverb.com/reviewer`, `/seeding`)로 받은 신청을 검수·견적 확정·상태 관리. 모든 관리자 접근(`is_admin()`)
 - **리스트**: 필터(폼타입/상태/기간/검색) + pending(new) 배지 + 상세 모달(제품 테이블·견적·견적서 URL·OT 시트 URL·입금 날짜 `paid_at` 인라인 편집·제품별 multi-entry 메모·낙관적 락 version)
 - **상태 전이 10단계**: `new → reviewing → quoted → paid → kakao_room_created → orient_sheet_sent → schedule_sent → campaign_registered → done` / `rejected`. "되돌리기"(any → new). 깔때기·드롭다운·통계 표시 순서는 실제 영업 워크플로에 맞게 정렬. `kakao_room_created`(카톡방 생성)는 입금 확인 후 카카오 단톡방 개설 가시화
@@ -154,7 +154,7 @@
 - **캠페인 ↔ 신청 연결/해제**: `link_campaign_to_application` / `unlink_campaign_from_application` RPC. 같은 brand_id 검증 후 채번 재발급 + `legacy_no` 콤마 누적 + `numbering_legacy_map` UPSERT. 동시성 `pg_advisory_xact_lock` 2단 잠금. 멱등성 `unchanged:true` 반환. 가드 `is_campaign_admin()` 이상
 
 ### 인플루언서 관리
-- **목록**: 채널/인증/위반 드롭다운 3종 sticky-header + 통합 검색
+- **목록**: 채널/인증/위반 드롭다운 + 주소지(도도부현 다중선택, 「未登録」·「海外」 포함) + 팔로워 범위(채널 선택 기준, 전체=4채널 합계) sticky-header + 통합 검색 + 결과 인원수 표시. 주소지·팔로워는 클라 in-memory 필터(`classifyPrefecture`/`followerValueByChannel` 공용 헬퍼, admin-core.js). 엑셀 내보내기는 PR 2(미착수)
 - **상태 관리**(인증/위반/블랙리스트): 상세 모달에 상태 관리 카드 + 관리자 이력 카드 (사유별 누적 pill + 타임라인 + 위반 행 편집). 인증/위반 배지는 이름 옆 노출 (블랙일 땐 블랙 단독). 사유는 `blacklist_reason` ∪ `violation_reason` lookup 통합. 증빙 파일 업로드 (`influencer-flag-evidence` 비공개 버킷, 10MB, image/PDF). RPC: `setInfluencerVerified`/`setInfluencerBlacklist`/`recordInfluencerViolation`/`updateInfluencerViolation` (evidence_paths 미변경=null, 전체 삭제=[])
 - **전화번호 표시 포맷**(`formatPhoneDisplay` in ui.js): KR/JP 번호 정규화 (11자리 3-4-4, 10자리 02/03/06 → 2-4-4 else 3-3-4, `+81`/`+82` 지원). 매칭 실패 시 원문 폴백
 
@@ -201,7 +201,7 @@
 - `brand_application_memo_reads` — 메모 본인 읽음 기록. (memo_id FK CASCADE, auth_id) PRIMARY KEY
 - `brand_application_history` — 광고주 신청 변경 audit
 - `brand_app_daily_counter` — 일자별(JST) 채번 카운터. SECURITY DEFINER 트리거 전용
-- `companies` — 회사 마스터 (1개 회사 = N 개 brands, 4단 계층: 회사 > 브랜드 > 신청 > 캠페인). `name_ko`(NOT NULL)/`name_ja`/`name_en` + `name_normalized` UNIQUE NOT NULL(자동 정규화 트리거) + `business_no` + `address` + `homepage_url` + `contact_*` 3종 + `billing_email`/`billing_address`/`memo` + `status CHECK(active|archived)` + `total_brands` 자동 재계산. RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상
+- `companies` — 회사 마스터 (1개 회사 = N 개 brands, 4단 계층: 회사 > 브랜드 > 신청 > 캠페인). `name_ko`(NOT NULL)/`name_ja`/`name_en` + `name_normalized` UNIQUE NOT NULL(자동 정규화 트리거) + `business_no` + `address` + `homepage_url` + `contact_*` 3종(2026-06-05 UI 입력 제거 — 담당자는 브랜드로 일원화, 컬럼·기존 값은 보존·조회 쿼리에서 제외) + `billing_email`/`billing_address`/`memo` + `status CHECK(active|archived)` + `total_brands` 자동 재계산(`recalc_company_total_brands` 트리거, `brands.company_id` 변경 시). RLS SELECT `is_admin()`, CUD `is_campaign_admin()` 이상. ⚠️ `name_normalized` 정규화는 마이그레이션 119에서 공백 압축 포함 패턴(`lower(trim(regexp_replace(name_ko,'\s+',' ','g')))`)으로 교체됨(118 원본은 공백 압축 없음)
 - `brands` — 브랜드 마스터. `name`, `name_normalized`(자동 정규화), `brand_seq` UNIQUE, `company_id` FK ON DELETE SET NULL
 - `get_brand_ops_overview(p_company_id uuid)` — 운영 현황 22컬럼 집계 RPC (`SECURITY DEFINER + SET search_path='' + is_admin()`). 마이그레이션 148 로 `alert_reasons text[]`(alert 발생 조건 코드 배열) + `soonest_deadline date` + `d1_count bigint` 출력 추가(카드 사유 배너용). 임계값은 120 기준 유지, `flag_agg` CTE 로 임계값 1회 계산 후 alert_level/alert_reasons 가 동일 플래그 재참조
 - `get_brand_ops_detail(p_brand_id uuid)` — 브랜드 상세 jsonb 통합 RPC. 마이그레이션 149 로 캠페인 항목(신청 내부·외부 양쪽)에 `channel`/`channel_match`/`img1`(썸네일)/`recruit_start`/`submission_end` + 결과물 집계 `approved_app_count`(승인 신청 수)·`deliv_submitted_inf`(결과물 제출 distinct 인플)·`deliv_total`·`deliv_approved` 추가. 마이그레이션 150 으로 `purchase_start`/`purchase_end`(리뷰어 구매기간)·`visit_start`/`visit_end`(방문형 방문기간) 4키 추가. 미니카드가 모집률·제출률(제출인플/승인인플)·승인률(승인결과물/제출결과물) 3개 진행바 + 각 진행바 하단 날짜(모집 진행바=모집 시작~마감, 제출 진행바=리뷰어 구매기간/방문형 방문기간 + 제출마감) 표시에 사용

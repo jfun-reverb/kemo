@@ -836,16 +836,6 @@
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
-                <label>SNS 채널</label>
-                <select id="infChannelFilter" class="admin-filter" onchange="switchInfTabFromSelect(this.value)">
-                  <option value="all">전체</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="x">X(Twitter)</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="youtube">YouTube</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
                 <label>인증</label>
                 <select id="infFilterVerifiedSelect" class="admin-filter" onchange="rerenderInfluencersFromCache()">
                   <option value="all">전체</option>
@@ -861,6 +851,28 @@
                   <option value="has">위반 있음</option>
                   <option value="blacklist">블랙리스트</option>
                 </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>주소지(도도부현)</label>
+                <div id="infPrefectureMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 지역</button><div class="mf-drop" style="min-width:240px"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>SNS 채널</label>
+                <select id="infChannelFilter" class="admin-filter" onchange="switchInfTabFromSelect(this.value)">
+                  <option value="all">전체</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="x">X(Twitter)</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>팔로워</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <input type="number" id="infFollowersMin" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최소" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                  <span style="color:var(--muted)">~</span>
+                  <input type="number" id="infFollowersMax" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최대" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>

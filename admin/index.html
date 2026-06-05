@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780632122';
+  var CURRENT_BUILD = 'v1780638205';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -459,6 +459,11 @@ textarea.form-input{resize:vertical;min-height:80px}
 /* 필터 공통 */
 .admin-filter{padding:6px 28px 6px 8px;font-size:12px;border:1px solid var(--outline);border-radius:6px;outline:none;color:var(--ink)}
 .admin-filter.active{background-color:#fff}
+/* 숫자 입력칸: 증감 화살표(스피너) 제거 → 직접 입력만. 드롭다운용 우측 패딩도 정상화 */
+.admin-filter.no-spinner{padding-right:8px}
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.no-spinner[type=number]{-moz-appearance:textfield;appearance:textfield}
 .admin-filter-search{padding:6px 10px 6px 28px;font-size:12px;border:1px solid var(--outline);border-radius:6px;width:100%;box-sizing:border-box;outline:none}
 /* 페이지 제목 + 필터 영역 */
 .admin-sticky-header{padding-bottom:12px}
@@ -1997,7 +2002,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-05 13:02 · 9df2e69</span>
+          <span class="admin-build-text">2026-06-05 14:43 · ecb54bf</span>
         </div>
       </div>
     </aside>
@@ -2701,16 +2706,6 @@ textarea.form-input{resize:vertical;min-height:80px}
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
-                <label>SNS 채널</label>
-                <select id="infChannelFilter" class="admin-filter" onchange="switchInfTabFromSelect(this.value)">
-                  <option value="all">전체</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="x">X(Twitter)</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="youtube">YouTube</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
                 <label>인증</label>
                 <select id="infFilterVerifiedSelect" class="admin-filter" onchange="rerenderInfluencersFromCache()">
                   <option value="all">전체</option>
@@ -2726,6 +2721,28 @@ textarea.form-input{resize:vertical;min-height:80px}
                   <option value="has">위반 있음</option>
                   <option value="blacklist">블랙리스트</option>
                 </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>주소지(도도부현)</label>
+                <div id="infPrefectureMulti" class="mf-wrap" style="max-width:200px"><button type="button" class="mf-btn" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">전체 지역</button><div class="mf-drop" style="min-width:240px"></div></div>
+              </div>
+              <div class="admin-filter-group">
+                <label>SNS 채널</label>
+                <select id="infChannelFilter" class="admin-filter" onchange="switchInfTabFromSelect(this.value)">
+                  <option value="all">전체</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="x">X(Twitter)</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>팔로워</label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <input type="number" id="infFollowersMin" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최소" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                  <span style="color:var(--muted)">~</span>
+                  <input type="number" id="infFollowersMax" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최대" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
@@ -5757,6 +5774,15 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
   draft: 'badge-gray', scheduled: 'badge-blue', active: 'badge-green',
   closed_recruit: 'badge-pink', closed_done: 'badge-done', expired: 'badge-expired'
 };
+
+// 숫자 입력칸(type=number): 포커스 중 마우스 휠로 값이 바뀌는 기본 동작 차단 (오입력 방지).
+// 전역 1회 등록 → 관리자·인플 양쪽 빌드의 모든 숫자 입력칸에 일괄 적용. 휠은 페이지 스크롤만.
+document.addEventListener('wheel', function (e) {
+  const el = e.target;
+  if (el && el.tagName === 'INPUT' && el.type === 'number' && document.activeElement === el) {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 // ══════════════════════════════════════
 // STORAGE — Supabase API 호출 함수 모음
@@ -10301,6 +10327,24 @@ function getMultiFilterValues(containerId) {
   // 전체(모두 체크) = 필터 없음 → 빈 배열
   if (allCb?.checked && !allCb.indeterminate) return [];
   return [...wrap.querySelectorAll('.mf-drop input[type="checkbox"]:not([value="all"]):checked')].map(c => c.value);
+}
+
+// ── 도도부현·팔로워 공용 분류 헬퍼 (인플 조합 필터·대시보드 재사용) ──
+// prefecture 값을 「정식 도도부현 키(일본어)」 | '未登録' | '海外' 로 분류.
+//  · NULL/빈값 = 未登録, PREFECTURE_KO 키에 있으면 정식, 그 외 비어있지 않은 값 = 海外
+function classifyPrefecture(pref) {
+  const p = (pref == null) ? '' : String(pref).trim();
+  if (!p) return '未登録';
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  return map[p] ? p : '海外';
+}
+
+// 채널 기준 팔로워 수. 'all'(또는 미지정)이면 4개 채널 합계, 특정 채널이면 그 채널만.
+//  · LIPS·@cosme 는 팔로워 컬럼이 없어 합계에서 제외됨
+function followerValueByChannel(u, ch) {
+  const map = { instagram: 'ig_followers', x: 'x_followers', tiktok: 'tiktok_followers', youtube: 'youtube_followers' };
+  if (ch && map[ch]) return u[map[ch]] || 0;
+  return (u.ig_followers || 0) + (u.x_followers || 0) + (u.tiktok_followers || 0) + (u.youtube_followers || 0);
 }
 
 // 드롭다운 열 때 선택된 항목을 「전체」 항목 바로 아래로 모으고 구분선 삽입(선택 항목 상단 정렬).
@@ -17348,7 +17392,19 @@ async function loadAdminInfluencers() {
   ]);
   infUsersCache = users;
   _infViolationCounts = violations;
+  initInfPrefectureMulti();
   renderInfluencersPane(infUsersCache);
+}
+
+// 주소지(도도부현) 다중필터 옵션 초기화 — PREFECTURE_KO(일본어 키→한국어 라벨) + 미등록 + 해외.
+// syncMultiFilter 는 옵션 변화 시에만 재생성하므로 반복 호출해도 선택 상태 보존.
+function initInfPrefectureMulti() {
+  if (typeof syncMultiFilter !== 'function') return;
+  const map = (typeof PREFECTURE_KO !== 'undefined') ? PREFECTURE_KO : {};
+  const options = Object.keys(map).map(ja => ({ value: ja, label: map[ja] }));
+  options.push({ value: '未登録', label: '미등록' });
+  options.push({ value: '海外', label: '해외' });
+  syncMultiFilter('infPrefectureMulti', '전체 지역', options, rerenderInfluencersFromCache, { searchable: true, searchPlaceholder: '지역 검색' });
 }
 
 function rerenderInfluencersFromCache() {
@@ -17360,6 +17416,13 @@ function renderInfluencersPane(users) {
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
+  // 주소지(다중) — 미선택이면 빈 배열(=전체). classifyPrefecture 로 정식/未登録/海外 분류 후 매칭
+  const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
+  // 팔로워 범위 — 비우면 하한/상한 무제한
+  const minRaw = $('infFollowersMin')?.value;
+  const maxRaw = $('infFollowersMax')?.value;
+  const minF = (minRaw !== '' && minRaw != null) ? Number(minRaw) : null;
+  const maxF = (maxRaw !== '' && maxRaw != null) ? Number(maxRaw) : null;
   // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const matchSearch = (u) => matchSearchTokens(searchQ, [
     u.name_kanji, u.name, u.name_kana, u.email,
@@ -17373,12 +17436,20 @@ function renderInfluencersPane(users) {
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
     if (!matchSearch(u)) return false;
+    // 주소지(다중)
+    if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
+    // 팔로워 범위 (채널 선택값 기준, all=합계)
+    if (minF != null || maxF != null) {
+      const fv = followerValueByChannel(u, currentInfTab);
+      if (minF != null && fv < minF) return false;
+      if (maxF != null && fv > maxF) return false;
+    }
     return true;
   });
   const totalEl = $('infTotalCount');
   if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${users.length}명)`;
   const resetBtn = $('btnInfFilterReset');
-  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ);
+  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || minF != null || maxF != null);
   if (resetBtn) resetBtn.style.display = anyActive ? '' : 'none';
   renderInfTable(filtered, currentInfTab);
 }
@@ -17388,6 +17459,9 @@ function resetInfluencerFilters() {
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
   const s = $('infSearch'); if (s) s.value = '';
+  if (typeof resetMultiFilter === 'function') resetMultiFilter('infPrefectureMulti', '전체 지역');
+  const mn = $('infFollowersMin'); if (mn) mn.value = '';
+  const mx = $('infFollowersMax'); if (mx) mx.value = '';
   currentInfTab = 'all';
   rerenderInfluencersFromCache();
 }
@@ -17444,8 +17518,7 @@ function sortInfUsers(users) {
     line: u => u.line_id ? 1 : 0,
     addr: u => u.prefecture ? 1 : 0,
     paypal: u => u.paypal_email ? 1 : 0,
-    created: u => new Date(u.created_at).getTime(),
-    followers: u => u[{instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[currentInfTab]]||0
+    created: u => new Date(u.created_at).getTime()
   };
   const fn = getVal[infSortKey];
   if (!fn) return users;
@@ -17512,53 +17585,26 @@ function buildInfRowAll(u) {
   </tr>`;
 }
 
-function buildInfRowChannel(u, ch, idKey, fKey) {
-  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-  const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-  const idVal = extractSnsHandle(ch, u[idKey]);
-  const idUrl = snsProfileUrl(ch, idVal);
-  const idCell = idVal
-    ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">${idUrl ? `<a href="${idUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${esc(idVal)}</a>` : `@${esc(idVal)}`}</div>`
-    : '—';
-  const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-    <td>${idCell}</td>
-    <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
-    <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
-    <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
-    <td>${paypalBadge}</td>
-    <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
-  </tr>`;
-}
-
 function renderInfTable(users, ch) {
   const titleEl = $('infTableTitle');
   const headEl = $('infTableHead');
   const bodyEl = $('adminInfluencersBody');
   if (!bodyEl) return;
 
+  // 열은 항상 전체 뷰(10컬럼)로 통일. SNS 채널 선택 시 그 채널 등록자(팔로워>0)만 행에 표시(팔로워 기준 채널)
   let filtered = users;
-  let renderRow;
-  let colspan;
-
-  if (ch === 'all') {
-    if (titleEl) titleEl.textContent = '인플루언서 전체';
-    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
-    filtered = sortInfUsers(filtered);
-    renderRow = buildInfRowAll;
-    colspan = 10;
-  } else {
-    const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
+  if (ch && ch !== 'all') {
     const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
-    const idKey = {instagram:'ig',x:'x',tiktok:'tiktok',youtube:'youtube'}[ch];
-    if (titleEl) titleEl.textContent = `${chLabel} 등록자`;
-    filtered = users.filter(u => u[fKey] > 0);
-    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${chLabel} ID</th><th>${infSortTh('팔로워','followers')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
-    filtered = infSortKey ? sortInfUsers(filtered) : filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0));
-    renderRow = (u) => buildInfRowChannel(u, ch, idKey, fKey);
-    colspan = 7;
+    const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
+    if (fKey) filtered = users.filter(u => u[fKey] > 0);
+    if (titleEl) titleEl.textContent = chLabel ? `${chLabel} 등록자` : '인플루언서 전체';
+  } else if (titleEl) {
+    titleEl.textContent = '인플루언서 전체';
   }
+  if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
+  filtered = sortInfUsers(filtered);
+  const renderRow = buildInfRowAll;
+  const colspan = 10;
 
   const scrollRoot = bodyEl.closest('.admin-table-wrap');
   const emptyHtml = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;

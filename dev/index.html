@@ -903,12 +903,12 @@ window._supabaseLoaded = false;
 
   <!-- 応募履歴 -->
   <div id="mypage-sub-applications" class="mypage-view">
-    <div class="mypage-sub-header">
+    <div class="mypage-sub-header" style="justify-content:space-between">
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
+      <select id="myApplyStatusSelect" class="form-input" style="padding:6px 30px 6px 12px;font-size:13px;font-weight:600;border-radius:8px;width:auto;max-width:55%" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
-      <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
-      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap">
         <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>
