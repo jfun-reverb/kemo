@@ -158,8 +158,7 @@ function sortInfUsers(users) {
     line: u => u.line_id ? 1 : 0,
     addr: u => u.prefecture ? 1 : 0,
     paypal: u => u.paypal_email ? 1 : 0,
-    created: u => new Date(u.created_at).getTime(),
-    followers: u => u[{instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[currentInfTab]]||0
+    created: u => new Date(u.created_at).getTime()
   };
   const fn = getVal[infSortKey];
   if (!fn) return users;
@@ -226,53 +225,26 @@ function buildInfRowAll(u) {
   </tr>`;
 }
 
-function buildInfRowChannel(u, ch, idKey, fKey) {
-  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-  const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
-  const idVal = extractSnsHandle(ch, u[idKey]);
-  const idUrl = snsProfileUrl(ch, idVal);
-  const idCell = idVal
-    ? `<div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(idVal)}">${idUrl ? `<a href="${idUrl}" target="_blank" rel="noopener noreferrer" style="color:var(--pink)">@${esc(idVal)}</a>` : `@${esc(idVal)}`}</div>`
-    : '—';
-  const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
-    <td>${idCell}</td>
-    <td style="font-weight:700;color:var(--pink)">${(u[fKey]||0).toLocaleString()}명</td>
-    <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
-    <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
-    <td>${paypalBadge}</td>
-    <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
-  </tr>`;
-}
-
 function renderInfTable(users, ch) {
   const titleEl = $('infTableTitle');
   const headEl = $('infTableHead');
   const bodyEl = $('adminInfluencersBody');
   if (!bodyEl) return;
 
+  // 열은 항상 전체 뷰(10컬럼)로 통일. SNS 채널 선택 시 그 채널 등록자(팔로워>0)만 행에 표시(팔로워 기준 채널)
   let filtered = users;
-  let renderRow;
-  let colspan;
-
-  if (ch === 'all') {
-    if (titleEl) titleEl.textContent = '인플루언서 전체';
-    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
-    filtered = sortInfUsers(filtered);
-    renderRow = buildInfRowAll;
-    colspan = 10;
-  } else {
-    const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
+  if (ch && ch !== 'all') {
     const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
-    const idKey = {instagram:'ig',x:'x',tiktok:'tiktok',youtube:'youtube'}[ch];
-    if (titleEl) titleEl.textContent = `${chLabel} 등록자`;
-    filtered = users.filter(u => u[fKey] > 0);
-    if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${chLabel} ID</th><th>${infSortTh('팔로워','followers')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
-    filtered = infSortKey ? sortInfUsers(filtered) : filtered.sort((a,b)=>(b[fKey]||0)-(a[fKey]||0));
-    renderRow = (u) => buildInfRowChannel(u, ch, idKey, fKey);
-    colspan = 7;
+    const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
+    if (fKey) filtered = users.filter(u => u[fKey] > 0);
+    if (titleEl) titleEl.textContent = chLabel ? `${chLabel} 등록자` : '인플루언서 전체';
+  } else if (titleEl) {
+    titleEl.textContent = '인플루언서 전체';
   }
+  if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
+  filtered = sortInfUsers(filtered);
+  const renderRow = buildInfRowAll;
+  const colspan = 10;
 
   const scrollRoot = bodyEl.closest('.admin-table-wrap');
   const emptyHtml = `<tr><td colspan="${colspan}" style="text-align:center;color:var(--muted);padding:24px">데이터 없음</td></tr>`;
