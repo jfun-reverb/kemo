@@ -154,8 +154,25 @@ brands.billing_email                  │ (회사 단위 정보 일원화)
 - **PostgreSQL 슬라이스 메모**: 초기 구현의 `arr[2:]`(끝 인덱스 생략)는 PostgreSQL 9.6+에서 유효하나, reviewer 가독성 권고에 따라 `array_length(...) >= 2` 조건으로 단순화.
 - **참조처 grep 결과(PR 2·3 대비)**: `company_name`은 `admin-brand.js`(목록 표시·검색·상세 폼·신청 목록·신규브랜드모달) + `storage.js` fetchBrands select에서 참조. `business_no`/`billing_email`은 `admin-brand.js` 브랜드 폼·신규브랜드모달 + `admin-company.js` + `storage.js`. PR 2·3에서 드롭다운 전환·입력칸 제거 시 회사값 우선 + 브랜드값 폴백 처리 필요.
 
-### PR 2 — 브랜드 관리 회사 드롭다운 + 신규 회사 인라인 등록
-(미착수)
+### PR 2·3 — 회사 드롭다운 + 신규 회사 인라인 등록 + 입력칸 일원화 (한 사이클로 통합)
 
-### PR 3 — 회사 단위 입력칸 일원화
-(미착수)
+**구현일:** 2026-06-05
+**관련 커밋·PR:** (커밋 후 채움)
+**상태:** 개발 구현·빌드·reviewer GO 완료. 개발서버 배포·qa(light) 대기.
+
+#### 사용자 확정 결정 (AskUserQuestion 3종)
+1. 회사 선택 = **단순 목록 드롭다운** (회사 16건 기준, 캠페인/브랜드 선택 패턴 미러링)
+2. 신규 회사 인라인 등록 = **회사 관리 전체 12개 칸** (기존 회사 모달 `openCompanyModal` 재사용)
+3. 회사 정보 표시 = **읽기전용 카드 + 「회사 관리에서 수정」 안내**
+
+#### 초안 대비 변경 사항
+- **달라진 것**: 초안은 `openNewCompanyModal(callbackPrefix)` 신설(openNewBrandModal 미러링)을 제안했으나, "회사 관리 전체 칸" 결정에 따라 **기존 `openCompanyModal(id, opts)`을 콜백 인자로 확장 재사용**(중복 모달 코드 회피). 검색형 드롭다운은 단일선택 부적합·비용 과다로 단순 select 채택.
+- **추가된 것**: 회사 단위 정보를 회사값으로만 일원화하되, 기존 표시처 호환을 위해 **드롭다운 선택 회사명을 `brands.company_name`에 동기화 저장**(목록·subtitle·신청목록이 안 깨지도록). 보관(archived) 회사 연결 브랜드는 드롭다운에 「(보관됨)」 옵션으로 선택 유지.
+- **빠진 것**: 신청 목록·신청 등록 모달(`nba*`)의 회사 정보 표시는 **비대상 격리**(신청 시점 스냅샷 의존 → 건드리면 회귀). 폴백 전환을 브랜드 관리 페인에 한정.
+
+#### 구현 중 기술 결정 사항
+- **중첩 모달**: 회사 모달(#companyModal, z-index 612)을 브랜드 상세(#brandDetailModal, 612) 위에 띄우기 위해 콜백 모드일 때 회사 모달 z-index를 **620으로 상향**(닫을 때 612 복구). ESC 핸들러가 z-index 최상단 모달을 닫으므로 정합.
+- **회사 목록 로드**: `fetchCompanies({ status: 'all' })`로 archived 포함 전체 로드. ⚠️ `fetchCompanies`의 status 기본값이 `'active'`라 `{}`로 호출하면 archived 누락 → 보관 회사 연결 브랜드가 (미지정)으로 표시·저장 시 연결 끊김. reviewer가 잡아 `status:'all'`로 수정.
+- **입력칸 제거 안전성**: `_collectBrandFormPatch`에서 `business_no`·`billing_email` 키 제거 → updateBrand patch 누락 = 기존 brands 값 미변경(보존). 신규 브랜드는 회사 연결로 일원화.
+- **PANE_REFRESHERS['brands'] 등록**(백로그 `project_brand_ops_features_doc_backlog.md` 동시 해소) + saveBrandDetail·submitNewBrand를 refreshPane('brands')로 통일.
+- **변경 파일**: storage.js(fetchBrands select에 company_id) / admin-brand.js(헬퍼 5종 + 폼 교체 + collect 수정 + 진입점 회사 로드) / admin-company.js(openCompanyModal 콜백·z-index) / shared.js(brands refresher).

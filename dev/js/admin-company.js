@@ -10,6 +10,8 @@
 var _companiesCache = [];
 var _companiesUnassignedCount = 0;
 var _companyCurrentId = null;
+// 브랜드 폼 등에서 회사 모달을 띄울 때 저장 후 실행할 콜백 (있으면 회사 페인 대신 콜백 실행)
+var _companySavedCallback = null;
 var companiesLazy;
 var COMPANIES_PAGE_SIZE = 50;
 
@@ -132,10 +134,13 @@ var COMPANY_FIELDS = [
   { key: 'memo', label: '메모', textarea: true }
 ];
 
-function openCompanyModal(id) {
+// opts.onSaved(company) — 브랜드 폼 등에서 신규 회사 등록 후 콜백.
+//   콜백이 있으면 회사 모달을 다른 모달 위에 띄우고(z-index 상향), 저장 후 콜백 실행.
+function openCompanyModal(id, opts) {
+  _companySavedCallback = (opts && typeof opts.onSaved === 'function') ? opts.onSaved : null;
   var readOnly = !canEditCompanies();
   // 신규 추가는 권한 없으면 진입 차단. 기존 회사 행 클릭은 읽기 전용으로 열람 허용.
-  if (!id && readOnly) { toast('회사 추가 권한이 없습니다 (캠페인 관리자 이상)'); return; }
+  if (!id && readOnly) { toast('회사 추가 권한이 없습니다 (캠페인 관리자 이상)'); _companySavedCallback = null; return; }
   _companyCurrentId = id || null;
   var c = id ? (_companiesCache || []).find(function(x){ return x.id === id; }) : null;
   var title = $('companyModalTitle');
@@ -168,10 +173,19 @@ function openCompanyModal(id) {
   }
   var saveBtn = $('companySaveBtn');
   if (saveBtn) saveBtn.style.display = readOnly ? 'none' : '';
+  // 콜백 모드(브랜드 폼 위 중첩)면 z-index 상향, 아니면 표준값(612)
+  var modalEl = $('companyModal');
+  if (modalEl) modalEl.style.zIndex = _companySavedCallback ? '620' : '612';
   openModal('companyModal');
 }
 
-function closeCompanyModal() { closeModal('companyModal'); _companyCurrentId = null; }
+function closeCompanyModal() {
+  var modalEl = $('companyModal');
+  if (modalEl) modalEl.style.zIndex = '612';
+  closeModal('companyModal');
+  _companyCurrentId = null;
+  _companySavedCallback = null;
+}
 
 async function saveCompany() {
   if (!canEditCompanies()) { toast('권한이 없습니다'); return; }
@@ -200,7 +214,10 @@ async function saveCompany() {
     return;
   }
   toast(_companyCurrentId ? '회사 정보를 저장했습니다' : '회사를 추가했습니다');
-  closeCompanyModal();
+  // 콜백 모드(브랜드 폼 위에서 신규 등록)면 회사 페인 갱신 대신 콜백 실행
+  var cb = _companySavedCallback;
+  closeCompanyModal();  // 내부에서 _companySavedCallback = null
+  if (cb) { cb(res.data); return; }
   await refreshPane('companies');
 }
 
