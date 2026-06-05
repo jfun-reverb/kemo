@@ -113,4 +113,4 @@ feat: ...
 - `reverb-reviewer`: commit/push 직전 항상 실행
 - `reverb-supabase-expert`: `auth.users`, `auth.identities`, RLS, 마이그레이션, `storage.js`, Supabase 클라이언트 옵션 수정 시
 - `reverb-planner`: 기능 추가·개선·리팩토링 시작 전 (규모 무관)
-- `reverb-qa-tester`: 운영 배포 전 및 인증/신청/관리자 플로우 변경 시 (개발서버에서 E2E 검증)
+- `reverb-qa-tester`: 운영 배포 전·인증/신청/관리자 플로우 변경 시 **권장**(자동 호출 아님). reverb-reviewer 가 light/full/skip 권장만 보고하고, **실제 실행은 다른 세션이 Playwright 를 안 쓰는 걸 확인 + 단일 세션에서**. Playwright 는 크롬 1개를 공유하는 단일 자원이라 동시 실행 시 먼저 돌던 테스트가 멈춤 (`.claude/rules/multi-session.md` 「Playwright 단일 자원」)
