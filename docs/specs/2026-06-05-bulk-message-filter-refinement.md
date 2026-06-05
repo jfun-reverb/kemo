@@ -110,4 +110,31 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
+
+**구현 세션:** 개발 세션2 (worktree feature/bulk-message-filter)
+
+### PR 1 — 데이터베이스 함수 (✅ 개발서버 배포 완료)
+**구현일:** 2026-06-05 / **마이그레이션 171** (`171_bulk_recipients_full_approval.sql`) / **PR #448** → dev 머지 `f8bd1cc`
+
+- `resolve_bulk_recipients` 12인자 DROP → **14인자** 재정의(인자 수 변경이라 DROP+CREATE, OR REPLACE 불가)
+- **항목 B:** `p_receipt_all_approved`·`p_post_all_approved`(둘 다 DEFAULT false). "완전 승인" = `EXISTS(approved) AND NOT EXISTS(pending/rejected/draft)` (kind 한정 — 영수증=`receipt`, 게시물=`('post','review_image')`)
+- **항목 D:** 미제출(none) 판정을 `NOT EXISTS(status<>'draft')`로 확장 — 결과물 행 없음 + 전부 draft 모두 none에 흡수
+- 169 기존 12파라미터·필터(응모상태/채널/도도부현/팔로워 per_channel·sum/인증·위반·블랙리스트)·권한 가드 `is_campaign_admin()`·`SECURITY DEFINER SET search_path=''` 전부 보존
+- 신규 파라미터 DEFAULT false → 기존 12키 명명인자 호출(storage.js `resolveBulkRecipients`) 무변경
+- **개발 DB 적용 + 스모크 통과**: 응모 최다 캠페인 기준 기본 6 / 승인 4 / 게시물완전승인 2 / 게시물미제출 4 (필터 효과·런타임·권한 가드 정상). 스모크는 `BEGIN; set_config('request.jwt.claims', super_admin sub, true); SELECT resolve_bulk_recipients(...); COMMIT;` 패턴 — SQL Editor가 statement별 별도 트랜잭션이라 `set_config(...,true)`를 같은 트랜잭션으로 묶어야 권한 가드 통과
+- **요청 외 추가 변경:** `.gitignore`에 `.claude/worktrees/` 추가(메인 폴더 `git add -A` 사고 차단, 별도 커밋)
+
+### PR 2 — 화면 (✅ 개발서버 배포 완료)
+**구현일:** 2026-06-05 / **PR #450** → dev 머지 `089bf5c`
+
+- **항목 A:** 대상 카운트를 「○건 (받는 사람 ○명)」으로 분리(`updateBulkCount(n, people)`). 사람 수 = `countDistinctUsersForApps(ids)`(storage.js 신규, `applications.user_id` distinct, in() 200개 이하라 1000행 cap 무관). step2도 「○건 발송 (받는 사람 ○명)」 병기. recountBulk에서 계산(실패 시 건수 폴백 + race 2차 체크)
+- **항목 B:** 결과물 영역에 「완전 승인만(부분 승인 제외)」 통합 토글 1개(`#bulkFullApproved`). `collectBulkFilters`가 `fullApproved`(승인 응모 포함 시만) 수집 → `resolveBulkRecipients`가 `p_receipt_all_approved`·`p_post_all_approved` 둘 다 동일값 전달
+- **항목 C:** 채널 라벨 "인플루언서 보유 SNS"(+"캠페인 모집 채널 아님" 설명) / 타입혼합 배너(`#bulkTypeMixNote`, `hasMonitor && hasNonMonitor` 시 노출)
+- 단위 통일: 발송 완료 토스트·최대 한도 메시지 「명」→「건」
+- 모달 재오픈 초기화에 `bulkFullApproved`·`bulkTypeMixNote`·`hasNonMonitor` 리셋 추가
+- 파일: `dev/js/admin-messaging.js` + `dev/lib/storage.js` + `dev/admin/index.html`(+빌드 산출물)
+- [via reviewer] GO(db?.·null-filter·toast 단위 반영) / [via supabase-expert] storage.js 래퍼 171 시그니처 일치 확인. qa light는 사용자 트리거 시(Playwright 단일 자원)
+
+### 운영 배포
+- PR 1·PR 2 모두 끝난 뒤 묶어서 사용자 확인 거쳐 별도 진행(운영 DB에 171 SQL Editor 적용 + dev→main). 약관·시행일 게이트 없음(기존 운영 기능 정교화)
