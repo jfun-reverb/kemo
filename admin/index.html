@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780638205';
+  var CURRENT_BUILD = 'v1780646149';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2002,7 +2002,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-05 14:43 · ecb54bf</span>
+          <span class="admin-build-text">2026-06-05 16:55 · 8644c29</span>
         </div>
       </div>
     </aside>
@@ -2761,6 +2761,8 @@ textarea.form-input{resize:vertical;min-height:80px}
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="infTableTitle">인플루언서 목록</span><span id="infTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
               <div style="display:flex;align-items:center;gap:8px">
+                <label id="infExcelSensitiveWrap" style="display:none;align-items:center;gap:3px;font-size:11px;color:var(--muted);cursor:pointer" title="전화·LINE·PayPal·상세주소 열을 추가합니다 (캠페인 관리자 이상)"><input type="checkbox" id="infExcelSensitive">민감정보 포함</label>
+                <button class="btn btn-ghost btn-xs" id="btnInfExcel" onclick="exportInfluencersExcel()" style="display:inline-flex;align-items:center;gap:4px" title="현재 필터 결과를 엑셀로 다운로드"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">download</span> 엑셀 다운로드</button>
                 <button class="btn btn-ghost btn-xs" id="btnInfSortReset" onclick="resetInfSort()" style="display:none">정렬 초기화</button>
               </div>
             </div>
@@ -17393,7 +17395,17 @@ async function loadAdminInfluencers() {
   infUsersCache = users;
   _infViolationCounts = violations;
   initInfPrefectureMulti();
-  renderInfluencersPane(infUsersCache);
+  applyInfExcelSensitiveVisibility();
+  renderInfluencersPane();
+}
+
+// 「민감정보 포함」 체크박스는 campaign_admin 이상에게만 노출 (그 외 숨김)
+function applyInfExcelSensitiveVisibility() {
+  const wrap = $('infExcelSensitiveWrap');
+  if (!wrap) return;
+  const allow = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  wrap.style.display = allow ? 'inline-flex' : 'none';
+  if (!allow) { const cb = $('infExcelSensitive'); if (cb) cb.checked = false; }
 }
 
 // 주소지(도도부현) 다중필터 옵션 초기화 — PREFECTURE_KO(일본어 키→한국어 라벨) + 미등록 + 해외.
@@ -17409,10 +17421,13 @@ function initInfPrefectureMulti() {
 
 function rerenderInfluencersFromCache() {
   if (!infUsersCache) { loadAdminInfluencers(); return; }
-  renderInfluencersPane(infUsersCache);
+  renderInfluencersPane();
 }
 
-function renderInfluencersPane(users) {
+// 현재 필터(인증/위반/검색/주소지/팔로워/채널)가 적용된 인플 목록 — 화면 표시·엑셀 내보내기 공용.
+// 채널 선택 시 그 채널 등록자(팔로워>0) 행 필터까지 포함 → 카운트·표시 행·엑셀이 모두 일치.
+function getFilteredInfluencersForView() {
+  const users = infUsersCache || [];
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
@@ -17423,12 +17438,16 @@ function renderInfluencersPane(users) {
   const maxRaw = $('infFollowersMax')?.value;
   const minF = (minRaw !== '' && minRaw != null) ? Number(minRaw) : null;
   const maxF = (maxRaw !== '' && maxRaw != null) ? Number(maxRaw) : null;
+  // 채널 선택 시 그 채널 등록자만 (팔로워>0)
+  const chKey = (currentInfTab && currentInfTab !== 'all')
+    ? { instagram: 'ig_followers', x: 'x_followers', tiktok: 'tiktok_followers', youtube: 'youtube_followers' }[currentInfTab]
+    : null;
   // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const matchSearch = (u) => matchSearchTokens(searchQ, [
     u.name_kanji, u.name, u.name_kana, u.email,
     u.ig, u.x, u.tiktok, u.youtube,
   ]);
-  const filtered = users.filter(u => {
+  return users.filter(u => {
     if (verifiedSel === 'verified' && !u.is_verified) return false;
     if (verifiedSel === 'unverified' && u.is_verified) return false;
     const vc = (_infViolationCounts && _infViolationCounts[u.id]) || 0;
@@ -17436,22 +17455,33 @@ function renderInfluencersPane(users) {
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
     if (!matchSearch(u)) return false;
-    // 주소지(다중)
     if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
-    // 팔로워 범위 (채널 선택값 기준, all=합계)
     if (minF != null || maxF != null) {
       const fv = followerValueByChannel(u, currentInfTab);
       if (minF != null && fv < minF) return false;
       if (maxF != null && fv > maxF) return false;
     }
+    if (chKey && !(u[chKey] > 0)) return false;
     return true;
   });
+}
+
+function renderInfluencersPane() {
+  const filtered = getFilteredInfluencersForView();
+  const total = (infUsersCache || []).length;
   const totalEl = $('infTotalCount');
-  if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${users.length}명)`;
+  if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${total}명)`;
   const resetBtn = $('btnInfFilterReset');
-  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || minF != null || maxF != null);
-  if (resetBtn) resetBtn.style.display = anyActive ? '' : 'none';
-  renderInfTable(filtered, currentInfTab);
+  if (resetBtn) {
+    const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
+    const violationSel = $('infFilterViolationSelect')?.value || 'all';
+    const searchQ = ($('infSearch')?.value || '').trim();
+    const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
+    const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower);
+    resetBtn.style.display = anyActive ? '' : 'none';
+  }
+  renderInfTable(filtered);
 }
 
 function resetInfluencerFilters() {
@@ -17585,24 +17615,17 @@ function buildInfRowAll(u) {
   </tr>`;
 }
 
-function renderInfTable(users, ch) {
+// users 는 getFilteredInfluencersForView() 결과(채널 행 필터 포함). 열은 항상 전체 뷰(10컬럼)로 통일.
+function renderInfTable(users) {
   const titleEl = $('infTableTitle');
   const headEl = $('infTableHead');
   const bodyEl = $('adminInfluencersBody');
   if (!bodyEl) return;
 
-  // 열은 항상 전체 뷰(10컬럼)로 통일. SNS 채널 선택 시 그 채널 등록자(팔로워>0)만 행에 표시(팔로워 기준 채널)
-  let filtered = users;
-  if (ch && ch !== 'all') {
-    const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
-    const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
-    if (fKey) filtered = users.filter(u => u[fKey] > 0);
-    if (titleEl) titleEl.textContent = chLabel ? `${chLabel} 등록자` : '인플루언서 전체';
-  } else if (titleEl) {
-    titleEl.textContent = '인플루언서 전체';
-  }
+  const chLabel = { instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' }[currentInfTab];
+  if (titleEl) titleEl.textContent = chLabel ? `${chLabel} 등록자` : '인플루언서 전체';
   if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
-  filtered = sortInfUsers(filtered);
+  const filtered = sortInfUsers(users);
   const renderRow = buildInfRowAll;
   const colspan = 10;
 
@@ -21801,6 +21824,105 @@ function _excelProxyReasonKo(code) {
     other:               '기타'
   };
   return map[code] || code;
+}
+
+// ─── 인플루언서 목록 엑셀 ──────────────────────────────────────────
+// 현재 필터(주소지/팔로워/채널/인증/위반/검색)가 적용된 인플 목록을 엑셀로.
+//   기본 열: 모든 관리자. 민감정보 열(전화·LINE·PayPal·상세주소): campaign_admin 이상 + 「민감정보 포함」 체크 시.
+//   ⚠ fetchInfluencers 가 select('*') 라 민감정보는 이미 전 관리자 클라 메모리에 있음 → 본 권한 분기는 엑셀 출력 표시 제한 수준
+//     (실데이터 차단은 RLS/뷰 컬럼 마스킹 별도 과제). 사양서 docs/specs/2026-06-04-influencer-combo-filter.md 의심 9번.
+async function exportInfluencersExcel() {
+  if (!_checkExportAllowed()) return;
+  var rows = (typeof getFilteredInfluencersForView === 'function') ? getFilteredInfluencersForView() : [];
+  if (!rows.length) { toast('내보낼 인플루언서가 없습니다', 'warn'); return; }
+  if (!(await _confirmLargeExport(rows.length))) return;
+
+  var canSensitive = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  var includeSensitive = canSensitive && !!(document.getElementById('infExcelSensitive') && document.getElementById('infExcelSensitive').checked);
+
+  _markExportStart();
+  try {
+    await loadExcelJS();
+    var wb = new ExcelJS.Workbook();
+    var ws = wb.addWorksheet('인플루언서');
+    var cols = [
+      { header: '이름(한자)', key: 'kanji', width: 14 },
+      { header: '이름(가나)', key: 'kana', width: 16 },
+      { header: '이메일', key: 'email', width: 24 },
+      { header: '대표SNS', key: 'primary', width: 10 },
+      { header: 'Instagram', key: 'ig', width: 28 },
+      { header: 'IG 팔로워', key: 'igf', width: 11 },
+      { header: 'X(Twitter)', key: 'x', width: 24 },
+      { header: 'X 팔로워', key: 'xf', width: 11 },
+      { header: 'TikTok', key: 'tt', width: 24 },
+      { header: 'TikTok 팔로워', key: 'ttf', width: 12 },
+      { header: 'YouTube', key: 'yt', width: 24 },
+      { header: 'YT 팔로워', key: 'ytf', width: 11 },
+      { header: '합계 팔로워', key: 'total', width: 12 },
+      { header: '도도부현', key: 'pref', width: 12 },
+      { header: '시군구', key: 'city', width: 16 },
+      { header: '등록일', key: 'created', width: 12 }
+    ];
+    if (includeSensitive) {
+      cols.push(
+        { header: '전화번호', key: 'phone', width: 16 },
+        { header: 'LINE', key: 'line', width: 16 },
+        { header: 'PayPal', key: 'paypal', width: 24 },
+        { header: '우편번호', key: 'zip', width: 12 },
+        { header: '건물명', key: 'building', width: 18 },
+        { header: '상세주소', key: 'address', width: 30 }
+      );
+    }
+    ws.columns = cols;
+    ws.getRow(1).font = { bold: true };
+
+    rows.forEach(function (u) {
+      var nm = _excelInfluencerNameParts(u);
+      var row = {
+        kanji:   nm.kanji,
+        kana:    nm.kana,
+        email:   u.email || '',
+        primary: u.primary_sns || '',
+        ig:      _excelSnsUrl('instagram', u.ig),
+        igf:     u.ig_followers || 0,
+        x:       _excelSnsUrl('x', u.x),
+        xf:      u.x_followers || 0,
+        tt:      _excelSnsUrl('tiktok', u.tiktok),
+        ttf:     u.tiktok_followers || 0,
+        yt:      _excelSnsUrl('youtube', u.youtube),
+        ytf:     u.youtube_followers || 0,
+        total:   (u.ig_followers || 0) + (u.x_followers || 0) + (u.tiktok_followers || 0) + (u.youtube_followers || 0),
+        pref:    u.prefecture || '',
+        city:    u.city || '',
+        created: u.created_at ? formatDate(u.created_at) : ''
+      };
+      if (includeSensitive) {
+        row.phone    = u.phone || '';
+        row.line     = u.line_id || '';
+        row.paypal   = u.paypal_email || '';
+        row.zip      = _excelZip(u);
+        row.building = u.building || '';
+        row.address  = _excelAddressOnly(u, u.address);
+      }
+      ws.addRow(row);
+    });
+
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob);
+    var aEl = document.createElement('a');
+    aEl.href = url;
+    var ts = new Date();
+    var ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    aEl.download = 'influencers-' + rows.length + '-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + rows.length + '명' + (includeSensitive ? ', 민감정보 포함' : '') + ')');
+  } catch (e) {
+    toast('엑셀 생성 실패: ' + friendlyError(e.message || e), 'error');
+  } finally {
+    _markExportEnd();
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════

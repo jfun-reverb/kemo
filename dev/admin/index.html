@@ -891,6 +891,8 @@
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="infTableTitle">인플루언서 목록</span><span id="infTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
               <div style="display:flex;align-items:center;gap:8px">
+                <label id="infExcelSensitiveWrap" style="display:none;align-items:center;gap:3px;font-size:11px;color:var(--muted);cursor:pointer" title="전화·LINE·PayPal·상세주소 열을 추가합니다 (캠페인 관리자 이상)"><input type="checkbox" id="infExcelSensitive">민감정보 포함</label>
+                <button class="btn btn-ghost btn-xs" id="btnInfExcel" onclick="exportInfluencersExcel()" style="display:inline-flex;align-items:center;gap:4px" title="현재 필터 결과를 엑셀로 다운로드"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">download</span> 엑셀 다운로드</button>
                 <button class="btn btn-ghost btn-xs" id="btnInfSortReset" onclick="resetInfSort()" style="display:none">정렬 초기화</button>
               </div>
             </div>
