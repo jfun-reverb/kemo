@@ -137,13 +137,25 @@ brands.billing_email                  │ (회사 단위 정보 일원화)
 
 ## 구현 결과 (개발 세션이 채울 것)
 
-**구현일:**
-**관련 커밋·PR:**
+### PR 1 — 회사 정보 백필 (마이그레이션 170)
 
-### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+**구현일:** 2026-06-05
+**관련 커밋·PR:** (커밋 후 채움) — `supabase/migrations/170_brands_company_backfill.sql`
+**상태:** 파일 작성 완료. 개발 DB 실측·적용 대기.
 
-### 구현 중 기술 결정 사항
-- (운영/개발 DB 실측 결과, total_brands 트리거 발화 여부, company_name 참조처 grep 결과 등)
+#### 초안 대비 변경 사항
+- **달라진 것 (중요)**: 백필 그룹핑 키를 초안의 `lower(btrim(company_name))`(공백 압축 없음)이 아니라 **`lower(trim(regexp_replace(company_name,'\s+',' ','g')))`(공백 압축 포함)** 으로 변경. 이유 = `companies.name_normalized` 자동 트리거 `set_company_name_normalized()`가 **마이그레이션 118 원본(공백 압축 없음) → 마이그레이션 119에서 공백 압축 포함 패턴으로 교체**되어 있었음. 백필 키를 현재 트리거(119 버전)와 일치시켜야 INSERT 후 `name_normalized` 재조회·`ON CONFLICT` 충돌 판정이 정확. (메인 세션이 초안의 키를 그대로 쓰라고 지시했으나, supabase-expert가 119를 확인해 정정 — 119 검증 후 채택)
+- **추가된 것**: 멱등성을 위한 `ON CONFLICT (name_normalized) DO NOTHING` + RETURNING NULL 시 재조회 경로. total_brands 2단계(트리거 자동 +1 + 명시적 재계산 덮어쓰기) + 검산 DO 블록(actual vs cached 불일치 RAISE WARNING). 파일 하단에 실행 후 검산 SELECT 3종(주석).
+
+#### 구현 중 기술 결정 사항
+- **total_brands 트리거 발화 확인**: `trg_brands_company_total_brands` = `AFTER INSERT OR DELETE OR UPDATE OF company_id ON brands FOR EACH ROW`. 백필의 `company_id` NULL→회사id UPDATE가 트리거를 발화시켜 자동 +1 누적됨. 수동 재계산은 안전망으로 추가(덮어쓰기라 이중 카운트 없음).
+- **company_name 보존**: UPDATE는 `company_id`만 갱신, `company_name`(스냅샷)은 미변경. 기존 수동 입력 회사(memo에 `[자동백필]` 없음)는 루프·UPDATE 조건(`company_id IS NULL`)으로 완전 제외.
+- **충돌 병기**: 같은 그룹에 서로 다른 business_no/billing_email이 2개 이상이면 첫 값 채택 + 나머지 전체를 `memo`에 `[자동백필] migration 170 / 사업자번호 후보: A, B` 형식 기록(확정 정책 2번).
+- **PostgreSQL 슬라이스 메모**: 초기 구현의 `arr[2:]`(끝 인덱스 생략)는 PostgreSQL 9.6+에서 유효하나, reviewer 가독성 권고에 따라 `array_length(...) >= 2` 조건으로 단순화.
+- **참조처 grep 결과(PR 2·3 대비)**: `company_name`은 `admin-brand.js`(목록 표시·검색·상세 폼·신청 목록·신규브랜드모달) + `storage.js` fetchBrands select에서 참조. `business_no`/`billing_email`은 `admin-brand.js` 브랜드 폼·신규브랜드모달 + `admin-company.js` + `storage.js`. PR 2·3에서 드롭다운 전환·입력칸 제거 시 회사값 우선 + 브랜드값 폴백 처리 필요.
+
+### PR 2 — 브랜드 관리 회사 드롭다운 + 신규 회사 인라인 등록
+(미착수)
+
+### PR 3 — 회사 단위 입력칸 일원화
+(미착수)
