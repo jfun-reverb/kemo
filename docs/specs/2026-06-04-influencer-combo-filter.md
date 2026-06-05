@@ -120,7 +120,7 @@ if (maxF != null && fv > maxF) return false;
 
 ### 초안 대비 변경 사항
 - 추가된 것: 없음 (초안 PR 1 설계 그대로)
-- 빠진 것: **PR 2(필터 결과 엑셀 내보내기 + 권한별 민감정보 열)는 이번 사이클 미착수** — 별도 PR로 진행 예정
+- ~~빠진 것: PR 2 미착수~~ → **PR 2(엑셀 내보내기) 2026-06-05 구현 완료** (아래 「PR 2 구현 결과」 참조)
 - 달라진 것:
   - 결과 인원수는 사양서가 「sticky-header 표시 의무」라 했으나, 기존에 카드 헤더의 `#infTotalCount`가 이미 "N명 표시 (전체 N명)" 형식으로 존재하여 **그대로 재사용**(중복 표시 회피). 필터 활성 시 초기화 버튼이 함께 노출됨.
 
@@ -130,3 +130,21 @@ if (maxF != null && fv > maxF) return false;
 - **합계 팔로워 정의**: `ig+x+tiktok+youtube_followers`, 각 NULL=0. LIPS·@cosme는 팔로워 컬럼 없어 합계 제외. 채널 선택값(`currentInfTab`) 기준이며 'all'이면 합계.
 - **운영 DB prefecture distinct 점검**: 미수행(개발 세션이 운영 DB 직접 쿼리 안 함). 비정식 표기(`大阪` 등 府 누락)는 `海外`로 분류되는 한계 존재 — 사양서 「의심 3번」대로 운영 실데이터 검증 권고로 남김.
 - **백로그(reviewer Warning 2)**: 추후 채널 드롭다운에 LIPS·@cosme 추가 시 `followerValueByChannel` map에 없어 합계 폴백 → 그때 함께 처리.
+
+---
+
+## PR 2 구현 결과 (엑셀 내보내기)
+
+**구현일:** 2026-06-05
+**관련 파일:** `dev/js/admin-excel.js`(exportInfluencersExcel), `dev/js/admin-influencers.js`(필터 공통 함수), `dev/admin/index.html`(버튼+체크박스)
+
+### 초안 대비 변경 사항
+- 추가된 것: **필터 로직 공통 함수 `getFilteredInfluencersForView()` 추출** — 초안은 "엑셀이 필터된 결과만"이라 했는데, 화면 표시(renderInfluencersPane)와 엑셀이 같은 필터를 쓰도록 공통화. 이 과정에서 **채널 선택 시 카운트(#infTotalCount)와 표시 행이 어긋나던 작은 버그도 정합**(채널 행 필터를 공통 함수로 이관 → renderInfTable의 행 필터 제거).
+- 빠진 것: 없음 (기본 16열 + 민감정보 6열 + 권한 분기 + 대량 가드 전부 구현)
+- 달라진 것: 없음
+
+### 구현 중 기술 결정 사항
+- **권한 분기**: `isCampaignAdminOrAbove()`(admin-accounts.js) 클라 판별. 「민감정보 포함」 체크박스(`#infExcelSensitiveWrap`)는 campaign_admin 미만이면 `applyInfExcelSensitiveVisibility()`가 숨김+강제 uncheck. `exportInfluencersExcel` 내부에서 `canSensitive` 재검증(이중 가드).
+- **보안 한계 명시**(사양서 의심 9번): `fetchInfluencers` 가 `select('*')` 라 phone/paypal/주소가 이미 전 관리자 클라 메모리에 내려와 있음 → 권한 분기는 **엑셀 출력 표시 제한 수준**. 실데이터 차단은 RLS/뷰 컬럼 마스킹 별도 과제. 코드 주석·CLAUDE.md·PR 본문에 기재.
+- **재사용**: `_checkExportAllowed`(동시진행 lock+5초 쿨다운)·`_confirmLargeExport`(50건+ confirm)·`_excelInfluencerNameParts`·`_excelSnsUrl`(핸들→공식 URL)·`_excelZip`·`_excelAddressOnly`·`loadExcelJS`(ExcelJS CDN lazy-load)·다운로드 패턴(Blob→a.click) 전부 기존 헬퍼.
+- **검증**: reverb-reviewer GO (stale 참조 0, 권한 이중 가드, 보안 한계 표기 확인). qa light 권장.
