@@ -1543,3 +1543,102 @@ function _excelProxyReasonKo(code) {
   };
   return map[code] || code;
 }
+
+// ─── 인플루언서 목록 엑셀 ──────────────────────────────────────────
+// 현재 필터(주소지/팔로워/채널/인증/위반/검색)가 적용된 인플 목록을 엑셀로.
+//   기본 열: 모든 관리자. 민감정보 열(전화·LINE·PayPal·상세주소): campaign_admin 이상 + 「민감정보 포함」 체크 시.
+//   ⚠ fetchInfluencers 가 select('*') 라 민감정보는 이미 전 관리자 클라 메모리에 있음 → 본 권한 분기는 엑셀 출력 표시 제한 수준
+//     (실데이터 차단은 RLS/뷰 컬럼 마스킹 별도 과제). 사양서 docs/specs/2026-06-04-influencer-combo-filter.md 의심 9번.
+async function exportInfluencersExcel() {
+  if (!_checkExportAllowed()) return;
+  var rows = (typeof getFilteredInfluencersForView === 'function') ? getFilteredInfluencersForView() : [];
+  if (!rows.length) { toast('내보낼 인플루언서가 없습니다', 'warn'); return; }
+  if (!(await _confirmLargeExport(rows.length))) return;
+
+  var canSensitive = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  var includeSensitive = canSensitive && !!(document.getElementById('infExcelSensitive') && document.getElementById('infExcelSensitive').checked);
+
+  _markExportStart();
+  try {
+    await loadExcelJS();
+    var wb = new ExcelJS.Workbook();
+    var ws = wb.addWorksheet('인플루언서');
+    var cols = [
+      { header: '이름(한자)', key: 'kanji', width: 14 },
+      { header: '이름(가나)', key: 'kana', width: 16 },
+      { header: '이메일', key: 'email', width: 24 },
+      { header: '대표SNS', key: 'primary', width: 10 },
+      { header: 'Instagram', key: 'ig', width: 28 },
+      { header: 'IG 팔로워', key: 'igf', width: 11 },
+      { header: 'X(Twitter)', key: 'x', width: 24 },
+      { header: 'X 팔로워', key: 'xf', width: 11 },
+      { header: 'TikTok', key: 'tt', width: 24 },
+      { header: 'TikTok 팔로워', key: 'ttf', width: 12 },
+      { header: 'YouTube', key: 'yt', width: 24 },
+      { header: 'YT 팔로워', key: 'ytf', width: 11 },
+      { header: '합계 팔로워', key: 'total', width: 12 },
+      { header: '도도부현', key: 'pref', width: 12 },
+      { header: '시군구', key: 'city', width: 16 },
+      { header: '등록일', key: 'created', width: 12 }
+    ];
+    if (includeSensitive) {
+      cols.push(
+        { header: '전화번호', key: 'phone', width: 16 },
+        { header: 'LINE', key: 'line', width: 16 },
+        { header: 'PayPal', key: 'paypal', width: 24 },
+        { header: '우편번호', key: 'zip', width: 12 },
+        { header: '건물명', key: 'building', width: 18 },
+        { header: '상세주소', key: 'address', width: 30 }
+      );
+    }
+    ws.columns = cols;
+    ws.getRow(1).font = { bold: true };
+
+    rows.forEach(function (u) {
+      var nm = _excelInfluencerNameParts(u);
+      var row = {
+        kanji:   nm.kanji,
+        kana:    nm.kana,
+        email:   u.email || '',
+        primary: u.primary_sns || '',
+        ig:      _excelSnsUrl('instagram', u.ig),
+        igf:     u.ig_followers || 0,
+        x:       _excelSnsUrl('x', u.x),
+        xf:      u.x_followers || 0,
+        tt:      _excelSnsUrl('tiktok', u.tiktok),
+        ttf:     u.tiktok_followers || 0,
+        yt:      _excelSnsUrl('youtube', u.youtube),
+        ytf:     u.youtube_followers || 0,
+        total:   (u.ig_followers || 0) + (u.x_followers || 0) + (u.tiktok_followers || 0) + (u.youtube_followers || 0),
+        pref:    u.prefecture || '',
+        city:    u.city || '',
+        created: u.created_at ? formatDate(u.created_at) : ''
+      };
+      if (includeSensitive) {
+        row.phone    = u.phone || '';
+        row.line     = u.line_id || '';
+        row.paypal   = u.paypal_email || '';
+        row.zip      = _excelZip(u);
+        row.building = u.building || '';
+        row.address  = _excelAddressOnly(u, u.address);
+      }
+      ws.addRow(row);
+    });
+
+    var buf = await wb.xlsx.writeBuffer();
+    var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob);
+    var aEl = document.createElement('a');
+    aEl.href = url;
+    var ts = new Date();
+    var ymd = ts.getFullYear() + String(ts.getMonth() + 1).padStart(2, '0') + String(ts.getDate()).padStart(2, '0');
+    aEl.download = 'influencers-' + rows.length + '-' + ymd + '.xlsx';
+    document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+    URL.revokeObjectURL(url);
+    toast('엑셀 다운로드 완료 (' + rows.length + '명' + (includeSensitive ? ', 민감정보 포함' : '') + ')');
+  } catch (e) {
+    toast('엑셀 생성 실패: ' + friendlyError(e.message || e), 'error');
+  } finally {
+    _markExportEnd();
+  }
+}

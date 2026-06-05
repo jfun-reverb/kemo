@@ -154,7 +154,8 @@
 - **캠페인 ↔ 신청 연결/해제**: `link_campaign_to_application` / `unlink_campaign_from_application` RPC. 같은 brand_id 검증 후 채번 재발급 + `legacy_no` 콤마 누적 + `numbering_legacy_map` UPSERT. 동시성 `pg_advisory_xact_lock` 2단 잠금. 멱등성 `unchanged:true` 반환. 가드 `is_campaign_admin()` 이상
 
 ### 인플루언서 관리
-- **목록**: 채널/인증/위반 드롭다운 + 주소지(도도부현 다중선택, 「未登録」·「海外」 포함) + 팔로워 범위(채널 선택 기준, 전체=4채널 합계) sticky-header + 통합 검색 + 결과 인원수 표시. 주소지·팔로워는 클라 in-memory 필터(`classifyPrefecture`/`followerValueByChannel` 공용 헬퍼, admin-core.js). 엑셀 내보내기는 PR 2(미착수)
+- **목록**: 채널/인증/위반 드롭다운 + 주소지(도도부현 다중선택, 「未登録」·「海外」 포함) + 팔로워 범위(채널 선택 기준, 전체=4채널 합계) sticky-header + 통합 검색 + 결과 인원수 표시. 주소지·팔로워는 클라 in-memory 필터(`getFilteredInfluencersForView` 공통 함수 — 화면·엑셀 공용, 채널 선택 시 그 채널 등록자만 행 필터. `classifyPrefecture`/`followerValueByChannel` 헬퍼, admin-core.js). SNS 채널 선택 시 열은 항상 전체 10컬럼 고정
+- **엑셀 내보내기**(`exportInfluencersExcel`, admin-excel.js): 현재 필터 결과(화면에 보이는 대상)를 .xlsx 로. 기본 16열(이름 한자/가나·이메일·대표SNS·4채널 핸들+팔로워·합계·도도부현·시군구·등록일). 민감정보 6열(전화·LINE·PayPal·우편번호·건물·상세주소)은 campaign_admin 이상 + 「민감정보 포함」 체크 시만(`isCampaignAdminOrAbove`). ⚠️ `fetchInfluencers` 가 `select('*')` 라 민감정보가 이미 전 관리자 클라 메모리에 있음 → 권한 분기는 엑셀 출력 표시 제한 수준(실차단은 RLS/뷰 컬럼 마스킹 별도 과제). 기존 `_excel*` 헬퍼 + ExcelJS lazy-load 재사용
 - **상태 관리**(인증/위반/블랙리스트): 상세 모달에 상태 관리 카드 + 관리자 이력 카드 (사유별 누적 pill + 타임라인 + 위반 행 편집). 인증/위반 배지는 이름 옆 노출 (블랙일 땐 블랙 단독). 사유는 `blacklist_reason` ∪ `violation_reason` lookup 통합. 증빙 파일 업로드 (`influencer-flag-evidence` 비공개 버킷, 10MB, image/PDF). RPC: `setInfluencerVerified`/`setInfluencerBlacklist`/`recordInfluencerViolation`/`updateInfluencerViolation` (evidence_paths 미변경=null, 전체 삭제=[])
 - **전화번호 표시 포맷**(`formatPhoneDisplay` in ui.js): KR/JP 번호 정규화 (11자리 3-4-4, 10자리 02/03/06 → 2-4-4 else 3-3-4, `+81`/`+82` 지원). 매칭 실패 시 원문 폴백
 
