@@ -2859,9 +2859,21 @@ async function resolveBulkRecipients(campaignId, filters = {}) {
     p_require_verified: !!filters.requireVerified,
     p_exclude_violation: !!filters.excludeViolation,
     p_exclude_blacklist: filters.excludeBlacklist !== false,
+    // 완전 승인만(부분 승인 제외) — 통합 토글 1개가 영수증·게시물 양쪽을 함께 true (마이그레이션 171)
+    p_receipt_all_approved: !!filters.fullApproved,
+    p_post_all_approved: !!filters.fullApproved,
   });
   if (error) throw error;
   return data || [];
+}
+
+// 응모 ID 배열의 distinct user_id 수 (일괄발송 「○건(○명)」 표시용 — 동일인 중복 응모 인지).
+//   appIds 는 BULK_MAX(200) 이하라 in() 단일 쿼리로 안전(PostgREST 1000행 cap 미만).
+async function countDistinctUsersForApps(appIds) {
+  if (!db || !appIds || !appIds.length) return 0;
+  const {data, error} = await db?.from('applications').select('user_id').in('id', appIds);
+  if (error) throw error;
+  return new Set((data || []).map(r => r.user_id).filter(Boolean)).size;
 }
 
 // 발송 이력 목록 (관리자). application_message_broadcasts 직접 조회.
