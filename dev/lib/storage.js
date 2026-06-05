@@ -1845,7 +1845,7 @@ async function fetchBrands(filters) {
     // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
     return await fetchAllPaged(() => {
       var q = db.from('brands')
-        .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
+        .select('id, brand_no, brand_seq, name, name_ja, name_en, name_normalized, company_id, company_name, business_no, description, appeal_points, official_qoo10_url, official_instagram_url, official_x_url, primary_contact_name, primary_phone, primary_email, billing_email, memo, status, total_applications, first_applied_at, last_applied_at, created_at, updated_at');
       if (filters?.status) q = q.eq('status', filters.status);
       return q.order('last_applied_at', {ascending: false, nullsFirst: false}).order('created_at', {ascending: false});
     });
@@ -1891,7 +1891,7 @@ async function fetchCompanies({ status = 'active', search } = {}) {
     // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
     return await fetchAllPaged(() => {
       var q = db.from('companies')
-        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
       // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
       if (status && status !== 'all') q = q.eq('status', status);
       // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)

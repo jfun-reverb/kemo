@@ -10,6 +10,8 @@
 var _companiesCache = [];
 var _companiesUnassignedCount = 0;
 var _companyCurrentId = null;
+// 브랜드 폼 등에서 회사 모달을 띄울 때 저장 후 실행할 콜백 (있으면 회사 페인 대신 콜백 실행)
+var _companySavedCallback = null;
 var companiesLazy;
 var COMPANIES_PAGE_SIZE = 50;
 
@@ -21,7 +23,7 @@ function canEditCompanies() {
 
 async function loadCompanies() {
   var tbody = $('companiesTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   var statusF = $('companiesStatusFilter')?.value || 'active';
   var q = (($('companiesSearch')?.value) || '').trim();
   _companiesCache = await fetchCompanies({ status: statusF, search: q });
@@ -67,19 +69,16 @@ function renderCompanyList() {
   }
 
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">회사가 없습니다' + (canEditCompanies() ? ' · 「+ 회사 추가」로 등록하세요' : '') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:40px">회사가 없습니다' + (canEditCompanies() ? ' · 「+ 회사 추가」로 등록하세요' : '') + '</td></tr>';
     return;
   }
 
   var editable = canEditCompanies();
   var renderRow = function(c) {
     var statusBadge = c.status === 'archived'
-      ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">archived</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">active</span>';
+      ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">보관</span>'
+      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     var brandCount = c.total_brands || 0;
-    var contact = c.contact_name
-      ? esc(c.contact_name) + (c.contact_email ? '<div style="font-size:11px;color:var(--muted);margin-top:2px;word-break:break-all">' + esc(c.contact_email) + '</div>' : '')
-      : '<span style="color:var(--muted)">—</span>';
 
     // 작업 버튼 — 권한 없으면 비활성 + 안내
     var noPerm = ' disabled title="회사 수정 권한이 없습니다 (캠페인 관리자 이상)" style="opacity:.4;cursor:not-allowed"';
@@ -97,7 +96,6 @@ function renderCompanyList() {
       + '</td>'
       + '<td style="font-size:12px;color:var(--ink)">' + esc(c.name_ja || '—') + '</td>'
       + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + brandCount + '</td>'
-      + '<td>' + contact + '</td>'
       + '<td>' + statusBadge + '</td>'
       + '<td style="white-space:nowrap">' + assignBtn + ' ' + archiveBtn + ' ' + deleteBtn + '</td>'
       + '</tr>';
@@ -110,7 +108,7 @@ function renderCompanyList() {
     rows: list,
     renderRow: renderRow,
     pageSize: COMPANIES_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:40px">회사가 없습니다</td></tr>'
+    emptyHtml: '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:40px">회사가 없습니다</td></tr>'
   });
 }
 
@@ -124,18 +122,18 @@ var COMPANY_FIELDS = [
   { key: 'business_no', label: '사업자등록번호' },
   { key: 'homepage_url', label: '홈페이지 URL' },
   { key: 'address', label: '주소' },
-  { key: 'contact_name', label: '담당자명' },
-  { key: 'contact_email', label: '담당자 이메일' },
-  { key: 'contact_phone', label: '담당자 연락처' },
   { key: 'billing_email', label: '청구 이메일' },
   { key: 'billing_address', label: '청구 주소' },
   { key: 'memo', label: '메모', textarea: true }
 ];
 
-function openCompanyModal(id) {
+// opts.onSaved(company) — 브랜드 폼 등에서 신규 회사 등록 후 콜백.
+//   콜백이 있으면 회사 모달을 다른 모달 위에 띄우고(z-index 상향), 저장 후 콜백 실행.
+function openCompanyModal(id, opts) {
+  _companySavedCallback = (opts && typeof opts.onSaved === 'function') ? opts.onSaved : null;
   var readOnly = !canEditCompanies();
   // 신규 추가는 권한 없으면 진입 차단. 기존 회사 행 클릭은 읽기 전용으로 열람 허용.
-  if (!id && readOnly) { toast('회사 추가 권한이 없습니다 (캠페인 관리자 이상)'); return; }
+  if (!id && readOnly) { toast('회사 추가 권한이 없습니다 (캠페인 관리자 이상)'); _companySavedCallback = null; return; }
   _companyCurrentId = id || null;
   var c = id ? (_companiesCache || []).find(function(x){ return x.id === id; }) : null;
   var title = $('companyModalTitle');
@@ -160,18 +158,27 @@ function openCompanyModal(id) {
       statusRow = '<div style="margin-bottom:12px">'
         + '<label style="display:block;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px">상태</label>'
         + '<select id="companyF_status" class="form-input" style="font-size:14px;width:100%"' + dis + '>'
-        + '<option value="active"' + (st === 'active' ? ' selected' : '') + '>활성 (active)</option>'
-        + '<option value="archived"' + (st === 'archived' ? ' selected' : '') + '>보관 (archived)</option>'
+        + '<option value="active"' + (st === 'active' ? ' selected' : '') + '>활성</option>'
+        + '<option value="archived"' + (st === 'archived' ? ' selected' : '') + '>보관</option>'
         + '</select></div>';
     }
     body.innerHTML = rows + statusRow;
   }
   var saveBtn = $('companySaveBtn');
   if (saveBtn) saveBtn.style.display = readOnly ? 'none' : '';
+  // 콜백 모드(브랜드 폼 위 중첩)면 z-index 상향, 아니면 표준값(612)
+  var modalEl = $('companyModal');
+  if (modalEl) modalEl.style.zIndex = _companySavedCallback ? '620' : '612';
   openModal('companyModal');
 }
 
-function closeCompanyModal() { closeModal('companyModal'); _companyCurrentId = null; }
+function closeCompanyModal() {
+  var modalEl = $('companyModal');
+  if (modalEl) modalEl.style.zIndex = '612';
+  closeModal('companyModal');
+  _companyCurrentId = null;
+  _companySavedCallback = null;
+}
 
 async function saveCompany() {
   if (!canEditCompanies()) { toast('권한이 없습니다'); return; }
@@ -200,7 +207,10 @@ async function saveCompany() {
     return;
   }
   toast(_companyCurrentId ? '회사 정보를 저장했습니다' : '회사를 추가했습니다');
-  closeCompanyModal();
+  // 콜백 모드(브랜드 폼 위에서 신규 등록)면 회사 페인 갱신 대신 콜백 실행
+  var cb = _companySavedCallback;
+  closeCompanyModal();  // 내부에서 _companySavedCallback = null
+  if (cb) { cb(res.data); return; }
   await refreshPane('companies');
 }
 

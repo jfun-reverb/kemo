@@ -486,6 +486,9 @@ const PANE_REFRESHERS = {
   'companies': async () => {
     if (typeof loadCompanies === 'function') await loadCompanies();
   },
+  'brands': async () => {
+    if (typeof loadBrandsPane === 'function') await loadBrandsPane();
+  },
   'brand-ops': async () => {
     if (typeof loadBrandOps === 'function') await loadBrandOps();
   },

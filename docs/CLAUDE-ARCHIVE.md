@@ -388,6 +388,15 @@
 
 ---
 
+## 11. 응모건 메시지 일괄 발송 (PR 3·3-1·3-2) 상세 — 개발서버 구현 완료·운영 보류
+
+- **PR 3 (일괄 발송, 마이그레이션 167)**: 관리자 받은편지함 페인에 「일괄 발송」 버튼 + 「발송 이력」 탭. 캠페인 단위 BCC 발송(응모상태·결과물상태·채널·팔로워 필터 → `resolve_bulk_recipients` 대상 해결, 50명 초과 2단계 확인, 1회 200명 한도) + 발송 이력 목록·상세(수신자별 읽음/답장)·일괄 회수(`withdraw_broadcast`, 발신자 본인·super_admin). RPC 4종(SECURITY DEFINER, campaign_admin 가드). 1차 텍스트 전용.
+- **PR 3-1 (대상선택 재설계, 마이그레이션 168)**: 모달 흐름을 ①캠페인 상태 칩(모집중/모집마감/종료) → ②해당 상태 캠페인 다중선택 → ③참여 조건(응모상태 + 영수증 상태[kind='receipt', 리뷰어 포함 시만 노출] / 결과물 상태[kind IN 'post','review_image'] 2분할·두 그룹 AND) → ④인플루언서 상태 3토글(인증만/위반제외/블랙제외 기본 on) 로 재구성. 발송 제목(`application_message_broadcasts.title`, 관리자 전용·인플 미노출·선택) 추가. `send_application_message_bulk` 6→7인자(`p_title`), `resolve_bulk_recipients` 5→9인자(`p_receipt_statuses`/`p_post_statuses` + `p_require_verified`/`p_exclude_violation`/`p_exclude_blacklist`). 위반 = `influencer_flags.action='violation'` 이력 1건 이상.
+- **PR 3-2 (드롭다운 UX + 인플 필터, 마이그레이션 169)**: 다중선택 드롭다운 공통 개선(닫힘 버튼 1건=항목명/2건+=「다중 선택 N건」·tooltip, 펼칠 때 선택 항목 상단 정렬+구분선) + 일괄발송 캠페인 드롭다운 absolute·맨 위 「전체 선택」·모집 타입 칩. ③ 채널 필터 제거(캠페인 선택으로 충분), 최소팔로워(primary 기준) 삭제 → ④ 인플 상태에 지역(도도부현, `influencers.prefecture`, PREFECTURE_KO 라벨) + SNS 채널(ig/x/tiktok/youtube) + 팔로워(채널별=기준채널 / 합산=4채널 합) 추가. `resolve_bulk_recipients` 9→12인자(`p_prefectures`/`p_follower_mode`/`p_follower_channel` + `p_min_followers` 재정의, primary_channel 단일로직 교체).
+- 운영 보류 사유: 167·168·169 약관 게이트 묶음(메시지 약관 30일 사전 통지 후 출시). 사양서 `docs/specs/2026-06-02-bulk-message-target-redesign.md`.
+
+---
+
 ## 메모
 
 - 본 아카이브는 **검색용**이다. 새 변경 이력을 추가할 때 영역(1~10)에 맞춰 항목 누적
