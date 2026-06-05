@@ -63,6 +63,12 @@
 - worktree에서는 항상 feature 브랜치로 push, PR로 dev에 머지
 - 메인 폴더(dev 브랜치)에서 직접 작업하는 시나리오는 **단일 세션 + 시퀀셜 작업**일 때만
 
+### Playwright(브라우저 테스트) 단일 자원 — 동시 실행 금지 (2026-06-05)
+- Playwright 는 `.mcp.json` 에서 `--extension` 모드로 설정돼 **사용자의 단일 크롬 1개**에 붙는다(새 브라우저를 띄우는 게 아님). 연결은 한 번에 하나만 잡힌다.
+- 두 세션이 동시에 qa-test(Playwright)를 돌리면 **나중 연결이 기존 연결을 끊어**, 먼저 돌던 테스트가 멈춘다.
+- **규칙: qa-test 는 한 번에 한 세션만.** 개발 세션이 배포 전 자동으로 호출하지 말 것 — reverb-reviewer 가 "qa 권장: light/full/skip" 만 보고하고, **다른 세션이 Playwright 를 안 쓰는 걸 확인 + 사용자 트리거 후 단일 세션에서** 실행한다.
+- 에이전트 정의 `.claude/agents/reverb-qa-tester.md` 「실행 전 필수」 + 호출 의무는 `.claude/rules/git.md`/`interaction.md` 에 반영됨.
+
 ### 운영 배포(main)는 별도 단계
 - dev 머지가 끝나도 운영 자동 반영 안 됨
 - 운영 배포는 `dev → main` PR을 별도로 만들어야 함 (`.claude/rules/git.md` 참조)
