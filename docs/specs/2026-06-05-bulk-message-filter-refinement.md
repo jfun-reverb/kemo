@@ -110,4 +110,26 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
+
+**구현 세션:** 개발 세션2 (worktree feature/bulk-message-filter)
+
+### PR 1 — 데이터베이스 함수 (✅ 개발서버 배포 완료)
+**구현일:** 2026-06-05 / **마이그레이션 171** (`171_bulk_recipients_full_approval.sql`) / **PR #448** → dev 머지 `f8bd1cc`
+
+- `resolve_bulk_recipients` 12인자 DROP → **14인자** 재정의(인자 수 변경이라 DROP+CREATE, OR REPLACE 불가)
+- **항목 B:** `p_receipt_all_approved`·`p_post_all_approved`(둘 다 DEFAULT false). "완전 승인" = `EXISTS(approved) AND NOT EXISTS(pending/rejected/draft)` (kind 한정 — 영수증=`receipt`, 게시물=`('post','review_image')`)
+- **항목 D:** 미제출(none) 판정을 `NOT EXISTS(status<>'draft')`로 확장 — 결과물 행 없음 + 전부 draft 모두 none에 흡수
+- 169 기존 12파라미터·필터(응모상태/채널/도도부현/팔로워 per_channel·sum/인증·위반·블랙리스트)·권한 가드 `is_campaign_admin()`·`SECURITY DEFINER SET search_path=''` 전부 보존
+- 신규 파라미터 DEFAULT false → 기존 12키 명명인자 호출(storage.js `resolveBulkRecipients`) 무변경
+- **개발 DB 적용 + 스모크 통과**: 응모 최다 캠페인 기준 기본 6 / 승인 4 / 게시물완전승인 2 / 게시물미제출 4 (필터 효과·런타임·권한 가드 정상). 스모크는 `BEGIN; set_config('request.jwt.claims', super_admin sub, true); SELECT resolve_bulk_recipients(...); COMMIT;` 패턴 — SQL Editor가 statement별 별도 트랜잭션이라 `set_config(...,true)`를 같은 트랜잭션으로 묶어야 권한 가드 통과
+- **요청 외 추가 변경:** `.gitignore`에 `.claude/worktrees/` 추가(메인 폴더 `git add -A` 사고 차단, 별도 커밋)
+
+### PR 2 — 화면 (⬜ 미착수)
+- 항목 A: 카운트 「○건(○명)」 분리(distinct user_id) + 현재 조건 한 줄 요약
+- 항목 B UI: 결과물 영역 「완전 승인만」 통합 토글 1개 → 함수 2파라미터 함께 true
+- 항목 C: 채널 라벨 "인플루언서 보유 SNS"로 변경 + 타입 혼합 안내 배너
+- `dev/js/admin-messaging.js` + `dev/lib/storage.js` 래퍼에 신규 파라미터 2개 추가
+
+### 운영 배포
+- PR 1·PR 2 모두 끝난 뒤 묶어서 사용자 확인 거쳐 별도 진행(운영 DB에 171 SQL Editor 적용 + dev→main). 약관·시행일 게이트 없음(기존 운영 기능 정교화)
