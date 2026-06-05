@@ -191,6 +191,7 @@ window.I18N_KO = {
 
   appHistory: {
     title: '응모 이력',
+    inProgress: '진행중',
     all: '전체',
     pending: '심사중',
     approved: '당첨',
@@ -213,6 +214,8 @@ window.I18N_KO = {
     sortOldest: '오래된순',
     emptyAll: '아직 응모한 캠페인이 없습니다',
     emptyFiltered: '해당하는 응모가 없습니다',
+    emptyInProgress: '진행중인 응모가 없습니다',
+    showAll: '전체 보기',
     emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',

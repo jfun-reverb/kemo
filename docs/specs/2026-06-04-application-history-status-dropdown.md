@@ -100,13 +100,25 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-**구현일:**
-**관련 커밋·PR:**
+**구현일:** 2026-06-05
+**관련 커밋·PR:** feature/apphistory-status-dropdown → dev PR (커밋 해시는 머지 후 기록)
+**작업 세션:** 개발 세션2
 
 ### 초안 대비 변경 사항
-- 추가/빠진/달라진 것:
+- **추가된 것:**
+  - `APP_STATUS_GROUPS` 매핑 상수(`dev/js/mypage.js`) — 드롭다운 값 → status 배열. `all`도 명시 4종 배열 필터로 통일(기존 `_myApps.slice()` → `filter(includes)`), 미정의 값은 `|| APP_STATUS_GROUPS.all` 폴백.
+  - 언어 전환(`langchange`) 시 드롭다운 라벨 갱신 리스너(`dev/js/mypage.js`) — select는 JS 동적 렌더라 `applyI18n` 대상이 아니므로 별도 훅 추가. (기존 가로탭은 langchange 시 갱신 안 되던 한계를 개선)
+  - i18n 3키: `appHistory.inProgress` / `emptyInProgress` / `showAll` (ja·ko 대칭).
+- **빠진 것:** 없음.
+- **달라진 것:**
+  - 진행중 코드 명명 = `active2`(사양 제안값 그대로).
+  - 빈 상태 3분기: `all`=응모 자체 없음(홈 유도) / `active2`=진행중만 없음(「전체 보기」 버튼) / 그 외 단일 상태=`emptyFiltered`.
+  - 제목 우측 배치 = `.mypage-sub-header`에 `justify-content:space-between` 인라인 + select `max-width:55%`(480px 폭 한 줄 보장).
 
 ### 구현 중 기술 결정 사항
-- (진행중 코드 명명, 건수 병기 방식, 빈상태 안내 문구, 제목 우측 배치 CSS 등)
+- 가로탭 CSS(`.apply-tabs`/`.apply-tab*` 4줄)는 **제거**(미사용). JS·HTML 잔존 참조 0건 grep 확인.
+- 드롭다운 onchange = `_myAppsTab=this.value;renderMyApplyList()` — 사용자 직접 선택은 `this.value`가 곧 selected라 `renderMyApplyTabs()` 재호출 불필요. 단 빈상태 「전체 보기」·취소 후 cancelled 자동이동 등 **프로그램적 전환**은 `renderMyApplyTabs()`로 selected 동기화.
+- **건수는 `_myApps` 전체 기준**(2차 필터 캠페인상태/채널/정렬 무시) — 기존 가로탭과 동일. reviewer가 "캠페인 상태 필터 변경 시 건수 미갱신" Warning을 냈으나, 상태별 총 건수가 더 직관적이고 기존 동작과 동일해 **회귀 아님**으로 판정, 미수정.
+- DB·RLS·마이그레이션 무변경(클라 in-memory 필터).

@@ -568,10 +568,6 @@ textarea.form-input{resize:vertical;min-height:80px}
 .mypage-sub-title{font-size:16px;font-weight:700;color:var(--ink)}
 
 /* 応募履歴 */
-.apply-tabs{display:flex;gap:0;border-bottom:1px solid var(--outline);margin-bottom:12px;overflow-x:auto}
-.apply-tab{padding:10px 14px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s}
-.apply-tab.on{color:var(--pink);border-bottom-color:var(--pink)}
-.apply-tab .apply-tab-count{margin-left:4px;font-size:11px;font-weight:400;color:var(--muted)}
 .apply-item{background:var(--surface);border-bottom:1px solid var(--outline);padding:12px 16px;display:flex;align-items:center;gap:12px}
 .apply-item:last-child{border-bottom:none}
 .apply-thumb{width:44px;height:44px;border-radius:8px;background:var(--surface-dim);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;overflow:hidden}
@@ -1565,12 +1561,12 @@ textarea.form-input{resize:vertical;min-height:80px}
 
   <!-- 応募履歴 -->
   <div id="mypage-sub-applications" class="mypage-view">
-    <div class="mypage-sub-header">
+    <div class="mypage-sub-header" style="justify-content:space-between">
       <span class="mypage-sub-title" data-i18n="mypage.menu.applications">応募履歴</span>
+      <select id="myApplyStatusSelect" class="form-input" style="padding:6px 30px 6px 12px;font-size:13px;font-weight:600;border-radius:8px;width:auto;max-width:55%" onchange="_myAppsTab=this.value;renderMyApplyList()"></select>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
-      <div id="myApplyTabs" class="apply-tabs" style="padding:0 16px"></div>
-      <div style="display:flex;gap:8px;padding:8px 16px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap">
         <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>
@@ -2705,6 +2701,7 @@ window.I18N_JA = {
   // 응모이력 (신청 단계 라벨 — 결과물 단계는 delivStatus 별도)
   appHistory: {
     title: '応募履歴',
+    inProgress: '進行中',
     all: 'すべて',
     pending: '審査中',
     approved: '当選',
@@ -2727,6 +2724,8 @@ window.I18N_JA = {
     sortOldest: '古い順',
     emptyAll: 'まだ応募したキャンペーンはありません',
     emptyFiltered: '該当する応募はありません',
+    emptyInProgress: '進行中の応募はありません',
+    showAll: 'すべて表示',
     emptySub: '今すぐKブランド体験団に応募してみましょう！',
     emptyBtn: 'キャンペーンを見る',
     applyDate: '応募日',
@@ -3364,6 +3363,7 @@ window.I18N_KO = {
 
   appHistory: {
     title: '응모 이력',
+    inProgress: '진행중',
     all: '전체',
     pending: '심사중',
     approved: '당첨',
@@ -3386,6 +3386,8 @@ window.I18N_KO = {
     sortOldest: '오래된순',
     emptyAll: '아직 응모한 캠페인이 없습니다',
     emptyFiltered: '해당하는 응모가 없습니다',
+    emptyInProgress: '진행중인 응모가 없습니다',
+    showAll: '전체 보기',
     emptySub: '지금 바로 K브랜드 체험단에 응모해보세요!',
     emptyBtn: '캠페인 보기',
     applyDate: '응모일',
@@ -10607,7 +10609,17 @@ async function loadMyPage() {
 }
 
 let _myApps = [];
-let _myAppsTab = 'all';
+// 응모이력 상태 필터 기본값 — 進行中(심사중+당첨) 묶음. 진입 시 진행 중인 응모만 노출
+let _myAppsTab = 'active2';
+// 드롭다운 선택값 → 매칭할 status 배열. active2=진행중 묶음, all=전체 4종
+const APP_STATUS_GROUPS = {
+  active2:   ['pending', 'approved'],
+  all:       ['pending', 'approved', 'rejected', 'cancelled'],
+  pending:   ['pending'],
+  approved:  ['approved'],
+  rejected:  ['rejected'],
+  cancelled: ['cancelled'],
+};
 
 async function loadMyApplications() {
   if (!currentUser) return;
@@ -10621,20 +10633,22 @@ async function loadMyApplications() {
   renderMyApplyList();
 }
 
+// 상태 필터 드롭다운(제목 우측) 렌더 — 각 항목에 건수 병기. 進行中(기본) 우선 노출
 function renderMyApplyTabs() {
-  const tabs = $('myApplyTabs');
-  if (!tabs) return;
-  const counts = {all: _myApps.length, pending: 0, approved: 0, rejected: 0, cancelled: 0};
+  const sel = $('myApplyStatusSelect');
+  if (!sel) return;
+  const counts = {pending: 0, approved: 0, rejected: 0, cancelled: 0};
   _myApps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
-  const labels = {
-    all:       t('appHistory.all'),
-    pending:   t('appHistory.pending'),
-    approved:  t('appHistory.approved'),
-    rejected:  t('appHistory.rejected'),
-    cancelled: t('appHistory.cancelled')
-  };
-  tabs.innerHTML = Object.keys(labels).map(k =>
-    `<div class="apply-tab${_myAppsTab===k?' on':''}" onclick="_myAppsTab='${k}';renderMyApplyTabs();renderMyApplyList()">${labels[k]}<span class="apply-tab-count">${counts[k]}</span></div>`
+  const opts = [
+    {k: 'active2',   label: t('appHistory.inProgress'), n: counts.pending + counts.approved},
+    {k: 'all',       label: t('appHistory.all'),        n: _myApps.length},
+    {k: 'pending',   label: t('appHistory.pending'),    n: counts.pending},
+    {k: 'approved',  label: t('appHistory.approved'),   n: counts.approved},
+    {k: 'rejected',  label: t('appHistory.rejected'),   n: counts.rejected},
+    {k: 'cancelled', label: t('appHistory.cancelled'),  n: counts.cancelled},
+  ];
+  sel.innerHTML = opts.map(o =>
+    `<option value="${o.k}"${_myAppsTab===o.k?' selected':''}>${esc(o.label)} (${o.n})</option>`
   ).join('');
 }
 
@@ -10643,7 +10657,8 @@ let _myMsgUnreadByApp = {};  // 응모건별 인플루언서 미읽음 메시지
 
 async function renderMyApplyList() {
   const container = $('myApplicationsList');
-  let filtered = _myAppsTab === 'all' ? _myApps.slice() : _myApps.filter(a => a.status === _myAppsTab);
+  const statuses = APP_STATUS_GROUPS[_myAppsTab] || APP_STATUS_GROUPS.all;
+  let filtered = _myApps.filter(a => statuses.includes(a.status));
   // Phase 2: 비교 캐시는 매 렌더마다 초기화 — 필터 변경/언어 전환 시 stale 데이터 방지
   if (typeof _cautionCompareCache === 'object' && _cautionCompareCache) {
     Object.keys(_cautionCompareCache).forEach(k => delete _cautionCompareCache[k]);
@@ -10691,7 +10706,21 @@ async function renderMyApplyList() {
     : new Date(b.created_at) - new Date(a.created_at));
 
   if (!filtered.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${_myAppsTab==='all'?t('appHistory.emptyAll'):t('appHistory.emptyFiltered')}</div>${_myAppsTab==='all'?`<div class="empty-sub">${t('appHistory.emptySub')}</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`:''}</div>`;
+    // 빈 상태 3분기:
+    //   all      = 응모 자체 없음 → 홈으로 유도
+    //   active2  = 진행중인 응모만 없음(과거 응모는 있을 수 있음) → 「전체 보기」로 유도
+    //   그 외 단일 상태 = 해당 상태 응모 없음
+    let emptyText, emptyExtra = '';
+    if (_myAppsTab === 'all') {
+      emptyText = t('appHistory.emptyAll');
+      emptyExtra = `<div class="empty-sub">${t('appHistory.emptySub')}</div><button class="btn btn-primary" style="margin-top:16px" onclick="navigate('home')">${t('appHistory.emptyBtn')}</button>`;
+    } else if (_myAppsTab === 'active2') {
+      emptyText = t('appHistory.emptyInProgress');
+      emptyExtra = `<button class="btn btn-primary" style="margin-top:16px" onclick="_myAppsTab='all';renderMyApplyTabs();renderMyApplyList()">${t('appHistory.showAll')}</button>`;
+    } else {
+      emptyText = t('appHistory.emptyFiltered');
+    }
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><span class="material-icons-round notranslate" translate="no" style="font-size:48px;color:var(--muted)">assignment</span></div><div class="empty-text">${emptyText}</div>${emptyExtra}</div>`;
     return;
   }
   container.innerHTML = filtered.map(a => {
@@ -10981,6 +11010,11 @@ function handleWithdraw() {
 // 초기 + langchange 이벤트에서 토글 상태 갱신
 document.addEventListener('DOMContentLoaded', updateLangToggleUI);
 window.addEventListener('langchange', updateLangToggleUI);
+
+// 언어 전환 시 응모이력 상태 드롭다운 라벨(進行中 등) 갱신 — 동적 렌더라 applyI18n 미적용 대상
+window.addEventListener('langchange', () => {
+  if ($('myApplyStatusSelect') && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+});
 
 // 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
 function populateMyApplyChannelOptions() {
