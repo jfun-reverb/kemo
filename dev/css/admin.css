@@ -1467,3 +1467,7 @@
 #bulkPrefectureMulti .mf-drop { position: static; margin-top: 4px; width: 100%; min-width: 0; max-width: 100%; max-height: 220px; overflow-y: auto; box-shadow: none; border: 1px solid var(--line); }
 /* 선택 항목 상단 정렬 구분선 (다중선택 드롭다운 공통) */
 .mf-selected-divider { border-top: 1px solid var(--outline); margin: 4px 0; }
+/* 브랜드 담당자 행 — 모달 폭 축소(리사이즈) 시 grid 칼럼이 콘텐츠 최소폭 이하로 줄도록.
+   input 의 기본 min-width:auto 때문에 좁은 모달에서 행이 넘쳐 대표·삭제 버튼이 잘리던 문제 방지. */
+#brandContactsHeader, .brand-contact-row { min-width: 0; }
+.brand-contact-row > input { min-width: 0; width: 100%; box-sizing: border-box; }

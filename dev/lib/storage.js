@@ -1891,7 +1891,7 @@ async function fetchCompanies({ status = 'active', search } = {}) {
     // 매 페이지마다 새 query builder 생성 (builder 재사용 시 order 누적·재실행 미정의 동작)
     return await fetchAllPaged(() => {
       var q = db.from('companies')
-        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, contact_name, contact_email, contact_phone, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
+        .select('id, name_ko, name_ja, name_en, name_normalized, business_no, address, homepage_url, billing_email, billing_address, memo, status, total_brands, created_at, updated_at, created_by, updated_by');
       // status 필터: 'all' 이면 전체, 그 외 값이면 해당 상태만
       if (status && status !== 'all') q = q.eq('status', status);
       // 검색: name_ko, name_ja, business_no 부분일치 (OR 조건)
