@@ -154,7 +154,7 @@
 - **캠페인 ↔ 신청 연결/해제**: `link_campaign_to_application` / `unlink_campaign_from_application` RPC. 같은 brand_id 검증 후 채번 재발급 + `legacy_no` 콤마 누적 + `numbering_legacy_map` UPSERT. 동시성 `pg_advisory_xact_lock` 2단 잠금. 멱등성 `unchanged:true` 반환. 가드 `is_campaign_admin()` 이상
 
 ### 인플루언서 관리
-- **목록**: 채널/인증/위반 드롭다운 3종 sticky-header + 통합 검색
+- **목록**: 채널/인증/위반 드롭다운 + 주소지(도도부현 다중선택, 「未登録」·「海外」 포함) + 팔로워 범위(채널 선택 기준, 전체=4채널 합계) sticky-header + 통합 검색 + 결과 인원수 표시. 주소지·팔로워는 클라 in-memory 필터(`classifyPrefecture`/`followerValueByChannel` 공용 헬퍼, admin-core.js). 엑셀 내보내기는 PR 2(미착수)
 - **상태 관리**(인증/위반/블랙리스트): 상세 모달에 상태 관리 카드 + 관리자 이력 카드 (사유별 누적 pill + 타임라인 + 위반 행 편집). 인증/위반 배지는 이름 옆 노출 (블랙일 땐 블랙 단독). 사유는 `blacklist_reason` ∪ `violation_reason` lookup 통합. 증빙 파일 업로드 (`influencer-flag-evidence` 비공개 버킷, 10MB, image/PDF). RPC: `setInfluencerVerified`/`setInfluencerBlacklist`/`recordInfluencerViolation`/`updateInfluencerViolation` (evidence_paths 미변경=null, 전체 삭제=[])
 - **전화번호 표시 포맷**(`formatPhoneDisplay` in ui.js): KR/JP 번호 정규화 (11자리 3-4-4, 10자리 02/03/06 → 2-4-4 else 3-3-4, `+81`/`+82` 지원). 매칭 실패 시 원문 폴백
 
