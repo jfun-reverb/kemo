@@ -33,7 +33,6 @@ async function loadAdminInfluencers() {
   infUsersCache = users;
   _infViolationCounts = violations;
   initInfPrefectureMulti();
-  updateInfFollowersLabel();
   renderInfluencersPane(infUsersCache);
 }
 
@@ -46,14 +45,6 @@ function initInfPrefectureMulti() {
   options.push({ value: '未登録', label: '미등록' });
   options.push({ value: '海外', label: '해외' });
   syncMultiFilter('infPrefectureMulti', '전체 지역', options, rerenderInfluencersFromCache, { searchable: true, searchPlaceholder: '지역 검색' });
-}
-
-// 팔로워 범위 기준 라벨 — 채널 선택값에 맞춰 「(채널) 기준」 표시
-function updateInfFollowersLabel() {
-  const el = $('infFollowersLabel');
-  if (!el) return;
-  const map = { all: '합계', instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' };
-  el.textContent = `팔로워 (${map[currentInfTab] || '합계'} 기준)`;
 }
 
 function rerenderInfluencersFromCache() {
@@ -112,13 +103,11 @@ function resetInfluencerFilters() {
   const mn = $('infFollowersMin'); if (mn) mn.value = '';
   const mx = $('infFollowersMax'); if (mx) mx.value = '';
   currentInfTab = 'all';
-  updateInfFollowersLabel();
   rerenderInfluencersFromCache();
 }
 
 function switchInfTabFromSelect(ch) {
   currentInfTab = ch || 'all';
-  updateInfFollowersLabel();
   rerenderInfluencersFromCache();
 }
 
