@@ -33,7 +33,17 @@ async function loadAdminInfluencers() {
   infUsersCache = users;
   _infViolationCounts = violations;
   initInfPrefectureMulti();
-  renderInfluencersPane(infUsersCache);
+  applyInfExcelSensitiveVisibility();
+  renderInfluencersPane();
+}
+
+// 「민감정보 포함」 체크박스는 campaign_admin 이상에게만 노출 (그 외 숨김)
+function applyInfExcelSensitiveVisibility() {
+  const wrap = $('infExcelSensitiveWrap');
+  if (!wrap) return;
+  const allow = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  wrap.style.display = allow ? 'inline-flex' : 'none';
+  if (!allow) { const cb = $('infExcelSensitive'); if (cb) cb.checked = false; }
 }
 
 // 주소지(도도부현) 다중필터 옵션 초기화 — PREFECTURE_KO(일본어 키→한국어 라벨) + 미등록 + 해외.
@@ -49,10 +59,13 @@ function initInfPrefectureMulti() {
 
 function rerenderInfluencersFromCache() {
   if (!infUsersCache) { loadAdminInfluencers(); return; }
-  renderInfluencersPane(infUsersCache);
+  renderInfluencersPane();
 }
 
-function renderInfluencersPane(users) {
+// 현재 필터(인증/위반/검색/주소지/팔로워/채널)가 적용된 인플 목록 — 화면 표시·엑셀 내보내기 공용.
+// 채널 선택 시 그 채널 등록자(팔로워>0) 행 필터까지 포함 → 카운트·표시 행·엑셀이 모두 일치.
+function getFilteredInfluencersForView() {
+  const users = infUsersCache || [];
   const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
   const violationSel = $('infFilterViolationSelect')?.value || 'all';
   const searchQ = ($('infSearch')?.value || '').trim().toLowerCase();
@@ -63,12 +76,16 @@ function renderInfluencersPane(users) {
   const maxRaw = $('infFollowersMax')?.value;
   const minF = (minRaw !== '' && minRaw != null) ? Number(minRaw) : null;
   const maxF = (maxRaw !== '' && maxRaw != null) ? Number(maxRaw) : null;
+  // 채널 선택 시 그 채널 등록자만 (팔로워>0)
+  const chKey = (currentInfTab && currentInfTab !== 'all')
+    ? { instagram: 'ig_followers', x: 'x_followers', tiktok: 'tiktok_followers', youtube: 'youtube_followers' }[currentInfTab]
+    : null;
   // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const matchSearch = (u) => matchSearchTokens(searchQ, [
     u.name_kanji, u.name, u.name_kana, u.email,
     u.ig, u.x, u.tiktok, u.youtube,
   ]);
-  const filtered = users.filter(u => {
+  return users.filter(u => {
     if (verifiedSel === 'verified' && !u.is_verified) return false;
     if (verifiedSel === 'unverified' && u.is_verified) return false;
     const vc = (_infViolationCounts && _infViolationCounts[u.id]) || 0;
@@ -76,22 +93,33 @@ function renderInfluencersPane(users) {
     if (violationSel === 'has' && vc === 0 && !u.is_blacklisted) return false;
     if (violationSel === 'blacklist' && !u.is_blacklisted) return false;
     if (!matchSearch(u)) return false;
-    // 주소지(다중)
     if (prefSel.length && !prefSel.includes(classifyPrefecture(u.prefecture))) return false;
-    // 팔로워 범위 (채널 선택값 기준, all=합계)
     if (minF != null || maxF != null) {
       const fv = followerValueByChannel(u, currentInfTab);
       if (minF != null && fv < minF) return false;
       if (maxF != null && fv > maxF) return false;
     }
+    if (chKey && !(u[chKey] > 0)) return false;
     return true;
   });
+}
+
+function renderInfluencersPane() {
+  const filtered = getFilteredInfluencersForView();
+  const total = (infUsersCache || []).length;
   const totalEl = $('infTotalCount');
-  if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${users.length}명)`;
+  if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${total}명)`;
   const resetBtn = $('btnInfFilterReset');
-  const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || minF != null || maxF != null);
-  if (resetBtn) resetBtn.style.display = anyActive ? '' : 'none';
-  renderInfTable(filtered, currentInfTab);
+  if (resetBtn) {
+    const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
+    const violationSel = $('infFilterViolationSelect')?.value || 'all';
+    const searchQ = ($('infSearch')?.value || '').trim();
+    const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
+    const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower);
+    resetBtn.style.display = anyActive ? '' : 'none';
+  }
+  renderInfTable(filtered);
 }
 
 function resetInfluencerFilters() {
@@ -225,24 +253,17 @@ function buildInfRowAll(u) {
   </tr>`;
 }
 
-function renderInfTable(users, ch) {
+// users 는 getFilteredInfluencersForView() 결과(채널 행 필터 포함). 열은 항상 전체 뷰(10컬럼)로 통일.
+function renderInfTable(users) {
   const titleEl = $('infTableTitle');
   const headEl = $('infTableHead');
   const bodyEl = $('adminInfluencersBody');
   if (!bodyEl) return;
 
-  // 열은 항상 전체 뷰(10컬럼)로 통일. SNS 채널 선택 시 그 채널 등록자(팔로워>0)만 행에 표시(팔로워 기준 채널)
-  let filtered = users;
-  if (ch && ch !== 'all') {
-    const fKey = {instagram:'ig_followers',x:'x_followers',tiktok:'tiktok_followers',youtube:'youtube_followers'}[ch];
-    const chLabel = {instagram:'Instagram',x:'X(Twitter)',tiktok:'TikTok',youtube:'YouTube'}[ch];
-    if (fKey) filtered = users.filter(u => u[fKey] > 0);
-    if (titleEl) titleEl.textContent = chLabel ? `${chLabel} 등록자` : '인플루언서 전체';
-  } else if (titleEl) {
-    titleEl.textContent = '인플루언서 전체';
-  }
+  const chLabel = { instagram: 'Instagram', x: 'X(Twitter)', tiktok: 'TikTok', youtube: 'YouTube' }[currentInfTab];
+  if (titleEl) titleEl.textContent = chLabel ? `${chLabel} 등록자` : '인플루언서 전체';
   if (headEl) headEl.innerHTML = `<tr><th>${infSortTh('이름','name')}</th><th>${infSortTh('Instagram','ig')}</th><th>${infSortTh('X(Twitter)','x')}</th><th>${infSortTh('TikTok','tiktok')}</th><th>${infSortTh('YouTube','youtube')}</th><th>${infSortTh('합계','total')}</th><th>${infSortTh('LINE','line')}</th><th>${infSortTh('배송지','addr')}</th><th>${infSortTh('PayPal','paypal')}</th><th>${infSortTh('등록일','created')}</th></tr>`;
-  filtered = sortInfUsers(filtered);
+  const filtered = sortInfUsers(users);
   const renderRow = buildInfRowAll;
   const colspan = 10;
 
