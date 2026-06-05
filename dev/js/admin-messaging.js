@@ -1043,6 +1043,7 @@ function openBulkMessageModal(presetAppIds) {
     _bulkState.recruitTypes = [];
     _bulkState.availableCampaignIds = [];
     _bulkState.hasMonitor = false;
+    _bulkState.hasNonMonitor = false;
     renderBulkStatusChips();        // ① 캠페인 상태 칩 (미선택 상태)
     renderBulkRecruitTypeChips();   // 모집 타입 칩 (미선택 = 전체)
     document.getElementById('bulkCampaignSelectWrap').style.display = 'none';
@@ -1054,6 +1055,9 @@ function openBulkMessageModal(presetAppIds) {
     const v = document.getElementById('bulkInflVerified'); if (v) v.checked = false;
     const nv = document.getElementById('bulkInflNoViolation'); if (nv) nv.checked = false;
     const nb = document.getElementById('bulkInflNoBlacklist'); if (nb) nb.checked = true;
+    // 완전 승인 토글·타입혼합 배너 초기화 (모달 재오픈 시 이전 상태 잔존 방지)
+    const fa = document.getElementById('bulkFullApproved'); if (fa) fa.checked = false;
+    const mix = document.getElementById('bulkTypeMixNote'); if (mix) mix.style.display = 'none';
     // 팔로워 필터 기본값: 채널별·Instagram·빈값
     const fmPer = document.querySelector('input[name="bulkFollowerMode"][value="per_channel"]'); if (fmPer) fmPer.checked = true;
     const fc = document.getElementById('bulkFollowerChannel'); if (fc) { fc.value = 'instagram'; fc.style.display = ''; }
@@ -1161,6 +1165,11 @@ function renderBulkReceiptVisibility(campaignIds) {
     const c = camps.find(x => x.id === cid);
     return c && c.recruit_type === 'monitor';
   });
+  // 리뷰어(monitor)와 기프팅·방문형이 섞였는지 — 영수증 필터 타입혼합 안내 배너 노출 판정
+  _bulkState.hasNonMonitor = campaignIds.some(cid => {
+    const c = camps.find(x => x.id === cid);
+    return c && c.recruit_type !== 'monitor';
+  });
 }
 
 // 응모·영수증·결과물 상태 체크박스 — 모달 열 때 1회 렌더(선택 보존). 영수증·결과물 동일 status 코드.
@@ -1214,6 +1223,8 @@ function collectBulkFilters() {
     requireVerified: document.getElementById('bulkInflVerified')?.checked || false,
     excludeViolation: document.getElementById('bulkInflNoViolation')?.checked || false,
     excludeBlacklist: document.getElementById('bulkInflNoBlacklist')?.checked !== false,
+    // 완전 승인만(부분 승인 제외) — 승인 응모 포함 시에만 의미. 통합 토글 1개가 영수증·게시물 함께 적용
+    fullApproved: approved ? (document.getElementById('bulkFullApproved')?.checked || false) : false,
   };
 }
 
@@ -1226,6 +1237,9 @@ function scheduleBulkRecount() {
   // 영수증 필터는 승인 + 리뷰어(monitor) 캠페인 포함 시만 노출
   const receiptWrap = document.getElementById('bulkReceiptWrap');
   if (receiptWrap) receiptWrap.style.display = (approved && _bulkState && _bulkState.hasMonitor) ? '' : 'none';
+  // 타입혼합 안내 배너 — 리뷰어 + 기프팅·방문형이 섞였을 때(영수증 조건이 일부 신청건에만 적용됨)
+  const mixNote = document.getElementById('bulkTypeMixNote');
+  if (mixNote) mixNote.style.display = (approved && _bulkState && _bulkState.hasMonitor && _bulkState.hasNonMonitor) ? '' : 'none';
   clearTimeout(_bulkRecountTimer);
   _bulkRecountTimer = setTimeout(recountBulk, 350);
 }
@@ -1252,7 +1266,13 @@ async function recountBulk() {
     const ids = Array.from(idSet);
     _bulkState.recipientIds = ids;
     _bulkState.filterSnapshot = filters;
-    updateBulkCount(ids.length);
+    // 사람 수(distinct user) — 동일인이 여러 신청건으로 중복되므로 「건」과 별도 표기.
+    // 실패해도 발송엔 지장 없으므로 건수로 폴백.
+    let people = ids.length;
+    try { people = await countDistinctUsersForApps(ids); } catch (_e) { people = ids.length; }
+    if (JSON.stringify(_bulkState.campaignIds) !== JSON.stringify(campaignIds)) return;
+    _bulkState.recipientPeople = people;
+    updateBulkCount(ids.length, people);
     document.getElementById('bulkNextBtn').disabled = ids.length === 0;
   } catch (e) {
     if (e && e.message === 'bulk_recount_timeout') {
@@ -1268,15 +1288,20 @@ async function recountBulk() {
   }
 }
 
-function updateBulkCount(n) {
-  const el = document.getElementById('bulkCount'); if (el) el.textContent = n;
+// n = 신청건 수(발송 통 수 — 동일인 여러 건이면 각 건마다 1통), people = 도달 인원(distinct user).
+function updateBulkCount(n, people) {
+  const ppl = (people != null) ? people : n;
+  const el = document.getElementById('bulkCount'); if (el) el.textContent = n;            // 건수
+  const elp = document.getElementById('bulkCountPeople'); if (elp) elp.textContent = ppl;  // 사람 수
+  // STEP 2: 실제 발송 통 수 = 신청건 수(n). 사람 수(ppl)는 괄호로 병기.
   const el2 = document.getElementById('bulkCount2'); if (el2) el2.textContent = n;
+  const el2p = document.getElementById('bulkCount2People'); if (el2p) el2p.textContent = ppl;
 }
 
 function bulkStepNext() {
   if (!_bulkState || !_bulkState.recipientIds.length) { toast('대상이 없습니다.'); return; }
   if (_bulkState.recipientIds.length > BULK_MAX) {
-    toast(`1회 최대 ${BULK_MAX}명까지 발송할 수 있습니다. 필터로 범위를 좁혀주세요.`); return;
+    toast(`1회 최대 ${BULK_MAX}건까지 발송할 수 있습니다. 필터로 범위를 좁혀주세요.`); return;
   }
   document.getElementById('bulkStep1').style.display = 'none';
   document.getElementById('bulkStep2').style.display = 'flex';
@@ -1318,7 +1343,7 @@ async function confirmBulkSend() {
     const contextFilter = _bulkState.presetIds ? null : { ...(_bulkState.filterSnapshot || {}), campaign_ids: campIds };
     const title = document.getElementById('bulkTitle')?.value.trim() || null;   // 관리자 전용 제목 (선택)
     await sendApplicationMessageBulk(ids, body, [], contextKind, contextCampaignId, contextFilter, title);
-    toast(`${ids.length}명에게 발송했습니다.`);
+    toast(`${ids.length}건 발송했습니다.`);
     closeBulkMessageModal();
     if (_inboxTab === 'broadcasts') loadBroadcasts();
     // 받은편지함 탭의 미읽음·응대 배지 stale 방지 (발송 = 자동 응대 완료) — 비동기 갱신

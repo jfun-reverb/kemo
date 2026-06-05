@@ -3099,6 +3099,9 @@
             <div id="bulkAppStatus" class="bulk-chk-row"></div>
           </div>
           <div id="bulkDelivWrap">
+            <div id="bulkTypeMixNote" style="display:none;font-size:11px;color:var(--muted);background:var(--bg);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5">
+              영수증 조건은 <b>리뷰어 신청건에만</b> 적용됩니다. 기프팅·방문형 신청건은 영수증 조건과 무관하게 포함됩니다.
+            </div>
             <div id="bulkReceiptWrap" style="display:none;margin-bottom:12px">
               <div style="font-size:13px;color:var(--muted);margin-bottom:6px">영수증 상태 <span style="font-size:11px">(리뷰어 캠페인)</span></div>
               <div id="bulkReceiptStatus" class="bulk-chk-row"></div>
@@ -3107,6 +3110,8 @@
               <div style="font-size:13px;color:var(--muted);margin-bottom:6px">결과물 상태 <span style="font-size:11px">(게시물·리뷰 이미지)</span></div>
               <div id="bulkPostStatus" class="bulk-chk-row"></div>
             </div>
+            <label class="bulk-chk" style="margin-top:10px"><input type="checkbox" id="bulkFullApproved" onchange="scheduleBulkRecount()">완전 승인만 (부분 승인 제외)</label>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;line-height:1.5">체크 시 결과물이 <b>모두 승인된</b> 신청건만 — 미승인·검수중·반려·작성중 결과물이 하나라도 있으면 제외됩니다.</div>
           </div>
           <div>
             <div style="font-size:13px;color:var(--muted);margin-bottom:6px">④ 인플루언서 상태</div>
@@ -3121,7 +3126,7 @@
             <div id="bulkPrefectureMulti" class="mf-wrap" style="max-width:100%"><button type="button" class="mf-btn" style="width:100%;overflow:hidden;text-overflow:ellipsis">전체 지역</button><div class="mf-drop"></div></div>
           </div>
           <div>
-            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">SNS 채널 <span style="font-size:11px">(인플루언서 보유 채널 · 미선택 시 전체)</span></div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:6px">인플루언서 보유 SNS <span style="font-size:11px">(캠페인 모집 채널이 아니라 인플루언서가 가진 SNS 기준 · 미선택 시 전체)</span></div>
             <div id="bulkSnsChannels" class="bulk-chk-row"></div>
           </div>
           <div>
@@ -3141,15 +3146,15 @@
           </div>
         </div>
         <div class="bulk-count-box" id="bulkCountBox" style="display:none;background:var(--bg);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--ink)">
-          선택된 수신자 <b id="bulkCount" style="color:var(--brand,#16A34A)">0</b>명
+          선택 <b id="bulkCount" style="color:var(--brand,#16A34A)">0</b>건 <span style="color:var(--muted)">(받는 사람 <b id="bulkCountPeople" style="color:var(--ink)">0</b>명)</span>
           <span id="bulkCountLoading" style="display:none;font-size:12px;color:var(--muted)"> · 계산 중…</span>
-          <span id="bulkCancelledNote" style="display:block;font-size:11px;color:var(--muted);margin-top:4px">취소(cancelled)한 응모는 제외됩니다.</span>
+          <span id="bulkCancelledNote" style="display:block;font-size:11px;color:var(--muted);margin-top:4px">동일인이 여러 신청건이면 신청건마다 1통씩 발송됩니다. 취소(cancelled)한 응모는 제외됩니다.</span>
         </div>
       </div>
       <!-- STEP 2: 본문 작성 -->
       <div id="bulkStep2" style="display:none;flex-direction:column;gap:12px">
         <div style="font-size:13px;color:var(--ink);background:var(--bg);border-radius:10px;padding:10px 12px">
-          받는 사람 <b id="bulkCount2">0</b>명 — 각자의 1:1 대화방으로 도착하며 <b>서로 누가 받았는지 모릅니다(BCC)</b>.
+          <b id="bulkCount2">0</b>건 발송 <span style="color:var(--muted)">(받는 사람 <b id="bulkCount2People">0</b>명)</span> — 각 신청건의 1:1 대화방으로 도착하며 <b>서로 누가 받았는지 모릅니다(BCC)</b>. 동일인이 여러 신청건이면 각 건마다 1통씩 갑니다.
         </div>
         <div>
           <div style="font-size:13px;color:var(--muted);margin-bottom:6px">발송 제목 <span style="font-size:11px">(관리자용 · 선택)</span></div>
