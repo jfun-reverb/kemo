@@ -984,8 +984,8 @@ function renderBrandsList() {
       ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
       : '<span style="color:var(--muted)">—</span>';
     var statusBadge = b.status === 'archived'
-      ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">archived</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">active</span>';
+      ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
+      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(b.brand_no || '—') + '</td>'
       + '<td style="font-size:12px;color:var(--ink)">' + esc(b.company_name || '—') + '</td>'

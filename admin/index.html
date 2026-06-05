@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780630776';
+  var CURRENT_BUILD = 'v1780631100';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1997,7 +1997,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-05 12:39 · da61b45</span>
+          <span class="admin-build-text">2026-06-05 12:45 · 30c5689</span>
         </div>
       </div>
     </aside>
@@ -11496,8 +11496,8 @@ function renderBrandsList() {
       ? '<div style="font-size:11px;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.4" title="' + esc(memoText) + '">' + esc(memoText) + '</div>'
       : '<span style="color:var(--muted)">—</span>';
     var statusBadge = b.status === 'archived'
-      ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">archived</span>'
-      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">active</span>';
+      ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
+      : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
       + '<td style="font-size:11px;font-weight:600;color:var(--ink)">' + esc(b.brand_no || '—') + '</td>'
       + '<td style="font-size:12px;color:var(--ink)">' + esc(b.company_name || '—') + '</td>'
