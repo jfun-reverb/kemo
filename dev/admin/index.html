@@ -869,9 +869,9 @@
               <div class="admin-filter-group">
                 <label id="infFollowersLabel">팔로워 (합계 기준)</label>
                 <div style="display:flex;align-items:center;gap:4px">
-                  <input type="number" id="infFollowersMin" class="admin-filter" min="0" step="1" placeholder="최소" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                  <input type="number" id="infFollowersMin" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최소" style="width:84px" oninput="rerenderInfluencersFromCache()">
                   <span style="color:var(--muted)">~</span>
-                  <input type="number" id="infFollowersMax" class="admin-filter" min="0" step="1" placeholder="최대" style="width:84px" oninput="rerenderInfluencersFromCache()">
+                  <input type="number" id="infFollowersMax" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최대" style="width:84px" oninput="rerenderInfluencersFromCache()">
                 </div>
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
