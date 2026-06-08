@@ -487,49 +487,28 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 시트1 캠페인 정보 (기존 유지)
     _buildCampaignSummarySheet(wb, camps, appsByCampId);
 
-    // ── monitor 캠페인을 채널 조합별로 그룹화해 시트 분리 (사양 2 PR 3 단계 b)
-    //   사용자 의도: 캠페인별 시트가 아닌 「리뷰 · {채널 조합}」 시트. 같은 채널 구성 캠페인은 한 시트에 묶임.
-    //   예: 「리뷰 · Qoo10」 / 「리뷰 · Qoo10/LIPS」 / 「리뷰 · @cosme」
-    //   비monitor·monitor 채널 없음 캠페인은 아래 통합 시트로 폴백.
+    // ── monitor(리뷰어) 캠페인 전체를 단일 「리뷰어 결과물」 시트로 통합 (2026-06-08)
+    //   이전: 채널 조합별로 시트(탭) 분리 → 모집 타입이 같은 리뷰어인데도 큐텐/엣코스메가 탭마다 갈려
+    //         인플루언서·영수증 정보 양식이 반복돼 취합 불편(사용자 지적).
+    //   변경: 모집 타입이 같은(monitor) 캠페인은 채널이 달라도 한 시트에. 채널은 전체 합집합으로 가로 펼침
+    //         (1명 1줄, 본인이 낸 채널 칸만 채우고 안 낸 채널은 빈칸 — 영수증·인플 정보 1회만 표시).
+    //   비monitor(기프팅·방문형)·채널 없는 monitor 캠페인은 아래 통합 「결과물」 시트로 폴백.
     try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
-    var monitorGroups = {};  // {sortedKey: {channels:[code...], campIds:Set}}
+    var monitorCovered = {};     // 리뷰어 시트로 처리된 캠페인 id (통합 시트에서 제외 대상)
+    var monitorChannelSet = {};  // 리뷰어 캠페인에 등장한 채널 코드 합집합
     camps.forEach(function(c) {
       if (c.recruit_type !== 'monitor') return;
-      var chs = (c.channel || '').split(',').map(function(x){return x.trim();}).filter(Boolean).slice().sort();
-      if (chs.length === 0) return;
-      var key = chs.join('|');
-      if (!monitorGroups[key]) monitorGroups[key] = {channels: chs, campIds: {}};
-      monitorGroups[key].campIds[c.id] = true;
-    });
-    var monitorCovered = {};  // monitor 그룹으로 처리된 캠페인 id (통합 시트에서 제외 대상)
-    Object.values(monitorGroups).forEach(function(g) {
-      Object.keys(g.campIds).forEach(function(id){ monitorCovered[id] = true; });
+      var chs = (c.channel || '').split(',').map(function(x){return x.trim();}).filter(Boolean);
+      if (chs.length === 0) return;  // 채널 없는 리뷰어는 통합 시트로
+      monitorCovered[c.id] = true;
+      chs.forEach(function(ch){ monitorChannelSet[ch] = true; });
     });
 
-    var chLabelOf = function(code) {
-      return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
-    };
-    var usedSheetNames = {'캠페인 정보': true};  // 시트1 이름 충돌 방지
-    var pickGroupSheetName = function(channels) {
-      // ExcelJS 시트명 금지 문자(* ? : \ / [ ]) 회피 — '/'/':'/'\'/'?' 등은 시트명에 못 씀.
-      // 채널 구분자는 '+' 사용. 라벨 자체에 금지 문자가 있으면 '_' 치환.
-      var labels = channels.map(chLabelOf).join('+');
-      var base = ('리뷰 · ' + labels).replace(/[\\\/\?\*\[\]:]/g, '_');
-      base = base.substring(0, 28);
-      var name = base, i = 2;
-      while (usedSheetNames[name]) { name = base.substring(0, 28 - String(i).length - 1) + '_' + i; i++; }
-      usedSheetNames[name] = true;
-      return name;
-    };
-    var groupKeys = Object.keys(monitorGroups).sort(function(a,b) {
-      return monitorGroups[a].channels.length - monitorGroups[b].channels.length || a.localeCompare(b);
-    });
-    for (var gi = 0; gi < groupKeys.length; gi++) {
-      var grp = monitorGroups[groupKeys[gi]];
-      var grpCamps = camps.filter(function(c){ return grp.campIds[c.id]; });
-      var grpDelivs = allDelivs.filter(function(d){ return grp.campIds[d.campaign_id]; });
-      var sheetName = pickGroupSheetName(grp.channels);
-      _buildMonitorGroupSheet(wb, sheetName, grpCamps, grp.channels, grpDelivs, usersById, imgBuffers);
+    if (Object.keys(monitorCovered).length > 0) {
+      var allChannels = Object.keys(monitorChannelSet).sort();  // 합집합 채널 (코드 정렬, 기존 패턴 유지)
+      var monCamps = camps.filter(function(c){ return monitorCovered[c.id]; });
+      var monDelivs = allDelivs.filter(function(d){ return monitorCovered[d.campaign_id]; });
+      _buildMonitorGroupSheet(wb, '리뷰어 결과물', monCamps, allChannels, monDelivs, usersById, imgBuffers, '리뷰어 결과물 통합');
     }
 
     // 통합 시트는 monitor 그룹으로 처리된 캠페인 외 결과물만 (비monitor + monitor 채널 없음)
@@ -616,8 +595,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         var imgUrl = /^https?:\/\//.test(d.receipt_url)
           ? d.receipt_url
           : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-        var linkText = d.kind === 'receipt' ? '영수증 보기' : '리뷰 이미지 보기';
-        urlCellValue = {text: linkText, hyperlink: imgUrl};
+        urlCellValue = {text: imgUrl, hyperlink: imgUrl};
       }
       return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
     };
@@ -1014,8 +992,7 @@ async function exportCampaignDeliverables(campId) {
         var imgUrl = /^https?:\/\//.test(d.receipt_url)
           ? d.receipt_url
           : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-        var linkText = d.kind === 'receipt' ? '영수증 보기' : '리뷰 이미지 보기';
-        urlCellValue = {text: linkText, hyperlink: imgUrl};
+        urlCellValue = {text: imgUrl, hyperlink: imgUrl};
       }
       return [kindLabel, submittedStr, reviewedStr, statusStr, '', urlCellValue];
     };
@@ -1267,7 +1244,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       var iu = /^https?:\/\//.test(d.receipt_url)
         ? d.receipt_url
         : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-      urlVal = {text:'리뷰 이미지 보기', hyperlink:iu};
+      urlVal = {text:iu, hyperlink:iu};
     }
     return ['리뷰 이미지', sub, rev, st, '', urlVal];
   };
@@ -1275,7 +1252,6 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     if (!d) return ['', '', '', '', '', '', '', '', ''];
     var base = renderDeliv6(d);  // base[0]='리뷰 이미지' 라서 type 만 영수증으로 교체
     base[0] = '영수증';
-    if (d.receipt_url && base[5] && base[5].text) base[5].text = '영수증 보기';
     var orderNo = d.order_number || '';
     var purchaseDate = d.purchase_date || '';
     var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
@@ -1353,7 +1329,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
 //   같은 채널 구성(예: qoo10, qoo10/lips)의 캠페인 N개를 한 시트에 묶음.
 //   컬럼 = 캠페인 2 + 인플 7 + 영수증 9 + 채널 N × 6.
 //   행 = (campaign_id, application_id) 단위.
-function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, userById, imgBuffers) {
+function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, userById, imgBuffers, titleOverride) {
   // 그룹핑
   var groups = {};
   delivs.forEach(function(d) {
@@ -1395,7 +1371,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   // row 1: 그룹 제목
   ws.mergeCells('A1:' + lastColLetter + '1');
   var t = ws.getCell('A1');
-  t.value = '채널 조합 「' + channels.map(chLabelOf).join(' / ') + '」  (' + grpCamps.length + '개 캠페인)';
+  t.value = (titleOverride || ('채널 조합 「' + channels.map(chLabelOf).join(' / ') + '」')) + '  (' + grpCamps.length + '개 캠페인)';
   t.font = {bold:true, size:14};
   t.alignment = {vertical:'middle'};
   ws.getRow(1).height = 26;
@@ -1458,7 +1434,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
     if (d.receipt_url) {
       var iu = /^https?:\/\//.test(d.receipt_url) ? d.receipt_url
         : (db?.storage?.from ? db.storage.from('campaign-images').getPublicUrl(d.receipt_url)?.data?.publicUrl : d.receipt_url);
-      urlVal = {text:'리뷰 이미지 보기', hyperlink:iu};
+      urlVal = {text:iu, hyperlink:iu};
     }
     return ['리뷰 이미지', sub, rev, st, '', urlVal];
   };
@@ -1466,7 +1442,6 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
     if (!d) return ['', '', '', '', '', '', '', '', ''];
     var base = renderDeliv6(d);
     base[0] = '영수증';
-    if (d.receipt_url && base[5] && base[5].text) base[5].text = '영수증 보기';
     var orderNo = d.order_number || '';
     var purchaseDate = d.purchase_date || '';
     var amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
