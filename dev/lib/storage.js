@@ -60,7 +60,7 @@ async function fetchCampaigns() {
 // ※ autoOpenCampaigns / autoCloseCampaigns 는 status / recruit_start / deadline 만 참조하므로
 //    목록 전용 컬럼셋에서도 문제없이 실행된다. 목록 진입 시 자동 전환을 유지하기 위해 여기서도 호출.
 const ADMIN_LIST_COLUMNS = [
-  'id', 'title', 'brand', 'brand_ko', 'product', 'product_ko',
+  'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
   'recruit_type', 'channel', 'status',
   'slots', 'view_count',

@@ -88,7 +88,7 @@ function renderRecentAppsTable(apps, camps, users) {
           <div style="min-width:0">
             <div>${typeLabel}</div>
             <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
-            <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div>
             ${camp.slots?`<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_dRem>0?'var(--green)':'var(--red)'};font-weight:600">${_dRem>0?_dRem+'건':'없음'}</span></div>`:''}
           </div>
         </div>

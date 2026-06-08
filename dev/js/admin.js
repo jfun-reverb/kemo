@@ -262,7 +262,7 @@ async function loadAdminCampaigns(useCache) {
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
   if (searchVal) {
     camps = camps.filter(c => matchSearchTokens(searchVal,
-      [c.title, c.brand, c.brand_ko, c.product, c.product_ko, c.campaign_no]));
+      [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
   }
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
@@ -357,8 +357,8 @@ async function loadAdminCampaigns(useCache) {
         </div>
       </td>
       ${(()=>{
-        const bp = c.brand_ko || c.brand || '';
-        const bs = (c.brand_ko && c.brand && c.brand_ko !== c.brand) ? c.brand : '';
+        const bp = brandLabelAdmin(c);
+        const bs = '';
         const pp = c.product_ko || c.product || '';
         const ps = (c.product_ko && c.product && c.product_ko !== c.product) ? c.product : '';
         return `<td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
@@ -1698,6 +1698,10 @@ async function saveCampaignEdit() {
     if (!title || !brandId) { toast('캠페인명과 브랜드는 필수입니다','error'); return; }
     const sourceAppId = $('editCampSourceAppId')?.value || null;
     const brand = gv('editCampBrand').trim();
+    // 브랜드명 일본어/영문 — 마스터(brands)에서 복사. brand_id 연결 캠페인은 173 트리거가 이후 동기화.
+    const _editBrand = (_campBrandsCache || []).find(b => b.id === brandId);
+    const brandJa = (_editBrand?.name_ja || '').trim();
+    const brandEn = (_editBrand?.name_en || '').trim();
 
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
@@ -1729,6 +1733,8 @@ async function saveCampaignEdit() {
       brand_id: brandId,
       source_application_id: sourceAppId || null,
       brand_ko: gv('editCampBrandKo')?.trim() || null,
+      brand_ja: brandJa || null,
+      brand_en: brandEn || null,
       product: gv('editCampProduct'),
       product_ko: gv('editCampProductKo')?.trim() || null,
       product_url: cleanUrl(gv('editCampProductUrl')),
@@ -1867,6 +1873,7 @@ async function duplicateCampaign(campId) {
     const copy = {
       title: '[복사] ' + src.title,
       brand: src.brand, brand_ko: src.brand_ko || null,
+      brand_ja: src.brand_ja || null, brand_en: src.brand_en || null,
       product: src.product, product_ko: src.product_ko || null,
       product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
@@ -2086,7 +2093,7 @@ function renderCampPreview(mode) {
           ${slideUrls.length>1?`<div class="cp-hero-count">1/${slideUrls.length}</div>`:''}
         </div>
         <div class="cp-head">
-          ${camp.brand?`<div class="cp-brand">${esc(camp.brand)}</div>`:''}
+          ${(()=>{const bl=brandLabelInflu(camp);return bl?`<div class="cp-brand">${esc(bl)}</div>`:'';})()}
           ${rtLabel?`<div class="cp-rt">${esc(rtLabel)}</div>`:''}
           <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
           ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">${rewardLabelJa}</span></div>`:''}
@@ -2418,6 +2425,9 @@ async function addCampaign() {
   const _pickedBrand = (_campBrandsCache || []).find(b => b.id === brandId);
   const brand = (_pickedBrand?.name || $('newCampBrand').value || '').trim();
   const brandKo = ($('newCampBrandKo')?.value || '').trim();
+  // 브랜드명 일본어/영문 — 마스터(brands)에서 복사. brand_id 연결 캠페인은 173 트리거가 이후 동기화.
+  const brandJa = (_pickedBrand?.name_ja || '').trim();
+  const brandEn = (_pickedBrand?.name_en || '').trim();
   const product = $('newCampProduct').value.trim();
   const productKo = ($('newCampProductKo')?.value || '').trim();
   const productUrl = cleanUrl($('newCampProductUrl')?.value)||'';
@@ -2448,6 +2458,8 @@ async function addCampaign() {
     brand_id: brandId,
     source_application_id: sourceAppId || null,
     brand_ko: brandKo || null,
+    brand_ja: brandJa || null,
+    brand_en: brandEn || null,
     product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
     recruit_type: recruitType,
