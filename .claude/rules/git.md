@@ -28,7 +28,7 @@ globs: "*"
 **Why:** 개발서버는 검증 환경이라 롤백 부담이 작고, 사용자가 매 PR 머지를 손으로 누르는 반복을 없애려고 위임함. 운영(main)만 사람이 최종 판단 (2026-05-22 사용자 명시 지시 + "규칙에 남겨줘" 요청).
 
 ## 거버넌스 문서는 고문/기획이 dev 직접 커밋 (dev push 금지의 예외, 2026-06-05)
-- 거버넌스 문서(`.claude/rules/*`·메모리·HANDOFF·`docs/specs/*` 신규)는 고문/기획 세션이 직접 수정하고 **같은 턴에 `dev` 직접 커밋·push** 한다.
+- 거버넌스 문서(`.claude/rules/*`·`.claude/agents/*`·`.claude/commands/*`·메모리·HANDOFF·`docs/specs/*` 신규)는 고문/기획 세션이 직접 수정하고 **같은 턴에 `dev` 직접 커밋·push** 한다. (목록 정의처는 `session-roles.md` §2 — 양쪽 동일 유지)
 - `dev` 직접 push 금지 원칙(`multi-session.md`)의 **명시적 예외** — 거버넌스 문서는 개발 코드(`dev/*`·`supabase/*`)와 파일이 안 겹쳐 충돌 위험이 없다(고문=메인 폴더 `dev`, 개발=worktree `feature`, 다른 폴더+다른 브랜치).
 - 조건 3종: ① **거버넌스 문서만** (코드·빌드 산출물·마이그레이션 SQL·`CLAUDE.md` 는 제외 → 개발 세션) ② push 직전 `git pull --rebase origin dev` 로 최신화 ③ **미커밋 방치 금지**(고친 즉시 커밋 — 과거 유실 사고는 미커밋+브랜치 전환 조합이었음).
 - 세션별 전체 경계·인수인계는 `.claude/rules/session-roles.md` 정의처 참조.
@@ -70,7 +70,7 @@ feat: ...
 [via supabase-expert] migration 031 설계·구현
 [via qa-tester] E2E 회귀 시나리오 6/7 통과
 ```
-여러 에이전트 참여 시 나열. team-manager의 Light Weekly 감사가 이 태그를 집계해서 호출 빈도 측정.
+여러 에이전트 참여 시 나열. 이 태그는 고문 세션이 가끔 에이전트 호출 빈도·효용을 점검할 때 집계 근거로 쓴다(과거 reverb-team-manager 역할 — 2026-06-05 제거, 고문 세션이 흡수).
 
 ## 안전 규칙
 - main 브랜치 force push 금지
