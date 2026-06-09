@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780969101';
+  var CURRENT_BUILD = 'v1780970365';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2002,7 +2002,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-09 10:38 · d279083</span>
+          <span class="admin-build-text">2026-06-09 10:59 · de4cd94</span>
         </div>
       </div>
     </aside>
@@ -7867,6 +7867,30 @@ async function deleteCompanyHard(companyId) {
   } catch(e) { console.error('[deleteCompanyHard]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
 }
 
+// 브랜드 hard delete (연결 0건 한정). delete_brand RPC 경유 — brands 는 DELETE RLS 없어 직접 delete 불가.
+async function deleteBrand(brandId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db?.rpc('delete_brand', {p_brand_id: brandId});
+      if (error) throw error;
+      return data;
+    });
+    return {ok:true, data};
+  } catch(e) { console.error('[deleteBrand]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
+}
+
+// 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
+// 실제 삭제 차단은 delete_brand RPC 가 캠페인+신청 양쪽을 재검증하므로, 이 값이 틀려도 데이터 안전.
+async function countCampaignsByBrand(brandId) {
+  if (!db) return 0;
+  try {
+    const {count, error} = await db?.from('campaigns').select('id', {count:'exact', head:true}).eq('brand_id', brandId);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
+}
+
 // 브랜드 할당 모달용 조회
 // unassignedOnly=true → company_id IS NULL 인 미분류 브랜드만
 // companyId 지정 시 → 현재 소속(= companyId) + 미분류 양쪽 모두 반환
@@ -11609,17 +11633,24 @@ async function openBrandDetailModal(id) {
   bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (footerEl) footerEl.innerHTML = '';
   modal.classList.add('open');
-  var [b, apps, companies] = await Promise.all([
+  var [b, apps, companies, campCount] = await Promise.all([
     fetchBrandById(id),
     fetchBrandApplicationsByBrand(id),
-    (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([]))
+    (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([])),
+    (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(0))
   ]);
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
   _brandFormCompanies = companies || [];
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
   renderBrandContactsRows();
+  // 삭제 버튼 — 연결(캠페인·신청) 0건 + campaign_admin 이상일 때만 노출. 연결 있으면 병합 기능(추후) 유도.
+  var canDeleteBrand = (apps.length === 0) && (campCount === 0)
+    && (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
   if (footerEl) footerEl.innerHTML = ''
+    + (canDeleteBrand
+        ? '<button class="btn btn-ghost btn-sm" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
+        : '')
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
@@ -11629,6 +11660,19 @@ function closeBrandDetailModal() {
   var modal = $('brandDetailModal');
   if (modal) modal.classList.remove('open');
   _brandsCurrentId = null;
+}
+
+// 브랜드 삭제 — 연결 0건 빈 브랜드만(서버 delete_brand RPC 가 재검증). 되돌릴 수 없음.
+async function deleteBrandConfirm() {
+  var id = _brandsCurrentId;
+  if (!id) return;
+  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·신청이 없는 빈 브랜드만 삭제됩니다. 되돌릴 수 없습니다.')) return;
+  var result = await deleteBrand(id);
+  if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  toast('브랜드를 삭제했습니다');
+  closeBrandDetailModal();
+  if (typeof refreshPane === 'function') { await refreshPane('brands'); }
+  else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
 
 // 헤더 — brand_no | name | status select (드롭다운, 활성/비활성 명확히 선택)
@@ -18892,7 +18936,9 @@ function renderDelivResultCellMonitor(g) {
         + 'onclick="event.stopPropagation();openImageLightbox(\'' + esc(d.receipt_url) + '\')">';
     }
     let badge;
-    if (d.status === 'approved')      badge = '<span style="font-size:10px;background:#E4F5E8;color:#2D7A3E;font-weight:600;padding:1px 6px;border-radius:3px">승인</span>';
+    // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
+    if (d.submitted_by_admin) badge = '<span style="font-size:10px;background:#FEF3C7;color:#92400E;font-weight:600;padding:1px 6px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>';
+    else if (d.status === 'approved') badge = '<span style="font-size:10px;background:#E4F5E8;color:#2D7A3E;font-weight:600;padding:1px 6px;border-radius:3px">승인</span>';
     else if (d.status === 'rejected') badge = '<span style="font-size:10px;background:#FFE4E4;color:#C33;font-weight:600;padding:1px 6px;border-radius:3px">비승인</span>';
     else if (d.status === 'draft')    badge = '<span style="font-size:10px;background:#e5e7eb;color:#555;font-weight:600;padding:1px 6px;border-radius:3px">임시</span>';
     else                              badge = '<span style="font-size:10px;background:#FFF4E4;color:#B8741A;font-weight:600;padding:1px 6px;border-radius:3px">검수대기</span>';
@@ -18927,7 +18973,7 @@ function renderDelivStatusCell(d, slot, rt) {
   // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
   // 사용자 결정 2026-05-28: 「승인 + 작은 대리 마커」 중복 → 단일 「대리 등록」 배지로 통합
   const statusBadgeHtml = d.submitted_by_admin
-    ? `<span style="background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
+    ? `<span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
     : delivStatusBadge(d.status);
   return `<div style="display:flex;align-items:center;gap:6px">${preview}${statusBadgeHtml}</div>`;
 }
