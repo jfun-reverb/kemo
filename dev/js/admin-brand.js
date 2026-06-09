@@ -1079,24 +1079,25 @@ async function deleteBrandConfirm() {
 async function openBrandMergeModal(sourceId) {
   var src = (_brandsCache || []).find(function(b){ return b.id === sourceId; });
   if (!src) return;
-  // 회사 미지정 브랜드는 병합 금지 (무관 브랜드 오병합 방지 — 서버 merge_brands 도 동일 가드)
-  if (!src.company_id) { toast('회사가 지정되지 않은 브랜드는 병합할 수 없습니다. 먼저 「회사」를 연결하세요.', 'warn'); return; }
+  // 회사 무관 병합 허용(2026-06-09 — 회사 등록→연결→병합 단계 과다 해소). 오병합 방지는 모달 정보·확인으로.
   var campCount = (typeof countCampaignsByBrand === 'function') ? await countCampaignsByBrand(sourceId) : 0;
   var apps = (typeof fetchBrandApplicationsByBrand === 'function') ? (await fetchBrandApplicationsByBrand(sourceId) || []) : [];
+  var srcCo = (src.company_id && _brandCompanyMap[src.company_id]) || src.company_name || '회사 미등록';
   var targets = (_brandsCache || []).filter(function(b){
-    return b.id !== sourceId && b.status === 'active' && b.company_id && b.company_id === src.company_id;
+    return b.id !== sourceId && b.status === 'active';
   });
-  if (!targets.length) { toast('같은 회사에 병합할 다른 활성 브랜드가 없습니다', 'warn'); return; }
+  if (!targets.length) { toast('병합할 다른 활성 브랜드가 없습니다', 'warn'); return; }
   var opts = targets.map(function(b){
-    return '<option value="' + esc(b.id) + '">' + esc(b.name || b.brand_no || '브랜드') + (b.name_ja ? ' (' + esc(b.name_ja) + ')' : '') + ' · ' + esc(b.brand_no || '') + '</option>';
+    var co = (b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '회사 미등록';
+    return '<option value="' + esc(b.id) + '">' + esc(b.name || b.brand_no || '브랜드') + (b.name_ja ? ' (' + esc(b.name_ja) + ')' : '') + ' · ' + esc(b.brand_no || '') + ' · ' + esc(co) + '</option>';
   }).join('');
   var ov = document.createElement('div');
   ov.id = 'brandMergeOverlay';
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;display:flex;align-items:center;justify-content:center';
   ov.innerHTML = '<div style="background:#fff;border-radius:12px;width:480px;max-width:92vw;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,.25)">'
     + '<h3 style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--ink)">브랜드 병합</h3>'
-    + '<p style="margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.6">원본 「' + esc(src.name || src.brand_no || '') + '」의 <b>캠페인 ' + campCount + '건·신청 ' + apps.length + '건</b>을 아래 브랜드로 옮기고, 원본은 보관 처리합니다.<br>캠페인·신청 번호는 재발급되며(옛 번호는 보존) <b style="color:#c0392b">되돌릴 수 없습니다.</b></p>'
-    + '<label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px">병합 대상 브랜드 (같은 회사)</label>'
+    + '<p style="margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.6">원본 「' + esc(src.name || src.brand_no || '') + '」(' + esc(srcCo) + ')의 <b>캠페인 ' + campCount + '건·신청 ' + apps.length + '건</b>을 아래 브랜드로 옮기고, 원본은 보관 처리합니다.<br>캠페인·신청 번호는 재발급되며(옛 번호는 보존) <b style="color:#c0392b">되돌릴 수 없습니다.</b></p>'
+    + '<label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px">병합 대상 브랜드 <span style="color:var(--muted);font-weight:400">(회사가 달라도 선택 가능 — 대상을 정확히 확인하세요)</span></label>'
     + '<select id="brandMergeTarget" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:20px">' + opts + '</select>'
     + '<div style="display:flex;justify-content:flex-end;gap:8px">'
       + '<button class="btn btn-ghost btn-sm" onclick="closeBrandMergeModal()">취소</button>'
