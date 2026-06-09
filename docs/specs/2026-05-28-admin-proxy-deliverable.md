@@ -397,3 +397,21 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 **DB 변경:** 없음 (조회 방식만 변경)
 
 **백로그(구조 개선):** 모달 열 때마다 승인 신청 전건을 미리 로드하는 구조라 승인 누적이 커질수록 모달 로드가 느려짐. 근본적으로는 "캠페인을 먼저 선택 → 해당 캠페인 승인 신청만 로드"하는 흐름으로 재설계 권장. 화면 흐름 변경이라 별도 사이클.
+
+---
+
+### 버그 수정 — 멀티채널 결과물 셀 대리등록 배지 누락 + 라벨 크기 (2026-06-09)
+
+**증상:** 결과물 관리 목록에서 리뷰어(monitor) 멀티채널(Qoo10·@cosme) 결과물 셀의 채널별 배지가, 대리등록(`submitted_by_admin` NOT NULL)인데도 「승인」으로 표시. (단일 결과물 셀은 정상.) 추가로 단일 셀 「대리 등록」 배지가 border 때문에 「승인」보다 커 보임.
+
+**원인:** 멀티채널 채널별 배지는 `renderDelivResultCellMonitor()` 가 그리는데, `status`만 보고 `submitted_by_admin`을 확인하지 않음. (`renderDelivStatusCell`은 이미 확인했음.)
+
+**운영 데이터 확인:** B0018-A002-C001/C002 의 review_image 중 松本英子(전 채널)·青木綾佑(@cosme)가 `is_proxy=true`. 영수증(receipt)은 전부 `is_proxy=false`(영수증엔 대리등록 표시 미기록 — 별개 사안). 青木綾佑 Qoo10 은 `is_proxy=false`라 채널별로 배지가 갈림(데이터 충실 반영).
+
+**수정** (`dev/js/admin-deliverables.js`, DB 무변경):
+- `renderDelivResultCellMonitor` 채널별 미니행 배지 분기 최상단에 `if (d.submitted_by_admin)` → 「대리 등록」(노란 톤, font 10px) 추가
+- `renderDelivStatusCell` 「대리 등록」 배지에서 `border:1px solid #FBBF24` 제거 → 「승인」 배지와 동일 크기
+
+**⚠️ 멀티세션 사고:** 이 수정의 소스 변경이 동시 진행된 다른 세션의 브랜드 삭제 커밋(`409d471`)에 미커밋 상태로 섞여 dev 머지됨(메인 폴더 공유). 결과적으로 소스·빌드 산출물 모두 정상 반영됐으나, 커밋 추적성은 어긋남. 향후 동시 작업 시 worktree 분리 필요(`.claude/rules/session-roles.md`).
+
+**백로그:** 영수증(receipt) deliverable 에 대리등록 표시가 안 박히는 이유 점검 — 리뷰어 대리등록 시 영수증에도 `submitted_by_admin` 기록 여부 확인 필요(현재 영수증 셀은 「승인」 유지).
