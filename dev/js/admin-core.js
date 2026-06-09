@@ -651,6 +651,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
   'bulkMessageModal', 'broadcastDetailModal',
+  // 이미지 확대 창 — 배경 안 덮고(뒤 화면 조작 가능) 드래그·리사이즈로 영수증 보며 입력
+  'imageLightbox',
 ]);
 
 function makeModalDraggableResizable(modalEl) {

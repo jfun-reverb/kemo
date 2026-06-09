@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781015206';
+  var CURRENT_BUILD = 'v1781017193';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1822,6 +1822,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 .modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
 
+/* 이미지 확대 창(#imageLightbox): 배경을 덮지 않아 뒤 화면(검수 모달 입력 등) 조작 가능 + 드래그·리사이즈 떠있는 창.
+   overlay 는 클릭 통과(pointer-events:none), 창(.modal)만 잡힘. 배경 클릭 닫기 없음 — 닫기는 X·ESC. */
+#imageLightbox{background:transparent;pointer-events:none}
+#imageLightbox .modal{pointer-events:auto}
+/* 크기는 CSS 로 — 드래그 초기화가 인라인 width/height 를 지우므로(인라인으로 주면 92vw 로 커짐) .draggable 에 기본 크기 지정 */
+#imageLightbox .modal.draggable{width:600px;height:600px;max-width:92vw;max-height:90vh}
+
 /* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
 /* admin.css 는 관리자 빌드 전용(인플 빌드 CLIENT_CSS 에 미포함)이라 전역 정의해도 인플 영향 0. */
 /* 미분리 모달 등은 #page-admin 밖(body 직속)이라 #page-admin 스코프가 안 먹음 → 전역으로 정의. */
@@ -2012,7 +2019,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-09 23:26 · ae258ff</span>
+          <span class="admin-build-text">2026-06-09 23:59 · ee07a46</span>
         </div>
       </div>
     </aside>
@@ -4113,9 +4120,16 @@ textarea.form-input{resize:vertical;min-height:80px}
 </div>
 
 <!-- 이미지 확대 라이트박스 -->
-<div class="modal-overlay" id="imageLightbox" style="z-index:900;background:rgba(0,0,0,.88)" onclick="closeModal('imageLightbox')">
-  <img id="imageLightboxImg" alt="증빙 이미지" style="max-width:92vw;max-height:92vh;object-fit:contain;margin:auto;display:block">
-  <button onclick="event.stopPropagation();closeModal('imageLightbox')" style="position:fixed;top:16px;right:16px;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center" aria-label="닫기"><span class="material-icons-round notranslate" translate="no" style="font-size:22px">close</span></button>
+<div class="modal-overlay" id="imageLightbox" style="z-index:900">
+  <div class="modal" style="padding:0;border-radius:16px;overflow:hidden">
+    <div class="modal-header" style="padding:10px 14px">
+      <span class="modal-title" style="font-size:14px">이미지 보기</span>
+      <span class="modal-close material-icons-round notranslate" translate="no" onclick="closeModal('imageLightbox')" aria-label="닫기" style="font-size:18px">close</span>
+    </div>
+    <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222">
+      <img id="imageLightboxImg" alt="이미지" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block">
+    </div>
+  </div>
 </div>
 
 <!-- 캠페인 상태 도움말 모달 -->
@@ -10554,6 +10568,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
   'bulkMessageModal', 'broadcastDetailModal',
+  // 이미지 확대 창 — 배경 안 덮고(뒤 화면 조작 가능) 드래그·리사이즈로 영수증 보며 입력
+  'imageLightbox',
 ]);
 
 function makeModalDraggableResizable(modalEl) {
