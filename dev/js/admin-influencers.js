@@ -359,7 +359,7 @@ async function openInfluencerDetail(userId) {
       <td style="font-weight:600">${esc(camp.title)||esc(a.campaign_id)}</td>
       <td>${typeLabel}</td>
       <td style="font-size:12px;color:var(--muted)">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
     </tr>`;
     if (a.status !== 'cancelled') return mainRow;
     // 취소 사유 보조 행

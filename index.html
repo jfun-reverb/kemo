@@ -2728,6 +2728,7 @@ window.I18N_JA = {
     pending: '審査中',
     approved: '当選',
     rejected: '落選',
+    recruitEnded: '募集終了',
     cancelled: '取消',
     cancelledBadge: '取消済',
     cancelMenu: '取消',
@@ -3390,6 +3391,7 @@ window.I18N_KO = {
     pending: '심사중',
     approved: '당첨',
     rejected: '낙첨',
+    recruitEnded: '모집종료',
     cancelled: '취소',
     cancelledBadge: '취소됨',
     cancelMenu: '응모 취소',
@@ -7726,7 +7728,7 @@ function getRecruitTypeBadgeKoSm(t) {
   return '';
 }
 
-function getStatusBadge(s) {
+function getStatusBadge(s, autoReason) {
   const labels = {
     pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
     approved: (typeof t === 'function' ? t('appHistory.approved') : '当選'),
@@ -7739,9 +7741,19 @@ function getStatusBadge(s) {
     rejected:  `<span class="badge badge-gray">${labels.rejected}</span>`,
     cancelled: `<span class="badge badge-gray">${labels.cancelled}</span>`
   };
-  return m[s] || s;
+  let html = m[s] || s;
+  // 캠페인 종료/노출마감으로 인한 자동 낙첨: 落選 옆에 작은 「募集終了」 보조 라벨
+  if (s === 'rejected' && autoReason) {
+    const endedLabel = (typeof t === 'function' ? t('appHistory.recruitEnded') : '募集終了');
+    html += `<span class="badge badge-gray" style="font-size:10px;opacity:.75">${endedLabel}</span>`;
+  }
+  return html;
 }
-function getStatusBadgeKo(s) {
+function getStatusBadgeKo(s, autoReason) {
+  // 캠페인 종료/노출마감 자동 낙첨은 "미승인"이 아니라 "캠페인 종료"로 표시
+  if (s === 'rejected' && autoReason) {
+    return '<span class="badge badge-gray">캠페인 종료</span>';
+  }
   const m = {
     pending:   '<span class="badge badge-gold">심사중</span>',
     approved:  '<span class="badge badge-green">승인</span>',
@@ -10886,7 +10898,7 @@ async function renderMyApplyList() {
       delivItemsHtml = items.join('');
     }
     // 응모 상태 배지(당첨/심사중 등) + 결과물 상태 배지를 카드 본문 맨 아래 가로 한 줄로 모음
-    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status)}${delivItemsHtml}</div>`;
+    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status, a.auto_reject_reason)}${delivItemsHtml}</div>`;
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';

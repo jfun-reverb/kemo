@@ -246,7 +246,7 @@ function getRecruitTypeBadgeKoSm(t) {
   return '';
 }
 
-function getStatusBadge(s) {
+function getStatusBadge(s, autoReason) {
   const labels = {
     pending: (typeof t === 'function' ? t('appHistory.pending') : '審査中'),
     approved: (typeof t === 'function' ? t('appHistory.approved') : '当選'),
@@ -259,9 +259,19 @@ function getStatusBadge(s) {
     rejected:  `<span class="badge badge-gray">${labels.rejected}</span>`,
     cancelled: `<span class="badge badge-gray">${labels.cancelled}</span>`
   };
-  return m[s] || s;
+  let html = m[s] || s;
+  // 캠페인 종료/노출마감으로 인한 자동 낙첨: 落選 옆에 작은 「募集終了」 보조 라벨
+  if (s === 'rejected' && autoReason) {
+    const endedLabel = (typeof t === 'function' ? t('appHistory.recruitEnded') : '募集終了');
+    html += `<span class="badge badge-gray" style="font-size:10px;opacity:.75">${endedLabel}</span>`;
+  }
+  return html;
 }
-function getStatusBadgeKo(s) {
+function getStatusBadgeKo(s, autoReason) {
+  // 캠페인 종료/노출마감 자동 낙첨은 "미승인"이 아니라 "캠페인 종료"로 표시
+  if (s === 'rejected' && autoReason) {
+    return '<span class="badge badge-gray">캠페인 종료</span>';
+  }
   const m = {
     pending:   '<span class="badge badge-gold">심사중</span>',
     approved:  '<span class="badge badge-green">승인</span>',
