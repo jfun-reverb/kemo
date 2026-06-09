@@ -1569,29 +1569,43 @@ async function _loadAdminProxyApprovedApps() {
   // PostgREST schema cache 가 applications.campaign_id / applications.user_id 의 FK 임베드를
   // 인식 못 하는 사례(스키마 새로고침 지연 등)가 있어 분리 쿼리 + 클라이언트 join 패턴 사용.
   if (!db) return [];
-  // 1. approved 신청만 (status·reviewed_at 정렬)
-  const {data: apps, error} = await db?.from('applications')
-    .select('id, status, campaign_id, user_id, reviewed_at')
-    .eq('status', 'approved')
-    .order('reviewed_at', {ascending: false})
-    .limit(500);
-  if (error) throw error;
+  // 1. approved 신청 전건 — 과거 .limit(500) 으로 잘라 승인 누적 500건 밖(오래 전 승인)
+  //    캠페인이 후보에서 통째로 누락되는 버그가 있었음. fetchAllPaged 로 1000행 cap 우회.
+  const apps = await fetchAllPaged(() =>
+    db.from('applications')
+      .select('id, status, campaign_id, user_id, reviewed_at')
+      .eq('status', 'approved')
+      .order('reviewed_at', {ascending: false})
+  );
   if (!apps || !apps.length) return [];
-  // 2. 관련 캠페인 + 인플 별도 IN 쿼리 (병렬)
+  // 2. 관련 캠페인 + 인플 별도 IN 쿼리 — id 목록이 1000개를 넘거나 URL 이 길어질 수 있어 배치 분할
   const campIds = [...new Set(apps.map(a => a.campaign_id).filter(Boolean))];
   const userIds = [...new Set(apps.map(a => a.user_id).filter(Boolean))];
-  const [campRes, infRes] = await Promise.all([
-    campIds.length ? db?.from('campaigns').select('id, title, brand, recruit_type, channel, campaign_no').in('id', campIds) : {data: []},
-    userIds.length ? db?.from('influencers').select('id, name, name_kana, email').in('id', userIds) : {data: []}
+  const [campRows, infRows] = await Promise.all([
+    _proxyFetchByIds('campaigns', 'id, title, brand, brand_ja, brand_en, recruit_type, channel, campaign_no', campIds),
+    _proxyFetchByIds('influencers', 'id, name, name_kana, email', userIds)
   ]);
   const campMap = {};
-  (campRes?.data || []).forEach(c => { campMap[c.id] = c; });
+  campRows.forEach(c => { campMap[c.id] = c; });
   const infMap = {};
-  (infRes?.data || []).forEach(u => { infMap[u.id] = u; });
+  infRows.forEach(u => { infMap[u.id] = u; });
   // 3. 클라이언트 join — 캠페인·인플 둘 다 있는 것만 노출 (RLS 누락 행 자동 필터)
   return apps
     .map(a => ({...a, campaigns: campMap[a.campaign_id], influencers: infMap[a.user_id]}))
     .filter(a => a.campaigns && a.influencers);
+}
+
+// id 목록을 배치로 나눠 IN 조회 (PostgREST URL 길이·1000행 cap 회피)
+async function _proxyFetchByIds(table, cols, ids, batchSize = 200) {
+  if (!db || !ids.length) return [];
+  const out = [];
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const chunk = ids.slice(i, i + batchSize);
+    const {data, error} = await db.from(table).select(cols).in('id', chunk);
+    if (error) throw error;
+    if (data) out.push(...data);
+  }
+  return out;
 }
 
 async function _loadAdminProxyReasons() {
