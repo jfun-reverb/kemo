@@ -20,6 +20,8 @@
     /NetworkError|Failed to fetch/i,   // 사용자 네트워크 끊김
     /Non-Error promise rejection/i,
     /chrome-extension|moz-extension|safari-extension/i,
+    /browser\.runtime/i,               // 아이폰 Safari 확장이 주입한 확장 API 접근 에러 (앱 코드 아님)
+    /webkit-masked-url/i,              // Safari 가 확장 스크립트 출처를 가린 URL (스택에만 등장)
   ];
 
   function _toMessage(v) {
