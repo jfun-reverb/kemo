@@ -597,7 +597,9 @@ function renderDelivResultCellMonitor(g) {
         + 'onclick="event.stopPropagation();openImageLightbox(\'' + esc(d.receipt_url) + '\')">';
     }
     let badge;
-    if (d.status === 'approved')      badge = '<span style="font-size:10px;background:#E4F5E8;color:#2D7A3E;font-weight:600;padding:1px 6px;border-radius:3px">승인</span>';
+    // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
+    if (d.submitted_by_admin) badge = '<span style="font-size:10px;background:#FEF3C7;color:#92400E;font-weight:600;padding:1px 6px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>';
+    else if (d.status === 'approved') badge = '<span style="font-size:10px;background:#E4F5E8;color:#2D7A3E;font-weight:600;padding:1px 6px;border-radius:3px">승인</span>';
     else if (d.status === 'rejected') badge = '<span style="font-size:10px;background:#FFE4E4;color:#C33;font-weight:600;padding:1px 6px;border-radius:3px">비승인</span>';
     else if (d.status === 'draft')    badge = '<span style="font-size:10px;background:#e5e7eb;color:#555;font-weight:600;padding:1px 6px;border-radius:3px">임시</span>';
     else                              badge = '<span style="font-size:10px;background:#FFF4E4;color:#B8741A;font-weight:600;padding:1px 6px;border-radius:3px">검수대기</span>';
@@ -632,7 +634,7 @@ function renderDelivStatusCell(d, slot, rt) {
   // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
   // 사용자 결정 2026-05-28: 「승인 + 작은 대리 마커」 중복 → 단일 「대리 등록」 배지로 통합
   const statusBadgeHtml = d.submitted_by_admin
-    ? `<span style="background:#FEF3C7;color:#92400E;border:1px solid #FBBF24;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
+    ? `<span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
     : delivStatusBadge(d.status);
   return `<div style="display:flex;align-items:center;gap:6px">${preview}${statusBadgeHtml}</div>`;
 }

@@ -1022,17 +1022,24 @@ async function openBrandDetailModal(id) {
   bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (footerEl) footerEl.innerHTML = '';
   modal.classList.add('open');
-  var [b, apps, companies] = await Promise.all([
+  var [b, apps, companies, campCount] = await Promise.all([
     fetchBrandById(id),
     fetchBrandApplicationsByBrand(id),
-    (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([]))
+    (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([])),
+    (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(0))
   ]);
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
   _brandFormCompanies = companies || [];
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
   renderBrandContactsRows();
+  // 삭제 버튼 — 연결(캠페인·신청) 0건 + campaign_admin 이상일 때만 노출. 연결 있으면 병합 기능(추후) 유도.
+  var canDeleteBrand = (apps.length === 0) && (campCount === 0)
+    && (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
   if (footerEl) footerEl.innerHTML = ''
+    + (canDeleteBrand
+        ? '<button class="btn btn-ghost btn-sm" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
+        : '')
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
@@ -1042,6 +1049,19 @@ function closeBrandDetailModal() {
   var modal = $('brandDetailModal');
   if (modal) modal.classList.remove('open');
   _brandsCurrentId = null;
+}
+
+// 브랜드 삭제 — 연결 0건 빈 브랜드만(서버 delete_brand RPC 가 재검증). 되돌릴 수 없음.
+async function deleteBrandConfirm() {
+  var id = _brandsCurrentId;
+  if (!id) return;
+  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·신청이 없는 빈 브랜드만 삭제됩니다. 되돌릴 수 없습니다.')) return;
+  var result = await deleteBrand(id);
+  if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  toast('브랜드를 삭제했습니다');
+  closeBrandDetailModal();
+  if (typeof refreshPane === 'function') { await refreshPane('brands'); }
+  else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
 
 // 헤더 — brand_no | name | status select (드롭다운, 활성/비활성 명확히 선택)
