@@ -2241,8 +2241,13 @@
       <span class="modal-title" style="font-size:14px">이미지 보기</span>
       <span class="modal-close material-icons-round notranslate" translate="no" onclick="closeModal('imageLightbox')" aria-label="닫기" style="font-size:18px">close</span>
     </div>
-    <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222">
+    <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222;position:relative">
       <img id="imageLightboxImg" alt="이미지" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block">
+      <div class="lightbox-zoom-ctrl">
+        <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(-0.25)" title="축소">zoom_out</span>
+        <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
+        <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
+      </div>
     </div>
   </div>
 </div>

@@ -1378,6 +1378,13 @@
 #imageLightbox .modal{pointer-events:auto}
 /* 크기는 CSS 로 — 드래그 초기화가 인라인 width/height 를 지우므로(인라인으로 주면 92vw 로 커짐) .draggable 에 기본 크기 지정 */
 #imageLightbox .modal.draggable{width:600px;height:600px;max-width:92vw;max-height:90vh}
+/* 줌(확대/축소) 시 이미지가 넘치면 스크롤 */
+#imageLightbox .modal-body{overflow:auto}
+/* 모달 중앙 하단 확대/축소 컨트롤 */
+.lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
+.lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
+.lightbox-zoom-ctrl .material-icons-round:hover{color:#FFD2E0}
+.lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
 /* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
 /* admin.css 는 관리자 빌드 전용(인플 빌드 CLIENT_CSS 에 미포함)이라 전역 정의해도 인플 영향 0. */

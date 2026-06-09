@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781017193';
+  var CURRENT_BUILD = 'v1781018520';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1828,6 +1828,13 @@ textarea.form-input{resize:vertical;min-height:80px}
 #imageLightbox .modal{pointer-events:auto}
 /* 크기는 CSS 로 — 드래그 초기화가 인라인 width/height 를 지우므로(인라인으로 주면 92vw 로 커짐) .draggable 에 기본 크기 지정 */
 #imageLightbox .modal.draggable{width:600px;height:600px;max-width:92vw;max-height:90vh}
+/* 줌(확대/축소) 시 이미지가 넘치면 스크롤 */
+#imageLightbox .modal-body{overflow:auto}
+/* 모달 중앙 하단 확대/축소 컨트롤 */
+.lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
+.lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
+.lightbox-zoom-ctrl .material-icons-round:hover{color:#FFD2E0}
+.lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
 
 /* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
 /* admin.css 는 관리자 빌드 전용(인플 빌드 CLIENT_CSS 에 미포함)이라 전역 정의해도 인플 영향 0. */
@@ -2019,7 +2026,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-09 23:59 · ee07a46</span>
+          <span class="admin-build-text">2026-06-10 00:22 · fe99644</span>
         </div>
       </div>
     </aside>
@@ -4126,8 +4133,13 @@ textarea.form-input{resize:vertical;min-height:80px}
       <span class="modal-title" style="font-size:14px">이미지 보기</span>
       <span class="modal-close material-icons-round notranslate" translate="no" onclick="closeModal('imageLightbox')" aria-label="닫기" style="font-size:18px">close</span>
     </div>
-    <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222">
+    <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222;position:relative">
       <img id="imageLightboxImg" alt="이미지" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block">
+      <div class="lightbox-zoom-ctrl">
+        <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(-0.25)" title="축소">zoom_out</span>
+        <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
+        <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
+      </div>
     </div>
   </div>
 </div>
@@ -10534,10 +10546,14 @@ let currentAdminInfo = null;
 //    빌드 이어붙이기 순서가 ui.js → admin-core.js 라 이 1인자 버전이 관리자 앱에서 우선 적용된다
 //    (분리 전 ui.js → admin.js 와 동일 동작). 관리자 호출처는 모두 1인자 형태. 단일화는 추후 검토.
 // ──────────────────────────────────────
+let _lbZoom = 1;
+const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
 function openImageLightbox(url) {
   if (!url) return;
   const img = $('imageLightboxImg');
   if (img) img.src = url;
+  _lbZoom = 1;            // 열 때마다 배율 초기화
+  applyLightboxZoom();
   openModal('imageLightbox');
 }
 function closeImageLightbox() {
@@ -10545,6 +10561,31 @@ function closeImageLightbox() {
   const img = $('imageLightboxImg');
   if (img) img.src = '';
 }
+// 이미지 배율 적용 — 1배는 창에 맞춤(contain), 1배 초과는 width %로 키우고 넘치면 modal-body 스크롤
+function applyLightboxZoom() {
+  const img = $('imageLightboxImg');
+  if (!img) return;
+  const body = img.parentElement;
+  if (Math.abs(_lbZoom - 1) < 0.001) {
+    img.style.maxWidth = '100%'; img.style.maxHeight = '100%';
+    img.style.width = ''; img.style.height = '';
+    // 1배는 창 중앙
+    if (body) { body.style.alignItems = 'center'; body.style.justifyContent = 'center'; }
+  } else {
+    img.style.maxWidth = 'none'; img.style.maxHeight = 'none';
+    img.style.width = Math.round(_lbZoom * 100) + '%';
+    img.style.height = 'auto';
+    // 줌인 시 flex 중앙 정렬이 오버플로 상단·좌측을 잘라 스크롤 접근을 막으므로 시작점 정렬로 전환
+    if (body) { body.style.alignItems = 'flex-start'; body.style.justifyContent = 'flex-start'; }
+  }
+  const lbl = $('lightboxZoomLabel');
+  if (lbl) lbl.textContent = Math.round(_lbZoom * 100) + '%';
+}
+function lightboxZoom(delta) {
+  _lbZoom = Math.max(LB_ZOOM_MIN, Math.min(LB_ZOOM_MAX, Math.round((_lbZoom + delta) * 100) / 100));
+  applyLightboxZoom();
+}
+function lightboxZoomReset() { _lbZoom = 1; applyLightboxZoom(); }
 
 // ──────────────────────────────────────
 // 관리자 모달 드래그·리사이즈 (2026-05-29, 사양서 docs/specs/2026-05-28-admin-modal-draggable.md)

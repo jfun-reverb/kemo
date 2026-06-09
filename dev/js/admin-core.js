@@ -617,10 +617,14 @@ let currentAdminInfo = null;
 //    빌드 이어붙이기 순서가 ui.js → admin-core.js 라 이 1인자 버전이 관리자 앱에서 우선 적용된다
 //    (분리 전 ui.js → admin.js 와 동일 동작). 관리자 호출처는 모두 1인자 형태. 단일화는 추후 검토.
 // ──────────────────────────────────────
+let _lbZoom = 1;
+const LB_ZOOM_MIN = 0.5, LB_ZOOM_MAX = 5;
 function openImageLightbox(url) {
   if (!url) return;
   const img = $('imageLightboxImg');
   if (img) img.src = url;
+  _lbZoom = 1;            // 열 때마다 배율 초기화
+  applyLightboxZoom();
   openModal('imageLightbox');
 }
 function closeImageLightbox() {
@@ -628,6 +632,31 @@ function closeImageLightbox() {
   const img = $('imageLightboxImg');
   if (img) img.src = '';
 }
+// 이미지 배율 적용 — 1배는 창에 맞춤(contain), 1배 초과는 width %로 키우고 넘치면 modal-body 스크롤
+function applyLightboxZoom() {
+  const img = $('imageLightboxImg');
+  if (!img) return;
+  const body = img.parentElement;
+  if (Math.abs(_lbZoom - 1) < 0.001) {
+    img.style.maxWidth = '100%'; img.style.maxHeight = '100%';
+    img.style.width = ''; img.style.height = '';
+    // 1배는 창 중앙
+    if (body) { body.style.alignItems = 'center'; body.style.justifyContent = 'center'; }
+  } else {
+    img.style.maxWidth = 'none'; img.style.maxHeight = 'none';
+    img.style.width = Math.round(_lbZoom * 100) + '%';
+    img.style.height = 'auto';
+    // 줌인 시 flex 중앙 정렬이 오버플로 상단·좌측을 잘라 스크롤 접근을 막으므로 시작점 정렬로 전환
+    if (body) { body.style.alignItems = 'flex-start'; body.style.justifyContent = 'flex-start'; }
+  }
+  const lbl = $('lightboxZoomLabel');
+  if (lbl) lbl.textContent = Math.round(_lbZoom * 100) + '%';
+}
+function lightboxZoom(delta) {
+  _lbZoom = Math.max(LB_ZOOM_MIN, Math.min(LB_ZOOM_MAX, Math.round((_lbZoom + delta) * 100) / 100));
+  applyLightboxZoom();
+}
+function lightboxZoomReset() { _lbZoom = 1; applyLightboxZoom(); }
 
 // ──────────────────────────────────────
 // 관리자 모달 드래그·리사이즈 (2026-05-29, 사양서 docs/specs/2026-05-28-admin-modal-draggable.md)
