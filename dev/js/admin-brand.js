@@ -1555,7 +1555,15 @@ async function saveBrandDetail() {
   var patch = _collectBrandFormPatch();
   if (!patch.name) { toast('브랜드명을 입력하세요.', 'warn'); return; }
   var result = await updateBrand(_brandsCurrentId, patch);
-  if (!result.ok) { toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  if (!result.ok) {
+    var em = result.error || '';
+    if (em.indexOf('duplicate') >= 0 || em.indexOf('unique') >= 0 || em.indexOf('name_normalized') >= 0) {
+      toast('이미 같은 이름의 브랜드가 등록돼 있습니다. (띄어쓰기·대소문자는 같은 것으로 봅니다)', 'error');
+    } else {
+      toast('저장 실패: ' + (em || '알 수 없는 오류'), 'error');
+    }
+    return;
+  }
   toast('저장되었습니다.');
   closeBrandDetailModal();
   await refreshPane('brands');
@@ -1590,10 +1598,11 @@ async function submitNewBrand() {
   patch.created_by = currentUser?.id || null;
   var result = await insertBrand(patch);
   if (!result.ok) {
-    if ((result.error || '').indexOf('duplicate') >= 0 || (result.error || '').indexOf('unique') >= 0) {
-      toast('동일한 정규화 이름의 브랜드가 이미 있습니다.', 'error');
+    var em = result.error || '';
+    if (em.indexOf('duplicate') >= 0 || em.indexOf('unique') >= 0 || em.indexOf('name_normalized') >= 0) {
+      toast('이미 같은 이름의 브랜드가 등록돼 있습니다. (띄어쓰기·대소문자는 같은 것으로 봅니다)', 'error');
     } else {
-      toast('등록 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+      toast('등록 실패: ' + (em || '알 수 없는 오류'), 'error');
     }
     return;
   }
