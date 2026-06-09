@@ -2767,6 +2767,10 @@
             <input type="file" id="adminProxyReceiptImage" accept="image/*" onchange="onAdminProxyImageChange('receipt')">
             <img id="adminProxyReceiptPreview" class="admin-proxy-image-preview" alt="영수증 미리보기">
           </div>
+          <div style="margin-bottom:8px">
+            <button type="button" id="adminProxyOcrBtn" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px" onclick="runProxyReceiptOcr()"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">document_scanner</span> 영수증에서 읽기</button>
+            <span id="adminProxyOcrStatus" style="display:none;font-size:11px;color:var(--muted);margin-left:8px"></span>
+          </div>
           <div class="form-row required"><label>주문번호</label><input type="text" id="adminProxyOrderNo" placeholder="예: 12341234"></div>
           <div class="form-row required"><label>구매일</label><input type="date" id="adminProxyPurchaseDate"></div>
           <div class="form-row required"><label>구매금액 (¥)</label><input type="number" id="adminProxyPurchaseAmount" min="0" step="1" placeholder="예: 1000"></div>
