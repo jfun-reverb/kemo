@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781018520';
+  var CURRENT_BUILD = 'v1781018967';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2026,7 +2026,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-10 00:22 · fe99644</span>
+          <span class="admin-build-text">2026-06-10 00:29 · 66cb70f</span>
         </div>
       </div>
     </aside>
@@ -4128,18 +4128,19 @@ textarea.form-input{resize:vertical;min-height:80px}
 
 <!-- 이미지 확대 라이트박스 -->
 <div class="modal-overlay" id="imageLightbox" style="z-index:900">
-  <div class="modal" style="padding:0;border-radius:16px;overflow:hidden">
-    <div class="modal-header" style="padding:10px 14px">
+  <div class="modal" style="padding:0;border-radius:16px">
+    <div class="modal-header" style="padding:10px 14px;border-radius:16px 16px 0 0">
       <span class="modal-title" style="font-size:14px">이미지 보기</span>
       <span class="modal-close material-icons-round notranslate" translate="no" onclick="closeModal('imageLightbox')" aria-label="닫기" style="font-size:18px">close</span>
     </div>
-    <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222;position:relative">
+    <div class="modal-body" style="padding:8px;display:flex;align-items:center;justify-content:center;background:#222;border-radius:0 0 16px 16px">
       <img id="imageLightboxImg" alt="이미지" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block">
-      <div class="lightbox-zoom-ctrl">
-        <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(-0.25)" title="축소">zoom_out</span>
-        <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
-        <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
-      </div>
+    </div>
+    <!-- 줌 컨트롤은 스크롤되는 modal-body 밖(.modal 직속)에 둬야 확대 스크롤 시 위치 고정 -->
+    <div class="lightbox-zoom-ctrl">
+      <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(-0.25)" title="축소">zoom_out</span>
+      <span id="lightboxZoomLabel" onclick="lightboxZoomReset()" title="원본 크기로">100%</span>
+      <span class="material-icons-round notranslate" translate="no" onclick="lightboxZoom(0.25)" title="확대">zoom_in</span>
     </div>
   </div>
 </div>
