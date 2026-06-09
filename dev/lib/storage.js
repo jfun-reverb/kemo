@@ -2074,6 +2074,25 @@ async function deleteBrand(brandId) {
   } catch(e) { console.error('[deleteBrand]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
 }
 
+// 브랜드별 캠페인 수 일괄 집계 — 브랜드 목록 「캠페인 수」 컬럼용. {brand_id: count} 반환.
+// 1000행 캡 대응 range loop (대시보드 집계 패턴).
+async function fetchCampaignCountsByBrand() {
+  if (!db) return {};
+  try {
+    var counts = {};
+    var from = 0, size = 1000;
+    while (true) {
+      const {data, error} = await db?.from('campaigns').select('brand_id')
+        .not('brand_id', 'is', null).range(from, from + size - 1);
+      if (error) throw error;
+      (data || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
+      if (!data || data.length < size) break;
+      from += size;
+    }
+    return counts;
+  } catch(e) { console.error('[fetchCampaignCountsByBrand]', e); return {}; }
+}
+
 // 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
 // 실제 삭제 차단은 delete_brand RPC 가 캠페인+신청 양쪽을 재검증하므로, 이 값이 틀려도 데이터 안전.
 async function countCampaignsByBrand(brandId) {

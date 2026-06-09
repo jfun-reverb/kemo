@@ -948,14 +948,16 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
 // BRANDS MASTER (브랜드 관리 페인 — migration 082/083)
 // ══════════════════════════════════════
 var _brandsCache = [];
+var _brandCampCounts = {};  // {brand_id: 캠페인 수} — 브랜드 목록 「캠페인 수」 컬럼용
 var _brandsCurrentId = null;
 var brandsLazy;
 var BRANDS_PAGE_SIZE = 50;
 
 async function loadBrandsPane() {
   var tbody = $('brandsTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
+  _brandCampCounts = (typeof fetchCampaignCountsByBrand === 'function') ? await fetchCampaignCountsByBrand() : {};
   renderBrandsList();
 }
 
@@ -975,7 +977,7 @@ function renderBrandsList() {
   var count = $('brandsTotalCount');
   if (count) count.textContent = '(' + list.length + ' / 전체 ' + (_brandsCache||[]).length + ')';
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>';
     return;
   }
   var renderRow = function(b) {
@@ -996,6 +998,7 @@ function renderBrandsList() {
       + '<td>' + esc(b.primary_contact_name || '—') + (b.primary_phone ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(formatPhoneDisplay(b.primary_phone)) + '</div>' : '') + '</td>'
       + '<td style="font-size:12px;word-break:break-all">' + esc(b.primary_email || '—') + '</td>'
       + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + (b.total_applications || 0) + '</td>'
+      + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + ((_brandCampCounts && _brandCampCounts[b.id]) || 0) + '</td>'
       + '<td style="font-size:11px;color:var(--muted)">' + (b.last_applied_at ? fmtDate(b.last_applied_at) : '—') + '</td>'
       + '<td>' + statusBadge + '</td>'
       + '<td>' + memoCell + '</td>'
@@ -1008,7 +1011,7 @@ function renderBrandsList() {
     rows: list,
     renderRow: renderRow,
     pageSize: BRANDS_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>'
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>'
   });
 }
 
