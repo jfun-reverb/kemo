@@ -1372,6 +1372,20 @@
 .modal-rsz-se{bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize}
 .modal-rsz-sw{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
 
+/* 이미지 확대 창(#imageLightbox): 배경을 덮지 않아 뒤 화면(검수 모달 입력 등) 조작 가능 + 드래그·리사이즈 떠있는 창.
+   overlay 는 클릭 통과(pointer-events:none), 창(.modal)만 잡힘. 배경 클릭 닫기 없음 — 닫기는 X·ESC. */
+#imageLightbox{background:transparent;pointer-events:none}
+#imageLightbox .modal{pointer-events:auto}
+/* 크기는 CSS 로 — 드래그 초기화가 인라인 width/height 를 지우므로(인라인으로 주면 92vw 로 커짐) .draggable 에 기본 크기 지정 */
+#imageLightbox .modal.draggable{width:600px;height:600px;max-width:92vw;max-height:90vh}
+/* 줌(확대/축소) 시 이미지가 넘치면 스크롤 */
+#imageLightbox .modal-body{overflow:auto}
+/* 모달 중앙 하단 확대/축소 컨트롤 */
+.lightbox-zoom-ctrl{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.65);border-radius:20px;padding:5px 12px;z-index:6}
+.lightbox-zoom-ctrl .material-icons-round{color:#fff;font-size:20px;cursor:pointer}
+.lightbox-zoom-ctrl .material-icons-round:hover{color:#FFD2E0}
+.lightbox-zoom-ctrl #lightboxZoomLabel{color:#fff;font-size:12px;min-width:40px;text-align:center;cursor:pointer;user-select:none}
+
 /* ── 관리자 모달 표준 구조 (2026-05-29 모달 구조 통일) ── */
 /* admin.css 는 관리자 빌드 전용(인플 빌드 CLIENT_CSS 에 미포함)이라 전역 정의해도 인플 영향 0. */
 /* 미분리 모달 등은 #page-admin 밖(body 직속)이라 #page-admin 스코프가 안 먹음 → 전역으로 정의. */

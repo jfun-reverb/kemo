@@ -77,7 +77,7 @@
 - 배포용: 루트 `index.html` (build.sh 로 생성)
 - 개발 폴더 구조:
   - `dev/js/` — 인플루언서: app, ui, campaign, application, auth, mypage, notifications, messaging
-    - 관리자(admin.js 페인 분리 완료, 2026-05-25): `admin.js`(캠페인 목록·폼만 잔류) + `admin-core.js`(공용 헬퍼: 페인 라우팅·다중필터·확인모달·라이트박스·태그입력) + `admin-notices.js` + `admin-faq.js` + `admin-influencers.js` + `admin-deliverables.js` + `admin-excel.js` + `admin-dashboard.js` + `admin-applications.js`(신청+신청자) + `admin-accounts.js`(내계정+관리자계정) + `admin-lookups.js`(기준데이터+번들3종+미니에디터) + `admin-errors.js`(오류 로그 페인 — 마이그레이션 165) + `admin-brand.js`/`admin-company.js`/`admin-brand-ops.js`/`admin-messaging.js`(브랜드 서베이)
+    - 관리자(admin.js 페인 분리 완료, 2026-05-25): `admin.js`(캠페인 목록·폼만 잔류) + `admin-core.js`(공용 헬퍼: 페인 라우팅·다중필터·확인모달·이미지 라이트박스[`#imageLightbox` — 배경 안 덮는 드래그·리사이즈 떠있는 창, 뒤 검수 모달 입력 가능]·모달 드래그/리사이즈 인프라·태그입력) + `admin-notices.js` + `admin-faq.js` + `admin-influencers.js` + `admin-deliverables.js` + `admin-excel.js` + `admin-dashboard.js` + `admin-applications.js`(신청+신청자) + `admin-accounts.js`(내계정+관리자계정) + `admin-lookups.js`(기준데이터+번들3종+미니에디터) + `admin-errors.js`(오류 로그 페인 — 마이그레이션 165) + `admin-brand.js`/`admin-company.js`/`admin-brand-ops.js`/`admin-messaging.js`(브랜드 서베이)
     - 빌드는 ES 모듈이 아니라 단순 이어붙이기(concat) — 전역 스코프 1개. `admin-core.js`가 다른 admin-* 파일보다 앞, `admin.js`가 페인 파일들보다 뒤, `admin/app.js`가 맨 마지막 (build.sh `ADMIN_JS_FILES` 순서)
   - `dev/css/` — base, components, campaign, auth, mypage, admin
   - `dev/lib/` — supabase(설정), shared(전역변수), storage(DB/Storage API)
