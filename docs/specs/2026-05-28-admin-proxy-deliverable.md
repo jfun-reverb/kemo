@@ -380,3 +380,20 @@ GRANT EXECUTE ON FUNCTION public.admin_create_deliverable_proxy(uuid, text, text
 - 회수 Storage 삭제 실패 처리: 회수 DB 행 삭제는 성공 처리, Storage 실패 시 `warning` toast만 (사용자 결정)
 
 **운영 배포:** 미완료 (개발서버 검증 완료, 운영 배포 별도 협의)
+
+---
+
+### 버그 수정 — 대리등록 모달 캠페인 누락 (2026-06-09)
+
+**증상:** 관리자 결과물 대리등록 모달에서 일부 캠페인(예: `B0023-C001`)이 캠페인 검색 후보에 아예 안 떠 대리등록 불가.
+
+**원인:** 캠페인 후보는 "승인(approved) 신청이 있는 캠페인"만 노출하는데, `_loadAdminProxyApprovedApps()` 가 승인 신청을 `reviewed_at` 내림차순 `.limit(500)` 으로 잘라 가져옴. 운영 DB에 승인 신청이 1,600건+ 누적되자 오래 전 승인된 캠페인(B0023-C001 은 최근 순위 1,360위~)이 500건 밖으로 밀려 후보에서 통째로 누락. (`CLAUDE.md` 「PostgREST 1000-row cap 대응」 규칙에도 어긋나 있던 코드)
+
+**수정:** `dev/js/admin-deliverables.js`
+- `.limit(500)` 제거 → `fetchAllPaged()` (storage.js 전건 조회 헬퍼)로 승인 신청 전건 수집
+- 캠페인·인플 IN 조회를 `_proxyFetchByIds()` 배치 헬퍼(200개씩)로 분할 — id 목록이 1,000개 초과·URL 길이 초과 대비
+- campaigns select 에 `brand_ja`, `brand_en` 컬럼 추가 (2026-06-08 브랜드명 다국어 작업 이후 `brandLabelAdmin`·검색이 이 컬럼을 쓰는데 select 누락 상태였음)
+
+**DB 변경:** 없음 (조회 방식만 변경)
+
+**백로그(구조 개선):** 모달 열 때마다 승인 신청 전건을 미리 로드하는 구조라 승인 누적이 커질수록 모달 로드가 느려짐. 근본적으로는 "캠페인을 먼저 선택 → 해당 캠페인 승인 신청만 로드"하는 흐름으로 재설계 권장. 화면 흐름 변경이라 별도 사이클.
