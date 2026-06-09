@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781003157';
+  var CURRENT_BUILD = 'v1781004188';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2012,7 +2012,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-09 20:05 · 8768acb</span>
+          <span class="admin-build-text">2026-06-09 20:23 · adbf48e</span>
         </div>
       </div>
     </aside>
@@ -3008,9 +3008,9 @@ textarea.form-input{resize:vertical;min-height:80px}
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
+                <th style="width:110px">인증 상태</th>
                 <th style="width:170px">영수증</th>
                 <th style="width:170px">결과물</th>
-                <th style="width:110px">인증 상태</th>
                 <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:90px">처리</th>
               </tr></thead>
@@ -19069,9 +19069,9 @@ function renderDelivAppRow(g) {
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
+    <td>${certStatusBadge(g)}</td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
-    <td>${certStatusBadge(g)}</td>
     <td>${submittedCell}</td>
     <td><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
   </tr>`;
@@ -21242,13 +21242,13 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     mCell.font = {color: {argb: 'FF888888'}, size: 11};
     ws.getRow(2).height = 20;
 
-    // 그룹 헤더 (3행)
+    // 그룹 헤더 (3행) — 2026-06-09: 인증 상태를 인플루언서 정보 다음·영수증 앞으로 이동. 영수증·결과물 인덱스 +1 밀림.
     ws.mergeCells('A3:B3'); ws.getCell('A3').value = '캠페인';
     ws.mergeCells('C3:I3'); ws.getCell('C3').value = '인플루언서 정보';
-    ws.mergeCells('J3:R3'); ws.getCell('J3').value = '영수증';
-    ws.mergeCells('S3:X3'); ws.getCell('S3').value = '결과물';
-    ws.getCell('Y3').value = '인증 상태';
-    ['A3','C3','J3','S3','Y3'].forEach(function(addr) {
+    ws.getCell('J3').value = '인증 상태';
+    ws.mergeCells('K3:S3'); ws.getCell('K3').value = '영수증';
+    ws.mergeCells('T3:Y3'); ws.getCell('T3').value = '결과물';
+    ['A3','C3','J3','K3','T3'].forEach(function(addr) {
       var c2 = ws.getCell(addr);
       c2.font = {bold: true, color: {argb: 'FF222222'}};
       c2.alignment = {vertical: 'middle', horizontal: 'center'};
@@ -21260,22 +21260,22 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     ws.getRow(4).values = [
       '캠페인 번호', '캠페인 제목',
       '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+      '인증 상태',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
-      '타입', '제출일', '검수일', '상태', '이미지', 'URL',
-      '인증 상태'
+      '타입', '제출일', '검수일', '상태', '이미지', 'URL'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
     ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비
+    // 컬럼 너비 — 캠페인 2 / 인플 7 / 인증 상태 1 / 영수증 9 / 결과물 6
     ws.columns = [
       {width: 18}, {width: 28},
       {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
+      {width: 14},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 18}, {width: 12}, {width: 12}, {width: 16}, {width: 32},
-      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
-      {width: 14}
+      {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32}
     ];
 
     // 결과물 1건 → 6컬럼 값 (post / review_image)
@@ -21335,27 +21335,29 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('tiktok', u.tiktok),
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
+        // 인증 상태 1컬럼 (J열=10) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
+        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result),
+        // 영수증 9컬럼 (K~S열=11~19)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
-        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5],
-        // 인증 상태 1컬럼 (Y열=25) — 이 시트는 비monitor + 채널 없는 monitor 만
-        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result)
+        // 결과물 6컬럼 (T~Y열=20~25)
+        resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5]
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
-      // 하이퍼링크 색상 (R열=18 영수증 URL, X열=24 결과물 URL)
-      [18, 24].forEach(function(colNum) {
+      // 하이퍼링크 색상 (S열=19 영수증 URL, Y열=25 결과물 URL — 인증 상태 1칸 밀림)
+      [19, 25].forEach(function(colNum) {
         var cell = row.getCell(colNum);
         if (cell && cell.value && cell.value.hyperlink) {
           cell.font = {color: {argb: 'FFE8344E'}, underline: true};
         }
       });
-      // 이미지 임베드 (Q열=17 영수증, W열=23 결과물)
+      // 이미지 임베드 (R열=18 영수증, X열=24 결과물 — 인증 상태 1칸 밀림)
       if (g.receipt && imgBuffers[g.receipt.id]) {
         var rImgId = wb.addImage({buffer: imgBuffers[g.receipt.id].buffer, extension: imgBuffers[g.receipt.id].ext});
-        ws.addImage(rImgId, 'Q' + rowNum + ':Q' + rowNum);
+        ws.addImage(rImgId, 'R' + rowNum + ':R' + rowNum);
       }
       if (g.result && g.result.kind === 'review_image' && imgBuffers[g.result.id]) {
         var sImgId = wb.addImage({buffer: imgBuffers[g.result.id].buffer, extension: imgBuffers[g.result.id].ext});
-        ws.addImage(sImgId, 'W' + rowNum + ':W' + rowNum);
+        ws.addImage(sImgId, 'X' + rowNum + ':X' + rowNum);
       }
     });
     }  // end if (hasOtherCamps)
@@ -21549,9 +21551,12 @@ async function exportCampaignDeliverables(campId) {
     }
     if (!camp) { toast('캠페인을 찾을 수 없습니다', 'error'); return; }
 
-    // 2) 승인된 결과물 로드
-    var delivs = await fetchDeliverables({campaign_id: campId, status: 'approved'});
-    if (!delivs.length) { toast('승인된 결과물이 없습니다', 'warn'); return; }
+    // 2) 결과물 로드 (전체 상태 — 검수중·반려·미제출 인증 상태가 보이도록, 2026-06-09 사용자 결정)
+    var delivs = await fetchDeliverables({campaign_id: campId});
+    // 미제출(결과물 0건) 신청도 행에 포함 — 화면 목록(renderDeliverablesList includeMissing) 과 동일.
+    //   승인된(approved) 신청을 가져와, 결과물 그룹에 없는 신청은 빈 행 + 인증 상태 '미제출' 로 추가.
+    var approvedApps = await fetchApplications({campaign_id: campId, status: 'approved'});
+    if (!delivs.length && !approvedApps.length) { toast('결과물이 없습니다', 'warn'); return; }
 
     // 3) 인플루언서 전체 조회 (SNS 핸들·한자 이름은 fetchDeliverables의 인플루언서 매핑에 포함되지 않음)
     var users = await fetchInfluencers();
@@ -21565,7 +21570,7 @@ async function exportCampaignDeliverables(campId) {
       : [];
     if (campChannels.length > 0) {
       try { await fetchLookups('channel'); } catch(e) { /* 라벨 폴백 OK */ }
-      return await _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels);
+      return await _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannels, {approvedApps: approvedApps});
     }
 
     // 4) 영수증·리뷰 이미지 Image→Canvas로 jpeg 재인코딩 (CORS·포맷 호환성 보장)
@@ -21606,6 +21611,12 @@ async function exportCampaignDeliverables(campId) {
         if (!g.result || (d.updated_at || '') > (g.result.updated_at || '')) g.result = d;
       }
     });
+    // 미제출(결과물 0건) 신청 행 추가 — 승인 신청 중 결과물 그룹에 없는 건은 빈 행으로 (인증 상태 '미제출')
+    (approvedApps || []).forEach(function(app) {
+      var key = app.id;
+      if (groups[key]) return;
+      groups[key] = {key: key, application_id: app.id, user_id: app.user_id, receipt: null, result: null};
+    });
     var groupList = Object.values(groups);
     // 인플루언서 이름순 정렬 (한자 우선)
     groupList.sort(function(a, b) {
@@ -21622,7 +21633,7 @@ async function exportCampaignDeliverables(campId) {
     wb.created = new Date();
     var ws = wb.addWorksheet('결과물');
 
-    // 헤더 (A1:X1, A2:X2) — 총 24열 (인플 7 + 영수증 9 + 결과물 6 + 대리등록 1 + 인증상태 1)
+    // 헤더 (A1:X1, A2:X2) — 총 24열 (인플 7 + 인증상태 1 + 영수증 9 + 결과물 6 + 대리등록 1)
     ws.mergeCells('A1:X1');
     var t = ws.getCell('A1');
     t.value = (camp.campaign_no ? camp.campaign_no + '  ' : '') + (camp.title || '');
@@ -21639,14 +21650,14 @@ async function exportCampaignDeliverables(campId) {
     m.font = {color: {argb: 'FF888888'}, size: 11};
     ws.getRow(2).height = 20;
 
-    // 그룹 헤더 (3행) — 인플루언서 7컬럼 / 영수증 9컬럼 / 결과물 6컬럼 (마이그레이션 128로 영수증 6→9 확장)
-    // 마이그레이션 160: W컬럼 「대리 등록」 추가 (1컬럼, 신청 단위 통합 표시)
+    // 그룹 헤더 (3행) — 인플루언서 7컬럼 / 인증 상태 1컬럼 / 영수증 9컬럼 / 결과물 6컬럼 / 대리 등록 1컬럼
+    //   2026-06-09: 인증 상태를 인플루언서 정보 다음·영수증 앞으로 이동 (사용자 요청). 영수증·결과물 인덱스 +1 밀림.
     ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
-    ws.mergeCells('H3:P3'); ws.getCell('H3').value = '영수증';
-    ws.mergeCells('Q3:V3'); ws.getCell('Q3').value = '결과물';
-    ws.getCell('W3').value = '대리 등록';
-    ws.getCell('X3').value = '인증 상태';
-    ['A3','H3','Q3','W3','X3'].forEach(function(addr) {
+    ws.getCell('H3').value = '인증 상태';
+    ws.mergeCells('I3:Q3'); ws.getCell('I3').value = '영수증';
+    ws.mergeCells('R3:W3'); ws.getCell('R3').value = '결과물';
+    ws.getCell('X3').value = '대리 등록';
+    ['A3','H3','I3','R3','X3'].forEach(function(addr) {
       var c = ws.getCell(addr);
       c.font = {bold: true, color: {argb: 'FF222222'}};
       c.alignment = {vertical: 'middle', horizontal: 'center'};
@@ -21659,23 +21670,23 @@ async function exportCampaignDeliverables(campId) {
     // W컬럼 「관리자 · 사유」: 영수증 또는 결과물 중 1건이라도 대리 등록이면 표시
     ws.getRow(4).values = [
       '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+      '인증 상태',
       '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL',
       '타입', '제출일', '검수일', '상태', '이미지', 'URL',
-      '관리자 · 사유',
-      '인증 상태'
+      '관리자 · 사유'
     ];
     ws.getRow(4).font = {bold: true, color: {argb: 'FF222222'}};
     ws.getRow(4).fill = {type: 'pattern', pattern: 'solid', fgColor: {argb: 'FFF0F0F0'}};
     ws.getRow(4).alignment = {vertical: 'middle', horizontal: 'center'};
     ws.getRow(4).height = 24;
 
-    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 영수증 9컬럼·결과물 6컬럼·대리 등록 1컬럼·인증 상태 1컬럼)
+    // 컬럼 너비 (이름 18·이메일 28·SNS URL 36, 인증 상태 1컬럼·영수증 9컬럼·결과물 6컬럼·대리 등록 1컬럼)
     ws.columns = [
       {width: 18}, {width: 18}, {width: 28}, {width: 36}, {width: 36}, {width: 36}, {width: 36},
+      {width: 14},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 18}, {width: 12}, {width: 12}, {width: 16}, {width: 32},
       {width: 12}, {width: 12}, {width: 12}, {width: 10}, {width: 16}, {width: 32},
-      {width: 28},
-      {width: 14}
+      {width: 28}
     ];
 
     // SNS URL 변환은 공용 _excelSnsUrl 헬퍼 사용 (handle → 전체 URL)
@@ -21748,34 +21759,34 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('tiktok', u.tiktok),
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
-        // 영수증 9컬럼
+        // 인증 상태 1컬럼 (H열=8) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
+        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result),
+        // 영수증 9컬럼 (I~Q열=9~17)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
-        // 결과물 6컬럼
+        // 결과물 6컬럼 (R~W열=18~23)
         resultCells[0], resultCells[1], resultCells[2], resultCells[3], resultCells[4], resultCells[5],
-        // 대리 등록 1컬럼
-        proxyCell,
-        // 인증 상태 1컬럼 (X열=24) — 이 빌더는 비monitor + 채널 없는 monitor 만 (채널 있는 monitor 는 _exportCampDelivsMonitorMulti)
-        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result)
+        // 대리 등록 1컬럼 (X열=24)
+        proxyCell
       ];
       row.alignment = {vertical: 'middle', wrapText: true};
 
-      // 하이퍼링크 셀 스타일 (P열=16 영수증 URL, V열=22 결과물 URL)
-      [16, 22].forEach(function(colNum) {
+      // 하이퍼링크 셀 스타일 (Q열=17 영수증 URL, W열=23 결과물 URL — 인증 상태 1칸 밀림)
+      [17, 23].forEach(function(colNum) {
         var c = row.getCell(colNum);
         if (c && c.value && c.value.hyperlink) {
           c.font = {color: {argb: 'FFE8344E'}, underline: true};
         }
       });
 
-      // 영수증 이미지 임베드 (O열=15)
+      // 영수증 이미지 임베드 (P열=16 — 인증 상태 1칸 밀림)
       if (g.receipt && imgBuffers[g.receipt.id]) {
         var rImgId = wb.addImage({buffer: imgBuffers[g.receipt.id].buffer, extension: imgBuffers[g.receipt.id].ext});
-        ws.addImage(rImgId, 'O' + rowNum + ':O' + rowNum);
+        ws.addImage(rImgId, 'P' + rowNum + ':P' + rowNum);
       }
-      // 결과물 이미지 임베드 (review_image, U열=21). post는 이미지 없음.
+      // 결과물 이미지 임베드 (review_image, V열=22 — 인증 상태 1칸 밀림). post는 이미지 없음.
       if (g.result && g.result.kind === 'review_image' && imgBuffers[g.result.id]) {
         var dImgId = wb.addImage({buffer: imgBuffers[g.result.id].buffer, extension: imgBuffers[g.result.id].ext});
-        ws.addImage(dImgId, 'U' + rowNum + ':U' + rowNum);
+        ws.addImage(dImgId, 'V' + rowNum + ':V' + rowNum);
       }
     });
 
@@ -21824,6 +21835,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   var externalSheetName = opts.sheetName || '결과물';
   var externalImgBuffers = opts.imgBuffers || null;
   var skipDownload = !!opts.skipDownload || !!externalWb;
+  var approvedApps = opts.approvedApps || null;  // 미제출(결과물 0건) 신청 빈 행 포함용 (단일 엑셀 전체 로드)
   // ── 1) 이미지 사전 다운로드 (receipt + review_image 모두) — 외부 전달 시 재사용 ─
   var imgBuffers = externalImgBuffers || {};
   if (!externalImgBuffers) {
@@ -21858,20 +21870,28 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
     }
     if (subAt > g.latest) g.latest = subAt;
   });
+  // 미제출(결과물 0건) 신청 빈 행 추가 — 승인 신청 중 그룹에 없는 건 (인증 상태 '미제출')
+  (approvedApps || []).forEach(function(app) {
+    var key = app.id;
+    if (groups[key]) return;
+    groups[key] = {key:key, application_id:app.id, user_id:app.user_id, receipt:null, reviewByCh:{}, latest:''};
+  });
   var groupList = Object.values(groups).sort(function(a, b) {
     var ua = userById[a.user_id] || {}, ub = userById[b.user_id] || {};
     return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
   });
 
-  // ── 3) 컬럼 계산 — 인플 7 + 영수증 9 + 채널별 6 × N ─────────────────────────
+  // ── 3) 컬럼 계산 — 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N ─────────────
+  //   2026-06-09: 인증 상태를 인플루언서 정보 다음·영수증 앞으로 이동. 영수증·채널 인덱스 +1 밀림.
   var INFO_COLS = 7, RECEIPT_COLS = 9, CH_COLS = 6;
   var N = campChannels.length;
-  var totalCols = INFO_COLS + RECEIPT_COLS + CH_COLS * N;  // 채널 데이터 컬럼까지의 마지막 컬럼
-  var certCol = totalCols + 1;                    // 인증 상태 컬럼 (맨 오른쪽)
-  var grandLastLetter = _excelColLetter(certCol); // 머리글 머지용 (인증 상태 포함)
-  var receiptStart = INFO_COLS + 1;              // 8
-  var receiptEnd   = INFO_COLS + RECEIPT_COLS;   // 16
-  var receiptImgCol = receiptEnd - 1;            // 15 (이미지 컬럼)
+  var certCol = INFO_COLS + 1;                    // 인증 상태 컬럼 (8, 인플 다음)
+  var receiptStart = INFO_COLS + 2;              // 9 (인증 상태 1칸 뒤)
+  var receiptEnd   = INFO_COLS + 1 + RECEIPT_COLS; // 17
+  var receiptImgCol = receiptEnd - 1;            // 16 (이미지 컬럼)
+  var chBase = INFO_COLS + 1 + RECEIPT_COLS;     // 채널 그룹 시작 직전 컬럼 (17) — 채널 i 시작 = chBase + 1 + i*CH_COLS
+  var totalCols = chBase + CH_COLS * N;          // 마지막 컬럼 (채널 데이터 끝)
+  var grandLastLetter = _excelColLetter(totalCols); // 머리글 머지용
 
   // 채널별 라벨 (lookup_values name_ko, 폴백 code)
   var chLabelOf = function(code) {
@@ -21905,18 +21925,21 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   m.font = {color:{argb:'FF888888'}, size:11};
   ws.getRow(2).height = 20;
 
-  // row 3: 그룹 헤더 (인플루언서 / 영수증 / 채널 N개 리뷰)
+  // row 3: 그룹 헤더 (인플루언서 / 인증 상태 / 영수증 / 채널 N개 리뷰)
+  var certL = _excelColLetter(certCol);                 // H (8)
+  var receiptStartL = _excelColLetter(receiptStart);    // I (9)
+  var receiptEndL = _excelColLetter(receiptEnd);        // Q (17)
   ws.mergeCells('A3:G3'); ws.getCell('A3').value = '인플루언서 정보';
-  ws.mergeCells('H3:P3'); ws.getCell('H3').value = '영수증';
+  ws.getCell(certL + '3').value = '인증 상태';
+  ws.mergeCells(receiptStartL + '3:' + receiptEndL + '3'); ws.getCell(receiptStartL + '3').value = '영수증';
   campChannels.forEach(function(ch, i) {
-    var s = INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS;
+    var s = chBase + 1 + i * CH_COLS;
     var e = s + CH_COLS - 1;
     var sL = _excelColLetter(s), eL = _excelColLetter(e);
     ws.mergeCells(sL + '3:' + eL + '3');
     ws.getCell(sL + '3').value = '「' + chLabelOf(ch) + '」 리뷰';
   });
-  ws.getCell(grandLastLetter + '3').value = '인증 상태';
-  ['A3','H3', grandLastLetter + '3'].concat(campChannels.map(function(_, i){ return _excelColLetter(INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
+  ['A3', certL + '3', receiptStartL + '3'].concat(campChannels.map(function(_, i){ return _excelColLetter(chBase + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
     var c = ws.getCell(addr);
     c.font = {bold:true, color:{argb:'FF222222'}};
     c.alignment = {vertical:'middle', horizontal:'center'};
@@ -21924,28 +21947,28 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   });
   ws.getRow(3).height = 22;
 
-  // row 4: 컬럼 헤더
+  // row 4: 컬럼 헤더 (인플 7 → 인증 상태 1 → 영수증 9 → 채널별 6 × N)
   var headerValues = [
     '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '인증 상태',
     '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
   ];
   campChannels.forEach(function() {
     headerValues.push('타입', '제출일', '검수일', '상태', '이미지', 'URL');
   });
-  headerValues.push('인증 상태');
   ws.getRow(4).values = headerValues;
   ws.getRow(4).font = {bold:true, color:{argb:'FF222222'}};
   ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F0F0'}};
   ws.getRow(4).alignment = {vertical:'middle', horizontal:'center'};
   ws.getRow(4).height = 24;
 
-  // 컬럼 너비
+  // 컬럼 너비 (인플 7 → 인증 상태 1 → 영수증 9 → 채널별 6 × N)
   var colWidths = [
     18, 18, 28, 36, 36, 36, 36,         // 인플 7
+    14,                                  // 인증 상태 1
     12, 12, 12, 10, 18, 12, 12, 16, 32  // 영수증 9
   ];
   campChannels.forEach(function() { colWidths.push(12, 12, 12, 10, 16, 32); });
-  colWidths.push(14);  // 인증 상태
   ws.columns = colWidths.map(function(w) { return {width:w}; });
 
   // 결과물 6컬럼 값 계산 헬퍼 (단일 함수와 동일 패턴, 인라인)
@@ -21991,28 +22014,29 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       _excelSnsUrl('tiktok', u.tiktok),
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
+      // 인증 상태 1컬럼 (certCol=8) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
+      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh),
+      // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
     campChannels.forEach(function(ch) {
       var cells = renderDeliv6(g.reviewByCh[ch]);
       vals.push(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5]);
     });
-    // 인증 상태 1컬럼 (맨 오른쪽 = certCol) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-    vals.push(_excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh));
     row.values = vals;
     row.alignment = {vertical:'middle', wrapText:true};
 
-    // 하이퍼링크 셀 스타일 — 영수증 URL(컬럼 16) + 채널별 URL(채널 시작 + 5)
-    var linkCols = [16];
+    // 하이퍼링크 셀 스타일 — 영수증 URL(receiptEnd) + 채널별 URL(채널 시작 + 5)
+    var linkCols = [receiptEnd];
     campChannels.forEach(function(_, ci) {
-      linkCols.push(INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 5);  // URL = 채널 시작 + 5
+      linkCols.push(chBase + 1 + ci * CH_COLS + 5);  // URL = 채널 시작 + 5
     });
     linkCols.forEach(function(col) {
       var c = row.getCell(col);
       if (c && c.value && c.value.hyperlink) c.font = {color:{argb:'FFE8344E'}, underline:true};
     });
 
-    // 이미지 임베드 — 영수증(O열=15) + 채널별 review_image(채널 시작 + 4)
+    // 이미지 임베드 — 영수증(receiptImgCol=16) + 채널별 review_image(채널 시작 + 4)
     if (g.receipt && imgBuffers[g.receipt.id]) {
       var rImgId = wb.addImage({buffer:imgBuffers[g.receipt.id].buffer, extension:imgBuffers[g.receipt.id].ext});
       ws.addImage(rImgId, _excelColLetter(receiptImgCol) + rowNum + ':' + _excelColLetter(receiptImgCol) + rowNum);
@@ -22021,7 +22045,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       var d = g.reviewByCh[ch];
       if (d && imgBuffers[d.id]) {
         var dImgId = wb.addImage({buffer:imgBuffers[d.id].buffer, extension:imgBuffers[d.id].ext});
-        var imgCol = INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 4;  // 이미지 = 채널 시작 + 4
+        var imgCol = chBase + 1 + ci * CH_COLS + 4;  // 이미지 = 채널 시작 + 4
         var imgColL = _excelColLetter(imgCol);
         ws.addImage(dImgId, imgColL + rowNum + ':' + imgColL + rowNum);
       }
@@ -22073,13 +22097,17 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
     return (ua.name_kanji || ua.name || '').localeCompare(ub.name_kanji || ub.name || '', 'ja');
   });
 
-  // 컬럼 계산
+  // 컬럼 계산 — 캠페인 2 + 인플 7 + 인증 상태 1 + 영수증 9 + 채널별 6 × N
+  //   2026-06-09: 인증 상태를 인플루언서 정보 다음·영수증 앞으로 이동. 영수증·채널 인덱스 +1 밀림.
   var CAMP_COLS = 2, INFO_COLS = 7, RECEIPT_COLS = 9, CH_COLS = 6;
   var N = channels.length;
-  var totalCols = CAMP_COLS + INFO_COLS + RECEIPT_COLS + CH_COLS * N;  // 채널 데이터 컬럼까지
-  var certCol = totalCols + 1;                     // 인증 상태 컬럼 (맨 오른쪽)
-  var grandLastLetter = _excelColLetter(certCol);  // 머리글 머지용 (인증 상태 포함)
-  var receiptImgCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS - 1;  // 영수증 이미지 컬럼
+  var certCol = CAMP_COLS + INFO_COLS + 1;          // 인증 상태 컬럼 (10, 인플 다음)
+  var receiptStart = CAMP_COLS + INFO_COLS + 2;     // 11 (인증 상태 1칸 뒤)
+  var receiptEnd = CAMP_COLS + INFO_COLS + 1 + RECEIPT_COLS;  // 19
+  var receiptImgCol = receiptEnd - 1;               // 18 (영수증 이미지 컬럼)
+  var chBase = CAMP_COLS + INFO_COLS + 1 + RECEIPT_COLS;  // 채널 그룹 시작 직전 컬럼 (19)
+  var totalCols = chBase + CH_COLS * N;             // 마지막 컬럼 (채널 데이터 끝)
+  var grandLastLetter = _excelColLetter(totalCols); // 머리글 머지용
 
   var chLabelOf = function(code) {
     return (typeof getLookupLabel === 'function') ? (getLookupLabel('channel', code, 'ko') || code) : code;
@@ -22102,18 +22130,21 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   m.font = {color:{argb:'FF888888'}, size:11};
   ws.getRow(2).height = 20;
 
-  // row 3: 그룹 헤더 (캠페인 / 인플 / 영수증 / 채널 N개)
+  // row 3: 그룹 헤더 (캠페인 / 인플 / 인증 상태 / 영수증 / 채널 N개)
+  var certL = _excelColLetter(certCol);              // J (10)
+  var receiptStartL = _excelColLetter(receiptStart); // K (11)
+  var receiptEndL = _excelColLetter(receiptEnd);     // S (19)
   ws.mergeCells('A3:B3'); ws.getCell('A3').value = '캠페인';
   ws.mergeCells('C3:I3'); ws.getCell('C3').value = '인플루언서 정보';
-  ws.mergeCells('J3:R3'); ws.getCell('J3').value = '영수증';
+  ws.getCell(certL + '3').value = '인증 상태';
+  ws.mergeCells(receiptStartL + '3:' + receiptEndL + '3'); ws.getCell(receiptStartL + '3').value = '영수증';
   channels.forEach(function(ch, i) {
-    var s = CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS;
+    var s = chBase + 1 + i * CH_COLS;
     var e = s + CH_COLS - 1;
     ws.mergeCells(_excelColLetter(s) + '3:' + _excelColLetter(e) + '3');
     ws.getCell(_excelColLetter(s) + '3').value = '「' + chLabelOf(ch) + '」 리뷰';
   });
-  ws.getCell(grandLastLetter + '3').value = '인증 상태';
-  ['A3','C3','J3', grandLastLetter + '3'].concat(channels.map(function(_, i){ return _excelColLetter(CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
+  ['A3','C3', certL + '3', receiptStartL + '3'].concat(channels.map(function(_, i){ return _excelColLetter(chBase + 1 + i * CH_COLS) + '3'; })).forEach(function(addr) {
     var c = ws.getCell(addr);
     c.font = {bold:true, color:{argb:'FF222222'}};
     c.alignment = {vertical:'middle', horizontal:'center'};
@@ -22121,16 +22152,16 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   });
   ws.getRow(3).height = 22;
 
-  // row 4: 컬럼 헤더
+  // row 4: 컬럼 헤더 (캠페인 2 → 인플 7 → 인증 상태 1 → 영수증 9 → 채널별 6 × N)
   var headerValues = [
     '캠페인 번호', '캠페인 제목',
     '이름(한자)', '이름(가타카나)', '계정 아이디(이메일)', 'Instagram URL', 'TikTok URL', 'X URL', 'YouTube URL',
+    '인증 상태',
     '타입', '제출일', '검수일', '상태', '주문번호', '구매일', '구매금액', '이미지', 'URL'
   ];
   channels.forEach(function() {
     headerValues.push('타입', '제출일', '검수일', '상태', '이미지', 'URL');
   });
-  headerValues.push('인증 상태');
   ws.getRow(4).values = headerValues;
   ws.getRow(4).font = {bold:true, color:{argb:'FF222222'}};
   ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF0F0F0'}};
@@ -22140,10 +22171,10 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
   var colWidths = [
     18, 28,
     18, 18, 28, 36, 36, 36, 36,
+    14,                                  // 인증 상태
     12, 12, 12, 10, 18, 12, 12, 16, 32
   ];
   channels.forEach(function() { colWidths.push(12, 12, 12, 10, 16, 32); });
-  colWidths.push(14);  // 인증 상태
   ws.columns = colWidths.map(function(w) { return {width:w}; });
 
   var statusLabelMap = {pending:'검수대기', approved:'승인', rejected:'반려'};
@@ -22189,21 +22220,21 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       _excelSnsUrl('tiktok', u.tiktok),
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
+      // 인증 상태 1컬럼 (certCol=10) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
+      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh),
+      // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
     channels.forEach(function(ch) {
       var cells = renderDeliv6(g.reviewByCh[ch]);
       vals.push(cells[0], cells[1], cells[2], cells[3], cells[4], cells[5]);
     });
-    // 인증 상태 1컬럼 (맨 오른쪽 = certCol) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-    vals.push(_excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh));
     row.values = vals;
     row.alignment = {vertical:'middle', wrapText:true};
 
-    var receiptUrlCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS;  // 18
-    var linkCols = [receiptUrlCol];
+    var linkCols = [receiptEnd];  // 영수증 URL
     channels.forEach(function(_, ci) {
-      linkCols.push(CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 5);
+      linkCols.push(chBase + 1 + ci * CH_COLS + 5);
     });
     linkCols.forEach(function(col) {
       var cell = row.getCell(col);
@@ -22219,7 +22250,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       var d = g.reviewByCh[ch];
       if (d && imgBuffers[d.id]) {
         var dImgId = wb.addImage({buffer:imgBuffers[d.id].buffer, extension:imgBuffers[d.id].ext});
-        var imgCol = CAMP_COLS + INFO_COLS + RECEIPT_COLS + 1 + ci * CH_COLS + 4;
+        var imgCol = chBase + 1 + ci * CH_COLS + 4;
         var imgColL = _excelColLetter(imgCol);
         ws.addImage(dImgId, imgColL + rowNum + ':' + imgColL + rowNum);
       }
