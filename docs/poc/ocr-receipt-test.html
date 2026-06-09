@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>영수증 글자 인식 맛보기 (기기 안 처리)</title>
+<!--
+  REVERB JP — 영수증 OCR(글자 인식) 맛보기 시제품
+  목적: 인플루언서가 올린 영수증 이미지에서 "주문번호·구매일·구매금액"을
+        브라우저 안에서(=어디로도 전송 없이) 얼마나 읽어낼 수 있는지 체감용.
+  방식: Tesseract.js (기기 안 처리). 외부 서버로 이미지가 나가지 않음.
+  주의: 이 파일은 빌드/배포 대상이 아닌 단독 테스트 페이지입니다.
+-->
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#fff; --line:#e3e6eb; --text:#1f2330; --sub:#6b7280;
+    --accent:#4f46e5; --accent-soft:#eef0fe; --ok:#16a34a; --warn:#d97706; --danger:#dc2626;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    background:var(--bg);color:var(--text);line-height:1.55;-webkit-text-size-adjust:100%}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:20px;margin:8px 0 4px}
+  .lead{color:var(--sub);font-size:13px;margin:0 0 18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+  .drop{border:2px dashed #c7ccd6;border-radius:var(--radius);padding:28px 16px;text-align:center;cursor:pointer;
+    transition:.15s;background:#fafbfc}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft)}
+  .drop strong{display:block;font-size:15px;margin-bottom:4px}
+  .drop span{color:var(--sub);font-size:12px}
+  input[type=file]{display:none}
+  .preview{margin-top:14px;text-align:center}
+  .preview img{max-width:100%;max-height:340px;border-radius:10px;border:1px solid var(--line)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  button{font-size:14px;font-weight:600;border:none;border-radius:10px;padding:11px 16px;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:#eef0f3;color:var(--text)}
+  label.opt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer}
+  .progress{height:8px;background:#eceef2;border-radius:99px;overflow:hidden;margin-top:14px;display:none}
+  .progress.show{display:block}
+  .bar{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .status{font-size:12px;color:var(--sub);margin-top:8px;min-height:16px}
+  .fields{display:grid;gap:10px;margin-top:4px}
+  .field{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center}
+  .field label{font-size:13px;font-weight:600;color:var(--sub)}
+  .field input{width:100%;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  .field .hit{border-color:#bbf7d0;background:#f0fdf4}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px}
+  .badge.ok{background:#dcfce7;color:var(--ok)}
+  .badge.no{background:#fef2f2;color:var(--danger)}
+  details{margin-top:14px}
+  summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:600}
+  pre.raw{white-space:pre-wrap;word-break:break-word;background:#0f1117;color:#d7dbe6;padding:12px;border-radius:10px;
+    font-size:12px;max-height:280px;overflow:auto;margin-top:10px}
+  .hint{font-size:12px;color:var(--sub);margin-top:6px}
+  .pill{font-size:11px;background:var(--accent-soft);color:var(--accent);padding:3px 8px;border-radius:99px;font-weight:700}
+  .meta{font-size:12px;color:var(--sub);margin-top:10px}
+  .privacy{font-size:12px;color:var(--ok);background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>영수증 글자 인식 맛보기 <span class="pill">기기 안 처리</span></h1>
+  <p class="lead">실제 영수증 사진을 넣어 「주문번호 · 구매일 · 구매금액」이 얼마나 자동으로 채워지는지 확인하는 테스트 페이지입니다.</p>
+
+  <div class="privacy">
+    🔒 이미지는 이 브라우저 안에서만 처리되며 <b>어떤 서버로도 전송되지 않습니다.</b>
+    (글자 인식 프로그램만 인터넷에서 한 번 받아옵니다.)
+  </div>
+
+  <div class="card">
+    <div class="drop" id="drop">
+      <strong>여기를 눌러 영수증 이미지를 선택</strong>
+      <span>또는 이미지를 끌어다 놓으세요 (JPG·PNG·HEIC)</span>
+    </div>
+    <input type="file" id="file" accept="image/*">
+    <div class="preview" id="preview"></div>
+
+    <div class="row">
+      <button class="btn-primary" id="run" disabled>글자 읽기 시작</button>
+      <button class="btn-ghost" id="reset">초기화</button>
+      <label class="opt"><input type="checkbox" id="prep" checked> 흑백·선명화 보정</label>
+    </div>
+
+    <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <div class="fields">
+      <div class="field">
+        <label>주문번호</label>
+        <input id="f-order" placeholder="(자동 추출 결과)">
+      </div>
+      <div class="field">
+        <label>구매일</label>
+        <input id="f-date" placeholder="(자동 추출 결과)">
+      </div>
+      <div class="field">
+        <label>구매금액</label>
+        <input id="f-amount" placeholder="(자동 추출 결과)">
+      </div>
+    </div>
+    <p class="hint">녹색 칸 = 자동으로 찾은 값. 빈 칸 = 못 찾음 → 직접 입력해야 하는 경우입니다. 값이 틀릴 수 있으니 항상 눈으로 확인하세요.</p>
+    <div class="meta" id="meta"></div>
+
+    <details>
+      <summary>인식된 전체 텍스트 보기 (디버그용)</summary>
+      <pre class="raw" id="raw"></pre>
+    </details>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const drop=$('drop'), fileInput=$('file'), preview=$('preview');
+  const runBtn=$('run'), resetBtn=$('reset'), prepChk=$('prep');
+  const progress=$('progress'), bar=$('bar'), status=$('status');
+  const resultCard=$('resultCard'), raw=$('raw'), meta=$('meta');
+  let currentImageURL=null, currentFile=null;
+
+  // ---- 파일 선택/드래그앤드롭 ----
+  drop.addEventListener('click',()=>fileInput.click());
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+  drop.addEventListener('drop',e=>{
+    e.preventDefault();drop.classList.remove('over');
+    if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change',e=>{ if(e.target.files[0]) loadFile(e.target.files[0]); });
+
+  function loadFile(f){
+    if(!f.type.startsWith('image/')){ alert('이미지 파일만 가능합니다.'); return; }
+    currentFile=f;
+    if(currentImageURL) URL.revokeObjectURL(currentImageURL);
+    currentImageURL=URL.createObjectURL(f);
+    preview.innerHTML='<img id="pimg" alt="미리보기">';
+    $('pimg').src=currentImageURL;
+    runBtn.disabled=false;
+    resultCard.style.display='none';
+    status.textContent='';
+  }
+
+  resetBtn.addEventListener('click',()=>{
+    currentFile=null;
+    if(currentImageURL){URL.revokeObjectURL(currentImageURL);currentImageURL=null;}
+    preview.innerHTML='';fileInput.value='';runBtn.disabled=true;
+    resultCard.style.display='none';progress.classList.remove('show');
+    bar.style.width='0';status.textContent='';
+  });
+
+  // ---- 이미지 전처리: 확대/축소 + (선택) 흑백 이진화 ----
+  function preprocess(file, doPrep){
+    return new Promise((resolve)=>{
+      const img=new Image();
+      img.onload=()=>{
+        // 목표 폭 2000px 기준으로 확대(작은 사진)·축소(큰 사진). 0.5~3배로 제한.
+        const target=2000;
+        let scale=target/img.naturalWidth;
+        scale=Math.max(0.5,Math.min(scale,3));
+        const w=Math.round(img.naturalWidth*scale), h=Math.round(img.naturalHeight*scale);
+        const c=document.createElement('canvas');
+        c.width=w;c.height=h;
+        const ctx=c.getContext('2d');
+        ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+        ctx.drawImage(img,0,0,w,h);
+
+        if(doPrep){
+          // 부드러운 보정: 그레이스케일 + 대비 강화 (이진화는 모아레 사진을 악화시켜 제외)
+          const d=ctx.getImageData(0,0,w,h), p=d.data;
+          for(let i=0;i<p.length;i+=4){
+            let g=p[i]*0.299+p[i+1]*0.587+p[i+2]*0.114;
+            g=(g-128)*1.35+128;
+            g=Math.max(0,Math.min(255,g));
+            p[i]=p[i+1]=p[i+2]=g;
+          }
+          ctx.putImageData(d,0,0);
+        }
+        c.toBlob(b=>resolve(b),'image/png');
+      };
+      img.onerror=()=>resolve(file); // HEIC 등 브라우저가 못 그리면 원본 그대로
+      img.src=URL.createObjectURL(file);
+    });
+  }
+
+  // ---- 후보 추출 규칙 ----
+  // 일본어 글자인식은 글자 사이에 공백을 자주 끼워 넣으므로(예: "注文 番号"),
+  // 각 줄의 공백을 제거한 'compact' 버전으로 매칭한다.
+  function extractFields(text){
+    const out={order:'',date:'',amount:''};
+    // 반각/전각 공백 제거 (줄바꿈은 유지)
+    const compact=text.replace(/[ \t　]+/g,'');
+    const cLines=compact.split(/\n/);
+
+    // ── 구매일: YYYY年MM月DD日 / YYYY/MM/DD / YYYY-MM-DD / YYYY.MM.DD ──
+    let m=compact.match(/(20\d{2})[年\/\-\.](\d{1,2})[月\/\-\.](\d{1,2})日?/);
+    if(m){
+      const y=m[1], mo=String(m[2]).padStart(2,'0'), d=String(m[3]).padStart(2,'0');
+      out.date=`${y}-${mo}-${d}`;
+    }
+
+    // ── 주문번호: 注文番号/受注番号/オーダー番号/order 키워드 뒤 숫자·영숫자 ──
+    //   ※ 카트번호(カート番号)·お問い合わせ 등은 제외하기 위해 키워드를 정확히 매칭
+    let om=compact.match(/(?:ご注文番号|注文番号|受注番号|オーダー(?:番号|ID)|order(?:no|number|id)?)[:：#＃]?([A-Za-z0-9\-]{6,})/i);
+    if(om){ out.order=om[1]; }
+    else {
+      // 폴백: 카트번호 줄을 뺀 나머지에서 8자리+ 숫자 첫 후보
+      const noCart=cLines.filter(l=>!/カート番号|cart/i.test(l)).join('\n');
+      const fm=noCart.match(/([0-9]{8,}|[A-Z0-9]{4,}-[A-Z0-9-]{4,})/);
+      if(fm) out.order=fm[1];
+    }
+
+    // ── 구매금액: 合計/総額/お支払 줄 우선. 천단위 구분자가 점·콤마로 섞여 읽히므로 숫자만 추출 ──
+    const amtKeys=/(合計|総額|総合計|お支払い?金額?|ご請求|請求金額)/;
+    function pickAmounts(line){
+      // 금액은 반드시 ¥(접두) 또는 円(접미)이 붙은 숫자만 인정 (주문번호 등 기호 없는 숫자 제외)
+      // ¥1.950 / 1,950円 / 1,.950円 등 → 숫자만 남겨 정수화
+      const tokens=[
+        ...(line.match(/[¥￥][\d][\d.,]*/g)||[]),
+        ...(line.match(/[\d][\d.,]*\s*円/g)||[])
+      ];
+      return tokens.map(s=>parseInt(s.replace(/[^\d]/g,''),10)).filter(n=>n>=10);
+    }
+    let keyAmts=[], allAmts=[];
+    cLines.forEach(line=>{
+      const nums=pickAmounts(line);
+      allAmts.push(...nums);
+      if(amtKeys.test(line)) keyAmts.push(...nums);
+    });
+    const pool=keyAmts.length?keyAmts:allAmts;
+    if(pool.length){
+      const best=Math.max(...pool); // 합계는 보통 최대값
+      out.amount='¥'+best.toLocaleString();
+    }
+    return out;
+  }
+
+  function fillField(id,val){
+    const el=$(id), label=el.previousElementSibling;
+    el.value=val||'';
+    el.classList.toggle('hit',!!val);
+    // 라벨 옆 배지
+    const old=label.querySelector('.badge'); if(old) old.remove();
+    const b=document.createElement('span');
+    b.className='badge '+(val?'ok':'no');
+    b.textContent=val?'찾음':'못 찾음';
+    label.appendChild(b);
+  }
+
+  // ---- 실행 ----
+  runBtn.addEventListener('click',async()=>{
+    if(!currentFile) return;
+    runBtn.disabled=true; resetBtn.disabled=true;
+    resultCard.style.display='none';
+    progress.classList.add('show'); bar.style.width='5%';
+    status.textContent='이미지 준비 중…';
+    const t0=performance.now();
+
+    try{
+      const blob=await preprocess(currentFile, prepChk.checked);
+      status.textContent='글자 인식 프로그램 불러오는 중… (처음엔 시간이 걸립니다)';
+
+      const { data } = await Tesseract.recognize(blob, 'jpn+eng', {
+        logger: msg=>{
+          if(msg.status==='recognizing text'){
+            const pct=Math.round(msg.progress*100);
+            bar.style.width=Math.max(10,pct)+'%';
+            status.textContent=`글자 읽는 중… ${pct}%`;
+          } else if(msg.status){
+            status.textContent=msg.status;
+          }
+        }
+      });
+
+      bar.style.width='100%';
+      const secs=((performance.now()-t0)/1000).toFixed(1);
+      const text=data.text||'';
+      const f=extractFields(text);
+
+      fillField('f-order',f.order);
+      fillField('f-date',f.date);
+      fillField('f-amount',f.amount);
+      raw.textContent=text.trim()||'(인식된 텍스트 없음)';
+      const found=[f.order,f.date,f.amount].filter(Boolean).length;
+      meta.innerHTML=`처리 시간 <b>${secs}초</b> · 3개 항목 중 <b>${found}개</b> 자동 추출 · `+
+        `평균 인식 신뢰도 <b>${Math.round(data.confidence||0)}%</b>`;
+      resultCard.style.display='block';
+      status.textContent='완료';
+    }catch(err){
+      console.error(err);
+      status.textContent='오류: '+(err && err.message ? err.message : err);
+    }finally{
+      runBtn.disabled=false; resetBtn.disabled=false;
+      setTimeout(()=>progress.classList.remove('show'),600);
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781018967';
+  var CURRENT_BUILD = 'v1781021155';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2026,7 +2026,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-10 00:29 · 66cb70f</span>
+          <span class="admin-build-text">2026-06-10 01:05 · d98df85</span>
         </div>
       </div>
     </aside>
@@ -9013,6 +9013,136 @@ async function resolveClientError(id, status, note) {
   } catch (e) { console.error('[resolveClientError]', e); return false; }
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// 영수증 글자인식(OCR) 공통 부품 — 기기 안 처리 (외부 전송 0)
+//   엔진: Tesseract.js v5 (jpn+eng), CDN lazy-load
+//   용도: 영수증 이미지에서 주문번호·구매일·구매금액을 읽어 입력칸에 미리 채움
+//   인플루언서 활동관리(application.js) + 관리자 검수 모달(admin-deliverables.js) 공용
+//   ⚠️ 읽은 값은 "보조 입력"일 뿐 — 항상 사용자/관리자가 확인·수정 후 제출.
+//      라이브러리 로드 실패·인식 실패가 제출을 막지 않도록 호출측에서 try/catch.
+// ══════════════════════════════════════════════════════════════
+
+// Tesseract.js lazy-load (영수증 화면에서 OCR 실행할 때만 1회 로드, 이후 캐시)
+let _tesseractPromise = null;
+function _loadTesseract() {
+  if (typeof window !== 'undefined' && window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (_tesseractPromise) return _tesseractPromise;
+  _tesseractPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.async = true;
+    s.onload = () => (window.Tesseract ? resolve(window.Tesseract) : reject(new Error('Tesseract 로드 실패')));
+    s.onerror = () => { _tesseractPromise = null; reject(new Error('Tesseract 스크립트를 불러오지 못했습니다')); };
+    document.head.appendChild(s);
+  });
+  return _tesseractPromise;
+}
+
+// 이미지 전처리: 확대/축소 + 그레이스케일 + 대비 강화 (업로드 이미지와 무관한 임시 캔버스)
+function preprocessReceiptImage(fileOrBlob) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(fileOrBlob);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      // 목표 폭 2000px 기준 확대(작은 사진)·축소(큰 사진), 0.5~3배 제한
+      const target = 2000;
+      let scale = target / img.naturalWidth;
+      scale = Math.max(0.5, Math.min(scale, 3));
+      const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, w, h);
+      try {
+        const d = ctx.getImageData(0, 0, w, h), p = d.data;
+        for (let i = 0; i < p.length; i += 4) {
+          let g = p[i] * 0.299 + p[i + 1] * 0.587 + p[i + 2] * 0.114;
+          g = (g - 128) * 1.35 + 128;
+          g = Math.max(0, Math.min(255, g));
+          p[i] = p[i + 1] = p[i + 2] = g;
+        }
+        ctx.putImageData(d, 0, 0);
+      } catch (_e) { /* getImageData 실패 시 원본 캔버스 그대로 */ }
+      c.toBlob(b => resolve(b || fileOrBlob), 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(fileOrBlob); }; // HEIC 등 브라우저가 못 그리면 원본
+    img.src = url;
+  });
+}
+
+// 인식 텍스트에서 주문번호·구매일·구매금액 추출
+//   일본어 OCR이 글자 사이에 공백을 끼우므로(예: "注文 番号") 줄별 공백을 제거한 뒤 매칭
+//   반환: { order:string, date:'YYYY-MM-DD'|'', amount:number|null }
+function extractReceiptFields(text) {
+  const out = { order: '', date: '', amount: null };
+  if (!text) return out;
+  const compact = text.replace(/[ \t　]+/g, '');
+  const cLines = compact.split(/\n/);
+
+  // 구매일: YYYY年MM月DD日 / YYYY/MM/DD / YYYY-MM-DD / YYYY.MM.DD
+  const m = compact.match(/(20\d{2})[年\/\-\.](\d{1,2})[月\/\-\.](\d{1,2})日?/);
+  if (m) out.date = `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+
+  // 주문번호: 注文番号/受注番号/オーダー番号/order 키워드 뒤 영숫자 (カート番号=카트번호는 제외)
+  const om = compact.match(/(?:ご注文番号|注文番号|受注番号|オーダー(?:番号|ID)|order(?:no|number|id)?)[:：#＃]?([A-Za-z0-9\-]{6,})/i);
+  if (om) {
+    out.order = om[1];
+  } else {
+    const noCart = cLines.filter(l => !/カート番号|cart/i.test(l)).join('\n');
+    const fm = noCart.match(/([0-9]{8,}|[A-Z0-9]{4,}-[A-Z0-9-]{4,})/);
+    if (fm) out.order = fm[1];
+  }
+
+  // 구매금액: 円 또는 ¥ 붙은 숫자만 (천단위 점·콤마 혼동 허용). 合計/総額 줄 우선, 없으면 최대값
+  const amtKeys = /(合計|総額|総合計|お支払い?金額?|ご請求|請求金額)/;
+  function pick(line) {
+    const tokens = [
+      ...(line.match(/[¥￥][\d][\d.,]*/g) || []),
+      ...(line.match(/[\d][\d.,]*\s*円/g) || [])
+    ];
+    return tokens.map(s => parseInt(s.replace(/[^\d]/g, ''), 10)).filter(n => n >= 10);
+  }
+  let keyA = [], allA = [];
+  cLines.forEach(l => { const n = pick(l); allA.push(...n); if (amtKeys.test(l)) keyA.push(...n); });
+  const pool = keyA.length ? keyA : allA;
+  if (pool.length) out.amount = Math.max(...pool);
+
+  return out;
+}
+
+// 영수증 OCR 실행 — src: File | Blob | imageUrl(string)
+//   opts.onProgress(stage, progress0to1) 콜백으로 단계 보고
+//   반환: { text, fields, confidence }
+async function runReceiptOcr(src, opts) {
+  opts = opts || {};
+  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : function () {};
+  let blob = src;
+  if (typeof src === 'string') {
+    onProgress('fetch', 0);
+    const res = await fetch(src);
+    if (!res.ok) throw new Error('이미지를 불러오지 못했습니다 (' + res.status + ')');
+    blob = await res.blob();
+  }
+  onProgress('prepare', 0);
+  const pre = await preprocessReceiptImage(blob);
+  onProgress('load', 0);
+  const T = await _loadTesseract();
+  onProgress('recognize', 0);
+  const { data } = await T.recognize(pre, 'jpn+eng', {
+    logger: msg => { if (msg && msg.status === 'recognizing text') onProgress('recognize', msg.progress || 0); }
+  });
+  const text = (data && data.text) || '';
+  return { text, fields: extractReceiptFields(text), confidence: (data && data.confidence) || 0 };
+}
+
+// 전역 노출 (빌드는 concat 전역 스코프지만 명시적으로도 등록)
+if (typeof window !== 'undefined') {
+  window.runReceiptOcr = runReceiptOcr;
+  window.extractReceiptFields = extractReceiptFields;
+}
 
 // ══════════════════════════════════════
 // UI — 알림 팝업, 로딩, 모달, 슬라이더
@@ -19706,6 +19836,7 @@ function renderReceiptInfoBlock(d) {
   if (!d || d.kind !== 'receipt') return '';
   const canEdit = isCampaignAdminOrAbove();
   const id = String(d.id);
+  const receiptUrl = d.receipt_url || '';
   const orderNo = d.order_number || '';
   const purchaseDate = d.purchase_date || '';
   const amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
@@ -19729,6 +19860,8 @@ function renderReceiptInfoBlock(d) {
     <div id="receiptInfoEdit-${esc(id)}" style="display:none;font-size:12px;margin-bottom:10px;padding:10px 12px;background:#FFF9E6;border:1px solid #F5C518;border-radius:8px">
       <div style="font-weight:600;margin-bottom:4px">영수증 정보 수정</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">주문번호·구매일·구매금액 중 최소 1개만 입력해도 저장됩니다.</div>
+      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin('${esc(id)}','${esc(receiptUrl)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">document_scanner</span> 영수증에서 읽기</button>
+      <div id="receiptOcrStatusAdmin-${esc(id)}" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>` : ''}
       <div style="margin-bottom:6px">
         <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호</label>
         <input id="receiptEditOrder-${esc(id)}" type="text" maxlength="200" value="${esc(orderNo)}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
@@ -19761,6 +19894,43 @@ function cancelReceiptEdit(id) {
   const e = document.getElementById('receiptInfoEdit-' + id);
   if (v) v.style.display = '';
   if (e) e.style.display = 'none';
+}
+
+// 관리자: 이미 업로드된 영수증 이미지에서 글자 인식 → 빈 칸만 채움 (기기 안 처리)
+//   읽기·로드 실패해도 저장 흐름엔 영향 없음. 값은 저장 전 반드시 눈으로 확인.
+async function runReceiptOcrAdmin(id, url) {
+  const btn = document.getElementById('receiptOcrBtnAdmin-' + id);
+  const st = document.getElementById('receiptOcrStatusAdmin-' + id);
+  const show = m => { if (st) { st.style.display = ''; st.textContent = m; } };
+  if (typeof runReceiptOcr !== 'function') { show('글자 인식 기능을 불러오지 못했습니다.'); return; }
+  if (!url) { show('영수증 이미지가 없습니다.'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    show('읽기 준비 중… (처음에는 시간이 조금 걸립니다)');
+    const { fields } = await runReceiptOcr(url, {
+      onProgress: (stage, prog) => {
+        if (stage === 'recognize') show('읽는 중… ' + Math.round((prog || 0) * 100) + '%');
+        else if (stage === 'fetch') show('이미지 불러오는 중…');
+        else show('읽는 중…');
+      }
+    });
+    let filled = 0;
+    const mark = el => { if (el) { el.style.background = '#F0FDF4'; el.style.borderColor = '#BBF7D0'; } };
+    const on = document.getElementById('receiptEditOrder-' + id);
+    if (on && !on.value.trim() && fields.order) { on.value = fields.order; mark(on); filled++; }
+    const dt = document.getElementById('receiptEditDate-' + id);
+    if (dt && !dt.value && fields.date) { dt.value = fields.date; mark(dt); filled++; }
+    const am = document.getElementById('receiptEditAmount-' + id);
+    if (am && am.value === '' && fields.amount != null) { am.value = fields.amount; mark(am); filled++; }
+    show(filled > 0
+      ? '읽었습니다. 값이 맞는지 확인 후 저장하세요.'
+      : '잘 읽지 못했습니다. 화면 캡처(스크린샷)면 더 잘 읽힙니다. 직접 입력해주세요.');
+  } catch (e) {
+    console.warn('관리자 영수증 OCR 실패', e);
+    show('읽지 못했습니다. 직접 입력해주세요.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function saveReceiptEdit(id) {

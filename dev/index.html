@@ -629,6 +629,12 @@ window._supabaseLoaded = false;
         </div>
         <!-- monitor(리뷰어) 전용: 주문번호·구매일·구매금액 3종 필수 (마이그레이션 128) -->
         <div id="monitorReceiptFields" style="display:none">
+          <!-- 영수증 글자 자동입력 (기기 안 처리, 빈 칸만 채움) -->
+          <button type="button" id="receiptOcrBtn" class="btn btn-ghost btn-block" onclick="runReceiptAutofill()" style="margin-bottom:6px;font-size:13px">
+            <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">document_scanner</span>
+            <span data-i18n="activity.ocrBtn">画像から自動入力</span>
+          </button>
+          <div id="receiptOcrStatus" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5"></div>
           <div class="form-group">
             <label class="form-label"><span data-i18n="activity.orderNumberLabel">注文番号</span> <span style="color:var(--red)">*</span></label>
             <input type="text" id="receiptOrderNumber" class="form-input" maxlength="200" placeholder="例: A1234567890">
@@ -1154,6 +1160,7 @@ window._supabaseLoaded = false;
 <script src="lib/i18n/ko.js"></script>
 <script src="lib/i18n/index.js"></script>
 <script src="lib/image-compress.js"></script>
+<script src="lib/ocr-receipt.js"></script>
 <script src="lib/storage.js"></script>
 <script src="lib/legal.js"></script>
 <script src="js/error-report.js"></script>
