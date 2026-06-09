@@ -159,7 +159,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
@@ -505,9 +505,42 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
+}
+
+// 인증 상태(신청 1건 단위) — 3종: success(인증성공) / submitting(인증샷 제출중) / none(미제출)
+//   리뷰어(monitor): 영수증(receipt) + 채널별 인증샷(review_image)
+//     - 둘 다 전혀 없음 → 미제출
+//     - 영수증 승인 + 인증샷 모두 승인 → 인증성공
+//     - 그 외(영수증 검수중/반려, 인증샷 검수중/미제출/반려) → 인증샷 제출중
+//   시딩(gifting)·방문(visit): 게시물(post)만
+//     - 미제출 → 미제출 / 승인 → 인증성공 / 그 외(검수중·반려) → 인증샷 제출중
+function computeCertStatus(g) {
+  const rt = g && g.campaign ? g.campaign.recruit_type : null;
+  if (rt === 'monitor') {
+    const hasReceipt = !!g.receipt;
+    const hasReview = !!(g.result_status_repr && g.result_status_repr !== 'none');
+    if (!hasReceipt && !hasReview) return 'none';
+    if (g.receipt && g.receipt.status === 'approved' && g.result_status_repr === 'approved') return 'success';
+    return 'submitting';
+  }
+  // gifting / visit — 게시물(post) 단독
+  if (!g || !g.result) return 'none';
+  if (g.result.status === 'approved') return 'success';
+  return 'submitting';
+}
+// 인증 상태 한국어 라벨 (엑셀 공용)
+function certStatusLabelKo(g) {
+  const s = computeCertStatus(g);
+  return s === 'success' ? '인증성공' : s === 'submitting' ? '인증샷 제출중' : '미제출';
+}
+function certStatusBadge(g) {
+  const s = computeCertStatus(g);
+  if (s === 'success')    return '<span class="badge badge-green">인증성공</span>';
+  if (s === 'submitting') return '<span class="badge badge-gold">인증샷 제출중</span>';
+  return '<span class="badge badge-gray">미제출</span>';
 }
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
@@ -559,6 +592,7 @@ function renderDelivAppRow(g) {
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
+    <td>${certStatusBadge(g)}</td>
     <td>${submittedCell}</td>
     <td><button class="btn btn-ghost btn-xs" onclick="openDelivCombined('${esc(g.application_id)}')">검수</button></td>
   </tr>`;
