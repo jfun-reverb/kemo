@@ -1317,10 +1317,6 @@
 .admin-proxy-existing-box .pe-list{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:5px}
 .admin-proxy-existing-box .pe-list li{display:flex;align-items:center;gap:6px}
 .admin-proxy-existing-box .pe-kind{font-weight:600}
-.admin-proxy-existing-box .pe-status{font-size:11px;padding:1px 7px;border-radius:10px;background:#fff;border:1px solid #FBBF24;color:#92400E}
-.admin-proxy-existing-box .pe-status.pending{background:#FEF9C3;border-color:#EAB308;color:#854D0E}
-.admin-proxy-existing-box .pe-status.approved{background:#DCFCE7;border-color:#22C55E;color:#166534}
-.admin-proxy-existing-box .pe-status.rejected{background:#FEE2E2;border-color:#EF4444;color:#991B1B}
 .admin-proxy-existing-box .pe-guide{margin-bottom:10px}
 .admin-proxy-existing-box .pe-goto{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:#92400E;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .admin-proxy-existing-box .pe-goto:hover{background:#7C3209}

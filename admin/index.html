@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780981452';
+  var CURRENT_BUILD = 'v1780983226';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1767,10 +1767,6 @@ textarea.form-input{resize:vertical;min-height:80px}
 .admin-proxy-existing-box .pe-list{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:5px}
 .admin-proxy-existing-box .pe-list li{display:flex;align-items:center;gap:6px}
 .admin-proxy-existing-box .pe-kind{font-weight:600}
-.admin-proxy-existing-box .pe-status{font-size:11px;padding:1px 7px;border-radius:10px;background:#fff;border:1px solid #FBBF24;color:#92400E}
-.admin-proxy-existing-box .pe-status.pending{background:#FEF9C3;border-color:#EAB308;color:#854D0E}
-.admin-proxy-existing-box .pe-status.approved{background:#DCFCE7;border-color:#22C55E;color:#166534}
-.admin-proxy-existing-box .pe-status.rejected{background:#FEE2E2;border-color:#EF4444;color:#991B1B}
 .admin-proxy-existing-box .pe-guide{margin-bottom:10px}
 .admin-proxy-existing-box .pe-goto{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:#92400E;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
 .admin-proxy-existing-box .pe-goto:hover{background:#7C3209}
@@ -2016,7 +2012,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-09 14:04 · df1c1a1</span>
+          <span class="admin-build-text">2026-06-09 14:33 · c34d665</span>
         </div>
       </div>
     </aside>
@@ -20246,7 +20242,6 @@ function selectAdminProxyInf(appId, silent) {
 // 인플(응모건) 선택 시 그 application 의 기존 deliverables 를 조회해 안내 박스 + 채널 표식.
 let _adminProxyExistingDelivs = [];
 const _PROXY_KIND_LABEL = { receipt: '영수증', review_image: '리뷰이미지', post: '게시물' };
-const _PROXY_STATUS_LABEL = { pending: '검수대기', approved: '승인', rejected: '반려' };
 
 async function _loadAdminProxyExisting(appId) {
   _adminProxyExistingDelivs = [];
@@ -20268,31 +20263,29 @@ async function _loadAdminProxyExisting(appId) {
 function _renderAdminProxyExistingBox() {
   const box = $('adminProxyExistingBox');
   if (!box) return;
-  const list = _adminProxyExistingDelivs || [];
-  if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  // 목적 = 아직 처리 안 된(검수대기) 결과물을 검수로 보내기. 이미 승인·반려된 지난 내역은
+  // 대리 등록 판단에 불필요 → 검수대기(pending) 만 노출.
+  const pending = (_adminProxyExistingDelivs || []).filter(d => d.status === 'pending');
+  if (!pending.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
 
-  const receipts = list.filter(d => d.kind === 'receipt');
-  const others = list.filter(d => d.kind !== 'receipt');
+  const receipts = pending.filter(d => d.kind === 'receipt');
+  const others = pending.filter(d => d.kind !== 'receipt');
   const rows = [];
   others.forEach(d => {
     const kindLabel = _PROXY_KIND_LABEL[d.kind] || d.kind;
     const ch = d.post_channel ? (_adminProxyChannels[d.post_channel] || d.post_channel) : '';
-    const st = _PROXY_STATUS_LABEL[d.status] || d.status;
-    const stClass = ['pending', 'approved', 'rejected'].includes(d.status) ? d.status : '';
-    rows.push(`<li><span class="pe-kind">${esc(kindLabel)}${ch ? '（' + esc(ch) + '）' : ''}</span><span class="pe-status ${stClass}">${esc(st)}</span></li>`);
+    rows.push(`<li><span class="pe-kind">${esc(kindLabel)}${ch ? '（' + esc(ch) + '）' : ''}</span></li>`);
   });
   if (receipts.length) {
-    // 영수증은 중복 허용 종류 → 총건수 + 검수대기 건수만 (개별 행 X)
-    const pendingN = receipts.filter(d => d.status === 'pending').length;
-    const stTxt = pendingN ? `검수대기 ${pendingN}건` : '';
-    rows.push(`<li><span class="pe-kind">영수증 (${receipts.length}건)</span>${stTxt ? `<span class="pe-status pending">${esc(stTxt)}</span>` : ''}</li>`);
+    // 영수증은 중복 허용 종류 → 검수대기 건수만 (개별 행 X)
+    rows.push(`<li><span class="pe-kind">영수증${receipts.length > 1 ? ' (' + receipts.length + '건)' : ''}</span></li>`);
   }
 
   const appId = $('adminProxyApp')?.value || '';
   box.innerHTML =
-    `<div class="pe-title"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">info</span>이미 제출된 결과물이 있습니다</div>` +
+    `<div class="pe-title"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">info</span>검수 대기 중인 결과물이 있습니다</div>` +
     `<ul class="pe-list">${rows.join('')}</ul>` +
-    `<div class="pe-guide">이미 제출된 결과물은 대리 등록 대신 아래 「결과물 검수」에서 승인·반려해 주세요.</div>` +
+    `<div class="pe-guide">이미 제출되어 검수 대기 중입니다. 대리 등록 대신 아래 「결과물 검수」에서 승인·반려해 주세요.</div>` +
     `<button type="button" class="pe-goto" onclick="goToDelivReviewFromProxy('${esc(appId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">fact_check</span>결과물 검수로 이동</button>`;
   box.style.display = 'block';
 }

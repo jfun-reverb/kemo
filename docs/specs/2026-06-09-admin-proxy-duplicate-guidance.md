@@ -123,6 +123,7 @@
 - **빠진 것:** 없음.
 - **달라진 것:**
   - 사양서는 게시물 채널 비활성 여부를 "개발 세션 확정"으로 열어뒀음 → **게시물 채널은 비활성하지 않고 「(이미 게시물 제출됨)」 표식만**으로 확정. 리뷰이미지 채널만 비활성.
+  - **안내 박스는 검수대기(pending) 결과물만 노출**(2026-06-09 사용자 피드백 반영). 초안은 "제출 1건 이상이면 종류·채널·상태 요약"이었으나, 박스 목적이 "아직 처리 안 된 것을 검수로 보내기"라 이미 승인·반려된 지난 내역은 제외. 상태 칩도 제거(모두 검수대기라 불필요). 채널 드롭다운 비활성/표식은 중복 방지 목적이라 상태 무관하게 전체 deliverables 기준 유지.
 
 ### 구현 중 기술 결정 사항
 - **게시물 중복 판정 단위 = URL 단위 확정.** 현행 인덱스 `uidx_deliverables_post_url ON deliverables(application_id, kind, post_url) WHERE kind='post'` (마이그레이션 035) + RPC `admin_create_deliverable_proxy` (마이그레이션 163) 의 post 가드가 `(application_id, kind='post', post_url)` 로 막음. 채널 단위가 아님. 게시물 P0 핫픽스(`project_deliverable_post_url_dup_bug`)는 인플 재제출 로직만 바꿨고 인덱스/RPC 중복 단위는 URL 그대로.
