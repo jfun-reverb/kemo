@@ -1190,17 +1190,18 @@ function renderReceiptInfoBlock(d) {
     </div>`;
   const editHtml = canEdit ? `
     <div id="receiptInfoEdit-${esc(id)}" style="display:none;font-size:12px;margin-bottom:10px;padding:10px 12px;background:#FFF9E6;border:1px solid #F5C518;border-radius:8px">
-      <div style="font-weight:600;margin-bottom:8px">영수증 정보 수정</div>
+      <div style="font-weight:600;margin-bottom:4px">영수증 정보 수정</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">주문번호·구매일·구매금액 중 최소 1개만 입력해도 저장됩니다.</div>
       <div style="margin-bottom:6px">
-        <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호 *</label>
+        <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호</label>
         <input id="receiptEditOrder-${esc(id)}" type="text" maxlength="200" value="${esc(orderNo)}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
       </div>
       <div style="margin-bottom:6px">
-        <label style="display:block;color:var(--muted);margin-bottom:2px">구매일 *</label>
+        <label style="display:block;color:var(--muted);margin-bottom:2px">구매일</label>
         <input id="receiptEditDate-${esc(id)}" type="date" value="${esc(purchaseDate)}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
       </div>
       <div style="margin-bottom:8px">
-        <label style="display:block;color:var(--muted);margin-bottom:2px">구매금액 (엔) *</label>
+        <label style="display:block;color:var(--muted);margin-bottom:2px">구매금액 (엔)</label>
         <input id="receiptEditAmount-${esc(id)}" type="number" min="0" step="1" value="${(amt === null || !Number.isFinite(amt)) ? '' : amt}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
       </div>
       <div style="display:flex;gap:6px;justify-content:flex-end">
@@ -1230,18 +1231,22 @@ async function saveReceiptEdit(id) {
   const orderNo = (document.getElementById('receiptEditOrder-' + id)?.value || '').trim();
   const purchaseDate = document.getElementById('receiptEditDate-' + id)?.value || '';
   const rawAmount = document.getElementById('receiptEditAmount-' + id)?.value || '';
-  if (!orderNo) { toast('주문번호를 입력해주세요','error'); return; }
-  if (orderNo.length > 200) { toast('주문번호는 200자 이내로 입력해주세요','error'); return; }
-  if (!purchaseDate) { toast('구매일을 입력해주세요','error'); return; }
-  if (rawAmount === '' || rawAmount === null || rawAmount === undefined) {
-    toast('구매금액을 입력해주세요','error'); return;
+  // 관리자 수정: 3종 중 최소 1개만 있으면 저장 (인플루언서 제출 경로는 3종 필수 별도 유지)
+  const hasAmount = !(rawAmount === '' || rawAmount === null || rawAmount === undefined);
+  if (!orderNo && !purchaseDate && !hasAmount) {
+    toast('주문번호·구매일·구매금액 중 최소 1개는 입력해주세요','error'); return;
   }
-  const amount = Number(rawAmount);
-  if (!Number.isFinite(amount) || amount < 0) {
-    toast('구매금액은 0 이상의 숫자를 입력해주세요','error'); return;
+  if (orderNo.length > 200) { toast('주문번호는 200자 이내로 입력해주세요','error'); return; }
+  let amount = null;
+  if (hasAmount) {
+    amount = Number(rawAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast('구매금액은 0 이상의 숫자를 입력해주세요','error'); return;
+    }
   }
   try {
-    await updateReceiptAdmin(id, orderNo, purchaseDate, amount);
+    // 빈 항목은 null 로 전달 (RPC 가 NULL 허용·최소 1개 검증)
+    await updateReceiptAdmin(id, orderNo || null, purchaseDate || null, amount);
     toast('영수증 정보를 수정했습니다','success');
     // 현재 열린 모달 재로딩 (통합 검수 모달 우선, 단일 상세 모달 후순)
     if (typeof _delivCombinedRefreshAppId !== 'undefined' && _delivCombinedRefreshAppId) {

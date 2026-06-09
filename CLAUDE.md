@@ -137,7 +137,7 @@
 - **결과물 관리** (`/admin#deliverables`): 영수증/게시물 URL 통합 검수 페인. 필터(상태 기본 pending·캠페인·타입·인플루언서 검색) + 오래된 순 정렬. 상세 모달에 이력 타임라인 + 승인/반려/되돌리기. 반려 사유 템플릿(6종) + 자유입력. 낙관적 락(`version`) 기반 동시 처리 충돌 차단 — 후순위는 "이미 처리됨" 토스트
 - **인증 상태 컬럼**(목록 + 엑셀, 신청 1건 단위 3종, 위치=인플루언서 다음·영수증 앞): `인증성공`(리뷰어=영수증 승인+채널별 인증샷 모두 승인 / 시딩·방문=게시물 승인) · `인증샷 제출중`(검수중·반려·일부 미제출 등 진행 중) · `미제출`(아무것도 안 냄). 헬퍼 `computeCertStatus`/`certStatusBadge`(admin-deliverables.js), 엑셀은 `_excelCertStatus*`(admin-excel.js). 단일 캠페인 엑셀도 전체 상태 로드(`fetchDeliverables` status 필터 없음 + `fetchApplications({status:'approved'})` 조인으로 결과물 0건 승인 신청도 미제출 빈 행 포함) → 화면 목록·단일/다중 엑셀 모두 3종 정확 표시
 - **캠페인 진행현황**(캠페인 → 신청자 보기): 신청자 테이블에 OT 발송 체크박스(gifting/visit 승인 건만 활성) + 결과물 상태 요약(승인/검수대기/반려 건수 + 최신 상세 모달 링크)
-- **영수증 필수 필드**(리뷰어 monitor): 인플 폼에 `order_number` + `purchase_date` + `purchase_amount` 3종 필수. 관리자 검수 모달은 `renderReceiptInfoBlock(d)` 공통 헬퍼 + campaign_admin 이상 인플레이스 수정 + 「변경 이력 보기」 토글. `update_receipt_admin` RPC (SECURITY DEFINER, campaign_admin 가드, FOR UPDATE 행 잠금). 변경 시 `receipt_edit_history` 자동 INSERT
+- **영수증 필수 필드**(리뷰어 monitor): 인플 폼(제출)은 `order_number` + `purchase_date` + `purchase_amount` 3종 필수 유지. **관리자 검수 모달 인플레이스 수정은 3종 중 최소 1개만 입력하면 저장**(마이그레이션 178 — 운영자가 아는 정보만 부분 수정 가능, 인플 제출 경로와 무관). `renderReceiptInfoBlock(d)` 공통 헬퍼 + campaign_admin 이상 인플레이스 수정 + 「변경 이력 보기」 토글. `update_receipt_admin` RPC (SECURITY DEFINER, campaign_admin 가드, FOR UPDATE 행 잠금, 빈 항목 NULL 저장·3종 모두 빈값이면 거부). 변경 시 `receipt_edit_history` 자동 INSERT
 - **엑셀 내보내기**: 단일 캠페인은 더보기 메뉴 `결과물 엑셀`/`신청자 엑셀`, 다중 캠페인은 목록 체크박스 + 「선택 N개 …엑셀」. ExcelJS CDN lazy-load, 영수증 이미지 셀 임베드. 50개+ confirm() + 5초 쿨다운 + 동시 진행 lock. 시트1 「캠페인 정보」 + 시트2 「결과물/신청자」. 이름 한자/가나 분리, SNS 핸들 → 공식 전체 URL, 우편번호 별도 컬럼. 공용 헬퍼는 `_excel*` 시리즈
 
 ### 브랜드 서베이 (광고주 신청 관리)
