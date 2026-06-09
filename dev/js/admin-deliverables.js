@@ -1493,6 +1493,10 @@ function _resetAdminProxyForm() {
   _renderProxyEvidencePreview([]);
   // 내부 파일 목록 초기화
   _proxyEvidenceFiles = [];
+  // 이미 제출된 결과물 안내 박스 초기화
+  _adminProxyExistingDelivs = [];
+  const exBox = $('adminProxyExistingBox');
+  if (exBox) { exBox.style.display = 'none'; exBox.innerHTML = ''; }
 }
 
 // 마이그레이션 163: 증빙 파일 목록 (File 객체 배열, 최대 5장)
@@ -1762,6 +1766,66 @@ function selectAdminProxyInf(appId, silent) {
   const list = $('adminProxyInfList'); if (list) list.classList.remove('open');
   // 결과물 종류 옵션 활성화 (기존 onAdminProxyAppChange 로직 인라인)
   _refreshAdminProxyKindOptions(app);
+  // 이미 제출된 결과물 사전 안내 (응모건 1건만 비동기 조회 — fire-and-forget)
+  _loadAdminProxyExisting(appId);
+}
+
+// ── 이미 제출된 결과물 사전 안내 (대리 등록 전 멈춤 방지) ──────────────
+// 인플(응모건) 선택 시 그 application 의 기존 deliverables 를 조회해 안내 박스 + 채널 표식.
+let _adminProxyExistingDelivs = [];
+const _PROXY_KIND_LABEL = { receipt: '영수증', review_image: '리뷰이미지', post: '게시물' };
+
+async function _loadAdminProxyExisting(appId) {
+  _adminProxyExistingDelivs = [];
+  _renderAdminProxyExistingBox();   // 이전 응모건 잔류 즉시 제거
+  if (!appId) return;
+  try {
+    _adminProxyExistingDelivs = await fetchDeliverablesByApplication(appId);
+  } catch (e) {
+    console.error('[admin-proxy] 기존 결과물 조회 실패', e);
+    _adminProxyExistingDelivs = [];
+  }
+  // 조회 후 현재 활성 종류의 채널 옵션도 갱신(표식·비활성 반영)
+  _renderAdminProxyExistingBox();
+  const kind = $('adminProxyKind')?.value;
+  if (kind === 'post') _populateAdminProxyPostChannelOptions();
+  else if (kind === 'review_image') _populateAdminProxyReviewChannelOptions();
+}
+
+function _renderAdminProxyExistingBox() {
+  const box = $('adminProxyExistingBox');
+  if (!box) return;
+  // 목적 = 아직 처리 안 된(검수대기) 결과물을 검수로 보내기. 이미 승인·반려된 지난 내역은
+  // 대리 등록 판단에 불필요 → 검수대기(pending) 만 노출.
+  const pending = (_adminProxyExistingDelivs || []).filter(d => d.status === 'pending');
+  if (!pending.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  const receipts = pending.filter(d => d.kind === 'receipt');
+  const others = pending.filter(d => d.kind !== 'receipt');
+  const rows = [];
+  others.forEach(d => {
+    const kindLabel = _PROXY_KIND_LABEL[d.kind] || d.kind;
+    const ch = d.post_channel ? (_adminProxyChannels[d.post_channel] || d.post_channel) : '';
+    rows.push(`<li><span class="pe-kind">${esc(kindLabel)}${ch ? '（' + esc(ch) + '）' : ''}</span></li>`);
+  });
+  if (receipts.length) {
+    // 영수증은 중복 허용 종류 → 검수대기 건수만 (개별 행 X)
+    rows.push(`<li><span class="pe-kind">영수증${receipts.length > 1 ? ' (' + receipts.length + '건)' : ''}</span></li>`);
+  }
+
+  const appId = $('adminProxyApp')?.value || '';
+  box.innerHTML =
+    `<div class="pe-title"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">info</span>검수 대기 중인 결과물이 있습니다</div>` +
+    `<ul class="pe-list">${rows.join('')}</ul>` +
+    `<div class="pe-guide">이미 제출되어 검수 대기 중입니다. 대리 등록 대신 아래 「결과물 검수」에서 승인·반려해 주세요.</div>` +
+    `<button type="button" class="pe-goto" onclick="goToDelivReviewFromProxy('${esc(appId)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:15px">fact_check</span>결과물 검수로 이동</button>`;
+  box.style.display = 'block';
+}
+
+function goToDelivReviewFromProxy(appId) {
+  if (!appId) return;
+  closeAdminProxyModal();
+  openDelivCombined(appId);
 }
 
 function _resetAdminProxyInfState() {
@@ -1772,6 +1836,10 @@ function _resetAdminProxyInfState() {
   const infList = $('adminProxyInfList'); if (infList) { infList.classList.remove('open'); infList.innerHTML = ''; }
   const kindSel = $('adminProxyKind');
   if (kindSel) { kindSel.innerHTML = '<option value="">— 먼저 인플루언서를 선택하세요 —</option>'; kindSel.disabled = true; }
+  // 안내 박스도 비움 (캠페인 변경 시 이전 응모건 잔류 방지)
+  _adminProxyExistingDelivs = [];
+  const exBox = $('adminProxyExistingBox');
+  if (exBox) { exBox.style.display = 'none'; exBox.innerHTML = ''; }
   onAdminProxyKindChange();
 }
 
@@ -1828,10 +1896,14 @@ function _populateAdminProxyPostChannelOptions() {
   const appId = $('adminProxyApp')?.value;
   const app = _adminProxyApps.find(a => a.id === appId);
   const channels = (app?.campaigns?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  // 게시물은 URL 단위로 중복 판정(채널 아님) → 비활성하지 않고 표식만. 최종 가드는 RPC.
+  const taken = new Set((_adminProxyExistingDelivs || [])
+    .filter(d => d.kind === 'post' && d.post_channel)
+    .map(d => d.post_channel));
   const opts = ['<option value="">— 자동 판별 대기 (또는 수동 선택) —</option>'];
   channels.forEach(c => {
     const label = _adminProxyChannels[c] || c;
-    opts.push(`<option value="${esc(c)}">${esc(label)}</option>`);
+    opts.push(`<option value="${esc(c)}">${esc(label)}${taken.has(c) ? ' (이미 게시물 제출됨)' : ''}</option>`);
   });
   sel.innerHTML = opts.join('');
 }
@@ -1842,10 +1914,15 @@ function _populateAdminProxyReviewChannelOptions() {
   const appId = $('adminProxyApp')?.value;
   const app = _adminProxyApps.find(a => a.id === appId);
   const channels = (app?.campaigns?.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  // 리뷰이미지는 채널 단위로 중복 판정 → 이미 제출된 채널은 비활성(RPC·인덱스와 일치).
+  const taken = new Set((_adminProxyExistingDelivs || [])
+    .filter(d => d.kind === 'review_image' && d.post_channel)
+    .map(d => d.post_channel));
   const opts = ['<option value="">— 캠페인 채널 중 선택 —</option>'];
   channels.forEach(c => {
     const label = _adminProxyChannels[c] || c;
-    opts.push(`<option value="${esc(c)}">${esc(label)}</option>`);
+    const isTaken = taken.has(c);
+    opts.push(`<option value="${esc(c)}"${isTaken ? ' disabled' : ''}>${esc(label)}${isTaken ? ' (제출됨 — 검수에서 처리)' : ''}</option>`);
   });
   sel.innerHTML = opts.join('');
 }
@@ -1967,7 +2044,11 @@ async function submitAdminProxyDelivProxy() {
     else if (typeof renderDeliverablesList === 'function') await renderDeliverablesList();
   } catch (err) {
     console.error('[admin-proxy] RPC 실패', err);
-    toast('대리 등록 실패: ' + (err.message || err), 'error');
+    const raw = String(err.message || err || '');
+    // 중복(이미 제출됨) 에러는 다음 행동까지 안내 — 담당자가 멈추지 않도록
+    const isDup = err.code === '23505' || /이미 등록되어 있습니다|이미 등록되어 있습니다\.|리뷰 이미지가 이미 등록/.test(raw);
+    const extra = isDup ? ' 대리 등록 대신 「결과물 검수」에서 처리해 주세요.' : '';
+    toast('대리 등록 실패: ' + raw + extra, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '대리 등록 및 자동 승인'; }
   }

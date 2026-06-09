@@ -808,6 +808,20 @@ async function fetchDeliverablesByCampaign(campaignId) {
   } catch(e) { console.error('[fetchDeliverablesByCampaign]', e); return []; }
 }
 
+// 응모건(application) 1건의 기존 결과물 조회 — 관리자 대리 등록 모달 사전 안내용 (is_admin SELECT)
+//   필요한 컬럼만 경량 조회. 인플 선택 시 1건만 부르므로 가벼움.
+async function fetchDeliverablesByApplication(applicationId) {
+  if (!db || !applicationId) return [];
+  try {
+    const {data, error} = await db?.from('deliverables')
+      .select('id, kind, status, post_channel, post_url, reject_reason, submitted_at, created_at')
+      .eq('application_id', applicationId)
+      .order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchDeliverablesByApplication]', e); return []; }
+}
+
 // 인플루언서 본인 결과물 조회 (활동관리 화면)
 async function fetchDeliverablesForUser(filters) {
   if (!db) return [];
