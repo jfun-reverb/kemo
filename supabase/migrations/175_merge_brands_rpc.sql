@@ -83,17 +83,9 @@ BEGIN
     RAISE EXCEPTION '대상 브랜드를 찾을 수 없습니다: %', p_target USING ERRCODE = '22023';
   END IF;
 
-  -- 3. 회사 검증 — 둘 다 회사 지정돼 있고 같아야 함.
-  --    (회사 미지정 null 끼리는 "무관 브랜드"일 수 있어 병합 금지 — 회사 먼저 연결 유도)
-  IF v_source.company_id IS NULL OR v_target.company_id IS NULL THEN
-    RAISE EXCEPTION '회사가 지정되지 않은 브랜드는 병합할 수 없습니다. 먼저 회사를 연결하세요.'
-      USING ERRCODE = '22023';
-  END IF;
-  IF v_source.company_id IS DISTINCT FROM v_target.company_id THEN
-    RAISE EXCEPTION '원본과 대상의 소속 회사가 다릅니다 (company_id: % ≠ %)',
-      v_source.company_id::text, v_target.company_id::text
-      USING ERRCODE = '22023';
-  END IF;
+  -- 3. 회사 검증 없음 (2026-06-09 정책: 회사 미등록·회사 불일치 브랜드도 병합 허용 —
+  --    회사 등록→연결→병합 단계 과다 해소. 오병합 방지는 UI 모달의 대상 회사·캠페인 수 표시 +
+  --    되돌리기 불가 확인으로 운영자가 판단). 캠페인·신청은 target.brand_id 로 귀속.
 
   -- 4. 멱등성 — source 이미 archived + 연결 0건이면 no-op
   IF v_source.status = 'archived'
@@ -246,7 +238,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.merge_brands(uuid, uuid) IS
-  '[175] 브랜드 병합. source 신청·캠페인을 target 으로 이동 + 채번 재발급(legacy_no 보존). 같은 company_id 강제. is_campaign_admin 가드. 121 패턴 재사용. 원본 archived.';
+  '[175] 브랜드 병합. source 신청·캠페인을 target 으로 이동 + 채번 재발급(legacy_no 보존). 회사 불일치·미등록 브랜드도 허용. is_campaign_admin 가드. 121 패턴 재사용. 원본 archived.';
 
 REVOKE ALL ON FUNCTION public.merge_brands(uuid, uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.merge_brands(uuid, uuid) FROM anon;
