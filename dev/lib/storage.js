@@ -2074,6 +2074,19 @@ async function deleteBrand(brandId) {
   } catch(e) { console.error('[deleteBrand]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
 }
 
+// 브랜드 병합 — source 신청·캠페인을 target 으로 이동 + 채번 재발급, 원본 archived. merge_brands RPC.
+async function mergeBrands(sourceId, targetId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db?.rpc('merge_brands', {p_source: sourceId, p_target: targetId});
+      if (error) throw error;
+      return data;
+    });
+    return {ok:true, data};
+  } catch(e) { console.error('[mergeBrands]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
+}
+
 // 브랜드별 캠페인 수 일괄 집계 — 브랜드 목록 「캠페인 수」 컬럼용. {brand_id: count} 반환.
 // 1000행 캡 대응 range loop (대시보드 집계 패턴).
 async function fetchCampaignCountsByBrand() {

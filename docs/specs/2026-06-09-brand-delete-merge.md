@@ -62,4 +62,25 @@
 ### PR 2 (병합) — 미착수
 - merge_brands RPC + 병합 모달. PR 1 운영 배포 후.
 
-## 구현 결과 — PR 2 (개발 세션이 채울 것)
+## 구현 결과 — PR 2 (브랜드 병합)
+
+**구현일:** 2026-06-09
+**브랜치:** feature/brand-merge
+
+- 마이그레이션 **175** `merge_brands_rpc.sql` — `merge_brands(p_source, p_target)` RPC. 121 채번 패턴(`_accumulate_legacy_no`·`numbering_legacy_map` UPSERT·counter ON CONFLICT) 차용. 이동 순서 ①신청(A-seq 재발급) →②신청 파생 캠페인(C-seq) →③외부 캠페인(외부 C-seq) →④campaigns brand/brand_ja/brand_en 동기화(173 보완) →⑤원본 archived. advisory_xact_lock 2단·FOR UPDATE·멱등성. **같은 company_id 강제 + 둘 다 회사 지정 필수**(null 끼리 무관 브랜드 오병합 방지 — reviewer/expert 지적 반영). is_campaign_admin 가드. BEGIN/COMMIT 트랜잭션 래퍼.
+- `dev/lib/storage.js` — `mergeBrands(sourceId, targetId)` RPC 래퍼.
+- `dev/js/admin-brand.js` — 상세 모달 footer 병합 버튼(campaign_admin이면 연결 유무 무관 노출) + `openBrandMergeModal`(같은 회사 active 브랜드 대상 드롭다운 + 영향 캠페인·신청 수 + 되돌리기 불가 경고, 회사 미지정 source 차단) + `doBrandMerge`(confirm → mergeBrands → toast(이동 건수) → refreshPane).
+
+### 검증
+- reverb-supabase-expert 독립 재검증: 채번 정합·numbering_legacy_map·이동순서·보안·RAISE %·트리거 무관·sync_brand_application_stats 모두 통과. 경고: ①레거시 application_no(JFUN-...) 있으면 22023 롤백 → **운영/개발 적용 전 사전점검 SQL 필수** ②company_id null 가드(반영 완료) ③source 카운터 잔존(무해).
+- reverb-reviewer GO. confirm() 유지(기존 패턴).
+- ⚠️ DB 함수라 개발 DB 적용 후 **실제 병합 스모크 1회 검증 필수**(메모리 feedback_db_function_smoke_test).
+
+### 사전점검 SQL (병합 전 실행)
+```sql
+SELECT count(*) FROM public.brand_applications WHERE application_no NOT SIMILAR TO 'B[0-9]{4}-A[0-9]{3}';
+-- 0 이어야 안전. 1+ 면 레거시 번호 신청 — 병합 시 22023 롤백되므로 먼저 정리.
+```
+
+### 후속
+- CLAUDE.md 브랜드 관리 섹션에 삭제·병합 한 줄 추가(운영 배포 시).
