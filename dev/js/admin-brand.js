@@ -949,6 +949,7 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
 // ══════════════════════════════════════
 var _brandsCache = [];
 var _brandCampCounts = {};  // {brand_id: 캠페인 수} — 브랜드 목록 「캠페인 수」 컬럼용
+var _brandCompanyMap = {};  // {company_id: 회사명} — 목록 회사명을 company_id 기준 표시(company_name 보조컬럼 미동기화 대비)
 var _brandsCurrentId = null;
 var brandsLazy;
 var BRANDS_PAGE_SIZE = 50;
@@ -958,6 +959,10 @@ async function loadBrandsPane() {
   if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
   _brandCampCounts = (typeof fetchCampaignCountsByBrand === 'function') ? await fetchCampaignCountsByBrand() : {};
+  // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
+  var _companies = (typeof fetchCompanies === 'function') ? (await fetchCompanies({ status: 'all' }) || []) : [];
+  _brandCompanyMap = {};
+  _companies.forEach(function(c){ _brandCompanyMap[c.id] = c.name_ko || c.name_ja || c.name_en || ''; });
   renderBrandsList();
 }
 
@@ -969,7 +974,7 @@ function renderBrandsList() {
   var list = (_brandsCache || []).filter(function(b){
     if (statusF && b.status !== statusF) return false;
     if (q) {
-      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.company_name||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
+      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.company_name||'') + ' ' + ((b.company_id && _brandCompanyMap[b.company_id])||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
       if (hay.indexOf(q) < 0) return false;
     }
     return true;
@@ -989,7 +994,7 @@ function renderBrandsList() {
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
       : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
-      + '<td style="font-size:12px;color:var(--ink)">' + esc(b.company_name || '—') + '</td>'
+      + '<td style="font-size:12px;color:var(--ink)">' + esc((b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '—') + '</td>'
       + '<td>'
         + '<div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '—') + '</div>'
         + '<div style="font-weight:600;color:var(--ink)">' + esc(b.name || '—') + '</div>'
