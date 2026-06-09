@@ -96,4 +96,34 @@ brandLabelInflu(b)  = b.name_ja || b.name_en || b.name (한국어) || ''
 - 표기 시점: 항상 마스터 최신
 - 마스터 정정: 후보 제안 + 사람 검수
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과 — PR 1 (B안: 비정규화 + 트리거 동기화)
+
+**구현일:** 2026-06-08
+**브랜치:** feature/brand-name-i18n
+
+### 채택안: B안 (supabase-expert 권고)
+설계 검토에서 사양서 A안(brands RLS 개방)은 **brands에 사업자번호·청구이메일 등 민감 컬럼이 섞여 있어 통째 개방 불가**, 관리자/인플이 모두 `authenticated`라 컬럼 단위 권한 분리도 불가로 판명. **B안(campaigns에 다국어 비정규화 + brands UPDATE 트리거 동기화)** 채택 — 인플은 campaigns만 읽으므로 brands RLS·민감정보 노출 변화 0, 「항상 마스터 최신」은 트리거가 보장.
+
+### 마이그레이션 (개발 세션 생성 시점 확정 번호)
+- **172** `campaigns_brand_i18n_columns.sql` — `campaigns`에 `brand_ja`·`brand_en` 컬럼 추가 + brand_id 조인 백필
+- **173** `brands_sync_campaign_names.sql` — `brands` AFTER UPDATE OF name/name_ja/name_en 트리거 `sync_campaign_brand_names()`(연결 campaigns의 brand/brand_ja/brand_en 동기화, SECURITY DEFINER + search_path='')
+
+### 코드
+- `dev/lib/shared.js` — 헬퍼 2종: `brandLabelAdmin(c)`(brand>brand_en>brand_ja), `brandLabelInflu(c)`(brand_ja>brand_en>brand). 양쪽 빌드 포함.
+- `dev/lib/storage.js` — ADMIN_LIST_COLUMNS에 brand_ja/brand_en 추가(인플 fetch는 select* 라 자동).
+- 캠페인 저장/복제/편집(admin.js): `_pickedBrand`/`_campBrandsCache`에서 name_ja/name_en 추출 → brand_ja/brand_en 저장.
+- **표시 통일(헬퍼 폴백으로 회귀 없음)**: 관리자 목록(admin.js:360)·미리보기(2096)·검색(265)·엑셀(admin-excel.js 245/928/1187/safeBrand)·결과물(admin-deliverables 556/1655/1662/1676)·신청(admin-applications 372)·메시지(admin-messaging 190/263/367)·대시보드(admin-dashboard 91) = `brandLabelAdmin` / 인플 카드(campaign.js 291)·통계(56)·검색(218)·상세(application.js 93)·활동(596)·마이페이지(mypage.js 281) = `brandLabelInflu`.
+
+### 초안 대비 변경
+- A안(RLS 개방) → **B안(트리거 동기화)** 으로 변경(민감 컬럼 노출 차단). 사양서 본문 설계 A는 폐기.
+- campaigns에 `brand_ja`/`brand_en` 컬럼 추가(초안엔 없던 비정규화 — B안 선택의 결과).
+- 표시 통일 범위가 캠페인 목록을 넘어 **전 화면**으로 확장(reverb-reviewer 일관성 경고 반영).
+
+### 검증
+- reverb-supabase-expert: 마이그레이션 172/173 전체 통과(멱등성·search_path·무한루프 없음·기존 트리거 충돌 없음).
+- reverb-reviewer GO 2회(본체 + 일관성 추가분).
+- qa-tester 권장: light(인플 응모 플로우 표시 변경) — 사용자 트리거.
+
+### 남은 작업 (PR 2·3)
+- PR 2: `brands.name`에 일본어 잘못 든 행 진단(가나 정규식 SQL) → 후보 검수 → name_ja 이동.
+- PR 3: 죽은 칸 `campaigns.brand_ko` 참조 제거.

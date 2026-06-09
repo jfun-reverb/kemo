@@ -645,6 +645,19 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
   closed_recruit: 'badge-pink', closed_done: 'badge-done', expired: 'badge-expired'
 };
 
+// 브랜드명 다국어 표시 헬퍼 (2026-06-08, 사양서 docs/specs/2026-06-08-brand-name-i18n.md)
+//   캠페인 객체의 brand(한국어)/brand_ja/brand_en 비정규화 컬럼에서 화면별 우선순위로 선택.
+//   관리자: 한국어 > 영어 > 일본어 / 인플루언서: 일본어 > 영어 > 한국어 (빈칸 방지 폴백).
+//   brand 값은 brand_id 연결 캠페인의 경우 brands 마스터 동기화 복사본(트리거 173).
+function brandLabelAdmin(c) {
+  if (!c) return '';
+  return (c.brand || c.brand_en || c.brand_ja || '').trim();
+}
+function brandLabelInflu(c) {
+  if (!c) return '';
+  return (c.brand_ja || c.brand_en || c.brand || '').trim();
+}
+
 // 숫자 입력칸(type=number): 포커스 중 마우스 휠로 값이 바뀌는 기본 동작 차단 (오입력 방지).
 // 전역 1회 등록 → 관리자·인플 양쪽 빌드의 모든 숫자 입력칸에 일괄 적용. 휠은 페이지 스크롤만.
 document.addEventListener('wheel', function (e) {
