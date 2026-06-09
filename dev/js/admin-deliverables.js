@@ -1266,6 +1266,43 @@ async function runReceiptOcrAdmin(id, url) {
   }
 }
 
+// 관리자 대리등록 모달: 선택한 영수증 이미지에서 글자 인식 → 빈 칸만 채움 (기기 안 처리)
+//   읽기·로드 실패해도 등록 흐름엔 영향 없음. 값은 등록 전 반드시 눈으로 확인.
+async function runProxyReceiptOcr() {
+  const btn = $('adminProxyOcrBtn');
+  const st = $('adminProxyOcrStatus');
+  const show = m => { if (st) { st.style.display = ''; st.textContent = m; } };
+  if (typeof runReceiptOcr !== 'function') { show('글자 인식 기능을 불러오지 못했습니다.'); return; }
+  const file = $('adminProxyReceiptImage') && $('adminProxyReceiptImage').files && $('adminProxyReceiptImage').files[0];
+  if (!file) { show('먼저 영수증 이미지를 선택하세요.'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    show('읽기 준비 중… (처음에는 시간이 조금 걸립니다)');
+    const { fields } = await runReceiptOcr(file, {
+      onProgress: (stage, prog) => {
+        if (stage === 'recognize') show('읽는 중… ' + Math.round((prog || 0) * 100) + '%');
+        else show('읽는 중…');
+      }
+    });
+    let filled = 0;
+    const mark = el => { if (el) { el.style.background = '#F0FDF4'; el.style.borderColor = '#BBF7D0'; } };
+    const on = $('adminProxyOrderNo');
+    if (on && !on.value.trim() && fields.order) { on.value = fields.order; mark(on); filled++; }
+    const dt = $('adminProxyPurchaseDate');
+    if (dt && !dt.value && fields.date) { dt.value = fields.date; mark(dt); filled++; }
+    const am = $('adminProxyPurchaseAmount');
+    if (am && am.value === '' && fields.amount != null) { am.value = fields.amount; mark(am); filled++; }
+    show(filled > 0
+      ? '읽었습니다. 값이 맞는지 확인 후 등록하세요.'
+      : '잘 읽지 못했습니다. 화면 캡처(스크린샷)면 더 잘 읽힙니다. 직접 입력해주세요.');
+  } catch (e) {
+    console.warn('대리등록 영수증 OCR 실패', e);
+    show('읽지 못했습니다. 직접 입력해주세요.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 async function saveReceiptEdit(id) {
   if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다','error'); return; }
   const orderNo = (document.getElementById('receiptEditOrder-' + id)?.value || '').trim();
@@ -1576,6 +1613,12 @@ function _resetAdminProxyForm() {
   _adminProxyExistingDelivs = [];
   const exBox = $('adminProxyExistingBox');
   if (exBox) { exBox.style.display = 'none'; exBox.innerHTML = ''; }
+  // 영수증 OCR 안내 + 자동채움 하이라이트 초기화
+  const ocrSt = $('adminProxyOcrStatus');
+  if (ocrSt) { ocrSt.style.display = 'none'; ocrSt.textContent = ''; }
+  ['adminProxyOrderNo','adminProxyPurchaseDate','adminProxyPurchaseAmount'].forEach(id => {
+    const el = $(id); if (el) { el.style.background = ''; el.style.borderColor = ''; }
+  });
 }
 
 // 마이그레이션 163: 증빙 파일 목록 (File 객체 배열, 최대 5장)
