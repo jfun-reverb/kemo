@@ -553,7 +553,7 @@ function renderDelivAppRow(g) {
 
   return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
     <td>${rtBadge}</td>
-    <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+    <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div></td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
@@ -1652,14 +1652,14 @@ function _renderAdminProxyCampList(query) {
   const q = (query || '').trim().toLowerCase();
   const filtered = Array.from(campMap.values()).filter(c => {
     if (!q) return true;
-    return matchSearchTokens(q, [c.title, c.brand, c.campaign_no]);
+    return matchSearchTokens(q, [c.title, c.brand, c.brand_ja, c.brand_en, c.campaign_no]);
   });
   if (!filtered.length) {
     list.innerHTML = '<div class="empty">일치하는 캠페인 없음</div>';
     return;
   }
   list.innerHTML = filtered.slice(0, 100).map(c => {
-    const meta = `${c.brand || ''} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
+    const meta = `${brandLabelAdmin(c)} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
     return `<div class="item" onmousedown="selectAdminProxyCamp('${esc(c.id)}')">
       <div>${esc(c.title || '제목 없음')}</div>
       <div class="item-meta">${esc(meta)}</div>
@@ -1673,7 +1673,7 @@ function selectAdminProxyCamp(campId, silent) {
   const camp = app.campaigns;
   const hid = $('adminProxyCampId'); if (hid) hid.value = campId;
   const inp = $('adminProxyCampInput');
-  if (inp) inp.value = `${camp.title || ''} (${camp.brand || ''})`;
+  if (inp) inp.value = `${camp.title || ''} (${brandLabelAdmin(camp)})`;
   const list = $('adminProxyCampList'); if (list) list.classList.remove('open');
   // 인플 input 활성화 + 검색 리스트 미리 렌더
   const infInput = $('adminProxyInfInput');

@@ -187,7 +187,7 @@ function renderInboxCampaignList() {
     const typeBadge = (c && typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(c.recruit_type) : '';
     const statusBadge = c ? inboxCampStatusBadge(c.status) : '';
     // 브랜드 · 모집인원
-    const brand = c ? esc(c.brand_ko || c.brand || '') : '';
+    const brand = c ? esc(brandLabelAdmin(c)) : '';
     const slots = (c && c.slots) ? `모집 ${c.slots}명` : '';
     const sub = [brand, slots].filter(Boolean).join(' · ');
     return `<button type="button" class="inbox-camp-item ${active}" onclick="selectInboxCampaign('${esc(g.campaign_id)}')">
@@ -260,7 +260,7 @@ function renderInboxThreadList() {
     if (sentMode) {
       const c = inboxCampaignById(t.campaign_id);
       const ct = c ? (c.title || '(제목 없음)') : '(캠페인)';
-      const cb = c ? (c.brand_ko || c.brand || '') : '';
+      const cb = c ? brandLabelAdmin(c) : '';
       campLabel = `<span class="inbox-thread-camp">${esc(ct)}${cb ? ` · ${esc(cb)}` : ''}</span>`;
       timeVal = _inboxSentAtMap.get(t.application_id) || t.last_message_at;
     }
@@ -364,7 +364,7 @@ function filteredInboxThreads() {
     list = list.filter(t => {
       const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
       const camp = inboxCampaignById(t.campaign_id);
-      const bag = [inf.name, inf.name_kana, inf.email, camp && camp.title, camp && (camp.brand_ko || camp.brand)]
+      const bag = [inf.name, inf.name_kana, inf.email, camp && camp.title, camp && (camp.brand_ko || camp.brand), camp && camp.brand_ja, camp && camp.brand_en]
         .filter(Boolean).join(' ').toLowerCase();
       return bag.includes(_inboxSearch);
     });

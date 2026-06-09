@@ -242,7 +242,7 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     ws.addRow({
       no:       c.campaign_no || '',
       title:    c.title || '',
-      brand:    c.brand_ko || c.brand || '',
+      brand:    brandLabelAdmin(c) || '',
       product:  c.product_ko || c.product || '',
       rtype:    rtypeLabel(c.recruit_type),
       status:   statusKo(c.status),
@@ -925,7 +925,7 @@ async function exportCampaignDeliverables(campId) {
 
     ws.mergeCells('A2:V2');
     var m = ws.getCell('A2');
-    m.value = '브랜드: ' + (camp.brand || '—')
+    m.value = '브랜드: ' + (brandLabelAdmin(camp) || '—')
       + '  ·  신청 건수: ' + groupList.length + '건'
       + '  ·  결과물 합계: ' + delivs.length + '건'
       + '  ·  생성일: ' + new Date().toLocaleString('ko-KR');
@@ -1070,7 +1070,7 @@ async function exportCampaignDeliverables(campId) {
     // 7) 파일 저장
     var buffer = await wb.xlsx.writeBuffer();
     var blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
+    var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
     var today = new Date().toISOString().slice(0, 10);
     var fname = (camp.campaign_no || camp.id.slice(0,8)) + '_' + safeBrand + '_결과물_' + today + '.xlsx';
 
@@ -1184,7 +1184,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   // row 2: 메타 정보 머지
   ws.mergeCells('A2:' + lastColLetter + '2');
   var m = ws.getCell('A2');
-  m.value = '브랜드: ' + (camp.brand || '—')
+  m.value = '브랜드: ' + (brandLabelAdmin(camp) || '—')
     + '  ·  신청 건수: ' + groupList.length + '건'
     + '  ·  결과물 합계: ' + delivs.length + '건'
     + '  ·  채널: ' + campChannels.map(chLabelOf).join(', ')
@@ -1314,7 +1314,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   if (skipDownload) return ws;
   var buffer = await wb.xlsx.writeBuffer();
   var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
+  var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
   var today = new Date().toISOString().slice(0, 10);
   var fname = (camp.campaign_no || camp.id.slice(0,8)) + '_' + safeBrand + '_결과물_' + today + '.xlsx';
   var link = document.createElement('a');

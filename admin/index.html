@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1780898864';
+  var CURRENT_BUILD = 'v1780918439';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2002,7 +2002,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-08 15:07 · b1fde71</span>
+          <span class="admin-build-text">2026-06-08 20:33 · 8483314</span>
         </div>
       </div>
     </aside>
@@ -5782,6 +5782,19 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
   closed_recruit: 'badge-pink', closed_done: 'badge-done', expired: 'badge-expired'
 };
 
+// 브랜드명 다국어 표시 헬퍼 (2026-06-08, 사양서 docs/specs/2026-06-08-brand-name-i18n.md)
+//   캠페인 객체의 brand(한국어)/brand_ja/brand_en 비정규화 컬럼에서 화면별 우선순위로 선택.
+//   관리자: 한국어 > 영어 > 일본어 / 인플루언서: 일본어 > 영어 > 한국어 (빈칸 방지 폴백).
+//   brand 값은 brand_id 연결 캠페인의 경우 brands 마스터 동기화 복사본(트리거 173).
+function brandLabelAdmin(c) {
+  if (!c) return '';
+  return (c.brand || c.brand_en || c.brand_ja || '').trim();
+}
+function brandLabelInflu(c) {
+  if (!c) return '';
+  return (c.brand_ja || c.brand_en || c.brand || '').trim();
+}
+
 // 숫자 입력칸(type=number): 포커스 중 마우스 휠로 값이 바뀌는 기본 동작 차단 (오입력 방지).
 // 전역 1회 등록 → 관리자·인플 양쪽 빌드의 모든 숫자 입력칸에 일괄 적용. 휠은 페이지 스크롤만.
 document.addEventListener('wheel', function (e) {
@@ -5853,7 +5866,7 @@ async function fetchCampaigns() {
 // ※ autoOpenCampaigns / autoCloseCampaigns 는 status / recruit_start / deadline 만 참조하므로
 //    목록 전용 컬럼셋에서도 문제없이 실행된다. 목록 진입 시 자동 전환을 유지하기 위해 여기서도 호출.
 const ADMIN_LIST_COLUMNS = [
-  'id', 'title', 'brand', 'brand_ko', 'product', 'product_ko',
+  'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
   'recruit_type', 'channel', 'status',
   'slots', 'view_count',
@@ -15360,7 +15373,7 @@ function renderInboxCampaignList() {
     const typeBadge = (c && typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(c.recruit_type) : '';
     const statusBadge = c ? inboxCampStatusBadge(c.status) : '';
     // 브랜드 · 모집인원
-    const brand = c ? esc(c.brand_ko || c.brand || '') : '';
+    const brand = c ? esc(brandLabelAdmin(c)) : '';
     const slots = (c && c.slots) ? `모집 ${c.slots}명` : '';
     const sub = [brand, slots].filter(Boolean).join(' · ');
     return `<button type="button" class="inbox-camp-item ${active}" onclick="selectInboxCampaign('${esc(g.campaign_id)}')">
@@ -15433,7 +15446,7 @@ function renderInboxThreadList() {
     if (sentMode) {
       const c = inboxCampaignById(t.campaign_id);
       const ct = c ? (c.title || '(제목 없음)') : '(캠페인)';
-      const cb = c ? (c.brand_ko || c.brand || '') : '';
+      const cb = c ? brandLabelAdmin(c) : '';
       campLabel = `<span class="inbox-thread-camp">${esc(ct)}${cb ? ` · ${esc(cb)}` : ''}</span>`;
       timeVal = _inboxSentAtMap.get(t.application_id) || t.last_message_at;
     }
@@ -15537,7 +15550,7 @@ function filteredInboxThreads() {
     list = list.filter(t => {
       const inf = (_inboxInflMap && _inboxInflMap[t.influencer_id]) || {};
       const camp = inboxCampaignById(t.campaign_id);
-      const bag = [inf.name, inf.name_kana, inf.email, camp && camp.title, camp && (camp.brand_ko || camp.brand)]
+      const bag = [inf.name, inf.name_kana, inf.email, camp && camp.title, camp && (camp.brand_ko || camp.brand), camp && camp.brand_ja, camp && camp.brand_en]
         .filter(Boolean).join(' ').toLowerCase();
       return bag.includes(_inboxSearch);
     });
@@ -18835,7 +18848,7 @@ function renderDelivAppRow(g) {
 
   return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
     <td>${rtBadge}</td>
-    <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(camp.brand || '')}</div></td>
+    <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div></td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
@@ -19934,14 +19947,14 @@ function _renderAdminProxyCampList(query) {
   const q = (query || '').trim().toLowerCase();
   const filtered = Array.from(campMap.values()).filter(c => {
     if (!q) return true;
-    return matchSearchTokens(q, [c.title, c.brand, c.campaign_no]);
+    return matchSearchTokens(q, [c.title, c.brand, c.brand_ja, c.brand_en, c.campaign_no]);
   });
   if (!filtered.length) {
     list.innerHTML = '<div class="empty">일치하는 캠페인 없음</div>';
     return;
   }
   list.innerHTML = filtered.slice(0, 100).map(c => {
-    const meta = `${c.brand || ''} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
+    const meta = `${brandLabelAdmin(c)} · ${c.campaign_no || '—'} · ${c.recruit_type || ''}`;
     return `<div class="item" onmousedown="selectAdminProxyCamp('${esc(c.id)}')">
       <div>${esc(c.title || '제목 없음')}</div>
       <div class="item-meta">${esc(meta)}</div>
@@ -19955,7 +19968,7 @@ function selectAdminProxyCamp(campId, silent) {
   const camp = app.campaigns;
   const hid = $('adminProxyCampId'); if (hid) hid.value = campId;
   const inp = $('adminProxyCampInput');
-  if (inp) inp.value = `${camp.title || ''} (${camp.brand || ''})`;
+  if (inp) inp.value = `${camp.title || ''} (${brandLabelAdmin(camp)})`;
   const list = $('adminProxyCampList'); if (list) list.classList.remove('open');
   // 인플 input 활성화 + 검색 리스트 미리 렌더
   const infInput = $('adminProxyInfInput');
@@ -20566,7 +20579,7 @@ function _buildCampaignSummarySheet(wb, campaigns, appsByCampId) {
     ws.addRow({
       no:       c.campaign_no || '',
       title:    c.title || '',
-      brand:    c.brand_ko || c.brand || '',
+      brand:    brandLabelAdmin(c) || '',
       product:  c.product_ko || c.product || '',
       rtype:    rtypeLabel(c.recruit_type),
       status:   statusKo(c.status),
@@ -21249,7 +21262,7 @@ async function exportCampaignDeliverables(campId) {
 
     ws.mergeCells('A2:V2');
     var m = ws.getCell('A2');
-    m.value = '브랜드: ' + (camp.brand || '—')
+    m.value = '브랜드: ' + (brandLabelAdmin(camp) || '—')
       + '  ·  신청 건수: ' + groupList.length + '건'
       + '  ·  결과물 합계: ' + delivs.length + '건'
       + '  ·  생성일: ' + new Date().toLocaleString('ko-KR');
@@ -21394,7 +21407,7 @@ async function exportCampaignDeliverables(campId) {
     // 7) 파일 저장
     var buffer = await wb.xlsx.writeBuffer();
     var blob = new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
+    var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
     var today = new Date().toISOString().slice(0, 10);
     var fname = (camp.campaign_no || camp.id.slice(0,8)) + '_' + safeBrand + '_결과물_' + today + '.xlsx';
 
@@ -21508,7 +21521,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   // row 2: 메타 정보 머지
   ws.mergeCells('A2:' + lastColLetter + '2');
   var m = ws.getCell('A2');
-  m.value = '브랜드: ' + (camp.brand || '—')
+  m.value = '브랜드: ' + (brandLabelAdmin(camp) || '—')
     + '  ·  신청 건수: ' + groupList.length + '건'
     + '  ·  결과물 합계: ' + delivs.length + '건'
     + '  ·  채널: ' + campChannels.map(chLabelOf).join(', ')
@@ -21638,7 +21651,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
   if (skipDownload) return ws;
   var buffer = await wb.xlsx.writeBuffer();
   var blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  var safeBrand = (camp.brand || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
+  var safeBrand = (brandLabelAdmin(camp) || 'brand').replace(/[\/\\?%*:|"<>]/g, '_');
   var today = new Date().toISOString().slice(0, 10);
   var fname = (camp.campaign_no || camp.id.slice(0,8)) + '_' + safeBrand + '_결과물_' + today + '.xlsx';
   var link = document.createElement('a');
@@ -22032,7 +22045,7 @@ function renderRecentAppsTable(apps, camps, users) {
           <div style="min-width:0">
             <div>${typeLabel}</div>
             <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
-            <div style="font-size:11px;color:var(--muted)">${esc(camp.brand)||''}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div>
             ${camp.slots?`<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_dRem>0?'var(--green)':'var(--red)'};font-weight:600">${_dRem>0?_dRem+'건':'없음'}</span></div>`:''}
           </div>
         </div>
@@ -22711,8 +22724,8 @@ async function renderAppCampList() {
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    const brandPrimary = camp.brand_ko || camp.brand || '';
-    const brandSub     = (camp.brand_ko && camp.brand && camp.brand_ko !== camp.brand) ? camp.brand : '';
+    const brandPrimary = brandLabelAdmin(camp);
+    const brandSub     = '';
     const productPrimary = camp.product_ko || camp.product || '';
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     return `<tr data-id="${esc(a.id)}">
@@ -24824,7 +24837,7 @@ async function loadAdminCampaigns(useCache) {
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
   if (searchVal) {
     camps = camps.filter(c => matchSearchTokens(searchVal,
-      [c.title, c.brand, c.brand_ko, c.product, c.product_ko, c.campaign_no]));
+      [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
   }
 
   updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
@@ -24919,8 +24932,8 @@ async function loadAdminCampaigns(useCache) {
         </div>
       </td>
       ${(()=>{
-        const bp = c.brand_ko || c.brand || '';
-        const bs = (c.brand_ko && c.brand && c.brand_ko !== c.brand) ? c.brand : '';
+        const bp = brandLabelAdmin(c);
+        const bs = '';
         const pp = c.product_ko || c.product || '';
         const ps = (c.product_ko && c.product && c.product_ko !== c.product) ? c.product : '';
         return `<td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
@@ -26260,6 +26273,10 @@ async function saveCampaignEdit() {
     if (!title || !brandId) { toast('캠페인명과 브랜드는 필수입니다','error'); return; }
     const sourceAppId = $('editCampSourceAppId')?.value || null;
     const brand = gv('editCampBrand').trim();
+    // 브랜드명 일본어/영문 — 마스터(brands)에서 복사. brand_id 연결 캠페인은 173 트리거가 이후 동기화.
+    const _editBrand = (_campBrandsCache || []).find(b => b.id === brandId);
+    const brandJa = (_editBrand?.name_ja || '').trim();
+    const brandEn = (_editBrand?.name_en || '').trim();
 
     const editDeadline = gv('editCampDeadline');
     const editDateErrs = validateCampDateRanges('editCamp');
@@ -26291,6 +26308,8 @@ async function saveCampaignEdit() {
       brand_id: brandId,
       source_application_id: sourceAppId || null,
       brand_ko: gv('editCampBrandKo')?.trim() || null,
+      brand_ja: brandJa || null,
+      brand_en: brandEn || null,
       product: gv('editCampProduct'),
       product_ko: gv('editCampProductKo')?.trim() || null,
       product_url: cleanUrl(gv('editCampProductUrl')),
@@ -26429,6 +26448,7 @@ async function duplicateCampaign(campId) {
     const copy = {
       title: '[복사] ' + src.title,
       brand: src.brand, brand_ko: src.brand_ko || null,
+      brand_ja: src.brand_ja || null, brand_en: src.brand_en || null,
       product: src.product, product_ko: src.product_ko || null,
       product_url: src.product_url,
       type: src.type, channel: src.channel, channel_match: src.channel_match || 'or', min_followers: src.min_followers||0, category: src.category,
@@ -26648,7 +26668,7 @@ function renderCampPreview(mode) {
           ${slideUrls.length>1?`<div class="cp-hero-count">1/${slideUrls.length}</div>`:''}
         </div>
         <div class="cp-head">
-          ${camp.brand?`<div class="cp-brand">${esc(camp.brand)}</div>`:''}
+          ${(()=>{const bl=brandLabelInflu(camp);return bl?`<div class="cp-brand">${esc(bl)}</div>`:'';})()}
           ${rtLabel?`<div class="cp-rt">${esc(rtLabel)}</div>`:''}
           <div class="cp-title">${esc(camp.title||'(캠페인명)')}</div>
           ${camp.product_price>0?`<div class="cp-price-box"><span class="cp-price-amount">¥${camp.product_price.toLocaleString()}</span><span class="cp-price-label">${rewardLabelJa}</span></div>`:''}
@@ -26980,6 +27000,9 @@ async function addCampaign() {
   const _pickedBrand = (_campBrandsCache || []).find(b => b.id === brandId);
   const brand = (_pickedBrand?.name || $('newCampBrand').value || '').trim();
   const brandKo = ($('newCampBrandKo')?.value || '').trim();
+  // 브랜드명 일본어/영문 — 마스터(brands)에서 복사. brand_id 연결 캠페인은 173 트리거가 이후 동기화.
+  const brandJa = (_pickedBrand?.name_ja || '').trim();
+  const brandEn = (_pickedBrand?.name_en || '').trim();
   const product = $('newCampProduct').value.trim();
   const productKo = ($('newCampProductKo')?.value || '').trim();
   const productUrl = cleanUrl($('newCampProductUrl')?.value)||'';
@@ -27010,6 +27033,8 @@ async function addCampaign() {
     brand_id: brandId,
     source_application_id: sourceAppId || null,
     brand_ko: brandKo || null,
+    brand_ja: brandJa || null,
+    brand_en: brandEn || null,
     product_ko: productKo || null,
     type: ch.split(',').includes('qoo10')?'qoo10':'nano', channel:ch, channel_match: document.querySelector('input[name="newChannelMatch"]:checked')?.value || 'or', primary_channel: (recruitType==='monitor') ? null : ($('newCampPrimaryChannel')?.value || null), min_followers: (recruitType==='monitor') ? 0 : (parseInt($('newCampMinFollowers')?.value)||0), category:cat,
     recruit_type: recruitType,

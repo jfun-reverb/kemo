@@ -53,7 +53,7 @@ function updateStats(camps) {
   const visible = visibleCamps(camps);
   $('statCampaigns').textContent = visible.length;
   $('campCount').textContent = visible.length;
-  $('statBrands').textContent = [...new Set(camps.map(c=>c.brand))].length;
+  $('statBrands').textContent = [...new Set(camps.map(c=>brandLabelInflu(c)))].length;
   buildChannelFilters(visible);
 }
 
@@ -215,7 +215,7 @@ function renderCampaignGrid() {
   if (campPageStatusFilter !== 'all') camps = camps.filter(c => c.status === campPageStatusFilter);
   if (campPageSearch) {
     camps = camps.filter(c => {
-      const haystack = ((c.title||'') + ' ' + (c.brand||'') + ' ' + (c.brand_ko||'') + ' ' + (c.product||'') + ' ' + (c.product_ko||'') + ' ' + (c.campaign_no||'')).toLowerCase();
+      const haystack = ((c.title||'') + ' ' + (c.brand||'') + ' ' + (c.brand_ko||'') + ' ' + (c.brand_ja||'') + ' ' + (c.brand_en||'') + ' ' + (c.product||'') + ' ' + (c.product_ko||'') + ' ' + (c.campaign_no||'')).toLowerCase();
       return haystack.includes(campPageSearch);
     });
   }
@@ -288,7 +288,7 @@ function buildCampCards(camps) {
         <div class="camp-ch-badge" style="z-index:3;top:auto;bottom:8px;right:auto;left:8px">${esc(getChannelLabel((c.channel||'').split(',')[0].trim()))}${(c.channel||'').split(',').filter(Boolean).length>1?` <span style="opacity:.7">+${(c.channel||'').split(',').filter(Boolean).length-1}</span>`:''}</div>
       </div>
       <div class="camp-body">
-        <div class="camp-brand">${esc(c.brand)}</div>
+        <div class="camp-brand">${esc(brandLabelInflu(c))}</div>
         ${typeLabel ? `<div style="font-size:10px;font-weight:700;color:var(--pink);margin:2px 0">${esc(typeLabel)}</div>` : ''}
         <div class="camp-title">${esc(c.title)}</div>
         ${c.content_types ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${c.content_types.split(',').map(t=>`<span style="font-size:10px;background:var(--light-pink);color:var(--dark-pink);padding:2px 8px;border-radius:20px;font-weight:600">${esc(getLookupLabel('content_type', t.trim()))}</span>`).join('')}</div>` : ''}

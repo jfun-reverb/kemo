@@ -369,8 +369,8 @@ async function renderAppCampList() {
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    const brandPrimary = camp.brand_ko || camp.brand || '';
-    const brandSub     = (camp.brand_ko && camp.brand && camp.brand_ko !== camp.brand) ? camp.brand : '';
+    const brandPrimary = brandLabelAdmin(camp);
+    const brandSub     = '';
     const productPrimary = camp.product_ko || camp.product || '';
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     return `<tr data-id="${esc(a.id)}">
