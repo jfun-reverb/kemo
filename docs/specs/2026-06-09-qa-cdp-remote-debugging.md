@@ -101,10 +101,14 @@ macOS 기준, **평소 크롬과 분리된 전용 프로필**로 띄움:
 **구현일:** 2026-06-09 (개발 세션 — `.mcp.json` 변경·검증 부분)
 **관련 커밋:** (dev 커밋 — `chore(mcp): connect playwright via cdp-endpoint to dedicated qa chrome`)
 
-### 초안 대비 변경 사항
-- **추가된 것:** 없음. 설계 §1 그대로 `.mcp.json` 한 줄 변경.
-  - 변경 전: `["-y", "@playwright/mcp@latest", "--extension"]`
-  - 변경 후: `["-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://localhost:9222"]`
+### ⚠️ 초안 전제 오류 정정 (가장 중요 — 2026-06-09 검증 중 발견)
+- **인계 문서가 가리킨 파일이 틀렸음.** 설계 §1·영향파일은 "프로젝트 레포 `.mcp.json` 의 playwright 를 바꾸면 reverb-qa-tester 에 적용된다"고 전제했으나, **reverb-qa-tester 는 프로젝트 `.mcp.json` 이 아니라 클로드 ecc 플러그인의 playwright(`mcp__plugin_ecc_playwright__*`)를 쓴다.**
+  - 증거: 에이전트 정의 `tools:` 가 `mcp__plugin_ecc_playwright__browser_*` 고정 / `ToolSearch select:mcp__playwright__browser_navigate` → "없음"(프로젝트 `.mcp.json` 의 playwright 서버는 도구로 노출조차 안 됨) / qa-tester light 실행 시 내장 플러그인 사용·CDP 미반영 보고.
+- **실제 변경 대상 = ecc 플러그인 `.mcp.json` 2곳** (git 비추적, `~/.claude/` 하위):
+  - `~/.claude/plugins/marketplaces/ecc/.mcp.json`
+  - `~/.claude/plugins/cache/ecc/ecc/1.10.0/.mcp.json`
+  - 둘 다 `@playwright/mcp@0.0.69 --extension` → `--cdp-endpoint http://localhost:9222` 로 변경(0.0.69 도 `--help` 에 `--cdp-endpoint` 존재 확인).
+- **프로젝트 레포 `.mcp.json` 변경은 원복**(효과 없음 — `--extension` 으로 되돌림).
 - **빠진 것(개발 세션 범위 밖, 고문 세션 인계):** 거버넌스 규칙·에이전트·메모리 갱신(설계 §3) — `reverb-qa-tester.md`「실행 전 필수」/`multi-session.md`/`interaction.md`/`git.md`/`session-checklist.js`/`서비스점검.md`/`feedback_playwright_single_resource.md`. 이 파일들은 거버넌스 문서라 고문/기획 세션이 직접 수정(session-roles.md 경계).
 - **달라진 것:** 포트는 9222 그대로 확정. 사용자 크롤링과 충돌 우려(§95)는 **실측으로 해소** — 9222 점유 크롬이 크롤링용이 아니라 인계 문서가 지정한 전용 프로필(`--user-data-dir=$HOME/.chrome-reverb-qa`)이었음.
 
@@ -112,5 +116,7 @@ macOS 기준, **평소 크롬과 분리된 전용 프로필**로 띄움:
 - **9222 사전 점유 검증:** 변경 전 `lsof -i :9222` + `ps` 로 점유 프로세스 확인 → 전용 프로필 크롬(`.chrome-reverb-qa`)이 dev.globalreverb.com 로그인 상태로 떠 있음을 확인하고 진행(의심 4 보안 분리 충족).
 - **CDP 엔드포인트 응답 검증:** `curl http://localhost:9222/json/version` → Chrome/149, `webSocketDebuggerUrl` 존재 확인. `curl .../json` → 열린 탭이 `dev.globalreverb.com/#home`(로그인 상태)임 확인.
 - **JSON 유효성:** `python3 json.load` 로 `.mcp.json` 파싱 정상 확인.
-- **남은 검증(세션 재시작 필요):** `.mcp.json` 변경은 현재 세션의 이미 로드된 MCP 서버에 즉시 반영되지 않음 → **Claude Code 세션 재시작 후** `reverb-qa-tester` light 1회 실행으로 실제 연결·동작·로그인 유지·평소 크롬 무영향을 최종 확인해야 함(설계 §82). 이 세션에서는 CDP 응답까지만 검증.
-- **`.mcp.json` 은 git 추적 파일** → dev 커밋 대상. reverb 앱 코드·빌드 산출물이 아니라 MCP 서버 기동 설정이라 reverb-reviewer 정적검증 스코프 밖(JSON 유효성·CDP 응답으로 대체 검증).
+- **ecc 플러그인 파일은 git 비추적**(`~/.claude/` = 레포 밖, 사용자 로컬 환경 전용). 커밋 대상 아님. 프로젝트 `.mcp.json` 원복만 dev 커밋.
+- **전역 영향:** ecc playwright 변경은 REVERB뿐 아니라 **모든 프로젝트의 qa-tester**에 적용됨(사용자 단일 사용자라 전용 크롬 공유로 일관성은 오히려 양호).
+- **휘발성(중요):** ecc 플러그인 업데이트/재설치 시 `marketplaces/ecc/.mcp.json` 이 git pull 로 `--extension` 으로 **덮어쓰여짐** → 그때 본 변경 재적용 필요. 메모리에 재적용 절차 기록.
+- **남은 검증(세션 재시작 필요):** ecc 플러그인 `.mcp.json` 변경도 현재 세션의 이미 로드된 MCP 서버에 즉시 반영 안 됨 → **Claude Code 세션 재시작 후** `reverb-qa-tester` light 1회로 실제 연결·로그인 유지·평소 크롬 무영향 최종 확인. 이 세션에서는 ① 0.0.69 `--cdp-endpoint` 지원 ② CDP `:9222` 응답(Chrome149·dev 로그인 탭)까지만 검증.
