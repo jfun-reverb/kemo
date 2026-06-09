@@ -196,6 +196,7 @@ window.I18N_KO = {
     pending: '심사중',
     approved: '당첨',
     rejected: '낙첨',
+    recruitEnded: '모집종료',
     cancelled: '취소',
     cancelledBadge: '취소됨',
     cancelMenu: '응모 취소',

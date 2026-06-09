@@ -266,7 +266,7 @@ async function renderMyApplyList() {
       delivItemsHtml = items.join('');
     }
     // 응모 상태 배지(당첨/심사중 등) + 결과물 상태 배지를 카드 본문 맨 아래 가로 한 줄로 모음
-    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status)}${delivItemsHtml}</div>`;
+    const badgeRow = `<div class="apply-item-badges" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${getStatusBadge(a.status, a.auto_reject_reason)}${delivItemsHtml}</div>`;
     const cautionLine = a.caution_agreed_at
       ? `<div class="apply-item-caution" style="font-size:11px;color:var(--green);margin-top:2px;display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">check_circle</span>${t('appHistory.cautionAgreed')} ${formatDate(a.caution_agreed_at)}${cautionCompareButton(a, camp)}</div>`
       : '';

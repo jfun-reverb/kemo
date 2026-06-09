@@ -203,6 +203,7 @@ window.I18N_JA = {
     pending: '審査中',
     approved: '当選',
     rejected: '落選',
+    recruitEnded: '募集終了',
     cancelled: '取消',
     cancelledBadge: '取消済',
     cancelMenu: '取消',
