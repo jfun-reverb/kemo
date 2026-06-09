@@ -6092,6 +6092,62 @@ async function deleteCompanyHard(companyId) {
   } catch(e) { console.error('[deleteCompanyHard]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
 }
 
+// 브랜드 hard delete (연결 0건 한정). delete_brand RPC 경유 — brands 는 DELETE RLS 없어 직접 delete 불가.
+async function deleteBrand(brandId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db?.rpc('delete_brand', {p_brand_id: brandId});
+      if (error) throw error;
+      return data;
+    });
+    return {ok:true, data};
+  } catch(e) { console.error('[deleteBrand]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
+}
+
+// 브랜드 병합 — source 신청·캠페인을 target 으로 이동 + 채번 재발급, 원본 archived. merge_brands RPC.
+async function mergeBrands(sourceId, targetId) {
+  if (!db) return {ok:false, error:'no_db'};
+  try {
+    const data = await retryWithRefresh(async () => {
+      const {data, error} = await db?.rpc('merge_brands', {p_source: sourceId, p_target: targetId});
+      if (error) throw error;
+      return data;
+    });
+    return {ok:true, data};
+  } catch(e) { console.error('[mergeBrands]', e); return {ok:false, error: e?.message || 'unknown', code: e?.code}; }
+}
+
+// 브랜드별 캠페인 수 일괄 집계 — 브랜드 목록 「캠페인 수」 컬럼용. {brand_id: count} 반환.
+// 1000행 캡 대응 range loop (대시보드 집계 패턴).
+async function fetchCampaignCountsByBrand() {
+  if (!db) return {};
+  try {
+    var counts = {};
+    var from = 0, size = 1000;
+    while (true) {
+      const {data, error} = await db?.from('campaigns').select('brand_id')
+        .not('brand_id', 'is', null).range(from, from + size - 1);
+      if (error) throw error;
+      (data || []).forEach(function(r){ if (r.brand_id) counts[r.brand_id] = (counts[r.brand_id] || 0) + 1; });
+      if (!data || data.length < size) break;
+      from += size;
+    }
+    return counts;
+  } catch(e) { console.error('[fetchCampaignCountsByBrand]', e); return {}; }
+}
+
+// 브랜드 연결 캠페인 수 — 삭제 버튼 사전 노출 판정용(신청 brand_applications 은 별도 조회).
+// 실제 삭제 차단은 delete_brand RPC 가 캠페인+신청 양쪽을 재검증하므로, 이 값이 틀려도 데이터 안전.
+async function countCampaignsByBrand(brandId) {
+  if (!db) return 0;
+  try {
+    const {count, error} = await db?.from('campaigns').select('id', {count:'exact', head:true}).eq('brand_id', brandId);
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.error('[countCampaignsByBrand]', e); return 0; }
+}
+
 // 브랜드 할당 모달용 조회
 // unassignedOnly=true → company_id IS NULL 인 미분류 브랜드만
 // companyId 지정 시 → 현재 소속(= companyId) + 미분류 양쪽 모두 반환

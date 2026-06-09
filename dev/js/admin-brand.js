@@ -948,14 +948,21 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
 // BRANDS MASTER (브랜드 관리 페인 — migration 082/083)
 // ══════════════════════════════════════
 var _brandsCache = [];
+var _brandCampCounts = {};  // {brand_id: 캠페인 수} — 브랜드 목록 「캠페인 수」 컬럼용
+var _brandCompanyMap = {};  // {company_id: 회사명} — 목록 회사명을 company_id 기준 표시(company_name 보조컬럼 미동기화 대비)
 var _brandsCurrentId = null;
 var brandsLazy;
 var BRANDS_PAGE_SIZE = 50;
 
 async function loadBrandsPane() {
   var tbody = $('brandsTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   _brandsCache = await fetchBrands();
+  _brandCampCounts = (typeof fetchCampaignCountsByBrand === 'function') ? await fetchCampaignCountsByBrand() : {};
+  // 회사명 맵 — company_id 기준 표시(brands.company_name 보조컬럼이 미동기화일 수 있어 마스터 우선)
+  var _companies = (typeof fetchCompanies === 'function') ? (await fetchCompanies({ status: 'all' }) || []) : [];
+  _brandCompanyMap = {};
+  _companies.forEach(function(c){ _brandCompanyMap[c.id] = c.name_ko || c.name_ja || c.name_en || ''; });
   renderBrandsList();
 }
 
@@ -967,7 +974,7 @@ function renderBrandsList() {
   var list = (_brandsCache || []).filter(function(b){
     if (statusF && b.status !== statusF) return false;
     if (q) {
-      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.company_name||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
+      var hay = ((b.name||'') + ' ' + (b.name_ja||'') + ' ' + (b.name_en||'') + ' ' + (b.company_name||'') + ' ' + ((b.company_id && _brandCompanyMap[b.company_id])||'') + ' ' + (b.brand_no||'') + ' ' + (b.primary_email||'') + ' ' + (b.billing_email||'')).toLowerCase();
       if (hay.indexOf(q) < 0) return false;
     }
     return true;
@@ -975,7 +982,7 @@ function renderBrandsList() {
   var count = $('brandsTotalCount');
   if (count) count.textContent = '(' + list.length + ' / 전체 ' + (_brandsCache||[]).length + ')';
   if (list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>';
     return;
   }
   var renderRow = function(b) {
@@ -987,7 +994,7 @@ function renderBrandsList() {
       ? '<span style="background:#F0F0F0;color:#888;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">비활성</span>'
       : '<span style="background:#E8F5E9;color:#16a34a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">활성</span>';
     return '<tr data-id="' + esc(b.id) + '" style="cursor:pointer" onclick="openBrandDetailModal(\'' + esc(b.id) + '\')">'
-      + '<td style="font-size:12px;color:var(--ink)">' + esc(b.company_name || '—') + '</td>'
+      + '<td style="font-size:12px;color:var(--ink)">' + esc((b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '—') + '</td>'
       + '<td>'
         + '<div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums">' + esc(b.brand_no || '—') + '</div>'
         + '<div style="font-weight:600;color:var(--ink)">' + esc(b.name || '—') + '</div>'
@@ -996,6 +1003,7 @@ function renderBrandsList() {
       + '<td>' + esc(b.primary_contact_name || '—') + (b.primary_phone ? '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + esc(formatPhoneDisplay(b.primary_phone)) + '</div>' : '') + '</td>'
       + '<td style="font-size:12px;word-break:break-all">' + esc(b.primary_email || '—') + '</td>'
       + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + (b.total_applications || 0) + '</td>'
+      + '<td style="text-align:center;font-variant-numeric:tabular-nums;font-weight:600">' + ((_brandCampCounts && _brandCampCounts[b.id]) || 0) + '</td>'
       + '<td style="font-size:11px;color:var(--muted)">' + (b.last_applied_at ? fmtDate(b.last_applied_at) : '—') + '</td>'
       + '<td>' + statusBadge + '</td>'
       + '<td>' + memoCell + '</td>'
@@ -1008,7 +1016,7 @@ function renderBrandsList() {
     rows: list,
     renderRow: renderRow,
     pageSize: BRANDS_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>'
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:40px">브랜드가 없습니다</td></tr>'
   });
 }
 
@@ -1022,17 +1030,27 @@ async function openBrandDetailModal(id) {
   bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><span class="spinner" style="width:18px;height:18px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink);display:inline-block;vertical-align:middle;margin-right:6px"></span>불러오는 중…</div>';
   if (footerEl) footerEl.innerHTML = '';
   modal.classList.add('open');
-  var [b, apps, companies] = await Promise.all([
+  var [b, apps, companies, campCount] = await Promise.all([
     fetchBrandById(id),
     fetchBrandApplicationsByBrand(id),
-    (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([]))
+    (typeof fetchCompanies === 'function' ? fetchCompanies({ status: 'all' }) : Promise.resolve([])),
+    (typeof countCampaignsByBrand === 'function' ? countCampaignsByBrand(id) : Promise.resolve(0))
   ]);
   if (!b) { bodyEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">데이터를 불러올 수 없습니다</div>'; return; }
   _brandFormCompanies = companies || [];
   if (titleEl) titleEl.innerHTML = renderBrandDetailHeaderHtml(b);
   bodyEl.innerHTML = renderBrandDetailFormHtml(b, apps);
   renderBrandContactsRows();
+  // 삭제(연결 0건만)·병합(연결 유무 무관) 버튼 — campaign_admin 이상만.
+  var isAdm = (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove());
+  var canDeleteBrand = (apps.length === 0) && (campCount === 0) && isAdm;
   if (footerEl) footerEl.innerHTML = ''
+    + (canDeleteBrand
+        ? '<button class="btn btn-ghost btn-sm" onclick="deleteBrandConfirm()" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">delete_outline</span>삭제</button>'
+        : '')
+    + (isAdm
+        ? '<button class="btn btn-ghost btn-sm" onclick="openBrandMergeModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">merge</span>병합</button>'
+        : '')
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
@@ -1042,6 +1060,68 @@ function closeBrandDetailModal() {
   var modal = $('brandDetailModal');
   if (modal) modal.classList.remove('open');
   _brandsCurrentId = null;
+}
+
+// 브랜드 삭제 — 연결 0건 빈 브랜드만(서버 delete_brand RPC 가 재검증). 되돌릴 수 없음.
+async function deleteBrandConfirm() {
+  var id = _brandsCurrentId;
+  if (!id) return;
+  if (!confirm('이 브랜드를 삭제할까요?\n연결된 캠페인·신청이 없는 빈 브랜드만 삭제됩니다. 되돌릴 수 없습니다.')) return;
+  var result = await deleteBrand(id);
+  if (!result.ok) { toast('삭제 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  toast('브랜드를 삭제했습니다');
+  closeBrandDetailModal();
+  if (typeof refreshPane === 'function') { await refreshPane('brands'); }
+  else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
+}
+
+// 브랜드 병합 모달 — 같은 회사 다른 활성 브랜드로 source 의 캠페인·신청 이동(채번 재발급). 원본 보관.
+async function openBrandMergeModal(sourceId) {
+  var src = (_brandsCache || []).find(function(b){ return b.id === sourceId; });
+  if (!src) return;
+  // 회사 무관 병합 허용(2026-06-09 — 회사 등록→연결→병합 단계 과다 해소). 오병합 방지는 모달 정보·확인으로.
+  var campCount = (typeof countCampaignsByBrand === 'function') ? await countCampaignsByBrand(sourceId) : 0;
+  var apps = (typeof fetchBrandApplicationsByBrand === 'function') ? (await fetchBrandApplicationsByBrand(sourceId) || []) : [];
+  var srcCo = (src.company_id && _brandCompanyMap[src.company_id]) || src.company_name || '회사 미등록';
+  var targets = (_brandsCache || []).filter(function(b){
+    return b.id !== sourceId && b.status === 'active';
+  });
+  if (!targets.length) { toast('병합할 다른 활성 브랜드가 없습니다', 'warn'); return; }
+  var opts = targets.map(function(b){
+    var co = (b.company_id && _brandCompanyMap[b.company_id]) || b.company_name || '회사 미등록';
+    return '<option value="' + esc(b.id) + '">' + esc(b.name || b.brand_no || '브랜드') + (b.name_ja ? ' (' + esc(b.name_ja) + ')' : '') + ' · ' + esc(b.brand_no || '') + ' · ' + esc(co) + '</option>';
+  }).join('');
+  var ov = document.createElement('div');
+  ov.id = 'brandMergeOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML = '<div style="background:#fff;border-radius:12px;width:480px;max-width:92vw;padding:24px;box-shadow:0 12px 48px rgba(0,0,0,.25)">'
+    + '<h3 style="margin:0 0 8px;font-size:16px;font-weight:700;color:var(--ink)">브랜드 병합</h3>'
+    + '<p style="margin:0 0 16px;font-size:12px;color:var(--muted);line-height:1.6">원본 「' + esc(src.name || src.brand_no || '') + '」(' + esc(srcCo) + ')의 <b>캠페인 ' + campCount + '건·신청 ' + apps.length + '건</b>을 아래 브랜드로 옮기고, 원본은 보관 처리합니다.<br>캠페인·신청 번호는 재발급되며(옛 번호는 보존) <b style="color:#c0392b">되돌릴 수 없습니다.</b></p>'
+    + '<label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px">병합 대상 브랜드 <span style="color:var(--muted);font-weight:400">(회사가 달라도 선택 가능 — 대상을 정확히 확인하세요)</span></label>'
+    + '<select id="brandMergeTarget" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:20px">' + opts + '</select>'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px">'
+      + '<button class="btn btn-ghost btn-sm" onclick="closeBrandMergeModal()">취소</button>'
+      + '<button class="btn btn-primary btn-sm" style="background:#c0392b" onclick="doBrandMerge(\'' + esc(sourceId) + '\')">병합 실행</button>'
+    + '</div></div>';
+  document.body.appendChild(ov);
+}
+function closeBrandMergeModal() {
+  var ov = $('brandMergeOverlay');
+  if (ov) ov.remove();
+}
+async function doBrandMerge(sourceId) {
+  var sel = $('brandMergeTarget');
+  var targetId = sel ? sel.value : '';
+  if (!targetId) { toast('대상 브랜드를 선택하세요', 'warn'); return; }
+  if (!confirm('정말 병합할까요?\n캠페인·신청 번호가 재발급되며 되돌릴 수 없습니다.')) return;
+  var result = await mergeBrands(sourceId, targetId);
+  if (!result.ok) { toast('병합 실패: ' + (result.error || '알 수 없는 오류'), 'error'); return; }
+  var d = result.data || {};
+  toast('병합 완료 — 캠페인 ' + (d.moved_campaigns || 0) + '건·신청 ' + (d.moved_apps || 0) + '건 이동');
+  closeBrandMergeModal();
+  closeBrandDetailModal();
+  if (typeof refreshPane === 'function') { await refreshPane('brands'); }
+  else if (typeof loadBrandsPane === 'function') { await loadBrandsPane(); }
 }
 
 // 헤더 — brand_no | name | status select (드롭다운, 활성/비활성 명확히 선택)
