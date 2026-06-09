@@ -1169,6 +1169,7 @@ function renderReceiptInfoBlock(d) {
   if (!d || d.kind !== 'receipt') return '';
   const canEdit = isCampaignAdminOrAbove();
   const id = String(d.id);
+  const receiptUrl = d.receipt_url || '';
   const orderNo = d.order_number || '';
   const purchaseDate = d.purchase_date || '';
   const amt = (d.purchase_amount === null || d.purchase_amount === undefined || d.purchase_amount === '')
@@ -1192,6 +1193,8 @@ function renderReceiptInfoBlock(d) {
     <div id="receiptInfoEdit-${esc(id)}" style="display:none;font-size:12px;margin-bottom:10px;padding:10px 12px;background:#FFF9E6;border:1px solid #F5C518;border-radius:8px">
       <div style="font-weight:600;margin-bottom:4px">영수증 정보 수정</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">주문번호·구매일·구매금액 중 최소 1개만 입력해도 저장됩니다.</div>
+      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin('${esc(id)}','${esc(receiptUrl)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">document_scanner</span> 영수증에서 읽기</button>
+      <div id="receiptOcrStatusAdmin-${esc(id)}" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>` : ''}
       <div style="margin-bottom:6px">
         <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호</label>
         <input id="receiptEditOrder-${esc(id)}" type="text" maxlength="200" value="${esc(orderNo)}" style="width:100%;padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:12px">
@@ -1224,6 +1227,43 @@ function cancelReceiptEdit(id) {
   const e = document.getElementById('receiptInfoEdit-' + id);
   if (v) v.style.display = '';
   if (e) e.style.display = 'none';
+}
+
+// 관리자: 이미 업로드된 영수증 이미지에서 글자 인식 → 빈 칸만 채움 (기기 안 처리)
+//   읽기·로드 실패해도 저장 흐름엔 영향 없음. 값은 저장 전 반드시 눈으로 확인.
+async function runReceiptOcrAdmin(id, url) {
+  const btn = document.getElementById('receiptOcrBtnAdmin-' + id);
+  const st = document.getElementById('receiptOcrStatusAdmin-' + id);
+  const show = m => { if (st) { st.style.display = ''; st.textContent = m; } };
+  if (typeof runReceiptOcr !== 'function') { show('글자 인식 기능을 불러오지 못했습니다.'); return; }
+  if (!url) { show('영수증 이미지가 없습니다.'); return; }
+  if (btn) btn.disabled = true;
+  try {
+    show('읽기 준비 중… (처음에는 시간이 조금 걸립니다)');
+    const { fields } = await runReceiptOcr(url, {
+      onProgress: (stage, prog) => {
+        if (stage === 'recognize') show('읽는 중… ' + Math.round((prog || 0) * 100) + '%');
+        else if (stage === 'fetch') show('이미지 불러오는 중…');
+        else show('읽는 중…');
+      }
+    });
+    let filled = 0;
+    const mark = el => { if (el) { el.style.background = '#F0FDF4'; el.style.borderColor = '#BBF7D0'; } };
+    const on = document.getElementById('receiptEditOrder-' + id);
+    if (on && !on.value.trim() && fields.order) { on.value = fields.order; mark(on); filled++; }
+    const dt = document.getElementById('receiptEditDate-' + id);
+    if (dt && !dt.value && fields.date) { dt.value = fields.date; mark(dt); filled++; }
+    const am = document.getElementById('receiptEditAmount-' + id);
+    if (am && am.value === '' && fields.amount != null) { am.value = fields.amount; mark(am); filled++; }
+    show(filled > 0
+      ? '읽었습니다. 값이 맞는지 확인 후 저장하세요.'
+      : '잘 읽지 못했습니다. 화면 캡처(스크린샷)면 더 잘 읽힙니다. 직접 입력해주세요.');
+  } catch (e) {
+    console.warn('관리자 영수증 OCR 실패', e);
+    show('읽지 못했습니다. 직접 입력해주세요.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function saveReceiptEdit(id) {
