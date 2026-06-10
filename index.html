@@ -4833,6 +4833,27 @@ async function fetchDeliverables(filters) {
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
 }
 
+// [일회성 도구] 승인된 영수증(kind=receipt, status=approved) 중 정보가 미입력(주문번호·구매일·구매금액 중 하나라도 NULL)
+// 이면서 이미지가 있는 건만 조회 — 일괄 글자인식(OCR) 보정용. 검토 표시용으로 인플·캠페인 식별 정보 동봉.
+async function fetchMissingApprovedReceipts() {
+  if (!db) return [];
+  try {
+    const data = await fetchAllPaged(() =>
+      db?.from('deliverables').select(`
+        id, receipt_url, order_number, purchase_date, purchase_amount, user_id, submitted_at,
+        campaigns:campaign_id (campaign_no, title)
+      `)
+      .eq('kind', 'receipt').eq('status', 'approved')
+      .not('receipt_url', 'is', null)
+      .or('order_number.is.null,purchase_date.is.null,purchase_amount.is.null')
+      .order('submitted_at', {ascending: true})
+    );
+    const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(userIds);
+    return data.map(d => ({...d, influencers: infMap[d.user_id] || null}));
+  } catch(e) { console.error('[fetchMissingApprovedReceipts]', e); return []; }
+}
+
 async function fetchDeliverableById(id) {
   if (!db) return null;
   try {
