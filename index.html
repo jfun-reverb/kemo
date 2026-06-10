@@ -10271,10 +10271,7 @@ function previewReceipt(input) {
   // 이미지 새로 고르면 이전 OCR 안내 초기화 + 이전 이미지로 OCR 자동입력한 칸 비움
   // (손으로 직접 입력한 칸은 ocrFilled 표시가 없어 보존 → 새 이미지로 다시 자동입력 가능)
   const ocrStatus = $('receiptOcrStatus'); if (ocrStatus) { ocrStatus.style.display = 'none'; ocrStatus.textContent = ''; }
-  ['receiptOrderNumber', 'receiptDate', 'receiptAmount'].forEach(id => {
-    const el = $(id);
-    if (el && el.dataset.ocrFilled) { el.value = ''; el.style.background = ''; el.style.borderColor = ''; delete el.dataset.ocrFilled; }
-  });
+  clearOcrFilledReceiptFields();
   const reader = new FileReader();
   reader.onload = e => {
     _receiptImgData = e.target.result;
@@ -10300,6 +10297,8 @@ async function runReceiptAutofill() {
         else show(t('activity.ocrRunning'));
       }
     });
+    // 자동입력을 다시 눌러도 이전 OCR 값은 새로 갱신 (손입력 칸은 ocrFilled 표시가 없어 보존)
+    clearOcrFilledReceiptFields();
     // 빈 칸만 채우기 (사용자가 직접 입력한 값은 보존)
     let filled = 0;
     const on = $('receiptOrderNumber');
@@ -10332,6 +10331,15 @@ function markOcrFilled(el) {
   el.dataset.ocrFilled = '1';
   const clear = () => { el.style.background = ''; el.style.borderColor = ''; delete el.dataset.ocrFilled; el.removeEventListener('input', clear); };
   el.addEventListener('input', clear);
+}
+
+// OCR 로 채운 영수증 3칸만 비움 (손으로 입력한 칸은 dataset.ocrFilled 표시가 없어 보존).
+// 이미지 재선택·자동입력 재실행 시 호출 → 새 인식 결과로 갱신 가능.
+function clearOcrFilledReceiptFields() {
+  ['receiptOrderNumber', 'receiptDate', 'receiptAmount'].forEach(id => {
+    const el = $(id);
+    if (el && el.dataset.ocrFilled) { el.value = ''; el.style.background = ''; el.style.borderColor = ''; delete el.dataset.ocrFilled; }
+  });
 }
 
 // monitor 2단계 — 채널별 리뷰 캡쳐 미리보기 (채널 코드를 인자로 받아 격리)
