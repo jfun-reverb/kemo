@@ -256,6 +256,7 @@ async function renderMyApplyList() {
       for (const kind of order) {
         const d = byKind[kind];
         if (!d) continue;
+        if (d.status === 'draft') continue;  // 임시저장(미제출)은 응모이력 배지에 표시 안 함
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
         let bg = '#FFF4E4', color = '#B8741A';

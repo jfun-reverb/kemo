@@ -1193,7 +1193,7 @@ function renderReceiptInfoBlock(d) {
     <div id="receiptInfoEdit-${esc(id)}" style="display:none;font-size:12px;margin-bottom:10px;padding:10px 12px;background:#FFF9E6;border:1px solid #F5C518;border-radius:8px">
       <div style="font-weight:600;margin-bottom:4px">영수증 정보 수정</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">주문번호·구매일·구매금액 중 최소 1개만 입력해도 저장됩니다.</div>
-      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin('${esc(id)}','${esc(receiptUrl)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">document_scanner</span> 영수증에서 읽기</button>
+      ${receiptUrl ? `<button id="receiptOcrBtnAdmin-${esc(id)}" class="btn btn-ghost btn-xs" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="runReceiptOcrAdmin('${esc(id)}','${esc(receiptUrl)}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">qr_code_scanner</span> 영수증에서 읽기</button>
       <div id="receiptOcrStatusAdmin-${esc(id)}" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5"></div>` : ''}
       <div style="margin-bottom:6px">
         <label style="display:block;color:var(--muted);margin-bottom:2px">주문번호</label>
@@ -1255,9 +1255,13 @@ async function runReceiptOcrAdmin(id, url) {
     if (dt && !dt.value && fields.date) { dt.value = fields.date; mark(dt); filled++; }
     const am = document.getElementById('receiptEditAmount-' + id);
     if (am && am.value === '' && fields.amount != null) { am.value = fields.amount; mark(am); filled++; }
-    show(filled > 0
-      ? '읽었습니다. 값이 맞는지 확인 후 저장하세요.'
-      : '잘 읽지 못했습니다. 화면 캡처(스크린샷)면 더 잘 읽힙니다. 직접 입력해주세요.');
+    if (filled > 0) {
+      show('읽었습니다. 값이 맞는지 확인 후 저장하세요.');
+    } else {
+      const got = !!fields.order || !!fields.date || fields.amount != null;
+      show(got ? '읽은 항목이 이미 입력돼 있어 새로 채우지 않았습니다.'
+               : '잘 읽지 못했습니다. 화면 캡처(스크린샷)면 더 잘 읽힙니다. 직접 입력해주세요.');
+    }
   } catch (e) {
     console.warn('관리자 영수증 OCR 실패', e);
     show('읽지 못했습니다. 직접 입력해주세요.');
@@ -1292,9 +1296,13 @@ async function runProxyReceiptOcr() {
     if (dt && !dt.value && fields.date) { dt.value = fields.date; mark(dt); filled++; }
     const am = $('adminProxyPurchaseAmount');
     if (am && am.value === '' && fields.amount != null) { am.value = fields.amount; mark(am); filled++; }
-    show(filled > 0
-      ? '읽었습니다. 값이 맞는지 확인 후 등록하세요.'
-      : '잘 읽지 못했습니다. 화면 캡처(스크린샷)면 더 잘 읽힙니다. 직접 입력해주세요.');
+    if (filled > 0) {
+      show('읽었습니다. 값이 맞는지 확인 후 등록하세요.');
+    } else {
+      const got = !!fields.order || !!fields.date || fields.amount != null;
+      show(got ? '읽은 항목이 이미 입력돼 있어 새로 채우지 않았습니다.'
+               : '잘 읽지 못했습니다. 화면 캡처(스크린샷)면 더 잘 읽힙니다. 직접 입력해주세요.');
+    }
   } catch (e) {
     console.warn('대리등록 영수증 OCR 실패', e);
     show('읽지 못했습니다. 직접 입력해주세요.');
