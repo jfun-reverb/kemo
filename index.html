@@ -158,6 +158,8 @@ img{display:block;max-width:100%}
 .form-input::placeholder{color:var(--on-surface-variant)}
 select.form-input{cursor:pointer;padding-right:36px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22><path d=%22M1 1l5 5 5-5%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:12px}
 textarea.form-input{resize:vertical;min-height:80px}
+/* 모바일(iOS Safari) 날짜 입력칸 값이 우측/가운데로 치우치는 것 방지 — 다른 입력칸과 좌측 정렬 통일 */
+input[type="date"].form-input::-webkit-date-and-time-value{text-align:left;margin:0}
 .pw-wrap{position:relative;display:block}
 .pw-wrap .form-input{width:100%;padding-right:44px;box-sizing:border-box}
 .pw-toggle{position:absolute;right:0;top:0;bottom:0;width:44px;background:transparent;border:none;cursor:pointer;color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;transition:color .2s}
@@ -1289,7 +1291,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div id="monitorReceiptFields" style="display:none">
           <!-- 영수증 글자 자동입력 (기기 안 처리, 빈 칸만 채움) -->
           <button type="button" id="receiptOcrBtn" class="btn btn-ghost btn-block" onclick="runReceiptAutofill()" style="margin-bottom:6px;font-size:13px">
-            <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">document_scanner</span>
+            <span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:-4px">qr_code_scanner</span>
             <span data-i18n="activity.ocrBtn">画像から自動入力</span>
           </button>
           <div id="receiptOcrStatus" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5"></div>
@@ -3047,6 +3049,7 @@ window.I18N_JA = {
     ocrRunning: '読み取り中…',
     ocrDone: '読み取りました。内容が正しいかご確認ください。',
     ocrFailed: 'うまく読み取れませんでした。写真ではなく画面のスクリーンショットだと読み取りやすくなります。手入力でもご提出いただけます。',
+    ocrAlready: '読み取った内容はすでに入力されています。',
   },
 
   // 결과물 상태 배지 (인플루언서 화면) — 신청 단계의 appHistory 라벨과 명확히 분리
@@ -3709,6 +3712,7 @@ window.I18N_KO = {
     ocrRunning: '읽는 중…',
     ocrDone: '읽었습니다. 내용이 맞는지 확인해주세요.',
     ocrFailed: '잘 읽지 못했습니다. 사진 촬영보다 화면 캡처(스크린샷)가 더 잘 읽힙니다. 직접 입력해도 제출할 수 있습니다.',
+    ocrAlready: '읽은 항목이 이미 입력돼 있어 새로 채우지 않았습니다.',
   },
 
   delivStatus: {
@@ -4083,11 +4087,13 @@ function preprocessReceiptImage(fileOrBlob) {
     const url = URL.createObjectURL(fileOrBlob);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      // 목표 폭 2000px 기준 확대(작은 사진)·축소(큰 사진), 0.5~3배 제한
+      // 다운스케일만 수행 (업스케일은 모바일 canvas 면적 한도에 걸려 이미지가 잘리거나
+      // 저화질로 다운샘플링돼 글자 인식이 저하됨 — PC는 한도가 커서 영향 없었음).
       const target = 2000;
-      let scale = target / img.naturalWidth;
-      scale = Math.max(0.5, Math.min(scale, 3));
-      const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+      const MAX_AREA = 4096 * 4096; // 모바일(iOS Safari) canvas 안전 면적
+      let scale = Math.min(target / img.naturalWidth, 1);
+      let w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+      if (w * h > MAX_AREA) { const f = Math.sqrt(MAX_AREA / (w * h)); w = Math.floor(w * f); h = Math.floor(h * f); }
       const c = document.createElement('canvas');
       c.width = w; c.height = h;
       const ctx = c.getContext('2d');
@@ -10288,7 +10294,13 @@ async function runReceiptAutofill() {
     if (dt && !dt.value && fields.date) { dt.value = fields.date; markOcrFilled(dt); filled++; }
     const am = $('receiptAmount');
     if (am && am.value === '' && fields.amount != null) { am.value = fields.amount; markOcrFilled(am); filled++; }
-    show(filled > 0 ? t('activity.ocrDone') : t('activity.ocrFailed'));
+    if (filled > 0) {
+      show(t('activity.ocrDone'));
+    } else {
+      // 빈 칸이 없어 못 채운 경우와 진짜 인식 실패를 구분
+      const got = !!fields.order || !!fields.date || fields.amount != null;
+      show(got ? t('activity.ocrAlready') : t('activity.ocrFailed'));
+    }
   } catch (e) {
     console.warn('영수증 OCR 실패', e);
     show(t('activity.ocrFailed'));
@@ -11089,6 +11101,7 @@ async function renderMyApplyList() {
       for (const kind of order) {
         const d = byKind[kind];
         if (!d) continue;
+        if (d.status === 'draft') continue;  // 임시저장(미제출)은 응모이력 배지에 표시 안 함
         const kindLabel = t('delivKind.' + (KIND_TO_KEY[kind] || kind));
         const statusLabel = t('delivStatus.' + d.status);
         let bg = '#FFF4E4', color = '#B8741A';

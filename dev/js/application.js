@@ -1178,7 +1178,13 @@ async function runReceiptAutofill() {
     if (dt && !dt.value && fields.date) { dt.value = fields.date; markOcrFilled(dt); filled++; }
     const am = $('receiptAmount');
     if (am && am.value === '' && fields.amount != null) { am.value = fields.amount; markOcrFilled(am); filled++; }
-    show(filled > 0 ? t('activity.ocrDone') : t('activity.ocrFailed'));
+    if (filled > 0) {
+      show(t('activity.ocrDone'));
+    } else {
+      // 빈 칸이 없어 못 채운 경우와 진짜 인식 실패를 구분
+      const got = !!fields.order || !!fields.date || fields.amount != null;
+      show(got ? t('activity.ocrAlready') : t('activity.ocrFailed'));
+    }
   } catch (e) {
     console.warn('영수증 OCR 실패', e);
     show(t('activity.ocrFailed'));
