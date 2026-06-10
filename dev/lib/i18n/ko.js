@@ -494,6 +494,15 @@ window.I18N_KO = {
     reviewImageMaxOne: '1장만 제출 가능합니다',
     noReviewImage: '아직 캡쳐가 추가되지 않았습니다',
     needReviewImage: '캡쳐 이미지를 선택해주세요',
+    // 영수증 글자 자동입력 (OCR, 기기 안 처리)
+    ocrBtn: '이미지에서 자동 입력',
+    ocrNoImage: '먼저 이미지를 선택해주세요',
+    ocrLoading: '읽기 준비 중…（처음에는 시간이 조금 걸립니다）',
+    ocrRunning: '읽는 중…',
+    ocrDone: '읽었습니다. 내용이 맞는지 확인해주세요.',
+    ocrFailed: '잘 읽지 못했습니다. 사진 촬영보다 화면 캡처(스크린샷)가 더 잘 읽힙니다. 직접 입력해도 제출할 수 있습니다.',
+    ocrAlready: '읽은 항목이 이미 입력돼 있어 새로 채우지 않았습니다.',
+    purchaseDateHint: '예: 2026/05/22',
   },
 
   delivStatus: {

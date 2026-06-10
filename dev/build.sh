@@ -24,7 +24,7 @@ echo "🔨 REVERB JP 빌드 시작..."
 # 1. CLIENT 빌드 → ../index.html
 # ══════════════════════════════════════
 CLIENT_CSS_FILES=("css/base.css" "css/components.css" "css/campaign.css" "css/auth.css" "css/mypage.css")
-CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/image-compress.js" "lib/storage.js" "lib/legal.js" "js/error-report.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/notifications.js" "js/mypage.js" "js/messaging.js" "js/app.js")
+CLIENT_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/i18n/ja.js" "lib/i18n/ko.js" "lib/i18n/index.js" "lib/image-compress.js" "lib/ocr-receipt.js" "lib/storage.js" "lib/legal.js" "js/error-report.js" "js/ui.js" "js/campaign.js" "js/auth.js" "js/application.js" "js/notifications.js" "js/mypage.js" "js/messaging.js" "js/app.js")
 
 : > "$BUILD_TMP/client.css"
 for f in "${CLIENT_CSS_FILES[@]}"; do
@@ -75,7 +75,7 @@ PYTHON_SCRIPT
 mkdir -p ../admin
 
 ADMIN_CSS_FILES=("css/base.css" "css/components.css" "css/admin.css")
-ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "js/ui.js" "js/admin-core.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin.js" "admin/app.js")
+ADMIN_JS_FILES=("lib/supabase.js" "lib/shared.js" "lib/storage.js" "lib/ocr-receipt.js" "js/ui.js" "js/admin-core.js" "js/admin-brand.js" "js/admin-company.js" "js/admin-brand-ops.js" "js/admin-messaging.js" "js/admin-notices.js" "js/admin-faq.js" "js/admin-influencers.js" "js/admin-deliverables.js" "js/admin-excel.js" "js/admin-dashboard.js" "js/admin-applications.js" "js/admin-accounts.js" "js/admin-lookups.js" "js/admin-errors.js" "js/admin.js" "admin/app.js")
 
 : > "$BUILD_TMP/admin.css"
 for f in "${ADMIN_CSS_FILES[@]}"; do
@@ -109,7 +109,7 @@ with open(src_html, "r", encoding="utf-8") as f:
 
 # admin HTML의 CSS/JS 링크 제거 (../css/, ../js/, ../lib/ 경로)
 html = re.sub(r'<link\s+rel="stylesheet"\s+href="\.\./css/[^"]+"\s*/?>\n?', '', html)
-html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|storage|ui|admin|app)\.js"\s*></script>\n?', '', html)
+html = re.sub(r'<script\s+src="(?:\.\./lib|\.\./js|)[^"]*(?:supabase|shared|storage|ui|admin|app|ocr-receipt)\.js"\s*></script>\n?', '', html)
 
 # 사이드바 최하단 빌드 버전 placeholder 치환
 html = html.replace("__BUILD_DATETIME_KST__", build_datetime_kst)

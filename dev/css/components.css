@@ -70,6 +70,14 @@
 .form-input::placeholder{color:var(--on-surface-variant)}
 select.form-input{cursor:pointer;padding-right:36px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22><path d=%22M1 1l5 5 5-5%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 12px center;background-size:12px}
 textarea.form-input{resize:vertical;min-height:80px}
+/* 날짜 입력칸을 일반 입력칸과 통일: 네이티브 위젯 제거(appearance:none) + 넘침 방지 + 좌측 정렬.
+   달력 아이콘(calendar-picker-indicator)은 우측에 유지해 탭하면 날짜 선택 가능.
+   appearance:none 이면 빈 칸의 내부 콘텐츠 높이가 0이 되어 칸이 납작해지므로
+   min-height(콘텐츠 1.2em + form-input padding 12*2 + border 1.5*2)로 다른 칸과 높이 통일. */
+input[type="date"].form-input{text-align:left;min-width:0;-webkit-min-logical-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;line-height:1.2;min-height:calc(1.2em + 27px)}
+input[type="date"].form-input::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type="date"].form-input::-webkit-datetime-edit{text-align:left;padding:0}
+input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:auto;opacity:.6}
 .pw-wrap{position:relative;display:block}
 .pw-wrap .form-input{width:100%;padding-right:44px;box-sizing:border-box}
 .pw-toggle{position:absolute;right:0;top:0;bottom:0;width:44px;background:transparent;border:none;cursor:pointer;color:var(--on-surface-variant);display:flex;align-items:center;justify-content:center;transition:color .2s}
