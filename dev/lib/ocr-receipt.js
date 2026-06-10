@@ -30,11 +30,11 @@ function preprocessReceiptImage(fileOrBlob) {
     const url = URL.createObjectURL(fileOrBlob);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      // 다운스케일만 수행 (업스케일은 모바일 canvas 면적 한도에 걸려 이미지가 잘리거나
-      // 저화질로 다운샘플링돼 글자 인식이 저하됨 — PC는 한도가 커서 영향 없었음).
+      // 작은 모바일 스크린샷은 확대해야 글자가 읽힌다(업스케일 필수, 0.5~3배).
+      // 단 너무 커지면 모바일(iOS Safari) canvas 면적 한도에 걸려 잘리므로 MAX_AREA 로 cap.
       const target = 2000;
       const MAX_AREA = 4096 * 4096; // 모바일(iOS Safari) canvas 안전 면적
-      let scale = Math.min(target / img.naturalWidth, 1);
+      let scale = Math.max(0.5, Math.min(target / img.naturalWidth, 3));
       let w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
       if (w * h > MAX_AREA) { const f = Math.sqrt(MAX_AREA / (w * h)); w = Math.floor(w * f); h = Math.floor(h * f); }
       const c = document.createElement('canvas');
