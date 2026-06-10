@@ -1051,10 +1051,17 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
-              <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
-                <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
-                관리자 대리 등록
-              </button>
+              <div style="display:flex;gap:8px">
+                <!-- [일회성 도구] 미입력 승인 영수증 일괄 OCR 보정 — 사용 후 이 버튼 + 관련 코드 제거 -->
+                <button class="btn btn-ghost btn-sm" onclick="openReceiptBackfillTool()" title="승인된 영수증 중 주문번호·구매일·구매금액이 비어 있는 건을 글자인식으로 일괄 보정합니다 (일회성)">
+                  <span class="material-icons-round" style="font-size:16px;vertical-align:middle">auto_fix_high</span>
+                  미입력 영수증 일괄 보정
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
+                  <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
+                  관리자 대리 등록
+                </button>
+              </div>
             </div>
             <!-- 모든 필터 항상 노출 (한 영역, 줄바꿈 허용). 텍스트 검색만 돋보기 버튼으로 토글 -->
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
