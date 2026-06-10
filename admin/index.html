@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781060965';
+  var CURRENT_BUILD = 'v1781063737';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2034,7 +2034,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-10 12:09 · 0503472</span>
+          <span class="admin-build-text">2026-06-10 12:55 · 1542505</span>
         </div>
       </div>
     </aside>
@@ -2953,10 +2953,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
               <div style="font-size:16px;font-weight:700;color:var(--ink)">결과물 관리</div>
-              <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
-                <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
-                관리자 대리 등록
-              </button>
+              <div style="display:flex;gap:8px">
+                <!-- [일회성 도구] 미입력 승인 영수증 일괄 OCR 보정 — 사용 후 이 버튼 + 관련 코드 제거 -->
+                <button class="btn btn-ghost btn-sm" onclick="openReceiptBackfillTool()" title="승인된 영수증 중 주문번호·구매일·구매금액이 비어 있는 건을 글자인식으로 일괄 보정합니다 (일회성)">
+                  <span class="material-icons-round" style="font-size:16px;vertical-align:middle">auto_fix_high</span>
+                  미입력 영수증 일괄 보정
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="openAdminProxyModal()" title="배송 지연 등으로 인플이 직접 등록 못 한 결과물을 관리자가 대신 등록·즉시 승인합니다">
+                  <span class="material-icons-round" style="font-size:16px;vertical-align:middle">add_task</span>
+                  관리자 대리 등록
+                </button>
+              </div>
             </div>
             <!-- 모든 필터 항상 노출 (한 영역, 줄바꿈 허용). 텍스트 검색만 돋보기 버튼으로 토글 -->
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
@@ -6489,6 +6496,27 @@ async function fetchDeliverables(filters) {
     const infMap = await fetchInfluencersByIds(userIds);
     return data.map(d => ({...d, influencers: infMap[d.user_id] || null}));
   } catch(e) { console.error('[fetchDeliverables]', e); return []; }
+}
+
+// [일회성 도구] 승인된 영수증(kind=receipt, status=approved) 중 정보가 미입력(주문번호·구매일·구매금액 중 하나라도 NULL)
+// 이면서 이미지가 있는 건만 조회 — 일괄 글자인식(OCR) 보정용. 검토 표시용으로 인플·캠페인 식별 정보 동봉.
+async function fetchMissingApprovedReceipts() {
+  if (!db) return [];
+  try {
+    const data = await fetchAllPaged(() =>
+      db?.from('deliverables').select(`
+        id, receipt_url, order_number, purchase_date, purchase_amount, user_id, submitted_at,
+        campaigns:campaign_id (campaign_no, title)
+      `)
+      .eq('kind', 'receipt').eq('status', 'approved')
+      .not('receipt_url', 'is', null)
+      .or('order_number.is.null,purchase_date.is.null,purchase_amount.is.null')
+      .order('submitted_at', {ascending: true})
+    );
+    const userIds = [...new Set(data.map(d => d.user_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(userIds);
+    return data.map(d => ({...d, influencers: infMap[d.user_id] || null}));
+  } catch(e) { console.error('[fetchMissingApprovedReceipts]', e); return []; }
 }
 
 async function fetchDeliverableById(id) {
@@ -20950,6 +20978,175 @@ function _proxyReasonLabelKo(code) {
     if (row) return row.name_ko;
   }
   return _ADMIN_PROXY_REASON_KO[code] || code;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// [일회성 도구] 미입력 승인 영수증 일괄 글자인식(OCR) 보정
+//   승인된 영수증(kind=receipt) 중 주문번호·구매일·구매금액이 비어 있는 건을
+//   runReceiptOcr 로 읽어 미리채움 → '명확' 건은 일괄 저장, '의심·못 읽음' 건은 표에서
+//   직접 확인·수정 후 저장. 기존 입력 값은 보존(빈 칸만 채움). update_receipt_admin 재사용.
+//   ⚠️ 311건 1회 보정용. 사용 후 이 블록 + storage.fetchMissingApprovedReceipts + HTML 버튼 제거.
+// ════════════════════════════════════════════════════════════════════════
+let _backfill = { items: [], cancel: false, running: false };
+const BACKFILL_AMOUNT_SUSPECT = 1000000; // 100만엔 이상이면 오인식 의심 → 검토 대상
+
+async function openReceiptBackfillTool() {
+  if (!isCampaignAdminOrAbove()) { toast('권한이 없습니다 (campaign_admin 이상)', 'error'); return; }
+  if (typeof runReceiptOcr !== 'function') { toast('글자 인식 기능을 불러오지 못했습니다', 'error'); return; }
+  let modal = document.getElementById('receiptBackfillModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'receiptBackfillModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;width:min(960px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+        <strong style="font-size:15px">미입력 영수증 일괄 보정</strong>
+        <button class="btn btn-ghost btn-xs" onclick="closeReceiptBackfillTool()">닫기</button>
+      </div>
+      <div id="backfillBody" style="padding:20px;overflow:auto"></div>
+    </div>`;
+  const body = document.getElementById('backfillBody');
+  body.innerHTML = '<div style="font-size:13px;color:var(--muted)">대상 조회 중…</div>';
+  const list = await fetchMissingApprovedReceipts();
+  _backfill = { items: list.map(d => ({ d, ocr: null, final: null, status: 'pending' })), cancel: false, running: false };
+  body.innerHTML = `
+    <div style="font-size:13px;line-height:1.7;margin-bottom:14px">
+      승인된 영수증 중 정보가 비어 있는 <strong>${list.length}건</strong>을 글자인식으로 읽습니다.<br>
+      이미지 1장당 몇 초씩 걸려 전체 <strong>약 ${Math.max(1, Math.ceil(list.length * 4 / 60))}분</strong> 예상됩니다. (중간에 멈출 수 있습니다)
+    </div>
+    <button class="btn btn-primary btn-sm" id="backfillStartBtn" onclick="startReceiptBackfillOcr()">읽기 시작</button>
+    <div id="backfillProgress" style="display:none;margin-top:16px"></div>
+    <div id="backfillResult" style="margin-top:16px"></div>`;
+}
+
+function closeReceiptBackfillTool() {
+  _backfill.cancel = true;
+  const m = document.getElementById('receiptBackfillModal');
+  if (m) m.style.display = 'none';
+}
+
+async function startReceiptBackfillOcr() {
+  if (_backfill.running) return;
+  _backfill.running = true; _backfill.cancel = false;
+  const startBtn = document.getElementById('backfillStartBtn');
+  if (startBtn) startBtn.style.display = 'none';
+  const prog = document.getElementById('backfillProgress');
+  if (prog) prog.style.display = 'block';
+  const items = _backfill.items;
+  for (let i = 0; i < items.length; i++) {
+    if (_backfill.cancel) break;
+    if (prog) prog.innerHTML = `<div style="font-size:13px;margin-bottom:6px">읽는 중… ${i + 1} / ${items.length}</div>
+      <div style="height:8px;background:#eee;border-radius:99px;overflow:hidden"><div style="height:100%;width:${Math.round(i / items.length * 100)}%;background:var(--pink)"></div></div>
+      <button class="btn btn-ghost btn-xs" style="margin-top:8px" onclick="_backfill.cancel=true">중단</button>`;
+    const it = items[i];
+    try {
+      const { fields } = await runReceiptOcr(it.d.receipt_url, {});
+      it.ocr = fields;
+      // 빈 칸만 채움: 기존 입력값이 있으면 그대로 보존
+      const order = it.d.order_number || fields.order || '';
+      const date = it.d.purchase_date || fields.date || '';
+      const amount = (it.d.purchase_amount != null) ? it.d.purchase_amount : fields.amount;
+      it.final = { order, date, amount };
+      const gotAll = !!order && !!date && amount != null;
+      const amtSuspect = amount != null && amount >= BACKFILL_AMOUNT_SUSPECT;
+      const gotNone = !order && !date && amount == null;
+      it.status = gotNone ? 'unreadable' : ((amtSuspect || !gotAll) ? 'suspect' : 'clear');
+    } catch (e) {
+      console.warn('[backfill OCR 실패]', it.d.id, e);
+      it.ocr = null;
+      it.final = { order: it.d.order_number || '', date: it.d.purchase_date || '', amount: it.d.purchase_amount };
+      it.status = 'unreadable';
+    }
+  }
+  _backfill.running = false;
+  if (prog) prog.innerHTML = `<div style="font-size:13px;color:var(--muted)">읽기 완료 (${items.filter(x => x.status !== 'pending').length} / ${items.length})</div>`;
+  renderBackfillResult();
+}
+
+function renderBackfillResult() {
+  const items = _backfill.items.filter(x => x.status !== 'pending');
+  const clear = items.filter(x => x.status === 'clear');
+  const suspect = items.filter(x => x.status === 'suspect');
+  const unreadable = items.filter(x => x.status === 'unreadable');
+  const saved = _backfill.items.filter(x => x.status === 'saved');
+  const box = document.getElementById('backfillResult');
+  if (!box) return;
+  box.innerHTML = `
+    <div style="display:flex;gap:16px;font-size:13px;margin-bottom:12px;flex-wrap:wrap">
+      <span>명확 <strong style="color:#2D7A3E">${clear.length}</strong></span>
+      <span>의심 <strong style="color:#C33">${suspect.length}</strong></span>
+      <span>못 읽음 <strong style="color:var(--muted)">${unreadable.length}</strong></span>
+      <span>저장됨 <strong>${saved.length}</strong></span>
+    </div>
+    <div style="margin-bottom:14px">
+      <button class="btn btn-primary btn-sm" onclick="saveBackfillClear()" ${clear.length ? '' : 'disabled'}>명확 ${clear.length}건 저장</button>
+    </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">의심·못 읽음 — 직접 확인·수정 후 저장</div>
+    <div id="backfillSuspectTable"></div>`;
+  renderBackfillSuspectTable();
+}
+
+function renderBackfillSuspectTable() {
+  const rows = _backfill.items.filter(x => x.status === 'suspect' || x.status === 'unreadable');
+  const wrap = document.getElementById('backfillSuspectTable');
+  if (!wrap) return;
+  if (!rows.length) { wrap.innerHTML = '<div style="font-size:12px;color:var(--muted)">없음</div>'; return; }
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="border-bottom:1px solid var(--line);text-align:left">
+      <th style="padding:6px">영수증</th><th>인플 / 캠페인</th><th>주문번호</th><th>구매일</th><th>금액</th><th></th>
+    </tr></thead><tbody>
+    ${rows.map(it => {
+      const id = esc(String(it.d.id));
+      const inf = esc(it.d.influencers?.name || '-');
+      const camp = esc(it.d.campaigns?.campaign_no || '-');
+      const bg = it.status === 'suspect' ? '#FFF5F5' : '#FAFAFA';
+      const safeUrl = /^https:\/\//.test(it.d.receipt_url || '') ? esc(it.d.receipt_url) : '#';
+      return `<tr style="border-bottom:1px solid var(--line);background:${bg}">
+        <td style="padding:6px"><a href="${safeUrl}" target="_blank" rel="noopener">보기</a></td>
+        <td>${inf}<br><span style="color:var(--muted)">${camp}</span></td>
+        <td><input id="bf-order-${id}" value="${esc(it.final?.order || '')}" maxlength="200" style="width:110px;font-size:12px;padding:3px 5px"></td>
+        <td><input id="bf-date-${id}" type="date" value="${esc(it.final?.date || '')}" style="font-size:12px;padding:3px 5px"></td>
+        <td><input id="bf-amount-${id}" type="number" min="0" value="${(it.final && it.final.amount != null) ? it.final.amount : ''}" style="width:90px;font-size:12px;padding:3px 5px"></td>
+        <td><button class="btn btn-primary btn-xs" onclick="saveBackfillRow('${id}')">저장</button></td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+async function saveBackfillClear() {
+  const rows = _backfill.items.filter(x => x.status === 'clear');
+  if (!rows.length) { toast('대상이 없습니다', ''); return; }
+  if (!confirm(`명확하게 읽힌 ${rows.length}건을 저장하시겠습니까?`)) return;
+  let ok = 0, fail = 0;
+  for (const it of rows) {
+    try {
+      await updateReceiptAdmin(it.d.id, it.final.order || null, it.final.date || null, it.final.amount != null ? it.final.amount : null);
+      it.status = 'saved'; ok++;
+    } catch (e) { console.warn('[backfill 저장 실패]', it.d.id, e); fail++; }
+  }
+  toast(`저장 ${ok}건${fail ? ` · 실패 ${fail}건` : ''}`, fail ? 'error' : 'success');
+  renderBackfillResult();
+}
+
+async function saveBackfillRow(id) {
+  const it = _backfill.items.find(x => String(x.d.id) === String(id));
+  if (!it) return;
+  const order = (document.getElementById('bf-order-' + id)?.value || '').trim();
+  const date = document.getElementById('bf-date-' + id)?.value || '';
+  const rawAmt = document.getElementById('bf-amount-' + id)?.value || '';
+  const amount = rawAmt === '' ? null : Number(rawAmt);
+  if (!order && !date && amount == null) { toast('주문번호·구매일·구매금액 중 최소 1개는 입력해주세요', 'error'); return; }
+  if (amount != null && (!Number.isFinite(amount) || amount < 0)) { toast('구매금액은 0 이상의 숫자', 'error'); return; }
+  try {
+    await updateReceiptAdmin(it.d.id, order || null, date || null, amount);
+    it.status = 'saved';
+    toast('저장했습니다', 'success');
+    renderBackfillResult();
+  } catch (e) { toast(friendlyError(e?.message || String(e)), 'error'); }
 }
 
 // ═════════════════════════════════════════════════════════════════
