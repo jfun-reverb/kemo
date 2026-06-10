@@ -10268,8 +10268,13 @@ function previewReceipt(input) {
   const file = input.files[0];
   if (!file) return;
   _receiptOcrFile = file;  // OCR 자동입력용 원본 파일 보관
-  // 이미지 새로 고르면 이전 OCR 안내 초기화
+  // 이미지 새로 고르면 이전 OCR 안내 초기화 + 이전 이미지로 OCR 자동입력한 칸 비움
+  // (손으로 직접 입력한 칸은 ocrFilled 표시가 없어 보존 → 새 이미지로 다시 자동입력 가능)
   const ocrStatus = $('receiptOcrStatus'); if (ocrStatus) { ocrStatus.style.display = 'none'; ocrStatus.textContent = ''; }
+  ['receiptOrderNumber', 'receiptDate', 'receiptAmount'].forEach(id => {
+    const el = $(id);
+    if (el && el.dataset.ocrFilled) { el.value = ''; el.style.background = ''; el.style.borderColor = ''; delete el.dataset.ocrFilled; }
+  });
   const reader = new FileReader();
   reader.onload = e => {
     _receiptImgData = e.target.result;
@@ -10318,12 +10323,14 @@ async function runReceiptAutofill() {
   }
 }
 
-// OCR 로 채운 칸 시각 표시 (녹색). 사용자가 다시 수정하면 표시 해제.
+// OCR 로 채운 칸 시각 표시 (녹색) + ocrFilled 표시(이미지 교체 시 이 칸만 비움 판단용).
+// 사용자가 직접 수정하면 손입력으로 간주 → 표시·녹색 해제(이후 이미지 교체해도 보존).
 function markOcrFilled(el) {
   if (!el) return;
   el.style.background = '#F0FDF4';
   el.style.borderColor = '#BBF7D0';
-  const clear = () => { el.style.background = ''; el.style.borderColor = ''; el.removeEventListener('input', clear); };
+  el.dataset.ocrFilled = '1';
+  const clear = () => { el.style.background = ''; el.style.borderColor = ''; delete el.dataset.ocrFilled; el.removeEventListener('input', clear); };
   el.addEventListener('input', clear);
 }
 
