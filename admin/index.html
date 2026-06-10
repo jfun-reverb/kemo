@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781060623';
+  var CURRENT_BUILD = 'v1781060965';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2034,7 +2034,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-10 12:03 · 99b6fa7</span>
+          <span class="admin-build-text">2026-06-10 12:09 · 0503472</span>
         </div>
       </div>
     </aside>
@@ -9110,17 +9110,21 @@ function extractReceiptFields(text) {
     if (fm) out.order = fm[1];
   }
 
-  // 구매금액: 円 또는 ¥ 붙은 숫자만 (천단위 점·콤마 혼동 허용). 合計/総額 줄 우선, 없으면 최대값
+  // 구매금액: 円 또는 ¥ 붙은 숫자만 (천단위 점·콤마 혼동 허용). 合計/総額 줄 우선, 없으면 최대값.
+  // ★금액은 compact(공백제거)가 아닌 '원본 줄'에서 추출한다 — 일본어 OCR 이 슬래시 "/"를 "7"로
+  //   오독해 "数量:1 / 1,950円" → "数量 : 17 1.950 円" 이 될 때, 공백을 제거하면 "171.950円" 으로
+  //   붙어 171950 으로 잘못 합쳐진다. 공백을 유지하면 "17" 과 "1.950 円" 이 분리돼 1,950 만 잡힌다.
   const amtKeys = /(合計|総額|総合計|お支払い?金額?|ご請求|請求金額)/;
+  const rawLines = text.split(/\n/);
   function pick(line) {
     const tokens = [
-      ...(line.match(/[¥￥][\d][\d.,]*/g) || []),
+      ...(line.match(/[¥￥]\s?[\d][\d.,]*/g) || []),
       ...(line.match(/[\d][\d.,]*\s*円/g) || [])
     ];
     return tokens.map(s => parseInt(s.replace(/[^\d]/g, ''), 10)).filter(n => n >= 10);
   }
   let keyA = [], allA = [];
-  cLines.forEach(l => { const n = pick(l); allA.push(...n); if (amtKeys.test(l)) keyA.push(...n); });
+  rawLines.forEach(l => { const n = pick(l); allA.push(...n); if (amtKeys.test(l.replace(/[ \t　]/g, ''))) keyA.push(...n); });
   const pool = keyA.length ? keyA : allA;
   if (pool.length) out.amount = Math.max(...pool);
 
