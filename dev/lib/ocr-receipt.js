@@ -82,17 +82,21 @@ function extractReceiptFields(text) {
     if (fm) out.order = fm[1];
   }
 
-  // 구매금액: 円 또는 ¥ 붙은 숫자만 (천단위 점·콤마 혼동 허용). 合計/総額 줄 우선, 없으면 최대값
+  // 구매금액: 円 또는 ¥ 붙은 숫자만 (천단위 점·콤마 혼동 허용). 合計/総額 줄 우선, 없으면 최대값.
+  // ★금액은 compact(공백제거)가 아닌 '원본 줄'에서 추출한다 — 일본어 OCR 이 슬래시 "/"를 "7"로
+  //   오독해 "数量:1 / 1,950円" → "数量 : 17 1.950 円" 이 될 때, 공백을 제거하면 "171.950円" 으로
+  //   붙어 171950 으로 잘못 합쳐진다. 공백을 유지하면 "17" 과 "1.950 円" 이 분리돼 1,950 만 잡힌다.
   const amtKeys = /(合計|総額|総合計|お支払い?金額?|ご請求|請求金額)/;
+  const rawLines = text.split(/\n/);
   function pick(line) {
     const tokens = [
-      ...(line.match(/[¥￥][\d][\d.,]*/g) || []),
+      ...(line.match(/[¥￥]\s?[\d][\d.,]*/g) || []),
       ...(line.match(/[\d][\d.,]*\s*円/g) || [])
     ];
     return tokens.map(s => parseInt(s.replace(/[^\d]/g, ''), 10)).filter(n => n >= 10);
   }
   let keyA = [], allA = [];
-  cLines.forEach(l => { const n = pick(l); allA.push(...n); if (amtKeys.test(l)) keyA.push(...n); });
+  rawLines.forEach(l => { const n = pick(l); allA.push(...n); if (amtKeys.test(l.replace(/[ \t　]/g, ''))) keyA.push(...n); });
   const pool = keyA.length ? keyA : allA;
   if (pool.length) out.amount = Math.max(...pool);
 
