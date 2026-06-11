@@ -132,5 +132,22 @@
 
 ---
 
-## 구현 결과 (실행 세션이 채울 것)
-(1단계 착수 시 기록 — 글로벌 파일 경로, 검증 결과, 레포 제거 커밋 해시)
+## 구현 결과
+
+### 1단계 — 완료 (2026-06-11, 고문 세션 직접 실행)
+- **백업**: `~/.claude-backup-20260611/` (CLAUDE.md·settings.json 사본 — ~/.claude는 git 비추적)
+- **글로벌 공통 규칙 4개 작성** (원칙 슬림·중립화):
+  - `~/.claude/rules/common-session-roles.md` (세션역할·인수인계 + §5 적용범위 판정 게이트)
+  - `~/.claude/rules/common-planning.md` (반대론자 모드 + 현재상태 검증)
+  - `~/.claude/rules/common-doc-tracking.md` (문서 추적)
+  - `~/.claude/rules/common-request-validation.md` (요청 구조 검토)
+- **로드 보장**: 글로벌 `~/.claude/CLAUDE.md` 끝에 `@~/.claude/rules/common-*.md` 4줄 import. 디렉토리 자동주입에 의존하지 않음.
+- **검증 통과**: `session-roles`가 없는 jfun-work 폴더에서 새 세션 → "넌 고문세션이야" 호출 시 역할 인지 확인 → `@import`가 이 환경에서 실제 로드됨이 실증됨.
+
+### 1단계에서 의도적으로 미실행 (계획 대비 변경)
+- **레포 규칙 제거 미실행** — 계획 1단계 마지막 체크박스(레포에서 공통 부분 제거)는 **3단계로 연기**. 이유: ① 글로벌 파일명을 `common-*`로 달리 둬 레포 파일명과 충돌 없음(공존 안전) ② 레포 규칙끼리 `[[session-roles]]` 등 상호참조가 많아 지금 빼면 링크 깨짐. 현재 = 글로벌(공통 원칙) + 레포(도메인 세부) 공존, 충돌 없음.
+
+### 남은 단계
+- 2단계: `git`·`multi-session`·`interaction` 공통/도메인 분리
+- 3단계: 레포 중복 제거(REVERB + jfun 복사본 통일) — 단일화 완성
+- 4단계: 에이전트·커맨드 골격 글로벌화 (선택)
