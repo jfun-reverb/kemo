@@ -271,6 +271,27 @@ function renderBrandOpsDetail(d) {
   }
 
   body.innerHTML = html;
+  hydrateCampCertBars();
+}
+
+// 미니카드 3번째 진행바(인증 성공/모집인원) 비동기 채움 — 캠페인별 결과물 조회 후 computeCertStatus 카운트.
+// 인증성공 정의는 결과물 관리 화면과 동일(buildDeliverableGroups + computeCertStatus 단일 소스).
+var _campCertHydrateToken = 0;
+async function hydrateCampCertBars() {
+  var token = ++_campCertHydrateToken;
+  var slotEls = Array.prototype.slice.call(document.querySelectorAll('[data-camp-cert]'));
+  if (!slotEls.length) return;
+  await Promise.all(slotEls.map(async function(el) {
+    var campId = el.getAttribute('data-camp-cert');
+    var slotsN = parseInt(el.getAttribute('data-slots') || '0', 10);
+    var camp = { id: campId, recruit_type: el.getAttribute('data-rt') || '', channel: el.getAttribute('data-ch') || '' };
+    var delivs = await fetchDeliverablesByCampaign(campId);
+    if (token !== _campCertHydrateToken) return;       // 그 사이 다른 브랜드 상세로 전환 — 폐기
+    if (!document.body.contains(el)) return;
+    var success = countCertSuccess(delivs, camp);
+    var pct = slotsN > 0 ? Math.round(success / slotsN * 100) : null;
+    el.innerHTML = brandOpsRateBar('인증 성공', pct, success, slotsN);
+  }));
 }
 
 function brandOpsKpi(label, val) {
@@ -386,8 +407,7 @@ function renderCampMiniCard(c, isExternal, applicationId) {
   // 제출률: 결과물 제출 인플 / 승인 인플   ·   승인률: 승인 결과물 / 제출 결과물
   var submittedInf = c.deliv_submitted_inf || 0;
   var submitPct = approved > 0 ? Math.min(100, Math.round(submittedInf / approved * 100)) : null;
-  var delivTotal = c.deliv_total || 0, delivApproved = c.deliv_approved || 0;
-  var approvePct = delivTotal > 0 ? Math.min(100, Math.round(delivApproved / delivTotal * 100)) : null;
+  // 3번째 진행바는 「인증 성공 / 모집인원」 — 인증성공 수는 RPC 집계에 없어 hydrateCampCertBars 가 비동기로 채움
 
   var stKo = BRAND_OPS_CAMP_STATUS_KO[c.status] || c.status || '';
   var stColor = BRAND_OPS_CAMP_STATUS_COLOR[c.status] || { bg: '#F5F5F5', color: '#757575' };
@@ -415,7 +435,7 @@ function renderCampMiniCard(c, isExternal, applicationId) {
     + brandOpsMiniDateLine((function(){ var r = brandOpsDateRange(c.recruit_start, c.deadline); return r ? '모집 ' + r : ''; })())
     + brandOpsRateBar('제출', submitPct, submittedInf, approved)
     + brandOpsMiniDateLine(brandOpsSubmitDateText(c))
-    + brandOpsRateBar('결과물 승인', approvePct, delivApproved, delivTotal)
+    + '<div class="cert-bar-slot" data-camp-cert="' + esc(c.id) + '" data-slots="' + slots + '" data-rt="' + esc(c.recruit_type || '') + '" data-ch="' + esc(c.channel || '') + '">' + brandOpsRateBar('인증 성공', null, 0, slots) + '</div>'
     + '<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:8px;gap:4px">'
       + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampApplicants(\'' + esc(c.id) + '\', null, \'brand-ops\')">상세</button>'
       + linkBtn

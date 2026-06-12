@@ -213,14 +213,14 @@ function campOpsStatusCard(camp, allApps, allDelivs, stats) {
   const approvedIdSet = new Set(allApps.filter(a => a.status === 'approved').map(a => a.id));
   const submittedInf = new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size;
   const submitPct = approved > 0 ? Math.round(submittedInf / approved * 100) : null;
-  const delivTotal = allDelivs.length;
-  const delivApproved = allDelivs.filter(d => d.status === 'approved').length;
-  const approvePct = delivTotal > 0 ? Math.round(delivApproved / delivTotal * 100) : null;
+  // 3번째 진행바: 인증 성공(결과물 관리 화면과 동일 판정 — countCertSuccess) / 모집인원
+  const certSuccess = (typeof countCertSuccess === 'function') ? countCertSuccess(allDelivs, camp) : 0;
+  const certPct = slots > 0 ? Math.round(certSuccess / slots * 100) : null;
   return `<div class="camp-ops-card">
     <div class="camp-ops-card-title">모집 · 결과물 현황</div>
     ${brandOpsRateBar('모집현황', recruitPct, approved, slots)}
     ${brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved)}
-    ${brandOpsRateBar('결과물 승인', approvePct, delivApproved, delivTotal)}
+    ${brandOpsRateBar('인증 성공', certPct, certSuccess, slots)}
     <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
       <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
       <span>승인 <strong style="color:#16a34a">${approved}</strong>명</span>
