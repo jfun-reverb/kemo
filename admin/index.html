@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781241577';
+  var CURRENT_BUILD = 'v1781241714';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2034,7 +2034,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-12 14:19 · 5d098ae</span>
+          <span class="admin-build-text">2026-06-12 14:21 · a9eb7a8</span>
         </div>
       </div>
     </aside>
@@ -2941,7 +2941,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
               </div>
               <div class="admin-table-wrap">
               <table class="data-table">
-                <thead id="appTableHead"><tr><th>캠페인</th><th>브랜드</th><th>제품</th><th>모집기간</th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
+                <thead id="appTableHead"><tr><th>캠페인</th><th>브랜드</th><th>제품</th><th>모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
                 <tbody id="appTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
@@ -23431,6 +23431,17 @@ async function renderAppCampList() {
     apps.sort((a,b) => ((statusOrder[a.status]??9) - (statusOrder[b.status]??9)) * appDir);
   } else if (appSortKey === 'name') {
     apps.sort((a,b) => (a.user_name||'').localeCompare(b.user_name||'', 'ja') * appDir);
+  } else if (appSortKey === 'deadline') {
+    // 모집기간 정렬 — 캠페인 마감일(deadline) 기준. 마감일 없는 건 항상 뒤로
+    const campMap = new Map(camps.map(c => [c.id, c]));
+    apps.sort((a,b) => {
+      const da = campMap.get(a.campaign_id)?.deadline;
+      const dbl = campMap.get(b.campaign_id)?.deadline;
+      const ta = da ? new Date(da).getTime() : Infinity;
+      const tb = dbl ? new Date(dbl).getTime() : Infinity;
+      if (ta === tb) return 0;
+      return (ta - tb) * appDir;
+    });
   } else {
     apps.sort((a,b) => (new Date(a.created_at) - new Date(b.created_at)) * appDir);
   }

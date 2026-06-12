@@ -356,6 +356,17 @@ async function renderAppCampList() {
     apps.sort((a,b) => ((statusOrder[a.status]??9) - (statusOrder[b.status]??9)) * appDir);
   } else if (appSortKey === 'name') {
     apps.sort((a,b) => (a.user_name||'').localeCompare(b.user_name||'', 'ja') * appDir);
+  } else if (appSortKey === 'deadline') {
+    // 모집기간 정렬 — 캠페인 마감일(deadline) 기준. 마감일 없는 건 항상 뒤로
+    const campMap = new Map(camps.map(c => [c.id, c]));
+    apps.sort((a,b) => {
+      const da = campMap.get(a.campaign_id)?.deadline;
+      const dbl = campMap.get(b.campaign_id)?.deadline;
+      const ta = da ? new Date(da).getTime() : Infinity;
+      const tb = dbl ? new Date(dbl).getTime() : Infinity;
+      if (ta === tb) return 0;
+      return (ta - tb) * appDir;
+    });
   } else {
     apps.sort((a,b) => (new Date(a.created_at) - new Date(b.created_at)) * appDir);
   }
