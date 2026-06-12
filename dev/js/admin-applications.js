@@ -373,6 +373,8 @@ async function renderAppCampList() {
     const brandSub     = '';
     const productPrimary = camp.product_ko || camp.product || '';
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
+    const recruitStart   = camp.recruit_start ? formatDate(camp.recruit_start) : '';
+    const recruitEnd     = camp.deadline ? formatDate(camp.deadline) : '';
     return `<tr data-id="${esc(a.id)}">
       <td style="max-width:260px">
         <div style="display:flex;align-items:center;gap:10px">
@@ -393,6 +395,10 @@ async function renderAppCampList() {
       <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
         ${productPrimary?esc(productPrimary):'—'}
         ${productSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(productSub)}</div>`:''}
+      </td>
+      <td style="font-size:11px;color:var(--muted);white-space:nowrap">
+        ${recruitStart?`<div>${recruitStart}</div>`:''}
+        <div style="color:var(--ink)">~ ${recruitEnd||'—'}</div>
       </td>
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
@@ -417,7 +423,7 @@ async function renderAppCampList() {
     rows: apps,
     renderRow: renderAppRow,
     pageSize: APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
+    emptyHtml: '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">신청 없음</td></tr>',
   });
   // cancel_reason 캐시 미리 채움 — 상세 모달에서 카테고리 라벨 즉시 표시
   ensureCancelReasonsCache();
