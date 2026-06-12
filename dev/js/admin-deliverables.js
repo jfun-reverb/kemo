@@ -202,85 +202,12 @@ async function renderDeliverablesList() {
     infMissingMap = await fetchInfluencersByIds(userIds);
   }
 
-  // 신청(application_id) 단위 group — 한 신청에 영수증·결과물 묶음
-  //   result 슬롯 = post (gifting/visit) 단일
-  //   reviewByChannel 슬롯 = monitor 캠페인의 채널별 review_image 최신 1개 매핑 ({channel_code: deliverable})
-  //   사양 §5-1 정합: 채널별 별개 결과물을 셀 안에 N개 노출 (행 분리 대신 셀 내 미니 행)
-  const groups = new Map();
-  const upsertGroup = (appId, camp, inf) => {
-    if (!groups.has(appId)) {
-      groups.set(appId, {
-        application_id: appId,
-        campaign: camp || null,
-        influencer: inf || null,
-        receipt: null,             // kind === 'receipt' 최신
-        result: null,              // kind === 'post' 최신 (gifting/visit 전용)
-        reviewByChannel: {},       // monitor: {channel_code: review_image deliverable 최신}
-        hasLegacyReviewImage: false, // 사양 2 전 post_channel NULL 인 review_image 행 존재 여부
-        latest_submitted_at: null,
-      });
-    }
-    return groups.get(appId);
-  };
+  // 신청(application_id) 단위 group — buildDeliverableGroups 단일 소스 재사용
+  //   (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr 계산).
+  //   includeMissing 이면 미제출 승인 신청도 빈 그룹으로 포함.
   const campMap = new Map(campsForFilter.map(c => [c.id, c]));
-  for (const d of allDelivs) {
-    if (!d.application_id) continue;
-    const camp = d.campaigns || campMap.get(d.campaign_id) || null;
-    const g = upsertGroup(d.application_id, camp, d.influencers);
-    if (!g.influencer && d.influencers) g.influencer = d.influencers;
-    const subAt = d.submitted_at || '';
-    if (d.kind === 'receipt') {
-      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
-    } else if (d.kind === 'review_image') {
-      if (d.post_channel) {
-        // 사양 2 정책: 채널별 최신 1개 매칭
-        const prev = g.reviewByChannel[d.post_channel];
-        if (!prev || subAt > (prev.submitted_at || '')) g.reviewByChannel[d.post_channel] = d;
-      } else {
-        // 사양 2 전 레거시 행 (post_channel NULL) — 별도 플래그로 트래킹
-        g.hasLegacyReviewImage = true;
-      }
-    } else if (d.kind === 'post') {
-      if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
-    }
-    if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
-  }
-  if (includeMissing) {
-    for (const app of approvedApps) {
-      if (groups.has(app.id)) continue;
-      upsertGroup(app.id, campMap.get(app.campaign_id) || null, infMissingMap[app.user_id] || null);
-    }
-  }
-
-  // monitor 신청의 「대표 결과물 상태」 계산 — 필터·정렬에서 사용
-  //   우선순위: rejected > pending > approved > legacy_no_channel > none
-  //   - 채널별 매칭 안 됐는데 hasLegacyReviewImage=true 이면 'legacy_no_channel' (사양 2 전 데이터)
-  //   - 완전히 review_image 행이 없으면 'none' (진짜 미제출)
-  //   gifting/visit 는 g.result(post) 그대로.
-  for (const g of groups.values()) {
-    const rt = g.campaign?.recruit_type;
-    if (rt !== 'monitor') continue;
-    const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
-    if (channels.length === 0) {
-      // 채널 미등록 monitor 캠페인 — 레거시 행 있으면 legacy 표시
-      g.result_status_repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
-      g.result_states = [g.result_status_repr];
-      continue;
-    }
-    const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
-    let repr = 'approved';
-    if (states.includes('rejected')) repr = 'rejected';
-    else if (states.includes('pending')) repr = 'pending';
-    else if (states.includes('none')) {
-      // 채널별 미제출 — 레거시 NULL channel 행 있으면 legacy_no_channel
-      repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
-    }
-    g.result_status_repr = repr;
-    // 필터 ANY 매칭용 상태 집합 — 채널별 상태(미제출=none) + 레거시 NULL channel 행 있으면 legacy_no_channel
-    const stateSet = new Set(states);
-    if (g.hasLegacyReviewImage) stateSet.add('legacy_no_channel');
-    g.result_states = [...stateSet];
-  }
+  const groups = buildDeliverableGroups(allDelivs, campMap,
+    includeMissing ? {includeApps: approvedApps, infMap: infMissingMap} : {});
 
   // 옵션별 카운트 — 표준 multi-filter 패턴: 「자기 자신 필터 제외 + 다른 모든 필터 적용」 후 그룹 수.
   // 사용자가 카운트 = 실제 결과로 신뢰 가능. 동시 필터 적용 시 0건 표시도 정확.
@@ -508,6 +435,88 @@ async function renderDeliverablesList() {
     emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
+}
+
+// 결과물 배열 → 신청(application_id) 단위 그룹 Map (영수증·게시물·채널별 인증샷 종합 + monitor result_status_repr).
+//   computeCertStatus 입력 g 를 만드는 단일 소스. loadDeliverables / 운영현황 미니카드 / 진행현황 요약 카드가 공유.
+//   opts.includeApps: 미제출 승인 신청도 빈 그룹으로 포함(결과물 관리 전용). opts.infMap: user_id→influencer.
+function buildDeliverableGroups(delivs, campMap, opts) {
+  opts = opts || {};
+  campMap = campMap || new Map();
+  const groups = new Map();
+  const upsertGroup = (appId, camp, inf) => {
+    if (!groups.has(appId)) {
+      groups.set(appId, {
+        application_id: appId, campaign: camp || null, influencer: inf || null,
+        receipt: null, result: null, reviewByChannel: {},
+        hasLegacyReviewImage: false, latest_submitted_at: null,
+      });
+    }
+    return groups.get(appId);
+  };
+  for (const d of (delivs || [])) {
+    if (!d.application_id) continue;
+    const camp = d.campaigns || campMap.get(d.campaign_id) || null;
+    const g = upsertGroup(d.application_id, camp, d.influencers);
+    if (!g.influencer && d.influencers) g.influencer = d.influencers;
+    const subAt = d.submitted_at || '';
+    if (d.kind === 'receipt') {
+      if (!g.receipt || subAt > (g.receipt.submitted_at || '')) g.receipt = d;
+    } else if (d.kind === 'review_image') {
+      if (d.post_channel) {
+        const prev = g.reviewByChannel[d.post_channel];
+        if (!prev || subAt > (prev.submitted_at || '')) g.reviewByChannel[d.post_channel] = d;
+      } else {
+        g.hasLegacyReviewImage = true;
+      }
+    } else if (d.kind === 'post') {
+      if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
+    }
+    if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
+  }
+  // 미제출 승인 신청 빈 그룹 (결과물 관리 페인 전용)
+  if (opts.includeApps) {
+    for (const app of opts.includeApps) {
+      if (groups.has(app.id)) continue;
+      upsertGroup(app.id, campMap.get(app.campaign_id) || null, (opts.infMap || {})[app.user_id] || null);
+    }
+  }
+  _finalizeMonitorReprs(groups);
+  return groups;
+}
+
+// monitor 신청의 「대표 결과물 상태」 result_status_repr — rejected > pending > approved > legacy_no_channel > none
+function _finalizeMonitorReprs(groups) {
+  for (const g of groups.values()) {
+    const rt = g.campaign?.recruit_type;
+    if (rt !== 'monitor') continue;
+    const channels = (g.campaign?.channel || '').split(',').map(c => c.trim()).filter(Boolean);
+    if (channels.length === 0) {
+      g.result_status_repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
+      g.result_states = [g.result_status_repr];
+      continue;
+    }
+    const states = channels.map(ch => (g.reviewByChannel[ch]?.status) || 'none');
+    let repr = 'approved';
+    if (states.includes('rejected')) repr = 'rejected';
+    else if (states.includes('pending')) repr = 'pending';
+    else if (states.includes('none')) {
+      repr = g.hasLegacyReviewImage ? 'legacy_no_channel' : 'none';
+    }
+    g.result_status_repr = repr;
+    const stateSet = new Set(states);
+    if (g.hasLegacyReviewImage) stateSet.add('legacy_no_channel');
+    g.result_states = [...stateSet];
+  }
+}
+
+// 캠페인 결과물 배열에서 인증성공(computeCertStatus==='success') 인플 수 — 운영현황/진행현황 진행바 공용
+function countCertSuccess(delivs, camp) {
+  if (!camp) return 0;
+  const groups = buildDeliverableGroups(delivs, new Map([[camp.id, camp]]));
+  let n = 0;
+  for (const g of groups.values()) { if (computeCertStatus(g) === 'success') n++; }
+  return n;
 }
 
 // 인증 상태(신청 1건 단위) — 3종: success(인증성공) / submitting(인증샷 제출중) / none(미제출)
