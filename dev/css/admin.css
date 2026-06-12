@@ -101,6 +101,15 @@
 .admin-pane-list .admin-table-wrap{flex:1;min-height:0;overflow-y:auto;border-radius:0 0 var(--r16) var(--r16)}
 .admin-pane-list .data-table{border-collapse:separate;border-spacing:0}
 .admin-pane-list .data-table th{position:sticky;top:0;z-index:5;background:var(--surface-dim)}
+/* 캠페인 진행현황 상단 요약 카드 (개요·모집/결과물 현황·비용) — sticky-header 아래 고정 */
+.admin-pane-list #campApplicantsSummary{flex-shrink:0}
+.camp-ops-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:14px}
+.camp-ops-summary:empty{display:none;margin:0}
+.camp-ops-card{background:var(--surface);border-radius:var(--r16);box-shadow:var(--elevation-1);padding:14px 16px;min-width:0}
+.camp-ops-card-title{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:.02em}
+.camp-ops-row{display:flex;gap:8px;font-size:12px;line-height:1.6}
+.camp-ops-row .k{color:var(--muted);flex-shrink:0;min-width:64px}
+.camp-ops-row .v{color:var(--ink);font-weight:600;word-break:break-word}
 /* 브랜드 서베이 페인: 좌우 스크롤 + 첫 두 컬럼 sticky-left
    25열(일정 4 컬럼 추가) 폭 합계 ≈ 4200px. min-width 여유 둠 */
 #adminPane-brand-applications .admin-table-wrap{overflow-x:auto}

@@ -15,13 +15,27 @@
 
 // 캠페인별 신청자 표시
 let currentCampApplicantId = null;
+// 진입 출처 — 'campaigns'(캠페인 관리 목록) / 'brand-ops'(운영현황 브랜드 상세). 뒤로가기 분기용
+var _campApplicantsFrom = 'campaigns';
 // ════════════════════════════════════════════════════════════════════
 // SECTION: CAMP-APPLICANTS — 캠페인별 신청자 페인 (OT + 결과물 셀)
 // ════════════════════════════════════════════════════════════════════
 
-async function openCampApplicants(campId, campTitle) {
+async function openCampApplicants(campId, campTitle, from) {
   currentCampApplicantId = campId;
-  $('campApplicantsTitle').textContent = campTitle;
+  _campApplicantsFrom = (from === 'brand-ops') ? 'brand-ops' : 'campaigns';
+  // 제목: 인자로 받으면 즉시 표시, 없으면 loadCampApplicants 가 캠페인 조회 후 보강
+  $('campApplicantsTitle').textContent = campTitle || '';
+  const backBtn = $('campApplicantsBackBtn');
+  if (backBtn) {
+    if (_campApplicantsFrom === 'brand-ops') {
+      backBtn.textContent = '← 운영 현황';
+      backBtn.onclick = () => switchAdminPane('brand-ops-detail');
+    } else {
+      backBtn.textContent = '← 캠페인 목록으로';
+      backBtn.onclick = () => switchAdminPane('campaigns', null);
+    }
+  }
   switchAdminPane('camp-applicants', null);
   loadCampApplicants();
 }
@@ -34,8 +48,10 @@ async function loadCampApplicants() {
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
+  const allApps = apps.slice();  // 필터 적용 전 전체 — 상단 요약 카드 집계용
   const total = apps.length;
   const allApproved = apps.filter(a => a.status === 'approved').length;
+  const allPending = apps.filter(a => a.status === 'pending').length;
   if (filter) apps = apps.filter(a=>a.status===filter);
   if (searchQ) {
     const users = await fetchInfluencers();
@@ -53,7 +69,14 @@ async function loadCampApplicants() {
   const approved = apps.filter(a=>a.status==='approved').length;
   const pending = apps.filter(a=>a.status==='pending').length;
 
-  const camp = allCampaigns.find(c=>c.id===currentCampApplicantId);
+  let camp = allCampaigns.find(c=>c.id===currentCampApplicantId);
+  if (!camp) {
+    // 운영현황 등에서 직접 진입해 캠페인 목록(allCampaigns)이 아직 안 채워진 경우 보장
+    const all = await fetchCampaigns();
+    camp = all.find(c=>c.id===currentCampApplicantId);
+  }
+  // 제목이 비어 있으면(운영현황 진입) 캠페인명으로 보강
+  if (camp && !($('campApplicantsTitle')?.textContent || '').trim()) $('campApplicantsTitle').textContent = camp.title || '';
   const slots = camp?.slots || 0;
   const remaining = Math.max(slots - allApproved, 0);
   $('campApplicantsSlots').innerHTML = `모집 인원: <strong>${slots}명</strong> · 빈자리: <strong style="color:${remaining>0?'var(--green)':'var(--red)'}">${remaining>0?remaining+'건':'없음'}</strong>`;
@@ -70,6 +93,8 @@ async function loadCampApplicants() {
   const _users = await fetchInfluencers();
   // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
   const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
+  // 상단 요약 카드 (개요 + 모집/결과물 현황 + 비용)
+  renderCampOpsSummary(camp, allApps, allDelivs, { total, approved: allApproved, pending: allPending, slots });
   const delivByApp = {};
   allDelivs.forEach(d => {
     const arr = (delivByApp[d.application_id] ||= []);
@@ -129,6 +154,114 @@ async function loadCampApplicants() {
     pageSize: CAMP_APPLICANTS_PAGE_SIZE,
     emptyHtml: '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:32px">아직 신청이 없습니다</td></tr>',
   });
+}
+
+// ── 캠페인 진행현황 상단 요약 카드 ───────────────────────────────────
+// 개요(좌) + 모집·결과물 현황(우) 즉시 렌더. 비용 카드는 권한·연결 조건부 비동기.
+function renderCampOpsSummary(camp, allApps, allDelivs, stats) {
+  const box = $('campApplicantsSummary');
+  if (!box) return;
+  if (!camp) { box.innerHTML = ''; return; }
+  box.innerHTML = campOpsOverviewCard(camp) + campOpsStatusCard(camp, allApps, allDelivs, stats);
+  appendCampOpsCostCard(camp);
+}
+
+// 개요 카드 — 썸네일·제품·캠페인번호·타입/채널/판매가 + 기간 3종
+function campOpsOverviewCard(camp) {
+  const thumb = camp.img1
+    ? `<img src="${esc(imgThumb(camp.img1,128,70))}" data-orig="${esc(camp.img1)}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;flex-shrink:0">`
+    : `<div style="width:64px;height:64px;border-radius:8px;background:var(--surface-dim);flex-shrink:0;display:flex;align-items:center;justify-content:center"><span class="material-icons-round notranslate" translate="no" style="color:var(--muted)">inventory_2</span></div>`;
+  const product = esc(camp.product_ko || camp.product || '—');
+  const typeKo = (typeof BRAND_OPS_RECRUIT_TYPE_KO !== 'undefined' && BRAND_OPS_RECRUIT_TYPE_KO[camp.recruit_type]) || camp.recruit_type || '—';
+  const channels = (camp.channel || '').split(',').map(s=>s.trim()).filter(Boolean);
+  const chSep = camp.channel_match === 'and' ? ' & ' : ' / ';
+  const channelTxt = channels.map(ch => esc(getChannelLabel(ch))).join(chSep);
+  const priceTxt = (camp.product_price != null && camp.product_price !== '') ? Number(camp.product_price).toLocaleString('ja-JP') + '円' : '';
+  const recruitRange = brandOpsDateRange(camp.recruit_start, camp.deadline);
+  let buyRange = '', buyLabel = '';
+  if (camp.recruit_type === 'monitor') { buyRange = brandOpsDateRange(camp.purchase_start, camp.purchase_end); buyLabel = '구매'; }
+  else if (camp.recruit_type === 'visit') { buyRange = brandOpsDateRange(camp.visit_start, camp.visit_end); buyLabel = '방문'; }
+  const submitTxt = camp.submission_end ? formatDate(camp.submission_end) : '';
+  return `<div class="camp-ops-card">
+    <div class="camp-ops-card-title">캠페인 개요</div>
+    <div style="display:flex;gap:12px">
+      ${thumb}
+      <div style="min-width:0;flex:1">
+        <div style="font-weight:700;font-size:13px;color:var(--ink);word-break:break-word">${product}</div>
+        ${camp.campaign_no?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(camp.campaign_no)}</div>`:''}
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:11px">
+          <span style="background:var(--surface-dim);padding:1px 8px;border-radius:8px">${esc(typeKo)}</span>
+          ${channelTxt?`<span style="color:var(--muted)">${channelTxt}</span>`:''}
+          ${priceTxt?`<span style="color:var(--ink);font-weight:600">${priceTxt}</span>`:''}
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;border-top:1px solid var(--surface-dim);padding-top:8px">
+      ${recruitRange?`<div class="camp-ops-row"><span class="k">모집</span><span class="v">${esc(recruitRange)}</span></div>`:''}
+      ${buyRange?`<div class="camp-ops-row"><span class="k">${buyLabel}</span><span class="v">${esc(buyRange)}</span></div>`:''}
+      ${submitTxt?`<div class="camp-ops-row"><span class="k">제출마감</span><span class="v">${esc(submitTxt)}</span></div>`:''}
+    </div>
+  </div>`;
+}
+
+// 모집·결과물 현황 카드 — 진행바 3종(모집/제출/승인) + 보조 수치
+function campOpsStatusCard(camp, allApps, allDelivs, stats) {
+  const slots = stats.slots || 0;
+  const approved = stats.approved || 0;
+  const recruitPct = slots > 0 ? Math.round(approved / slots * 100) : null;
+  // 제출 인플 = 승인 신청 중 결과물 제출한 distinct 신청 (미니카드 정의와 동일)
+  const approvedIdSet = new Set(allApps.filter(a => a.status === 'approved').map(a => a.id));
+  const submittedInf = new Set(allDelivs.filter(d => approvedIdSet.has(d.application_id)).map(d => d.application_id)).size;
+  const submitPct = approved > 0 ? Math.round(submittedInf / approved * 100) : null;
+  const delivTotal = allDelivs.length;
+  const delivApproved = allDelivs.filter(d => d.status === 'approved').length;
+  const approvePct = delivTotal > 0 ? Math.round(delivApproved / delivTotal * 100) : null;
+  return `<div class="camp-ops-card">
+    <div class="camp-ops-card-title">모집 · 결과물 현황</div>
+    ${brandOpsRateBar('모집현황', recruitPct, approved, slots)}
+    ${brandOpsRateBar('결과물 제출', submitPct, submittedInf, approved)}
+    ${brandOpsRateBar('결과물 승인', approvePct, delivApproved, delivTotal)}
+    <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+      <span>신청 <strong style="color:var(--ink)">${stats.total}</strong>명</span>
+      <span>승인 <strong style="color:#16a34a">${approved}</strong>명</span>
+      <span>심사중 <strong style="color:#f59e0b">${stats.pending}</strong>명</span>
+    </div>
+  </div>`;
+}
+
+// 비용 카드 — 권한(campaign_admin 이상) + 연결 신청 있을 때만. 비동기로 뒤에 붙임.
+async function appendCampOpsCostCard(camp) {
+  if (typeof isCampaignAdminOrAbove === 'function' && !isCampaignAdminOrAbove()) return;
+  if (!camp || !camp.source_application_id) return;
+  let app = null;
+  try { app = await fetchBrandApplicationById(camp.source_application_id); } catch (e) { app = null; }
+  // 비동기 사이 다른 캠페인으로 전환됐으면 중단 (stale 카드 방지)
+  if (currentCampApplicantId !== camp.id) return;
+  if (!app) return;
+  const box = $('campApplicantsSummary');
+  if (box) box.insertAdjacentHTML('beforeend', campOpsCostCard(app));
+}
+
+function campOpsCostCard(app) {
+  const quote = app.final_quote_krw || app.estimated_krw;
+  const quoteLabel = app.final_quote_krw ? '확정 견적' : '예상 견적';
+  const quoteTxt = quote ? Number(quote).toLocaleString('ko-KR') + '원' : '미산정';
+  // 모집비(운영비) 총액 = Σ(수량 × 모집비 단가) — 브랜드 신청 상세의 totalRecruitFee 와 동일 산식
+  const prods = Array.isArray(app.products) ? app.products : [];
+  const recruitFee = prods.reduce((s, p) => {
+    const rf = (p.recruit_fee_krw == null || p.recruit_fee_krw === '') ? 0 : Number(p.recruit_fee_krw);
+    return s + (Number(p.qty) || 0) * rf;
+  }, 0);
+  const recruitFeeTxt = recruitFee > 0 ? recruitFee.toLocaleString('ko-KR') + '원' : '—';
+  const url = app.quote_sent_url || '';
+  const safeUrl = (typeof safeBrandUrl === 'function') ? safeBrandUrl(url) : url;
+  return `<div class="camp-ops-card">
+    <div class="camp-ops-card-title">비용</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">연결 신청 ${esc(app.application_no||'')} 기준</div>
+    <div class="camp-ops-row"><span class="k">${quoteLabel}</span><span class="v">${esc(quoteTxt)}</span></div>
+    <div class="camp-ops-row"><span class="k">운영비</span><span class="v">${esc(recruitFeeTxt)}</span></div>
+    ${(url && safeUrl)?`<div class="camp-ops-row"><span class="k">견적서</span><span class="v"><a href="${esc(safeUrl)}" target="_blank" rel="noopener" style="color:var(--pink)">견적서 보기</a></span></div>`:''}
+  </div>`;
 }
 
 // Stage 4: OT 체크박스 셀 (gifting/visit 승인 건만 활성)
