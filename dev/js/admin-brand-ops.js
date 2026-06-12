@@ -417,7 +417,7 @@ function renderCampMiniCard(c, isExternal, applicationId) {
     + brandOpsMiniDateLine(brandOpsSubmitDateText(c))
     + brandOpsRateBar('결과물 승인', approvePct, delivApproved, delivTotal)
     + '<div style="display:flex;justify-content:flex-end;align-items:center;margin-top:8px;gap:4px">'
-      + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampPreviewModal(\'' + esc(c.id) + '\')">상세</button>'
+      + '<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();openCampApplicants(\'' + esc(c.id) + '\', null, \'brand-ops\')">상세</button>'
       + linkBtn
     + '</div>'
     + '</div>';

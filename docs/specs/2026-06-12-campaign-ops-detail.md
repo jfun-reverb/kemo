@@ -134,15 +134,24 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-**구현일:**
-**관련 커밋:**
+**구현일:** 2026-06-12
+**관련 커밋:** (이 커밋 — feat(admin): campaign ops summary cards on progress pane)
+**PR 분할:** PR 1·2 를 한 커밋으로 통합 (사용자 확정 2026-06-12 "한 번에"). 같은 화면이라 분할 실익 없음.
 
 ### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것:
-- 달라진 것:
+- **추가된 것**:
+  - 운영현황 직접 진입 시 `allCampaigns`(캠페인 목록 전역 캐시) 미로드 대비 `loadCampApplicants` 에 `fetchCampaigns()` 폴백 + 제목 보강 — 사양서에 없던 방어(운영현황만 보고 진입하면 캠페인 목록이 안 채워져 요약 카드 데이터가 비는 회귀 차단).
+  - 미니카드 「상세」 버튼은 제목을 인자로 넘기지 않고(`null`) `loadCampApplicants` 가 캠페인명으로 보강 — onclick 속성 안 따옴표 충돌·제목 특수문자 깨짐 회피.
+- **빠진 것**: 없음.
+- **달라진 것**:
+  - 비용 카드 「인당 운영비」 → **모집비 총액**(`Σ 수량 × recruit_fee_krw`)으로 확정 (사용자 선택 2026-06-12). 제품별 단가가 제각각이라 캠페인 단위 합계가 더 명확. 「연결 신청 {신청번호} 기준」 라벨로 1신청-N캠페인 과대표시 오해 차단.
+  - 뒤로가기 brand-ops 복귀는 `switchAdminPane('brand-ops-detail')` 만 호출 — `switchAdminPane` 의 loaders 에 `'brand-ops-detail': loadBrandOpsDetail` 이 등록돼 있어 자동 재로드되므로 사양서 §80 의 `loadBrandOpsDetail()` 명시 호출은 생략(동작 동일).
 
 ### 구현 중 기술 결정 사항
--
+- DB 변경 없음. 기존 컬럼(`product_price`/`source_application_id`/`campaign_no`/기간 컬럼)·기존 RPC·`fetchBrandApplicationById`·`fetchDeliverablesByCampaign` 조합으로 구현.
+- 진행바·날짜범위·모집타입 라벨은 운영현황 헬퍼(`brandOpsRateBar`/`brandOpsDateRange`/`BRAND_OPS_RECRUIT_TYPE_KO`) 재사용해 미니카드와 디자인·집계 정의 통일.
+- 제출률 = 승인 신청 중 결과물 제출 distinct 신청 / 승인 신청 수, 승인률 = 승인 결과물 / 제출 결과물 (미니카드와 동일 정의).
+- 비동기 비용 카드는 fetch 사이 다른 캠페인 전환 시 `currentCampApplicantId !== camp.id` 가드로 stale 카드 차단.
+- 권한 분기 `isCampaignAdminOrAbove()` 는 표시 제한 수준 — 실차단은 `brand_applications` 의 `is_admin()` SELECT 행 단위 보안 정책(RLS)이 담당.

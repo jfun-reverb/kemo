@@ -960,7 +960,7 @@
         <div id="adminPane-camp-applicants" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-              <button class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
+              <button id="campApplicantsBackBtn" class="btn btn-ghost btn-sm" onclick="switchAdminPane('campaigns',null)">← 캠페인 목록으로</button>
               <div id="campApplicantsTitle" style="font-size:16px;font-weight:700"></div>
               <div id="campApplicantsSlots" style="font-size:12px;color:var(--muted)"></div>
             </div>
@@ -984,6 +984,7 @@
               </div>
             </div>
           </div>
+          <div id="campApplicantsSummary" class="camp-ops-summary"></div>
           <div class="admin-card">
             <div class="admin-card-header">
               <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title" id="campApplicantsSubtitle">신청자 목록</span><span id="campApplicantsStats" style="font-size:12px;color:var(--muted)"></span></div>
