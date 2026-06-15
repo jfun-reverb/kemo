@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781503614';
+  var CURRENT_BUILD = 'v1781503852';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -749,14 +749,12 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
 /* ── 오픈 예정 기능 보드 (D-day) ── */
-.upcoming-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.upcoming-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
-.upcoming-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
-.upcoming-card-title{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
-.upcoming-card-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;white-space:pre-wrap}
-.upcoming-card-date{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink);font-weight:600}
-.upcoming-card-date .material-icons-round{font-size:15px;color:var(--muted)}
-.upcoming-badge{flex-shrink:0;display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em}
+.upcoming-table{width:100%}
+.upcoming-table th,.upcoming-table td{vertical-align:middle}
+.upcoming-td-title{font-weight:700;color:var(--ink);white-space:nowrap}
+.upcoming-td-desc{color:var(--muted);line-height:1.6;min-width:240px}
+.upcoming-td-date{color:var(--ink);font-weight:600;white-space:nowrap}
+.upcoming-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
 .upcoming-badge-soon{background:var(--gold-l);color:var(--gold)}
 .upcoming-badge-today{background:var(--light-pink);color:var(--dark-pink)}
 .upcoming-badge-done{background:var(--green-l);color:var(--green)}
@@ -2059,7 +2057,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 15:06 · 87334d6</span>
+          <span class="admin-build-text">2026-06-15 15:10 · 63819a1</span>
         </div>
       </div>
     </aside>
@@ -2073,7 +2071,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
             <div style="font-size:16px;font-weight:700;color:var(--ink)">오픈 예정 기능</div>
           </div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:16px">곧 오픈될 기능과 시행일(D-day)을 안내합니다. 개발이 완료되어 시행일이 확정된 기능만 표시됩니다.</div>
-          <div id="upcomingFeaturesBody" class="upcoming-grid"></div>
+          <div id="upcomingFeaturesBody"></div>
         </div>
 
         <!-- DASHBOARD PANE -->
@@ -23339,11 +23337,22 @@ function renderUpcomingFeatures() {
     return;
   }
 
-  wrap.innerHTML = items.map(buildUpcomingCard).join('');
+  wrap.innerHTML =
+    '<div class="admin-card" style="overflow-x:auto">' +
+      '<table class="data-table upcoming-table">' +
+        '<thead><tr>' +
+          '<th>기능</th>' +
+          '<th>상세 설명</th>' +
+          '<th>시행일</th>' +
+          '<th style="text-align:center">상태</th>' +
+        '</tr></thead>' +
+        '<tbody>' + items.map(buildUpcomingRow).join('') + '</tbody>' +
+      '</table>' +
+    '</div>';
 }
 
-// 항목 카드 1개 HTML
-function buildUpcomingCard(item) {
+// 항목 행(tr) 1개 HTML
+function buildUpcomingRow(item) {
   const dday = upcomingFeatureDday(item);              // 양수=예정, 0=당일, 음수=시행 경과
   const dateLabel = upcomingFeatureDateLabel(item);
 
@@ -23361,17 +23370,14 @@ function buildUpcomingCard(item) {
   }
 
   return (
-    '<div class="upcoming-card">' +
-      '<div class="upcoming-card-top">' +
-        '<div class="upcoming-card-title">' + esc(item.title || '') + '</div>' +
+    '<tr>' +
+      '<td class="upcoming-td-title">' + esc(item.title || '') + '</td>' +
+      '<td class="upcoming-td-desc">' + esc(item.desc || '') + '</td>' +
+      '<td class="upcoming-td-date">' + esc(dateLabel) + '</td>' +
+      '<td style="text-align:center">' +
         '<span class="upcoming-badge ' + badgeClass + '">' + esc(badgeText) + '</span>' +
-      '</div>' +
-      (item.desc ? '<div class="upcoming-card-desc">' + esc(item.desc) + '</div>' : '') +
-      '<div class="upcoming-card-date">' +
-        '<span class="material-icons-round notranslate" translate="no">event</span>' +
-        '시행일 ' + esc(dateLabel) +
-      '</div>' +
-    '</div>'
+      '</td>' +
+    '</tr>'
   );
 }
 
