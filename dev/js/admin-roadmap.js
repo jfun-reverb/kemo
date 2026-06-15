@@ -22,11 +22,22 @@ function renderUpcomingFeatures() {
     return;
   }
 
-  wrap.innerHTML = items.map(buildUpcomingCard).join('');
+  wrap.innerHTML =
+    '<div class="admin-card" style="overflow-x:auto">' +
+      '<table class="data-table upcoming-table">' +
+        '<thead><tr>' +
+          '<th>기능</th>' +
+          '<th>상세 설명</th>' +
+          '<th>시행일</th>' +
+          '<th style="text-align:center">상태</th>' +
+        '</tr></thead>' +
+        '<tbody>' + items.map(buildUpcomingRow).join('') + '</tbody>' +
+      '</table>' +
+    '</div>';
 }
 
-// 항목 카드 1개 HTML
-function buildUpcomingCard(item) {
+// 항목 행(tr) 1개 HTML
+function buildUpcomingRow(item) {
   const dday = upcomingFeatureDday(item);              // 양수=예정, 0=당일, 음수=시행 경과
   const dateLabel = upcomingFeatureDateLabel(item);
 
@@ -44,16 +55,13 @@ function buildUpcomingCard(item) {
   }
 
   return (
-    '<div class="upcoming-card">' +
-      '<div class="upcoming-card-top">' +
-        '<div class="upcoming-card-title">' + esc(item.title || '') + '</div>' +
+    '<tr>' +
+      '<td class="upcoming-td-title">' + esc(item.title || '') + '</td>' +
+      '<td class="upcoming-td-desc">' + esc(item.desc || '') + '</td>' +
+      '<td class="upcoming-td-date">' + esc(dateLabel) + '</td>' +
+      '<td style="text-align:center">' +
         '<span class="upcoming-badge ' + badgeClass + '">' + esc(badgeText) + '</span>' +
-      '</div>' +
-      (item.desc ? '<div class="upcoming-card-desc">' + esc(item.desc) + '</div>' : '') +
-      '<div class="upcoming-card-date">' +
-        '<span class="material-icons-round notranslate" translate="no">event</span>' +
-        '시행일 ' + esc(dateLabel) +
-      '</div>' +
-    '</div>'
+      '</td>' +
+    '</tr>'
   );
 }

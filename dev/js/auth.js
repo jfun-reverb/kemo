@@ -12,10 +12,32 @@ function updateGnb() {
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta();
 }
 
+// 생년월일 년/월/일 select 채우기 (멱등). prefix 로 가입('signup')·응모 게이트('gate') 공용.
+function populateBirthdateSelects(prefix) {
+  prefix = prefix || 'signup';
+  const yEl = $(prefix+'BirthYear'), mEl = $(prefix+'BirthMonth'), dEl = $(prefix+'BirthDay');
+  if (!yEl || !mEl || !dEl || yEl.dataset.filled) return;
+  const curY = new Date().getFullYear();
+  for (let y = curY; y >= 1940; y--) {
+    const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); yEl.appendChild(o);
+  }
+  for (let mo = 1; mo <= 12; mo++) {
+    const o = document.createElement('option'); o.value = String(mo); o.textContent = String(mo); mEl.appendChild(o);
+  }
+  for (let d = 1; d <= 31; d++) {
+    const o = document.createElement('option'); o.value = String(d); o.textContent = String(d); dEl.appendChild(o);
+  }
+  yEl.dataset.filled = '1';
+}
+
 async function handleSignup(e) {
   e.preventDefault();
   const name = ($('signupNameKanji')?.value||'').trim();
   const nameKana = ($('signupNameKana')?.value||'').trim();
+  const birthYear = $('signupBirthYear')?.value || '';
+  const birthMonth = $('signupBirthMonth')?.value || '';
+  const birthDay = $('signupBirthDay')?.value || '';
+  const gender = $('signupGender')?.value || '';
   const email = $('signupEmail').value.trim();
   const pw = $('signupPw').value;
   const pw2 = $('signupPw2').value;
@@ -24,6 +46,17 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent=t('authError.enterName'); errEl.style.display='block'; return; }
+  // 생년월일 필수 + 유효 날짜 + 만 18세 이상 검증
+  if (!birthYear || !birthMonth || !birthDay) { errEl.textContent=t('authError.enterBirthdate'); errEl.style.display='block'; return; }
+  const birthdate = `${birthYear}-${String(birthMonth).padStart(2,'0')}-${String(birthDay).padStart(2,'0')}`;
+  const bdObj = new Date(birthdate + 'T00:00:00+09:00');
+  if (isNaN(bdObj.getTime()) || (bdObj.getMonth()+1) !== Number(birthMonth) || bdObj.getDate() !== Number(birthDay)) {
+    errEl.textContent=t('authError.invalidBirthdate'); errEl.style.display='block'; return;
+  }
+  const age = calcAgeFromBirthdate(birthdate);
+  if (age === null || age < AGE_POLICY_MIN_AGE) { errEl.textContent=t('authError.under18'); errEl.style.display='block'; return; }
+  // 성별 필수 (回答しない 포함 4종 — 빈 값만 차단)
+  if (!gender) { errEl.textContent=t('authError.enterGender'); errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
   const pwErr = validatePasswordPolicy(pw);
   if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
@@ -39,6 +72,7 @@ async function handleSignup(e) {
   const nowIso = new Date().toISOString();
   const userData = {
     email, name, name_kanji: name, name_kana: nameKana,
+    birthdate, gender,
     terms_agreed_at: nowIso,
     privacy_agreed_at: nowIso,
     marketing_opt_in: marketingOptIn,

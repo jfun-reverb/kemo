@@ -476,6 +476,24 @@ function handleFloatApply() {
     toast(t('apply.emailUnverified'),'error');
     return;
   }
+  // 연령 게이트 (소급 — 응모 시점 검증, 사양서 §0-1 ①). 클라 표시용·서버 트리거(P0002)가 최종 방어선
+  //   - 생년월일/성별 미입력 → 입력 게이트 모달 (입력·저장 후 다시 응모 진행)
+  //   - 만 18세 미만 → 응모 차단 안내 (계정·둘러보기는 유지, 18세 도달 시 자동 해제)
+  const pAge = currentUserProfile || {};
+  if (!pAge.birthdate || !pAge.gender) {
+    openAgeGate();
+    return;
+  }
+  const curAge = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(pAge.birthdate) : null;
+  if (curAge !== null && curAge < AGE_POLICY_MIN_AGE) {
+    if (typeof openModal === 'function') {
+      $('alertModalMessage').textContent = t('ageGate.under18Apply');
+      openModal('alertModal');
+    } else {
+      toast(t('ageGate.under18Apply'), 'error');
+    }
+    return;
+  }
   // 필수 정보 체크: 이름(한자·가나) + 캠페인 채널에 맞는 SNS 계정 + 배송지
   const p = currentUserProfile || {};
   const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
@@ -531,6 +549,67 @@ function handleFloatApply() {
 function openProductPage() {
   const url = $('floatProductPageBtn')?.dataset.url;
   if (url) window.open(url,'_blank');
+}
+
+// ── 응모 연령 게이트 (생년월일·성별 미입력 시 응모 직전 입력, 사양서 §0-1 ①) ──
+function openAgeGate() {
+  if (typeof populateBirthdateSelects === 'function') populateBirthdateSelects('gate');
+  const err = $('ageGateError');
+  if (err) { err.style.display='none'; err.textContent=''; }
+  // 기존 입력값 복원 (성별만 — 생년월일은 최초 입력이라 보통 비어 있음)
+  const p = currentUserProfile || {};
+  if (p.gender && $('gateGender')) $('gateGender').value = p.gender;
+  const ov = $('ageGateOverlay');
+  if (ov) ov.style.display = 'flex';
+}
+
+function closeAgeGate() {
+  const ov = $('ageGateOverlay');
+  if (ov) ov.style.display = 'none';
+}
+
+async function saveAgeGate() {
+  const err = $('ageGateError');
+  const showErr = (msg) => { if (err) { err.textContent = msg; err.style.display='block'; } };
+  const by = $('gateBirthYear')?.value || '';
+  const bm = $('gateBirthMonth')?.value || '';
+  const bd = $('gateBirthDay')?.value || '';
+  const gender = $('gateGender')?.value || '';
+  if (err) err.style.display='none';
+  if (!by || !bm || !bd) { showErr(t('authError.enterBirthdate')); return; }
+  const birthdate = `${by}-${String(bm).padStart(2,'0')}-${String(bd).padStart(2,'0')}`;
+  const bdObj = new Date(birthdate + 'T00:00:00+09:00');
+  if (isNaN(bdObj.getTime()) || (bdObj.getMonth()+1) !== Number(bm) || bdObj.getDate() !== Number(bd)) {
+    showErr(t('authError.invalidBirthdate')); return;
+  }
+  if (!gender) { showErr(t('authError.enterGender')); return; }
+
+  const btn = $('ageGateSaveBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  try {
+    await updateInfluencer(currentUser.id, { birthdate, gender });
+    if (!currentUserProfile) currentUserProfile = {};
+    currentUserProfile.birthdate = birthdate;
+    currentUserProfile.gender = gender;
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
+    showErr(friendlyErrorJa(e));
+    return;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
+  closeAgeGate();
+  // 만 18세 미만이면 차단 안내, 이상이면 응모 흐름 재개
+  const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(birthdate) : null;
+  if (age !== null && age < AGE_POLICY_MIN_AGE) {
+    if (typeof openModal === 'function') {
+      $('alertModalMessage').textContent = t('ageGate.under18Apply');
+      openModal('alertModal');
+    } else {
+      toast(t('ageGate.under18Apply'), 'error');
+    }
+    return;
+  }
+  handleFloatApply();
 }
 
 // ══════════════════════════════════════

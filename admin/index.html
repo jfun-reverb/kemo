@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781513609';
+  var CURRENT_BUILD = 'v1781514127';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -749,14 +749,12 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
 /* ── 오픈 예정 기능 보드 (D-day) ── */
-.upcoming-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.upcoming-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
-.upcoming-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
-.upcoming-card-title{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
-.upcoming-card-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;white-space:pre-wrap}
-.upcoming-card-date{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink);font-weight:600}
-.upcoming-card-date .material-icons-round{font-size:15px;color:var(--muted)}
-.upcoming-badge{flex-shrink:0;display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em}
+.upcoming-table{width:100%}
+.upcoming-table th,.upcoming-table td{vertical-align:middle}
+.upcoming-td-title{font-weight:700;color:var(--ink);white-space:nowrap}
+.upcoming-td-desc{color:var(--muted);line-height:1.6;min-width:240px}
+.upcoming-td-date{color:var(--ink);font-weight:600;white-space:nowrap}
+.upcoming-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
 .upcoming-badge-soon{background:var(--gold-l);color:var(--gold)}
 .upcoming-badge-today{background:var(--light-pink);color:var(--dark-pink)}
 .upcoming-badge-done{background:var(--green-l);color:var(--green)}
@@ -2077,7 +2075,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 17:53 · 88cb5ac</span>
+          <span class="admin-build-text">2026-06-15 18:02 · 395146f</span>
         </div>
       </div>
     </aside>
@@ -2091,7 +2089,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <div style="font-size:16px;font-weight:700;color:var(--ink)">오픈 예정 기능</div>
           </div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:16px">곧 오픈될 기능과 시행일(D-day)을 안내합니다. 개발이 완료되어 시행일이 확정된 기능만 표시됩니다.</div>
-          <div id="upcomingFeaturesBody" class="upcoming-grid"></div>
+          <div id="upcomingFeaturesBody"></div>
         </div>
 
         <!-- DASHBOARD PANE -->
@@ -5773,6 +5771,27 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
+// 연령 정책 — 클라이언트 만 나이 계산 (표시·UX용. 최종 차단 판정은 서버 트리거 check_age_policy)
+//   가입 폼(PR 2)·응모 시점(PR 3) 공용. 'YYYY-MM-DD' 문자열 → 만 나이(정수) 또는 null.
+//   서버와 동일하게 일본/한국 표준시(KST=JST) 기준.
+// ══════════════════════════════════════
+const AGE_POLICY_MIN_AGE = 18; // 가입·응모 최소 연령
+
+function calcAgeFromBirthdate(birthdateStr) {
+  if (!birthdateStr) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr);
+  if (!m) return null;
+  const by = +m[1], bm = +m[2], bd = +m[3];
+  // 오늘(KST) 연·월·일
+  const nowKst = new Date(Date.now() + (new Date().getTimezoneOffset() * 60000) + (9 * 3600000));
+  const ty = nowKst.getFullYear(), tm = nowKst.getMonth() + 1, td = nowKst.getDate();
+  let age = ty - by;
+  // 올해 생일이 아직 안 지났으면 한 살 빼기
+  if (tm < bm || (tm === bm && td < bd)) age--;
+  return age;
+}
+
+// ══════════════════════════════════════
 // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
 //   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
@@ -5890,7 +5909,7 @@ function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
 // ══════════════════════════════════════
 const UPCOMING_FEATURE_RETENTION_DAYS = 14; // 시행 후 며칠까지 「시행 완료」로 유지 노출
 const UPCOMING_FEATURES = [
-  // 예시(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
+  // 실제 등록 형태(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
   // {
   //   key: 'age-policy-2026',                            // 식별자(중복 금지)
   //   title: '연령 정책(만 18세 이상)',                   // 기능명(관리자 화면 — 한국어)
@@ -23662,11 +23681,22 @@ function renderUpcomingFeatures() {
     return;
   }
 
-  wrap.innerHTML = items.map(buildUpcomingCard).join('');
+  wrap.innerHTML =
+    '<div class="admin-card" style="overflow-x:auto">' +
+      '<table class="data-table upcoming-table">' +
+        '<thead><tr>' +
+          '<th>기능</th>' +
+          '<th>상세 설명</th>' +
+          '<th>시행일</th>' +
+          '<th style="text-align:center">상태</th>' +
+        '</tr></thead>' +
+        '<tbody>' + items.map(buildUpcomingRow).join('') + '</tbody>' +
+      '</table>' +
+    '</div>';
 }
 
-// 항목 카드 1개 HTML
-function buildUpcomingCard(item) {
+// 항목 행(tr) 1개 HTML
+function buildUpcomingRow(item) {
   const dday = upcomingFeatureDday(item);              // 양수=예정, 0=당일, 음수=시행 경과
   const dateLabel = upcomingFeatureDateLabel(item);
 
@@ -23684,17 +23714,14 @@ function buildUpcomingCard(item) {
   }
 
   return (
-    '<div class="upcoming-card">' +
-      '<div class="upcoming-card-top">' +
-        '<div class="upcoming-card-title">' + esc(item.title || '') + '</div>' +
+    '<tr>' +
+      '<td class="upcoming-td-title">' + esc(item.title || '') + '</td>' +
+      '<td class="upcoming-td-desc">' + esc(item.desc || '') + '</td>' +
+      '<td class="upcoming-td-date">' + esc(dateLabel) + '</td>' +
+      '<td style="text-align:center">' +
         '<span class="upcoming-badge ' + badgeClass + '">' + esc(badgeText) + '</span>' +
-      '</div>' +
-      (item.desc ? '<div class="upcoming-card-desc">' + esc(item.desc) + '</div>' : '') +
-      '<div class="upcoming-card-date">' +
-        '<span class="material-icons-round notranslate" translate="no">event</span>' +
-        '시행일 ' + esc(dateLabel) +
-      '</div>' +
-    '</div>'
+      '</td>' +
+    '</tr>'
   );
 }
 
