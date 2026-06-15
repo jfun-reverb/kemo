@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781493071';
+  var CURRENT_BUILD = 'v1781501512';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -748,6 +748,21 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
 .admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
+/* ── 오픈 예정 기능 보드 (D-day) ── */
+.upcoming-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.upcoming-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+.upcoming-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.upcoming-card-title{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
+.upcoming-card-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;white-space:pre-wrap}
+.upcoming-card-date{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink);font-weight:600}
+.upcoming-card-date .material-icons-round{font-size:15px;color:var(--muted)}
+.upcoming-badge{flex-shrink:0;display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em}
+.upcoming-badge-soon{background:var(--gold-l);color:var(--gold)}
+.upcoming-badge-today{background:var(--light-pink);color:var(--dark-pink)}
+.upcoming-badge-done{background:var(--green-l);color:var(--green)}
+.upcoming-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:var(--muted);font-size:13px}
+.upcoming-empty .material-icons-round{font-size:40px;color:var(--outline-variant)}
+
 .product-form{background:var(--surface);border:none;border-radius:var(--r24);padding:28px;margin-bottom:20px;box-shadow:var(--elevation-1)}
 .product-form-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .product-form-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:24px}
@@ -2008,6 +2023,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
         <div class="admin-si-lbl">캠페인</div>
@@ -2043,13 +2059,22 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 12:11 · fad8ff5</span>
+          <span class="admin-build-text">2026-06-15 14:31 · ecd6150</span>
         </div>
       </div>
     </aside>
     <main class="admin-main">
 
       <div class="admin-body">
+
+        <!-- UPCOMING FEATURES PANE (오픈 예정 기능 보드, D-day) -->
+        <div id="adminPane-upcoming" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">오픈 예정 기능</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">곧 오픈될 기능과 시행일(D-day)을 안내합니다. 개발이 완료되어 시행일이 확정된 기능만 표시됩니다.</div>
+          <div id="upcomingFeaturesBody" class="upcoming-grid"></div>
+        </div>
 
         <!-- DASHBOARD PANE -->
         <div id="adminPane-dashboard" class="admin-pane">
@@ -5695,6 +5720,10 @@ const PANE_REFRESHERS = {
   },
   'brand-ops-detail': async () => {
     if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+  },
+  'upcoming': async () => {
+    // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
+    if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
   }
 };
 async function refreshPane(paneId) {
@@ -5820,6 +5849,67 @@ function dismissPolicyNoticeBanner() {
 // 배너 「자세히 보기」 → 요약 배너에서 전체 내용(팝업) 재오픈.
 //   seen 플래그 무관(의도): 자동 1회 팝업만 제한하고, 배너 수동 재오픈은 시행일까지 몇 번이든 허용.
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
+
+// ══════════════════════════════════════
+// 오픈 예정 기능 보드 (관리자 전용, D-day) — DB 미사용·코드 상수
+//   개발 세션이 시행일 걸린 기능을 운영 배포(또는 시행일 확정)할 때 항목 1줄 추가.
+//   "개발 완료된 것만 노출" = 코드에 등록된 것만 뜨므로 구조적으로 보장.
+//   effectiveDate 는 그 기능의 실제 시행일 상수와 동일값이어야 함(단일 소스 — 사양서 §7).
+//   ※ 예고판일 뿐 기능 스위치가 아님. 실제 활성은 별도(시행일 머지 또는 서버 시각 판정).
+//   공유 파일이라 인플루언서 앱에도 로드되나, 호출(렌더)은 관리자 페인에서만.
+//   사양서 docs/specs/2026-06-15-admin-upcoming-features-board.md
+// ══════════════════════════════════════
+const UPCOMING_FEATURE_RETENTION_DAYS = 14; // 시행 후 며칠까지 「시행 완료」로 유지 노출
+const UPCOMING_FEATURES = [
+  // 예시(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
+  // {
+  //   key: 'age-policy-2026',                            // 식별자(중복 금지)
+  //   title: '연령 정책(만 18세 이상)',                   // 기능명(관리자 화면 — 한국어)
+  //   desc: '가입·응모 시 생년월일·성별 입력. 18세 미만 응모 불가.', // 상세 설명(한국어)
+  //   effectiveDate: '2026-07-15',                       // 시행일(KST). 해당 기능 시행일 상수와 동일값
+  // },
+];
+
+// 시행일 자정(KST) 타임스탬프 — POLICY_NOTICE 선례와 동일 기준
+function _upcomingEffectiveTs(item) {
+  return new Date((item.effectiveDate || '') + 'T00:00:00+09:00').getTime();
+}
+// 오늘 0시(KST) 타임스탬프 — 날짜 단위 비교용(자정 경계 혼동 방지)
+function _todayKstTs() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  return new Date(kst.getFullYear() + '-' + String(kst.getMonth() + 1).padStart(2, '0')
+    + '-' + String(kst.getDate()).padStart(2, '0') + 'T00:00:00+09:00').getTime();
+}
+// 항목 상태: 'upcoming'(D-n) | 'done'(시행 완료, 유지기간 내) | 'expired'(목록 제외)
+function upcomingFeatureStatus(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return 'expired';
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  if (today < eff) return 'upcoming';
+  const expireTs = eff + UPCOMING_FEATURE_RETENTION_DAYS * 86400000;
+  return (today < expireTs) ? 'done' : 'expired';
+}
+// 시행일까지 남은 일수(양수=예정, 0=당일, 음수=시행 경과)
+function upcomingFeatureDday(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return null;
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  return Math.round((eff - today) / 86400000);
+}
+// 시행일 라벨(한국어, 관리자 화면)
+function upcomingFeatureDateLabel(item) {
+  const d = new Date((item.effectiveDate || '') + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return item.effectiveDate || '';
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+// 노출 대상(expired 제외) + 시행일 가까운 순 정렬
+function visibleUpcomingFeatures() {
+  const today = _todayKstTs();
+  return UPCOMING_FEATURES
+    .filter(it => upcomingFeatureStatus(it, today) !== 'expired')
+    .sort((a, b) => _upcomingEffectiveTs(a) - _upcomingEffectiveTs(b));
+}
 
 // ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
@@ -10283,7 +10373,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
-    'errors': loadClientErrors
+    'errors': loadClientErrors,
+    'upcoming': renderUpcomingFeatures
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -23204,6 +23295,66 @@ function renderProfileCompletion(users) {
     bar('PayPal', pct(hasPaypal), '#28C76F', false);
 }
 
+
+// ════════════════════════════════════════════════════════════════════
+// admin-roadmap.js — 오픈 예정 기능 보드 (관리자 전용, D-day)
+//   데이터는 dev/lib/shared.js 의 UPCOMING_FEATURES 코드 상수(개발 세션 등록).
+//   읽기 전용 — CUD 없음. 관리자 전원 노출(권한 분기 불필요).
+//   사양서 docs/specs/2026-06-15-admin-upcoming-features-board.md
+// ════════════════════════════════════════════════════════════════════
+
+// 페인 진입 함수 — switchAdminPane loaders['upcoming'] 가 호출
+function renderUpcomingFeatures() {
+  const wrap = document.getElementById('upcomingFeaturesBody');
+  if (!wrap) return;
+
+  const items = (typeof visibleUpcomingFeatures === 'function') ? visibleUpcomingFeatures() : [];
+
+  // 빈 상태
+  if (!items.length) {
+    wrap.innerHTML =
+      '<div class="upcoming-empty">' +
+      '<span class="material-icons-round notranslate" translate="no">event_available</span>' +
+      '<div>현재 예정된 기능이 없습니다.</div>' +
+      '</div>';
+    return;
+  }
+
+  wrap.innerHTML = items.map(buildUpcomingCard).join('');
+}
+
+// 항목 카드 1개 HTML
+function buildUpcomingCard(item) {
+  const dday = upcomingFeatureDday(item);              // 양수=예정, 0=당일, 음수=시행 경과
+  const dateLabel = upcomingFeatureDateLabel(item);
+
+  // 배지는 D-day 값 기준 (사양서 §3). expired 항목은 visibleUpcomingFeatures 단계에서 이미 제외됨.
+  let badgeText, badgeClass;
+  if (dday > 0) {
+    badgeText = 'D-' + dday;
+    badgeClass = 'upcoming-badge-soon';
+  } else if (dday === 0) {
+    badgeText = 'D-DAY';
+    badgeClass = 'upcoming-badge-today';
+  } else {
+    badgeText = '시행 완료';
+    badgeClass = 'upcoming-badge-done';
+  }
+
+  return (
+    '<div class="upcoming-card">' +
+      '<div class="upcoming-card-top">' +
+        '<div class="upcoming-card-title">' + esc(item.title || '') + '</div>' +
+        '<span class="upcoming-badge ' + badgeClass + '">' + esc(badgeText) + '</span>' +
+      '</div>' +
+      (item.desc ? '<div class="upcoming-card-desc">' + esc(item.desc) + '</div>' : '') +
+      '<div class="upcoming-card-date">' +
+        '<span class="material-icons-round notranslate" translate="no">event</span>' +
+        '시행일 ' + esc(dateLabel) +
+      '</div>' +
+    '</div>'
+  );
+}
 
 // ═════════════════════════════════════════════════════════════════
 // REVERB ADMIN — dev/js/admin-applications.js

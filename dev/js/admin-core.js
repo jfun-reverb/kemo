@@ -176,7 +176,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
-    'errors': loadClientErrors
+    'errors': loadClientErrors,
+    'upcoming': renderUpcomingFeatures
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {

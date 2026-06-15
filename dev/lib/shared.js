@@ -494,6 +494,10 @@ const PANE_REFRESHERS = {
   },
   'brand-ops-detail': async () => {
     if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+  },
+  'upcoming': async () => {
+    // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
+    if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
   }
 };
 async function refreshPane(paneId) {
@@ -619,6 +623,67 @@ function dismissPolicyNoticeBanner() {
 // 배너 「자세히 보기」 → 요약 배너에서 전체 내용(팝업) 재오픈.
 //   seen 플래그 무관(의도): 자동 1회 팝업만 제한하고, 배너 수동 재오픈은 시행일까지 몇 번이든 허용.
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
+
+// ══════════════════════════════════════
+// 오픈 예정 기능 보드 (관리자 전용, D-day) — DB 미사용·코드 상수
+//   개발 세션이 시행일 걸린 기능을 운영 배포(또는 시행일 확정)할 때 항목 1줄 추가.
+//   "개발 완료된 것만 노출" = 코드에 등록된 것만 뜨므로 구조적으로 보장.
+//   effectiveDate 는 그 기능의 실제 시행일 상수와 동일값이어야 함(단일 소스 — 사양서 §7).
+//   ※ 예고판일 뿐 기능 스위치가 아님. 실제 활성은 별도(시행일 머지 또는 서버 시각 판정).
+//   공유 파일이라 인플루언서 앱에도 로드되나, 호출(렌더)은 관리자 페인에서만.
+//   사양서 docs/specs/2026-06-15-admin-upcoming-features-board.md
+// ══════════════════════════════════════
+const UPCOMING_FEATURE_RETENTION_DAYS = 14; // 시행 후 며칠까지 「시행 완료」로 유지 노출
+const UPCOMING_FEATURES = [
+  // 예시(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
+  // {
+  //   key: 'age-policy-2026',                            // 식별자(중복 금지)
+  //   title: '연령 정책(만 18세 이상)',                   // 기능명(관리자 화면 — 한국어)
+  //   desc: '가입·응모 시 생년월일·성별 입력. 18세 미만 응모 불가.', // 상세 설명(한국어)
+  //   effectiveDate: '2026-07-15',                       // 시행일(KST). 해당 기능 시행일 상수와 동일값
+  // },
+];
+
+// 시행일 자정(KST) 타임스탬프 — POLICY_NOTICE 선례와 동일 기준
+function _upcomingEffectiveTs(item) {
+  return new Date((item.effectiveDate || '') + 'T00:00:00+09:00').getTime();
+}
+// 오늘 0시(KST) 타임스탬프 — 날짜 단위 비교용(자정 경계 혼동 방지)
+function _todayKstTs() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  return new Date(kst.getFullYear() + '-' + String(kst.getMonth() + 1).padStart(2, '0')
+    + '-' + String(kst.getDate()).padStart(2, '0') + 'T00:00:00+09:00').getTime();
+}
+// 항목 상태: 'upcoming'(D-n) | 'done'(시행 완료, 유지기간 내) | 'expired'(목록 제외)
+function upcomingFeatureStatus(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return 'expired';
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  if (today < eff) return 'upcoming';
+  const expireTs = eff + UPCOMING_FEATURE_RETENTION_DAYS * 86400000;
+  return (today < expireTs) ? 'done' : 'expired';
+}
+// 시행일까지 남은 일수(양수=예정, 0=당일, 음수=시행 경과)
+function upcomingFeatureDday(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return null;
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  return Math.round((eff - today) / 86400000);
+}
+// 시행일 라벨(한국어, 관리자 화면)
+function upcomingFeatureDateLabel(item) {
+  const d = new Date((item.effectiveDate || '') + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return item.effectiveDate || '';
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+// 노출 대상(expired 제외) + 시행일 가까운 순 정렬
+function visibleUpcomingFeatures() {
+  const today = _todayKstTs();
+  return UPCOMING_FEATURES
+    .filter(it => upcomingFeatureStatus(it, today) !== 'expired')
+    .sort((a, b) => _upcomingEffectiveTs(a) - _upcomingEffectiveTs(b));
+}
 
 // ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).

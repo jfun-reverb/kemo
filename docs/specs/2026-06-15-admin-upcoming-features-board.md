@@ -113,13 +113,27 @@ function upcomingFeatureDday(item, nowKst)   { /* 시행일까지 남은 일수(
 
 ## 구현 결과
 
-(개발 세션이 채울 것)
-
-**구현일:**
-**관련 커밋:**
+**구현일:** 2026-06-15
+**관련 커밋:** (dev 머지 시 기록)
 
 ### 초안 대비 변경 사항
--
+- **렌더 파일은 신규 `dev/js/admin-roadmap.js`로 분리**(초안의 "admin-dashboard.js 확장 또는 신규" 중 신규 선택). `build.sh` `ADMIN_JS_FILES`에 `admin-dashboard.js` 뒤로 등록.
+- **사이드바 위치는 「공지」 섹션**(공지사항 바로 아래). 보드=예고 / 공지=완료 흐름이 같은 섹션에 묶이도록(초안 §6 역할 경계와 일관). 아이콘 `upcoming`.
+- **D-day 배지는 상태(status)가 아니라 D-day 숫자 기준으로 결정**. 초안 §3 표기(D-15 / D-DAY / 시행 완료)를 그대로 따르되, 시행일 당일은 `upcomingFeatureStatus`가 이미 `done`이라 「시행 완료」로 떠 「D-DAY」가 안 나오던 모순을 발견 → 카드 배지는 `upcomingFeatureDday()` 값으로 분기(>0=D-n, 0=D-DAY, <0=시행 완료). `status`는 목록 노출/제외(expired 필터) 판정에만 사용.
+- **상태/D-day 헬퍼를 `shared.js`에 4종 + 내부 2종 추가**: `upcomingFeatureStatus`/`upcomingFeatureDday`/`upcomingFeatureDateLabel`/`visibleUpcomingFeatures` (+ `_upcomingEffectiveTs`/`_todayKstTs`).
+- **`UPCOMING_FEATURES` 초기값은 빈 배열**(예시는 주석으로). 등록 대상(연령 정책 등)이 아직 시행일 확정 전이라 빈 상태가 첫 노출 — 「현재 예정된 기능이 없습니다」 안내가 뜸.
 
 ### 구현 중 기술 결정 사항
--
+- **마이그레이션 없음**(코드 상수만, 초안대로).
+- **D-day 날짜 단위 비교**: `_todayKstTs()`가 현재 시각을 KST(+09:00)로 환산해 그날 0시 타임스탬프를 계산, 시행일 0시와 일(day) 단위로 비교(자정 경계 혼동 방지). `POLICY_NOTICE` 선례와 동일하게 `T00:00:00+09:00` 기준.
+- **`esc()` 의존**: 카드 텍스트는 코드 상수(개발자 입력)지만 일관성·XSS 방어 차원에서 `esc()` 적용. 빌드 순서상 `ui.js`(esc 정의)가 `admin-roadmap.js`보다 앞이라 안전.
+- **항목 라벨 언어 = 한국어 단일**(초안 §4 확정값). 상수 예시 주석도 한국어로 작성.
+- **운영 약속(초안 §6)**: 시행일 걸린 기능 배포 시 `UPCOMING_FEATURES`에 등록하는 워크플로는 별도 규칙 보강 대상(고문/기획 몫 — 이번 개발 범위에서 제외). 코드 상수 상단 주석에 사용법 명시.
+
+### 변경 파일
+- `dev/lib/shared.js` — 상수 + 헬퍼
+- `dev/js/admin-roadmap.js` — 렌더(신규)
+- `dev/admin/index.html` — 사이드바 메뉴 + 페인
+- `dev/js/admin-core.js` — loaders에 `upcoming` 등록
+- `dev/css/admin.css` — 카드·배지·빈 상태 스타일
+- `dev/build.sh` — `ADMIN_JS_FILES`에 신규 파일 등록

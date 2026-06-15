@@ -97,6 +97,7 @@
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
         <div class="admin-si-lbl">캠페인</div>
@@ -139,6 +140,15 @@
     <main class="admin-main">
 
       <div class="admin-body">
+
+        <!-- UPCOMING FEATURES PANE (오픈 예정 기능 보드, D-day) -->
+        <div id="adminPane-upcoming" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">오픈 예정 기능</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">곧 오픈될 기능과 시행일(D-day)을 안내합니다. 개발이 완료되어 시행일이 확정된 기능만 표시됩니다.</div>
+          <div id="upcomingFeaturesBody" class="upcoming-grid"></div>
+        </div>
 
         <!-- DASHBOARD PANE -->
         <div id="adminPane-dashboard" class="admin-pane">
