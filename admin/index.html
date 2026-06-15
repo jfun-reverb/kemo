@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781501512';
+  var CURRENT_BUILD = 'v1781505584';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2059,7 +2059,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 14:31 · ecd6150</span>
+          <span class="admin-build-text">2026-06-15 15:39 · 7baffeb</span>
         </div>
       </div>
     </aside>
@@ -6225,12 +6225,17 @@ async function incrementViewCount(campId) {
 }
 
 // ── Influencers ──
-async function fetchInfluencers() {
+// includeAudit 기본 true = 기존 동작 보존(전건 반환).
+// 통계·엑셀 등 실수 집계가 필요한 호출처만 { includeAudit: false } 를 명시 전달(PR D/F에서).
+async function fetchInfluencers(opts = {}) {
   if (!db) return [];
+  const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() =>
-      db.from('influencers').select('*').order('created_at', {ascending: true})
-    );
+    return await fetchAllPaged(() => {
+      let q = db.from('influencers').select('*').order('created_at', {ascending: true});
+      if (!includeAudit) q = q.eq('is_audit', false);
+      return q;
+    });
   } catch(e) {
     return [];
   }
@@ -9142,6 +9147,124 @@ async function resolveClientError(id, status, note) {
     });
     return true;
   } catch (e) { console.error('[resolveClientError]', e); return false; }
+}
+
+// ── 감사용 계정 흔적 제거 (super_admin 한정, 마이그레이션 179) ──
+//
+// ⚠️ Storage 삭제 메모
+//   - 메시지 첨부(message_attachments): RPC가 반환하는 값이 이미 버킷 상대 경로({appId}/{uuid}.jpg)이므로
+//     그대로 db.storage.from('application-message-attachments').remove([...paths]) 로 삭제.
+//   - 영수증 이미지(receipt_images): receipt_url 컬럼에는 Supabase 공개 전체 URL이 저장됨
+//     (https://{project}.supabase.co/storage/v1/object/public/campaign-images/receipts/...).
+//     db.storage.remove()는 버킷 내 상대 경로를 요구하므로, URL에서
+//     '/storage/v1/object/public/campaign-images/' 접두사를 제거해 상대 경로를 추출한다.
+//     변환 실패 시(접두사 불일치 등) 그 파일만 건너뛰고 나머지는 계속 처리.
+
+// Supabase 공개 URL → campaign-images 버킷 상대 경로 변환 헬퍼
+// 예: 'https://xxx.supabase.co/storage/v1/object/public/campaign-images/receipts/abc.jpg'
+//     → 'receipts/abc.jpg'
+// 변환 불가(형식 불일치)면 null 반환.
+function _receiptUrlToStoragePath(url) {
+  if (!url || typeof url !== 'string') return null;
+  const MARKER = '/storage/v1/object/public/campaign-images/';
+  const idx = url.indexOf(MARKER);
+  if (idx === -1) return null;
+  const path = url.slice(idx + MARKER.length);
+  return path || null;
+}
+
+// Storage 파일 삭제 공통 헬퍼.
+// bucket: 버킷명, paths: 상대 경로 배열 (빈 배열이면 즉시 반환).
+// 삭제 실패 시 에러를 throw 하지 않고 {ok, failedPaths} 형태로 반환
+// (일부 경로 삭제 실패가 흔적 제거 전체를 막지 않도록).
+async function _deleteStorageFiles(bucket, paths) {
+  if (!db || !Array.isArray(paths) || paths.length === 0) return { ok: true, failedPaths: [] };
+  try {
+    const { error } = await db.storage.from(bucket).remove(paths);
+    if (error) {
+      console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패:`, error);
+      return { ok: false, failedPaths: paths };
+    }
+    return { ok: true, failedPaths: [] };
+  } catch (e) {
+    console.warn(`[_deleteStorageFiles] ${bucket} 예외:`, e);
+    return { ok: false, failedPaths: paths };
+  }
+}
+
+// 모든 감사용 계정 흔적 제거.
+// RPC 성공 후 Storage 파일(메시지 첨부 + 영수증 이미지)도 후속 삭제.
+// 반환: { rpc, storageResult } — 호출처가 삭제 결과를 사용자에게 표시할 수 있도록.
+async function purgeAuditDataAll() {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_all');
+    if (error) throw error;
+
+    // RPC 결과가 'no_audit_account' 이면 삭제할 Storage 파일도 없음
+    if (!data || data.status === 'no_audit_account') {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete || {};
+
+    // 메시지 첨부: 이미 버킷 상대 경로
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    // 영수증: 전체 URL → 버킷 상대 경로 변환 (변환 불가 항목 제외)
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
+}
+
+// 특정 캠페인의 감사용 계정 흔적 제거.
+// 반환: { rpc, storageResult }
+async function purgeAuditDataForCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_for_campaign', {
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+
+    // 응모건 0건 케이스: storage_paths_to_delete 키 자체가 없을 수 있음
+    if (!data || data.status === 'no_audit_account' || !data.storage_paths_to_delete) {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete;
+
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
 }
 
 
