@@ -6999,6 +6999,25 @@ async function fetchAdminMessageThreads(opts = {}) {
   return rows;
 }
 
+// 탭/사이드바 배지 폴링용 경량 미응대 count — 받은편지함 전체를 가져오지 않고 개수만.
+//   application_message_summary 뷰의 message_count>0 + unresolved_for_admin_team=true 행 수.
+//   head:true 라 행 본문 미전송(최경량). 기간은 받은편지함과 동일 6개월(last_message_at)로 맞춰
+//   배지 수와 받은편지함 미응대 표시 수가 어긋나지 않게 한다.
+//   fetchAdminMessageThreads 와 동일 뷰·동일 RLS(security_invoker). 실패 시 0.
+async function fetchUnresolvedMessageCount() {
+  if (!db) return 0;
+  try {
+    const sinceIso = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString();
+    const {count, error} = await db?.from('application_message_summary')
+      .select('application_id', { count: 'exact', head: true })
+      .gt('message_count', 0)
+      .eq('unresolved_for_admin_team', true)
+      .gte('last_message_at', sinceIso);
+    if (error) { console.warn('[fetchUnresolvedMessageCount]', error); return 0; }
+    return count || 0;
+  } catch (e) { console.warn('[fetchUnresolvedMessageCount]', e); return 0; }
+}
+
 // 「내가 보낸 순」 정렬용 — 로그인한 본인 관리자가 발신한 응모건별 최신 발신 시각.
 //   application_messages 에서 sender_id=본인 + sender_kind='admin' 행을 created_at 내림차순 조회,
 //   application_id 별 첫(최신) 행 시각만 Map 에 보존. DB 변경 없음(관리자 SELECT 권한 사용).

@@ -141,11 +141,85 @@ async function refreshInboxData() {
 
 // 사이드바 「메시지」 미응대 배지 = 우리 팀 미응대 응모건 수 (그룹 공통)
 function updateInboxSidebarBadge() {
-  const badge = document.getElementById('navMsgBadge');
-  if (!badge) return;
   const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
-  if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.style.display = ''; }
-  else { badge.style.display = 'none'; }
+  applyMsgBadgeCount(n);
+}
+
+// 사이드바 메시지 배지 + 브라우저 탭 배지를 동일 미응대 건수로 갱신 (공용 진입점)
+function applyMsgBadgeCount(n) {
+  const badge = document.getElementById('navMsgBadge');
+  if (badge) {
+    if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.style.display = ''; }
+    else { badge.style.display = 'none'; }
+  }
+  updateAdminTabBadge(n);
+}
+
+// ── 브라우저 탭 배지 (제목 prefix + favicon 빨간 원) — 받은편지함 안 보고 있을 때 새 문의 인지용 ──
+let _tabBadgeBaseTitle = null;      // (N) prefix 를 뺀 원본 제목 ([DEV] 포함 가능)
+let _tabBadgeBaseFavicon = null;    // 원본 favicon href
+
+function updateAdminTabBadge(count) {
+  const n = count > 0 ? (count > 99 ? '99+' : String(count)) : '';
+  // 제목: 기존 (N) prefix 제거 후 재적용 (STAGING 의 [DEV] 등 원본 보존)
+  if (_tabBadgeBaseTitle === null) _tabBadgeBaseTitle = document.title.replace(/^\(\d+\+?\)\s*/, '');
+  document.title = n ? `(${n}) ${_tabBadgeBaseTitle}` : _tabBadgeBaseTitle;
+
+  // favicon: 우상단 빨간 원 합성 / 0 이면 원본 복원
+  const fav = document.getElementById('appFavicon');
+  if (fav) {
+    if (_tabBadgeBaseFavicon === null) _tabBadgeBaseFavicon = fav.href;
+    if (count > 0) drawFaviconWithDot(_tabBadgeBaseFavicon, fav);
+    else fav.href = _tabBadgeBaseFavicon;
+  }
+
+  // PWA 설치 시 OS 작업표시줄 배지 (미설치자에겐 무영향)
+  try {
+    if (count > 0 && navigator.setAppBadge) navigator.setAppBadge(count).catch(() => {});
+    else if (count <= 0 && navigator.clearAppBadge) navigator.clearAppBadge().catch(() => {});
+  } catch (e) { /* 미지원 브라우저 무시 */ }
+}
+
+// 원본 favicon(SVG data URI) 위에 우상단 빨간 원을 그려 favicon href 교체
+function drawFaviconWithDot(baseHref, favEl) {
+  try {
+    const img = new Image();
+    img.onload = function () {
+      try {
+        const SZ = 64;
+        const cv = document.createElement('canvas');
+        cv.width = SZ; cv.height = SZ;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, SZ, SZ);
+        const r = 18;
+        ctx.beginPath();
+        ctx.arc(SZ - r, r, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#e02424';
+        ctx.fill();
+        ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.stroke();
+        favEl.href = cv.toDataURL('image/png');
+      } catch (e) {
+        // canvas 오염(SVG tainted) 등으로 toDataURL 실패 시 원본 favicon 명시 복원
+        try { favEl.href = baseHref; } catch (_) {}
+      }
+    };
+    img.onerror = function () { /* 로드 실패 시 원본 유지 */ };
+    img.src = baseHref;
+  } catch (e) { /* 무시 */ }
+}
+
+// 30초 폴링 — 받은편지함을 안 보고 있어도 탭/사이드바 배지를 최신 미응대 건수로 갱신
+async function refreshMsgBadgesLight() {
+  try {
+    if (!db) return;
+    const n = await fetchUnresolvedMessageCount();
+    applyMsgBadgeCount(n);
+  } catch (e) { /* 무시 */ }
+}
+let _msgBadgePollingTimer = null;
+setTimeout(function () { refreshMsgBadgesLight(); }, 3000);   // 부팅 직후 1회 (DB 준비 후)
+if (!_msgBadgePollingTimer) {
+  _msgBadgePollingTimer = setInterval(function () { refreshMsgBadgesLight(); }, 30000); // 이후 30초 주기
 }
 
 // 좌: 캠페인 목록 (메시지 있는 응모건을 campaign_id 로 그룹 + 미응대 합계)
