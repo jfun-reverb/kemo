@@ -308,6 +308,15 @@ function matchSearchTokens(searchVal, fields) {
   return tokens.every(tok => haystack.includes(tok));
 }
 
+// 감사용 계정 「감사용」 배지 HTML.
+// inf: influencers 행(is_audit) 또는 is_audit 불리언을 가진 객체.
+// 감사용이 아니면 빈 문자열 — 일반 인플루언서 행에는 아무것도 출력 안 함.
+// 통계·산출물에서 격리된 계정임을 운영자가 한눈에 구분하도록 모든 인플·응모·결과물 행에 호출.
+function auditBadgeHtml(inf) {
+  if (!inf || !inf.is_audit) return '';
+  return '<span class="audit-badge" title="감사용 계정 — 통계·산출물에서 격리됨" translate="no">감사용</span>';
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {

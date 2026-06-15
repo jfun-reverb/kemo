@@ -122,9 +122,9 @@ async function loadCampApplicants() {
     const totalF = ((_u.ig_followers||0)+(_u.x_followers||0)+(_u.tiktok_followers||0)+(_u.youtube_followers||0)).toLocaleString();
     const otCell = renderOtCell(a, isPostType);
     const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
-    return `<tr data-id="${esc(a.id)}">
+    return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
       <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
     </td>
@@ -519,7 +519,7 @@ async function renderAppCampList() {
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     const recruitStart   = camp.recruit_start ? formatDate(camp.recruit_start) : '';
     const recruitEnd     = camp.deadline ? formatDate(camp.deadline) : '';
-    return `<tr data-id="${esc(a.id)}">
+    return `<tr data-id="${esc(a.id)}" class="${u.is_audit?'audit-row':''}">
       <td style="max-width:260px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
@@ -545,7 +545,7 @@ async function renderAppCampList() {
         <div style="color:var(--ink)">~ ${recruitEnd||'—'}</div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(u.line_id)}</div>`:''}
         <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
       </td>
