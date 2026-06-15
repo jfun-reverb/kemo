@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781506971';
+  var CURRENT_BUILD = 'v1781507444';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2077,7 +2077,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 16:02 · 33a6e1e</span>
+          <span class="admin-build-text">2026-06-15 16:10 · 773c76a</span>
         </div>
       </div>
     </aside>
@@ -23233,23 +23233,32 @@ async function loadAdminData(preloaded) {
       showAdminUnreadNoticesIfAny();
     }
   }).catch(()=>{});
-  const approved = apps.filter(a=>a.status==='approved');
-  const pending = apps.filter(a=>a.status==='pending');
+  // 감사용 계정(is_audit) 격리 — KPI·통계·차트에서 제외 (광고주 보고용 수치 오염 방지).
+  // users 는 전건으로 받아 통계용 statsUsers / statsApps 만 따로 거른다.
+  // applications.user_id = influencers.id 이므로 user_id 단일 기준으로 격리 (user_email 컬럼 없음).
+  const _auditIds = new Set(users.filter(u=>u.is_audit).map(u=>u.id));
+  const statsUsers = users.filter(u=>!u.is_audit);
+  const statsApps = apps.filter(a=>!_auditIds.has(a.user_id));
+
+  const approved = statsApps.filter(a=>a.status==='approved');
+  // pending 은 사이드바 신청 배지에도 쓰임 — 감사용 제외(처리 대상 아님).
+  // 신청 관리 페인은 감사용을 표시하므로 배지<페인 카운트 불일치가 생길 수 있으나 의도된 격리.
+  const pending = statsApps.filter(a=>a.status==='pending');
 
   $('kpiCampaigns').textContent = camps.length;
-  $('kpiInfluencers').textContent = users.length;
-  $('kpiApplications').textContent = apps.length;
+  $('kpiInfluencers').textContent = statsUsers.length;
+  $('kpiApplications').textContent = statsApps.length;
   $('kpiApproved').textContent = approved.length;
   renderCampaignBreakdown(camps);
   // 목록 페인(loadAdminCampaigns/loadAdminInfluencers)은 해당 pane 진입 시에만 로드
 
-  // 회원가입 차트 + KPI
-  _allUsers = users;
-  renderSignupKPIs(users);
-  renderSignupChart(users, 30);
-  renderProfileCompletion(users);
-  // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
-  renderAddressDistribution(users);
+  // 회원가입 차트 + KPI (감사용 제외)
+  _allUsers = statsUsers;
+  renderSignupKPIs(statsUsers);
+  renderSignupChart(statsUsers, 30);
+  renderProfileCompletion(statsUsers);
+  // 배송지 분포(도도부현 Top N) — 통계용 statsUsers 재사용 (중복 쿼리 방지)
+  renderAddressDistribution(statsUsers);
   // 대시보드는 apps 전건을 KPI용으로 이미 보유 → 추가 count 쿼리 없이 인라인 계산.
   // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
