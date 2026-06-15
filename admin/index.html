@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781501512';
+  var CURRENT_BUILD = 'v1781503614';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2059,7 +2059,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 14:31 · ecd6150</span>
+          <span class="admin-build-text">2026-06-15 15:06 · 87334d6</span>
         </div>
       </div>
     </aside>
@@ -5861,7 +5861,26 @@ function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
 // ══════════════════════════════════════
 const UPCOMING_FEATURE_RETENTION_DAYS = 14; // 시행 후 며칠까지 「시행 완료」로 유지 노출
 const UPCOMING_FEATURES = [
-  // 예시(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
+  // ⚠️ 임시 검증용 항목 (개발서버 D-day 카드 확인용 — 검증 후 제거 예정, 운영 배포 금지)
+  {
+    key: 'demo-soon',
+    title: '[검증용] 예정 기능 샘플',
+    desc: 'D-day 배지(주황)·카드 레이아웃 확인용 임시 항목입니다. 검증 후 제거합니다.',
+    effectiveDate: '2026-07-15',
+  },
+  {
+    key: 'demo-today',
+    title: '[검증용] 당일 기능 샘플',
+    desc: '시행 당일 D-DAY 배지(핑크) 확인용 임시 항목입니다.',
+    effectiveDate: '2026-06-15',
+  },
+  {
+    key: 'demo-done',
+    title: '[검증용] 시행 완료 샘플',
+    desc: '시행 후 14일 유지(초록) 확인용 임시 항목입니다.',
+    effectiveDate: '2026-06-10',
+  },
+  // 실제 등록 형태(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
   // {
   //   key: 'age-policy-2026',                            // 식별자(중복 금지)
   //   title: '연령 정책(만 18세 이상)',                   // 기능명(관리자 화면 — 한국어)
