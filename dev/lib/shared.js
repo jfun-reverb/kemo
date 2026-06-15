@@ -518,6 +518,27 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
+// 연령 정책 — 클라이언트 만 나이 계산 (표시·UX용. 최종 차단 판정은 서버 트리거 check_age_policy)
+//   가입 폼(PR 2)·응모 시점(PR 3) 공용. 'YYYY-MM-DD' 문자열 → 만 나이(정수) 또는 null.
+//   서버와 동일하게 일본/한국 표준시(KST=JST) 기준.
+// ══════════════════════════════════════
+const AGE_POLICY_MIN_AGE = 18; // 가입·응모 최소 연령
+
+function calcAgeFromBirthdate(birthdateStr) {
+  if (!birthdateStr) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr);
+  if (!m) return null;
+  const by = +m[1], bm = +m[2], bd = +m[3];
+  // 오늘(KST) 연·월·일
+  const nowKst = new Date(Date.now() + (new Date().getTimezoneOffset() * 60000) + (9 * 3600000));
+  const ty = nowKst.getFullYear(), tm = nowKst.getMonth() + 1, td = nowKst.getDate();
+  let age = ty - by;
+  // 올해 생일이 아직 안 지났으면 한 살 빼기
+  if (tm < bm || (tm === bm && td < bd)) age--;
+  return age;
+}
+
+// ══════════════════════════════════════
 // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
 //   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).

@@ -24,3 +24,7 @@
 .agree-opt{font-size:10px;font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:1px 6px;border-radius:4px;flex-shrink:0}
 .agree-text{flex:1}
 .agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
+
+/* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
+.birthdate-selects{display:flex;gap:6px}
+.birthdate-selects select{flex:1;min-width:0;padding-left:8px;padding-right:20px}

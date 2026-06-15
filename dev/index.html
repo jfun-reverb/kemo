@@ -854,6 +854,27 @@ window._supabaseLoaded = false;
             <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、かな名を入力してください</div>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+            <div class="birthdate-selects">
+              <select id="signupBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
+              <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
+              <select id="signupBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+            <select id="signupGender" class="form-input" required>
+              <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
+              <option value="male" data-i18n="auth.signup.genderMale">男性</option>
+              <option value="female" data-i18n="auth.signup.genderFemale">女性</option>
+              <option value="other" data-i18n="auth.signup.genderOther">その他</option>
+              <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">メールアドレス <span style="color:var(--red)">*</span></label>
           <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
