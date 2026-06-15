@@ -318,6 +318,89 @@ function _confirmLargeExport(n) {
   });
 }
 
+// ──────────────────────────────────────────────────────────────────
+// 감사용 계정(influencers.is_audit) 격리 — 엑셀 산출물 보호 (PR D)
+//   광고주에게 전달하는 엑셀에 운영팀 시뮬레이션용 감사용 행이 섞이지 않도록
+//   다운로드 직전 「감사용 포함/제외」 확인 모달을 거치게 한다.
+//   confirmAuditExport(auditCount) → Promise<'include'|'exclude'|null>
+//     · auditCount<=0: 모달 없이 즉시 'exclude' (감사용 없으니 격리 무관)
+//     · null: 취소 (다운로드 중단)
+//   세션 동안 '다음부터 묻지 않음' 선택은 캐시 (페이지 새로고침 시 초기화)
+// ──────────────────────────────────────────────────────────────────
+var _auditExportChoiceCache = null; // null | 'include' | 'exclude'
+
+function confirmAuditExport(auditCount) {
+  if (!auditCount || auditCount <= 0) return Promise.resolve('exclude');
+  if (_auditExportChoiceCache) return Promise.resolve(_auditExportChoiceCache);
+
+  return new Promise(function(resolve) {
+    // 기존 잔존 모달 정리 (중복 클릭 대비)
+    var prev = document.getElementById('auditExportModal');
+    if (prev) prev.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'auditExportModal';
+    overlay.style.zIndex = '665'; // admMsgLightbox(660) 위 — 라이트박스 열린 채 다운로드 대비
+    overlay.innerHTML =
+      '<div class="modal" style="max-width:460px;border-radius:20px;margin:auto">' +
+        '<div class="modal-body" style="padding:24px 24px 20px">' +
+          '<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">감사용 계정 포함 여부</div>' +
+          '<div style="font-size:13px;line-height:1.7;color:var(--ink)">' +
+            '현재 결과에 <b>감사용 계정 ' + esc(String(auditCount)) + '명</b>이 포함되어 있습니다.<br>' +
+            '감사용 계정은 운영팀 시뮬레이션용이라, 광고주에게 전달하는 산출물에는 제외하는 것을 권장합니다.' +
+          '</div>' +
+          '<div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">' +
+              '<input type="radio" name="auditExportChoice" value="exclude" checked style="margin-top:2px">' +
+              '<span><b>감사용 제외</b> (광고주 전달용)<br><span style="font-size:12px;color:var(--ink-light,#888)">감사용 ' + esc(String(auditCount)) + '명을 빼고 내보냅니다.</span></span>' +
+            '</label>' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">' +
+              '<input type="radio" name="auditExportChoice" value="include" style="margin-top:2px">' +
+              '<span><b>감사용 포함</b> (운영 내부 확인용)<br><span style="font-size:12px;color:var(--ink-light,#888)">감사용 ' + esc(String(auditCount)) + '명을 포함해 내보냅니다.</span></span>' +
+            '</label>' +
+          '</div>' +
+          '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:var(--ink-light,#888);cursor:pointer">' +
+            '<input type="checkbox" id="auditExportRemember"> 다음부터 묻지 않음 (현재 세션)' +
+          '</label>' +
+          '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">' +
+            '<button class="btn btn-ghost" style="min-width:90px" data-audit-action="cancel">취소</button>' +
+            '<button class="btn btn-primary" style="min-width:120px" data-audit-action="ok">엑셀 다운로드</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var settled = false;
+    function done(result) {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('keydown', onEscAudit);
+      overlay.remove();
+      resolve(result);
+    }
+    function onEscAudit(e) {
+      if (e.key === 'Escape') done(null);
+    }
+    document.addEventListener('keydown', onEscAudit);
+    overlay.addEventListener('click', function(e) {
+      var action = e.target && e.target.getAttribute && e.target.getAttribute('data-audit-action');
+      if (action === 'cancel') { done(null); return; }
+      if (action === 'ok') {
+        var sel = overlay.querySelector('input[name="auditExportChoice"]:checked');
+        var choice = (sel && sel.value === 'include') ? 'include' : 'exclude';
+        var remember = overlay.querySelector('#auditExportRemember');
+        if (remember && remember.checked) _auditExportChoiceCache = choice;
+        done(choice);
+        return;
+      }
+      // 오버레이 바깥(배경) 클릭은 취소로 처리
+      if (e.target === overlay) { done(null); }
+    });
+    overlay.classList.add('open');
+  });
+}
+
 // 캠페인 다중 선택 신청자 엑셀 — 시트1 캠페인 정보 + 시트2 통합 신청자 리스트
 //   idsOverride: 인자로 직접 ids 배열 받기 가능 (단일 캠페인 더보기 메뉴 호출용)
 async function exportSelectedCampaignsApplicants(idsOverride) {
@@ -345,6 +428,16 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
       var apps = await fetchApplications({ campaign_id: c.id });
       appsByCampId[c.id] = apps || [];
       (apps || []).forEach(function(a){ a._campMeta = c; allCampApps.push(a); });
+    }
+
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditEmails = {};
+    allCampApps.forEach(function(a){ var u = userByEmail[a.user_email]; if (u && u.is_audit && a.user_email) auditEmails[a.user_email] = true; });
+    var auditCount = Object.keys(auditEmails).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      allCampApps = allCampApps.filter(function(a){ var u = userByEmail[a.user_email]; return !(u && u.is_audit); });
     }
 
     var wb = new ExcelJS.Workbook();
@@ -482,6 +575,17 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 인플루언서 id 매핑 (단일 함수와 동일 패턴)
     var usersById = {};
     (users || []).forEach(function(u){ if (u && u.id) usersById[u.id] = u; });
+
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 결과물 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditUserIds = {};
+    allDelivs.forEach(function(d){ var u = usersById[d.user_id]; if (u && u.is_audit && d.user_id) auditUserIds[d.user_id] = true; });
+    var auditCount = Object.keys(auditUserIds).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      allDelivs = allDelivs.filter(function(d){ var u = usersById[d.user_id]; return !(u && u.is_audit); });
+      if (allDelivs.length === 0) { toast('감사용 제외 후 남은 결과물이 없습니다', 'warn'); return; }
+    }
 
     // 영수증·리뷰 이미지 Image→Canvas→JPEG 재인코딩 (CORS·포맷 호환성)
     var imgBuffers = {};
@@ -756,6 +860,17 @@ async function exportCampaignApplicationsExcel(campId) {
     var userByEmail = {};
     (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
 
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditEmails = {};
+    apps.forEach(function(a){ var u = userByEmail[a.user_email]; if (u && u.is_audit && a.user_email) auditEmails[a.user_email] = true; });
+    var auditCount = Object.keys(auditEmails).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      apps = apps.filter(function(a){ var u = userByEmail[a.user_email]; return !(u && u.is_audit); });
+      if (!apps.length) { toast('감사용 제외 후 남은 신청자가 없습니다', 'warn'); return; }
+    }
+
     var statusLabel = function(s) {
       if (s === 'approved') return '승인';
       if (s === 'pending') return '심사중';
@@ -910,6 +1025,20 @@ async function exportCampaignDeliverables(campId) {
     var users = await fetchInfluencers();
     var userById = {};
     (users || []).forEach(function(u){ if (u && u.id) userById[u.id] = u; });
+
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 결과물·승인신청 중 감사용 인플 수 계산 후 포함/제외 확인
+    //   (multi-channel monitor 위임 경로보다 먼저 처리해 양쪽 모두 적용)
+    var auditUserIds = {};
+    delivs.forEach(function(d){ var u = userById[d.user_id]; if (u && u.is_audit && d.user_id) auditUserIds[d.user_id] = true; });
+    (approvedApps || []).forEach(function(app){ var u = userById[app.user_id]; if (u && u.is_audit && app.user_id) auditUserIds[app.user_id] = true; });
+    var auditCount = Object.keys(auditUserIds).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      delivs = (delivs || []).filter(function(d){ var u = userById[d.user_id]; return !(u && u.is_audit); });
+      approvedApps = (approvedApps || []).filter(function(app){ var u = userById[app.user_id]; return !(u && u.is_audit); });
+      if (!delivs.length && !approvedApps.length) { toast('감사용 제외 후 남은 결과물이 없습니다', 'warn'); return; }
+    }
 
     // 3-1) monitor + 캠페인 채널 N개면 채널별 결과물 컬럼 펼침 (사양 2 PR 3, 2026-05-28)
     //   gifting/visit·채널 없는 레거시 monitor는 기존 22컬럼 단일 결과물 코드 그대로.
@@ -1638,6 +1767,15 @@ async function exportInfluencersExcel() {
 
   _markExportStart();
   try {
+    // 감사용 계정 격리 — 현재 필터 결과 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditCount = rows.filter(function(u){ return u && u.is_audit; }).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      rows = rows.filter(function(u){ return !(u && u.is_audit); });
+      if (!rows.length) { toast('감사용 제외 후 남은 인플루언서가 없습니다', 'warn'); return; }
+    }
+
     await loadExcelJS();
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet('인플루언서');

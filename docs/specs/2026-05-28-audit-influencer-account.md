@@ -420,6 +420,35 @@ GRANT EXECUTE ON FUNCTION public.purge_audit_data_for_campaign(uuid) TO authenti
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-(개발 세션이 PR A~G 진행 후 작성)
+**구현일:** 2026-06-15
+**브랜치:** feature/감사용-인플루언서-계정-메커니즘 (dev PR 예정)
+**관련 커밋:** PR A `7baffeb` · PR B `8a64fc1` · PR C `33a6e1e` · PR D `773c76a` · PR F `9669763` · brand-ops 격리 `88cb5ac` · PR E `4aa8d7d`
+
+### 마이그레이션 번호 (사후 확정)
+- **179** `179_audit_influencer_account.sql` — is_audit 컬럼·인덱스 + get_campaign_application_counts/check_monitor_slots/recompute_campaign_applied_count 재정의 + purge_audit_data_all/for_campaign + 시드
+- **181** `181_brand_ops_exclude_audit.sql` — get_brand_ops_overview(148 기준)·get_brand_ops_detail(150 기준) 재정의로 운영현황 격리 (180은 동시 진행된 연령 정책 세션이 선점)
+
+### 초안 대비 변경 사항
+- **추가된 것:**
+  - **슬롯 트리거 2곳 격리 확정** — 초안이 "작업 분할 6c에서 확인"으로 미룬 부분. 실제로 `check_monitor_slots()`(048, 응모 차단)와 `recompute_campaign_applied_count()`(058, 인플 앱 카드 「N명 신청」 숫자) 두 DB 트리거 함수를 찾아 양쪽 다 감사용 제외하도록 재정의.
+  - **운영현황 RPC 격리 (마이그레이션 181)** — 초안 §2의 격리 6영역에 없던 부분. `get_brand_ops_overview`/`get_brand_ops_detail`이 응모·결과물을 집계하면서 감사용을 제외하지 않아 광고주 보고용 모집률·승인 수가 오염될 수 있음을 개발 중 발견 → 사용자 승인 후 추가.
+  - **엑셀 export 5번째 진입점** — 초안은 4곳(287/415/720/872)이라 했으나 그 사이 `exportInfluencersExcel`(인플 목록 엑셀)이 추가돼 총 5곳에 모달 적용.
+  - **purge RPC가 Storage 파일 경로 반환** — cascade로 안 지워지는 메시지 첨부·영수증 이미지 경로를 반환해 클라이언트(`purgeAuditDataAll`/`ForCampaign`)가 후속 삭제.
+- **달라진 것:**
+  - **`fetchInfluencers(opts)` 기본값 = `includeAudit:true`** (초안 §5-2는 기본 false). 호출처 9곳이 인자 없이 호출 중이라 기본 false로 하면 인플·신청·결과물·운영현황 페인에서 감사용이 통째로 사라지는 회귀가 발생 → 기본 true(전건=기존 동작 보존)로 두고 통계(대시보드)·엑셀(exclude 선택 시)만 명시적으로 제외. 결과 동작은 초안 의도(호출처별 격리)와 동일.
+  - **엑셀 「감사용 포함」 시 경고행** — 초안은 시트1 상단 「감사용 N행 포함」 경고행을 권했으나, 5개 export의 시트 구조가 제각각이라 생략(사양서 §5-3 "복잡하면 생략" 따름).
+- **빠진 것:** 없음 (초안 범위 전부 구현 + 운영현황 격리 추가).
+
+### 구현 중 기술 결정 사항
+- **DB 격리를 default, 클라 필터는 보조** (초안 §3 ①) — 응모수·슬롯·카드 숫자·운영현황은 DB 트리거/RPC에서 격리(서버 단 방어). 대시보드 KPI만 클라(`statsUsers`/`statsApps`)에서 필터.
+- **applications 격리 기준 = user_id 단일** — `applications`에 `user_email` 컬럼이 없어(reviewer 확인) `user_id`(=influencers.id) 기준만 사용.
+- **사이드바 「신청 관리」 배지** — 감사용 제외(처리 대상 아님). 신청 관리 페인(감사용 표시)과 배지 숫자가 미세하게 다를 수 있으나 의도된 격리(코드 주석 명시).
+- **받은편지함 배지** — active 표시 충돌 회피로 행 배경 강조(audit-row) 생략, 배지만.
+- **흔적 청소 super_admin 3중 가드** — 메뉴/섹션 렌더 조건 + 핸들러 진입 재확인(클라) + RPC `is_super_admin()`(서버).
+- **시드 계정**(개발서버): `audit.test@reverb.jp` / `AuditReverb2026!` / `監査用`. 운영 적용 시 이메일·비밀번호 변경 필요(SQL 내 주석 4곳).
+
+### 미적용·후속
+- **운영 배포 시**: 운영 DB에 179·181 적용 + 시드 계정 이메일/비밀번호를 운영용으로 변경(또는 적용 후 초대 메일로 재설정). dev→main PR 별도.
+- **qa**: light 권장 (관리자 페인 6곳 배지·엑셀 모달·흔적청소 UI). Playwright 단일 자원이라 다른 세션 미사용 확인 후 단일 세션에서.
