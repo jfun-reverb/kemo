@@ -558,6 +558,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .agree-text{flex:1}
 .agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
 
+/* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
+.birthdate-selects{display:flex;gap:6px}
+.birthdate-selects select{flex:1;min-width:0;padding-left:8px;padding-right:20px}
+
 /* ══════════════════════════════════
    MY PAGE — マイページ (リスト → 詳細)
 ══════════════════════════════════ */
@@ -1520,6 +1524,27 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
             <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、かな名を入力してください</div>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+            <div class="birthdate-selects">
+              <select id="signupBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
+              <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
+              <select id="signupBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+            <select id="signupGender" class="form-input" required>
+              <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
+              <option value="male" data-i18n="auth.signup.genderMale">男性</option>
+              <option value="female" data-i18n="auth.signup.genderFemale">女性</option>
+              <option value="other" data-i18n="auth.signup.genderOther">その他</option>
+              <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">メールアドレス <span style="color:var(--red)">*</span></label>
           <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
@@ -2389,6 +2414,27 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
+// 연령 정책 — 클라이언트 만 나이 계산 (표시·UX용. 최종 차단 판정은 서버 트리거 check_age_policy)
+//   가입 폼(PR 2)·응모 시점(PR 3) 공용. 'YYYY-MM-DD' 문자열 → 만 나이(정수) 또는 null.
+//   서버와 동일하게 일본/한국 표준시(KST=JST) 기준.
+// ══════════════════════════════════════
+const AGE_POLICY_MIN_AGE = 18; // 가입·응모 최소 연령
+
+function calcAgeFromBirthdate(birthdateStr) {
+  if (!birthdateStr) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr);
+  if (!m) return null;
+  const by = +m[1], bm = +m[2], bd = +m[3];
+  // 오늘(KST) 연·월·일
+  const nowKst = new Date(Date.now() + (new Date().getTimezoneOffset() * 60000) + (9 * 3600000));
+  const ty = nowKst.getFullYear(), tm = nowKst.getMonth() + 1, td = nowKst.getDate();
+  let age = ty - by;
+  // 올해 생일이 아직 안 지났으면 한 살 빼기
+  if (tm < bm || (tm === bm && td < bd)) age--;
+  return age;
+}
+
+// ══════════════════════════════════════
 // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
 //   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
@@ -2734,6 +2780,17 @@ window.I18N_JA = {
       nameKanjiLabel: '氏名（漢字）',
       nameKanaLabel: '氏名（ふりがな）',
       nameKanaHint: '日本語の配送先登録のため、かな名を入力してください',
+      birthdateLabel: '生年月日',
+      birthYear: '年',
+      birthMonth: '月',
+      birthDay: '日',
+      birthdateHint: '満18歳以上の方のみご登録いただけます',
+      genderLabel: '性別',
+      genderPlaceholder: '選択してください',
+      genderMale: '男性',
+      genderFemale: '女性',
+      genderOther: 'その他',
+      genderUndisclosed: '回答しない',
       emailLabel: 'メールアドレス',
       pwLabel: 'パスワード',
       pwHint: '（8文字以上）',
@@ -3199,6 +3256,10 @@ window.I18N_JA = {
     genericError: 'エラーが発生しました',
     checkCredentials: 'メールアドレスまたはパスワードをご確認ください',
     enterName: '氏名を入力してください',
+    enterBirthdate: '生年月日を選択してください',
+    invalidBirthdate: '正しい生年月日を選択してください',
+    under18: '本サービスは満18歳以上の方のみご登録いただけます',
+    enterGender: '性別を選択してください',
     enterEmail: 'メールアドレスを入力してください',
     pwMin8: 'パスワードは8文字以上で入力してください',
     pwNoMatch: 'パスワードが一致しません',
@@ -3408,6 +3469,17 @@ window.I18N_KO = {
       nameKanjiLabel: '이름 (한자)',
       nameKanaLabel: '이름 (가나)',
       nameKanaHint: '일본 주소 배송을 위해 일본어 가나 표기를 입력해주세요',
+      birthdateLabel: '생년월일',
+      birthYear: '년',
+      birthMonth: '월',
+      birthDay: '일',
+      birthdateHint: '만 18세 이상만 가입할 수 있습니다',
+      genderLabel: '성별',
+      genderPlaceholder: '선택해주세요',
+      genderMale: '남성',
+      genderFemale: '여성',
+      genderOther: '기타',
+      genderUndisclosed: '응답하지 않음',
       emailLabel: '이메일',
       pwLabel: '비밀번호',
       pwHint: '(8자 이상)',
@@ -3859,6 +3931,10 @@ window.I18N_KO = {
     genericError: '오류가 발생했습니다',
     checkCredentials: '이메일 또는 비밀번호를 확인해주세요',
     enterName: '이름을 입력해주세요',
+    enterBirthdate: '생년월일을 선택해주세요',
+    invalidBirthdate: '올바른 생년월일을 선택해주세요',
+    under18: '본 서비스는 만 18세 이상만 가입할 수 있습니다',
+    enterGender: '성별을 선택해주세요',
     enterEmail: '이메일을 입력해주세요',
     pwMin8: '비밀번호는 8자 이상이어야 합니다',
     pwNoMatch: '비밀번호가 일치하지 않습니다',
@@ -8996,10 +9072,31 @@ function updateGnb() {
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta();
 }
 
+// 생년월일 년/월/일 select 채우기 (멱등 — 가입 페이지 진입 시 navigate 훅이 호출)
+function populateBirthdateSelects() {
+  const yEl = $('signupBirthYear'), mEl = $('signupBirthMonth'), dEl = $('signupBirthDay');
+  if (!yEl || !mEl || !dEl || yEl.dataset.filled) return;
+  const curY = new Date().getFullYear();
+  for (let y = curY; y >= 1940; y--) {
+    const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); yEl.appendChild(o);
+  }
+  for (let mo = 1; mo <= 12; mo++) {
+    const o = document.createElement('option'); o.value = String(mo); o.textContent = String(mo); mEl.appendChild(o);
+  }
+  for (let d = 1; d <= 31; d++) {
+    const o = document.createElement('option'); o.value = String(d); o.textContent = String(d); dEl.appendChild(o);
+  }
+  yEl.dataset.filled = '1';
+}
+
 async function handleSignup(e) {
   e.preventDefault();
   const name = ($('signupNameKanji')?.value||'').trim();
   const nameKana = ($('signupNameKana')?.value||'').trim();
+  const birthYear = $('signupBirthYear')?.value || '';
+  const birthMonth = $('signupBirthMonth')?.value || '';
+  const birthDay = $('signupBirthDay')?.value || '';
+  const gender = $('signupGender')?.value || '';
   const email = $('signupEmail').value.trim();
   const pw = $('signupPw').value;
   const pw2 = $('signupPw2').value;
@@ -9008,6 +9105,17 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent=t('authError.enterName'); errEl.style.display='block'; return; }
+  // 생년월일 필수 + 유효 날짜 + 만 18세 이상 검증
+  if (!birthYear || !birthMonth || !birthDay) { errEl.textContent=t('authError.enterBirthdate'); errEl.style.display='block'; return; }
+  const birthdate = `${birthYear}-${String(birthMonth).padStart(2,'0')}-${String(birthDay).padStart(2,'0')}`;
+  const bdObj = new Date(birthdate + 'T00:00:00+09:00');
+  if (isNaN(bdObj.getTime()) || (bdObj.getMonth()+1) !== Number(birthMonth) || bdObj.getDate() !== Number(birthDay)) {
+    errEl.textContent=t('authError.invalidBirthdate'); errEl.style.display='block'; return;
+  }
+  const age = calcAgeFromBirthdate(birthdate);
+  if (age === null || age < AGE_POLICY_MIN_AGE) { errEl.textContent=t('authError.under18'); errEl.style.display='block'; return; }
+  // 성별 필수 (回答しない 포함 4종 — 빈 값만 차단)
+  if (!gender) { errEl.textContent=t('authError.enterGender'); errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
   const pwErr = validatePasswordPolicy(pw);
   if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
@@ -9023,6 +9131,7 @@ async function handleSignup(e) {
   const nowIso = new Date().toISOString();
   const userData = {
     email, name, name_kanji: name, name_kana: nameKana,
+    birthdate, gender,
     terms_agreed_at: nowIso,
     privacy_agreed_at: nowIso,
     marketing_opt_in: marketingOptIn,
@@ -12642,6 +12751,8 @@ function navigate(page, pushHistory) {
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
+  // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
+  if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
   if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';
