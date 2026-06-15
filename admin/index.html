@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781507444';
+  var CURRENT_BUILD = 'v1781513609';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2077,7 +2077,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 16:10 · 773c76a</span>
+          <span class="admin-build-text">2026-06-15 17:53 · 88cb5ac</span>
         </div>
       </div>
     </aside>
@@ -2906,6 +2906,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
                 </table>
               </div>
+              <!-- 감사용 흔적 청소 — super_admin + 감사용 계정(is_audit)일 때만 JS 가 채움 -->
+              <div id="infDetailAuditPurge" style="margin-top:16px"></div>
             </div>
           </div>
         </div>
@@ -18556,7 +18558,49 @@ async function openInfluencerDetail(userId) {
     </td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
+  // 감사용 흔적 청소 — super_admin + 감사용 계정(is_audit=true)일 때만 노출.
+  // 일반 인플 상세에는 절대 렌더하지 않음(매번 innerHTML 초기화로 stale 방지).
+  const auditBox = $('infDetailAuditPurge');
+  if (auditBox) {
+    const isSuper = currentAdminInfo?.role === 'super_admin';
+    if (isSuper && u.is_audit === true) {
+      auditBox.innerHTML = `
+        <div class="admin-card" style="border:1px solid var(--line)">
+          <div class="admin-card-header"><span class="admin-card-title">감사용 흔적 청소</span></div>
+          <div style="padding:16px">
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px">모든 감사용 계정의 응모·결과물·메시지·알림을 한 번에 삭제합니다. 감사용 계정 자체는 유지됩니다.</p>
+            <button class="btn btn-sm" style="background:#C62828;color:#fff;border:none" onclick="purgeAllAuditData()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">cleaning_services</span>전체 흔적 청소</button>
+          </div>
+        </div>`;
+    } else {
+      auditBox.innerHTML = '';
+    }
+  }
+
   openModal('influencerFullDetailModal');
+}
+
+// 전체 감사용 흔적 청소 — super_admin 전용.
+// 모든 감사용 계정(is_audit=true)의 응모·결과물·메시지·알림을 삭제(계정 자체는 유지).
+async function purgeAllAuditData() {
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('모든 감사용 계정의 응모·결과물·메시지·알림을 삭제합니다. 감사용 계정 자체는 유지됩니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataAll();
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    closeModal('influencerFullDetailModal');
+    await refreshPane('influencers');
+  } catch (e) {
+    console.error('[purgeAllAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 // 상태 관리 패널 — 인증 토글 + 블랙리스트 등록/해제 + 사유 입력
@@ -28301,10 +28345,13 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const rect = btnEl.getBoundingClientRect();
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
-  // 변경 이력 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
+  // 변경 이력·감사용 흔적 청소 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const historyItem = isSuper
     ? `<div class="camp-more-item" onclick="openCautionHistoryModal('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>변경 이력</div>`
+    : '';
+  const auditPurgeItem = isSuper
+    ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
   menu.innerHTML = `
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
@@ -28312,6 +28359,7 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
+    ${auditPurgeItem}
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
@@ -28326,6 +28374,31 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
       }
     });
   }, 0);
+}
+
+// 캠페인별 감사용 흔적 청소 — super_admin 전용.
+// 이 캠페인에서 감사용 계정(is_audit=true)이 만든 응모·결과물·메시지를 모두 삭제한다.
+async function purgeCampaignAuditData(campId) {
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('이 캠페인에서 감사용 계정이 만든 응모·결과물·메시지를 모두 삭제합니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataForCampaign(campId);
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    // 진행현황 페인이 열려 있으면 그쪽을, 아니면 캠페인 목록 갱신
+    const applicantsPaneActive = $('adminPane-camp-applicants')?.classList.contains('on');
+    await refreshPane(applicantsPaneActive ? 'camp-applicants' : 'campaigns');
+  } catch (e) {
+    console.error('[purgeCampaignAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 function toggleStatusDropdown(badgeEl) {

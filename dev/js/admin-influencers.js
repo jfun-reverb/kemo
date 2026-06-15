@@ -385,7 +385,49 @@ async function openInfluencerDetail(userId) {
     </td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
+  // 감사용 흔적 청소 — super_admin + 감사용 계정(is_audit=true)일 때만 노출.
+  // 일반 인플 상세에는 절대 렌더하지 않음(매번 innerHTML 초기화로 stale 방지).
+  const auditBox = $('infDetailAuditPurge');
+  if (auditBox) {
+    const isSuper = currentAdminInfo?.role === 'super_admin';
+    if (isSuper && u.is_audit === true) {
+      auditBox.innerHTML = `
+        <div class="admin-card" style="border:1px solid var(--line)">
+          <div class="admin-card-header"><span class="admin-card-title">감사용 흔적 청소</span></div>
+          <div style="padding:16px">
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px">모든 감사용 계정의 응모·결과물·메시지·알림을 한 번에 삭제합니다. 감사용 계정 자체는 유지됩니다.</p>
+            <button class="btn btn-sm" style="background:#C62828;color:#fff;border:none" onclick="purgeAllAuditData()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">cleaning_services</span>전체 흔적 청소</button>
+          </div>
+        </div>`;
+    } else {
+      auditBox.innerHTML = '';
+    }
+  }
+
   openModal('influencerFullDetailModal');
+}
+
+// 전체 감사용 흔적 청소 — super_admin 전용.
+// 모든 감사용 계정(is_audit=true)의 응모·결과물·메시지·알림을 삭제(계정 자체는 유지).
+async function purgeAllAuditData() {
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('모든 감사용 계정의 응모·결과물·메시지·알림을 삭제합니다. 감사용 계정 자체는 유지됩니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataAll();
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    closeModal('influencerFullDetailModal');
+    await refreshPane('influencers');
+  } catch (e) {
+    console.error('[purgeAllAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 // 상태 관리 패널 — 인증 토글 + 블랙리스트 등록/해제 + 사유 입력
