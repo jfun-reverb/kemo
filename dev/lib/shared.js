@@ -547,6 +547,23 @@ function calcAgeFromBirthdate(birthdateStr) {
   return age;
 }
 
+// 생년월일 표시 라벨 (마이페이지·관리자 공용). lang 미지정 시 현재 언어.
+function formatBirthdateLabel(birthdateStr, lang) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr || '');
+  if (!m) return '';
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const l = lang || (typeof getLang === 'function' ? getLang() : 'ja');
+  return l === 'ko' ? `${y}년 ${mo}월 ${d}일` : `${y}年${mo}月${d}日`;
+}
+
+// 성별 코드 → 표시 라벨 (i18n 키 재사용). 빈 값이면 ''
+function genderLabel(code) {
+  const map = { male: 'auth.signup.genderMale', female: 'auth.signup.genderFemale',
+    other: 'auth.signup.genderOther', undisclosed: 'auth.signup.genderUndisclosed' };
+  if (!code || !map[code]) return '';
+  return (typeof t === 'function') ? t(map[code]) : code;
+}
+
 // ══════════════════════════════════════
 // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.

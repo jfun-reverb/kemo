@@ -995,6 +995,17 @@ window._supabaseLoaded = false;
       <div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKanji">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKana">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.birthdate">生年月日</label>
+            <div id="profileBirthdateDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.gender">性別</label>
+            <div id="profileGenderDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:-6px;margin-bottom:10px;line-height:1.5" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="">選択してください</option>

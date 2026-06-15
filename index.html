@@ -708,6 +708,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .msg-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
 .msg-lightbox-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
 
+/* 읽기 전용 표시 필드 (생년월일·성별 — 수정은 관리자만, 연령 정책 PR4) */
+.form-readonly{padding:12px 14px;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;min-height:48px;display:flex;align-items:center;box-sizing:border-box}
+
 </style>
 </head>
 <body>
@@ -1665,6 +1668,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
       <div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKanji">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKana">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.birthdate">生年月日</label>
+            <div id="profileBirthdateDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.gender">性別</label>
+            <div id="profileGenderDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:-6px;margin-bottom:10px;line-height:1.5" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="">選択してください</option>
@@ -2474,6 +2488,23 @@ function calcAgeFromBirthdate(birthdateStr) {
   return age;
 }
 
+// 생년월일 표시 라벨 (마이페이지·관리자 공용). lang 미지정 시 현재 언어.
+function formatBirthdateLabel(birthdateStr, lang) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr || '');
+  if (!m) return '';
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const l = lang || (typeof getLang === 'function' ? getLang() : 'ja');
+  return l === 'ko' ? `${y}년 ${mo}월 ${d}일` : `${y}年${mo}月${d}日`;
+}
+
+// 성별 코드 → 표시 라벨 (i18n 키 재사용). 빈 값이면 ''
+function genderLabel(code) {
+  const map = { male: 'auth.signup.genderMale', female: 'auth.signup.genderFemale',
+    other: 'auth.signup.genderOther', undisclosed: 'auth.signup.genderUndisclosed' };
+  if (!code || !map[code]) return '';
+  return (typeof t === 'function') ? t(map[code]) : code;
+}
+
 // ══════════════════════════════════════
 // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
@@ -3263,6 +3294,10 @@ window.I18N_JA = {
   profile: {
     nameKanji: '氏名（漢字）',
     nameKana: '氏名（ふりがな）',
+    birthdate: '生年月日',
+    gender: '性別',
+    notRegistered: '未登録',
+    birthdateHint: '生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。',
     category: 'カテゴリー',
     lineId: 'LINE ID',
     lineIdHint: '@reverb.jpを追加後、IDを入力',
@@ -3947,6 +3982,10 @@ window.I18N_KO = {
   profile: {
     nameKanji: '이름 (한자)',
     nameKana: '이름 (가나)',
+    birthdate: '생년월일',
+    gender: '성별',
+    notRegistered: '미등록',
+    birthdateHint: '생년월일·성별은 응모 시 입력합니다. 생년월일은 변경할 수 없습니다(수정이 필요하면 문의해주세요).',
     category: '카테고리',
     lineId: 'LINE ID',
     lineIdHint: '@reverb.jp 추가 후 ID 입력',
@@ -11370,6 +11409,8 @@ async function loadMyPage() {
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
   setVal('profileNameKana', p.name_kana);
+  // 생년월일·성별 읽기 전용 표시 (수정은 관리자만 — 연령 정책 PR4). 미등록은 안내 문구 유지
+  renderProfileAgeReadonly();
   setVal('profileCategory', p.category);
   setVal('profileLine', p.line_id);
   setVal('profileBio', p.bio);
@@ -11835,6 +11876,24 @@ window.addEventListener('langchange', updateLangToggleUI);
 window.addEventListener('langchange', () => {
   if ($('myApplyStatusSelect') && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
 });
+
+// 생년월일·성별 읽기 전용 표시 갱신 (loadMyPage + 언어 전환 공용 — 동적 텍스트라 applyI18n 미적용)
+function renderProfileAgeReadonly() {
+  const p = currentUserProfile || {};
+  const bdEl = $('profileBirthdateDisplay');
+  if (bdEl) {
+    const label = (typeof formatBirthdateLabel === 'function') ? formatBirthdateLabel(p.birthdate) : '';
+    if (label) { bdEl.textContent = label; bdEl.removeAttribute('data-i18n'); }
+    else { bdEl.setAttribute('data-i18n', 'profile.notRegistered'); bdEl.textContent = t('profile.notRegistered'); }
+  }
+  const gEl = $('profileGenderDisplay');
+  if (gEl) {
+    const gl = (typeof genderLabel === 'function') ? genderLabel(p.gender) : '';
+    if (gl) { gEl.textContent = gl; gEl.removeAttribute('data-i18n'); }
+    else { gEl.setAttribute('data-i18n', 'profile.notRegistered'); gEl.textContent = t('profile.notRegistered'); }
+  }
+}
+window.addEventListener('langchange', renderProfileAgeReadonly);
 
 // 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
 function populateMyApplyChannelOptions() {
