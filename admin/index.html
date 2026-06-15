@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781259557';
+  var CURRENT_BUILD = 'v1781493071';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2043,7 +2043,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-12 19:19 · 645d0b7</span>
+          <span class="admin-build-text">2026-06-15 12:11 · fad8ff5</span>
         </div>
       </div>
     </aside>
@@ -8665,6 +8665,25 @@ async function fetchAdminMessageThreads(opts = {}) {
     from += PAGE;
   }
   return rows;
+}
+
+// 탭/사이드바 배지 폴링용 경량 미응대 count — 받은편지함 전체를 가져오지 않고 개수만.
+//   application_message_summary 뷰의 message_count>0 + unresolved_for_admin_team=true 행 수.
+//   head:true 라 행 본문 미전송(최경량). 기간은 받은편지함과 동일 6개월(last_message_at)로 맞춰
+//   배지 수와 받은편지함 미응대 표시 수가 어긋나지 않게 한다.
+//   fetchAdminMessageThreads 와 동일 뷰·동일 RLS(security_invoker). 실패 시 0.
+async function fetchUnresolvedMessageCount() {
+  if (!db) return 0;
+  try {
+    const sinceIso = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString();
+    const {count, error} = await db?.from('application_message_summary')
+      .select('application_id', { count: 'exact', head: true })
+      .gt('message_count', 0)
+      .eq('unresolved_for_admin_team', true)
+      .gte('last_message_at', sinceIso);
+    if (error) { console.warn('[fetchUnresolvedMessageCount]', error); return 0; }
+    return count || 0;
+  } catch (e) { console.warn('[fetchUnresolvedMessageCount]', e); return 0; }
 }
 
 // 「내가 보낸 순」 정렬용 — 로그인한 본인 관리자가 발신한 응모건별 최신 발신 시각.
@@ -15747,11 +15766,85 @@ async function refreshInboxData() {
 
 // 사이드바 「메시지」 미응대 배지 = 우리 팀 미응대 응모건 수 (그룹 공통)
 function updateInboxSidebarBadge() {
-  const badge = document.getElementById('navMsgBadge');
-  if (!badge) return;
   const n = _inboxThreads.filter(t => t.unresolved_for_admin_team).length;
-  if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.style.display = ''; }
-  else { badge.style.display = 'none'; }
+  applyMsgBadgeCount(n);
+}
+
+// 사이드바 메시지 배지 + 브라우저 탭 배지를 동일 미응대 건수로 갱신 (공용 진입점)
+function applyMsgBadgeCount(n) {
+  const badge = document.getElementById('navMsgBadge');
+  if (badge) {
+    if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.style.display = ''; }
+    else { badge.style.display = 'none'; }
+  }
+  updateAdminTabBadge(n);
+}
+
+// ── 브라우저 탭 배지 (제목 prefix + favicon 빨간 원) — 받은편지함 안 보고 있을 때 새 문의 인지용 ──
+let _tabBadgeBaseTitle = null;      // (N) prefix 를 뺀 원본 제목 ([DEV] 포함 가능)
+let _tabBadgeBaseFavicon = null;    // 원본 favicon href
+
+function updateAdminTabBadge(count) {
+  const n = count > 0 ? (count > 99 ? '99+' : String(count)) : '';
+  // 제목: 기존 (N) prefix 제거 후 재적용 (STAGING 의 [DEV] 등 원본 보존)
+  if (_tabBadgeBaseTitle === null) _tabBadgeBaseTitle = document.title.replace(/^\(\d+\+?\)\s*/, '');
+  document.title = n ? `(${n}) ${_tabBadgeBaseTitle}` : _tabBadgeBaseTitle;
+
+  // favicon: 우상단 빨간 원 합성 / 0 이면 원본 복원
+  const fav = document.getElementById('appFavicon');
+  if (fav) {
+    if (_tabBadgeBaseFavicon === null) _tabBadgeBaseFavicon = fav.href;
+    if (count > 0) drawFaviconWithDot(_tabBadgeBaseFavicon, fav);
+    else fav.href = _tabBadgeBaseFavicon;
+  }
+
+  // PWA 설치 시 OS 작업표시줄 배지 (미설치자에겐 무영향)
+  try {
+    if (count > 0 && navigator.setAppBadge) navigator.setAppBadge(count).catch(() => {});
+    else if (count <= 0 && navigator.clearAppBadge) navigator.clearAppBadge().catch(() => {});
+  } catch (e) { /* 미지원 브라우저 무시 */ }
+}
+
+// 원본 favicon(SVG data URI) 위에 우상단 빨간 원을 그려 favicon href 교체
+function drawFaviconWithDot(baseHref, favEl) {
+  try {
+    const img = new Image();
+    img.onload = function () {
+      try {
+        const SZ = 64;
+        const cv = document.createElement('canvas');
+        cv.width = SZ; cv.height = SZ;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, SZ, SZ);
+        const r = 18;
+        ctx.beginPath();
+        ctx.arc(SZ - r, r, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#e02424';
+        ctx.fill();
+        ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.stroke();
+        favEl.href = cv.toDataURL('image/png');
+      } catch (e) {
+        // canvas 오염(SVG tainted) 등으로 toDataURL 실패 시 원본 favicon 명시 복원
+        try { favEl.href = baseHref; } catch (_) {}
+      }
+    };
+    img.onerror = function () { /* 로드 실패 시 원본 유지 */ };
+    img.src = baseHref;
+  } catch (e) { /* 무시 */ }
+}
+
+// 30초 폴링 — 받은편지함을 안 보고 있어도 탭/사이드바 배지를 최신 미응대 건수로 갱신
+async function refreshMsgBadgesLight() {
+  try {
+    if (!db) return;
+    const n = await fetchUnresolvedMessageCount();
+    applyMsgBadgeCount(n);
+  } catch (e) { /* 무시 */ }
+}
+let _msgBadgePollingTimer = null;
+setTimeout(function () { refreshMsgBadgesLight(); }, 3000);   // 부팅 직후 1회 (DB 준비 후)
+if (!_msgBadgePollingTimer) {
+  _msgBadgePollingTimer = setInterval(function () { refreshMsgBadgesLight(); }, 30000); // 이후 30초 주기
 }
 
 // 좌: 캠페인 목록 (메시지 있는 응모건을 campaign_id 로 그룹 + 미응대 합계)
