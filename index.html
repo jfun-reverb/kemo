@@ -9954,6 +9954,20 @@ async function saveAgeGate() {
   }
   if (!gender) { showErr(t('authError.enterGender')); return; }
 
+  // ⚠️ 18세 미만은 DB 저장 없이 차단 — 생년월일 잠금 트리거(PR1)로 오타가 영구 고정되는 것 방지
+  //    (개인정보 최소수집 원칙). 18세 도달 후 재입력 시 저장됨(서버가 birthdate로 매번 판정).
+  const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(birthdate) : null;
+  if (age !== null && age < AGE_POLICY_MIN_AGE) {
+    closeAgeGate();
+    if (typeof openModal === 'function') {
+      $('alertModalMessage').textContent = t('ageGate.under18Apply');
+      openModal('alertModal');
+    } else {
+      toast(t('ageGate.under18Apply'), 'error');
+    }
+    return;
+  }
+
   const btn = $('ageGateSaveBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
   try {
@@ -9968,17 +9982,7 @@ async function saveAgeGate() {
   }
   if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
   closeAgeGate();
-  // 만 18세 미만이면 차단 안내, 이상이면 응모 흐름 재개
-  const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(birthdate) : null;
-  if (age !== null && age < AGE_POLICY_MIN_AGE) {
-    if (typeof openModal === 'function') {
-      $('alertModalMessage').textContent = t('ageGate.under18Apply');
-      openModal('alertModal');
-    } else {
-      toast(t('ageGate.under18Apply'), 'error');
-    }
-    return;
-  }
+  // 18세 이상 — 저장 완료, 응모 흐름 재개
   handleFloatApply();
 }
 
