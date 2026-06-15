@@ -12,9 +12,10 @@ function updateGnb() {
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta();
 }
 
-// 생년월일 년/월/일 select 채우기 (멱등 — 가입 페이지 진입 시 navigate 훅이 호출)
-function populateBirthdateSelects() {
-  const yEl = $('signupBirthYear'), mEl = $('signupBirthMonth'), dEl = $('signupBirthDay');
+// 생년월일 년/월/일 select 채우기 (멱등). prefix 로 가입('signup')·응모 게이트('gate') 공용.
+function populateBirthdateSelects(prefix) {
+  prefix = prefix || 'signup';
+  const yEl = $(prefix+'BirthYear'), mEl = $(prefix+'BirthMonth'), dEl = $(prefix+'BirthDay');
   if (!yEl || !mEl || !dEl || yEl.dataset.filled) return;
   const curY = new Date().getFullYear();
   for (let y = curY; y >= 1940; y--) {
