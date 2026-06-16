@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781589017';
+  var CURRENT_BUILD = 'v1781592085';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2075,7 +2075,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-16 14:50 · 8b3b95c</span>
+          <span class="admin-build-text">2026-06-16 15:41 · 14520aa</span>
         </div>
       </div>
     </aside>
@@ -19680,7 +19680,11 @@ function _finalizeMonitorReprs(groups) {
     }
     g.result_status_repr = repr;
     const stateSet = new Set(states);
-    if (g.hasLegacyReviewImage) stateSet.add('legacy_no_channel');
+    // 채널 미분류는 "현재 채널 인증이 아직 덜 된" 신청만 표시 (2026-06-16 사용자 결정).
+    //   채널별 인증샷이 모두 승인(repr==='approved')이면, 과거 채널 미지정 레거시 행이 있어도
+    //   목록·필터·건수에서 미분류로 잡지 않음(혼란 방지). 검수 모달의 「채널 미지정 리뷰 이미지」
+    //   박스(unassignedBox)는 allDelivs 별도 계산이라 그대로 노출 → 거기서 정리 가능.
+    if (g.hasLegacyReviewImage && repr !== 'approved') stateSet.add('legacy_no_channel');
     g.result_states = [...stateSet];
   }
 }
