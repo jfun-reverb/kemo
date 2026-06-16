@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781580865';
+  var CURRENT_BUILD = 'v1781587728';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2043,7 +2043,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-16 12:34 · c060f7f</span>
+          <span class="admin-build-text">2026-06-16 14:28 · 67c2e14</span>
         </div>
       </div>
     </aside>
@@ -5523,6 +5523,38 @@ function postChannelMatchesCampaign(camp, postChannel) {
   return list.includes(String(postChannel).trim().toLowerCase());
 }
 
+// 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
+//   명백한 오타만 고치고, 위험 스킴은 차단, 나머지는 그대로 검증.
+//   - 앞뒤 공백 제거
+//   - 흔한 스킴 오타(ttp:// · ttps:// · htp:// · htps:// · http// · http:/ 등) → https://
+//     (SNS 게시물은 https 가 표준이라 https 로 통일)
+//   - 스킴 없으면(instagram.com/...) https:// 자동 추가
+//   - 위험 스킴(javascript: · data: · vbscript: · file: · blob:) → null 차단(XSS 방지)
+//   - 최종 new URL 로 검증, http/https + 호스트 있는 것만 통과
+//   반환: {url, changed} | null(빈값·위험 스킴·형식 오류). changed=보정 발생 여부(화면 안내용)
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function normalizeUrlInput(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  const orig = s;
+  if (/^(javascript|data|vbscript|file|blob):/i.test(s)) return null; // 위험 스킴 차단
+  if (/^https?:\/\//i.test(s)) {
+    // 이미 정상 스킴 — 그대로
+  } else if (/^h?t{1,2}ps?:?\/{1,2}/i.test(s)) {
+    s = s.replace(/^h?t{1,2}ps?:?\/{1,2}/i, 'https://'); // 흔한 스킴 오타 → https://
+  } else if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(s)) {
+    return null; // 알 수 없는 스킴 차단
+  } else {
+    s = 'https://' + s; // 스킴 없음 → https:// 추가
+  }
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (!u.hostname) return null;
+  } catch (e) { return null; }
+  return { url: s, changed: s !== orig };
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {
@@ -6929,6 +6961,23 @@ async function deleteLegacyReviewImage(deliverableId, reason) {
   let ok = false;
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('delete_legacy_review_image', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 잘못된 채널 게시물(post) 결과물 삭제 (super_admin, 마이그레이션 183).
+//   캠페인 요구 채널과 다른 채널로 잘못 저장된 post 행 정리. 서버에서 채널 불일치·승인 보호 재검증.
+async function deleteMismatchedPostDeliverable(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('delete_mismatched_post_deliverable', {
       p_deliverable_id: deliverableId,
       p_reason:         reason || null
     });
@@ -19495,6 +19544,11 @@ function renderDelivStatusCell(d, slot, rt) {
       try { host = new URL(d.post_url).hostname.replace(/^www\./, ''); } catch(e) { host = d.post_url; }
       preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
     }
+    // 채널 불일치 경고 배지 (2026-06-16, 묶음2) — 캠페인 요구 채널에 없는 post_channel(예: 인스타 캠페인에 lips)
+    const camp = d.campaigns || (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns) ? allCampaigns.find(c => c.id === d.campaign_id) : null);
+    if (d.post_channel && camp && !postChannelMatchesCampaign(camp, d.post_channel)) {
+      preview += ` <span class="notranslate" translate="no" style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #C33" title="이 게시물 채널(${esc(d.post_channel)})이 캠페인 요구 채널에 없습니다. 잘못 저장된 행일 수 있습니다.">채널 불일치</span>`;
+    }
   }
   // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
   // 사용자 결정 2026-05-28: 「승인 + 작은 대리 마커」 중복 → 단일 「대리 등록」 배지로 통합
@@ -19992,6 +20046,18 @@ async function deleteLegacyReviewImageRow(deliverableId) {
   } catch(e) { toast(e?.message || '삭제 중 오류가 발생했습니다', 'error'); }
 }
 
+// 채널 불일치 게시물(post) 삭제 (super_admin, 마이그레이션 183, 묶음2). 되돌릴 수 없으므로 확인 모달.
+async function deleteMismatchedPostRow(deliverableId) {
+  const ok = await showConfirm('캠페인 요구 채널과 다른 채널로 저장된 게시물입니다. 삭제하면 되돌릴 수 없습니다. 진행하시겠습니까?');
+  if (!ok) return;
+  try {
+    await deleteMismatchedPostDeliverable(deliverableId, '관리자 수동 삭제 (채널 불일치 게시물)');
+    toast('삭제했습니다', 'success');
+    if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
+    if (typeof refreshPane === 'function') await refreshPane('deliverables');
+  } catch(e) { toast(e?.message || '삭제 중 오류가 발생했습니다', 'error'); }
+}
+
 // ─── 영수증 정보 블록 (마이그레이션 128) ─────────────────────
 // kind='receipt' 결과물의 주문번호·구매일·구매금액을 노출.
 // campaign_admin 이상은 인플레이스 수정 폼 + 변경 이력 토글 사용.
@@ -20282,6 +20348,10 @@ function renderDelivPanelContent(d, events) {
     return '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">아직 제출되지 않았습니다.</div>';
   }
   let html = '';
+  // 채널 불일치 판정 (2026-06-16, 묶음2) — post 행이 캠페인 요구 채널에 없는지
+  const _panelCamp = d.campaigns || (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns) ? allCampaigns.find(c => c.id === d.campaign_id) : null);
+  const isPostChannelMismatch = !!(d.kind === 'post' && d.post_channel && _panelCamp
+    && typeof postChannelMatchesCampaign === 'function' && !postChannelMatchesCampaign(_panelCamp, d.post_channel));
   // 관리자 대리 등록 행 (마이그레이션 160) — 상단 안내 박스 + 회수 버튼은 하단 별도 영역
   if (d.submitted_by_admin) {
     const reasonLabel = _proxyReasonLabelKo(d.submitted_by_admin_reason_code);
@@ -20312,7 +20382,7 @@ function renderDelivPanelContent(d, events) {
     }
   } else {
     html += `<div style="font-size:13px;line-height:1.7;margin-bottom:10px">
-      <div><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong></div>
+      <div><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong>${isPostChannelMismatch ? ` <span class="notranslate" translate="no" style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #C33" title="캠페인 요구 채널에 없는 채널입니다">채널 불일치</span>` : ''}</div>
       <div style="margin-top:6px"><span style="color:var(--muted)">URL</span> · ${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all">${esc(d.post_url)}</a>` : '—'}</div>
       ${(Array.isArray(d.post_submissions) && d.post_submissions.length) ? `<div style="margin-top:8px;font-size:11px;color:var(--muted)">제출 이력 ${d.post_submissions.length}건</div>` : ''}
     </div>`;
@@ -20328,6 +20398,13 @@ function renderDelivPanelContent(d, events) {
   // 대리 등록 행은 일반 「되돌리기」 비활성 + super_admin 전용 「대리 등록 회수」 버튼 (사용자 결정 2026-05-28)
   const isProxy = !!d.submitted_by_admin;
   const isSuperAdmin = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'super_admin');
+  // 채널 불일치 게시물 삭제 (super_admin, 묶음2) — 잘못된 채널로 저장된 행 정리. 승인 행은 서버가 거부.
+  if (isPostChannelMismatch && isSuperAdmin && d.status !== 'approved') {
+    html += `<div style="margin-top:10px;padding:10px 12px;background:#FFF4F4;border:1px solid #F0C0C0;border-radius:8px">
+      <div style="font-size:11px;color:#C33;margin-bottom:6px">이 게시물은 캠페인 요구 채널과 다른 채널(<span class="notranslate" translate="no">${esc(d.post_channel)}</span>)로 저장됐습니다. 잘못 등록된 행이면 삭제하세요. 되돌릴 수 없습니다.</div>
+      <button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:11px;padding:4px 10px" onclick="deleteMismatchedPostRow('${esc(d.id)}')">채널 불일치 게시물 삭제</button>
+    </div>`;
+  }
   if (d.status === 'pending') {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;align-items:center">`;
     if (isProxy && isSuperAdmin) {
@@ -20906,8 +20983,11 @@ function _adminDetectChannelFromUrl(url) {
 }
 
 function onAdminProxyPostUrlInput() {
-  const url = $('adminProxyPostUrl')?.value || '';
-  if (!url) return;
+  const raw = $('adminProxyPostUrl')?.value || '';
+  if (!raw) return;
+  // 보정된 주소로 채널 자동 판별 (저장 시 submitAdminProxyDelivProxy 가 실제 보정)
+  const norm = normalizeUrlInput(raw);
+  const url = norm ? norm.url : raw;
   const guess = _adminDetectChannelFromUrl(url);
   if (!guess) return;
   const sel = $('adminProxyPostChannel');
@@ -20958,9 +21038,14 @@ async function submitAdminProxyDelivProxy() {
       payload.purchaseDate = date;
       payload.purchaseAmount = parseFloat(amount);
     } else if (kind === 'post') {
-      const url = ($('adminProxyPostUrl')?.value || '').trim();
+      const rawUrl = ($('adminProxyPostUrl')?.value || '').trim();
       const channel = $('adminProxyPostChannel')?.value;
-      if (!url) return toast('게시물 URL을 입력하세요', 'error');
+      if (!rawUrl) return toast('게시물 URL을 입력하세요', 'error');
+      // URL 오타 자동 보정 (2026-06-16) — ttp:// 등 흔한 실수·스킴 누락 교정, 위험 스킴 차단
+      const norm = normalizeUrlInput(rawUrl);
+      if (!norm) return toast('URL 형식이 올바르지 않습니다', 'error');
+      const url = norm.url;
+      if (norm.changed) toast('URL을 수정했습니다: ' + url, 'success');
       if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
       // 방어: 캠페인 요구 채널과 일치 확인 (2026-06-16). 드롭다운이 이미 캠페인 채널만이나 이중 가드.
       // proxyApp 미탐지(목록 비동기 리로드 등) 시에는 서버 함수(admin_create_deliverable_proxy) 가드에 위임.
