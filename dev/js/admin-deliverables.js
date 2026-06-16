@@ -607,7 +607,7 @@ function renderDelivAppRow(g) {
 
   return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
     <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div>${esc(camp.title || '—')}</div></td>
-    <td>${channelChipsHtml(camp.channel)}</td>
+    <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
     <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
