@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781603539';
+  var CURRENT_BUILD = 'v1781604019';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -673,21 +673,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 #adminPane-applications .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-applications .data-table thead th{white-space:nowrap}
 
-/* 결과물 관리 — 모집타입(1) + 캠페인(2) 양쪽 좌측 고정. 가로 스크롤 시 두 컬럼 어긋남 방지. */
+/* 결과물 관리 — 캠페인 열만 좌측 고정. 가로 스크롤 시 캠페인 식별 유지.
+   (2026-06-16 모집타입 열을 캠페인 셀로 흡수 → 기존 2열 고정에서 1열 고정으로 변경) */
 #adminPane-deliverables .admin-table-wrap{overflow-x:auto}
 #adminPane-deliverables .data-table{min-width:1200px}
 #adminPane-deliverables .data-table th:nth-child(1),
-#adminPane-deliverables .data-table td:nth-child(1){width:90px;min-width:90px;max-width:90px;box-sizing:border-box}
+#adminPane-deliverables .data-table td:nth-child(1){width:240px;min-width:240px;max-width:240px;box-sizing:border-box}
 #adminPane-deliverables .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
 #adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
-#adminPane-deliverables .data-table th:nth-child(2),
-#adminPane-deliverables .data-table td:nth-child(2){width:240px;min-width:240px;max-width:240px;box-sizing:border-box}
-#adminPane-deliverables .data-table tbody td:nth-child(2){position:sticky;left:90px;z-index:3;background:var(--surface)}
-#adminPane-deliverables .data-table thead th:nth-child(2){left:90px;z-index:7;background:var(--surface-dim)}
-#adminPane-deliverables .data-table tbody tr:hover td:nth-child(1),
-#adminPane-deliverables .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
-#adminPane-deliverables .data-table tbody td:nth-child(2),
-#adminPane-deliverables .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-deliverables .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
+#adminPane-deliverables .data-table tbody td:nth-child(1),
+#adminPane-deliverables .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 #adminPane-deliverables .data-table thead th{white-space:nowrap}
 
 /* 브랜드 관리 — 첫 컬럼(brand_no) 좌측 고정. 컬럼 폭은 inline style로 이미 명시됨 */
@@ -2075,7 +2071,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-16 18:52 · 4c4a0eb</span>
+          <span class="admin-build-text">2026-06-16 19:00 · 2ba7bba</span>
         </div>
       </div>
     </aside>
