@@ -533,7 +533,7 @@ async function renderAppCampList() {
           </div>
         </div>
       </td>
-      <td>${channelChipsHtml(camp.channel)}</td>
+      <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
       <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
         ${brandPrimary?esc(brandPrimary):'—'}
         ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}

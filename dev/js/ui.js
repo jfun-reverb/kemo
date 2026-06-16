@@ -210,13 +210,16 @@ function getChannelLabel(ch, lang) {
 
 // 채널 문자열(콤마구분) → 채널별 회색 라벨 칩. 관리자 목록 채널 열 공용.
 // 빈 채널은 '—'. 채널마다 한글 라벨 칩 1개씩 줄바꿈 허용.
-function channelChipsHtml(channel) {
+// 채널 2개 이상이면 칩 사이에 match 구분자 표시 ('and'=&, 그 외=or).
+function channelChipsHtml(channel, match) {
   const codes = (channel || '').split(',').map(s => s.trim()).filter(Boolean);
   if (!codes.length) return '<span style="color:var(--muted)">—</span>';
-  return '<div style="display:flex;flex-wrap:wrap;gap:3px">' + codes.map(function(code) {
+  const chips = codes.map(function(code) {
     const label = (typeof getChannelLabel === 'function') ? (getChannelLabel(code) || code) : code;
     return '<span style="background:#F0F0F0;color:#666;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap">' + esc(label) + '</span>';
-  }).join('') + '</div>';
+  });
+  const sep = '<span style="font-size:9px;color:var(--muted);font-weight:600;padding:0 1px">' + (match === 'and' ? '&' : 'or') + '</span>';
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px">' + chips.join(sep) + '</div>';
 }
 
 // lookup_values 공통: code 또는 name_ja를 현재 locale의 표시값으로
