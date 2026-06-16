@@ -356,7 +356,7 @@ async function loadAdminCampaigns(useCache) {
           </div>
         </div>
       </td>
-      <td style="font-size:12px;color:var(--ink)">${(typeof brandOpsChannelText==='function'?brandOpsChannelText(c.channel, c.channel_match):'') || '—'}</td>
+      <td>${channelChipsHtml(c.channel)}</td>
       ${(()=>{
         const bp = brandLabelAdmin(c);
         const bs = '';
