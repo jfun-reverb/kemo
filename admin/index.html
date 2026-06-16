@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781604809';
+  var CURRENT_BUILD = 'v1781606354';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -624,7 +624,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
    2026-05-15 확장: 모집기간·구매기간·제출마감·조회 컬럼 추가로 표 폭 증가.
    브랜드 서베이 패턴(75~96) 동일 구조 적용. */
 #adminPane-campaigns .admin-table-wrap{overflow-x:auto}
-#adminPane-campaigns .data-table{min-width:2000px}
+#adminPane-campaigns .data-table{min-width:2150px}
 
 /* 1열 체크박스 (44px) — sticky
    thead th 는 78줄 전역에서 이미 position:sticky;top:0;z-index:5 적용됨.
@@ -640,17 +640,15 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 #adminPane-campaigns .data-table tbody td:nth-child(2){position:sticky;left:44px;z-index:3;background:var(--surface)}
 #adminPane-campaigns .data-table thead th:nth-child(2){left:44px;z-index:7;background:var(--surface-dim)}
 
-/* 3열 브랜드 (170px) — sticky + 우측 그림자 (sticky 영역 경계 시각화) */
+/* 3열 채널 (150px) — sticky + 우측 그림자 (sticky 영역 경계 시각화, 2026-06-16 채널 열 신설 → 고정 영역 끝) */
 #adminPane-campaigns .data-table th:nth-child(3),
-#adminPane-campaigns .data-table td:nth-child(3){width:170px;min-width:170px;max-width:170px;box-sizing:border-box;word-break:break-word}
+#adminPane-campaigns .data-table td:nth-child(3){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
 #adminPane-campaigns .data-table tbody td:nth-child(3){position:sticky;left:424px;z-index:3;background:var(--surface)}
 #adminPane-campaigns .data-table thead th:nth-child(3){left:424px;z-index:7;background:var(--surface-dim)}
 #adminPane-campaigns .data-table tbody td:nth-child(3),
 #adminPane-campaigns .data-table thead th:nth-child(3){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
 
-/* 4열 제품 — 최소 폭 보장 (sticky 아님) */
-#adminPane-campaigns .data-table th:nth-child(4),
-#adminPane-campaigns .data-table td:nth-child(4){width:220px;min-width:220px;max-width:240px;box-sizing:border-box;word-break:break-word}
+/* 4열 브랜드 · 5열 제품 — sticky 아님, 폭은 행 인라인 style로 관리 */
 
 /* sticky 컬럼 hover 색상 */
 #adminPane-campaigns .data-table tbody tr:hover td:nth-child(1),
@@ -661,29 +659,39 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 
 /* (세로 보더는 .data-table 공통 규칙에서 처리 — 위쪽 「관리자 목록 표 세로 구분선 공통」 참조) */
 
-/* 신청 관리 — 첫 컬럼(캠페인) 좌측 고정 */
+/* 신청 관리 — 캠페인(1) + 채널(2) 좌측 고정 (2026-06-16 채널 열 신설) */
 #adminPane-applications .admin-table-wrap{overflow-x:auto}
-#adminPane-applications .data-table{min-width:1540px}
+#adminPane-applications .data-table{min-width:1690px}
 #adminPane-applications .data-table th:nth-child(1),
 #adminPane-applications .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-applications .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
-#adminPane-applications .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
-#adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7}
-#adminPane-applications .data-table tbody td:nth-child(1),
-#adminPane-applications .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
+#adminPane-applications .data-table th:nth-child(2),
+#adminPane-applications .data-table td:nth-child(2){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
+#adminPane-applications .data-table tbody td:nth-child(2){position:sticky;left:380px;z-index:3;background:var(--surface)}
+#adminPane-applications .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--surface-dim)}
+#adminPane-applications .data-table tbody td:nth-child(2),
+#adminPane-applications .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-applications .data-table tbody tr:hover td:nth-child(1),
+#adminPane-applications .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
 #adminPane-applications .data-table thead th{white-space:nowrap}
 
-/* 결과물 관리 — 캠페인 열만 좌측 고정. 가로 스크롤 시 캠페인 식별 유지.
-   (2026-06-16 모집타입 열을 캠페인 셀로 흡수 → 기존 2열 고정에서 1열 고정으로 변경) */
+/* 결과물 관리 — 캠페인(1) + 채널(2) 좌측 고정 (2026-06-16 채널 열 신설).
+   캠페인 셀은 모집타입 칩을 흡수, 브랜드·채널은 별도 열. */
 #adminPane-deliverables .admin-table-wrap{overflow-x:auto}
-#adminPane-deliverables .data-table{min-width:1500px}
+#adminPane-deliverables .data-table{min-width:1650px}
 #adminPane-deliverables .data-table th:nth-child(1),
 #adminPane-deliverables .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-deliverables .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
 #adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
-#adminPane-deliverables .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
-#adminPane-deliverables .data-table tbody td:nth-child(1),
-#adminPane-deliverables .data-table thead th:nth-child(1){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-deliverables .data-table th:nth-child(2),
+#adminPane-deliverables .data-table td:nth-child(2){width:150px;min-width:150px;max-width:150px;box-sizing:border-box;word-break:break-word}
+#adminPane-deliverables .data-table tbody td:nth-child(2){position:sticky;left:380px;z-index:3;background:var(--surface)}
+#adminPane-deliverables .data-table thead th:nth-child(2){left:380px;z-index:7;background:var(--surface-dim)}
+#adminPane-deliverables .data-table tbody td:nth-child(2),
+#adminPane-deliverables .data-table thead th:nth-child(2){box-shadow:2px 0 4px -2px rgba(0,0,0,.08)}
+#adminPane-deliverables .data-table tbody tr:hover td:nth-child(1),
+#adminPane-deliverables .data-table tbody tr:hover td:nth-child(2){background:var(--surface-dim)}
 #adminPane-deliverables .data-table thead th{white-space:nowrap}
 
 /* 브랜드 관리 — 첫 컬럼(brand_no) 좌측 고정. 컬럼 폭은 inline style로 이미 명시됨 */
@@ -2071,7 +2079,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-16 19:13 · 3678200</span>
+          <span class="admin-build-text">2026-06-16 19:39 · c1ece77</span>
         </div>
       </div>
     </aside>
@@ -2210,6 +2218,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <thead id="adminCampTableHead"><tr>
   <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
   <th>캠페인</th>
+  <th>채널</th>
   <th>브랜드</th>
   <th>제품</th>
   <th>상태 <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">▲▼</span></th>
@@ -2222,7 +2231,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   <th>수정일 <span class="sort-arrows" data-sort="updated" onclick="toggleCampSort('updated')">▲▼</span></th>
   <th></th>
 </tr></thead>
-              <tbody id="adminCampsBody"><tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="adminCampsBody"><tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -2990,8 +2999,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-table-wrap">
               <table class="data-table">
-                <thead id="appTableHead"><tr><th>캠페인</th><th>브랜드</th><th>제품</th><th>모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
-                <tbody id="appTableBody"><tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+                <thead id="appTableHead"><tr><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
+                <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
             </div>
@@ -3075,6 +3084,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             <table class="data-table deliv-app-table">
               <thead><tr>
                 <th>캠페인</th>
+                <th>채널</th>
                 <th>브랜드</th>
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
@@ -3085,7 +3095,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:90px">처리</th>
               </tr></thead>
-              <tbody id="delivTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
@@ -6131,7 +6141,7 @@ async function fetchCampaigns() {
 const ADMIN_LIST_COLUMNS = [
   'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
-  'recruit_type', 'channel', 'status',
+  'recruit_type', 'channel', 'channel_match', 'status',
   'slots', 'view_count',
   'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
   'image_url', 'image_crops', 'emoji',
@@ -6688,7 +6698,7 @@ async function fetchDeliverables(filters) {
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -19355,7 +19365,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
@@ -19628,7 +19638,7 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
@@ -19803,6 +19813,7 @@ function renderDelivAppRow(g) {
 
   return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
     <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div>${esc(camp.title || '—')}</div></td>
+    <td style="font-size:12px;color:var(--ink)">${(typeof brandOpsChannelText==='function'?brandOpsChannelText(camp.channel, camp.channel_match):'') || '—'}</td>
     <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
@@ -24435,6 +24446,7 @@ async function renderAppCampList() {
           </div>
         </div>
       </td>
+      <td style="font-size:12px;color:var(--ink)">${(typeof brandOpsChannelText==='function'?brandOpsChannelText(camp.channel, camp.channel_match):'') || '—'}</td>
       <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
         ${brandPrimary?esc(brandPrimary):'—'}
         ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}
@@ -26643,6 +26655,7 @@ async function loadAdminCampaigns(useCache) {
           </div>
         </div>
       </td>
+      <td style="font-size:12px;color:var(--ink)">${(typeof brandOpsChannelText==='function'?brandOpsChannelText(c.channel, c.channel_match):'') || '—'}</td>
       ${(()=>{
         const bp = brandLabelAdmin(c);
         const bs = '';
