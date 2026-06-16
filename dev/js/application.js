@@ -827,14 +827,17 @@ function populatePostChannelManualOptions() {
 }
 
 function onPostUrlInputChange() {
-  const url = $('postUrlInput')?.value || '';
+  const raw = $('postUrlInput')?.value || '';
   const detectedLbl = $('postChannelDetected');
   const manualWrap = $('postChannelManualWrap');
-  if (!url.trim()) {
+  if (!raw.trim()) {
     if (detectedLbl) detectedLbl.textContent = '';
     if (manualWrap) manualWrap.style.display = 'none';
     return;
   }
+  // 보정된 주소로 채널 판별 (ttp:// 등 오타가 있어도 채널 인식 — 저장 시 addDraftUrl 이 실제 보정)
+  const norm = normalizeUrlInput(raw);
+  const url = norm ? norm.url : raw;
   const ch = detectChannelFromUrl(url);
   if (ch) {
     if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetected').replace('{channel}', getChannelLabelLocal(ch));
@@ -1337,9 +1340,13 @@ function previewReviewImage(input, channel) {
 // Draft URL 추가 (gifting/visit — SNS 게시 URL 제출)
 async function addDraftUrl() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
-  const url = ($('postUrlInput')?.value || '').trim();
-  if (!url) { toast(t('activity.needUrl'), 'error'); return; }
-  try { new URL(url); } catch(e) { toast(t('activity.badUrlFormat'),'error'); return; }
+  const rawUrl = ($('postUrlInput')?.value || '').trim();
+  if (!rawUrl) { toast(t('activity.needUrl'), 'error'); return; }
+  // URL 오타 자동 보정 (2026-06-16) — ttp:// 등 흔한 실수·스킴 누락 교정, 위험 스킴 차단
+  const norm = normalizeUrlInput(rawUrl);
+  if (!norm) { toast(t('activity.badUrlFormat'),'error'); return; }
+  const url = norm.url;
+  if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
 
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end;
