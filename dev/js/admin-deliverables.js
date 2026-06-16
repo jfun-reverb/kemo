@@ -2140,6 +2140,12 @@ async function submitAdminProxyDelivProxy() {
       const channel = $('adminProxyPostChannel')?.value;
       if (!url) return toast('게시물 URL을 입력하세요', 'error');
       if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
+      // 방어: 캠페인 요구 채널과 일치 확인 (2026-06-16). 드롭다운이 이미 캠페인 채널만이나 이중 가드.
+      // proxyApp 미탐지(목록 비동기 리로드 등) 시에는 서버 함수(admin_create_deliverable_proxy) 가드에 위임.
+      const proxyApp = _adminProxyApps.find(a => a.id === appId);
+      if (proxyApp && !postChannelMatchesCampaign(proxyApp.campaigns, channel)) {
+        return toast('이 캠페인이 요구하는 채널이 아닙니다. 캠페인 채널을 선택하세요.', 'error');
+      }
       payload.postUrl = url;
       payload.postChannel = channel;
     } else if (kind === 'review_image') {

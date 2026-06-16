@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781493071';
+  var CURRENT_BUILD = 'v1781580865';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2043,7 +2043,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-15 12:11 · fad8ff5</span>
+          <span class="admin-build-text">2026-06-16 12:34 · c060f7f</span>
         </div>
       </div>
     </aside>
@@ -5507,6 +5507,20 @@ function matchSearchTokens(searchVal, fields) {
   if (!tokens.length) return true;
   const haystack = fields.map(v => (v || '').toLowerCase()).join(' ');
   return tokens.every(tok => haystack.includes(tok));
+}
+
+// 게시물(post) 채널이 캠페인이 요구하는 채널(channel 리스트)에 포함되는지 판정.
+//   - 요구 채널 중 하나만 맞으면 통과(or 기준, 2026-06-16 사용자 결정).
+//   - 캠페인 channel 이 비어 있으면(레거시·채널 미설정) 막지 않음(true) — 정상 제출 차단 방지.
+//   - 인플 제출(addDraftUrl)·관리자 대리 등록(submitAdminProxyDelivProxy) 양쪽에서 공유.
+//   - 최종 방어선은 서버 함수(admin_create_deliverable_proxy)이며 클라 검증은 즉시 안내용.
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function postChannelMatchesCampaign(camp, postChannel) {
+  if (!camp || !postChannel) return false;
+  const list = String(camp.channel || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (list.length === 0) return true; // 채널 미설정 캠페인은 검증 우회(레거시 보호)
+  return list.includes(String(postChannel).trim().toLowerCase());
 }
 
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
@@ -20948,6 +20962,12 @@ async function submitAdminProxyDelivProxy() {
       const channel = $('adminProxyPostChannel')?.value;
       if (!url) return toast('게시물 URL을 입력하세요', 'error');
       if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
+      // 방어: 캠페인 요구 채널과 일치 확인 (2026-06-16). 드롭다운이 이미 캠페인 채널만이나 이중 가드.
+      // proxyApp 미탐지(목록 비동기 리로드 등) 시에는 서버 함수(admin_create_deliverable_proxy) 가드에 위임.
+      const proxyApp = _adminProxyApps.find(a => a.id === appId);
+      if (proxyApp && !postChannelMatchesCampaign(proxyApp.campaigns, channel)) {
+        return toast('이 캠페인이 요구하는 채널이 아닙니다. 캠페인 채널을 선택하세요.', 'error');
+      }
       payload.postUrl = url;
       payload.postChannel = channel;
     } else if (kind === 'review_image') {
