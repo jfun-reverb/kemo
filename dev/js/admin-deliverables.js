@@ -603,12 +603,12 @@ function renderDelivAppRow(g) {
   const pe = (rt === 'monitor') ? camp.purchase_end
            : (rt === 'visit')   ? camp.visit_end    : '';
 
-  return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
+  return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
     <td>${rtBadge}</td>
     <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div></td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td>${certStatusBadge(g)}</td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
