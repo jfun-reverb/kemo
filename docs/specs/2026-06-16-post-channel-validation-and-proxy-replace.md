@@ -153,5 +153,25 @@
 - reverb-supabase-expert 작성·자체 검토 통과
 - qa-tester 권장: light (관리자 대리 등록 post 채널 불일치·교체 + 인플 게시물 채널 불일치 toast)
 
-### 묶음 2 (잘못된 채널 잔존 행 정리) — 미착수
-검수 화면 경고 배지 + 수동 삭제 + 운영 백필. 묶음 1 운영 배포 후 별도 진행.
+### 묶음 1 운영 배포
+hotfix rebuild 패턴(main 기준 재적용+재빌드)으로 운영 배포 완료 — 핫픽스 PR #502, main `67c2e14`, 운영 DB 마이그레이션 182 적용, globalreverb.com 반영 확인.
+
+### 묶음 3 (URL 오타 자동 보정) — 구현 완료 (사용자 추가 요청 2026-06-16)
+인플·관리자가 게시물 URL 등록 시 `ttp://`·스킴 누락 등 흔한 오타를 자동 보정. 사용자 결정: "명백한 오타만 보정 + 결과 표시".
+- `dev/lib/shared.js`: `normalizeUrlInput(raw)` — 공백제거·`ttp(s)//`·`htp(s)//`·콜론 누락 → `https://`, 스킴 없으면 https 추가, 위험 스킴(javascript/data/vbscript/file/blob) → null 차단, 최종 new URL http/https 검증. 반환 `{url, changed}|null`
+- `application.js` `addDraftUrl`(보정 시 `activity.urlFixed` toast)·`onPostUrlInputChange`(보정 주소로 채널 판별)
+- `admin-deliverables.js` `submitAdminProxyDelivProxy`·`onAdminProxyPostUrlInput`
+- i18n `activity.urlFixed`(ja/ko)
+
+### 묶음 2 (잘못된 채널 잔존 행 정리) — 구현 완료
+사용자 결정: ①삭제 권한 super_admin만 ②반려·검수중만 삭제(승인 보호) ③기존 audit 방식 감수.
+- **경고 배지**: `renderDelivStatusCell`(목록 셀)·`renderDelivPanelContent`(검수 패널)에 캠페인 채널과 다른 post_channel 행 「채널 불일치」 빨강 배지(`postChannelMatchesCampaign` 재사용, `d.campaigns`/`allCampaigns` 폴백)
+- **삭제 RPC**: 마이그레이션 183 `delete_mismatched_post_deliverable(uuid, text)` — super_admin·kind=post·승인 보호·**post_channel NULL 거부**·채널 불일치 서버 재검증·audit(admin_proxy_revoke, from_status는 draft면 NULL 처리—CHECK 보호)·DELETE. 162 `delete_legacy_review_image` 미러링
+- **삭제 UI**: 검수 패널 super_admin 전용 「채널 불일치 게시물 삭제」 버튼 + 확인 모달(`deleteMismatchedPostRow`) + `deleteMismatchedPostDeliverable` 클라(storage.js) + refreshPane
+- reviewer GO(경고 2건: CLAUDE.md 동기화 반영 / URL toast 하드코딩은 관리자 한국어 패턴 유지) + supabase-expert 마이그183 수정 2건 GO
+
+### 묶음 2 알려진 한계
+검수 목록/모달이 게시물을 `g.result` 최신 단건만 노출 → 같은 신청에 잘못된 lips 행 + 올바른 instagram 행이 공존하고 instagram이 최신이면 lips 행이 화면에 안 보일 수 있음. 운영 백필 조사 SQL([3] 신청당 post 행 수)로 분포 확인 후 필요시 빌더 보완(`g.mismatchedPosts[]`). 운영 사고(B0019-C005)는 lips 단건이라 영향 없음.
+
+### 운영 백필 조사 SQL (운영 배포 후 분포 파악용)
+캠페인 channel에 없는 post_channel 행 건수·채널 분포·신청당 행 수 조사. 운영 SQL Editor에서 실행해 정리 규모 파악.
