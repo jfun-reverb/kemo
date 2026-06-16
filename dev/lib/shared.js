@@ -308,6 +308,20 @@ function matchSearchTokens(searchVal, fields) {
   return tokens.every(tok => haystack.includes(tok));
 }
 
+// 게시물(post) 채널이 캠페인이 요구하는 채널(channel 리스트)에 포함되는지 판정.
+//   - 요구 채널 중 하나만 맞으면 통과(or 기준, 2026-06-16 사용자 결정).
+//   - 캠페인 channel 이 비어 있으면(레거시·채널 미설정) 막지 않음(true) — 정상 제출 차단 방지.
+//   - 인플 제출(addDraftUrl)·관리자 대리 등록(submitAdminProxyDelivProxy) 양쪽에서 공유.
+//   - 최종 방어선은 서버 함수(admin_create_deliverable_proxy)이며 클라 검증은 즉시 안내용.
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function postChannelMatchesCampaign(camp, postChannel) {
+  if (!camp || !postChannel) return false;
+  const list = String(camp.channel || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (list.length === 0) return true; // 채널 미설정 캠페인은 검증 우회(레거시 보호)
+  return list.includes(String(postChannel).trim().toLowerCase());
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {

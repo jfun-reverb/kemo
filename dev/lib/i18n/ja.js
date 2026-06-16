@@ -480,6 +480,7 @@ window.I18N_JA = {
     needUrl: 'URLを入力してください',
     badUrlFormat: 'URLの形式が正しくありません',
     needChannel: 'チャンネルを選択してください',
+    channelMismatch: 'このキャンペーンは「{channels}」の投稿が必要です。正しいチャンネルのリンク（URL）を貼ってください。',
     afterDeadline: '提出期限が過ぎたため、登録できません',
     needImage: 'レシート画像を選択してください',
     // monitor(レビュアー) レシート必須3項目 — マイグレーション 128
