@@ -1054,6 +1054,23 @@ async function deleteLegacyReviewImage(deliverableId, reason) {
   return ok;
 }
 
+// 잘못된 채널 게시물(post) 결과물 삭제 (super_admin, 마이그레이션 183).
+//   캠페인 요구 채널과 다른 채널로 잘못 저장된 post 행 정리. 서버에서 채널 불일치·승인 보호 재검증.
+async function deleteMismatchedPostDeliverable(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('delete_mismatched_post_deliverable', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
 // 영수증 변경 이력 조회 (모든 관리자 SELECT 가능)
 async function fetchReceiptEditHistory(deliverableId) {
   if (!db || !deliverableId) return [];

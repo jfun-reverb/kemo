@@ -322,6 +322,38 @@ function postChannelMatchesCampaign(camp, postChannel) {
   return list.includes(String(postChannel).trim().toLowerCase());
 }
 
+// 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
+//   명백한 오타만 고치고, 위험 스킴은 차단, 나머지는 그대로 검증.
+//   - 앞뒤 공백 제거
+//   - 흔한 스킴 오타(ttp:// · ttps:// · htp:// · htps:// · http// · http:/ 등) → https://
+//     (SNS 게시물은 https 가 표준이라 https 로 통일)
+//   - 스킴 없으면(instagram.com/...) https:// 자동 추가
+//   - 위험 스킴(javascript: · data: · vbscript: · file: · blob:) → null 차단(XSS 방지)
+//   - 최종 new URL 로 검증, http/https + 호스트 있는 것만 통과
+//   반환: {url, changed} | null(빈값·위험 스킴·형식 오류). changed=보정 발생 여부(화면 안내용)
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function normalizeUrlInput(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  const orig = s;
+  if (/^(javascript|data|vbscript|file|blob):/i.test(s)) return null; // 위험 스킴 차단
+  if (/^https?:\/\//i.test(s)) {
+    // 이미 정상 스킴 — 그대로
+  } else if (/^h?t{1,2}ps?:?\/{1,2}/i.test(s)) {
+    s = s.replace(/^h?t{1,2}ps?:?\/{1,2}/i, 'https://'); // 흔한 스킴 오타 → https://
+  } else if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(s)) {
+    return null; // 알 수 없는 스킴 차단
+  } else {
+    s = 'https://' + s; // 스킴 없음 → https:// 추가
+  }
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (!u.hostname) return null;
+  } catch (e) { return null; }
+  return { url: s, changed: s !== orig };
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {
