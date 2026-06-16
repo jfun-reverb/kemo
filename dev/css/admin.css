@@ -205,9 +205,9 @@
 
 /* 신청 관리 — 첫 컬럼(캠페인) 좌측 고정 */
 #adminPane-applications .admin-table-wrap{overflow-x:auto}
-#adminPane-applications .data-table{min-width:1400px}
+#adminPane-applications .data-table{min-width:1540px}
 #adminPane-applications .data-table th:nth-child(1),
-#adminPane-applications .data-table td:nth-child(1){width:240px;min-width:240px;max-width:240px;box-sizing:border-box}
+#adminPane-applications .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-applications .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
 #adminPane-applications .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
 #adminPane-applications .data-table thead th:nth-child(1){left:0;z-index:7}
@@ -218,9 +218,9 @@
 /* 결과물 관리 — 캠페인 열만 좌측 고정. 가로 스크롤 시 캠페인 식별 유지.
    (2026-06-16 모집타입 열을 캠페인 셀로 흡수 → 기존 2열 고정에서 1열 고정으로 변경) */
 #adminPane-deliverables .admin-table-wrap{overflow-x:auto}
-#adminPane-deliverables .data-table{min-width:1200px}
+#adminPane-deliverables .data-table{min-width:1500px}
 #adminPane-deliverables .data-table th:nth-child(1),
-#adminPane-deliverables .data-table td:nth-child(1){width:240px;min-width:240px;max-width:240px;box-sizing:border-box}
+#adminPane-deliverables .data-table td:nth-child(1){width:380px;min-width:380px;max-width:380px;box-sizing:border-box}
 #adminPane-deliverables .data-table tbody td:nth-child(1){position:sticky;left:0;z-index:3;background:var(--surface)}
 #adminPane-deliverables .data-table thead th:nth-child(1){left:0;z-index:7;background:var(--surface-dim)}
 #adminPane-deliverables .data-table tbody tr:hover td:nth-child(1){background:var(--surface-dim)}
