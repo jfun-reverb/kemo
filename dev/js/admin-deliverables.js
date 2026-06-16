@@ -998,6 +998,13 @@ async function renderDelivCombinedBody(applicationId) {
   const isMonitorMulti = rt === 'monitor' && campChannels.length > 0;
   // 그 외(gifting/visit + 채널 없는 monitor 레거시)는 결과물 단일 (review_image OR post 최신)
   const result = isMonitorMulti ? null : (allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null);
+  // 빌더 보완 (2026-06-16, 묶음2) — result(패널에 노출되는 최신 1건)에 가려진 채널 불일치 post 별도 수집.
+  //   같은 신청에 올바른 채널 post + 잘못된 채널 post 가 공존하면 result 가 올바른 행을 차지해
+  //   잘못된 행이 검수 화면에서 사라지는 문제 방지(검수 화면이 post 최신 1건만 노출).
+  const mismatchedHiddenPosts = (!isMonitorMulti && typeof postChannelMatchesCampaign === 'function')
+    ? allDelivs.filter(d => d.kind === 'post' && d !== result && d.post_channel
+        && !postChannelMatchesCampaign(camp, d.post_channel))
+    : [];
 
   // 변경 이력 fetch — monitor + 채널 N개면 채널별 병렬, 그 외는 result 단일
   let receiptEvents = [];
@@ -1128,6 +1135,32 @@ async function renderDelivCombinedBody(applicationId) {
     }
   }
 
+  // 채널 불일치 게시물 박스 (2026-06-16, 묶음2) — result 에 가려진 잘못된 채널 post 노출 + super_admin 삭제
+  let mismatchedBox = '';
+  if (mismatchedHiddenPosts.length > 0) {
+    const myRoleM = (typeof currentAdminInfo === 'object' && currentAdminInfo) ? currentAdminInfo.role : null;
+    const canDelM = myRoleM === 'super_admin';
+    const rowsM = mismatchedHiddenPosts.map(function(d){
+      let host = ''; try { host = new URL(d.post_url).hostname.replace(/^www\./, ''); } catch(e) { host = d.post_url || ''; }
+      let act;
+      if (d.status === 'approved') act = '<span style="font-size:11px;color:var(--muted);flex-shrink:0">승인됨 — 보호</span>';
+      else if (canDelM) act = `<button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:11px;padding:4px 10px;flex-shrink:0" onclick="deleteMismatchedPostRow('${esc(d.id)}')">삭제</button>`;
+      else act = '<span style="font-size:11px;color:var(--muted);flex-shrink:0">super_admin만 삭제</span>';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dotted var(--line)">
+        <div style="flex:1;font-size:12px;min-width:0">
+          <div><span class="notranslate" translate="no" style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">${esc(d.post_channel)}</span> · ${esc(statusLabelKo(d.status))}</div>
+          <div style="margin-top:4px">${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all;font-size:11px">${esc(host)}</a>` : '—'}</div>
+        </div>
+        ${act}
+      </div>`;
+    }).join('');
+    mismatchedBox = `<div style="margin-top:16px;padding:12px 14px;background:#FFF4F4;border:1px solid #F0C0C0;border-radius:8px">
+      <div style="font-weight:700;font-size:13px;color:#C33;margin-bottom:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">report_problem</span> 채널 불일치 게시물 (${mismatchedHiddenPosts.length}건)</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">캠페인 요구 채널과 다른 채널로 저장된 게시물입니다. 위 패널에 안 보이는 행도 여기 표시됩니다. 잘못 등록된 행이면 삭제하세요.</div>
+      ${rowsM}
+    </div>`;
+  }
+
   // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
   const totalPanels = (showReceipt ? 1 : 1) + (isMonitorMulti ? campChannels.length : 1);
   const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
@@ -1147,6 +1180,7 @@ async function renderDelivCombinedBody(applicationId) {
     </div>
     ${channelSummaryBox}
     ${unassignedBox}
+    ${mismatchedBox}
   `;
 }
 
