@@ -471,6 +471,7 @@ function buildDeliverableGroups(delivs, campMap, opts) {
       }
     } else if (d.kind === 'post') {
       if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
+      (g.posts = g.posts || []).push(d);  // 채널 불일치 배지 판정용 — 신청의 모든 post 보존 (result 는 최신 1건)
     }
     if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
   }
@@ -505,7 +506,11 @@ function _finalizeMonitorReprs(groups) {
     }
     g.result_status_repr = repr;
     const stateSet = new Set(states);
-    if (g.hasLegacyReviewImage) stateSet.add('legacy_no_channel');
+    // 채널 미분류는 "현재 채널 인증이 아직 덜 된" 신청만 표시 (2026-06-16 사용자 결정).
+    //   채널별 인증샷이 모두 승인(repr==='approved')이면, 과거 채널 미지정 레거시 행이 있어도
+    //   목록·필터·건수에서 미분류로 잡지 않음(혼란 방지). 검수 모달의 「채널 미지정 리뷰 이미지」
+    //   박스(unassignedBox)는 allDelivs 별도 계산이라 그대로 노출 → 거기서 정리 가능.
+    if (g.hasLegacyReviewImage && repr !== 'approved') stateSet.add('legacy_no_channel');
     g.result_states = [...stateSet];
   }
 }
@@ -565,10 +570,15 @@ function renderDelivAppRow(g) {
   const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
 
   const receiptCell = renderDelivStatusCell(g.receipt, 'receipt', rt);
+  // 같은 신청에 캠페인 채널과 일치하는 "승인된" 게시물이 있으면(현재 정상) 잘못된 채널 행 배지 숨김 (2026-06-16).
+  //   검수 모달 「채널 불일치 게시물」 박스(mismatchedBox)는 유지 → 거기서 잘못된 행 정리.
+  const hasValidApprovedPost = Array.isArray(g.posts) && g.posts.some(p =>
+    p.status === 'approved' && p.post_channel
+    && typeof postChannelMatchesCampaign === 'function' && postChannelMatchesCampaign(camp, p.post_channel));
   // monitor: 채널별 review_image N개 미니 행 / gifting·visit: 기존 g.result(post) 단일 셀
   const resultCell = (rt === 'monitor')
     ? renderDelivResultCellMonitor(g)
-    : renderDelivStatusCell(g.result, 'result', rt);
+    : renderDelivStatusCell(g.result, 'result', rt, { hasValidApprovedPost });
 
   // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
   const useReceipt = rt === 'monitor';
@@ -653,7 +663,8 @@ function renderDelivResultCellMonitor(g) {
 }
 
 // 영수증·결과물 셀 — slot: 'receipt' | 'result', rt: campaign.recruit_type
-function renderDelivStatusCell(d, slot, rt) {
+//   opts.hasValidApprovedPost: 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면 채널 불일치 배지 숨김
+function renderDelivStatusCell(d, slot, rt, opts) {
   // 영수증은 monitor에서만 사용. gifting/visit은 영수증 단계 없음 → 「-」 표시
   if (slot === 'receipt' && rt !== 'monitor') {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';
@@ -674,8 +685,9 @@ function renderDelivStatusCell(d, slot, rt) {
       preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
     }
     // 채널 불일치 경고 배지 (2026-06-16, 묶음2) — 캠페인 요구 채널에 없는 post_channel(예: 인스타 캠페인에 lips)
+    //   단 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면(현재 정상) 숨김 (opts.hasValidApprovedPost).
     const camp = d.campaigns || (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns) ? allCampaigns.find(c => c.id === d.campaign_id) : null);
-    if (d.post_channel && camp && !postChannelMatchesCampaign(camp, d.post_channel)) {
+    if (d.post_channel && camp && !postChannelMatchesCampaign(camp, d.post_channel) && !(opts && opts.hasValidApprovedPost)) {
       preview += ` <span class="notranslate" translate="no" style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #C33" title="이 게시물 채널(${esc(d.post_channel)})이 캠페인 요구 채널에 없습니다. 잘못 저장된 행일 수 있습니다.">채널 불일치</span>`;
     }
   }
