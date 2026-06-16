@@ -341,7 +341,7 @@ function renderInboxThreadList() {
     return `<button type="button" class="inbox-thread-item ${active}" onclick="openInboxThread('${esc(t.application_id)}')">
       <span class="inbox-thread-main">
         ${campLabel}
-        <span class="inbox-thread-name">${kanji}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
+        <span class="inbox-thread-name">${kanji}${auditBadgeHtml(inf)}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
         ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
         ${previewHtml}
       </span>

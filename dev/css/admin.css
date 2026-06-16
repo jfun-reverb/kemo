@@ -1509,3 +1509,21 @@
    input 의 기본 min-width:auto 때문에 좁은 모달에서 행이 넘쳐 대표·삭제 버튼이 잘리던 문제 방지. */
 #brandContactsHeader, .brand-contact-row { min-width: 0; }
 .brand-contact-row > input { min-width: 0; width: 100%; box-sizing: border-box; }
+
+/* 감사용 계정 배지 — 통계·산출물에서 격리된 운영팀 시뮬레이션 계정 표시.
+   모든 인플·응모·결과물 행에 auditBadgeHtml() 로 강제 노출. 주황 톤(경고 아닌 식별용). */
+.audit-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  margin-left: 5px;
+  background: #ff9800;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  border-radius: 3px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+/* 감사용 행 — 행 배경도 옅게 강조해 목록에서 즉시 식별 */
+tr.audit-row, .audit-row { background: #fff3e0 !important; }

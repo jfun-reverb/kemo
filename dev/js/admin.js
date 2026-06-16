@@ -2275,10 +2275,13 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const rect = btnEl.getBoundingClientRect();
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
-  // 변경 이력 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
+  // 변경 이력·감사용 흔적 청소 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const historyItem = isSuper
     ? `<div class="camp-more-item" onclick="openCautionHistoryModal('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>변경 이력</div>`
+    : '';
+  const auditPurgeItem = isSuper
+    ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
   menu.innerHTML = `
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
@@ -2286,6 +2289,7 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
+    ${auditPurgeItem}
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
@@ -2300,6 +2304,31 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
       }
     });
   }, 0);
+}
+
+// 캠페인별 감사용 흔적 청소 — super_admin 전용.
+// 이 캠페인에서 감사용 계정(is_audit=true)이 만든 응모·결과물·메시지를 모두 삭제한다.
+async function purgeCampaignAuditData(campId) {
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('이 캠페인에서 감사용 계정이 만든 응모·결과물·메시지를 모두 삭제합니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataForCampaign(campId);
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    // 진행현황 페인이 열려 있으면 그쪽을, 아니면 캠페인 목록 갱신
+    const applicantsPaneActive = $('adminPane-camp-applicants')?.classList.contains('on');
+    await refreshPane(applicantsPaneActive ? 'camp-applicants' : 'campaigns');
+  } catch (e) {
+    console.error('[purgeCampaignAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 function toggleStatusDropdown(badgeEl) {

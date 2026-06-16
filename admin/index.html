@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781597973';
+  var CURRENT_BUILD = 'v1781600429';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1968,6 +1968,24 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 #brandContactsHeader, .brand-contact-row { min-width: 0; }
 .brand-contact-row > input { min-width: 0; width: 100%; box-sizing: border-box; }
 
+/* 감사용 계정 배지 — 통계·산출물에서 격리된 운영팀 시뮬레이션 계정 표시.
+   모든 인플·응모·결과물 행에 auditBadgeHtml() 로 강제 노출. 주황 톤(경고 아닌 식별용). */
+.audit-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  margin-left: 5px;
+  background: #ff9800;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  border-radius: 3px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+/* 감사용 행 — 행 배경도 옅게 강조해 목록에서 즉시 식별 */
+tr.audit-row, .audit-row { background: #fff3e0 !important; }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2043,7 +2061,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-16 17:19 · 6111fdc</span>
+          <span class="admin-build-text">2026-06-16 18:00 · f9aa0e2</span>
         </div>
       </div>
     </aside>
@@ -5555,6 +5573,34 @@ function normalizeUrlInput(raw) {
   return { url: s, changed: s !== orig };
 }
 
+// 감사용 계정 「감사용」 배지 HTML.
+// inf: influencers 행(is_audit) 또는 is_audit 불리언을 가진 객체.
+// 감사용이 아니면 빈 문자열 — 일반 인플루언서 행에는 아무것도 출력 안 함.
+// 통계·산출물에서 격리된 계정임을 운영자가 한눈에 구분하도록 모든 인플·응모·결과물 행에 호출.
+function auditBadgeHtml(inf) {
+  if (!inf || !inf.is_audit) return '';
+  return '<span class="audit-badge" title="감사용 계정 — 통계·산출물에서 격리됨" translate="no">감사용</span>';
+}
+
+// 감사용 계정(is_audit) 회원번호(influencers.id) 집합 생성.
+// 관리자 화면에서 클라가 직접 응모 건수를 셀 때(빈자리·승인 차단) 감사용을 격리하기 위한 헬퍼.
+// applications 행에는 is_audit 가 없으므로 users(fetchInfluencers, is_audit 포함)에서 만든 집합을
+// user_id 로 대조한다(이메일 매칭보다 NULL·불일치·성능 위험이 없음).
+function buildAuditIdSet(users) {
+  return new Set((users || []).filter(u => u && u.is_audit).map(u => u.id));
+}
+
+// 특정 캠페인의 승인(approved) 응모 수를 감사용 제외로 계산.
+//   apps: applications 배열, campId: 캠페인 id(null 이면 전체), auditIds: buildAuditIdSet 결과.
+// 감사용 응모는 모집 슬롯·빈자리 집계에서 빠져야 한다(설계 격리, 마이그레이션 179·181).
+function countNonAuditApproved(apps, campId, auditIds) {
+  return (apps || []).filter(a =>
+    a.status === 'approved'
+    && (campId == null || a.campaign_id === campId)
+    && !(auditIds && auditIds.has(a.user_id))
+  ).length;
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {
@@ -6181,12 +6227,17 @@ async function incrementViewCount(campId) {
 }
 
 // ── Influencers ──
-async function fetchInfluencers() {
+// includeAudit 기본 true = 기존 동작 보존(전건 반환).
+// 통계·엑셀 등 실수 집계가 필요한 호출처만 { includeAudit: false } 를 명시 전달(PR D/F에서).
+async function fetchInfluencers(opts = {}) {
   if (!db) return [];
+  const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() =>
-      db.from('influencers').select('*').order('created_at', {ascending: true})
-    );
+    return await fetchAllPaged(() => {
+      let q = db.from('influencers').select('*').order('created_at', {ascending: true});
+      if (!includeAudit) q = q.eq('is_audit', false);
+      return q;
+    });
   } catch(e) {
     return [];
   }
@@ -7093,7 +7144,7 @@ async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
     const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note')
+      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
       .in('id', userIds);
     if (error) throw error;
     const map = {};
@@ -9115,6 +9166,124 @@ async function resolveClientError(id, status, note) {
     });
     return true;
   } catch (e) { console.error('[resolveClientError]', e); return false; }
+}
+
+// ── 감사용 계정 흔적 제거 (super_admin 한정, 마이그레이션 179) ──
+//
+// ⚠️ Storage 삭제 메모
+//   - 메시지 첨부(message_attachments): RPC가 반환하는 값이 이미 버킷 상대 경로({appId}/{uuid}.jpg)이므로
+//     그대로 db.storage.from('application-message-attachments').remove([...paths]) 로 삭제.
+//   - 영수증 이미지(receipt_images): receipt_url 컬럼에는 Supabase 공개 전체 URL이 저장됨
+//     (https://{project}.supabase.co/storage/v1/object/public/campaign-images/receipts/...).
+//     db.storage.remove()는 버킷 내 상대 경로를 요구하므로, URL에서
+//     '/storage/v1/object/public/campaign-images/' 접두사를 제거해 상대 경로를 추출한다.
+//     변환 실패 시(접두사 불일치 등) 그 파일만 건너뛰고 나머지는 계속 처리.
+
+// Supabase 공개 URL → campaign-images 버킷 상대 경로 변환 헬퍼
+// 예: 'https://xxx.supabase.co/storage/v1/object/public/campaign-images/receipts/abc.jpg'
+//     → 'receipts/abc.jpg'
+// 변환 불가(형식 불일치)면 null 반환.
+function _receiptUrlToStoragePath(url) {
+  if (!url || typeof url !== 'string') return null;
+  const MARKER = '/storage/v1/object/public/campaign-images/';
+  const idx = url.indexOf(MARKER);
+  if (idx === -1) return null;
+  const path = url.slice(idx + MARKER.length);
+  return path || null;
+}
+
+// Storage 파일 삭제 공통 헬퍼.
+// bucket: 버킷명, paths: 상대 경로 배열 (빈 배열이면 즉시 반환).
+// 삭제 실패 시 에러를 throw 하지 않고 {ok, failedPaths} 형태로 반환
+// (일부 경로 삭제 실패가 흔적 제거 전체를 막지 않도록).
+async function _deleteStorageFiles(bucket, paths) {
+  if (!db || !Array.isArray(paths) || paths.length === 0) return { ok: true, failedPaths: [] };
+  try {
+    const { error } = await db.storage.from(bucket).remove(paths);
+    if (error) {
+      console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패:`, error);
+      return { ok: false, failedPaths: paths };
+    }
+    return { ok: true, failedPaths: [] };
+  } catch (e) {
+    console.warn(`[_deleteStorageFiles] ${bucket} 예외:`, e);
+    return { ok: false, failedPaths: paths };
+  }
+}
+
+// 모든 감사용 계정 흔적 제거.
+// RPC 성공 후 Storage 파일(메시지 첨부 + 영수증 이미지)도 후속 삭제.
+// 반환: { rpc, storageResult } — 호출처가 삭제 결과를 사용자에게 표시할 수 있도록.
+async function purgeAuditDataAll() {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_all');
+    if (error) throw error;
+
+    // RPC 결과가 'no_audit_account' 이면 삭제할 Storage 파일도 없음
+    if (!data || data.status === 'no_audit_account') {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete || {};
+
+    // 메시지 첨부: 이미 버킷 상대 경로
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    // 영수증: 전체 URL → 버킷 상대 경로 변환 (변환 불가 항목 제외)
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
+}
+
+// 특정 캠페인의 감사용 계정 흔적 제거.
+// 반환: { rpc, storageResult }
+async function purgeAuditDataForCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_for_campaign', {
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+
+    // 응모건 0건 케이스: storage_paths_to_delete 키 자체가 없을 수 있음
+    if (!data || data.status === 'no_audit_account' || !data.storage_paths_to_delete) {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete;
+
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
 }
 
 
@@ -15394,18 +15563,24 @@ async function loadBrandOpsDetail() {
   }
   if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
 
-  var results = await Promise.all([getBrandOpsDetail(_brandOpsDetailId), fetchApplications()]);
+  // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
+  var results = await Promise.all([
+    getBrandOpsDetail(_brandOpsDetailId),
+    fetchApplications(),
+    db ? db.from('influencers').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
+  ]);
   var detail = results[0];
   var apps = results[1] || [];
+  var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
   _brandOpsDetailData = detail;
   if (!detail || !detail.brand) {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">브랜드 정보를 불러올 수 없습니다</div>';
     return;
   }
-  // 캠페인별 승인 수 집계 (인플루언서 응모 = applications, status approved)
+  // 캠페인별 승인 수 집계 (인플루언서 응모 = applications, status approved). 감사용 제외(격리).
   _brandOpsApprByCamp = {};
   apps.forEach(function(a){
-    if (a.status === 'approved') _brandOpsApprByCamp[a.campaign_id] = (_brandOpsApprByCamp[a.campaign_id] || 0) + 1;
+    if (a.status === 'approved' && !_auditIds.has(a.user_id)) _brandOpsApprByCamp[a.campaign_id] = (_brandOpsApprByCamp[a.campaign_id] || 0) + 1;
   });
   renderBrandOpsDetail(detail);
 }
@@ -16029,7 +16204,7 @@ function renderInboxThreadList() {
     return `<button type="button" class="inbox-thread-item ${active}" onclick="openInboxThread('${esc(t.application_id)}')">
       <span class="inbox-thread-main">
         ${campLabel}
-        <span class="inbox-thread-name">${kanji}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
+        <span class="inbox-thread-name">${kanji}${auditBadgeHtml(inf)}${kana ? `<span class="inbox-thread-kana">${kana}</span>` : ''}</span>
         ${email ? `<span class="inbox-thread-email">${email}</span>` : ''}
         ${previewHtml}
       </span>
@@ -18232,8 +18407,8 @@ function buildInfRowAll(u) {
     return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
     <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
     <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
@@ -18378,7 +18553,49 @@ async function openInfluencerDetail(userId) {
     </td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
+  // 감사용 흔적 청소 — super_admin + 감사용 계정(is_audit=true)일 때만 노출.
+  // 일반 인플 상세에는 절대 렌더하지 않음(매번 innerHTML 초기화로 stale 방지).
+  const auditBox = $('infDetailAuditPurge');
+  if (auditBox) {
+    const isSuper = currentAdminInfo?.role === 'super_admin';
+    if (isSuper && u.is_audit === true) {
+      auditBox.innerHTML = `
+        <div class="admin-card" style="border:1px solid var(--line)">
+          <div class="admin-card-header"><span class="admin-card-title">감사용 흔적 청소</span></div>
+          <div style="padding:16px">
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px">모든 감사용 계정의 응모·결과물·메시지·알림을 한 번에 삭제합니다. 감사용 계정 자체는 유지됩니다.</p>
+            <button class="btn btn-sm" style="background:#C62828;color:#fff;border:none" onclick="purgeAllAuditData()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">cleaning_services</span>전체 흔적 청소</button>
+          </div>
+        </div>`;
+    } else {
+      auditBox.innerHTML = '';
+    }
+  }
+
   openModal('influencerFullDetailModal');
+}
+
+// 전체 감사용 흔적 청소 — super_admin 전용.
+// 모든 감사용 계정(is_audit=true)의 응모·결과물·메시지·알림을 삭제(계정 자체는 유지).
+async function purgeAllAuditData() {
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('모든 감사용 계정의 응모·결과물·메시지·알림을 삭제합니다. 감사용 계정 자체는 유지됩니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataAll();
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    closeModal('influencerFullDetailModal');
+    await refreshPane('influencers');
+  } catch (e) {
+    console.error('[purgeAllAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 // 상태 관리 패널 — 인증 토글 + 블랙리스트 등록/해제 + 사유 입력
@@ -19474,12 +19691,12 @@ function renderDelivAppRow(g) {
   const pe = (rt === 'monitor') ? camp.purchase_end
            : (rt === 'visit')   ? camp.visit_end    : '';
 
-  return `<tr data-app-id="${esc(g.application_id)}" style="${rowStyle}">
+  return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
     <td>${rtBadge}</td>
     <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div></td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
     <td>${certStatusBadge(g)}</td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
@@ -21555,6 +21772,89 @@ function _confirmLargeExport(n) {
   });
 }
 
+// ──────────────────────────────────────────────────────────────────
+// 감사용 계정(influencers.is_audit) 격리 — 엑셀 산출물 보호 (PR D)
+//   광고주에게 전달하는 엑셀에 운영팀 시뮬레이션용 감사용 행이 섞이지 않도록
+//   다운로드 직전 「감사용 포함/제외」 확인 모달을 거치게 한다.
+//   confirmAuditExport(auditCount) → Promise<'include'|'exclude'|null>
+//     · auditCount<=0: 모달 없이 즉시 'exclude' (감사용 없으니 격리 무관)
+//     · null: 취소 (다운로드 중단)
+//   세션 동안 '다음부터 묻지 않음' 선택은 캐시 (페이지 새로고침 시 초기화)
+// ──────────────────────────────────────────────────────────────────
+var _auditExportChoiceCache = null; // null | 'include' | 'exclude'
+
+function confirmAuditExport(auditCount) {
+  if (!auditCount || auditCount <= 0) return Promise.resolve('exclude');
+  if (_auditExportChoiceCache) return Promise.resolve(_auditExportChoiceCache);
+
+  return new Promise(function(resolve) {
+    // 기존 잔존 모달 정리 (중복 클릭 대비)
+    var prev = document.getElementById('auditExportModal');
+    if (prev) prev.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'auditExportModal';
+    overlay.style.zIndex = '665'; // admMsgLightbox(660) 위 — 라이트박스 열린 채 다운로드 대비
+    overlay.innerHTML =
+      '<div class="modal" style="max-width:460px;border-radius:20px;margin:auto">' +
+        '<div class="modal-body" style="padding:24px 24px 20px">' +
+          '<div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px">감사용 계정 포함 여부</div>' +
+          '<div style="font-size:13px;line-height:1.7;color:var(--ink)">' +
+            '현재 결과에 <b>감사용 계정 ' + esc(String(auditCount)) + '명</b>이 포함되어 있습니다.<br>' +
+            '감사용 계정은 운영팀 시뮬레이션용이라, 광고주에게 전달하는 산출물에는 제외하는 것을 권장합니다.' +
+          '</div>' +
+          '<div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">' +
+              '<input type="radio" name="auditExportChoice" value="exclude" checked style="margin-top:2px">' +
+              '<span><b>감사용 제외</b> (광고주 전달용)<br><span style="font-size:12px;color:var(--ink-light,#888)">감사용 ' + esc(String(auditCount)) + '명을 빼고 내보냅니다.</span></span>' +
+            '</label>' +
+            '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);cursor:pointer">' +
+              '<input type="radio" name="auditExportChoice" value="include" style="margin-top:2px">' +
+              '<span><b>감사용 포함</b> (운영 내부 확인용)<br><span style="font-size:12px;color:var(--ink-light,#888)">감사용 ' + esc(String(auditCount)) + '명을 포함해 내보냅니다.</span></span>' +
+            '</label>' +
+          '</div>' +
+          '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:var(--ink-light,#888);cursor:pointer">' +
+            '<input type="checkbox" id="auditExportRemember"> 다음부터 묻지 않음 (현재 세션)' +
+          '</label>' +
+          '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">' +
+            '<button class="btn btn-ghost" style="min-width:90px" data-audit-action="cancel">취소</button>' +
+            '<button class="btn btn-primary" style="min-width:120px" data-audit-action="ok">엑셀 다운로드</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var settled = false;
+    function done(result) {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('keydown', onEscAudit);
+      overlay.remove();
+      resolve(result);
+    }
+    function onEscAudit(e) {
+      if (e.key === 'Escape') done(null);
+    }
+    document.addEventListener('keydown', onEscAudit);
+    overlay.addEventListener('click', function(e) {
+      var action = e.target && e.target.getAttribute && e.target.getAttribute('data-audit-action');
+      if (action === 'cancel') { done(null); return; }
+      if (action === 'ok') {
+        var sel = overlay.querySelector('input[name="auditExportChoice"]:checked');
+        var choice = (sel && sel.value === 'include') ? 'include' : 'exclude';
+        var remember = overlay.querySelector('#auditExportRemember');
+        if (remember && remember.checked) _auditExportChoiceCache = choice;
+        done(choice);
+        return;
+      }
+      // 오버레이 바깥(배경) 클릭은 취소로 처리
+      if (e.target === overlay) { done(null); }
+    });
+    overlay.classList.add('open');
+  });
+}
+
 // 캠페인 다중 선택 신청자 엑셀 — 시트1 캠페인 정보 + 시트2 통합 신청자 리스트
 //   idsOverride: 인자로 직접 ids 배열 받기 가능 (단일 캠페인 더보기 메뉴 호출용)
 async function exportSelectedCampaignsApplicants(idsOverride) {
@@ -21582,6 +21882,16 @@ async function exportSelectedCampaignsApplicants(idsOverride) {
       var apps = await fetchApplications({ campaign_id: c.id });
       appsByCampId[c.id] = apps || [];
       (apps || []).forEach(function(a){ a._campMeta = c; allCampApps.push(a); });
+    }
+
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditEmails = {};
+    allCampApps.forEach(function(a){ var u = userByEmail[a.user_email]; if (u && u.is_audit && a.user_email) auditEmails[a.user_email] = true; });
+    var auditCount = Object.keys(auditEmails).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      allCampApps = allCampApps.filter(function(a){ var u = userByEmail[a.user_email]; return !(u && u.is_audit); });
     }
 
     var wb = new ExcelJS.Workbook();
@@ -21719,6 +22029,17 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
     // 인플루언서 id 매핑 (단일 함수와 동일 패턴)
     var usersById = {};
     (users || []).forEach(function(u){ if (u && u.id) usersById[u.id] = u; });
+
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 결과물 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditUserIds = {};
+    allDelivs.forEach(function(d){ var u = usersById[d.user_id]; if (u && u.is_audit && d.user_id) auditUserIds[d.user_id] = true; });
+    var auditCount = Object.keys(auditUserIds).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      allDelivs = allDelivs.filter(function(d){ var u = usersById[d.user_id]; return !(u && u.is_audit); });
+      if (allDelivs.length === 0) { toast('감사용 제외 후 남은 결과물이 없습니다', 'warn'); return; }
+    }
 
     // 영수증·리뷰 이미지 Image→Canvas→JPEG 재인코딩 (CORS·포맷 호환성)
     var imgBuffers = {};
@@ -21993,6 +22314,17 @@ async function exportCampaignApplicationsExcel(campId) {
     var userByEmail = {};
     (users || []).forEach(function(u){ if (u.email) userByEmail[u.email] = u; });
 
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 신청자 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditEmails = {};
+    apps.forEach(function(a){ var u = userByEmail[a.user_email]; if (u && u.is_audit && a.user_email) auditEmails[a.user_email] = true; });
+    var auditCount = Object.keys(auditEmails).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      apps = apps.filter(function(a){ var u = userByEmail[a.user_email]; return !(u && u.is_audit); });
+      if (!apps.length) { toast('감사용 제외 후 남은 신청자가 없습니다', 'warn'); return; }
+    }
+
     var statusLabel = function(s) {
       if (s === 'approved') return '승인';
       if (s === 'pending') return '심사중';
@@ -22147,6 +22479,20 @@ async function exportCampaignDeliverables(campId) {
     var users = await fetchInfluencers();
     var userById = {};
     (users || []).forEach(function(u){ if (u && u.id) userById[u.id] = u; });
+
+    // 감사용 계정 격리 — 이 엑셀에 실제 들어갈 결과물·승인신청 중 감사용 인플 수 계산 후 포함/제외 확인
+    //   (multi-channel monitor 위임 경로보다 먼저 처리해 양쪽 모두 적용)
+    var auditUserIds = {};
+    delivs.forEach(function(d){ var u = userById[d.user_id]; if (u && u.is_audit && d.user_id) auditUserIds[d.user_id] = true; });
+    (approvedApps || []).forEach(function(app){ var u = userById[app.user_id]; if (u && u.is_audit && app.user_id) auditUserIds[app.user_id] = true; });
+    var auditCount = Object.keys(auditUserIds).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      delivs = (delivs || []).filter(function(d){ var u = userById[d.user_id]; return !(u && u.is_audit); });
+      approvedApps = (approvedApps || []).filter(function(app){ var u = userById[app.user_id]; return !(u && u.is_audit); });
+      if (!delivs.length && !approvedApps.length) { toast('감사용 제외 후 남은 결과물이 없습니다', 'warn'); return; }
+    }
 
     // 3-1) monitor + 캠페인 채널 N개면 채널별 결과물 컬럼 펼침 (사양 2 PR 3, 2026-05-28)
     //   gifting/visit·채널 없는 레거시 monitor는 기존 22컬럼 단일 결과물 코드 그대로.
@@ -22875,6 +23221,15 @@ async function exportInfluencersExcel() {
 
   _markExportStart();
   try {
+    // 감사용 계정 격리 — 현재 필터 결과 중 감사용 인플 수 계산 후 포함/제외 확인
+    var auditCount = rows.filter(function(u){ return u && u.is_audit; }).length;
+    var auditChoice = await confirmAuditExport(auditCount);
+    if (auditChoice === null) return; // 취소 — finally 에서 _markExportEnd
+    if (auditChoice === 'exclude') {
+      rows = rows.filter(function(u){ return !(u && u.is_audit); });
+      if (!rows.length) { toast('감사용 제외 후 남은 인플루언서가 없습니다', 'warn'); return; }
+    }
+
     await loadExcelJS();
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet('인플루언서');
@@ -23005,23 +23360,32 @@ async function loadAdminData(preloaded) {
       showAdminUnreadNoticesIfAny();
     }
   }).catch(()=>{});
-  const approved = apps.filter(a=>a.status==='approved');
-  const pending = apps.filter(a=>a.status==='pending');
+  // 감사용 계정(is_audit) 격리 — KPI·통계·차트에서 제외 (광고주 보고용 수치 오염 방지).
+  // users 는 전건으로 받아 통계용 statsUsers / statsApps 만 따로 거른다.
+  // applications.user_id = influencers.id 이므로 user_id 단일 기준으로 격리 (user_email 컬럼 없음).
+  const _auditIds = new Set(users.filter(u=>u.is_audit).map(u=>u.id));
+  const statsUsers = users.filter(u=>!u.is_audit);
+  const statsApps = apps.filter(a=>!_auditIds.has(a.user_id));
+
+  const approved = statsApps.filter(a=>a.status==='approved');
+  // pending 은 사이드바 신청 배지에도 쓰임 — 감사용 제외(처리 대상 아님).
+  // 신청 관리 페인은 감사용을 표시하므로 배지<페인 카운트 불일치가 생길 수 있으나 의도된 격리.
+  const pending = statsApps.filter(a=>a.status==='pending');
 
   $('kpiCampaigns').textContent = camps.length;
-  $('kpiInfluencers').textContent = users.length;
-  $('kpiApplications').textContent = apps.length;
+  $('kpiInfluencers').textContent = statsUsers.length;
+  $('kpiApplications').textContent = statsApps.length;
   $('kpiApproved').textContent = approved.length;
   renderCampaignBreakdown(camps);
   // 목록 페인(loadAdminCampaigns/loadAdminInfluencers)은 해당 pane 진입 시에만 로드
 
-  // 회원가입 차트 + KPI
-  _allUsers = users;
-  renderSignupKPIs(users);
-  renderSignupChart(users, 30);
-  renderProfileCompletion(users);
-  // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
-  renderAddressDistribution(users);
+  // 회원가입 차트 + KPI (감사용 제외)
+  _allUsers = statsUsers;
+  renderSignupKPIs(statsUsers);
+  renderSignupChart(statsUsers, 30);
+  renderProfileCompletion(statsUsers);
+  // 배송지 분포(도도부현 Top N) — 통계용 statsUsers 재사용 (중복 쿼리 방지)
+  renderAddressDistribution(statsUsers);
   // 대시보드는 apps 전건을 KPI용으로 이미 보유 → 추가 count 쿼리 없이 인라인 계산.
   // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
@@ -23033,13 +23397,15 @@ async function loadAdminData(preloaded) {
 function renderRecentAppsTable(apps, camps, users) {
   if (!$('recentAppsBody')) return;
   const recent = apps.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
+  const _auditIds = buildAuditIdSet(users);  // 감사용 응모는 빈자리 집계에서 제외
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
-    const _dRem = Math.max((camp.slots||0)-apps.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
+    const _dRem = Math.max((camp.slots||0)-countNonAuditApproved(apps, camp.id, _auditIds),0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    return `<tr>
+    const _u = users.find(u=>u.email===a.user_email) || {};
+    return `<tr class="${_u.is_audit?'audit-row':''}">
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
@@ -23054,14 +23420,14 @@ function renderRecentAppsTable(apps, camps, users) {
         </div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${users.find(u=>u.email===a.user_email)?.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(users.find(u=>u.email===a.user_email)||{})}</div>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_dRem<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
@@ -23406,16 +23772,17 @@ async function loadCampApplicants() {
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
+  const _users = await fetchInfluencers();            // 행 렌더 + 감사용 격리 공용 (1회 로드)
+  const _auditIds = buildAuditIdSet(_users);          // 감사용 응모는 빈자리·모집현황 집계에서 제외
   const allApps = apps.slice();  // 필터 적용 전 전체 — 상단 요약 카드 집계용
   const total = apps.length;
-  const allApproved = apps.filter(a => a.status === 'approved').length;
-  const allPending = apps.filter(a => a.status === 'pending').length;
+  const allApproved = countNonAuditApproved(apps, null, _auditIds);  // 감사용 제외 승인 수(빈자리·진행바용)
+  const allPending = apps.filter(a => a.status === 'pending' && !_auditIds.has(a.user_id)).length;
   if (filter) apps = apps.filter(a=>a.status===filter);
   if (searchQ) {
-    const users = await fetchInfluencers();
     // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
     apps = apps.filter(a => {
-      const u = users.find(x => x.email === a.user_email) || {};
+      const u = _users.find(x => x.email === a.user_email) || {};
       return matchSearchTokens(searchQ, [
         a.user_name, a.user_email,
         u.name_kanji, u.name, u.name_kana,
@@ -23448,7 +23815,6 @@ async function loadCampApplicants() {
     <span style="color:var(--gold)">심사중 ${pending}명</span>
   `;
 
-  const _users = await fetchInfluencers();
   // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
   const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
   // 상단 요약 카드 (개요 + 모집/결과물 현황 + 비용)
@@ -23480,9 +23846,9 @@ async function loadCampApplicants() {
     const totalF = ((_u.ig_followers||0)+(_u.x_followers||0)+(_u.tiktok_followers||0)+(_u.youtube_followers||0)).toLocaleString();
     const otCell = renderOtCell(a, isPostType);
     const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
-    return `<tr data-id="${esc(a.id)}">
+    return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
       <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
     </td>
@@ -23497,7 +23863,7 @@ async function loadCampApplicants() {
     <td>${otCell}</td>
     <td>${delivCell}</td>
     <td style="white-space:nowrap">
-      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
@@ -23766,6 +24132,7 @@ async function renderAppCampList() {
   const allAppsRaw = _appListCache.allAppsRaw;
   let apps = allAppsRaw.slice();
   const users = _appListCache.users;
+  const _auditIds = buildAuditIdSet(users);  // 감사용 응모는 빈자리 집계에서 제외
 
   // 캠페인 ↔ 타입 쌍별 연동: 현재 선택값 스냅샷
   const typeValsRaw = getMultiFilterValues('appTypeMulti');
@@ -23867,7 +24234,7 @@ async function renderAppCampList() {
   const renderAppRow = (a) => {
     const camp = camps.find(c => c.id === a.campaign_id) || {};
     const u = users.find(u => u.email === a.user_email) || {};
-    const _campRemaining = Math.max((camp.slots||0)-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
+    const _campRemaining = Math.max((camp.slots||0)-countNonAuditApproved(allAppsRaw, camp.id, _auditIds),0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
@@ -23877,7 +24244,7 @@ async function renderAppCampList() {
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     const recruitStart   = camp.recruit_start ? formatDate(camp.recruit_start) : '';
     const recruitEnd     = camp.deadline ? formatDate(camp.deadline) : '';
-    return `<tr data-id="${esc(a.id)}">
+    return `<tr data-id="${esc(a.id)}" class="${u.is_audit?'audit-row':''}">
       <td style="max-width:260px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
@@ -23886,7 +24253,7 @@ async function renderAppCampList() {
           <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
             <strong style="font-size:13px;cursor:pointer;display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
-            ${camp.slots?(()=>{const _r=Math.max(camp.slots-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
+            ${camp.slots?(()=>{const _r=Math.max(camp.slots-countNonAuditApproved(allAppsRaw, camp.id, _auditIds),0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
       </td>
@@ -23903,7 +24270,7 @@ async function renderAppCampList() {
         <div style="color:var(--ink)">~ ${recruitEnd||'—'}</div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(u.line_id)}</div>`:''}
         <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
       </td>
@@ -23911,7 +24278,7 @@ async function renderAppCampList() {
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_campRemaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
@@ -23935,15 +24302,29 @@ async function updateAppStatus(appId, status) {
   try {
     // 승인 시 모집인원 초과 체크
     if (status === 'approved') {
-      const {data: app} = await db?.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
+      const {data: app} = await db?.from('applications').select('campaign_id, user_id').eq('id', appId).maybeSingle();
       if (app) {
-        const {data: camp} = await db?.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
-        const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
-        const slots = camp?.slots || 0;
-        if (slots > 0 && approvedApps.length >= slots) {
-          $('alertModalMessage').innerHTML = `이 캠페인의 모집 정원은 <strong>${esc(String(slots))}명</strong>으로<br>이미 모두 찼습니다.`;
-          openModal('alertModal');
-          return;
+        // 감사용 응모는 정원과 무관하게 승인 허용 (격리 — 마이그레이션 179·181)
+        const {data: applicant} = await db?.from('influencers').select('is_audit').eq('id', app.user_id).maybeSingle();
+        if (!applicant?.is_audit) {
+          const {data: camp} = await db?.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
+          const slots = camp?.slots || 0;
+          if (slots > 0) {
+            const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
+            // 승인된 감사용 응모는 정원 카운트에서 제외
+            const ids = approvedApps.map(a => a.user_id).filter(Boolean);
+            let auditSet = new Set();
+            if (ids.length) {
+              const {data: auditRows} = await db?.from('influencers').select('id').eq('is_audit', true).in('id', ids) || {};
+              auditSet = new Set((auditRows || []).map(r => r.id));
+            }
+            const nonAuditApproved = approvedApps.filter(a => !auditSet.has(a.user_id)).length;
+            if (nonAuditApproved >= slots) {
+              $('alertModalMessage').innerHTML = `이 캠페인의 모집 정원은 <strong>${esc(String(slots))}명</strong>으로<br>이미 모두 찼습니다.`;
+              openModal('alertModal');
+              return;
+            }
+          }
         }
       }
     }
@@ -28003,10 +28384,13 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const rect = btnEl.getBoundingClientRect();
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
-  // 변경 이력 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
+  // 변경 이력·감사용 흔적 청소 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const historyItem = isSuper
     ? `<div class="camp-more-item" onclick="openCautionHistoryModal('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>변경 이력</div>`
+    : '';
+  const auditPurgeItem = isSuper
+    ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
   menu.innerHTML = `
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
@@ -28014,6 +28398,7 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
+    ${auditPurgeItem}
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
@@ -28028,6 +28413,31 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
       }
     });
   }, 0);
+}
+
+// 캠페인별 감사용 흔적 청소 — super_admin 전용.
+// 이 캠페인에서 감사용 계정(is_audit=true)이 만든 응모·결과물·메시지를 모두 삭제한다.
+async function purgeCampaignAuditData(campId) {
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('이 캠페인에서 감사용 계정이 만든 응모·결과물·메시지를 모두 삭제합니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataForCampaign(campId);
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    // 진행현황 페인이 열려 있으면 그쪽을, 아니면 캠페인 목록 갱신
+    const applicantsPaneActive = $('adminPane-camp-applicants')?.classList.contains('on');
+    await refreshPane(applicantsPaneActive ? 'camp-applicants' : 'campaigns');
+  } catch (e) {
+    console.error('[purgeCampaignAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 function toggleStatusDropdown(badgeEl) {

@@ -45,23 +45,32 @@ async function loadAdminData(preloaded) {
       showAdminUnreadNoticesIfAny();
     }
   }).catch(()=>{});
-  const approved = apps.filter(a=>a.status==='approved');
-  const pending = apps.filter(a=>a.status==='pending');
+  // 감사용 계정(is_audit) 격리 — KPI·통계·차트에서 제외 (광고주 보고용 수치 오염 방지).
+  // users 는 전건으로 받아 통계용 statsUsers / statsApps 만 따로 거른다.
+  // applications.user_id = influencers.id 이므로 user_id 단일 기준으로 격리 (user_email 컬럼 없음).
+  const _auditIds = new Set(users.filter(u=>u.is_audit).map(u=>u.id));
+  const statsUsers = users.filter(u=>!u.is_audit);
+  const statsApps = apps.filter(a=>!_auditIds.has(a.user_id));
+
+  const approved = statsApps.filter(a=>a.status==='approved');
+  // pending 은 사이드바 신청 배지에도 쓰임 — 감사용 제외(처리 대상 아님).
+  // 신청 관리 페인은 감사용을 표시하므로 배지<페인 카운트 불일치가 생길 수 있으나 의도된 격리.
+  const pending = statsApps.filter(a=>a.status==='pending');
 
   $('kpiCampaigns').textContent = camps.length;
-  $('kpiInfluencers').textContent = users.length;
-  $('kpiApplications').textContent = apps.length;
+  $('kpiInfluencers').textContent = statsUsers.length;
+  $('kpiApplications').textContent = statsApps.length;
   $('kpiApproved').textContent = approved.length;
   renderCampaignBreakdown(camps);
   // 목록 페인(loadAdminCampaigns/loadAdminInfluencers)은 해당 pane 진입 시에만 로드
 
-  // 회원가입 차트 + KPI
-  _allUsers = users;
-  renderSignupKPIs(users);
-  renderSignupChart(users, 30);
-  renderProfileCompletion(users);
-  // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
-  renderAddressDistribution(users);
+  // 회원가입 차트 + KPI (감사용 제외)
+  _allUsers = statsUsers;
+  renderSignupKPIs(statsUsers);
+  renderSignupChart(statsUsers, 30);
+  renderProfileCompletion(statsUsers);
+  // 배송지 분포(도도부현 Top N) — 통계용 statsUsers 재사용 (중복 쿼리 방지)
+  renderAddressDistribution(statsUsers);
   // 대시보드는 apps 전건을 KPI용으로 이미 보유 → 추가 count 쿼리 없이 인라인 계산.
   // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
@@ -73,13 +82,15 @@ async function loadAdminData(preloaded) {
 function renderRecentAppsTable(apps, camps, users) {
   if (!$('recentAppsBody')) return;
   const recent = apps.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
+  const _auditIds = buildAuditIdSet(users);  // 감사용 응모는 빈자리 집계에서 제외
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
-    const _dRem = Math.max((camp.slots||0)-apps.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
+    const _dRem = Math.max((camp.slots||0)-countNonAuditApproved(apps, camp.id, _auditIds),0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    return `<tr>
+    const _u = users.find(u=>u.email===a.user_email) || {};
+    return `<tr class="${_u.is_audit?'audit-row':''}">
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
@@ -94,14 +105,14 @@ function renderRecentAppsTable(apps, camps, users) {
         </div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${users.find(u=>u.email===a.user_email)?.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(users.find(u=>u.email===a.user_email)||{})}</div>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_dRem<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
