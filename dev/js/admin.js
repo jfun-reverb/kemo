@@ -143,11 +143,12 @@ function updateCampTableHead() {
   if (!head) return;
   const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
       <th>캠페인</th>
+      <th>채널</th>
       <th>브랜드</th>
       <th>제품</th>
       <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
@@ -356,6 +357,7 @@ async function loadAdminCampaigns(useCache) {
           </div>
         </div>
       </td>
+      <td>${channelChipsHtml(c.channel, c.channel_match)}</td>
       ${(()=>{
         const bp = brandLabelAdmin(c);
         const bs = '';
@@ -405,9 +407,9 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
-  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/신청/조회/등록일/수정일)
-  const emptyHtml = `<tr><td colspan="${adminReorderMode ? 10 : 14}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  // 일반 모드 15컬럼(체크/캠페인/채널/브랜드/제품/상태/노출/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
+  // 순서변경 모드(순서/캠페인/채널/브랜드/제품/상태/노출/신청/조회/등록일/수정일) / 일반 모드 컬럼 수
+  const emptyHtml = `<tr><td colspan="${adminReorderMode ? 11 : 15}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }

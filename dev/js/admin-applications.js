@@ -521,7 +521,7 @@ async function renderAppCampList() {
     const recruitStart   = camp.recruit_start ? formatDate(camp.recruit_start) : '';
     const recruitEnd     = camp.deadline ? formatDate(camp.deadline) : '';
     return `<tr data-id="${esc(a.id)}" class="${u.is_audit?'audit-row':''}">
-      <td style="max-width:260px">
+      <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
             ${thumbUrl ? `<img src="${imgThumb(thumbUrl,96,70)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
@@ -533,6 +533,7 @@ async function renderAppCampList() {
           </div>
         </div>
       </td>
+      <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
       <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
         ${brandPrimary?esc(brandPrimary):'—'}
         ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}
