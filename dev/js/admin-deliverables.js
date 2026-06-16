@@ -505,7 +505,11 @@ function _finalizeMonitorReprs(groups) {
     }
     g.result_status_repr = repr;
     const stateSet = new Set(states);
-    if (g.hasLegacyReviewImage) stateSet.add('legacy_no_channel');
+    // 채널 미분류는 "현재 채널 인증이 아직 덜 된" 신청만 표시 (2026-06-16 사용자 결정).
+    //   채널별 인증샷이 모두 승인(repr==='approved')이면, 과거 채널 미지정 레거시 행이 있어도
+    //   목록·필터·건수에서 미분류로 잡지 않음(혼란 방지). 검수 모달의 「채널 미지정 리뷰 이미지」
+    //   박스(unassignedBox)는 allDelivs 별도 계산이라 그대로 노출 → 거기서 정리 가능.
+    if (g.hasLegacyReviewImage && repr !== 'approved') stateSet.add('legacy_no_channel');
     g.result_states = [...stateSet];
   }
 }
