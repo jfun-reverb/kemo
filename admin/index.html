@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781593283';
+  var CURRENT_BUILD = 'v1781597973';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -202,7 +202,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .divider-text::before,.divider-text::after{content:'';flex:1;border-top:1px solid var(--outline)}
 
 /* ── TOAST (Material Snackbar) ── */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 24px;border-radius:var(--r12);font-size:14px;font-weight:500;z-index:9999;transition:all .3s cubic-bezier(.2,0,0,1);white-space:nowrap;opacity:0;box-shadow:var(--elevation-3)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 24px;border-radius:var(--r12);font-size:14px;font-weight:500;z-index:9999;transition:all .3s cubic-bezier(.2,0,0,1);white-space:normal;max-width:min(90vw,440px);text-align:center;word-break:break-word;line-height:1.5;opacity:0;box-shadow:var(--elevation-3)}
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 #toast.success{background:var(--green)}
 #toast.error{background:#B3261E}
@@ -2043,7 +2043,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-16 16:01 · 71270e4</span>
+          <span class="admin-build-text">2026-06-16 17:19 · 6111fdc</span>
         </div>
       </div>
     </aside>
