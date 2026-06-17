@@ -42,7 +42,7 @@
 | `campaigns.img4` | 4 |
 | `campaigns.participation_steps` (구조화 데이터) | 1 |
 | `img5`~`img8`·`caution_items`·`ng_items`·번들 3종 | 0 |
-| `campaign_caution_history`(감사 이력) | **미확인** — 아래 (A) 조사 SQL 필요 |
+| `campaign_caution_history`(참여방법 변경 이력) | **3건** (participation_steps prev/next) |
 
 ### 치환 불필요 (확인됨)
 - 비공개 버킷 저장분(메시지 첨부 `application_messages.attachments`, 위반 증빙 `influencer_flags.evidence_paths`, 대리등록 증빙)은 **주소가 아니라 경로만** 저장 → 영향 없음.
@@ -190,7 +190,7 @@ SELECT
 ---
 
 ## 미확인·다음 세션 확인 사항
-- `campaign_caution_history` 잔존 건수 — (A) 실행 필요.
+- ✅ `campaign_caution_history` 잔존 = 3건(participation_steps 변경 이력) — (A) 확인 완료, 치환 [13] 포함.
 - 시드니 pg_cron 메일 발송 여부 — 비밀번호 필요(대시보드 SQL 입력창에서 `SELECT jobname, schedule, active FROM cron.job;`).
 - 영수증 968건 중 샘플 1개만 도쿄 존재 검증 — ⑤ 관찰 단계에서 운영 영수증 화면 실확인.
 
