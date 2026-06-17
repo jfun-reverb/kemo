@@ -483,7 +483,9 @@ window.I18N_KO = {
     submitCountLabel: '제출 횟수: {n}회',
     needUrl: 'URL을 입력해주세요',
     badUrlFormat: 'URL 형식이 올바르지 않습니다',
+    urlFixed: 'URL을 수정했습니다: {url}',
     needChannel: '채널을 선택해주세요',
+    channelMismatch: '이 캠페인은 「{channels}」 게시물이 필요합니다. 올바른 채널의 링크(URL)를 붙여넣어 주세요.',
     afterDeadline: '제출 기한이 지나 등록할 수 없습니다',
     needImage: '영수증 이미지를 선택해주세요',
     // monitor(리뷰어) 영수증 필수 3종 — 마이그레이션 128

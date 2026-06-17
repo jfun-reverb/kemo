@@ -159,7 +159,7 @@ function toggleDelivSearch() {
 async function renderDeliverablesList() {
   const tbody = $('delivTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   setupDelivSubmittedRange();  // 최근 제출일 range picker (1회 mount)
   // 채널 라벨 캐시 보장 — monitor 채널별 미니 행·검수 모달 패널 제목에서 getLookupLabel 사용. 캐시 없으면 코드 그대로 노출됨(예: 'qoo10' → 'Qoo10' 변환 실패).
@@ -432,7 +432,7 @@ async function renderDeliverablesList() {
     rows: filtered,
     renderRow: renderDelivAppRow,
     pageSize: DELIV_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
+    emptyHtml: '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:30px">해당 조건의 결과물이 없습니다.</td></tr>',
   });
   refreshDelivSidebarBadge();
 }
@@ -471,6 +471,7 @@ function buildDeliverableGroups(delivs, campMap, opts) {
       }
     } else if (d.kind === 'post') {
       if (!g.result || subAt > (g.result.submitted_at || '')) g.result = d;
+      (g.posts = g.posts || []).push(d);  // 채널 불일치 배지 판정용 — 신청의 모든 post 보존 (result 는 최신 1건)
     }
     if (!g.latest_submitted_at || subAt > g.latest_submitted_at) g.latest_submitted_at = subAt;
   }
@@ -505,7 +506,11 @@ function _finalizeMonitorReprs(groups) {
     }
     g.result_status_repr = repr;
     const stateSet = new Set(states);
-    if (g.hasLegacyReviewImage) stateSet.add('legacy_no_channel');
+    // 채널 미분류는 "현재 채널 인증이 아직 덜 된" 신청만 표시 (2026-06-16 사용자 결정).
+    //   채널별 인증샷이 모두 승인(repr==='approved')이면, 과거 채널 미지정 레거시 행이 있어도
+    //   목록·필터·건수에서 미분류로 잡지 않음(혼란 방지). 검수 모달의 「채널 미지정 리뷰 이미지」
+    //   박스(unassignedBox)는 allDelivs 별도 계산이라 그대로 노출 → 거기서 정리 가능.
+    if (g.hasLegacyReviewImage && repr !== 'approved') stateSet.add('legacy_no_channel');
     g.result_states = [...stateSet];
   }
 }
@@ -547,9 +552,11 @@ function certStatusLabelKo(g) {
 }
 function certStatusBadge(g) {
   const s = computeCertStatus(g);
-  if (s === 'success')    return '<span class="badge badge-green">인증성공</span>';
-  if (s === 'submitting') return '<span class="badge badge-gold">인증샷 제출중</span>';
-  return '<span class="badge badge-gray">미제출</span>';
+  // 결과물 셀 라벨(10px)과 크기 통일 + 줄바꿈 방지
+  const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
+  if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
+  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
+  return `<span class="badge badge-gray" style="${st}">미제출</span>`;
 }
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
@@ -565,10 +572,15 @@ function renderDelivAppRow(g) {
   const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
 
   const receiptCell = renderDelivStatusCell(g.receipt, 'receipt', rt);
+  // 같은 신청에 캠페인 채널과 일치하는 "승인된" 게시물이 있으면(현재 정상) 잘못된 채널 행 배지 숨김 (2026-06-16).
+  //   검수 모달 「채널 불일치 게시물」 박스(mismatchedBox)는 유지 → 거기서 잘못된 행 정리.
+  const hasValidApprovedPost = Array.isArray(g.posts) && g.posts.some(p =>
+    p.status === 'approved' && p.post_channel
+    && typeof postChannelMatchesCampaign === 'function' && postChannelMatchesCampaign(camp, p.post_channel));
   // monitor: 채널별 review_image N개 미니 행 / gifting·visit: 기존 g.result(post) 단일 셀
   const resultCell = (rt === 'monitor')
     ? renderDelivResultCellMonitor(g)
-    : renderDelivStatusCell(g.result, 'result', rt);
+    : renderDelivStatusCell(g.result, 'result', rt, { hasValidApprovedPost });
 
   // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
   const useReceipt = rt === 'monitor';
@@ -583,7 +595,7 @@ function renderDelivAppRow(g) {
     : '<span style="font-size:11px;color:var(--muted)">미제출</span>';
 
   const campNoBadge = camp.campaign_no
-    ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);margin-right:6px">${esc(camp.campaign_no)}</span>`
+    ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted)">${esc(camp.campaign_no)}</span>`
     : '';
 
   // 구매기간(리뷰어 monitor) / 방문기간(visit) 분기. gifting 은 빈칸(—).
@@ -593,13 +605,16 @@ function renderDelivAppRow(g) {
   const pe = (rt === 'monitor') ? camp.purchase_end
            : (rt === 'visit')   ? camp.visit_end    : '';
 
+  const brandLabel = brandLabelAdmin(camp);
+
   return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
-    <td>${rtBadge}</td>
-    <td>${campNoBadge}<div>${esc(camp.title || '—')}</div><div style="font-size:10px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div></td>
+    <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div style="display:flex;align-items:flex-start;gap:4px"><span style="flex:1">${esc(camp.title || '—')}</span>${campPreviewBtn(camp.id)}</div></td>
+    <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
+    <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
-    <td>${certStatusBadge(g)}</td>
+    <td style="white-space:nowrap">${certStatusBadge(g)}</td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
     <td>${submittedCell}</td>
@@ -653,13 +668,18 @@ function renderDelivResultCellMonitor(g) {
 }
 
 // 영수증·결과물 셀 — slot: 'receipt' | 'result', rt: campaign.recruit_type
-function renderDelivStatusCell(d, slot, rt) {
+//   opts.hasValidApprovedPost: 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면 채널 불일치 배지 숨김
+function renderDelivStatusCell(d, slot, rt, opts) {
+  // 결과물·영수증 셀 라벨을 monitor 채널별 미니행(10px)과 크기 통일.
+  const small = (slot === 'result' || slot === 'receipt');
+  const badgeFs = small ? '10px' : '11px';
+  const badgePad = small ? '1px 6px' : '2px 8px';
   // 영수증은 monitor에서만 사용. gifting/visit은 영수증 단계 없음 → 「-」 표시
   if (slot === 'receipt' && rt !== 'monitor') {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';
   }
   if (!d) {
-    return '<span style="display:inline-block;background:#f5f5f5;color:var(--muted);font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">미제출</span>';
+    return `<span style="display:inline-block;background:#f5f5f5;color:var(--muted);font-size:${badgeFs};font-weight:600;padding:${badgePad};border-radius:3px">미제출</span>`;
   }
   let preview = '';
   if (d.kind === 'receipt' || d.kind === 'review_image') {
@@ -673,12 +693,18 @@ function renderDelivStatusCell(d, slot, rt) {
       try { host = new URL(d.post_url).hostname.replace(/^www\./, ''); } catch(e) { host = d.post_url; }
       preview = `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:10px;color:var(--dark-pink);text-decoration:none;display:inline-block;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${esc(host)}</a>`;
     }
+    // 채널 불일치 경고 배지 (2026-06-16, 묶음2) — 캠페인 요구 채널에 없는 post_channel(예: 인스타 캠페인에 lips)
+    //   단 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면(현재 정상) 숨김 (opts.hasValidApprovedPost).
+    const camp = d.campaigns || (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns) ? allCampaigns.find(c => c.id === d.campaign_id) : null);
+    if (d.post_channel && camp && !postChannelMatchesCampaign(camp, d.post_channel) && !(opts && opts.hasValidApprovedPost)) {
+      preview += ` <span class="notranslate" translate="no" style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #C33" title="이 게시물 채널(${esc(d.post_channel)})이 캠페인 요구 채널에 없습니다. 잘못 저장된 행일 수 있습니다.">채널 불일치</span>`;
+    }
   }
   // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
   // 사용자 결정 2026-05-28: 「승인 + 작은 대리 마커」 중복 → 단일 「대리 등록」 배지로 통합
   const statusBadgeHtml = d.submitted_by_admin
-    ? `<span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
-    : delivStatusBadge(d.status);
+    ? `<span style="background:#FEF3C7;color:#92400E;font-size:${badgeFs};font-weight:600;padding:${badgePad};border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
+    : delivStatusBadge(d.status, small);
   return `<div style="display:flex;align-items:center;gap:6px">${preview}${statusBadgeHtml}</div>`;
 }
 
@@ -686,11 +712,14 @@ function statusLabelKo(status) {
   return {pending: '검수대기', approved: '승인', rejected: '반려'}[status] || status;
 }
 
-function delivStatusBadge(status) {
+// small=true: 결과물 목록 셀에서 monitor 채널별 미니행(10px)과 라벨 크기 통일용. 미지정 시 기존 11px.
+function delivStatusBadge(status, small) {
+  const fs = small ? '10px' : '11px';
+  const pad = small ? '1px 6px' : '2px 8px';
   const map = {
-    pending: '<span style="background:#FFF4E4;color:#B8741A;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">검수대기</span>',
-    approved: '<span style="background:#E4F5E8;color:#2D7A3E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">승인</span>',
-    rejected: '<span style="background:#FFE4E4;color:#C33;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">반려</span>'
+    pending: `<span style="background:#FFF4E4;color:#B8741A;font-size:${fs};font-weight:600;padding:${pad};border-radius:3px">검수대기</span>`,
+    approved: `<span style="background:#E4F5E8;color:#2D7A3E;font-size:${fs};font-weight:600;padding:${pad};border-radius:3px">승인</span>`,
+    rejected: `<span style="background:#FFE4E4;color:#C33;font-size:${fs};font-weight:600;padding:${pad};border-radius:3px">반려</span>`
   };
   return map[status] || status;
 }
@@ -953,14 +982,21 @@ async function renderDelivCombinedBody(applicationId) {
     }
   }
 
-  // 2차 fallback: deliverable이 0건(미제출 토글 ON으로 진입한 케이스)이면 applications에서 직접 fetch
+  // 2차 fallback: deliverable이 0건(미제출 토글 ON으로 진입한 케이스)이면 applications에서 직접 fetch.
+  //   applications.campaign_id 에는 외래 키 제약이 없어 PostgREST 중첩 임베딩(campaigns:campaign_id)이
+  //   PGRST200("no foreign key relationship")으로 실패한다 → application 행 조회 후 campaign_id 로
+  //   campaigns 를 별도 조회하는 2단계 방식으로 처리(미제출 행 검수 진입 시 캠페인 정보 누락 버그 수정).
   if (!camp && db) {
-    const appRes = await db?.from('applications').select('user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)').eq('id', applicationId).maybeSingle();
+    const appRes = await db?.from('applications').select('user_id, campaign_id').eq('id', applicationId).maybeSingle();
     if (appRes?.error) console.error('[deliv-combined app]', appRes.error);
     const app = appRes?.data || null;
     if (app) {
-      camp = app.campaigns || null;
       userId = app.user_id || null;
+      if (app.campaign_id) {
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel').eq('id', app.campaign_id).maybeSingle();
+        if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
+        camp = campRes?.data || null;
+      }
     }
   }
 
@@ -993,6 +1029,13 @@ async function renderDelivCombinedBody(applicationId) {
   const isMonitorMulti = rt === 'monitor' && campChannels.length > 0;
   // 그 외(gifting/visit + 채널 없는 monitor 레거시)는 결과물 단일 (review_image OR post 최신)
   const result = isMonitorMulti ? null : (allDelivs.find(d => d.kind === 'review_image' || d.kind === 'post') || null);
+  // 빌더 보완 (2026-06-16, 묶음2) — result(패널에 노출되는 최신 1건)에 가려진 채널 불일치 post 별도 수집.
+  //   같은 신청에 올바른 채널 post + 잘못된 채널 post 가 공존하면 result 가 올바른 행을 차지해
+  //   잘못된 행이 검수 화면에서 사라지는 문제 방지(검수 화면이 post 최신 1건만 노출).
+  const mismatchedHiddenPosts = (!isMonitorMulti && typeof postChannelMatchesCampaign === 'function')
+    ? allDelivs.filter(d => d.kind === 'post' && d !== result && d.post_channel
+        && !postChannelMatchesCampaign(camp, d.post_channel))
+    : [];
 
   // 변경 이력 fetch — monitor + 채널 N개면 채널별 병렬, 그 외는 result 단일
   let receiptEvents = [];
@@ -1123,6 +1166,32 @@ async function renderDelivCombinedBody(applicationId) {
     }
   }
 
+  // 채널 불일치 게시물 박스 (2026-06-16, 묶음2) — result 에 가려진 잘못된 채널 post 노출 + super_admin 삭제
+  let mismatchedBox = '';
+  if (mismatchedHiddenPosts.length > 0) {
+    const myRoleM = (typeof currentAdminInfo === 'object' && currentAdminInfo) ? currentAdminInfo.role : null;
+    const canDelM = myRoleM === 'super_admin';
+    const rowsM = mismatchedHiddenPosts.map(function(d){
+      let host = ''; try { host = new URL(d.post_url).hostname.replace(/^www\./, ''); } catch(e) { host = d.post_url || ''; }
+      let act;
+      if (d.status === 'approved') act = '<span style="font-size:11px;color:var(--muted);flex-shrink:0">승인됨 — 보호</span>';
+      else if (canDelM) act = `<button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:11px;padding:4px 10px;flex-shrink:0" onclick="deleteMismatchedPostRow('${esc(d.id)}')">삭제</button>`;
+      else act = '<span style="font-size:11px;color:var(--muted);flex-shrink:0">super_admin만 삭제</span>';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dotted var(--line)">
+        <div style="flex:1;font-size:12px;min-width:0">
+          <div><span class="notranslate" translate="no" style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px">${esc(d.post_channel)}</span> · ${esc(statusLabelKo(d.status))}</div>
+          <div style="margin-top:4px">${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all;font-size:11px">${esc(host)}</a>` : '—'}</div>
+        </div>
+        ${act}
+      </div>`;
+    }).join('');
+    mismatchedBox = `<div style="margin-top:16px;padding:12px 14px;background:#FFF4F4;border:1px solid #F0C0C0;border-radius:8px">
+      <div style="font-weight:700;font-size:13px;color:#C33;margin-bottom:6px"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">report_problem</span> 채널 불일치 게시물 (${mismatchedHiddenPosts.length}건)</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">캠페인 요구 채널과 다른 채널로 저장된 게시물입니다. 위 패널에 안 보이는 행도 여기 표시됩니다. 잘못 등록된 행이면 삭제하세요.</div>
+      ${rowsM}
+    </div>`;
+  }
+
   // 패널 총수가 3+개면 multi 클래스로 그리드 wrap (auto-fit minmax)
   const totalPanels = (showReceipt ? 1 : 1) + (isMonitorMulti ? campChannels.length : 1);
   const gridClass = totalPanels >= 3 ? 'deliv-combined-grid deliv-combined-grid-multi' : 'deliv-combined-grid';
@@ -1142,6 +1211,7 @@ async function renderDelivCombinedBody(applicationId) {
     </div>
     ${channelSummaryBox}
     ${unassignedBox}
+    ${mismatchedBox}
   `;
 }
 
@@ -1164,6 +1234,18 @@ async function deleteLegacyReviewImageRow(deliverableId) {
   if (!ok) return;
   try {
     await deleteLegacyReviewImage(deliverableId, '관리자 수동 삭제 (지정 불가 잉여 레거시 행)');
+    toast('삭제했습니다', 'success');
+    if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
+    if (typeof refreshPane === 'function') await refreshPane('deliverables');
+  } catch(e) { toast(e?.message || '삭제 중 오류가 발생했습니다', 'error'); }
+}
+
+// 채널 불일치 게시물(post) 삭제 (super_admin, 마이그레이션 183, 묶음2). 되돌릴 수 없으므로 확인 모달.
+async function deleteMismatchedPostRow(deliverableId) {
+  const ok = await showConfirm('캠페인 요구 채널과 다른 채널로 저장된 게시물입니다. 삭제하면 되돌릴 수 없습니다. 진행하시겠습니까?');
+  if (!ok) return;
+  try {
+    await deleteMismatchedPostDeliverable(deliverableId, '관리자 수동 삭제 (채널 불일치 게시물)');
     toast('삭제했습니다', 'success');
     if (_delivCombinedRefreshAppId) await renderDelivCombinedBody(_delivCombinedRefreshAppId);
     if (typeof refreshPane === 'function') await refreshPane('deliverables');
@@ -1460,6 +1542,10 @@ function renderDelivPanelContent(d, events) {
     return '<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">아직 제출되지 않았습니다.</div>';
   }
   let html = '';
+  // 채널 불일치 판정 (2026-06-16, 묶음2) — post 행이 캠페인 요구 채널에 없는지
+  const _panelCamp = d.campaigns || (typeof allCampaigns !== 'undefined' && Array.isArray(allCampaigns) ? allCampaigns.find(c => c.id === d.campaign_id) : null);
+  const isPostChannelMismatch = !!(d.kind === 'post' && d.post_channel && _panelCamp
+    && typeof postChannelMatchesCampaign === 'function' && !postChannelMatchesCampaign(_panelCamp, d.post_channel));
   // 관리자 대리 등록 행 (마이그레이션 160) — 상단 안내 박스 + 회수 버튼은 하단 별도 영역
   if (d.submitted_by_admin) {
     const reasonLabel = _proxyReasonLabelKo(d.submitted_by_admin_reason_code);
@@ -1490,7 +1576,7 @@ function renderDelivPanelContent(d, events) {
     }
   } else {
     html += `<div style="font-size:13px;line-height:1.7;margin-bottom:10px">
-      <div><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong></div>
+      <div><span style="color:var(--muted)">채널</span> · <strong>${esc(d.post_channel || '—')}</strong>${isPostChannelMismatch ? ` <span class="notranslate" translate="no" style="background:#FFE4E4;color:#C33;font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;border:1px solid #C33" title="캠페인 요구 채널에 없는 채널입니다">채널 불일치</span>` : ''}</div>
       <div style="margin-top:6px"><span style="color:var(--muted)">URL</span> · ${d.post_url ? `<a href="${esc(d.post_url)}" target="_blank" rel="noopener" style="color:var(--dark-pink);word-break:break-all">${esc(d.post_url)}</a>` : '—'}</div>
       ${(Array.isArray(d.post_submissions) && d.post_submissions.length) ? `<div style="margin-top:8px;font-size:11px;color:var(--muted)">제출 이력 ${d.post_submissions.length}건</div>` : ''}
     </div>`;
@@ -1506,6 +1592,13 @@ function renderDelivPanelContent(d, events) {
   // 대리 등록 행은 일반 「되돌리기」 비활성 + super_admin 전용 「대리 등록 회수」 버튼 (사용자 결정 2026-05-28)
   const isProxy = !!d.submitted_by_admin;
   const isSuperAdmin = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo?.role === 'super_admin');
+  // 채널 불일치 게시물 삭제 (super_admin, 묶음2) — 잘못된 채널로 저장된 행 정리. 승인 행은 서버가 거부.
+  if (isPostChannelMismatch && isSuperAdmin && d.status !== 'approved') {
+    html += `<div style="margin-top:10px;padding:10px 12px;background:#FFF4F4;border:1px solid #F0C0C0;border-radius:8px">
+      <div style="font-size:11px;color:#C33;margin-bottom:6px">이 게시물은 캠페인 요구 채널과 다른 채널(<span class="notranslate" translate="no">${esc(d.post_channel)}</span>)로 저장됐습니다. 잘못 등록된 행이면 삭제하세요. 되돌릴 수 없습니다.</div>
+      <button class="btn btn-ghost btn-sm" style="color:#C33;border-color:#C33;font-size:11px;padding:4px 10px" onclick="deleteMismatchedPostRow('${esc(d.id)}')">채널 불일치 게시물 삭제</button>
+    </div>`;
+  }
   if (d.status === 'pending') {
     html += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:flex-end;align-items:center">`;
     if (isProxy && isSuperAdmin) {
@@ -2084,8 +2177,11 @@ function _adminDetectChannelFromUrl(url) {
 }
 
 function onAdminProxyPostUrlInput() {
-  const url = $('adminProxyPostUrl')?.value || '';
-  if (!url) return;
+  const raw = $('adminProxyPostUrl')?.value || '';
+  if (!raw) return;
+  // 보정된 주소로 채널 자동 판별 (저장 시 submitAdminProxyDelivProxy 가 실제 보정)
+  const norm = normalizeUrlInput(raw);
+  const url = norm ? norm.url : raw;
   const guess = _adminDetectChannelFromUrl(url);
   if (!guess) return;
   const sel = $('adminProxyPostChannel');
@@ -2136,10 +2232,21 @@ async function submitAdminProxyDelivProxy() {
       payload.purchaseDate = date;
       payload.purchaseAmount = parseFloat(amount);
     } else if (kind === 'post') {
-      const url = ($('adminProxyPostUrl')?.value || '').trim();
+      const rawUrl = ($('adminProxyPostUrl')?.value || '').trim();
       const channel = $('adminProxyPostChannel')?.value;
-      if (!url) return toast('게시물 URL을 입력하세요', 'error');
+      if (!rawUrl) return toast('게시물 URL을 입력하세요', 'error');
+      // URL 오타 자동 보정 (2026-06-16) — ttp:// 등 흔한 실수·스킴 누락 교정, 위험 스킴 차단
+      const norm = normalizeUrlInput(rawUrl);
+      if (!norm) return toast('URL 형식이 올바르지 않습니다', 'error');
+      const url = norm.url;
+      if (norm.changed) toast('URL을 수정했습니다: ' + url, 'success');
       if (!channel) return toast('채널을 선택하세요 (자동 판별 실패 시 수동)', 'error');
+      // 방어: 캠페인 요구 채널과 일치 확인 (2026-06-16). 드롭다운이 이미 캠페인 채널만이나 이중 가드.
+      // proxyApp 미탐지(목록 비동기 리로드 등) 시에는 서버 함수(admin_create_deliverable_proxy) 가드에 위임.
+      const proxyApp = _adminProxyApps.find(a => a.id === appId);
+      if (proxyApp && !postChannelMatchesCampaign(proxyApp.campaigns, channel)) {
+        return toast('이 캠페인이 요구하는 채널이 아닙니다. 캠페인 채널을 선택하세요.', 'error');
+      }
       payload.postUrl = url;
       payload.postChannel = channel;
     } else if (kind === 'review_image') {

@@ -181,7 +181,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .divider-text::before,.divider-text::after{content:'';flex:1;border-top:1px solid var(--outline)}
 
 /* ── TOAST (Material Snackbar) ── */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 24px;border-radius:var(--r12);font-size:14px;font-weight:500;z-index:9999;transition:all .3s cubic-bezier(.2,0,0,1);white-space:nowrap;opacity:0;box-shadow:var(--elevation-3)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 24px;border-radius:var(--r12);font-size:14px;font-weight:500;z-index:9999;transition:all .3s cubic-bezier(.2,0,0,1);white-space:normal;max-width:min(90vw,440px);text-align:center;word-break:break-word;line-height:1.5;opacity:0;box-shadow:var(--elevation-3)}
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 #toast.success{background:var(--green)}
 #toast.error{background:#B3261E}
@@ -2258,6 +2258,71 @@ function auditBadgeHtml(inf) {
   return '<span class="audit-badge" title="감사용 계정 — 통계·산출물에서 격리됨" translate="no">감사용</span>';
 }
 
+// 감사용 계정(is_audit) 회원번호(influencers.id) 집합 생성.
+// 관리자 화면에서 클라가 직접 응모 건수를 셀 때(빈자리·승인 차단) 감사용을 격리하기 위한 헬퍼.
+// applications 행에는 is_audit 가 없으므로 users(fetchInfluencers, is_audit 포함)에서 만든 집합을
+// user_id 로 대조한다(이메일 매칭보다 NULL·불일치·성능 위험이 없음).
+function buildAuditIdSet(users) {
+  return new Set((users || []).filter(u => u && u.is_audit).map(u => u.id));
+}
+
+// 특정 캠페인의 승인(approved) 응모 수를 감사용 제외로 계산.
+//   apps: applications 배열, campId: 캠페인 id(null 이면 전체), auditIds: buildAuditIdSet 결과.
+// 감사용 응모는 모집 슬롯·빈자리 집계에서 빠져야 한다(설계 격리, 마이그레이션 179·181).
+function countNonAuditApproved(apps, campId, auditIds) {
+  return (apps || []).filter(a =>
+    a.status === 'approved'
+    && (campId == null || a.campaign_id === campId)
+    && !(auditIds && auditIds.has(a.user_id))
+  ).length;
+}
+
+// 게시물(post) 채널이 캠페인이 요구하는 채널(channel 리스트)에 포함되는지 판정.
+//   - 요구 채널 중 하나만 맞으면 통과(or 기준, 2026-06-16 사용자 결정).
+//   - 캠페인 channel 이 비어 있으면(레거시·채널 미설정) 막지 않음(true) — 정상 제출 차단 방지.
+//   - 인플 제출(addDraftUrl)·관리자 대리 등록(submitAdminProxyDelivProxy) 양쪽에서 공유.
+//   - 최종 방어선은 서버 함수(admin_create_deliverable_proxy)이며 클라 검증은 즉시 안내용.
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function postChannelMatchesCampaign(camp, postChannel) {
+  if (!camp || !postChannel) return false;
+  const list = String(camp.channel || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (list.length === 0) return true; // 채널 미설정 캠페인은 검증 우회(레거시 보호)
+  return list.includes(String(postChannel).trim().toLowerCase());
+}
+
+// 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
+//   명백한 오타만 고치고, 위험 스킴은 차단, 나머지는 그대로 검증.
+//   - 앞뒤 공백 제거
+//   - 흔한 스킴 오타(ttp:// · ttps:// · htp:// · htps:// · http// · http:/ 등) → https://
+//     (SNS 게시물은 https 가 표준이라 https 로 통일)
+//   - 스킴 없으면(instagram.com/...) https:// 자동 추가
+//   - 위험 스킴(javascript: · data: · vbscript: · file: · blob:) → null 차단(XSS 방지)
+//   - 최종 new URL 로 검증, http/https + 호스트 있는 것만 통과
+//   반환: {url, changed} | null(빈값·위험 스킴·형식 오류). changed=보정 발생 여부(화면 안내용)
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function normalizeUrlInput(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  const orig = s;
+  if (/^(javascript|data|vbscript|file|blob):/i.test(s)) return null; // 위험 스킴 차단
+  if (/^https?:\/\//i.test(s)) {
+    // 이미 정상 스킴 — 그대로
+  } else if (/^h?t{1,2}ps?:?\/{1,2}/i.test(s)) {
+    s = s.replace(/^h?t{1,2}ps?:?\/{1,2}/i, 'https://'); // 흔한 스킴 오타 → https://
+  } else if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(s)) {
+    return null; // 알 수 없는 스킴 차단
+  } else {
+    s = 'https://' + s; // 스킴 없음 → https:// 추가
+  }
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (!u.hostname) return null;
+  } catch (e) { return null; }
+  return { url: s, changed: s !== orig };
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {
@@ -2705,6 +2770,12 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
 function brandLabelAdmin(c) {
   if (!c) return '';
   return (c.brand || c.brand_en || c.brand_ja || '').trim();
+}
+// 캠페인 미리보기 돋보기 버튼 — 관리자 목록 캠페인 열 공통. 이름 옆에 배치, 클릭 시 미리보기 모달.
+//   (기존엔 캠페인명 자체 클릭으로 열렸으나, 명시적 버튼으로 통일 — 2026-06-17)
+function campPreviewBtn(campId) {
+  if (!campId) return '';
+  return `<button type="button" onclick="event.stopPropagation();openCampPreviewModal('${esc(String(campId))}')" title="미리보기" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;margin:0;color:var(--muted);display:inline-flex;align-items:center;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">search</span></button>`;
 }
 function brandLabelInflu(c) {
   if (!c) return '';
@@ -3220,7 +3291,9 @@ window.I18N_JA = {
     submitCountLabel: '提出回数: {n}回',
     needUrl: 'URLを入力してください',
     badUrlFormat: 'URLの形式が正しくありません',
+    urlFixed: 'URLを修正しました：{url}',
     needChannel: 'チャンネルを選択してください',
+    channelMismatch: 'このキャンペーンは「{channels}」の投稿が必要です。正しいチャンネルのリンク（URL）を貼ってください。',
     afterDeadline: '提出期限が過ぎたため、登録できません',
     needImage: 'レシート画像を選択してください',
     // monitor(レビュアー) レシート必須3項目 — マイグレーション 128
@@ -3911,7 +3984,9 @@ window.I18N_KO = {
     submitCountLabel: '제출 횟수: {n}회',
     needUrl: 'URL을 입력해주세요',
     badUrlFormat: 'URL 형식이 올바르지 않습니다',
+    urlFixed: 'URL을 수정했습니다: {url}',
     needChannel: '채널을 선택해주세요',
+    channelMismatch: '이 캠페인은 「{channels}」 게시물이 필요합니다. 올바른 채널의 링크(URL)를 붙여넣어 주세요.',
     afterDeadline: '제출 기한이 지나 등록할 수 없습니다',
     needImage: '영수증 이미지를 선택해주세요',
     // monitor(리뷰어) 영수증 필수 3종 — 마이그레이션 128
@@ -4500,7 +4575,7 @@ async function fetchCampaigns() {
 const ADMIN_LIST_COLUMNS = [
   'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
-  'recruit_type', 'channel', 'status',
+  'recruit_type', 'channel', 'channel_match', 'status',
   'slots', 'view_count',
   'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
   'image_url', 'image_crops', 'emoji',
@@ -5057,7 +5132,7 @@ async function fetchDeliverables(filters) {
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -5488,6 +5563,23 @@ async function deleteLegacyReviewImage(deliverableId, reason) {
   let ok = false;
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('delete_legacy_review_image', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 잘못된 채널 게시물(post) 결과물 삭제 (super_admin, 마이그레이션 183).
+//   캠페인 요구 채널과 다른 채널로 잘못 저장된 post 행 정리. 서버에서 채널 불일치·승인 보호 재검증.
+async function deleteMismatchedPostDeliverable(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('delete_mismatched_post_deliverable', {
       p_deliverable_id: deliverableId,
       p_reason:         reason || null
     });
@@ -8237,6 +8329,20 @@ function getChannelLabel(ch, lang) {
   }).join(' or ');
 }
 
+// 채널 문자열(콤마구분) → 채널별 회색 라벨 칩. 관리자 목록 채널 열 공용.
+// 빈 채널은 '—'. 채널마다 한글 라벨 칩 1개씩 줄바꿈 허용.
+// 채널 2개 이상이면 칩 사이에 match 구분자 표시 ('and'=&, 그 외=or).
+function channelChipsHtml(channel, match) {
+  const codes = (channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!codes.length) return '<span style="color:var(--muted)">—</span>';
+  const chips = codes.map(function(code) {
+    const label = (typeof getChannelLabel === 'function') ? (getChannelLabel(code) || code) : code;
+    return '<span style="background:#F0F0F0;color:#666;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap">' + esc(label) + '</span>';
+  });
+  const sep = '<span style="font-size:9px;color:var(--muted);font-weight:600;padding:0 1px">' + (match === 'and' ? '&' : 'or') + '</span>';
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px">' + chips.join(sep) + '</div>';
+}
+
 // lookup_values 공통: code 또는 name_ja를 현재 locale의 표시값으로
 function getLookupLabel(kind, valueOrCode, lang) {
   if (!valueOrCode) return '';
@@ -10349,15 +10455,36 @@ function getChannelLabelLocal(code) {
   return t('channelLabel.other');
 }
 
+// 게시물 수동 채널 드롭다운을 캠페인 요구 채널로만 제한 (2026-06-16).
+//   자동 판별 실패(단축 URL 등) 시에도 인플이 캠페인과 다른 채널을 고르지 못하게 함.
+//   캠페인 channel 이 비어 있으면(레거시 미설정) 기존 하드코딩 옵션 유지(폴백).
+function populatePostChannelManualOptions() {
+  const sel = $('postChannelManual');
+  if (!sel) return;
+  const camp = _activityCamp || {};
+  const list = String(camp.channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (list.length === 0) return; // 채널 미설정 캠페인은 기존 옵션 유지
+  const cur = sel.value;
+  const opts = [`<option value="">${esc(t('common.select'))}</option>`];
+  list.forEach(code => {
+    opts.push(`<option value="${esc(code)}">${esc(getChannelLabelLocal(code))}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+  if (cur && list.includes(cur)) sel.value = cur;
+}
+
 function onPostUrlInputChange() {
-  const url = $('postUrlInput')?.value || '';
+  const raw = $('postUrlInput')?.value || '';
   const detectedLbl = $('postChannelDetected');
   const manualWrap = $('postChannelManualWrap');
-  if (!url.trim()) {
+  if (!raw.trim()) {
     if (detectedLbl) detectedLbl.textContent = '';
     if (manualWrap) manualWrap.style.display = 'none';
     return;
   }
+  // 보정된 주소로 채널 판별 (ttp:// 등 오타가 있어도 채널 인식 — 저장 시 addDraftUrl 이 실제 보정)
+  const norm = normalizeUrlInput(raw);
+  const url = norm ? norm.url : raw;
   const ch = detectChannelFromUrl(url);
   if (ch) {
     if (detectedLbl) detectedLbl.textContent = t('activity.postChannelDetected').replace('{channel}', getChannelLabelLocal(ch));
@@ -10433,7 +10560,10 @@ async function loadDeliverablesForActivity() {
   }
 
   if (showImage) renderActivityReceiptList(all.filter(d => d.kind === 'receipt'));
-  if (showPost) renderActivityPostList(all.filter(d => d.kind === 'post'));
+  if (showPost) {
+    renderActivityPostList(all.filter(d => d.kind === 'post'));
+    populatePostChannelManualOptions();  // 수동 채널 선택칸을 캠페인 채널로 제한
+  }
 
   // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(채널별 리뷰 캡쳐) 영역 활성화
   // 채널 없는 레거시 monitor 캠페인은 STEP 2 영역 자체를 숨김 (grandfather, 영수증만 받음)
@@ -10857,9 +10987,13 @@ function previewReviewImage(input, channel) {
 // Draft URL 추가 (gifting/visit — SNS 게시 URL 제출)
 async function addDraftUrl() {
   if (!currentUser) { toast(t('apply.needLogin'),'error'); return; }
-  const url = ($('postUrlInput')?.value || '').trim();
-  if (!url) { toast(t('activity.needUrl'), 'error'); return; }
-  try { new URL(url); } catch(e) { toast(t('activity.badUrlFormat'),'error'); return; }
+  const rawUrl = ($('postUrlInput')?.value || '').trim();
+  if (!rawUrl) { toast(t('activity.needUrl'), 'error'); return; }
+  // URL 오타 자동 보정 (2026-06-16) — ttp:// 등 흔한 실수·스킴 누락 교정, 위험 스킴 차단
+  const norm = normalizeUrlInput(rawUrl);
+  if (!norm) { toast(t('activity.badUrlFormat'),'error'); return; }
+  const url = norm.url;
+  if (norm.changed) toast(t('activity.urlFixed').replace('{url}', url), 'success');
 
   const camp = _activityCamp || {};
   const submissionEnd = camp.submission_end;
@@ -10873,6 +11007,16 @@ async function addDraftUrl() {
   if (!channel) {
     channel = $('postChannelManual')?.value || '';
     if (!channel) { toast(t('activity.needChannel'), 'error'); return; }
+  }
+
+  // 캠페인이 요구하는 채널과 일치하는지 검증 (2026-06-16) —
+  // 인플이 캠페인과 다른 SNS 링크(예: 인스타 캠페인에 LIPS URL)를 올려도 통과하던 사고 차단.
+  if (!postChannelMatchesCampaign(camp, channel)) {
+    const reqLabels = String(camp.channel || '')
+      .split(',').map(s => s.trim()).filter(Boolean)
+      .map(c => getChannelLabelLocal(c)).join('・');
+    toast(t('activity.channelMismatch').replace('{channels}', reqLabels), 'error');
+    return;
   }
 
   try {

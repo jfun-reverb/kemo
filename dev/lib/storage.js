@@ -62,7 +62,7 @@ async function fetchCampaigns() {
 const ADMIN_LIST_COLUMNS = [
   'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
-  'recruit_type', 'channel', 'status',
+  'recruit_type', 'channel', 'channel_match', 'status',
   'slots', 'view_count',
   'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
   'image_url', 'image_crops', 'emoji',
@@ -619,7 +619,7 @@ async function fetchDeliverables(filters) {
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -1050,6 +1050,23 @@ async function deleteLegacyReviewImage(deliverableId, reason) {
   let ok = false;
   await retryWithRefresh(async () => {
     const {error} = await db.rpc('delete_legacy_review_image', {
+      p_deliverable_id: deliverableId,
+      p_reason:         reason || null
+    });
+    if (error) throw error;
+    ok = true;
+  });
+  return ok;
+}
+
+// 잘못된 채널 게시물(post) 결과물 삭제 (super_admin, 마이그레이션 183).
+//   캠페인 요구 채널과 다른 채널로 잘못 저장된 post 행 정리. 서버에서 채널 불일치·승인 보호 재검증.
+async function deleteMismatchedPostDeliverable(deliverableId, reason) {
+  if (!db) throw new Error('DB 미연결');
+  if (!deliverableId) throw new Error('deliverableId 누락');
+  let ok = false;
+  await retryWithRefresh(async () => {
+    const {error} = await db.rpc('delete_mismatched_post_deliverable', {
       p_deliverable_id: deliverableId,
       p_reason:         reason || null
     });

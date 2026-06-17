@@ -317,6 +317,71 @@ function auditBadgeHtml(inf) {
   return '<span class="audit-badge" title="감사용 계정 — 통계·산출물에서 격리됨" translate="no">감사용</span>';
 }
 
+// 감사용 계정(is_audit) 회원번호(influencers.id) 집합 생성.
+// 관리자 화면에서 클라가 직접 응모 건수를 셀 때(빈자리·승인 차단) 감사용을 격리하기 위한 헬퍼.
+// applications 행에는 is_audit 가 없으므로 users(fetchInfluencers, is_audit 포함)에서 만든 집합을
+// user_id 로 대조한다(이메일 매칭보다 NULL·불일치·성능 위험이 없음).
+function buildAuditIdSet(users) {
+  return new Set((users || []).filter(u => u && u.is_audit).map(u => u.id));
+}
+
+// 특정 캠페인의 승인(approved) 응모 수를 감사용 제외로 계산.
+//   apps: applications 배열, campId: 캠페인 id(null 이면 전체), auditIds: buildAuditIdSet 결과.
+// 감사용 응모는 모집 슬롯·빈자리 집계에서 빠져야 한다(설계 격리, 마이그레이션 179·181).
+function countNonAuditApproved(apps, campId, auditIds) {
+  return (apps || []).filter(a =>
+    a.status === 'approved'
+    && (campId == null || a.campaign_id === campId)
+    && !(auditIds && auditIds.has(a.user_id))
+  ).length;
+}
+
+// 게시물(post) 채널이 캠페인이 요구하는 채널(channel 리스트)에 포함되는지 판정.
+//   - 요구 채널 중 하나만 맞으면 통과(or 기준, 2026-06-16 사용자 결정).
+//   - 캠페인 channel 이 비어 있으면(레거시·채널 미설정) 막지 않음(true) — 정상 제출 차단 방지.
+//   - 인플 제출(addDraftUrl)·관리자 대리 등록(submitAdminProxyDelivProxy) 양쪽에서 공유.
+//   - 최종 방어선은 서버 함수(admin_create_deliverable_proxy)이며 클라 검증은 즉시 안내용.
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function postChannelMatchesCampaign(camp, postChannel) {
+  if (!camp || !postChannel) return false;
+  const list = String(camp.channel || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (list.length === 0) return true; // 채널 미설정 캠페인은 검증 우회(레거시 보호)
+  return list.includes(String(postChannel).trim().toLowerCase());
+}
+
+// 결과물 게시물 URL 입력 오타 자동 보정 (2026-06-16). 인플 제출·관리자 대리 등록 공통.
+//   명백한 오타만 고치고, 위험 스킴은 차단, 나머지는 그대로 검증.
+//   - 앞뒤 공백 제거
+//   - 흔한 스킴 오타(ttp:// · ttps:// · htp:// · htps:// · http// · http:/ 등) → https://
+//     (SNS 게시물은 https 가 표준이라 https 로 통일)
+//   - 스킴 없으면(instagram.com/...) https:// 자동 추가
+//   - 위험 스킴(javascript: · data: · vbscript: · file: · blob:) → null 차단(XSS 방지)
+//   - 최종 new URL 로 검증, http/https + 호스트 있는 것만 통과
+//   반환: {url, changed} | null(빈값·위험 스킴·형식 오류). changed=보정 발생 여부(화면 안내용)
+// 사양서: docs/specs/2026-06-16-post-channel-validation-and-proxy-replace.md
+function normalizeUrlInput(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  const orig = s;
+  if (/^(javascript|data|vbscript|file|blob):/i.test(s)) return null; // 위험 스킴 차단
+  if (/^https?:\/\//i.test(s)) {
+    // 이미 정상 스킴 — 그대로
+  } else if (/^h?t{1,2}ps?:?\/{1,2}/i.test(s)) {
+    s = s.replace(/^h?t{1,2}ps?:?\/{1,2}/i, 'https://'); // 흔한 스킴 오타 → https://
+  } else if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(s)) {
+    return null; // 알 수 없는 스킴 차단
+  } else {
+    s = 'https://' + s; // 스킴 없음 → https:// 추가
+  }
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (!u.hostname) return null;
+  } catch (e) { return null; }
+  return { url: s, changed: s !== orig };
+}
+
 // raw 입력값(URL 또는 핸들)에서 핸들만 뽑아 반환. 실패 시 trim된 원본 반환.
 // 저장 정책: 핸들만(@ 없이) 저장. 표시 시 UI에서 @ prefix 부여.
 function extractSnsHandle(channel, raw) {
@@ -764,6 +829,12 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
 function brandLabelAdmin(c) {
   if (!c) return '';
   return (c.brand || c.brand_en || c.brand_ja || '').trim();
+}
+// 캠페인 미리보기 돋보기 버튼 — 관리자 목록 캠페인 열 공통. 이름 옆에 배치, 클릭 시 미리보기 모달.
+//   (기존엔 캠페인명 자체 클릭으로 열렸으나, 명시적 버튼으로 통일 — 2026-06-17)
+function campPreviewBtn(campId) {
+  if (!campId) return '';
+  return `<button type="button" onclick="event.stopPropagation();openCampPreviewModal('${esc(String(campId))}')" title="미리보기" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;margin:0;color:var(--muted);display:inline-flex;align-items:center;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">search</span></button>`;
 }
 function brandLabelInflu(c) {
   if (!c) return '';

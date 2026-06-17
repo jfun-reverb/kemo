@@ -93,7 +93,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .divider-text::before,.divider-text::after{content:'';flex:1;border-top:1px solid var(--outline)}
 
 /* ── TOAST (Material Snackbar) ── */
-#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 24px;border-radius:var(--r12);font-size:14px;font-weight:500;z-index:9999;transition:all .3s cubic-bezier(.2,0,0,1);white-space:nowrap;opacity:0;box-shadow:var(--elevation-3)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:12px 24px;border-radius:var(--r12);font-size:14px;font-weight:500;z-index:9999;transition:all .3s cubic-bezier(.2,0,0,1);white-space:normal;max-width:min(90vw,440px);text-align:center;word-break:break-word;line-height:1.5;opacity:0;box-shadow:var(--elevation-3)}
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 #toast.success{background:var(--green)}
 #toast.error{background:#B3261E}

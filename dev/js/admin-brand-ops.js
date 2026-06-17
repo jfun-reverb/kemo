@@ -203,18 +203,24 @@ async function loadBrandOpsDetail() {
   }
   if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px"><span class="spinner" style="width:22px;height:22px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></div>';
 
-  var results = await Promise.all([getBrandOpsDetail(_brandOpsDetailId), fetchApplications()]);
+  // 감사용 계정 id 집합(소수) — 폴백 승인 집계에서 격리. 전체 회원 로드 없이 가볍게 조회.
+  var results = await Promise.all([
+    getBrandOpsDetail(_brandOpsDetailId),
+    fetchApplications(),
+    db ? db.from('influencers').select('id').eq('is_audit', true) : Promise.resolve({data: []}),
+  ]);
   var detail = results[0];
   var apps = results[1] || [];
+  var _auditIds = new Set((((results[2] && results[2].data) || [])).map(function(r){ return r.id; }));
   _brandOpsDetailData = detail;
   if (!detail || !detail.brand) {
     if (body) body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:48px">브랜드 정보를 불러올 수 없습니다</div>';
     return;
   }
-  // 캠페인별 승인 수 집계 (인플루언서 응모 = applications, status approved)
+  // 캠페인별 승인 수 집계 (인플루언서 응모 = applications, status approved). 감사용 제외(격리).
   _brandOpsApprByCamp = {};
   apps.forEach(function(a){
-    if (a.status === 'approved') _brandOpsApprByCamp[a.campaign_id] = (_brandOpsApprByCamp[a.campaign_id] || 0) + 1;
+    if (a.status === 'approved' && !_auditIds.has(a.user_id)) _brandOpsApprByCamp[a.campaign_id] = (_brandOpsApprByCamp[a.campaign_id] || 0) + 1;
   });
   renderBrandOpsDetail(detail);
 }

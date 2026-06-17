@@ -55,3 +55,8 @@ HANDOFF.md
 .env*.local
 modal-*.png
 *-modal.png
+
+# QA 스크린샷 (Playwright 캡처물 — 레포 추적 차단)
+age-gate-*.png
+*-success.png
+*-regression.png

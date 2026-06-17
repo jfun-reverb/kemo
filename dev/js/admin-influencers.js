@@ -109,20 +109,22 @@ function renderInfluencersPane() {
   const total = (infUsersCache || []).length;
   const totalEl = $('infTotalCount');
   if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${total}명)`;
-  const resetBtn = $('btnInfFilterReset');
+  const resetBtn = $('btnInfViewReset');
   if (resetBtn) {
     const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
     const violationSel = $('infFilterViolationSelect')?.value || 'all';
     const searchQ = ($('infSearch')?.value || '').trim();
     const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
     const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
-    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower);
+    const hasSort = !(infSortKey === 'created' && infSortDir === 'desc');
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
     resetBtn.style.display = anyActive ? '' : 'none';
   }
   renderInfTable(filtered);
 }
 
-function resetInfluencerFilters() {
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetInfView() {
   const v = $('infFilterVerifiedSelect'); if (v) v.value = 'all';
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
@@ -131,6 +133,8 @@ function resetInfluencerFilters() {
   const mn = $('infFollowersMin'); if (mn) mn.value = '';
   const mx = $('infFollowersMax'); if (mx) mx.value = '';
   currentInfTab = 'all';
+  infSortKey = 'created'; infSortDir = 'desc';
+  updateInfSortUI();
   rerenderInfluencersFromCache();
 }
 
@@ -153,13 +157,6 @@ function toggleInfSort(key) {
   rerenderInfluencersFromCache();
 }
 
-function resetInfSort() {
-  infSortKey = 'created';
-  infSortDir = 'desc';
-  updateInfSortUI();
-  rerenderInfluencersFromCache();
-}
-
 function updateInfSortUI() {
   document.querySelectorAll('.inf-sort-arrows').forEach(el => {
     el.classList.remove('asc','desc');
@@ -169,8 +166,6 @@ function updateInfSortUI() {
       el.textContent = infSortDir === 'asc' ? '▲' : '▼';
     }
   });
-  const resetBtn = $('btnInfSortReset');
-  if (resetBtn) resetBtn.style.display = (infSortKey === 'created' && infSortDir === 'desc') ? 'none' : '';
 }
 
 function sortInfUsers(users) {
@@ -296,7 +291,7 @@ async function openInfluencerDetail(userId) {
   const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${esc(val)||'—'}</div></div>`;
 
   // 생년월일 + 만 나이 / 성별 (연령 정책 PR4 — 관리자 한국어 고정)
-  const _genderKo = { male: '남성', female: '여성', other: '기타', undisclosed: '응답 안 함' };
+  const _genderKo = { male: '남성', female: '여성', other: '기타', undisclosed: '응답하지 않음' };
   const _age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(u.birthdate) : null;
   const _bdLabel = u.birthdate ? (u.birthdate + (_age != null ? ` (만 ${_age}세)` : '')) : '';
 
