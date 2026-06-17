@@ -41,6 +41,8 @@ async function loadMyPage() {
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
   setVal('profileNameKana', p.name_kana);
+  // 생년월일·성별 읽기 전용 표시 (수정은 관리자만 — 연령 정책 PR4). 미등록은 안내 문구 유지
+  renderProfileAgeReadonly();
   setVal('profileCategory', p.category);
   setVal('profileLine', p.line_id);
   setVal('profileBio', p.bio);
@@ -506,6 +508,24 @@ window.addEventListener('langchange', updateLangToggleUI);
 window.addEventListener('langchange', () => {
   if ($('myApplyStatusSelect') && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
 });
+
+// 생년월일·성별 읽기 전용 표시 갱신 (loadMyPage + 언어 전환 공용 — 동적 텍스트라 applyI18n 미적용)
+function renderProfileAgeReadonly() {
+  const p = currentUserProfile || {};
+  const bdEl = $('profileBirthdateDisplay');
+  if (bdEl) {
+    const label = (typeof formatBirthdateLabel === 'function') ? formatBirthdateLabel(p.birthdate) : '';
+    if (label) { bdEl.textContent = label; bdEl.removeAttribute('data-i18n'); }
+    else { bdEl.setAttribute('data-i18n', 'profile.notRegistered'); bdEl.textContent = t('profile.notRegistered'); }
+  }
+  const gEl = $('profileGenderDisplay');
+  if (gEl) {
+    const gl = (typeof genderLabel === 'function') ? genderLabel(p.gender) : '';
+    if (gl) { gEl.textContent = gl; gEl.removeAttribute('data-i18n'); }
+    else { gEl.setAttribute('data-i18n', 'profile.notRegistered'); gEl.textContent = t('profile.notRegistered'); }
+  }
+}
+window.addEventListener('langchange', renderProfileAgeReadonly);
 
 // 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
 function populateMyApplyChannelOptions() {

@@ -556,6 +556,10 @@ window.I18N_KO = {
   profile: {
     nameKanji: '이름 (한자)',
     nameKana: '이름 (가나)',
+    birthdate: '생년월일',
+    gender: '성별',
+    notRegistered: '미등록',
+    birthdateHint: '생년월일·성별은 응모 시 입력합니다. 생년월일은 변경할 수 없습니다(수정이 필요하면 문의해주세요).',
     category: '카테고리',
     lineId: 'LINE ID',
     lineIdHint: '@reverb.jp 추가 후 ID 입력',

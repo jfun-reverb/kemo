@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781672946';
+  var CURRENT_BUILD = 'v1781677489';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2090,7 +2090,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-17 14:09 · 73674a0</span>
+          <span class="admin-build-text">2026-06-17 15:24 · 1e5845a</span>
         </div>
       </div>
     </aside>
@@ -5861,6 +5861,23 @@ function calcAgeFromBirthdate(birthdateStr) {
   // 올해 생일이 아직 안 지났으면 한 살 빼기
   if (tm < bm || (tm === bm && td < bd)) age--;
   return age;
+}
+
+// 생년월일 표시 라벨 (마이페이지·관리자 공용). lang 미지정 시 현재 언어.
+function formatBirthdateLabel(birthdateStr, lang) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr || '');
+  if (!m) return '';
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const l = lang || (typeof getLang === 'function' ? getLang() : 'ja');
+  return l === 'ko' ? `${y}년 ${mo}월 ${d}일` : `${y}年${mo}月${d}日`;
+}
+
+// 성별 코드 → 표시 라벨 (i18n 키 재사용). 빈 값이면 ''
+function genderLabel(code) {
+  const map = { male: 'auth.signup.genderMale', female: 'auth.signup.genderFemale',
+    other: 'auth.signup.genderOther', undisclosed: 'auth.signup.genderUndisclosed' };
+  if (!code || !map[code]) return '';
+  return (typeof t === 'function') ? t(map[code]) : code;
 }
 
 // ══════════════════════════════════════
@@ -18593,9 +18610,16 @@ async function openInfluencerDetail(userId) {
   // 기본 정보
   const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${esc(val)||'—'}</div></div>`;
 
+  // 생년월일 + 만 나이 / 성별 (연령 정책 PR4 — 관리자 한국어 고정)
+  const _genderKo = { male: '남성', female: '여성', other: '기타', undisclosed: '응답하지 않음' };
+  const _age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(u.birthdate) : null;
+  const _bdLabel = u.birthdate ? (u.birthdate + (_age != null ? ` (만 ${_age}세)` : '')) : '';
+
   $('infDetailBasic').innerHTML =
     row('이름 (한자)', u.name_kanji || u.name) +
     row('이름 (카나)', u.name_kana) +
+    row('생년월일', _bdLabel) +
+    row('성별', _genderKo[u.gender] || '') +
     row('이메일', u.email) +
     row('카테고리', u.category) +
     row('자기소개', u.bio) +
