@@ -370,20 +370,6 @@ function toggleAppSort(key) {
       el.textContent = appSortDir === 'asc' ? '▲' : '▼';
     }
   });
-  const btn = $('btnAppSortReset');
-  if (btn) btn.style.display = (appSortKey === 'created' && appSortDir === 'desc') ? 'none' : '';
-  renderAppCampList();
-}
-
-function resetAppSort() {
-  appSortKey = 'created';
-  appSortDir = 'desc';
-  document.querySelectorAll('.app-sort-arrows').forEach(el => {
-    el.classList.remove('asc','desc');
-    el.textContent = '▲▼';
-    if (el.dataset.sort === 'created') { el.classList.add('desc'); el.textContent = '▼'; }
-  });
-  const btn = $('btnAppSortReset'); if (btn) btn.style.display = 'none';
   renderAppCampList();
 }
 
@@ -488,7 +474,11 @@ async function renderAppCampList() {
   //   검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
   apps = apps.filter(a => passesAppFilters(a));
 
-  updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'], 'appSearch');
+  // 보기 초기화 버튼 — 필터·검색·정렬 중 하나라도 비기본이면 노출 (필터+정렬+검색 통합)
+  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+    || !!(($('appSearch')?.value || '').trim())
+    || !(appSortKey === 'created' && appSortDir === 'desc');
+  const _appViewBtn = $('btnAppViewReset'); if (_appViewBtn) _appViewBtn.style.display = _appViewActive ? '' : 'none';
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
@@ -558,7 +548,7 @@ async function renderAppCampList() {
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
         ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`

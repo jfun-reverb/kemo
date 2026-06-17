@@ -80,12 +80,18 @@ function resetCampFilters() {
   const s = $('adminCampSearch'); if (s) s.value = '';
   filterAdminCampaigns();
 }
-function resetAppFilters() {
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로 (목록 페인 공통 패턴)
+function resetAppView() {
   resetMultiFilter('appTypeMulti', '전체 타입');
   resetMultiFilter('appCampStatusMulti', '전체 상태');
   resetMultiFilter('appStatusMulti', '전체 상태');
   resetMultiFilter('appCampMulti', '전체 캠페인');
   const s = $('appSearch'); if (s) s.value = '';
+  appSortKey = 'created'; appSortDir = 'desc';
+  document.querySelectorAll('.app-sort-arrows').forEach(el => {
+    el.classList.remove('asc','desc'); el.textContent = '▲▼';
+    if (el.dataset.sort === 'created') { el.classList.add('desc'); el.textContent = '▼'; }
+  });
   renderAppCampList();
 }
 

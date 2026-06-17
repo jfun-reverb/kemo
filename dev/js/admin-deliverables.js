@@ -612,7 +612,7 @@ function renderDelivAppRow(g) {
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodSingleCell(camp.submission_end)}</td>
     <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${esc(inf.id||'')}')">${infName}${auditBadgeHtml(inf)}${(typeof influencerStatusBadges === 'function') ? influencerStatusBadges(inf) : ''}</div>${infSub ? `<div style="font-size:10px;color:var(--muted)">${infSub}</div>` : ''}<div style="margin-top:4px">${renderApplicantMsgBtn({id: g.application_id, campaign_id: (camp && camp.id) || ''})}</div></td>
-    <td>${certStatusBadge(g)}</td>
+    <td style="white-space:nowrap">${certStatusBadge(g)}</td>
     <td>${receiptCell}</td>
     <td>${resultCell}</td>
     <td>${submittedCell}</td>
@@ -668,12 +668,16 @@ function renderDelivResultCellMonitor(g) {
 // 영수증·결과물 셀 — slot: 'receipt' | 'result', rt: campaign.recruit_type
 //   opts.hasValidApprovedPost: 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면 채널 불일치 배지 숨김
 function renderDelivStatusCell(d, slot, rt, opts) {
+  // 결과물 셀(result)은 monitor 채널별 미니행(10px)과 라벨 크기를 통일. 영수증 셀은 기존 11px 유지.
+  const small = slot === 'result';
+  const badgeFs = small ? '10px' : '11px';
+  const badgePad = small ? '1px 6px' : '2px 8px';
   // 영수증은 monitor에서만 사용. gifting/visit은 영수증 단계 없음 → 「-」 표시
   if (slot === 'receipt' && rt !== 'monitor') {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';
   }
   if (!d) {
-    return '<span style="display:inline-block;background:#f5f5f5;color:var(--muted);font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">미제출</span>';
+    return `<span style="display:inline-block;background:#f5f5f5;color:var(--muted);font-size:${badgeFs};font-weight:600;padding:${badgePad};border-radius:3px">미제출</span>`;
   }
   let preview = '';
   if (d.kind === 'receipt' || d.kind === 'review_image') {
@@ -697,8 +701,8 @@ function renderDelivStatusCell(d, slot, rt, opts) {
   // 마이그레이션 160: 대리 등록 행은 status 배지를 「대리 등록」으로 교체 (자동 승인이라 "승인" 표기 무의미)
   // 사용자 결정 2026-05-28: 「승인 + 작은 대리 마커」 중복 → 단일 「대리 등록」 배지로 통합
   const statusBadgeHtml = d.submitted_by_admin
-    ? `<span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
-    : delivStatusBadge(d.status);
+    ? `<span style="background:#FEF3C7;color:#92400E;font-size:${badgeFs};font-weight:600;padding:${badgePad};border-radius:3px" title="관리자 대리 등록·자동 승인">대리 등록</span>`
+    : delivStatusBadge(d.status, small);
   return `<div style="display:flex;align-items:center;gap:6px">${preview}${statusBadgeHtml}</div>`;
 }
 
@@ -706,11 +710,14 @@ function statusLabelKo(status) {
   return {pending: '검수대기', approved: '승인', rejected: '반려'}[status] || status;
 }
 
-function delivStatusBadge(status) {
+// small=true: 결과물 목록 셀에서 monitor 채널별 미니행(10px)과 라벨 크기 통일용. 미지정 시 기존 11px.
+function delivStatusBadge(status, small) {
+  const fs = small ? '10px' : '11px';
+  const pad = small ? '1px 6px' : '2px 8px';
   const map = {
-    pending: '<span style="background:#FFF4E4;color:#B8741A;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">검수대기</span>',
-    approved: '<span style="background:#E4F5E8;color:#2D7A3E;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">승인</span>',
-    rejected: '<span style="background:#FFE4E4;color:#C33;font-size:11px;font-weight:600;padding:2px 8px;border-radius:3px">반려</span>'
+    pending: `<span style="background:#FFF4E4;color:#B8741A;font-size:${fs};font-weight:600;padding:${pad};border-radius:3px">검수대기</span>`,
+    approved: `<span style="background:#E4F5E8;color:#2D7A3E;font-size:${fs};font-weight:600;padding:${pad};border-radius:3px">승인</span>`,
+    rejected: `<span style="background:#FFE4E4;color:#C33;font-size:${fs};font-weight:600;padding:${pad};border-radius:3px">반려</span>`
   };
   return map[status] || status;
 }

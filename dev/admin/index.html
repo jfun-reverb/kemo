@@ -1034,15 +1034,14 @@
                 <label>신청 상태</label>
                 <div id="appStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnAppFilterReset" onclick="resetAppFilters()" style="display:none">초기화</button>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="appSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 이메일 검색" oninput="renderAppCampList()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <div style="position:relative;flex:1">
+                    <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="appSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="인플루언서명 · 이메일 검색" oninput="renderAppCampList()">
+                  </div>
+                  <button class="btn btn-ghost btn-xs" id="btnAppViewReset" onclick="resetAppView()" style="display:none;white-space:nowrap">보기 초기화</button>
                 </div>
               </div>
             </div>
@@ -1051,13 +1050,10 @@
             <div class="admin-card" id="appCampList">
               <div class="admin-card-header">
                 <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">신청 목록</span><span id="appTotalCount" style="font-size:12px;color:var(--muted)"></span></div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <button class="btn btn-ghost btn-xs" id="btnAppSortReset" onclick="resetAppSort()" style="display:none">정렬 초기화</button>
-                </div>
               </div>
               <div class="admin-table-wrap">
               <table class="data-table">
-                <thead id="appTableHead"><tr><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th>상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
+                <thead id="appTableHead"><tr><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th style="min-width:170px;white-space:nowrap">모집기간 <span class="sort-arrows app-sort-arrows" data-sort="deadline" onclick="toggleAppSort('deadline')">▲▼</span></th><th>인플루언서 <span class="sort-arrows app-sort-arrows" data-sort="name" onclick="toggleAppSort('name')">▲▼</span></th><th>신청 사유</th><th>신청일 <span class="sort-arrows app-sort-arrows" data-sort="created" onclick="toggleAppSort('created')">▲▼</span></th><th style="min-width:88px;white-space:nowrap">상태 <span class="sort-arrows app-sort-arrows" data-sort="status" onclick="toggleAppSort('status')">▲▼</span></th><th>처리</th></tr></thead>
                 <tbody id="appTableBody"><tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
               </table>
               </div>
@@ -1147,9 +1143,9 @@
                 <th style="width:180px">구매기간 <span class="sort-arrows" data-sort="purchase" onclick="toggleDelivSort('purchase')">▲▼</span></th>
                 <th style="width:130px">결과물 제출 마감 <span class="sort-arrows" data-sort="submission_end" onclick="toggleDelivSort('submission_end')">▲▼</span></th>
                 <th>인플루언서</th>
-                <th style="width:110px">인증 상태</th>
-                <th style="width:170px">영수증</th>
-                <th style="width:170px">결과물</th>
+                <th style="width:132px;white-space:nowrap">인증 상태</th>
+                <th style="width:195px">영수증</th>
+                <th style="width:195px">결과물</th>
                 <th style="width:130px">최근 제출 <span class="sort-arrows" data-sort="submitted" onclick="toggleDelivSort('submitted')">▲▼</span></th>
                 <th style="width:90px">처리</th>
               </tr></thead>
