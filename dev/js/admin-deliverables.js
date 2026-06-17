@@ -973,14 +973,21 @@ async function renderDelivCombinedBody(applicationId) {
     }
   }
 
-  // 2차 fallback: deliverable이 0건(미제출 토글 ON으로 진입한 케이스)이면 applications에서 직접 fetch
+  // 2차 fallback: deliverable이 0건(미제출 토글 ON으로 진입한 케이스)이면 applications에서 직접 fetch.
+  //   applications.campaign_id 에는 외래 키 제약이 없어 PostgREST 중첩 임베딩(campaigns:campaign_id)이
+  //   PGRST200("no foreign key relationship")으로 실패한다 → application 행 조회 후 campaign_id 로
+  //   campaigns 를 별도 조회하는 2단계 방식으로 처리(미제출 행 검수 진입 시 캠페인 정보 누락 버그 수정).
   if (!camp && db) {
-    const appRes = await db?.from('applications').select('user_id, campaign_id, campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel)').eq('id', applicationId).maybeSingle();
+    const appRes = await db?.from('applications').select('user_id, campaign_id').eq('id', applicationId).maybeSingle();
     if (appRes?.error) console.error('[deliv-combined app]', appRes.error);
     const app = appRes?.data || null;
     if (app) {
-      camp = app.campaigns || null;
       userId = app.user_id || null;
+      if (app.campaign_id) {
+        const campRes = await db?.from('campaigns').select('id, campaign_no, title, brand, recruit_type, channel').eq('id', app.campaign_id).maybeSingle();
+        if (campRes?.error) console.error('[deliv-combined camp]', campRes.error);
+        camp = campRes?.data || null;
+      }
     }
   }
 
