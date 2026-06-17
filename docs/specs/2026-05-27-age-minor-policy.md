@@ -121,10 +121,30 @@ influencers 테이블에 컬럼 추가 (**보호자 컬럼 없음 — 단순화*
 
 ## 구현 결과
 
-(개발 세션이 채울 것)
+### PR1 — DB·서버 (개발서버 배포 완료)
+**구현일:** 2026-06-15 / **관련 커밋:** dev 머지
+- 마이그레이션 **180** (179는 동시 세션 감사용 계정이 선점해 재채번): `influencers.birthdate`/`gender` 컬럼 + `age_policy_settings` 싱글톤(`effective_date` NULL=차단 비활성·운영 무영향) + `calc_age_kst()` + 응모 차단 트리거 `check_age_policy`(P0002) + 생년월일 수정 잠금 트리거 `lock_influencer_birthdate`(P0003).
 
-**구현일:**
-**관련 커밋:**
+### PR2 — 가입 폼 생년월일·성별·만18세 차단 (개발서버 배포 완료)
+**구현일:** 2026-06-15 / **관련 커밋:** PR #496 / **qa:** full PASS 6/0
 
-### 초안 대비 변경 사항
--
+### PR3 — 응모 시점 게이트 (개발서버 배포 완료)
+**구현일:** 2026-06-15 / **관련 커밋:** PR #497 (버그픽스 PR #499) / **qa:** PASS 5/0
+- 버그픽스: 저장 전 만18세 검증으로 순서 이동 — 미만 회원의 영구 저장+잠금 방지.
+
+### PR4 — 마이페이지·관리자 생년월일·성별 표시 (개발서버 배포 완료)
+**구현일:** 2026-06-17 / **관련 커밋:** PR #500 (dev 머지 f3fb1ff) / **리뷰:** reverb-reviewer Critical 0
+- **DB 변경 없음** — 표시 전용. 9개 파일(소스 7 + 빌드 산출물 2).
+- 마이페이지: 생년월일·성별 **읽기 전용**(`form-readonly`) 표시 + 만나이(`renderProfileAgeReadonly`). 생년월일은 최초 입력 후 수정 잠금이라 RO.
+- 관리자 인플루언서 상세: 생년월일 + `calc`(KST 만나이) + 성별 한국어 표시(`admin-influencers.js` `_genderKo`).
+- i18n: `profile.birthdate`/`gender`/`notRegistered`/`birthdateHint` + 성별 4종 라벨 ja/ko 등록.
+
+### 머지 시 처리 (PR4)
+- `feature/age-policy`가 origin/dev보다 44커밋 뒤처져 충돌(CONFLICTING) → 충돌은 빌드 산출물 `admin/index.html` 1개뿐 → `bash dev/build.sh` 재생성으로 해소(메모리 `project_prod_hotfix_rebuild` 패턴).
+- reviewer Warning 2건 처리: ①성별 `undisclosed` 한국어 표기를 관리자 `'응답하지 않음'`으로 통일(인플 i18n과 일치) ②머지 시 딸려 들어간 qa 스크린샷 png 7개 추적 해제 + `.gitignore` 보강.
+
+### 운영 배포 상태
+- **PR1~4 모두 개발서버(dev)까지만. 운영(main) 배포 보류** — `age_policy_settings.effective_date`가 NULL이라 차단 비활성이므로 운영에 올라가도 무영향이나, 정책상 PR5(약관 개정·30일 통지·시행일 확정) 완료 후 운영 일괄 출시.
+
+### 남은 작업
+- PR5 — 약관 개정 + 30일 사전 통지 + `effective_date` 시행일 UPDATE(서버 활성화) + 소급 게이트 통지 마무리. 운영 배포는 통지 후.
