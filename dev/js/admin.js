@@ -89,17 +89,21 @@ function resetAppFilters() {
 }
 
 
-// 캠페인 전용 래퍼 — 라벨은 캠페인 제목, 캠페인 번호(B0019-C001 형식)는 subLabel로 분리
+// 캠페인 전용 래퍼 — 라벨은 캠페인 제목, subLabel에 브랜드명 · 캠페인 번호(B0019-C001 형식) 표시
 //   counts: {[campaignId]: number} 형태로 옵션별 건수를 받아 옆에 (00)으로 표시
+//   subLabel은 검색 대상에도 포함되므로(admin-core.js matchSearchTokens) 브랜드명으로도 검색됨
 function syncCampMultiFilter(containerId, sortedCamps, onChange, counts) {
-  const options = sortedCamps.map(c => ({
-    value: c.id,
-    label: c.title || '(제목 없음)',
-    subLabel: c.campaign_no || '',
-    count: counts ? (counts[c.id] || 0) : null
-  }));
+  const options = sortedCamps.map(c => {
+    const brand = (typeof brandLabelAdmin === 'function') ? brandLabelAdmin(c) : (c.brand || '');
+    return {
+      value: c.id,
+      label: c.title || '(제목 없음)',
+      subLabel: [brand, c.campaign_no].filter(Boolean).join(' · '),
+      count: counts ? (counts[c.id] || 0) : null
+    };
+  });
   // 캠페인 목록이 길어 검색형 활성화 (delivCampMulti·appCampMulti 양쪽 자동 통일)
-  syncMultiFilter(containerId, '전체 캠페인', options, onChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
+  syncMultiFilter(containerId, '전체 캠페인', options, onChange, { searchable: true, searchPlaceholder: '캠페인명 · 브랜드 · 번호 검색' });
 }
 
 // ════════════════════════════════════════════════════════════════════
