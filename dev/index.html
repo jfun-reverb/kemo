@@ -99,6 +99,13 @@ window._supabaseLoaded = false;
         <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
       </select>
     </div>
+    <div class="signup-agree" style="margin-bottom:14px">
+      <label class="signup-agree-row">
+        <input type="checkbox" class="agree-required" id="gateAgreePrivacy">
+        <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+        <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
+      </label>
+    </div>
     <div id="ageGateError" class="form-error" style="margin-bottom:12px;display:none"></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
