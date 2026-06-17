@@ -1531,3 +1531,14 @@
 }
 /* 감사용 행 — 행 배경도 옅게 강조해 목록에서 즉시 식별 */
 tr.audit-row, .audit-row { background: #fff3e0 !important; }
+
+/* 브랜드 상세·신규 브랜드 등록 모달 입력칸 글자 크기 (HTML 인라인 <style>에서 이전, 2026-06-17) */
+#brandDetailModal input.admin-filter,
+#brandDetailModal textarea.admin-filter,
+#brandDetailModal select.admin-filter,
+#brandDetailModal input.form-input,
+#brandDetailModal textarea.form-input,
+#brandDetailModal select.form-input { font-size: 14px; }
+#newBrandAppModal .form-input,
+#newBrandAppModal select.form-input,
+#newBrandAppModal textarea.form-input { font-size: 14px; }
