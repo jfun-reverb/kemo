@@ -1,10 +1,16 @@
 # 관리자 목록 표 — 열 너비 드래그 조정 기능
 
 **작성일:** 2026-06-17
-**상태:** 기획 대기 (다른 세션에서 `reverb-planner`로 설계 후 구현 예정)
-**작성 주체:** 고문 세션 (요청·현재 상태·반대론자 분석까지. 본 설계는 기획 세션이 이어서 채움)
+**상태:** 기획 완료 (설계 확정 — 개발 세션 착수 가능)
+**작성 주체:** 고문 세션(요청·현재 상태·반대론자 분석) → 기획 세션(설계 확정, 2026-06-17)
 **사용자 요청:** "표의 열 너비를 사용자(관리자)가 핸들로 드래그해서 조정하는 기능을 추가할 수 있나?"
-**사용자 결정:** "기획부터 진행 (설계서 작성)" — 다른 세션에서 이어감.
+
+### 사용자 결정 (2026-06-17 기획 세션 대화)
+1. **기능 방향**: 드래그 너비 조정만이 아니라 → **열 숨김 토글 + 드래그 너비 조정 둘 다** (실제 불편이 "안 쓰는 열이 자리 차지" + "상황·사람마다 원하는 너비가 다름" 두 가지였음)
+2. **단계**: 둘 다 한 번에 구현 (열 숨김 먼저·드래그 나중 단계안은 채택 안 함)
+3. **적용 범위**: **신청 관리 표 1개 시범 → 공통 헬퍼로 8개 확장**
+4. **저장**: 브라우저 영구(localStorage). 공유 PC 시 관리자 간 설정 공유(섞임)는 수용
+5. **레이아웃**: colgroup(열 너비를 한 곳에서 관리하는 표 구조) + 고정 레이아웃(`table-layout:fixed`) 전환. 긴 셀 말줄임(…)은 드래그로 재확대 가능하므로 수용
 
 ---
 
@@ -46,32 +52,60 @@
 
 ---
 
-## 설계해야 할 결정 포인트 (기획 세션 = reverb-planner가 다룰 것)
+## 확정 설계 (기획 세션, 2026-06-17)
 
-1. **레이아웃 방식**: `table-layout:auto` 유지 + 드래그로 th width 직접 세팅 **vs** `table-layout:fixed` 전환(+colgroup). 각 장단점, 기존 min-width·CSS 고정열·sticky·가로 스크롤과의 정합.
-2. **드래그 핸들 UX**: th 우측 경계 핸들(커서 col-resize), mousedown/move/up. 정렬 클릭과 영역 분리. 최소/최대 너비 제한. 더블클릭 자동맞춤(선택).
-3. **저장·복원**: localStorage 페인별·열별 저장 → 진입/새로고침 시 복원. 키 설계(페인id + `data-col`). 기본값 복귀 버튼.
-4. **재렌더 정합**: lazy-load tbody 재렌더 시 width 유지 방식(thead th / colgroup / td 재적용).
-5. **적용 범위**: 신청 관리 한 표 시범 → 공통 헬퍼(`initColumnResize(paneId, tableEl)`)로 8개 페인 확장. 페인별 sticky·고정열 처리.
-6. **충돌·엣지케이스**: sticky 1·2열 resize, 가로 스크롤 중 드래그 좌표 보정, 관리자 PC 전용(모바일 제외), 권한 차이 없음(전 관리자 공통), 공유 PC localStorage 섞임.
-7. **대안 검토**: 열 표시/숨김 토글, 프리셋 너비 등 더 단순한 대안의 ROI.
+기획 세션 재검증에서 사양서 1차 분석을 보강한 **추가 사실 2건**:
+- 1·2열은 thead 인라인 `min-width`(캠페인 240·채널 110)와 admin.css 고정값(캠페인 **380**·채널 **150**)이 **서로 달라** 실 렌더폭 ≈1870px ≠ 선언 1690px. 「3곳 분산」의 실제 경합.
+- 2열(채널) sticky `left:380px`가 **1열 너비에 하드코딩 종속** → 1열을 줄이면 2열 위치가 어긋남(resize 시 동적 갱신 필수 엣지케이스).
+
+### 1. 레이아웃 — colgroup + `table-layout:fixed` (선행 단일화)
+- 신청 관리 표 thead 위에 `<colgroup>` 추가, 각 `<col data-col="...">`가 열 너비의 **단일 소스**. th 인라인 `min-width`·`nth-child` 고정열·`data-table{min-width}` 3분산을 colgroup 1곳으로 정리.
+- `table-layout:fixed` 전환. 긴 셀(신청 사유·제품)은 `overflow:hidden;text-overflow:ellipsis`로 말줄임 — 기존 `msgCell`(신청 사유 `max-width:280px`, admin-core.js)과 정합 점검.
+- **왜 fixed인가**: 드래그·열 숨김은 본질적으로 "고정 너비" 모델 위에서만 예측 가능. `auto`는 브라우저가 내용 기반으로 너비를 재계산해 설정값을 무시(사양서 의심 1번이 현실화).
+
+### 2. 열 식별자 — `data-col` (nth-child 금지)
+- 각 `<col>`·핸들·숨김 토글이 의미 기반 안정 키 사용(`campaign`/`channel`/`brand`/`product`/`deadline`/`influencer`/`reason`/`created`/`status`/`action`). 열 추가·순서 변경에도 저장값 안 깨짐.
+
+### 3. 드래그 너비 조정
+- 각 th 우측 경계에 `position:absolute;right:0;width:6px;cursor:col-resize` 핸들 div. `mousedown`에서 `stopPropagation`으로 정렬 화살표(▲▼) 클릭 차단 → 영역 분리.
+- `mousedown` 시 `startX`·시작 너비 저장 → `mousemove`는 `delta=clientX-startX`만 사용(가로 스크롤 보정 불필요). admin-core.js 모달 드래그 인프라(`:740~810`) 패턴 차용.
+- 최소 60px / 최대 800px 클램프. 더블클릭 자동맞춤은 **백로그**(fixed에서 내용폭 측정 까다로움).
+
+### 4. 열 숨김 토글
+- 표 카드 헤더 우측("보기 초기화" 버튼 패턴 옆)에 「열 선택」 메뉴 — 열별 체크박스로 표시/숨김. 숨김 열은 `<col>`·thead th·tbody td 모두 `display:none`(또는 colgroup 너비 0 + 셀 숨김). 최소 1개 열은 항상 표시(전부 숨김 방지).
+- 숨김 상태도 localStorage 저장(너비와 같은 키 묶음).
+
+### 5. 고정열 sticky 연쇄 갱신
+- 2열 이후 sticky `left`를 admin.css 하드코딩(`left:380px`) 대신 **CSS 변수**(`--sticky-left-2` 등)로. resize·숨김 후 JS가 누적합으로 `--sticky-left-N` 재계산. 신청·결과물=고정열 2개, 브랜드 서베이=1개, 나머지=0개.
+
+### 6. 저장·복원
+- 키 `reverb.admin.colstate.{paneId}` → `{ widths:{colId:px}, hidden:[colId...] }` 한 묶음. localStorage 영구.
+- 페인 진입 시 1회 `applyColumnState(paneId)` 호출 → colgroup 너비·숨김 적용 + sticky 변수 갱신.
+- **재렌더 정합**: colgroup은 thead/tbody 밖이라 lazy-load tbody 재렌더에 **자동 유지**(td 인라인 재적용 불필요). 숨김 td만 재렌더 시 `data-col` 기준으로 `display:none` 재적용.
+- 「열 너비·표시 초기화」 버튼으로 기본값 복귀.
+
+### 7. 공통 헬퍼 (확장 대비)
+- `initColumnResize(tableEl, { paneId, stickyCount, minW, maxW })` + `applyColumnState(paneId)` 를 admin-core.js(다른 admin-* 보다 앞)에 작성.
+- thead 비균질 대응: colgroup 있는 표만 대상. `lookupTableHead`처럼 JS 동적 생성 thead는 colgroup도 JS로 생성 → **2차 확장에서 페인별 개별 처리**.
+
+### 충돌·엣지·범위
+- 관리자 PC 전용(터치 이벤트 미지원 OK), 권한 차이 없음(전 관리자 공통, 행 단위 보안 정책·DB 무관).
+- 빈 상태/로딩(spinner colspan 행)도 colgroup 너비는 thead 기준이라 영향 없음.
+- 공유 PC localStorage 섞임 = 수용(환경설정 수준, 위험 낮음).
 
 ---
 
-## 진행 방향 (고문 권고)
-- 전체 일괄 도입보다 **신청 관리 한 표 시범**(table-layout:fixed 전환 + 드래그 핸들 + localStorage 저장)으로 검증 후 확장 권장.
-- 시범 전에 **열 너비 관리 3곳 분산을 단일 소스로 정리**(colgroup 또는 일관된 한 곳)하는 선행 PR이 깔끔.
-- DB 변경 없음 전제(UI 환경설정 = localStorage).
+## PR 분할 (확정)
 
-## PR 분할 (초안 — 기획이 확정)
-- (선행) 신청 관리 표 너비 관리 단일화 + `table-layout:fixed` 전환
-- (PR 1) 신청 관리 한 표 드래그 resize + localStorage 저장/복원 + 기본값 복귀
-- (PR 2) 공통 헬퍼화 → 나머지 페인 확장
+| 단계 | 내용 | 주요 파일 | DB |
+|---|---|---|---|
+| **선행** | 신청 관리 표 너비 단일화 — colgroup + `data-col` + `table-layout:fixed` + sticky CSS 변수화. 셀 말줄임 정합 | `dev/admin/index.html`(신청 thead colgroup), `dev/css/admin.css`(#adminPane-applications) | 없음 |
+| **PR 1 (시범)** | 신청 관리 1표: 드래그 핸들 + 열 숨김 토글 + localStorage 저장/복원 + 초기화 버튼 | `dev/js/admin-core.js`(헬퍼 `initColumnResize`/`applyColumnState`), `dev/admin/index.html`(카드 헤더 「열 선택」·「초기화」), `dev/css/admin.css`(핸들·메뉴), `dev/js/admin-applications.js`(진입 시 적용 호출) | 없음 |
+| **PR 2 (확장)** | 공통 헬퍼로 나머지 7개 페인 — 정적 thead colgroup 부여, 동적 thead는 JS colgroup 생성 | `dev/admin/index.html`, `dev/js/admin-*.js`, `dev/css/admin.css` | 없음 |
 
-## 사용자 확인 필요 (기획 세션이 AskUserQuestion으로)
-- 적용 범위: 신청 관리만 / 전체 8개 표
-- 저장: 영구(localStorage) / 세션만
-- 대안(표시·숨김 토글·프리셋) 대비 드래그 resize가 정말 필요한지
+- 의존성: 선행 → PR 1 → PR 2. 각 단계 dev 검증 후 다음.
+- ⚠️ **핫스팟 주의**: PR 2는 `admin.js`·`admin-deliverables.js` 등 다중 페인 파일 → worktree 병렬 분기 금지(`admin.js` 충돌 100%), **시퀀셜 PR**만. PR 1·2는 같은 세션 순차.
+- 빌드: `dev/` 소스 수정 후 `build.sh` concat 필수(신규 파일 없음 — 기존 파일 수정만).
 
 ## 구현 결과 (개발 세션이 채울 것)
 _(미착수)_
