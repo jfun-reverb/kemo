@@ -144,6 +144,8 @@ window.I18N_JA = {
       pwLabel: 'パスワード',
       pwHint: '（8文字以上）',
       pwConfirmLabel: 'パスワード（確認）',
+      pwPlaceholder: '8文字以上',
+      pwConfirmPlaceholder: 'パスワード再入力',
       agreeAll: 'すべてに同意する',
       required: '必須',
       optional: '任意',

@@ -139,6 +139,8 @@ window.I18N_KO = {
       pwLabel: '비밀번호',
       pwHint: '(8자 이상)',
       pwConfirmLabel: '비밀번호 확인',
+      pwPlaceholder: '8자 이상',
+      pwConfirmPlaceholder: '비밀번호 재입력',
       agreeAll: '전체 동의',
       required: '필수',
       optional: '선택',
