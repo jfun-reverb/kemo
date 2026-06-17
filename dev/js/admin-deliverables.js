@@ -552,9 +552,11 @@ function certStatusLabelKo(g) {
 }
 function certStatusBadge(g) {
   const s = computeCertStatus(g);
-  if (s === 'success')    return '<span class="badge badge-green">인증성공</span>';
-  if (s === 'submitting') return '<span class="badge badge-gold">인증샷 제출중</span>';
-  return '<span class="badge badge-gray">미제출</span>';
+  // 결과물 셀 라벨(10px)과 크기 통일 + 줄바꿈 방지
+  const st = 'font-size:10px;padding:1px 6px;white-space:nowrap';
+  if (s === 'success')    return `<span class="badge badge-green" style="${st}">인증성공</span>`;
+  if (s === 'submitting') return `<span class="badge badge-gold" style="${st}">인증샷 제출중</span>`;
+  return `<span class="badge badge-gray" style="${st}">미제출</span>`;
 }
 
 // 신청 1건 = 1행. 영수증 셀 / 결과물 셀 각각 상태 배지·미리보기 노출.
@@ -668,8 +670,8 @@ function renderDelivResultCellMonitor(g) {
 // 영수증·결과물 셀 — slot: 'receipt' | 'result', rt: campaign.recruit_type
 //   opts.hasValidApprovedPost: 같은 신청에 캠페인 채널 일치 승인 게시물이 있으면 채널 불일치 배지 숨김
 function renderDelivStatusCell(d, slot, rt, opts) {
-  // 결과물 셀(result)은 monitor 채널별 미니행(10px)과 라벨 크기를 통일. 영수증 셀은 기존 11px 유지.
-  const small = slot === 'result';
+  // 결과물·영수증 셀 라벨을 monitor 채널별 미니행(10px)과 크기 통일.
+  const small = (slot === 'result' || slot === 'receipt');
   const badgeFs = small ? '10px' : '11px';
   const badgePad = small ? '1px 6px' : '2px 8px';
   // 영수증은 monitor에서만 사용. gifting/visit은 영수증 단계 없음 → 「-」 표시
