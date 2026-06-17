@@ -311,7 +311,7 @@ function msgCell(text, app) {
   const consent = app ? consentBadge(app) : '';
   if (!text) return consent || '—';
   const safe = esc(text);
-  const short = `<div style="max-width:200px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--ink)">${safe}</div>`;
+  const short = `<div style="max-width:280px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--ink)">${safe}</div>`;
   const more = text.length > 40
     ? `<a href="javascript:void(0)" style="font-size:10px;color:var(--pink);text-decoration:underline;cursor:pointer" onclick="event.stopPropagation();openMsgModal(this)" data-msg="${safe}">더보기</a>`
     : '';
