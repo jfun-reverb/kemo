@@ -171,11 +171,48 @@ SELECT
 
 ---
 
-## (D) 롤백·백업
+## (D) 백업·롤백
 
-- **작업 전**: Supabase 대시보드 → `Database` → `Backups` → `Create backup`(Pro 플랜 즉시 가능).
-- **COMMIT 전**: `ROLLBACK;`으로 전부 원복.
-- **COMMIT 후 문제 시**: 역치환 SQL(`nrwtujmlbktxjgdwlpjj`→`twofagomeizrtkwlhsuv`). 단 **시드니가 살아있는 동안만** 의미. 영수증 역치환은 `AND kind='receipt'` 안전망. (전문은 supabase-expert 산출 보관 — 필요 시 재생성)
+**3중 안전망**: ① 치환 트랜잭션 COMMIT 전 ROLLBACK / ② 대상 테이블 복사 백업(아래) / ③ Pro 자동 일별 백업.
+
+### (D-1) 백업 — 치환 직전 실행 (도쿄 운영 DB)
+영향 3개 테이블을 통째로 백업본에 복사. 기존 데이터는 안 건드림(새 테이블만 생성).
+```sql
+CREATE TABLE backup_deliverables_20260617 AS SELECT * FROM public.deliverables;
+CREATE TABLE backup_campaigns_20260617    AS SELECT * FROM public.campaigns;
+CREATE TABLE backup_cch_20260617          AS SELECT * FROM public.campaign_caution_history;
+```
+백업 확인(원본=백업 행 수 일치면 성공):
+```sql
+SELECT 'deliverables' AS tbl, (SELECT count(*) FROM public.deliverables) AS orig, (SELECT count(*) FROM backup_deliverables_20260617) AS backup
+UNION ALL SELECT 'campaigns', (SELECT count(*) FROM public.campaigns), (SELECT count(*) FROM backup_campaigns_20260617)
+UNION ALL SELECT 'campaign_caution_history', (SELECT count(*) FROM public.campaign_caution_history), (SELECT count(*) FROM backup_cch_20260617);
+```
+
+### (D-2) 복원 — COMMIT 후 문제 시에만
+```sql
+BEGIN;
+UPDATE public.deliverables d SET receipt_url = b.receipt_url
+  FROM backup_deliverables_20260617 b WHERE d.id = b.id AND d.receipt_url IS DISTINCT FROM b.receipt_url;
+UPDATE public.campaigns c SET image_url=b.image_url, img1=b.img1, img2=b.img2, img3=b.img3, img4=b.img4,
+       participation_steps=b.participation_steps, caution_items=b.caution_items, ng_items=b.ng_items
+  FROM backup_campaigns_20260617 b WHERE c.id = b.id;
+UPDATE public.campaign_caution_history h SET prev_caution_items=b.prev_caution_items, next_caution_items=b.next_caution_items,
+       prev_participation_steps=b.prev_participation_steps, next_participation_steps=b.next_participation_steps,
+       ng_items_prev=b.ng_items_prev, ng_items_next=b.ng_items_next
+  FROM backup_cch_20260617 b WHERE h.id = b.id;
+COMMIT;
+```
+
+### (D-3) 정리 — ⑤ 관찰까지 끝나 안전 확인 후
+```sql
+DROP TABLE IF EXISTS backup_deliverables_20260617;
+DROP TABLE IF EXISTS backup_campaigns_20260617;
+DROP TABLE IF EXISTS backup_cch_20260617;
+```
+
+### (D-0) 역치환 (백업본 없이 호스트만 되돌릴 때, 시드니 살아있는 동안만)
+`REPLACE(col,'nrwtujmlbktxjgdwlpjj','twofagomeizrtkwlhsuv')` + 영수증은 `AND kind='receipt'` 안전망.
 
 ---
 
