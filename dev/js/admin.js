@@ -60,24 +60,28 @@ function filterAdminCampaigns() { loadAdminCampaigns(true); }
 // 검색창 전용 — 글자 연타 시 마지막 입력만 반영(0.3초). 드롭다운 필터는 즉시 호출 유지.
 const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
-function resetCampSort() {
-  adminCampSortKey = '';
-  adminCampSortDir = '';
-  updateSortArrows();
-  updateCampTableHead();
-  const btn = $('btnCampSortReset'); if (btn) btn.style.display = 'none';
-  filterAdminCampaigns();
-}
-
-function updateCampSortResetBtn() {
-  const btn = $('btnCampSortReset');
-  if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
+// 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
+function updateCampViewResetBtn() {
+  const hasFilter = ['campTypeMulti','campStatusMulti'].some(id => getMultiFilterValues(id).length > 0);
+  const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
+  const hasSort = !!adminCampSortKey;
+  const btn = $('btnCampViewReset');
+  if (btn) btn.style.display = (hasFilter || hasSearch || hasSort) ? '' : 'none';
 }
 
 function resetCampFilters() {
   resetMultiFilter('campTypeMulti', '전체 타입');
   resetMultiFilter('campStatusMulti', '전체 상태');
   const s = $('adminCampSearch'); if (s) s.value = '';
+  filterAdminCampaigns();
+}
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetCampView() {
+  resetMultiFilter('campTypeMulti', '전체 타입');
+  resetMultiFilter('campStatusMulti', '전체 상태');
+  const s = $('adminCampSearch'); if (s) s.value = '';
+  adminCampSortKey = ''; adminCampSortDir = '';
+  updateSortArrows(); updateCampTableHead();
   filterAdminCampaigns();
 }
 // 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로 (목록 페인 공통 패턴)
@@ -125,7 +129,7 @@ function toggleCampSort(key) {
     adminCampSortDir = 'desc';
   }
   updateSortArrows();
-  updateCampSortResetBtn();
+  updateCampViewResetBtn();
   filterAdminCampaigns();
 }
 
@@ -277,7 +281,7 @@ async function loadAdminCampaigns(useCache) {
       [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
   }
 
-  updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
+  updateCampViewResetBtn();
 
   // useCache(검색/필터/정렬)면 캐시 재사용 → 서버 재조회 0회. 캐시가 비어있으면 1회만 조회.
   // PR 4 서버 집계: 신청 전건 전송 대신 서버 집계 함수 1회 호출로 전환.

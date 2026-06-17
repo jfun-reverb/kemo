@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781666288';
+  var CURRENT_BUILD = 'v1781669611';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2079,7 +2079,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-17 12:18 · 19f5adb</span>
+          <span class="admin-build-text">2026-06-17 13:13 · 3707427</span>
         </div>
       </div>
     </aside>
@@ -2189,15 +2189,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <label>캠페인 상태</label>
                 <div id="campStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnCampFilterReset" onclick="resetCampFilters()" style="display:none">초기화</button>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="debouncedFilterAdminCampaigns()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <div style="position:relative;flex:1">
+                    <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="debouncedFilterAdminCampaigns()">
+                  </div>
+                  <button class="btn btn-ghost btn-xs" id="btnCampViewReset" onclick="resetCampView()" style="display:none;white-space:nowrap">보기 초기화</button>
                 </div>
               </div>
             </div>
@@ -2209,7 +2208,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectClear" onclick="clearCampSelection()" style="display:none">선택 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectApplicants" onclick="exportSelectedCampaignsApplicants()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 신청자 엑셀</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectDeliverables" onclick="exportSelectedCampaignsDeliverables()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 결과물 엑셀</button>
-                <button class="btn btn-ghost btn-xs" id="btnCampSortReset" onclick="resetCampSort()" style="display:none">정렬 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
               </div>
             </div>
@@ -2831,15 +2829,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <input type="number" id="infFollowersMax" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최대" style="width:84px" oninput="rerenderInfluencersFromCache()">
                 </div>
               </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnInfFilterReset" onclick="resetInfluencerFilters()" style="display:none">초기화</button>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="infSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="이름 · SNS · 메일주소" oninput="rerenderInfluencersFromCache()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <div style="position:relative;flex:1">
+                    <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="infSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="이름 · SNS · 메일주소" oninput="rerenderInfluencersFromCache()">
+                  </div>
+                  <button class="btn btn-ghost btn-xs" id="btnInfViewReset" onclick="resetInfView()" style="display:none;white-space:nowrap">보기 초기화</button>
                 </div>
               </div>
             </div>
@@ -2850,7 +2847,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               <div style="display:flex;align-items:center;gap:8px">
                 <label id="infExcelSensitiveWrap" style="display:none;align-items:center;gap:3px;font-size:11px;color:var(--muted);cursor:pointer" title="전화·LINE·PayPal·상세주소 열을 추가합니다 (캠페인 관리자 이상)"><input type="checkbox" id="infExcelSensitive">민감정보 포함</label>
                 <button class="btn btn-ghost btn-xs" id="btnInfExcel" onclick="exportInfluencersExcel()" style="display:inline-flex;align-items:center;gap:4px" title="현재 필터 결과를 엑셀로 다운로드"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">download</span> 엑셀 다운로드</button>
-                <button class="btn btn-ghost btn-xs" id="btnInfSortReset" onclick="resetInfSort()" style="display:none">정렬 초기화</button>
               </div>
             </div>
             <div class="admin-table-wrap">
@@ -3064,7 +3060,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnDelivFilterReset" onclick="resetDelivFiltersAndSort()" style="display:none">초기화</button>
+                <button class="btn btn-ghost btn-xs" id="btnDelivFilterReset" onclick="resetDelivFiltersAndSort()" style="display:none;white-space:nowrap">보기 초기화</button>
               </div>
               <!-- 텍스트 검색 입력 (기본 숨김 — 돋보기 버튼으로 토글) -->
               <div class="admin-filter-group" id="delivSearchBox" style="display:none;flex:1;min-width:220px">
@@ -3649,18 +3645,14 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <input type="hidden" id="brandAppFromDate">
                 <input type="hidden" id="brandAppToDate">
               </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <div style="display:flex;gap:4px">
-                  <button class="btn btn-ghost btn-xs" id="btnBrandAppSortReset" onclick="resetBrandAppSort()" style="display:none">정렬 초기화</button>
-                  <button class="btn btn-ghost btn-xs" id="btnBrandAppFilterReset" onclick="resetBrandAppFilters()" style="display:none">초기화</button>
-                </div>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="brandAppSearch" name="brandapp-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드 · 담당자 · 주소 검색" oninput="renderBrandApplicationsList()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <div style="position:relative;flex:1">
+                    <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="brandAppSearch" name="brandapp-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드 · 담당자 · 주소 검색" oninput="renderBrandApplicationsList()">
+                  </div>
+                  <button class="btn btn-ghost btn-xs" id="btnBrandAppViewReset" onclick="resetBrandAppView()" style="display:none;white-space:nowrap">보기 초기화</button>
                 </div>
               </div>
             </div>
@@ -13082,10 +13074,9 @@ function renderBrandApplicationsList() {
   var res = getFilteredBrandApps();
   var list = res.list;
   var filterActive = res.filterActive;
-  var resetBtn = $('btnBrandAppFilterReset');
-  if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
-  var sortResetBtn = $('btnBrandAppSortReset');
-  if (sortResetBtn) sortResetBtn.style.display = _brandAppSortIsDefault() ? 'none' : 'inline-block';
+  // 보기 초기화 — 필터·검색·정렬 중 하나라도 비기본이면 표시
+  var viewResetBtn = $('btnBrandAppViewReset');
+  if (viewResetBtn) viewResetBtn.style.display = (filterActive || !_brandAppSortIsDefault()) ? 'inline-block' : 'none';
 
   var count = $('brandAppTotalCount');
   if (count) {
@@ -13143,7 +13134,8 @@ function renderBrandApplicationsList() {
   });
 }
 
-function resetBrandAppFilters() {
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetBrandAppView() {
   resetMultiFilter('brandAppFormMulti', '전체 폼');
   // 상태 탭 초기화 (전체 탭으로)
   _brandAppActiveStatusTab = null;
@@ -13159,6 +13151,8 @@ function resetBrandAppFilters() {
   ['brandAppFromDate','brandAppToDate','brandAppDateRange'].forEach(function(id){
     var el = $(id); if (el) el.classList.remove('filter-active');
   });
+  _brandAppSort = {field: 'created', dir: 'desc'};
+  updateBrandAppSortIndicators();
   renderBrandApplicationsList();
 }
 
@@ -13203,12 +13197,6 @@ function toggleBrandAppSort(field) {
 
 function _brandAppSortIsDefault() {
   return _brandAppSort.field === 'created' && _brandAppSort.dir === 'desc';
-}
-
-function resetBrandAppSort() {
-  _brandAppSort = {field: 'created', dir: 'desc'};
-  updateBrandAppSortIndicators();
-  renderBrandApplicationsList();
 }
 
 // 정렬 화살표 활성 상태 시각화 (▲ asc / ▼ desc / ▲▼ inactive)
@@ -18415,20 +18403,22 @@ function renderInfluencersPane() {
   const total = (infUsersCache || []).length;
   const totalEl = $('infTotalCount');
   if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${total}명)`;
-  const resetBtn = $('btnInfFilterReset');
+  const resetBtn = $('btnInfViewReset');
   if (resetBtn) {
     const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
     const violationSel = $('infFilterViolationSelect')?.value || 'all';
     const searchQ = ($('infSearch')?.value || '').trim();
     const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
     const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
-    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower);
+    const hasSort = !(infSortKey === 'created' && infSortDir === 'desc');
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
     resetBtn.style.display = anyActive ? '' : 'none';
   }
   renderInfTable(filtered);
 }
 
-function resetInfluencerFilters() {
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetInfView() {
   const v = $('infFilterVerifiedSelect'); if (v) v.value = 'all';
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
@@ -18437,6 +18427,8 @@ function resetInfluencerFilters() {
   const mn = $('infFollowersMin'); if (mn) mn.value = '';
   const mx = $('infFollowersMax'); if (mx) mx.value = '';
   currentInfTab = 'all';
+  infSortKey = 'created'; infSortDir = 'desc';
+  updateInfSortUI();
   rerenderInfluencersFromCache();
 }
 
@@ -18459,13 +18451,6 @@ function toggleInfSort(key) {
   rerenderInfluencersFromCache();
 }
 
-function resetInfSort() {
-  infSortKey = 'created';
-  infSortDir = 'desc';
-  updateInfSortUI();
-  rerenderInfluencersFromCache();
-}
-
 function updateInfSortUI() {
   document.querySelectorAll('.inf-sort-arrows').forEach(el => {
     el.classList.remove('asc','desc');
@@ -18475,8 +18460,6 @@ function updateInfSortUI() {
       el.textContent = infSortDir === 'asc' ? '▲' : '▼';
     }
   });
-  const resetBtn = $('btnInfSortReset');
-  if (resetBtn) resetBtn.style.display = (infSortKey === 'created' && infSortDir === 'desc') ? 'none' : '';
 }
 
 function sortInfUsers(users) {
@@ -26388,24 +26371,28 @@ function filterAdminCampaigns() { loadAdminCampaigns(true); }
 // 검색창 전용 — 글자 연타 시 마지막 입력만 반영(0.3초). 드롭다운 필터는 즉시 호출 유지.
 const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
-function resetCampSort() {
-  adminCampSortKey = '';
-  adminCampSortDir = '';
-  updateSortArrows();
-  updateCampTableHead();
-  const btn = $('btnCampSortReset'); if (btn) btn.style.display = 'none';
-  filterAdminCampaigns();
-}
-
-function updateCampSortResetBtn() {
-  const btn = $('btnCampSortReset');
-  if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
+// 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
+function updateCampViewResetBtn() {
+  const hasFilter = ['campTypeMulti','campStatusMulti'].some(id => getMultiFilterValues(id).length > 0);
+  const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
+  const hasSort = !!adminCampSortKey;
+  const btn = $('btnCampViewReset');
+  if (btn) btn.style.display = (hasFilter || hasSearch || hasSort) ? '' : 'none';
 }
 
 function resetCampFilters() {
   resetMultiFilter('campTypeMulti', '전체 타입');
   resetMultiFilter('campStatusMulti', '전체 상태');
   const s = $('adminCampSearch'); if (s) s.value = '';
+  filterAdminCampaigns();
+}
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetCampView() {
+  resetMultiFilter('campTypeMulti', '전체 타입');
+  resetMultiFilter('campStatusMulti', '전체 상태');
+  const s = $('adminCampSearch'); if (s) s.value = '';
+  adminCampSortKey = ''; adminCampSortDir = '';
+  updateSortArrows(); updateCampTableHead();
   filterAdminCampaigns();
 }
 // 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로 (목록 페인 공통 패턴)
@@ -26453,7 +26440,7 @@ function toggleCampSort(key) {
     adminCampSortDir = 'desc';
   }
   updateSortArrows();
-  updateCampSortResetBtn();
+  updateCampViewResetBtn();
   filterAdminCampaigns();
 }
 
@@ -26605,7 +26592,7 @@ async function loadAdminCampaigns(useCache) {
       [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
   }
 
-  updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
+  updateCampViewResetBtn();
 
   // useCache(검색/필터/정렬)면 캐시 재사용 → 서버 재조회 0회. 캐시가 비어있으면 1회만 조회.
   // PR 4 서버 집계: 신청 전건 전송 대신 서버 집계 함수 1회 호출로 전환.

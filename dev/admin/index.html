@@ -243,15 +243,14 @@
                 <label>캠페인 상태</label>
                 <div id="campStatusMulti" class="mf-wrap"><button type="button" class="mf-btn">전체 상태</button><div class="mf-drop"></div></div>
               </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnCampFilterReset" onclick="resetCampFilters()" style="display:none">초기화</button>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="debouncedFilterAdminCampaigns()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <div style="position:relative;flex:1">
+                    <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="adminCampSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="캠페인명 · 브랜드 · 캠페인번호 검색" oninput="debouncedFilterAdminCampaigns()">
+                  </div>
+                  <button class="btn btn-ghost btn-xs" id="btnCampViewReset" onclick="resetCampView()" style="display:none;white-space:nowrap">보기 초기화</button>
                 </div>
               </div>
             </div>
@@ -263,7 +262,6 @@
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectClear" onclick="clearCampSelection()" style="display:none">선택 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectApplicants" onclick="exportSelectedCampaignsApplicants()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 신청자 엑셀</button>
                 <button class="btn btn-ghost btn-xs" id="btnCampSelectDeliverables" onclick="exportSelectedCampaignsDeliverables()" disabled title="캠페인을 1개 이상 선택하세요"><span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:middle">download</span> 결과물 엑셀</button>
-                <button class="btn btn-ghost btn-xs" id="btnCampSortReset" onclick="resetCampSort()" style="display:none">정렬 초기화</button>
                 <button class="btn btn-ghost btn-xs" id="btnReorderMode" onclick="enterReorderMode()">순서 변경</button>
               </div>
             </div>
@@ -885,15 +883,14 @@
                   <input type="number" id="infFollowersMax" class="admin-filter no-spinner" inputmode="numeric" min="0" step="1" placeholder="최대" style="width:84px" oninput="rerenderInfluencersFromCache()">
                 </div>
               </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnInfFilterReset" onclick="resetInfluencerFilters()" style="display:none">초기화</button>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="infSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="이름 · SNS · 메일주소" oninput="rerenderInfluencersFromCache()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <div style="position:relative;flex:1">
+                    <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="infSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="이름 · SNS · 메일주소" oninput="rerenderInfluencersFromCache()">
+                  </div>
+                  <button class="btn btn-ghost btn-xs" id="btnInfViewReset" onclick="resetInfView()" style="display:none;white-space:nowrap">보기 초기화</button>
                 </div>
               </div>
             </div>
@@ -904,7 +901,6 @@
               <div style="display:flex;align-items:center;gap:8px">
                 <label id="infExcelSensitiveWrap" style="display:none;align-items:center;gap:3px;font-size:11px;color:var(--muted);cursor:pointer" title="전화·LINE·PayPal·상세주소 열을 추가합니다 (캠페인 관리자 이상)"><input type="checkbox" id="infExcelSensitive">민감정보 포함</label>
                 <button class="btn btn-ghost btn-xs" id="btnInfExcel" onclick="exportInfluencersExcel()" style="display:inline-flex;align-items:center;gap:4px" title="현재 필터 결과를 엑셀로 다운로드"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">download</span> 엑셀 다운로드</button>
-                <button class="btn btn-ghost btn-xs" id="btnInfSortReset" onclick="resetInfSort()" style="display:none">정렬 초기화</button>
               </div>
             </div>
             <div class="admin-table-wrap">
@@ -1118,7 +1114,7 @@
               </div>
               <div class="admin-filter-group" style="justify-content:flex-end">
                 <label>&nbsp;</label>
-                <button class="btn btn-ghost btn-xs" id="btnDelivFilterReset" onclick="resetDelivFiltersAndSort()" style="display:none">초기화</button>
+                <button class="btn btn-ghost btn-xs" id="btnDelivFilterReset" onclick="resetDelivFiltersAndSort()" style="display:none;white-space:nowrap">보기 초기화</button>
               </div>
               <!-- 텍스트 검색 입력 (기본 숨김 — 돋보기 버튼으로 토글) -->
               <div class="admin-filter-group" id="delivSearchBox" style="display:none;flex:1;min-width:220px">
@@ -1703,18 +1699,14 @@
                 <input type="hidden" id="brandAppFromDate">
                 <input type="hidden" id="brandAppToDate">
               </div>
-              <div class="admin-filter-group" style="justify-content:flex-end">
-                <label>&nbsp;</label>
-                <div style="display:flex;gap:4px">
-                  <button class="btn btn-ghost btn-xs" id="btnBrandAppSortReset" onclick="resetBrandAppSort()" style="display:none">정렬 초기화</button>
-                  <button class="btn btn-ghost btn-xs" id="btnBrandAppFilterReset" onclick="resetBrandAppFilters()" style="display:none">초기화</button>
-                </div>
-              </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
-                <div style="position:relative">
-                  <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
-                  <input type="search" id="brandAppSearch" name="brandapp-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드 · 담당자 · 주소 검색" oninput="renderBrandApplicationsList()">
+                <div style="display:flex;gap:6px;align-items:center">
+                  <div style="position:relative;flex:1">
+                    <span class="material-icons-round" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                    <input type="search" id="brandAppSearch" name="brandapp-q" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')" placeholder="브랜드 · 담당자 · 주소 검색" oninput="renderBrandApplicationsList()">
+                  </div>
+                  <button class="btn btn-ghost btn-xs" id="btnBrandAppViewReset" onclick="resetBrandAppView()" style="display:none;white-space:nowrap">보기 초기화</button>
                 </div>
               </div>
             </div>
