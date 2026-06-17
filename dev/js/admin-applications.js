@@ -436,11 +436,15 @@ async function renderAppCampList() {
   const appCampCounts = {};
   const appTypeCounts = {};
   const appStatusCountsMap = {};
+  const appCampStatusCounts = {};   // 캠페인 상태별 신청 수 (캠페인 상태 필터 옵션 (NN))
   const campRtLookup = new Map(camps.map(c => [c.id, c.recruit_type]));
+  const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
   for (const a of allAppsRaw) {
     if (a.campaign_id) appCampCounts[a.campaign_id] = (appCampCounts[a.campaign_id] || 0) + 1;
     const rt = campRtLookup.get(a.campaign_id);
     if (rt) appTypeCounts[rt] = (appTypeCounts[rt] || 0) + 1;
+    const cst = campStatusLookup.get(a.campaign_id);
+    if (cst) appCampStatusCounts[cst] = (appCampStatusCounts[cst] || 0) + 1;
     if (a.status) appStatusCountsMap[a.status] = (appStatusCountsMap[a.status] || 0) + 1;
   }
 
@@ -449,6 +453,15 @@ async function renderAppCampList() {
   syncMultiFilter('appTypeMulti', '전체 타입',
     availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t, count: appTypeCounts[t] || 0})),
     () => renderAppCampList());
+  // 캠페인 상태 필터 — 캠페인 관리 페인과 동일 6단계 (admin.js campStatusMulti 와 라벨·순서 통일)
+  syncMultiFilter('appCampStatusMulti', '전체 상태', [
+    {value:'draft',     label:'준비',     count: appCampStatusCounts.draft     || 0},
+    {value:'scheduled', label:'모집예정', count: appCampStatusCounts.scheduled || 0},
+    {value:'active',    label:'모집중',   count: appCampStatusCounts.active    || 0},
+    {value:'closed',    label:'모집마감', count: appCampStatusCounts.closed    || 0},
+    {value:'ended',     label:'종료',     count: appCampStatusCounts.ended     || 0},
+    {value:'expired',   label:'노출종료', count: appCampStatusCounts.expired   || 0},
+  ], () => renderAppCampList());
   syncMultiFilter('appStatusMulti', '전체 상태', [
     {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
     {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
@@ -462,6 +475,10 @@ async function renderAppCampList() {
     const filteredCampIds = camps.filter(c => appTypeVals.includes(c.recruit_type)).map(c => c.id);
     apps = apps.filter(a => filteredCampIds.includes(a.campaign_id));
   }
+
+  // 캠페인 상태 필터 (다중 선택) — 신청이 속한 캠페인의 status 기준
+  const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
+  if (appCampStatusVals.length) apps = apps.filter(a => appCampStatusVals.includes(campStatusLookup.get(a.campaign_id)));
 
   // 상태 필터 (다중 선택)
   const appStatusVals = getMultiFilterValues('appStatusMulti');
@@ -482,7 +499,7 @@ async function renderAppCampList() {
     });
   }
 
-  updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appStatusMulti','appCampMulti'], 'appSearch');
+  updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'], 'appSearch');
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
@@ -542,9 +559,8 @@ async function renderAppCampList() {
         ${productPrimary?esc(productPrimary):'—'}
         ${productSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(productSub)}</div>`:''}
       </td>
-      <td style="font-size:11px;color:var(--muted);white-space:nowrap">
-        ${recruitStart?`<div>${recruitStart}</div>`:''}
-        <div style="color:var(--ink)">~ ${recruitEnd||'—'}</div>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">
+        ${(recruitStart||recruitEnd) ? `${recruitStart||'—'} ~ ${recruitEnd||'—'}` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>

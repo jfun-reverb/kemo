@@ -82,6 +82,7 @@ function resetCampFilters() {
 }
 function resetAppFilters() {
   resetMultiFilter('appTypeMulti', '전체 타입');
+  resetMultiFilter('appCampStatusMulti', '전체 상태');
   resetMultiFilter('appStatusMulti', '전체 상태');
   resetMultiFilter('appCampMulti', '전체 캠페인');
   const s = $('appSearch'); if (s) s.value = '';
