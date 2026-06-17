@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781670721';
+  var CURRENT_BUILD = 'v1781671387';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2003,6 +2003,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* 감사용 행 — 행 배경도 옅게 강조해 목록에서 즉시 식별 */
 tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
+/* 브랜드 상세·신규 브랜드 등록 모달 입력칸 글자 크기 (HTML 인라인 <style>에서 이전, 2026-06-17) */
+#brandDetailModal input.admin-filter,
+#brandDetailModal textarea.admin-filter,
+#brandDetailModal select.admin-filter,
+#brandDetailModal input.form-input,
+#brandDetailModal textarea.form-input,
+#brandDetailModal select.form-input { font-size: 14px; }
+#newBrandAppModal .form-input,
+#newBrandAppModal select.form-input,
+#newBrandAppModal textarea.form-input { font-size: 14px; }
+
 </style>
 </head>
 <body style="background:#F8F5F8">
@@ -2079,7 +2090,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-17 13:32 · bfb15dc</span>
+          <span class="admin-build-text">2026-06-17 13:43 · 82b7503</span>
         </div>
       </div>
     </aside>
@@ -3596,7 +3607,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
         <!-- BRAND DETAIL/EDIT MODAL -->
         <div class="modal-overlay" id="brandDetailModal" style="z-index:612">
-          <style>#brandDetailModal input.admin-filter,#brandDetailModal textarea.admin-filter,#brandDetailModal select.admin-filter,#brandDetailModal input.form-input,#brandDetailModal textarea.form-input,#brandDetailModal select.form-input{font-size:14px}</style>
           <div class="modal" style="max-width:1280px;width:96vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
             <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
               <div id="brandDetailTitle">
@@ -4796,7 +4806,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 
 <!-- 관리자 직접 신청 등록 모달 (091 admin_create_brand_application) -->
 <div class="modal-overlay" id="newBrandAppModal" style="z-index:612">
-  <style>#newBrandAppModal .form-input,#newBrandAppModal select.form-input,#newBrandAppModal textarea.form-input{font-size:14px}</style>
   <div class="modal" style="width:80vw;max-width:1600px;border-radius:16px;margin:auto;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header" style="padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
       <div>
