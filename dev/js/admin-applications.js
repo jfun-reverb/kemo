@@ -432,20 +432,35 @@ async function renderAppCampList() {
   if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 타입 필터에 맞지 않아 해제되었습니다`, 'info');
   if (typeStale.length > 0 && typeof toast === 'function') toast(`선택한 타입 ${typeStale.length}건이 캠페인 필터에 맞지 않아 해제되었습니다`, 'info');
 
-  // 옵션별 카운트 계산 (전체 신청 기준 — 다른 필터 무관)
+  // 필터 값 추출 (카운트·필터 적용 공용) — 동적 카운트를 위해 미리 확보
+  const campRtLookup = new Map(camps.map(c => [c.id, c.recruit_type]));
+  const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
+  const appTypeVals = getMultiFilterValues('appTypeMulti');
+  const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
+  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  const campFilterVals = getMultiFilterValues('appCampMulti');
+  const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
+  // 단일 신청이 필터를 통과하는지 — skip 지정 시 그 필터만 무시(옵션별 동적 카운트용)
+  const passesAppFilters = (a, skip) => {
+    if (skip !== 'type'       && appTypeVals.length       && !appTypeVals.includes(campRtLookup.get(a.campaign_id))) return false;
+    if (skip !== 'campStatus' && appCampStatusVals.length && !appCampStatusVals.includes(campStatusLookup.get(a.campaign_id))) return false;
+    if (skip !== 'status'     && appStatusVals.length     && !appStatusVals.includes(a.status)) return false;
+    if (skip !== 'camp'       && campFilterVals.length    && !campFilterVals.includes(a.campaign_id)) return false;
+    if (searchVal && !matchSearchTokens(searchVal, [a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code])) return false;
+    return true;
+  };
+  // 옵션별 카운트 — 「자기 자신 필터 제외 + 다른 모든 필터 적용」 후 집계 (동적, 결과물 관리 페인과 동일 방식)
   const appCampCounts = {};
   const appTypeCounts = {};
   const appStatusCountsMap = {};
-  const appCampStatusCounts = {};   // 캠페인 상태별 신청 수 (캠페인 상태 필터 옵션 (NN))
-  const campRtLookup = new Map(camps.map(c => [c.id, c.recruit_type]));
-  const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
+  const appCampStatusCounts = {};
   for (const a of allAppsRaw) {
-    if (a.campaign_id) appCampCounts[a.campaign_id] = (appCampCounts[a.campaign_id] || 0) + 1;
+    if (a.campaign_id && passesAppFilters(a, 'camp')) appCampCounts[a.campaign_id] = (appCampCounts[a.campaign_id] || 0) + 1;
     const rt = campRtLookup.get(a.campaign_id);
-    if (rt) appTypeCounts[rt] = (appTypeCounts[rt] || 0) + 1;
+    if (rt && passesAppFilters(a, 'type')) appTypeCounts[rt] = (appTypeCounts[rt] || 0) + 1;
     const cst = campStatusLookup.get(a.campaign_id);
-    if (cst) appCampStatusCounts[cst] = (appCampStatusCounts[cst] || 0) + 1;
-    if (a.status) appStatusCountsMap[a.status] = (appStatusCountsMap[a.status] || 0) + 1;
+    if (cst && passesAppFilters(a, 'campStatus')) appCampStatusCounts[cst] = (appCampStatusCounts[cst] || 0) + 1;
+    if (a.status && passesAppFilters(a, 'status')) appStatusCountsMap[a.status] = (appStatusCountsMap[a.status] || 0) + 1;
   }
 
   // 드롭다운 동기화 — count 포함
@@ -469,35 +484,9 @@ async function renderAppCampList() {
     {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
   ], () => renderAppCampList());
 
-  // 타입 필터 (다중 선택) — stale 제거 후 최종값
-  const appTypeVals = getMultiFilterValues('appTypeMulti');
-  if (appTypeVals.length) {
-    const filteredCampIds = camps.filter(c => appTypeVals.includes(c.recruit_type)).map(c => c.id);
-    apps = apps.filter(a => filteredCampIds.includes(a.campaign_id));
-  }
-
-  // 캠페인 상태 필터 (다중 선택) — 신청이 속한 캠페인의 status 기준
-  const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
-  if (appCampStatusVals.length) apps = apps.filter(a => appCampStatusVals.includes(campStatusLookup.get(a.campaign_id)));
-
-  // 상태 필터 (다중 선택)
-  const appStatusVals = getMultiFilterValues('appStatusMulti');
-  if (appStatusVals.length) apps = apps.filter(a => appStatusVals.includes(a.status));
-
-  // 캠페인 다중 선택 필터 — stale 제거 후 최종값
-  const campFilterVals = getMultiFilterValues('appCampMulti');
-  if (campFilterVals.length) apps = apps.filter(a => campFilterVals.includes(a.campaign_id));
-
-  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
-  const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
-  if (searchVal) {
-    apps = apps.filter(a => {
-      // 검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
-      return matchSearchTokens(searchVal, [
-        a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code,
-      ]);
-    });
-  }
+  // 필터 적용 — 위에서 정의한 passesAppFilters 로 일괄 (타입·캠페인상태·신청상태·캠페인·검색 모두 포함)
+  //   검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
+  apps = apps.filter(a => passesAppFilters(a));
 
   updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'], 'appSearch');
 
