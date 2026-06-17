@@ -534,7 +534,7 @@ async function renderAppCampList() {
         ${brandPrimary?esc(brandPrimary):'—'}
         ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}
       </td>
-      <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
+      <td style="font-size:12px;color:var(--ink);min-width:200px;max-width:260px;word-break:break-word">
         ${productPrimary?esc(productPrimary):'—'}
         ${productSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(productSub)}</div>`:''}
       </td>
