@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1781665476';
+  var CURRENT_BUILD = 'v1781666288';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2079,7 +2079,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-17 12:04 · 70c5501</span>
+          <span class="admin-build-text">2026-06-17 12:18 · 19f5adb</span>
         </div>
       </div>
     </aside>
@@ -6062,6 +6062,12 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
 function brandLabelAdmin(c) {
   if (!c) return '';
   return (c.brand || c.brand_en || c.brand_ja || '').trim();
+}
+// 캠페인 미리보기 돋보기 버튼 — 관리자 목록 캠페인 열 공통. 이름 옆에 배치, 클릭 시 미리보기 모달.
+//   (기존엔 캠페인명 자체 클릭으로 열렸으나, 명시적 버튼으로 통일 — 2026-06-17)
+function campPreviewBtn(campId) {
+  if (!campId) return '';
+  return `<button type="button" onclick="event.stopPropagation();openCampPreviewModal('${esc(String(campId))}')" title="미리보기" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;margin:0;color:var(--muted);display:inline-flex;align-items:center;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">search</span></button>`;
 }
 function brandLabelInflu(c) {
   if (!c) return '';
@@ -19826,7 +19832,7 @@ function renderDelivAppRow(g) {
   const brandLabel = brandLabelAdmin(camp);
 
   return `<tr data-app-id="${esc(g.application_id)}" class="${inf.is_audit ? 'audit-row' : ''}" style="${rowStyle}">
-    <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div>${esc(camp.title || '—')}</div></td>
+    <td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">${rtBadge}${campNoBadge}</div><div style="display:flex;align-items:flex-start;gap:4px"><span style="flex:1">${esc(camp.title || '—')}</span>${campPreviewBtn(camp.id)}</div></td>
     <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
     <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">${brandLabel ? esc(brandLabel) : '—'}</td>
     <td style="font-size:11px;color:var(--ink);white-space:nowrap">${periodRangeCell(ps, pe)}</td>
@@ -23562,7 +23568,7 @@ function renderRecentAppsTable(apps, camps, users) {
           </div>
           <div style="min-width:0">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="font-size:13px;flex:1">${esc(camp.title)||'—'}</strong>${campPreviewBtn(camp.id)}</div>
             <div style="font-size:11px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div>
             ${camp.slots?`<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_dRem>0?'var(--green)':'var(--red)'};font-weight:600">${_dRem>0?_dRem+'건':'없음'}</span></div>`:''}
           </div>
@@ -24465,7 +24471,7 @@ async function renderAppCampList() {
           </div>
           <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer;display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="font-size:13px;display:block;word-break:break-word;line-height:1.4;flex:1">${esc(camp.title)||'—'}</strong>${campPreviewBtn(camp.id)}</div>
             ${camp.slots?(()=>{const _r=Math.max(camp.slots-countNonAuditApproved(allAppsRaw, camp.id, _auditIds),0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
@@ -26686,7 +26692,7 @@ async function loadAdminCampaigns(useCache) {
               ${typeLabel(c.recruit_type)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
-            <strong style="cursor:pointer;color:var(--ink);display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--ink);display:block;word-break:break-word;line-height:1.4;flex:1">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
           </div>
         </div>
       </td>

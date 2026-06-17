@@ -364,7 +364,7 @@ async function loadAdminCampaigns(useCache) {
               ${typeLabel(c.recruit_type)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
-            <strong style="cursor:pointer;color:var(--ink);display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--ink);display:block;word-break:break-word;line-height:1.4;flex:1">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
           </div>
         </div>
       </td>

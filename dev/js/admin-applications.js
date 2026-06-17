@@ -524,7 +524,7 @@ async function renderAppCampList() {
           </div>
           <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer;display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="font-size:13px;display:block;word-break:break-word;line-height:1.4;flex:1">${esc(camp.title)||'—'}</strong>${campPreviewBtn(camp.id)}</div>
             ${camp.slots?(()=>{const _r=Math.max(camp.slots-countNonAuditApproved(allAppsRaw, camp.id, _auditIds),0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
