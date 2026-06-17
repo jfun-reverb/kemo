@@ -559,6 +559,8 @@ function openAgeGate() {
   // 기존 입력값 복원 (성별만 — 생년월일은 최초 입력이라 보통 비어 있음)
   const p = currentUserProfile || {};
   if (p.gender && $('gateGender')) $('gateGender').value = p.gender;
+  // 동의 체크박스는 매번 미체크로 초기화 (재진입 시 이전 체크 상태로 무의식 통과 방지)
+  if ($('gateAgreePrivacy')) $('gateAgreePrivacy').checked = false;
   const ov = $('ageGateOverlay');
   if (ov) ov.style.display = 'flex';
 }
@@ -583,6 +585,8 @@ async function saveAgeGate() {
     showErr(t('authError.invalidBirthdate')); return;
   }
   if (!gender) { showErr(t('authError.enterGender')); return; }
+  // 개인정보(생년월일·성별) 수집·이용 동의 필수 — 신규 수집이므로 명시 동의 (개인정보보호법)
+  if (!$('gateAgreePrivacy')?.checked) { showErr(t('ageGate.agreeRequired')); return; }
 
   // ⚠️ 18세 미만은 DB 저장 없이 차단 — 생년월일 잠금 트리거(PR1)로 오타가 영구 고정되는 것 방지
   //    (개인정보 최소수집 원칙). 18세 도달 후 재입력 시 저장됨(서버가 birthdate로 매번 판정).
@@ -600,11 +604,13 @@ async function saveAgeGate() {
 
   const btn = $('ageGateSaveBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  const consentAt = new Date().toISOString();
   try {
-    await updateInfluencer(currentUser.id, { birthdate, gender });
+    await updateInfluencer(currentUser.id, { birthdate, gender, age_consent_at: consentAt });
     if (!currentUserProfile) currentUserProfile = {};
     currentUserProfile.birthdate = birthdate;
     currentUserProfile.gender = gender;
+    currentUserProfile.age_consent_at = consentAt;
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
     showErr(friendlyErrorJa(e));

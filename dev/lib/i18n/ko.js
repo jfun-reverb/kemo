@@ -319,6 +319,7 @@ window.I18N_KO = {
     cancel: '취소',
     save: '저장하고 계속',
     under18Apply: '만 18세 미만은 응모할 수 없습니다. 만 18세가 되면 자동으로 응모할 수 있습니다.',
+    agreeRequired: '개인정보(생년월일·성별) 수집·이용에 동의해 주세요.',
   },
 
   loginPrompt: {

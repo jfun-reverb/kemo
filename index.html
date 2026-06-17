@@ -772,6 +772,13 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
         <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
       </select>
     </div>
+    <div class="signup-agree" style="margin-bottom:14px">
+      <label class="signup-agree-row">
+        <input type="checkbox" class="agree-required" id="gateAgreePrivacy">
+        <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+        <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
+      </label>
+    </div>
     <div id="ageGateError" class="form-error" style="margin-bottom:12px;display:none"></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
@@ -3122,6 +3129,7 @@ window.I18N_JA = {
     cancel: 'キャンセル',
     save: '保存して続ける',
     under18Apply: '満18歳未満の方は応募できません。満18歳になると自動的に応募できるようになります。',
+    agreeRequired: '個人情報（生年月日・性別）の収集・利用にご同意ください。',
   },
 
   // 로그인 프롬프트
@@ -3821,6 +3829,7 @@ window.I18N_KO = {
     cancel: '취소',
     save: '저장하고 계속',
     under18Apply: '만 18세 미만은 응모할 수 없습니다. 만 18세가 되면 자동으로 응모할 수 있습니다.',
+    agreeRequired: '개인정보(생년월일·성별) 수집·이용에 동의해 주세요.',
   },
 
   loginPrompt: {
@@ -10223,6 +10232,8 @@ function openAgeGate() {
   // 기존 입력값 복원 (성별만 — 생년월일은 최초 입력이라 보통 비어 있음)
   const p = currentUserProfile || {};
   if (p.gender && $('gateGender')) $('gateGender').value = p.gender;
+  // 동의 체크박스는 매번 미체크로 초기화 (재진입 시 이전 체크 상태로 무의식 통과 방지)
+  if ($('gateAgreePrivacy')) $('gateAgreePrivacy').checked = false;
   const ov = $('ageGateOverlay');
   if (ov) ov.style.display = 'flex';
 }
@@ -10247,6 +10258,8 @@ async function saveAgeGate() {
     showErr(t('authError.invalidBirthdate')); return;
   }
   if (!gender) { showErr(t('authError.enterGender')); return; }
+  // 개인정보(생년월일·성별) 수집·이용 동의 필수 — 신규 수집이므로 명시 동의 (개인정보보호법)
+  if (!$('gateAgreePrivacy')?.checked) { showErr(t('ageGate.agreeRequired')); return; }
 
   // ⚠️ 18세 미만은 DB 저장 없이 차단 — 생년월일 잠금 트리거(PR1)로 오타가 영구 고정되는 것 방지
   //    (개인정보 최소수집 원칙). 18세 도달 후 재입력 시 저장됨(서버가 birthdate로 매번 판정).
@@ -10264,11 +10277,13 @@ async function saveAgeGate() {
 
   const btn = $('ageGateSaveBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  const consentAt = new Date().toISOString();
   try {
-    await updateInfluencer(currentUser.id, { birthdate, gender });
+    await updateInfluencer(currentUser.id, { birthdate, gender, age_consent_at: consentAt });
     if (!currentUserProfile) currentUserProfile = {};
     currentUserProfile.birthdate = birthdate;
     currentUserProfile.gender = gender;
+    currentUserProfile.age_consent_at = consentAt;
   } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
     showErr(friendlyErrorJa(e));
