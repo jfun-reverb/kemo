@@ -437,7 +437,8 @@ async function changePassword() {
   if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
   if (!db) { err.textContent=t('authError.serverError'); err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
-  if (error) { err.textContent=error.message; err.style.display='block'; return; }
+  // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
+  if (error) { err.textContent=t('authError.genericError'); err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
 }

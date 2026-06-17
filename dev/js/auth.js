@@ -13,8 +13,19 @@ function updateGnb() {
 }
 
 // 생년월일 년/월/일 select 채우기 (멱등). prefix 로 가입('signup')·응모 게이트('gate') 공용.
+// 가입 폼 입력을 바꾸면 즉시 에러 문구를 지움 (값을 고쳐도 에러가 다음 제출까지 남는 문제 방지)
+function bindSignupErrorClear() {
+  const area = $('signupFormArea'), errEl = $('signupError');
+  if (!area || !errEl || area.dataset.errClearBound) return;
+  area.dataset.errClearBound = '1';
+  const clear = () => { errEl.style.display = 'none'; };
+  area.addEventListener('input', clear);   // 텍스트·이메일·비밀번호
+  area.addEventListener('change', clear);  // 생년월일·성별 select
+}
+
 function populateBirthdateSelects(prefix) {
   prefix = prefix || 'signup';
+  if (prefix === 'signup') bindSignupErrorClear();
   const yEl = $(prefix+'BirthYear'), mEl = $(prefix+'BirthMonth'), dEl = $(prefix+'BirthDay');
   if (!yEl || !mEl || !dEl || yEl.dataset.filled) return;
   const curY = new Date().getFullYear();
@@ -87,7 +98,8 @@ async function handleSignup(e) {
 
   try {
     const {data, error} = await db.auth.signUp({email, password: pw});
-    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
+    // 계정 열거 방지: 이미 가입된 이메일 등 서버 원문(영문) 노출 금지, 모호한 일반 메시지로 통일
+    if (error) { errEl.textContent=t('authError.signupFailed'); errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
@@ -104,7 +116,8 @@ async function handleSignup(e) {
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
-    errEl.textContent=t('authError.genericError') + ': ' + (e.message || String(e)); errEl.style.display='block';
+    // 영문 예외 메시지 노출 금지 — 일반 안내로 통일
+    errEl.textContent=t('authError.signupFailed'); errEl.style.display='block';
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
@@ -194,7 +207,8 @@ async function handleForgotPassword(e) {
     const redirectUrl = location.origin + '/#reset-pw';
     const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
     if (error) {
-      errEl.textContent = error.message;
+      // 영문 서버 메시지·계정 존재 힌트 노출 금지 — 일반 안내로 통일
+      errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
       successEl.textContent = t('auth.forgot.successMsg');
@@ -243,7 +257,8 @@ async function handleResetPassword(e) {
   try {
     const {error} = await db.auth.updateUser({password: pw});
     if (error) {
-      errEl.textContent = error.message;
+      // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
+      errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
       try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
