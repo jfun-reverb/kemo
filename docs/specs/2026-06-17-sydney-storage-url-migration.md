@@ -231,5 +231,23 @@ DROP TABLE IF EXISTS backup_cch_20260617;
 - 시드니 pg_cron 메일 발송 여부 — 비밀번호 필요(대시보드 SQL 입력창에서 `SELECT jobname, schedule, active FROM cron.job;`).
 - 영수증 968건 중 샘플 1개만 도쿄 존재 검증 — ⑤ 관찰 단계에서 운영 영수증 화면 실확인.
 
-## 구현 결과 (개발 세션이 채울 것)
-_(미착수 — 치환 실행 후 영향 행 수·검증 결과·시드니 폐기일 기록)_
+## 구현 결과
+
+**실행일:** 2026-06-17 (기획 세션 안내 → 사용자가 도쿄 운영 DB SQL 입력창에서 직접 실행)
+
+### 치환 완료
+- 백업: `backup_deliverables_20260617`(1516) / `backup_campaigns_20260617`(126) / `backup_cch_20260617`(82) 생성, 원본=백업 행수 일치 확인. **작업 후 정리(DROP) 대기.**
+- 1차 치환: receipt_url 968·image_url 119·img1 119·img2 14 등 → 검증에서 campaigns 7건 잔존 발견.
+- **잔존 원인(중요)**: 첫 치환 트랜잭션이 `campaigns.participation_steps` 1건에서 보호 트리거 `trg_block_closed_caution_participation`(마감 캠페인의 참여방법·주의사항 변경 차단, 마이그레이션 156)에 막혀, **같은 트랜잭션의 img3·img4까지 함께 롤백**됨.
+- 2차: img3·img4 분리 치환(트리거 무관) → 성공.
+- 3차: participation_steps 1건(campaign_id `f5f837af-…`, closed 상태)은 트랜잭션 안에서 `DISABLE TRIGGER → UPDATE → ENABLE TRIGGER`로 우회 치환. 트리거 재활성(`tgenabled='O'`) 확인. 내용 변경 아닌 호스트 주소만 교체라 보호 취지와 무충돌.
+- **최종 통합 검증: 전 테이블·컬럼 시드니 URL 잔존 0.** anon 조회로 img1 시드니 0·도쿄 이미지 실제 200 확인.
+
+### 교훈
+- 마감(closed/ended/expired) 캠페인의 `participation_steps`·`caution_items`·`ng_items` 일괄 수정은 `trg_block_closed_caution_participation` 트리거에 막힘 → 운영 일괄 치환 시 트리거 우회 필요. 한 트랜잭션에 다른 컬럼과 섞으면 그 컬럼들까지 롤백되니 분리할 것.
+
+### 남은 단계 (미완)
+- ④ 운영 사이트(globalreverb.com 캠페인 화면 + 관리자 결과물 영수증) 이미지 육안 확인.
+- ⑤ 시드니 Storage 트래픽 감소 며칠 관찰.
+- ⑥ 시드니 pg_cron 메일 발송 점검 → 일시정지 → ⑦ 삭제.
+- 백업 테이블 3개 DROP (D-3), `.claude/settings.local.json` 시드니 접속 명령 2줄 제거.
