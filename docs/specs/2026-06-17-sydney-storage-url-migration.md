@@ -1,7 +1,7 @@
 # 시드니 옛 운영 서버 폐기 전 — Storage 주소 이전 (이관 잔여 작업)
 
 **작성일:** 2026-06-17
-**상태:** 계획 완료 (치환 쿼리 준비됨 — 백업 후 개발/실행 단계 대기)
+**상태:** ✅ 완료 — DB 치환 + 시드니 프로젝트 삭제까지 끝남 (2026-06-17). 잔여: 도쿄 백업 테이블 DROP만.
 **작성 주체:** 기획 세션 (조사·계획) + reverb-supabase-expert (컬럼 식별·치환 SQL)
 **발단:** 사용자 "서버 이관하면서 예전에 쓰던 서버(reverb-jp-production) 정리해야 할 것 같다"
 
@@ -246,8 +246,12 @@ DROP TABLE IF EXISTS backup_cch_20260617;
 ### 교훈
 - 마감(closed/ended/expired) 캠페인의 `participation_steps`·`caution_items`·`ng_items` 일괄 수정은 `trg_block_closed_caution_participation` 트리거에 막힘 → 운영 일괄 치환 시 트리거 우회 필요. 한 트랜잭션에 다른 컬럼과 섞으면 그 컬럼들까지 롤백되니 분리할 것.
 
-### 남은 단계 (미완)
-- ④ 운영 사이트(globalreverb.com 캠페인 화면 + 관리자 결과물 영수증) 이미지 육안 확인.
-- ⑤ 시드니 Storage 트래픽 감소 며칠 관찰.
-- ⑥ 시드니 pg_cron 메일 발송 점검 → 일시정지 → ⑦ 삭제.
-- 백업 테이블 3개 DROP (D-3), `.claude/settings.local.json` 시드니 접속 명령 2줄 제거.
+### 폐기 완료 (2026-06-17)
+- ④ ✅ 운영 사이트 캠페인 이미지·영수증 정상 육안 확인.
+- ⑥ ✅ 시드니 pg_cron 작업 **0건** 확인(이중 발송 없음).
+- ⑦ ✅ **시드니 프로젝트 삭제 완료** — Pro 플랜이라 일시정지(Pause) 버튼 비활성 → 바로 삭제(Settings→General→Delete project, 사유 None of the above). 데이터 도쿄 이전+백업+검증 완료라 무손실. ⑤ 트래픽 관찰은 Pause 불가로 생략하고 바로 삭제.
+- ✅ `.claude/settings.local.json` 시드니 접속 명령 4줄(184·220·225·226) 제거 (gitignore 파일이라 비커밋).
+- 시드니 service_role·Brevo SMTP 키는 프로젝트 삭제로 자동 무효화.
+
+### 잔여 (소규모)
+- 도쿄 백업 테이블 3개(`backup_deliverables_20260617`·`backup_campaigns_20260617`·`backup_cch_20260617`) DROP — 운영 며칠 안정 확인 후 (D-3 SQL).
