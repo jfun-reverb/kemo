@@ -143,8 +143,22 @@ influencers 테이블에 컬럼 추가 (**보호자 컬럼 없음 — 단순화*
 - `feature/age-policy`가 origin/dev보다 44커밋 뒤처져 충돌(CONFLICTING) → 충돌은 빌드 산출물 `admin/index.html` 1개뿐 → `bash dev/build.sh` 재생성으로 해소(메모리 `project_prod_hotfix_rebuild` 패턴).
 - reviewer Warning 2건 처리: ①성별 `undisclosed` 한국어 표기를 관리자 `'응답하지 않음'`으로 통일(인플 i18n과 일치) ②머지 시 딸려 들어간 qa 스크린샷 png 7개 추적 해제 + `.gitignore` 보강.
 
-### 운영 배포 상태
-- **PR1~4 모두 개발서버(dev)까지만. 운영(main) 배포 보류** — `age_policy_settings.effective_date`가 NULL이라 차단 비활성이므로 운영에 올라가도 무영향이나, 정책상 PR5(약관 개정·30일 통지·시행일 확정) 완료 후 운영 일괄 출시.
+### PR5 부분 착수 — 게이트 개인정보 수집 동의 (2026-06-18 dev 머지 PR#529, 37bde33)
+- `/약관확인` 후속 ①(`docs/specs/2026-06-17-age-policy-pr5-draft.md` §7) 해소: 기존 회원이 응모 게이트에서 생년월일·성별을 처음 입력 = 신규 개인정보 수집인데 동의 절차가 없던 공백을 메움.
+- **마이그레이션 185**: `influencers.age_consent_at timestamptz NULL`(게이트 동의 시각, 가입 동의 `privacy_agreed_at`과 분리). 개발 DB 적용·검증 완료(컬럼 생성·기존 행 NULL 확인).
+- 게이트 모달(`#ageGateOverlay`)에 **개인정보처리방침 동의 체크박스 1개**(가입 폼 동의 행 패턴 재사용). `saveAgeGate` 미체크 차단(성별 검증 후·18세 차단 전), 저장 시 `age_consent_at` 동봉. `openAgeGate` 재진입 시 체크박스 리셋.
+- 결정(사용자): 체크박스 1개(개인정보만 — 약관은 가입 시 이미 동의) + 동의 시각 신규 컬럼 분리. [via planner][via supabase-expert][via reviewer] GO.
+- qa-tester 권장 full(미실행 — dev 머지·운영 배포 전 아님).
 
-### 남은 작업
-- PR5 — 약관 개정 + 30일 사전 통지 + `effective_date` 시행일 UPDATE(서버 활성화) + 소급 게이트 통지 마무리. 운영 배포는 통지 후.
+### qa 경고 다듬기 (2026-06-17 dev 머지 PR#528, 4d7e48d)
+- PR2 qa 경고 2건 해소: 가입 실패 시 영문 `error.message` 노출 제거 → `authError.signupFailed` 모호 안내(계정 열거 방지) / 가입 폼 입력 변경 시 에러 즉시 클리어(`bindSignupErrorClear`). reviewer Critical 2 동반(forgot/reset password·mypage 비번 변경 영문 노출 → genericError).
+
+### 운영 배포 상태
+- **PR1~4 + PR5 게이트 동의 모두 개발서버(dev)까지만. 운영(main) 배포 보류** — `age_policy_settings.effective_date`가 NULL이라 차단 비활성이므로 운영에 올라가도 무영향이나, 정책상 PR5(약관 개정·30일 통지·시행일 확정) 완료 후 운영 일괄 출시.
+
+### 남은 작업 (PR5 나머지)
+- 약관·개인정보처리방침 4개 문서 개정 (초안 `docs/specs/2026-06-17-age-policy-pr5-draft.md` 확정 → 4파일 반영) — 기획/`/약관확인`
+- 약관 부칙 경과 조치 한 줄(`/약관확인` 후속 ②): "기존 18세 미만 회원은 시행일 이후 신규 응모만 제한(가입 소급 해지 아님)"
+- 시행일 확정(사용자 결정) → 약관 부칙·`age_policy_settings.effective_date`·통지 본문·사양서 4곳 동일 날짜
+- 30일 사전 통지 발송(앱 공지 + 전체 메일, `notify-policy-change` 재사용 가능)
+- `effective_date` 시행일 UPDATE(서버 활성화) → 운영 배포는 통지 후
