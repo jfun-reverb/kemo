@@ -193,15 +193,37 @@ orient_sheets(
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
 
-**구현일:**
-**관련 커밋·PR:**
+### PR 1 — 데이터 모델 + 익명 작성/제출 함수 (2026-06-18)
+
+**구현일:** 2026-06-18
+**관련 브랜치:** `feature/orient-sheet` (PR·커밋 해시는 세션종료 시 기록)
+**마이그레이션 (실제 번호 확정):**
+- **186** `186_orient_sheets_table.sql` — `orient_sheets` 테이블 + 인덱스 5종 + 행 단위 보안 정책(RLS) + `updated_at` 자동 갱신 트리거(`trg_orient_sheets_updated_at`)
+- **187** `187_orient_sheets_functions.sql` — 익명 토큰 함수 3종
+
+**함수 시그니처 (확정):**
+- `get_orient_sheet(p_token uuid) → jsonb` (GRANT anon, authenticated)
+- `save_orient_draft(p_token uuid, p_data jsonb, p_version int) → jsonb` (GRANT anon)
+- `submit_orient_sheet(p_token uuid, p_data jsonb, p_version int) → jsonb` (GRANT anon)
+- `storage.js`: `getOrientSheet(token)` / `saveOrientDraft(token, data, version)` / `submitOrientSheet(token, data, version)`
 
 ### 초안 대비 변경 사항
-- 추가된 것:
-- 빠진 것(+이유):
-- 달라진 것:
+- **추가된 것**:
+  - `updated_at` 자동 갱신 트리거(`touch_orient_sheets_updated_at` + `trg_orient_sheets_updated_at`) — 기존 테이블(admin_notices·deliverables 등) 패턴과 일관성 확보(초안 §4엔 명시 없었음).
+  - 외래 키 `ON DELETE` 옵션 명시: `brand_id` RESTRICT(발행된 오리엔시트 이력 보호), `application_id`·`campaign_id`·`created_by` SET NULL.
+  - 186 마이그레이션에도 `NOTIFY pgrst` 추가(186 단독 적용 시 PostgREST 인식 보장).
+- **빠진 것**: 없음(PR1 범위 그대로).
+- **달라진 것**:
+  - `save_orient_draft`가 **status를 변경하지 않음**으로 확정(초안 §6.3은 "status='draft' 유지"였으나, submitted 상태에서 임시저장 시 draft로 역전환하면 §4 상태전이도와 모순 → data·version만 갱신). reverb-reviewer P0 지적 반영.
+  - `get_orient_sheet`(조회)는 **읽기 전용**으로 확정 — 만료 시 status 전환 부작용을 제거하고 반환값으로만 만료를 알림(상태 전환은 save/submit 쓰기 함수의 FOR UPDATE 잠금 하에서만). reverb-reviewer P1 지적 반영.
 
 ### 구현 중 기술 결정 사항
-- (마이그레이션 실제 번호·함수 시그니처·긴급 발행 기록 방식 등)
+- 익명 함수 검증: SECURITY DEFINER + `SET search_path=''` + `REVOKE ... FROM PUBLIC` 후 명시 GRANT(140 선례). 미매칭은 `{success:false, reason:'invalid_token'}` HTTP 200(자원 열거 방지).
+- 낙관적 락 3단: `FOR UPDATE` 행 잠금 + `WHERE version = p_version` + `GET DIAGNOSTICS ROW_COUNT` 0행이면 충돌 반환.
+- jsonb 크기 상한 100KB(`octet_length`). 이미지는 PR2에서 링크 URL + 파일 업로드(전용 버킷)로 받으므로 `data`에는 URL 텍스트만.
+- **PR3·4 인계 메모**: ① `delete_brand` RPC(마이그레이션 174)에 `orient_sheets` 카운트 체크 추가 필요(brand_id RESTRICT와 정합). ② 관리자 대리 저장이 필요하면 `save/submit_orient_sheet`에 `authenticated` GRANT 추가. ③ `create_orient_sheet`/`mark_orient_consumed`는 PR3·4에서 구현(PR1 의도적 제외).
+
+### PR 2·3·4
+- 미착수. PR2(브랜드 작성 폼 `dev/sales/orient.html` + 익명 업로드 보안) → PR3(관리자 발급·조회 페인) → PR4(자동 채움 매핑 + 일본어 발행 게이트). §8 분할대로 **시퀀셜**(PR3·4는 `dev/js/admin.js` 핫스팟이라 병렬 금지).
