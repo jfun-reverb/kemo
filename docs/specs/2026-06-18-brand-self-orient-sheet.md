@@ -199,13 +199,15 @@ orient_sheets(
 
 ```jsonc
 {
-  "recruit": {                    // 모집 정보
+  "recruit": {                    // 모집 정보 (공통)
     "slots": "",                  // 모집인원 → campaigns.slots (숫자 파싱)
     "recruit_start": "",          // 모집 시작(YYYY-MM-DD) → recruit_start
     "recruit_end": "",            // 모집 마감 → deadline
     "post_start": "",             // 게시 시작 → (구매/방문 기간 참고)
     "post_end": "",               // 게시 마감 → submission_end
-    "result_date": ""             // 결과 발표일 → 캠페인 미대응, 관리자 참고만
+    "result_date": "",            // 결과 발표일 → 캠페인 미대응, 관리자 참고만
+    "purchase_start": "",         // [리뷰어 전용] 구매 시작 → campaigns.purchase_start
+    "purchase_end": ""            // [리뷰어 전용] 구매 마감 → campaigns.purchase_end
   },
   "brand": {
     "name": "",                   // 브랜드명 → brand / brand_ko (일본어는 관리자 보완)
@@ -214,13 +216,15 @@ orient_sheets(
   "product": {
     "name": "",                   // 제품명 → product / product_ko
     "category": "",               // 카테고리 → category (lookup 매칭, 실패 시 보정)
-    "prices": [                   // 가격 복수(상시·세일·메가와리) → product_price 대표 1개 + 나머지 텍스트
+    "appeal": "",                 // 제품 소개·소구 포인트 → 콘텐츠 가이드 리치텍스트
+    "prices": [                   // [리뷰어 전용] 가격 복수(상시·세일·메가와리) → product_price 대표 1개 + 나머지 텍스트
       { "label": "", "value": "" }
     ],
-    "urls": [                     // 판매 URL 복수(Qoo10·Amazon·한국) → product_url 대표 1개 + 나머지 텍스트
+    "urls": [                     // [리뷰어 전용] 판매 URL 복수(Qoo10·Amazon·한국) → product_url 대표 1개 + 나머지 텍스트
       { "label": "", "value": "" }
     ],
-    "appeal": ""                  // 제품 소개·소구 포인트 → 콘텐츠 가이드 리치텍스트
+    "provide_note": "",           // [시딩 전용] 제품 제공 방식·수량 안내
+    "shipping_note": ""           // [시딩 전용] 배송 관련 안내
   },
   "channels": [                   // 채널별 게시 가이드(반복 블록) → 콘텐츠 가이드 단일 리치텍스트로 합쳐 주입(§5 a안)
     { "channel": "", "guide": "" }  // channel = instagram|x|tiktok|youtube|qoo10|lips|atcosme 등, 집합은 campaigns.channel
@@ -247,6 +251,22 @@ orient_sheets(
 - **PR 2 (이 PR)** — 브랜드 작성 폼 + **이미지 링크(URL) 입력까지**: `dev/sales/orient.html` + `sales/orient.html` 복제. 4분기 진입·폼·채널 반복 블록·자동저장·낙관적 락·제출·반응형. 이미지는 `data.images[].type='url'`만. **서버 함수 추가 없음**(PR1 함수 3종 그대로 사용). vercel.json 수정 불필요(cleanUrls 자동).
 - **PR 2-이미지 (분리, 후속)** — **파일 직접 업로드**: 전용 비공개 버킷(Storage 마이그레이션 1개) + 토큰 검증 함수 `validate_orient_token_for_upload` + Edge Function `upload-orient-image`(service_role 경유) + orient.html 파일 선택 UI. **이유**: PostgreSQL 함수는 Storage에 파일을 직접 쓸 수 없어(메타데이터만 생성·고아 레코드) 방식 B는 Edge Function이 필수 → 개발·운영 양쪽 배포·동기화 부담이 커 폼 골격과 분리. supabase-expert 설계 초안(버킷 정책·검증 함수·Edge Function 골격·sales 인라인 호출) 확보 완료.
 - **PR 3 / PR 4** — §8 그대로(관리자 발급·조회 / 자동 채움 매핑 + 일본어 발행 게이트). 핫스팟 `dev/js/admin.js` 시퀀셜.
+
+---
+
+## 13. PR2 재설계 — 타입별 분기 + 4단계 위저드 (2026-06-18 사용자 확정)
+
+PR2 작성 폼(이미 dev 배포)에 대해 사용자 요청 2건(타입별 조건 입력 / 단계별 작성)을 검토(reverb-planner)해 아래로 확정. **기존 폼 위에 얹는 점진 확장**(자동저장·낙관적 락·진입 분기 유지).
+
+| # | 항목 | 결정 |
+|---|---|---|
+| A | 타입 범위 | **리뷰어·시딩 2종 먼저.** 방문형(visit)은 `orient_sheets.form_type` CHECK이 reviewer/seeding 2종이라 DB 변경·매핑 증식 동반 → **후속 분리**(베타 빠른 출시 우선). |
+| B | 타입 선택 주체 | **관리자가 발급 시 지정**(PR3 `create_orient_sheet` 인자). PR2 폼은 `get_orient_sheet`가 반환한 `form_type`을 **읽어** 타입별 칸만 표시. `form_type` NULL이면 리뷰어로 폴백. |
+| C | 단계 구성 | **4단계 위저드**: ①모집·브랜드 ②제품 ③콘텐츠(채널·해시태그·NG) ④이미지·안내. reviewer.html `showPage` 패턴 차용하되 **구역 `display` 토글**(별도 페이지 아님)이라 `collectData`/자동저장/낙관적 락 무변경. |
+| D | 타입별 필드 | 공통=모집·브랜드·제품명/카테고리/소개·채널·해시태그·NG·이미지·안내. **리뷰어 전용**=구매 기간(`recruit.purchase_start/end`)·판매 가격(`product.prices`)·판매 URL(`product.urls`). **시딩 전용**=제품 제공 안내(`product.provide_note`)·배송 안내(`product.shipping_note`). 숨김 필드는 `collectData`의 빈값 `.filter`로 자동 제외. |
+
+- **DB 변경 없음**(2종 유지, 타입별 필드는 `data` jsonb 안에서만 분기). 방문형 추가 시에만 마이그레이션 1개(`form_type` CHECK에 `'visit'` 추가) — 후속.
+- §11 스키마 부록에 `recruit.purchase_start/end`·`product.provide_note/shipping_note` 추가 반영.
 
 ---
 

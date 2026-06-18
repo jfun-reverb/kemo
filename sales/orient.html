@@ -152,6 +152,24 @@ body {
   font-family: inherit; cursor: pointer;
 }
 
+/* ============ WIZARD PROGRESS ============ */
+.wiz-progress { margin-bottom: 14px; }
+.wiz-progress-top {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px;
+}
+.wiz-progress-top .step-name { color: var(--ink); }
+.wiz-progress-track { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.wiz-progress-fill { height: 100%; background: var(--brand); border-radius: 999px; transition: width 0.25s; width: 25%; }
+
+/* ============ WIZARD STEP ============ */
+.wizard-step { display: none; }
+.wizard-step.active { display: block; }
+
+/* 타입별 조건 필드 — boot()에서 body[data-otype] 설정. 기본 폴백 reviewer */
+body[data-otype="seeding"] .only-reviewer { display: none !important; }
+body[data-otype="reviewer"] .only-seeding { display: none !important; }
+
 /* ============ SECTION CARD ============ */
 .section {
   background: var(--card);
@@ -196,11 +214,9 @@ textarea { resize: vertical; min-height: 86px; line-height: 1.55; }
 /* iOS Safari: date·number input의 기본 너비 산정을 끄고 width:100%를 따르게 함 */
 input[type="date"], input[type="number"] { -webkit-appearance: none; appearance: none; }
 input[type="date"] { min-height: 44px; }
-/* grid(.row2) 자식이 콘텐츠 폭 때문에 트랙을 넘지 않게 */
-.row2 > .field { min-width: 0; }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-/* 모바일 1열 전환 시 칸 간격을 일반 .field 간격(14px)과 통일 — 묶음 내부·묶음 사이 균일 */
+/* 모바일 1열 전환 시 칸 간격을 일반 .field 간격(14px)과 통일 */
 @media (max-width: 520px) {
   .row2 { grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
   .row2 > .field { margin-bottom: 0; }
@@ -247,22 +263,34 @@ input[type="date"] { min-height: 44px; }
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-top: 1px solid var(--border);
   padding: 12px 20px;
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   z-index: 90;
 }
 .save-state {
-  font-size: 12.5px; color: var(--ink-mute);
-  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+  font-size: 12px; color: var(--ink-mute);
+  display: flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
-.save-state .material-icons-outlined { font-size: 16px; }
+.save-state .material-icons-outlined { font-size: 16px; flex-shrink: 0; }
 .save-state.saved { color: var(--success); }
 .save-state.saving { color: var(--ink-soft); }
 .save-state.error { color: var(--brand); }
+.foot-nav { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+.btn-nav {
+  background: var(--card); color: var(--ink-soft);
+  border: 1px solid var(--border-strong); border-radius: 11px;
+  padding: 12px 18px; font-size: 15px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.btn-nav:hover { border-color: var(--brand); color: var(--brand); }
+.btn-nav.primary {
+  background: var(--brand); color: #fff; border-color: var(--brand);
+}
+.btn-nav.primary:hover { background: var(--brand-dark); color: #fff; }
 .btn-submit {
-  margin-left: auto;
   background: var(--brand); color: #fff;
   border: none; border-radius: 11px;
-  padding: 12px 26px; font-size: 15px; font-weight: 800;
+  padding: 12px 24px; font-size: 15px; font-weight: 800;
   font-family: inherit; cursor: pointer; letter-spacing: 0.01em;
   transition: background 0.15s, opacity 0.15s;
 }
@@ -326,128 +354,162 @@ input[type="date"] { min-height: 44px; }
     <button type="button" onclick="location.reload()">새로고침</button>
   </div>
 
-  <!-- 1. 모집 정보 -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">campaign</span>모집 정보</div>
-    <div class="field">
-      <label>모집 인원</label>
-      <input type="number" id="f_slots" min="0" placeholder="예: 30" oninput="onInput()">
-      <div class="field-hint">실제로 모집할 인원 수입니다. 견적 수량과 다를 수 있어요.</div>
+  <!-- 진행률 -->
+  <div class="wiz-progress">
+    <div class="wiz-progress-top">
+      <span><span id="wizStepNum">1</span> / 4</span>
+      <span class="step-name" id="wizStepName">모집·브랜드</span>
     </div>
-    <div class="row2">
+    <div class="wiz-progress-track"><div id="wizProgressFill" class="wiz-progress-fill"></div></div>
+  </div>
+
+  <!-- ── STEP 1: 모집 · 브랜드 ── -->
+  <div class="wizard-step active" data-step="1">
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">campaign</span>모집 정보</div>
       <div class="field">
-        <label>모집 시작일</label>
-        <input type="date" id="f_recruit_start" onchange="onInput()">
+        <label>모집 인원</label>
+        <input type="number" id="f_slots" min="0" placeholder="예: 30" oninput="onInput()">
+        <div class="field-hint">실제로 모집할 인원 수입니다. 견적 수량과 다를 수 있어요.</div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>모집 시작일</label>
+          <input type="date" id="f_recruit_start" onchange="onInput()">
+        </div>
+        <div class="field">
+          <label>모집 마감일</label>
+          <input type="date" id="f_recruit_end" onchange="onInput()">
+        </div>
+      </div>
+      <!-- 리뷰어 전용: 구매 기간 -->
+      <div class="row2 only-reviewer">
+        <div class="field">
+          <label>구매 시작일</label>
+          <input type="date" id="f_purchase_start" onchange="onInput()">
+        </div>
+        <div class="field">
+          <label>구매 마감일</label>
+          <input type="date" id="f_purchase_end" onchange="onInput()">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>게시(콘텐츠 업로드) 시작일</label>
+          <input type="date" id="f_post_start" onchange="onInput()">
+        </div>
+        <div class="field">
+          <label>게시 마감일</label>
+          <input type="date" id="f_post_end" onchange="onInput()">
+        </div>
       </div>
       <div class="field">
-        <label>모집 마감일</label>
-        <input type="date" id="f_recruit_end" onchange="onInput()">
+        <label>결과 발표 예정일</label>
+        <input type="date" id="f_result_date" onchange="onInput()">
       </div>
     </div>
-    <div class="row2">
+
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">storefront</span>브랜드 정보</div>
       <div class="field">
-        <label>게시(콘텐츠 업로드) 시작일</label>
-        <input type="date" id="f_post_start" onchange="onInput()">
+        <label>브랜드명</label>
+        <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
       </div>
       <div class="field">
-        <label>게시 마감일</label>
-        <input type="date" id="f_post_end" onchange="onInput()">
+        <label>브랜드 소개 · 어필 포인트</label>
+        <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
       </div>
     </div>
-    <div class="field">
-      <label>결과 발표 예정일</label>
-      <input type="date" id="f_result_date" onchange="onInput()">
+  </div>
+
+  <!-- ── STEP 2: 제품 ── -->
+  <div class="wizard-step" data-step="2">
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">inventory_2</span>제품 정보</div>
+      <div class="field">
+        <label>제품명</label>
+        <input type="text" id="f_product_name" placeholder="제품명" oninput="onInput()">
+      </div>
+      <div class="field">
+        <label>카테고리</label>
+        <input type="text" id="f_product_category" placeholder="예: 스킨케어, 헤어, 푸드" oninput="onInput()">
+      </div>
+
+      <!-- 리뷰어 전용: 판매 가격 · 판매 URL -->
+      <div class="field only-reviewer">
+        <label>판매 가격</label>
+        <div class="field-hint" style="margin-top:0;margin-bottom:8px">상시가·세일가·메가와리가 등 종류별로 추가해 주세요.</div>
+        <div id="priceList"></div>
+        <button type="button" class="add-btn" onclick="addPrice()"><span class="material-icons-outlined notranslate" translate="no">add</span>가격 추가</button>
+      </div>
+      <div class="field only-reviewer">
+        <label>판매 URL</label>
+        <div class="field-hint" style="margin-top:0;margin-bottom:8px">Qoo10·Amazon·한국몰 등 판매처별로 추가해 주세요.</div>
+        <div id="urlList"></div>
+        <button type="button" class="add-btn" onclick="addUrl()"><span class="material-icons-outlined notranslate" translate="no">add</span>판매 URL 추가</button>
+      </div>
+
+      <!-- 시딩 전용: 제공 안내 · 배송 안내 -->
+      <div class="field only-seeding">
+        <label>제품 제공 안내</label>
+        <textarea id="f_provide_note" placeholder="무료 제공할 제품·수량·구성 등을 적어 주세요." oninput="onInput()"></textarea>
+      </div>
+      <div class="field only-seeding">
+        <label>배송 안내</label>
+        <textarea id="f_shipping_note" placeholder="배송 방식·일정 등 안내가 있으면 적어 주세요." oninput="onInput()"></textarea>
+      </div>
+
+      <div class="field">
+        <label>제품 소개 · 소구 포인트</label>
+        <textarea id="f_product_appeal" placeholder="제품 특징, 강조하고 싶은 소구 포인트를 적어 주세요." oninput="onInput()"></textarea>
+      </div>
     </div>
   </div>
 
-  <!-- 2. 브랜드 정보 -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">storefront</span>브랜드 정보</div>
-    <div class="field">
-      <label>브랜드명</label>
-      <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
+  <!-- ── STEP 3: 콘텐츠 ── -->
+  <div class="wizard-step" data-step="3">
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">share</span>채널별 게시 가이드</div>
+      <div class="section-desc">채널(인스타그램·X 등)마다 게시 방식·필수 내용을 따로 적어 주세요.</div>
+      <div id="channelList"></div>
+      <button type="button" class="add-btn" onclick="addChannel()"><span class="material-icons-outlined notranslate" translate="no">add</span>채널 추가</button>
     </div>
-    <div class="field">
-      <label>브랜드 소개 · 어필 포인트</label>
-      <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
+
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">tag</span>해시태그 · 계정 태그</div>
+      <div class="field">
+        <label>필수 해시태그 (최대 5개)</label>
+        <input type="text" id="f_hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" oninput="onInput()">
+        <div class="field-hint">예: #리버브 #체험단 — 5개까지 입력됩니다.</div>
+      </div>
+      <div class="field">
+        <label>필수 계정 태그</label>
+        <input type="text" id="f_account_tags" placeholder="@reverb.jp" oninput="onInput()">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">block</span>금지 표현 (NG)</div>
+      <div class="field">
+        <textarea id="f_ng" placeholder="게시물에 사용하면 안 되는 표현·내용을 적어 주세요." oninput="onInput()"></textarea>
+      </div>
     </div>
   </div>
 
-  <!-- 3. 제품 정보 -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">inventory_2</span>제품 정보</div>
-    <div class="field">
-      <label>제품명</label>
-      <input type="text" id="f_product_name" placeholder="제품명" oninput="onInput()">
-    </div>
-    <div class="field">
-      <label>카테고리</label>
-      <input type="text" id="f_product_category" placeholder="예: 스킨케어, 헤어, 푸드" oninput="onInput()">
+  <!-- ── STEP 4: 이미지 · 안내 ── -->
+  <div class="wizard-step" data-step="4">
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">image</span>예시 이미지 링크</div>
+      <div class="section-desc">참고용 이미지가 있으면 링크(URL)를 넣어 주세요. (파일 직접 첨부는 추후 지원 예정)</div>
+      <div id="imageList"></div>
+      <button type="button" class="add-btn" onclick="addImage()"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지 링크 추가</button>
     </div>
 
-    <div class="field">
-      <label>판매 가격</label>
-      <div class="field-hint" style="margin-top:0;margin-bottom:8px">상시가·세일가·메가와리가 등 종류별로 추가해 주세요.</div>
-      <div id="priceList"></div>
-      <button type="button" class="add-btn" onclick="addPrice()"><span class="material-icons-outlined notranslate" translate="no">add</span>가격 추가</button>
-    </div>
-
-    <div class="field">
-      <label>판매 URL</label>
-      <div class="field-hint" style="margin-top:0;margin-bottom:8px">Qoo10·Amazon·한국몰 등 판매처별로 추가해 주세요.</div>
-      <div id="urlList"></div>
-      <button type="button" class="add-btn" onclick="addUrl()"><span class="material-icons-outlined notranslate" translate="no">add</span>판매 URL 추가</button>
-    </div>
-
-    <div class="field">
-      <label>제품 소개 · 소구 포인트</label>
-      <textarea id="f_product_appeal" placeholder="제품 특징, 강조하고 싶은 소구 포인트를 적어 주세요." oninput="onInput()"></textarea>
-    </div>
-  </div>
-
-  <!-- 4. 채널별 게시 가이드 -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">share</span>채널별 게시 가이드</div>
-    <div class="section-desc">채널(인스타그램·X 등)마다 게시 방식·필수 내용을 따로 적어 주세요.</div>
-    <div id="channelList"></div>
-    <button type="button" class="add-btn" onclick="addChannel()"><span class="material-icons-outlined notranslate" translate="no">add</span>채널 추가</button>
-  </div>
-
-  <!-- 5. 해시태그·태그 -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">tag</span>해시태그 · 계정 태그</div>
-    <div class="field">
-      <label>필수 해시태그 (최대 5개)</label>
-      <input type="text" id="f_hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" oninput="onInput()">
-      <div class="field-hint">예: #리버브 #체험단 — 5개까지 입력됩니다.</div>
-    </div>
-    <div class="field">
-      <label>필수 계정 태그</label>
-      <input type="text" id="f_account_tags" placeholder="@reverb.jp" oninput="onInput()">
-    </div>
-  </div>
-
-  <!-- 6. 금지 표현(NG) -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">block</span>금지 표현 (NG)</div>
-    <div class="field">
-      <textarea id="f_ng" placeholder="게시물에 사용하면 안 되는 표현·내용을 적어 주세요." oninput="onInput()"></textarea>
-    </div>
-  </div>
-
-  <!-- 7. 예시 이미지 링크 -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">image</span>예시 이미지 링크</div>
-    <div class="section-desc">참고용 이미지가 있으면 링크(URL)를 넣어 주세요. (파일 직접 첨부는 추후 지원 예정)</div>
-    <div id="imageList"></div>
-    <button type="button" class="add-btn" onclick="addImage()"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지 링크 추가</button>
-  </div>
-
-  <!-- 8. 추가 안내 -->
-  <div class="section">
-    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">info</span>추가 안내 · 필독 사항</div>
-    <div class="field">
-      <textarea id="f_cautions" placeholder="인플루언서가 꼭 알아야 할 안내사항을 적어 주세요." oninput="onInput()"></textarea>
+    <div class="section">
+      <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">info</span>추가 안내 · 필독 사항</div>
+      <div class="field">
+        <textarea id="f_cautions" placeholder="인플루언서가 꼭 알아야 할 안내사항을 적어 주세요." oninput="onInput()"></textarea>
+      </div>
     </div>
   </div>
 </div>
@@ -455,7 +517,11 @@ input[type="date"] { min-height: 44px; }
 <!-- 하단 고정 바 -->
 <div id="footbar" class="footbar hidden">
   <div id="saveState" class="save-state"><span class="material-icons-outlined notranslate" translate="no">cloud_done</span><span id="saveStateText">자동 저장</span></div>
-  <button type="button" id="btnSubmit" class="btn-submit" onclick="submitSheet()">제출</button>
+  <div class="foot-nav">
+    <button type="button" id="btnPrev" class="btn-nav hidden" onclick="prevStep()">이전</button>
+    <button type="button" id="btnNext" class="btn-nav primary" onclick="nextStep()">다음</button>
+    <button type="button" id="btnSubmit" class="btn-submit hidden" onclick="submitSheet()">제출</button>
+  </div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -494,9 +560,13 @@ const CHANNEL_OPTIONS = [
 const MAX_HASHTAGS = 5;
 const LS_KEY_PREFIX = 'reverb.orient.';   // 토큰별 로컬 백업 키
 
+const TOTAL_STEPS = 4;
+const STEP_NAMES = ['모집·브랜드', '제품', '콘텐츠', '이미지·안내'];
+
 let token = null;
 let currentVersion = 0;
 let currentStatus = 'draft';
+let currentStep = 1;
 let conflicted = false;            // 충돌 발생 시 자동저장 중단
 let saveTimer = null;
 let dirty = false;                 // 미저장 변경 존재 여부
@@ -519,11 +589,8 @@ function normalizeUrl(raw) {
   if (!raw) return '';
   let s = String(raw).trim();
   if (!s) return '';
-  // 위험 스킴 차단
   if (/^\s*(javascript|data|vbscript|file):/i.test(s)) return '';
-  // 흔한 오타 보정: ttp:// / ttps://
   s = s.replace(/^ttps?:\/\//i, m => (/s/i.test(m) ? 'https://' : 'http://'));
-  // 스킴 없으면 https 보정
   if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
   return s;
 }
@@ -555,6 +622,9 @@ async function boot() {
     currentVersion = res.version || 0;
     currentStatus = res.status || 'draft';
 
+    // 타입 적용: 발급 시 지정된 form_type 으로 리뷰어/시딩 필드 분기 (NULL이면 리뷰어 폴백)
+    applyType(res.form_type);
+
     // data 복원 (없으면 빈 스키마). initial_values는 data.recruit가 비었을 때만 모집칸 미리채움.
     const data = (res.data && typeof res.data === 'object') ? res.data : {};
     fillForm(data, res.initial_values);
@@ -570,6 +640,11 @@ async function boot() {
     console.error('[orient boot]', e);
     showErrorScreen('connect');
   }
+}
+
+function applyType(ft) {
+  const t = (ft === 'seeding') ? 'seeding' : 'reviewer';   // NULL·미지정은 리뷰어 폴백
+  document.body.setAttribute('data-otype', t);
 }
 
 function showErrorScreen(reason) {
@@ -601,12 +676,42 @@ function enterFormScreen() {
     pill.textContent = '제출됨';
     pill.className = 'status-pill submitted';
     $('resubmitNote').classList.remove('hidden');
-    $('btnSubmit').textContent = '수정 후 다시 제출';
   } else {
     pill.textContent = '작성 중';
     pill.className = 'status-pill draft';
-    $('btnSubmit').textContent = '제출';
   }
+  showStep(1);
+}
+
+// ══════════════════════════════════════
+// 단계 위저드
+// ══════════════════════════════════════
+function showStep(n) {
+  currentStep = Math.max(1, Math.min(TOTAL_STEPS, n));
+  document.querySelectorAll('.wizard-step').forEach(el => {
+    el.classList.toggle('active', Number(el.dataset.step) === currentStep);
+  });
+  $('wizStepNum').textContent = currentStep;
+  $('wizStepName').textContent = STEP_NAMES[currentStep - 1];
+  $('wizProgressFill').style.width = (currentStep / TOTAL_STEPS * 100) + '%';
+
+  // 네비 버튼 표시
+  $('btnPrev').classList.toggle('hidden', currentStep === 1);
+  const last = currentStep === TOTAL_STEPS;
+  $('btnNext').classList.toggle('hidden', last);
+  $('btnSubmit').classList.toggle('hidden', !last);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextStep() {
+  if (currentStep < TOTAL_STEPS) {
+    flushAutosave();     // 단계 넘어가기 전 즉시 저장
+    showStep(currentStep + 1);
+  }
+}
+function prevStep() {
+  if (currentStep > 1) showStep(currentStep - 1);
 }
 
 // ══════════════════════════════════════
@@ -615,12 +720,13 @@ function enterFormScreen() {
 function fillForm(data, initial) {
   const r = data.recruit || {};
   const recruitEmpty = !r.slots && !r.recruit_start && !r.recruit_end && !r.post_start && !r.post_end && !r.result_date;
-  // 연결 신청 모집 희망값: data.recruit가 비었을 때만 미리채움 (수정 가능)
   const iv = (recruitEmpty && initial) ? initial : null;
 
   $('f_slots').value = r.slots || (iv && iv.total_qty != null ? iv.total_qty : '') || '';
   $('f_recruit_start').value = r.recruit_start || '';
   $('f_recruit_end').value = r.recruit_end || '';
+  $('f_purchase_start').value = r.purchase_start || '';
+  $('f_purchase_end').value = r.purchase_end || '';
   $('f_post_start').value = r.post_start || '';
   $('f_post_end').value = r.post_end || '';
   $('f_result_date').value = r.result_date || '';
@@ -633,6 +739,8 @@ function fillForm(data, initial) {
   $('f_product_name').value = p.name || '';
   $('f_product_category').value = p.category || '';
   $('f_product_appeal').value = p.appeal || '';
+  $('f_provide_note').value = p.provide_note || '';
+  $('f_shipping_note').value = p.shipping_note || '';
 
   // 반복 블록 — 최소 1개씩 보장
   renderPrices(Array.isArray(p.prices) && p.prices.length ? p.prices : [{ label: '', value: '' }]);
@@ -738,8 +846,9 @@ function renumber(listId, label) {
 
 // ══════════════════════════════════════
 // 폼 수집 (DOM → data)
+//   타입별 숨김 필드도 DOM엔 존재하나 비어 있으면 .filter / 빈 문자열로 자연 제외
 // ══════════════════════════════════════
-function collectData() {
+function collectRepeats() {
   const prices = Array.from(document.querySelectorAll('[data-price]')).map(el => ({
     label: el.querySelector('.p-label').value.trim(),
     value: el.querySelector('.p-value').value.trim()
@@ -760,6 +869,11 @@ function collectData() {
     value: normalizeUrl(el.querySelector('.i-value').value)
   })).filter(x => x.value);
 
+  return { prices, urls, channels, images };
+}
+
+function collectData() {
+  const { prices, urls, channels, images } = collectRepeats();
   const hashtags = $('f_hashtags').value
     .split(/[\s,]+/).map(s => s.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
 
@@ -768,6 +882,8 @@ function collectData() {
       slots: $('f_slots').value.trim(),
       recruit_start: $('f_recruit_start').value,
       recruit_end: $('f_recruit_end').value,
+      purchase_start: $('f_purchase_start').value,
+      purchase_end: $('f_purchase_end').value,
       post_start: $('f_post_start').value,
       post_end: $('f_post_end').value,
       result_date: $('f_result_date').value
@@ -779,8 +895,10 @@ function collectData() {
     product: {
       name: $('f_product_name').value.trim(),
       category: $('f_product_category').value.trim(),
+      appeal: $('f_product_appeal').value.trim(),
       prices, urls,
-      appeal: $('f_product_appeal').value.trim()
+      provide_note: $('f_provide_note').value.trim(),
+      shipping_note: $('f_shipping_note').value.trim()
     },
     channels,
     hashtags,
@@ -802,6 +920,12 @@ function onInput() {
   setSaveState('saving', '저장 중…');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(doAutosave, AUTOSAVE_DELAY);
+}
+
+function flushAutosave() {
+  if (conflicted || !dirty) return;
+  clearTimeout(saveTimer);
+  doAutosave();
 }
 
 function setSaveState(kind, text) {
@@ -835,7 +959,6 @@ async function doAutosave() {
       setSaveState('saved', `저장됨 ${hh}:${mm}`);
       return;
     }
-    // 실패 분기
     if (res && res.reason === 'conflict') return enterConflict();
     if (res && res.reason === 'data_too_large') { setSaveState('error', '내용이 너무 깁니다'); return; }
     if (res && (res.reason === 'expired' || res.reason === 'consumed')) { setSaveState('error', '저장할 수 없습니다'); return; }
@@ -861,9 +984,9 @@ async function submitSheet() {
   if (!sb || !token) return;
 
   const data = collectData();
-  // 최소 입력 확인: 제품명 또는 브랜드명 중 하나는 있어야 의미 있는 제출
   if (!data.brand.name && !data.product.name) {
     showToast('브랜드명 또는 제품명을 입력해 주세요.');
+    showStep(1);
     return;
   }
 
@@ -871,8 +994,6 @@ async function submitSheet() {
   btn.disabled = true;
   const orig = btn.textContent;
   btn.textContent = '제출 중…';
-
-  // 진행 중 자동저장과 경합 방지
   clearTimeout(saveTimer);
 
   try {
@@ -886,10 +1007,12 @@ async function submitSheet() {
       currentStatus = 'submitted';
       dirty = false;
       try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
-      enterFormScreen();           // 제출됨 배너·상태 갱신
+      $('statusPill').textContent = '제출됨';
+      $('statusPill').className = 'status-pill submitted';
+      $('resubmitNote').classList.remove('hidden');
       setSaveState('saved', '제출 완료');
       showToast('제출되었습니다. 발행 전까지 수정할 수 있어요.');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showStep(1);
       return;
     }
     if (res && res.reason === 'conflict') { enterConflict(); return; }
