@@ -179,6 +179,8 @@ body {
 
 input[type="text"], input[type="url"], input[type="number"], input[type="date"], textarea, select {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;               /* iOS Safari: date·number가 컨테이너를 넘는 것 방지 */
   font-family: inherit;
   font-size: 16px;            /* 모바일 자동 확대 방지 */
   color: var(--ink);
@@ -191,7 +193,11 @@ input[type="text"], input[type="url"], input[type="number"], input[type="date"],
 }
 input:focus, textarea:focus, select:focus { border-color: var(--brand); }
 textarea { resize: vertical; min-height: 86px; line-height: 1.55; }
+/* iOS Safari: date·number input의 기본 너비 산정을 끄고 width:100%를 따르게 함 */
+input[type="date"], input[type="number"] { -webkit-appearance: none; appearance: none; }
 input[type="date"] { min-height: 44px; }
+/* grid(.row2) 자식이 콘텐츠 폭 때문에 트랙을 넘지 않게 */
+.row2 > .field { min-width: 0; }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
