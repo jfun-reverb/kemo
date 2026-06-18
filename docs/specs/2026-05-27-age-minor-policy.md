@@ -169,15 +169,14 @@ influencers 테이블에 컬럼 추가 (**보호자 컬럼 없음 — 단순화*
 - **운영 배포 점검**: i18n은 이미 운영 배포돼 있음(연령정책 운영 시 다국어 깨짐 없음). 운영 미적용 마이그레이션=**180·185 두 개뿐**(나머지 179·181~184는 운영 적용 완료). dev↔main 100커밋(연령정책+관리자 표 UI+문서).
 
 ### 게시일 당일(2026-06-20) 운영 출시 체크리스트
-1. 운영 DB(SQL Editor)에 **180_age_policy.sql → 185_add_age_consent_at.sql 순서로 적용**(effective_date NULL 유지=차단 OFF). 운영 DB 스냅샷 권장.
-2. **dev→main PR 생성 → 사용자 확인 → 머지**(=공고). main 머지 시 약관·가입폼 생년월일·게이트·앱 공지 모두 ON, 18세 차단만 OFF.
+1. 운영 DB(SQL Editor)에 **180_age_policy.sql → 185_add_age_consent_at.sql 순서로 적용** 후, **`UPDATE age_policy_settings SET effective_date='2026-07-20' WHERE id=1`**(시행일 미리 설정). 6/20~7/19는 시행 전이라 트리거 통과(차단 OFF), 7/20부터 자동 차단. 운영 DB 스냅샷 권장.
+2. **dev→main PR 생성 → 사용자 확인 → 머지**(=공고). main 머지 시 약관·가입폼 생년월일·게이트·앱 공지 모두 ON, 18세 차단은 7/20까지 OFF.
 3. **전체 메일 발송**(운영에서만): `notify-policy-change` 호출, `noticeKey='agePolicy2026'`+`effectiveDate='2026年7月20日'` 필수 지정. testRecipient 단건 선검증 후 전체. ~1,400명 분할(policy_notice_runs 로그 확인).
 
-### 시행일(2026-07-20) 작업
-- 운영 DB SQL Editor: `UPDATE age_policy_settings SET effective_date='2026-07-20', updated_by=<auth_id> WHERE id=1`(서버 차단 활성화). SQL 순차 안내(전후 SELECT). kill switch=`effective_date=NULL`로 즉시 차단 해제.
-
-### 별도 이슈(개발 백로그)
-- `docs/email-templates/admin-daily-digest.html` 원본이 `templates.ts` 번들보다 stale(마이그 164 통합 전). `sync-email-templates.sh` 실행 시 daily-digest templates.ts 역행 → 원본 최신화 별도 필요(이번엔 git checkout으로 원복).
+### 시행일(2026-07-20) — 자동 (사람 작업 없음)
+- **사용자 결정(2026-06-18): 시행은 자동, 게시는 사람.** 게시일에 `effective_date='2026-07-20'`을 미리 설정하므로, 서버 트리거 `check_age_policy`가 KST 날짜 판정 → **7/20 0시(KST) 자동 차단 시작**. 추가 SQL·리마인더 불필요(release-timing 「서버측 시각 판정」).
+- kill switch: 문제 시 `UPDATE age_policy_settings SET effective_date=NULL WHERE id=1`로 즉시 차단 해제.
+- ⚠️ **게시 전 검증 필요**: 개발 DB에서 `effective_date` 미래값일 때 응모 통과 / 과거값일 때 P0002 차단을 실제 응모로 확인(트리거 KST 경계 정확성).
 
 ### 별도 이슈(개발 백로그)
 - `docs/email-templates/admin-daily-digest.html` 원본이 `templates.ts` 번들보다 stale(마이그 164 통합 전). `sync-email-templates.sh` 실행 시 daily-digest templates.ts 역행 → 원본 최신화 별도 필요(이번엔 git checkout으로 원복).
