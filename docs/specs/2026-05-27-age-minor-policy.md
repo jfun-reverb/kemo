@@ -156,9 +156,19 @@ influencers 테이블에 컬럼 추가 (**보호자 컬럼 없음 — 단순화*
 ### 운영 배포 상태
 - **PR1~4 + PR5 게이트 동의 모두 개발서버(dev)까지만. 운영(main) 배포 보류** — `age_policy_settings.effective_date`가 NULL이라 차단 비활성이므로 운영에 올라가도 무영향이나, 정책상 PR5(약관 개정·30일 통지·시행일 확정) 완료 후 운영 일괄 출시.
 
-### 남은 작업 (PR5 나머지)
-- 약관·개인정보처리방침 4개 문서 개정 (초안 `docs/specs/2026-06-17-age-policy-pr5-draft.md` 확정 → 4파일 반영) — 기획/`/약관확인`
-- 약관 부칙 경과 조치 한 줄(`/약관확인` 후속 ②): "기존 18세 미만 회원은 시행일 이후 신규 응모만 제한(가입 소급 해지 아님)"
-- 시행일 확정(사용자 결정) → 약관 부칙·`age_policy_settings.effective_date`·통지 본문·사양서 4곳 동일 날짜
-- 30일 사전 통지 발송(앱 공지 + 전체 메일, `notify-policy-change` 재사용 가능)
-- `effective_date` 시행일 UPDATE(서버 활성화) → 운영 배포는 통지 후
+### PR5 게시 준비 완료 — 약관 4파일 + 통지 문안 (2026-06-18 dev 머지 PR#531, 8769a4f)
+**사용자 결정 4종(2026-06-18):** ①시행일=준비 끝낸 뒤 공고일+30일로 확정(지금 못 박지 않음) ②약관 본문은 공고 시점 개정+부칙에 시행일 명시 ③운영 DB는 공고 배포와 동시 적용 ④착수 범위=약관+통지 문안 전부(시행일 플레이스홀더).
+- **약관 4파일**: 이용약관 제4조 1항(생년월일)+3항 신설(만18세) 한·일 / 개인정보처리방침 §2.1 생년월일(필수·연령확인)·성별(필수·'응답하지 않음' 선택 가능) 행 한·일 / 부칙 연령 개정 항목(시행일 플레이스홀더 〇월〇일 + 경과조치 "기존 18세 미만은 신규 응모만 제한·가입 소급 해지 아님"). 약관 md는 런타임 fetch(빌드 무관).
+- **`/약관확인` 판정**: 성별은 이용 자격 요건 아닌 통계용 수집 항목 → **이용약관 제4조 추가 불필요**(개인정보처리방침 수집 근거+동의로 충분). 이용약관 부칙의 "성별 수집 추가" 문구 제거(본문과 정합). 국외이전은 개인정보처리방침 §5가 포괄 커버.
+- **통지 인프라 재사용(신규 개발 없음)**: 앱 공지 `POLICY_NOTICE`(`agePolicy2026`, effectiveDate/noticeUntil 빈값=비노출, 게시일 확정 시 채움) + i18n `policyNotice.*` ja/ko 문안 교체(body는 {date} 치환·banner는 미치환이라 날짜 미포함). 메일 `notify-policy-change` subject/text/html 템플릿+미러+번들 교체(4줄 푸터 유지, noticeKey는 호출 인자라 운영 발송 시 새 키 지정).
+- [via planner][via reviewer][via /약관확인] 전부 GO. qa skip.
+
+### 남은 작업 (PR5 운영 출시 — 별도)
+- **게시일 결정** → 약관 부칙·`POLICY_NOTICE`(effectiveDate/noticeUntil)·통지 본문·사양서 4곳 동일 날짜 일괄 치환
+- 운영 DB 미적용 마이그레이션(180·185 등 PR1~5게이트 전부) SQL Editor 선적용(effective_date NULL 유지=차단 OFF)
+- **운영 배포(=공고)**: dev→main PR(사용자 확인). main 머지 시 약관·가입폼·게이트·공지 모두 ON, 18세 차단만 OFF(effective_date NULL)
+- 전체 메일 발송(운영에서만, ~1,400명 분할, `noticeKey`+`effectiveDate` 필수 지정, testRecipient 단건 선검증)
+- **시행일(공고+30일)에 `UPDATE age_policy_settings SET effective_date='YYYY-MM-DD' WHERE id=1`**(서버 차단 활성화, SQL 순차 안내, kill switch=NULL로 되돌리기)
+
+### 별도 이슈(개발 백로그)
+- `docs/email-templates/admin-daily-digest.html` 원본이 `templates.ts` 번들보다 stale(마이그 164 통합 전). `sync-email-templates.sh` 실행 시 daily-digest templates.ts 역행 → 원본 최신화 별도 필요(이번엔 git checkout으로 원복).
