@@ -6,7 +6,7 @@
 export const TEMPLATES: Record<string, string> = {
   "policy-change-notice": `<!DOCTYPE html>
 <!--
-  Mail: 약관·개인정보처리방침 개정 사전 통지 (policy change notice)
+  Mail: 약관·개인정보처리방침 개정 사전 통지 (policy change notice) — 연령 정책(만 18세)
   Trigger: 운영자가 notify-policy-change Edge Function 을 1회 수동 호출
            (cron 아님 — 사건 단위 일회성 발송)
   To: 전체 인플루언서 1명당 1통 (marketing_opt_in 무관 — 필수 고지/트랜잭션 성격)
@@ -15,34 +15,34 @@ export const TEMPLATES: Record<string, string> = {
   중복호출 차단: policy_notice_runs.notice_key UNIQUE (mutex)
 
   Top-level Placeholders:
-    {{effective_date}}  시행일 (즉시 시행 — 운영 출시일, 운영자가 호출 시 지정)
+    {{effective_date}}  시행일 = 공고일 + 30일 (운영자가 호출 시 지정)
 
-  문안 원본: docs/notices/2026-05-27-message-feature-notice.md
-  약관 영향: docs/specs/2026-05-15-application-messaging.md §8
+  문안 원본: docs/specs/2026-06-17-age-policy-pr5-draft.md §4
+  약관 영향: docs/specs/2026-05-27-age-minor-policy.md §7
 -->
 <div style="font-family:'Hiragino Sans','Noto Sans JP',Arial,sans-serif;color:#222;max-width:600px;margin:0 auto;font-size:14px;line-height:1.7">
-  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:19px">「お問い合わせ」機能の追加と、規約改定のお知らせ</h2>
+  <h2 style="color:#5B6BBF;margin:0 0 6px;font-size:19px">満18歳以上のご利用への変更・規約改定のお知らせ</h2>
   <p style="margin:0 0 18px;color:#666;font-size:13px">REVERB JP からの大切なお知らせです</p>
 
   <p style="margin:0 0 16px">
     REVERB JP をご利用いただきありがとうございます。<br>
-    このたび、応募されたキャンペーンごとに運営チームへ直接お問い合わせができる「お問い合わせ」機能が追加されました。あわせて、利用規約とプライバシーポリシーを一部改定しました。
+    {{effective_date}}より、REVERB は満18歳以上の方のみご利用いただけるよう変更されます。あわせて、登録情報に「生年月日」と「性別」が追加されます。
   </p>
 
   <div style="margin:0 0 16px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 「お問い合わせ」機能について</div>
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 変更内容</div>
     <div style="margin-left:2px">
-      ・機能：メッセージと画像の送信<br>
-      ・場所：応募履歴ページのキャンペーンごと<br>
-      ・利用：ご本人と運営チーム<br>
-      ・保管期間：応募終了後1年（退会時に削除）
+      1. 満18歳以上の方のみキャンペーンにご応募いただけます。<br>
+      2. ご応募の際に生年月日をご入力ください（一度入力すると変更できません）。<br>
+      3. 性別もご入力ください（「回答しない」も選べます）。
     </div>
   </div>
 
   <div style="margin:0 0 16px">
-    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ 同意について</div>
+    <div style="font-weight:700;color:#5B6BBF;margin-bottom:6px">■ ご確認いただきたいこと</div>
     <div style="margin-left:2px">
-      お問い合わせはサービス運営のための連絡手段のため、別途の同意操作は不要です。施行日以降も続けてご利用いただくことで、改定内容にご同意いただいたものとします。ご同意いただけない場合は、お問い合わせ機能をご利用にならないか、退会の手続きが可能です。
+      ・満18歳未満の方は、施行日以降、新しいご応募ができなくなります。<br>
+      ・すでに当選・進行中のキャンペーンには影響しません。そのままお進めいただけます。
     </div>
   </div>
 

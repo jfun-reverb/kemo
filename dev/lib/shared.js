@@ -636,9 +636,10 @@ function genderLabel(code) {
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  id: 'inquiry2026',            // localStorage 키 식별자. 이전 'message2026'에서 변경 → 이미 본 사람도 새 안내 재노출
-  effectiveDate: '2026-05-28',  // 시행일(완료형 표기용) = 운영 출시일 2026-05-28
-  noticeUntil: '2026-06-11',    // 노출 종료일 = 시행일 + 14일. 이 날 0시(KST)부터 자동 비노출
+  // 연령 정책(만 18세 이상) 시행 예고. 게시일 확정 시 아래 두 날짜를 채우면 그때부터 노출됨(빈값이면 비노출).
+  id: 'agePolicy2026',          // localStorage 키 식별자
+  effectiveDate: '',            // ⚠️ 시행일 = 공고일+30일. 게시일 확정 시 'YYYY-MM-DD' 기입(본문 {date}·예고 표기용)
+  noticeUntil: '',              // ⚠️ 노출 종료일 = 시행일+14일. 게시일 확정 시 'YYYY-MM-DD' 기입
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
