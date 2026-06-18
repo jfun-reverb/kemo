@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<meta name="googlebot" content="noindex,nofollow">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23E8344E'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>R</text></svg>">
+<title>오리엔시트 작성 | REVERB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --brand: #E8344E;
+  --brand-dark: #C41E3A;
+  --brand-soft: #FFF0F2;
+  --ink: #161618;
+  --ink-soft: #4A4A4F;
+  --ink-mute: #8A8A90;
+  --paper: #F7F4EE;
+  --card: #FFFFFF;
+  --border: #EAEAE4;
+  --border-strong: #D4D4CC;
+  --success: #1F9D55;
+  --warn: #C2410C;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  max-width: 720px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--paper);
+  position: relative;
+  padding-bottom: 96px;
+}
+
+/* ============ HEADER ============ */
+.header {
+  padding: 18px 24px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(247, 244, 238, 0.9);
+  border-bottom: 1px solid var(--border);
+}
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.brand-logo {
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.head-sub { font-size: 12px; color: var(--ink-mute); margin-top: 2px; letter-spacing: 0.02em; }
+.status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+.status-pill.draft { background: var(--brand-soft); color: var(--brand-dark); }
+.status-pill.submitted { background: #E7F5EC; color: var(--success); }
+
+/* ============ LAYOUT STATES ============ */
+.wrap { padding: 18px 20px 0; }
+.hidden { display: none !important; }
+
+.center-msg {
+  text-align: center;
+  padding: 64px 28px;
+}
+.center-msg .ico {
+  font-size: 52px;
+  color: var(--ink-mute);
+  margin-bottom: 14px;
+}
+.center-msg.err .ico { color: var(--brand); }
+.center-msg h2 { font-size: 19px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.02em; }
+.center-msg p { font-size: 14px; color: var(--ink-soft); max-width: 360px; margin: 0 auto; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ INTRO BANNER ============ */
+.intro {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.intro h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.intro p { font-size: 13px; color: var(--ink-soft); }
+.intro .ftype {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--paper); color: var(--ink-soft);
+  border: 1px solid var(--border-strong);
+}
+
+/* submitted 재편집 안내 배너 */
+.resubmit-note {
+  display: flex; gap: 9px; align-items: flex-start;
+  background: #E7F5EC; border: 1px solid #BfE5CC;
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+  font-size: 13px; color: #14663A;
+}
+.resubmit-note .material-icons-outlined { font-size: 19px; }
+
+/* conflict 경고 배너 */
+.conflict-note {
+  display: flex; gap: 9px; align-items: flex-start;
+  background: #FFF4ED; border: 1px solid #F4C9AE;
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+  font-size: 13px; color: var(--warn);
+}
+.conflict-note .material-icons-outlined { font-size: 19px; }
+.conflict-note button {
+  margin-left: auto; flex-shrink: 0;
+  background: var(--warn); color: #fff; border: none;
+  border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+
+/* ============ SECTION CARD ============ */
+.section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 15px; font-weight: 800;
+  margin-bottom: 14px; letter-spacing: -0.02em;
+}
+.section-title .material-icons-outlined { font-size: 20px; color: var(--brand); }
+.section-desc { font-size: 12.5px; color: var(--ink-mute); margin: -8px 0 14px; }
+
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block; font-size: 13px; font-weight: 700;
+  color: var(--ink-soft); margin-bottom: 6px;
+}
+.field label .req { color: var(--brand); margin-left: 3px; }
+.field-hint { font-size: 11.5px; color: var(--ink-mute); margin-top: 5px; }
+
+input[type="text"], input[type="url"], input[type="number"], input[type="date"], textarea, select {
+  width: 100%;
+  font-family: inherit;
+  font-size: 16px;            /* 모바일 자동 확대 방지 */
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 11px 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--brand); }
+textarea { resize: vertical; min-height: 86px; line-height: 1.55; }
+input[type="date"] { min-height: 44px; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+
+/* 반복 블록(가격·URL·채널·이미지) */
+.rep-item {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 13px;
+  margin-bottom: 10px;
+  background: var(--paper);
+}
+.rep-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.rep-head .rep-num { font-size: 12px; font-weight: 800; color: var(--ink-soft); letter-spacing: 0.02em; }
+.rep-remove {
+  background: none; border: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--ink-mute); font-size: 12px; font-family: inherit; font-weight: 600;
+  padding: 2px 4px;
+}
+.rep-remove .material-icons-outlined { font-size: 16px; }
+.rep-remove:hover { color: var(--brand); }
+.rep-item .field:last-child { margin-bottom: 0; }
+
+.add-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 1px dashed var(--border-strong);
+  color: var(--ink-soft); border-radius: 10px;
+  padding: 9px 14px; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer; width: 100%; justify-content: center;
+}
+.add-btn .material-icons-outlined { font-size: 18px; }
+.add-btn:hover { border-color: var(--brand); color: var(--brand); }
+
+/* ============ FOOTER BAR ============ */
+.footbar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  max-width: 720px; margin: 0 auto;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex; align-items: center; gap: 12px;
+  z-index: 90;
+}
+.save-state {
+  font-size: 12.5px; color: var(--ink-mute);
+  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+}
+.save-state .material-icons-outlined { font-size: 16px; }
+.save-state.saved { color: var(--success); }
+.save-state.saving { color: var(--ink-soft); }
+.save-state.error { color: var(--brand); }
+.btn-submit {
+  margin-left: auto;
+  background: var(--brand); color: #fff;
+  border: none; border-radius: 11px;
+  padding: 12px 26px; font-size: 15px; font-weight: 800;
+  font-family: inherit; cursor: pointer; letter-spacing: 0.01em;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn-submit:hover { background: var(--brand-dark); }
+.btn-submit:disabled { opacity: 0.55; cursor: default; }
+
+/* 작은 인라인 토스트 */
+.toast {
+  position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+  background: var(--ink); color: #fff;
+  font-size: 13px; font-weight: 600;
+  padding: 10px 18px; border-radius: 10px;
+  z-index: 200; max-width: 90%; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.toast.show { opacity: 0.96; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <a class="brand-logo" href="/">REVERB</a>
+      <div class="head-sub">캠페인 오리엔시트 작성</div>
+    </div>
+    <span id="statusPill" class="status-pill draft hidden">작성 중</span>
+  </div>
+</div>
+
+<!-- 로딩 -->
+<div id="screenLoading" class="center-msg">
+  <div class="spinner"></div>
+  <p>불러오는 중입니다…</p>
+</div>
+
+<!-- 진입 불가(무효/만료/소비) -->
+<div id="screenError" class="center-msg err hidden">
+  <div class="ico"><span class="material-icons-outlined notranslate" id="errIcon" translate="no">link_off</span></div>
+  <h2 id="errTitle">링크를 확인할 수 없습니다</h2>
+  <p id="errBody">링크가 올바르지 않거나 더 이상 사용할 수 없습니다. 담당자에게 문의해 주세요.</p>
+</div>
+
+<!-- 작성 폼 -->
+<div id="screenForm" class="wrap hidden">
+
+  <div class="intro">
+    <h1>캠페인 오리엔시트</h1>
+    <p>이 캠페인에 사용할 내용을 한국어로 작성해 주세요. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
+    <span id="introFtype" class="ftype hidden"></span>
+  </div>
+
+  <div id="resubmitNote" class="resubmit-note hidden">
+    <span class="material-icons-outlined notranslate" translate="no">check_circle</span>
+    <span>이미 제출하신 내용입니다. 발행 전까지 자유롭게 수정하고 다시 제출할 수 있습니다.</span>
+  </div>
+
+  <div id="conflictNote" class="conflict-note hidden">
+    <span class="material-icons-outlined notranslate" translate="no">sync_problem</span>
+    <span>다른 곳에서 먼저 수정되었습니다. 최신 내용을 불러오려면 새로고침해 주세요.</span>
+    <button type="button" onclick="location.reload()">새로고침</button>
+  </div>
+
+  <!-- 1. 모집 정보 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">campaign</span>모집 정보</div>
+    <div class="field">
+      <label>모집 인원</label>
+      <input type="number" id="f_slots" min="0" placeholder="예: 30" oninput="onInput()">
+      <div class="field-hint">실제로 모집할 인원 수입니다. 견적 수량과 다를 수 있어요.</div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>모집 시작일</label>
+        <input type="date" id="f_recruit_start" onchange="onInput()">
+      </div>
+      <div class="field">
+        <label>모집 마감일</label>
+        <input type="date" id="f_recruit_end" onchange="onInput()">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>게시(콘텐츠 업로드) 시작일</label>
+        <input type="date" id="f_post_start" onchange="onInput()">
+      </div>
+      <div class="field">
+        <label>게시 마감일</label>
+        <input type="date" id="f_post_end" onchange="onInput()">
+      </div>
+    </div>
+    <div class="field">
+      <label>결과 발표 예정일</label>
+      <input type="date" id="f_result_date" onchange="onInput()">
+    </div>
+  </div>
+
+  <!-- 2. 브랜드 정보 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">storefront</span>브랜드 정보</div>
+    <div class="field">
+      <label>브랜드명</label>
+      <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
+    </div>
+    <div class="field">
+      <label>브랜드 소개 · 어필 포인트</label>
+      <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
+    </div>
+  </div>
+
+  <!-- 3. 제품 정보 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">inventory_2</span>제품 정보</div>
+    <div class="field">
+      <label>제품명</label>
+      <input type="text" id="f_product_name" placeholder="제품명" oninput="onInput()">
+    </div>
+    <div class="field">
+      <label>카테고리</label>
+      <input type="text" id="f_product_category" placeholder="예: 스킨케어, 헤어, 푸드" oninput="onInput()">
+    </div>
+
+    <div class="field">
+      <label>판매 가격</label>
+      <div class="field-hint" style="margin-top:0;margin-bottom:8px">상시가·세일가·메가와리가 등 종류별로 추가해 주세요.</div>
+      <div id="priceList"></div>
+      <button type="button" class="add-btn" onclick="addPrice()"><span class="material-icons-outlined notranslate" translate="no">add</span>가격 추가</button>
+    </div>
+
+    <div class="field">
+      <label>판매 URL</label>
+      <div class="field-hint" style="margin-top:0;margin-bottom:8px">Qoo10·Amazon·한국몰 등 판매처별로 추가해 주세요.</div>
+      <div id="urlList"></div>
+      <button type="button" class="add-btn" onclick="addUrl()"><span class="material-icons-outlined notranslate" translate="no">add</span>판매 URL 추가</button>
+    </div>
+
+    <div class="field">
+      <label>제품 소개 · 소구 포인트</label>
+      <textarea id="f_product_appeal" placeholder="제품 특징, 강조하고 싶은 소구 포인트를 적어 주세요." oninput="onInput()"></textarea>
+    </div>
+  </div>
+
+  <!-- 4. 채널별 게시 가이드 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">share</span>채널별 게시 가이드</div>
+    <div class="section-desc">채널(인스타그램·X 등)마다 게시 방식·필수 내용을 따로 적어 주세요.</div>
+    <div id="channelList"></div>
+    <button type="button" class="add-btn" onclick="addChannel()"><span class="material-icons-outlined notranslate" translate="no">add</span>채널 추가</button>
+  </div>
+
+  <!-- 5. 해시태그·태그 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">tag</span>해시태그 · 계정 태그</div>
+    <div class="field">
+      <label>필수 해시태그 (최대 5개)</label>
+      <input type="text" id="f_hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" oninput="onInput()">
+      <div class="field-hint">예: #리버브 #체험단 — 5개까지 입력됩니다.</div>
+    </div>
+    <div class="field">
+      <label>필수 계정 태그</label>
+      <input type="text" id="f_account_tags" placeholder="@reverb.jp" oninput="onInput()">
+    </div>
+  </div>
+
+  <!-- 6. 금지 표현(NG) -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">block</span>금지 표현 (NG)</div>
+    <div class="field">
+      <textarea id="f_ng" placeholder="게시물에 사용하면 안 되는 표현·내용을 적어 주세요." oninput="onInput()"></textarea>
+    </div>
+  </div>
+
+  <!-- 7. 예시 이미지 링크 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">image</span>예시 이미지 링크</div>
+    <div class="section-desc">참고용 이미지가 있으면 링크(URL)를 넣어 주세요. (파일 직접 첨부는 추후 지원 예정)</div>
+    <div id="imageList"></div>
+    <button type="button" class="add-btn" onclick="addImage()"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지 링크 추가</button>
+  </div>
+
+  <!-- 8. 추가 안내 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">info</span>추가 안내 · 필독 사항</div>
+    <div class="field">
+      <textarea id="f_cautions" placeholder="인플루언서가 꼭 알아야 할 안내사항을 적어 주세요." oninput="onInput()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- 하단 고정 바 -->
+<div id="footbar" class="footbar hidden">
+  <div id="saveState" class="save-state"><span class="material-icons-outlined notranslate" translate="no">cloud_done</span><span id="saveStateText">자동 저장</span></div>
+  <button type="button" id="btnSubmit" class="btn-submit" onclick="submitSheet()">제출</button>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+// Supabase 환경별 자동 분기 (reviewer.html과 동일 로직)
+// ══════════════════════════════════════
+const SUPABASE_ENVS = {
+  production: {
+    url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co',
+    key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP'
+  },
+  staging: {
+    url: 'https://qysmxtipobomefudyixw.supabase.co',
+    key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
+  }
+};
+const SUPABASE_ENV = /^(www\.|sales\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+const sb = window.supabase
+  ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key)
+  : null;
+
+// ══════════════════════════════════════
+// 상태
+// ══════════════════════════════════════
+const CHANNEL_OPTIONS = [
+  { value: 'instagram', label: '인스타그램' },
+  { value: 'x',         label: 'X (트위터)' },
+  { value: 'tiktok',    label: '틱톡' },
+  { value: 'youtube',   label: '유튜브' },
+  { value: 'qoo10',     label: 'Qoo10' },
+  { value: 'lips',      label: 'LIPS' },
+  { value: 'atcosme',   label: '@cosme' },
+];
+const MAX_HASHTAGS = 5;
+const LS_KEY_PREFIX = 'reverb.orient.';   // 토큰별 로컬 백업 키
+
+let token = null;
+let currentVersion = 0;
+let currentStatus = 'draft';
+let conflicted = false;            // 충돌 발생 시 자동저장 중단
+let saveTimer = null;
+let dirty = false;                 // 미저장 변경 존재 여부
+
+// ══════════════════════════════════════
+// 유틸
+// ══════════════════════════════════════
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// URL 위험 스킴 차단 + https 보정 (shared.js normalizeUrlInput 축약 이식)
+function normalizeUrl(raw) {
+  if (!raw) return '';
+  let s = String(raw).trim();
+  if (!s) return '';
+  // 위험 스킴 차단
+  if (/^\s*(javascript|data|vbscript|file):/i.test(s)) return '';
+  // 흔한 오타 보정: ttp:// / ttps://
+  s = s.replace(/^ttps?:\/\//i, m => (/s/i.test(m) ? 'https://' : 'http://'));
+  // 스킴 없으면 https 보정
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  return s;
+}
+
+function escAttr(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ══════════════════════════════════════
+// 진입: 토큰 파싱 → 조회 → 분기
+// ══════════════════════════════════════
+async function boot() {
+  const params = new URLSearchParams(location.search);
+  token = params.get('token');
+
+  if (!sb) { return showErrorScreen('connect'); }
+  if (!token) { return showErrorScreen('invalid_token'); }
+
+  try {
+    const { data: res, error } = await sb.rpc('get_orient_sheet', { p_token: token });
+    if (error) throw error;
+
+    if (!res || res.success !== true) {
+      return showErrorScreen(res?.reason || 'invalid_token');
+    }
+
+    currentVersion = res.version || 0;
+    currentStatus = res.status || 'draft';
+
+    // data 복원 (없으면 빈 스키마). initial_values는 data.recruit가 비었을 때만 모집칸 미리채움.
+    const data = (res.data && typeof res.data === 'object') ? res.data : {};
+    fillForm(data, res.initial_values);
+
+    if (res.form_type) {
+      const ft = $('introFtype');
+      ft.textContent = res.form_type === 'reviewer' ? '리뷰어형' : (res.form_type === 'seeding' ? '시딩형' : res.form_type);
+      ft.classList.remove('hidden');
+    }
+
+    enterFormScreen();
+  } catch (e) {
+    console.error('[orient boot]', e);
+    showErrorScreen('connect');
+  }
+}
+
+function showErrorScreen(reason) {
+  $('screenLoading').classList.add('hidden');
+  $('screenForm').classList.add('hidden');
+  $('footbar').classList.add('hidden');
+  const map = {
+    invalid_token: { ico: 'link_off',     title: '링크를 확인할 수 없습니다',   body: '링크가 올바르지 않습니다. 담당자에게 다시 받아 주세요.' },
+    expired:       { ico: 'schedule',     title: '작성 기한이 지났습니다',       body: '이 링크는 작성 가능 기간이 끝났습니다. 담당자에게 문의해 주세요.' },
+    consumed:      { ico: 'task_alt',     title: '이미 발행되었습니다',           body: '이 오리엔시트로 캠페인이 이미 발행되어 더 이상 수정할 수 없습니다.' },
+    connect:       { ico: 'wifi_off',     title: '연결에 문제가 있습니다',        body: '잠시 후 다시 시도해 주세요. 계속되면 담당자에게 문의해 주세요.' },
+  };
+  const m = map[reason] || map.invalid_token;
+  $('errIcon').textContent = m.ico;
+  $('errTitle').textContent = m.title;
+  $('errBody').textContent = m.body;
+  $('screenError').classList.remove('hidden');
+}
+
+function enterFormScreen() {
+  $('screenLoading').classList.add('hidden');
+  $('screenError').classList.add('hidden');
+  $('screenForm').classList.remove('hidden');
+  $('footbar').classList.remove('hidden');
+
+  const pill = $('statusPill');
+  pill.classList.remove('hidden');
+  if (currentStatus === 'submitted') {
+    pill.textContent = '제출됨';
+    pill.className = 'status-pill submitted';
+    $('resubmitNote').classList.remove('hidden');
+    $('btnSubmit').textContent = '수정 후 다시 제출';
+  } else {
+    pill.textContent = '작성 중';
+    pill.className = 'status-pill draft';
+    $('btnSubmit').textContent = '제출';
+  }
+}
+
+// ══════════════════════════════════════
+// 폼 채우기 (data → DOM)
+// ══════════════════════════════════════
+function fillForm(data, initial) {
+  const r = data.recruit || {};
+  const recruitEmpty = !r.slots && !r.recruit_start && !r.recruit_end && !r.post_start && !r.post_end && !r.result_date;
+  // 연결 신청 모집 희망값: data.recruit가 비었을 때만 미리채움 (수정 가능)
+  const iv = (recruitEmpty && initial) ? initial : null;
+
+  $('f_slots').value = r.slots || (iv && iv.total_qty != null ? iv.total_qty : '') || '';
+  $('f_recruit_start').value = r.recruit_start || '';
+  $('f_recruit_end').value = r.recruit_end || '';
+  $('f_post_start').value = r.post_start || '';
+  $('f_post_end').value = r.post_end || '';
+  $('f_result_date').value = r.result_date || '';
+
+  const b = data.brand || {};
+  $('f_brand_name').value = b.name || '';
+  $('f_brand_intro').value = b.intro || '';
+
+  const p = data.product || {};
+  $('f_product_name').value = p.name || '';
+  $('f_product_category').value = p.category || '';
+  $('f_product_appeal').value = p.appeal || '';
+
+  // 반복 블록 — 최소 1개씩 보장
+  renderPrices(Array.isArray(p.prices) && p.prices.length ? p.prices : [{ label: '', value: '' }]);
+  renderUrls(Array.isArray(p.urls) && p.urls.length ? p.urls : [{ label: '', value: '' }]);
+  renderChannels(Array.isArray(data.channels) && data.channels.length ? data.channels : [{ channel: '', guide: '' }]);
+  renderImages(Array.isArray(data.images) && data.images.length ? data.images : [{ type: 'url', value: '' }]);
+
+  $('f_hashtags').value = Array.isArray(data.hashtags) ? data.hashtags.join(' ') : (data.hashtags || '');
+  $('f_account_tags').value = data.account_tags || '';
+  $('f_ng').value = data.ng || '';
+  $('f_cautions').value = data.cautions || '';
+}
+
+// ── 가격 반복 ──
+function priceItemHtml(idx, label, value) {
+  return `<div class="rep-item" data-price>
+    <div class="rep-head"><span class="rep-num">가격 ${idx + 1}</span>
+      <button type="button" class="rep-remove" onclick="removeRep(this,'price')"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
+    <div class="row2">
+      <div class="field"><label>종류</label><input type="text" class="p-label" placeholder="예: 상시가 / 세일가" value="${escAttr(label)}" oninput="onInput()"></div>
+      <div class="field"><label>가격</label><input type="text" class="p-value" placeholder="예: 5,300엔" value="${escAttr(value)}" oninput="onInput()"></div>
+    </div>
+  </div>`;
+}
+function renderPrices(arr) { $('priceList').innerHTML = arr.map((x, i) => priceItemHtml(i, x.label, x.value)).join(''); }
+function addPrice() {
+  const list = $('priceList');
+  list.insertAdjacentHTML('beforeend', priceItemHtml(list.children.length, '', ''));
+  renumber('priceList', '가격');
+  onInput();
+}
+
+// ── URL 반복 ──
+function urlItemHtml(idx, label, value) {
+  return `<div class="rep-item" data-url>
+    <div class="rep-head"><span class="rep-num">URL ${idx + 1}</span>
+      <button type="button" class="rep-remove" onclick="removeRep(this,'url')"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
+    <div class="field"><label>판매처</label><input type="text" class="u-label" placeholder="예: Qoo10 / Amazon" value="${escAttr(label)}" oninput="onInput()"></div>
+    <div class="field"><label>URL</label><input type="url" class="u-value" placeholder="www.qoo10.jp/g/..." value="${escAttr(value)}" oninput="onInput()"></div>
+  </div>`;
+}
+function renderUrls(arr) { $('urlList').innerHTML = arr.map((x, i) => urlItemHtml(i, x.label, x.value)).join(''); }
+function addUrl() {
+  const list = $('urlList');
+  list.insertAdjacentHTML('beforeend', urlItemHtml(list.children.length, '', ''));
+  renumber('urlList', 'URL');
+  onInput();
+}
+
+// ── 채널 반복 ──
+function channelItemHtml(idx, channel, guide) {
+  const opts = CHANNEL_OPTIONS.map(o =>
+    `<option value="${o.value}"${o.value === channel ? ' selected' : ''}>${o.label}</option>`).join('');
+  return `<div class="rep-item" data-channel>
+    <div class="rep-head"><span class="rep-num">채널 ${idx + 1}</span>
+      <button type="button" class="rep-remove" onclick="removeRep(this,'channel')"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
+    <div class="field"><label>채널</label>
+      <select class="c-channel" onchange="onInput()"><option value="">선택</option>${opts}</select></div>
+    <div class="field"><label>게시 가이드</label>
+      <textarea class="c-guide" placeholder="이 채널에서 어떻게 게시할지, 필수 내용을 적어 주세요." oninput="onInput()">${escAttr(guide)}</textarea></div>
+  </div>`;
+}
+function renderChannels(arr) { $('channelList').innerHTML = arr.map((x, i) => channelItemHtml(i, x.channel, x.guide)).join(''); }
+function addChannel() {
+  const list = $('channelList');
+  list.insertAdjacentHTML('beforeend', channelItemHtml(list.children.length, '', ''));
+  renumber('channelList', '채널');
+  onInput();
+}
+
+// ── 이미지 링크 반복 ──
+function imageItemHtml(idx, value) {
+  return `<div class="rep-item" data-image>
+    <div class="rep-head"><span class="rep-num">이미지 ${idx + 1}</span>
+      <button type="button" class="rep-remove" onclick="removeRep(this,'image')"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
+    <div class="field"><label>이미지 URL</label><input type="url" class="i-value" placeholder="https://..." value="${escAttr(value)}" oninput="onInput()"></div>
+  </div>`;
+}
+function renderImages(arr) { $('imageList').innerHTML = arr.map((x, i) => imageItemHtml(i, x.value)).join(''); }
+function addImage() {
+  const list = $('imageList');
+  list.insertAdjacentHTML('beforeend', imageItemHtml(list.children.length, ''));
+  renumber('imageList', '이미지');
+  onInput();
+}
+
+// 반복 블록 삭제 — 최소 1개 유지
+function removeRep(btn, kind) {
+  const listId = { price: 'priceList', url: 'urlList', channel: 'channelList', image: 'imageList' }[kind];
+  const list = $(listId);
+  if (list.children.length <= 1) { showToast('최소 1개는 남겨 주세요.'); return; }
+  btn.closest('.rep-item').remove();
+  const labelMap = { price: '가격', url: 'URL', channel: '채널', image: '이미지' };
+  renumber(listId, labelMap[kind]);
+  onInput();
+}
+function renumber(listId, label) {
+  Array.from($(listId).children).forEach((el, i) => {
+    const num = el.querySelector('.rep-num');
+    if (num) num.textContent = `${label} ${i + 1}`;
+  });
+}
+
+// ══════════════════════════════════════
+// 폼 수집 (DOM → data)
+// ══════════════════════════════════════
+function collectData() {
+  const prices = Array.from(document.querySelectorAll('[data-price]')).map(el => ({
+    label: el.querySelector('.p-label').value.trim(),
+    value: el.querySelector('.p-value').value.trim()
+  })).filter(x => x.label || x.value);
+
+  const urls = Array.from(document.querySelectorAll('[data-url]')).map(el => ({
+    label: el.querySelector('.u-label').value.trim(),
+    value: normalizeUrl(el.querySelector('.u-value').value)
+  })).filter(x => x.label || x.value);
+
+  const channels = Array.from(document.querySelectorAll('[data-channel]')).map(el => ({
+    channel: el.querySelector('.c-channel').value,
+    guide: el.querySelector('.c-guide').value.trim()
+  })).filter(x => x.channel || x.guide);
+
+  const images = Array.from(document.querySelectorAll('[data-image]')).map(el => ({
+    type: 'url',
+    value: normalizeUrl(el.querySelector('.i-value').value)
+  })).filter(x => x.value);
+
+  const hashtags = $('f_hashtags').value
+    .split(/[\s,]+/).map(s => s.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
+
+  return {
+    recruit: {
+      slots: $('f_slots').value.trim(),
+      recruit_start: $('f_recruit_start').value,
+      recruit_end: $('f_recruit_end').value,
+      post_start: $('f_post_start').value,
+      post_end: $('f_post_end').value,
+      result_date: $('f_result_date').value
+    },
+    brand: {
+      name: $('f_brand_name').value.trim(),
+      intro: $('f_brand_intro').value.trim()
+    },
+    product: {
+      name: $('f_product_name').value.trim(),
+      category: $('f_product_category').value.trim(),
+      prices, urls,
+      appeal: $('f_product_appeal').value.trim()
+    },
+    channels,
+    hashtags,
+    account_tags: $('f_account_tags').value.trim(),
+    ng: $('f_ng').value.trim(),
+    cautions: $('f_cautions').value.trim(),
+    images
+  };
+}
+
+// ══════════════════════════════════════
+// 자동저장 (debounce + 낙관적 락)
+// ══════════════════════════════════════
+const AUTOSAVE_DELAY = 1500;
+
+function onInput() {
+  if (conflicted) return;
+  dirty = true;
+  setSaveState('saving', '저장 중…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doAutosave, AUTOSAVE_DELAY);
+}
+
+function setSaveState(kind, text) {
+  const el = $('saveState');
+  el.className = 'save-state' + (kind ? ' ' + kind : '');
+  const ico = { saving: 'cloud_sync', saved: 'cloud_done', error: 'cloud_off', idle: 'cloud_done' }[kind] || 'cloud_done';
+  el.querySelector('.material-icons-outlined').textContent = ico;
+  $('saveStateText').textContent = text;
+}
+
+function localBackup(data) {
+  try { localStorage.setItem(LS_KEY_PREFIX + token, JSON.stringify({ data, at: Date.now() })); } catch (e) {}
+}
+
+async function doAutosave() {
+  if (conflicted || !sb || !token) return;
+  const data = collectData();
+  localBackup(data);
+  try {
+    const { data: res, error } = await sb.rpc('save_orient_draft', {
+      p_token: token, p_data: data, p_version: currentVersion
+    });
+    if (error) throw error;
+
+    if (res && res.success === true) {
+      currentVersion = res.version;
+      dirty = false;
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      setSaveState('saved', `저장됨 ${hh}:${mm}`);
+      return;
+    }
+    // 실패 분기
+    if (res && res.reason === 'conflict') return enterConflict();
+    if (res && res.reason === 'data_too_large') { setSaveState('error', '내용이 너무 깁니다'); return; }
+    if (res && (res.reason === 'expired' || res.reason === 'consumed')) { setSaveState('error', '저장할 수 없습니다'); return; }
+    setSaveState('error', '저장 실패');
+  } catch (e) {
+    console.error('[autosave]', e);
+    setSaveState('error', '저장 실패 (다시 시도됨)');
+  }
+}
+
+function enterConflict() {
+  conflicted = true;
+  clearTimeout(saveTimer);
+  $('conflictNote').classList.remove('hidden');
+  setSaveState('error', '다른 곳에서 수정됨');
+}
+
+// ══════════════════════════════════════
+// 제출
+// ══════════════════════════════════════
+async function submitSheet() {
+  if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
+  if (!sb || !token) return;
+
+  const data = collectData();
+  // 최소 입력 확인: 제품명 또는 브랜드명 중 하나는 있어야 의미 있는 제출
+  if (!data.brand.name && !data.product.name) {
+    showToast('브랜드명 또는 제품명을 입력해 주세요.');
+    return;
+  }
+
+  const btn = $('btnSubmit');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '제출 중…';
+
+  // 진행 중 자동저장과 경합 방지
+  clearTimeout(saveTimer);
+
+  try {
+    const { data: res, error } = await sb.rpc('submit_orient_sheet', {
+      p_token: token, p_data: data, p_version: currentVersion
+    });
+    if (error) throw error;
+
+    if (res && res.success === true) {
+      currentVersion = res.version;
+      currentStatus = 'submitted';
+      dirty = false;
+      try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
+      enterFormScreen();           // 제출됨 배너·상태 갱신
+      setSaveState('saved', '제출 완료');
+      showToast('제출되었습니다. 발행 전까지 수정할 수 있어요.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (res && res.reason === 'conflict') { enterConflict(); return; }
+    if (res && res.reason === 'data_required') { showToast('내용을 입력해 주세요.'); return; }
+    if (res && res.reason === 'data_too_large') { showToast('내용이 너무 깁니다. 줄여 주세요.'); return; }
+    if (res && (res.reason === 'expired' || res.reason === 'consumed')) {
+      showToast('제출할 수 없는 상태입니다.'); showErrorScreen(res.reason); return;
+    }
+    showToast('제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  } catch (e) {
+    console.error('[submit]', e);
+    showToast('제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+// 미저장 이탈 경고
+window.addEventListener('beforeunload', (e) => {
+  if (dirty && !conflicted) { e.preventDefault(); e.returnValue = ''; }
+});
+
+boot();
+</script>
+</body>
+</html>

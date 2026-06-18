@@ -193,6 +193,63 @@ orient_sheets(
 
 ---
 
+## 11. 부록 A — `data` jsonb 스키마 (PR2 ↔ PR4 공유 단일 소스)
+
+> PR2 작성 폼의 입력칸 ↔ `orient_sheets.data` 키 ↔ PR4 자동 채움(prefill) 매핑이 **같은 키 이름**을 쓰도록 여기서 고정한다. PR4는 이 부록을 읽어 `applyOrientPrefill(data)`를 작성한다. 키를 바꾸면 양쪽을 함께 고친다.
+
+```jsonc
+{
+  "recruit": {                    // 모집 정보
+    "slots": "",                  // 모집인원 → campaigns.slots (숫자 파싱)
+    "recruit_start": "",          // 모집 시작(YYYY-MM-DD) → recruit_start
+    "recruit_end": "",            // 모집 마감 → deadline
+    "post_start": "",             // 게시 시작 → (구매/방문 기간 참고)
+    "post_end": "",               // 게시 마감 → submission_end
+    "result_date": ""             // 결과 발표일 → 캠페인 미대응, 관리자 참고만
+  },
+  "brand": {
+    "name": "",                   // 브랜드명 → brand / brand_ko (일본어는 관리자 보완)
+    "intro": ""                   // 브랜드 소개·어필 → 콘텐츠 가이드 리치텍스트
+  },
+  "product": {
+    "name": "",                   // 제품명 → product / product_ko
+    "category": "",               // 카테고리 → category (lookup 매칭, 실패 시 보정)
+    "prices": [                   // 가격 복수(상시·세일·메가와리) → product_price 대표 1개 + 나머지 텍스트
+      { "label": "", "value": "" }
+    ],
+    "urls": [                     // 판매 URL 복수(Qoo10·Amazon·한국) → product_url 대표 1개 + 나머지 텍스트
+      { "label": "", "value": "" }
+    ],
+    "appeal": ""                  // 제품 소개·소구 포인트 → 콘텐츠 가이드 리치텍스트
+  },
+  "channels": [                   // 채널별 게시 가이드(반복 블록) → 콘텐츠 가이드 단일 리치텍스트로 합쳐 주입(§5 a안)
+    { "channel": "", "guide": "" }  // channel = instagram|x|tiktok|youtube|qoo10|lips|atcosme 등, 집합은 campaigns.channel
+  ],
+  "hashtags": [],                 // 필수 해시태그(최대 5) → 콘텐츠 가이드 본문 텍스트
+  "account_tags": "",             // 계정 태그 → 콘텐츠 가이드 본문 텍스트
+  "ng": "",                       // 금지 표현(NG) → ng_items jsonb
+  "cautions": "",                 // 추가 안내·필독 → caution_items jsonb
+  "images": [                     // 첨부 이미지 예시 → img1~8 / 콘텐츠 첨부
+    { "type": "url", "value": "" }  // PR2: type='url' 만(링크). 'file'(직접 업로드)은 분리 PR에서 추가
+  ]
+}
+```
+
+- 빈 폼(첫 진입) 기본값: 위 구조에서 `prices`/`urls`/`channels`/`images`는 빈 블록 1개씩, 나머지는 빈 문자열.
+- `get_orient_sheet`의 `initial_values`(연결 신청 모집 희망값)는 `data.recruit`가 비었을 때만 미리 채움(브랜드 수정 가능).
+
+---
+
+## 12. PR 분할 변경 (2026-06-18 개발 세션, 사용자 확정)
+
+§8 PR2를 **이미지 입력 범위로 2분할**한다.
+
+- **PR 2 (이 PR)** — 브랜드 작성 폼 + **이미지 링크(URL) 입력까지**: `dev/sales/orient.html` + `sales/orient.html` 복제. 4분기 진입·폼·채널 반복 블록·자동저장·낙관적 락·제출·반응형. 이미지는 `data.images[].type='url'`만. **서버 함수 추가 없음**(PR1 함수 3종 그대로 사용). vercel.json 수정 불필요(cleanUrls 자동).
+- **PR 2-이미지 (분리, 후속)** — **파일 직접 업로드**: 전용 비공개 버킷(Storage 마이그레이션 1개) + 토큰 검증 함수 `validate_orient_token_for_upload` + Edge Function `upload-orient-image`(service_role 경유) + orient.html 파일 선택 UI. **이유**: PostgreSQL 함수는 Storage에 파일을 직접 쓸 수 없어(메타데이터만 생성·고아 레코드) 방식 B는 Edge Function이 필수 → 개발·운영 양쪽 배포·동기화 부담이 커 폼 골격과 분리. supabase-expert 설계 초안(버킷 정책·검증 함수·Edge Function 골격·sales 인라인 호출) 확보 완료.
+- **PR 3 / PR 4** — §8 그대로(관리자 발급·조회 / 자동 채움 매핑 + 일본어 발행 게이트). 핫스팟 `dev/js/admin.js` 시퀀셜.
+
+---
+
 ## 구현 결과
 
 ### PR 1 — 데이터 모델 + 익명 작성/제출 함수 (2026-06-18)
