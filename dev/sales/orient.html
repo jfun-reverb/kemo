@@ -200,7 +200,11 @@ input[type="date"] { min-height: 44px; }
 .row2 > .field { min-width: 0; }
 
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
+/* 모바일 1열 전환 시 칸 간격을 일반 .field 간격(14px)과 통일 — 묶음 내부·묶음 사이 균일 */
+@media (max-width: 520px) {
+  .row2 { grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+  .row2 > .field { margin-bottom: 0; }
+}
 
 /* 반복 블록(가격·URL·채널·이미지) */
 .rep-item {
