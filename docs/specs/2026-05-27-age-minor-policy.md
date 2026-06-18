@@ -163,12 +163,21 @@ influencers 테이블에 컬럼 추가 (**보호자 컬럼 없음 — 단순화*
 - **통지 인프라 재사용(신규 개발 없음)**: 앱 공지 `POLICY_NOTICE`(`agePolicy2026`, effectiveDate/noticeUntil 빈값=비노출, 게시일 확정 시 채움) + i18n `policyNotice.*` ja/ko 문안 교체(body는 {date} 치환·banner는 미치환이라 날짜 미포함). 메일 `notify-policy-change` subject/text/html 템플릿+미러+번들 교체(4줄 푸터 유지, noticeKey는 호출 인자라 운영 발송 시 새 키 지정).
 - [via planner][via reviewer][via /약관확인] 전부 GO. qa skip.
 
-### 남은 작업 (PR5 운영 출시 — 별도)
-- **게시일 결정** → 약관 부칙·`POLICY_NOTICE`(effectiveDate/noticeUntil)·통지 본문·사양서 4곳 동일 날짜 일괄 치환
-- 운영 DB 미적용 마이그레이션(180·185 등 PR1~5게이트 전부) SQL Editor 선적용(effective_date NULL 유지=차단 OFF)
-- **운영 배포(=공고)**: dev→main PR(사용자 확인). main 머지 시 약관·가입폼·게이트·공지 모두 ON, 18세 차단만 OFF(effective_date NULL)
-- 전체 메일 발송(운영에서만, ~1,400명 분할, `noticeKey`+`effectiveDate` 필수 지정, testRecipient 단건 선검증)
-- **시행일(공고+30일)에 `UPDATE age_policy_settings SET effective_date='YYYY-MM-DD' WHERE id=1`**(서버 차단 활성화, SQL 순차 안내, kill switch=NULL로 되돌리기)
+### 게시일 확정 (2026-06-18) — 공고 2026-06-20 / 시행 2026-07-20
+- **사용자 결정**: 게시일=이번 주 금요일 2026-06-20(공고), 시행일=공고+30일=2026-07-20. 운영 배포 범위=**dev 전체**(연령정책 + 관리자 표 UI 개선 등 미배포 100커밋 일괄).
+- **날짜 치환 완료(dev 머지 PR#532 f7a0873)**: 약관 4파일 부칙(공고 6/20·시행 7/20 한·일)·`POLICY_NOTICE`(effectiveDate 2026-07-20·noticeUntil 2026-08-03=시행+14일). 메일은 발송 인자.
+- **운영 배포 점검**: i18n은 이미 운영 배포돼 있음(연령정책 운영 시 다국어 깨짐 없음). 운영 미적용 마이그레이션=**180·185 두 개뿐**(나머지 179·181~184는 운영 적용 완료). dev↔main 100커밋(연령정책+관리자 표 UI+문서).
+
+### 게시일 당일(2026-06-20) 운영 출시 체크리스트
+1. 운영 DB(SQL Editor)에 **180_age_policy.sql → 185_add_age_consent_at.sql 순서로 적용**(effective_date NULL 유지=차단 OFF). 운영 DB 스냅샷 권장.
+2. **dev→main PR 생성 → 사용자 확인 → 머지**(=공고). main 머지 시 약관·가입폼 생년월일·게이트·앱 공지 모두 ON, 18세 차단만 OFF.
+3. **전체 메일 발송**(운영에서만): `notify-policy-change` 호출, `noticeKey='agePolicy2026'`+`effectiveDate='2026年7月20日'` 필수 지정. testRecipient 단건 선검증 후 전체. ~1,400명 분할(policy_notice_runs 로그 확인).
+
+### 시행일(2026-07-20) 작업
+- 운영 DB SQL Editor: `UPDATE age_policy_settings SET effective_date='2026-07-20', updated_by=<auth_id> WHERE id=1`(서버 차단 활성화). SQL 순차 안내(전후 SELECT). kill switch=`effective_date=NULL`로 즉시 차단 해제.
+
+### 별도 이슈(개발 백로그)
+- `docs/email-templates/admin-daily-digest.html` 원본이 `templates.ts` 번들보다 stale(마이그 164 통합 전). `sync-email-templates.sh` 실행 시 daily-digest templates.ts 역행 → 원본 최신화 별도 필요(이번엔 git checkout으로 원복).
 
 ### 별도 이슈(개발 백로그)
 - `docs/email-templates/admin-daily-digest.html` 원본이 `templates.ts` 번들보다 stale(마이그 164 통합 전). `sync-email-templates.sh` 실행 시 daily-digest templates.ts 역행 → 원본 최신화 별도 필요(이번엔 git checkout으로 원복).
