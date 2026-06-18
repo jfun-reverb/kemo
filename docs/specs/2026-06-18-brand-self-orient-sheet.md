@@ -282,5 +282,28 @@ orient_sheets(
 - jsonb 크기 상한 100KB(`octet_length`). 이미지는 PR2에서 링크 URL + 파일 업로드(전용 버킷)로 받으므로 `data`에는 URL 텍스트만.
 - **PR3·4 인계 메모**: ① `delete_brand` RPC(마이그레이션 174)에 `orient_sheets` 카운트 체크 추가 필요(brand_id RESTRICT와 정합). ② 관리자 대리 저장이 필요하면 `save/submit_orient_sheet`에 `authenticated` GRANT 추가. ③ `create_orient_sheet`/`mark_orient_consumed`는 PR3·4에서 구현(PR1 의도적 제외).
 
-### PR 2·3·4
-- 미착수. PR2(브랜드 작성 폼 `dev/sales/orient.html` + 익명 업로드 보안) → PR3(관리자 발급·조회 페인) → PR4(자동 채움 매핑 + 일본어 발행 게이트). §8 분할대로 **시퀀셜**(PR3·4는 `dev/js/admin.js` 핫스팟이라 병렬 금지).
+### PR 2 — 브랜드 작성 폼 (이미지 링크까지) (2026-06-18)
+
+**구현일:** 2026-06-18
+**관련 브랜치/PR:** `feature/orient-sheet-form` → dev PR #536 (커밋 `0b6ec82`)
+**신규 파일:** `dev/sales/orient.html`(원본) + `sales/orient.html`(빌드 복사본, `dev/build.sh` 3단계가 `dev/sales/*.html` → `sales/`로 복사)
+
+**구현 내용:**
+- 토큰 링크(`/orient?token=...`) 진입 → `get_orient_sheet` 익명 호출 → 4분기(정상 draft/submitted · 무효 · 만료 · 소비) 화면.
+- 폼 8섹션: 모집 정보 / 브랜드 정보 / 제품 정보(가격·판매URL 반복) / 채널별 게시 가이드(추가·삭제 반복 블록) / 해시태그·계정 태그 / NG / 예시 이미지 링크(반복) / 추가 안내.
+- 자동저장(debounce 1.5초) + 낙관적 락(응답 `version` 항상 흡수, `conflict` 시 자동저장 중단 + 새로고침 배너) + 「저장됨 HH:MM」 피드백 + localStorage 백업 + `beforeunload` 미저장 경고.
+- 제출(`submit_orient_sheet`) → 제출됨 배너 전환, 발행 전 재편집 가능.
+- 한국어 단일 UI · `noindex` · 반응형(PC/모바일, `max-width:720px`).
+
+### 초안 대비 변경 사항
+- **달라진 것**: 이미지 입력을 **링크(URL)만** PR2에 포함. 파일 직접 업로드는 **별도 PR로 분리**(§12). 이유 = PostgreSQL 함수는 Storage에 파일을 직접 쓸 수 없어(메타데이터만·고아 레코드) 토큰 검증 방식(방식 B)에 Edge Function이 필수 → 개발·운영 배포·동기화 부담 분리(`reverb-supabase-expert` 검증).
+- **추가된 것**: §11 `data` jsonb 스키마 부록(PR4 prefill과 공유할 단일 소스), §12 PR 분할 변경, 채널 입력 = 추가/삭제 반복 블록(사용자 확정), `data.images[].type='url'` 구조.
+- **빠진 것**: 익명 업로드 보안(버킷·검증 함수·Edge Function)은 PR2에서 제외 → 분리 PR. supabase-expert 설계 초안(버킷 정책 `orient-images` 비공개 + `validate_orient_token_for_upload` + `upload-orient-image` Edge Function + sales 인라인 호출) 확보 완료.
+
+### 구현 중 기술 결정 사항
+- sales는 `storage.js`를 빌드로 안 씀 → `orient.html`이 `SUPABASE_ENVS`·`createClient`·`rpc`를 인라인 호출(reviewer.html 패턴). `normalizeUrl`(위험 스킴 차단·https 보정)·`escAttr`(XSS 방어)도 인라인 이식.
+- vercel.json 수정 불필요(`cleanUrls`가 `/orient` → `orient.html` 자동 매핑).
+- reverb-reviewer GO(Critical 0). `notranslate` 클래스 20개 보강. qa skip(토큰 발급은 PR3라 실 E2E는 SQL Editor 테스트 행 후).
+
+### PR 2-이미지 / PR 3 / PR 4
+- 미착수. **PR 2-이미지**(파일 직접 업로드 — 버킷 + 토큰 검증 함수 + Edge Function) → **PR 3**(관리자 발급·조회 페인) → **PR 4**(자동 채움 매핑 + 일본어 발행 게이트). §8·§12 분할대로 **시퀀셜**(PR3·4는 `dev/js/admin.js` 핫스팟이라 병렬 금지).
