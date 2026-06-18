@@ -119,13 +119,18 @@ body {
 }
 .intro h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
 .intro p { font-size: 13px; color: var(--ink-soft); }
+.ftype-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .intro .ftype {
   display: inline-block;
-  margin-top: 8px;
   font-size: 11px; font-weight: 700;
   padding: 3px 9px; border-radius: 999px;
   background: var(--paper); color: var(--ink-soft);
   border: 1px solid var(--border-strong);
+}
+.ftype-change {
+  background: none; border: none; padding: 0;
+  color: var(--brand); font-size: 12px; font-weight: 700;
+  font-family: inherit; cursor: pointer; text-decoration: underline;
 }
 
 /* ============ TYPE SELECT (0단계) ============ */
@@ -376,7 +381,10 @@ input[type="date"] { min-height: 44px; }
   <div class="intro">
     <h1>캠페인 오리엔시트</h1>
     <p>이 캠페인에 사용할 내용을 한국어로 작성해 주세요. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
-    <span id="introFtype" class="ftype hidden"></span>
+    <div class="ftype-row">
+      <span id="introFtype" class="ftype hidden"></span>
+      <button type="button" id="btnChangeType" class="ftype-change hidden" onclick="changeType()">타입 다시 선택</button>
+    </div>
   </div>
 
   <div id="resubmitNote" class="resubmit-note hidden">
@@ -603,6 +611,7 @@ let token = null;
 let currentVersion = 0;
 let currentStatus = 'draft';
 let currentStep = 1;
+let currentFormType = null;        // 현재 확정된 타입(타입 변경 감지용)
 let conflicted = false;            // 충돌 발생 시 자동저장 중단
 let saveTimer = null;
 let dirty = false;                 // 미저장 변경 존재 여부
@@ -664,6 +673,7 @@ async function boot() {
 
     // 타입 미지정(신청 미연결 등)이면 0단계 타입 선택 노출, 이미 지정됐으면 바로 본문
     if (res.form_type) {
+      currentFormType = res.form_type;
       applyType(res.form_type);
       showFtypeBadge(res.form_type);
       enterFormScreen();
@@ -696,6 +706,24 @@ function showTypeSelect() {
   $('screenTypeSelect').classList.remove('hidden');
 }
 
+// 본문에서 타입 다시 선택 (작성 중 draft 한정 — 제출 후 잠금)
+function changeType() {
+  if (currentStatus === 'submitted') return;
+  const ok = window.confirm('타입을 바꾸면 지금 타입에서만 쓰는 항목(구매기간·판매가격·판매URL 또는 제공·배송 안내)은 지워집니다. 계속할까요?');
+  if (!ok) return;
+  showTypeSelect();
+}
+
+// 타입 변경 시 이전 타입 전용 입력 비우기 (공통 필드는 보존)
+function clearTypeFields() {
+  $('f_purchase_start').value = '';
+  $('f_purchase_end').value = '';
+  $('f_provide_note').value = '';
+  $('f_shipping_note').value = '';
+  renderPrices([{ label: '', value: '' }]);
+  renderUrls([{ label: '', value: '' }]);
+}
+
 // 0단계에서 타입 확정 → form_type 컬럼 1회 set(잠금) → 본문 진입
 async function selectType(ft) {
   if (!sb || !token) return;
@@ -707,15 +735,20 @@ async function selectType(ft) {
 
     if (res && res.success === true) {
       const chosen = res.form_type || ft;
+      const wasChange = currentFormType && currentFormType !== chosen;
+      if (wasChange) clearTypeFields();   // 타입 바뀜 → 이전 전용 입력 비우기
+      currentFormType = chosen;
       $('screenTypeSelect').classList.add('hidden');
       applyType(chosen);
       showFtypeBadge(chosen);
       enterFormScreen();
+      if (wasChange) onInput();           // 비운 data 자동저장
       return;
     }
-    // 동시성: 이미 다른 타입으로 확정된 경우 그 타입으로 진행
+    // 제출 후 다른 타입으로 변경 시도 등: 잠긴 타입으로 진행
     if (res && res.reason === 'type_locked') {
       const locked = res.current_form_type;
+      currentFormType = locked;
       $('screenTypeSelect').classList.add('hidden');
       applyType(locked);
       showFtypeBadge(locked);
@@ -770,6 +803,8 @@ function enterFormScreen() {
     pill.textContent = '작성 중';
     pill.className = 'status-pill draft';
   }
+  // 타입 다시 선택 버튼: 작성 중(draft)만 — 제출 후 타입 잠금
+  $('btnChangeType').classList.toggle('hidden', currentStatus === 'submitted');
   showStep(1);
 }
 
@@ -1100,6 +1135,7 @@ async function submitSheet() {
       $('statusPill').textContent = '제출됨';
       $('statusPill').className = 'status-pill submitted';
       $('resubmitNote').classList.remove('hidden');
+      $('btnChangeType').classList.add('hidden');   // 제출 후 타입 잠금
       setSaveState('saved', '제출 완료');
       showToast('제출되었습니다. 발행 전까지 수정할 수 있어요.');
       showStep(1);
