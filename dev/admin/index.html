@@ -111,6 +111,7 @@
         <div class="admin-si" data-pane="companies" id="adminCompaniesSi" onclick="navAdminPaneReload('companies')"><span class="si-icon material-icons-round">corporate_fare</span><span class="si-text">회사 관리</span></div>
         <div class="admin-si" data-pane="brands" id="adminBrandsSi" onclick="navAdminPaneReload('brands')"><span class="si-icon material-icons-round">business</span><span class="si-text">브랜드 관리</span></div>
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
+        <div class="admin-si" data-pane="orient-sheets" id="adminOrientSheetsSi" onclick="navAdminPaneReload('orient-sheets')"><span class="si-icon material-icons-round">assignment_turned_in</span><span class="si-text">오리엔시트</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -1756,6 +1757,46 @@
               </tr></thead>
               <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORIENT SHEETS (오리엔시트) PANE -->
+        <div id="adminPane-orient-sheets" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">오리엔시트</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드에게 작성 링크를 발급하고 제출 내용을 확인합니다</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="osOpenCreate()" style="display:inline-flex;align-items:center;gap:4px" title="신규 오리엔시트 링크 발급">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span>신규 발급
+              </button>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <input type="search" id="orientSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" placeholder="브랜드명 검색" oninput="renderOrientSheets()">
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">발급 목록</span>
+              <span id="orientTotalCount" style="font-size:12px;color:var(--muted);margin-left:8px"></span>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>브랜드</th>
+                  <th style="width:110px">모집 타입</th>
+                  <th style="width:100px">상태</th>
+                  <th style="width:120px">발급일</th>
+                  <th style="width:120px">작성 기한</th>
+                  <th style="width:170px">관리</th>
+                </tr></thead>
+                <tbody id="orientTableBody"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
+              </table>
             </div>
           </div>
         </div>

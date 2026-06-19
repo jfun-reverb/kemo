@@ -3427,3 +3427,55 @@ async function submitOrientSheet(token, data, version) {
   }
 }
 
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
+// 반환: {success, id, token, token_expires_at, form_type} | {success:false, reason}
+async function createOrientSheet(brandId, applicationId, formType) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('create_orient_sheet', {
+      p_brand_id: brandId,
+      p_application_id: applicationId || null,
+      p_form_type: formType || null,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
+async function fetchOrientSheets() {
+  if (!db) return [];
+  return await retryWithRefresh(async () =>
+    fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, brand_id, application_id, form_type, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .order('created_at', { ascending: false }))
+  );
+}
+
+// 상세: data 포함 단건
+async function fetchOrientSheetById(id) {
+  if (!db) return null;
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('*, brands(name, name_ja)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 신청(brand_applications)에 연결된 오리엔시트 (brand-app 상세 연결 링크용)
+async function fetchOrientSheetsByApplication(applicationId) {
+  if (!db) return [];
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('id, token, form_type, status, token_expires_at, created_at')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  });
+}
+
