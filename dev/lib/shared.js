@@ -572,6 +572,9 @@ const PANE_REFRESHERS = {
   'upcoming': async () => {
     // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
     if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
+  },
+  'orient-sheets': async () => {
+    if (typeof loadOrientSheets === 'function') await loadOrientSheets();
   }
 };
 async function refreshPane(paneId) {
