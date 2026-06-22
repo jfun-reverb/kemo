@@ -4834,6 +4834,53 @@ function computePrefectureStats(users, limit) {
   return { top, unregistered, overseas, total: rows.length };
 }
 
+// 연령·성별 분포 집계 — 대시보드 카드용 (computePrefectureStats 패턴: 추가 쿼리 없이 배열만 집계).
+// 연령대=마케팅 구간(18-24/25-29/30-34/35-39/40-49/50+) + 미등록 + 이상치(생년월일 있으나 18세 미만/비현실).
+// 성별=male/female/other/undisclosed + unregistered(미등록). 연령×성별 교차표 cross 포함.
+// 만 나이는 shared.js calcAgeFromBirthdate(KST) 재사용. 감사용 격리는 호출부(statsUsers)에서 선처리.
+const AGE_GENDER_BUCKETS = ['18-24', '25-29', '30-34', '35-39', '40-49', '50+'];
+function computeAgeGenderStats(users) {
+  const rows = Array.isArray(users) ? users : [];
+  const genders = ['male', 'female', 'other', 'undisclosed'];
+  const bucketOf = (age) => {
+    if (age == null || age < 18 || age > 120) return null; // 미등록/이상치
+    if (age <= 24) return '18-24';
+    if (age <= 29) return '25-29';
+    if (age <= 34) return '30-34';
+    if (age <= 39) return '35-39';
+    if (age <= 49) return '40-49';
+    return '50+';
+  };
+
+  const ageCounts = {}; AGE_GENDER_BUCKETS.forEach(l => { ageCounts[l] = 0; });
+  let ageUnregistered = 0, ageInvalid = 0;
+  const gender = { male: 0, female: 0, other: 0, undisclosed: 0, unregistered: 0 };
+  const cross = {}; [...AGE_GENDER_BUCKETS, '미등록'].forEach(l => { cross[l] = { male: 0, female: 0, other: 0, undisclosed: 0, unregistered: 0 }; });
+
+  let ageRegistered = 0, genderRegistered = 0;
+  for (const row of rows) {
+    const bd = row && row.birthdate ? String(row.birthdate) : '';
+    const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(bd) : null;
+    const bucket = bucketOf(age);
+    const g = genders.includes(row && row.gender) ? row.gender : 'unregistered';
+
+    if (bucket) { ageCounts[bucket]++; ageRegistered++; }
+    else if (bd && age != null) { ageInvalid++; }   // 생년월일 있으나 18세 미만/비현실값 = 이상치
+    else { ageUnregistered++; }                       // 생년월일 미입력/파싱 실패 = 미등록
+
+    gender[g]++;
+    if (g !== 'unregistered') genderRegistered++;
+
+    cross[bucket || '미등록'][g]++;
+  }
+
+  const ageBuckets = AGE_GENDER_BUCKETS.map(l => ({ label: l, count: ageCounts[l] }));
+  ageBuckets.push({ label: '미등록', count: ageUnregistered });
+  if (ageInvalid > 0) ageBuckets.push({ label: '이상치', count: ageInvalid });
+
+  return { total: rows.length, ageRegistered, genderRegistered, ageBuckets, gender, cross, ageInvalid };
+}
+
 // ── 인플루언서 인증/블랙리스트 (관리자 전용, migration 059) ──
 async function setInfluencerVerified(targetId, verify, note = null) {
   if (!db) throw new Error('DB 미연결');

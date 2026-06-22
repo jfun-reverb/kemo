@@ -215,6 +215,33 @@
             </div>
           </div>
 
+          <!-- 회원 연령·성별 분포 (마케팅 구간 + 성별 도넛 + 교차표) -->
+          <div class="admin-card" style="margin-bottom:16px">
+            <div class="admin-card-header">
+              <span class="admin-card-title">회원 연령·성별 분포</span>
+              <span id="ageGenderTotal" style="font-size:11px;color:var(--muted)"></span>
+            </div>
+            <div style="padding:16px">
+              <div id="ageGenderCollectBars" style="margin-bottom:14px"></div>
+              <div id="ageGenderEmpty" style="display:none;text-align:center;color:var(--muted);padding:32px 0;font-size:13px">아직 생년월일·성별 데이터가 수집되지 않았습니다. 신규 가입과 응모 시 점진적으로 채워집니다.</div>
+              <div id="ageGenderBody">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                  <div>
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">연령대 분포</div>
+                    <div style="position:relative;height:200px"><canvas id="ageDistChart"></canvas></div>
+                  </div>
+                  <div>
+                    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">성별 분포</div>
+                    <div style="position:relative;height:200px"><canvas id="genderDistChart"></canvas></div>
+                  </div>
+                </div>
+                <div id="ageGenderCaption" style="display:none;font-size:11px;color:var(--muted);margin-top:8px"></div>
+                <div style="font-size:11px;color:var(--muted);margin:14px 0 6px">연령대 × 성별 (단위: 명, 만 18세 미만은 정책상 0)</div>
+                <div id="ageGenderCrossTable"></div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- CAMPAIGNS PANE -->
