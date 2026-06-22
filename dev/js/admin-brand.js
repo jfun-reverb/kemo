@@ -959,7 +959,30 @@ function renderSelfOrientCell(appId) {
   var label = SELF_ORIENT_STATUS_KO[st] || st;
   var color = SELF_ORIENT_STATUS_COLOR[st] || '#999';
   var cnt = list.length > 1 ? ' <span style="color:var(--muted);font-size:10px">+' + (list.length - 1) + '</span>' : '';
-  return '<span style="font-size:11px;font-weight:600;color:' + color + '">' + esc(label) + '</span>' + cnt;
+  // 최근 1건 작성 링크 복사/열기(만료 제외). 전체 N건은 #orient-sheets 페인. osBuildLink/copyTextToClipboard 재사용
+  var linkBtns = '';
+  if (latest.token && st !== 'expired' && typeof osBuildLink === 'function') {
+    var url = osBuildLink(latest.token);
+    linkBtns = ' <a href="javascript:void(0)" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(url) + '\',\'작성 링크가 복사되었습니다.\')" title="작성 링크 복사" style="color:var(--pink);font-size:10px;text-decoration:underline">복사</a>'
+      + ' <a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="작성 링크 열기" style="color:var(--pink);font-size:10px;text-decoration:underline">열기</a>';
+  }
+  return '<span style="font-size:11px;font-weight:600;color:' + color + '">' + esc(label) + '</span>' + cnt + linkBtns;
+}
+
+// 신청 목록 「오리엔시트」 통합 셀 — 시스템(orient_sheets) + 구글시트(orient_sheet_sent_url) 두 줄.
+// 구글시트 줄만 .brand-app-orient-cell 로 감싸 인라인 ✎ 편집이 시스템 줄을 건드리지 않게 한다.
+function renderOrientCombinedCell(a) {
+  // 구글시트 ✎ 잠금은 기존 동작(false — 항상 편집 가능) 유지. 이번은 표시 통합만.
+  return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">'
+    + '<div style="display:flex;align-items:center;gap:5px">'
+      + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">시스템</span>'
+      + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
+    + '</div>'
+    + '<div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="display:flex;align-items:center;gap:5px;position:relative;padding-right:22px;min-height:18px">'
+      + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">구글시트</span>'
+      + '<span style="min-width:0;flex:1">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_url, false) + '</span>'
+    + '</div>'
+  + '</div>';
 }
 
 // ══════════════════════════════════════
@@ -2222,14 +2245,9 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, a.quote_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 21. 오리엔시트 전달 — URL 만 (migration 126: 날짜 분리)
+  // 21. 오리엔시트 (시스템 + 구글시트 통합 셀 — 첫 행만)
   html += isFirst
-    ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px;display:flex;align-items:center">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_url, false) + '</div></td>'
-    : emptyAction;
-
-  // 21b. 셀프 오리엔시트 (신규 토큰 작성 오리엔시트 요약 — 신청 단위, 첫 행만)
-  html += isFirst
-    ? '<td><div style="min-height:36px;display:flex;align-items:center" title="발급은 행 더보기 「오리엔시트 링크생성」">' + renderSelfOrientCell(a.id) + '</div></td>'
+    ? '<td title="시스템 발급은 행 더보기 「오리엔시트 링크생성」 / 구글시트는 ✎ 로 외부 URL 입력">' + renderOrientCombinedCell(a) + '</td>'
     : emptyAction;
 
   // 22. 입금 정보 — 제품 행마다 해당 제품의 플래그만 표시
