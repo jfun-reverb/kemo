@@ -2520,6 +2520,9 @@ const PANE_REFRESHERS = {
   'upcoming': async () => {
     // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
     if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
+  },
+  'orient-sheets': async () => {
+    if (typeof loadOrientSheets === 'function') await loadOrientSheets();
   }
 };
 async function refreshPane(paneId) {
@@ -2584,10 +2587,10 @@ function genderLabel(code) {
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-19 → 시행일 2026-07-19(공고+30일).
+  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-22 → 시행일 2026-07-22(공고+30일).
   id: 'agePolicy2026',          // localStorage 키 식별자
-  effectiveDate: '2026-07-19',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
-  noticeUntil: '2026-08-02',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
+  effectiveDate: '2026-07-22',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
+  noticeUntil: '2026-08-05',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
@@ -7954,6 +7957,58 @@ async function submitOrientSheet(token, data, version) {
     console.error('[submitOrientSheet]', e);
     return { ok: false, error: e?.message || 'unknown' };
   }
+}
+
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
+// 반환: {success, id, token, token_expires_at, form_type} | {success:false, reason}
+async function createOrientSheet(brandId, applicationId, formType) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('create_orient_sheet', {
+      p_brand_id: brandId,
+      p_application_id: applicationId || null,
+      p_form_type: formType || null,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
+async function fetchOrientSheets() {
+  if (!db) return [];
+  return await retryWithRefresh(async () =>
+    fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, brand_id, application_id, form_type, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .order('created_at', { ascending: false }))
+  );
+}
+
+// 상세: data 포함 단건
+async function fetchOrientSheetById(id) {
+  if (!db) return null;
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('*, brands(name, name_ja)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 신청(brand_applications)에 연결된 오리엔시트 (brand-app 상세 연결 링크용)
+async function fetchOrientSheetsByApplication(applicationId) {
+  if (!db) return [];
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('id, token, form_type, status, token_expires_at, created_at')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  });
 }
 
 
