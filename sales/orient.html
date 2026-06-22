@@ -419,39 +419,15 @@ input[type="date"] { min-height: 44px; }
       </div>
       <div class="row2">
         <div class="field">
-          <label>모집 시작일</label>
+          <label>희망 모집 시작일</label>
           <input type="date" id="f_recruit_start" onchange="onInput()">
         </div>
         <div class="field">
-          <label>모집 마감일</label>
+          <label>희망 모집 마감일</label>
           <input type="date" id="f_recruit_end" onchange="onInput()">
         </div>
       </div>
-      <!-- 리뷰어 전용: 구매 기간 -->
-      <div class="row2 only-reviewer">
-        <div class="field">
-          <label>구매 시작일</label>
-          <input type="date" id="f_purchase_start" onchange="onInput()">
-        </div>
-        <div class="field">
-          <label>구매 마감일</label>
-          <input type="date" id="f_purchase_end" onchange="onInput()">
-        </div>
-      </div>
-      <div class="row2">
-        <div class="field">
-          <label>게시(콘텐츠 업로드) 시작일</label>
-          <input type="date" id="f_post_start" onchange="onInput()">
-        </div>
-        <div class="field">
-          <label>게시 마감일</label>
-          <input type="date" id="f_post_end" onchange="onInput()">
-        </div>
-      </div>
-      <div class="field">
-        <label>결과 발표 예정일</label>
-        <input type="date" id="f_result_date" onchange="onInput()">
-      </div>
+      <div class="field-hint">원하시는 모집 기간을 적어 주세요. 구매·게시·결과 발표 일정은 담당자가 캠페인 등록 시 조율해 채웁니다.</div>
     </div>
 
     <div class="section">
@@ -477,7 +453,9 @@ input[type="date"] { min-height: 44px; }
       </div>
       <div class="field">
         <label>카테고리</label>
-        <input type="text" id="f_product_category" placeholder="예: 스킨케어, 헤어, 푸드" oninput="onInput()">
+        <select id="f_product_category" onchange="onInput()">
+          <option value="">카테고리 선택</option>
+        </select>
       </div>
 
       <!-- 리뷰어 전용: 판매 가격 · 판매 URL -->
@@ -528,8 +506,9 @@ input[type="date"] { min-height: 44px; }
         <div class="field-hint">예: #리버브 #체험단 — 5개까지 입력됩니다.</div>
       </div>
       <div class="field">
-        <label>필수 계정 태그</label>
-        <input type="text" id="f_account_tags" placeholder="@reverb.jp" oninput="onInput()">
+        <label>게시물에 태그할 계정</label>
+        <input type="text" id="f_account_tags" placeholder="@브랜드공식계정 (예: @yourbrand_jp)" oninput="onInput()">
+        <div class="field-hint">인플루언서가 게시물에 멘션(@)할 브랜드 공식 SNS 계정을 적어 주세요.</div>
       </div>
     </div>
 
@@ -670,6 +649,7 @@ async function boot() {
 
     // data 복원 (없으면 빈 스키마). initial_values는 data.recruit가 비었을 때만 모집칸 미리채움.
     const data = (res.data && typeof res.data === 'object') ? res.data : {};
+    await loadCategoryOptions();
     fillForm(data, res.initial_values);
 
     // 타입 미지정(신청 미연결 등)이면 0단계 타입 선택 노출, 이미 지정됐으면 바로 본문
@@ -692,6 +672,24 @@ function applyType(ft) {
   document.body.setAttribute('data-otype', t);
 }
 
+// 카테고리 드롭다운 옵션을 기준 데이터(lookup_values kind=category)에서 채움.
+// 캠페인 등록 폼과 동일하게 code 를 option value 로 저장 → PR4 자동 채움 시 무손실 매칭.
+// lookup_values 는 anon SELECT 허용(active=true)이라 별도 함수 불필요.
+async function loadCategoryOptions() {
+  const sel = $('f_product_category');
+  if (!sel || !sb) return;
+  try {
+    const { data, error } = await sb.from('lookup_values')
+      .select('code,name_ko').eq('kind', 'category').eq('active', true).order('sort_order');
+    if (error) throw error;
+    const opts = ['<option value="">카테고리 선택</option>'].concat(
+      (data || []).map(c => `<option value="${escAttr(c.code)}">${escAttr(c.name_ko)}</option>`));
+    sel.innerHTML = opts.join('');
+  } catch (e) {
+    console.error('[orient category]', e);   // 조회 실패 시 빈 드롭다운 유지(현행 5종 정책 — 자유 입력 폴백 없음)
+  }
+}
+
 function showFtypeBadge(ft) {
   const el = $('introFtype');
   el.textContent = ft === 'reviewer' ? '리뷰어형' : (ft === 'seeding' ? '시딩형' : ft);
@@ -710,15 +708,13 @@ function showTypeSelect() {
 // 본문에서 타입 다시 선택 (작성 중 draft 한정 — 제출 후 잠금)
 function changeType() {
   if (currentStatus === 'submitted') return;
-  const ok = window.confirm('타입을 바꾸면 지금 타입에서만 쓰는 항목(구매기간·판매가격·판매URL 또는 제공·배송 안내)은 지워집니다. 계속할까요?');
+  const ok = window.confirm('타입을 바꾸면 지금 타입에서만 쓰는 항목(판매가격·판매URL 또는 제공·배송 안내)은 지워집니다. 계속할까요?');
   if (!ok) return;
   showTypeSelect();
 }
 
 // 타입 변경 시 이전 타입 전용 입력 비우기 (공통 필드는 보존)
 function clearTypeFields() {
-  $('f_purchase_start').value = '';
-  $('f_purchase_end').value = '';
   $('f_provide_note').value = '';
   $('f_shipping_note').value = '';
   renderPrices([{ label: '', value: '' }]);
@@ -845,17 +841,12 @@ function prevStep() {
 // ══════════════════════════════════════
 function fillForm(data, initial) {
   const r = data.recruit || {};
-  const recruitEmpty = !r.slots && !r.recruit_start && !r.recruit_end && !r.post_start && !r.post_end && !r.result_date;
+  const recruitEmpty = !r.slots && !r.recruit_start && !r.recruit_end;
   const iv = (recruitEmpty && initial) ? initial : null;
 
   $('f_slots').value = r.slots || (iv && iv.total_qty != null ? iv.total_qty : '') || '';
   $('f_recruit_start').value = r.recruit_start || '';
   $('f_recruit_end').value = r.recruit_end || '';
-  $('f_purchase_start').value = r.purchase_start || '';
-  $('f_purchase_end').value = r.purchase_end || '';
-  $('f_post_start').value = r.post_start || '';
-  $('f_post_end').value = r.post_end || '';
-  $('f_result_date').value = r.result_date || '';
 
   const b = data.brand || {};
   $('f_brand_name').value = b.name || '';
@@ -1007,12 +998,7 @@ function collectData() {
     recruit: {
       slots: $('f_slots').value.trim(),
       recruit_start: $('f_recruit_start').value,
-      recruit_end: $('f_recruit_end').value,
-      purchase_start: $('f_purchase_start').value,
-      purchase_end: $('f_purchase_end').value,
-      post_start: $('f_post_start').value,
-      post_end: $('f_post_end').value,
-      result_date: $('f_result_date').value
+      recruit_end: $('f_recruit_end').value
     },
     brand: {
       name: $('f_brand_name').value.trim(),
