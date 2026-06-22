@@ -951,6 +951,7 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
 // 만료는 클라 판정(조회 함수가 status 미전환 — consumed 아닌데 기한 지나면 만료 표시).
 var SELF_ORIENT_STATUS_KO    = { draft: '작성중', submitted: '제출됨', consumed: '발행됨', expired: '만료' };
 var SELF_ORIENT_STATUS_COLOR = { draft: '#8C6BC0', submitted: '#16A34A', consumed: '#73355A', expired: '#999' };
+var SELF_ORIENT_STATUS_BG    = { draft: '#F0EAFA', submitted: '#E8F5E9', consumed: '#F7E9F2', expired: '#F0F0F0' };
 function renderSelfOrientCell(appId) {
   var list = (_orientByApp && _orientByApp[appId]) || [];
   if (!list.length) return '<span style="color:var(--muted);font-size:11px">—</span>';
@@ -959,15 +960,28 @@ function renderSelfOrientCell(appId) {
   if (st !== 'consumed' && latest.token_expires_at && new Date(latest.token_expires_at) < new Date()) st = 'expired';
   var label = SELF_ORIENT_STATUS_KO[st] || st;
   var color = SELF_ORIENT_STATUS_COLOR[st] || '#999';
+  var bg = SELF_ORIENT_STATUS_BG[st] || '#F0F0F0';
+  // 상태 = 라벨(칩) 형식
+  var chip = '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:' + color + ';background:' + bg + '">' + esc(label) + '</span>';
   var cnt = list.length > 1 ? ' <span style="color:var(--muted);font-size:10px">+' + (list.length - 1) + '</span>' : '';
-  // 최근 1건 작성 링크 복사/열기(만료 제외). 전체 N건은 #orient-sheets 페인. osBuildLink/copyTextToClipboard 재사용
+  // 최근 1건 작성 링크 복사/열기(만료 제외) — 아이콘 포함 버튼. 전체 N건은 #orient-sheets 페인.
   var linkBtns = '';
   if (latest.token && st !== 'expired' && typeof osBuildLink === 'function') {
     var url = osBuildLink(latest.token);
-    linkBtns = ' <a href="javascript:void(0)" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(url) + '\',\'작성 링크가 복사되었습니다.\')" title="작성 링크 복사" style="color:var(--pink);font-size:10px;text-decoration:underline">복사</a>'
-      + ' <a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="작성 링크 열기" style="color:var(--pink);font-size:10px;text-decoration:underline">열기</a>';
+    linkBtns = ' ' + orientMiniBtn('content_copy', '복사', "javascript:void(0)", "event.stopPropagation();copyTextToClipboard('" + esc(url) + "','작성 링크가 복사되었습니다.')")
+      + ' ' + orientMiniBtn('open_in_new', '열기', url, null);
   }
-  return '<span style="font-size:11px;font-weight:600;color:' + color + '">' + esc(label) + '</span>' + cnt + linkBtns;
+  return chip + cnt + linkBtns;
+}
+
+// 오리엔시트 셀 미니 버튼(아이콘 + 라벨). href 가 'javascript:void(0)' 이면 onclick 동작 버튼.
+function orientMiniBtn(icon, text, href, onclick) {
+  // href·icon 은 raw 로 받아 여기서 한 번만 esc (호출부 이중 이스케이프 방지)
+  var style = 'display:inline-flex;align-items:center;gap:2px;padding:1px 7px;border:1px solid var(--pink);border-radius:6px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none;line-height:1.6;vertical-align:middle';
+  var oc = onclick ? (' onclick="' + onclick + '"') : ' onclick="event.stopPropagation()"';
+  var tgt = (href && href !== 'javascript:void(0)') ? ' target="_blank" rel="noopener noreferrer"' : '';
+  return '<a href="' + esc(href) + '"' + tgt + oc + ' title="' + esc(text) + '" style="' + style + '">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">' + esc(icon) + '</span>' + esc(text) + '</a>';
 }
 
 // 신청 목록 「오리엔시트」 통합 셀 — 시스템(orient_sheets) + 구글시트(orient_sheet_sent_url) 두 줄.
@@ -984,13 +998,13 @@ function renderOrientCombinedCell(a) {
   var lines = '';
   if (hasSys) {
     lines += '<div style="display:flex;align-items:center;gap:5px">'
-      + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">시스템</span>'
+      + '<span style="color:var(--muted);font-size:12px;font-weight:600;flex-shrink:0;width:48px">시스템</span>'
       + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
     + '</div>';
   }
   if (hasGs) {
     lines += '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
-      + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">구글시트</span>'
+      + '<span style="color:var(--muted);font-size:12px;font-weight:600;flex-shrink:0;width:48px">구글시트</span>'
       + '<span style="min-width:0;flex:1">' + renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) + '</span>'
     + '</div>';
   }
@@ -1001,7 +1015,7 @@ function renderOrientCombinedCell(a) {
 function renderGoogleSheetLinkOnly(urlOrNull) {
   var safeUrl = safeBrandUrl(urlOrNull);
   return safeUrl
-    ? '<a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="구글시트 오리엔시트 열기" style="display:inline-flex;align-items:center;gap:3px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span><span style="text-decoration:underline">열기</span></a>'
+    ? orientMiniBtn('open_in_new', '열기', safeUrl, null)
     : '<span style="color:var(--muted);font-size:11px">—</span>';
 }
 
