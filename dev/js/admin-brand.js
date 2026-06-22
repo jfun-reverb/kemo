@@ -974,17 +974,27 @@ function renderSelfOrientCell(appId) {
 // 시스템=상태+작성링크, 구글시트=열기 링크만(등록·수정은 더보기 「구글시트 URL 등록」 모달).
 function renderOrientCombinedCell(a) {
   // 시스템 = orient_sheets(상태+작성링크), 구글시트 = 외부 URL 열기만.
-  // 구글시트 ✎ 인라인 편집 제거 — 등록/수정은 더보기 「구글시트 URL 등록」 모달.
-  return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">'
-    + '<div style="display:flex;align-items:center;gap:5px">'
+  // 등록된 줄만 표시 — 시스템 발급분이 있으면 시스템 줄, 구글시트 URL이 있으면 구글시트 줄.
+  // 둘 다 없으면 「—」 한 줄(등록·수정은 행 더보기 「시스템 오리엔시트 발급」/「구글시트 URL 등록」).
+  var hasSys = !!(_orientByApp && _orientByApp[a.id] && _orientByApp[a.id].length);
+  var hasGs = !!safeBrandUrl(a.orient_sheet_sent_url);
+  if (!hasSys && !hasGs) {
+    return '<span style="color:var(--muted);font-size:11px">—</span>';
+  }
+  var lines = '';
+  if (hasSys) {
+    lines += '<div style="display:flex;align-items:center;gap:5px">'
       + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">시스템</span>'
       + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
-    + '</div>'
-    + '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
+    + '</div>';
+  }
+  if (hasGs) {
+    lines += '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
       + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">구글시트</span>'
       + '<span style="min-width:0;flex:1">' + renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) + '</span>'
-    + '</div>'
-  + '</div>';
+    + '</div>';
+  }
+  return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">' + lines + '</div>';
 }
 
 // 구글시트 외부 URL — 열기 링크만(✎ 편집 없음. 등록은 더보기 「구글시트 URL 등록」 모달).

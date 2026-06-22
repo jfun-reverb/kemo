@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782119812';
+  var CURRENT_BUILD = 'v1782120524';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-22 18:16 · e07e5be</span>
+          <span class="admin-build-text">2026-06-22 18:28 · 23fa903</span>
         </div>
       </div>
     </aside>
@@ -12556,17 +12556,27 @@ function renderSelfOrientCell(appId) {
 // 시스템=상태+작성링크, 구글시트=열기 링크만(등록·수정은 더보기 「구글시트 URL 등록」 모달).
 function renderOrientCombinedCell(a) {
   // 시스템 = orient_sheets(상태+작성링크), 구글시트 = 외부 URL 열기만.
-  // 구글시트 ✎ 인라인 편집 제거 — 등록/수정은 더보기 「구글시트 URL 등록」 모달.
-  return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">'
-    + '<div style="display:flex;align-items:center;gap:5px">'
+  // 등록된 줄만 표시 — 시스템 발급분이 있으면 시스템 줄, 구글시트 URL이 있으면 구글시트 줄.
+  // 둘 다 없으면 「—」 한 줄(등록·수정은 행 더보기 「시스템 오리엔시트 발급」/「구글시트 URL 등록」).
+  var hasSys = !!(_orientByApp && _orientByApp[a.id] && _orientByApp[a.id].length);
+  var hasGs = !!safeBrandUrl(a.orient_sheet_sent_url);
+  if (!hasSys && !hasGs) {
+    return '<span style="color:var(--muted);font-size:11px">—</span>';
+  }
+  var lines = '';
+  if (hasSys) {
+    lines += '<div style="display:flex;align-items:center;gap:5px">'
       + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">시스템</span>'
       + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
-    + '</div>'
-    + '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
+    + '</div>';
+  }
+  if (hasGs) {
+    lines += '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
       + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">구글시트</span>'
       + '<span style="min-width:0;flex:1">' + renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) + '</span>'
-    + '</div>'
-  + '</div>';
+    + '</div>';
+  }
+  return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">' + lines + '</div>';
 }
 
 // 구글시트 외부 URL — 열기 링크만(✎ 편집 없음. 등록은 더보기 「구글시트 URL 등록」 모달).
