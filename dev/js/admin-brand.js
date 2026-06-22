@@ -931,7 +931,8 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
     : '<div class="camp-more-item" style="opacity:.4;cursor:not-allowed" title="변경 이력 없음"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>이력 (0)</div>';
   menu.innerHTML = ''
     + '<div class="camp-more-item" onclick="openBrandAppEditModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>수정</div>'
-    + '<div class="camp-more-item" onclick="osIssueFromApplication(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">assignment_turned_in</span>오리엔시트 링크생성</div>'
+    + '<div class="camp-more-item" onclick="osIssueFromApplication(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">assignment_turned_in</span>시스템 오리엔시트 발급</div>'
+    + '<div class="camp-more-item" onclick="osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">link</span>구글시트 URL 등록</div>'
     + historyItem;
   document.body.appendChild(menu);
   _positionMenuInViewport(menu, rect, {placement: 'left-of'});
@@ -970,19 +971,28 @@ function renderSelfOrientCell(appId) {
 }
 
 // 신청 목록 「오리엔시트」 통합 셀 — 시스템(orient_sheets) + 구글시트(orient_sheet_sent_url) 두 줄.
-// 구글시트 줄만 .brand-app-orient-cell 로 감싸 인라인 ✎ 편집이 시스템 줄을 건드리지 않게 한다.
+// 시스템=상태+작성링크, 구글시트=열기 링크만(등록·수정은 더보기 「구글시트 URL 등록」 모달).
 function renderOrientCombinedCell(a) {
-  // 구글시트 ✎ 잠금은 기존 동작(false — 항상 편집 가능) 유지. 이번은 표시 통합만.
+  // 시스템 = orient_sheets(상태+작성링크), 구글시트 = 외부 URL 열기만.
+  // 구글시트 ✎ 인라인 편집 제거 — 등록/수정은 더보기 「구글시트 URL 등록」 모달.
   return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">'
     + '<div style="display:flex;align-items:center;gap:5px">'
       + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">시스템</span>'
       + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
     + '</div>'
-    + '<div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="display:flex;align-items:center;gap:5px;position:relative;padding-right:22px;min-height:18px">'
+    + '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
       + '<span style="color:var(--muted);font-size:10px;flex-shrink:0">구글시트</span>'
-      + '<span style="min-width:0;flex:1">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_url, false) + '</span>'
+      + '<span style="min-width:0;flex:1">' + renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) + '</span>'
     + '</div>'
   + '</div>';
+}
+
+// 구글시트 외부 URL — 열기 링크만(✎ 편집 없음. 등록은 더보기 「구글시트 URL 등록」 모달).
+function renderGoogleSheetLinkOnly(urlOrNull) {
+  var safeUrl = safeBrandUrl(urlOrNull);
+  return safeUrl
+    ? '<a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="구글시트 오리엔시트 열기" style="display:inline-flex;align-items:center;gap:3px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span><span style="text-decoration:underline">열기</span></a>'
+    : '<span style="color:var(--muted);font-size:11px">—</span>';
 }
 
 // ══════════════════════════════════════
@@ -3542,22 +3552,8 @@ async function confirmQuoteSentEdit(anyChildEl) {
   toast(nextDate ? '견적서 전달 정보가 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
 }
 
-// ─── 오리엔시트 전달 셀 — URL 만 (migration 126: 날짜는 paid_at 으로 분리) ─────
-function renderOrientSheetSentDisplay(urlOrNull, locked) {
-  var safeUrl = safeBrandUrl(urlOrNull);
-  var content = safeUrl
-    ? '<a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="오리엔시트 열기" style="display:inline-flex;align-items:center;gap:4px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none">'
-        + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span>'
-        + '<span style="text-decoration:underline">열기</span>'
-      + '</a>'
-    : '<span style="color:var(--muted);font-size:11px">—</span>';
-  return content
-    + '<button type="button" class="orient-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterOrientSheetSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '오리엔시트 URL 수정') + '" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">edit</span></button>';
-}
-
-function _restoreOrientSheetSentDisplay(cell, urlOrNull, locked) {
-  cell.innerHTML = renderOrientSheetSentDisplay(urlOrNull, locked);
-}
+// (구글시트 오리엔시트 URL 인라인 표시·편집 함수 제거 — 2026-06-22 더보기 「구글시트 URL 등록」 모달로 대체.
+//  표시는 renderGoogleSheetLinkOnly(열기 링크만), 입력은 osOpenGoogleSheetUrlModal)
 
 // ─── 입금 날짜 셀 (migration 126) ────────────────────────────────────────────
 function renderPaidAtDisplay(isoOrNull, locked) {
@@ -3759,65 +3755,74 @@ function _rerenderBrandAppPriceCheckCell(applicationId, productIndex) {
   cell.innerHTML = renderBrandAppPriceCheckCell(cur, productIndex, cur.products[productIndex]);
 }
 
-function enterOrientSheetSentEdit(btnEl) {
-  var cell = btnEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var cur = _findBrandApp(cell.dataset.id);
-  if (!cur) return;
-  var urlValue = esc(cur.orient_sheet_sent_url || '');
-  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
-    + '<input type="url" class="orient-edit-url" value="' + urlValue + '" placeholder="https://" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%">'
-    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
-      + '<button type="button" onclick="cancelOrientSheetSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
-      + '<button type="button" onclick="confirmOrientSheetSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
-    + '</div>'
-  + '</div>';
-  var input = cell.querySelector('.orient-edit-url');
-  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+// ─── 구글시트 URL 등록 모달 (더보기 「구글시트 URL 등록」 — 셀 인라인 ✎ 대체) ───
+function osOpenGoogleSheetUrlModal(appId) {
+  var cur = _findBrandApp(appId);
+  if (!cur) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  var existing = document.getElementById('gsUrlModal');
+  if (existing) existing.remove();
+  var urlVal = esc(cur.orient_sheet_sent_url || '');
+  var brandLabel = esc(cur.brand_name || '');
+  var html = '<div class="modal-overlay open" id="gsUrlModal" style="z-index:620">'
+    + '<div class="modal" style="max-width:460px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">'
+      + '<div class="modal-header"><h2 style="font-size:16px">구글시트 URL 등록</h2>'
+        + '<button type="button" class="modal-close-btn" onclick="closeGsUrlModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>'
+      + '<div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">'
+        + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">' + brandLabel + ' — 외부(구글) 시트 오리엔시트 링크를 입력하세요.</div>'
+        + '<input type="url" id="gsUrlInput" value="' + urlVal + '" placeholder="https://docs.google.com/..." style="width:100%;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box">'
+        + '<div style="font-size:11px;color:var(--muted);margin-top:6px">비우고 저장하면 등록된 URL이 제거됩니다.</div>'
+      + '</div>'
+      + '<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeGsUrlModal()">취소</button>'
+        + '<button type="button" class="btn btn-primary" id="gsUrlSaveBtn" onclick="saveGoogleSheetUrl(\'' + esc(appId) + '\')">저장</button></div>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function(){
+    var i = document.getElementById('gsUrlInput');
+    if (!i) return;
+    i.focus(); i.setSelectionRange(i.value.length, i.value.length);
+    i.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { e.preventDefault(); closeGsUrlModal(); }
+      else if (e.key === 'Enter') { e.preventDefault(); saveGoogleSheetUrl(appId); }
+    });
+  }, 50);
 }
 
-function cancelOrientSheetSentEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var cur = _findBrandApp(cell.dataset.id);
-  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
-  _restoreOrientSheetSentDisplay(cell, cur?.orient_sheet_sent_url || null, !!locked);
+function closeGsUrlModal() {
+  var m = document.getElementById('gsUrlModal');
+  if (m) m.remove();
 }
 
-async function confirmOrientSheetSentEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var id = cell.dataset.id;
-  var cur = _findBrandApp(id);
+async function saveGoogleSheetUrl(appId) {
+  var cur = _findBrandApp(appId);
   if (!cur) return;
-  var urlInput = cell.querySelector('.orient-edit-url');
-  if (!urlInput) return;
-  var rawUrl = urlInput.value.trim();
+  var input = document.getElementById('gsUrlInput');
+  if (!input) return;
+  var rawUrl = input.value.trim();
   var nextUrl = normalizeBrandUrlInput(rawUrl);
   if (rawUrl && !nextUrl) { toast('URL 형식이 올바르지 않습니다.', 'warn'); return; }
   var prevUrl = cur.orient_sheet_sent_url || null;
-  if (prevUrl === nextUrl) {
-    _restoreOrientSheetSentDisplay(cell, prevUrl, false);
-    return;
-  }
+  if (prevUrl === nextUrl) { closeGsUrlModal(); return; }
   var prevVersion = cur.version;
-  urlInput.disabled = true;
-  var result = await updateBrandApplication(id, {orient_sheet_sent_url: nextUrl}, prevVersion);
-  urlInput.disabled = false;
+  var btn = document.getElementById('gsUrlSaveBtn');
+  if (btn) btn.disabled = true;
+  var result = await updateBrandApplication(appId, {orient_sheet_sent_url: nextUrl}, prevVersion);
   if (result.conflict) {
     toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    closeGsUrlModal();
     await loadBrandApplications();
     return;
   }
   if (!result.ok) {
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    if (btn) btn.disabled = false;
     return;
   }
   cur.orient_sheet_sent_url = nextUrl;
   _syncBrandAppCur(cur, result, prevVersion);
-  _restoreOrientSheetSentDisplay(cell, nextUrl, false);
-  _refreshBrandAppHistoryButton(id);
-  toast(nextUrl ? '오리엔시트 URL이 저장되었습니다.' : '오리엔시트 URL을 제거했습니다.');
+  _refreshBrandAppHistoryButton(appId);
+  closeGsUrlModal();
+  await loadBrandApplications();   // 목록 재렌더(셀 갱신) — brand-applications 는 refreshPane 미등록
+  toast(nextUrl ? '구글시트 URL이 저장되었습니다.' : '구글시트 URL을 제거했습니다.');
 }
 
 // ─── 입금 날짜 셀 편집 (migration 126) ────────────────────────────────────────
