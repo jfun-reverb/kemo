@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782104388';
+  var CURRENT_BUILD = 'v1782105219';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-22 13:59 · 5ea3326</span>
+          <span class="admin-build-text">2026-06-22 14:13 · c104dfc</span>
         </div>
       </div>
     </aside>
@@ -15544,9 +15544,9 @@ async function osOpenCreate() {
   ensureOrientModals();
   document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
   document.getElementById('osCreateType').value = '';
-  document.getElementById('osCreateResult').classList.add('hidden');
-  document.getElementById('osCreateForm').classList.remove('hidden');
-  document.getElementById('osCreateSubmitBtn').classList.remove('hidden');
+  document.getElementById('osCreateResult').style.display = 'none';
+  document.getElementById('osCreateForm').style.display = '';
+  document.getElementById('osCreateSubmitBtn').style.display = '';
   document.getElementById('orientCreateModal').classList.add('open');
   const sel = document.getElementById('osCreateBrand');
   sel.innerHTML = '<option value="">불러오는 중…</option>';
@@ -15589,9 +15589,9 @@ async function osSubmitCreate() {
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
-    document.getElementById('osCreateForm').classList.add('hidden');
-    document.getElementById('osCreateResult').classList.remove('hidden');
-    btn.classList.add('hidden');
+    document.getElementById('osCreateForm').style.display = 'none';
+    document.getElementById('osCreateResult').style.display = '';
+    btn.style.display = 'none';
     await refreshPane('orient-sheets');
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
@@ -15728,7 +15728,7 @@ function ensureOrientModals() {
               <option value="seeding">시딩형</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">비워두면 브랜드가 작성 첫 화면에서 직접 고릅니다.</div></div>
         </div>
-        <div class="hidden" id="osCreateResult">
+        <div id="osCreateResult" style="display:none">
           <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
           <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
           <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
