@@ -182,10 +182,13 @@ async function osOpenDetail(id) {
   try { s = await fetchOrientSheetById(id); }
   catch (e) { body.innerHTML = '<p style="padding:8px">불러오지 못했습니다.</p>'; return; }
   if (!s) { body.innerHTML = '<p style="padding:8px">데이터가 없습니다.</p>'; return; }
-  body.innerHTML = osDetailHtml(s);
+  // 카테고리는 code 로 저장되므로 한국어 라벨로 변환해 표시 (캠페인 폼과 동일 기준 데이터)
+  let catMap = {};
+  try { const cats = await fetchLookups('category'); catMap = Object.fromEntries((cats || []).map(c => [c.code, c.name_ko])); } catch (_) {}
+  body.innerHTML = osDetailHtml(s, catMap);
 }
 
-function osDetailHtml(s) {
+function osDetailHtml(s, catMap) {
   const d = s.data || {};
   const header = `<div style="margin-bottom:14px">
     <div style="font-size:15px;font-weight:700">${esc(osBrandName(s))}</div>
@@ -195,7 +198,7 @@ function osDetailHtml(s) {
   if (s.status === 'draft' && (!d || !Object.keys(d).length)) {
     return header + '<p style="color:var(--muted)">아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.</p>';
   }
-  return header + osSecRecruit(d, s.form_type) + osSecBrand(d) + osSecProduct(d, s.form_type)
+  return header + osSecRecruit(d) + osSecBrand(d) + osSecProduct(d, s.form_type, catMap)
     + osSecChannels(d) + osSecEtc(d) + osSecImages(d);
 }
 
@@ -213,20 +216,20 @@ function osPairs(arr) {
   return arr.map(x => [x.label, x.value].filter(Boolean).join(': ')).filter(Boolean).join(' / ');
 }
 
-function osSecRecruit(d, ft) {
+function osSecRecruit(d) {
   const r = d.recruit || {};
-  let inner = osField('모집 인원', r.slots) + osField('모집 기간', osRange(r.recruit_start, r.recruit_end))
-    + osField('게시 기간', osRange(r.post_start, r.post_end)) + osField('결과 발표', r.result_date);
-  if (ft === 'reviewer') inner += osField('구매 기간', osRange(r.purchase_start, r.purchase_end));
+  // 브랜드는 희망 모집 기간만 입력. 구매·게시·결과 발표 일정은 관리자가 캠페인 등록 시 채움.
+  const inner = osField('모집 인원', r.slots) + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
   return osCard('모집 정보', inner);
 }
 function osSecBrand(d) {
   const b = d.brand || {};
   return osCard('브랜드 정보', osField('브랜드명', b.name) + osField('소개·어필', b.intro));
 }
-function osSecProduct(d, ft) {
+function osSecProduct(d, ft, catMap) {
   const p = d.product || {};
-  let inner = osField('제품명', p.name) + osField('카테고리', p.category) + osField('소개·소구', p.appeal);
+  const catLabel = (catMap && catMap[p.category]) || p.category;   // code → 한국어 라벨(없으면 원값)
+  let inner = osField('제품명', p.name) + osField('카테고리', catLabel) + osField('소개·소구', p.appeal);
   if (ft === 'seeding') inner += osField('제품 제공 안내', p.provide_note) + osField('배송 안내', p.shipping_note);
   else inner += osField('판매 가격', osPairs(p.prices)) + osField('판매 URL', osPairs(p.urls));
   return osCard('제품 정보', inner);
