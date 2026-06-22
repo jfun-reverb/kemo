@@ -269,27 +269,29 @@ function ensureOrientModals() {
   if (document.getElementById('orientCreateModal')) return;
   const html = `
   <div class="modal-overlay" id="orientCreateModal">
-    <div class="modal-body" style="max-width:480px">
+    <div class="modal" style="max-width:480px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header"><h2>오리엔시트 링크 발급</h2>
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientCreateModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
-      <div class="modal-content" id="osCreateForm">
-        <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#E8344E)">*</span></label>
-          <select id="osCreateBrand" class="form-input" onchange="osOnBrandChange()"></select></div>
-        <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
-          <select id="osCreateApp" class="form-input"><option value="">연결 안 함</option></select>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 타입을 자동 승계합니다.</div></div>
-        <div class="form-group"><label class="form-label">모집 타입 (선택)</label>
-          <select id="osCreateType" class="form-input">
-            <option value="">브랜드가 작성 시 선택</option>
-            <option value="reviewer">리뷰어형</option>
-            <option value="seeding">시딩형</option></select>
-          <div style="font-size:11px;color:var(--muted);margin-top:4px">비워두면 브랜드가 작성 첫 화면에서 직접 고릅니다.</div></div>
-      </div>
-      <div class="modal-content hidden" id="osCreateResult">
-        <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
-        <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
-        <button type="button" class="btn btn-primary btn-sm" style="margin-top:10px" onclick="osCopyResultLink()">링크 복사</button>
+      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
+        <div id="osCreateForm">
+          <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#E8344E)">*</span></label>
+            <select id="osCreateBrand" class="form-input" onchange="osOnBrandChange()"></select></div>
+          <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
+            <select id="osCreateApp" class="form-input"><option value="">연결 안 함</option></select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 타입을 자동 승계합니다.</div></div>
+          <div class="form-group"><label class="form-label">모집 타입 (선택)</label>
+            <select id="osCreateType" class="form-input">
+              <option value="">브랜드가 작성 시 선택</option>
+              <option value="reviewer">리뷰어형</option>
+              <option value="seeding">시딩형</option></select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">비워두면 브랜드가 작성 첫 화면에서 직접 고릅니다.</div></div>
+        </div>
+        <div class="hidden" id="osCreateResult">
+          <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
+          <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
+          <button type="button" class="btn btn-primary btn-sm" style="margin-top:10px" onclick="osCopyResultLink()">링크 복사</button>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientCreateModal')">닫기</button>
@@ -298,10 +300,10 @@ function ensureOrientModals() {
     </div>
   </div>
   <div class="modal-overlay" id="orientDetailModal">
-    <div class="modal-body" style="max-width:560px">
+    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header"><h2>오리엔시트 내용</h2>
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDetailModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
-      <div class="modal-content" id="osDetailBody"></div>
+      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="osDetailBody"></div>
       <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDetailModal')">닫기</button></div>
     </div>
   </div>`;
