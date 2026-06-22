@@ -102,9 +102,9 @@ async function osOpenCreate() {
   ensureOrientModals();
   document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
   document.getElementById('osCreateType').value = '';
-  document.getElementById('osCreateResult').classList.add('hidden');
-  document.getElementById('osCreateForm').classList.remove('hidden');
-  document.getElementById('osCreateSubmitBtn').classList.remove('hidden');
+  document.getElementById('osCreateResult').style.display = 'none';
+  document.getElementById('osCreateForm').style.display = '';
+  document.getElementById('osCreateSubmitBtn').style.display = '';
   document.getElementById('orientCreateModal').classList.add('open');
   const sel = document.getElementById('osCreateBrand');
   sel.innerHTML = '<option value="">불러오는 중…</option>';
@@ -147,9 +147,9 @@ async function osSubmitCreate() {
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
-    document.getElementById('osCreateForm').classList.add('hidden');
-    document.getElementById('osCreateResult').classList.remove('hidden');
-    btn.classList.add('hidden');
+    document.getElementById('osCreateForm').style.display = 'none';
+    document.getElementById('osCreateResult').style.display = '';
+    btn.style.display = 'none';
     await refreshPane('orient-sheets');
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
@@ -286,7 +286,7 @@ function ensureOrientModals() {
               <option value="seeding">시딩형</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">비워두면 브랜드가 작성 첫 화면에서 직접 고릅니다.</div></div>
         </div>
-        <div class="hidden" id="osCreateResult">
+        <div id="osCreateResult" style="display:none">
           <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
           <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
           <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
