@@ -290,9 +290,16 @@ async function openInfluencerDetail(userId) {
   // 기본 정보
   const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${esc(val)||'—'}</div></div>`;
 
+  // 생년월일 + 만 나이 / 성별 (연령 정책 PR4 — 관리자 한국어 고정)
+  const _genderKo = { male: '남성', female: '여성', other: '기타', undisclosed: '응답하지 않음' };
+  const _age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(u.birthdate) : null;
+  const _bdLabel = u.birthdate ? (u.birthdate + (_age != null ? ` (만 ${_age}세)` : '')) : '';
+
   $('infDetailBasic').innerHTML =
     row('이름 (한자)', u.name_kanji || u.name) +
     row('이름 (카나)', u.name_kana) +
+    row('생년월일', _bdLabel) +
+    row('성별', _genderKo[u.gender] || '') +
     row('이메일', u.email) +
     row('카테고리', u.category) +
     row('자기소개', u.bio) +

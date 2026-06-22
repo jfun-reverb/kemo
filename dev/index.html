@@ -76,6 +76,44 @@ window._supabaseLoaded = false;
   </div>
 </div>
 
+<!-- ── 응모 연령 게이트 모달 (생년월일·성별 미입력 시 응모 직전 입력) ── -->
+<div id="ageGateOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px;text-align:center" data-i18n="ageGate.title">応募の前に</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;text-align:center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+      <div class="birthdate-selects">
+        <select id="gateBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
+        <select id="gateBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
+        <select id="gateBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+      <select id="gateGender" class="form-input" required>
+        <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
+        <option value="male" data-i18n="auth.signup.genderMale">男性</option>
+        <option value="female" data-i18n="auth.signup.genderFemale">女性</option>
+        <option value="other" data-i18n="auth.signup.genderOther">その他</option>
+        <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
+      </select>
+    </div>
+    <div class="signup-agree" style="margin-bottom:14px">
+      <label class="signup-agree-row">
+        <input type="checkbox" class="agree-required" id="gateAgreePrivacy">
+        <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+        <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
+      </label>
+    </div>
+    <div id="ageGateError" class="form-error" style="margin-bottom:12px;display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
+      <button class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.save">保存して続ける</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 이미지 크롭 모달 ── -->
 <div id="cropModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:700;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:24px;width:calc(100% - 32px);max-width:500px;max-height:90vh;overflow:hidden">
@@ -854,22 +892,43 @@ window._supabaseLoaded = false;
             <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、かな名を入力してください</div>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+            <div class="birthdate-selects">
+              <select id="signupBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
+              <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
+              <select id="signupBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+            <select id="signupGender" class="form-input" required>
+              <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
+              <option value="male" data-i18n="auth.signup.genderMale">男性</option>
+              <option value="female" data-i18n="auth.signup.genderFemale">女性</option>
+              <option value="other" data-i18n="auth.signup.genderOther">その他</option>
+              <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group">
-          <label class="form-label">メールアドレス <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="auth.signup.emailLabel">メールアドレス</span> <span style="color:var(--red)">*</span></label>
           <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">パスワード <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">（8文字以上）</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
             <div class="pw-wrap">
-              <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" required minlength="8">
+              <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" data-i18n-attr="placeholder:auth.signup.pwPlaceholder" required minlength="8">
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">パスワード（確認） <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwConfirmLabel">パスワード（確認）</span> <span style="color:var(--red)">*</span></label>
             <div class="pw-wrap">
-              <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" required>
+              <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" data-i18n-attr="placeholder:auth.signup.pwConfirmPlaceholder" required>
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw2',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
@@ -943,6 +1002,17 @@ window._supabaseLoaded = false;
       <div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKanji">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKana">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.birthdate">生年月日</label>
+            <div id="profileBirthdateDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.gender">性別</label>
+            <div id="profileGenderDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:-6px;margin-bottom:10px;line-height:1.5" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="">選択してください</option>
