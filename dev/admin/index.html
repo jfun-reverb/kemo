@@ -1777,12 +1777,13 @@
                 <th style="width:120px">최종견적금액 <span class="col-help" data-tooltip="VAT 미포함 견적 금액. 「VAT 포함」 컬럼을 1.1로 나눈 값 (반올림).&#10;reviewer: ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료)&#10;seeding: 0 (수동 협의)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">VAT 포함 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT/UPDATE 시 재계산)&#10;reviewer: ( ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료) ) × VAT 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비·이체수수료 미입력 시 0 (이체수수료는 ₩2,500 자동 채움)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
-                <th style="width:130px">오리엔트 전달</th>
+                <th style="width:130px">오리엔트 전달 <span class="col-help" data-tooltip="외부(구글) 시트 URL 수동 입력 — 셀프 오리엔시트(다음 열)와 별개"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
+                <th style="width:120px">셀프 오리엔시트 <span class="col-help" data-tooltip="브랜드가 토큰 링크로 작성하는 내부 오리엔시트(연결 건수·최근 상태). 발급은 행 더보기 「오리엔시트 링크생성」"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:160px">입금 정보 <span class="col-help" data-tooltip="모집비용/상품비용/이체수수료/무료모집 체크. 새로고침 아이콘 클릭 시 제품 합계 기준 자동 재설정 (무료모집 제외)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:110px">입금 날짜 <span class="col-help" data-tooltip="운영자가 통장 확인 후 입력하는 실제 입금 일자"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
-              <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              <tbody id="brandAppTableBody"><tr><td colspan="31" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
             </div>
           </div>
