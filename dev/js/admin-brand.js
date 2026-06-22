@@ -21,6 +21,7 @@
 // ══════════════════════════════════════
 
 var _brandApps = [];          // 캐시된 전체 목록
+var _orientByApp = {};        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
@@ -945,6 +946,22 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
   }, 0);
 }
 
+// 셀프 오리엔시트 열 셀 — 신청에 연결된 orient_sheets 요약(최근 상태 + 추가 건수). 없으면 —.
+// 만료는 클라 판정(조회 함수가 status 미전환 — consumed 아닌데 기한 지나면 만료 표시).
+var SELF_ORIENT_STATUS_KO    = { draft: '작성중', submitted: '제출됨', consumed: '발행됨', expired: '만료' };
+var SELF_ORIENT_STATUS_COLOR = { draft: '#8C6BC0', submitted: '#16A34A', consumed: '#73355A', expired: '#999' };
+function renderSelfOrientCell(appId) {
+  var list = (_orientByApp && _orientByApp[appId]) || [];
+  if (!list.length) return '<span style="color:var(--muted);font-size:11px">—</span>';
+  var latest = list[0];   // fetchOrientSheets 가 created_at desc 정렬 → 첫 항목이 최근
+  var st = latest.status;
+  if (st !== 'consumed' && latest.token_expires_at && new Date(latest.token_expires_at) < new Date()) st = 'expired';
+  var label = SELF_ORIENT_STATUS_KO[st] || st;
+  var color = SELF_ORIENT_STATUS_COLOR[st] || '#999';
+  var cnt = list.length > 1 ? ' <span style="color:var(--muted);font-size:10px">+' + (list.length - 1) + '</span>' : '';
+  return '<span style="font-size:11px;font-weight:600;color:' + color + '">' + esc(label) + '</span>' + cnt;
+}
+
 // ══════════════════════════════════════
 // BRANDS MASTER (브랜드 관리 페인 — migration 082/083)
 // ══════════════════════════════════════
@@ -1632,7 +1649,7 @@ async function loadBrandApplications() {
   if (_loadBrandApplicationsPromise) return _loadBrandApplicationsPromise;
   _loadBrandApplicationsPromise = (async function() { try {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -1649,20 +1666,27 @@ async function loadBrandApplications() {
     }
 
     // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
-    var [apps, counts, memoSummaries] = await Promise.all([
+    var [apps, counts, memoSummaries, orientSheets] = await Promise.all([
       fetchBrandApplications(),
       fetchBrandAppHistoryCounts(),
-      fetchBrandAppMemoSummaries()
+      fetchBrandAppMemoSummaries(),
+      fetchOrientSheets().catch(function(){ return []; })   // 셀프 오리엔시트 열(실패해도 목록은 표시)
     ]);
     _brandApps = apps || [];
     _brandAppHistoryCounts = counts || {};
     _brandAppMemoSummaries = memoSummaries || {};
+    // 셀프 오리엔시트 열: 신청별 그룹 맵(N+1 회피 — 전체 1회 조회 후 application_id 로 그룹)
+    _orientByApp = {};
+    (orientSheets || []).forEach(function(s){
+      if (!s.application_id) return;
+      (_orientByApp[s.application_id] = _orientByApp[s.application_id] || []).push(s);
+    });
     renderBrandApplicationsList();
     refreshBrandAppBadge();
   } catch (err) {
     console.error('[brand-applications] load failed:', err);
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:#c33;padding:24px">'
+      tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:#c33;padding:24px">'
         + '신청 목록을 불러오지 못했습니다. 새로고침 또는 재로그인 후 다시 시도해 주세요.'
         + '<br><button type="button" onclick="location.reload()" class="btn btn-primary" style="margin-top:8px">새로고침</button>'
         + '</td></tr>';
@@ -1853,7 +1877,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -2201,6 +2225,11 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   // 21. 오리엔시트 전달 — URL 만 (migration 126: 날짜 분리)
   html += isFirst
     ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px;display:flex;align-items:center">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_url, false) + '</div></td>'
+    : emptyAction;
+
+  // 21b. 셀프 오리엔시트 (신규 토큰 작성 오리엔시트 요약 — 신청 단위, 첫 행만)
+  html += isFirst
+    ? '<td><div style="min-height:36px;display:flex;align-items:center" title="발급은 행 더보기 「오리엔시트 링크생성」">' + renderSelfOrientCell(a.id) + '</div></td>'
     : emptyAction;
 
   // 22. 입금 정보 — 제품 행마다 해당 제품의 플래그만 표시
