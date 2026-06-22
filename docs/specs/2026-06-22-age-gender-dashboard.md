@@ -111,9 +111,21 @@
 - (해소됨) 위치=관리자 대시보드 / 연령 구간=마케팅 구간 / 범위=연령×성별 교차 포함.
 - 남은 확인: 착수 시점(지금 vs 데이터 쌓인 뒤).
 
-## 구현 결과 (개발 세션이 채울 것)
-**구현일:** / **관련 커밋:**
+## 구현 결과
+**구현일:** 2026-06-22 / **관련 커밋:** feature/age-gender-dashboard (dev PR)
+
 ### 초안 대비 변경 사항
-- 추가된 것: / 빠진 것(+이유): / 달라진 것:
+- 추가된 것: 설계대로 전부 구현(수집률 막대·연령대 막대·성별 도넛·연령×성별 교차표·빈 상태·소표본 캡션).
+- 빠진 것: 없음.
+- 달라진 것: 없음(설계 그대로). 데이터 0건이라 현재 운영에선 「아직 수집 전」 안내만 노출.
+
 ### 구현 중 기술 결정 사항
-- (집계 함수 시그니처·연령대 경계·교차표 형식·빈 상태 문구 확정 등)
+- `dev/lib/storage.js` `computeAgeGenderStats(users)` — 순수 집계(`computePrefectureStats` 패턴). 연령 버킷: `null/age<18/age>120`은 분류 제외(미등록 또는 이상치), 18-24/25-29/30-34/35-39/40-49/50+. **미등록(생년월일 NULL)** vs **이상치(생년월일 있으나 18세 미만/비현실)** 분리. 성별 `unregistered` = male/female/other/undisclosed 외. 교차 `cross[버킷|미등록][성별]`. 만나이는 `calcAgeFromBirthdate`(KST, shared.js).
+- `dev/js/admin-dashboard.js` `renderAgeGenderDistribution(statsUsers)` — 연령 막대=Chart.js bar(미등록/이상치 회색), 성별 도넛=`buildAddressChartOptions({total})` 재사용(분모=전체), 교차표=HTML 테이블(0은 `-`, DB 문자열 미삽입이라 esc 불필요). 전역 `_ageDistChart`/`_genderDistChart`(재생성 전 destroy). `loadAdminData`에서 `statsUsers`(감사용 격리) 전달.
+- `dev/admin/index.html` — 「회원 연령·성별 분포」 카드(배송지 분포 카드 다음). DOM 8종.
+- **DB 변경 없음**(기존 birthdate/gender 컬럼·클라 in-memory 집계).
+- [via planner] 설계 / [via reviewer] GO(감사용 격리·버킷 경계·교차 합 정합·DOM 일치·빈상태 destroy 확인). qa 권장 light.
+
+### 후속 백로그
+- 🟡 **번들 오염(무해)**: `computeAgeGenderStats`·`AGE_GENDER_BUCKETS`가 `storage.js`에 있어 인플루언서 앱 번들에도 포함됨(개인정보 노출 0·집계 함수일 뿐). 기존 `computePrefectureStats`도 동일 위치라 일관적. 정리하려면 `admin-dashboard.js`/`admin-core.js`로 이동(별도 리팩터링, `computePrefectureStats`와 함께).
+- 데이터 누적 후(7/22 시행 이후) 분포·교차표가 의미를 가짐. 현재는 수집률·빈 상태 중심.
