@@ -3477,13 +3477,15 @@ async function submitOrientSheet(token, data, version) {
 // ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
 // 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
 // 반환: {success, id, token, token_expires_at, form_type} | {success:false, reason}
-async function createOrientSheet(brandId, applicationId, formType) {
+async function createOrientSheet(brandId, applicationId, formType, productIdx) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
     const { data, error } = await db.rpc('create_orient_sheet', {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
       p_form_type: formType || null,
+      // 서베이 제품 prefill 인덱스(마이그레이션 192). null이면 prefill 없음(기존 동작)
+      p_product_idx: (productIdx == null || productIdx === '') ? null : Number(productIdx),
     });
     if (error) throw error;
     return data;
