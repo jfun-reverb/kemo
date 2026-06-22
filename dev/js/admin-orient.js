@@ -98,15 +98,22 @@ function osCopyLink(id) {
 }
 
 // ── 발급 모달 ──
-async function osOpenCreate() {
+// 발급 모달 열기. opts 로 진입점별 컨텍스트 주입:
+//   {} (무인자)          — #orient-sheets "신규 발급": 브랜드·신청 자유 선택
+//   {brandId, appId, products, formType} — 서베이 목록 더보기: 신청·제품 고정
+//   {brandId, lockBrand} — 브랜드 관리: 브랜드 고정·신청 없음
+async function osOpenCreate(opts) {
+  opts = opts || {};
   ensureOrientModals();
   document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
-  document.getElementById('osCreateType').value = '';
+  document.getElementById('osCreateType').value = opts.formType || '';
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
   document.getElementById('osCreateSubmitBtn').style.display = '';
+  osRenderProductSelect(opts.products);   // 제품 선택 행(서베이 products 있을 때만)
   document.getElementById('orientCreateModal').classList.add('open');
   const sel = document.getElementById('osCreateBrand');
+  sel.disabled = false;
   sel.innerHTML = '<option value="">불러오는 중…</option>';
   try {
     const brands = await fetchBrands();
@@ -115,6 +122,44 @@ async function osOpenCreate() {
   } catch (e) {
     sel.innerHTML = '<option value="">브랜드 조회 실패</option>';
   }
+  // 진입점 ②③ 컨텍스트 주입: 브랜드 고정 + (있으면) 신청 연결 선택
+  if (opts.brandId) {
+    sel.value = opts.brandId;
+    if (opts.lockBrand) sel.disabled = true;
+    if (opts.appId) {
+      await osOnBrandChange();
+      document.getElementById('osCreateApp').value = opts.appId;
+    }
+  }
+}
+
+// 발급 모달 제품 선택 행 렌더. 서베이 products 배열이 있을 때만 표시.
+// 반려(rejected) 제품은 제외(사용자 확정 차단). option value = 원본 배열 인덱스(서버가 products[idx] 접근).
+function osRenderProductSelect(products) {
+  const grp = document.getElementById('osCreateProductGroup');
+  const sel = document.getElementById('osCreateProduct');
+  if (!grp || !sel) return;
+  const list = Array.isArray(products)
+    ? products.map((p, i) => ({ idx: i, p })).filter(x => (x.p && x.p.status) !== 'rejected')
+    : [];
+  if (!list.length) { grp.style.display = 'none'; sel.innerHTML = ''; return; }
+  sel.innerHTML = list.map(x => `<option value="${x.idx}">${esc(x.p.name || ('제품 ' + (x.idx + 1)))}</option>`).join('');
+  grp.style.display = '';
+}
+
+// 진입점 ② — 브랜드 서베이(신청) 목록 더보기 「오리엔시트 링크생성」.
+// admin-brand.js 의 _brandApps 캐시에서 신청을 찾아 컨텍스트(브랜드·제품·타입)를 주입하며 발급 모달을 연다.
+function osIssueFromApplication(appId) {
+  const apps = (typeof _brandApps !== 'undefined' && Array.isArray(_brandApps)) ? _brandApps : [];
+  const a = apps.find(x => x.id === appId);
+  if (!a) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  if (!a.brand_id) { toast('이 신청은 브랜드가 연결돼 있지 않아 오리엔시트를 발급할 수 없습니다.'); return; }
+  osOpenCreate({
+    appId: appId,
+    brandId: a.brand_id,
+    products: Array.isArray(a.products) ? a.products : [],
+    formType: a.form_type || ''
+  });
 }
 
 async function osOnBrandChange() {
@@ -140,10 +185,14 @@ async function osSubmitCreate() {
   if (!brandId) { toast('브랜드를 선택해 주세요.'); return; }
   const appId = document.getElementById('osCreateApp').value || null;
   const formType = document.getElementById('osCreateType').value || null;
+  // 제품 선택 행이 보이면 선택값(원본 배열 인덱스), 아니면 null(prefill 없음)
+  const prodGrp = document.getElementById('osCreateProductGroup');
+  const prodSel = document.getElementById('osCreateProduct');
+  const productIdx = (prodGrp && prodGrp.style.display !== 'none' && prodSel && prodSel.value !== '') ? prodSel.value : null;
   const btn = document.getElementById('osCreateSubmitBtn');
   btn.disabled = true;
   try {
-    const res = await createOrientSheet(brandId, appId, formType);
+    const res = await createOrientSheet(brandId, appId, formType, productIdx);
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
@@ -164,6 +213,7 @@ function osReasonText(r) {
     application_not_found: '신청을 찾을 수 없습니다',
     brand_mismatch: '신청과 브랜드가 일치하지 않습니다',
     invalid_form_type: '타입 값이 올바르지 않습니다',
+    product_rejected: '반려된 제품은 발급할 수 없습니다',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -282,6 +332,9 @@ function ensureOrientModals() {
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
             <select id="osCreateApp" class="form-input"><option value="">연결 안 함</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 타입을 자동 승계합니다.</div></div>
+          <div class="form-group" id="osCreateProductGroup" style="display:none"><label class="form-label">제품 선택 <span style="color:var(--pink,#E8344E)">*</span></label>
+            <select id="osCreateProduct" class="form-input"></select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">서베이 신청의 제품 정보(제품명·판매가·판매URL)를 작성 폼에 미리 채웁니다. 반려된 제품은 제외됩니다.</div></div>
           <div class="form-group"><label class="form-label">모집 타입 (선택)</label>
             <select id="osCreateType" class="form-input">
               <option value="">브랜드가 작성 시 선택</option>
