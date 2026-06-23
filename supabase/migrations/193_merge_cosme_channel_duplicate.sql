@@ -56,7 +56,7 @@ WHERE primary_channel = 'channel-96r9y3';
 UPDATE lookup_values
 SET active        = true,
     sort_order    = 60,
-    name_ko       = '@cosme',
+    name_ko       = '엣코스메',
     name_ja       = '@cosme',
     recruit_types = ARRAY['monitor']
 WHERE kind = 'channel'
