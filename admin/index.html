@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782125190';
+  var CURRENT_BUILD = 'v1782190079';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-22 19:46 · 33523ba</span>
+          <span class="admin-build-text">2026-06-23 13:47 · 0c046e6</span>
         </div>
       </div>
     </aside>
@@ -9651,16 +9651,15 @@ async function submitOrientSheet(token, data, version) {
 
 // ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
 // 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
-// 반환: {success, id, token, token_expires_at, form_type} | {success:false, reason}
-async function createOrientSheet(brandId, applicationId, formType, productIdx) {
+// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
+// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
+// 반환: {success, id, token, token_expires_at} | {success:false, reason}
+async function createOrientSheet(brandId, applicationId) {
   if (!db) return { success: false, reason: 'no_db' };
   return await retryWithRefresh(async () => {
     const { data, error } = await db.rpc('create_orient_sheet', {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
-      p_form_type: formType || null,
-      // 서베이 제품 prefill 인덱스(마이그레이션 192). null이면 prefill 없음(기존 동작)
-      p_product_idx: (productIdx == null || productIdx === '') ? null : Number(productIdx),
     });
     if (error) throw error;
     return data;
