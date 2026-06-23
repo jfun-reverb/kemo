@@ -91,7 +91,7 @@ async function refreshApplySidebarBadge() {
   if (!el) return;
   try {
     const n = await fetchPendingApplicationCount();
-    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">인플 신청 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
   } catch(e) { /* 무시 */ }
 }
 
