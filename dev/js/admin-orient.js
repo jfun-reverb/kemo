@@ -1,13 +1,20 @@
 // ============================================================
-// admin-orient.js — 브랜드 셀프 오리엔시트 관리자 발급·조회 (PR3)
+// admin-orient.js — 브랜드 셀프 오리엔시트 관리자 발급·조회
 // 신규 페인 #adminPane-orient-sheets: 목록 · 발급 모달 · 상세 모달 · 링크 복사
-// 사양서 docs/specs/2026-06-18-brand-self-orient-sheet.md §7
-// 발급 함수 create_orient_sheet (마이그레이션 190, is_admin 가드)
+// 사양서 docs/specs/2026-06-18-brand-self-orient-sheet.md §7·§15
+// 발급 함수 create_orient_sheet (마이그레이션 195, 2인자, is_admin 가드)
+// §15 재설계: 1 링크 = 공통 브랜드 + 카드 N개(카드마다 form_type). data = cards 배열(§15-A)
 // ============================================================
 
 let _orientSheets = [];
 
-const OS_TYPE_LABEL = { reviewer: '리뷰어형', seeding: '시딩형' };
+const OS_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
+const OS_TYPE_CHIP = {
+  proxy_purchase: { color: '#B45309', bg: '#FEF3E2' },
+  reviewer:       { color: '#C41E3A', bg: '#FFF0F2' },
+  seeding:        { color: '#1D4ED8', bg: '#E7F1FE' },
+};
+const OS_GRADE_LABEL = { nano: '나노', middle_mega: '미들·메가' };
 const OS_STATUS = {
   draft:     { label: '작성 중', color: '#8A8A90', bg: '#F0F0F0' },
   submitted: { label: '제출됨', color: '#16A34A', bg: '#E8F5E9' },
@@ -37,8 +44,26 @@ function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja |
 function osBadge(st) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${st.color};background:${st.bg}">${st.label}</span>`;
 }
-function osTypeLabel(ft) { return ft ? OS_TYPE_LABEL[ft] : '<span style="color:var(--muted)">미선택</span>'; }
 function osChLabel(c) { return OS_CH_LABEL[c] || (c || '채널'); }
+
+// 형식 칩 (상세 모달 카드 헤더)
+function osTypeChip(ft) {
+  if (!ft) return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#8A8A90;background:#F0F0F0">형식 미선택</span>';
+  const c = OS_TYPE_CHIP[ft] || OS_TYPE_CHIP.reviewer;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${c.color};background:${c.bg}">${OS_TYPE_LABEL[ft] || esc(ft)}</span>`;
+}
+
+// 목록 「형식」 컬럼 — form_type 컬럼은 NULL(카드별 형식)이라 data.cards 를 형식별로 집계
+function osCardsSummary(data) {
+  const cards = (data && Array.isArray(data.cards)) ? data.cards : [];
+  if (!cards.length) return '<span style="color:var(--muted)">미작성</span>';
+  const cnt = {};
+  cards.forEach(c => { const ft = (c && c.form_type) || 'none'; cnt[ft] = (cnt[ft] || 0) + 1; });
+  const parts = ['proxy_purchase', 'reviewer', 'seeding']
+    .filter(ft => cnt[ft]).map(ft => `${OS_TYPE_LABEL[ft]} ${cnt[ft]}`);
+  if (cnt.none) parts.push(`미선택 ${cnt.none}`);
+  return esc(parts.join(' · '));
+}
 
 // ── 페인 진입 ──
 async function loadOrientSheets() {
@@ -80,7 +105,7 @@ function osRowHtml(s) {
     ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
   return `<tr>
     <td>${esc(osBrandName(s))}${linkBadge}</td>
-    <td>${osTypeLabel(s.form_type)}</td>
+    <td>${osCardsSummary(s.data)}</td>
     <td>${osBadge(osStatusOf(s))}</td>
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
     <td>${s.token_expires_at ? formatDate(s.token_expires_at) : '-'}</td>
@@ -100,17 +125,16 @@ function osCopyLink(id) {
 // ── 발급 모달 ──
 // 발급 모달 열기. opts 로 진입점별 컨텍스트 주입:
 //   {} (무인자)          — #orient-sheets "신규 발급": 브랜드·신청 자유 선택
-//   {brandId, appId, products, formType} — 서베이 목록 더보기: 신청·제품 고정
+//   {brandId, appId}     — 서베이 목록 더보기: 신청 연결 고정
 //   {brandId, lockBrand} — 브랜드 관리: 브랜드 고정·신청 없음
+// 형식·제품은 발급 시 정하지 않음 — 브랜드가 작성 폼에서 카드마다 직접 고름(§15-11).
 async function osOpenCreate(opts) {
   opts = opts || {};
   ensureOrientModals();
   document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
-  document.getElementById('osCreateType').value = opts.formType || '';
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
   document.getElementById('osCreateSubmitBtn').style.display = '';
-  osRenderProductSelect(opts.products);   // 제품 선택 행(서베이 products 있을 때만)
   document.getElementById('orientCreateModal').classList.add('open');
   const sel = document.getElementById('osCreateBrand');
   sel.disabled = false;
@@ -133,33 +157,15 @@ async function osOpenCreate(opts) {
   }
 }
 
-// 발급 모달 제품 선택 행 렌더. 서베이 products 배열이 있을 때만 표시.
-// 반려(rejected) 제품은 제외(사용자 확정 차단). option value = 원본 배열 인덱스(서버가 products[idx] 접근).
-function osRenderProductSelect(products) {
-  const grp = document.getElementById('osCreateProductGroup');
-  const sel = document.getElementById('osCreateProduct');
-  if (!grp || !sel) return;
-  const list = Array.isArray(products)
-    ? products.map((p, i) => ({ idx: i, p })).filter(x => (x.p && x.p.status) !== 'rejected')
-    : [];
-  if (!list.length) { grp.style.display = 'none'; sel.innerHTML = ''; return; }
-  sel.innerHTML = list.map(x => `<option value="${x.idx}">${esc(x.p.name || ('제품 ' + (x.idx + 1)))}</option>`).join('');
-  grp.style.display = '';
-}
-
 // 진입점 ② — 브랜드 서베이(신청) 목록 더보기 「오리엔시트 링크생성」.
-// admin-brand.js 의 _brandApps 캐시에서 신청을 찾아 컨텍스트(브랜드·제품·타입)를 주입하며 발급 모달을 연다.
+// admin-brand.js 의 _brandApps 캐시에서 신청을 찾아 브랜드·신청을 주입하며 발급 모달을 연다.
+// (형식·제품은 발급 시 미지정 — 브랜드가 작성 폼에서 카드마다 선택)
 function osIssueFromApplication(appId) {
   const apps = (typeof _brandApps !== 'undefined' && Array.isArray(_brandApps)) ? _brandApps : [];
   const a = apps.find(x => x.id === appId);
   if (!a) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
   if (!a.brand_id) { toast('이 신청은 브랜드가 연결돼 있지 않아 오리엔시트를 발급할 수 없습니다.'); return; }
-  osOpenCreate({
-    appId: appId,
-    brandId: a.brand_id,
-    products: Array.isArray(a.products) ? a.products : [],
-    formType: a.form_type || ''
-  });
+  osOpenCreate({ appId: appId, brandId: a.brand_id });
 }
 
 async function osOnBrandChange() {
@@ -184,15 +190,10 @@ async function osSubmitCreate() {
   const brandId = document.getElementById('osCreateBrand').value;
   if (!brandId) { toast('브랜드를 선택해 주세요.'); return; }
   const appId = document.getElementById('osCreateApp').value || null;
-  const formType = document.getElementById('osCreateType').value || null;
-  // 제품 선택 행이 보이면 선택값(원본 배열 인덱스), 아니면 null(prefill 없음)
-  const prodGrp = document.getElementById('osCreateProductGroup');
-  const prodSel = document.getElementById('osCreateProduct');
-  const productIdx = (prodGrp && prodGrp.style.display !== 'none' && prodSel && prodSel.value !== '') ? prodSel.value : null;
   const btn = document.getElementById('osCreateSubmitBtn');
   btn.disabled = true;
   try {
-    const res = await createOrientSheet(brandId, appId, formType, productIdx);
+    const res = await createOrientSheet(brandId, appId);
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
@@ -212,8 +213,6 @@ function osReasonText(r) {
     brand_not_found: '브랜드를 찾을 수 없습니다',
     application_not_found: '신청을 찾을 수 없습니다',
     brand_mismatch: '신청과 브랜드가 일치하지 않습니다',
-    invalid_form_type: '타입 값이 올바르지 않습니다',
-    product_rejected: '반려된 제품은 발급할 수 없습니다',
     no_db: '연결 오류',
   })[r] || (r || '알 수 없는 오류');
 }
@@ -240,68 +239,88 @@ async function osOpenDetail(id) {
 
 function osDetailHtml(s, catMap) {
   const d = s.data || {};
+  const cards = Array.isArray(d.cards) ? d.cards : [];
   const header = `<div style="margin-bottom:14px">
     <div style="font-size:15px;font-weight:700">${esc(osBrandName(s))}</div>
     <div style="margin-top:6px">${osBadge(osStatusOf(s))}
-      <span style="margin-left:6px">${osTypeLabel(s.form_type)}</span></div>
+      <span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>
   </div>`;
-  if (s.status === 'draft' && (!d || !Object.keys(d).length)) {
-    return header + '<p style="color:var(--muted)">아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.</p>';
+  const brandCard = osBrandCard(d.brand);
+  if (!cards.length) {
+    const msg = (s.status === 'draft')
+      ? '아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.'
+      : '작성된 모집 건이 없습니다.';
+    return header + brandCard + `<p style="color:var(--muted)">${msg}</p>`;
   }
-  return header + osSecRecruit(d) + osSecBrand(d) + osSecProduct(d, s.form_type, catMap)
-    + osSecChannels(d) + osSecEtc(d) + osSecImages(d);
+  return header + brandCard + cards.map((c, i) => osCardDetail(c, i, catMap)).join('');
 }
 
 function osField(label, val) {
   const v = (val == null || val === '') ? '<span style="color:var(--muted)">미입력</span>' : esc(String(val));
   return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">${label}</span><br>${v}</div>`;
 }
-function osCard(title, inner) {
-  return `<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px">
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px">${title}</div>${inner}</div>`;
-}
 function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
-function osPairs(arr) {
-  if (!Array.isArray(arr) || !arr.length) return '';
-  return arr.map(x => [x.label, x.value].filter(Boolean).join(': ')).filter(Boolean).join(' / ');
+
+// 공통 브랜드 카드 (1회)
+function osBrandCard(brand) {
+  const b = brand || {};
+  const inner = osField('브랜드명', b.name) + osField('소개·어필', b.intro) + osField('공식 계정', b.official_accounts);
+  return `<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:8px">브랜드 정보</div>${inner}</div>`;
 }
 
-function osSecRecruit(d) {
-  const r = d.recruit || {};
-  // 브랜드는 희망 모집 기간만 입력. 구매·게시·결과 발표 일정은 관리자가 캠페인 등록 시 채움.
-  const inner = osField('모집 인원', r.slots) + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
-  return osCard('모집 정보', inner);
+// 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
+function osCardDetail(c, idx, catMap) {
+  const ft = (c && c.form_type) || '';
+  const p = c.product || {};
+  const r = c.recruit || {};
+  const sale = c.sale || {};
+  const sd = c.seeding || {};
+  const catLabel = (catMap && catMap[p.category]) || p.category;
+
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
+    + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
+
+  if (ft === 'proxy_purchase' || ft === 'reviewer') {
+    inner += osField('판매처', sale.market) + osField('판매 URL', osLinkOrText(sale.url))
+      + osField('상시가', sale.price_regular) + osField('세일가', sale.price_sale)
+      + osField('대형할인', [sale.event, sale.price_event].filter(Boolean).join(' '));
+  }
+  if (ft === 'reviewer') inner += osField('리뷰 가이드', c.review_guide);
+  if (ft === 'seeding') {
+    inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
+    const guides = Array.isArray(sd.guides) ? sd.guides.filter(g => g && (g.channel || g.guide)) : [];
+    inner += guides.length
+      ? guides.map(g => osField('채널 — ' + osChLabel(g.channel), g.guide)).join('')
+      : osField('채널별 가이드', '');
+    inner += osField('소구 키워드', sd.appeal)
+      + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
+      + osField('계정 태그', sd.account_tags);
+    if (sd.grade === 'middle_mega') {
+      inner += osField('촬영 가이드', sd.shooting_guide) + osField('필수 내용', sd.required_content) + osField('증정품', sd.gift);
+    }
+    inner += osField('배송 안내', sd.shipping_note);
+  }
+  inner += osField('금지 표현(NG)', c.ng) + osField('추가 안내', c.cautions) + osImagesInline(c.images);
+  if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
+
+  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    ${osTypeChip(ft)}<span style="font-weight:700;font-size:14px">${esc(p.name || ('제품 ' + (idx + 1)))}</span></div>`;
+  return `<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px">${head}${inner}</div>`;
 }
-function osSecBrand(d) {
-  const b = d.brand || {};
-  return osCard('브랜드 정보', osField('브랜드명', b.name) + osField('소개·어필', b.intro));
-}
-function osSecProduct(d, ft, catMap) {
-  const p = d.product || {};
-  const catLabel = (catMap && catMap[p.category]) || p.category;   // code → 한국어 라벨(없으면 원값)
-  let inner = osField('제품명', p.name) + osField('카테고리', catLabel) + osField('소개·소구', p.appeal);
-  if (ft === 'seeding') inner += osField('제품 제공 안내', p.provide_note) + osField('배송 안내', p.shipping_note);
-  else inner += osField('판매 가격', osPairs(p.prices)) + osField('판매 URL', osPairs(p.urls));
-  return osCard('제품 정보', inner);
-}
-function osSecChannels(d) {
-  const ch = Array.isArray(d.channels) ? d.channels : [];
-  if (!ch.length) return osCard('채널별 게시 가이드', '<span style="color:var(--muted)">미입력</span>');
-  return osCard('채널별 게시 가이드', ch.map(c => osField(osChLabel(c.channel), c.guide)).join(''));
-}
-function osSecEtc(d) {
-  const tags = Array.isArray(d.hashtags) ? d.hashtags.join(' ') : '';
-  return osCard('해시태그·금지·안내',
-    osField('필수 해시태그', tags) + osField('계정 태그', d.account_tags)
-    + osField('금지 표현(NG)', d.ng) + osField('추가 안내', d.cautions));
-}
+
 // 브랜드 입력 URL은 서버 검증이 없으므로(직접 RPC 호출 우회 가능) http/https만 링크 허용
 function osImgSafe(u) {
   try { const p = new URL(u).protocol; return p === 'https:' || p === 'http:'; }
   catch (e) { return false; }
 }
-function osSecImages(d) {
-  const imgs = Array.isArray(d.images) ? d.images.filter(x => x && x.value) : [];
+function osLinkOrText(u) {
+  if (!u) return '';
+  const disp = esc(u);
+  return osImgSafe(u) ? `<a href="${disp}" target="_blank" rel="noopener">${disp}</a>` : disp;
+}
+function osImagesInline(images) {
+  const imgs = Array.isArray(images) ? images.filter(x => x && x.value) : [];
   if (!imgs.length) return '';
   const inner = imgs.map(x => {
     const disp = esc(x.value);
@@ -309,7 +328,7 @@ function osSecImages(d) {
       ? `<div style="margin-bottom:4px"><a href="${disp}" target="_blank" rel="noopener">${disp}</a></div>`
       : `<div style="margin-bottom:4px;color:var(--muted)">${disp} <span style="font-size:10px">(링크 차단)</span></div>`;
   }).join('');
-  return osCard('예시 이미지 링크', inner);
+  return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">예시 이미지 링크</span><br>${inner}</div>`;
 }
 
 function osCloseModal(id) {
@@ -317,7 +336,7 @@ function osCloseModal(id) {
   if (m) m.classList.remove('open');
 }
 
-// ── 모달 DOM 1회 생성 (기존 .modal-overlay/.modal-body 클래스 재사용) ──
+// ── 모달 DOM 1회 생성 (기존 .modal-overlay/.modal/.modal-body 클래스 재사용) ──
 function ensureOrientModals() {
   if (document.getElementById('orientCreateModal')) return;
   const html = `
@@ -331,16 +350,9 @@ function ensureOrientModals() {
             <select id="osCreateBrand" class="form-input" onchange="osOnBrandChange()"></select></div>
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
             <select id="osCreateApp" class="form-input"><option value="">연결 안 함</option></select>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 타입을 자동 승계합니다.</div></div>
-          <div class="form-group" id="osCreateProductGroup" style="display:none"><label class="form-label">제품 선택 <span style="color:var(--pink,#E8344E)">*</span></label>
-            <select id="osCreateProduct" class="form-input"></select>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">서베이 신청의 제품 정보(제품명·판매가·판매URL)를 작성 폼에 미리 채웁니다. 반려된 제품은 제외됩니다.</div></div>
-          <div class="form-group"><label class="form-label">모집 타입 (선택)</label>
-            <select id="osCreateType" class="form-input">
-              <option value="">브랜드가 작성 시 선택</option>
-              <option value="reviewer">리뷰어형</option>
-              <option value="seeding">시딩형</option></select>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">비워두면 브랜드가 작성 첫 화면에서 직접 고릅니다.</div></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 모집 희망값을 작성 폼 첫 카드에 미리 채웁니다.</div></div>
+          <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
+            모집 형식(가구매·리뷰어·시딩)과 제품은 브랜드가 작성 폼에서 카드마다 직접 추가·선택합니다.</div>
         </div>
         <div id="osCreateResult" style="display:none">
           <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
