@@ -19,7 +19,7 @@ INSERT INTO lookup_values (kind, code, name_ko, name_ja, sort_order, active, rec
   ('channel',  'tiktok',           'TikTok',                                     'TikTok',                               30, true, '{gifting,visit}'),
   ('channel',  'youtube',          'YouTube',                                    'YouTube',                              40, true, '{gifting,visit}'),
   ('channel',  'qoo10',            'Qoo10',                                      'Qoo10',                                50, true, '{monitor}'),
-  ('channel',  'channel-96r9y3',   '엣코스메',                                     '@Cosme',                               60, true, '{monitor}'),
+  ('channel',  'cosme',            '엣코스메',                                     '@cosme',                               60, true, '{monitor}'),
 
   -- content_type
   ('content_type', 'feed',         '피드',                                        'フィード',                              10, true, '{}'),
