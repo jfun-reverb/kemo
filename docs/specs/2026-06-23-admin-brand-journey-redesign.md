@@ -120,3 +120,9 @@
 - 신규 함수 `BRAND_JOURNEY_STEPS`·`brandAppJourneyState`·`renderBrandAppJourney`·`toggleBrandAppExpand`(admin-brand.js). DB 변경 없음. reverb-reviewer GO(Warning: 기존 td/th 불일치·전부 반려 진행바 표시는 PR C 정리). qa light.
 - **미착수**: PR C(상세에 오리엔 발급·취합·발행 카드 통합·발급/발행 행동 바로가기).
 
+### PR C — 신청 상세에 오리엔시트 발급·취합·발행 통합 (2026-06-23)
+**구현일:** 2026-06-23 / **브랜치:** feature/orient-form-cards
+- PR B 아코디언 상세 행에 「오리엔시트 발급·취합·발행」 섹션 추가(`renderBrandAppOrientSection`, `_orientByApp[a.id]` 재사용 — 목록 로드 시 그룹·data 포함).
+- 발급 0건: 안내 + 「오리엔시트 발급」 버튼(`osIssueFromApplication(a.id)`). 발급 N건: 시트별 상태 배지(`osBadge(osStatusOf(s))`) + 카드 요약(`osCardsSummary(s.data)`) + 「링크 복사」(`osBuildLink`) + 「내용·발행」(`osOpenDetail` — PR⑦ 카드별 발행 버튼 포함) + 「추가 발급」. 신청 상세 한 곳에서 발급→취합→발행이 이어짐(§5 워크플로 달성).
+- 비-서베이(신청 없는) 건은 브랜드 관리 발급 경로 유지(§14-A, 파이프라인 밖).
+- 기존 함수 재사용(신규 DB·RPC 0). reverb-reviewer: **Critical(빌드 순서 admin-brand→admin-orient 의존)→build.sh에서 admin-orient.js를 admin-brand.js 앞으로 이동·재빌드로 해소**, Warning(빈 링크 시 복사 버튼 숨김)→반영. qa skip.
