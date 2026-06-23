@@ -112,4 +112,11 @@
 
 ## 8. 구현 결과 (개발 세션이 채울 것)
 
-_(미착수)_
+### PR B — 신청 행 아코디언 + 진행바 (2026-06-23)
+**구현일:** 2026-06-23 / **브랜치:** feature/orient-form-cards
+- 광고주 신청 목록(`#brand-applications`) 행 펼침(아코디언): 첫 행 액션 셀 caret(`brand-app-expand-caret`)→`toggleBrandAppExpand`→마지막 제품 행 뒤 전체폭(colspan=30) 상세 행 삽입/제거. 펼침 상태 ephemeral(재렌더 시 접힘).
+- 진행바: 6단계 묶음(검토→견적→입금→발급→취합→발행)을 신청 단위 status(`BRAND_STATUS_ORDER_FOR_FUNNEL`)로 읽기 전용 표시. 제품별 status 갈리면 「제품별 단계 혼합」 배지, rejected 있으면 「반려 포함」 배지. 도달 단계=초록 체크, 다음 단계=핑크, 미도달=회색. 대표 단계=제품별 status 중 가장 덜 진행(보수적).
+- **사용자 확정**: 화면=목록 행 아코디언 / 진행바=신청 단위+혼합 배지 / 「다음 단계」=행동 바로가기(status 미변경) / status 자동 전이 미도입(수동 드롭다운 유지, DB 변경 0) / PR B·C 분리.
+- 신규 함수 `BRAND_JOURNEY_STEPS`·`brandAppJourneyState`·`renderBrandAppJourney`·`toggleBrandAppExpand`(admin-brand.js). DB 변경 없음. reverb-reviewer GO(Warning: 기존 td/th 불일치·전부 반려 진행바 표시는 PR C 정리). qa light.
+- **미착수**: PR C(상세에 오리엔 발급·취합·발행 카드 통합·발급/발행 행동 바로가기).
+
