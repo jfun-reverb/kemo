@@ -2463,6 +2463,9 @@ async function moveCampOrder(campId, dir) {
 
 async function addCampaign() {
   try {
+  // 오리엔시트 카드 발행 컨텍스트 (osPublishCard→applyOrientCardPrefill 에서 세팅). 없으면 일반 등록.
+  const _opc = window._orientPublishCtx || null;
+  let _emergencyReason = null;
   const title = $('newCampTitle').value.trim();
   const brandId = $('newCampBrandId')?.value || '';
   if (!brandId) { toast('브랜드를 선택해주세요','error'); return; }
@@ -2493,6 +2496,27 @@ async function addCampaign() {
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
   if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
+
+  // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
+  // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
+  // 가이드 비었으면 매니저는 차단, campaign_admin 이상은 사유 입력 긴급 발행 우회(기록).
+  if (_opc) {
+    const guidePlain = (getRichValue('newCampGuide') || '').replace(/<[^>]*>/g, '').trim();
+    if (!guidePlain) {
+      if (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove()) {
+        const reason = window.prompt('콘텐츠 가이드가 비어 있습니다. 일본어 보완 없이 긴급 발행하려면 사유를 입력하세요. (취소 시 발행 중단)');
+        if (!reason || !reason.trim()) { toast('발행을 취소했습니다.'); return; }
+        _emergencyReason = reason.trim();
+      } else {
+        toast('콘텐츠 가이드(일본어)를 입력해 주세요. 비워둔 채 긴급 발행은 광고 관리자 이상만 가능합니다.', 'error');
+        return;
+      }
+    } else if (!window.confirm('일본어 보완(제목·제품명·콘텐츠 가이드)을 완료하셨나요?\n한국어 초안이 남아 있으면 인플루언서 화면에 그대로 노출됩니다.')) {
+      toast('일본어를 보완한 뒤 다시 발행해 주세요.');
+      return;
+    }
+  }
+
   const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   // 이미지를 Storage에 업로드
@@ -2536,13 +2560,33 @@ async function addCampaign() {
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
+    // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
+    proxy_purchase: _opc ? !!_opc.isProxy : false,
+    emergency_publish_reason: _emergencyReason || null,
+    emergency_published_by: _emergencyReason ? (typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null) : null,
+    emergency_published_at: _emergencyReason ? new Date().toISOString() : null,
     ...collectCampPsetPayload('new'),
     ...collectCampCsetPayload('new'),
     ...collectCampNsetPayload('new'),
   };
 
-  await insertCampaign(camp);
+  const _newCampId = await insertCampaign(camp);
   toast('캠페인이 등록되었습니다','success');
+
+  // ── 오리엔시트 카드 발행 소비 ──
+  if (_opc && _newCampId) {
+    try {
+      const cr = await markOrientCardConsumed(_opc.orientId, _opc.cardIdx, _newCampId);
+      if (cr && cr.success) {
+        toast(cr.all_published
+          ? '카드 발행 완료 — 모든 카드가 발행되어 오리엔시트가 잠겼습니다.'
+          : '카드 발행 완료 (' + cr.published_count + '/' + cr.total_count + ' 발행)', 'success');
+      } else {
+        toast('캠페인은 등록됐으나 오리엔시트 연결에 실패했습니다: ' + (cr && cr.reason ? cr.reason : '알 수 없음'), 'error');
+      }
+    } catch (e) { console.error('[markOrientCardConsumed]', e); }
+    window._orientPublishCtx = null;
+  }
   campImgData.length = 0;
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
@@ -2579,6 +2623,8 @@ async function addCampaign() {
 
   switchAdminPane('campaigns', null);
   } catch(err) {
+    // 발행 실패 시 컨텍스트 비움 — 살아있으면 다음 저장이 같은 카드를 이중 소비 시도할 수 있음
+    window._orientPublishCtx = null;
     toast('오류: ' + friendlyError(err.message||String(err)), 'error');
   }
 }

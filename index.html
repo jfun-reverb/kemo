@@ -4771,10 +4771,12 @@ function computeCampaignStatus(camp) {
 }
 
 async function insertCampaign(camp) {
-  if (!db) return;
-  await retryWithRefresh(async () => {
-    const {error} = await db.from('campaigns').insert(camp);
+  if (!db) return null;
+  // 삽입된 캠페인 id 반환 (오리엔시트 발행 소비 등에서 사용 — 기존 호출부는 반환값 무시라 호환)
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.from('campaigns').insert(camp).select('id').maybeSingle();
     if (error) throw error;
+    return data?.id || null;
   });
 }
 
@@ -8023,12 +8025,27 @@ async function createOrientSheet(brandId, applicationId) {
   });
 }
 
+// 오리엔시트 카드 1개를 발행 캠페인과 연결(소비). 마이그레이션 196.
+// 카드별 멱등(이미 발행 카드면 거부), 모든 카드 발행 시 시트 status='consumed'.
+async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('mark_orient_card_consumed', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
 async function fetchOrientSheets() {
   if (!db) return [];
   return await retryWithRefresh(async () =>
     fetchAllPaged(() => db.from('orient_sheets')
-      .select('id, brand_id, application_id, form_type, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .select('id, brand_id, application_id, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
       .order('created_at', { ascending: false }))
   );
 }
@@ -10608,13 +10625,15 @@ async function openActivityPage(applicationId, campaignId, from) {
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
   const isMonitor = (rt === 'monitor');
+  // 가구매(proxy_purchase, 마이그레이션 197): monitor지만 영수증만 — 리뷰 캡쳐(STEP 2) 미요구
+  const isProxy = isMonitor && !!camp.proxy_purchase;
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
-  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출, 그 외는 모두 숨김
+  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출. 가구매는 STEP 2 없음.
   const stepLabel = $('receiptStepLabel');
-  if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
+  if (stepLabel) stepLabel.style.display = (isMonitor && !isProxy) ? '' : 'none';
   const reviewSec = $('reviewImageSection');
-  if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
+  if (reviewSec) reviewSec.style.display = (isMonitor && !isProxy) ? '' : 'none';
   // monitor 전용 영수증 필수 필드(주문번호·구매일·구매금액) — 마이그레이션 128
   const monitorFields = $('monitorReceiptFields');
   if (monitorFields) monitorFields.style.display = isMonitor ? '' : 'none';
@@ -10811,9 +10830,10 @@ async function loadDeliverablesForActivity() {
   // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(채널별 리뷰 캡쳐) 영역 활성화
   // 채널 없는 레거시 monitor 캠페인은 STEP 2 영역 자체를 숨김 (grandfather, 영수증만 받음)
   if (isMonitor) {
+    // 가구매(proxy_purchase)·채널 없는 레거시 monitor는 STEP 2(리뷰 캡쳐) 영역 자체를 숨김 — 영수증만 받음
     const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     const section = $('reviewImageSection');
-    if (channels.length === 0) {
+    if (camp.proxy_purchase || channels.length === 0) {
       if (section) section.style.display = 'none';
     } else {
       if (section) section.style.display = '';

@@ -239,10 +239,12 @@ function computeCampaignStatus(camp) {
 }
 
 async function insertCampaign(camp) {
-  if (!db) return;
-  await retryWithRefresh(async () => {
-    const {error} = await db.from('campaigns').insert(camp);
+  if (!db) return null;
+  // 삽입된 캠페인 id 반환 (오리엔시트 발행 소비 등에서 사용 — 기존 호출부는 반환값 무시라 호환)
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.from('campaigns').insert(camp).select('id').maybeSingle();
     if (error) throw error;
+    return data?.id || null;
   });
 }
 
@@ -3485,6 +3487,21 @@ async function createOrientSheet(brandId, applicationId) {
     const { data, error } = await db.rpc('create_orient_sheet', {
       p_brand_id: brandId,
       p_application_id: applicationId || null,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 오리엔시트 카드 1개를 발행 캠페인과 연결(소비). 마이그레이션 196.
+// 카드별 멱등(이미 발행 카드면 거부), 모든 카드 발행 시 시트 status='consumed'.
+async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('mark_orient_card_consumed', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+      p_campaign_id: campaignId,
     });
     if (error) throw error;
     return data;

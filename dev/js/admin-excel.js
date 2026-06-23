@@ -128,9 +128,14 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
 
 // gifting/visit (post 단독) 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
 //   recruitType, receipt(receipt deliv), result(post/review_image deliv)
-function _excelCertStatusKo(recruitType, receipt, result) {
+function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
   if (recruitType === 'monitor') {
     var hasReceipt = !!receipt;
+    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+    if (proxyPurchase) {
+      if (!hasReceipt) return '미제출';
+      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+    }
     var hasReview = !!result;
     if (!hasReceipt && !hasReview) return '미제출';
     if (receipt && receipt.status === 'approved' && result && result.status === 'approved') return '인증성공';
@@ -143,8 +148,13 @@ function _excelCertStatusKo(recruitType, receipt, result) {
 }
 
 // monitor 다채널 구조용 (receipt + reviewByCh).
-function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh) {
+function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
   var hasReceipt = !!receipt;
+  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+  if (proxyPurchase) {
+    if (!hasReceipt) return '미제출';
+    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+  }
   var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
   if (!hasReceipt && !hasReview) return '미제출';
   var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
@@ -788,7 +798,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (J열=10) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result),
+        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase),
         // 영수증 9컬럼 (K~S열=11~19)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (T~Y열=20~25)
@@ -1237,7 +1247,7 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (H열=8) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result),
+        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase),
         // 영수증 9컬럼 (I~Q열=9~17)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (R~W열=18~23)
@@ -1492,7 +1502,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=8) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh),
+      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh, camp.proxy_purchase),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
@@ -1698,7 +1708,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=10) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh),
+      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh, cc.proxy_purchase),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
