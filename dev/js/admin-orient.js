@@ -261,6 +261,11 @@ function osField(label, val) {
   const v = (val == null || val === '') ? '<span style="color:var(--muted)">미입력</span>' : esc(String(val));
   return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">${label}</span><br>${v}</div>`;
 }
+// 값이 이미 안전한 HTML(링크 등 — 호출부가 esc·화이트리스트 보장)일 때. esc 미적용.
+function osFieldHtml(label, htmlVal) {
+  const v = htmlVal ? htmlVal : '<span style="color:var(--muted)">미입력</span>';
+  return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">${label}</span><br>${v}</div>`;
+}
 function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
 
 // 공통 브랜드 카드 (1회)
@@ -284,7 +289,7 @@ function osCardDetail(c, idx, catMap) {
     + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
 
   if (ft === 'proxy_purchase' || ft === 'reviewer') {
-    inner += osField('판매처', sale.market) + osField('판매 URL', osLinkOrText(sale.url))
+    inner += osField('판매처', sale.market) + osFieldHtml('판매 URL', osLinkOrText(sale.url))
       + osField('상시가', sale.price_regular) + osField('세일가', sale.price_sale)
       + osField('대형할인', [sale.event, sale.price_event].filter(Boolean).join(' '));
   }
