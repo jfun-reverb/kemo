@@ -2184,7 +2184,35 @@ function renderBrandAppJourney(a) {
     + '<div style="display:flex;align-items:flex-start;max-width:560px">' + steps + '</div></div>';
 }
 
-// 신청 행 펼침/접힘 — 마지막 제품 행 뒤에 전체폭 상세 행(진행바) 삽입/제거
+// 오리엔시트 발급·취합·발행 섹션 (아코디언 — admin-brand-journey PR C)
+//   _orientByApp(목록 로드 시 그룹, data 포함) 재사용. 발급=osIssueFromApplication, 내용·발행=osOpenDetail(PR⑦ 카드별 발행 버튼 포함).
+//   비-서베이(신청 없는) 건은 브랜드 관리에서 발급 — 여기는 신청 연결 건만.
+function renderBrandAppOrientSection(a) {
+  var sheets = (_orientByApp && _orientByApp[a.id]) || [];
+  var rows;
+  if (!sheets.length) {
+    rows = '<div style="color:var(--muted);font-size:12px;margin-bottom:4px">아직 발급된 오리엔시트가 없습니다. 발급하면 브랜드가 작성할 링크가 생성됩니다.</div>';
+  } else {
+    rows = sheets.map(function (s) {
+      var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
+      var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
+      var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+      return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line,#eee)">'
+        + stBadge + '<span style="font-size:12px;color:var(--ink)">' + summary + '</span>'
+        + '<div style="margin-left:auto;display:flex;gap:6px">'
+        + (link ? '<button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(link) + '\',\'작성 링크가 복사되었습니다.\')">링크 복사</button>' : '')
+        + '<button type="button" class="btn btn-primary btn-xs" onclick="event.stopPropagation();osOpenDetail(\'' + esc(s.id) + '\')">내용·발행</button>'
+        + '</div></div>';
+    }).join('');
+  }
+  var issueBtn = '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="event.stopPropagation();osIssueFromApplication(\'' + esc(a.id) + '\')">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">add</span> 오리엔시트 ' + (sheets.length ? '추가 ' : '') + '발급</button>';
+  return '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border-strong,#D4D4CC)">'
+    + '<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px">오리엔시트 발급 · 취합 · 발행</div>'
+    + rows + issueBtn + '</div>';
+}
+
+// 신청 행 펼침/접힘 — 마지막 제품 행 뒤에 전체폭 상세 행(진행바 + 오리엔 섹션) 삽입/제거
 function toggleBrandAppExpand(appId) {
   var existing = document.querySelector('#brandAppTableBody tr[data-detail-for="' + appId + '"]');
   var caret = document.querySelector('#brandAppTableBody .brand-app-expand-caret[data-id="' + appId + '"]');
@@ -2201,7 +2229,7 @@ function toggleBrandAppExpand(appId) {
   var tr = document.createElement('tr');
   tr.setAttribute('data-detail-for', appId);
   tr.className = 'brand-app-detail-row';
-  tr.innerHTML = '<td colspan="30" style="background:var(--surface-dim);padding:8px 16px 14px">' + renderBrandAppJourney(a) + '</td>';
+  tr.innerHTML = '<td colspan="30" style="background:var(--surface-dim);padding:8px 16px 14px">' + renderBrandAppJourney(a) + renderBrandAppOrientSection(a) + '</td>';
   lastRow.parentNode.insertBefore(tr, lastRow.nextSibling);
   if (caret) caret.textContent = 'expand_less';
 }
