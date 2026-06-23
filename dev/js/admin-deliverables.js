@@ -532,9 +532,15 @@ function countCertSuccess(delivs, camp) {
 //   시딩(gifting)·방문(visit): 게시물(post)만
 //     - 미제출 → 미제출 / 승인 → 인증성공 / 그 외(검수중·반려) → 인증샷 제출중
 function computeCertStatus(g) {
-  const rt = g && g.campaign ? g.campaign.recruit_type : null;
+  const camp = g && g.campaign ? g.campaign : null;
+  const rt = camp ? camp.recruit_type : null;
   if (rt === 'monitor') {
     const hasReceipt = !!g.receipt;
+    // 가구매(proxy_purchase, 마이그레이션 197): 영수증만 제출 — 리뷰 인증샷(review_image) 미요구.
+    if (camp && camp.proxy_purchase) {
+      if (!hasReceipt) return 'none';
+      return (g.receipt.status === 'approved') ? 'success' : 'submitting';
+    }
     const hasReview = !!(g.result_status_repr && g.result_status_repr !== 'none');
     if (!hasReceipt && !hasReview) return 'none';
     if (g.receipt && g.receipt.status === 'approved' && g.result_status_repr === 'approved') return 'success';
@@ -585,8 +591,11 @@ function renderDelivAppRow(g) {
   // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
   const useReceipt = rt === 'monitor';
   // monitor 완료 = 영수증 승인 + 채널별 review_image 모두 승인 (대표 상태 = approved)
+  //   가구매(proxy_purchase)는 영수증 승인만으로 완료 (review_image 미요구)
   const completed = useReceipt
-    ? (g.receipt?.status === 'approved' && g.result_status_repr === 'approved')
+    ? (camp.proxy_purchase
+        ? (g.receipt?.status === 'approved')
+        : (g.receipt?.status === 'approved' && g.result_status_repr === 'approved'))
     : (g.result?.status === 'approved');
   const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
 
@@ -627,6 +636,10 @@ function renderDelivAppRow(g) {
 //   채널 없는 레거시 monitor 캠페인은 「—」 단일 표시.
 function renderDelivResultCellMonitor(g) {
   const camp = g.campaign || {};
+  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+  if (camp.proxy_purchase) {
+    return '<span style="font-size:10px;color:var(--muted)">리뷰 불필요 (가구매)</span>';
+  }
   const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
   if (channels.length === 0) {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';

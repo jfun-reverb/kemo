@@ -133,6 +133,9 @@ function switchAdminPane(pane, el, pushHistory) {
     }
   } catch (e) { /* analytics 실패 무시 */ }
 
+  // 오리엔시트 발행 컨텍스트는 add-campaign 진입마다 초기화 (수동 신규 캠페인이 오리엔 발행으로 오인되지 않도록).
+  // 오리엔 발행 경로(applyOrientCardPrefill)는 switchAdminPane 호출 직후 컨텍스트를 다시 세팅한다.
+  if (pane === 'add-campaign') window._orientPublishCtx = null;
   initMultiFilters();
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));

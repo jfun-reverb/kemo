@@ -7,6 +7,7 @@
 // ============================================================
 
 let _orientSheets = [];
+let _osDetailSheet = null;   // 상세 모달에 열린 시트(카드별 발행에 사용)
 
 const OS_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
 const OS_TYPE_CHIP = {
@@ -231,6 +232,7 @@ async function osOpenDetail(id) {
   try { s = await fetchOrientSheetById(id); }
   catch (e) { body.innerHTML = '<p style="padding:8px">불러오지 못했습니다.</p>'; return; }
   if (!s) { body.innerHTML = '<p style="padding:8px">데이터가 없습니다.</p>'; return; }
+  _osDetailSheet = s;
   // 카테고리는 code 로 저장되므로 한국어 라벨로 변환해 표시 (캠페인 폼과 동일 기준 데이터)
   let catMap = {};
   try { const cats = await fetchLookups('category'); catMap = Object.fromEntries((cats || []).map(c => [c.code, c.name_ko])); } catch (_) {}
@@ -305,8 +307,21 @@ function osCardDetail(c, idx, catMap) {
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
 
   const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-    ${osTypeChip(ft)}<span style="font-weight:700;font-size:14px">${esc(p.name || ('제품 ' + (idx + 1)))}</span></div>`;
+    ${osTypeChip(ft)}<span style="font-weight:700;font-size:14px;flex:1;min-width:0">${esc(p.name || ('제품 ' + (idx + 1)))}</span>${osCardPublishControl(c, idx)}</div>`;
   return `<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px">${head}${inner}</div>`;
+}
+
+// 카드 헤더 우측 — 발행 버튼(제출됨·미발행·형식 선택) / 발행됨 배지 / 형식 미선택 안내
+function osCardPublishControl(c, idx) {
+  const s = _osDetailSheet;
+  if (c && c.campaign_id) {
+    return '<span style="flex-shrink:0;display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>';
+  }
+  if (s && s.status === 'submitted') {
+    if (!c || !c.form_type) return '<span style="flex-shrink:0;color:var(--muted);font-size:11px">형식 미선택</span>';
+    return `<button type="button" class="btn btn-primary btn-xs" style="flex-shrink:0" onclick="osPublishCard(${idx})">이 카드로 발행</button>`;
+  }
+  return '';   // draft(미제출)·expired 는 발행 버튼 없음
 }
 
 // 브랜드 입력 URL은 서버 검증이 없으므로(직접 RPC 호출 우회 가능) http/https만 링크 허용
@@ -329,6 +344,133 @@ function osImagesInline(images) {
       : `<div style="margin-bottom:4px;color:var(--muted)">${disp} <span style="font-size:10px">(링크 차단)</span></div>`;
   }).join('');
   return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">예시 이미지 링크</span><br>${inner}</div>`;
+}
+
+// ── 카드 → 캠페인 발행 (자동 채움) ──
+// 상세 모달 카드 「이 카드로 발행」 → 캠페인 등록 폼에 prefill + 발행 컨텍스트 주입.
+// 일본어 게이트·발행 소비(markOrientCardConsumed)는 addCampaign 이 컨텍스트를 보고 처리.
+async function osPublishCard(cardIdx) {
+  const s = _osDetailSheet;
+  if (!s) return;
+  if (s.status !== 'submitted') { toast('제출된 오리엔시트만 발행할 수 있습니다.'); return; }
+  const cards = (s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  const card = cards[cardIdx];
+  if (!card) return;
+  if (card.campaign_id) { toast('이미 발행된 카드입니다.'); return; }
+  if (!card.form_type) { toast('형식이 선택되지 않은 카드는 발행할 수 없습니다.'); return; }
+  osCloseModal('orientDetailModal');
+  try {
+    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, cardIdx);
+  } catch (e) {
+    console.error('[osPublishCard]', e);
+    toast('자동 채움 중 오류가 발생했습니다. 폼을 직접 확인해 주세요.');
+  }
+}
+
+function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
+function osPriceNum(v) { const n = parseInt(String(v == null ? '' : v).replace(/[^0-9]/g, ''), 10); return isNaN(n) ? '' : n; }
+
+// 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
+function osPrefillChannels(card) {
+  if (card.form_type === 'seeding') {
+    return (card.seeding && Array.isArray(card.seeding.channels)) ? card.seeding.channels.filter(Boolean) : [];
+  }
+  const map = { 'Qoo10': 'qoo10', '@cosme': 'atcosme', 'LIPS': 'lips' };
+  const m = (card.sale && card.sale.market) || '';
+  return map[m] ? [map[m]] : [];
+}
+
+// 가격·행사를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
+function osBuildRewardNote(card) {
+  const s = card.sale || {};
+  const parts = [];
+  if (card.form_type === 'proxy_purchase') parts.push('[가구매] 영수증만 제출 (리뷰·게시 없음)');
+  if (s.price_regular) parts.push('상시가 ' + s.price_regular);
+  if (s.price_sale) parts.push('세일가 ' + s.price_sale);
+  if (s.event) parts.push(s.event + ' ' + (s.price_event || ''));
+  return parts.join(' / ');
+}
+
+// 평문 → 리치 텍스트 HTML (이스케이프 + 줄바꿈)
+function osPlainToRich(t) {
+  if (!t) return '';
+  return esc(String(t)).replace(/\n/g, '<br>');
+}
+
+// 카드 한국어 콘텐츠를 가이드 초안으로 합침 (관리자가 일본어로 번역)
+function osBuildGuideDraft(card) {
+  const blocks = [];
+  if (card.form_type === 'reviewer' && card.review_guide) blocks.push('[리뷰 가이드]\n' + card.review_guide);
+  if (card.form_type === 'seeding') {
+    const sd = card.seeding || {};
+    (Array.isArray(sd.guides) ? sd.guides : []).forEach(g => {
+      if (g && g.guide) blocks.push('[' + osChLabel(g.channel) + ']\n' + g.guide);
+    });
+    if (sd.shooting_guide) blocks.push('[촬영 가이드]\n' + sd.shooting_guide);
+    if (sd.required_content) blocks.push('[필수 내용]\n' + sd.required_content);
+    if (sd.gift) blocks.push('[증정품] ' + sd.gift);
+    if (sd.shipping_note) blocks.push('[배송 안내] ' + sd.shipping_note);
+    if (sd.account_tags) blocks.push('[태그 계정] ' + sd.account_tags);
+  }
+  if (card.cautions) blocks.push('[추가 안내]\n' + card.cautions);
+  if (card.ng) blocks.push('[NG]\n' + card.ng);
+  return blocks.map(osPlainToRich).join('<br><br>');
+}
+
+// 캠페인 등록 폼에 카드 내용 자동 채움. 한국어는 _ko 칸·가이드 초안에, 일본어 표시칸(제목·제품명)은 비워 관리자 보완.
+async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, cardIdx) {
+  if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
+  // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
+  // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
+  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase' };
+  const ft = card.form_type;
+  const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
+
+  // 브랜드 선택 + cascade (native select)
+  if (typeof loadCampBrandSelect === 'function') await loadCampBrandSelect('new', brandId);
+  osSetVal('newCampBrandId', brandId || '');
+  if (typeof onCampBrandChange === 'function') await onCampBrandChange('new');
+  if (appId) {
+    osSetVal('newCampSourceAppId', appId);
+    if (typeof _srcAppSyncTrigger === 'function') _srcAppSyncTrigger('new');
+  }
+
+  // recruitType 라디오 (인라인 onchange 로 채널·팔로워 영역 갱신)
+  const rt = document.querySelector(`input[name="recruitType"][value="${recruitType}"]`);
+  if (rt) { rt.checked = true; rt.dispatchEvent(new Event('change')); }
+
+  // 채널·카테고리 렌더
+  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, osPrefillChannels(card));
+  if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', (card.product && card.product.category) || '');
+
+  // 텍스트 (한국어→_ko, 일본어 표시칸은 비움 → 일본어 게이트가 보완 유도)
+  const p = card.product || {};
+  osSetVal('newCampProductKo', p.name || '');
+  osSetVal('newCampProduct', '');
+  osSetVal('newCampTitle', '');
+  osSetVal('newCampSlots', p.slots || '');
+  osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
+  osSetVal('newCampProductPrice', osPriceNum(card.sale && card.sale.price_regular));
+  osSetVal('newCampRewardNote', osBuildRewardNote(card));
+  if (card.form_type === 'seeding') osSetVal('newCampHashtags', Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags.join(' ') : '');
+
+  // 날짜 (희망 모집 기간) — flatpickr range + deadline
+  const r = card.recruit || {};
+  if (typeof applyCampRangeValues === 'function') {
+    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, r.recruit_end || null], purchase: [null, null], visit: [null, null] });
+  }
+  osSetVal('newCampRecruitStart', r.recruit_start || '');
+  osSetVal('newCampDeadline', r.recruit_end || '');
+
+  // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
+  if (typeof setRichValue === 'function') {
+    setRichValue('newCampGuide', osBuildGuideDraft(card));
+    setRichValue('newCampAppeal', osPlainToRich((card.seeding && card.seeding.appeal) || ''));
+    setRichValue('newCampDesc', osPlainToRich(brand.intro || ''));
+  }
+
+  toast('오리엔시트 내용을 채웠습니다. 일본어(제목·제품명·가이드)를 보완한 뒤 발행해 주세요.');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function osCloseModal(id) {
