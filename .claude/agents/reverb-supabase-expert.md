@@ -58,6 +58,7 @@ model: sonnet
 - [ ] 마이그레이션 파일명: `NNN_설명.sql` 순번 유지
 - [ ] SECURITY DEFINER 함수는 `SET search_path = ''` 필수
 - [ ] 운영 DB 변경은 개발서버 먼저 → 검증 → 운영 적용
+- [ ] **기준 데이터(`lookup_values` 등) 추가 시 기존 동종 항목과 중복 확인** — 같은 `kind` 를 `grep -rni supabase/seed/ supabase/migrations/` + 개발 DB `SELECT code,name_ko,name_ja FROM lookup_values WHERE kind='…'` 로 조회. 표기·대소문자 차이(`@Cosme` vs `@cosme`)도 중복. 시드와 후속 마이그레이션이 다른 `code` 로 같은 항목을 추가하면 유니크 제약을 안 걸리고 화면에 중복 노출됨 (마이그레이션 157 @cosme 사고, `.claude/rules/supabase.md` 「기준 데이터 추가 시 중복 확인」)
 
 ## 환경 분리
 - 운영서버: `nrwtujmlbktxjgdwlpjj.supabase.co` (🇯🇵 Tokyo `ap-northeast-1`, Pro / NANO compute) — 2026-05-27 도쿄 이관 완료
