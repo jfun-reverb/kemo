@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782200479';
+  var CURRENT_BUILD = 'v1782201699';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-23 16:41 · 48c1213</span>
+          <span class="admin-build-text">2026-06-23 17:01 · 144a248</span>
         </div>
       </div>
     </aside>
@@ -13731,6 +13731,84 @@ function _uniformProductValue(prods, key) {
 //   count: 신청 전체 제품 수 (필터 무관 — 「제품 N개」 라벨에 사용)
 //   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
 //            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
+// ════════════════════════════════════════════════════════════════════
+// 신청 행 아코디언 + 진행바 (admin-brand-journey PR B)
+//   6단계 묶음(검토→견적→입금→발급→취합→발행)을 신청 단위 status로 읽기 전용 표시.
+//   제품별 status가 갈리면 「혼합」 배지. status 자동 전이 없음(수동 드롭다운 유지).
+//   발급·발행 행동 바로가기는 PR C 에서 연결.
+// ════════════════════════════════════════════════════════════════════
+var BRAND_JOURNEY_STEPS = [
+  { label: '검토', order: 1 },   // reviewing
+  { label: '견적', order: 2 },   // quoted
+  { label: '입금', order: 3 },   // paid
+  { label: '발급', order: 5 },   // orient_sheet_sent
+  { label: '취합', order: 6 },   // schedule_sent (취합 = 오리엔 제출 — PR C에서 정밀화)
+  { label: '발행', order: 7 },   // campaign_registered
+];
+
+// 신청의 대표 진행 단계: 제품별 status 중 가장 덜 진행된 것(보수적) + 혼합/반려 여부
+function brandAppJourneyState(a) {
+  var prods = Array.isArray(a.products) ? a.products : [];
+  var statuses = (prods.length ? prods.map(function (p) { return (p && p.status) || a.status; }) : [a.status]).filter(Boolean);
+  if (!statuses.length) statuses = ['new'];
+  var uniq = statuses.filter(function (s, i) { return statuses.indexOf(s) === i; });
+  var orders = statuses.map(function (s) { return BRAND_STATUS_ORDER_FOR_FUNNEL[s]; }).filter(function (o) { return typeof o === 'number' && o >= 0; });
+  var minOrder = orders.length ? Math.min.apply(null, orders) : -1;   // -1 = 전부 반려
+  return { order: minOrder, mixed: uniq.length > 1, rejected: statuses.indexOf('rejected') >= 0 };
+}
+
+function renderBrandAppJourney(a) {
+  var st = brandAppJourneyState(a);
+  // 다음 행동 단계 = 아직 도달 못 한 첫 단계
+  var nextOrder = null;
+  for (var i = 0; i < BRAND_JOURNEY_STEPS.length; i++) {
+    if (st.order < BRAND_JOURNEY_STEPS[i].order) { nextOrder = BRAND_JOURNEY_STEPS[i].order; break; }
+  }
+  var steps = BRAND_JOURNEY_STEPS.map(function (step, i) {
+    var done = st.order >= step.order;
+    var current = (step.order === nextOrder);
+    var circleBg = done ? '#274' : (current ? 'var(--pink)' : '#E5E5E5');
+    var circleColor = (done || current) ? '#fff' : '#999';
+    var inner = done ? '<span class="material-icons-round notranslate" translate="no" style="font-size:15px">check</span>' : (i + 1);
+    var labelColor = done ? '#274' : (current ? 'var(--pink)' : '#999');
+    var line = (i < BRAND_JOURNEY_STEPS.length - 1)
+      ? '<div style="flex:1;height:2px;background:' + (st.order >= BRAND_JOURNEY_STEPS[i + 1].order ? '#274' : '#E5E5E5') + ';min-width:18px"></div>' : '';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
+      + '<div style="width:24px;height:24px;border-radius:50%;background:' + circleBg + ';color:' + circleColor + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">' + inner + '</div>'
+      + '<span style="font-size:11px;font-weight:700;color:' + labelColor + '">' + step.label + '</span></div>'
+      + line;
+  }).join('');
+  var badges = '';
+  if (st.mixed) badges += '<span style="background:#FDEEF4;color:#A36;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
+  if (st.rejected) badges += '<span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">반려 포함</span>';
+  return '<div style="padding:6px 4px 2px"><div style="display:flex;align-items:center;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px">진행 단계' + badges + '</div>'
+    + '<div style="display:flex;align-items:flex-start;max-width:560px">' + steps + '</div></div>';
+}
+
+// 신청 행 펼침/접힘 — 마지막 제품 행 뒤에 전체폭 상세 행(진행바) 삽입/제거
+function toggleBrandAppExpand(appId) {
+  var existing = document.querySelector('#brandAppTableBody tr[data-detail-for="' + appId + '"]');
+  var caret = document.querySelector('#brandAppTableBody .brand-app-expand-caret[data-id="' + appId + '"]');
+  if (existing) {
+    existing.remove();
+    if (caret) caret.textContent = 'expand_more';
+    return;
+  }
+  var rows = document.querySelectorAll('#brandAppTableBody tr[data-id="' + appId + '"]');
+  if (!rows.length) return;
+  var lastRow = rows[rows.length - 1];
+  var a = (_brandApps || []).find(function (x) { return x.id === appId; });
+  if (!a) return;
+  var tr = document.createElement('tr');
+  tr.setAttribute('data-detail-for', appId);
+  tr.className = 'brand-app-detail-row';
+  tr.innerHTML = '<td colspan="30" style="background:var(--surface-dim);padding:8px 16px 14px">' + renderBrandAppJourney(a) + '</td>';
+  lastRow.parentNode.insertBefore(tr, lastRow.nextSibling);
+  if (caret) caret.textContent = 'expand_less';
+}
+
+//   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
+//            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
 function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   if (typeof isFirst === 'undefined') isFirst = (idx === 0);
   // stripeClass: 신청 단위 좌측 색 띠 (app-stripe-even / app-stripe-odd). 호출처에서 stripeMap 으로 결정
@@ -13895,7 +13973,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
 
   // 24. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
-    ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
+    ? '<td style="white-space:nowrap"><span class="material-icons-round notranslate brand-app-expand-caret" translate="no" data-id="' + esc(a.id) + '" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;vertical-align:middle" title="진행 단계 펼치기" onclick="event.stopPropagation();toggleBrandAppExpand(\'' + esc(a.id) + '\')">expand_more</span>'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s;vertical-align:middle" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
 
   html += '</tr>';
