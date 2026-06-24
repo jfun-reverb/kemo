@@ -209,8 +209,16 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     copy.status = newStatus;
     return copy;
   });
+  var patch = {products: nextProducts};
+  // 첫 검수 진입: 신청 전체 상태가 아직 '신규'인데 제품을 '신규' 밖으로 올리면
+  // 신청 전체 상태도 함께 전이 → 사이드바 「신규」 배지가 줄어들도록 (배지는 신청 단위 status='new' 카운트).
+  if (cur.status === 'new' && newStatus !== 'new') {
+    patch.status = newStatus;
+    patch.reviewed_by = currentUser?.id || null;
+    patch.reviewed_at = new Date().toISOString();
+  }
   var expectedVersion = cur.version;
-  var result = await updateBrandApplication(id, {products: nextProducts}, expectedVersion);
+  var result = await updateBrandApplication(id, patch, expectedVersion);
   if (result.conflict) {
     toast('다른 관리자가 먼저 처리했습니다. 목록을 새로고침합니다.', 'warn');
     await loadBrandApplications();
@@ -222,8 +230,10 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     return;
   }
   cur.products = nextProducts;
+  if (patch.status) cur.status = patch.status;   // 신청 전체 상태 전이 캐시 동기화
   _syncBrandAppCur(cur, result, expectedVersion);
   _refreshBrandAppHistoryButton(id);
+  if (patch.status && typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();   // 신규 배지 즉시 갱신
   // 상태 변경은 필터 (NN)건 카운트와 매칭 행 노출에 즉시 영향 — 목록 전체 재렌더
   // 일정 인라인 편집과는 다른 흐름이라 의도적으로 셀-only 재렌더 미사용
   renderBrandApplicationsList();
