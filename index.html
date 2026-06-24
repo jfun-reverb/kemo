@@ -92,6 +92,9 @@ img{display:block;max-width:100%}
 
 /* ── GNB (Top App Bar) ── */
 .gnb{background:#2D1F2B;z-index:100;height:56px;display:flex;align-items:center;width:100%;flex-shrink:0}
+.gnb-notif-btn{display:none}  /* GNB 알림 버튼 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
+.ios-tabbar{display:none}  /* iOS 바텀 탭바 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
+.gnb-title{display:none}  /* iOS GNB 화면 제목 — iOS 앱 전용(iOS 테마에서만 표시), 웹은 숨김 */
 .gnb-inner{display:flex;align-items:center;justify-content:space-between;width:100%;padding:0 16px}
 .gnb-logo{display:flex;align-items:center;gap:8px;cursor:pointer}
 .gnb-logo-mark{width:28px;height:28px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Sora',sans-serif;font-weight:800;font-size:13px;color:#fff}
@@ -578,6 +581,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .mypage-sub-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:10}
 /* .mypage-back(폼 화면 뒤로가기 버튼)은 제거됨 — 햄버거 메뉴로 이동/브라우저 뒤로가기 사용 (2026-05-22) */
 .mypage-sub-title{font-size:16px;font-weight:700;color:var(--ink)}
+/* 마이페이지 목록(목차) 셀 — iOS 바텀 탭바 전용 화면(#mypage-sub-list) */
+.mypage-list{background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--outline)}
+.mypage-list-cell{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:none;border:none;border-bottom:1px solid var(--outline);cursor:pointer;text-align:left;font-size:15px;color:var(--ink)}
+.mypage-list-cell:last-child{border-bottom:none}
+.mypage-list-cell:active{background:rgba(0,0,0,.04)}
+.mlc-icon{font-size:22px;color:var(--muted);flex-shrink:0}
+.mlc-label{flex:1;font-weight:500}
+.mlc-badge{flex-shrink:0}
+.mypage-unreg{font-size:10px;font-weight:700;color:#C33;background:#FFE4E4;padding:2px 7px;border-radius:10px}
+.mlc-arrow{font-size:20px;color:#ccc;flex-shrink:0}
+.mypage-withdraw-link{display:block;margin:20px auto 0;background:none;border:none;color:var(--muted);font-size:13px;text-decoration:underline;cursor:pointer}
 
 /* 応募履歴 */
 .apply-item{background:var(--surface);border-bottom:1px solid var(--outline);padding:12px 16px;display:flex;align-items:center;gap:12px}
@@ -925,10 +939,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 <!-- ── GNB ── -->
 <nav class="gnb">
   <div class="gnb-inner">
-    <div class="gnb-logo" onclick="window.location.href='/'">
+    <div class="gnb-logo" id="gnbLogo" onclick="window.location.href='/'">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
+    <!-- iOS 앱 전용 화면 제목(웹은 components.css 에서 display:none). 홈은 로고, 그 외 화면은 제목 -->
+    <span class="gnb-title" id="gnbTitle"></span>
     <div class="gnb-right" id="gnbRight"></div>
+    <!-- 알림 버튼: iOS 앱 전용(웹은 components.css 에서 display:none). updateGnb 가 로그인 시에만 표시 -->
+    <button class="gnb-notif-btn" id="gnbNotifBtn" onclick="openNotifModal()" aria-label="通知" style="display:none;position:relative">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:24px">notifications</span>
+      <span class="notif-badge hidden" data-role="nav-badge"></span>
+    </button>
     <button class="gnb-burger" id="gnbBurger" onclick="openNavPanel()" aria-label="Menu" style="position:relative">
       <span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:#fff">menu</span>
       <span id="gnbNotifBadge" class="notif-badge hidden"></span>
@@ -954,6 +975,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
     <div id="navMenu" class="nav-menu"></div>
   </div>
 </aside>
+
+<!-- 약관 개정 안내 배너 (로그인 회원·노출 종료일까지·닫으면 이번 방문만 숨김). 화면 상단 고정(fixed).
+     #page-home 밖에 둠 — 페이지 안에 있으면 당겨서 새로고침(page transform) 시 fixed 배너가 끌려가므로. -->
+<div id="policyNoticeBannerWrap" style="display:none">
+  <div id="policyNoticeBanner">
+    <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
+    <span class="pn-banner-text" id="policyNoticeBannerText" data-i18n="policyNotice.banner"></span>
+    <button class="pn-banner-detail" onclick="openPolicyNoticeFromBanner()" data-i18n="policyNotice.detailBtn"></button>
+    <button class="pn-banner-close" onclick="dismissPolicyNoticeBanner()" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
+  </div>
+</div>
 
 <!-- ── NOTIF MODAL (슬라이드업) ── -->
 <div id="notifModal" class="notif-modal" aria-hidden="true">
@@ -1019,15 +1051,6 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
 <div id="page-home" class="page">
-  <!-- 문의하기 출시 안내 배너 (로그인 회원·노출 종료일까지·닫으면 이번 방문만 숨김). 홈 스크롤 시 상단 고정(sticky) -->
-  <div id="policyNoticeBannerWrap" style="display:none">
-    <div id="policyNoticeBanner">
-      <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
-      <span class="pn-banner-text" id="policyNoticeBannerText" data-i18n="policyNotice.banner"></span>
-      <button class="pn-banner-detail" onclick="openPolicyNoticeFromBanner()" data-i18n="policyNotice.detailBtn"></button>
-      <button class="pn-banner-close" onclick="dismissPolicyNoticeBanner()" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
-    </div>
-  </div>
   <section class="hero">
     <div class="container hero-inner">
       <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
@@ -1638,7 +1661,74 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   </div>
 </div>
 <div id="page-mypage" class="page">
-  <!-- 랜딩(목차) 화면은 햄버거 메뉴로 흡수되어 제거됨. 기본 화면은 응모이력(mypage-sub-applications) -->
+  <!-- 마이페이지 목록(목차) — iOS 앱 바텀 탭바 전용. 웹은 햄버거 메뉴 사용(이 화면 미진입) -->
+  <div id="mypage-sub-list" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="mypage-sub-title" data-i18n="tab.mypage">マイページ</span>
+    </div>
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div class="mypage-list">
+        <button class="mypage-list-cell" onclick="openMypageSub('profile-basic')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">person</span>
+          <span class="mlc-label" data-i18n="mypage.menu.basic">基本情報</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="basic" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('profile-sns')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">tag</span>
+          <span class="mlc-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="sns" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('profile-address')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">local_shipping</span>
+          <span class="mlc-label" data-i18n="mypage.menu.address">配送先</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="address" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('paypal')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">account_balance_wallet</span>
+          <span class="mlc-label" data-i18n="mypage.menu.paypal">PayPal</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="paypal" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('password')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">lock</span>
+          <span class="mlc-label" data-i18n="mypage.menu.password">パスワード変更</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('email-settings')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">mail</span>
+          <span class="mlc-label" data-i18n="mypage.menu.emailSettings">メール受信設定</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+      </div>
+      <!-- 언어 전환 · 관리자 (iOS 햄버거 제거 대비 마이페이지로 이동) -->
+      <div class="mypage-list" style="margin-top:18px">
+        <div class="mypage-list-cell" style="cursor:default">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">language</span>
+          <span class="mlc-label">言語 / 언어</span>
+          <div class="lang-toggle" role="group" aria-label="Language" style="flex-shrink:0">
+            <button type="button" class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
+            <button type="button" class="lang-btn" data-lang="ko" onclick="setLang('ko')">한국어</button>
+          </div>
+        </div>
+        <button class="mypage-list-cell" id="mypageAdminCell" style="display:none" onclick="navigate('admin')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">admin_panel_settings</span>
+          <span class="mlc-label">Admin</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+      </div>
+      <!-- 로그아웃·회원탈퇴 (iOS 햄버거 제거 대비 마이페이지로 이동) -->
+      <div class="mypage-list" style="margin-top:18px">
+        <button class="mypage-list-cell" onclick="handleLogout()">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">logout</span>
+          <span class="mlc-label" data-i18n="mypage.menu.logout">ログアウト</span>
+        </button>
+      </div>
+      <button class="mypage-withdraw-link" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</button>
+    </div>
+  </div>
 
   <!-- 応募履歴 -->
   <div id="mypage-sub-applications" class="mypage-view">
@@ -1896,6 +1986,26 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
   <!-- 비로그인 고정 CTA (하단 중앙) -->
   <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
 </div><!-- /appShell -->
+
+<!-- iOS 바텀 탭바 (iOS 앱 전용 — 웹은 components.css 에서 display:none) -->
+<nav class="ios-tabbar" id="iosTabbar">
+  <button class="ios-tab" data-tab="home" onclick="tabNav('home')">
+    <span class="material-icons-round notranslate" translate="no">home</span>
+    <span class="ios-tab-label" data-i18n="tab.home">ホーム</span>
+  </button>
+  <button class="ios-tab" data-tab="campaigns" onclick="tabNav('campaigns')">
+    <span class="material-icons-round notranslate" translate="no">campaign</span>
+    <span class="ios-tab-label" data-i18n="tab.campaigns">キャンペーン</span>
+  </button>
+  <button class="ios-tab" data-tab="activity" onclick="tabNav('activity')">
+    <span class="material-icons-round notranslate" translate="no">history</span>
+    <span class="ios-tab-label" data-i18n="mypage.menu.applications">応募履歴</span>
+  </button>
+  <button class="ios-tab" data-tab="mypage" onclick="tabNav('mypage')">
+    <span class="material-icons-round notranslate" translate="no">person</span>
+    <span class="ios-tab-label" data-i18n="tab.mypage">マイページ</span>
+  </button>
+</nav>
 
 
 
@@ -2520,6 +2630,9 @@ const PANE_REFRESHERS = {
   'upcoming': async () => {
     // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
     if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
+  },
+  'orient-sheets': async () => {
+    if (typeof loadOrientSheets === 'function') await loadOrientSheets();
   }
 };
 async function refreshPane(paneId) {
@@ -7956,6 +8069,107 @@ async function submitOrientSheet(token, data, version) {
   }
 }
 
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
+// 반환: {success, id, token, token_expires_at, form_type} | {success:false, reason}
+async function createOrientSheet(brandId, applicationId, formType) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('create_orient_sheet', {
+      p_brand_id: brandId,
+      p_application_id: applicationId || null,
+      p_form_type: formType || null,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
+async function fetchOrientSheets() {
+  if (!db) return [];
+  return await retryWithRefresh(async () =>
+    fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, brand_id, application_id, form_type, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .order('created_at', { ascending: false }))
+  );
+}
+
+// 상세: data 포함 단건
+async function fetchOrientSheetById(id) {
+  if (!db) return null;
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('*, brands(name, name_ja)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 신청(brand_applications)에 연결된 오리엔시트 (brand-app 상세 연결 링크용)
+async function fetchOrientSheetsByApplication(applicationId) {
+  if (!db) return [];
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('id, token, form_type, status, token_expires_at, created_at')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  });
+}
+
+
+// ════════════════════════════════════════════════════════════════════
+// iOS 기기 푸시 토큰 관리 — 마이그레이션 192·193
+//   발송 로직(APNs Edge Function)은 별도 단계에서 구현.
+//   이 래퍼는 토큰 저장·갱신·해지만 담당.
+// ════════════════════════════════════════════════════════════════════
+
+// 기기 APNs 푸시 토큰 등록 또는 갱신.
+//   - 앱 시작 시 / APNs 가 새 토큰을 발급할 때 호출.
+//   - 같은 기기에서 계정 전환 시 user_id 가 현재 로그인 사용자로 갱신됨.
+//   - 반환: { ok: true, id: uuid } 또는 { ok: false, error: string }
+async function registerPushToken(token, platform = 'ios') {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    const result = await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('register_push_token', {
+        p_token: token,
+        p_platform: platform,
+      });
+      if (error) throw error;
+      return data; // 등록된 행의 uuid
+    });
+    return { ok: true, id: result };
+  } catch (e) {
+    console.error('[registerPushToken]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+
+// 기기 APNs 푸시 토큰 해지.
+//   - 로그아웃 시 / 알림 권한 철회 시 호출.
+//   - 본인 소유 토큰만 삭제 (타인 토큰은 서버에서 무시).
+//   - 반환: { ok: true } 또는 { ok: false, error: string }
+async function revokePushToken(token) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    await retryWithRefresh(async () => {
+      const { error } = await db.rpc('revoke_push_token', {
+        p_token: token,
+      });
+      if (error) throw error;
+    });
+    return { ok: true };
+  } catch (e) {
+    console.error('[revokePushToken]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+
 
 // ══════════════════════════════════════
 // LEGAL — 약관/개인정보 페이지 마크다운 렌더링
@@ -9509,6 +9723,9 @@ function updateGnb() {
   const gnbRight = $('gnbRight');
   // GNB 우측은 항상 비움 (로그인/가입은 하단 CTA, Admin은 햄버거 메뉴)
   if (gnbRight) gnbRight.innerHTML = '';
+  // GNB 알림 버튼: 로그인한 인플루언서만 노출. display='' 면 CSS 규칙 따름(웹 none / iOS flex) → iOS 앱에서만 보임.
+  const gnbNotifBtn = $('gnbNotifBtn');
+  if (gnbNotifBtn) gnbNotifBtn.style.display = (currentUser && !currentUser._isAdmin) ? '' : 'none';
   // 햄버거 메뉴 항목 갱신 (비로그인/관리자 분기)
   if (typeof renderNavMenu === 'function') renderNavMenu();
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
@@ -9673,6 +9890,8 @@ async function handleLogin(e) {
         } catch(e) {}
       }
       toast(t('auth.toast.welcomeBack'),'success'); updateGnb(); navigate('home');
+      // 네이티브 앱(iOS)에서만 푸시 권한 요청 + 토큰 등록. 웹엔 _enablePush 가 없어 no-op.
+      if (window._enablePush) { try { window._enablePush(); } catch(e){} }
     }
   } catch(e) {
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
@@ -9681,6 +9900,9 @@ async function handleLogin(e) {
 }
 
 async function handleLogout() {
+  // 로그아웃 전에 이 기기의 푸시 토큰 해지 (signOut 후엔 auth.uid()가 사라져 해지 불가).
+  //   웹엔 _revokePushOnLogout 가 없어 no-op.
+  if (window._revokePushOnLogout) { try { await window._revokePushOnLogout(); } catch(e){} }
   if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
   toast(t('auth.toast.loggedOut')); updateGnb(); navigate('home');
@@ -12119,6 +12341,11 @@ function openMypageSub(sub, pushHistory) {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
   if (target) target.classList.add('active');
+  // iOS GNB 제목 — 서브 화면 제목을 상단바(로고 자리)에
+  if (typeof setGnbTitle === 'function') {
+    const _k = {applications:'mypage.menu.applications','profile-basic':'mypage.menu.basic','profile-sns':'mypage.menu.sns','profile-address':'mypage.menu.address',paypal:'mypage.menu.paypal',password:'mypage.menu.password','email-settings':'mypage.menu.emailSettings'}[sub];
+    setGnbTitle(_k ? t(_k) : '');
+  }
   // 응모이력 진입(햄버거·알림·새로고침 등 모든 경로) 시 상태 드롭다운을 현재 _myAppsTab 기준으로
   // 즉시 채워 빈 박스/stale 선택 방지. 데이터 로드(loadMyApplications) 전이라도 항목은 보이고,
   // 로드 완료 후 renderMyApplyTabs 재호출로 건수까지 갱신된다.
@@ -12135,7 +12362,33 @@ function closeMypageSub() {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const def = $('mypage-sub-applications');
   if (def) def.classList.add('active');
+  if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('mypage.menu.applications') : '応募履歴');
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
+}
+
+// 마이페이지 목록(목차) 화면 — iOS 바텀 탭바 전용. 6개 항목 + 로그아웃·회원탈퇴.
+//   웹은 햄버거 메뉴를 쓰므로 이 화면에 진입하지 않는다.
+function openMypageList(pushHistory) {
+  document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
+  const el = $('mypage-sub-list');
+  if (el) el.classList.add('active');
+  if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('tab.mypage') : 'マイページ');
+  // 관리자 셀 표시(관리자만) + 언어 토글 활성 상태 갱신
+  const _ac = document.getElementById('mypageAdminCell');
+  if (_ac) _ac.style.display = (currentUser && currentUser._isAdmin) ? '' : 'none';
+  if (typeof updateLangToggleUI === 'function') updateLangToggleUI();
+  // 未登録 배지 — computeProfileBadges 재사용, 미등록 항목에만 표시
+  if (typeof computeProfileBadges === 'function') {
+    const b = computeProfileBadges(currentUserProfile || {});
+    const map = {basic: 'hasName', sns: 'hasSns', address: 'hasAddress', paypal: 'hasPaypal'};
+    document.querySelectorAll('#mypage-sub-list [data-mypage-badge]').forEach(el2 => {
+      const has = b[map[el2.getAttribute('data-mypage-badge')]];
+      el2.classList.toggle('hidden', !!has);  // 등록됨이면 숨김, 미등록이면 노출
+    });
+  }
+  if (pushHistory !== false) {
+    history.pushState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+  }
 }
 
 // 언어 토글 버튼 상태 업데이트
@@ -13358,11 +13611,18 @@ function navigate(page, pushHistory) {
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
+  // iOS 탭바 활성 동기화 (응모이력/마이페이지 세부 구분은 tabNav 가 보정)
+  if (typeof updateActiveTab === 'function') updateActiveTab({home:'home', campaigns:'campaigns', mypage:'mypage'}[pageName] || '');
+  // iOS GNB 제목 — 캠페인 목록만 여기서 설정. 마이페이지 계열은 openMypage* 가 보정. 홈/상세는 로고(빈 제목)
+  if (typeof setGnbTitle === 'function') setGnbTitle(pageName === 'campaigns' ? (typeof t === 'function' ? t('tab.campaigns') : '') : '');
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
-  // 인증 페이지에선 햄버거 숨김
+  // 인증 페이지에선 햄버거·탭바 숨김
   const gnbBurger = $('gnbBurger');
-  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';
+  const _isAuthPage = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName);
+  if (gnbBurger) gnbBurger.style.display = _isAuthPage ? 'none' : '';
+  const _tabbar = document.getElementById('iosTabbar');
+  if (_tabbar) _tabbar.style.display = _isAuthPage ? 'none' : '';  // '' = CSS 따름(웹 none / iOS flex)
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
@@ -13413,7 +13673,9 @@ window.addEventListener('popstate', function(e) {
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
-    if (sub) openMypageSub(sub, false); else closeMypageSub();
+    if (sub === 'list') { if (typeof openMypageList === 'function') openMypageList(false); }
+    else if (sub) openMypageSub(sub, false);
+    else closeMypageSub();
   } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
@@ -13450,6 +13712,42 @@ function updateActiveNav(page) {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
   });
+}
+
+// ── iOS 바텀 탭바 (iOS 앱 전용) ──
+// 탭 클릭 라우팅. 응모이력=마이페이지 안 응모이력 화면, 마이페이지=목록(목차) 화면.
+function tabNav(tab) {
+  if (tab === 'home') navigate('home');
+  else if (tab === 'campaigns') navigate('campaigns');
+  else if (tab === 'activity') {
+    if (!currentUser) { navigate('login'); return; }
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  } else if (tab === 'mypage') {
+    if (!currentUser) { navigate('login'); return; }
+    navigate('mypage');
+    if (typeof openMypageList === 'function') openMypageList();
+  }
+  updateActiveTab(tab);
+}
+// 활성 탭 하이라이트
+function updateActiveTab(tab) {
+  document.querySelectorAll('#iosTabbar .ios-tab').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
+}
+// GNB 화면 제목 (iOS 앱 전용) — title 있으면 제목 표시+로고 숨김, 없으면 Reverb 로고
+function setGnbTitle(title) {
+  const titleEl = document.getElementById('gnbTitle');
+  const logoEl = document.getElementById('gnbLogo');
+  if (!titleEl || !logoEl) return;
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (isNative && title) {
+    titleEl.textContent = title;
+    titleEl.style.display = '';
+    logoEl.style.display = 'none';
+  } else {
+    titleEl.style.display = 'none';
+    logoEl.style.display = '';
+  }
 }
 
 // ══════════════════════════════════════
@@ -13714,9 +14012,19 @@ async function init() {
   //   초기 해시 #home 은 navigate('home') 미경유(replaceState 만)라 배너 훅이 안 걸려 여기서 직접 호출.
   if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
   if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
+
+  // iOS 탭바 초기 활성 동기화 — 초기 로드는 navigate 미경유(replaceState)라 별도 호출
+  if (typeof updateActiveTab === 'function') {
+    const _ap = document.querySelector('#appShell .page.active');
+    const _pid = _ap ? _ap.id.replace('page-', '') : 'home';
+    updateActiveTab({home: 'home', campaigns: 'campaigns', mypage: 'mypage', detail: 'campaigns'}[_pid] || 'home');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
+  // 햄버거 메뉴를 명시적으로 닫힌 상태로 초기화 — 새로고침(location.reload) 시 웹뷰가
+  //   이전 DOM 상태(메뉴 열림)를 드물게 복원하는 현상 방어. 부팅 시 메뉴는 항상 닫혀 있어야 함.
+  if (typeof closeNavPanel === 'function') closeNavPanel();
   // 전역 에러 수집 핸들러 등록 (가능한 일찍 — 마이그레이션 165)
   if (typeof initErrorReporting === 'function') { try { initErrorReporting(); } catch(_){} }
   // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
@@ -13760,6 +14068,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         _vvLastVh = vh; _vvLastTop = offsetTop;
         appShell.style.height = vh + 'px';
         appShell.style.top = offsetTop + 'px';
+        // 키보드 열림 시 바텀 탭바 숨김 — 입력칸 가림 방지(과거 바텀탭 제거 사유 회피)
+        var _tb = document.getElementById('iosTabbar');
+        if (_tb) _tb.classList.toggle('kb-hidden', (window.innerHeight - vh) > 120);
         // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
         var _ap = appShell.querySelector('.page.active');
         if (_ap && _ap.id === 'page-messages') {

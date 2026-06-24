@@ -6,6 +6,9 @@ function updateGnb() {
   const gnbRight = $('gnbRight');
   // GNB 우측은 항상 비움 (로그인/가입은 하단 CTA, Admin은 햄버거 메뉴)
   if (gnbRight) gnbRight.innerHTML = '';
+  // GNB 알림 버튼: 로그인한 인플루언서만 노출. display='' 면 CSS 규칙 따름(웹 none / iOS flex) → iOS 앱에서만 보임.
+  const gnbNotifBtn = $('gnbNotifBtn');
+  if (gnbNotifBtn) gnbNotifBtn.style.display = (currentUser && !currentUser._isAdmin) ? '' : 'none';
   // 햄버거 메뉴 항목 갱신 (비로그인/관리자 분기)
   if (typeof renderNavMenu === 'function') renderNavMenu();
   if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
@@ -170,6 +173,8 @@ async function handleLogin(e) {
         } catch(e) {}
       }
       toast(t('auth.toast.welcomeBack'),'success'); updateGnb(); navigate('home');
+      // 네이티브 앱(iOS)에서만 푸시 권한 요청 + 토큰 등록. 웹엔 _enablePush 가 없어 no-op.
+      if (window._enablePush) { try { window._enablePush(); } catch(e){} }
     }
   } catch(e) {
     errEl.textContent=t('authError.genericError'); errEl.style.display='block';
@@ -178,6 +183,9 @@ async function handleLogin(e) {
 }
 
 async function handleLogout() {
+  // 로그아웃 전에 이 기기의 푸시 토큰 해지 (signOut 후엔 auth.uid()가 사라져 해지 불가).
+  //   웹엔 _revokePushOnLogout 가 없어 no-op.
+  if (window._revokePushOnLogout) { try { await window._revokePushOnLogout(); } catch(e){} }
   if (db) { try { await db.auth.signOut(); } catch(e){} }
   currentUser=null; currentUserProfile=null;
   toast(t('auth.toast.loggedOut')); updateGnb(); navigate('home');

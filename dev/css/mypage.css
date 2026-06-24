@@ -14,6 +14,17 @@
 .mypage-sub-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:10}
 /* .mypage-back(폼 화면 뒤로가기 버튼)은 제거됨 — 햄버거 메뉴로 이동/브라우저 뒤로가기 사용 (2026-05-22) */
 .mypage-sub-title{font-size:16px;font-weight:700;color:var(--ink)}
+/* 마이페이지 목록(목차) 셀 — iOS 바텀 탭바 전용 화면(#mypage-sub-list) */
+.mypage-list{background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--outline)}
+.mypage-list-cell{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;background:none;border:none;border-bottom:1px solid var(--outline);cursor:pointer;text-align:left;font-size:15px;color:var(--ink)}
+.mypage-list-cell:last-child{border-bottom:none}
+.mypage-list-cell:active{background:rgba(0,0,0,.04)}
+.mlc-icon{font-size:22px;color:var(--muted);flex-shrink:0}
+.mlc-label{flex:1;font-weight:500}
+.mlc-badge{flex-shrink:0}
+.mypage-unreg{font-size:10px;font-weight:700;color:#C33;background:#FFE4E4;padding:2px 7px;border-radius:10px}
+.mlc-arrow{font-size:20px;color:#ccc;flex-shrink:0}
+.mypage-withdraw-link{display:block;margin:20px auto 0;background:none;border:none;color:var(--muted);font-size:13px;text-decoration:underline;cursor:pointer}
 
 /* 応募履歴 */
 .apply-item{background:var(--surface);border-bottom:1px solid var(--outline);padding:12px 16px;display:flex;align-items:center;gap:12px}

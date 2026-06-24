@@ -82,11 +82,18 @@ function navigate(page, pushHistory) {
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
+  // iOS 탭바 활성 동기화 (응모이력/마이페이지 세부 구분은 tabNav 가 보정)
+  if (typeof updateActiveTab === 'function') updateActiveTab({home:'home', campaigns:'campaigns', mypage:'mypage'}[pageName] || '');
+  // iOS GNB 제목 — 캠페인 목록만 여기서 설정. 마이페이지 계열은 openMypage* 가 보정. 홈/상세는 로고(빈 제목)
+  if (typeof setGnbTitle === 'function') setGnbTitle(pageName === 'campaigns' ? (typeof t === 'function' ? t('tab.campaigns') : '') : '');
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
-  // 인증 페이지에선 햄버거 숨김
+  // 인증 페이지에선 햄버거·탭바 숨김
   const gnbBurger = $('gnbBurger');
-  if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';
+  const _isAuthPage = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName);
+  if (gnbBurger) gnbBurger.style.display = _isAuthPage ? 'none' : '';
+  const _tabbar = document.getElementById('iosTabbar');
+  if (_tabbar) _tabbar.style.display = _isAuthPage ? 'none' : '';  // '' = CSS 따름(웹 none / iOS flex)
   // 비로그인 플로팅 CTA (인증 페이지 제외)
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta(pageName);
 
@@ -137,7 +144,9 @@ window.addEventListener('popstate', function(e) {
     const sub = e.state?.sub || (page.startsWith('mypage-') ? page.replace('mypage-','') : null);
     // popstate 는 이미 history 가 그 entry 로 이동한 상태 — openMypageSub 의 pushState 를 또 호출하면
     // 새 entry 가 추가돼 뒤로가기가 어긋남. false 전달로 push 스킵.
-    if (sub) openMypageSub(sub, false); else closeMypageSub();
+    if (sub === 'list') { if (typeof openMypageList === 'function') openMypageList(false); }
+    else if (sub) openMypageSub(sub, false);
+    else closeMypageSub();
   } else if (page.startsWith('detail-')) {
     openCampaign(page.replace('detail-',''));
   } else if (page.startsWith('messages-')) {
@@ -174,6 +183,42 @@ function updateActiveNav(page) {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('on', el.dataset.nav === active);
   });
+}
+
+// ── iOS 바텀 탭바 (iOS 앱 전용) ──
+// 탭 클릭 라우팅. 응모이력=마이페이지 안 응모이력 화면, 마이페이지=목록(목차) 화면.
+function tabNav(tab) {
+  if (tab === 'home') navigate('home');
+  else if (tab === 'campaigns') navigate('campaigns');
+  else if (tab === 'activity') {
+    if (!currentUser) { navigate('login'); return; }
+    navigate('mypage');
+    if (typeof openMypageSub === 'function') openMypageSub('applications');
+  } else if (tab === 'mypage') {
+    if (!currentUser) { navigate('login'); return; }
+    navigate('mypage');
+    if (typeof openMypageList === 'function') openMypageList();
+  }
+  updateActiveTab(tab);
+}
+// 활성 탭 하이라이트
+function updateActiveTab(tab) {
+  document.querySelectorAll('#iosTabbar .ios-tab').forEach(t => t.classList.toggle('on', t.dataset.tab === tab));
+}
+// GNB 화면 제목 (iOS 앱 전용) — title 있으면 제목 표시+로고 숨김, 없으면 Reverb 로고
+function setGnbTitle(title) {
+  const titleEl = document.getElementById('gnbTitle');
+  const logoEl = document.getElementById('gnbLogo');
+  if (!titleEl || !logoEl) return;
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (isNative && title) {
+    titleEl.textContent = title;
+    titleEl.style.display = '';
+    logoEl.style.display = 'none';
+  } else {
+    titleEl.style.display = 'none';
+    logoEl.style.display = '';
+  }
 }
 
 // ══════════════════════════════════════
@@ -438,9 +483,19 @@ async function init() {
   //   초기 해시 #home 은 navigate('home') 미경유(replaceState 만)라 배너 훅이 안 걸려 여기서 직접 호출.
   if (typeof maybeShowPolicyNotice === 'function') maybeShowPolicyNotice();
   if (typeof renderPolicyNoticeBanner === 'function') renderPolicyNoticeBanner();
+
+  // iOS 탭바 초기 활성 동기화 — 초기 로드는 navigate 미경유(replaceState)라 별도 호출
+  if (typeof updateActiveTab === 'function') {
+    const _ap = document.querySelector('#appShell .page.active');
+    const _pid = _ap ? _ap.id.replace('page-', '') : 'home';
+    updateActiveTab({home: 'home', campaigns: 'campaigns', mypage: 'mypage', detail: 'campaigns'}[_pid] || 'home');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
+  // 햄버거 메뉴를 명시적으로 닫힌 상태로 초기화 — 새로고침(location.reload) 시 웹뷰가
+  //   이전 DOM 상태(메뉴 열림)를 드물게 복원하는 현상 방어. 부팅 시 메뉴는 항상 닫혀 있어야 함.
+  if (typeof closeNavPanel === 'function') closeNavPanel();
   // 전역 에러 수집 핸들러 등록 (가능한 일찍 — 마이그레이션 165)
   if (typeof initErrorReporting === 'function') { try { initErrorReporting(); } catch(_){} }
   // recovery 진행 중이면 home 대신 reset-pw 페이지 활성화
@@ -484,6 +539,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         _vvLastVh = vh; _vvLastTop = offsetTop;
         appShell.style.height = vh + 'px';
         appShell.style.top = offsetTop + 'px';
+        // 키보드 열림 시 바텀 탭바 숨김 — 입력칸 가림 방지(과거 바텀탭 제거 사유 회피)
+        var _tb = document.getElementById('iosTabbar');
+        if (_tb) _tb.classList.toggle('kb-hidden', (window.innerHeight - vh) > 120);
         // 메시지 페이지: 키보드로 높이가 바뀌면 마지막 메시지가 보이도록 대화 영역 최하단 유지
         var _ap = appShell.querySelector('.page.active');
         if (_ap && _ap.id === 'page-messages') {

@@ -1,0 +1,10 @@
+{
+  "appId": "com.reverbjp.app",
+  "appName": "REVERB JP",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#FFFFFF",
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

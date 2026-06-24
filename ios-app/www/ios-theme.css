@@ -1,0 +1,315 @@
+/* ══════════════════════════════════════════════════════
+   REVERB JP — iOS 하이브리드 테마 레이어
+   기존 모바일 웹(Material 기반) 위에 iOS 네이티브 느낌을 덧입힌다.
+   ⚠️ iOS 앱 빌드(ios-app/www)에만 주입 — 운영 웹 무영향.
+   인라인 <style> 뒤에 로드되어 동급 규칙을 오버라이드한다.
+   ══════════════════════════════════════════════════════ */
+
+:root {
+  /* iOS 시스템 토큰 */
+  --ios-nav-h: 48px;              /* 네비게이션 바 높이(상태바 제외) — 네비바·콘텐츠 시작·배너 공용 */
+  --ios-grouped-bg: #F2F2F7;      /* iOS 그룹 리스트 배경 */
+  --ios-fill: rgba(120,120,128,.12);   /* iOS 연회색 채움(칩·필드) */
+  --ios-fill-strong: rgba(120,120,128,.2);
+  --ios-card-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 18px rgba(0,0,0,.06);
+  --ios-radius: 16px;
+}
+
+/* ───────────────────────────────────────────
+   1. 시스템 폰트 (일본어는 Hiragino Sans로 렌더)
+   ─────────────────────────────────────────── */
+body, button, input, textarea, select,
+.page, .gnb-user, .nav-menu, .camp-title, .section-title {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+    "Noto Sans JP", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.section-title, .detail-h1, .hero-h1 { letter-spacing: -.02em; }
+
+/* ───────────────────────────────────────────
+   2. 네이티브 터치 느낌
+   ─────────────────────────────────────────── */
+* { -webkit-tap-highlight-color: transparent; }
+body {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior-y: none;
+}
+input, textarea, [contenteditable="true"], .selectable,
+.rich-content, .legal-page-body, .legal-body {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* ───────────────────────────────────────────
+   3. 앱 셸 / 안전영역 (노치·다이내믹 아일랜드·홈바)
+   ─────────────────────────────────────────── */
+#appShell {
+  box-shadow: none;
+  background: #fff;
+}
+.page.active { background: #fff; }
+
+.gnb {
+  height: calc(var(--ios-nav-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  box-sizing: border-box;
+  /* 글라스 네비바: 콘텐츠 위에 떠서 뒤로 스크롤되는 콘텐츠가 블러로 비치게 */
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+/* 네비바가 떠 있으므로 페이지 콘텐츠를 그 높이만큼 아래에서 시작 (스크롤 시 네비바 뒤로 통과) */
+/* 하단도 탭바 높이(52px)만큼 패딩 — 콘텐츠가 탭바에 안 가리게 */
+.page.active { padding-top: calc(var(--ios-nav-h) + env(safe-area-inset-top)); padding-bottom: calc(52px + env(safe-area-inset-bottom)); }
+/* iOS 바텀 탭바 (웹은 components.css 에서 display:none) */
+.ios-tabbar {
+  display: flex; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px; z-index: 200;
+  background: rgba(255,255,255,.9);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-top: .5px solid rgba(0,0,0,.1);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.ios-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 7px 0 4px; background: none; border: none; cursor: pointer; color: var(--muted); -webkit-tap-highlight-color: transparent; }
+.ios-tab .material-icons-round { font-size: 24px; }
+.ios-tab-label { font-size: 10px; font-weight: 600; }
+.ios-tab.on { color: var(--primary); }
+.ios-tab:active { opacity: .6; }
+.ios-tabbar.kb-hidden { transform: translateX(-50%) translateY(120%); }  /* 키보드 열림 시 숨김 */
+/* 탐색이 탭바로 일원화됐으므로 iOS 앱에선 햄버거 메뉴 버튼 제거 (PR4) */
+.gnb-burger { display: none !important; }
+/* 메시지 페이지는 mypage.css 에서 padding:0(내부 헤더 고정)을 명시도로 덮어써 네비바에 헤더가 가려짐 → 상단 패딩 별도 부여 */
+#page-messages.page.active { padding-top: calc(var(--ios-nav-h) + env(safe-area-inset-top)); }
+#detailFloatBar { padding-bottom: calc(14px + env(safe-area-inset-bottom)) !important; }
+.nav-panel-body { padding-bottom: env(safe-area-inset-bottom); }
+/* 약관 통지 배너 — 웹은 top:56px 고정이라 늘어난 GNB(56px + 상태바) 뒤에 가림 → 상태바만큼 내림 */
+#policyNoticeBannerWrap { top: calc(var(--ios-nav-h) + env(safe-area-inset-top)); }
+
+/* ───────────────────────────────────────────
+   4. 카드 — iOS식 부드러운 그림자 + 큰 둥근 모서리, 테두리 제거
+   ─────────────────────────────────────────── */
+.camp-card, .card, .detail-header, .guideline-section {
+  border: none;
+  box-shadow: var(--ios-card-shadow);
+}
+.camp-card { border-radius: var(--ios-radius); }
+.card, .detail-header, .guideline-section { border-radius: 18px; }
+.camp-card:hover, .card:hover { box-shadow: var(--ios-card-shadow); }
+
+/* ───────────────────────────────────────────
+   5. 필터 칩 → iOS 캡슐 필터
+   ─────────────────────────────────────────── */
+.chip {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--ios-fill);
+  color: var(--ink);
+  font-weight: 600;
+  padding: 8px 16px;
+}
+.chip:hover { background: var(--ios-fill-strong); color: var(--ink); border-color: transparent; }
+.chip.on {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* ───────────────────────────────────────────
+   6. 버튼 — iOS flat 채움 (그림자 절제, 누르면 가라앉음)
+   ─────────────────────────────────────────── */
+.btn, .gnb-btn, .nav-item, .camp-card,
+.hero-btn-p, .floating-auth-cta {
+  transition: transform .12s cubic-bezier(.2,0,0,1),
+              opacity .12s ease, background .2s ease;
+}
+.btn-primary, .hero-btn-p { box-shadow: none; }
+.btn-primary:hover, .hero-btn-p:hover { box-shadow: none; transform: none; }
+.btn:active, .gnb-btn:active, .hero-btn-p:active,
+.nav-item:active, .camp-card:active { transform: scale(.97); opacity: .9; }
+.btn { font-weight: 600; }
+
+/* iOS 입력 필드: 채움 톤 + 포커스 시 브랜드 캐럿 */
+.form-input { caret-color: var(--primary); }
+
+/* ───────────────────────────────────────────
+   7. 바텀시트 — 상단 그래버 핸들(iOS 시트 손잡이)
+   ⚠️ 시트들은 이미 자체 position(absolute/flex)을 가지므로
+      position 을 덮어쓰지 않는다(덮으면 숨김 레이아웃이 깨짐).
+      그래버는 block + margin auto 로 첫 자식에 표시.
+   ─────────────────────────────────────────── */
+.modal::before,
+#legalModal .legal-sheet::before,
+.notif-modal-body::before,
+#policyNoticeModal .legal-sheet::before {
+  content: "";
+  display: block;
+  width: 36px; height: 5px;
+  margin: 8px auto 2px;
+  background: rgba(120,120,128,.35);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.modal { border-radius: 20px 20px 0 0; }
+
+/* ───────────────────────────────────────────
+   8. 스크롤바 숨김 (iOS 네이티브)
+   ─────────────────────────────────────────── */
+.page.active::-webkit-scrollbar,
+.nav-menu::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar,
+.notif-modal-list::-webkit-scrollbar { width: 0; height: 0; }
+.page.active, .nav-menu { scrollbar-width: none; }
+
+/* ───────────────────────────────────────────
+   9. 모집유형 탭 → iOS 세그먼트 컨트롤
+      선택 탭은 JS가 인라인 style 에 var(--pink) 를 넣으므로
+      [style*="--pink"] 로 식별해 흰 캡슐 처리(JS 로직 무수정).
+   ─────────────────────────────────────────── */
+#campPageStickyHeader .container > div:has(> [id^="campPageType-"]) {
+  border-bottom: none !important;
+  background: var(--ios-fill) !important;
+  border-radius: 9px !important;
+  padding: 3px !important;
+  margin: 2px 0 10px !important;
+}
+[id^="campPageType-"] {
+  border-bottom: none !important;
+  border-radius: 7px !important;
+  padding: 8px 0 !important;
+  color: var(--muted) !important;
+  font-weight: 600 !important;
+  font-family: -apple-system, "Hiragino Sans", sans-serif !important;
+  transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+}
+[id^="campPageType-"][style*="--pink"] {
+  background: #fff !important;
+  color: var(--ink) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.14), 0 1px 1px rgba(0,0,0,.04);
+}
+
+/* ───────────────────────────────────────────
+   10. 페이지 제목 — iOS 큰 제목(Large Title) 톤
+   ─────────────────────────────────────────── */
+#campPageTitle { font-size: 22px !important; font-weight: 800 !important; letter-spacing: -.02em; }
+#campPageStickyHeader { border-bottom: none !important; }
+
+/* ───────────────────────────────────────────
+   11. 캠페인 카드 — 타이포 가독성 + 더 둥근 모서리
+   ─────────────────────────────────────────── */
+.camp-card { border-radius: 18px; }
+.camp-title { font-size: 13.5px; line-height: 1.45; letter-spacing: -.01em; }
+.camp-brand { font-size: 10px; letter-spacing: .04em; }
+.camp-reward strong { font-size: 13px; }
+.section-title { font-size: 19px; }
+
+/* ───────────────────────────────────────────
+   12. 상단바 → iOS 밝은 네비게이션 바
+      (흰 배경 + 어두운 로고/아이콘, 상태바 글자도 다크 — Info.plist)
+   ─────────────────────────────────────────── */
+.gnb {
+  background: rgba(255,255,255,.68) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: .5px solid rgba(0,0,0,.08);
+}
+/* 로고 "Reverb"는 인라인 color:#fff 라 span 을 직접 잡아 !important 로 덮음 */
+.gnb-logo span, .gnb-logo-name { color: var(--ink) !important; }
+/* GNB 화면 제목 (iOS 전용 — 홈은 로고, 그 외 화면은 제목 텍스트) */
+.gnb-title { display: flex; align-items: center; font-size: 17px; font-weight: 700; color: var(--ink); }
+/* GNB 에 제목을 올렸으므로 마이페이지 화면 자체 헤더는 iOS 에서 숨김(중복 방지) */
+.mypage-sub-header { display: none; }
+/* 단 응모이력 헤더는 상태 드롭다운(進行中 등)이 있어 유지하고, 제목 텍스트만 숨김 */
+#mypage-sub-applications .mypage-sub-header { display: flex; }
+#mypage-sub-applications .mypage-sub-title { display: none; }
+.gnb-burger, .gnb-burger .material-icons-round,
+.gnb-burger .material-icons-round[style] { color: var(--ink) !important; }
+.gnb-burger:hover { background: rgba(0,0,0,.05); }
+/* GNB 알림 버튼 (iOS 전용 — 웹은 components.css 에서 display:none) */
+.gnb-notif-btn { display: flex; align-items: center; justify-content: center; width: 40px; background: none; border: none; cursor: pointer; padding: 0; margin-left: auto; }
+.gnb-notif-btn .material-icons-round { color: var(--ink) !important; }
+.gnb-notif-btn:active { opacity: .5; }
+/* 알림이 햄버거 왼쪽 GNB 버튼으로 이동 → 메뉴 안 계정 카드 벨은 숨김 */
+.nav-account-notif { display: none !important; }
+.gnb-btn-ghost { color: var(--ink) !important; border-color: rgba(0,0,0,.18) !important; }
+.gnb-btn-ghost:hover { background: rgba(0,0,0,.05) !important; color: var(--ink) !important; }
+.gnb-user { color: var(--muted) !important; }
+.gnb-logout { color: var(--muted) !important; }
+/* 햄버거 알림 배지는 빨강 유지 — 흰 배경 대비 양호 */
+
+/* ───────────────────────────────────────────
+   13. 인증(로그인·회원가입) 카드 — iOS 카드 톤
+   ─────────────────────────────────────────── */
+.auth-card {
+  border: none !important;
+  box-shadow: var(--ios-card-shadow) !important;
+  border-radius: 18px !important;
+}
+/* 입력 필드: iOS 연회색 채움 톤 */
+.form-input {
+  background: var(--ios-fill) !important;
+  border: 1px solid transparent !important;
+}
+.form-input:focus {
+  background: #fff !important;
+  border-color: var(--primary) !important;
+}
+
+/* ───────────────────────────────────────────
+   14. 마이페이지 — iOS 리스트·카드
+   ─────────────────────────────────────────── */
+.mypage-sub-header { background: rgba(255,255,255,.94); border-bottom: .5px solid rgba(0,0,0,.06); }
+.apply-item { background: #fff; border-bottom: .5px solid rgba(0,0,0,.07); }
+.apply-item-name { font-size: 14px; }
+.email-setting-card, .email-tx-box {
+  border: none !important;
+  box-shadow: var(--ios-card-shadow);
+  border-radius: 14px;
+}
+.form-readonly { background: var(--ios-fill); border: 1px solid transparent; }
+
+/* ───────────────────────────────────────────
+   15. 응모건 메시지 — iMessage 느낌 말풍선
+   ─────────────────────────────────────────── */
+.msg-modal-thread { background: var(--ios-grouped-bg); }
+.msg-card { border-radius: 18px; border: none; box-shadow: 0 1px 1px rgba(0,0,0,.06); }
+.msg-card.mine { background: var(--primary); border: none; }
+.msg-card.mine .msg-card-body,
+.msg-card.mine .msg-sender,
+.msg-card.mine .msg-time { color: #fff !important; }
+.msg-input { border-radius: 18px; background: var(--ios-fill); border-color: transparent; }
+
+/* ───────────────────────────────────────────
+   16. 햄버거 메뉴(우측 슬라이드) — iOS화
+   ─────────────────────────────────────────── */
+/* 상단을 다이내믹 아일랜드/노치에서 충분히 띄움 */
+.nav-panel-body { padding-top: calc(env(safe-area-inset-top) + 12px); }
+.nav-panel-header { padding: 6px 12px 12px; }
+/* 메뉴 항목: iOS 셀(둥근 하이라이트·넉넉한 탭 영역) */
+.nav-menu { padding: 6px 10px; }
+.nav-item {
+  border-radius: 12px;
+  padding: 13px 14px;
+  font-size: 16px;
+  margin: 1px 0;
+}
+.nav-item:active { background: var(--ios-fill); transform: scale(.99); }
+.nav-item.on { background: var(--light-pink); }
+.nav-item .nav-icon { font-size: 24px; }
+.nav-subitem { border-radius: 10px; padding: 12px 14px 12px 48px; font-size: 15px; }
+.nav-subitem:active { background: var(--ios-fill); }
+/* 구분선: iOS 인셋 톤 */
+.nav-divider { margin: 8px 16px; background: rgba(0,0,0,.07); }
+.nav-divider-sub { background: rgba(0,0,0,.06); }
+/* 언어 토글: iOS 세그먼트 톤(작게·흰 캡슐 선택) */
+.lang-toggle { background: var(--ios-fill); border: none; border-radius: 9px; padding: 2px; }
+.lang-toggle .lang-btn { border-radius: 7px; font-size: 12px; padding: 6px 14px; }
+.lang-toggle .lang-btn.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+/* 계정 카드(로그인 시) iOS 카드 톤 */
+.nav-account { border-radius: 14px; margin: 4px 10px; background: var(--ios-fill); }

@@ -3479,3 +3479,52 @@ async function fetchOrientSheetsByApplication(applicationId) {
   });
 }
 
+
+// ════════════════════════════════════════════════════════════════════
+// iOS 기기 푸시 토큰 관리 — 마이그레이션 192·193
+//   발송 로직(APNs Edge Function)은 별도 단계에서 구현.
+//   이 래퍼는 토큰 저장·갱신·해지만 담당.
+// ════════════════════════════════════════════════════════════════════
+
+// 기기 APNs 푸시 토큰 등록 또는 갱신.
+//   - 앱 시작 시 / APNs 가 새 토큰을 발급할 때 호출.
+//   - 같은 기기에서 계정 전환 시 user_id 가 현재 로그인 사용자로 갱신됨.
+//   - 반환: { ok: true, id: uuid } 또는 { ok: false, error: string }
+async function registerPushToken(token, platform = 'ios') {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    const result = await retryWithRefresh(async () => {
+      const { data, error } = await db.rpc('register_push_token', {
+        p_token: token,
+        p_platform: platform,
+      });
+      if (error) throw error;
+      return data; // 등록된 행의 uuid
+    });
+    return { ok: true, id: result };
+  } catch (e) {
+    console.error('[registerPushToken]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+
+// 기기 APNs 푸시 토큰 해지.
+//   - 로그아웃 시 / 알림 권한 철회 시 호출.
+//   - 본인 소유 토큰만 삭제 (타인 토큰은 서버에서 무시).
+//   - 반환: { ok: true } 또는 { ok: false, error: string }
+async function revokePushToken(token) {
+  if (!db) return { ok: false, error: 'no_db' };
+  try {
+    await retryWithRefresh(async () => {
+      const { error } = await db.rpc('revoke_push_token', {
+        p_token: token,
+      });
+      if (error) throw error;
+    });
+    return { ok: true };
+  } catch (e) {
+    console.error('[revokePushToken]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+

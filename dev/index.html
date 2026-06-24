@@ -252,10 +252,17 @@ window._supabaseLoaded = false;
 <!-- ── GNB ── -->
 <nav class="gnb">
   <div class="gnb-inner">
-    <div class="gnb-logo" onclick="window.location.href='/'">
+    <div class="gnb-logo" id="gnbLogo" onclick="window.location.href='/'">
       <span style="font-family:'Sora',sans-serif;font-weight:800;font-size:19px;color:#fff;letter-spacing:-.03em">Reverb</span>
     </div>
+    <!-- iOS 앱 전용 화면 제목(웹은 components.css 에서 display:none). 홈은 로고, 그 외 화면은 제목 -->
+    <span class="gnb-title" id="gnbTitle"></span>
     <div class="gnb-right" id="gnbRight"></div>
+    <!-- 알림 버튼: iOS 앱 전용(웹은 components.css 에서 display:none). updateGnb 가 로그인 시에만 표시 -->
+    <button class="gnb-notif-btn" id="gnbNotifBtn" onclick="openNotifModal()" aria-label="通知" style="display:none;position:relative">
+      <span class="material-icons-round notranslate" translate="no" style="font-size:24px">notifications</span>
+      <span class="notif-badge hidden" data-role="nav-badge"></span>
+    </button>
     <button class="gnb-burger" id="gnbBurger" onclick="openNavPanel()" aria-label="Menu" style="position:relative">
       <span class="material-icons-round notranslate" translate="no" style="font-size:24px;color:#fff">menu</span>
       <span id="gnbNotifBadge" class="notif-badge hidden"></span>
@@ -281,6 +288,17 @@ window._supabaseLoaded = false;
     <div id="navMenu" class="nav-menu"></div>
   </div>
 </aside>
+
+<!-- 약관 개정 안내 배너 (로그인 회원·노출 종료일까지·닫으면 이번 방문만 숨김). 화면 상단 고정(fixed).
+     #page-home 밖에 둠 — 페이지 안에 있으면 당겨서 새로고침(page transform) 시 fixed 배너가 끌려가므로. -->
+<div id="policyNoticeBannerWrap" style="display:none">
+  <div id="policyNoticeBanner">
+    <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
+    <span class="pn-banner-text" id="policyNoticeBannerText" data-i18n="policyNotice.banner"></span>
+    <button class="pn-banner-detail" onclick="openPolicyNoticeFromBanner()" data-i18n="policyNotice.detailBtn"></button>
+    <button class="pn-banner-close" onclick="dismissPolicyNoticeBanner()" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
+  </div>
+</div>
 
 <!-- ── NOTIF MODAL (슬라이드업) ── -->
 <div id="notifModal" class="notif-modal" aria-hidden="true">
@@ -346,15 +364,6 @@ window._supabaseLoaded = false;
      PAGE: HOME (キャンペーン一覧)
 ══════════════════════════════════ -->
 <div id="page-home" class="page">
-  <!-- 문의하기 출시 안내 배너 (로그인 회원·노출 종료일까지·닫으면 이번 방문만 숨김). 홈 스크롤 시 상단 고정(sticky) -->
-  <div id="policyNoticeBannerWrap" style="display:none">
-    <div id="policyNoticeBanner">
-      <span class="material-icons-round notranslate pn-banner-icon" translate="no">campaign</span>
-      <span class="pn-banner-text" id="policyNoticeBannerText" data-i18n="policyNotice.banner"></span>
-      <button class="pn-banner-detail" onclick="openPolicyNoticeFromBanner()" data-i18n="policyNotice.detailBtn"></button>
-      <button class="pn-banner-close" onclick="dismissPolicyNoticeBanner()" aria-label="閉じる"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></button>
-    </div>
-  </div>
   <section class="hero">
     <div class="container hero-inner">
       <div class="hero-eyebrow" data-i18n="home.hero.eyebrow">🇰🇷 K-Brand × Japan Only</div>
@@ -965,7 +974,74 @@ window._supabaseLoaded = false;
   </div>
 </div>
 <div id="page-mypage" class="page">
-  <!-- 랜딩(목차) 화면은 햄버거 메뉴로 흡수되어 제거됨. 기본 화면은 응모이력(mypage-sub-applications) -->
+  <!-- 마이페이지 목록(목차) — iOS 앱 바텀 탭바 전용. 웹은 햄버거 메뉴 사용(이 화면 미진입) -->
+  <div id="mypage-sub-list" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="mypage-sub-title" data-i18n="tab.mypage">マイページ</span>
+    </div>
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <div class="mypage-list">
+        <button class="mypage-list-cell" onclick="openMypageSub('profile-basic')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">person</span>
+          <span class="mlc-label" data-i18n="mypage.menu.basic">基本情報</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="basic" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('profile-sns')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">tag</span>
+          <span class="mlc-label" data-i18n="mypage.menu.sns">SNSアカウント</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="sns" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('profile-address')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">local_shipping</span>
+          <span class="mlc-label" data-i18n="mypage.menu.address">配送先</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="address" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('paypal')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">account_balance_wallet</span>
+          <span class="mlc-label" data-i18n="mypage.menu.paypal">PayPal</span>
+          <span class="mlc-badge mypage-unreg hidden" data-mypage-badge="paypal" data-i18n="mypage.badge.unregistered">未登録</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('password')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">lock</span>
+          <span class="mlc-label" data-i18n="mypage.menu.password">パスワード変更</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+        <button class="mypage-list-cell" onclick="openMypageSub('email-settings')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">mail</span>
+          <span class="mlc-label" data-i18n="mypage.menu.emailSettings">メール受信設定</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+      </div>
+      <!-- 언어 전환 · 관리자 (iOS 햄버거 제거 대비 마이페이지로 이동) -->
+      <div class="mypage-list" style="margin-top:18px">
+        <div class="mypage-list-cell" style="cursor:default">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">language</span>
+          <span class="mlc-label">言語 / 언어</span>
+          <div class="lang-toggle" role="group" aria-label="Language" style="flex-shrink:0">
+            <button type="button" class="lang-btn" data-lang="ja" onclick="setLang('ja')">日本語</button>
+            <button type="button" class="lang-btn" data-lang="ko" onclick="setLang('ko')">한국어</button>
+          </div>
+        </div>
+        <button class="mypage-list-cell" id="mypageAdminCell" style="display:none" onclick="navigate('admin')">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">admin_panel_settings</span>
+          <span class="mlc-label">Admin</span>
+          <span class="material-icons-round notranslate mlc-arrow" translate="no">chevron_right</span>
+        </button>
+      </div>
+      <!-- 로그아웃·회원탈퇴 (iOS 햄버거 제거 대비 마이페이지로 이동) -->
+      <div class="mypage-list" style="margin-top:18px">
+        <button class="mypage-list-cell" onclick="handleLogout()">
+          <span class="material-icons-round notranslate mlc-icon" translate="no">logout</span>
+          <span class="mlc-label" data-i18n="mypage.menu.logout">ログアウト</span>
+        </button>
+      </div>
+      <button class="mypage-withdraw-link" onclick="handleWithdraw()" data-i18n="mypage.withdraw">退会する</button>
+    </div>
+  </div>
 
   <!-- 応募履歴 -->
   <div id="mypage-sub-applications" class="mypage-view">
@@ -1223,6 +1299,26 @@ window._supabaseLoaded = false;
   <!-- 비로그인 고정 CTA (하단 중앙) -->
   <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
 </div><!-- /appShell -->
+
+<!-- iOS 바텀 탭바 (iOS 앱 전용 — 웹은 components.css 에서 display:none) -->
+<nav class="ios-tabbar" id="iosTabbar">
+  <button class="ios-tab" data-tab="home" onclick="tabNav('home')">
+    <span class="material-icons-round notranslate" translate="no">home</span>
+    <span class="ios-tab-label" data-i18n="tab.home">ホーム</span>
+  </button>
+  <button class="ios-tab" data-tab="campaigns" onclick="tabNav('campaigns')">
+    <span class="material-icons-round notranslate" translate="no">campaign</span>
+    <span class="ios-tab-label" data-i18n="tab.campaigns">キャンペーン</span>
+  </button>
+  <button class="ios-tab" data-tab="activity" onclick="tabNav('activity')">
+    <span class="material-icons-round notranslate" translate="no">history</span>
+    <span class="ios-tab-label" data-i18n="mypage.menu.applications">応募履歴</span>
+  </button>
+  <button class="ios-tab" data-tab="mypage" onclick="tabNav('mypage')">
+    <span class="material-icons-round notranslate" translate="no">person</span>
+    <span class="ios-tab-label" data-i18n="tab.mypage">マイページ</span>
+  </button>
+</nav>
 
 
 <script src="lib/supabase.js"></script>

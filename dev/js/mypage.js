@@ -467,6 +467,11 @@ function openMypageSub(sub, pushHistory) {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const target = $('mypage-sub-' + sub);
   if (target) target.classList.add('active');
+  // iOS GNB 제목 — 서브 화면 제목을 상단바(로고 자리)에
+  if (typeof setGnbTitle === 'function') {
+    const _k = {applications:'mypage.menu.applications','profile-basic':'mypage.menu.basic','profile-sns':'mypage.menu.sns','profile-address':'mypage.menu.address',paypal:'mypage.menu.paypal',password:'mypage.menu.password','email-settings':'mypage.menu.emailSettings'}[sub];
+    setGnbTitle(_k ? t(_k) : '');
+  }
   // 응모이력 진입(햄버거·알림·새로고침 등 모든 경로) 시 상태 드롭다운을 현재 _myAppsTab 기준으로
   // 즉시 채워 빈 박스/stale 선택 방지. 데이터 로드(loadMyApplications) 전이라도 항목은 보이고,
   // 로드 완료 후 renderMyApplyTabs 재호출로 건수까지 갱신된다.
@@ -483,7 +488,33 @@ function closeMypageSub() {
   document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
   const def = $('mypage-sub-applications');
   if (def) def.classList.add('active');
+  if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('mypage.menu.applications') : '応募履歴');
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
+}
+
+// 마이페이지 목록(목차) 화면 — iOS 바텀 탭바 전용. 6개 항목 + 로그아웃·회원탈퇴.
+//   웹은 햄버거 메뉴를 쓰므로 이 화면에 진입하지 않는다.
+function openMypageList(pushHistory) {
+  document.querySelectorAll('#page-mypage .mypage-view').forEach(v => v.classList.remove('active'));
+  const el = $('mypage-sub-list');
+  if (el) el.classList.add('active');
+  if (typeof setGnbTitle === 'function') setGnbTitle(typeof t === 'function' ? t('tab.mypage') : 'マイページ');
+  // 관리자 셀 표시(관리자만) + 언어 토글 활성 상태 갱신
+  const _ac = document.getElementById('mypageAdminCell');
+  if (_ac) _ac.style.display = (currentUser && currentUser._isAdmin) ? '' : 'none';
+  if (typeof updateLangToggleUI === 'function') updateLangToggleUI();
+  // 未登録 배지 — computeProfileBadges 재사용, 미등록 항목에만 표시
+  if (typeof computeProfileBadges === 'function') {
+    const b = computeProfileBadges(currentUserProfile || {});
+    const map = {basic: 'hasName', sns: 'hasSns', address: 'hasAddress', paypal: 'hasPaypal'};
+    document.querySelectorAll('#mypage-sub-list [data-mypage-badge]').forEach(el2 => {
+      const has = b[map[el2.getAttribute('data-mypage-badge')]];
+      el2.classList.toggle('hidden', !!has);  // 등록됨이면 숨김, 미등록이면 노출
+    });
+  }
+  if (pushHistory !== false) {
+    history.pushState({page: 'mypage', sub: 'list'}, '', '#mypage-list');
+  }
 }
 
 // 언어 토글 버튼 상태 업데이트

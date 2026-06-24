@@ -1,0 +1,17 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물 (dev/build.sh + sync-ios.sh 가 생성 — 추적 불필요)
+www/index.html
+
+# Capacitor 복사 산출물 / Xcode 빌드 결과
+ios/App/App/public/
+ios/App/build/
+ios/App/build-device/
+ios/App/Pods/
+ios/App/DerivedData/
+DerivedData/
+
+# 캡처 스크린샷 등
+*.png
+.DS_Store
