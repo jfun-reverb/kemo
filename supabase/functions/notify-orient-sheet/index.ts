@@ -195,7 +195,10 @@ Deno.serve(async (req: Request) => {
 
     // 5) 메일 발송
     const subject = `[REVERB JP] 캠페인 오리엔시트 작성 요청 — ${brandName}`;
-    const html = render(TEMPLATES["orient-sheet-invite"], {
+    // HTML 주석 strip — templates.ts 인라인 원본 주석이 메일 본문에 누출되는 것 차단
+    // (notify-deliverable-decision 동일 패턴, 메모리 mail_template_comment_leak)
+    const tpl = TEMPLATES["orient-sheet-invite"].replace(/<!--[\s\S]*?-->/g, "");
+    const html = render(tpl, {
       brand_name: escapeHtml(brandName),
       link: escapeHtml(link),
       deadline: escapeHtml(deadline),
@@ -207,7 +210,6 @@ Deno.serve(async (req: Request) => {
       `작성 링크: ${link}\n` +
       `작성 기한: ${deadline}\n\n` +
       `[문의]\n` +
-      `· LINE @reverb.jp — https://line.me/R/ti/p/@reverb.jp\n` +
       `· 카카오톡 byhyunho7\n` +
       `· 연락처 010-2550-1511\n`;
 
