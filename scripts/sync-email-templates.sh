@@ -34,6 +34,7 @@ SYNC_GROUPS=(
   "notify-admin-daily-digest|admin-daily-digest.html,admin-daily-digest.section.html,admin-daily-digest.row-received.html,admin-daily-digest.row-cancelled.html,admin-daily-digest.row-submitted.html,admin-daily-digest.row-reprocessed.html"
   "notify-campaign-promo-digest|campaign-promo-digest.html,campaign-promo-digest.section.html,campaign-promo-digest.row-campaign.html,campaign-promo-digest.admin.html"
   "notify-policy-change|policy-change-notice.html"
+  "notify-orient-sheet|orient-sheet-invite.html"
 )
 
 if [[ ! -d "$SRC_DIR" ]]; then
@@ -87,6 +88,7 @@ for group in "${SYNC_GROUPS[@]}"; do
      [[ "$fn_name" == "notify-influencer-daily-digest" ]] || \
      [[ "$fn_name" == "notify-admin-daily-digest" ]] || \
      [[ "$fn_name" == "notify-campaign-promo-digest" ]] || \
+     [[ "$fn_name" == "notify-orient-sheet" ]] || \
      [[ "$fn_name" == "notify-policy-change" ]]; then
     ts_path="$REPO_ROOT/supabase/functions/$fn_name/templates.ts"
     {
