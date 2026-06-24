@@ -1797,7 +1797,7 @@ async function refreshBrandAppBadge() {
   if (!el) return;
   var count = await fetchBrandAppPendingCount();
   var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
-  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">광고주 신청</span>' + badge;
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">서베이 신청 목록</span>' + badge;
 }
 
 var brandAppLazy = null;
