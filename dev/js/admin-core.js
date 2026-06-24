@@ -461,6 +461,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   // 검색형(opt-in) — 옵션이 많은 드롭다운(캠페인 등)에서만 사용. 기본 false → 기존 전 페인 무영향
   const searchHtml = opts.searchable
     ? `<div class="mf-search-box"><input type="search" class="mf-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="${esc(opts.searchPlaceholder || '検索')}"></div>`
+      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#E8344E);background:var(--light-pink,#FDEEF4);border:1px solid var(--pink,#E8344E);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
     : '';
   const emptyHtml = opts.searchable ? `<div class="mf-search-empty" style="display:none">일치하는 항목이 없습니다</div>` : '';
   // 드롭다운 아이템 생성 — 초기 상태: 모두 비체크 = 필터 없음 (전체 표시)
@@ -522,6 +523,8 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   if (opts.searchable) {
     const si = drop.querySelector('.mf-search');
     const emptyEl = drop.querySelector('.mf-search-empty');
+    const onlyBtn = drop.querySelector('.mf-search-only');
+    const allItem = drop.querySelector('.all-item');
     const optItems = [...drop.querySelectorAll('.mf-item:not(.all-item)')];
     if (si) si.oninput = () => {
       const q = (si.value || '').trim().toLowerCase();
@@ -534,6 +537,16 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
         if (show) visible++;
       });
       if (emptyEl) emptyEl.style.display = visible === 0 ? '' : 'none';
+      // 검색 중엔 「전체」 항목을 숨기고 「이 검색 결과만 선택」 버튼으로 대체(검색어 지우면 「전체」 복귀).
+      if (allItem) allItem.style.display = q ? 'none' : '';
+      if (onlyBtn) onlyBtn.style.display = (q && visible > 0) ? '' : 'none';
+    };
+    // 검색에 보이는 항목만 선택(나머지 해제) → 그 캠페인들만 필터링. 「전체」 체크 상태도 자동 해제(부분 선택).
+    // itemCbs는 createMultiFilter 시점 스냅샷 — reorderSelectedFirst 로 DOM 순서가 바뀌어도 display 기준 판정이라 정합성 무영향.
+    if (onlyBtn) onlyBtn.onclick = (e) => {
+      e.stopPropagation();
+      itemCbs.forEach(c => { c.checked = (c.closest('.mf-item')?.style.display !== 'none'); });
+      update();
     };
   }
   // 외부에서 prev 복원 후 다시 호출할 수 있도록 노출
