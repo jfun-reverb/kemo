@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782202892';
+  var CURRENT_BUILD = 'v1782259683';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-23 17:21 · 17f935d</span>
+          <span class="admin-build-text">2026-06-24 09:08 · 24b6bbb</span>
         </div>
       </div>
     </aside>
@@ -13077,29 +13077,13 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
 
 // 셀프 오리엔시트 열 셀 — 신청에 연결된 orient_sheets 요약(최근 상태 + 추가 건수). 없으면 —.
 // 만료는 클라 판정(조회 함수가 status 미전환 — consumed 아닌데 기한 지나면 만료 표시).
-var SELF_ORIENT_STATUS_KO    = { draft: '작성중', submitted: '제출됨', consumed: '발행됨', expired: '만료' };
-var SELF_ORIENT_STATUS_COLOR = { draft: '#8C6BC0', submitted: '#16A34A', consumed: '#73355A', expired: '#999' };
-var SELF_ORIENT_STATUS_BG    = { draft: '#F0EAFA', submitted: '#E8F5E9', consumed: '#F7E9F2', expired: '#F0F0F0' };
+// 시스템 오리엔시트 셀 = 「보기(N)」 버튼(0건 포함). 클릭 시 그 신청의 오리엔시트 목록 모달.
+//   상태·링크·상세는 모달(현황 표 형식)에서 확인 — 셀은 건수만 간결히.
 function renderSelfOrientCell(appId) {
-  var list = (_orientByApp && _orientByApp[appId]) || [];
-  if (!list.length) return '<span style="color:var(--muted);font-size:11px">—</span>';
-  var latest = list[0];   // fetchOrientSheets 가 created_at desc 정렬 → 첫 항목이 최근
-  var st = latest.status;
-  if (st !== 'consumed' && latest.token_expires_at && new Date(latest.token_expires_at) < new Date()) st = 'expired';
-  var label = SELF_ORIENT_STATUS_KO[st] || st;
-  var color = SELF_ORIENT_STATUS_COLOR[st] || '#999';
-  var bg = SELF_ORIENT_STATUS_BG[st] || '#F0F0F0';
-  // 상태 = 라벨(칩) 형식
-  var chip = '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:' + color + ';background:' + bg + '">' + esc(label) + '</span>';
-  var cnt = list.length > 1 ? ' <span style="color:var(--muted);font-size:10px">+' + (list.length - 1) + '</span>' : '';
-  // 최근 1건 작성 링크 복사/열기(만료 제외) — 아이콘 포함 버튼. 전체 N건은 #orient-sheets 페인.
-  var linkBtns = '';
-  if (latest.token && st !== 'expired' && typeof osBuildLink === 'function') {
-    var url = osBuildLink(latest.token);
-    linkBtns = ' ' + orientMiniBtn('content_copy', '복사', "javascript:void(0)", "event.stopPropagation();copyTextToClipboard('" + esc(url) + "','작성 링크가 복사되었습니다.')")
-      + ' ' + orientMiniBtn('open_in_new', '열기', url, null);
-  }
-  return chip + cnt + linkBtns;
+  var count = (_orientByApp && _orientByApp[appId] && _orientByApp[appId].length) || 0;
+  return '<button type="button" class="btn btn-ghost btn-xs" style="display:inline-flex;align-items:center;gap:3px" '
+    + 'onclick="event.stopPropagation();openBrandAppOrientListModal(\'' + esc(appId) + '\')" title="발급된 오리엔시트 목록 보기">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">visibility</span>보기(' + count + ')</button>';
 }
 
 // 오리엔시트 셀 미니 버튼(아이콘 + 라벨). href 가 'javascript:void(0)' 이면 onclick 동작 버튼.
@@ -13118,18 +13102,12 @@ function renderOrientCombinedCell(a) {
   // 시스템 = orient_sheets(상태+작성링크), 구글시트 = 외부 URL 열기만.
   // 등록된 줄만 표시 — 시스템 발급분이 있으면 시스템 줄, 구글시트 URL이 있으면 구글시트 줄.
   // 둘 다 없으면 「—」 한 줄(등록·수정은 행 더보기 「시스템 오리엔시트 발급」/「구글시트 URL 등록」).
-  var hasSys = !!(_orientByApp && _orientByApp[a.id] && _orientByApp[a.id].length);
   var hasGs = !!safeBrandUrl(a.orient_sheet_sent_url);
-  if (!hasSys && !hasGs) {
-    return '<span style="color:var(--muted);font-size:11px">—</span>';
-  }
-  var lines = '';
-  if (hasSys) {
-    lines += '<div style="display:flex;align-items:center;gap:5px">'
-      + '<span style="color:var(--muted);font-size:12px;font-weight:600;flex-shrink:0;width:48px">시스템</span>'
-      + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
-    + '</div>';
-  }
+  // 시스템 줄은 항상 「보기(N)」 버튼 표시(0건 포함). 구글시트 줄은 외부 URL 있을 때만.
+  var lines = '<div style="display:flex;align-items:center;gap:5px">'
+    + '<span style="color:var(--muted);font-size:12px;font-weight:600;flex-shrink:0;width:48px">시스템</span>'
+    + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
+  + '</div>';
   if (hasGs) {
     lines += '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
       + '<span style="color:var(--muted);font-size:12px;font-weight:600;flex-shrink:0;width:48px">구글시트</span>'
@@ -13137,6 +13115,54 @@ function renderOrientCombinedCell(a) {
     + '</div>';
   }
   return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">' + lines + '</div>';
+}
+
+// 신청의 시스템 오리엔시트 목록 모달 (오리엔시트 현황 표 형식). 「보기(N)」 클릭 진입.
+function ensureBrandAppOrientListModal() {
+  if (document.getElementById('brandAppOrientListModal')) return;
+  var html = '<div class="modal-overlay" id="brandAppOrientListModal">'
+    + '<div class="modal" style="max-width:640px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">'
+    + '<div class="modal-header"><h2>오리엔시트 목록</h2>'
+    + '<button type="button" class="modal-close-btn" onclick="osCloseModal(\'brandAppOrientListModal\')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>'
+    + '<div class="modal-body" style="padding:18px;overflow-y:auto;flex:1" id="brandAppOrientListBody"></div>'
+    + '<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="osCloseModal(\'brandAppOrientListModal\')">닫기</button></div>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function brandAppOrientListRow(s) {
+  var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
+  var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
+  var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+  var copyBtn = link ? '<button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(link) + '\',\'작성 링크가 복사되었습니다.\')">링크 복사</button> ' : '';
+  return '<tr style="border-top:1px solid var(--line,#eee)">'
+    + '<td style="padding:8px 6px">' + summary + '</td>'
+    + '<td style="padding:8px 6px">' + stBadge + '</td>'
+    + '<td style="padding:8px 6px;font-size:12px;color:var(--muted)">' + (s.created_at ? formatDate(s.created_at) : '-') + '</td>'
+    + '<td style="padding:8px 6px;font-size:12px;color:var(--muted)">' + (s.token_expires_at ? formatDate(s.token_expires_at) : '-') + '</td>'
+    + '<td style="padding:8px 6px;white-space:nowrap">' + copyBtn
+    + '<button type="button" class="btn btn-primary btn-xs" onclick="event.stopPropagation();osCloseModal(\'brandAppOrientListModal\');osOpenDetail(\'' + esc(s.id) + '\')">상세</button></td>'
+  + '</tr>';
+}
+
+function openBrandAppOrientListModal(appId) {
+  ensureBrandAppOrientListModal();
+  var sheets = (_orientByApp && _orientByApp[appId]) || [];
+  var body = document.getElementById('brandAppOrientListBody');
+  if (!sheets.length) {
+    body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px 8px 16px">아직 발급된 오리엔시트가 없습니다.</div>'
+      + '<div style="text-align:center"><button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button></div>';
+  } else {
+    body.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">발급일</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">작성 기한</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">관리</th></tr></thead>'
+      + '<tbody>' + sheets.map(brandAppOrientListRow).join('') + '</tbody></table>';
+  }
+  document.getElementById('brandAppOrientListModal').classList.add('open');
 }
 
 // 구글시트 외부 URL — 열기 링크만(✎ 편집 없음. 등록은 더보기 「구글시트 URL 등록」 모달).
