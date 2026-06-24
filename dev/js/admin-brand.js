@@ -1019,13 +1019,18 @@ function brandAppOrientListRow(s) {
 
 function openBrandAppOrientListModal(appId) {
   ensureBrandAppOrientListModal();
+  var a = (_brandApps || []).find(function (x) { return x.id === appId; }) || {};
   var sheets = (_orientByApp && _orientByApp[appId]) || [];
   var body = document.getElementById('brandAppOrientListBody');
+  var titleStyle = 'font-size:13px;font-weight:800;color:var(--ink);margin:0 0 8px;display:flex;align-items:center;gap:6px';
+
+  // 시스템 오리엔시트 섹션
+  var sysInner;
   if (!sheets.length) {
-    body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px 8px 16px">아직 발급된 오리엔시트가 없습니다.</div>'
-      + '<div style="text-align:center"><button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button></div>';
+    sysInner = '<div style="color:var(--muted);font-size:13px;padding:4px 0 10px">아직 발급된 오리엔시트가 없습니다.</div>'
+      + '<button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button>';
   } else {
-    body.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    sysInner = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
       + '<thead><tr style="background:var(--surface-dim)">'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
@@ -1034,6 +1039,22 @@ function openBrandAppOrientListModal(appId) {
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">관리</th></tr></thead>'
       + '<tbody>' + sheets.map(brandAppOrientListRow).join('') + '</tbody></table>';
   }
+
+  // 구글시트 섹션 (외부 URL — orient_sheet_sent_url)
+  var gsUrl = (typeof safeBrandUrl === 'function') ? safeBrandUrl(a.orient_sheet_sent_url) : '';
+  var gsInner = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  if (gsUrl) {
+    gsInner += (typeof renderGoogleSheetLinkOnly === 'function' ? renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) : esc(gsUrl))
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 수정</button>';
+  } else {
+    gsInner += '<span style="color:var(--muted);font-size:13px">등록된 구글시트 URL이 없습니다.</span>'
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 등록</button>';
+  }
+  gsInner += '</div>';
+
+  body.innerHTML =
+    '<div><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">assignment</span>시스템 오리엔시트</div>' + sysInner + '</div>'
+    + '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#eee)"><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">description</span>구글시트</div>' + gsInner + '</div>';
   document.getElementById('brandAppOrientListModal').classList.add('open');
 }
 

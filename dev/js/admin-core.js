@@ -678,7 +678,7 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
-  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal',
+  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal', 'brandAppOrientListModal',
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
   // 메시지
