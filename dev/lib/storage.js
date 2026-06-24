@@ -3493,6 +3493,28 @@ async function createOrientSheet(brandId, applicationId) {
   });
 }
 
+// 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
+// 발송 성공 시 연결 신청이 있으면 단계가 'orient_sheet_sent' 로 자동 전진(함수 198, 역행 방지).
+// 반환: { sent:true, recipient, advanced } / { sent:false, reason:'no_recipient'|... } / { sent:false, error }
+// 발송 실패가 발급 자체를 무효화하지 않도록 호출 측에서 결과만 표시(throw 안 함).
+async function sendOrientInviteMail(orientSheetId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-orient-sheet', {
+      body: { orient_sheet_id: orientSheetId },
+    });
+    if (error) {
+      // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
 // 오리엔시트 카드 1개를 발행 캠페인과 연결(소비). 마이그레이션 196.
 // 카드별 멱등(이미 발행 카드면 거부), 모든 카드 발행 시 시트 status='consumed'.
 async function markOrientCardConsumed(orientId, cardIdx, campaignId) {

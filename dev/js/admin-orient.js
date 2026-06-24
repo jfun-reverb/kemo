@@ -202,6 +202,8 @@ async function osSubmitCreate() {
     document.getElementById('osCreateResult').style.display = '';
     btn.style.display = 'none';
     await refreshPane('orient-sheets');
+    // 발급 직후 브랜드 담당자에게 작성 링크 메일 자동 발송 (실패해도 발급은 유효 — 결과만 표시)
+    osSendInviteAndShow(res.id);
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
   } finally {
@@ -220,6 +222,34 @@ function osReasonText(r) {
 
 function osCopyResultLink() {
   copyTextToClipboard(document.getElementById('osCreateLink').value, '작성 링크가 복사되었습니다.');
+}
+
+// 발급 직후 메일 발송 + 발급 결과 화면에 발송 상태 인라인 표시.
+// 발송은 발급과 별개라 실패해도 발급 자체는 유효(링크 수동 복사 안내).
+async function osSendInviteAndShow(orientSheetId) {
+  const box = document.getElementById('osCreateMailStatus');
+  if (!box) return;
+  box.innerHTML = '<span style="color:var(--muted)">메일 발송 중…</span>';
+  let r;
+  try {
+    r = await sendOrientInviteMail(orientSheetId);
+  } catch (e) {
+    r = { sent: false, error: (e && e.message) || 'unknown' };
+  }
+  if (r && r.sent) {
+    const advNote = r.advanced
+      ? ' · 신청 단계를 「오리엔시트 발송됨」으로 이동했습니다.'
+      : '';
+    box.innerHTML = '<div style="color:#16A34A;font-weight:600">메일을 보냈습니다 — ' +
+      esc(r.recipient || '') + '</div>' +
+      (advNote ? '<div style="color:var(--muted);font-size:12px;margin-top:2px">' + advNote.replace(/^ · /, '') + '</div>' : '');
+  } else if (r && r.reason === 'no_recipient') {
+    box.innerHTML = '<div style="color:#B45309;font-weight:600">수신자 이메일이 없어 메일을 보내지 못했습니다.</div>' +
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 브랜드에게 직접 전달해 주세요.</div>';
+  } else {
+    box.innerHTML = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>' +
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>';
+  }
 }
 
 // ── 상세 모달 ──
@@ -506,6 +536,7 @@ function ensureOrientModals() {
           <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
           <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
           <button type="button" class="btn btn-primary btn-sm" style="margin-top:10px" onclick="osCopyResultLink()">링크 복사</button>
+          <div id="osCreateMailStatus" style="margin-top:12px;font-size:13px;line-height:1.6"></div>
         </div>
       </div>
       <div class="modal-footer">

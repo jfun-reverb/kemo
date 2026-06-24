@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782290048';
+  var CURRENT_BUILD = 'v1782298588';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-24 17:34 · 760fea6</span>
+          <span class="admin-build-text">2026-06-24 19:56 · cfd0c2f</span>
         </div>
       </div>
     </aside>
@@ -9668,6 +9668,28 @@ async function createOrientSheet(brandId, applicationId) {
   });
 }
 
+// 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
+// 발송 성공 시 연결 신청이 있으면 단계가 'orient_sheet_sent' 로 자동 전진(함수 198, 역행 방지).
+// 반환: { sent:true, recipient, advanced } / { sent:false, reason:'no_recipient'|... } / { sent:false, error }
+// 발송 실패가 발급 자체를 무효화하지 않도록 호출 측에서 결과만 표시(throw 안 함).
+async function sendOrientInviteMail(orientSheetId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-orient-sheet', {
+      body: { orient_sheet_id: orientSheetId },
+    });
+    if (error) {
+      // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
 // 오리엔시트 카드 1개를 발행 캠페인과 연결(소비). 마이그레이션 196.
 // 카드별 멱등(이미 발행 카드면 거부), 모든 카드 발행 시 시트 status='consumed'.
 async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
@@ -11816,6 +11838,8 @@ async function osSubmitCreate() {
     document.getElementById('osCreateResult').style.display = '';
     btn.style.display = 'none';
     await refreshPane('orient-sheets');
+    // 발급 직후 브랜드 담당자에게 작성 링크 메일 자동 발송 (실패해도 발급은 유효 — 결과만 표시)
+    osSendInviteAndShow(res.id);
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
   } finally {
@@ -11834,6 +11858,34 @@ function osReasonText(r) {
 
 function osCopyResultLink() {
   copyTextToClipboard(document.getElementById('osCreateLink').value, '작성 링크가 복사되었습니다.');
+}
+
+// 발급 직후 메일 발송 + 발급 결과 화면에 발송 상태 인라인 표시.
+// 발송은 발급과 별개라 실패해도 발급 자체는 유효(링크 수동 복사 안내).
+async function osSendInviteAndShow(orientSheetId) {
+  const box = document.getElementById('osCreateMailStatus');
+  if (!box) return;
+  box.innerHTML = '<span style="color:var(--muted)">메일 발송 중…</span>';
+  let r;
+  try {
+    r = await sendOrientInviteMail(orientSheetId);
+  } catch (e) {
+    r = { sent: false, error: (e && e.message) || 'unknown' };
+  }
+  if (r && r.sent) {
+    const advNote = r.advanced
+      ? ' · 신청 단계를 「오리엔시트 발송됨」으로 이동했습니다.'
+      : '';
+    box.innerHTML = '<div style="color:#16A34A;font-weight:600">메일을 보냈습니다 — ' +
+      esc(r.recipient || '') + '</div>' +
+      (advNote ? '<div style="color:var(--muted);font-size:12px;margin-top:2px">' + advNote.replace(/^ · /, '') + '</div>' : '');
+  } else if (r && r.reason === 'no_recipient') {
+    box.innerHTML = '<div style="color:#B45309;font-weight:600">수신자 이메일이 없어 메일을 보내지 못했습니다.</div>' +
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 브랜드에게 직접 전달해 주세요.</div>';
+  } else {
+    box.innerHTML = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>' +
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>';
+  }
 }
 
 // ── 상세 모달 ──
@@ -12120,6 +12172,7 @@ function ensureOrientModals() {
           <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
           <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
           <button type="button" class="btn btn-primary btn-sm" style="margin-top:10px" onclick="osCopyResultLink()">링크 복사</button>
+          <div id="osCreateMailStatus" style="margin-top:12px;font-size:13px;line-height:1.6"></div>
         </div>
       </div>
       <div class="modal-footer">
