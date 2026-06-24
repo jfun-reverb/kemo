@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782259683';
+  var CURRENT_BUILD = 'v1782260933';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-24 09:08 · 24b6bbb</span>
+          <span class="admin-build-text">2026-06-24 09:28 · 18f93b2</span>
         </div>
       </div>
     </aside>
@@ -11464,7 +11464,7 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
-  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal',
+  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal', 'brandAppOrientListModal',
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
   // 메시지
@@ -13147,13 +13147,18 @@ function brandAppOrientListRow(s) {
 
 function openBrandAppOrientListModal(appId) {
   ensureBrandAppOrientListModal();
+  var a = (_brandApps || []).find(function (x) { return x.id === appId; }) || {};
   var sheets = (_orientByApp && _orientByApp[appId]) || [];
   var body = document.getElementById('brandAppOrientListBody');
+  var titleStyle = 'font-size:13px;font-weight:800;color:var(--ink);margin:0 0 8px;display:flex;align-items:center;gap:6px';
+
+  // 시스템 오리엔시트 섹션
+  var sysInner;
   if (!sheets.length) {
-    body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px 8px 16px">아직 발급된 오리엔시트가 없습니다.</div>'
-      + '<div style="text-align:center"><button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button></div>';
+    sysInner = '<div style="color:var(--muted);font-size:13px;padding:4px 0 10px">아직 발급된 오리엔시트가 없습니다.</div>'
+      + '<button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button>';
   } else {
-    body.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    sysInner = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
       + '<thead><tr style="background:var(--surface-dim)">'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
@@ -13162,6 +13167,22 @@ function openBrandAppOrientListModal(appId) {
       + '<th style="text-align:left;padding:8px 6px;font-weight:700">관리</th></tr></thead>'
       + '<tbody>' + sheets.map(brandAppOrientListRow).join('') + '</tbody></table>';
   }
+
+  // 구글시트 섹션 (외부 URL — orient_sheet_sent_url)
+  var gsUrl = (typeof safeBrandUrl === 'function') ? safeBrandUrl(a.orient_sheet_sent_url) : '';
+  var gsInner = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  if (gsUrl) {
+    gsInner += (typeof renderGoogleSheetLinkOnly === 'function' ? renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) : esc(gsUrl))
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 수정</button>';
+  } else {
+    gsInner += '<span style="color:var(--muted);font-size:13px">등록된 구글시트 URL이 없습니다.</span>'
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 등록</button>';
+  }
+  gsInner += '</div>';
+
+  body.innerHTML =
+    '<div><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">assignment</span>시스템 오리엔시트</div>' + sysInner + '</div>'
+    + '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#eee)"><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">description</span>구글시트</div>' + gsInner + '</div>';
   document.getElementById('brandAppOrientListModal').classList.add('open');
 }
 
