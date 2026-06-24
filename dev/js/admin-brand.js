@@ -968,25 +968,10 @@ function orientMiniBtn(icon, text, href, onclick) {
     + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">' + esc(icon) + '</span>' + esc(text) + '</a>';
 }
 
-// 신청 목록 「오리엔시트」 통합 셀 — 시스템(orient_sheets) + 구글시트(orient_sheet_sent_url) 두 줄.
-// 시스템=상태+작성링크, 구글시트=열기 링크만(등록·수정은 더보기 「구글시트 URL 등록」 모달).
+// 신청 목록 「오리엔시트」 셀 — 「보기(N)」 버튼만.
+// 시스템(orient_sheets)·구글시트(orient_sheet_sent_url) 상세는 보기 모달에서 확인.
 function renderOrientCombinedCell(a) {
-  // 시스템 = orient_sheets(상태+작성링크), 구글시트 = 외부 URL 열기만.
-  // 등록된 줄만 표시 — 시스템 발급분이 있으면 시스템 줄, 구글시트 URL이 있으면 구글시트 줄.
-  // 둘 다 없으면 「—」 한 줄(등록·수정은 행 더보기 「시스템 오리엔시트 발급」/「구글시트 URL 등록」).
-  var hasGs = !!safeBrandUrl(a.orient_sheet_sent_url);
-  // 시스템 줄은 항상 「보기(N)」 버튼 표시(0건 포함). 구글시트 줄은 외부 URL 있을 때만.
-  var lines = '<div style="display:flex;align-items:center;gap:5px">'
-    + '<span style="color:var(--muted);font-size:12px;font-weight:600;flex-shrink:0;width:48px">시스템</span>'
-    + '<span style="min-width:0">' + renderSelfOrientCell(a.id) + '</span>'
-  + '</div>';
-  if (hasGs) {
-    lines += '<div style="display:flex;align-items:center;gap:5px;min-height:18px">'
-      + '<span style="color:var(--muted);font-size:12px;font-weight:600;flex-shrink:0;width:48px">구글시트</span>'
-      + '<span style="min-width:0;flex:1">' + renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) + '</span>'
-    + '</div>';
-  }
-  return '<div style="display:flex;flex-direction:column;gap:3px;min-height:36px;justify-content:center">' + lines + '</div>';
+  return '<div style="display:flex;align-items:center;min-height:36px">' + renderSelfOrientCell(a.id) + '</div>';
 }
 
 // 신청의 시스템 오리엔시트 목록 모달 (오리엔시트 현황 표 형식). 「보기(N)」 클릭 진입.
