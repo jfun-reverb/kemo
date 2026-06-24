@@ -1000,6 +1000,8 @@ function ensureBrandAppOrientListModal() {
     + '<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="osCloseModal(\'brandAppOrientListModal\')">닫기</button></div>'
     + '</div></div>';
   document.body.insertAdjacentHTML('beforeend', html);
+  // 동적 생성 모달이라 부팅 시 옵저버(정적 모달 대상)에 안 잡힘 — 여기서 드래그·리사이즈 옵저버 부착
+  if (typeof initDraggableModals === 'function') initDraggableModals();
 }
 
 function brandAppOrientListRow(s) {
@@ -1055,7 +1057,10 @@ function openBrandAppOrientListModal(appId) {
   body.innerHTML =
     '<div><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">assignment</span>시스템 오리엔시트</div>' + sysInner + '</div>'
     + '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#eee)"><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">description</span>구글시트</div>' + gsInner + '</div>';
-  document.getElementById('brandAppOrientListModal').classList.add('open');
+  var overlay = document.getElementById('brandAppOrientListModal');
+  overlay.classList.add('open');
+  // 첫 열림에도 즉시 드래그·리사이즈 적용(옵저버는 비동기라 한 틱 지연)
+  if (typeof _applyDraggableIfOpen === 'function') _applyDraggableIfOpen(overlay);
 }
 
 // 구글시트 외부 URL — 열기 링크만(✎ 편집 없음. 등록은 더보기 「구글시트 URL 등록」 모달).
