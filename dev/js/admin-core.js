@@ -529,6 +529,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
     const si = drop.querySelector('.mf-search');
     const emptyEl = drop.querySelector('.mf-search-empty');
     const onlyBtn = drop.querySelector('.mf-search-only');
+    const allItem = drop.querySelector('.all-item');
     const optItems = [...drop.querySelectorAll('.mf-item:not(.all-item)')];
     if (si) si.oninput = () => {
       const q = (si.value || '').trim().toLowerCase();
@@ -541,7 +542,8 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
         if (show) visible++;
       });
       if (emptyEl) emptyEl.style.display = visible === 0 ? '' : 'none';
-      // 검색어가 있고 결과가 있을 때만 「이 검색 결과만 선택」 버튼 노출
+      // 검색 중엔 「전체」 항목을 숨기고 「이 검색 결과만 선택」 버튼으로 대체(검색어 지우면 「전체」 복귀).
+      if (allItem) allItem.style.display = q ? 'none' : '';
       if (onlyBtn) onlyBtn.style.display = (q && visible > 0) ? '' : 'none';
     };
     // 검색에 보이는 항목만 선택(나머지 해제) → 그 캠페인들만 필터링. 「전체」 체크 상태도 자동 해제(부분 선택).

@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782289578';
+  var CURRENT_BUILD = 'v1782290048';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-24 17:26 · 9e260d1</span>
+          <span class="admin-build-text">2026-06-24 17:34 · 760fea6</span>
         </div>
       </div>
     </aside>
@@ -11315,6 +11315,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
     const si = drop.querySelector('.mf-search');
     const emptyEl = drop.querySelector('.mf-search-empty');
     const onlyBtn = drop.querySelector('.mf-search-only');
+    const allItem = drop.querySelector('.all-item');
     const optItems = [...drop.querySelectorAll('.mf-item:not(.all-item)')];
     if (si) si.oninput = () => {
       const q = (si.value || '').trim().toLowerCase();
@@ -11327,7 +11328,8 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
         if (show) visible++;
       });
       if (emptyEl) emptyEl.style.display = visible === 0 ? '' : 'none';
-      // 검색어가 있고 결과가 있을 때만 「이 검색 결과만 선택」 버튼 노출
+      // 검색 중엔 「전체」 항목을 숨기고 「이 검색 결과만 선택」 버튼으로 대체(검색어 지우면 「전체」 복귀).
+      if (allItem) allItem.style.display = q ? 'none' : '';
       if (onlyBtn) onlyBtn.style.display = (q && visible > 0) ? '' : 'none';
     };
     // 검색에 보이는 항목만 선택(나머지 해제) → 그 캠페인들만 필터링. 「전체」 체크 상태도 자동 해제(부분 선택).
