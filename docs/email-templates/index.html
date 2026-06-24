@@ -172,6 +172,27 @@
     </div>
   </div>
 
+  <!-- ⑤-2 오리엔시트 작성 요청 -->
+  <div class="card">
+    <div class="card-tag tag-brand">Brand</div>
+    <div class="card-title">오리엔시트 작성 요청</div>
+    <div class="card-desc">관리자가 작성 링크를 발급하면 브랜드 담당자에게 작성 링크 자동 발송.</div>
+    <div class="card-condition">
+      <div class="cc-label">언제 보내요?</div>
+      <div class="cc-text">관리자가 「오리엔시트 발급」을 누르면 브랜드 담당자에게 「캠페인 정보를 여기서 작성해 주세요」 링크를 보냅니다.</div>
+      <div class="cc-timing"><strong>발송 시점:</strong> 오리엔시트 발급 즉시 (수신자 이메일 없으면 발송 건너뜀)</div>
+    </div>
+    <div class="card-meta">
+      <div><b>트리거:</b> create_orient_sheet 발급 직후 notify-orient-sheet invoke</div>
+      <div><b>수신자:</b> 서베이=applicant_email / 비-서베이=brands 대표 담당자</div>
+      <div><b>언어:</b> KO</div>
+    </div>
+    <div class="card-actions">
+      <a class="btn btn-primary" href="orient-sheet-invite.preview.html">미리보기</a>
+      <a class="btn btn-ghost" href="orient-sheet-invite.html">원본</a>
+    </div>
+  </div>
+
   <!-- ⑥ 결과물 — 영수증 승인 -->
   <div class="card">
     <div class="card-tag tag-infl">Influencer</div>
