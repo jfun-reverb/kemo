@@ -125,6 +125,10 @@ async function openCampaign(id) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.submissionEnd')}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
           }
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
+          // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
+          if (camp.min_followers) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.minFollowers')}</div><div style="${VAL}">${camp.min_followers.toLocaleString()}${t('detail.minFollowersSuffix')}</div></div>`);
+          }
           // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
           if (!isMonitor) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.winnerAnnounce')}</div><div style="${VAL}">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div></div>`);

@@ -355,6 +355,8 @@ window.I18N_KO = {
     recruitType: '모집 타입',
     recruitPeriod: '모집 기간',
     recruitSlots: '모집 인원',
+    minFollowers: '최소 팔로워수',
+    minFollowersSuffix: '명 이상',
     winnerAnnounce: '당선 발표',
     winnerAnnounceValue: '선정 후 LINE으로 연락',
     postDeadline: '게시 마감일',
