@@ -113,8 +113,17 @@ function osRowHtml(s) {
     <td style="white-space:nowrap">
       <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${s.id}')">상세</button>
+      <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
     </td>
   </tr>`;
+}
+
+// 시트에 연결된 발행 캠페인 수 (data.cards[].campaign_id DISTINCT)
+function osPublishedCampaignCount(s) {
+  const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  const ids = new Set();
+  cards.forEach(c => { if (c && c.campaign_id) ids.add(c.campaign_id); });
+  return ids.size;
 }
 
 function osCopyLink(id) {
@@ -249,6 +258,77 @@ async function osSendInviteAndShow(orientSheetId) {
   } else {
     box.innerHTML = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>' +
       '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>';
+  }
+}
+
+// ── 삭제 모달 (브랜드명 재입력 확인 — 캠페인 삭제 패턴 미러) ──
+let _osDeleteId = null;
+let _osDeleteBrandName = '';
+
+function osOpenDelete(id) {
+  ensureOrientModals();
+  const s = _orientSheets.find(x => x.id === id);
+  if (!s) { toast('시트 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  _osDeleteId = id;
+  _osDeleteBrandName = osBrandName(s);
+  const campCount = osPublishedCampaignCount(s);
+
+  document.getElementById('osDeleteBrand').textContent = _osDeleteBrandName;
+  document.getElementById('osDeleteBrandEcho').textContent = _osDeleteBrandName;
+  const warn = document.getElementById('osDeleteCampWarn');
+  if (campCount > 0) {
+    warn.innerHTML = '이 오리엔시트에 연결된 발행 캠페인 <b>' + campCount + '개</b>도 함께 삭제됩니다. ' +
+      '단, 신청이 1건이라도 있는 캠페인이 포함되면 삭제할 수 없습니다.';
+    warn.style.display = '';
+  } else {
+    warn.style.display = 'none';
+  }
+  const input = document.getElementById('osDeleteConfirmInput');
+  input.value = '';
+  document.getElementById('osDeleteError').style.display = 'none';
+  osCheckDeleteConfirm();
+  document.getElementById('orientDeleteModal').classList.add('open');
+  input.focus();
+}
+
+function osCheckDeleteConfirm() {
+  const v = (document.getElementById('osDeleteConfirmInput').value || '').trim();
+  const btn = document.getElementById('osDeleteBtn');
+  const ok = v === _osDeleteBrandName && !!_osDeleteBrandName;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.4';
+  btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+}
+
+async function osExecuteDelete() {
+  const v = (document.getElementById('osDeleteConfirmInput').value || '').trim();
+  const err = document.getElementById('osDeleteError');
+  if (v !== _osDeleteBrandName) { err.textContent = '브랜드명이 일치하지 않습니다.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('osDeleteBtn');
+  btn.disabled = true;
+  try {
+    const res = await deleteOrientSheet(_osDeleteId);
+    if (res && res.success) {
+      osCloseModal('orientDeleteModal');
+      const n = Array.isArray(res.deleted_campaign_ids) ? res.deleted_campaign_ids.length : 0;
+      toast(n > 0 ? ('오리엔시트와 연결 캠페인 ' + n + '개를 삭제했습니다.') : '오리엔시트를 삭제했습니다.', 'success');
+      await refreshPane('orient-sheets');
+    } else if (res && res.reason === 'blocked_has_applications') {
+      const n = Array.isArray(res.campaign_ids) ? res.campaign_ids.length : 0;
+      err.textContent = '연결 캠페인 중 신청이 있는 캠페인(' + n + '개)이 있어 삭제할 수 없습니다. 신청을 먼저 정리해 주세요.';
+      err.style.display = 'block';
+    } else if (res && res.reason === 'permission_denied') {
+      err.textContent = '삭제 권한이 없습니다.';
+      err.style.display = 'block';
+    } else {
+      err.textContent = '삭제 실패: ' + ((res && res.reason) || '알 수 없는 오류');
+      err.style.display = 'block';
+    }
+  } catch (e) {
+    err.textContent = '삭제 오류: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || '오류'));
+    err.style.display = 'block';
+  } finally {
+    osCheckDeleteConfirm();
   }
 }
 
@@ -551,6 +631,23 @@ function ensureOrientModals() {
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDetailModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="osDetailBody"></div>
       <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDetailModal')">닫기</button></div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="orientDeleteModal">
+    <div class="modal" style="max-width:440px;width:94vw;border-radius:16px;margin:auto;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>오리엔시트 삭제</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDeleteModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:20px">
+        <p style="margin-bottom:10px">브랜드 <b id="osDeleteBrand"></b> 의 오리엔시트를 삭제합니다. 이 작업은 되돌릴 수 없습니다.</p>
+        <div id="osDeleteCampWarn" style="display:none;margin-bottom:12px;padding:10px 12px;background:#FFF0F2;border:1px solid #F3C2CA;border-radius:8px;font-size:13px;color:#A11221"></div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">삭제하려면 브랜드명 「<span id="osDeleteBrandEcho" style="font-weight:700;color:var(--text,#161618)"></span>」 을 그대로 입력하세요.</p>
+        <input type="text" id="osDeleteConfirmInput" class="form-input" oninput="osCheckDeleteConfirm()" autocomplete="off">
+        <div id="osDeleteError" style="display:none;margin-top:8px;font-size:13px;color:#C41E3A"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDeleteModal')">취소</button>
+        <button type="button" class="btn" id="osDeleteBtn" style="background:#C41E3A;color:#fff" onclick="osExecuteDelete()" disabled>삭제</button>
+      </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
