@@ -499,14 +499,7 @@ const FORM_TYPES = [
 ];
 const FORM_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
 
-// 판매처(마켓) + 마켓별 대형할인 행사 — 하드코딩(사양서 §15-10, 기준데이터 관리는 후속)
-const MARKETS = ['Qoo10', 'Amazon', '@cosme', 'LIPS'];
-const MARKET_EVENTS = {
-  'Qoo10':  ['메가와리', '메가포'],
-  'Amazon': ['프라임데이', '블랙프라이데이', '사이버먼데이', '타임세일 축제'],
-  '@cosme': ['자체 세일'],
-  'LIPS':   ['자체 세일'],
-};
+// 판매처는 Qoo10 고정(드롭다운·마켓별 행사 제거, 2026-06-25). 가격은 상시가만 받음.
 
 // 시딩 등급별 게시 채널 (사양서 §15-10: 나노=IG 한정, 미들·메가=다채널)
 const SEEDING_CHANNELS_BY_GRADE = {
@@ -703,16 +696,6 @@ function imageRowHtml(value) {
   </div>`;
 }
 
-function marketOptionsHtml(selected) {
-  return '<option value="">선택</option>' + MARKETS.map(m =>
-    `<option value="${escAttr(m)}"${m === selected ? ' selected' : ''}>${escAttr(m)}</option>`).join('');
-}
-
-function eventOptionsHtml(market, selected) {
-  const list = MARKET_EVENTS[market] || [];
-  return '<option value="">없음</option>' + list.map(ev =>
-    `<option value="${escAttr(ev)}"${ev === selected ? ' selected' : ''}>${escAttr(ev)}</option>`).join('');
-}
 
 // 카드 HTML 골격 (형식별 분기는 CSS data-ctype 으로 표시/숨김)
 function cardHtml(id, card) {
@@ -763,23 +746,15 @@ function cardHtml(id, card) {
         </div>
         <div class="field-hint" style="margin:-6px 0 14px">원하시는 모집 기간을 적어 주세요. 구매·게시·결과 발표 일정은 담당자가 캠페인 등록 시 조율해 채웁니다.</div>
 
-        <!-- 판매처·가격 (가구매·리뷰어) -->
+        <!-- 판매처·가격 (가구매·리뷰어) — 판매처 Qoo10 고정, 가격은 상시가만 -->
         <div class="only-rp">
           <div class="field"><label>판매처</label>
-            <select class="f-market" onchange="onMarketChange('${id}')">${marketOptionsHtml(sale.market)}</select></div>
+            <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
           <div class="field"><label>판매 URL</label>
-            <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onInput()"></div>
+            <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
+            <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
           <div class="field"><label>상시가<span class="req">*</span></label>
             <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
-          <div class="field"><label>세일가</label>
-            <input type="text" class="f-price-sale" placeholder="세일 진행 시에만 (예: 4,500엔)" value="${escAttr(sale.price_sale)}" oninput="onInput()">
-            <div class="field-hint">세일을 진행하지 않으면 비워 두세요.</div></div>
-          <div class="row2">
-            <div class="field"><label>대형할인 행사</label>
-              <select class="f-event" onchange="onInput()">${eventOptionsHtml(sale.market, sale.event)}</select></div>
-            <div class="field"><label>대형할인 특가</label>
-              <input type="text" class="f-price-event" placeholder="예: 3,900엔" value="${escAttr(sale.price_event)}" oninput="onInput()"></div>
-          </div>
         </div>
 
         <!-- 리뷰 가이드 (리뷰어) -->
@@ -876,7 +851,8 @@ function selectCardType(id, ft) {
 
 // 형식 전환 시 형식 전용 입력 비우기 (공통 필드는 보존)
 function clearCardTypeFields(el) {
-  ['.f-market', '.f-sale-url', '.f-price-regular', '.f-price-sale', '.f-event', '.f-price-event',
+  // .f-market 은 readonly 고정값(Qoo10)이라 비우지 않음
+  ['.f-sale-url', '.f-price-regular',
    '.f-review-guide', '.f-appeal', '.f-hashtags', '.f-account-tags',
    '.f-shooting', '.f-required', '.f-gift', '.f-shipping'].forEach(sel => {
     const node = el.querySelector(sel);
@@ -888,13 +864,24 @@ function clearCardTypeFields(el) {
   if (gradeSel) gradeSel.value = 'nano';
 }
 
-// 마켓 변경 → 행사 드롭다운 갱신(기존 선택은 마켓이 바뀌면 초기화)
-function onMarketChange(id) {
-  const el = $(id);
-  if (!el) return;
-  const market = el.querySelector('.f-market').value;
-  el.querySelector('.f-event').innerHTML = eventOptionsHtml(market, '');
+// 판매 URL 입력 — dirty 마킹 + Qoo10 주소 경고 토글
+function onSaleUrlInput(input) {
   onInput();
+  toggleSaleUrlWarn(input);
+}
+// 판매 URL 포커스 아웃 — 스킴 누락·ttp:// 등 자동 보정 후 경고 재판정
+function onSaleUrlBlur(input) {
+  const v = (input.value || '').trim();
+  if (v) input.value = normalizeUrl(v);
+  toggleSaleUrlWarn(input);
+}
+// 입력값이 Qoo10(qoo10.jp) 주소가 아니면 경고만 표시(제출은 허용)
+function toggleSaleUrlWarn(input) {
+  const warn = input.parentElement.querySelector('.f-saleurl-warn');
+  if (!warn) return;
+  const v = (input.value || '').trim().toLowerCase();
+  const isQoo10 = !v || v.includes('qoo10');
+  warn.style.display = isQoo10 ? 'none' : '';
 }
 
 // 시딩 등급 변경 → 채널 선택지·미들메가 전용 항목 표시 갱신(가이드 텍스트는 보존)
@@ -1009,12 +996,9 @@ function collectCard(el) {
       recruit_end: el.querySelector('.f-recruit-end').value,
     },
     sale: {
-      market: el.querySelector('.f-market').value,
+      market: 'Qoo10',
       url: normalizeUrl(el.querySelector('.f-sale-url').value),
       price_regular: el.querySelector('.f-price-regular').value.trim(),
-      price_sale: el.querySelector('.f-price-sale').value.trim(),
-      event: el.querySelector('.f-event').value,
-      price_event: el.querySelector('.f-price-event').value.trim(),
     },
     review_guide: el.querySelector('.f-review-guide').value.trim(),
     seeding: {
@@ -1166,11 +1150,9 @@ function renderPreviewCard(c, idx) {
   rows += pvRow('모집 인원', c.product.slots);
   rows += pvRow('희망 모집', [c.recruit.recruit_start, c.recruit.recruit_end].filter(Boolean).join(' ~ '));
   if (ft === 'reviewer' || ft === 'proxy_purchase') {
-    rows += pvRow('판매처', c.sale.market);
+    rows += pvRow('판매처', c.sale.market || 'Qoo10');
     rows += pvRow('판매 URL', c.sale.url);
     rows += pvRow('상시가', c.sale.price_regular);
-    if (c.sale.price_sale) rows += pvRow('세일가', c.sale.price_sale);
-    if (c.sale.event) rows += pvRow('대형할인', `${c.sale.event} ${c.sale.price_event || ''}`.trim());
   }
   if (ft === 'reviewer') rows += pvRow('리뷰 가이드', c.review_guide);
   if (ft === 'seeding') {
