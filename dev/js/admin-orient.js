@@ -399,9 +399,8 @@ function osCardDetail(c, idx, catMap) {
     + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
 
   if (ft === 'proxy_purchase' || ft === 'reviewer') {
-    inner += osField('판매처', sale.market) + osFieldHtml('판매 URL', osLinkOrText(sale.url))
-      + osField('상시가', sale.price_regular) + osField('세일가', sale.price_sale)
-      + osField('대형할인', [sale.event, sale.price_event].filter(Boolean).join(' '));
+    inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url))
+      + osField('상시가', sale.price_regular);
   }
   if (ft === 'reviewer') inner += osField('리뷰 가이드', c.review_guide);
   if (ft === 'seeding') {
@@ -501,8 +500,6 @@ function osBuildRewardNote(card) {
   const parts = [];
   if (card.form_type === 'proxy_purchase') parts.push('[가구매] 영수증만 제출 (리뷰·게시 없음)');
   if (s.price_regular) parts.push('상시가 ' + s.price_regular);
-  if (s.price_sale) parts.push('세일가 ' + s.price_sale);
-  if (s.event) parts.push(s.event + ' ' + (s.price_event || ''));
   return parts.join(' / ');
 }
 
