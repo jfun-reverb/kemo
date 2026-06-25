@@ -346,6 +346,8 @@ window.I18N_JA = {
     recruitType: '募集タイプ',
     recruitPeriod: '募集期間',
     recruitSlots: '募集人数',
+    minFollowers: '最小フォロワー数',
+    minFollowersSuffix: '人以上',
     winnerAnnounce: '当選発表',
     winnerAnnounceValue: '選考後、LINEにてご連絡',
     postDeadline: '投稿締切日',
