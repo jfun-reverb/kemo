@@ -12,10 +12,43 @@ function updateGnb() {
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta();
 }
 
+// 생년월일 년/월/일 select 채우기 (멱등). prefix 로 가입('signup')·응모 게이트('gate') 공용.
+// 가입 폼 입력을 바꾸면 즉시 에러 문구를 지움 (값을 고쳐도 에러가 다음 제출까지 남는 문제 방지)
+function bindSignupErrorClear() {
+  const area = $('signupFormArea'), errEl = $('signupError');
+  if (!area || !errEl || area.dataset.errClearBound) return;
+  area.dataset.errClearBound = '1';
+  const clear = () => { errEl.style.display = 'none'; };
+  area.addEventListener('input', clear);   // 텍스트·이메일·비밀번호
+  area.addEventListener('change', clear);  // 생년월일·성별 select
+}
+
+function populateBirthdateSelects(prefix) {
+  prefix = prefix || 'signup';
+  if (prefix === 'signup') bindSignupErrorClear();
+  const yEl = $(prefix+'BirthYear'), mEl = $(prefix+'BirthMonth'), dEl = $(prefix+'BirthDay');
+  if (!yEl || !mEl || !dEl || yEl.dataset.filled) return;
+  const curY = new Date().getFullYear();
+  for (let y = curY; y >= 1940; y--) {
+    const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); yEl.appendChild(o);
+  }
+  for (let mo = 1; mo <= 12; mo++) {
+    const o = document.createElement('option'); o.value = String(mo); o.textContent = String(mo); mEl.appendChild(o);
+  }
+  for (let d = 1; d <= 31; d++) {
+    const o = document.createElement('option'); o.value = String(d); o.textContent = String(d); dEl.appendChild(o);
+  }
+  yEl.dataset.filled = '1';
+}
+
 async function handleSignup(e) {
   e.preventDefault();
   const name = ($('signupNameKanji')?.value||'').trim();
   const nameKana = ($('signupNameKana')?.value||'').trim();
+  const birthYear = $('signupBirthYear')?.value || '';
+  const birthMonth = $('signupBirthMonth')?.value || '';
+  const birthDay = $('signupBirthDay')?.value || '';
+  const gender = $('signupGender')?.value || '';
   const email = $('signupEmail').value.trim();
   const pw = $('signupPw').value;
   const pw2 = $('signupPw2').value;
@@ -24,6 +57,17 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent=t('authError.enterName'); errEl.style.display='block'; return; }
+  // 생년월일 필수 + 유효 날짜 + 만 18세 이상 검증
+  if (!birthYear || !birthMonth || !birthDay) { errEl.textContent=t('authError.enterBirthdate'); errEl.style.display='block'; return; }
+  const birthdate = `${birthYear}-${String(birthMonth).padStart(2,'0')}-${String(birthDay).padStart(2,'0')}`;
+  const bdObj = new Date(birthdate + 'T00:00:00+09:00');
+  if (isNaN(bdObj.getTime()) || (bdObj.getMonth()+1) !== Number(birthMonth) || bdObj.getDate() !== Number(birthDay)) {
+    errEl.textContent=t('authError.invalidBirthdate'); errEl.style.display='block'; return;
+  }
+  const age = calcAgeFromBirthdate(birthdate);
+  if (age === null || age < AGE_POLICY_MIN_AGE) { errEl.textContent=t('authError.under18'); errEl.style.display='block'; return; }
+  // 성별 필수 (回答しない 포함 4종 — 빈 값만 차단)
+  if (!gender) { errEl.textContent=t('authError.enterGender'); errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
   const pwErr = validatePasswordPolicy(pw);
   if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
@@ -39,6 +83,7 @@ async function handleSignup(e) {
   const nowIso = new Date().toISOString();
   const userData = {
     email, name, name_kanji: name, name_kana: nameKana,
+    birthdate, gender,
     terms_agreed_at: nowIso,
     privacy_agreed_at: nowIso,
     marketing_opt_in: marketingOptIn,
@@ -53,7 +98,8 @@ async function handleSignup(e) {
 
   try {
     const {data, error} = await db.auth.signUp({email, password: pw});
-    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
+    // 계정 열거 방지: 이미 가입된 이메일 등 서버 원문(영문) 노출 금지, 모호한 일반 메시지로 통일
+    if (error) { errEl.textContent=t('authError.signupFailed'); errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
@@ -70,7 +116,8 @@ async function handleSignup(e) {
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
-    errEl.textContent=t('authError.genericError') + ': ' + (e.message || String(e)); errEl.style.display='block';
+    // 영문 예외 메시지 노출 금지 — 일반 안내로 통일
+    errEl.textContent=t('authError.signupFailed'); errEl.style.display='block';
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
@@ -160,7 +207,8 @@ async function handleForgotPassword(e) {
     const redirectUrl = location.origin + '/#reset-pw';
     const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
     if (error) {
-      errEl.textContent = error.message;
+      // 영문 서버 메시지·계정 존재 힌트 노출 금지 — 일반 안내로 통일
+      errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
       successEl.textContent = t('auth.forgot.successMsg');
@@ -209,7 +257,8 @@ async function handleResetPassword(e) {
   try {
     const {error} = await db.auth.updateUser({password: pw});
     if (error) {
-      errEl.textContent = error.message;
+      // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
+      errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
       try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}

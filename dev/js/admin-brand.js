@@ -1795,10 +1795,9 @@ function renderBrandApplicationsList() {
   var res = getFilteredBrandApps();
   var list = res.list;
   var filterActive = res.filterActive;
-  var resetBtn = $('btnBrandAppFilterReset');
-  if (resetBtn) resetBtn.style.display = filterActive ? 'inline-block' : 'none';
-  var sortResetBtn = $('btnBrandAppSortReset');
-  if (sortResetBtn) sortResetBtn.style.display = _brandAppSortIsDefault() ? 'none' : 'inline-block';
+  // 보기 초기화 — 필터·검색·정렬 중 하나라도 비기본이면 표시
+  var viewResetBtn = $('btnBrandAppViewReset');
+  if (viewResetBtn) viewResetBtn.style.display = (filterActive || !_brandAppSortIsDefault()) ? 'inline-block' : 'none';
 
   var count = $('brandAppTotalCount');
   if (count) {
@@ -1856,7 +1855,8 @@ function renderBrandApplicationsList() {
   });
 }
 
-function resetBrandAppFilters() {
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetBrandAppView() {
   resetMultiFilter('brandAppFormMulti', '전체 폼');
   // 상태 탭 초기화 (전체 탭으로)
   _brandAppActiveStatusTab = null;
@@ -1872,6 +1872,8 @@ function resetBrandAppFilters() {
   ['brandAppFromDate','brandAppToDate','brandAppDateRange'].forEach(function(id){
     var el = $(id); if (el) el.classList.remove('filter-active');
   });
+  _brandAppSort = {field: 'created', dir: 'desc'};
+  updateBrandAppSortIndicators();
   renderBrandApplicationsList();
 }
 
@@ -1916,12 +1918,6 @@ function toggleBrandAppSort(field) {
 
 function _brandAppSortIsDefault() {
   return _brandAppSort.field === 'created' && _brandAppSort.dir === 'desc';
-}
-
-function resetBrandAppSort() {
-  _brandAppSort = {field: 'created', dir: 'desc'};
-  updateBrandAppSortIndicators();
-  renderBrandApplicationsList();
 }
 
 // 정렬 화살표 활성 상태 시각화 (▲ asc / ▼ desc / ▲▼ inactive)

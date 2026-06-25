@@ -62,7 +62,7 @@ async function fetchCampaigns() {
 const ADMIN_LIST_COLUMNS = [
   'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
-  'recruit_type', 'channel', 'status',
+  'recruit_type', 'channel', 'channel_match', 'status',
   'slots', 'view_count',
   'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
   'image_url', 'image_crops', 'emoji',
@@ -265,12 +265,17 @@ async function incrementViewCount(campId) {
 }
 
 // ── Influencers ──
-async function fetchInfluencers() {
+// includeAudit 기본 true = 기존 동작 보존(전건 반환).
+// 통계·엑셀 등 실수 집계가 필요한 호출처만 { includeAudit: false } 를 명시 전달(PR D/F에서).
+async function fetchInfluencers(opts = {}) {
   if (!db) return [];
+  const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() =>
-      db.from('influencers').select('*').order('created_at', {ascending: true})
-    );
+    return await fetchAllPaged(() => {
+      let q = db.from('influencers').select('*').order('created_at', {ascending: true});
+      if (!includeAudit) q = q.eq('is_audit', false);
+      return q;
+    });
   } catch(e) {
     return [];
   }
@@ -301,6 +306,53 @@ function computePrefectureStats(users, limit) {
     .slice(0, maxTop)
     .map(([name, count]) => ({ name, count }));
   return { top, unregistered, overseas, total: rows.length };
+}
+
+// 연령·성별 분포 집계 — 대시보드 카드용 (computePrefectureStats 패턴: 추가 쿼리 없이 배열만 집계).
+// 연령대=마케팅 구간(18-24/25-29/30-34/35-39/40-49/50+) + 미등록 + 이상치(생년월일 있으나 18세 미만/비현실).
+// 성별=male/female/other/undisclosed + unregistered(미등록). 연령×성별 교차표 cross 포함.
+// 만 나이는 shared.js calcAgeFromBirthdate(KST) 재사용. 감사용 격리는 호출부(statsUsers)에서 선처리.
+const AGE_GENDER_BUCKETS = ['18-24', '25-29', '30-34', '35-39', '40-49', '50+'];
+function computeAgeGenderStats(users) {
+  const rows = Array.isArray(users) ? users : [];
+  const genders = ['male', 'female', 'other', 'undisclosed'];
+  const bucketOf = (age) => {
+    if (age == null || age < 18 || age > 120) return null; // 미등록/이상치
+    if (age <= 24) return '18-24';
+    if (age <= 29) return '25-29';
+    if (age <= 34) return '30-34';
+    if (age <= 39) return '35-39';
+    if (age <= 49) return '40-49';
+    return '50+';
+  };
+
+  const ageCounts = {}; AGE_GENDER_BUCKETS.forEach(l => { ageCounts[l] = 0; });
+  let ageUnregistered = 0, ageInvalid = 0;
+  const gender = { male: 0, female: 0, other: 0, undisclosed: 0, unregistered: 0 };
+  const cross = {}; [...AGE_GENDER_BUCKETS, '미등록'].forEach(l => { cross[l] = { male: 0, female: 0, other: 0, undisclosed: 0, unregistered: 0 }; });
+
+  let ageRegistered = 0, genderRegistered = 0;
+  for (const row of rows) {
+    const bd = row && row.birthdate ? String(row.birthdate) : '';
+    const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(bd) : null;
+    const bucket = bucketOf(age);
+    const g = genders.includes(row && row.gender) ? row.gender : 'unregistered';
+
+    if (bucket) { ageCounts[bucket]++; ageRegistered++; }
+    else if (bd && age != null) { ageInvalid++; }   // 생년월일 있으나 18세 미만/비현실값 = 이상치
+    else { ageUnregistered++; }                       // 생년월일 미입력/파싱 실패 = 미등록
+
+    gender[g]++;
+    if (g !== 'unregistered') genderRegistered++;
+
+    cross[bucket || '미등록'][g]++;
+  }
+
+  const ageBuckets = AGE_GENDER_BUCKETS.map(l => ({ label: l, count: ageCounts[l] }));
+  ageBuckets.push({ label: '미등록', count: ageUnregistered });
+  if (ageInvalid > 0) ageBuckets.push({ label: '이상치', count: ageInvalid });
+
+  return { total: rows.length, ageRegistered, genderRegistered, ageBuckets, gender, cross, ageInvalid };
 }
 
 // ── 인플루언서 인증/블랙리스트 (관리자 전용, migration 059) ──
@@ -614,7 +666,7 @@ async function fetchDeliverables(filters) {
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -1177,7 +1229,7 @@ async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
     const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note')
+      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
       .in('id', userIds);
     if (error) throw error;
     const map = {};
@@ -3199,5 +3251,123 @@ async function resolveClientError(id, status, note) {
     });
     return true;
   } catch (e) { console.error('[resolveClientError]', e); return false; }
+}
+
+// ── 감사용 계정 흔적 제거 (super_admin 한정, 마이그레이션 179) ──
+//
+// ⚠️ Storage 삭제 메모
+//   - 메시지 첨부(message_attachments): RPC가 반환하는 값이 이미 버킷 상대 경로({appId}/{uuid}.jpg)이므로
+//     그대로 db.storage.from('application-message-attachments').remove([...paths]) 로 삭제.
+//   - 영수증 이미지(receipt_images): receipt_url 컬럼에는 Supabase 공개 전체 URL이 저장됨
+//     (https://{project}.supabase.co/storage/v1/object/public/campaign-images/receipts/...).
+//     db.storage.remove()는 버킷 내 상대 경로를 요구하므로, URL에서
+//     '/storage/v1/object/public/campaign-images/' 접두사를 제거해 상대 경로를 추출한다.
+//     변환 실패 시(접두사 불일치 등) 그 파일만 건너뛰고 나머지는 계속 처리.
+
+// Supabase 공개 URL → campaign-images 버킷 상대 경로 변환 헬퍼
+// 예: 'https://xxx.supabase.co/storage/v1/object/public/campaign-images/receipts/abc.jpg'
+//     → 'receipts/abc.jpg'
+// 변환 불가(형식 불일치)면 null 반환.
+function _receiptUrlToStoragePath(url) {
+  if (!url || typeof url !== 'string') return null;
+  const MARKER = '/storage/v1/object/public/campaign-images/';
+  const idx = url.indexOf(MARKER);
+  if (idx === -1) return null;
+  const path = url.slice(idx + MARKER.length);
+  return path || null;
+}
+
+// Storage 파일 삭제 공통 헬퍼.
+// bucket: 버킷명, paths: 상대 경로 배열 (빈 배열이면 즉시 반환).
+// 삭제 실패 시 에러를 throw 하지 않고 {ok, failedPaths} 형태로 반환
+// (일부 경로 삭제 실패가 흔적 제거 전체를 막지 않도록).
+async function _deleteStorageFiles(bucket, paths) {
+  if (!db || !Array.isArray(paths) || paths.length === 0) return { ok: true, failedPaths: [] };
+  try {
+    const { error } = await db.storage.from(bucket).remove(paths);
+    if (error) {
+      console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패:`, error);
+      return { ok: false, failedPaths: paths };
+    }
+    return { ok: true, failedPaths: [] };
+  } catch (e) {
+    console.warn(`[_deleteStorageFiles] ${bucket} 예외:`, e);
+    return { ok: false, failedPaths: paths };
+  }
+}
+
+// 모든 감사용 계정 흔적 제거.
+// RPC 성공 후 Storage 파일(메시지 첨부 + 영수증 이미지)도 후속 삭제.
+// 반환: { rpc, storageResult } — 호출처가 삭제 결과를 사용자에게 표시할 수 있도록.
+async function purgeAuditDataAll() {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_all');
+    if (error) throw error;
+
+    // RPC 결과가 'no_audit_account' 이면 삭제할 Storage 파일도 없음
+    if (!data || data.status === 'no_audit_account') {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete || {};
+
+    // 메시지 첨부: 이미 버킷 상대 경로
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    // 영수증: 전체 URL → 버킷 상대 경로 변환 (변환 불가 항목 제외)
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
+}
+
+// 특정 캠페인의 감사용 계정 흔적 제거.
+// 반환: { rpc, storageResult }
+async function purgeAuditDataForCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_for_campaign', {
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+
+    // 응모건 0건 케이스: storage_paths_to_delete 키 자체가 없을 수 있음
+    if (!data || data.status === 'no_audit_account' || !data.storage_paths_to_delete) {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete;
+
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
 }
 

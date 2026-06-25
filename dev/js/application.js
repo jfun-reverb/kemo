@@ -480,6 +480,24 @@ function handleFloatApply() {
     toast(t('apply.emailUnverified'),'error');
     return;
   }
+  // 연령 게이트 (소급 — 응모 시점 검증, 사양서 §0-1 ①). 클라 표시용·서버 트리거(P0002)가 최종 방어선
+  //   - 생년월일/성별 미입력 → 입력 게이트 모달 (입력·저장 후 다시 응모 진행)
+  //   - 만 18세 미만 → 응모 차단 안내 (계정·둘러보기는 유지, 18세 도달 시 자동 해제)
+  const pAge = currentUserProfile || {};
+  if (!pAge.birthdate || !pAge.gender) {
+    openAgeGate();
+    return;
+  }
+  const curAge = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(pAge.birthdate) : null;
+  if (curAge !== null && curAge < AGE_POLICY_MIN_AGE) {
+    if (typeof openModal === 'function') {
+      $('alertModalMessage').textContent = t('ageGate.under18Apply');
+      openModal('alertModal');
+    } else {
+      toast(t('ageGate.under18Apply'), 'error');
+    }
+    return;
+  }
   // 필수 정보 체크: 이름(한자·가나) + 캠페인 채널에 맞는 SNS 계정 + 배송지
   const p = currentUserProfile || {};
   const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
@@ -535,6 +553,77 @@ function handleFloatApply() {
 function openProductPage() {
   const url = $('floatProductPageBtn')?.dataset.url;
   if (url) window.open(url,'_blank');
+}
+
+// ── 응모 연령 게이트 (생년월일·성별 미입력 시 응모 직전 입력, 사양서 §0-1 ①) ──
+function openAgeGate() {
+  if (typeof populateBirthdateSelects === 'function') populateBirthdateSelects('gate');
+  const err = $('ageGateError');
+  if (err) { err.style.display='none'; err.textContent=''; }
+  // 기존 입력값 복원 (성별만 — 생년월일은 최초 입력이라 보통 비어 있음)
+  const p = currentUserProfile || {};
+  if (p.gender && $('gateGender')) $('gateGender').value = p.gender;
+  // 동의 체크박스는 매번 미체크로 초기화 (재진입 시 이전 체크 상태로 무의식 통과 방지)
+  if ($('gateAgreePrivacy')) $('gateAgreePrivacy').checked = false;
+  const ov = $('ageGateOverlay');
+  if (ov) ov.style.display = 'flex';
+}
+
+function closeAgeGate() {
+  const ov = $('ageGateOverlay');
+  if (ov) ov.style.display = 'none';
+}
+
+async function saveAgeGate() {
+  const err = $('ageGateError');
+  const showErr = (msg) => { if (err) { err.textContent = msg; err.style.display='block'; } };
+  const by = $('gateBirthYear')?.value || '';
+  const bm = $('gateBirthMonth')?.value || '';
+  const bd = $('gateBirthDay')?.value || '';
+  const gender = $('gateGender')?.value || '';
+  if (err) err.style.display='none';
+  if (!by || !bm || !bd) { showErr(t('authError.enterBirthdate')); return; }
+  const birthdate = `${by}-${String(bm).padStart(2,'0')}-${String(bd).padStart(2,'0')}`;
+  const bdObj = new Date(birthdate + 'T00:00:00+09:00');
+  if (isNaN(bdObj.getTime()) || (bdObj.getMonth()+1) !== Number(bm) || bdObj.getDate() !== Number(bd)) {
+    showErr(t('authError.invalidBirthdate')); return;
+  }
+  if (!gender) { showErr(t('authError.enterGender')); return; }
+  // 개인정보(생년월일·성별) 수집·이용 동의 필수 — 신규 수집이므로 명시 동의 (개인정보보호법)
+  if (!$('gateAgreePrivacy')?.checked) { showErr(t('ageGate.agreeRequired')); return; }
+
+  // ⚠️ 18세 미만은 DB 저장 없이 차단 — 생년월일 잠금 트리거(PR1)로 오타가 영구 고정되는 것 방지
+  //    (개인정보 최소수집 원칙). 18세 도달 후 재입력 시 저장됨(서버가 birthdate로 매번 판정).
+  const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(birthdate) : null;
+  if (age !== null && age < AGE_POLICY_MIN_AGE) {
+    closeAgeGate();
+    if (typeof openModal === 'function') {
+      $('alertModalMessage').textContent = t('ageGate.under18Apply');
+      openModal('alertModal');
+    } else {
+      toast(t('ageGate.under18Apply'), 'error');
+    }
+    return;
+  }
+
+  const btn = $('ageGateSaveBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  const consentAt = new Date().toISOString();
+  try {
+    await updateInfluencer(currentUser.id, { birthdate, gender, age_consent_at: consentAt });
+    if (!currentUserProfile) currentUserProfile = {};
+    currentUserProfile.birthdate = birthdate;
+    currentUserProfile.gender = gender;
+    currentUserProfile.age_consent_at = consentAt;
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
+    showErr(friendlyErrorJa(e));
+    return;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
+  closeAgeGate();
+  // 18세 이상 — 저장 완료, 응모 흐름 재개
+  handleFloatApply();
 }
 
 // ══════════════════════════════════════

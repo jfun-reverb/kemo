@@ -308,6 +308,34 @@ function matchSearchTokens(searchVal, fields) {
   return tokens.every(tok => haystack.includes(tok));
 }
 
+// 감사용 계정 「감사용」 배지 HTML.
+// inf: influencers 행(is_audit) 또는 is_audit 불리언을 가진 객체.
+// 감사용이 아니면 빈 문자열 — 일반 인플루언서 행에는 아무것도 출력 안 함.
+// 통계·산출물에서 격리된 계정임을 운영자가 한눈에 구분하도록 모든 인플·응모·결과물 행에 호출.
+function auditBadgeHtml(inf) {
+  if (!inf || !inf.is_audit) return '';
+  return '<span class="audit-badge" title="감사용 계정 — 통계·산출물에서 격리됨" translate="no">감사용</span>';
+}
+
+// 감사용 계정(is_audit) 회원번호(influencers.id) 집합 생성.
+// 관리자 화면에서 클라가 직접 응모 건수를 셀 때(빈자리·승인 차단) 감사용을 격리하기 위한 헬퍼.
+// applications 행에는 is_audit 가 없으므로 users(fetchInfluencers, is_audit 포함)에서 만든 집합을
+// user_id 로 대조한다(이메일 매칭보다 NULL·불일치·성능 위험이 없음).
+function buildAuditIdSet(users) {
+  return new Set((users || []).filter(u => u && u.is_audit).map(u => u.id));
+}
+
+// 특정 캠페인의 승인(approved) 응모 수를 감사용 제외로 계산.
+//   apps: applications 배열, campId: 캠페인 id(null 이면 전체), auditIds: buildAuditIdSet 결과.
+// 감사용 응모는 모집 슬롯·빈자리 집계에서 빠져야 한다(설계 격리, 마이그레이션 179·181).
+function countNonAuditApproved(apps, campId, auditIds) {
+  return (apps || []).filter(a =>
+    a.status === 'approved'
+    && (campId == null || a.campaign_id === campId)
+    && !(auditIds && auditIds.has(a.user_id))
+  ).length;
+}
+
 // 게시물(post) 채널이 캠페인이 요구하는 채널(channel 리스트)에 포함되는지 판정.
 //   - 요구 채널 중 하나만 맞으면 통과(or 기준, 2026-06-16 사용자 결정).
 //   - 캠페인 channel 이 비어 있으면(레거시·채널 미설정) 막지 않음(true) — 정상 제출 차단 방지.
@@ -540,6 +568,10 @@ const PANE_REFRESHERS = {
   },
   'brand-ops-detail': async () => {
     if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+  },
+  'upcoming': async () => {
+    // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
+    if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
   }
 };
 async function refreshPane(paneId) {
@@ -560,15 +592,54 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
+// 연령 정책 — 클라이언트 만 나이 계산 (표시·UX용. 최종 차단 판정은 서버 트리거 check_age_policy)
+//   가입 폼(PR 2)·응모 시점(PR 3) 공용. 'YYYY-MM-DD' 문자열 → 만 나이(정수) 또는 null.
+//   서버와 동일하게 일본/한국 표준시(KST=JST) 기준.
+// ══════════════════════════════════════
+const AGE_POLICY_MIN_AGE = 18; // 가입·응모 최소 연령
+
+function calcAgeFromBirthdate(birthdateStr) {
+  if (!birthdateStr) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr);
+  if (!m) return null;
+  const by = +m[1], bm = +m[2], bd = +m[3];
+  // 오늘(KST) 연·월·일
+  const nowKst = new Date(Date.now() + (new Date().getTimezoneOffset() * 60000) + (9 * 3600000));
+  const ty = nowKst.getFullYear(), tm = nowKst.getMonth() + 1, td = nowKst.getDate();
+  let age = ty - by;
+  // 올해 생일이 아직 안 지났으면 한 살 빼기
+  if (tm < bm || (tm === bm && td < bd)) age--;
+  return age;
+}
+
+// 생년월일 표시 라벨 (마이페이지·관리자 공용). lang 미지정 시 현재 언어.
+function formatBirthdateLabel(birthdateStr, lang) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr || '');
+  if (!m) return '';
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const l = lang || (typeof getLang === 'function' ? getLang() : 'ja');
+  return l === 'ko' ? `${y}년 ${mo}월 ${d}일` : `${y}年${mo}月${d}日`;
+}
+
+// 성별 코드 → 표시 라벨 (i18n 키 재사용). 빈 값이면 ''
+function genderLabel(code) {
+  const map = { male: 'auth.signup.genderMale', female: 'auth.signup.genderFemale',
+    other: 'auth.signup.genderOther', undisclosed: 'auth.signup.genderUndisclosed' };
+  if (!code || !map[code]) return '';
+  return (typeof t === 'function') ? t(map[code]) : code;
+}
+
+// ══════════════════════════════════════
 // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
 //   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  id: 'inquiry2026',            // localStorage 키 식별자. 이전 'message2026'에서 변경 → 이미 본 사람도 새 안내 재노출
-  effectiveDate: '2026-05-28',  // 시행일(완료형 표기용) = 운영 출시일 2026-05-28
-  noticeUntil: '2026-06-11',    // 노출 종료일 = 시행일 + 14일. 이 날 0시(KST)부터 자동 비노출
+  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-22 → 시행일 2026-07-22(공고+30일).
+  id: 'agePolicy2026',          // localStorage 키 식별자
+  effectiveDate: '2026-07-22',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
+  noticeUntil: '2026-08-05',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
@@ -667,6 +738,67 @@ function dismissPolicyNoticeBanner() {
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
 
 // ══════════════════════════════════════
+// 오픈 예정 기능 보드 (관리자 전용, D-day) — DB 미사용·코드 상수
+//   개발 세션이 시행일 걸린 기능을 운영 배포(또는 시행일 확정)할 때 항목 1줄 추가.
+//   "개발 완료된 것만 노출" = 코드에 등록된 것만 뜨므로 구조적으로 보장.
+//   effectiveDate 는 그 기능의 실제 시행일 상수와 동일값이어야 함(단일 소스 — 사양서 §7).
+//   ※ 예고판일 뿐 기능 스위치가 아님. 실제 활성은 별도(시행일 머지 또는 서버 시각 판정).
+//   공유 파일이라 인플루언서 앱에도 로드되나, 호출(렌더)은 관리자 페인에서만.
+//   사양서 docs/specs/2026-06-15-admin-upcoming-features-board.md
+// ══════════════════════════════════════
+const UPCOMING_FEATURE_RETENTION_DAYS = 14; // 시행 후 며칠까지 「시행 완료」로 유지 노출
+const UPCOMING_FEATURES = [
+  // 실제 등록 형태(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
+  // {
+  //   key: 'age-policy-2026',                            // 식별자(중복 금지)
+  //   title: '연령 정책(만 18세 이상)',                   // 기능명(관리자 화면 — 한국어)
+  //   desc: '가입·응모 시 생년월일·성별 입력. 18세 미만 응모 불가.', // 상세 설명(한국어)
+  //   effectiveDate: '2026-07-15',                       // 시행일(KST). 해당 기능 시행일 상수와 동일값
+  // },
+];
+
+// 시행일 자정(KST) 타임스탬프 — POLICY_NOTICE 선례와 동일 기준
+function _upcomingEffectiveTs(item) {
+  return new Date((item.effectiveDate || '') + 'T00:00:00+09:00').getTime();
+}
+// 오늘 0시(KST) 타임스탬프 — 날짜 단위 비교용(자정 경계 혼동 방지)
+function _todayKstTs() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  return new Date(kst.getFullYear() + '-' + String(kst.getMonth() + 1).padStart(2, '0')
+    + '-' + String(kst.getDate()).padStart(2, '0') + 'T00:00:00+09:00').getTime();
+}
+// 항목 상태: 'upcoming'(D-n) | 'done'(시행 완료, 유지기간 내) | 'expired'(목록 제외)
+function upcomingFeatureStatus(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return 'expired';
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  if (today < eff) return 'upcoming';
+  const expireTs = eff + UPCOMING_FEATURE_RETENTION_DAYS * 86400000;
+  return (today < expireTs) ? 'done' : 'expired';
+}
+// 시행일까지 남은 일수(양수=예정, 0=당일, 음수=시행 경과)
+function upcomingFeatureDday(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return null;
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  return Math.round((eff - today) / 86400000);
+}
+// 시행일 라벨(한국어, 관리자 화면)
+function upcomingFeatureDateLabel(item) {
+  const d = new Date((item.effectiveDate || '') + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return item.effectiveDate || '';
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+// 노출 대상(expired 제외) + 시행일 가까운 순 정렬
+function visibleUpcomingFeatures() {
+  const today = _todayKstTs();
+  return UPCOMING_FEATURES
+    .filter(it => upcomingFeatureStatus(it, today) !== 'expired')
+    .sort((a, b) => _upcomingEffectiveTs(a) - _upcomingEffectiveTs(b));
+}
+
+// ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
 //   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
@@ -698,6 +830,12 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
 function brandLabelAdmin(c) {
   if (!c) return '';
   return (c.brand || c.brand_en || c.brand_ja || '').trim();
+}
+// 캠페인 미리보기 돋보기 버튼 — 관리자 목록 캠페인 열 공통. 이름 옆에 배치, 클릭 시 미리보기 모달.
+//   (기존엔 캠페인명 자체 클릭으로 열렸으나, 명시적 버튼으로 통일 — 2026-06-17)
+function campPreviewBtn(campId) {
+  if (!campId) return '';
+  return `<button type="button" onclick="event.stopPropagation();openCampPreviewModal('${esc(String(campId))}')" title="미리보기" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;margin:0;color:var(--muted);display:inline-flex;align-items:center;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">search</span></button>`;
 }
 function brandLabelInflu(c) {
   if (!c) return '';

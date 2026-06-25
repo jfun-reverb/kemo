@@ -45,23 +45,34 @@ async function loadAdminData(preloaded) {
       showAdminUnreadNoticesIfAny();
     }
   }).catch(()=>{});
-  const approved = apps.filter(a=>a.status==='approved');
-  const pending = apps.filter(a=>a.status==='pending');
+  // 감사용 계정(is_audit) 격리 — KPI·통계·차트에서 제외 (광고주 보고용 수치 오염 방지).
+  // users 는 전건으로 받아 통계용 statsUsers / statsApps 만 따로 거른다.
+  // applications.user_id = influencers.id 이므로 user_id 단일 기준으로 격리 (user_email 컬럼 없음).
+  const _auditIds = new Set(users.filter(u=>u.is_audit).map(u=>u.id));
+  const statsUsers = users.filter(u=>!u.is_audit);
+  const statsApps = apps.filter(a=>!_auditIds.has(a.user_id));
+
+  const approved = statsApps.filter(a=>a.status==='approved');
+  // pending 은 사이드바 신청 배지에도 쓰임 — 감사용 제외(처리 대상 아님).
+  // 신청 관리 페인은 감사용을 표시하므로 배지<페인 카운트 불일치가 생길 수 있으나 의도된 격리.
+  const pending = statsApps.filter(a=>a.status==='pending');
 
   $('kpiCampaigns').textContent = camps.length;
-  $('kpiInfluencers').textContent = users.length;
-  $('kpiApplications').textContent = apps.length;
+  $('kpiInfluencers').textContent = statsUsers.length;
+  $('kpiApplications').textContent = statsApps.length;
   $('kpiApproved').textContent = approved.length;
   renderCampaignBreakdown(camps);
   // 목록 페인(loadAdminCampaigns/loadAdminInfluencers)은 해당 pane 진입 시에만 로드
 
-  // 회원가입 차트 + KPI
-  _allUsers = users;
-  renderSignupKPIs(users);
-  renderSignupChart(users, 30);
-  renderProfileCompletion(users);
-  // 배송지 분포(도도부현 Top N) — 이미 fetch한 users 재사용 (중복 쿼리 방지)
-  renderAddressDistribution(users);
+  // 회원가입 차트 + KPI (감사용 제외)
+  _allUsers = statsUsers;
+  renderSignupKPIs(statsUsers);
+  renderSignupChart(statsUsers, 30);
+  renderProfileCompletion(statsUsers);
+  // 배송지 분포(도도부현 Top N) — 통계용 statsUsers 재사용 (중복 쿼리 방지)
+  renderAddressDistribution(statsUsers);
+  // 회원 연령·성별 분포(연령대 막대 + 성별 도넛 + 교차표) — statsUsers 재사용(감사용 제외)
+  renderAgeGenderDistribution(statsUsers);
   // 대시보드는 apps 전건을 KPI용으로 이미 보유 → 추가 count 쿼리 없이 인라인 계산.
   // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
   if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
@@ -73,13 +84,15 @@ async function loadAdminData(preloaded) {
 function renderRecentAppsTable(apps, camps, users) {
   if (!$('recentAppsBody')) return;
   const recent = apps.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,8);
+  const _auditIds = buildAuditIdSet(users);  // 감사용 응모는 빈자리 집계에서 제외
   $('recentAppsBody').innerHTML = recent.length ? recent.map(a=>{
     const camp = camps.find(c=>c.id===a.campaign_id)||{};
-    const _dRem = Math.max((camp.slots||0)-apps.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
+    const _dRem = Math.max((camp.slots||0)-countNonAuditApproved(apps, camp.id, _auditIds),0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
-    return `<tr>
+    const _u = users.find(u=>u.email===a.user_email) || {};
+    return `<tr class="${_u.is_audit?'audit-row':''}">
       <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
@@ -87,21 +100,21 @@ function renderRecentAppsTable(apps, camps, users) {
           </div>
           <div style="min-width:0">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="font-size:13px;flex:1">${esc(camp.title)||'—'}</strong>${campPreviewBtn(camp.id)}</div>
             <div style="font-size:11px;color:var(--muted)">${esc(brandLabelAdmin(camp))}</div>
             ${camp.slots?`<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_dRem>0?'var(--green)':'var(--red)'};font-weight:600">${_dRem>0?_dRem+'건':'없음'}</span></div>`:''}
           </div>
         </div>
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${users.find(u=>u.email===a.user_email)?.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(users.find(u=>u.email===a.user_email)||{})}</div>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${influencerStatusBadges(_u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
       <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_dRem<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_dRem<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
     </tr>`;
@@ -156,6 +169,8 @@ function renderCampaignBreakdown(camps) {
 var _allUsers = [];
 var _signupChart = null;
 var _addressDistChart = null;
+var _ageDistChart = null;
+var _genderDistChart = null;
 
 // 일본 도도부현 한국어 표기 매핑 (47개 전체)
 var PREFECTURE_KO = {
@@ -271,6 +286,118 @@ function renderAddressDistribution(users) {
   } catch (e) {
     if (loading) loading.style.display = 'none';
     console.error('[addressDist] render failed:', e);
+  }
+}
+
+// 회원 연령·성별 분포 — 수집률 막대 + 연령대 막대 + 성별 도넛 + 연령×성별 교차표.
+// loadAdminData가 넘긴 statsUsers(감사용 제외) 재사용(추가 쿼리 0). 집계는 storage.js computeAgeGenderStats.
+// 데이터 0건이면 빈 상태 안내, 소표본(생년월일 등록 30명 미만)이면 참고용 캡션.
+function renderAgeGenderDistribution(users) {
+  const totalLabel = $('ageGenderTotal');
+  const collectBars = $('ageGenderCollectBars');
+  const body = $('ageGenderBody');
+  const empty = $('ageGenderEmpty');
+  const caption = $('ageGenderCaption');
+  const ageCanvas = $('ageDistChart');
+  const genderCanvas = $('genderDistChart');
+  const crossEl = $('ageGenderCrossTable');
+  if (!ageCanvas || !genderCanvas) return;
+
+  try {
+    const stats = computeAgeGenderStats(users || []);
+    const total = stats.total;
+    if (totalLabel) totalLabel.textContent = `생년월일 ${stats.ageRegistered}·성별 ${stats.genderRegistered} / 전체 ${total}명`;
+
+    // 수집률 막대 (renderProfileCompletion 패턴)
+    const pct = v => total ? Math.round(v / total * 100) : 0;
+    const bar = (label, val, color) => `
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:var(--ink)">${label}</span><span style="color:var(--muted);font-weight:600">${val}%</span>
+        </div>
+        <div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${val}%;background:${color};border-radius:3px;transition:width .4s"></div>
+        </div>
+      </div>`;
+    if (collectBars) collectBars.innerHTML =
+      bar('생년월일 등록', pct(stats.ageRegistered), '#5B7CFF') +
+      bar('성별 등록', pct(stats.genderRegistered), '#28C76F');
+
+    if (_ageDistChart) { _ageDistChart.destroy(); _ageDistChart = null; }
+    if (_genderDistChart) { _genderDistChart.destroy(); _genderDistChart = null; }
+
+    // 수집 0건 → 차트·표 숨기고 안내 (현재 운영 상태)
+    const hasData = (stats.ageRegistered + stats.genderRegistered) > 0;
+    if (!hasData) {
+      if (body) body.style.display = 'none';
+      if (empty) empty.style.display = 'block';
+      if (caption) caption.style.display = 'none';
+      return;
+    }
+    if (body) body.style.display = '';
+    if (empty) empty.style.display = 'none';
+
+    // 소표본 참고용 캡션
+    if (caption) {
+      if (stats.ageRegistered > 0 && stats.ageRegistered < 30) {
+        caption.style.display = 'block';
+        caption.textContent = `표본이 적어 참고용입니다 (생년월일 등록 ${stats.ageRegistered}명). 비율보다 실제 인원수로 보세요.`;
+      } else { caption.style.display = 'none'; }
+    }
+
+    // 연령대 막대 (이상치는 0이면 제외, 미등록·이상치는 회색)
+    const ageRows = stats.ageBuckets.filter(b => b.label !== '이상치' || b.count > 0);
+    _ageDistChart = new Chart(ageCanvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: ageRows.map(b => b.label),
+        datasets: [{
+          data: ageRows.map(b => b.count),
+          backgroundColor: ageRows.map(b => (b.label === '미등록' || b.label === '이상치') ? '#BDBDC4' : '#5B7CFF'),
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.parsed.y}명` } } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+
+    // 성별 도넛 (남/여/그 외/응답 안 함/미등록) — 분모=전체 회원
+    _genderDistChart = new Chart(genderCanvas.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['남성', '여성', '그 외', '응답 안 함', '미등록'],
+        datasets: [{
+          data: [stats.gender.male, stats.gender.female, stats.gender.other, stats.gender.undisclosed, stats.gender.unregistered],
+          backgroundColor: ['#5B7CFF', '#E87A96', '#F4A43A', '#9B59B6', '#BDBDC4'],
+          borderColor: '#fff', borderWidth: 2
+        }]
+      },
+      options: buildAddressChartOptions({ total })
+    });
+
+    // 연령×성별 교차표 (실수 명 중심, 0은 '-')
+    if (crossEl) {
+      const gKeys = ['male', 'female', 'other', 'undisclosed', 'unregistered'];
+      const gHead = ['남성', '여성', '그 외', '응답 안 함', '미등록'];
+      const crossRows = [...AGE_GENDER_BUCKETS, '미등록'];
+      const cell = v => v > 0 ? v : '<span style="color:var(--muted)">-</span>';
+      crossEl.innerHTML =
+        '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+        '<thead><tr><th style="text-align:left;padding:4px 6px;color:var(--muted);font-weight:600">연령대</th>' +
+        gHead.map(h => `<th style="text-align:right;padding:4px 6px;color:var(--muted);font-weight:600">${h}</th>`).join('') +
+        '</tr></thead><tbody>' +
+        crossRows.map(rk => {
+          const r = stats.cross[rk] || {};
+          return `<tr style="border-top:1px solid var(--line)"><td style="padding:4px 6px;color:var(--ink)">${rk}</td>` +
+            gKeys.map(gk => `<td style="text-align:right;padding:4px 6px">${cell(r[gk] || 0)}</td>`).join('') + '</tr>';
+        }).join('') +
+        '</tbody></table>';
+    }
+  } catch (e) {
+    console.error('[ageGenderDist] render failed:', e);
   }
 }
 

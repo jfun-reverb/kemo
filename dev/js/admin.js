@@ -60,18 +60,13 @@ function filterAdminCampaigns() { loadAdminCampaigns(true); }
 // 검색창 전용 — 글자 연타 시 마지막 입력만 반영(0.3초). 드롭다운 필터는 즉시 호출 유지.
 const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
-function resetCampSort() {
-  adminCampSortKey = '';
-  adminCampSortDir = '';
-  updateSortArrows();
-  updateCampTableHead();
-  const btn = $('btnCampSortReset'); if (btn) btn.style.display = 'none';
-  filterAdminCampaigns();
-}
-
-function updateCampSortResetBtn() {
-  const btn = $('btnCampSortReset');
-  if (btn) btn.style.display = adminCampSortKey ? '' : 'none';
+// 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
+function updateCampViewResetBtn() {
+  const hasFilter = ['campTypeMulti','campStatusMulti'].some(id => getMultiFilterValues(id).length > 0);
+  const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
+  const hasSort = !!adminCampSortKey;
+  const btn = $('btnCampViewReset');
+  if (btn) btn.style.display = (hasFilter || hasSearch || hasSort) ? '' : 'none';
 }
 
 function resetCampFilters() {
@@ -80,26 +75,46 @@ function resetCampFilters() {
   const s = $('adminCampSearch'); if (s) s.value = '';
   filterAdminCampaigns();
 }
-function resetAppFilters() {
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetCampView() {
+  resetMultiFilter('campTypeMulti', '전체 타입');
+  resetMultiFilter('campStatusMulti', '전체 상태');
+  const s = $('adminCampSearch'); if (s) s.value = '';
+  adminCampSortKey = ''; adminCampSortDir = '';
+  updateSortArrows(); updateCampTableHead();
+  filterAdminCampaigns();
+}
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로 (목록 페인 공통 패턴)
+function resetAppView() {
   resetMultiFilter('appTypeMulti', '전체 타입');
+  resetMultiFilter('appCampStatusMulti', '전체 상태');
   resetMultiFilter('appStatusMulti', '전체 상태');
   resetMultiFilter('appCampMulti', '전체 캠페인');
   const s = $('appSearch'); if (s) s.value = '';
+  appSortKey = 'created'; appSortDir = 'desc';
+  document.querySelectorAll('.app-sort-arrows').forEach(el => {
+    el.classList.remove('asc','desc'); el.textContent = '▲▼';
+    if (el.dataset.sort === 'created') { el.classList.add('desc'); el.textContent = '▼'; }
+  });
   renderAppCampList();
 }
 
 
-// 캠페인 전용 래퍼 — 라벨은 캠페인 제목, 캠페인 번호(B0019-C001 형식)는 subLabel로 분리
+// 캠페인 전용 래퍼 — 라벨은 캠페인 제목, subLabel에 브랜드명 · 캠페인 번호(B0019-C001 형식) 표시
 //   counts: {[campaignId]: number} 형태로 옵션별 건수를 받아 옆에 (00)으로 표시
+//   subLabel은 검색 대상에도 포함되므로(admin-core.js matchSearchTokens) 브랜드명으로도 검색됨
 function syncCampMultiFilter(containerId, sortedCamps, onChange, counts) {
-  const options = sortedCamps.map(c => ({
-    value: c.id,
-    label: c.title || '(제목 없음)',
-    subLabel: c.campaign_no || '',
-    count: counts ? (counts[c.id] || 0) : null
-  }));
+  const options = sortedCamps.map(c => {
+    const brand = (typeof brandLabelAdmin === 'function') ? brandLabelAdmin(c) : (c.brand || '');
+    return {
+      value: c.id,
+      label: c.title || '(제목 없음)',
+      subLabel: [brand, c.campaign_no].filter(Boolean).join(' · '),
+      count: counts ? (counts[c.id] || 0) : null
+    };
+  });
   // 캠페인 목록이 길어 검색형 활성화 (delivCampMulti·appCampMulti 양쪽 자동 통일)
-  syncMultiFilter(containerId, '전체 캠페인', options, onChange, { searchable: true, searchPlaceholder: '캠페인명 · 번호 검색' });
+  syncMultiFilter(containerId, '전체 캠페인', options, onChange, { searchable: true, searchPlaceholder: '캠페인명 · 브랜드 · 번호 검색' });
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -114,7 +129,7 @@ function toggleCampSort(key) {
     adminCampSortDir = 'desc';
   }
   updateSortArrows();
-  updateCampSortResetBtn();
+  updateCampViewResetBtn();
   filterAdminCampaigns();
 }
 
@@ -143,11 +158,12 @@ function updateCampTableHead() {
   if (!head) return;
   const statusHelpIcon = `<span class="material-icons-round notranslate" translate="no" title="상태별 클라이언트 노출 안내" style="font-size:14px;cursor:pointer;color:var(--muted);vertical-align:middle;margin-left:2px" onclick="event.stopPropagation();openCampStatusHelp()">info_outline</span>`;
   if (adminReorderMode) {
-    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
+    head.innerHTML = `<tr><th>순서</th><th>캠페인</th><th>채널</th><th>브랜드</th><th>제품</th><th>상태 ${statusHelpIcon}</th><th>노출</th><th>신청</th><th>조회</th><th>등록일</th><th>수정일</th></tr>`;
   } else {
     head.innerHTML = `<tr>
       <th style="width:44px;min-width:44px;max-width:44px;text-align:center;padding:8px 4px"><input type="checkbox" id="campSelectAll" onchange="toggleCampSelectAll(this.checked)" title="필터 결과 전체 선택"></th>
       <th>캠페인</th>
+      <th>채널</th>
       <th>브랜드</th>
       <th>제품</th>
       <th>상태 ${statusHelpIcon} <span class="sort-arrows" data-sort="status" onclick="toggleCampSort('status')">${adminCampSortKey==='status'?(adminCampSortDir==='asc'?'▲':'▼'):'▲▼'}</span></th>
@@ -265,7 +281,7 @@ async function loadAdminCampaigns(useCache) {
       [c.title, c.brand, c.brand_ko, c.brand_ja, c.brand_en, c.product, c.product_ko, c.campaign_no]));
   }
 
-  updateFilterResetBtn('btnCampFilterReset', ['campTypeMulti','campStatusMulti'], 'adminCampSearch');
+  updateCampViewResetBtn();
 
   // useCache(검색/필터/정렬)면 캐시 재사용 → 서버 재조회 0회. 캐시가 비어있으면 1회만 조회.
   // PR 4 서버 집계: 신청 전건 전송 대신 서버 집계 함수 1회 호출로 전환.
@@ -352,10 +368,11 @@ async function loadAdminCampaigns(useCache) {
               ${typeLabel(c.recruit_type)}
               ${c.campaign_no ? `<span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:0.02em">${esc(c.campaign_no)}</span>` : ''}
             </div>
-            <strong style="cursor:pointer;color:var(--ink);display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${c.id}')">${esc(c.title)}</strong>
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="color:var(--ink);display:block;word-break:break-word;line-height:1.4;flex:1">${esc(c.title)}</strong>${campPreviewBtn(c.id)}</div>
           </div>
         </div>
       </td>
+      <td>${channelChipsHtml(c.channel, c.channel_match)}</td>
       ${(()=>{
         const bp = brandLabelAdmin(c);
         const bs = '';
@@ -405,9 +422,9 @@ async function loadAdminCampaigns(useCache) {
       </td>`}
     </tr>`;
   };
-  // 일반 모드 13컬럼(체크/캠페인/브랜드/제품/상태/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
-  // 순서변경 모드 9컬럼(순서/캠페인/브랜드/제품/상태/신청/조회/등록일/수정일)
-  const emptyHtml = `<tr><td colspan="${adminReorderMode ? 10 : 14}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
+  // 일반 모드 15컬럼(체크/캠페인/채널/브랜드/제품/상태/노출/신청/모집기간/구매기간/제출마감/조회/등록일/수정일/액션)
+  // 순서변경 모드(순서/캠페인/채널/브랜드/제품/상태/노출/신청/조회/등록일/수정일) / 일반 모드 컬럼 수
+  const emptyHtml = `<tr><td colspan="${adminReorderMode ? 11 : 15}" style="text-align:center;color:var(--muted);padding:24px">캠페인 없음</td></tr>`;
   if (adminReorderMode) {
     // 순서변경 모드: 전체 DOM 필요 (↑↓ 위치 인덱스 기반). lazy 비활성.
     if (campsLazy) { campsLazy.destroy(); campsLazy = null; }
@@ -2275,10 +2292,13 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
   const rect = btnEl.getBoundingClientRect();
   const menu = document.createElement('div');
   menu.className = 'camp-more-menu';
-  // 변경 이력 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
+  // 변경 이력·감사용 흔적 청소 항목은 super_admin 한정 (audit 데이터, 일반 매니저 노출 X)
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const historyItem = isSuper
     ? `<div class="camp-more-item" onclick="openCautionHistoryModal('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>변경 이력</div>`
+    : '';
+  const auditPurgeItem = isSuper
+    ? `<div class="camp-more-item camp-more-danger" onclick="purgeCampaignAuditData('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">cleaning_services</span>감사용 흔적 청소</div>`
     : '';
   menu.innerHTML = `
     <div class="camp-more-item" onclick="openEditCampaign('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>편집</div>
@@ -2286,6 +2306,7 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
     <div class="camp-more-item" onclick="exportCampaignDeliverables('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>결과물 엑셀</div>
     <div class="camp-more-item" onclick="exportCampaignApplicationsExcel('${campId}')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">download</span>신청자 엑셀</div>
     ${historyItem}
+    ${auditPurgeItem}
     <div class="camp-more-item camp-more-danger" data-camp-title="${esc(campTitle)}" onclick="deleteCampaign('${campId}',this.dataset.campTitle)"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">delete</span>삭제</div>
   `;
   document.body.appendChild(menu);
@@ -2300,6 +2321,31 @@ function toggleCampMoreMenu(e, btnEl, campId, campTitle) {
       }
     });
   }, 0);
+}
+
+// 캠페인별 감사용 흔적 청소 — super_admin 전용.
+// 이 캠페인에서 감사용 계정(is_audit=true)이 만든 응모·결과물·메시지를 모두 삭제한다.
+async function purgeCampaignAuditData(campId) {
+  document.querySelectorAll('.camp-more-menu').forEach(d => d.remove());
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('이 캠페인에서 감사용 계정이 만든 응모·결과물·메시지를 모두 삭제합니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataForCampaign(campId);
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    // 진행현황 페인이 열려 있으면 그쪽을, 아니면 캠페인 목록 갱신
+    const applicantsPaneActive = $('adminPane-camp-applicants')?.classList.contains('on');
+    await refreshPane(applicantsPaneActive ? 'camp-applicants' : 'campaigns');
+  } catch (e) {
+    console.error('[purgeCampaignAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 function toggleStatusDropdown(badgeEl) {

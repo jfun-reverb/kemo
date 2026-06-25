@@ -558,6 +558,10 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .agree-text{flex:1}
 .agree-text a{color:var(--pink);font-weight:600;text-decoration:underline}
 
+/* 생년월일 년/월/일 select 가로 3분할 (form-input 상속 — 모바일 16px 자동확대 방지) */
+.birthdate-selects{display:flex;gap:6px}
+.birthdate-selects select{flex:1;min-width:0;padding-left:8px;padding-right:20px}
+
 /* ══════════════════════════════════
    MY PAGE — マイページ (リスト → 詳細)
 ══════════════════════════════════ */
@@ -738,6 +742,44 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
     <div style="display:flex;gap:10px">
       <button class="btn btn-ghost" onclick="$('profileAlertOverlay').style.display='none'" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.cancel">キャンセル</button>
       <button class="btn btn-primary" onclick="$('profileAlertOverlay').style.display='none';navigate('mypage')" style="flex:1;border-radius:12px;padding:14px" data-i18n="profileAlert.goMypage">マイページへ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 응모 연령 게이트 모달 (생년월일·성별 미입력 시 응모 직전 입력) ── -->
+<div id="ageGateOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:610;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:24px;width:calc(100% - 40px);max-width:360px;padding:28px 24px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <div style="font-size:17px;font-weight:800;color:var(--ink);margin-bottom:10px;text-align:center" data-i18n="ageGate.title">応募の前に</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;text-align:center" data-i18n="ageGate.desc">本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。</div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+      <div class="birthdate-selects">
+        <select id="gateBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
+        <select id="gateBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
+        <select id="gateBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+      <select id="gateGender" class="form-input" required>
+        <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
+        <option value="male" data-i18n="auth.signup.genderMale">男性</option>
+        <option value="female" data-i18n="auth.signup.genderFemale">女性</option>
+        <option value="other" data-i18n="auth.signup.genderOther">その他</option>
+        <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
+      </select>
+    </div>
+    <div class="signup-agree" style="margin-bottom:14px">
+      <label class="signup-agree-row">
+        <input type="checkbox" class="agree-required" id="gateAgreePrivacy">
+        <span class="agree-req" data-i18n="auth.signup.required">必須</span>
+        <span class="agree-text"><a href="#" onclick="event.preventDefault();openLegalPage('privacy')" data-i18n="legal.privacyTitle">個人情報処理方針</a><span data-i18n="auth.signup.agreeTermsSuffix">に同意します</span></span>
+      </label>
+    </div>
+    <div id="ageGateError" class="form-error" style="margin-bottom:12px;display:none"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="closeAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.cancel">キャンセル</button>
+      <button class="btn btn-primary" id="ageGateSaveBtn" onclick="saveAgeGate()" style="flex:1;border-radius:12px;padding:14px" data-i18n="ageGate.save">保存して続ける</button>
     </div>
   </div>
 </div>
@@ -1520,22 +1562,43 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
             <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.nameKanaHint">日本語の配送先登録のため、かな名を入力してください</div>
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.birthdateLabel">生年月日</span> <span style="color:var(--red)">*</span></label>
+            <div class="birthdate-selects">
+              <select id="signupBirthYear" class="form-input" required><option value="" data-i18n="auth.signup.birthYear">年</option></select>
+              <select id="signupBirthMonth" class="form-input" required><option value="" data-i18n="auth.signup.birthMonth">月</option></select>
+              <select id="signupBirthDay" class="form-input" required><option value="" data-i18n="auth.signup.birthDay">日</option></select>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px" data-i18n="auth.signup.birthdateHint">満18歳以上の方のみご登録いただけます</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label"><span data-i18n="auth.signup.genderLabel">性別</span> <span style="color:var(--red)">*</span></label>
+            <select id="signupGender" class="form-input" required>
+              <option value="" data-i18n="auth.signup.genderPlaceholder">選択してください</option>
+              <option value="male" data-i18n="auth.signup.genderMale">男性</option>
+              <option value="female" data-i18n="auth.signup.genderFemale">女性</option>
+              <option value="other" data-i18n="auth.signup.genderOther">その他</option>
+              <option value="undisclosed" data-i18n="auth.signup.genderUndisclosed">回答しない</option>
+            </select>
+          </div>
+        </div>
         <div class="form-group">
-          <label class="form-label">メールアドレス <span style="color:var(--red)">*</span></label>
+          <label class="form-label"><span data-i18n="auth.signup.emailLabel">メールアドレス</span> <span style="color:var(--red)">*</span></label>
           <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">パスワード <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400">（8文字以上）</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwLabel">パスワード</span> <span style="color:var(--red)">*</span> <span style="font-size:10px;color:var(--muted);font-weight:400" data-i18n="auth.signup.pwHint">（8文字以上）</span></label>
             <div class="pw-wrap">
-              <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" required minlength="8">
+              <input type="password" id="signupPw" class="form-input" placeholder="8文字以上" data-i18n-attr="placeholder:auth.signup.pwPlaceholder" required minlength="8">
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">パスワード（確認） <span style="color:var(--red)">*</span></label>
+            <label class="form-label"><span data-i18n="auth.signup.pwConfirmLabel">パスワード（確認）</span> <span style="color:var(--red)">*</span></label>
             <div class="pw-wrap">
-              <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" required>
+              <input type="password" id="signupPw2" class="form-input" placeholder="パスワード再入力" data-i18n-attr="placeholder:auth.signup.pwConfirmPlaceholder" required>
               <button type="button" class="pw-toggle" onclick="togglePw('signupPw2',this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
@@ -1609,6 +1672,17 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
       <div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKanji">氏名（漢字）</label><input type="text" id="profileNameKanji" class="form-input"></div>
         <div class="form-group"><label class="form-label" data-i18n="profile.nameKana">氏名（ふりがな）</label><input type="text" id="profileNameKana" class="form-input"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.birthdate">生年月日</label>
+            <div id="profileBirthdateDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" data-i18n="profile.gender">性別</label>
+            <div id="profileGenderDisplay" class="form-readonly" data-i18n="profile.notRegistered">未登録</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:-6px;margin-bottom:10px;line-height:1.5" data-i18n="profile.birthdateHint">生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。</div>
         <div class="form-group"><label class="form-label" data-i18n="profile.category">カテゴリー</label>
           <select id="profileCategory" class="form-input">
             <option value="">選択してください</option>
@@ -2179,6 +2253,34 @@ function matchSearchTokens(searchVal, fields) {
   return tokens.every(tok => haystack.includes(tok));
 }
 
+// 감사용 계정 「감사용」 배지 HTML.
+// inf: influencers 행(is_audit) 또는 is_audit 불리언을 가진 객체.
+// 감사용이 아니면 빈 문자열 — 일반 인플루언서 행에는 아무것도 출력 안 함.
+// 통계·산출물에서 격리된 계정임을 운영자가 한눈에 구분하도록 모든 인플·응모·결과물 행에 호출.
+function auditBadgeHtml(inf) {
+  if (!inf || !inf.is_audit) return '';
+  return '<span class="audit-badge" title="감사용 계정 — 통계·산출물에서 격리됨" translate="no">감사용</span>';
+}
+
+// 감사용 계정(is_audit) 회원번호(influencers.id) 집합 생성.
+// 관리자 화면에서 클라가 직접 응모 건수를 셀 때(빈자리·승인 차단) 감사용을 격리하기 위한 헬퍼.
+// applications 행에는 is_audit 가 없으므로 users(fetchInfluencers, is_audit 포함)에서 만든 집합을
+// user_id 로 대조한다(이메일 매칭보다 NULL·불일치·성능 위험이 없음).
+function buildAuditIdSet(users) {
+  return new Set((users || []).filter(u => u && u.is_audit).map(u => u.id));
+}
+
+// 특정 캠페인의 승인(approved) 응모 수를 감사용 제외로 계산.
+//   apps: applications 배열, campId: 캠페인 id(null 이면 전체), auditIds: buildAuditIdSet 결과.
+// 감사용 응모는 모집 슬롯·빈자리 집계에서 빠져야 한다(설계 격리, 마이그레이션 179·181).
+function countNonAuditApproved(apps, campId, auditIds) {
+  return (apps || []).filter(a =>
+    a.status === 'approved'
+    && (campId == null || a.campaign_id === campId)
+    && !(auditIds && auditIds.has(a.user_id))
+  ).length;
+}
+
 // 게시물(post) 채널이 캠페인이 요구하는 채널(channel 리스트)에 포함되는지 판정.
 //   - 요구 채널 중 하나만 맞으면 통과(or 기준, 2026-06-16 사용자 결정).
 //   - 캠페인 channel 이 비어 있으면(레거시·채널 미설정) 막지 않음(true) — 정상 제출 차단 방지.
@@ -2411,6 +2513,10 @@ const PANE_REFRESHERS = {
   },
   'brand-ops-detail': async () => {
     if (typeof loadBrandOpsDetail === 'function') await loadBrandOpsDetail();
+  },
+  'upcoming': async () => {
+    // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
+    if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
   }
 };
 async function refreshPane(paneId) {
@@ -2431,15 +2537,54 @@ function normalizeSnsFields(profile) {
 }
 
 // ══════════════════════════════════════
+// 연령 정책 — 클라이언트 만 나이 계산 (표시·UX용. 최종 차단 판정은 서버 트리거 check_age_policy)
+//   가입 폼(PR 2)·응모 시점(PR 3) 공용. 'YYYY-MM-DD' 문자열 → 만 나이(정수) 또는 null.
+//   서버와 동일하게 일본/한국 표준시(KST=JST) 기준.
+// ══════════════════════════════════════
+const AGE_POLICY_MIN_AGE = 18; // 가입·응모 최소 연령
+
+function calcAgeFromBirthdate(birthdateStr) {
+  if (!birthdateStr) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr);
+  if (!m) return null;
+  const by = +m[1], bm = +m[2], bd = +m[3];
+  // 오늘(KST) 연·월·일
+  const nowKst = new Date(Date.now() + (new Date().getTimezoneOffset() * 60000) + (9 * 3600000));
+  const ty = nowKst.getFullYear(), tm = nowKst.getMonth() + 1, td = nowKst.getDate();
+  let age = ty - by;
+  // 올해 생일이 아직 안 지났으면 한 살 빼기
+  if (tm < bm || (tm === bm && td < bd)) age--;
+  return age;
+}
+
+// 생년월일 표시 라벨 (마이페이지·관리자 공용). lang 미지정 시 현재 언어.
+function formatBirthdateLabel(birthdateStr, lang) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthdateStr || '');
+  if (!m) return '';
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const l = lang || (typeof getLang === 'function' ? getLang() : 'ja');
+  return l === 'ko' ? `${y}년 ${mo}월 ${d}일` : `${y}年${mo}月${d}日`;
+}
+
+// 성별 코드 → 표시 라벨 (i18n 키 재사용). 빈 값이면 ''
+function genderLabel(code) {
+  const map = { male: 'auth.signup.genderMale', female: 'auth.signup.genderFemale',
+    other: 'auth.signup.genderOther', undisclosed: 'auth.signup.genderUndisclosed' };
+  if (!code || !map[code]) return '';
+  return (typeof t === 'function') ? t(map[code]) : code;
+}
+
+// ══════════════════════════════════════
 // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
 //   - 로그인 1회 팝업 + 홈 상단 배너(노출 종료일까지). 관리자 등록 UI 없이 하드코딩 1건, DB 미사용.
 //   - 노출 종료일(noticeUntil) 경과 시 팝업·배너 모두 자동 비노출 → 코드 즉시 제거 불필요(차기 정기 배포 때 정리).
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  id: 'inquiry2026',            // localStorage 키 식별자. 이전 'message2026'에서 변경 → 이미 본 사람도 새 안내 재노출
-  effectiveDate: '2026-05-28',  // 시행일(완료형 표기용) = 운영 출시일 2026-05-28
-  noticeUntil: '2026-06-11',    // 노출 종료일 = 시행일 + 14일. 이 날 0시(KST)부터 자동 비노출
+  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-22 → 시행일 2026-07-22(공고+30일).
+  id: 'agePolicy2026',          // localStorage 키 식별자
+  effectiveDate: '2026-07-22',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
+  noticeUntil: '2026-08-05',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
@@ -2538,6 +2683,67 @@ function dismissPolicyNoticeBanner() {
 function openPolicyNoticeFromBanner() { openPolicyNoticeModal(); }
 
 // ══════════════════════════════════════
+// 오픈 예정 기능 보드 (관리자 전용, D-day) — DB 미사용·코드 상수
+//   개발 세션이 시행일 걸린 기능을 운영 배포(또는 시행일 확정)할 때 항목 1줄 추가.
+//   "개발 완료된 것만 노출" = 코드에 등록된 것만 뜨므로 구조적으로 보장.
+//   effectiveDate 는 그 기능의 실제 시행일 상수와 동일값이어야 함(단일 소스 — 사양서 §7).
+//   ※ 예고판일 뿐 기능 스위치가 아님. 실제 활성은 별도(시행일 머지 또는 서버 시각 판정).
+//   공유 파일이라 인플루언서 앱에도 로드되나, 호출(렌더)은 관리자 페인에서만.
+//   사양서 docs/specs/2026-06-15-admin-upcoming-features-board.md
+// ══════════════════════════════════════
+const UPCOMING_FEATURE_RETENTION_DAYS = 14; // 시행 후 며칠까지 「시행 완료」로 유지 노출
+const UPCOMING_FEATURES = [
+  // 실제 등록 형태(주석): 시행일 걸린 기능 배포 시 아래 형태로 1줄 추가
+  // {
+  //   key: 'age-policy-2026',                            // 식별자(중복 금지)
+  //   title: '연령 정책(만 18세 이상)',                   // 기능명(관리자 화면 — 한국어)
+  //   desc: '가입·응모 시 생년월일·성별 입력. 18세 미만 응모 불가.', // 상세 설명(한국어)
+  //   effectiveDate: '2026-07-15',                       // 시행일(KST). 해당 기능 시행일 상수와 동일값
+  // },
+];
+
+// 시행일 자정(KST) 타임스탬프 — POLICY_NOTICE 선례와 동일 기준
+function _upcomingEffectiveTs(item) {
+  return new Date((item.effectiveDate || '') + 'T00:00:00+09:00').getTime();
+}
+// 오늘 0시(KST) 타임스탬프 — 날짜 단위 비교용(자정 경계 혼동 방지)
+function _todayKstTs() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (9 * 3600000));
+  return new Date(kst.getFullYear() + '-' + String(kst.getMonth() + 1).padStart(2, '0')
+    + '-' + String(kst.getDate()).padStart(2, '0') + 'T00:00:00+09:00').getTime();
+}
+// 항목 상태: 'upcoming'(D-n) | 'done'(시행 완료, 유지기간 내) | 'expired'(목록 제외)
+function upcomingFeatureStatus(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return 'expired';
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  if (today < eff) return 'upcoming';
+  const expireTs = eff + UPCOMING_FEATURE_RETENTION_DAYS * 86400000;
+  return (today < expireTs) ? 'done' : 'expired';
+}
+// 시행일까지 남은 일수(양수=예정, 0=당일, 음수=시행 경과)
+function upcomingFeatureDday(item, todayTs) {
+  const eff = _upcomingEffectiveTs(item);
+  if (isNaN(eff)) return null;
+  const today = (typeof todayTs === 'number') ? todayTs : _todayKstTs();
+  return Math.round((eff - today) / 86400000);
+}
+// 시행일 라벨(한국어, 관리자 화면)
+function upcomingFeatureDateLabel(item) {
+  const d = new Date((item.effectiveDate || '') + 'T00:00:00+09:00');
+  if (isNaN(d.getTime())) return item.effectiveDate || '';
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+// 노출 대상(expired 제외) + 시행일 가까운 순 정렬
+function visibleUpcomingFeatures() {
+  const today = _todayKstTs();
+  return UPCOMING_FEATURES
+    .filter(it => upcomingFeatureStatus(it, today) !== 'expired')
+    .sort((a, b) => _upcomingEffectiveTs(a) - _upcomingEffectiveTs(b));
+}
+
+// ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
 //   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
@@ -2569,6 +2775,12 @@ const CAMPAIGN_STATUS_BADGE_CLASS = {
 function brandLabelAdmin(c) {
   if (!c) return '';
   return (c.brand || c.brand_en || c.brand_ja || '').trim();
+}
+// 캠페인 미리보기 돋보기 버튼 — 관리자 목록 캠페인 열 공통. 이름 옆에 배치, 클릭 시 미리보기 모달.
+//   (기존엔 캠페인명 자체 클릭으로 열렸으나, 명시적 버튼으로 통일 — 2026-06-17)
+function campPreviewBtn(campId) {
+  if (!campId) return '';
+  return `<button type="button" onclick="event.stopPropagation();openCampPreviewModal('${esc(String(campId))}')" title="미리보기" style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;margin:0;color:var(--muted);display:inline-flex;align-items:center;line-height:1"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">search</span></button>`;
 }
 function brandLabelInflu(c) {
   if (!c) return '';
@@ -2715,10 +2927,23 @@ window.I18N_JA = {
       nameKanjiLabel: '氏名（漢字）',
       nameKanaLabel: '氏名（ふりがな）',
       nameKanaHint: '日本語の配送先登録のため、かな名を入力してください',
+      birthdateLabel: '生年月日',
+      birthYear: '年',
+      birthMonth: '月',
+      birthDay: '日',
+      birthdateHint: '満18歳以上の方のみご登録いただけます',
+      genderLabel: '性別',
+      genderPlaceholder: '選択してください',
+      genderMale: '男性',
+      genderFemale: '女性',
+      genderOther: 'その他',
+      genderUndisclosed: '回答しない',
       emailLabel: 'メールアドレス',
       pwLabel: 'パスワード',
       pwHint: '（8文字以上）',
       pwConfirmLabel: 'パスワード（確認）',
+      pwPlaceholder: '8文字以上',
+      pwConfirmPlaceholder: 'パスワード再入力',
       agreeAll: 'すべてに同意する',
       required: '必須',
       optional: '任意',
@@ -2896,6 +3121,15 @@ window.I18N_JA = {
     desc: '応募するにはマイページで「個人情報」「PayPal」の登録が必要です。<br>以下の項目を登録してください。',
     cancel: 'キャンセル',
     goMypage: 'マイページへ',
+  },
+
+  ageGate: {
+    title: '応募の前に',
+    desc: '本サービスは満18歳以上が対象です。生年月日と性別をご入力ください（生年月日は後から変更できません）。',
+    cancel: 'キャンセル',
+    save: '保存して続ける',
+    under18Apply: '満18歳未満の方は応募できません。満18歳になると自動的に応募できるようになります。',
+    agreeRequired: '個人情報（生年月日・性別）の収集・利用にご同意ください。',
   },
 
   // 로그인 프롬프트
@@ -3143,6 +3377,10 @@ window.I18N_JA = {
   profile: {
     nameKanji: '氏名（漢字）',
     nameKana: '氏名（ふりがな）',
+    birthdate: '生年月日',
+    gender: '性別',
+    notRegistered: '未登録',
+    birthdateHint: '生年月日・性別は応募時に入力します。生年月日は変更できません（修正が必要な場合はお問い合わせください）。',
     category: 'カテゴリー',
     lineId: 'LINE ID',
     lineIdHint: '@reverb.jpを追加後、IDを入力',
@@ -3184,9 +3422,14 @@ window.I18N_JA = {
     genericError: 'エラーが発生しました',
     checkCredentials: 'メールアドレスまたはパスワードをご確認ください',
     enterName: '氏名を入力してください',
+    enterBirthdate: '生年月日を選択してください',
+    invalidBirthdate: '正しい生年月日を選択してください',
+    under18: '本サービスは満18歳以上の方のみご登録いただけます',
+    enterGender: '性別を選択してください',
     enterEmail: 'メールアドレスを入力してください',
     pwMin8: 'パスワードは8文字以上で入力してください',
     pwNoMatch: 'パスワードが一致しません',
+    signupFailed: '登録に失敗しました。しばらくしてからもう一度お試しください',
   },
 
   // 채널 라벨
@@ -3259,9 +3502,9 @@ window.I18N_JA = {
   },
   // 政策変更の告知（お問い合わせ機能の追加・規約改定、2026-05-27 即時施行・リリース案内）
   policyNotice: {
-    title: '「お問い合わせ」機能の追加・規約改定のお知らせ',
-    body: '応募したキャンペーンごとに、運営チームへ直接お問い合わせができる「お問い合わせ」機能が追加されました。<br><br>・機能：メッセージと画像の送信<br>・場所：応募履歴ページのキャンペーンごと<br>・利用：ご本人と運営チーム<br>・保管期間：応募終了後1年（退会時に削除）<br><br>これにともない、利用規約・プライバシーポリシーを一部改定しました。全文はアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。<br><br>施行日：{date}',
-    banner: '「お問い合わせ」機能の追加にともない、規約・プライバシーポリシーを改定しました。',
+    title: '満18歳以上のご利用への変更・規約改定のお知らせ',
+    body: 'いつもREVERBをご利用いただきありがとうございます。<br><br>{date}より、REVERBは満18歳以上の方のみご利用いただけるよう変更されます。あわせて、登録情報に「生年月日」と「性別」が追加されます。<br><br>■ 変更内容<br>1. 満18歳以上の方のみキャンペーンにご応募いただけます。<br>2. ご応募の際に生年月日をご入力ください（一度入力すると変更できません）。<br>3. 性別もご入力ください（「回答しない」も選べます）。<br><br>■ ご確認いただきたいこと<br>・満18歳未満の方は、施行日以降、新しいご応募ができなくなります。<br>・すでに当選・進行中のキャンペーンには影響しません。そのままお進めいただけます。<br><br>くわしくはアプリ下部の「利用規約」「個人情報処理方針」からご確認ください。',
+    banner: '満18歳以上の方のみご利用いただけるよう変更されます。規約・個人情報処理方針を改定しました。',
     detailBtn: '詳しく見る',
     closeBtn: '今後表示しない',
   },
@@ -3393,10 +3636,23 @@ window.I18N_KO = {
       nameKanjiLabel: '이름 (한자)',
       nameKanaLabel: '이름 (가나)',
       nameKanaHint: '일본 주소 배송을 위해 일본어 가나 표기를 입력해주세요',
+      birthdateLabel: '생년월일',
+      birthYear: '년',
+      birthMonth: '월',
+      birthDay: '일',
+      birthdateHint: '만 18세 이상만 가입할 수 있습니다',
+      genderLabel: '성별',
+      genderPlaceholder: '선택해주세요',
+      genderMale: '남성',
+      genderFemale: '여성',
+      genderOther: '기타',
+      genderUndisclosed: '응답하지 않음',
       emailLabel: '이메일',
       pwLabel: '비밀번호',
       pwHint: '(8자 이상)',
       pwConfirmLabel: '비밀번호 확인',
+      pwPlaceholder: '8자 이상',
+      pwConfirmPlaceholder: '비밀번호 재입력',
       agreeAll: '전체 동의',
       required: '필수',
       optional: '선택',
@@ -3569,6 +3825,15 @@ window.I18N_KO = {
     desc: '응모하려면 마이페이지에서 "개인정보"와 "PayPal" 등록이 필요합니다.<br>아래 항목을 등록해주세요.',
     cancel: '취소',
     goMypage: '마이페이지',
+  },
+
+  ageGate: {
+    title: '응모 전에',
+    desc: '본 서비스는 만 18세 이상이 대상입니다. 생년월일과 성별을 입력해주세요(생년월일은 나중에 변경할 수 없습니다).',
+    cancel: '취소',
+    save: '저장하고 계속',
+    under18Apply: '만 18세 미만은 응모할 수 없습니다. 만 18세가 되면 자동으로 응모할 수 있습니다.',
+    agreeRequired: '개인정보(생년월일·성별) 수집·이용에 동의해 주세요.',
   },
 
   loginPrompt: {
@@ -3808,6 +4073,10 @@ window.I18N_KO = {
   profile: {
     nameKanji: '이름 (한자)',
     nameKana: '이름 (가나)',
+    birthdate: '생년월일',
+    gender: '성별',
+    notRegistered: '미등록',
+    birthdateHint: '생년월일·성별은 응모 시 입력합니다. 생년월일은 변경할 수 없습니다(수정이 필요하면 문의해주세요).',
     category: '카테고리',
     lineId: 'LINE ID',
     lineIdHint: '@reverb.jp 추가 후 ID 입력',
@@ -3848,9 +4117,14 @@ window.I18N_KO = {
     genericError: '오류가 발생했습니다',
     checkCredentials: '이메일 또는 비밀번호를 확인해주세요',
     enterName: '이름을 입력해주세요',
+    enterBirthdate: '생년월일을 선택해주세요',
+    invalidBirthdate: '올바른 생년월일을 선택해주세요',
+    under18: '본 서비스는 만 18세 이상만 가입할 수 있습니다',
+    enterGender: '성별을 선택해주세요',
     enterEmail: '이메일을 입력해주세요',
     pwMin8: '비밀번호는 8자 이상이어야 합니다',
     pwNoMatch: '비밀번호가 일치하지 않습니다',
+    signupFailed: '회원가입에 실패했습니다. 잠시 후 다시 시도해주세요',
   },
 
   channelLabel: {
@@ -3922,9 +4196,9 @@ window.I18N_KO = {
   },
   // 정책 변경 통지 (문의하기 기능 추가·약관 개정, 2026-05-27 즉시 시행·출시 안내)
   policyNotice: {
-    title: '「문의하기」 기능 추가·약관 개정 안내',
-    body: '응모하신 캠페인별로 운영팀에 직접 문의할 수 있는 「문의하기」 기능이 추가되었습니다.<br><br>· 기능: 메시지 및 이미지<br>· 위치: 응모 이력 페이지 내 캠페인별<br>· 사용: 본인과 운영팀<br>· 보관 기간: 응모 종료 후 1년 (탈퇴 시 삭제)<br><br>이에 따라 이용약관·개인정보처리방침이 일부 개정되었습니다. 전문은 앱 하단 「이용약관」「개인정보처리방침」에서 확인하실 수 있습니다.<br><br>시행일: {date}',
-    banner: '「문의하기」 기능 추가에 따라 약관·개인정보처리방침을 개정했습니다.',
+    title: '만 18세 이상 이용 변경·약관 개정 안내',
+    body: '항상 REVERB를 이용해 주셔서 감사합니다.<br><br>{date}부터 REVERB는 만 18세 이상만 이용하실 수 있도록 변경됩니다. 아울러 가입 정보에 「생년월일」과 「성별」이 추가됩니다.<br><br>■ 변경 내용<br>1. 만 18세 이상만 캠페인에 응모하실 수 있습니다.<br>2. 응모 시 생년월일을 입력해 주세요(한 번 입력하면 변경할 수 없습니다).<br>3. 성별도 입력해 주세요(「응답하지 않음」도 선택 가능).<br><br>■ 확인해 주세요<br>· 만 18세 미만은 시행일 이후 새로운 응모가 불가합니다.<br>· 이미 당첨·진행 중인 캠페인에는 영향이 없습니다.<br><br>자세한 내용은 앱 하단 「이용약관」「개인정보처리방침」에서 확인해 주세요.',
+    banner: '만 18세 이상만 이용하실 수 있도록 변경됩니다. 약관·개인정보처리방침을 개정했습니다.',
     detailBtn: '자세히 보기',
     closeBtn: '다시 보지 않기',
   },
@@ -4318,7 +4592,7 @@ async function fetchCampaigns() {
 const ADMIN_LIST_COLUMNS = [
   'id', 'title', 'brand', 'brand_ko', 'brand_ja', 'brand_en', 'product', 'product_ko',
   'campaign_no', 'legacy_no',
-  'recruit_type', 'channel', 'status',
+  'recruit_type', 'channel', 'channel_match', 'status',
   'slots', 'view_count',
   'img1', 'img2', 'img3', 'img4', 'img5', 'img6', 'img7', 'img8',
   'image_url', 'image_crops', 'emoji',
@@ -4521,12 +4795,17 @@ async function incrementViewCount(campId) {
 }
 
 // ── Influencers ──
-async function fetchInfluencers() {
+// includeAudit 기본 true = 기존 동작 보존(전건 반환).
+// 통계·엑셀 등 실수 집계가 필요한 호출처만 { includeAudit: false } 를 명시 전달(PR D/F에서).
+async function fetchInfluencers(opts = {}) {
   if (!db) return [];
+  const { includeAudit = true } = opts;
   try {
-    return await fetchAllPaged(() =>
-      db.from('influencers').select('*').order('created_at', {ascending: true})
-    );
+    return await fetchAllPaged(() => {
+      let q = db.from('influencers').select('*').order('created_at', {ascending: true});
+      if (!includeAudit) q = q.eq('is_audit', false);
+      return q;
+    });
   } catch(e) {
     return [];
   }
@@ -4557,6 +4836,53 @@ function computePrefectureStats(users, limit) {
     .slice(0, maxTop)
     .map(([name, count]) => ({ name, count }));
   return { top, unregistered, overseas, total: rows.length };
+}
+
+// 연령·성별 분포 집계 — 대시보드 카드용 (computePrefectureStats 패턴: 추가 쿼리 없이 배열만 집계).
+// 연령대=마케팅 구간(18-24/25-29/30-34/35-39/40-49/50+) + 미등록 + 이상치(생년월일 있으나 18세 미만/비현실).
+// 성별=male/female/other/undisclosed + unregistered(미등록). 연령×성별 교차표 cross 포함.
+// 만 나이는 shared.js calcAgeFromBirthdate(KST) 재사용. 감사용 격리는 호출부(statsUsers)에서 선처리.
+const AGE_GENDER_BUCKETS = ['18-24', '25-29', '30-34', '35-39', '40-49', '50+'];
+function computeAgeGenderStats(users) {
+  const rows = Array.isArray(users) ? users : [];
+  const genders = ['male', 'female', 'other', 'undisclosed'];
+  const bucketOf = (age) => {
+    if (age == null || age < 18 || age > 120) return null; // 미등록/이상치
+    if (age <= 24) return '18-24';
+    if (age <= 29) return '25-29';
+    if (age <= 34) return '30-34';
+    if (age <= 39) return '35-39';
+    if (age <= 49) return '40-49';
+    return '50+';
+  };
+
+  const ageCounts = {}; AGE_GENDER_BUCKETS.forEach(l => { ageCounts[l] = 0; });
+  let ageUnregistered = 0, ageInvalid = 0;
+  const gender = { male: 0, female: 0, other: 0, undisclosed: 0, unregistered: 0 };
+  const cross = {}; [...AGE_GENDER_BUCKETS, '미등록'].forEach(l => { cross[l] = { male: 0, female: 0, other: 0, undisclosed: 0, unregistered: 0 }; });
+
+  let ageRegistered = 0, genderRegistered = 0;
+  for (const row of rows) {
+    const bd = row && row.birthdate ? String(row.birthdate) : '';
+    const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(bd) : null;
+    const bucket = bucketOf(age);
+    const g = genders.includes(row && row.gender) ? row.gender : 'unregistered';
+
+    if (bucket) { ageCounts[bucket]++; ageRegistered++; }
+    else if (bd && age != null) { ageInvalid++; }   // 생년월일 있으나 18세 미만/비현실값 = 이상치
+    else { ageUnregistered++; }                       // 생년월일 미입력/파싱 실패 = 미등록
+
+    gender[g]++;
+    if (g !== 'unregistered') genderRegistered++;
+
+    cross[bucket || '미등록'][g]++;
+  }
+
+  const ageBuckets = AGE_GENDER_BUCKETS.map(l => ({ label: l, count: ageCounts[l] }));
+  ageBuckets.push({ label: '미등록', count: ageUnregistered });
+  if (ageInvalid > 0) ageBuckets.push({ label: '이상치', count: ageInvalid });
+
+  return { total: rows.length, ageRegistered, genderRegistered, ageBuckets, gender, cross, ageInvalid };
 }
 
 // ── 인플루언서 인증/블랙리스트 (관리자 전용, migration 059) ──
@@ -4870,7 +5196,7 @@ async function fetchDeliverables(filters) {
         application_id, user_id, campaign_id,
         submitted_by_admin, submitted_by_admin_reason_code, submitted_by_admin_reason, submitted_by_admin_at,
         submitted_by_admin_evidence,
-        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, purchase_start, purchase_end, visit_start, visit_end, submission_end)
+        campaigns:campaign_id (id, campaign_no, title, brand, recruit_type, channel, channel_match, purchase_start, purchase_end, visit_start, visit_end, submission_end)
       `).neq('status', 'draft');
       if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters?.kind && filters.kind !== 'all') q = q.eq('kind', filters.kind);
@@ -5433,7 +5759,7 @@ async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
     const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note')
+      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
       .in('id', userIds);
     if (error) throw error;
     const map = {};
@@ -7457,6 +7783,124 @@ async function resolveClientError(id, status, note) {
   } catch (e) { console.error('[resolveClientError]', e); return false; }
 }
 
+// ── 감사용 계정 흔적 제거 (super_admin 한정, 마이그레이션 179) ──
+//
+// ⚠️ Storage 삭제 메모
+//   - 메시지 첨부(message_attachments): RPC가 반환하는 값이 이미 버킷 상대 경로({appId}/{uuid}.jpg)이므로
+//     그대로 db.storage.from('application-message-attachments').remove([...paths]) 로 삭제.
+//   - 영수증 이미지(receipt_images): receipt_url 컬럼에는 Supabase 공개 전체 URL이 저장됨
+//     (https://{project}.supabase.co/storage/v1/object/public/campaign-images/receipts/...).
+//     db.storage.remove()는 버킷 내 상대 경로를 요구하므로, URL에서
+//     '/storage/v1/object/public/campaign-images/' 접두사를 제거해 상대 경로를 추출한다.
+//     변환 실패 시(접두사 불일치 등) 그 파일만 건너뛰고 나머지는 계속 처리.
+
+// Supabase 공개 URL → campaign-images 버킷 상대 경로 변환 헬퍼
+// 예: 'https://xxx.supabase.co/storage/v1/object/public/campaign-images/receipts/abc.jpg'
+//     → 'receipts/abc.jpg'
+// 변환 불가(형식 불일치)면 null 반환.
+function _receiptUrlToStoragePath(url) {
+  if (!url || typeof url !== 'string') return null;
+  const MARKER = '/storage/v1/object/public/campaign-images/';
+  const idx = url.indexOf(MARKER);
+  if (idx === -1) return null;
+  const path = url.slice(idx + MARKER.length);
+  return path || null;
+}
+
+// Storage 파일 삭제 공통 헬퍼.
+// bucket: 버킷명, paths: 상대 경로 배열 (빈 배열이면 즉시 반환).
+// 삭제 실패 시 에러를 throw 하지 않고 {ok, failedPaths} 형태로 반환
+// (일부 경로 삭제 실패가 흔적 제거 전체를 막지 않도록).
+async function _deleteStorageFiles(bucket, paths) {
+  if (!db || !Array.isArray(paths) || paths.length === 0) return { ok: true, failedPaths: [] };
+  try {
+    const { error } = await db.storage.from(bucket).remove(paths);
+    if (error) {
+      console.warn(`[_deleteStorageFiles] ${bucket} 삭제 실패:`, error);
+      return { ok: false, failedPaths: paths };
+    }
+    return { ok: true, failedPaths: [] };
+  } catch (e) {
+    console.warn(`[_deleteStorageFiles] ${bucket} 예외:`, e);
+    return { ok: false, failedPaths: paths };
+  }
+}
+
+// 모든 감사용 계정 흔적 제거.
+// RPC 성공 후 Storage 파일(메시지 첨부 + 영수증 이미지)도 후속 삭제.
+// 반환: { rpc, storageResult } — 호출처가 삭제 결과를 사용자에게 표시할 수 있도록.
+async function purgeAuditDataAll() {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_all');
+    if (error) throw error;
+
+    // RPC 결과가 'no_audit_account' 이면 삭제할 Storage 파일도 없음
+    if (!data || data.status === 'no_audit_account') {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete || {};
+
+    // 메시지 첨부: 이미 버킷 상대 경로
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    // 영수증: 전체 URL → 버킷 상대 경로 변환 (변환 불가 항목 제외)
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
+}
+
+// 특정 캠페인의 감사용 계정 흔적 제거.
+// 반환: { rpc, storageResult }
+async function purgeAuditDataForCampaign(campaignId) {
+  if (!db) throw new Error('DB 미연결');
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('purge_audit_data_for_campaign', {
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+
+    // 응모건 0건 케이스: storage_paths_to_delete 키 자체가 없을 수 있음
+    if (!data || data.status === 'no_audit_account' || !data.storage_paths_to_delete) {
+      return { rpc: data, storageResult: null };
+    }
+
+    const storagePaths = data.storage_paths_to_delete;
+
+    const msgPaths = Array.isArray(storagePaths.message_attachments)
+      ? storagePaths.message_attachments.filter(Boolean)
+      : [];
+
+    const receiptPaths = Array.isArray(storagePaths.receipt_images)
+      ? storagePaths.receipt_images.map(_receiptUrlToStoragePath).filter(Boolean)
+      : [];
+
+    const [msgResult, receiptResult] = await Promise.all([
+      _deleteStorageFiles(MSG_ATTACH_BUCKET, msgPaths),
+      _deleteStorageFiles('campaign-images', receiptPaths),
+    ]);
+
+    return {
+      rpc: data,
+      storageResult: { msgResult, receiptResult },
+    };
+  });
+}
+
 
 // ══════════════════════════════════════
 // LEGAL — 약관/개인정보 페이지 마크다운 렌더링
@@ -7947,6 +8391,20 @@ function getChannelLabel(ch, lang) {
     }
     return CHANNEL_LABEL_FALLBACK[code] || code;
   }).join(' or ');
+}
+
+// 채널 문자열(콤마구분) → 채널별 회색 라벨 칩. 관리자 목록 채널 열 공용.
+// 빈 채널은 '—'. 채널마다 한글 라벨 칩 1개씩 줄바꿈 허용.
+// 채널 2개 이상이면 칩 사이에 match 구분자 표시 ('and'=&, 그 외=or).
+function channelChipsHtml(channel, match) {
+  const codes = (channel || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!codes.length) return '<span style="color:var(--muted)">—</span>';
+  const chips = codes.map(function(code) {
+    const label = (typeof getChannelLabel === 'function') ? (getChannelLabel(code) || code) : code;
+    return '<span style="background:#F0F0F0;color:#666;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap">' + esc(label) + '</span>';
+  });
+  const sep = '<span style="font-size:9px;color:var(--muted);font-weight:600;padding:0 1px">' + (match === 'and' ? '&' : 'or') + '</span>';
+  return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px">' + chips.join(sep) + '</div>';
 }
 
 // lookup_values 공통: code 또는 name_ja를 현재 locale의 표시값으로
@@ -9002,10 +9460,43 @@ function updateGnb() {
   if (typeof updateFloatingAuthCta === 'function') updateFloatingAuthCta();
 }
 
+// 생년월일 년/월/일 select 채우기 (멱등). prefix 로 가입('signup')·응모 게이트('gate') 공용.
+// 가입 폼 입력을 바꾸면 즉시 에러 문구를 지움 (값을 고쳐도 에러가 다음 제출까지 남는 문제 방지)
+function bindSignupErrorClear() {
+  const area = $('signupFormArea'), errEl = $('signupError');
+  if (!area || !errEl || area.dataset.errClearBound) return;
+  area.dataset.errClearBound = '1';
+  const clear = () => { errEl.style.display = 'none'; };
+  area.addEventListener('input', clear);   // 텍스트·이메일·비밀번호
+  area.addEventListener('change', clear);  // 생년월일·성별 select
+}
+
+function populateBirthdateSelects(prefix) {
+  prefix = prefix || 'signup';
+  if (prefix === 'signup') bindSignupErrorClear();
+  const yEl = $(prefix+'BirthYear'), mEl = $(prefix+'BirthMonth'), dEl = $(prefix+'BirthDay');
+  if (!yEl || !mEl || !dEl || yEl.dataset.filled) return;
+  const curY = new Date().getFullYear();
+  for (let y = curY; y >= 1940; y--) {
+    const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); yEl.appendChild(o);
+  }
+  for (let mo = 1; mo <= 12; mo++) {
+    const o = document.createElement('option'); o.value = String(mo); o.textContent = String(mo); mEl.appendChild(o);
+  }
+  for (let d = 1; d <= 31; d++) {
+    const o = document.createElement('option'); o.value = String(d); o.textContent = String(d); dEl.appendChild(o);
+  }
+  yEl.dataset.filled = '1';
+}
+
 async function handleSignup(e) {
   e.preventDefault();
   const name = ($('signupNameKanji')?.value||'').trim();
   const nameKana = ($('signupNameKana')?.value||'').trim();
+  const birthYear = $('signupBirthYear')?.value || '';
+  const birthMonth = $('signupBirthMonth')?.value || '';
+  const birthDay = $('signupBirthDay')?.value || '';
+  const gender = $('signupGender')?.value || '';
   const email = $('signupEmail').value.trim();
   const pw = $('signupPw').value;
   const pw2 = $('signupPw2').value;
@@ -9014,6 +9505,17 @@ async function handleSignup(e) {
 
   errEl.style.display='none';
   if (!name || !nameKana) { errEl.textContent=t('authError.enterName'); errEl.style.display='block'; return; }
+  // 생년월일 필수 + 유효 날짜 + 만 18세 이상 검증
+  if (!birthYear || !birthMonth || !birthDay) { errEl.textContent=t('authError.enterBirthdate'); errEl.style.display='block'; return; }
+  const birthdate = `${birthYear}-${String(birthMonth).padStart(2,'0')}-${String(birthDay).padStart(2,'0')}`;
+  const bdObj = new Date(birthdate + 'T00:00:00+09:00');
+  if (isNaN(bdObj.getTime()) || (bdObj.getMonth()+1) !== Number(birthMonth) || bdObj.getDate() !== Number(birthDay)) {
+    errEl.textContent=t('authError.invalidBirthdate'); errEl.style.display='block'; return;
+  }
+  const age = calcAgeFromBirthdate(birthdate);
+  if (age === null || age < AGE_POLICY_MIN_AGE) { errEl.textContent=t('authError.under18'); errEl.style.display='block'; return; }
+  // 성별 필수 (回答しない 포함 4종 — 빈 값만 차단)
+  if (!gender) { errEl.textContent=t('authError.enterGender'); errEl.style.display='block'; return; }
   if (pw !== pw2) { errEl.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; errEl.style.display='block'; return; }
   const pwErr = validatePasswordPolicy(pw);
   if (pwErr) { errEl.textContent = pwErr; errEl.style.display='block'; return; }
@@ -9029,6 +9531,7 @@ async function handleSignup(e) {
   const nowIso = new Date().toISOString();
   const userData = {
     email, name, name_kanji: name, name_kana: nameKana,
+    birthdate, gender,
     terms_agreed_at: nowIso,
     privacy_agreed_at: nowIso,
     marketing_opt_in: marketingOptIn,
@@ -9043,7 +9546,8 @@ async function handleSignup(e) {
 
   try {
     const {data, error} = await db.auth.signUp({email, password: pw});
-    if (error) { errEl.textContent=error.message; errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
+    // 계정 열거 방지: 이미 가입된 이메일 등 서버 원문(영문) 노출 금지, 모호한 일반 메시지로 통일
+    if (error) { errEl.textContent=t('authError.signupFailed'); errEl.style.display='block'; btn.disabled=false; btn.textContent=t('auth.signup.btn'); return; }
     if (data.user?.id) {
       // 이메일 확인 대기 중인 경우 (identities가 비어있음)
       if (!data.session && data.user) {
@@ -9060,7 +9564,8 @@ async function handleSignup(e) {
       currentUserProfile = {id: data.user.id, ...userData};
     }
   } catch(e) {
-    errEl.textContent=t('authError.genericError') + ': ' + (e.message || String(e)); errEl.style.display='block';
+    // 영문 예외 메시지 노출 금지 — 일반 안내로 통일
+    errEl.textContent=t('authError.signupFailed'); errEl.style.display='block';
     btn.disabled=false; btn.textContent=t('auth.signup.btn'); return;
   }
 
@@ -9150,7 +9655,8 @@ async function handleForgotPassword(e) {
     const redirectUrl = location.origin + '/#reset-pw';
     const {error} = await db.auth.resetPasswordForEmail(email, {redirectTo: redirectUrl});
     if (error) {
-      errEl.textContent = error.message;
+      // 영문 서버 메시지·계정 존재 힌트 노출 금지 — 일반 안내로 통일
+      errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
       successEl.textContent = t('auth.forgot.successMsg');
@@ -9199,7 +9705,8 @@ async function handleResetPassword(e) {
   try {
     const {error} = await db.auth.updateUser({password: pw});
     if (error) {
-      errEl.textContent = error.message;
+      // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
+      errEl.textContent = t('authError.genericError');
       errEl.style.display = 'block';
     } else {
       try { sessionStorage.removeItem('reverb.recovery'); } catch(e) {}
@@ -9699,6 +10206,24 @@ function handleFloatApply() {
     toast(t('apply.emailUnverified'),'error');
     return;
   }
+  // 연령 게이트 (소급 — 응모 시점 검증, 사양서 §0-1 ①). 클라 표시용·서버 트리거(P0002)가 최종 방어선
+  //   - 생년월일/성별 미입력 → 입력 게이트 모달 (입력·저장 후 다시 응모 진행)
+  //   - 만 18세 미만 → 응모 차단 안내 (계정·둘러보기는 유지, 18세 도달 시 자동 해제)
+  const pAge = currentUserProfile || {};
+  if (!pAge.birthdate || !pAge.gender) {
+    openAgeGate();
+    return;
+  }
+  const curAge = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(pAge.birthdate) : null;
+  if (curAge !== null && curAge < AGE_POLICY_MIN_AGE) {
+    if (typeof openModal === 'function') {
+      $('alertModalMessage').textContent = t('ageGate.under18Apply');
+      openModal('alertModal');
+    } else {
+      toast(t('ageGate.under18Apply'), 'error');
+    }
+    return;
+  }
   // 필수 정보 체크: 이름(한자·가나) + 캠페인 채널에 맞는 SNS 계정 + 배송지
   const p = currentUserProfile || {};
   const camp = allCampaigns.find(c => c.id === currentCampaignId) || {};
@@ -9754,6 +10279,77 @@ function handleFloatApply() {
 function openProductPage() {
   const url = $('floatProductPageBtn')?.dataset.url;
   if (url) window.open(url,'_blank');
+}
+
+// ── 응모 연령 게이트 (생년월일·성별 미입력 시 응모 직전 입력, 사양서 §0-1 ①) ──
+function openAgeGate() {
+  if (typeof populateBirthdateSelects === 'function') populateBirthdateSelects('gate');
+  const err = $('ageGateError');
+  if (err) { err.style.display='none'; err.textContent=''; }
+  // 기존 입력값 복원 (성별만 — 생년월일은 최초 입력이라 보통 비어 있음)
+  const p = currentUserProfile || {};
+  if (p.gender && $('gateGender')) $('gateGender').value = p.gender;
+  // 동의 체크박스는 매번 미체크로 초기화 (재진입 시 이전 체크 상태로 무의식 통과 방지)
+  if ($('gateAgreePrivacy')) $('gateAgreePrivacy').checked = false;
+  const ov = $('ageGateOverlay');
+  if (ov) ov.style.display = 'flex';
+}
+
+function closeAgeGate() {
+  const ov = $('ageGateOverlay');
+  if (ov) ov.style.display = 'none';
+}
+
+async function saveAgeGate() {
+  const err = $('ageGateError');
+  const showErr = (msg) => { if (err) { err.textContent = msg; err.style.display='block'; } };
+  const by = $('gateBirthYear')?.value || '';
+  const bm = $('gateBirthMonth')?.value || '';
+  const bd = $('gateBirthDay')?.value || '';
+  const gender = $('gateGender')?.value || '';
+  if (err) err.style.display='none';
+  if (!by || !bm || !bd) { showErr(t('authError.enterBirthdate')); return; }
+  const birthdate = `${by}-${String(bm).padStart(2,'0')}-${String(bd).padStart(2,'0')}`;
+  const bdObj = new Date(birthdate + 'T00:00:00+09:00');
+  if (isNaN(bdObj.getTime()) || (bdObj.getMonth()+1) !== Number(bm) || bdObj.getDate() !== Number(bd)) {
+    showErr(t('authError.invalidBirthdate')); return;
+  }
+  if (!gender) { showErr(t('authError.enterGender')); return; }
+  // 개인정보(생년월일·성별) 수집·이용 동의 필수 — 신규 수집이므로 명시 동의 (개인정보보호법)
+  if (!$('gateAgreePrivacy')?.checked) { showErr(t('ageGate.agreeRequired')); return; }
+
+  // ⚠️ 18세 미만은 DB 저장 없이 차단 — 생년월일 잠금 트리거(PR1)로 오타가 영구 고정되는 것 방지
+  //    (개인정보 최소수집 원칙). 18세 도달 후 재입력 시 저장됨(서버가 birthdate로 매번 판정).
+  const age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(birthdate) : null;
+  if (age !== null && age < AGE_POLICY_MIN_AGE) {
+    closeAgeGate();
+    if (typeof openModal === 'function') {
+      $('alertModalMessage').textContent = t('ageGate.under18Apply');
+      openModal('alertModal');
+    } else {
+      toast(t('ageGate.under18Apply'), 'error');
+    }
+    return;
+  }
+
+  const btn = $('ageGateSaveBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  const consentAt = new Date().toISOString();
+  try {
+    await updateInfluencer(currentUser.id, { birthdate, gender, age_consent_at: consentAt });
+    if (!currentUserProfile) currentUserProfile = {};
+    currentUserProfile.birthdate = birthdate;
+    currentUserProfile.gender = gender;
+    currentUserProfile.age_consent_at = consentAt;
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
+    showErr(friendlyErrorJa(e));
+    return;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = t('ageGate.save'); }
+  closeAgeGate();
+  // 18세 이상 — 저장 완료, 응모 흐름 재개
+  handleFloatApply();
 }
 
 // ══════════════════════════════════════
@@ -11046,6 +11642,8 @@ async function loadMyPage() {
   const setVal = (id, val) => { const el = $(id); if(el) el.value = val||''; };
   setVal('profileNameKanji', p.name_kanji||p.name);
   setVal('profileNameKana', p.name_kana);
+  // 생년월일·성별 읽기 전용 표시 (수정은 관리자만 — 연령 정책 PR4). 미등록은 안내 문구 유지
+  renderProfileAgeReadonly();
   setVal('profileCategory', p.category);
   setVal('profileLine', p.line_id);
   setVal('profileBio', p.bio);
@@ -11440,7 +12038,8 @@ async function changePassword() {
   if (nw !== nw2) { err.textContent = (typeof t==='function') ? t('auth.pwMismatch', 'パスワードが一致しません。') : 'パスワードが一致しません。'; err.style.display='block'; return; }
   if (!db) { err.textContent=t('authError.serverError'); err.style.display='block'; return; }
   const {error} = await db.auth.updateUser({password: nw});
-  if (error) { err.textContent=error.message; err.style.display='block'; return; }
+  // 영문 서버 메시지 노출 금지 — 일반 안내로 통일
+  if (error) { err.textContent=t('authError.genericError'); err.style.display='block'; return; }
   toast(t('profile.pwChanged'),'success');
   $('currentPw').value=''; $('newPw').value=''; $('newPw2').value='';
 }
@@ -11511,6 +12110,24 @@ window.addEventListener('langchange', updateLangToggleUI);
 window.addEventListener('langchange', () => {
   if ($('myApplyStatusSelect') && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
 });
+
+// 생년월일·성별 읽기 전용 표시 갱신 (loadMyPage + 언어 전환 공용 — 동적 텍스트라 applyI18n 미적용)
+function renderProfileAgeReadonly() {
+  const p = currentUserProfile || {};
+  const bdEl = $('profileBirthdateDisplay');
+  if (bdEl) {
+    const label = (typeof formatBirthdateLabel === 'function') ? formatBirthdateLabel(p.birthdate) : '';
+    if (label) { bdEl.textContent = label; bdEl.removeAttribute('data-i18n'); }
+    else { bdEl.setAttribute('data-i18n', 'profile.notRegistered'); bdEl.textContent = t('profile.notRegistered'); }
+  }
+  const gEl = $('profileGenderDisplay');
+  if (gEl) {
+    const gl = (typeof genderLabel === 'function') ? genderLabel(p.gender) : '';
+    if (gl) { gEl.textContent = gl; gEl.removeAttribute('data-i18n'); }
+    else { gEl.setAttribute('data-i18n', 'profile.notRegistered'); gEl.textContent = t('profile.notRegistered'); }
+  }
+}
+window.addEventListener('langchange', renderProfileAgeReadonly);
 
 // 응모이력: 내가 응모한 캠페인에 등장한 모든 채널을 드롭다운에 채움
 function populateMyApplyChannelOptions() {

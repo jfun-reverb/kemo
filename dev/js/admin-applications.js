@@ -48,16 +48,17 @@ async function loadCampApplicants() {
   const searchQ = ($('campAppSearch')?.value || '').trim().toLowerCase();
   await loadApplicantMsgUnread();  // 응모건 메시지 본인 미열람 배지 맵
   let apps = await fetchApplications({campaign_id: currentCampApplicantId});
+  const _users = await fetchInfluencers();            // 행 렌더 + 감사용 격리 공용 (1회 로드)
+  const _auditIds = buildAuditIdSet(_users);          // 감사용 응모는 빈자리·모집현황 집계에서 제외
   const allApps = apps.slice();  // 필터 적용 전 전체 — 상단 요약 카드 집계용
   const total = apps.length;
-  const allApproved = apps.filter(a => a.status === 'approved').length;
-  const allPending = apps.filter(a => a.status === 'pending').length;
+  const allApproved = countNonAuditApproved(apps, null, _auditIds);  // 감사용 제외 승인 수(빈자리·진행바용)
+  const allPending = apps.filter(a => a.status === 'pending' && !_auditIds.has(a.user_id)).length;
   if (filter) apps = apps.filter(a=>a.status===filter);
   if (searchQ) {
-    const users = await fetchInfluencers();
     // 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
     apps = apps.filter(a => {
-      const u = users.find(x => x.email === a.user_email) || {};
+      const u = _users.find(x => x.email === a.user_email) || {};
       return matchSearchTokens(searchQ, [
         a.user_name, a.user_email,
         u.name_kanji, u.name, u.name_kana,
@@ -90,7 +91,6 @@ async function loadCampApplicants() {
     <span style="color:var(--gold)">심사중 ${pending}명</span>
   `;
 
-  const _users = await fetchInfluencers();
   // Stage 4: 이 캠페인의 모든 결과물을 한 번에 받아 application_id로 그룹핑
   const allDelivs = await fetchDeliverablesByCampaign(currentCampApplicantId);
   // 상단 요약 카드 (개요 + 모집/결과물 현황 + 비용)
@@ -122,9 +122,9 @@ async function loadCampApplicants() {
     const totalF = ((_u.ig_followers||0)+(_u.x_followers||0)+(_u.tiktok_followers||0)+(_u.youtube_followers||0)).toLocaleString();
     const otCell = renderOtCell(a, isPostType);
     const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
-    return `<tr data-id="${esc(a.id)}">
+    return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
-      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
+      <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
       <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
     </td>
@@ -139,7 +139,7 @@ async function loadCampApplicants() {
     <td>${otCell}</td>
     <td>${delivCell}</td>
     <td style="white-space:nowrap">
-      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${remaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+      ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(remaining<=0 && !_u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
       :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
       :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
     </td>
@@ -370,20 +370,6 @@ function toggleAppSort(key) {
       el.textContent = appSortDir === 'asc' ? '▲' : '▼';
     }
   });
-  const btn = $('btnAppSortReset');
-  if (btn) btn.style.display = (appSortKey === 'created' && appSortDir === 'desc') ? 'none' : '';
-  renderAppCampList();
-}
-
-function resetAppSort() {
-  appSortKey = 'created';
-  appSortDir = 'desc';
-  document.querySelectorAll('.app-sort-arrows').forEach(el => {
-    el.classList.remove('asc','desc');
-    el.textContent = '▲▼';
-    if (el.dataset.sort === 'created') { el.classList.add('desc'); el.textContent = '▼'; }
-  });
-  const btn = $('btnAppSortReset'); if (btn) btn.style.display = 'none';
   renderAppCampList();
 }
 
@@ -408,6 +394,7 @@ async function renderAppCampList() {
   const allAppsRaw = _appListCache.allAppsRaw;
   let apps = allAppsRaw.slice();
   const users = _appListCache.users;
+  const _auditIds = buildAuditIdSet(users);  // 감사용 응모는 빈자리 집계에서 제외
 
   // 캠페인 ↔ 타입 쌍별 연동: 현재 선택값 스냅샷
   const typeValsRaw = getMultiFilterValues('appTypeMulti');
@@ -431,16 +418,35 @@ async function renderAppCampList() {
   if (campStale.length > 0 && typeof toast === 'function') toast(`선택한 캠페인 ${campStale.length}건이 타입 필터에 맞지 않아 해제되었습니다`, 'info');
   if (typeStale.length > 0 && typeof toast === 'function') toast(`선택한 타입 ${typeStale.length}건이 캠페인 필터에 맞지 않아 해제되었습니다`, 'info');
 
-  // 옵션별 카운트 계산 (전체 신청 기준 — 다른 필터 무관)
+  // 필터 값 추출 (카운트·필터 적용 공용) — 동적 카운트를 위해 미리 확보
+  const campRtLookup = new Map(camps.map(c => [c.id, c.recruit_type]));
+  const campStatusLookup = new Map(camps.map(c => [c.id, c.status]));  // 신청의 캠페인 상태 조회용
+  const appTypeVals = getMultiFilterValues('appTypeMulti');
+  const appCampStatusVals = getMultiFilterValues('appCampStatusMulti');
+  const appStatusVals = getMultiFilterValues('appStatusMulti');
+  const campFilterVals = getMultiFilterValues('appCampMulti');
+  const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
+  // 단일 신청이 필터를 통과하는지 — skip 지정 시 그 필터만 무시(옵션별 동적 카운트용)
+  const passesAppFilters = (a, skip) => {
+    if (skip !== 'type'       && appTypeVals.length       && !appTypeVals.includes(campRtLookup.get(a.campaign_id))) return false;
+    if (skip !== 'campStatus' && appCampStatusVals.length && !appCampStatusVals.includes(campStatusLookup.get(a.campaign_id))) return false;
+    if (skip !== 'status'     && appStatusVals.length     && !appStatusVals.includes(a.status)) return false;
+    if (skip !== 'camp'       && campFilterVals.length    && !campFilterVals.includes(a.campaign_id)) return false;
+    if (searchVal && !matchSearchTokens(searchVal, [a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code])) return false;
+    return true;
+  };
+  // 옵션별 카운트 — 「자기 자신 필터 제외 + 다른 모든 필터 적용」 후 집계 (동적, 결과물 관리 페인과 동일 방식)
   const appCampCounts = {};
   const appTypeCounts = {};
   const appStatusCountsMap = {};
-  const campRtLookup = new Map(camps.map(c => [c.id, c.recruit_type]));
+  const appCampStatusCounts = {};
   for (const a of allAppsRaw) {
-    if (a.campaign_id) appCampCounts[a.campaign_id] = (appCampCounts[a.campaign_id] || 0) + 1;
+    if (a.campaign_id && passesAppFilters(a, 'camp')) appCampCounts[a.campaign_id] = (appCampCounts[a.campaign_id] || 0) + 1;
     const rt = campRtLookup.get(a.campaign_id);
-    if (rt) appTypeCounts[rt] = (appTypeCounts[rt] || 0) + 1;
-    if (a.status) appStatusCountsMap[a.status] = (appStatusCountsMap[a.status] || 0) + 1;
+    if (rt && passesAppFilters(a, 'type')) appTypeCounts[rt] = (appTypeCounts[rt] || 0) + 1;
+    const cst = campStatusLookup.get(a.campaign_id);
+    if (cst && passesAppFilters(a, 'campStatus')) appCampStatusCounts[cst] = (appCampStatusCounts[cst] || 0) + 1;
+    if (a.status && passesAppFilters(a, 'status')) appStatusCountsMap[a.status] = (appStatusCountsMap[a.status] || 0) + 1;
   }
 
   // 드롭다운 동기화 — count 포함
@@ -448,6 +454,15 @@ async function renderAppCampList() {
   syncMultiFilter('appTypeMulti', '전체 타입',
     availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t, count: appTypeCounts[t] || 0})),
     () => renderAppCampList());
+  // 캠페인 상태 필터 — 캠페인 관리 페인과 동일 6단계 (admin.js campStatusMulti 와 라벨·순서 통일)
+  syncMultiFilter('appCampStatusMulti', '전체 상태', [
+    {value:'draft',     label:'준비',     count: appCampStatusCounts.draft     || 0},
+    {value:'scheduled', label:'모집예정', count: appCampStatusCounts.scheduled || 0},
+    {value:'active',    label:'모집중',   count: appCampStatusCounts.active    || 0},
+    {value:'closed',    label:'모집마감', count: appCampStatusCounts.closed    || 0},
+    {value:'ended',     label:'종료',     count: appCampStatusCounts.ended     || 0},
+    {value:'expired',   label:'노출종료', count: appCampStatusCounts.expired   || 0},
+  ], () => renderAppCampList());
   syncMultiFilter('appStatusMulti', '전체 상태', [
     {value:'pending',   label:'심사중', count: appStatusCountsMap.pending   || 0},
     {value:'approved',  label:'승인',   count: appStatusCountsMap.approved  || 0},
@@ -455,33 +470,15 @@ async function renderAppCampList() {
     {value:'cancelled', label:'취소',   count: appStatusCountsMap.cancelled || 0},
   ], () => renderAppCampList());
 
-  // 타입 필터 (다중 선택) — stale 제거 후 최종값
-  const appTypeVals = getMultiFilterValues('appTypeMulti');
-  if (appTypeVals.length) {
-    const filteredCampIds = camps.filter(c => appTypeVals.includes(c.recruit_type)).map(c => c.id);
-    apps = apps.filter(a => filteredCampIds.includes(a.campaign_id));
-  }
+  // 필터 적용 — 위에서 정의한 passesAppFilters 로 일괄 (타입·캠페인상태·신청상태·캠페인·검색 모두 포함)
+  //   검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
+  apps = apps.filter(a => passesAppFilters(a));
 
-  // 상태 필터 (다중 선택)
-  const appStatusVals = getMultiFilterValues('appStatusMulti');
-  if (appStatusVals.length) apps = apps.filter(a => appStatusVals.includes(a.status));
-
-  // 캠페인 다중 선택 필터 — stale 제거 후 최종값
-  const campFilterVals = getMultiFilterValues('appCampMulti');
-  if (campFilterVals.length) apps = apps.filter(a => campFilterVals.includes(a.campaign_id));
-
-  // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
-  const searchVal = ($('appSearch')?.value || '').trim().toLowerCase();
-  if (searchVal) {
-    apps = apps.filter(a => {
-      // 검색은 인플루언서 전용 (캠페인은 검색형 캠페인 드롭다운으로 분리)
-      return matchSearchTokens(searchVal, [
-        a.user_name, a.user_email, a.cancel_reason, a.cancel_reason_code,
-      ]);
-    });
-  }
-
-  updateFilterResetBtn('btnAppFilterReset', ['appTypeMulti','appStatusMulti','appCampMulti'], 'appSearch');
+  // 보기 초기화 버튼 — 필터·검색·정렬 중 하나라도 비기본이면 노출 (필터+정렬+검색 통합)
+  const _appViewActive = ['appTypeMulti','appCampStatusMulti','appStatusMulti','appCampMulti'].some(id => getMultiFilterValues(id).length > 0)
+    || !!(($('appSearch')?.value || '').trim())
+    || !(appSortKey === 'created' && appSortDir === 'desc');
+  const _appViewBtn = $('btnAppViewReset'); if (_appViewBtn) _appViewBtn.style.display = _appViewActive ? '' : 'none';
 
   const appDir = appSortDir === 'asc' ? 1 : -1;
   if (appSortKey === 'status') {
@@ -509,7 +506,7 @@ async function renderAppCampList() {
   const renderAppRow = (a) => {
     const camp = camps.find(c => c.id === a.campaign_id) || {};
     const u = users.find(u => u.email === a.user_email) || {};
-    const _campRemaining = Math.max((camp.slots||0)-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);
+    const _campRemaining = Math.max((camp.slots||0)-countNonAuditApproved(allAppsRaw, camp.id, _auditIds),0);
     const imgs = [camp.img1,camp.img2,camp.img3,camp.img4,camp.img5,camp.img6,camp.img7,camp.img8,camp.image_url].filter(Boolean).filter((v,i,arr)=>arr.indexOf(v)===i);
     const thumbUrl = imgs[0] || '';
     const typeLabel = getRecruitTypeBadgeKoSm(camp.recruit_type);
@@ -519,41 +516,41 @@ async function renderAppCampList() {
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     const recruitStart   = camp.recruit_start ? formatDate(camp.recruit_start) : '';
     const recruitEnd     = camp.deadline ? formatDate(camp.deadline) : '';
-    return `<tr data-id="${esc(a.id)}">
-      <td style="max-width:260px">
+    return `<tr data-id="${esc(a.id)}" class="${u.is_audit?'audit-row':''}">
+      <td>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="position:relative;width:40px;height:40px;flex-shrink:0;border-radius:6px;overflow:hidden;background:var(--surface-dim)">
             ${thumbUrl ? `<img src="${imgThumb(thumbUrl,96,70)}" data-orig="${thumbUrl}" loading="lazy" decoding="async" onerror="if(this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:100%;height:100%;object-fit:cover">` : `<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:18px">${esc(camp.emoji)||'<span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">inventory_2</span>'}</span>`}
           </div>
           <div style="min-width:0;flex:1">
             <div>${typeLabel}</div>
-            <strong style="font-size:13px;cursor:pointer;display:block;word-break:break-word;line-height:1.4" onclick="openCampPreviewModal('${camp.id}')">${esc(camp.title)||'—'}</strong>
-            ${camp.slots?(()=>{const _r=Math.max(camp.slots-allAppsRaw.filter(x=>x.campaign_id===camp.id&&x.status==='approved').length,0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
+            <div style="display:flex;align-items:flex-start;gap:4px"><strong style="font-size:13px;display:block;word-break:break-word;line-height:1.4;flex:1">${esc(camp.title)||'—'}</strong>${campPreviewBtn(camp.id)}</div>
+            ${camp.slots?(()=>{const _r=Math.max(camp.slots-countNonAuditApproved(allAppsRaw, camp.id, _auditIds),0);return `<div style="font-size:10px;color:var(--muted);margin-top:2px">모집 ${camp.slots}명 · 빈자리 <span style="color:${_r>0?'var(--green)':'var(--red)'};font-weight:600">${_r>0?_r+'건':'없음'}</span></div>`;})():''}
           </div>
         </div>
       </td>
+      <td>${channelChipsHtml(camp.channel, camp.channel_match)}</td>
       <td style="font-size:12px;color:var(--ink);min-width:100px;max-width:160px;word-break:break-word">
         ${brandPrimary?esc(brandPrimary):'—'}
         ${brandSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(brandSub)}</div>`:''}
       </td>
-      <td style="font-size:12px;color:var(--ink);min-width:120px;max-width:220px;word-break:break-word">
+      <td style="font-size:12px;color:var(--ink);min-width:200px;max-width:260px;word-break:break-word">
         ${productPrimary?esc(productPrimary):'—'}
         ${productSub?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(productSub)}</div>`:''}
       </td>
-      <td style="font-size:11px;color:var(--muted);white-space:nowrap">
-        ${recruitStart?`<div>${recruitStart}</div>`:''}
-        <div style="color:var(--ink)">~ ${recruitEnd||'—'}</div>
+      <td style="font-size:11px;color:var(--ink);white-space:nowrap">
+        ${(recruitStart||recruitEnd) ? `${recruitStart||'—'} ~ ${recruitEnd||'—'}` : '<span style="color:var(--muted)">—</span>'}
       </td>
       <td>
-        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${influencerStatusBadges(u)}</div>
+        <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(u.line_id)}</div>`:''}
         <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>
       <td style="font-size:12px;color:var(--muted);white-space:nowrap">${formatDate(a.created_at)}</td>
-      <td>${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
+      <td style="white-space:nowrap">${getStatusBadgeKo(a.status, a.auto_reject_reason)}${a.status==='cancelled' && a.cancel_phase ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(cancelPhaseLabelKo(a.cancel_phase))}</div>` : ''}</td>
       <td style="white-space:nowrap">
-        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${_campRemaining<=0?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
+        ${a.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-green btn-xs" ${(_campRemaining<=0 && !u.is_audit)?'disabled style="background:var(--muted);opacity:.5;cursor:not-allowed"':''}onclick="updateAppStatus('${a.id}','approved')">승인</button><button class="btn btn-ghost btn-xs" style="color:var(--red);border-color:var(--red)" onclick="updateAppStatus('${a.id}','rejected')">미승인</button></div>`
         :a.status==='cancelled'?`<div style="font-size:10px;color:var(--muted)">${a.cancelled_at?formatDateTime(a.cancelled_at):'—'}</div>`
         :`<div><div style="font-size:10px;color:var(--muted)">${esc(formatReviewer(a.reviewed_by))} ${a.reviewed_at?formatDateTime(a.reviewed_at):''}</div><button class="btn btn-ghost btn-xs" style="margin-top:4px;font-size:10px" onclick="updateAppStatus('${a.id}','pending')">되돌리기</button></div>`}
       </td>
@@ -577,15 +574,29 @@ async function updateAppStatus(appId, status) {
   try {
     // 승인 시 모집인원 초과 체크
     if (status === 'approved') {
-      const {data: app} = await db?.from('applications').select('campaign_id').eq('id', appId).maybeSingle();
+      const {data: app} = await db?.from('applications').select('campaign_id, user_id').eq('id', appId).maybeSingle();
       if (app) {
-        const {data: camp} = await db?.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
-        const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
-        const slots = camp?.slots || 0;
-        if (slots > 0 && approvedApps.length >= slots) {
-          $('alertModalMessage').innerHTML = `이 캠페인의 모집 정원은 <strong>${esc(String(slots))}명</strong>으로<br>이미 모두 찼습니다.`;
-          openModal('alertModal');
-          return;
+        // 감사용 응모는 정원과 무관하게 승인 허용 (격리 — 마이그레이션 179·181)
+        const {data: applicant} = await db?.from('influencers').select('is_audit').eq('id', app.user_id).maybeSingle();
+        if (!applicant?.is_audit) {
+          const {data: camp} = await db?.from('campaigns').select('slots').eq('id', app.campaign_id).maybeSingle();
+          const slots = camp?.slots || 0;
+          if (slots > 0) {
+            const approvedApps = await fetchApplications({campaign_id: app.campaign_id, status: 'approved'});
+            // 승인된 감사용 응모는 정원 카운트에서 제외
+            const ids = approvedApps.map(a => a.user_id).filter(Boolean);
+            let auditSet = new Set();
+            if (ids.length) {
+              const {data: auditRows} = await db?.from('influencers').select('id').eq('is_audit', true).in('id', ids) || {};
+              auditSet = new Set((auditRows || []).map(r => r.id));
+            }
+            const nonAuditApproved = approvedApps.filter(a => !auditSet.has(a.user_id)).length;
+            if (nonAuditApproved >= slots) {
+              $('alertModalMessage').innerHTML = `이 캠페인의 모집 정원은 <strong>${esc(String(slots))}명</strong>으로<br>이미 모두 찼습니다.`;
+              openModal('alertModal');
+              return;
+            }
+          }
         }
       }
     }

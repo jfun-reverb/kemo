@@ -109,20 +109,22 @@ function renderInfluencersPane() {
   const total = (infUsersCache || []).length;
   const totalEl = $('infTotalCount');
   if (totalEl) totalEl.textContent = `${filtered.length}명 표시 (전체 ${total}명)`;
-  const resetBtn = $('btnInfFilterReset');
+  const resetBtn = $('btnInfViewReset');
   if (resetBtn) {
     const verifiedSel = $('infFilterVerifiedSelect')?.value || 'all';
     const violationSel = $('infFilterViolationSelect')?.value || 'all';
     const searchQ = ($('infSearch')?.value || '').trim();
     const prefSel = (typeof getMultiFilterValues === 'function') ? getMultiFilterValues('infPrefectureMulti') : [];
     const hasFollower = !!($('infFollowersMin')?.value || $('infFollowersMax')?.value);
-    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower);
+    const hasSort = !(infSortKey === 'created' && infSortDir === 'desc');
+    const anyActive = (verifiedSel !== 'all' || violationSel !== 'all' || currentInfTab !== 'all' || !!searchQ || prefSel.length > 0 || hasFollower || hasSort);
     resetBtn.style.display = anyActive ? '' : 'none';
   }
   renderInfTable(filtered);
 }
 
-function resetInfluencerFilters() {
+// 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
+function resetInfView() {
   const v = $('infFilterVerifiedSelect'); if (v) v.value = 'all';
   const w = $('infFilterViolationSelect'); if (w) w.value = 'all';
   const c = $('infChannelFilter'); if (c) c.value = 'all';
@@ -131,6 +133,8 @@ function resetInfluencerFilters() {
   const mn = $('infFollowersMin'); if (mn) mn.value = '';
   const mx = $('infFollowersMax'); if (mx) mx.value = '';
   currentInfTab = 'all';
+  infSortKey = 'created'; infSortDir = 'desc';
+  updateInfSortUI();
   rerenderInfluencersFromCache();
 }
 
@@ -153,13 +157,6 @@ function toggleInfSort(key) {
   rerenderInfluencersFromCache();
 }
 
-function resetInfSort() {
-  infSortKey = 'created';
-  infSortDir = 'desc';
-  updateInfSortUI();
-  rerenderInfluencersFromCache();
-}
-
 function updateInfSortUI() {
   document.querySelectorAll('.inf-sort-arrows').forEach(el => {
     el.classList.remove('asc','desc');
@@ -169,8 +166,6 @@ function updateInfSortUI() {
       el.textContent = infSortDir === 'asc' ? '▲' : '▼';
     }
   });
-  const resetBtn = $('btnInfSortReset');
-  if (resetBtn) resetBtn.style.display = (infSortKey === 'created' && infSortDir === 'desc') ? 'none' : '';
 }
 
 function sortInfUsers(users) {
@@ -239,8 +234,8 @@ function buildInfRowAll(u) {
     return `<div style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safe}">${inner}</div>`;
   };
   const ellip = (s, w=140) => `<div style="max-width:${w}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s||'')}">${esc(s)||'—'}</div>`;
-  return `<tr data-id="${esc(u.id)}"${u.is_blacklisted?' style="opacity:.55"':''}>
-    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
+  return `<tr data-id="${esc(u.id)}" class="${u.is_audit?'audit-row':''}"${u.is_blacklisted?' style="opacity:.55"':''}>
+    <td><div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerDetail('${u.id}')">${esc(u.name_kanji||u.name)||'—'}${auditBadgeHtml(u)}${adminBadge(u.email)}${influencerStatusBadges(u)}</div><div style="font-size:11px;color:var(--muted)">${esc(u.email)}</div></td>
     <td>${snsCell('instagram', u.ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
     <td>${snsCell('x', u.x)}<div style="font-size:11px;color:var(--muted)">${xF}명</div></td>
     <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
@@ -295,9 +290,16 @@ async function openInfluencerDetail(userId) {
   // 기본 정보
   const row = (label, val) => `<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--surface-dim,var(--bg))"><div style="width:100px;font-size:12px;font-weight:600;color:var(--muted);flex-shrink:0">${label}</div><div style="font-size:13px;color:var(--ink);flex:1">${esc(val)||'—'}</div></div>`;
 
+  // 생년월일 + 만 나이 / 성별 (연령 정책 PR4 — 관리자 한국어 고정)
+  const _genderKo = { male: '남성', female: '여성', other: '기타', undisclosed: '응답하지 않음' };
+  const _age = (typeof calcAgeFromBirthdate === 'function') ? calcAgeFromBirthdate(u.birthdate) : null;
+  const _bdLabel = u.birthdate ? (u.birthdate + (_age != null ? ` (만 ${_age}세)` : '')) : '';
+
   $('infDetailBasic').innerHTML =
     row('이름 (한자)', u.name_kanji || u.name) +
     row('이름 (카나)', u.name_kana) +
+    row('생년월일', _bdLabel) +
+    row('성별', _genderKo[u.gender] || '') +
     row('이메일', u.email) +
     row('카테고리', u.category) +
     row('자기소개', u.bio) +
@@ -385,7 +387,49 @@ async function openInfluencerDetail(userId) {
     </td></tr>`;
   }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr>';
 
+  // 감사용 흔적 청소 — super_admin + 감사용 계정(is_audit=true)일 때만 노출.
+  // 일반 인플 상세에는 절대 렌더하지 않음(매번 innerHTML 초기화로 stale 방지).
+  const auditBox = $('infDetailAuditPurge');
+  if (auditBox) {
+    const isSuper = currentAdminInfo?.role === 'super_admin';
+    if (isSuper && u.is_audit === true) {
+      auditBox.innerHTML = `
+        <div class="admin-card" style="border:1px solid var(--line)">
+          <div class="admin-card-header"><span class="admin-card-title">감사용 흔적 청소</span></div>
+          <div style="padding:16px">
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px">모든 감사용 계정의 응모·결과물·메시지·알림을 한 번에 삭제합니다. 감사용 계정 자체는 유지됩니다.</p>
+            <button class="btn btn-sm" style="background:#C62828;color:#fff;border:none" onclick="purgeAllAuditData()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle;margin-right:4px">cleaning_services</span>전체 흔적 청소</button>
+          </div>
+        </div>`;
+    } else {
+      auditBox.innerHTML = '';
+    }
+  }
+
   openModal('influencerFullDetailModal');
+}
+
+// 전체 감사용 흔적 청소 — super_admin 전용.
+// 모든 감사용 계정(is_audit=true)의 응모·결과물·메시지·알림을 삭제(계정 자체는 유지).
+async function purgeAllAuditData() {
+  if (currentAdminInfo?.role !== 'super_admin') return;
+  const ok = await showConfirm('모든 감사용 계정의 응모·결과물·메시지·알림을 삭제합니다. 감사용 계정 자체는 유지됩니다. 되돌릴 수 없습니다. 진행할까요?');
+  if (!ok) return;
+  try {
+    const res = await purgeAuditDataAll();
+    const rpc = res?.rpc;
+    if (!rpc || rpc.status === 'no_audit_account' || !rpc.deleted || (rpc.deleted.applications || 0) === 0) {
+      toast('삭제할 감사용 데이터 없음', '');
+    } else {
+      const n = rpc.deleted.applications || 0;
+      toast(`감사용 응모 ${n}건·결과물 등 삭제됨`, 'success');
+    }
+    closeModal('influencerFullDetailModal');
+    await refreshPane('influencers');
+  } catch (e) {
+    console.error('[purgeAllAuditData]', e);
+    toast('감사용 흔적 청소 실패: ' + (e?.message || e), 'error');
+  }
 }
 
 // 상태 관리 패널 — 인증 토글 + 블랙리스트 등록/해제 + 사유 입력
