@@ -8047,6 +8047,18 @@ async function sendOrientInviteMail(orientSheetId) {
   }
 }
 
+// 오리엔시트 삭제 (마이그레이션 199, delete_orient_sheet RPC).
+// 발행 캠페인 없으면 시트만 삭제(is_admin) / 연결 있으면 신청 0건 캠페인까지 함께 삭제(is_campaign_admin),
+// 신청 1건+ 있으면 차단(blocked_has_applications). 반환 jsonb 그대로 전달(호출 측이 reason 분기).
+async function deleteOrientSheet(orientId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('delete_orient_sheet', { p_orient_id: orientId });
+    if (error) throw error;
+    return data;
+  });
+}
+
 // 오리엔시트 카드 1개를 발행 캠페인과 연결(소비). 마이그레이션 196.
 // 카드별 멱등(이미 발행 카드면 거부), 모든 카드 발행 시 시트 status='consumed'.
 async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
