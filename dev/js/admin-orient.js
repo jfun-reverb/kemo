@@ -402,7 +402,7 @@ function osCardDetail(c, idx, catMap) {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url))
       + osField('상시가', sale.price_regular);
   }
-  if (ft === 'reviewer') inner += osField('리뷰 가이드', c.review_guide);
+  if (ft === 'reviewer') inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide));
   if (ft === 'seeding') {
     inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
     const guides = Array.isArray(sd.guides) ? sd.guides.filter(g => g && (g.channel || g.guide)) : [];
@@ -417,7 +417,7 @@ function osCardDetail(c, idx, catMap) {
     }
     inner += osField('배송 안내', sd.shipping_note);
   }
-  inner += osField('금지 표현(NG)', c.ng) + osField('추가 안내', c.cautions) + osImagesInline(c.images);
+  inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng)) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions)) + osImagesInline(c.images);
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
 
   const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -508,11 +508,18 @@ function osPlainToRich(t) {
   if (!t) return '';
   return esc(String(t)).replace(/\n/g, '<br>');
 }
+// 리치 텍스트(HTML) → 평문 (가이드 초안용 — 줄바꿈 보존, 태그 제거)
+function osStripHtml(html) {
+  if (!html) return '';
+  const d = document.createElement('div');
+  d.innerHTML = String(html).replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
+  return (d.textContent || '').trim();
+}
 
 // 카드 한국어 콘텐츠를 가이드 초안으로 합침 (관리자가 일본어로 번역)
 function osBuildGuideDraft(card) {
   const blocks = [];
-  if (card.form_type === 'reviewer' && card.review_guide) blocks.push('[리뷰 가이드]\n' + card.review_guide);
+  if (card.form_type === 'reviewer' && card.review_guide) blocks.push('[리뷰 가이드]\n' + osStripHtml(card.review_guide));
   if (card.form_type === 'seeding') {
     const sd = card.seeding || {};
     (Array.isArray(sd.guides) ? sd.guides : []).forEach(g => {
@@ -524,8 +531,8 @@ function osBuildGuideDraft(card) {
     if (sd.shipping_note) blocks.push('[배송 안내] ' + sd.shipping_note);
     if (sd.account_tags) blocks.push('[태그 계정] ' + sd.account_tags);
   }
-  if (card.cautions) blocks.push('[추가 안내]\n' + card.cautions);
-  if (card.ng) blocks.push('[NG]\n' + card.ng);
+  if (card.cautions) blocks.push('[추가 안내]\n' + osStripHtml(card.cautions));
+  if (card.ng) blocks.push('[NG]\n' + osStripHtml(card.ng));
   return blocks.map(osPlainToRich).join('<br><br>');
 }
 
