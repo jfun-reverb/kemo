@@ -9,6 +9,7 @@
 let _orientSheets = [];
 let _osDetailSheet = null;   // 상세 모달에 열린 시트(카드별 발행에 사용)
 let _osDetailCatMap = {};    // 상세 모달 카테고리 라벨 맵(새창 열기에 재사용)
+let _osLastIssuedId = null;  // 방금 발급한 오리엔시트 id(발급 결과 화면 수동 메일 발송용)
 
 const OS_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
 const OS_TYPE_CHIP = {
@@ -212,9 +213,8 @@ async function osSubmitCreate() {
     document.getElementById('osCreateForm').style.display = 'none';
     document.getElementById('osCreateResult').style.display = '';
     btn.style.display = 'none';
+    _osLastIssuedId = res.id;   // 발급 결과 화면의 「메일 발송」 버튼이 사용 (자동 발송 안 함 — 수동 선택)
     await refreshPane('orient-sheets');
-    // 발급 직후 브랜드 담당자에게 작성 링크 메일 자동 발송 (실패해도 발급은 유효 — 결과만 표시)
-    osSendInviteAndShow(res.id);
   } catch (e) {
     toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
   } finally {
@@ -233,6 +233,14 @@ function osReasonText(r) {
 
 function osCopyResultLink() {
   copyTextToClipboard(document.getElementById('osCreateLink').value, '작성 링크가 복사되었습니다.');
+}
+
+// 발급 결과 화면 「메일 발송」 버튼 — 선택 발송(자동 발송 아님). 발송 중 버튼 비활성.
+async function osSendInviteClick(btn) {
+  if (!_osLastIssuedId) return;
+  btn.disabled = true;
+  try { await osSendInviteAndShow(_osLastIssuedId); }
+  finally { btn.disabled = false; }
 }
 
 // 발급 직후 메일 발송 + 발급 결과 화면에 발송 상태 인라인 표시.
@@ -664,7 +672,11 @@ function ensureOrientModals() {
           <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
           <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
           <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
-          <button type="button" class="btn btn-primary btn-sm" style="margin-top:10px" onclick="osCopyResultLink()">링크 복사</button>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="osCopyResultLink()">링크 복사</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="osSendInviteClick(this)"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">mail</span> 메일 발송</button>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">메일은 자동 발송되지 않습니다. 필요하면 「메일 발송」을 눌러 브랜드 담당자에게 작성 링크를 보내세요.</div>
           <div id="osCreateMailStatus" style="margin-top:12px;font-size:13px;line-height:1.6"></div>
         </div>
       </div>
