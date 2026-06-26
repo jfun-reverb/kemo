@@ -799,10 +799,9 @@ function imageRowHtml(value, type, name) {
     ? (/^https:\/\//i.test(value) ? value : '')           // 업로드 파일은 https만
     : (/^https?:\/\//i.test(value) ? value : '');          // 공유 링크는 http/https
   return `<div class="rep-item" data-img data-img-type="${isUpload ? 'upload' : 'url'}"${isUpload && name ? ` data-img-name="${escAttr(name)}"` : ''}>
-    <div class="rep-head"><span class="rep-num">이미지·파일</span>
+    <div class="rep-head"><span class="rep-num">파일 첨부 또는 공유 링크</span>
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
     <div class="field">
-      <label>파일 첨부 또는 공유 링크</label>
       <input type="hidden" class="img-value" value="${escAttr(value)}">
       <!-- ③ 칩(파일 업로드 결과 또는 URL 확인 결과) -->
       <div class="img-file-chip${hasValue ? '' : ' hidden'}">
