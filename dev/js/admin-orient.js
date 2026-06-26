@@ -82,7 +82,7 @@ async function loadOrientSheets() {
 }
 
 function osMsgRow(msg) {
-  return `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
+  return `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
 }
 
 function renderOrientSheets() {
@@ -110,6 +110,7 @@ function osRowHtml(s) {
     <td>${osBadge(osStatusOf(s))}</td>
     <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
     <td>${s.token_expires_at ? formatDate(s.token_expires_at) : '-'}</td>
+    <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
     <td style="white-space:nowrap">
       <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${s.id}')">상세</button>
