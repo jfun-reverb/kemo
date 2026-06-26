@@ -694,6 +694,8 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal', 'brandAppOrientListModal',
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
+  // 오리엔시트 (동적 생성 — ensureOrientModals 가 initDraggableModals 재호출로 옵저버 부착)
+  'orientDetailModal', 'orientCreateModal',
   // 메시지
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
