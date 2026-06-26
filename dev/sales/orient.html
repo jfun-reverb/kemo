@@ -13,6 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <style>
 :root {
   --brand: #E8344E;
@@ -270,6 +271,22 @@ input[type="date"] { min-height: 44px; }
   font-family: inherit; cursor: pointer; flex-shrink: 0;
 }
 .img-url-cancel:hover { color: var(--brand); }
+/* 간단 리치 텍스트 에디터 (B/I/U/S/링크) */
+.rich-wrap { border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; background: #fff; }
+.rich-toolbar { display: flex; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--border); background: #fafafa; }
+.rich-btn {
+  border: 0; background: transparent; cursor: pointer; padding: 5px 9px;
+  font-size: 13px; color: var(--ink-soft); border-radius: 6px; font-family: inherit; line-height: 1;
+}
+.rich-btn:hover { background: var(--brand-soft); color: var(--brand-dark); }
+.rich-btn-link { display: inline-flex; align-items: center; }
+.rich-btn-link .material-icons-outlined { font-size: 16px; }
+.rich-content {
+  padding: 10px 12px; font-size: 16px; min-height: 64px; line-height: 1.6;
+  outline: none; color: var(--ink); word-break: break-word;
+}
+.rich-content:empty:before { content: attr(data-placeholder); color: var(--ink-mute); }
+.rich-content a { color: var(--brand-dark); text-decoration: underline; }
 /* 업로드된 파일 칩 (URL 입력칸 대체) */
 .img-file-chip {
   display: flex; align-items: center; gap: 8px;
@@ -788,6 +805,77 @@ function uploadDisplayName(name, value) {
   } catch (e) { return '업로드된 파일'; }
 }
 
+// ══════════════════════════════════════
+// 간단 리치 텍스트 에디터 (리뷰 가이드·금지 표현·추가 안내) — B/I/U/S/링크
+//   익명 작성 → 관리자 열람 = 저장형 XSS 동선이라 저장·렌더·붙여넣기 모두 sanitize
+// ══════════════════════════════════════
+const RICH_ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'a', 'br', 'p'];
+function richSanitize(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') return String(html).replace(/<[^>]*>/g, '');  // 로드 실패 시 태그 제거(안전)
+  const clean = DOMPurify.sanitize(String(html), {
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    FORBID_TAGS: ['img', 'script', 'iframe', 'style', 'object', 'embed', 'svg'],
+    FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick'],
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
+  });
+  const w = document.createElement('div');
+  w.innerHTML = clean;
+  w.querySelectorAll('a[href]').forEach(a => { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer nofollow'); });
+  return w.innerHTML;
+}
+// 저장값 → 에디터 초기 HTML. 평문(태그 없음)이면 이스케이프 + 줄바꿈 보존
+function richInitial(val) {
+  val = val || '';
+  if (/<[a-z][\s\S]*>/i.test(val)) return richSanitize(val);
+  return escAttr(val).replace(/\n/g, '<br>');
+}
+// 에디터 div(contenteditable) → 수집용 sanitize HTML. 내용 없으면 ''
+function richValue(node) {
+  if (!node) return '';
+  if (!node.textContent.trim() && !/<a /i.test(node.innerHTML)) return '';
+  return richSanitize(node.innerHTML);
+}
+function richEditorHtml(safeHtml, cls, placeholder) {
+  const ph = escAttr(placeholder || '');
+  return `<div class="rich-wrap">
+    <div class="rich-toolbar">
+      <button type="button" class="rich-btn" style="font-weight:800" title="굵게" onclick="richCmd(this,'bold')">B</button>
+      <button type="button" class="rich-btn" style="font-style:italic" title="기울임" onclick="richCmd(this,'italic')">I</button>
+      <button type="button" class="rich-btn" style="text-decoration:underline" title="밑줄" onclick="richCmd(this,'underline')">U</button>
+      <button type="button" class="rich-btn" style="text-decoration:line-through" title="취소선" onclick="richCmd(this,'strikeThrough')">S</button>
+      <button type="button" class="rich-btn rich-btn-link" title="링크 (텍스트 선택 후)" onclick="richLink(this)"><span class="material-icons-outlined notranslate" translate="no">link</span></button>
+    </div>
+    <div class="rich-content ${cls}" contenteditable="true" data-placeholder="${ph}" oninput="onInput()" onpaste="richPaste(event)">${safeHtml}</div>
+  </div>`;
+}
+function richEditorOf(btn) { return btn.closest('.rich-wrap').querySelector('.rich-content'); }
+function richCmd(btn, cmd) {
+  const c = richEditorOf(btn);
+  c.focus();
+  try { document.execCommand(cmd, false, null); } catch (e) {}
+  onInput();
+}
+function richLink(btn) {
+  const c = richEditorOf(btn);
+  c.focus();
+  const sel = window.getSelection();
+  if (!sel || !sel.toString().trim()) { showToast('링크를 걸 텍스트를 먼저 선택해 주세요.'); return; }
+  let url = window.prompt('링크 주소(URL)를 입력해 주세요', 'https://');
+  if (url == null) return;
+  url = normalizeUrl(url);
+  if (!url) { showToast('올바른 링크 주소가 아니에요.'); return; }
+  try { document.execCommand('createLink', false, url); } catch (e) {}
+  c.querySelectorAll('a[href]').forEach(a => { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer nofollow'); });
+  onInput();
+}
+function richPaste(e) {
+  e.preventDefault();
+  const text = ((e.clipboardData || window.clipboardData).getData('text/plain') || '');
+  try { document.execCommand('insertText', false, text); } catch (err) {}
+}
+
 // 한 행 = 「올린 파일」 또는 「공유 링크(URL)」. 3상태: ①선택(버튼2개) ②URL 입력+확인 ③칩(결과).
 //   .img-value(hidden) = 수집용 단일 값. 칩은 업로드·URL확인 공용(둘 다 「제거」로 선택 상태 복귀).
 function imageRowHtml(value, type, name) {
@@ -890,7 +978,7 @@ function cardHtml(id, card) {
 
         <!-- 리뷰 가이드 (리뷰어) -->
         <div class="field only-reviewer"><label>리뷰 가이드</label>
-          <textarea class="f-review-guide" placeholder="리뷰에 꼭 담아야 할 내용, 별점·사진 등 작성 방식을 적어 주세요." oninput="onInput()">${escAttr(card.review_guide)}</textarea></div>
+          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '리뷰에 꼭 담아야 할 내용, 별점·사진 등 작성 방식을 적어 주세요.')}</div>
 
         <!-- 시딩 상세 -->
         <div class="only-seeding">
@@ -918,9 +1006,9 @@ function cardHtml(id, card) {
 
         <!-- 공통: NG · 추가 안내 · 이미지 -->
         <div class="field"><label>금지 표현 (NG)</label>
-          <textarea class="f-ng" placeholder="콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요." oninput="onInput()">${escAttr(card.ng)}</textarea></div>
+          ${richEditorHtml(richInitial(card.ng), 'f-ng', '콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요.')}</div>
         <div class="field"><label>추가 안내 · 필독 사항</label>
-          <textarea class="f-cautions" placeholder="인플루언서가 꼭 알아야 할 안내사항을 적어 주세요." oninput="onInput()">${escAttr(card.cautions)}</textarea></div>
+          ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}</div>
         <div class="field"><label>예시 이미지·자료</label>
           <div class="field-hint" style="margin-top:0;margin-bottom:8px">참고용 이미지·자료가 있으면 「파일 업로드」로 올리거나 「URL 공유」로 링크를 넣어 주세요. (이미지·PDF·문서, 최대 5개)</div>
           <div class="img-list">${imgRows}</div>
@@ -988,7 +1076,7 @@ function clearCardTypeFields(el) {
    '.f-review-guide', '.f-appeal', '.f-hashtags', '.f-account-tags',
    '.f-shooting', '.f-required', '.f-gift', '.f-shipping'].forEach(sel => {
     const node = el.querySelector(sel);
-    if (node) node.value = '';
+    if (node) { if (node.isContentEditable) node.innerHTML = ''; else node.value = ''; }
   });
   el.querySelector('.cg-list').innerHTML = cgRowHtml('nano', '', '');
   el.setAttribute('data-cgrade', 'nano');
@@ -1329,7 +1417,7 @@ function collectCard(el) {
       url: normalizeUrl(el.querySelector('.f-sale-url').value),
       price_regular: el.querySelector('.f-price-regular').value.trim(),
     },
-    review_guide: el.querySelector('.f-review-guide').value.trim(),
+    review_guide: richValue(el.querySelector('.f-review-guide')),
     seeding: {
       grade,
       channels: guides.map(g => g.channel).filter(Boolean),
@@ -1342,8 +1430,8 @@ function collectCard(el) {
       shipping_note: el.querySelector('.f-shipping').value.trim(),
       guides,
     },
-    ng: el.querySelector('.f-ng').value.trim(),
-    cautions: el.querySelector('.f-cautions').value.trim(),
+    ng: richValue(el.querySelector('.f-ng')),
+    cautions: richValue(el.querySelector('.f-cautions')),
     images,
   };
 }
@@ -1505,6 +1593,12 @@ function pvRow(k, v) {
   const val = (v == null || v === '') ? '<span class="pv-v muted">—</span>' : `<span class="pv-v">${escAttr(v)}</span>`;
   return `<div class="pv-row"><span class="pv-k">${escAttr(k)}</span>${val}</div>`;
 }
+// 리치 텍스트 필드용 미리보기 행(sanitize HTML 렌더)
+function pvRowHtml(k, html) {
+  const safe = richSanitize(html);
+  const val = safe ? `<span class="pv-v">${safe}</span>` : '<span class="pv-v muted">—</span>';
+  return `<div class="pv-row"><span class="pv-k">${escAttr(k)}</span>${val}</div>`;
+}
 
 function renderPreviewCard(c, idx) {
   const ft = c.form_type;
@@ -1518,7 +1612,7 @@ function renderPreviewCard(c, idx) {
     rows += pvRow('판매 URL', c.sale.url);
     rows += pvRow('상시가', c.sale.price_regular);
   }
-  if (ft === 'reviewer') rows += pvRow('리뷰 가이드', c.review_guide);
+  if (ft === 'reviewer') rows += pvRowHtml('리뷰 가이드', c.review_guide);
   if (ft === 'seeding') {
     const sd = c.seeding;
     rows += pvRow('등급', sd.grade === 'middle_mega' ? '미들·메가' : '나노');
@@ -1533,8 +1627,8 @@ function renderPreviewCard(c, idx) {
     }
     rows += pvRow('배송 안내', sd.shipping_note);
   }
-  if (c.ng) rows += pvRow('NG', c.ng);
-  if (c.cautions) rows += pvRow('추가 안내', c.cautions);
+  if (c.ng) rows += pvRowHtml('NG', c.ng);
+  if (c.cautions) rows += pvRowHtml('추가 안내', c.cautions);
   if (c.images.length) rows += pvRow('이미지', c.images.map(x => x.value).join('\n'));
 
   return `<div class="pv-card">
