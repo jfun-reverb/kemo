@@ -255,7 +255,26 @@ input[type="date"] { min-height: 44px; }
 .img-status.uploading { color: var(--ink-soft); }
 .img-status.done { color: var(--success); }
 .img-status.error { color: var(--brand); }
-.rep-item .img-value { margin-top: 8px; }
+.rep-item .img-url-input { margin-top: 8px; }
+/* 업로드된 파일 칩 (URL 입력칸 대체) */
+.img-file-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; background: var(--brand-soft);
+  border: 1px solid var(--border); border-radius: 9px;
+}
+.img-file-chip .material-icons-outlined { font-size: 18px; color: var(--brand-dark); flex-shrink: 0; }
+.img-file-name {
+  flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 13px; font-weight: 700; color: var(--ink); text-decoration: none;
+}
+.img-file-name:hover { text-decoration: underline; }
+.img-file-clear {
+  display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0;
+  background: none; border: none; color: var(--ink-mute);
+  font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.img-file-clear:hover { color: var(--brand); }
+.img-file-clear .material-icons-outlined { font-size: 16px; color: inherit; }
 
 .add-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -747,20 +766,42 @@ function cgRowHtml(grade, channel, guide) {
   </div>`;
 }
 
-function imageRowHtml(value, type) {
+function uploadDisplayName(name, value) {
+  if (name) return name;
+  try {
+    const seg = new URL(value).pathname.split('/').pop();
+    return decodeURIComponent(seg || '') || '업로드된 파일';
+  } catch (e) { return '업로드된 파일'; }
+}
+
+// 한 행 = 「올린 파일」 또는 「링크(URL)」 둘 중 하나. 업로드 시 URL 입력칸 대신 파일 칩 표시.
+//   .img-value(hidden) = 수집용 단일 값 / .img-url-input = URL 모드 표시·입력칸(값을 .img-value 로 미러)
+function imageRowHtml(value, type, name) {
   const isUpload = type === 'upload';
-  return `<div class="rep-item" data-img data-img-type="${isUpload ? 'upload' : 'url'}">
+  const dispName = isUpload ? uploadDisplayName(name, value) : '';
+  const safeHref = (isUpload && /^https:\/\//i.test(value)) ? value : '';   // https만 링크(스킴 주입 방어)
+  return `<div class="rep-item" data-img data-img-type="${isUpload ? 'upload' : 'url'}"${isUpload && name ? ` data-img-name="${escAttr(name)}"` : ''}>
     <div class="rep-head"><span class="rep-num">이미지·파일</span>
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
     <div class="field">
       <label>파일 첨부 또는 공유 링크</label>
-      <div class="img-upload">
-        <button type="button" class="img-upload-btn" onclick="pickImageFile(this)"><span class="material-icons-outlined notranslate" translate="no">upload_file</span>파일 선택</button>
-        <input type="file" class="img-file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp,application/pdf" hidden onchange="onImageFilePick(this)">
-        <span class="img-status${isUpload ? ' done' : ''}">${isUpload ? '업로드된 파일' : ''}</span>
+      <input type="hidden" class="img-value" value="${escAttr(value)}">
+      <!-- 업로드 모드: 파일 칩 -->
+      <div class="img-file-chip${isUpload ? '' : ' hidden'}">
+        <span class="material-icons-outlined notranslate" translate="no">attachment</span>
+        <a class="img-file-name" href="${escAttr(safeHref)}" target="_blank" rel="noopener">${escAttr(dispName)}</a>
+        <button type="button" class="img-file-clear" onclick="clearImageUpload(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>제거</button>
       </div>
-      <div class="field-hint" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)를 올리거나, 아래에 공유 링크(URL)를 직접 붙여넣어도 됩니다.</div>
-      <input type="url" class="img-value" placeholder="https://..." value="${escAttr(value)}" oninput="onImgUrlInput(this)">
+      <!-- 선택 모드: 파일 선택 버튼 + URL 입력 -->
+      <div class="img-pick${isUpload ? ' hidden' : ''}">
+        <div class="img-upload">
+          <button type="button" class="img-upload-btn" onclick="pickImageFile(this)"><span class="material-icons-outlined notranslate" translate="no">upload_file</span>파일 선택</button>
+          <input type="file" class="img-file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp,application/pdf" hidden onchange="onImageFilePick(this)">
+          <span class="img-status"></span>
+        </div>
+        <div class="field-hint" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)를 올리거나, 아래에 공유 링크(URL)를 직접 붙여넣어도 됩니다.</div>
+        <input type="url" class="img-url-input" placeholder="https://..." value="${isUpload ? '' : escAttr(value)}" oninput="onImgUrlInput(this)">
+      </div>
     </div>
   </div>`;
 }
@@ -782,7 +823,7 @@ function cardHtml(id, card) {
   const cgArr = Array.isArray(sd.guides) && sd.guides.length ? sd.guides : [{ channel: '', guide: '' }];
   const cgRows = cgArr.map(g => cgRowHtml(grade, g.channel, g.guide)).join('');
   const imgArr = Array.isArray(card.images) && card.images.length ? card.images : [{ value: '' }];
-  const imgRows = imgArr.map(x => imageRowHtml(x.value, x.type)).join('');
+  const imgRows = imgArr.map(x => imageRowHtml(x.value, x.type, x.name)).join('');
 
   return `<div class="ocard" id="${id}" data-card-id="${id}">
     <div class="ocard-head" onclick="onCardHeadClick(event,'${id}')">
@@ -862,7 +903,7 @@ function cardHtml(id, card) {
         <div class="field"><label>예시 이미지 링크</label>
           <div class="field-hint" style="margin-top:0;margin-bottom:8px">참고용 이미지가 있으면 링크(URL)를 넣어 주세요. (파일 직접 첨부는 추후 지원 예정)</div>
           <div class="img-list">${imgRows}</div>
-          <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지 링크 추가</button></div>
+          <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지·파일 추가</button></div>
       </div>
     </div>
   </div>`;
@@ -1036,7 +1077,10 @@ function addImageRow(btn) {
 }
 function removeRepRow(btn) {
   const list = btn.closest('.cg-list, .img-list');
-  if (list && list.children.length <= 1) { showToast('최소 1개는 남겨 주세요.'); return; }
+  // 채널 가이드(cg-list)는 최소 1개 유지, 예시 이미지(img-list)는 선택사항이라 0개까지 삭제 허용
+  if (list && list.classList.contains('cg-list') && list.children.length <= 1) {
+    showToast('최소 1개는 남겨 주세요.'); return;
+  }
   btn.closest('.rep-item').remove();
   onInput();
 }
@@ -1146,9 +1190,16 @@ async function onImageFilePick(input) {
     if (!url) throw new Error('no_url');
 
     if (!row.isConnected) return;     // 업로드 중 행이 삭제됐으면 무시
+    // 값 저장 + 업로드 모드로 전환(URL 입력칸 숨기고 파일 칩 표시 → URL이 바뀐 듯 보이지 않게)
     row.querySelector('.img-value').value = url;
     row.dataset.imgType = 'upload';
-    setUploadStatus(row, 'done', file.name);
+    row.dataset.imgName = file.name;
+    const nameEl = row.querySelector('.img-file-name');
+    nameEl.textContent = file.name;
+    nameEl.setAttribute('href', url);
+    row.querySelector('.img-file-chip').classList.remove('hidden');
+    row.querySelector('.img-pick').classList.add('hidden');
+    setUploadStatus(row, '', '');
     onInput();                        // 성공 후에만 저장 트리거(빈값 중간저장 방지)
   } catch (e) {
     console.error('[orient upload]', e);
@@ -1161,10 +1212,29 @@ async function onImageFilePick(input) {
   }
 }
 
-// URL 직접 입력 시: 종류를 url로 표시 + 업로드 상태 텍스트 정리
+// URL 직접 입력 시: 입력값을 수집용 .img-value 로 미러 + 종류를 url로 표시
 function onImgUrlInput(inp) {
   const row = inp.closest('[data-img]');
-  if (row) { row.dataset.imgType = 'url'; setUploadStatus(row, '', ''); }
+  if (row) {
+    row.querySelector('.img-value').value = inp.value;
+    row.dataset.imgType = 'url';
+    setUploadStatus(row, '', '');
+  }
+  onInput();
+}
+
+// 업로드한 파일 제거 → 선택 모드(파일 선택 + URL 입력)로 복귀. 행은 유지
+function clearImageUpload(btn) {
+  const row = btn.closest('[data-img]');
+  if (!row) return;
+  row.querySelector('.img-value').value = '';
+  row.dataset.imgType = 'url';
+  delete row.dataset.imgName;
+  const urlInput = row.querySelector('.img-url-input');
+  if (urlInput) urlInput.value = '';
+  row.querySelector('.img-file-chip').classList.add('hidden');
+  row.querySelector('.img-pick').classList.remove('hidden');
+  setUploadStatus(row, '', '');
   onInput();
 }
 
@@ -1181,10 +1251,12 @@ function collectCard(el) {
     guide: row.querySelector('.cg-guide').value.trim(),
   })).filter(g => g.channel || g.guide);
 
-  const images = Array.from(el.querySelectorAll('[data-img]')).map(row => ({
-    type: row.dataset.imgType === 'upload' ? 'upload' : 'url',
-    value: normalizeUrl(row.querySelector('.img-value').value),
-  })).filter(x => x.value);
+  const images = Array.from(el.querySelectorAll('[data-img]')).map(row => {
+    const type = row.dataset.imgType === 'upload' ? 'upload' : 'url';
+    const obj = { type, value: normalizeUrl(row.querySelector('.img-value').value) };
+    if (type === 'upload' && row.dataset.imgName) obj.name = row.dataset.imgName;
+    return obj;
+  }).filter(x => x.value);
 
   const hashtags = el.querySelector('.f-hashtags').value
     .split(/[\s,]+/).map(s => s.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
