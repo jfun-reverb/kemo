@@ -350,11 +350,25 @@ async function osOpenDetail(id) {
   body.innerHTML = osDetailHtml(s, catMap);
 }
 
+// 상세 모달 전용 스코프 스타일 (가독성: 항목 구분선 + 라벨/값 위계 + 카드 제목)
+const OS_DETAIL_STYLE = `<style>
+  .os-card{border:1px solid #ececf0;border-radius:12px;padding:14px 16px;margin-bottom:14px;background:#fff}
+  .os-card-title{font-weight:800;font-size:14px;color:#161618;margin-bottom:4px}
+  .os-card-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-bottom:10px;border-bottom:1px solid #ececf0}
+  .os-card-head .os-name{font-weight:800;font-size:14.5px;color:#161618;flex:1;min-width:0}
+  .os-fields .os-field{padding:9px 0;border-top:1px solid #f2f2f2}
+  .os-fields .os-field:first-child{border-top:0;padding-top:2px}
+  .os-field-label{color:var(--muted,#8a8a90);font-size:11px;font-weight:700;letter-spacing:.02em;margin-bottom:3px}
+  .os-field-val{font-size:13.5px;line-height:1.65;color:#161618;word-break:break-word}
+  .os-field-val a{color:var(--pink,#E8344E);text-decoration:underline}
+  .os-empty{color:#bbb;font-weight:400}
+</style>`;
+
 function osDetailHtml(s, catMap) {
   const d = s.data || {};
   const cards = Array.isArray(d.cards) ? d.cards : [];
-  const header = `<div style="margin-bottom:14px">
-    <div style="font-size:15px;font-weight:700">${esc(osBrandName(s))}</div>
+  const header = OS_DETAIL_STYLE + `<div style="margin-bottom:14px">
+    <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
     <div style="margin-top:6px">${osBadge(osStatusOf(s))}
       <span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>
   </div>`;
@@ -368,14 +382,17 @@ function osDetailHtml(s, catMap) {
   return header + brandCard + cards.map((c, i) => osCardDetail(c, i, catMap)).join('');
 }
 
+function osFieldRow(label, valHtml) {
+  return `<div class="os-field"><div class="os-field-label">${label}</div><div class="os-field-val">${valHtml}</div></div>`;
+}
 function osField(label, val) {
-  const v = (val == null || val === '') ? '<span style="color:var(--muted)">미입력</span>' : esc(String(val));
-  return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">${label}</span><br>${v}</div>`;
+  const v = (val == null || val === '') ? '<span class="os-empty">미입력</span>' : esc(String(val));
+  return osFieldRow(label, v);
 }
 // 값이 이미 안전한 HTML(링크 등 — 호출부가 esc·화이트리스트 보장)일 때. esc 미적용.
 function osFieldHtml(label, htmlVal) {
-  const v = htmlVal ? htmlVal : '<span style="color:var(--muted)">미입력</span>';
-  return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">${label}</span><br>${v}</div>`;
+  const v = htmlVal ? htmlVal : '<span class="os-empty">미입력</span>';
+  return osFieldRow(label, v);
 }
 function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
 
@@ -383,8 +400,9 @@ function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
 function osBrandCard(brand) {
   const b = brand || {};
   const inner = osField('브랜드명', b.name) + osField('소개·어필', b.intro) + osField('공식 계정', b.official_accounts);
-  return `<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px">
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px">브랜드 정보</div>${inner}</div>`;
+  return `<div class="os-card">
+    <div class="os-card-title">브랜드 정보</div>
+    <div class="os-fields">${inner}</div></div>`;
 }
 
 // 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
@@ -421,9 +439,9 @@ function osCardDetail(c, idx, catMap) {
   inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng)) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions)) + osImagesInline(c.images);
   if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
 
-  const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-    ${osTypeChip(ft)}<span style="font-weight:700;font-size:14px;flex:1;min-width:0">${esc(p.name || ('제품 ' + (idx + 1)))}</span>${osCardPublishControl(c, idx)}</div>`;
-  return `<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px">${head}${inner}</div>`;
+  const head = `<div class="os-card-head">
+    ${osTypeChip(ft)}<span class="os-name">${esc(p.name || ('제품 ' + (idx + 1)))}</span>${osCardPublishControl(c, idx)}</div>`;
+  return `<div class="os-card">${head}<div class="os-fields">${inner}</div></div>`;
 }
 
 // 카드 헤더 우측 — 발행 버튼(제출됨·미발행·형식 선택) / 발행됨 배지 / 형식 미선택 안내
@@ -458,7 +476,7 @@ function osImagesInline(images) {
       ? `<div style="margin-bottom:4px"><a href="${disp}" target="_blank" rel="noopener">${disp}</a></div>`
       : `<div style="margin-bottom:4px;color:var(--muted)">${disp} <span style="font-size:10px">(링크 차단)</span></div>`;
   }).join('');
-  return `<div style="margin-bottom:6px"><span style="color:var(--muted);font-size:12px">예시 이미지 링크</span><br>${inner}</div>`;
+  return osFieldRow('예시 이미지·자료', inner);
 }
 
 // ── 카드 → 캠페인 발행 (자동 채움) ──
