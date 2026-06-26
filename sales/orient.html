@@ -193,6 +193,18 @@ input[type="text"], input[type="url"], input[type="number"], input[type="date"],
   transition: border-color 0.15s;
 }
 input:focus, textarea:focus, select:focus { border-color: var(--brand); }
+/* 제출 시 필수 미입력 항목 강조(입력칸·형식 선택·추가 버튼 등 모든 요소에 적용) */
+.field-invalid {
+  outline: 2px solid var(--brand) !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+  animation: invalidPulse 1.1s ease;
+}
+@keyframes invalidPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(232, 52, 78, 0); }
+  25%  { box-shadow: 0 0 0 5px rgba(232, 52, 78, 0.22); }
+  100% { box-shadow: 0 0 0 0 rgba(232, 52, 78, 0); }
+}
 textarea { resize: vertical; min-height: 86px; line-height: 1.55; }
 /* iOS Safari: date·number input의 기본 너비 산정을 끄고 width:100%를 따르게 함 */
 input[type="date"], input[type="number"] { -webkit-appearance: none; appearance: none; }
@@ -1121,26 +1133,56 @@ function enterConflict() {
 // ══════════════════════════════════════
 // 미리보기 (제출 전 항상 거치기) — 사양서 §15-13
 // ══════════════════════════════════════
-function validateBeforeSubmit(data) {
-  if (!data.cards.length) return '제품(카드)을 1개 이상 추가해 주세요.';
-  for (let i = 0; i < data.cards.length; i++) {
-    const c = data.cards[i];
-    const n = i + 1;
-    if (!c.form_type) return `${n}번째 카드의 모집 형식을 선택해 주세요.`;
-    if (!c.product.name) return `${n}번째 카드의 제품명을 입력해 주세요.`;
+// 필수 미입력 항목을 DOM 카드 순서대로 탐색. 첫 번째 실패의 { message, card, target } 반환(없으면 null)
+// (card = 해당 .ocard 요소(접혀 있으면 펼침), target = 강조·스크롤할 입력 요소)
+function findInvalidField() {
+  const cardEls = Array.from(document.querySelectorAll('#cardList > .ocard'));
+  if (!cardEls.length) {
+    return { message: '제품(카드)을 1개 이상 추가해 주세요.', card: null, target: $('btnAddCard') };
+  }
+  let n = 0;
+  for (const el of cardEls) {
+    n++;
+    const c = collectCard(el);
+    if (!c.form_type)
+      return { message: `${n}번째 카드의 모집 형식을 선택해 주세요.`, card: el, target: el.querySelector('.seg') };
+    if (!c.product.name)
+      return { message: `${n}번째 카드의 제품명을 입력해 주세요.`, card: el, target: el.querySelector('.f-product-name') };
     if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase') && !c.sale.price_regular)
-      return `${n}번째 카드의 상시가를 입력해 주세요.`;
+      return { message: `${n}번째 카드의 상시가를 입력해 주세요.`, card: el, target: el.querySelector('.f-price-regular') };
   }
   return null;
+}
+
+function clearInvalidMarks() {
+  document.querySelectorAll('.field-invalid').forEach(e => e.classList.remove('field-invalid'));
+}
+
+// 미입력 항목 위치로 이동 + 눈에 띄게 강조. 접힌 카드는 먼저 펼쳐 입력칸을 노출
+function focusInvalid(v) {
+  clearInvalidMarks();
+  if (v.card && !v.card.classList.contains('open')) openCard(v.card.id);
+  const t = v.target;
+  if (!t) return;
+  requestAnimationFrame(() => {
+    t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    t.classList.add('field-invalid');
+    const focusable = (t.matches && t.matches('input,textarea,select')) ? t : t.querySelector('input,textarea,select');
+    if (focusable) { try { focusable.focus({ preventScroll: true }); } catch (e) {} }
+    // 사용자가 그 항목을 손대면 강조 해제(텍스트 입력·형식 버튼 클릭 모두 대응)
+    const off = () => t.classList.remove('field-invalid');
+    t.addEventListener('input', off, { once: true });
+    t.addEventListener('click', off, { once: true });
+  });
 }
 
 function openPreview() {
   if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
   flushAutosave();
-  const data = collectData();
-  const err = validateBeforeSubmit(data);
-  if (err) { showToast(err); return; }
+  const invalid = findInvalidField();
+  if (invalid) { showToast(invalid.message); focusInvalid(invalid); return; }
 
+  const data = collectData();
   $('previewBody').innerHTML = renderPreview(data);
   $('screenForm').classList.add('hidden');
   $('screenPreview').classList.remove('hidden');
@@ -1227,9 +1269,9 @@ async function submitSheet() {
   if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
   if (!sb || !token) return;
 
+  const invalid = findInvalidField();
+  if (invalid) { closePreview(); showToast(invalid.message); focusInvalid(invalid); return; }
   const data = collectData();
-  const err = validateBeforeSubmit(data);
-  if (err) { showToast(err); closePreview(); return; }
 
   const btn = $('btnSubmit');
   btn.disabled = true;
