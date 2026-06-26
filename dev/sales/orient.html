@@ -722,7 +722,7 @@ function imageRowHtml(value) {
   return `<div class="rep-item" data-img>
     <div class="rep-head"><span class="rep-num">이미지</span>
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
-    <div class="field"><label>이미지 URL</label><input type="url" class="img-value" placeholder="https://..." value="${escAttr(value)}" oninput="onInput()"></div>
+    <div class="field"><label>이미지 공유 URL (드라이브)</label><input type="url" class="img-value" placeholder="https://..." value="${escAttr(value)}" oninput="onInput()"></div>
   </div>`;
 }
 
