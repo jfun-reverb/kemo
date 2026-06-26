@@ -74,12 +74,20 @@ body {
   text-decoration: none;
 }
 .head-sub { font-size: 12px; color: var(--ink-mute); margin-top: 2px; letter-spacing: 0.02em; }
+/* 스크롤 스파이 — 헤더에 현재 작성 영역 제목 표시 */
+.header-spy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.spy-eyebrow { font-size: 11px; color: var(--ink-mute); letter-spacing: 0.02em; }
+.spy-title {
+  font-size: 17px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
 .status-pill {
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 999px;
   letter-spacing: 0.04em;
+  flex-shrink: 0;
 }
 .status-pill.draft { background: var(--brand-soft); color: var(--brand-dark); }
 .status-pill.submitted { background: #E7F5EC; color: var(--success); }
@@ -302,6 +310,11 @@ input[type="date"] { min-height: 44px; }
 .ocard[data-ctype="reviewer"] .only-rp,
 .ocard[data-ctype="reviewer"] .only-reviewer { display: block; }
 .ocard[data-ctype="seeding"] .only-seeding { display: block; }
+/* 래퍼 블록(판매처·가격 / 시딩 상세)은 마지막 내부 필드가 .field:last-child(margin 0)라
+   다음 필드와 간격이 붙는다. 다른 필드 간격(14px)과 맞추도록 래퍼에 아래 여백 부여 */
+.ocard[data-ctype="proxy_purchase"] .only-rp,
+.ocard[data-ctype="reviewer"] .only-rp,
+.ocard[data-ctype="seeding"] .only-seeding { margin-bottom: 14px; }
 /* 시딩 등급별: 촬영가이드·필수내용·증정품은 미들·메가만 */
 .ocard .only-mega { display: none; }
 .ocard[data-cgrade="middle_mega"] .only-mega { display: block; }
@@ -373,13 +386,17 @@ input[type="date"] { min-height: 44px; }
 </head>
 <body>
 
-<div class="header">
+<div class="header" id="siteHeader">
   <div class="header-top">
-    <div>
+    <div id="headerBrand">
       <a class="brand-logo" href="/">REVERB</a>
       <div class="head-sub">캠페인 오리엔시트 작성</div>
     </div>
-    <span id="statusPill" class="status-pill draft hidden">작성 중</span>
+    <!-- 스크롤 시 현재 작성 영역 제목 표시(로고 자리 대체) -->
+    <div id="headerSpy" class="header-spy hidden">
+      <span class="spy-eyebrow">작성 중인 영역</span>
+      <span class="spy-title" id="headerSpyTitle">브랜드 정보</span>
+    </div>
   </div>
 </div>
 
@@ -457,6 +474,7 @@ input[type="date"] { min-height: 44px; }
 
 <!-- 하단 고정 바 -->
 <div id="footbar" class="footbar hidden">
+  <span id="statusPill" class="status-pill draft hidden">작성 중</span>
   <div id="saveState" class="save-state"><span class="material-icons-outlined notranslate" translate="no">cloud_done</span><span id="saveStateText">자동 저장</span></div>
   <div class="foot-nav">
     <!-- 작성 화면 -->
@@ -824,6 +842,7 @@ function addCard(card, opts) {
   updateCardSummary(id);
   refreshEmptyState();
   if (opts.prefill) onInput();   // 사용자가 직접 추가한 카드는 즉시 저장(구조 보존)
+  onSpyScroll();
   return id;
 }
 
@@ -906,13 +925,14 @@ function onCardHeadClick(ev, id) {
   if (ev.target.closest('.ocard-remove')) return;   // 삭제 버튼 클릭은 토글 제외
   const el = $(id);
   if (!el) return;
-  if (el.classList.contains('open')) { el.classList.remove('open'); return; }
+  if (el.classList.contains('open')) { el.classList.remove('open'); onSpyScroll(); return; }
   openCard(id);
 }
 function openCard(id) {
   document.querySelectorAll('.ocard.open').forEach(c => c.classList.remove('open'));
   const el = $(id);
   if (el) el.classList.add('open');
+  onSpyScroll();
 }
 
 function removeCard(ev, id) {
@@ -924,11 +944,13 @@ function removeCard(ev, id) {
   el.remove();
   refreshEmptyState();
   onInput();
+  onSpyScroll();
 }
 
 // 제품명 입력 시 카드 헤더 요약 즉시 갱신 + 자동저장
 function onCardInput(id) {
   updateCardSummary(id);
+  onSpyScroll();
   onInput();
 }
 
@@ -1175,7 +1197,7 @@ function renderPreviewCard(c, idx) {
 
   return `<div class="pv-card">
     <div class="pv-card-head">
-      <span class="ocard-chip ${ft}">${FORM_TYPE_LABEL[ft] || ft}</span>
+      <span class="ocard-chip ${escAttr(ft)}">${escAttr(FORM_TYPE_LABEL[ft] || ft)}</span>
       <span class="pv-name">${escAttr(c.product.name || `제품 ${idx + 1}`)}</span>
     </div>${rows}</div>`;
 }
@@ -1252,6 +1274,46 @@ async function submitSheet() {
 window.addEventListener('beforeunload', (e) => {
   if (dirty && !conflicted) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// ══════════════════════════════════════
+// 스크롤 스파이 — 헤더에 현재 작성 영역 제목 표시
+// 맨 위(인트로)면 REVERB 로고, 어떤 섹션이 헤더 밑선을 지나면 그 제목으로 교체
+// ══════════════════════════════════════
+let spyRaf = 0;
+function spyTargets() {
+  const list = [];
+  const brand = document.querySelector('#screenForm .section');
+  if (brand) list.push({ el: brand, title: '브랜드 정보' });
+  document.querySelectorAll('#cardList > .ocard').forEach((c, i) => {
+    const t = c.querySelector('.ocard-title');
+    const name = (t && !t.classList.contains('empty')) ? t.textContent.trim() : '';
+    list.push({ el: c, title: name ? `제품 ${i + 1} · ${name}` : `제품 ${i + 1}` });
+  });
+  return list;
+}
+function updateSpy() {
+  spyRaf = 0;
+  const brandBox = $('headerBrand'), spyBox = $('headerSpy');
+  if (!brandBox || !spyBox) return;
+  // 폼 화면이 아니면 항상 로고
+  if ($('screenForm').classList.contains('hidden')) {
+    brandBox.classList.remove('hidden'); spyBox.classList.add('hidden'); return;
+  }
+  const line = $('siteHeader').offsetHeight + 4;   // 헤더 밑선 살짝 아래
+  let cur = null;
+  for (const t of spyTargets()) {
+    if (t.el.getBoundingClientRect().top <= line) cur = t; else break;
+  }
+  if (cur) {
+    $('headerSpyTitle').textContent = cur.title;
+    spyBox.classList.remove('hidden'); brandBox.classList.add('hidden');
+  } else {
+    brandBox.classList.remove('hidden'); spyBox.classList.add('hidden');
+  }
+}
+function onSpyScroll() { if (!spyRaf) spyRaf = requestAnimationFrame(updateSpy); }
+window.addEventListener('scroll', onSpyScroll, { passive: true });
+window.addEventListener('resize', onSpyScroll, { passive: true });
 
 boot();
 </script>
