@@ -239,6 +239,23 @@ input[type="date"] { min-height: 44px; }
 .rep-remove .material-icons-outlined { font-size: 16px; }
 .rep-remove:hover { color: var(--brand); }
 .rep-item .field:last-child { margin-bottom: 0; }
+/* 예시 이미지·파일 업로드 행 */
+.img-upload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.img-upload-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--card); color: var(--ink-soft);
+  border: 1px solid var(--border-strong); border-radius: 9px;
+  padding: 9px 14px; font-size: 13.5px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.img-upload-btn:hover { border-color: var(--brand); color: var(--brand); }
+.img-upload-btn .material-icons-outlined { font-size: 18px; }
+.img-status { font-size: 12px; color: var(--ink-mute); min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.img-status.uploading { color: var(--ink-soft); }
+.img-status.done { color: var(--success); }
+.img-status.error { color: var(--brand); }
+.rep-item .img-value { margin-top: 8px; }
 
 .add-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -543,8 +560,20 @@ const SEEDING_GRADES = [
 ];
 
 const MAX_HASHTAGS = 5;
+const MAX_IMAGES_PER_CARD = 5;            // 카드당 예시 이미지·파일 최대 개수
+const ORIENT_UPLOAD_BUCKET = 'orient-images';
+const ORIENT_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;   // 버킷 한도 10MB (압축 후/문서 기준)
+// 업로드 허용 확장자 → MIME (버킷 allowed_mime_types 와 일치, svg·html 제외)
+const ORIENT_UPLOAD_MIME = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+};
 const LS_KEY_PREFIX = 'reverb.orient.';   // 토큰별 로컬 백업 키
 const AUTOSAVE_DELAY = 1500;
+let uploadingCount = 0;                    // 진행 중 업로드 수(>0이면 제출 대기)
 
 let token = null;
 let currentVersion = 0;
@@ -718,11 +747,21 @@ function cgRowHtml(grade, channel, guide) {
   </div>`;
 }
 
-function imageRowHtml(value) {
-  return `<div class="rep-item" data-img>
-    <div class="rep-head"><span class="rep-num">이미지</span>
+function imageRowHtml(value, type) {
+  const isUpload = type === 'upload';
+  return `<div class="rep-item" data-img data-img-type="${isUpload ? 'upload' : 'url'}">
+    <div class="rep-head"><span class="rep-num">이미지·파일</span>
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
-    <div class="field"><label>이미지 공유 URL (드라이브)</label><input type="url" class="img-value" placeholder="https://..." value="${escAttr(value)}" oninput="onInput()"></div>
+    <div class="field">
+      <label>파일 첨부 또는 공유 링크</label>
+      <div class="img-upload">
+        <button type="button" class="img-upload-btn" onclick="pickImageFile(this)"><span class="material-icons-outlined notranslate" translate="no">upload_file</span>파일 선택</button>
+        <input type="file" class="img-file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp,application/pdf" hidden onchange="onImageFilePick(this)">
+        <span class="img-status${isUpload ? ' done' : ''}">${isUpload ? '업로드된 파일' : ''}</span>
+      </div>
+      <div class="field-hint" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)를 올리거나, 아래에 공유 링크(URL)를 직접 붙여넣어도 됩니다.</div>
+      <input type="url" class="img-value" placeholder="https://..." value="${escAttr(value)}" oninput="onImgUrlInput(this)">
+    </div>
   </div>`;
 }
 
@@ -743,7 +782,7 @@ function cardHtml(id, card) {
   const cgArr = Array.isArray(sd.guides) && sd.guides.length ? sd.guides : [{ channel: '', guide: '' }];
   const cgRows = cgArr.map(g => cgRowHtml(grade, g.channel, g.guide)).join('');
   const imgArr = Array.isArray(card.images) && card.images.length ? card.images : [{ value: '' }];
-  const imgRows = imgArr.map(x => imageRowHtml(x.value)).join('');
+  const imgRows = imgArr.map(x => imageRowHtml(x.value, x.type)).join('');
 
   return `<div class="ocard" id="${id}" data-card-id="${id}">
     <div class="ocard-head" onclick="onCardHeadClick(event,'${id}')">
@@ -987,13 +1026,145 @@ function addCgRow(btn, id) {
   onInput();
 }
 function addImageRow(btn) {
-  btn.closest('.field').querySelector('.img-list').insertAdjacentHTML('beforeend', imageRowHtml(''));
+  const list = btn.closest('.field').querySelector('.img-list');
+  if (list.querySelectorAll('[data-img]').length >= MAX_IMAGES_PER_CARD) {
+    showToast(`이미지·파일은 최대 ${MAX_IMAGES_PER_CARD}개까지 추가할 수 있어요.`);
+    return;
+  }
+  list.insertAdjacentHTML('beforeend', imageRowHtml('', 'url'));
   onInput();
 }
 function removeRepRow(btn) {
   const list = btn.closest('.cg-list, .img-list');
   if (list && list.children.length <= 1) { showToast('최소 1개는 남겨 주세요.'); return; }
   btn.closest('.rep-item').remove();
+  onInput();
+}
+
+// ══════════════════════════════════════
+// 예시 이미지·파일 업로드 (orient-images 버킷, 익명 토큰 검증)
+//   sales 정적 페이지라 dev/lib/image-compress.js 미사용 → 슬림 인라인
+// ══════════════════════════════════════
+function pickImageFile(btn) { btn.parentNode.querySelector('.img-file').click(); }
+
+function fileExt(name) {
+  const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m ? m[1] : '';
+}
+function randId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'f' + Date.now() + Math.random().toString(36).slice(2, 10);
+}
+function isHeicFile(file) {
+  const t = (file.type || '').toLowerCase(), n = (file.name || '').toLowerCase();
+  return /image\/(heic|heif)/.test(t) || /\.(heic|heif)$/.test(n);
+}
+
+// heic2any lazy-load (한 번만)
+const HEIC2ANY_CDN = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+let _heic2anyLoading = null;
+function loadHeic2any() {
+  if (typeof window.heic2any === 'function') return Promise.resolve();
+  if (_heic2anyLoading) return _heic2anyLoading;
+  _heic2anyLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = HEIC2ANY_CDN;
+    s.onload = resolve;
+    s.onerror = () => { _heic2anyLoading = null; reject(new Error('heic_load_failed')); };
+    document.head.appendChild(s);
+  });
+  return _heic2anyLoading;
+}
+
+// 이미지 → 긴 변 2048px JPEG 압축(HEIC 선변환·EXIF 보정). 실패 시 throw → 호출부가 원본 폴백
+async function compressOrientImage(file) {
+  let work = file;
+  if (isHeicFile(file)) {
+    await loadHeic2any();
+    const conv = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+    work = Array.isArray(conv) ? conv[0] : conv;
+  }
+  let bitmap;
+  try { bitmap = await createImageBitmap(work, { imageOrientation: 'from-image' }); }
+  catch (e) { bitmap = await createImageBitmap(work); }
+  const scale = Math.min(1, 2048 / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+  if (!blob) throw new Error('compress_failed');
+  return new File([blob], 'image.jpg', { type: 'image/jpeg' });
+}
+
+function setUploadStatus(row, kind, text) {
+  const el = row.querySelector('.img-status');
+  if (!el) return;
+  el.className = 'img-status' + (kind ? ' ' + kind : '');
+  el.textContent = text || '';
+}
+function updateUploadBusy() {
+  const btn = $('btnReview');         // 업로드 중이면 제출(미리보기) 버튼 비활성
+  if (btn) btn.disabled = uploadingCount > 0;
+}
+
+async function onImageFilePick(input) {
+  const file = input.files && input.files[0];
+  input.value = '';                   // 같은 파일 재선택 가능하게 즉시 초기화
+  if (!file) return;
+  const row = input.closest('[data-img]');
+  if (!row) return;
+
+  if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
+  if (!sb || !token) { showToast('지금은 업로드할 수 없어요. 링크(URL)로 넣어 주세요.'); return; }
+
+  const ext = fileExt(file.name);
+  const isImage = (file.type || '').startsWith('image/') || isHeicFile(file) || ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+  if (!isImage && !ORIENT_UPLOAD_MIME[ext]) {
+    showToast('이미지·PDF·문서(워드·엑셀·PPT) 파일만 올릴 수 있어요.');
+    return;
+  }
+
+  setUploadStatus(row, 'uploading', '업로드 중…');
+  uploadingCount++; updateUploadBusy();
+  try {
+    let blob = file, upExt = ext, contentType = ORIENT_UPLOAD_MIME[ext] || file.type;
+    if (isImage) {
+      try { blob = await compressOrientImage(file); upExt = 'jpg'; contentType = 'image/jpeg'; }
+      catch (e) { console.error('[orient compress]', e); blob = file; }   // 압축 실패 시 원본 시도
+    }
+    if (blob.size > ORIENT_UPLOAD_MAX_BYTES) throw new Error('too_large');
+    if (!ORIENT_UPLOAD_MIME[upExt]) throw new Error('bad_type');
+
+    const path = `${token}/${randId()}.${upExt}`;
+    const { error } = await sb.storage.from(ORIENT_UPLOAD_BUCKET).upload(path, blob, { contentType, upsert: false });
+    if (error) throw error;
+    const { data: pub } = sb.storage.from(ORIENT_UPLOAD_BUCKET).getPublicUrl(path);
+    const url = (pub && pub.publicUrl) || '';
+    if (!url) throw new Error('no_url');
+
+    if (!row.isConnected) return;     // 업로드 중 행이 삭제됐으면 무시
+    row.querySelector('.img-value').value = url;
+    row.dataset.imgType = 'upload';
+    setUploadStatus(row, 'done', file.name);
+    onInput();                        // 성공 후에만 저장 트리거(빈값 중간저장 방지)
+  } catch (e) {
+    console.error('[orient upload]', e);
+    const msg = (e && e.message === 'too_large') ? '파일이 너무 커요(최대 10MB).' : '업로드에 실패했어요. 링크(URL)로 넣어 주세요.';
+    if (row.isConnected) setUploadStatus(row, 'error', msg);
+    showToast(msg);
+  } finally {
+    uploadingCount = Math.max(0, uploadingCount - 1);
+    updateUploadBusy();
+  }
+}
+
+// URL 직접 입력 시: 종류를 url로 표시 + 업로드 상태 텍스트 정리
+function onImgUrlInput(inp) {
+  const row = inp.closest('[data-img]');
+  if (row) { row.dataset.imgType = 'url'; setUploadStatus(row, '', ''); }
   onInput();
 }
 
@@ -1011,7 +1182,7 @@ function collectCard(el) {
   })).filter(g => g.channel || g.guide);
 
   const images = Array.from(el.querySelectorAll('[data-img]')).map(row => ({
-    type: 'url',
+    type: row.dataset.imgType === 'upload' ? 'upload' : 'url',
     value: normalizeUrl(row.querySelector('.img-value').value),
   })).filter(x => x.value);
 
@@ -1178,6 +1349,7 @@ function focusInvalid(v) {
 
 function openPreview() {
   if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
+  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 제출할 수 있어요.'); return; }
   flushAutosave();
   const invalid = findInvalidField();
   if (invalid) { showToast(invalid.message); focusInvalid(invalid); return; }
