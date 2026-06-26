@@ -969,7 +969,7 @@ function cardHtml(id, card) {
         <div class="only-rp">
           <div class="field"><label>판매처</label>
             <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
-          <div class="field"><label>판매 URL</label>
+          <div class="field"><label>판매 URL<span class="req">*</span></label>
             <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
             <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
           <div class="field"><label>상시가<span class="req">*</span></label>
@@ -1531,6 +1531,8 @@ function findInvalidField() {
       return { message: `${n}번째 카드의 모집 형식을 선택해 주세요.`, card: el, target: el.querySelector('.seg') };
     if (!c.product.name)
       return { message: `${n}번째 카드의 제품명을 입력해 주세요.`, card: el, target: el.querySelector('.f-product-name') };
+    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase') && !c.sale.url)
+      return { message: `${n}번째 카드의 판매 URL을 입력해 주세요.`, card: el, target: el.querySelector('.f-sale-url') };
     if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase') && !c.sale.price_regular)
       return { message: `${n}번째 카드의 상시가를 입력해 주세요.`, card: el, target: el.querySelector('.f-price-regular') };
     // URL을 입력하고 「확인」을 누르지 않아 값이 저장되지 않은 행 방지
