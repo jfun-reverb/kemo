@@ -289,6 +289,11 @@
 .status-dropdown-item.disabled:hover{background:none}
 .status-dropdown-item.disabled .badge{filter:grayscale(.7)}
 .status-dropdown-note{padding:8px 10px;font-size:12px;line-height:1.5;color:var(--muted);text-align:center;white-space:nowrap}
+.os-copy-btn{border-radius:0 7px 7px 0;transition:background .12s,color .12s}
+.os-copy-btn:hover{background:var(--light-pink)}
+.os-copy-btn:hover .material-icons-round{color:var(--pink)}
+.os-copy-btn:active{background:var(--baby-pink)}
+.os-copy-btn:active .material-icons-round{color:var(--dark-pink);transform:scale(.9)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
 .data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
 .admin-table-wrap{overflow-y:auto}
