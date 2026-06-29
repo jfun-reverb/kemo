@@ -8087,7 +8087,7 @@ async function fetchOrientSheets() {
   if (!db) return [];
   return await retryWithRefresh(async () =>
     fetchAllPaged(() => db.from('orient_sheets')
-      .select('id, brand_id, application_id, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .select('id, brand_id, application_id, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, brands(name, name_ja)')
       .order('created_at', { ascending: false }))
   );
 }
