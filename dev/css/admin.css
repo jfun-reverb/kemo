@@ -637,6 +637,14 @@
 /* 미읽음 팝업은 정적 .rich-content 렌더라 빈 단락이 접힌다 → 한 줄 높이로 보정
    (보기 모달은 Quill 이라 빈 줄을 자체 처리하므로 불필요). */
 #adminNoticeUnreadModal [data-notice-body] p:empty{min-height:1.6em}
+/* 공지 편집 모달: 상단 입력(제목·분류·고정·HTML토글·안내)과 Quill 툴바는 고정,
+   편집 본문(.ql-editor)·HTML 소스 textarea 만 모달 안에서 스크롤.
+   modal-body 가 세로 flex(인라인 overflow:hidden) 라 직계 자식은 고정(flex-shrink:0),
+   편집기 영역만 남은 공간을 채우고(flex:1) 내부에서 스크롤. */
+#adminNoticeEditModal .modal-body>*{flex-shrink:0}
+#adminNoticeEditModal #anEditBodyQuill{flex:1 1 auto;min-height:120px;display:flex;flex-direction:column;overflow:hidden}
+#adminNoticeEditModal #anEditBodyQuill .ql-editor{flex:1 1 auto;min-height:0;overflow-y:auto}
+#adminNoticeEditModal #anEditBodyRaw{flex:1 1 auto;min-height:120px}
 
 /* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
 .bundle-summary-card{

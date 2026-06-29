@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782731143';
+  var CURRENT_BUILD = 'v1782732079';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1095,6 +1095,14 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 /* 미읽음 팝업은 정적 .rich-content 렌더라 빈 단락이 접힌다 → 한 줄 높이로 보정
    (보기 모달은 Quill 이라 빈 줄을 자체 처리하므로 불필요). */
 #adminNoticeUnreadModal [data-notice-body] p:empty{min-height:1.6em}
+/* 공지 편집 모달: 상단 입력(제목·분류·고정·HTML토글·안내)과 Quill 툴바는 고정,
+   편집 본문(.ql-editor)·HTML 소스 textarea 만 모달 안에서 스크롤.
+   modal-body 가 세로 flex(인라인 overflow:hidden) 라 직계 자식은 고정(flex-shrink:0),
+   편집기 영역만 남은 공간을 채우고(flex:1) 내부에서 스크롤. */
+#adminNoticeEditModal .modal-body>*{flex-shrink:0}
+#adminNoticeEditModal #anEditBodyQuill{flex:1 1 auto;min-height:120px;display:flex;flex-direction:column;overflow:hidden}
+#adminNoticeEditModal #anEditBodyQuill .ql-editor{flex:1 1 auto;min-height:0;overflow-y:auto}
+#adminNoticeEditModal #anEditBodyRaw{flex:1 1 auto;min-height:120px}
 
 /* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
 .bundle-summary-card{
@@ -2130,7 +2138,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-29 20:05 · 072d171</span>
+          <span class="admin-build-text">2026-06-29 20:21 · a3ba65b</span>
         </div>
       </div>
     </aside>
@@ -4240,7 +4248,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <div class="modal-title" id="adminNoticeEditTitle">공지 작성</div>
       <div class="modal-close" onclick="closeModal('adminNoticeEditModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
-    <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;min-height:0">
+    <div class="modal-body" style="padding:20px;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
       <div style="display:grid;grid-template-columns:1fr 140px;gap:10px;margin-bottom:12px">
         <input type="text" id="anEditTitle" class="form-input" placeholder="제목" style="font-size:13px;padding:8px 10px">
         <select id="anEditCategory" class="form-input" style="font-size:12px;padding:8px 10px">
@@ -4255,8 +4263,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="anEditHtmlMode" onchange="toggleNoticeHtmlMode()"> HTML 소스로 입력/편집</label>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:6px">노션·문서에서 복사해 그대로 붙여넣으면 제목·굵게·목록·링크 서식이 유지됩니다. 편집 중 보이는 모습이 게시 후와 동일합니다(HTML 소스 입력 불필요).</div>
-      <div id="anEditBodyQuill" style="min-height:220px;background:#fff"></div>
-      <textarea id="anEditBodyRaw" style="display:none;width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:6px;resize:vertical" placeholder="HTML 코드를 직접 입력하세요. 예) <p>안녕하세요</p><ul><li>항목</li></ul>"></textarea>
+      <div id="anEditBodyQuill" style="background:#fff"></div>
+      <textarea id="anEditBodyRaw" style="display:none;width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:6px;resize:none" placeholder="HTML 코드를 직접 입력하세요. 예) <p>안녕하세요</p><ul><li>항목</li></ul>"></textarea>
     </div>
     <div id="adminNoticeEditFooter" style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--line);justify-content:flex-end;align-items:center;flex-shrink:0">
       <span id="adminNoticeEditStatusPill" style="margin-right:auto"></span>
