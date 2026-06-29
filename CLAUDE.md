@@ -126,6 +126,7 @@
 - **캠페인 미리보기**: 캠페인 제목 클릭 시 모바일 크기 프리뷰 모달 (편집 버튼 포함)
 - **캠페인 상태 6단계**: `draft` → `scheduled` → `active` → `closed`(모집마감) → `ended`(종료), `expired`(노출마감). 자동 전이 3종: `scheduled→active`(recruit_start 도래), `active→closed`(deadline 경과), `closed→ended`(submission_end 경과 — `autoEndCampaigns`, 마이그레이션 156). `expired` 는 운영자 「캠페인 노출」 토글 OFF 로만 진입. `closed`(모집마감)·`ended`(종료) 는 운영자 OFF 까지 인플 화면에 노출(closed=募集締切, ended=終了 오버레이). 노출 그룹(scheduled/active/closed/ended) 컬러 배지(closed=핑크, ended=남보라 `badge-done`), 비노출 그룹(draft/expired) 회색·점선
 - **캠페인 노출 토글**: 등록/편집 폼 최상단 + 목록 「상태」 컬럼 빠른 토글. OFF 시 확인 모달 후 status=expired, ON 시 자연 상태 재계산. draft 는 비활성. `toggleCampaignVisibility` + `computeCampaignStatus`
+- **상태 변경 드롭다운 전이 규칙**(목록 「상태」 배지 클릭): `CAMP_STATUS_TRANSITIONS` 기준으로 현재 상태에서 갈 수 없는 상태는 회색 비활성(`status-dropdown-item.disabled`). draft→[scheduled,active] / scheduled→[draft,active,closed] / active→[scheduled,closed] / closed→[active,ended] / ended→[closed] / expired→[]. 자기 자신·노출종료(노출 토글 OFF 전용)·마감일 지난 건의 active/scheduled 도 비활성. expired 캠페인은 항목 대신 「노출 토글로만 변경」 안내(`status-dropdown-note`). 렌더 `toggleStatusDropdown`/`buildStatusDropdownItem`, 실제 변경 `changeCampStatus`(deadline 차단 유지)
 - **자동 시작·종료**: `fetchCampaigns` 호출 시 `autoOpenCampaigns()` → `autoCloseCampaigns()`. deadline 지난 캠페인은 active/scheduled 저장 불가
 - **날짜 입력**: flatpickr range picker 2개(모집·구매/방문) + single picker 1개(`submission_end`). 모집 종료일 선택 시 `submission_end` +14일 자동 제안. 구매·방문 기간은 모집 시작~결과물 제출 마감 윈도우로 자동 clamp. monitor 일 때 콘텐츠 종류 옵션 영상/이미지만 자동 필터링
 - **모집인원 초과 승인 차단**: 승인 수가 slots 에 도달하면 알럿 모달 차단

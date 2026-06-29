@@ -2368,6 +2368,39 @@ async function purgeCampaignAuditData(campId) {
   }
 }
 
+// 캠페인 상태 수동 전이 규칙 — 진행 흐름(준비→모집예정→모집중→모집마감→종료) + 한 칸 되돌리기 허용.
+// 노출종료(expired)는 노출 토글 OFF 로만 진입하므로 어떤 상태에서도 드롭다운 전이 대상이 아니다(빈 배열).
+// 자기 자신은 목록에 없으므로 자동 비활성. 마감일 지난 건의 active/scheduled 추가 차단은 toggleStatusDropdown 에서 적용.
+const CAMP_STATUS_TRANSITIONS = {
+  draft:     ['scheduled', 'active'],
+  scheduled: ['draft', 'active', 'closed'],
+  active:    ['scheduled', 'closed'],
+  closed:    ['active', 'ended'],
+  ended:     ['closed'],
+  expired:   [],
+};
+
+const CAMP_STATUS_ITEMS = [
+  {val:'draft',     label:'준비',     cls:'badge-gray'},
+  {val:'scheduled', label:'모집예정', cls:'badge-blue'},
+  {val:'active',    label:'모집중',   cls:'badge-green'},
+  {val:'closed',    label:'모집마감', cls:'badge-pink'},
+  {val:'ended',     label:'종료',     cls:'badge-done'},
+  {val:'expired',   label:'노출종료', cls:'badge-expired'}
+];
+
+// 드롭다운 항목 1개 렌더 — enabled 면 클릭 가능, 아니면 회색 비활성(onclick 없음)
+function buildStatusDropdownItem(campId, it, enabled) {
+  if (!enabled) {
+    return `<div class="status-dropdown-item disabled" aria-disabled="true">
+      <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
+    </div>`;
+  }
+  return `<div class="status-dropdown-item" onclick="changeCampStatus('${campId}','${it.val}')">
+    <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
+  </div>`;
+}
+
 function toggleStatusDropdown(badgeEl) {
   // 기존 드롭다운 닫기
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
@@ -2376,22 +2409,28 @@ function toggleStatusDropdown(badgeEl) {
   const campId = tr?.dataset.campId;
   if (!campId) return;
 
-  const items = [
-    {val:'draft',     label:'준비',     cls:'badge-gray'},
-    {val:'scheduled', label:'모집예정', cls:'badge-blue'},
-    {val:'active',    label:'모집중',   cls:'badge-green'},
-    {val:'closed',    label:'모집마감', cls:'badge-pink'},
-    {val:'ended',     label:'종료',     cls:'badge-done'},
-    {val:'expired',   label:'노출종료', cls:'badge-expired'}
-  ];
+  const camp = allCampaigns.find(c => c.id === campId);
+  const curStatus = camp?.status;
+  const allowed = CAMP_STATUS_TRANSITIONS[curStatus] || [];
+  // 마감일 지난 캠페인은 모집중·모집예정으로 되돌릴 수 없음 (changeCampStatus 차단과 동일 기준)
+  let deadlinePassed = false;
+  if (camp?.deadline) {
+    const dl = new Date(camp.deadline); dl.setHours(23,59,59,999);
+    deadlinePassed = new Date() > dl;
+  }
 
   const dd = document.createElement('div');
   dd.className = 'status-dropdown';
-  dd.innerHTML = items.map(it =>
-    `<div class="status-dropdown-item" onclick="changeCampStatus('${campId}','${it.val}')">
-      <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
-    </div>`
-  ).join('');
+  if (curStatus === 'expired') {
+    // 노출종료는 「노출」 토글로만 복귀 — 드롭다운 전이 대상 없음. 빈 회색 목록 대신 안내 표시
+    dd.innerHTML = `<div class="status-dropdown-note">「노출」 토글로만<br>상태를 변경할 수 있습니다</div>`;
+  } else {
+    dd.innerHTML = CAMP_STATUS_ITEMS.map(it => {
+      let enabled = allowed.includes(it.val);
+      if (enabled && deadlinePassed && (it.val === 'active' || it.val === 'scheduled')) enabled = false;
+      return buildStatusDropdownItem(campId, it, enabled);
+    }).join('');
+  }
   // body에 붙여 부모의 overflow:hidden 클리핑 회피
   document.body.appendChild(dd);
   const rect = badgeEl.getBoundingClientRect();
