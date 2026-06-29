@@ -855,7 +855,7 @@ function ensureOrientModals() {
   if (document.getElementById('orientCreateModal')) return;
   const html = `
   <div class="modal-overlay" id="orientCreateModal">
-    <div class="modal" style="max-width:480px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal" style="max-width:600px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
       <div class="modal-header"><h2>오리엔시트 링크 발급</h2>
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientCreateModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
@@ -871,8 +871,8 @@ function ensureOrientModals() {
         <div id="osCreateResult" style="display:none">
           <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
           <div style="position:relative">
-            <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="padding-right:42px">
-            <button type="button" onclick="osCopyResultLink()" title="링크 복사" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">content_copy</span></button>
+            <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="padding-right:48px">
+            <button type="button" onclick="osCopyResultLink()" title="링크 복사" style="position:absolute;right:1px;top:1px;bottom:1px;background:none;border:none;border-left:1px solid var(--line);cursor:pointer;padding:0 10px;display:flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">content_copy</span></button>
           </div>
           <div style="font-size:15px;color:var(--ink);margin-top:8px;font-weight:700">작성 기한: <span id="osCreateExpire" style="color:var(--pink)"></span></div>
           <hr style="border:none;border-top:1px solid var(--line);margin:16px 0">
@@ -880,7 +880,7 @@ function ensureOrientModals() {
             <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px">메일 받을 담당자</label>
             <select id="osRecipientSelect" class="form-input" onchange="osOnRecipientChange()"></select>
             <div id="osRecipientNew" style="display:none;margin-top:6px;gap:6px">
-              <input id="osNewContactName" class="form-input" placeholder="담당자 이름" style="flex:1;min-width:0">
+              <input id="osNewContactName" class="form-input" placeholder="담당자 이름" style="width:120px;flex-shrink:0">
               <input id="osNewContactEmail" class="form-input" type="email" placeholder="이메일 주소" autocomplete="off" style="flex:1;min-width:0">
             </div>
           </div>
