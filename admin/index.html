@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782727379';
+  var CURRENT_BUILD = 'v1782731143';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1066,22 +1066,35 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .ql-tooltip.ql-editing,
 .ql-tooltip.ql-flip{display:none !important}
 
-/* 공지 편집기 "편집 = 보기" 정합.
-   공지 작성 모달의 Quill 편집 영역(#anEditBodyQuill .ql-editor)의 단락 여백·제목 크기·
-   목록 간격을 저장 후 보기 화면(.rich-content, components.css + #adminNoticeViewBody
-   font-size:13px / line-height:1.7)과 동일하게 맞춘다.
-   → 노션 등에서 붙여넣은 그대로의 모습이 게시 후에도 동일하게 보이도록(위지윅).
-   캠페인 에디터(.quill-host)에는 영향 없음(선택자가 공지 편집기 전용). */
-#anEditBodyQuill .ql-editor{font-size:13px;line-height:1.7;color:var(--ink)}
-#anEditBodyQuill .ql-editor p{margin:0 0 8px 0}
-#anEditBodyQuill .ql-editor p:last-child{margin-bottom:0}
-#anEditBodyQuill .ql-editor h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
-#anEditBodyQuill .ql-editor h3{font-size:1em;font-weight:700;margin:10px 0 6px}
-#anEditBodyQuill .ql-editor h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
-#anEditBodyQuill .ql-editor ul,#anEditBodyQuill .ql-editor ol{margin:4px 0 8px}
-#anEditBodyQuill .ql-editor li{margin:2px 0}
-#anEditBodyQuill .ql-editor blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
-#anEditBodyQuill .ql-editor a{color:var(--pink);text-decoration:underline}
+/* 공지 "편집 = 보기" 일치.
+   공지 보기 모달 본문을 편집기와 동일한 Quill(읽기 전용, .notice-view-quill)로 렌더하므로,
+   아래 블록 여백·제목 크기·목록 간격을 두 화면에 동일하게 적용한다(같은 엔진·같은 규칙 → 일치).
+   캠페인 에디터(.quill-host)에는 영향 없음(공지 편집기·보기 전용 선택자). */
+#anEditBodyQuill .ql-editor,
+.notice-view-quill .ql-editor{font-size:13px;line-height:1.7;color:var(--ink)}
+#anEditBodyQuill .ql-editor p,
+.notice-view-quill .ql-editor p{margin:0 0 8px 0}
+#anEditBodyQuill .ql-editor p:last-child,
+.notice-view-quill .ql-editor p:last-child{margin-bottom:0}
+#anEditBodyQuill .ql-editor h2,
+.notice-view-quill .ql-editor h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+#anEditBodyQuill .ql-editor h3,
+.notice-view-quill .ql-editor h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+#anEditBodyQuill .ql-editor h4,
+.notice-view-quill .ql-editor h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+#anEditBodyQuill .ql-editor ul,#anEditBodyQuill .ql-editor ol,
+.notice-view-quill .ql-editor ul,.notice-view-quill .ql-editor ol{margin:4px 0 8px}
+#anEditBodyQuill .ql-editor li,
+.notice-view-quill .ql-editor li{margin:2px 0}
+#anEditBodyQuill .ql-editor blockquote,
+.notice-view-quill .ql-editor blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+#anEditBodyQuill .ql-editor a,
+.notice-view-quill .ql-editor a{color:var(--pink);text-decoration:underline}
+/* 보기 모달 Quill 은 편집 박스가 아니므로 테두리 제거(읽기 전용). 본문 패딩은 편집기와 동일 유지. */
+.notice-view-quill.ql-container.ql-snow{border:0;height:auto;font-family:inherit}
+/* 미읽음 팝업은 정적 .rich-content 렌더라 빈 단락이 접힌다 → 한 줄 높이로 보정
+   (보기 모달은 Quill 이라 빈 줄을 자체 처리하므로 불필요). */
+#adminNoticeUnreadModal [data-notice-body] p:empty{min-height:1.6em}
 
 /* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
 .bundle-summary-card{
@@ -2117,7 +2130,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-29 19:02 · 80ad3be</span>
+          <span class="admin-build-text">2026-06-29 20:05 · 072d171</span>
         </div>
       </div>
     </aside>
@@ -4244,15 +4257,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <div style="font-size:11px;color:var(--muted);margin-bottom:6px">노션·문서에서 복사해 그대로 붙여넣으면 제목·굵게·목록·링크 서식이 유지됩니다. 편집 중 보이는 모습이 게시 후와 동일합니다(HTML 소스 입력 불필요).</div>
       <div id="anEditBodyQuill" style="min-height:220px;background:#fff"></div>
       <textarea id="anEditBodyRaw" style="display:none;width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:6px;resize:vertical" placeholder="HTML 코드를 직접 입력하세요. 예) <p>안녕하세요</p><ul><li>항목</li></ul>"></textarea>
-      <div id="adminNoticeEditFooter" style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;align-items:center">
-        <span id="adminNoticeEditStatusPill" style="margin-right:auto"></span>
-        <button class="btn btn-ghost btn-xs" id="btnDeleteAdminNotice" onclick="onDeleteAdminNotice()" style="color:#C62828;display:none">삭제</button>
-        <button class="btn btn-ghost btn-xs" onclick="closeModal('adminNoticeEditModal')">취소</button>
-        <button class="btn btn-ghost btn-xs" id="btnSaveAdminNoticeKeepPublished" onclick="onSaveAdminNotice('keep_published')" style="display:none">게시 유지하며 저장</button>
-        <button class="btn btn-ghost btn-xs" id="btnSaveAdminNoticeDraft" onclick="onSaveAdminNotice('draft')" style="display:none">초안 저장</button>
-        <button class="btn btn-primary btn-xs" id="btnPublishAdminNotice" onclick="onSaveAdminNotice('publish')" style="display:none">게시하기</button>
-        <button class="btn btn-primary btn-xs" id="btnSaveAdminNoticeRevertDraft" onclick="onSaveAdminNotice('revert_draft')" style="display:none">초안으로 되돌리고 저장</button>
-      </div>
+    </div>
+    <div id="adminNoticeEditFooter" style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--line);justify-content:flex-end;align-items:center;flex-shrink:0">
+      <span id="adminNoticeEditStatusPill" style="margin-right:auto"></span>
+      <button class="btn btn-ghost btn-xs" id="btnDeleteAdminNotice" onclick="onDeleteAdminNotice()" style="color:#C62828;display:none">삭제</button>
+      <button class="btn btn-ghost btn-xs" onclick="closeModal('adminNoticeEditModal')">취소</button>
+      <button class="btn btn-ghost btn-xs" id="btnSaveAdminNoticeKeepPublished" onclick="onSaveAdminNotice('keep_published')" style="display:none">게시 유지하며 저장</button>
+      <button class="btn btn-ghost btn-xs" id="btnSaveAdminNoticeDraft" onclick="onSaveAdminNotice('draft')" style="display:none">초안 저장</button>
+      <button class="btn btn-primary btn-xs" id="btnPublishAdminNotice" onclick="onSaveAdminNotice('publish')" style="display:none">게시하기</button>
+      <button class="btn btn-primary btn-xs" id="btnSaveAdminNoticeRevertDraft" onclick="onSaveAdminNotice('revert_draft')" style="display:none">초안으로 되돌리고 저장</button>
     </div>
   </div>
 </div>
@@ -4260,18 +4273,18 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 <!-- 공지 상세 보기 모달 -->
 <div class="modal-overlay" id="adminNoticeViewModal" style="z-index:550">
   <div class="modal" style="max-width:720px;border-radius:16px;margin:auto;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
-    <div class="modal-header">
+    <div class="modal-header" style="border-bottom:none;padding-bottom:8px">
       <div class="modal-title" id="adminNoticeViewTitle">공지</div>
       <div class="modal-close" onclick="closeModal('adminNoticeViewModal')"><span class="material-icons-round notranslate" translate="no" style="font-size:18px">close</span></div>
     </div>
+    <div id="adminNoticeViewMeta" style="font-size:12px;color:var(--muted);padding:0 22px 14px;border-bottom:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex-shrink:0"></div>
     <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;min-height:0">
-      <div id="adminNoticeViewMeta" style="font-size:12px;color:var(--muted);margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center"></div>
       <div id="adminNoticeViewBody" class="rich-content" style="font-size:13px;line-height:1.7;color:var(--ink)"></div>
-      <div id="adminNoticeViewFooter" style="display:none;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);justify-content:flex-end">
-        <button class="btn btn-ghost btn-xs" id="btnEditAdminNoticeFromView" onclick="onEditAdminNoticeFromView()"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>
-        <button class="btn btn-ghost btn-xs" id="btnUnpublishAdminNoticeFromView" onclick="onUnpublishFromView()" style="display:none">게시 회수</button>
-        <button class="btn btn-primary btn-xs" id="btnPublishAdminNoticeFromView" onclick="onPublishFromView()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">campaign</span> 지금 게시</button>
-      </div>
+    </div>
+    <div id="adminNoticeViewFooter" style="display:none;gap:8px;padding:14px 20px;border-top:1px solid var(--line);justify-content:flex-end;flex-shrink:0">
+      <button class="btn btn-ghost btn-xs" id="btnEditAdminNoticeFromView" onclick="onEditAdminNoticeFromView()"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">edit</span> 수정</button>
+      <button class="btn btn-ghost btn-xs" id="btnUnpublishAdminNoticeFromView" onclick="onUnpublishFromView()" style="display:none">게시 회수</button>
+      <button class="btn btn-primary btn-xs" id="btnPublishAdminNoticeFromView" onclick="onPublishFromView()" style="display:none"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">campaign</span> 지금 게시</button>
     </div>
   </div>
 </div>
@@ -19183,6 +19196,39 @@ async function confirmBroadcastWithdraw() {
 var _adminNoticesCache = [];
 var _adminNoticeCurrent = null;
 var _adminNoticeQuill = null;
+// 공지 보기 모달 본문 — 편집기와 동일한 Quill(읽기 전용)로 렌더해 "편집 = 보기" 일치
+var _adminNoticeViewQuill = null;
+
+// 공지 본문을 편집기와 "동일한 Quill 엔진"으로 렌더(읽기 전용).
+// 정적 .rich-content 로 그리면 목록 마커·단락 여백이 Quill 편집기와 달라 두 화면이
+// 어긋나므로, 보기 화면도 같은 Quill 2 + quill.snow.css 로 그려 구조적으로 일치시킨다.
+// Quill 미로드 시 기존 renderRich 로 폴백.
+function renderNoticeBodyRich(el, raw) {
+  if (!el) return;
+  const value = raw == null ? '' : String(raw);
+  const looksHtml = /<[a-z][\s\S]*>/i.test(value);
+  // 평문(legacy) 공지는 줄바꿈을 <br> 로 보존 (renderRich 와 동일 정책)
+  const html = looksHtml
+    ? ((typeof sanitizeRich === 'function') ? sanitizeRich(value) : value)
+    : value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  if (typeof Quill === 'undefined') {
+    if (typeof renderRich === 'function') renderRich(el, raw);
+    else el.innerHTML = html;
+    return;
+  }
+  if (!_adminNoticeViewQuill || _adminNoticeViewQuill.container !== el) {
+    el.classList.add('notice-view-quill');
+    el.classList.remove('rich-content');
+    _adminNoticeViewQuill = new Quill(el, {
+      theme: 'snow',
+      readOnly: true,
+      modules: { toolbar: false },
+      formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+    });
+  }
+  _adminNoticeViewQuill.setContents([]);
+  _adminNoticeViewQuill.clipboard.dangerouslyPasteHTML(html, 'silent');
+}
 
 const ADMIN_NOTICE_CAT_LABEL = {
   system_update: '시스템 업데이트',
@@ -19280,9 +19326,7 @@ async function openAdminNoticeView(id) {
     : `<span style="color:#999">${n.created_at?formatDateTime(n.created_at)+' 작성':''}</span>`;
   $('adminNoticeViewMeta').innerHTML = `${adminNoticeStatusPill(n.status)}${adminNoticeCatPill(n.category)}<span>${esc(n.created_by_name || '—')}</span>${dateBlock}${n.is_pinned?'<span style="color:var(--pink);font-weight:700;display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">push_pin</span>상단 고정</span>':''}`;
   const bodyEl = $('adminNoticeViewBody');
-  if (typeof renderRich === 'function') renderRich(bodyEl, n.body_html || '');
-  else if (typeof sanitizeRich === 'function') bodyEl.innerHTML = sanitizeRich(n.body_html || '');
-  else bodyEl.innerHTML = n.body_html || '';
+  renderNoticeBodyRich(bodyEl, n.body_html || '');
   // 푸터: 작성자/super 만 표시
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const canEdit = isSuper || n.created_by === currentUser?.id;
