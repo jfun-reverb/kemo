@@ -708,6 +708,9 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .msg-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
 .msg-lightbox-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border:none;border-radius:20px;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
 
+/* 읽기 전용 표시 필드 (생년월일·성별 — 수정은 관리자만, 연령 정책 PR4) */
+.form-readonly{padding:12px 14px;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;min-height:48px;display:flex;align-items:center;box-sizing:border-box}
+
 </style>
 </head>
 <body>
@@ -2517,6 +2520,9 @@ const PANE_REFRESHERS = {
   'upcoming': async () => {
     // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
     if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
+  },
+  'orient-sheets': async () => {
+    if (typeof loadOrientSheets === 'function') await loadOrientSheets();
   }
 };
 async function refreshPane(paneId) {
@@ -4769,10 +4775,12 @@ function computeCampaignStatus(camp) {
 }
 
 async function insertCampaign(camp) {
-  if (!db) return;
-  await retryWithRefresh(async () => {
-    const {error} = await db.from('campaigns').insert(camp);
+  if (!db) return null;
+  // 삽입된 캠페인 id 반환 (오리엔시트 발행 소비 등에서 사용 — 기존 호출부는 반환값 무시라 호환)
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.from('campaigns').insert(camp).select('id').maybeSingle();
     if (error) throw error;
+    return data?.id || null;
   });
 }
 
@@ -7902,6 +7910,211 @@ async function purgeAuditDataForCampaign(campaignId) {
 }
 
 
+// ════════════════════════════════════════════════════════════════════
+// 브랜드 셀프 오리엔시트 — PR 1 (DB + 익명 토큰 함수)
+//   사양서: docs/specs/2026-06-18-brand-self-orient-sheet.md §6, §7
+//   마이그레이션: 186(테이블) → 187(함수 3종)
+//
+//   이 함수 3종은 비로그인 브랜드 담당자(sales 폼)에서 호출되는 익명 경로.
+//   따라서 세션 갱신(retryWithRefresh) 없이 db.rpc 직접 호출한다 — 140 패턴과 동일.
+//   (익명 호출에서 JWT 세션이 없으므로 갱신 시도 자체가 무의미)
+// ════════════════════════════════════════════════════════════════════
+
+// 오리엔시트 조회 — 토큰으로 현재 내용·상태를 가져온다.
+// 연결된 신청이 있으면 initial_values(모집 희망값)도 함께 반환.
+// 반환: {ok:true, id, form_type, data, status, version, submitted_at, initial_values}
+//        | {ok:false, error, reason}
+async function getOrientSheet(token) {
+  if (!db) return { ok: false, error: 'no_db' };
+  if (!token) return { ok: false, error: 'invalid_token' };
+  try {
+    const { data, error } = await db.rpc('get_orient_sheet', { p_token: token });
+    if (error) throw error;
+    // data: {success:bool, reason?, id?, form_type?, data?, status?, version?, submitted_at?, initial_values?}
+    if (data && data.success) {
+      return {
+        ok:             true,
+        id:             data.id,
+        form_type:      data.form_type,
+        data:           data.data,
+        status:         data.status,
+        version:        data.version,
+        submitted_at:   data.submitted_at,
+        initial_values: data.initial_values || null,
+      };
+    }
+    return { ok: false, error: data?.reason || 'invalid_token', reason: data?.reason };
+  } catch (e) {
+    // 잘못된 UUID 형식 등은 무효 토큰으로 처리
+    console.error('[getOrientSheet]', e);
+    return { ok: false, error: 'invalid_token' };
+  }
+}
+
+// 오리엔시트 임시저장 — 작성 중 중간 저장. status는 변경하지 않음(submitted→draft 역전환 없음).
+// 반환: {ok:true, version} | {ok:false, error, reason, current_version?}
+async function saveOrientDraft(token, data, version) {
+  if (!db) return { ok: false, error: 'no_db' };
+  if (!token) return { ok: false, error: 'invalid_token' };
+  try {
+    const { data: result, error } = await db.rpc('save_orient_draft', {
+      p_token:   token,
+      p_data:    data,
+      p_version: version,
+    });
+    if (error) throw error;
+    // result: {success:bool, reason?, version?, current_version?, ...}
+    if (result && result.success) {
+      return { ok: true, version: result.version };
+    }
+    return {
+      ok:              false,
+      error:           result?.reason || 'unknown',
+      reason:          result?.reason,
+      current_version: result?.current_version,
+    };
+  } catch (e) {
+    console.error('[saveOrientDraft]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+
+// 오리엔시트 제출 — 브랜드 담당자의 최종 제출. draft/submitted → submitted.
+// 발행 전까지 재제출 가능(사양서 결정⑨).
+// 반환: {ok:true, version, submitted_at} | {ok:false, error, reason, current_version?}
+async function submitOrientSheet(token, data, version) {
+  if (!db) return { ok: false, error: 'no_db' };
+  if (!token) return { ok: false, error: 'invalid_token' };
+  try {
+    const { data: result, error } = await db.rpc('submit_orient_sheet', {
+      p_token:   token,
+      p_data:    data,
+      p_version: version,
+    });
+    if (error) throw error;
+    // result: {success:bool, reason?, version?, submitted_at?, current_version?}
+    if (result && result.success) {
+      return {
+        ok:           true,
+        version:      result.version,
+        submitted_at: result.submitted_at,
+      };
+    }
+    return {
+      ok:              false,
+      error:           result?.reason || 'unknown',
+      reason:          result?.reason,
+      current_version: result?.current_version,
+    };
+  } catch (e) {
+    console.error('[submitOrientSheet]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
+// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
+// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
+// 반환: {success, id, token, token_expires_at} | {success:false, reason}
+async function createOrientSheet(brandId, applicationId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('create_orient_sheet', {
+      p_brand_id: brandId,
+      p_application_id: applicationId || null,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
+// 발송 성공 시 연결 신청이 있으면 단계가 'orient_sheet_sent' 로 자동 전진(함수 198, 역행 방지).
+// 반환: { sent:true, recipient, advanced } / { sent:false, reason:'no_recipient'|... } / { sent:false, error }
+// 발송 실패가 발급 자체를 무효화하지 않도록 호출 측에서 결과만 표시(throw 안 함).
+async function sendOrientInviteMail(orientSheetId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-orient-sheet', {
+      body: { orient_sheet_id: orientSheetId },
+    });
+    if (error) {
+      // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
+// 오리엔시트 삭제 (마이그레이션 199, delete_orient_sheet RPC).
+// 발행 캠페인 없으면 시트만 삭제(is_admin) / 연결 있으면 신청 0건 캠페인까지 함께 삭제(is_campaign_admin),
+// 신청 1건+ 있으면 차단(blocked_has_applications). 반환 jsonb 그대로 전달(호출 측이 reason 분기).
+async function deleteOrientSheet(orientId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('delete_orient_sheet', { p_orient_id: orientId });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 오리엔시트 카드 1개를 발행 캠페인과 연결(소비). 마이그레이션 196.
+// 카드별 멱등(이미 발행 카드면 거부), 모든 카드 발행 시 시트 status='consumed'.
+async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('mark_orient_card_consumed', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
+async function fetchOrientSheets() {
+  if (!db) return [];
+  return await retryWithRefresh(async () =>
+    fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, brand_id, application_id, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .order('created_at', { ascending: false }))
+  );
+}
+
+// 상세: data 포함 단건
+async function fetchOrientSheetById(id) {
+  if (!db) return null;
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('*, brands(name, name_ja)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 신청(brand_applications)에 연결된 오리엔시트 (brand-app 상세 연결 링크용)
+async function fetchOrientSheetsByApplication(applicationId) {
+  if (!db) return [];
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('id, token, form_type, status, token_expires_at, created_at')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  });
+}
+
+
 // ══════════════════════════════════════
 // LEGAL — 약관/개인정보 페이지 마크다운 렌더링
 // ══════════════════════════════════════
@@ -10454,13 +10667,15 @@ async function openActivityPage(applicationId, campaignId, from) {
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
   const isMonitor = (rt === 'monitor');
+  // 가구매(proxy_purchase, 마이그레이션 197): monitor지만 영수증만 — 리뷰 캡쳐(STEP 2) 미요구
+  const isProxy = isMonitor && !!camp.proxy_purchase;
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
-  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출, 그 외는 모두 숨김
+  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출. 가구매는 STEP 2 없음.
   const stepLabel = $('receiptStepLabel');
-  if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
+  if (stepLabel) stepLabel.style.display = (isMonitor && !isProxy) ? '' : 'none';
   const reviewSec = $('reviewImageSection');
-  if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
+  if (reviewSec) reviewSec.style.display = (isMonitor && !isProxy) ? '' : 'none';
   // monitor 전용 영수증 필수 필드(주문번호·구매일·구매금액) — 마이그레이션 128
   const monitorFields = $('monitorReceiptFields');
   if (monitorFields) monitorFields.style.display = isMonitor ? '' : 'none';
@@ -10657,9 +10872,10 @@ async function loadDeliverablesForActivity() {
   // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(채널별 리뷰 캡쳐) 영역 활성화
   // 채널 없는 레거시 monitor 캠페인은 STEP 2 영역 자체를 숨김 (grandfather, 영수증만 받음)
   if (isMonitor) {
+    // 가구매(proxy_purchase)·채널 없는 레거시 monitor는 STEP 2(리뷰 캡쳐) 영역 자체를 숨김 — 영수증만 받음
     const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     const section = $('reviewImageSection');
-    if (channels.length === 0) {
+    if (camp.proxy_purchase || channels.length === 0) {
       if (section) section.style.display = 'none';
     } else {
       if (section) section.style.display = '';
@@ -13307,6 +13523,8 @@ function navigate(page, pushHistory) {
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
+  // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
+  if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
   if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';

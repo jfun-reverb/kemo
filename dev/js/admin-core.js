@@ -133,6 +133,9 @@ function switchAdminPane(pane, el, pushHistory) {
     }
   } catch (e) { /* analytics 실패 무시 */ }
 
+  // 오리엔시트 발행 컨텍스트는 add-campaign 진입마다 초기화 (수동 신규 캠페인이 오리엔 발행으로 오인되지 않도록).
+  // 오리엔 발행 경로(applyOrientCardPrefill)는 switchAdminPane 호출 직후 컨텍스트를 다시 세팅한다.
+  if (pane === 'add-campaign') window._orientPublishCtx = null;
   initMultiFilters();
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
@@ -176,7 +179,9 @@ function switchAdminPane(pane, el, pushHistory) {
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
-    'errors': loadClientErrors
+    'errors': loadClientErrors,
+    'upcoming': renderUpcomingFeatures,
+    'orient-sheets': loadOrientSheets
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -684,9 +689,11 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
-  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal',
+  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal', 'brandAppOrientListModal',
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
+  // 오리엔시트 (동적 생성 — ensureOrientModals 가 initDraggableModals 재호출로 옵저버 부착)
+  'orientDetailModal', 'orientCreateModal',
   // 메시지
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용

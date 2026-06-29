@@ -21,6 +21,7 @@
 // ══════════════════════════════════════
 
 var _brandApps = [];          // 캐시된 전체 목록
+var _orientByApp = {};        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
@@ -208,8 +209,16 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     copy.status = newStatus;
     return copy;
   });
+  var patch = {products: nextProducts};
+  // 첫 검수 진입: 신청 전체 상태가 아직 '신규'인데 제품을 '신규' 밖으로 올리면
+  // 신청 전체 상태도 함께 전이 → 사이드바 「신규」 배지가 줄어들도록 (배지는 신청 단위 status='new' 카운트).
+  if (cur.status === 'new' && newStatus !== 'new') {
+    patch.status = newStatus;
+    patch.reviewed_by = currentUser?.id || null;
+    patch.reviewed_at = new Date().toISOString();
+  }
   var expectedVersion = cur.version;
-  var result = await updateBrandApplication(id, {products: nextProducts}, expectedVersion);
+  var result = await updateBrandApplication(id, patch, expectedVersion);
   if (result.conflict) {
     toast('다른 관리자가 먼저 처리했습니다. 목록을 새로고침합니다.', 'warn');
     await loadBrandApplications();
@@ -221,8 +230,10 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     return;
   }
   cur.products = nextProducts;
+  if (patch.status) cur.status = patch.status;   // 신청 전체 상태 전이 캐시 동기화
   _syncBrandAppCur(cur, result, expectedVersion);
   _refreshBrandAppHistoryButton(id);
+  if (patch.status && typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();   // 신규 배지 즉시 갱신
   // 상태 변경은 필터 (NN)건 카운트와 매칭 행 노출에 즉시 영향 — 목록 전체 재렌더
   // 일정 인라인 편집과는 다른 흐름이라 의도적으로 셀-only 재렌더 미사용
   renderBrandApplicationsList();
@@ -930,6 +941,8 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
     : '<div class="camp-more-item" style="opacity:.4;cursor:not-allowed" title="변경 이력 없음"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>이력 (0)</div>';
   menu.innerHTML = ''
     + '<div class="camp-more-item" onclick="openBrandAppEditModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>수정</div>'
+    + '<div class="camp-more-item" onclick="osIssueFromApplication(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">assignment_turned_in</span>시스템 오리엔시트 발급</div>'
+    + '<div class="camp-more-item" onclick="osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">link</span>구글시트 URL 등록</div>'
     + historyItem;
   document.body.appendChild(menu);
   _positionMenuInViewport(menu, rect, {placement: 'left-of'});
@@ -942,6 +955,115 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
       }
     });
   }, 0);
+}
+
+// 셀프 오리엔시트 열 셀 — 신청에 연결된 orient_sheets 요약(최근 상태 + 추가 건수). 없으면 —.
+// 만료는 클라 판정(조회 함수가 status 미전환 — consumed 아닌데 기한 지나면 만료 표시).
+// 시스템 오리엔시트 셀 = 「보기(N)」 버튼(0건 포함). 클릭 시 그 신청의 오리엔시트 목록 모달.
+//   상태·링크·상세는 모달(현황 표 형식)에서 확인 — 셀은 건수만 간결히.
+function renderSelfOrientCell(appId) {
+  var count = (_orientByApp && _orientByApp[appId] && _orientByApp[appId].length) || 0;
+  return '<button type="button" class="btn btn-ghost btn-xs" style="display:inline-flex;align-items:center;gap:3px" '
+    + 'onclick="event.stopPropagation();openBrandAppOrientListModal(\'' + esc(appId) + '\')" title="발급된 오리엔시트 목록 보기">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">visibility</span>보기(' + count + ')</button>';
+}
+
+// 오리엔시트 셀 미니 버튼(아이콘 + 라벨). href 가 'javascript:void(0)' 이면 onclick 동작 버튼.
+function orientMiniBtn(icon, text, href, onclick) {
+  // href·icon 은 raw 로 받아 여기서 한 번만 esc (호출부 이중 이스케이프 방지)
+  var style = 'display:inline-flex;align-items:center;gap:2px;padding:1px 7px;border:1px solid var(--pink);border-radius:6px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none;line-height:1.6;vertical-align:middle';
+  var oc = onclick ? (' onclick="' + onclick + '"') : ' onclick="event.stopPropagation()"';
+  var tgt = (href && href !== 'javascript:void(0)') ? ' target="_blank" rel="noopener noreferrer"' : '';
+  return '<a href="' + esc(href) + '"' + tgt + oc + ' title="' + esc(text) + '" style="' + style + '">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">' + esc(icon) + '</span>' + esc(text) + '</a>';
+}
+
+// 신청 목록 「오리엔시트」 셀 — 「보기(N)」 버튼만.
+// 시스템(orient_sheets)·구글시트(orient_sheet_sent_url) 상세는 보기 모달에서 확인.
+function renderOrientCombinedCell(a) {
+  return '<div style="display:flex;align-items:center;min-height:36px">' + renderSelfOrientCell(a.id) + '</div>';
+}
+
+// 신청의 시스템 오리엔시트 목록 모달 (오리엔시트 현황 표 형식). 「보기(N)」 클릭 진입.
+function ensureBrandAppOrientListModal() {
+  if (document.getElementById('brandAppOrientListModal')) return;
+  var html = '<div class="modal-overlay" id="brandAppOrientListModal">'
+    + '<div class="modal" style="max-width:640px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">'
+    + '<div class="modal-header"><h2>오리엔시트 목록</h2>'
+    + '<button type="button" class="modal-close-btn" onclick="osCloseModal(\'brandAppOrientListModal\')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>'
+    + '<div class="modal-body" style="padding:18px;overflow-y:auto;flex:1" id="brandAppOrientListBody"></div>'
+    + '<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="osCloseModal(\'brandAppOrientListModal\')">닫기</button></div>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  // 동적 생성 모달이라 부팅 시 옵저버(정적 모달 대상)에 안 잡힘 — 여기서 드래그·리사이즈 옵저버 부착
+  if (typeof initDraggableModals === 'function') initDraggableModals();
+}
+
+function brandAppOrientListRow(s) {
+  var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
+  var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
+  var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+  var copyBtn = link ? '<button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(link) + '\',\'작성 링크가 복사되었습니다.\')">링크 복사</button> ' : '';
+  return '<tr style="border-top:1px solid var(--line,#eee)">'
+    + '<td style="padding:8px 6px">' + summary + '</td>'
+    + '<td style="padding:8px 6px">' + stBadge + '</td>'
+    + '<td style="padding:8px 6px;font-size:12px;color:var(--muted)">' + (s.created_at ? formatDate(s.created_at) : '-') + '</td>'
+    + '<td style="padding:8px 6px;font-size:12px;color:var(--muted)">' + (s.token_expires_at ? formatDate(s.token_expires_at) : '-') + '</td>'
+    + '<td style="padding:8px 6px;white-space:nowrap">' + copyBtn
+    + '<button type="button" class="btn btn-primary btn-xs" onclick="event.stopPropagation();osCloseModal(\'brandAppOrientListModal\');osOpenDetail(\'' + esc(s.id) + '\')">상세</button></td>'
+  + '</tr>';
+}
+
+function openBrandAppOrientListModal(appId) {
+  ensureBrandAppOrientListModal();
+  var a = (_brandApps || []).find(function (x) { return x.id === appId; }) || {};
+  var sheets = (_orientByApp && _orientByApp[appId]) || [];
+  var body = document.getElementById('brandAppOrientListBody');
+  var titleStyle = 'font-size:13px;font-weight:800;color:var(--ink);margin:0 0 8px;display:flex;align-items:center;gap:6px';
+
+  // 시스템 오리엔시트 섹션
+  var sysInner;
+  if (!sheets.length) {
+    sysInner = '<div style="color:var(--muted);font-size:13px;padding:4px 0 10px">아직 발급된 오리엔시트가 없습니다.</div>'
+      + '<button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button>';
+  } else {
+    sysInner = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">발급일</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">작성 기한</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">관리</th></tr></thead>'
+      + '<tbody>' + sheets.map(brandAppOrientListRow).join('') + '</tbody></table>';
+  }
+
+  // 구글시트 섹션 (외부 URL — orient_sheet_sent_url)
+  var gsUrl = (typeof safeBrandUrl === 'function') ? safeBrandUrl(a.orient_sheet_sent_url) : '';
+  var gsInner = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  if (gsUrl) {
+    gsInner += (typeof renderGoogleSheetLinkOnly === 'function' ? renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) : esc(gsUrl))
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 수정</button>';
+  } else {
+    gsInner += '<span style="color:var(--muted);font-size:13px">등록된 구글시트 URL이 없습니다.</span>'
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 등록</button>';
+  }
+  gsInner += '</div>';
+
+  body.innerHTML =
+    '<div><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">assignment</span>시스템 오리엔시트</div>' + sysInner + '</div>'
+    + '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#eee)"><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">description</span>구글시트</div>' + gsInner + '</div>';
+  var overlay = document.getElementById('brandAppOrientListModal');
+  overlay.classList.add('open');
+  // 첫 열림에도 즉시 드래그·리사이즈 적용(옵저버는 비동기라 한 틱 지연)
+  if (typeof _applyDraggableIfOpen === 'function') _applyDraggableIfOpen(overlay);
+}
+
+// 구글시트 외부 URL — 열기 링크만(✎ 편집 없음. 등록은 더보기 「구글시트 URL 등록」 모달).
+function renderGoogleSheetLinkOnly(urlOrNull) {
+  var safeUrl = safeBrandUrl(urlOrNull);
+  return safeUrl
+    ? orientMiniBtn('open_in_new', '열기', safeUrl, null)
+    : '<span style="color:var(--muted);font-size:11px">—</span>';
 }
 
 // ══════════════════════════════════════
@@ -1051,6 +1173,7 @@ async function openBrandDetailModal(id) {
     + (isAdm
         ? '<button class="btn btn-ghost btn-sm" onclick="openBrandMergeModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">merge</span>병합</button>'
         : '')
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
@@ -1630,7 +1753,7 @@ async function loadBrandApplications() {
   if (_loadBrandApplicationsPromise) return _loadBrandApplicationsPromise;
   _loadBrandApplicationsPromise = (async function() { try {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -1647,20 +1770,27 @@ async function loadBrandApplications() {
     }
 
     // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
-    var [apps, counts, memoSummaries] = await Promise.all([
+    var [apps, counts, memoSummaries, orientSheets] = await Promise.all([
       fetchBrandApplications(),
       fetchBrandAppHistoryCounts(),
-      fetchBrandAppMemoSummaries()
+      fetchBrandAppMemoSummaries(),
+      fetchOrientSheets().catch(function(){ return []; })   // 셀프 오리엔시트 열(실패해도 목록은 표시)
     ]);
     _brandApps = apps || [];
     _brandAppHistoryCounts = counts || {};
     _brandAppMemoSummaries = memoSummaries || {};
+    // 셀프 오리엔시트 열: 신청별 그룹 맵(N+1 회피 — 전체 1회 조회 후 application_id 로 그룹)
+    _orientByApp = {};
+    (orientSheets || []).forEach(function(s){
+      if (!s.application_id) return;
+      (_orientByApp[s.application_id] = _orientByApp[s.application_id] || []).push(s);
+    });
     renderBrandApplicationsList();
     refreshBrandAppBadge();
   } catch (err) {
     console.error('[brand-applications] load failed:', err);
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:#c33;padding:24px">'
+      tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:#c33;padding:24px">'
         + '신청 목록을 불러오지 못했습니다. 새로고침 또는 재로그인 후 다시 시도해 주세요.'
         + '<br><button type="button" onclick="location.reload()" class="btn btn-primary" style="margin-top:8px">새로고침</button>'
         + '</td></tr>';
@@ -1677,7 +1807,7 @@ async function refreshBrandAppBadge() {
   if (!el) return;
   var count = await fetchBrandAppPendingCount();
   var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
-  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">신청 목록</span>' + badge;
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">서베이 신청 목록</span>' + badge;
 }
 
 var brandAppLazy = null;
@@ -1851,7 +1981,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -2047,6 +2177,112 @@ function _uniformProductValue(prods, key) {
 //   count: 신청 전체 제품 수 (필터 무관 — 「제품 N개」 라벨에 사용)
 //   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
 //            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
+// ════════════════════════════════════════════════════════════════════
+// 신청 행 아코디언 + 진행바 (admin-brand-journey PR B)
+//   6단계 묶음(검토→견적→입금→발급→취합→발행)을 신청 단위 status로 읽기 전용 표시.
+//   제품별 status가 갈리면 「혼합」 배지. status 자동 전이 없음(수동 드롭다운 유지).
+//   발급·발행 행동 바로가기는 PR C 에서 연결.
+// ════════════════════════════════════════════════════════════════════
+var BRAND_JOURNEY_STEPS = [
+  { label: '검토', order: 1 },   // reviewing
+  { label: '견적', order: 2 },   // quoted
+  { label: '입금', order: 3 },   // paid
+  { label: '발급', order: 5 },   // orient_sheet_sent
+  { label: '취합', order: 6 },   // schedule_sent (취합 = 오리엔 제출 — PR C에서 정밀화)
+  { label: '발행', order: 7 },   // campaign_registered
+];
+
+// 신청의 대표 진행 단계: 제품별 status 중 가장 덜 진행된 것(보수적) + 혼합/반려 여부
+function brandAppJourneyState(a) {
+  var prods = Array.isArray(a.products) ? a.products : [];
+  var statuses = (prods.length ? prods.map(function (p) { return (p && p.status) || a.status; }) : [a.status]).filter(Boolean);
+  if (!statuses.length) statuses = ['new'];
+  var uniq = statuses.filter(function (s, i) { return statuses.indexOf(s) === i; });
+  var orders = statuses.map(function (s) { return BRAND_STATUS_ORDER_FOR_FUNNEL[s]; }).filter(function (o) { return typeof o === 'number' && o >= 0; });
+  var minOrder = orders.length ? Math.min.apply(null, orders) : -1;   // -1 = 전부 반려
+  return { order: minOrder, mixed: uniq.length > 1, rejected: statuses.indexOf('rejected') >= 0 };
+}
+
+function renderBrandAppJourney(a) {
+  var st = brandAppJourneyState(a);
+  // 다음 행동 단계 = 아직 도달 못 한 첫 단계
+  var nextOrder = null;
+  for (var i = 0; i < BRAND_JOURNEY_STEPS.length; i++) {
+    if (st.order < BRAND_JOURNEY_STEPS[i].order) { nextOrder = BRAND_JOURNEY_STEPS[i].order; break; }
+  }
+  var steps = BRAND_JOURNEY_STEPS.map(function (step, i) {
+    var done = st.order >= step.order;
+    var current = (step.order === nextOrder);
+    var circleBg = done ? '#274' : (current ? 'var(--pink)' : '#E5E5E5');
+    var circleColor = (done || current) ? '#fff' : '#999';
+    var inner = done ? '<span class="material-icons-round notranslate" translate="no" style="font-size:15px">check</span>' : (i + 1);
+    var labelColor = done ? '#274' : (current ? 'var(--pink)' : '#999');
+    var line = (i < BRAND_JOURNEY_STEPS.length - 1)
+      ? '<div style="flex:1;height:2px;background:' + (st.order >= BRAND_JOURNEY_STEPS[i + 1].order ? '#274' : '#E5E5E5') + ';min-width:18px"></div>' : '';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
+      + '<div style="width:24px;height:24px;border-radius:50%;background:' + circleBg + ';color:' + circleColor + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">' + inner + '</div>'
+      + '<span style="font-size:11px;font-weight:700;color:' + labelColor + '">' + step.label + '</span></div>'
+      + line;
+  }).join('');
+  var badges = '';
+  if (st.mixed) badges += '<span style="background:#FDEEF4;color:#A36;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
+  if (st.rejected) badges += '<span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">반려 포함</span>';
+  return '<div style="padding:6px 4px 2px"><div style="display:flex;align-items:center;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px">진행 단계' + badges + '</div>'
+    + '<div style="display:flex;align-items:flex-start;max-width:560px">' + steps + '</div></div>';
+}
+
+// 오리엔시트 발급·취합·발행 섹션 (아코디언 — admin-brand-journey PR C)
+//   _orientByApp(목록 로드 시 그룹, data 포함) 재사용. 발급=osIssueFromApplication, 내용·발행=osOpenDetail(PR⑦ 카드별 발행 버튼 포함).
+//   비-서베이(신청 없는) 건은 브랜드 관리에서 발급 — 여기는 신청 연결 건만.
+function renderBrandAppOrientSection(a) {
+  var sheets = (_orientByApp && _orientByApp[a.id]) || [];
+  var rows;
+  if (!sheets.length) {
+    rows = '<div style="color:var(--muted);font-size:12px;margin-bottom:4px">아직 발급된 오리엔시트가 없습니다. 발급하면 브랜드가 작성할 링크가 생성됩니다.</div>';
+  } else {
+    rows = sheets.map(function (s) {
+      var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
+      var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
+      var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+      return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line,#eee)">'
+        + stBadge + '<span style="font-size:12px;color:var(--ink)">' + summary + '</span>'
+        + '<div style="margin-left:auto;display:flex;gap:6px">'
+        + (link ? '<button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(link) + '\',\'작성 링크가 복사되었습니다.\')">링크 복사</button>' : '')
+        + '<button type="button" class="btn btn-primary btn-xs" onclick="event.stopPropagation();osOpenDetail(\'' + esc(s.id) + '\')">내용·발행</button>'
+        + '</div></div>';
+    }).join('');
+  }
+  var issueBtn = '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="event.stopPropagation();osIssueFromApplication(\'' + esc(a.id) + '\')">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">add</span> 오리엔시트 ' + (sheets.length ? '추가 ' : '') + '발급</button>';
+  return '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border-strong,#D4D4CC)">'
+    + '<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px">오리엔시트 발급 · 취합 · 발행</div>'
+    + rows + issueBtn + '</div>';
+}
+
+// 신청 행 펼침/접힘 — 마지막 제품 행 뒤에 전체폭 상세 행(진행바 + 오리엔 섹션) 삽입/제거
+function toggleBrandAppExpand(appId) {
+  var existing = document.querySelector('#brandAppTableBody tr[data-detail-for="' + appId + '"]');
+  var caret = document.querySelector('#brandAppTableBody .brand-app-expand-caret[data-id="' + appId + '"]');
+  if (existing) {
+    existing.remove();
+    if (caret) caret.textContent = 'expand_more';
+    return;
+  }
+  var rows = document.querySelectorAll('#brandAppTableBody tr[data-id="' + appId + '"]');
+  if (!rows.length) return;
+  var lastRow = rows[rows.length - 1];
+  var a = (_brandApps || []).find(function (x) { return x.id === appId; });
+  if (!a) return;
+  var tr = document.createElement('tr');
+  tr.setAttribute('data-detail-for', appId);
+  tr.className = 'brand-app-detail-row';
+  tr.innerHTML = '<td colspan="30" style="background:var(--surface-dim);padding:8px 16px 14px">' + renderBrandAppJourney(a) + renderBrandAppOrientSection(a) + '</td>';
+  lastRow.parentNode.insertBefore(tr, lastRow.nextSibling);
+  if (caret) caret.textContent = 'expand_less';
+}
+
+//   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
+//            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
 function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   if (typeof isFirst === 'undefined') isFirst = (idx === 0);
   // stripeClass: 신청 단위 좌측 색 띠 (app-stripe-even / app-stripe-odd). 호출처에서 stripeMap 으로 결정
@@ -2196,9 +2432,9 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, a.quote_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 21. 오리엔시트 전달 — URL 만 (migration 126: 날짜 분리)
+  // 21. 오리엔시트 (시스템 + 구글시트 통합 셀 — 첫 행만)
   html += isFirst
-    ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px;display:flex;align-items:center">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_url, false) + '</div></td>'
+    ? '<td title="시스템 발급은 행 더보기 「오리엔시트 링크생성」 / 구글시트는 ✎ 로 외부 URL 입력">' + renderOrientCombinedCell(a) + '</td>'
     : emptyAction;
 
   // 22. 입금 정보 — 제품 행마다 해당 제품의 플래그만 표시
@@ -2211,7 +2447,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
 
   // 24. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
-    ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
+    ? '<td style="white-space:nowrap"><span class="material-icons-round notranslate brand-app-expand-caret" translate="no" data-id="' + esc(a.id) + '" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;vertical-align:middle" title="진행 단계 펼치기" onclick="event.stopPropagation();toggleBrandAppExpand(\'' + esc(a.id) + '\')">expand_more</span>'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s;vertical-align:middle" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
 
   html += '</tr>';
@@ -3493,22 +3730,8 @@ async function confirmQuoteSentEdit(anyChildEl) {
   toast(nextDate ? '견적서 전달 정보가 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
 }
 
-// ─── 오리엔시트 전달 셀 — URL 만 (migration 126: 날짜는 paid_at 으로 분리) ─────
-function renderOrientSheetSentDisplay(urlOrNull, locked) {
-  var safeUrl = safeBrandUrl(urlOrNull);
-  var content = safeUrl
-    ? '<a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="오리엔시트 열기" style="display:inline-flex;align-items:center;gap:4px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none">'
-        + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span>'
-        + '<span style="text-decoration:underline">열기</span>'
-      + '</a>'
-    : '<span style="color:var(--muted);font-size:11px">—</span>';
-  return content
-    + '<button type="button" class="orient-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterOrientSheetSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '오리엔시트 URL 수정') + '" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">edit</span></button>';
-}
-
-function _restoreOrientSheetSentDisplay(cell, urlOrNull, locked) {
-  cell.innerHTML = renderOrientSheetSentDisplay(urlOrNull, locked);
-}
+// (구글시트 오리엔시트 URL 인라인 표시·편집 함수 제거 — 2026-06-22 더보기 「구글시트 URL 등록」 모달로 대체.
+//  표시는 renderGoogleSheetLinkOnly(열기 링크만), 입력은 osOpenGoogleSheetUrlModal)
 
 // ─── 입금 날짜 셀 (migration 126) ────────────────────────────────────────────
 function renderPaidAtDisplay(isoOrNull, locked) {
@@ -3710,65 +3933,74 @@ function _rerenderBrandAppPriceCheckCell(applicationId, productIndex) {
   cell.innerHTML = renderBrandAppPriceCheckCell(cur, productIndex, cur.products[productIndex]);
 }
 
-function enterOrientSheetSentEdit(btnEl) {
-  var cell = btnEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var cur = _findBrandApp(cell.dataset.id);
-  if (!cur) return;
-  var urlValue = esc(cur.orient_sheet_sent_url || '');
-  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
-    + '<input type="url" class="orient-edit-url" value="' + urlValue + '" placeholder="https://" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%">'
-    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
-      + '<button type="button" onclick="cancelOrientSheetSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
-      + '<button type="button" onclick="confirmOrientSheetSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
-    + '</div>'
-  + '</div>';
-  var input = cell.querySelector('.orient-edit-url');
-  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+// ─── 구글시트 URL 등록 모달 (더보기 「구글시트 URL 등록」 — 셀 인라인 ✎ 대체) ───
+function osOpenGoogleSheetUrlModal(appId) {
+  var cur = _findBrandApp(appId);
+  if (!cur) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  var existing = document.getElementById('gsUrlModal');
+  if (existing) existing.remove();
+  var urlVal = esc(cur.orient_sheet_sent_url || '');
+  var brandLabel = esc(cur.brand_name || '');
+  var html = '<div class="modal-overlay open" id="gsUrlModal" style="z-index:620">'
+    + '<div class="modal" style="max-width:460px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">'
+      + '<div class="modal-header"><h2 style="font-size:16px">구글시트 URL 등록</h2>'
+        + '<button type="button" class="modal-close-btn" onclick="closeGsUrlModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>'
+      + '<div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">'
+        + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">' + brandLabel + ' — 외부(구글) 시트 오리엔시트 링크를 입력하세요.</div>'
+        + '<input type="url" id="gsUrlInput" value="' + urlVal + '" placeholder="https://docs.google.com/..." style="width:100%;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box">'
+        + '<div style="font-size:11px;color:var(--muted);margin-top:6px">비우고 저장하면 등록된 URL이 제거됩니다.</div>'
+      + '</div>'
+      + '<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeGsUrlModal()">취소</button>'
+        + '<button type="button" class="btn btn-primary" id="gsUrlSaveBtn" onclick="saveGoogleSheetUrl(\'' + esc(appId) + '\')">저장</button></div>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function(){
+    var i = document.getElementById('gsUrlInput');
+    if (!i) return;
+    i.focus(); i.setSelectionRange(i.value.length, i.value.length);
+    i.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { e.preventDefault(); closeGsUrlModal(); }
+      else if (e.key === 'Enter') { e.preventDefault(); saveGoogleSheetUrl(appId); }
+    });
+  }, 50);
 }
 
-function cancelOrientSheetSentEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var cur = _findBrandApp(cell.dataset.id);
-  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
-  _restoreOrientSheetSentDisplay(cell, cur?.orient_sheet_sent_url || null, !!locked);
+function closeGsUrlModal() {
+  var m = document.getElementById('gsUrlModal');
+  if (m) m.remove();
 }
 
-async function confirmOrientSheetSentEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var id = cell.dataset.id;
-  var cur = _findBrandApp(id);
+async function saveGoogleSheetUrl(appId) {
+  var cur = _findBrandApp(appId);
   if (!cur) return;
-  var urlInput = cell.querySelector('.orient-edit-url');
-  if (!urlInput) return;
-  var rawUrl = urlInput.value.trim();
+  var input = document.getElementById('gsUrlInput');
+  if (!input) return;
+  var rawUrl = input.value.trim();
   var nextUrl = normalizeBrandUrlInput(rawUrl);
   if (rawUrl && !nextUrl) { toast('URL 형식이 올바르지 않습니다.', 'warn'); return; }
   var prevUrl = cur.orient_sheet_sent_url || null;
-  if (prevUrl === nextUrl) {
-    _restoreOrientSheetSentDisplay(cell, prevUrl, false);
-    return;
-  }
+  if (prevUrl === nextUrl) { closeGsUrlModal(); return; }
   var prevVersion = cur.version;
-  urlInput.disabled = true;
-  var result = await updateBrandApplication(id, {orient_sheet_sent_url: nextUrl}, prevVersion);
-  urlInput.disabled = false;
+  var btn = document.getElementById('gsUrlSaveBtn');
+  if (btn) btn.disabled = true;
+  var result = await updateBrandApplication(appId, {orient_sheet_sent_url: nextUrl}, prevVersion);
   if (result.conflict) {
     toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    closeGsUrlModal();
     await loadBrandApplications();
     return;
   }
   if (!result.ok) {
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    if (btn) btn.disabled = false;
     return;
   }
   cur.orient_sheet_sent_url = nextUrl;
   _syncBrandAppCur(cur, result, prevVersion);
-  _restoreOrientSheetSentDisplay(cell, nextUrl, false);
-  _refreshBrandAppHistoryButton(id);
-  toast(nextUrl ? '오리엔시트 URL이 저장되었습니다.' : '오리엔시트 URL을 제거했습니다.');
+  _refreshBrandAppHistoryButton(appId);
+  closeGsUrlModal();
+  await loadBrandApplications();   // 목록 재렌더(셀 갱신) — brand-applications 는 refreshPane 미등록
+  toast(nextUrl ? '구글시트 URL이 저장되었습니다.' : '구글시트 URL을 제거했습니다.');
 }
 
 // ─── 입금 날짜 셀 편집 (migration 126) ────────────────────────────────────────
