@@ -201,6 +201,7 @@ function osRowHtml(s) {
     <td>${s.token_expires_at ? formatDate(s.token_expires_at) : '-'}</td>
     <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
     <td style="white-space:nowrap">
+      ${(!osIsExpired(s) && s.status !== 'consumed') ? `<button type="button" class="btn btn-ghost btn-xs" onclick="osReopenSendMail('${s.id}')"><span class="material-icons-round notranslate" translate="no" style="font-size:13px;vertical-align:-2px">mail</span> 메일</button>` : ''}
       <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
       <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${s.id}')">상세</button>
       <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
@@ -222,6 +223,29 @@ function osCopyLink(id) {
   copyTextToClipboard(osBuildLink(s.token), '작성 링크가 복사되었습니다.');
 }
 
+// 이미 발급된 시트의 발급 결과(링크·수신자·메일 발송) 모달을 다시 연다 — 발급 직후 메일을 못 보내고 닫았을 때 재발송용.
+async function osReopenSendMail(id) {
+  const s = _orientSheets.find(x => x.id === id);
+  if (!s) return;
+  ensureOrientModals();
+  // 발급 폼은 숨기고 결과 화면만 — 새 발급이 아니라 기존 시트 재발송
+  document.getElementById('osCreateForm').style.display = 'none';
+  document.getElementById('osCreateResult').style.display = '';
+  const submitBtn = document.getElementById('osCreateSubmitBtn');
+  if (submitBtn) submitBtn.style.display = 'none';
+  document.getElementById('osCreateLink').value = osBuildLink(s.token);
+  document.getElementById('osCreateExpire').textContent = s.token_expires_at ? formatDate(s.token_expires_at) : '';
+  const box = document.getElementById('osCreateMailStatus'); if (box) box.innerHTML = '';
+  _osLastIssuedId = s.id;
+  _osLastIssuedBrandId = s.brand_id;
+  _osPendingContact = null;
+  // 브랜드만 선택 건만 수신자 선택 UI (신청 연결 건은 자동 결정)
+  if (!s.application_id) { osLoadRecipients(s.brand_id); }
+  else { const pick = document.getElementById('osRecipientPick'); if (pick) pick.style.display = 'none'; }
+  const title = document.getElementById('osCreateTitle'); if (title) title.textContent = '메일 재발송';
+  document.getElementById('orientCreateModal').classList.add('open');
+}
+
 // ── 발급 모달 ──
 // 발급 모달 열기. opts 로 진입점별 컨텍스트 주입:
 //   {} (무인자)          — #orient-sheets "신규 발급": 브랜드·신청 자유 선택
@@ -235,6 +259,7 @@ async function osOpenCreate(opts) {
   document.getElementById('osCreateResult').style.display = 'none';
   document.getElementById('osCreateForm').style.display = '';
   document.getElementById('osCreateSubmitBtn').style.display = '';
+  const title = document.getElementById('osCreateTitle'); if (title) title.textContent = '오리엔시트 링크 발급';
   document.getElementById('orientCreateModal').classList.add('open');
   const sel = document.getElementById('osCreateBrand');
   sel.disabled = false;
@@ -856,7 +881,7 @@ function ensureOrientModals() {
   const html = `
   <div class="modal-overlay" id="orientCreateModal">
     <div class="modal" style="max-width:600px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
-      <div class="modal-header"><h2>오리엔시트 링크 발급</h2>
+      <div class="modal-header"><h2 id="osCreateTitle">오리엔시트 링크 발급</h2>
         <button type="button" class="modal-close-btn" onclick="osCloseModal('orientCreateModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
         <div id="osCreateForm">
