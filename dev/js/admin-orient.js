@@ -872,7 +872,7 @@ function ensureOrientModals() {
           <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
           <div style="position:relative">
             <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="padding-right:48px">
-            <button type="button" onclick="osCopyResultLink()" title="링크 복사" style="position:absolute;right:1px;top:1px;bottom:1px;background:none;border:none;border-left:1px solid var(--line);cursor:pointer;padding:0 10px;display:flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">content_copy</span></button>
+            <button type="button" class="os-copy-btn" onclick="osCopyResultLink()" title="링크 복사" style="position:absolute;right:1px;top:1px;bottom:1px;background:none;border:none;border-left:1px solid var(--line);cursor:pointer;padding:0 10px;display:flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted);transition:transform .1s">content_copy</span></button>
           </div>
           <div style="font-size:15px;color:var(--ink);margin-top:8px;font-weight:700">작성 기한: <span id="osCreateExpire" style="color:var(--pink)"></span></div>
           <hr style="border:none;border-top:1px solid var(--line);margin:16px 0">
