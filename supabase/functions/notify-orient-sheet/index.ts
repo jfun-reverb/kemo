@@ -146,7 +146,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { orient_sheet_id } = await req.json();
+    const { orient_sheet_id, to_email, to_name } = await req.json();
     if (!orient_sheet_id) {
       return new Response(JSON.stringify({ error: "orient_sheet_id required" }), {
         status: 400,
@@ -158,6 +158,34 @@ Deno.serve(async (req: Request) => {
     const serviceKey = env("SUPABASE_SERVICE_ROLE_KEY");
     if (!supaUrl || !serviceKey) throw new Error("Supabase service credentials not configured");
     const sb = createClient(supaUrl, serviceKey, { auth: { persistSession: false } });
+
+    // 0) 호출자 인증 — 관리자(admins)만 발송 허용.
+    //    to_email 오버라이드로 임의 수신자에게 발송하는 스팸 악용을 차단(anon 키는 공개되므로 JWT 검증 필수).
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const anonKey = env("SUPABASE_ANON_KEY");
+    const userSb = createClient(supaUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false },
+    });
+    const { data: authData } = await userSb.auth.getUser();
+    const caller = authData?.user;
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    const { data: adminRow } = await sb
+      .from("admins")
+      .select("id")
+      .eq("auth_id", caller.id)
+      .maybeSingle();
+    if (!adminRow) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
+    }
 
     // 1) 시트 조회 (브랜드 마스터명 join — 메일 제목·본문 브랜드명을 확실히 채움)
     const { data: sheet, error: sheetErr } = await sb
@@ -173,8 +201,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // 2) 수신자 결정
-    const recipient = await resolveRecipient(sb, sheet.application_id, sheet.brand_id);
+    // 2) 수신자 결정 — 클라가 to_email 명시(브랜드만 선택 발급 시 수신자 선택) 우선, 없으면 기존 자동 결정 폴백
+    let recipient: { email: string; name: string } | null = null;
+    const overrideEmail = (typeof to_email === "string" ? to_email : "").trim();
+    if (overrideEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(overrideEmail)) {
+      recipient = { email: overrideEmail, name: (typeof to_name === "string" ? to_name : "").trim() };
+    } else {
+      recipient = await resolveRecipient(sb, sheet.application_id, sheet.brand_id);
+    }
     if (!recipient) {
       // 3) 수신자 없음 — 발송·단계전이 건너뜀(발급 자체는 이미 성공). 단계 전이 안 함.
       console.warn("[notify-orient-sheet] no recipient email", { orient_sheet_id });
