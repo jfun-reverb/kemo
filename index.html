@@ -8033,12 +8033,16 @@ async function createOrientSheet(brandId, applicationId) {
 // 발송 성공 시 연결 신청이 있으면 단계가 'orient_sheet_sent' 로 자동 전진(함수 198, 역행 방지).
 // 반환: { sent:true, recipient, advanced } / { sent:false, reason:'no_recipient'|... } / { sent:false, error }
 // 발송 실패가 발급 자체를 무효화하지 않도록 호출 측에서 결과만 표시(throw 안 함).
-async function sendOrientInviteMail(orientSheetId) {
+async function sendOrientInviteMail(orientSheetId, recipient) {
   if (!db) return { sent: false, reason: 'no_db' };
+  // recipient(선택) 가 있으면 수신자 명시 — 없으면 Edge Function 이 자동 결정(서베이 연결 건 등)
+  const body = { orient_sheet_id: orientSheetId };
+  if (recipient && recipient.email) {
+    body.to_email = recipient.email;
+    if (recipient.name) body.to_name = recipient.name;
+  }
   try {
-    const { data, error } = await db.functions.invoke('notify-orient-sheet', {
-      body: { orient_sheet_id: orientSheetId },
-    });
+    const { data, error } = await db.functions.invoke('notify-orient-sheet', { body });
     if (error) {
       // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
       let detail = null;
@@ -8083,7 +8087,7 @@ async function fetchOrientSheets() {
   if (!db) return [];
   return await retryWithRefresh(async () =>
     fetchAllPaged(() => db.from('orient_sheets')
-      .select('id, brand_id, application_id, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .select('id, brand_id, application_id, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, mail_sent_at, mail_sent_to, brands(name, name_ja)')
       .order('created_at', { ascending: false }))
   );
 }
