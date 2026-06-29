@@ -487,7 +487,7 @@ function osDetailHtml(s, catMap, readonly) {
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
   const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
     + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
-  const brandCard = osBrandCard(d.brand);
+  const brandCard = osBrandCard(d.brand, osBrandName(s));
   let bodyHtml;
   if (!cards.length) {
     const msg = (s.status === 'draft')
@@ -514,10 +514,12 @@ function osFieldHtml(label, htmlVal, wide) {
 }
 function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
 
-// 공통 브랜드 카드 (1회)
-function osBrandCard(brand) {
+// 공통 브랜드 카드 (1회). headerName: 모달 헤더의 발급 브랜드 마스터명 — 작성 브랜드명과 같으면 중복이라 생략
+function osBrandCard(brand, headerName) {
   const b = brand || {};
-  const inner = osField('브랜드명', b.name) + osField('소개·어필', b.intro, true) + osField('공식 계정', b.official_accounts, true);
+  // 작성된 브랜드명이 헤더와 동일하면 생략(중복), 다르거나 미입력이면 표시
+  const nameField = (b.name && b.name.trim() === String(headerName || '').trim()) ? '' : osField('브랜드명', b.name);
+  const inner = nameField + osField('소개·어필', b.intro, true) + osField('공식 계정', b.official_accounts, true);
   return `<div class="os-card">
     <div class="os-card-title">브랜드 정보</div>
     <div class="os-fields">${inner}</div></div>`;
