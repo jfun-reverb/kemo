@@ -66,12 +66,19 @@ function osStatusOf(s) {
   if (osIsExpired(s)) return OS_STATUS.expired;
   return OS_STATUS[s.status] || OS_STATUS.draft;
 }
-// 상태 코드(만료 클라 판정 + 부분 발행 포함) — 탭 필터·건수용. 부분 발행은 「발행됨(consumed)」 탭에 포함
-function osStatusKey(s) {
-  if (s.status === 'consumed') return 'consumed';
-  if (s.status === 'submitted' && osCardCounts(s).published > 0) return 'consumed';
-  if (osIsExpired(s)) return 'expired';
-  return OS_STATUS[s.status] ? s.status : 'draft';
+// 시트가 특정 탭에 속하는지 — 카드 상태 기준 「다중 소속」. 부분 발행 시트는 미발행 카드(제출됨)와
+// 발행된 카드(발행됨)를 동시에 가지므로 제출됨·발행됨 양쪽 탭에 노출된다. (탭 건수 합이 전체보다 클 수 있음)
+function osMatchesTab(s, code) {
+  if (!code) return true;  // 전체
+  const expired = osIsExpired(s) && s.status !== 'consumed';
+  const { total, published } = osCardCounts(s);
+  switch (code) {
+    case 'draft':     return s.status === 'draft' && !expired;
+    case 'submitted': return s.status === 'submitted' && (total === 0 || published < total) && !expired;  // 미발행 카드 남음(카드 0개 시트도 제출됨으로)
+    case 'consumed':  return published > 0;                                              // 발행된 카드 있음(부분·완전)
+    case 'expired':   return expired && published === 0;
+    default: return false;
+  }
 }
 function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja || '-') : '-'; }
 function osBadge(st) {
@@ -114,7 +121,7 @@ async function loadOrientSheets() {
   refreshOrientBadge(_orientSheets);   // 방금 조회한 목록 재사용 (이중 fetch 방지)
 }
 
-// 사이드바 「오리엔시트 현황」 제출 배지 — 「제출됨」 탭 기준(브랜드 제출 + 미발행). 부분 발행은 발행됨 탭이라 제외
+// 사이드바 「오리엔시트 현황」 제출 배지 — 미발행 카드가 남은 시트 수(제출됨 탭 기준, 부분 발행 시트도 포함)
 // cached: 호출부가 이미 가진 목록(loadOrientSheets). 없으면(부팅 단독 호출) 직접 조회
 async function refreshOrientBadge(cached) {
   const el = $('adminOrientSheetsSi');
@@ -122,7 +129,7 @@ async function refreshOrientBadge(cached) {
   let count = 0;
   try {
     const sheets = cached || await fetchOrientSheets();
-    count = sheets.filter(s => osStatusKey(s) === 'submitted').length;
+    count = sheets.filter(s => osMatchesTab(s, 'submitted')).length;   // 미발행 카드 남은 시트(부분 발행 포함)
   } catch (e) { console.error('[refreshOrientBadge]', e); return; }
   const badge = count > 0 ? `<span class="admin-si-badge">${count > 999 ? '999+' : count}</span>` : '';
   el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">assignment_turned_in</span><span class="si-text">오리엔시트 현황</span>' + badge;
@@ -138,12 +145,13 @@ function renderOrientSheets() {
   const q = (document.getElementById('orientSearch')?.value || '').trim().toLowerCase();
   // 검색 적용 후 base → 상태별 건수 계산 → 탭 렌더
   const base = _orientSheets.filter(s => !q || osBrandName(s).toLowerCase().includes(q));
+  // 탭별 다중 소속 건수 — 부분 발행 시트는 제출됨·발행됨 양쪽에 카운트되므로 합이 전체보다 클 수 있음
   const counts = {};
-  base.forEach(s => { const k = osStatusKey(s); counts[k] = (counts[k] || 0) + 1; });
-  renderOrientStatusTabs(counts);
+  OS_STATUS_TABS.forEach(tab => { if (tab.code) counts[tab.code] = base.filter(s => osMatchesTab(s, tab.code)).length; });
+  renderOrientStatusTabs(counts, base.length);
 
-  // 선택된 상태 탭으로 필터
-  const list = _orientActiveStatusTab ? base.filter(s => osStatusKey(s) === _orientActiveStatusTab) : base;
+  // 선택된 상태 탭으로 필터 (다중 소속)
+  const list = base.filter(s => osMatchesTab(s, _orientActiveStatusTab));
 
   const cnt = document.getElementById('orientTotalCount');
   if (cnt) cnt.textContent = list.length ? `${list.length}건` : '';
@@ -158,12 +166,12 @@ function renderOrientSheets() {
   tbody.innerHTML = list.map(osRowHtml).join('');
 }
 
-// 상태 탭 바 렌더 (counts: 검색 적용 후 상태별 건수)
-function renderOrientStatusTabs(counts) {
+// 상태 탭 바 렌더 (counts: 탭별 건수[다중 소속], totalAll: 전체 시트 수 — 탭별 합과 다를 수 있음)
+function renderOrientStatusTabs(counts, totalAll) {
   const bar = document.getElementById('orientStatusTabBar');
   if (!bar) return;
   counts = counts || {};
-  const totalAll = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  totalAll = totalAll || 0;
   bar.innerHTML = OS_STATUS_TABS.map(tab => {
     const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
     const isOn = tab.code === _orientActiveStatusTab;
@@ -475,18 +483,19 @@ function osDetailHtml(s, catMap, readonly) {
   const cards = Array.isArray(d.cards) ? d.cards : [];
   const headerHtml = `<div style="margin-bottom:14px">
     <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
-    <div style="margin-top:6px">${osBadge(osStatusOf(s))}
-      <span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>
   </div>`;
+  // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
+  const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
+    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
   const brandCard = osBrandCard(d.brand);
   let bodyHtml;
   if (!cards.length) {
     const msg = (s.status === 'draft')
       ? '아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.'
       : '작성된 모집 건이 없습니다.';
-    bodyHtml = brandCard + `<p style="color:var(--muted)">${msg}</p>`;
+    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>`;
   } else {
-    bodyHtml = brandCard + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('');
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('');
   }
   return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
 }
