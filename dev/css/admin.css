@@ -608,6 +608,23 @@
 .ql-tooltip.ql-editing,
 .ql-tooltip.ql-flip{display:none !important}
 
+/* 공지 편집기 "편집 = 보기" 정합.
+   공지 작성 모달의 Quill 편집 영역(#anEditBodyQuill .ql-editor)의 단락 여백·제목 크기·
+   목록 간격을 저장 후 보기 화면(.rich-content, components.css + #adminNoticeViewBody
+   font-size:13px / line-height:1.7)과 동일하게 맞춘다.
+   → 노션 등에서 붙여넣은 그대로의 모습이 게시 후에도 동일하게 보이도록(위지윅).
+   캠페인 에디터(.quill-host)에는 영향 없음(선택자가 공지 편집기 전용). */
+#anEditBodyQuill .ql-editor{font-size:13px;line-height:1.7;color:var(--ink)}
+#anEditBodyQuill .ql-editor p{margin:0 0 8px 0}
+#anEditBodyQuill .ql-editor p:last-child{margin-bottom:0}
+#anEditBodyQuill .ql-editor h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+#anEditBodyQuill .ql-editor h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+#anEditBodyQuill .ql-editor h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+#anEditBodyQuill .ql-editor ul,#anEditBodyQuill .ql-editor ol{margin:4px 0 8px}
+#anEditBodyQuill .ql-editor li{margin:2px 0}
+#anEditBodyQuill .ql-editor blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+#anEditBodyQuill .ql-editor a{color:var(--pink);text-decoration:underline}
+
 /* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
 .bundle-summary-card{
   display:grid;
