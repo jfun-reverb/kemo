@@ -331,7 +331,7 @@ async function loadAdminCampaigns(useCache) {
   }
 
   // 필터/검색/정렬 중에는 순서 변경 비활성화
-  const isFiltered = searchVal || typeVals.length > 0 || statusVals.length > 0 || !!adminCampSortKey;
+  const isFiltered = searchVal || typeVals.length > 0 || _campActiveStatusTab !== null || !!adminCampSortKey;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
   // 상태 배지 — closed 는 submission_end 경과 여부로 「모집마감」/「종료」 자동 구분 (shared.js campaignStatusLabelKey)
