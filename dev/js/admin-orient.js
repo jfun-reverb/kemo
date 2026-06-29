@@ -870,7 +870,10 @@ function ensureOrientModals() {
         </div>
         <div id="osCreateResult" style="display:none">
           <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
-          <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="flex:1;min-width:0">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="osCopyResultLink()" title="링크 복사" style="flex-shrink:0;padding:8px"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;vertical-align:middle">content_copy</span></button>
+          </div>
           <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
           <div id="osRecipientPick" style="display:none;margin-top:12px">
             <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px">메일 받을 담당자</label>
@@ -881,8 +884,7 @@ function ensureOrientModals() {
             </div>
           </div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" class="btn btn-primary btn-sm" onclick="osCopyResultLink()">링크 복사</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="osSendInviteClick(this)"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">mail</span> 메일 발송</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="osSendInviteClick(this)"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">mail</span> 메일 발송</button>
           </div>
           <div style="font-size:12px;color:var(--muted);margin-top:6px">메일은 자동 발송되지 않습니다. 필요하면 「메일 발송」을 눌러 브랜드 담당자에게 작성 링크를 보내세요.</div>
           <div id="osCreateMailStatus" style="margin-top:12px;font-size:13px;line-height:1.6"></div>
