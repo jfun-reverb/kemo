@@ -49,12 +49,29 @@ function osIsExpired(s) {
   if (s.status === 'expired') return true;
   return !!(s.token_expires_at && new Date(s.token_expires_at) < new Date());
 }
-function osStatusOf(s) {
-  return (osIsExpired(s) && s.status !== 'consumed') ? OS_STATUS.expired : (OS_STATUS[s.status] || OS_STATUS.draft);
+// 카드 발행 수 — 부분 발행(카드 일부만 발행) 판정용. published = campaign_id 있는 "발행된 카드 수".
+// 삭제 경고용 osPublishedCampaignCount(DISTINCT 캠페인 수)와는 목적이 다름(정상 플로우는 카드당 고유 캠페인이라 값 일치).
+function osCardCounts(s) {
+  const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  return { total: cards.length, published: cards.filter(c => c && c.campaign_id).length };
 }
-// 상태 코드(만료 클라 판정 포함) — 탭 필터·건수용
+// 상태 배지 — 부분 발행(제출됨 + 카드 일부만 발행)은 「일부 발행 (n/m)」 앰버 배지로 구분
+function osStatusOf(s) {
+  if (s.status === 'consumed') return OS_STATUS.consumed;
+  if (s.status === 'submitted') {
+    const { total, published } = osCardCounts(s);
+    if (published > 0 && published < total) return { label: `일부 발행 (${published}/${total})`, color: '#B45309', bg: '#FEF3C7' };
+    if (published > 0) return OS_STATUS.consumed;  // 전 카드 발행(마이그196 트리거 지연으로 status 미전환 순간) 방어
+  }
+  if (osIsExpired(s)) return OS_STATUS.expired;
+  return OS_STATUS[s.status] || OS_STATUS.draft;
+}
+// 상태 코드(만료 클라 판정 + 부분 발행 포함) — 탭 필터·건수용. 부분 발행은 「발행됨(consumed)」 탭에 포함
 function osStatusKey(s) {
-  return (osIsExpired(s) && s.status !== 'consumed') ? 'expired' : (OS_STATUS[s.status] ? s.status : 'draft');
+  if (s.status === 'consumed') return 'consumed';
+  if (s.status === 'submitted' && osCardCounts(s).published > 0) return 'consumed';
+  if (osIsExpired(s)) return 'expired';
+  return OS_STATUS[s.status] ? s.status : 'draft';
 }
 function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja || '-') : '-'; }
 function osBadge(st) {
