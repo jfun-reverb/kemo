@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782464687';
+  var CURRENT_BUILD = 'v1782699368';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2091,7 +2091,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-26 18:04 · 7b0aec9</span>
+          <span class="admin-build-text">2026-06-29 11:16 · 21f78fa</span>
         </div>
       </div>
     </aside>
@@ -12101,22 +12101,26 @@ function osCardDetail(c, idx, catMap, readonly) {
   let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
     + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
 
-  if (ft === 'proxy_purchase' || ft === 'reviewer') {
+  if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
       + osField('상시가', sale.price_regular);
   }
-  if (ft === 'reviewer') inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
+  if (ft === 'reviewer') {
+    inner += osField('엣코스메 희망', sale.atcosme_wish ? '희망' : '비희망');
+    if (sale.atcosme_wish) inner += osFieldHtml('엣코스메 링크', osLinkOrText(sale.atcosme_url), true);
+    inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
+  }
   if (ft === 'seeding') {
     inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
     const guides = Array.isArray(sd.guides) ? sd.guides.filter(g => g && (g.channel || g.guide)) : [];
     inner += guides.length
-      ? guides.map(g => osField('채널 — ' + osChLabel(g.channel), g.guide, true)).join('')
-      : osField('채널별 가이드', '', true);
-    inner += osField('소구 키워드', sd.appeal, true)
+      ? guides.map(g => osField('채널 소구 — ' + osChLabel(g.channel), g.guide, true)).join('')
+      : osField('채널별 소구 키워드', '', true);
+    inner += osField('촬영 가이드', sd.shooting_guide, true)
       + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
       + osField('계정 태그', sd.account_tags);
     if (sd.grade === 'middle_mega') {
-      inner += osField('촬영 가이드', sd.shooting_guide, true) + osField('필수 내용', sd.required_content, true) + osField('증정품', sd.gift);
+      inner += osField('필수 내용', sd.required_content, true) + osField('증정품', sd.gift);
     }
     inner += osField('배송 안내', sd.shipping_note, true);
   }
@@ -12288,7 +12292,9 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
   if (typeof setRichValue === 'function') {
     setRichValue('newCampGuide', osBuildGuideDraft(card));
-    setRichValue('newCampAppeal', osPlainToRich((card.seeding && card.seeding.appeal) || ''));
+    const osSdGuides = (card.seeding && Array.isArray(card.seeding.guides)) ? card.seeding.guides : [];
+    const osSeedingAppeal = osSdGuides.filter(g => g && g.guide).map(g => g.guide).join('\n');
+    setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal));
     setRichValue('newCampDesc', osPlainToRich(brand.intro || ''));
   }
 

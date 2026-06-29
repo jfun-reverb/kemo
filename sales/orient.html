@@ -385,14 +385,18 @@ input[type="date"] { min-height: 44px; }
 .ocard:not([data-ctype]) .card-gated { display: none; }
 .ocard[data-ctype] .needtype-hint { display: none; }
 .ocard .only-rp, .ocard .only-reviewer, .ocard .only-seeding { display: none; }
+.check-row { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; margin: 0; }
+.check-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; }
 .ocard[data-ctype="proxy_purchase"] .only-rp { display: block; }
 .ocard[data-ctype="reviewer"] .only-rp,
 .ocard[data-ctype="reviewer"] .only-reviewer { display: block; }
+.ocard[data-ctype="seeding"] .only-rp,
 .ocard[data-ctype="seeding"] .only-seeding { display: block; }
 /* 래퍼 블록(판매처·가격 / 시딩 상세)은 마지막 내부 필드가 .field:last-child(margin 0)라
    다음 필드와 간격이 붙는다. 다른 필드 간격(14px)과 맞추도록 래퍼에 아래 여백 부여 */
 .ocard[data-ctype="proxy_purchase"] .only-rp,
 .ocard[data-ctype="reviewer"] .only-rp,
+.ocard[data-ctype="seeding"] .only-rp,
 .ocard[data-ctype="seeding"] .only-seeding { margin-bottom: 14px; }
 /* 시딩 등급별: 촬영가이드·필수내용·증정품은 미들·메가만 */
 .ocard .only-mega { display: none; }
@@ -524,8 +528,8 @@ input[type="date"] { min-height: 44px; }
       <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
     </div>
     <div class="field">
-      <label>브랜드 공식 계정</label>
-      <input type="text" id="f_brand_accounts" placeholder="@yourbrand_jp, Qoo10 스토어 등" oninput="onInput()">
+      <label>브랜드 SNS 공식 계정</label>
+      <input type="text" id="f_brand_accounts" placeholder="@yourbrand_jp" oninput="onInput()">
       <div class="field-hint">인플루언서가 게시물에 멘션(@)하거나 참고할 브랜드 공식 SNS·스토어 계정입니다.</div>
     </div>
   </div>
@@ -598,12 +602,13 @@ const FORM_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', se
 
 // 판매처는 Qoo10 고정(드롭다운·마켓별 행사 제거, 2026-06-25). 가격은 상시가만 받음.
 
-// 시딩 등급별 게시 채널 (사양서 §15-10: 나노=IG 한정, 미들·메가=다채널)
+// 시딩 게시 채널 (등급 구분 없이 모든 등급 동일, 2026-06-29)
+const SEEDING_CHANNELS = ['instagram', 'x', 'tiktok', 'youtube', 'random'];
 const SEEDING_CHANNELS_BY_GRADE = {
-  nano:        ['instagram'],
-  middle_mega: ['instagram', 'tiktok', 'youtube', 'x'],
+  nano:        SEEDING_CHANNELS,
+  middle_mega: SEEDING_CHANNELS,
 };
-const CHANNEL_LABEL = { instagram: '인스타그램', tiktok: '틱톡', youtube: '유튜브', x: 'X (트위터)' };
+const CHANNEL_LABEL = { instagram: '인스타그램', x: 'X (트위터)', tiktok: '틱톡', youtube: '유튜브', random: '랜덤 (채널 무관)' };
 const SEEDING_GRADES = [
   { value: 'nano',        label: '나노' },
   { value: 'middle_mega', label: '미들·메가' },
@@ -792,8 +797,8 @@ function cgRowHtml(grade, channel, guide) {
       <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
     <div class="field"><label>채널</label>
       <select class="cg-channel" onchange="onInput()">${channelOptionsHtml(grade, channel)}</select></div>
-    <div class="field"><label>게시 가이드</label>
-      <textarea class="cg-guide" placeholder="이 채널에서 어떻게 게시할지, 필수 내용을 적어 주세요." oninput="onInput()">${escAttr(guide)}</textarea></div>
+    <div class="field"><label>소구 키워드 · 어필 포인트</label>
+      <textarea class="cg-guide" placeholder="이 채널에서 강조했으면 하는 소구 포인트·어필 포인트를 적어 주세요." oninput="onInput()">${escAttr(guide)}</textarea></div>
   </div>`;
 }
 
@@ -951,19 +956,6 @@ function cardHtml(id, card) {
         <!-- 제품 -->
         <div class="field"><label>제품명</label>
           <input type="text" class="f-product-name" placeholder="제품명" value="${escAttr(p.name)}" oninput="onCardInput('${id}')"></div>
-        <div class="row2">
-          <div class="field"><label>카테고리</label>
-            <select class="f-category" onchange="onInput()">${categoryOptionsHtml}</select></div>
-          <div class="field"><label>모집 인원</label>
-            <input type="number" class="f-slots" min="0" placeholder="예: 30" value="${escAttr(p.slots)}" oninput="onInput()"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>희망 모집 시작일</label>
-            <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
-          <div class="field"><label>희망 모집 마감일</label>
-            <input type="date" class="f-recruit-end" value="${escAttr(r.recruit_end)}" onchange="onInput()"></div>
-        </div>
-        <div class="field-hint" style="margin:-6px 0 14px">원하시는 모집 기간을 적어 주세요. 구매·게시·결과 발표 일정은 담당자가 캠페인 등록 시 조율해 채웁니다.</div>
 
         <!-- 판매처·가격 (가구매·리뷰어) — 판매처 Qoo10 고정, 가격은 상시가만 -->
         <div class="only-rp">
@@ -976,6 +968,27 @@ function cardHtml(id, card) {
             <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
         </div>
 
+        <!-- 엣코스메 희망 (리뷰어) -->
+        <div class="field only-reviewer" style="margin-bottom:10px">
+          <label class="check-row"><input type="checkbox" class="f-atcosme-wish"${sale.atcosme_wish ? ' checked' : ''} onchange="onAtcosmeToggle(this)"> 엣코스메(@cosme) 리뷰 희망</label></div>
+        <div class="field only-reviewer f-atcosme-url-wrap" style="display:${sale.atcosme_wish ? 'block' : 'none'}">
+          <label>엣코스메 제품 링크 URL<span class="req">*</span></label>
+          <input type="url" class="f-atcosme-url" placeholder="https://www.cosme.net/products/..." value="${escAttr(sale.atcosme_url)}" oninput="onInput()"></div>
+
+        <div class="row2">
+          <div class="field"><label>카테고리</label>
+            <select class="f-category" onchange="onInput()">${categoryOptionsHtml}</select></div>
+          <div class="field"><label>모집 인원</label>
+            <input type="number" class="f-slots" min="0" placeholder="예: 30" value="${escAttr(p.slots)}" oninput="onInput()"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>희망 모집 시작일</label>
+            <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
+          <div class="field"><label>희망 모집 마감일</label>
+            <input type="date" class="f-recruit-end" value="${escAttr(r.recruit_end)}" onchange="onInput()"></div>
+        </div>
+        <div class="field-hint" style="margin:-6px 0 14px">원하시는 모집 기간을 적어 주세요. 모집 시작일로부터 +30~40일로 권장 드립니다. (단기간 일정이 필요할 경우 레버브 담당자분께 소통 부탁드립니다.)</div>
+
         <!-- 리뷰 가이드 (리뷰어) -->
         <div class="field only-reviewer"><label>리뷰 가이드</label>
           ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '리뷰에 꼭 담아야 할 내용, 별점·사진 등 작성 방식을 적어 주세요.')}</div>
@@ -983,19 +996,16 @@ function cardHtml(id, card) {
         <!-- 시딩 상세 -->
         <div class="only-seeding">
           <div class="field"><label>등급</label>
-            <select class="f-grade" onchange="onGradeChange('${id}')">${SEEDING_GRADES.map(g => `<option value="${g.value}"${g.value === grade ? ' selected' : ''}>${g.label}</option>`).join('')}</select>
-            <div class="field-hint">나노는 인스타그램만, 미들·메가는 여러 채널을 쓸 수 있어요.</div></div>
+            <select class="f-grade" onchange="onGradeChange('${id}')">${SEEDING_GRADES.map(g => `<option value="${g.value}"${g.value === grade ? ' selected' : ''}>${g.label}</option>`).join('')}</select></div>
           <div class="field"><label>채널별 게시 가이드</label>
             <div class="cg-list">${cgRows}</div>
             <button type="button" class="add-btn" onclick="addCgRow(this,'${id}')"><span class="material-icons-outlined notranslate" translate="no">add</span>채널 추가</button></div>
-          <div class="field"><label>소구 키워드 · 어필 포인트</label>
-            <textarea class="f-appeal" placeholder="콘텐츠에서 강조했으면 하는 소구 포인트를 적어 주세요." oninput="onInput()">${escAttr(sd.appeal)}</textarea></div>
+          <div class="field"><label>촬영 가이드</label>
+            <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea></div>
           <div class="field"><label>필수 해시태그 (최대 5개)</label>
             <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onInput()"></div>
           <div class="field"><label>게시물에 태그할 계정</label>
             <input type="text" class="f-account-tags" placeholder="@브랜드공식계정" value="${escAttr(sd.account_tags)}" oninput="onInput()"></div>
-          <div class="field only-mega"><label>촬영 가이드</label>
-            <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea></div>
           <div class="field only-mega"><label>필수 내용</label>
             <textarea class="f-required" placeholder="콘텐츠에 반드시 들어가야 할 내용을 적어 주세요." oninput="onInput()">${escAttr(sd.required_content)}</textarea></div>
           <div class="field only-mega"><label>증정품</label>
@@ -1072,16 +1082,32 @@ function selectCardType(id, ft) {
 // 형식 전환 시 형식 전용 입력 비우기 (공통 필드는 보존)
 function clearCardTypeFields(el) {
   // .f-market 은 readonly 고정값(Qoo10)이라 비우지 않음
-  ['.f-sale-url', '.f-price-regular',
-   '.f-review-guide', '.f-appeal', '.f-hashtags', '.f-account-tags',
+  ['.f-sale-url', '.f-price-regular', '.f-atcosme-url',
+   '.f-review-guide', '.f-hashtags', '.f-account-tags',
    '.f-shooting', '.f-required', '.f-gift', '.f-shipping'].forEach(sel => {
     const node = el.querySelector(sel);
     if (node) { if (node.isContentEditable) node.innerHTML = ''; else node.value = ''; }
   });
+  const atcosmeWish = el.querySelector('.f-atcosme-wish');
+  if (atcosmeWish) atcosmeWish.checked = false;
+  const atcosmeWrap = el.querySelector('.f-atcosme-url-wrap');
+  if (atcosmeWrap) atcosmeWrap.style.display = 'none';
   el.querySelector('.cg-list').innerHTML = cgRowHtml('nano', '', '');
   el.setAttribute('data-cgrade', 'nano');
   const gradeSel = el.querySelector('.f-grade');
   if (gradeSel) gradeSel.value = 'nano';
+}
+
+// 엣코스메 희망 체크 → 제품 링크 URL 입력칸 표시/숨김
+function onAtcosmeToggle(input) {
+  const card = input.closest('.ocard');
+  const wrap = card && card.querySelector('.f-atcosme-url-wrap');
+  if (wrap) wrap.style.display = input.checked ? 'block' : 'none';
+  if (!input.checked && card) {
+    const urlInput = card.querySelector('.f-atcosme-url');
+    if (urlInput) urlInput.value = '';   // 체크 해제 시 입력값 비움
+  }
+  onInput();
 }
 
 // 판매 URL 입력 — dirty 마킹 + Qoo10 주소 경고 토글
@@ -1416,12 +1442,13 @@ function collectCard(el) {
       market: 'Qoo10',
       url: normalizeUrl(el.querySelector('.f-sale-url').value),
       price_regular: el.querySelector('.f-price-regular').value.trim(),
+      atcosme_wish: el.querySelector('.f-atcosme-wish').checked,
+      atcosme_url: el.querySelector('.f-atcosme-url').value.trim(),
     },
     review_guide: richValue(el.querySelector('.f-review-guide')),
     seeding: {
       grade,
       channels: guides.map(g => g.channel).filter(Boolean),
-      appeal: el.querySelector('.f-appeal').value.trim(),
       hashtags,
       account_tags: el.querySelector('.f-account-tags').value.trim(),
       shooting_guide: el.querySelector('.f-shooting').value.trim(),
@@ -1531,10 +1558,12 @@ function findInvalidField() {
       return { message: `${n}번째 카드의 모집 형식을 선택해 주세요.`, card: el, target: el.querySelector('.seg') };
     if (!c.product.name)
       return { message: `${n}번째 카드의 제품명을 입력해 주세요.`, card: el, target: el.querySelector('.f-product-name') };
-    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase') && !c.sale.url)
+    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.url)
       return { message: `${n}번째 카드의 판매 URL을 입력해 주세요.`, card: el, target: el.querySelector('.f-sale-url') };
-    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase') && !c.sale.price_regular)
+    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.price_regular)
       return { message: `${n}번째 카드의 상시가를 입력해 주세요.`, card: el, target: el.querySelector('.f-price-regular') };
+    if (c.form_type === 'reviewer' && c.sale.atcosme_wish && !c.sale.atcosme_url)
+      return { message: `${n}번째 카드의 엣코스메 제품 링크 URL을 입력해 주세요.`, card: el, target: el.querySelector('.f-atcosme-url') };
     // URL을 입력하고 「확인」을 누르지 않아 값이 저장되지 않은 행 방지
     const pendingUrl = el.querySelector('.img-url-entry:not(.hidden) .img-url-input');
     if (pendingUrl && pendingUrl.value.trim())
@@ -1606,24 +1635,27 @@ function renderPreviewCard(c, idx) {
   const ft = c.form_type;
   let rows = pvRow('형식', FORM_TYPE_LABEL[ft] || ft);
   rows += pvRow('제품명', c.product.name);
-  rows += pvRow('카테고리', categoryLabel(c.product.category));
-  rows += pvRow('모집 인원', c.product.slots);
-  rows += pvRow('희망 모집', [c.recruit.recruit_start, c.recruit.recruit_end].filter(Boolean).join(' ~ '));
-  if (ft === 'reviewer' || ft === 'proxy_purchase') {
+  if (ft === 'reviewer' || ft === 'proxy_purchase' || ft === 'seeding') {
     rows += pvRow('판매처', c.sale.market || 'Qoo10');
     rows += pvRow('판매 URL', c.sale.url);
     rows += pvRow('상시가', c.sale.price_regular);
   }
-  if (ft === 'reviewer') rows += pvRowHtml('리뷰 가이드', c.review_guide);
+  rows += pvRow('카테고리', categoryLabel(c.product.category));
+  rows += pvRow('모집 인원', c.product.slots);
+  rows += pvRow('희망 모집', [c.recruit.recruit_start, c.recruit.recruit_end].filter(Boolean).join(' ~ '));
+  if (ft === 'reviewer') {
+    rows += pvRow('엣코스메 희망', c.sale.atcosme_wish ? '희망' : '비희망');
+    if (c.sale.atcosme_wish) rows += pvRow('엣코스메 링크', c.sale.atcosme_url);
+    rows += pvRowHtml('리뷰 가이드', c.review_guide);
+  }
   if (ft === 'seeding') {
     const sd = c.seeding;
     rows += pvRow('등급', sd.grade === 'middle_mega' ? '미들·메가' : '나노');
     rows += pvRow('채널', (sd.guides || []).map(g => CHANNEL_LABEL[g.channel] || g.channel).filter(Boolean).join(', '));
-    rows += pvRow('소구', sd.appeal);
+    rows += pvRow('촬영 가이드', sd.shooting_guide);
     rows += pvRow('해시태그', (sd.hashtags || []).join(' '));
     rows += pvRow('계정 태그', sd.account_tags);
     if (sd.grade === 'middle_mega') {
-      rows += pvRow('촬영 가이드', sd.shooting_guide);
       rows += pvRow('필수 내용', sd.required_content);
       rows += pvRow('증정품', sd.gift);
     }

@@ -450,22 +450,26 @@ function osCardDetail(c, idx, catMap, readonly) {
   let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
     + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
 
-  if (ft === 'proxy_purchase' || ft === 'reviewer') {
+  if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
       + osField('상시가', sale.price_regular);
   }
-  if (ft === 'reviewer') inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
+  if (ft === 'reviewer') {
+    inner += osField('엣코스메 희망', sale.atcosme_wish ? '희망' : '비희망');
+    if (sale.atcosme_wish) inner += osFieldHtml('엣코스메 링크', osLinkOrText(sale.atcosme_url), true);
+    inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
+  }
   if (ft === 'seeding') {
     inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
     const guides = Array.isArray(sd.guides) ? sd.guides.filter(g => g && (g.channel || g.guide)) : [];
     inner += guides.length
-      ? guides.map(g => osField('채널 — ' + osChLabel(g.channel), g.guide, true)).join('')
-      : osField('채널별 가이드', '', true);
-    inner += osField('소구 키워드', sd.appeal, true)
+      ? guides.map(g => osField('채널 소구 — ' + osChLabel(g.channel), g.guide, true)).join('')
+      : osField('채널별 소구 키워드', '', true);
+    inner += osField('촬영 가이드', sd.shooting_guide, true)
       + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
       + osField('계정 태그', sd.account_tags);
     if (sd.grade === 'middle_mega') {
-      inner += osField('촬영 가이드', sd.shooting_guide, true) + osField('필수 내용', sd.required_content, true) + osField('증정품', sd.gift);
+      inner += osField('필수 내용', sd.required_content, true) + osField('증정품', sd.gift);
     }
     inner += osField('배송 안내', sd.shipping_note, true);
   }
@@ -637,7 +641,9 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
   if (typeof setRichValue === 'function') {
     setRichValue('newCampGuide', osBuildGuideDraft(card));
-    setRichValue('newCampAppeal', osPlainToRich((card.seeding && card.seeding.appeal) || ''));
+    const osSdGuides = (card.seeding && Array.isArray(card.seeding.guides)) ? card.seeding.guides : [];
+    const osSeedingAppeal = osSdGuides.filter(g => g && g.guide).map(g => g.guide).join('\n');
+    setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal));
     setRichValue('newCampDesc', osPlainToRich(brand.intro || ''));
   }
 
