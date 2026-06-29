@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782725423';
+  var CURRENT_BUILD = 'v1782727379';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -1066,6 +1066,23 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .ql-tooltip.ql-editing,
 .ql-tooltip.ql-flip{display:none !important}
 
+/* 공지 편집기 "편집 = 보기" 정합.
+   공지 작성 모달의 Quill 편집 영역(#anEditBodyQuill .ql-editor)의 단락 여백·제목 크기·
+   목록 간격을 저장 후 보기 화면(.rich-content, components.css + #adminNoticeViewBody
+   font-size:13px / line-height:1.7)과 동일하게 맞춘다.
+   → 노션 등에서 붙여넣은 그대로의 모습이 게시 후에도 동일하게 보이도록(위지윅).
+   캠페인 에디터(.quill-host)에는 영향 없음(선택자가 공지 편집기 전용). */
+#anEditBodyQuill .ql-editor{font-size:13px;line-height:1.7;color:var(--ink)}
+#anEditBodyQuill .ql-editor p{margin:0 0 8px 0}
+#anEditBodyQuill .ql-editor p:last-child{margin-bottom:0}
+#anEditBodyQuill .ql-editor h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+#anEditBodyQuill .ql-editor h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+#anEditBodyQuill .ql-editor h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+#anEditBodyQuill .ql-editor ul,#anEditBodyQuill .ql-editor ol{margin:4px 0 8px}
+#anEditBodyQuill .ql-editor li{margin:2px 0}
+#anEditBodyQuill .ql-editor blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+#anEditBodyQuill .ql-editor a{color:var(--pink);text-decoration:underline}
+
 /* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
 .bundle-summary-card{
   display:grid;
@@ -2100,7 +2117,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-29 18:30 · 8abafd2</span>
+          <span class="admin-build-text">2026-06-29 19:02 · 80ad3be</span>
         </div>
       </div>
     </aside>
@@ -4224,6 +4241,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="anEditPinned"> 상단 고정</label>
         <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer"><input type="checkbox" id="anEditHtmlMode" onchange="toggleNoticeHtmlMode()"> HTML 소스로 입력/편집</label>
       </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">노션·문서에서 복사해 그대로 붙여넣으면 제목·굵게·목록·링크 서식이 유지됩니다. 편집 중 보이는 모습이 게시 후와 동일합니다(HTML 소스 입력 불필요).</div>
       <div id="anEditBodyQuill" style="min-height:220px;background:#fff"></div>
       <textarea id="anEditBodyRaw" style="display:none;width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:6px;resize:vertical" placeholder="HTML 코드를 직접 입력하세요. 예) <p>안녕하세요</p><ul><li>항목</li></ul>"></textarea>
       <div id="adminNoticeEditFooter" style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;align-items:center">
