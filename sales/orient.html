@@ -385,8 +385,8 @@ input[type="date"] { min-height: 44px; }
 .ocard:not([data-ctype]) .card-gated { display: none; }
 .ocard[data-ctype] .needtype-hint { display: none; }
 .ocard .only-rp, .ocard .only-reviewer, .ocard .only-seeding { display: none; }
-.check-row { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; margin: 0; }
-.check-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--brand); cursor: pointer; }
+.field label.check-row { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; margin: 0; }
+.check-row input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--brand); cursor: pointer; }
 .ocard[data-ctype="proxy_purchase"] .only-rp { display: block; }
 .ocard[data-ctype="reviewer"] .only-rp,
 .ocard[data-ctype="reviewer"] .only-reviewer { display: block; }
