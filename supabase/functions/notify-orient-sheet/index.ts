@@ -255,6 +255,14 @@ Deno.serve(async (req: Request) => {
     });
     console.log("[notify-orient-sheet] mail sent", { orient_sheet_id, to: recipient.email });
 
+    // 발송 성공 기록 — 재발송 모달에서 버튼 비활성·발송 일시 표시용 (성공 분기에만 도달)
+    // 기록 실패는 발송 성공을 무효화하지 않음 — advance 와 동일하게 로그만 남김
+    const { error: trackErr } = await sb
+      .from("orient_sheets")
+      .update({ mail_sent_at: new Date().toISOString(), mail_sent_to: recipient.email })
+      .eq("id", orient_sheet_id);
+    if (trackErr) console.error("[notify-orient-sheet] mail_sent_at update failed", trackErr.message);
+
     // 6) 발송 성공 + 연결 신청 있으면 단계 자동 전진 (역행 방지·연결 건만은 함수 198 내부 처리)
     let advanced = false;
     let advanceReason: string | null = null;
