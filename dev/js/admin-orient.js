@@ -358,7 +358,7 @@ function osOnRecipientChange() {
   const sel = document.getElementById('osRecipientSelect');
   const nw = document.getElementById('osRecipientNew');
   if (!sel || !nw) return;
-  nw.style.display = (sel.value === 'new') ? '' : 'none';
+  nw.style.display = (sel.value === 'new') ? 'flex' : 'none';
 }
 
 // 발급 결과 화면 「메일 발송」 버튼 — 선택 발송(자동 발송 아님). 발송 중 버튼 비활성.
@@ -874,13 +874,14 @@ function ensureOrientModals() {
             <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="padding-right:42px">
             <button type="button" onclick="osCopyResultLink()" title="링크 복사" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted)">content_copy</span></button>
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
+          <div style="font-size:15px;color:var(--ink);margin-top:8px;font-weight:700">작성 기한: <span id="osCreateExpire" style="color:var(--pink)"></span></div>
+          <hr style="border:none;border-top:1px solid var(--line);margin:16px 0">
           <div id="osRecipientPick" style="display:none;margin-top:12px">
             <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px">메일 받을 담당자</label>
             <select id="osRecipientSelect" class="form-input" onchange="osOnRecipientChange()"></select>
-            <div id="osRecipientNew" style="display:none;margin-top:6px">
-              <input id="osNewContactName" class="form-input" placeholder="담당자 이름" style="margin-bottom:6px">
-              <input id="osNewContactEmail" class="form-input" type="email" placeholder="이메일 주소" autocomplete="off">
+            <div id="osRecipientNew" style="display:none;margin-top:6px;gap:6px">
+              <input id="osNewContactName" class="form-input" placeholder="담당자 이름" style="flex:1;min-width:0">
+              <input id="osNewContactEmail" class="form-input" type="email" placeholder="이메일 주소" autocomplete="off" style="flex:1;min-width:0">
             </div>
           </div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
