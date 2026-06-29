@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782705400';
+  var CURRENT_BUILD = 'v1782707543';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2095,7 +2095,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-29 12:56 · f0cb683</span>
+          <span class="admin-build-text">2026-06-29 13:32 · e0e605d</span>
         </div>
       </div>
     </aside>
@@ -11700,12 +11700,29 @@ function osIsExpired(s) {
   if (s.status === 'expired') return true;
   return !!(s.token_expires_at && new Date(s.token_expires_at) < new Date());
 }
-function osStatusOf(s) {
-  return (osIsExpired(s) && s.status !== 'consumed') ? OS_STATUS.expired : (OS_STATUS[s.status] || OS_STATUS.draft);
+// 카드 발행 수 — 부분 발행(카드 일부만 발행) 판정용. published = campaign_id 있는 "발행된 카드 수".
+// 삭제 경고용 osPublishedCampaignCount(DISTINCT 캠페인 수)와는 목적이 다름(정상 플로우는 카드당 고유 캠페인이라 값 일치).
+function osCardCounts(s) {
+  const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  return { total: cards.length, published: cards.filter(c => c && c.campaign_id).length };
 }
-// 상태 코드(만료 클라 판정 포함) — 탭 필터·건수용
+// 상태 배지 — 부분 발행(제출됨 + 카드 일부만 발행)은 「일부 발행 (n/m)」 앰버 배지로 구분
+function osStatusOf(s) {
+  if (s.status === 'consumed') return OS_STATUS.consumed;
+  if (s.status === 'submitted') {
+    const { total, published } = osCardCounts(s);
+    if (published > 0 && published < total) return { label: `일부 발행 (${published}/${total})`, color: '#B45309', bg: '#FEF3C7' };
+    if (published > 0) return OS_STATUS.consumed;  // 전 카드 발행(마이그196 트리거 지연으로 status 미전환 순간) 방어
+  }
+  if (osIsExpired(s)) return OS_STATUS.expired;
+  return OS_STATUS[s.status] || OS_STATUS.draft;
+}
+// 상태 코드(만료 클라 판정 + 부분 발행 포함) — 탭 필터·건수용. 부분 발행은 「발행됨(consumed)」 탭에 포함
 function osStatusKey(s) {
-  return (osIsExpired(s) && s.status !== 'consumed') ? 'expired' : (OS_STATUS[s.status] ? s.status : 'draft');
+  if (s.status === 'consumed') return 'consumed';
+  if (s.status === 'submitted' && osCardCounts(s).published > 0) return 'consumed';
+  if (osIsExpired(s)) return 'expired';
+  return OS_STATUS[s.status] ? s.status : 'draft';
 }
 function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja || '-') : '-'; }
 function osBadge(st) {
