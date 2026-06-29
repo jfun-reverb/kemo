@@ -24,6 +24,15 @@ const OS_STATUS = {
   consumed:  { label: '발행됨', color: '#5B4B9E', bg: '#ECEAF6' },
   expired:   { label: '만료',   color: '#8A8A90', bg: '#F0F0F0' },
 };
+// 상태별 탭 (전체 + 4상태). code=null 은 전체
+const OS_STATUS_TABS = [
+  { code: null, label: '전체' },
+  { code: 'draft', label: '작성 중' },
+  { code: 'submitted', label: '제출됨' },
+  { code: 'consumed', label: '발행됨' },
+  { code: 'expired', label: '만료' },
+];
+let _orientActiveStatusTab = null;
 const OS_CH_LABEL = { instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
 
 // 운영/개발 sales 도메인 분기 (orient.html SUPABASE_ENV 규칙과 동일)
@@ -42,6 +51,10 @@ function osIsExpired(s) {
 }
 function osStatusOf(s) {
   return (osIsExpired(s) && s.status !== 'consumed') ? OS_STATUS.expired : (OS_STATUS[s.status] || OS_STATUS.draft);
+}
+// 상태 코드(만료 클라 판정 포함) — 탭 필터·건수용
+function osStatusKey(s) {
+  return (osIsExpired(s) && s.status !== 'consumed') ? 'expired' : (OS_STATUS[s.status] ? s.status : 'draft');
 }
 function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja || '-') : '-'; }
 function osBadge(st) {
@@ -91,16 +104,47 @@ function renderOrientSheets() {
   const tbody = document.getElementById('orientTableBody');
   if (!tbody) return;
   const q = (document.getElementById('orientSearch')?.value || '').trim().toLowerCase();
-  const list = _orientSheets.filter(s => !q || osBrandName(s).toLowerCase().includes(q));
+  // 검색 적용 후 base → 상태별 건수 계산 → 탭 렌더
+  const base = _orientSheets.filter(s => !q || osBrandName(s).toLowerCase().includes(q));
+  const counts = {};
+  base.forEach(s => { const k = osStatusKey(s); counts[k] = (counts[k] || 0) + 1; });
+  renderOrientStatusTabs(counts);
+
+  // 선택된 상태 탭으로 필터
+  const list = _orientActiveStatusTab ? base.filter(s => osStatusKey(s) === _orientActiveStatusTab) : base;
 
   const cnt = document.getElementById('orientTotalCount');
   if (cnt) cnt.textContent = list.length ? `${list.length}건` : '';
 
   if (!list.length) {
-    tbody.innerHTML = osMsgRow(q ? '검색 결과가 없습니다.' : '발급된 오리엔시트가 없습니다. 「신규 발급」으로 링크를 만들어 주세요.');
+    const emptyMsg = (q && !base.length) ? '검색 결과가 없습니다.'
+      : (_orientActiveStatusTab ? '해당 상태의 오리엔시트가 없습니다.'
+        : '발급된 오리엔시트가 없습니다. 「신규 발급」으로 링크를 만들어 주세요.');
+    tbody.innerHTML = osMsgRow(emptyMsg);
     return;
   }
   tbody.innerHTML = list.map(osRowHtml).join('');
+}
+
+// 상태 탭 바 렌더 (counts: 검색 적용 후 상태별 건수)
+function renderOrientStatusTabs(counts) {
+  const bar = document.getElementById('orientStatusTabBar');
+  if (!bar) return;
+  counts = counts || {};
+  const totalAll = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  bar.innerHTML = OS_STATUS_TABS.map(tab => {
+    const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
+    const isOn = tab.code === _orientActiveStatusTab;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setOrientStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 상태 탭 클릭
+function setOrientStatusTab(btn) {
+  _orientActiveStatusTab = btn.dataset.status || null;   // 빈 문자열(전체)이면 null
+  renderOrientSheets();
 }
 
 function osRowHtml(s) {
