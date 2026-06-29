@@ -1,0 +1,1791 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<meta name="googlebot" content="noindex,nofollow">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='30' fill='%23E8344E'/><text x='32' y='44' text-anchor='middle' font-family='Arial,sans-serif' font-weight='800' font-size='36' fill='%23fff'>R</text></svg>">
+<title>오리엔시트 작성 | REVERB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style>
+:root {
+  --brand: #E8344E;
+  --brand-dark: #C41E3A;
+  --brand-soft: #FFF0F2;
+  --ink: #161618;
+  --ink-soft: #4A4A4F;
+  --ink-mute: #8A8A90;
+  --paper: #F7F4EE;
+  --card: #FFFFFF;
+  --border: #EAEAE4;
+  --border-strong: #D4D4CC;
+  --success: #1F9D55;
+  --warn: #C2410C;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  font-family: 'Manrope', 'Pretendard Variable', Pretendard, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  max-width: 720px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--paper);
+  position: relative;
+  /* 하단 고정바(footbar) + 모바일 홈 인디케이터(safe-area)에 마지막 입력칸이 가리지 않도록 여백 확보 */
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
+/* ============ HEADER ============ */
+.header {
+  padding: 18px 24px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: rgba(247, 244, 238, 0.9);
+  border-bottom: 1px solid var(--border);
+}
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.brand-logo {
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  text-decoration: none;
+}
+.head-sub { font-size: 12px; color: var(--ink-mute); margin-top: 2px; letter-spacing: 0.02em; }
+/* 스크롤 스파이 — 헤더에 현재 작성 영역 제목 표시 */
+.header-spy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.spy-eyebrow { font-size: 11px; color: var(--ink-mute); letter-spacing: 0.02em; }
+.spy-title {
+  font-size: 17px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.status-pill.draft { background: var(--brand-soft); color: var(--brand-dark); }
+.status-pill.submitted { background: #E7F5EC; color: var(--success); }
+
+/* ============ LAYOUT STATES ============ */
+.wrap { padding: 18px 20px 0; }
+.hidden { display: none !important; }
+
+.center-msg {
+  text-align: center;
+  padding: 64px 28px;
+}
+.center-msg .ico {
+  font-size: 52px;
+  color: var(--ink-mute);
+  margin-bottom: 14px;
+}
+.center-msg.err .ico { color: var(--brand); }
+.center-msg h2 { font-size: 19px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.02em; }
+.center-msg p { font-size: 14px; color: var(--ink-soft); max-width: 360px; margin: 0 auto; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ INTRO BANNER ============ */
+.intro {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.intro h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; }
+.intro p { font-size: 13px; color: var(--ink-soft); }
+
+/* submitted 재편집 안내 배너 */
+.resubmit-note {
+  display: flex; gap: 9px; align-items: flex-start;
+  background: #E7F5EC; border: 1px solid #BfE5CC;
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+  font-size: 13px; color: #14663A;
+}
+.resubmit-note .material-icons-outlined { font-size: 19px; }
+
+/* conflict 경고 배너 */
+.conflict-note {
+  display: flex; gap: 9px; align-items: flex-start;
+  background: #FFF4ED; border: 1px solid #F4C9AE;
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;
+  font-size: 13px; color: var(--warn);
+}
+.conflict-note .material-icons-outlined { font-size: 19px; }
+.conflict-note button {
+  margin-left: auto; flex-shrink: 0;
+  background: var(--warn); color: #fff; border: none;
+  border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+
+/* ============ SECTION CARD ============ */
+.section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+.section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 15px; font-weight: 800;
+  margin-bottom: 14px; letter-spacing: -0.02em;
+}
+.section-title .material-icons-outlined { font-size: 20px; color: var(--brand); }
+.section-desc { font-size: 12.5px; color: var(--ink-mute); margin: -8px 0 14px; }
+
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block; font-size: 13px; font-weight: 700;
+  color: var(--ink-soft); margin-bottom: 6px;
+}
+.field label .req { color: var(--brand); margin-left: 3px; }
+.field-hint { font-size: 11.5px; color: var(--ink-mute); margin-top: 5px; }
+
+input[type="text"], input[type="url"], input[type="number"], input[type="date"], textarea, select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;               /* iOS Safari: date·number가 컨테이너를 넘는 것 방지 */
+  font-family: inherit;
+  font-size: 16px;            /* 모바일 자동 확대 방지 */
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 11px 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--brand); }
+/* 제출 시 필수 미입력 항목 강조(입력칸·형식 선택·추가 버튼 등 모든 요소에 적용) */
+.field-invalid {
+  outline: 2px solid var(--brand) !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+  animation: invalidPulse 1.1s ease;
+}
+@keyframes invalidPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(232, 52, 78, 0); }
+  25%  { box-shadow: 0 0 0 5px rgba(232, 52, 78, 0.22); }
+  100% { box-shadow: 0 0 0 0 rgba(232, 52, 78, 0); }
+}
+textarea { resize: vertical; min-height: 86px; line-height: 1.55; }
+/* iOS Safari: date·number input의 기본 너비 산정을 끄고 width:100%를 따르게 함 */
+input[type="date"], input[type="number"] { -webkit-appearance: none; appearance: none; }
+input[type="date"] { min-height: 44px; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* 모바일 1열 전환 시 칸 간격을 일반 .field 간격(14px)과 통일 */
+@media (max-width: 520px) {
+  .row2 { grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+  .row2 > .field { margin-bottom: 0; }
+}
+
+/* 반복 블록(채널 가이드·이미지) */
+.rep-item {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 13px;
+  margin-bottom: 10px;
+  background: var(--paper);
+}
+.rep-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.rep-head .rep-num { font-size: 12px; font-weight: 800; color: var(--ink-soft); letter-spacing: 0.02em; }
+.rep-remove {
+  background: none; border: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--ink-mute); font-size: 12px; font-family: inherit; font-weight: 600;
+  padding: 2px 4px;
+}
+.rep-remove .material-icons-outlined { font-size: 16px; }
+.rep-remove:hover { color: var(--brand); }
+.rep-item .field:last-child { margin-bottom: 0; }
+/* 예시 이미지·파일 업로드 행 */
+.img-upload { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.img-upload-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--card); color: var(--ink-soft);
+  border: 1px solid var(--border-strong); border-radius: 9px;
+  padding: 9px 14px; font-size: 13.5px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.img-upload-btn:hover { border-color: var(--brand); color: var(--brand); }
+.img-upload-btn .material-icons-outlined { font-size: 18px; }
+.img-status { font-size: 12px; color: var(--ink-mute); min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.img-status.uploading { color: var(--ink-soft); }
+.img-status.done { color: var(--success); }
+.img-status.error { color: var(--brand); }
+/* 선택(버튼 2개) / URL 입력+확인 */
+.img-choose { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.img-url-entry { display: flex; align-items: center; gap: 8px; }
+.img-url-entry .img-url-input { flex: 1; min-width: 0; }
+.img-url-confirm {
+  background: var(--brand); color: #fff; border: none; border-radius: 9px;
+  padding: 10px 16px; font-size: 13.5px; font-weight: 800;
+  font-family: inherit; cursor: pointer; flex-shrink: 0;
+}
+.img-url-cancel {
+  background: none; color: var(--ink-mute); border: none;
+  padding: 10px 6px; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer; flex-shrink: 0;
+}
+.img-url-cancel:hover { color: var(--brand); }
+/* 간단 리치 텍스트 에디터 (B/I/U/S/링크) */
+.rich-wrap { border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; background: #fff; }
+.rich-toolbar { display: flex; gap: 2px; padding: 4px 6px; border-bottom: 1px solid var(--border); background: #fafafa; }
+.rich-btn {
+  border: 0; background: transparent; cursor: pointer; padding: 5px 9px;
+  font-size: 13px; color: var(--ink-soft); border-radius: 6px; font-family: inherit; line-height: 1;
+}
+.rich-btn:hover { background: var(--brand-soft); color: var(--brand-dark); }
+.rich-btn-link { display: inline-flex; align-items: center; }
+.rich-btn-link .material-icons-outlined { font-size: 16px; }
+.rich-content {
+  padding: 10px 12px; font-size: 16px; min-height: 64px; line-height: 1.6;
+  outline: none; color: var(--ink); word-break: break-word;
+}
+.rich-content:empty:before { content: attr(data-placeholder); color: var(--ink-mute); }
+.rich-content a { color: var(--brand-dark); text-decoration: underline; }
+/* 업로드된 파일 칩 (URL 입력칸 대체) */
+.img-file-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; background: var(--brand-soft);
+  border: 1px solid var(--border); border-radius: 9px;
+}
+.img-file-chip .material-icons-outlined { font-size: 18px; color: var(--brand-dark); flex-shrink: 0; }
+.img-file-name {
+  flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: 13px; font-weight: 700; color: var(--ink); text-decoration: none;
+}
+.img-file-name:hover { text-decoration: underline; }
+.img-file-clear {
+  display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0;
+  background: none; border: none; color: var(--ink-mute);
+  font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.img-file-clear:hover { color: var(--brand); }
+.img-file-clear .material-icons-outlined { font-size: 16px; color: inherit; }
+
+.add-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 1px dashed var(--border-strong);
+  color: var(--ink-soft); border-radius: 10px;
+  padding: 9px 14px; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer; width: 100%; justify-content: center;
+}
+.add-btn .material-icons-outlined { font-size: 18px; }
+.add-btn:hover { border-color: var(--brand); color: var(--brand); }
+
+/* ============ 카드(모집 건) ============ */
+.empty-state {
+  background: var(--card); border: 1px dashed var(--border-strong);
+  border-radius: 14px; padding: 36px 24px; text-align: center;
+  margin-bottom: 14px;
+}
+.empty-state .material-icons-outlined { font-size: 40px; color: var(--ink-mute); margin-bottom: 10px; }
+.empty-state p { font-size: 13.5px; color: var(--ink-soft); margin-bottom: 16px; }
+
+.ocard {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; margin-bottom: 14px; overflow: hidden;
+}
+.ocard-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 15px 16px; cursor: pointer;
+}
+.ocard-head-main {
+  display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1;
+}
+.ocard-chip {
+  flex-shrink: 0; font-size: 11px; font-weight: 800;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--paper); color: var(--ink-mute);
+  border: 1px solid var(--border-strong); letter-spacing: 0.02em;
+}
+.ocard-chip.proxy_purchase { background: #FEF3E2; color: #B45309; border-color: #F4D7A8; }
+.ocard-chip.reviewer { background: var(--brand-soft); color: var(--brand-dark); border-color: #F4C4CC; }
+.ocard-chip.seeding { background: #E7F1FE; color: #1D4ED8; border-color: #BFD6F5; }
+.ocard-title {
+  font-size: 14.5px; font-weight: 700; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ocard-title.empty { color: var(--ink-mute); font-weight: 600; }
+.ocard-remove {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--ink-mute); display: inline-flex; padding: 4px;
+}
+.ocard-remove .material-icons-outlined { font-size: 19px; }
+.ocard-remove:hover { color: var(--brand); }
+.ocard-chevron {
+  flex-shrink: 0; color: var(--ink-mute); font-size: 22px;
+  transition: transform 0.2s;
+}
+.ocard.open .ocard-chevron { transform: rotate(180deg); }
+.ocard-body { display: none; padding: 0 16px 16px; }
+.ocard.open .ocard-body { display: block; }
+
+/* 형식 선택 세그먼트 */
+.seg { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.seg-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--paper); border: 1px solid var(--border-strong);
+  border-radius: 11px; padding: 12px 8px; cursor: pointer;
+  font-family: inherit; color: var(--ink-soft);
+  transition: border-color 0.15s, background 0.15s;
+}
+.seg-btn .material-icons-outlined { font-size: 22px; }
+.seg-btn .seg-label { font-size: 13px; font-weight: 800; }
+.seg-btn:hover { border-color: var(--brand); }
+.seg-btn.active { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-dark); }
+
+.needtype-hint { font-size: 13px; color: var(--ink-mute); text-align: center; padding: 8px 0 4px; }
+
+/* 형식별 표시 분기 (카드 스코프) — data-ctype 미설정이면 입력 영역 전체 숨김 */
+.ocard:not([data-ctype]) .card-gated { display: none; }
+.ocard[data-ctype] .needtype-hint { display: none; }
+.ocard .only-rp, .ocard .only-reviewer, .ocard .only-seeding { display: none; }
+.field label.check-row { display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; margin: 0; }
+.check-row input[type="checkbox"] { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--brand); cursor: pointer; }
+.ocard[data-ctype="proxy_purchase"] .only-rp { display: block; }
+.ocard[data-ctype="reviewer"] .only-rp,
+.ocard[data-ctype="reviewer"] .only-reviewer { display: block; }
+.ocard[data-ctype="seeding"] .only-rp,
+.ocard[data-ctype="seeding"] .only-seeding { display: block; }
+/* 래퍼 블록(판매처·가격 / 시딩 상세)은 마지막 내부 필드가 .field:last-child(margin 0)라
+   다음 필드와 간격이 붙는다. 다른 필드 간격(14px)과 맞추도록 래퍼에 아래 여백 부여 */
+.ocard[data-ctype="proxy_purchase"] .only-rp,
+.ocard[data-ctype="reviewer"] .only-rp,
+.ocard[data-ctype="seeding"] .only-rp,
+.ocard[data-ctype="seeding"] .only-seeding { margin-bottom: 14px; }
+/* 시딩 등급별: 촬영가이드·필수내용·증정품은 미들·메가만 */
+.ocard .only-mega { display: none; }
+.ocard[data-cgrade="middle_mega"] .only-mega { display: block; }
+
+/* ============ FOOTER BAR ============ */
+.footbar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  max-width: 720px; margin: 0 auto;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 10px;
+  z-index: 90;
+}
+.save-state {
+  font-size: 12px; color: var(--ink-mute);
+  display: flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.save-state .material-icons-outlined { font-size: 16px; flex-shrink: 0; }
+.save-state.saved { color: var(--success); }
+.save-state.saving { color: var(--ink-soft); }
+.save-state.error { color: var(--brand); }
+.foot-nav { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+.btn-nav {
+  background: var(--card); color: var(--ink-soft);
+  border: 1px solid var(--border-strong); border-radius: 11px;
+  padding: 12px 18px; font-size: 15px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.btn-nav:hover { border-color: var(--brand); color: var(--brand); }
+.btn-submit {
+  background: var(--brand); color: #fff;
+  border: none; border-radius: 11px;
+  padding: 12px 24px; font-size: 15px; font-weight: 800;
+  font-family: inherit; cursor: pointer; letter-spacing: 0.01em;
+  transition: background 0.15s, opacity 0.15s;
+}
+.btn-submit:hover { background: var(--brand-dark); }
+.btn-submit:disabled { opacity: 0.55; cursor: default; }
+
+/* ============ 미리보기 ============ */
+.pv-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px; margin-bottom: 14px;
+}
+.pv-card-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.pv-card-head .pv-name { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; }
+.pv-row { display: flex; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.pv-row:first-of-type { border-top: none; }
+.pv-row .pv-k { flex-shrink: 0; width: 96px; color: var(--ink-mute); font-weight: 700; }
+.pv-row .pv-v { flex: 1; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+.pv-row .pv-v.muted { color: var(--ink-mute); }
+
+/* 작은 인라인 토스트 */
+.toast {
+  position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+  background: var(--ink); color: #fff;
+  font-size: 13px; font-weight: 600;
+  padding: 10px 18px; border-radius: 10px;
+  z-index: 200; max-width: 90%; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.toast.show { opacity: 0.96; }
+</style>
+</head>
+<body>
+
+<div class="header" id="siteHeader">
+  <div class="header-top">
+    <div id="headerBrand">
+      <a class="brand-logo" href="/">REVERB</a>
+      <div class="head-sub">캠페인 오리엔시트 작성</div>
+    </div>
+    <!-- 스크롤 시 현재 작성 영역 제목 표시(로고 자리 대체) -->
+    <div id="headerSpy" class="header-spy hidden">
+      <span class="spy-eyebrow">작성 중인 영역</span>
+      <span class="spy-title" id="headerSpyTitle">브랜드 정보</span>
+    </div>
+  </div>
+</div>
+
+<!-- 로딩 -->
+<div id="screenLoading" class="center-msg">
+  <div class="spinner"></div>
+  <p>불러오는 중입니다…</p>
+</div>
+
+<!-- 진입 불가(무효/만료/소비) -->
+<div id="screenError" class="center-msg err hidden">
+  <div class="ico"><span class="material-icons-outlined notranslate" id="errIcon" translate="no">link_off</span></div>
+  <h2 id="errTitle">링크를 확인할 수 없습니다</h2>
+  <p id="errBody">링크가 올바르지 않거나 더 이상 사용할 수 없습니다. 담당자에게 문의해 주세요.</p>
+</div>
+
+<!-- 작성 폼 -->
+<div id="screenForm" class="wrap hidden">
+
+  <div class="intro">
+    <h1>캠페인 오리엔시트</h1>
+    <p>모집할 제품을 한국어로 작성해 주세요. 제품마다 카드를 하나씩 추가하고, 각 카드에서 모집 형식(가구매·리뷰어·시딩)을 고르면 됩니다. 작성한 내용은 자동으로 저장되며, 제출 후에도 발행 전까지 수정할 수 있습니다.</p>
+  </div>
+
+  <div id="resubmitNote" class="resubmit-note hidden">
+    <span class="material-icons-outlined notranslate" translate="no">check_circle</span>
+    <span>이미 제출하신 내용입니다. 발행 전까지 자유롭게 수정하고 다시 제출할 수 있습니다.</span>
+  </div>
+
+  <div id="conflictNote" class="conflict-note hidden">
+    <span class="material-icons-outlined notranslate" translate="no">sync_problem</span>
+    <span>다른 곳에서 먼저 수정되었습니다. 최신 내용을 불러오려면 새로고침해 주세요.</span>
+    <button type="button" onclick="location.reload()">새로고침</button>
+  </div>
+
+  <!-- 공통 정보(브랜드) — 1회 -->
+  <div class="section">
+    <div class="section-title"><span class="material-icons-outlined notranslate" translate="no">storefront</span>브랜드 정보</div>
+    <div class="section-desc">아래 모집 건 전체에 공통으로 쓰이는 브랜드 정보입니다.</div>
+    <div class="field">
+      <label>브랜드명</label>
+      <input type="text" id="f_brand_name" placeholder="브랜드명" oninput="onInput()">
+    </div>
+    <div class="field">
+      <label>브랜드 소개 · 어필 포인트</label>
+      <textarea id="f_brand_intro" placeholder="브랜드 소개, 강조하고 싶은 점을 자유롭게 적어 주세요." oninput="onInput()"></textarea>
+    </div>
+    <div class="field">
+      <label>브랜드 SNS 공식 계정</label>
+      <input type="text" id="f_brand_accounts" placeholder="@yourbrand_jp" oninput="onInput()">
+      <div class="field-hint">인플루언서가 게시물에 멘션(@)하거나 참고할 브랜드 공식 SNS·스토어 계정입니다.</div>
+    </div>
+  </div>
+
+  <!-- 카드(모집 건) 목록 -->
+  <div id="emptyState" class="empty-state hidden">
+    <span class="material-icons-outlined notranslate" translate="no">add_box</span>
+    <p>아직 추가한 제품이 없습니다.<br>모집할 제품을 하나씩 추가해 주세요.</p>
+    <button type="button" class="btn-submit" onclick="addCard({}, {open:true, prefill:true})">제품 추가</button>
+  </div>
+  <div id="cardList"></div>
+  <button type="button" class="add-btn" id="btnAddCard" onclick="addCard({}, {open:true, prefill:true})">
+    <span class="material-icons-outlined notranslate" translate="no">add</span>제품(카드) 추가
+  </button>
+</div>
+
+<!-- 미리보기(제출 전 검토) -->
+<div id="screenPreview" class="wrap hidden">
+  <div class="intro">
+    <h1>작성 내용 확인</h1>
+    <p>아래 내용으로 제출됩니다. 틀린 부분이 있으면 「수정으로 돌아가기」를 눌러 고쳐 주세요.</p>
+  </div>
+  <div id="previewBody"></div>
+</div>
+
+<!-- 하단 고정 바 -->
+<div id="footbar" class="footbar hidden">
+  <span id="statusPill" class="status-pill draft hidden">작성 중</span>
+  <div id="saveState" class="save-state"><span class="material-icons-outlined notranslate" translate="no">cloud_done</span><span id="saveStateText">자동 저장</span></div>
+  <div class="foot-nav">
+    <!-- 작성 화면 -->
+    <button type="button" id="btnReview" class="btn-submit" onclick="openPreview()">제출</button>
+    <!-- 미리보기 화면 -->
+    <button type="button" id="btnBackToEdit" class="btn-nav hidden" onclick="closePreview()">수정으로 돌아가기</button>
+    <button type="button" id="btnSubmit" class="btn-submit hidden" onclick="submitSheet()">이대로 제출</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+// Supabase 환경별 자동 분기 (reviewer.html과 동일 로직)
+// ══════════════════════════════════════
+const SUPABASE_ENVS = {
+  production: {
+    url: 'https://nrwtujmlbktxjgdwlpjj.supabase.co',
+    key: 'sb_publishable_3pfK7sF55NZO7owlm13_uA_iCbORAvP'
+  },
+  staging: {
+    url: 'https://qysmxtipobomefudyixw.supabase.co',
+    key: 'sb_publishable_WTxFsvQFllOPIdQ8MDNwCw_e0qBlYTv'
+  }
+};
+const SUPABASE_ENV = /^(www\.|sales\.)?globalreverb\.com$/.test(location.hostname) ? 'production' : 'staging';
+const sb = window.supabase
+  ? window.supabase.createClient(SUPABASE_ENVS[SUPABASE_ENV].url, SUPABASE_ENVS[SUPABASE_ENV].key)
+  : null;
+
+// ══════════════════════════════════════
+// 상수
+// ══════════════════════════════════════
+// 모집 형식 3종 (게시처 기준 — 사양서 §15-2)
+const FORM_TYPES = [
+  { value: 'proxy_purchase', label: '가구매', icon: 'shopping_cart', desc: '구매(영수증)만, 게시 없음' },
+  { value: 'reviewer',       label: '리뷰어', icon: 'rate_review',   desc: '구매 후 리뷰 플랫폼에 후기' },
+  { value: 'seeding',        label: '시딩',   icon: 'card_giftcard', desc: '제품 제공 후 SNS 게시' },
+];
+const FORM_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
+
+// 판매처는 Qoo10 고정(드롭다운·마켓별 행사 제거, 2026-06-25). 가격은 상시가만 받음.
+
+// 시딩 게시 채널 (등급 구분 없이 모든 등급 동일, 2026-06-29)
+const SEEDING_CHANNELS = ['instagram', 'x', 'tiktok', 'youtube', 'random'];
+const SEEDING_CHANNELS_BY_GRADE = {
+  nano:        SEEDING_CHANNELS,
+  middle_mega: SEEDING_CHANNELS,
+};
+const CHANNEL_LABEL = { instagram: '인스타그램', x: 'X (트위터)', tiktok: '틱톡', youtube: '유튜브', random: '랜덤 (채널 무관)' };
+const SEEDING_GRADES = [
+  { value: 'nano',        label: '나노' },
+  { value: 'middle_mega', label: '미들·메가' },
+];
+
+const MAX_HASHTAGS = 5;
+const MAX_IMAGES_PER_CARD = 5;            // 카드당 예시 이미지·파일 최대 개수
+const ORIENT_UPLOAD_BUCKET = 'orient-images';
+const ORIENT_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;   // 버킷 한도 10MB (압축 후/문서 기준)
+// 업로드 허용 확장자 → MIME (버킷 allowed_mime_types 와 일치, svg·html 제외)
+const ORIENT_UPLOAD_MIME = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+};
+const LS_KEY_PREFIX = 'reverb.orient.';   // 토큰별 로컬 백업 키
+const AUTOSAVE_DELAY = 1500;
+let uploadingCount = 0;                    // 진행 중 업로드 수(>0이면 제출 대기)
+
+let token = null;
+let currentVersion = 0;
+let currentStatus = 'draft';
+let conflicted = false;            // 충돌 발생 시 자동저장 중단
+let saveTimer = null;
+let dirty = false;                 // 미저장 변경 존재 여부
+let cardSeq = 0;                   // 카드 DOM 고유 id 채번
+let initialValues = null;          // 연결 신청 참고값 (첫 카드 prefill용)
+let usedInitial = false;           // initial_values를 첫 카드에 1회만 사용
+let categoryOptionsHtml = '<option value="">카테고리 선택</option>';
+
+// ══════════════════════════════════════
+// 유틸
+// ══════════════════════════════════════
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// URL 위험 스킴 차단 + https 보정 (shared.js normalizeUrlInput 축약 이식)
+function normalizeUrl(raw) {
+  if (!raw) return '';
+  let s = String(raw).trim();
+  if (!s) return '';
+  if (/^\s*(javascript|data|vbscript|file):/i.test(s)) return '';
+  s = s.replace(/^ttps?:\/\//i, m => (/s/i.test(m) ? 'https://' : 'http://'));
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  return s;
+}
+
+function escAttr(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ══════════════════════════════════════
+// 진입: 토큰 파싱 → 조회 → 분기
+// ══════════════════════════════════════
+async function boot() {
+  const params = new URLSearchParams(location.search);
+  token = params.get('token');
+
+  if (!sb) { return showErrorScreen('connect'); }
+  if (!token) { return showErrorScreen('invalid_token'); }
+
+  try {
+    const { data: res, error } = await sb.rpc('get_orient_sheet', { p_token: token });
+    if (error) throw error;
+
+    if (!res || res.success !== true) {
+      return showErrorScreen(res?.reason || 'invalid_token');
+    }
+
+    currentVersion = res.version || 0;
+    currentStatus = res.status || 'draft';
+    initialValues = res.initial_values || null;
+
+    await loadCategoryOptions();
+
+    // data 복원 (없으면 빈 스키마). 카드 배열 구조.
+    const data = (res.data && typeof res.data === 'object') ? res.data : {};
+    fillForm(data);
+    enterFormScreen();
+  } catch (e) {
+    console.error('[orient boot]', e);
+    showErrorScreen('connect');
+  }
+}
+
+// 카테고리 드롭다운 옵션을 기준 데이터(lookup_values kind=category)에서 채움.
+// 캠페인 등록 폼과 동일하게 code 를 option value 로 저장 → PR4 자동 채움 시 무손실 매칭.
+// lookup_values 는 anon SELECT 허용(active=true)이라 별도 함수 불필요.
+async function loadCategoryOptions() {
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.from('lookup_values')
+      .select('code,name_ko').eq('kind', 'category').eq('active', true).order('sort_order');
+    if (error) throw error;
+    categoryOptionsHtml = ['<option value="">카테고리 선택</option>'].concat(
+      (data || []).map(c => `<option value="${escAttr(c.code)}">${escAttr(c.name_ko)}</option>`)).join('');
+  } catch (e) {
+    console.error('[orient category]', e);   // 조회 실패 시 빈 드롭다운 유지(자유 입력 폴백 없음)
+  }
+}
+
+function showErrorScreen(reason) {
+  $('screenLoading').classList.add('hidden');
+  $('screenForm').classList.add('hidden');
+  $('screenPreview').classList.add('hidden');
+  $('footbar').classList.add('hidden');
+  const map = {
+    invalid_token: { ico: 'link_off',  title: '링크를 확인할 수 없습니다', body: '링크가 올바르지 않습니다. 담당자에게 다시 받아 주세요.' },
+    expired:       { ico: 'schedule',  title: '작성 기한이 지났습니다',     body: '이 링크는 작성 가능 기간이 끝났습니다. 담당자에게 문의해 주세요.' },
+    consumed:      { ico: 'task_alt',  title: '이미 발행되었습니다',         body: '이 오리엔시트로 캠페인이 이미 발행되어 더 이상 수정할 수 없습니다.' },
+    connect:       { ico: 'wifi_off',  title: '연결에 문제가 있습니다',      body: '잠시 후 다시 시도해 주세요. 계속되면 담당자에게 문의해 주세요.' },
+  };
+  const m = map[reason] || map.invalid_token;
+  $('errIcon').textContent = m.ico;
+  $('errTitle').textContent = m.title;
+  $('errBody').textContent = m.body;
+  $('screenError').classList.remove('hidden');
+}
+
+function enterFormScreen() {
+  $('screenLoading').classList.add('hidden');
+  $('screenError').classList.add('hidden');
+  $('screenPreview').classList.add('hidden');
+  $('screenForm').classList.remove('hidden');
+  $('footbar').classList.remove('hidden');
+  $('btnReview').classList.remove('hidden');
+  $('btnBackToEdit').classList.add('hidden');
+  $('btnSubmit').classList.add('hidden');
+
+  const pill = $('statusPill');
+  pill.classList.remove('hidden');
+  if (currentStatus === 'submitted') {
+    pill.textContent = '제출됨';
+    pill.className = 'status-pill submitted';
+    $('resubmitNote').classList.remove('hidden');
+  } else {
+    pill.textContent = '작성 중';
+    pill.className = 'status-pill draft';
+  }
+}
+
+// ══════════════════════════════════════
+// 폼 채우기 (data → DOM)
+// ══════════════════════════════════════
+function fillForm(data) {
+  const b = data.brand || {};
+  $('f_brand_name').value = b.name || '';
+  $('f_brand_intro').value = b.intro || '';
+  $('f_brand_accounts').value = b.official_accounts || '';
+
+  $('cardList').innerHTML = '';
+  cardSeq = 0;
+  const cards = Array.isArray(data.cards) ? data.cards : [];
+  cards.forEach((c, i) => addCard(c, { open: i === 0 }));
+  refreshEmptyState();
+}
+
+function refreshEmptyState() {
+  const has = $('cardList').children.length > 0;
+  $('emptyState').classList.toggle('hidden', has);
+}
+
+// ══════════════════════════════════════
+// 카드 렌더
+// ══════════════════════════════════════
+function channelOptionsHtml(grade, selected) {
+  const list = SEEDING_CHANNELS_BY_GRADE[grade] || SEEDING_CHANNELS_BY_GRADE.nano;
+  return '<option value="">선택</option>' + list.map(v =>
+    `<option value="${v}"${v === selected ? ' selected' : ''}>${CHANNEL_LABEL[v] || v}</option>`).join('');
+}
+
+function cgRowHtml(grade, channel, guide) {
+  return `<div class="rep-item" data-cg>
+    <div class="rep-head"><span class="rep-num">채널</span>
+      <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
+    <div class="field"><label>채널</label>
+      <select class="cg-channel" onchange="onInput()">${channelOptionsHtml(grade, channel)}</select></div>
+    <div class="field"><label>소구 키워드 · 어필 포인트</label>
+      <textarea class="cg-guide" placeholder="이 채널에서 강조했으면 하는 소구 포인트·어필 포인트를 적어 주세요." oninput="onInput()">${escAttr(guide)}</textarea></div>
+  </div>`;
+}
+
+function uploadDisplayName(name, value) {
+  if (name) return name;
+  try {
+    const seg = new URL(value).pathname.split('/').pop();
+    return decodeURIComponent(seg || '') || '업로드된 파일';
+  } catch (e) { return '업로드된 파일'; }
+}
+
+// ══════════════════════════════════════
+// 간단 리치 텍스트 에디터 (리뷰 가이드·금지 표현·추가 안내) — B/I/U/S/링크
+//   익명 작성 → 관리자 열람 = 저장형 XSS 동선이라 저장·렌더·붙여넣기 모두 sanitize
+// ══════════════════════════════════════
+const RICH_ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'a', 'br', 'p'];
+function richSanitize(html) {
+  if (html == null) return '';
+  if (typeof DOMPurify === 'undefined') return String(html).replace(/<[^>]*>/g, '');  // 로드 실패 시 태그 제거(안전)
+  const clean = DOMPurify.sanitize(String(html), {
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    FORBID_TAGS: ['img', 'script', 'iframe', 'style', 'object', 'embed', 'svg'],
+    FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick'],
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
+  });
+  const w = document.createElement('div');
+  w.innerHTML = clean;
+  w.querySelectorAll('a[href]').forEach(a => { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer nofollow'); });
+  return w.innerHTML;
+}
+// 저장값 → 에디터 초기 HTML. 평문(태그 없음)이면 이스케이프 + 줄바꿈 보존
+function richInitial(val) {
+  val = val || '';
+  if (/<[a-z][\s\S]*>/i.test(val)) return richSanitize(val);
+  return escAttr(val).replace(/\n/g, '<br>');
+}
+// 에디터 div(contenteditable) → 수집용 sanitize HTML. 내용 없으면 ''
+function richValue(node) {
+  if (!node) return '';
+  if (!node.textContent.trim() && !/<a /i.test(node.innerHTML)) return '';
+  return richSanitize(node.innerHTML);
+}
+function richEditorHtml(safeHtml, cls, placeholder) {
+  const ph = escAttr(placeholder || '');
+  return `<div class="rich-wrap">
+    <div class="rich-toolbar">
+      <button type="button" class="rich-btn" style="font-weight:800" title="굵게" onclick="richCmd(this,'bold')">B</button>
+      <button type="button" class="rich-btn" style="font-style:italic" title="기울임" onclick="richCmd(this,'italic')">I</button>
+      <button type="button" class="rich-btn" style="text-decoration:underline" title="밑줄" onclick="richCmd(this,'underline')">U</button>
+      <button type="button" class="rich-btn" style="text-decoration:line-through" title="취소선" onclick="richCmd(this,'strikeThrough')">S</button>
+      <button type="button" class="rich-btn rich-btn-link" title="링크 (텍스트 선택 후)" onclick="richLink(this)"><span class="material-icons-outlined notranslate" translate="no">link</span></button>
+    </div>
+    <div class="rich-content ${cls}" contenteditable="true" data-placeholder="${ph}" oninput="onInput()" onpaste="richPaste(event)">${safeHtml}</div>
+  </div>`;
+}
+function richEditorOf(btn) { return btn.closest('.rich-wrap').querySelector('.rich-content'); }
+function richCmd(btn, cmd) {
+  const c = richEditorOf(btn);
+  c.focus();
+  try { document.execCommand(cmd, false, null); } catch (e) {}
+  onInput();
+}
+function richLink(btn) {
+  const c = richEditorOf(btn);
+  c.focus();
+  const sel = window.getSelection();
+  if (!sel || !sel.toString().trim()) { showToast('링크를 걸 텍스트를 먼저 선택해 주세요.'); return; }
+  let url = window.prompt('링크 주소(URL)를 입력해 주세요', 'https://');
+  if (url == null) return;
+  url = normalizeUrl(url);
+  if (!url) { showToast('올바른 링크 주소가 아니에요.'); return; }
+  try { document.execCommand('createLink', false, url); } catch (e) {}
+  c.querySelectorAll('a[href]').forEach(a => { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer nofollow'); });
+  onInput();
+}
+function richPaste(e) {
+  e.preventDefault();
+  const text = ((e.clipboardData || window.clipboardData).getData('text/plain') || '');
+  try { document.execCommand('insertText', false, text); } catch (err) {}
+}
+
+// 한 행 = 「올린 파일」 또는 「공유 링크(URL)」. 3상태: ①선택(버튼2개) ②URL 입력+확인 ③칩(결과).
+//   .img-value(hidden) = 수집용 단일 값. 칩은 업로드·URL확인 공용(둘 다 「제거」로 선택 상태 복귀).
+function imageRowHtml(value, type, name) {
+  const isUpload = type === 'upload';
+  const hasValue = !!value;
+  const chipIcon = isUpload ? 'attachment' : 'link';
+  const chipLabel = isUpload ? uploadDisplayName(name, value) : value;
+  const chipHref = isUpload
+    ? (/^https:\/\//i.test(value) ? value : '')           // 업로드 파일은 https만
+    : (/^https?:\/\//i.test(value) ? value : '');          // 공유 링크는 http/https
+  return `<div class="rep-item" data-img data-img-type="${isUpload ? 'upload' : 'url'}"${isUpload && name ? ` data-img-name="${escAttr(name)}"` : ''}>
+    <div class="rep-head"><span class="rep-num">파일 첨부 또는 공유 링크</span>
+      <button type="button" class="rep-remove" onclick="removeRepRow(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>삭제</button></div>
+    <div class="field">
+      <input type="hidden" class="img-value" value="${escAttr(value)}">
+      <!-- ③ 칩(파일 업로드 결과 또는 URL 확인 결과) -->
+      <div class="img-file-chip${hasValue ? '' : ' hidden'}">
+        <span class="img-chip-icon material-icons-outlined notranslate" translate="no">${chipIcon}</span>
+        <a class="img-file-name" href="${escAttr(chipHref)}" target="_blank" rel="noopener">${escAttr(chipLabel)}</a>
+        <button type="button" class="img-file-clear" onclick="clearImageUpload(this)"><span class="material-icons-outlined notranslate" translate="no">close</span>제거</button>
+      </div>
+      <!-- ① 선택: 파일 업로드 / URL 공유 -->
+      <div class="img-choose${hasValue ? ' hidden' : ''}">
+        <button type="button" class="img-upload-btn" onclick="pickImageFile(this)"><span class="material-icons-outlined notranslate" translate="no">upload_file</span>파일 업로드</button>
+        <button type="button" class="img-upload-btn" onclick="showUrlEntry(this)"><span class="material-icons-outlined notranslate" translate="no">link</span>URL 공유</button>
+        <input type="file" class="img-file" accept=".jpg,.jpeg,.png,.webp,.pdf,.docx,.xlsx,.pptx,image/jpeg,image/png,image/webp,application/pdf" hidden onchange="onImageFilePick(this)">
+        <span class="img-status"></span>
+      </div>
+      <!-- ② URL 입력 + 확인 -->
+      <div class="img-url-entry hidden">
+        <input type="url" class="img-url-input" placeholder="https://..." onkeydown="if(event.key==='Enter'){event.preventDefault();confirmUrlEntry(this);}">
+        <button type="button" class="img-url-confirm" onclick="confirmUrlEntry(this)">확인</button>
+        <button type="button" class="img-url-cancel" onclick="cancelUrlEntry(this)">취소</button>
+      </div>
+      <div class="field-hint img-choose-hint${hasValue ? ' hidden' : ''}" style="margin-top:8px">이미지·PDF·문서(워드·엑셀·PPT)는 「파일 업로드」, 외부 링크는 「URL 공유」를 눌러 주세요.</div>
+    </div>
+  </div>`;
+}
+
+
+// 카드 HTML 골격 (형식별 분기는 CSS data-ctype 으로 표시/숨김)
+function cardHtml(id, card) {
+  const p = card.product || {};
+  const r = card.recruit || {};
+  const sale = card.sale || {};
+  const sd = card.seeding || {};
+  const grade = sd.grade || 'nano';
+
+  const segBtns = FORM_TYPES.map(ft =>
+    `<button type="button" class="seg-btn${card.form_type === ft.value ? ' active' : ''}" data-ft="${ft.value}" onclick="selectCardType('${id}','${ft.value}')">
+      <span class="material-icons-outlined notranslate" translate="no">${ft.icon}</span>
+      <span class="seg-label">${ft.label}</span></button>`).join('');
+
+  const cgArr = Array.isArray(sd.guides) && sd.guides.length ? sd.guides : [{ channel: '', guide: '' }];
+  const cgRows = cgArr.map(g => cgRowHtml(grade, g.channel, g.guide)).join('');
+  const imgArr = Array.isArray(card.images) && card.images.length ? card.images : [{ value: '' }];
+  const imgRows = imgArr.map(x => imageRowHtml(x.value, x.type, x.name)).join('');
+
+  return `<div class="ocard" id="${id}" data-card-id="${id}">
+    <div class="ocard-head" onclick="onCardHeadClick(event,'${id}')">
+      <div class="ocard-head-main">
+        <span class="ocard-chip">형식</span>
+        <span class="ocard-title empty">제품 미입력</span>
+      </div>
+      <button type="button" class="ocard-remove" onclick="removeCard(event,'${id}')"><span class="material-icons-outlined notranslate" translate="no">delete_outline</span></button>
+      <span class="ocard-chevron material-icons-outlined notranslate" translate="no">expand_more</span>
+    </div>
+    <div class="ocard-body">
+      <div class="seg">${segBtns}</div>
+      <p class="needtype-hint">위에서 모집 형식을 먼저 선택해 주세요.</p>
+
+      <div class="card-gated">
+        <!-- 제품 -->
+        <div class="field"><label>제품명</label>
+          <input type="text" class="f-product-name" placeholder="제품명" value="${escAttr(p.name)}" oninput="onCardInput('${id}')"></div>
+
+        <!-- 판매처·가격 (가구매·리뷰어) — 판매처 Qoo10 고정, 가격은 상시가만 -->
+        <div class="only-rp">
+          <div class="field"><label>판매처</label>
+            <input type="text" class="f-market" value="Qoo10" readonly style="background:#f5f5f5;color:#666"></div>
+          <div class="field"><label>판매 URL<span class="req">*</span></label>
+            <input type="url" class="f-sale-url" placeholder="www.qoo10.jp/g/..." value="${escAttr(sale.url)}" oninput="onSaleUrlInput(this)" onblur="onSaleUrlBlur(this)">
+            <div class="field-hint f-saleurl-warn" style="display:none;color:#C41E3A">Qoo10(qoo10.jp) 주소가 맞는지 확인해 주세요.</div></div>
+          <div class="field"><label>상시가<span class="req">*</span></label>
+            <input type="text" class="f-price-regular" placeholder="예: 5,300엔" value="${escAttr(sale.price_regular)}" oninput="onInput()"></div>
+        </div>
+
+        <!-- 엣코스메 희망 (리뷰어) -->
+        <div class="field only-reviewer" style="margin-bottom:10px">
+          <label class="check-row"><input type="checkbox" class="f-atcosme-wish"${sale.atcosme_wish ? ' checked' : ''} onchange="onAtcosmeToggle(this)"> 엣코스메(@cosme) 리뷰 희망</label></div>
+        <div class="field only-reviewer f-atcosme-url-wrap" style="display:${sale.atcosme_wish ? 'block' : 'none'}">
+          <label>엣코스메 제품 링크 URL<span class="req">*</span></label>
+          <input type="url" class="f-atcosme-url" placeholder="https://www.cosme.net/products/..." value="${escAttr(sale.atcosme_url)}" oninput="onInput()"></div>
+
+        <div class="row2">
+          <div class="field"><label>카테고리</label>
+            <select class="f-category" onchange="onInput()">${categoryOptionsHtml}</select></div>
+          <div class="field"><label>모집 인원</label>
+            <input type="number" class="f-slots" min="0" placeholder="예: 30" value="${escAttr(p.slots)}" oninput="onInput()"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>희망 모집 시작일</label>
+            <input type="date" class="f-recruit-start" value="${escAttr(r.recruit_start)}" onchange="onInput()"></div>
+          <div class="field"><label>희망 모집 마감일</label>
+            <input type="date" class="f-recruit-end" value="${escAttr(r.recruit_end)}" onchange="onInput()"></div>
+        </div>
+        <div class="field-hint" style="margin:-6px 0 14px">원하시는 모집 기간을 적어 주세요. 모집 시작일로부터 +30~40일로 권장 드립니다. (단기간 일정이 필요할 경우 레버브 담당자분께 소통 부탁드립니다.)</div>
+
+        <!-- 리뷰 가이드 (리뷰어) -->
+        <div class="field only-reviewer"><label>리뷰 가이드</label>
+          ${richEditorHtml(richInitial(card.review_guide), 'f-review-guide', '리뷰에 꼭 담아야 할 내용, 별점·사진 등 작성 방식을 적어 주세요.')}</div>
+
+        <!-- 시딩 상세 -->
+        <div class="only-seeding">
+          <div class="field"><label>등급</label>
+            <select class="f-grade" onchange="onGradeChange('${id}')">${SEEDING_GRADES.map(g => `<option value="${g.value}"${g.value === grade ? ' selected' : ''}>${g.label}</option>`).join('')}</select></div>
+          <div class="field"><label>채널별 게시 가이드</label>
+            <div class="cg-list">${cgRows}</div>
+            <button type="button" class="add-btn" onclick="addCgRow(this,'${id}')"><span class="material-icons-outlined notranslate" translate="no">add</span>채널 추가</button></div>
+          <div class="field"><label>촬영 가이드</label>
+            <textarea class="f-shooting" placeholder="촬영 구도·분위기·필수 컷 등을 적어 주세요." oninput="onInput()">${escAttr(sd.shooting_guide)}</textarea></div>
+          <div class="field"><label>필수 해시태그 (최대 5개)</label>
+            <input type="text" class="f-hashtags" placeholder="#브랜드명 #캠페인 (공백 또는 쉼표로 구분)" value="${escAttr(Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))}" oninput="onInput()"></div>
+          <div class="field"><label>게시물에 태그할 계정</label>
+            <input type="text" class="f-account-tags" placeholder="@브랜드공식계정" value="${escAttr(sd.account_tags)}" oninput="onInput()"></div>
+          <div class="field only-mega"><label>필수 내용</label>
+            <textarea class="f-required" placeholder="콘텐츠에 반드시 들어가야 할 내용을 적어 주세요." oninput="onInput()">${escAttr(sd.required_content)}</textarea></div>
+          <div class="field only-mega"><label>증정품</label>
+            <input type="text" class="f-gift" placeholder="추가로 제공하는 증정품이 있으면 적어 주세요." value="${escAttr(sd.gift)}" oninput="onInput()"></div>
+          <div class="field"><label>배송 안내</label>
+            <textarea class="f-shipping" placeholder="배송 방식·일정 등 안내가 있으면 적어 주세요." oninput="onInput()">${escAttr(sd.shipping_note)}</textarea></div>
+        </div>
+
+        <!-- 공통: NG · 추가 안내 · 이미지 -->
+        <div class="field"><label>금지 표현 (NG)</label>
+          ${richEditorHtml(richInitial(card.ng), 'f-ng', '콘텐츠에 사용하면 안 되는 표현·내용을 적어 주세요.')}</div>
+        <div class="field"><label>추가 안내 · 필독 사항</label>
+          ${richEditorHtml(richInitial(card.cautions), 'f-cautions', '인플루언서가 꼭 알아야 할 안내사항을 적어 주세요.')}</div>
+        <div class="field"><label>예시 이미지·자료</label>
+          <div class="field-hint" style="margin-top:0;margin-bottom:8px">참고용 이미지·자료가 있으면 「파일 업로드」로 올리거나 「URL 공유」로 링크를 넣어 주세요. (이미지·PDF·문서, 최대 5개)</div>
+          <div class="img-list">${imgRows}</div>
+          <button type="button" class="add-btn" onclick="addImageRow(this)"><span class="material-icons-outlined notranslate" translate="no">add</span>이미지·파일 추가</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// 카드 추가. opts.open=펼침, opts.prefill=연결 신청 참고값을 첫 카드에 1회 주입
+function addCard(card, opts) {
+  card = card || {};
+  opts = opts || {};
+  const id = 'card_' + (++cardSeq);
+  $('cardList').insertAdjacentHTML('beforeend', cardHtml(id, card));
+  const el = $(id);
+
+  // 형식 미리 지정된 경우(기존 data 복원) 표시 분기 적용
+  if (card.form_type) applyCardType(el, card.form_type);
+  if ((card.seeding && card.seeding.grade) || card.form_type === 'seeding') {
+    el.setAttribute('data-cgrade', (card.seeding && card.seeding.grade) || 'nano');
+  }
+
+  // 빈 새 카드 + 첫 카드 + 연결 신청값 있으면 모집 정보 미리 채움
+  if (opts.prefill && !usedInitial && initialValues) {
+    usedInitial = true;
+    const slots = el.querySelector('.f-slots');
+    if (slots && initialValues.total_qty != null) slots.value = initialValues.total_qty;
+  }
+
+  if (opts.open) openCard(id);
+  updateCardSummary(id);
+  refreshEmptyState();
+  if (opts.prefill) onInput();   // 사용자가 직접 추가한 카드는 즉시 저장(구조 보존)
+  onSpyScroll();
+  return id;
+}
+
+function applyCardType(el, ft) {
+  el.setAttribute('data-ctype', ft);
+  el.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.dataset.ft === ft));
+  if (ft === 'seeding' && !el.getAttribute('data-cgrade')) el.setAttribute('data-cgrade', 'nano');
+}
+
+// 형식 선택. 다른 형식으로 바꾸면 그 카드의 형식 전용 입력만 비움(공통·다른 카드는 보존)
+function selectCardType(id, ft) {
+  const el = $(id);
+  if (!el) return;
+  const prev = el.getAttribute('data-ctype');
+  if (prev === ft) return;
+  if (prev) {
+    const ok = window.confirm('형식을 바꾸면 이전 형식에서만 쓰는 입력(판매가격·판매처 또는 시딩 항목)은 지워집니다. 계속할까요?');
+    if (!ok) return;
+    clearCardTypeFields(el);
+  }
+  applyCardType(el, ft);
+  updateCardSummary(id);
+  onInput();
+}
+
+// 형식 전환 시 형식 전용 입력 비우기 (공통 필드는 보존)
+function clearCardTypeFields(el) {
+  // .f-market 은 readonly 고정값(Qoo10)이라 비우지 않음
+  ['.f-sale-url', '.f-price-regular', '.f-atcosme-url',
+   '.f-review-guide', '.f-hashtags', '.f-account-tags',
+   '.f-shooting', '.f-required', '.f-gift', '.f-shipping'].forEach(sel => {
+    const node = el.querySelector(sel);
+    if (node) { if (node.isContentEditable) node.innerHTML = ''; else node.value = ''; }
+  });
+  const atcosmeWish = el.querySelector('.f-atcosme-wish');
+  if (atcosmeWish) atcosmeWish.checked = false;
+  const atcosmeWrap = el.querySelector('.f-atcosme-url-wrap');
+  if (atcosmeWrap) atcosmeWrap.style.display = 'none';
+  el.querySelector('.cg-list').innerHTML = cgRowHtml('nano', '', '');
+  el.setAttribute('data-cgrade', 'nano');
+  const gradeSel = el.querySelector('.f-grade');
+  if (gradeSel) gradeSel.value = 'nano';
+}
+
+// 엣코스메 희망 체크 → 제품 링크 URL 입력칸 표시/숨김
+function onAtcosmeToggle(input) {
+  const card = input.closest('.ocard');
+  const wrap = card && card.querySelector('.f-atcosme-url-wrap');
+  if (wrap) wrap.style.display = input.checked ? 'block' : 'none';
+  if (!input.checked && card) {
+    const urlInput = card.querySelector('.f-atcosme-url');
+    if (urlInput) urlInput.value = '';   // 체크 해제 시 입력값 비움
+  }
+  onInput();
+}
+
+// 판매 URL 입력 — dirty 마킹 + Qoo10 주소 경고 토글
+function onSaleUrlInput(input) {
+  onInput();
+  toggleSaleUrlWarn(input);
+}
+// 판매 URL 포커스 아웃 — 스킴 누락·ttp:// 등 자동 보정 후 경고 재판정
+function onSaleUrlBlur(input) {
+  const v = (input.value || '').trim();
+  if (v) input.value = normalizeUrl(v);
+  toggleSaleUrlWarn(input);
+}
+// 입력값이 Qoo10(qoo10.jp) 주소가 아니면 경고만 표시(제출은 허용)
+function toggleSaleUrlWarn(input) {
+  const warn = input.parentElement.querySelector('.f-saleurl-warn');
+  if (!warn) return;
+  const v = (input.value || '').trim().toLowerCase();
+  const isQoo10 = !v || v.includes('qoo10');
+  warn.style.display = isQoo10 ? 'none' : '';
+}
+
+// 시딩 등급 변경 → 채널 선택지·미들메가 전용 항목 표시 갱신(가이드 텍스트는 보존)
+function onGradeChange(id) {
+  const el = $(id);
+  if (!el) return;
+  const grade = el.querySelector('.f-grade').value || 'nano';
+  el.setAttribute('data-cgrade', grade);
+  const rows = Array.from(el.querySelectorAll('[data-cg]')).map(row => ({
+    channel: row.querySelector('.cg-channel').value,
+    guide: row.querySelector('.cg-guide').value,
+  }));
+  const allowed = SEEDING_CHANNELS_BY_GRADE[grade] || [];
+  const list = el.querySelector('.cg-list');
+  list.innerHTML = (rows.length ? rows : [{ channel: '', guide: '' }]).map(g =>
+    cgRowHtml(grade, allowed.includes(g.channel) ? g.channel : '', g.guide)).join('');
+  onInput();
+}
+
+// ── 아코디언 ──
+function onCardHeadClick(ev, id) {
+  if (ev.target.closest('.ocard-remove')) return;   // 삭제 버튼 클릭은 토글 제외
+  const el = $(id);
+  if (!el) return;
+  if (el.classList.contains('open')) { el.classList.remove('open'); onSpyScroll(); return; }
+  openCard(id);
+}
+function openCard(id) {
+  document.querySelectorAll('.ocard.open').forEach(c => c.classList.remove('open'));
+  const el = $(id);
+  if (el) el.classList.add('open');
+  onSpyScroll();
+}
+
+function removeCard(ev, id) {
+  ev.stopPropagation();
+  const el = $(id);
+  if (!el) return;
+  const ok = window.confirm('이 제품(카드)을 삭제할까요? 입력한 내용이 사라집니다.');
+  if (!ok) return;
+  el.remove();
+  refreshEmptyState();
+  onInput();
+  onSpyScroll();
+}
+
+// 제품명 입력 시 카드 헤더 요약 즉시 갱신 + 자동저장
+function onCardInput(id) {
+  updateCardSummary(id);
+  onSpyScroll();
+  onInput();
+}
+
+function updateCardSummary(id) {
+  const el = $(id);
+  if (!el) return;
+  const ft = el.getAttribute('data-ctype');
+  const chip = el.querySelector('.ocard-chip');
+  chip.className = 'ocard-chip' + (ft ? ' ' + ft : '');
+  chip.textContent = ft ? FORM_TYPE_LABEL[ft] : '형식';
+  const titleEl = el.querySelector('.ocard-title');
+  const name = (el.querySelector('.f-product-name').value || '').trim();
+  titleEl.textContent = name || '제품 미입력';
+  titleEl.classList.toggle('empty', !name);
+}
+
+// ── 반복 행(채널 가이드·이미지) ──
+function addCgRow(btn, id) {
+  const el = $(id);
+  const grade = el.getAttribute('data-cgrade') || 'nano';
+  el.querySelector('.cg-list').insertAdjacentHTML('beforeend', cgRowHtml(grade, '', ''));
+  onInput();
+}
+function addImageRow(btn) {
+  const list = btn.closest('.field').querySelector('.img-list');
+  if (list.querySelectorAll('[data-img]').length >= MAX_IMAGES_PER_CARD) {
+    showToast(`이미지·파일은 최대 ${MAX_IMAGES_PER_CARD}개까지 추가할 수 있어요.`);
+    return;
+  }
+  list.insertAdjacentHTML('beforeend', imageRowHtml('', 'url'));
+  onInput();
+}
+function removeRepRow(btn) {
+  const list = btn.closest('.cg-list, .img-list');
+  // 채널 가이드(cg-list)는 최소 1개 유지, 예시 이미지(img-list)는 선택사항이라 0개까지 삭제 허용
+  if (list && list.classList.contains('cg-list') && list.children.length <= 1) {
+    showToast('최소 1개는 남겨 주세요.'); return;
+  }
+  btn.closest('.rep-item').remove();
+  onInput();
+}
+
+// ══════════════════════════════════════
+// 예시 이미지·파일 업로드 (orient-images 버킷, 익명 토큰 검증)
+//   sales 정적 페이지라 dev/lib/image-compress.js 미사용 → 슬림 인라인
+// ══════════════════════════════════════
+function pickImageFile(btn) { btn.parentNode.querySelector('.img-file').click(); }
+
+function fileExt(name) {
+  const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
+  return m ? m[1] : '';
+}
+function randId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'f' + Date.now() + Math.random().toString(36).slice(2, 10);
+}
+function isHeicFile(file) {
+  const t = (file.type || '').toLowerCase(), n = (file.name || '').toLowerCase();
+  return /image\/(heic|heif)/.test(t) || /\.(heic|heif)$/.test(n);
+}
+
+// heic2any lazy-load (한 번만)
+const HEIC2ANY_CDN = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+let _heic2anyLoading = null;
+function loadHeic2any() {
+  if (typeof window.heic2any === 'function') return Promise.resolve();
+  if (_heic2anyLoading) return _heic2anyLoading;
+  _heic2anyLoading = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = HEIC2ANY_CDN;
+    s.onload = resolve;
+    s.onerror = () => { _heic2anyLoading = null; reject(new Error('heic_load_failed')); };
+    document.head.appendChild(s);
+  });
+  return _heic2anyLoading;
+}
+
+// 이미지 → 긴 변 2048px JPEG 압축(HEIC 선변환·EXIF 보정). 실패 시 throw → 호출부가 원본 폴백
+async function compressOrientImage(file) {
+  let work = file;
+  if (isHeicFile(file)) {
+    await loadHeic2any();
+    const conv = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+    work = Array.isArray(conv) ? conv[0] : conv;
+  }
+  let bitmap;
+  try { bitmap = await createImageBitmap(work, { imageOrientation: 'from-image' }); }
+  catch (e) { bitmap = await createImageBitmap(work); }
+  const scale = Math.min(1, 2048 / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+  if (!blob) throw new Error('compress_failed');
+  return new File([blob], 'image.jpg', { type: 'image/jpeg' });
+}
+
+function setUploadStatus(row, kind, text) {
+  const el = row.querySelector('.img-status');
+  if (!el) return;
+  el.className = 'img-status' + (kind ? ' ' + kind : '');
+  el.textContent = text || '';
+}
+function updateUploadBusy() {
+  const btn = $('btnReview');         // 업로드 중이면 제출(미리보기) 버튼 비활성
+  if (btn) btn.disabled = uploadingCount > 0;
+}
+
+async function onImageFilePick(input) {
+  const file = input.files && input.files[0];
+  input.value = '';                   // 같은 파일 재선택 가능하게 즉시 초기화
+  if (!file) return;
+  const row = input.closest('[data-img]');
+  if (!row) return;
+
+  if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
+  if (!sb || !token) { showToast('지금은 업로드할 수 없어요. 링크(URL)로 넣어 주세요.'); return; }
+
+  const ext = fileExt(file.name);
+  const isImage = (file.type || '').startsWith('image/') || isHeicFile(file) || ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+  if (!isImage && !ORIENT_UPLOAD_MIME[ext]) {
+    showToast('이미지·PDF·문서(워드·엑셀·PPT) 파일만 올릴 수 있어요.');
+    return;
+  }
+
+  setUploadStatus(row, 'uploading', '업로드 중…');
+  uploadingCount++; updateUploadBusy();
+  try {
+    let blob = file, upExt = ext, contentType = ORIENT_UPLOAD_MIME[ext] || file.type;
+    if (isImage) {
+      try { blob = await compressOrientImage(file); upExt = 'jpg'; contentType = 'image/jpeg'; }
+      catch (e) { console.error('[orient compress]', e); blob = file; }   // 압축 실패 시 원본 시도
+    }
+    if (blob.size > ORIENT_UPLOAD_MAX_BYTES) throw new Error('too_large');
+    if (!ORIENT_UPLOAD_MIME[upExt]) throw new Error('bad_type');
+
+    const path = `${token}/${randId()}.${upExt}`;
+    const { error } = await sb.storage.from(ORIENT_UPLOAD_BUCKET).upload(path, blob, { contentType, upsert: false });
+    if (error) throw error;
+    const { data: pub } = sb.storage.from(ORIENT_UPLOAD_BUCKET).getPublicUrl(path);
+    const url = (pub && pub.publicUrl) || '';
+    if (!url) throw new Error('no_url');
+
+    if (!row.isConnected) return;     // 업로드 중 행이 삭제됐으면 무시
+    // 값 저장 + 칩으로 전환(파일명 표시 → URL이 바뀐 듯 보이지 않게)
+    row.querySelector('.img-value').value = url;
+    row.dataset.imgType = 'upload';
+    row.dataset.imgName = file.name;
+    setUploadStatus(row, '', '');
+    renderImgChip(row, 'attachment', file.name, /^https:\/\//i.test(url) ? url : '');
+    onInput();                        // 성공 후에만 저장 트리거(빈값 중간저장 방지)
+  } catch (e) {
+    console.error('[orient upload]', e);
+    const msg = (e && e.message === 'too_large') ? '파일이 너무 커요(최대 10MB).' : '업로드에 실패했어요. 링크(URL)로 넣어 주세요.';
+    if (row.isConnected) setUploadStatus(row, 'error', msg);
+    showToast(msg);
+  } finally {
+    uploadingCount = Math.max(0, uploadingCount - 1);
+    updateUploadBusy();
+  }
+}
+
+// 칩(결과) 표시 + 선택·URL입력 영역 숨김. 업로드·URL확인 공용
+function renderImgChip(row, icon, label, href) {
+  row.querySelector('.img-chip-icon').textContent = icon;
+  const a = row.querySelector('.img-file-name');
+  a.textContent = label;
+  a.setAttribute('href', href || '');
+  row.querySelector('.img-file-chip').classList.remove('hidden');
+  row.querySelector('.img-choose').classList.add('hidden');
+  row.querySelector('.img-url-entry').classList.add('hidden');
+  row.querySelector('.img-choose-hint').classList.add('hidden');
+}
+// 선택 상태(버튼 2개)로 복귀
+function showChooseState(row) {
+  row.querySelector('.img-file-chip').classList.add('hidden');
+  row.querySelector('.img-url-entry').classList.add('hidden');
+  row.querySelector('.img-choose').classList.remove('hidden');
+  row.querySelector('.img-choose-hint').classList.remove('hidden');
+}
+
+// 「URL 공유」 클릭 → URL 입력칸 노출
+function showUrlEntry(btn) {
+  const row = btn.closest('[data-img]');
+  row.querySelector('.img-choose').classList.add('hidden');
+  row.querySelector('.img-choose-hint').classList.add('hidden');
+  const entry = row.querySelector('.img-url-entry');
+  entry.classList.remove('hidden');
+  const inp = entry.querySelector('.img-url-input');
+  inp.focus();
+}
+// URL 입력 취소 → 선택 상태로
+function cancelUrlEntry(btn) {
+  const row = btn.closest('[data-img]');
+  row.querySelector('.img-url-input').value = '';
+  showChooseState(row);
+}
+// URL 확인 → 칩으로 전환(파일 업로드처럼 「제거」 가능)
+function confirmUrlEntry(btn) {
+  const row = btn.closest('[data-img]');
+  const raw = row.querySelector('.img-url-input').value;
+  const url = normalizeUrl(raw);
+  if (!url) { showToast('공유 링크(URL)를 입력해 주세요.'); return; }
+  row.querySelector('.img-value').value = url;
+  row.dataset.imgType = 'url';
+  delete row.dataset.imgName;
+  renderImgChip(row, 'link', url, /^https?:\/\//i.test(url) ? url : '');
+  onInput();
+}
+
+// 칩 「제거」 → 값 비우고 선택 상태(버튼 2개)로 복귀. 행은 유지
+function clearImageUpload(btn) {
+  const row = btn.closest('[data-img]');
+  if (!row) return;
+  row.querySelector('.img-value').value = '';
+  row.dataset.imgType = 'url';
+  delete row.dataset.imgName;
+  row.querySelector('.img-url-input').value = '';
+  setUploadStatus(row, '', '');
+  showChooseState(row);
+  onInput();
+}
+
+// ══════════════════════════════════════
+// 폼 수집 (DOM → data)
+//   형식 전용 입력도 DOM엔 존재하나 숨겨져 비어 있으면 빈 문자열로 자연 제외
+// ══════════════════════════════════════
+function collectCard(el) {
+  const ft = el.getAttribute('data-ctype') || '';
+  const grade = el.getAttribute('data-cgrade') || 'nano';
+
+  const guides = Array.from(el.querySelectorAll('[data-cg]')).map(row => ({
+    channel: row.querySelector('.cg-channel').value,
+    guide: row.querySelector('.cg-guide').value.trim(),
+  })).filter(g => g.channel || g.guide);
+
+  const images = Array.from(el.querySelectorAll('[data-img]')).map(row => {
+    const type = row.dataset.imgType === 'upload' ? 'upload' : 'url';
+    const obj = { type, value: normalizeUrl(row.querySelector('.img-value').value) };
+    if (type === 'upload' && row.dataset.imgName) obj.name = row.dataset.imgName;
+    return obj;
+  }).filter(x => x.value);
+
+  const hashtags = el.querySelector('.f-hashtags').value
+    .split(/[\s,]+/).map(s => s.trim()).filter(Boolean).slice(0, MAX_HASHTAGS);
+
+  return {
+    form_type: ft,
+    product: {
+      name: el.querySelector('.f-product-name').value.trim(),
+      category: el.querySelector('.f-category').value.trim(),
+      slots: el.querySelector('.f-slots').value.trim(),
+    },
+    recruit: {
+      recruit_start: el.querySelector('.f-recruit-start').value,
+      recruit_end: el.querySelector('.f-recruit-end').value,
+    },
+    sale: {
+      market: 'Qoo10',
+      url: normalizeUrl(el.querySelector('.f-sale-url').value),
+      price_regular: el.querySelector('.f-price-regular').value.trim(),
+      atcosme_wish: el.querySelector('.f-atcosme-wish').checked,
+      atcosme_url: el.querySelector('.f-atcosme-url').value.trim(),
+    },
+    review_guide: richValue(el.querySelector('.f-review-guide')),
+    seeding: {
+      grade,
+      channels: guides.map(g => g.channel).filter(Boolean),
+      hashtags,
+      account_tags: el.querySelector('.f-account-tags').value.trim(),
+      shooting_guide: el.querySelector('.f-shooting').value.trim(),
+      required_content: el.querySelector('.f-required').value.trim(),
+      gift: el.querySelector('.f-gift').value.trim(),
+      shipping_note: el.querySelector('.f-shipping').value.trim(),
+      guides,
+    },
+    ng: richValue(el.querySelector('.f-ng')),
+    cautions: richValue(el.querySelector('.f-cautions')),
+    images,
+  };
+}
+
+function collectData() {
+  const cards = Array.from(document.querySelectorAll('.ocard')).map(collectCard);
+  return {
+    brand: {
+      name: $('f_brand_name').value.trim(),
+      intro: $('f_brand_intro').value.trim(),
+      official_accounts: $('f_brand_accounts').value.trim(),
+    },
+    cards,
+  };
+}
+
+// ══════════════════════════════════════
+// 자동저장 (debounce + 낙관적 락)
+// ══════════════════════════════════════
+function onInput() {
+  if (conflicted) return;
+  dirty = true;
+  setSaveState('saving', '저장 중…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doAutosave, AUTOSAVE_DELAY);
+}
+
+function flushAutosave() {
+  if (conflicted || !dirty) return;
+  clearTimeout(saveTimer);
+  doAutosave();
+}
+
+function setSaveState(kind, text) {
+  const el = $('saveState');
+  el.className = 'save-state' + (kind ? ' ' + kind : '');
+  const ico = { saving: 'cloud_sync', saved: 'cloud_done', error: 'cloud_off', idle: 'cloud_done' }[kind] || 'cloud_done';
+  el.querySelector('.material-icons-outlined').textContent = ico;
+  $('saveStateText').textContent = text;
+}
+
+function localBackup(data) {
+  try { localStorage.setItem(LS_KEY_PREFIX + token, JSON.stringify({ data, at: Date.now() })); } catch (e) {}
+}
+
+async function doAutosave() {
+  if (conflicted || !sb || !token) return;
+  const data = collectData();
+  localBackup(data);
+  try {
+    const { data: res, error } = await sb.rpc('save_orient_draft', {
+      p_token: token, p_data: data, p_version: currentVersion
+    });
+    if (error) throw error;
+
+    if (res && res.success === true) {
+      currentVersion = res.version;
+      dirty = false;
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      setSaveState('saved', `저장됨 ${hh}:${mm}`);
+      return;
+    }
+    if (res && res.reason === 'conflict') return enterConflict();
+    if (res && res.reason === 'data_too_large') { setSaveState('error', '내용이 너무 깁니다'); return; }
+    if (res && (res.reason === 'expired' || res.reason === 'consumed')) { setSaveState('error', '저장할 수 없습니다'); return; }
+    setSaveState('error', '저장 실패');
+  } catch (e) {
+    console.error('[autosave]', e);
+    setSaveState('error', '저장 실패 (다시 시도됨)');
+  }
+}
+
+function enterConflict() {
+  conflicted = true;
+  clearTimeout(saveTimer);
+  $('conflictNote').classList.remove('hidden');
+  setSaveState('error', '다른 곳에서 수정됨');
+}
+
+// ══════════════════════════════════════
+// 미리보기 (제출 전 항상 거치기) — 사양서 §15-13
+// ══════════════════════════════════════
+// 필수 미입력 항목을 DOM 카드 순서대로 탐색. 첫 번째 실패의 { message, card, target } 반환(없으면 null)
+// (card = 해당 .ocard 요소(접혀 있으면 펼침), target = 강조·스크롤할 입력 요소)
+function findInvalidField() {
+  const cardEls = Array.from(document.querySelectorAll('#cardList > .ocard'));
+  if (!cardEls.length) {
+    return { message: '제품(카드)을 1개 이상 추가해 주세요.', card: null, target: $('btnAddCard') };
+  }
+  let n = 0;
+  for (const el of cardEls) {
+    n++;
+    const c = collectCard(el);
+    if (!c.form_type)
+      return { message: `${n}번째 카드의 모집 형식을 선택해 주세요.`, card: el, target: el.querySelector('.seg') };
+    if (!c.product.name)
+      return { message: `${n}번째 카드의 제품명을 입력해 주세요.`, card: el, target: el.querySelector('.f-product-name') };
+    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.url)
+      return { message: `${n}번째 카드의 판매 URL을 입력해 주세요.`, card: el, target: el.querySelector('.f-sale-url') };
+    if ((c.form_type === 'reviewer' || c.form_type === 'proxy_purchase' || c.form_type === 'seeding') && !c.sale.price_regular)
+      return { message: `${n}번째 카드의 상시가를 입력해 주세요.`, card: el, target: el.querySelector('.f-price-regular') };
+    if (c.form_type === 'reviewer' && c.sale.atcosme_wish && !c.sale.atcosme_url)
+      return { message: `${n}번째 카드의 엣코스메 제품 링크 URL을 입력해 주세요.`, card: el, target: el.querySelector('.f-atcosme-url') };
+    // URL을 입력하고 「확인」을 누르지 않아 값이 저장되지 않은 행 방지
+    const pendingUrl = el.querySelector('.img-url-entry:not(.hidden) .img-url-input');
+    if (pendingUrl && pendingUrl.value.trim())
+      return { message: `${n}번째 카드의 공유 링크를 「확인」 버튼으로 확정해 주세요.`, card: el, target: pendingUrl };
+  }
+  return null;
+}
+
+function clearInvalidMarks() {
+  document.querySelectorAll('.field-invalid').forEach(e => e.classList.remove('field-invalid'));
+}
+
+// 미입력 항목 위치로 이동 + 눈에 띄게 강조. 접힌 카드는 먼저 펼쳐 입력칸을 노출
+function focusInvalid(v) {
+  clearInvalidMarks();
+  if (v.card && !v.card.classList.contains('open')) openCard(v.card.id);
+  const t = v.target;
+  if (!t) return;
+  requestAnimationFrame(() => {
+    t.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    t.classList.add('field-invalid');
+    const focusable = (t.matches && t.matches('input,textarea,select')) ? t : t.querySelector('input,textarea,select');
+    if (focusable) { try { focusable.focus({ preventScroll: true }); } catch (e) {} }
+    // 사용자가 그 항목을 손대면 강조 해제(텍스트 입력·형식 버튼 클릭 모두 대응)
+    const off = () => t.classList.remove('field-invalid');
+    t.addEventListener('input', off, { once: true });
+    t.addEventListener('click', off, { once: true });
+  });
+}
+
+function openPreview() {
+  if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
+  if (uploadingCount > 0) { showToast('파일 업로드가 끝나면 제출할 수 있어요.'); return; }
+  flushAutosave();
+  const invalid = findInvalidField();
+  if (invalid) { showToast(invalid.message); focusInvalid(invalid); return; }
+
+  const data = collectData();
+  $('previewBody').innerHTML = renderPreview(data);
+  $('screenForm').classList.add('hidden');
+  $('screenPreview').classList.remove('hidden');
+  $('btnReview').classList.add('hidden');
+  $('btnBackToEdit').classList.remove('hidden');
+  $('btnSubmit').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function closePreview() {
+  $('screenPreview').classList.add('hidden');
+  $('screenForm').classList.remove('hidden');
+  $('btnReview').classList.remove('hidden');
+  $('btnBackToEdit').classList.add('hidden');
+  $('btnSubmit').classList.add('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function pvRow(k, v) {
+  const val = (v == null || v === '') ? '<span class="pv-v muted">—</span>' : `<span class="pv-v">${escAttr(v)}</span>`;
+  return `<div class="pv-row"><span class="pv-k">${escAttr(k)}</span>${val}</div>`;
+}
+// 리치 텍스트 필드용 미리보기 행(sanitize HTML 렌더)
+function pvRowHtml(k, html) {
+  const safe = richSanitize(html);
+  const val = safe ? `<span class="pv-v">${safe}</span>` : '<span class="pv-v muted">—</span>';
+  return `<div class="pv-row"><span class="pv-k">${escAttr(k)}</span>${val}</div>`;
+}
+
+function renderPreviewCard(c, idx) {
+  const ft = c.form_type;
+  let rows = pvRow('형식', FORM_TYPE_LABEL[ft] || ft);
+  rows += pvRow('제품명', c.product.name);
+  if (ft === 'reviewer' || ft === 'proxy_purchase' || ft === 'seeding') {
+    rows += pvRow('판매처', c.sale.market || 'Qoo10');
+    rows += pvRow('판매 URL', c.sale.url);
+    rows += pvRow('상시가', c.sale.price_regular);
+  }
+  rows += pvRow('카테고리', categoryLabel(c.product.category));
+  rows += pvRow('모집 인원', c.product.slots);
+  rows += pvRow('희망 모집', [c.recruit.recruit_start, c.recruit.recruit_end].filter(Boolean).join(' ~ '));
+  if (ft === 'reviewer') {
+    rows += pvRow('엣코스메 희망', c.sale.atcosme_wish ? '희망' : '비희망');
+    if (c.sale.atcosme_wish) rows += pvRow('엣코스메 링크', c.sale.atcosme_url);
+    rows += pvRowHtml('리뷰 가이드', c.review_guide);
+  }
+  if (ft === 'seeding') {
+    const sd = c.seeding;
+    rows += pvRow('등급', sd.grade === 'middle_mega' ? '미들·메가' : '나노');
+    rows += pvRow('채널', (sd.guides || []).map(g => CHANNEL_LABEL[g.channel] || g.channel).filter(Boolean).join(', '));
+    rows += pvRow('촬영 가이드', sd.shooting_guide);
+    rows += pvRow('해시태그', (sd.hashtags || []).join(' '));
+    rows += pvRow('계정 태그', sd.account_tags);
+    if (sd.grade === 'middle_mega') {
+      rows += pvRow('필수 내용', sd.required_content);
+      rows += pvRow('증정품', sd.gift);
+    }
+    rows += pvRow('배송 안내', sd.shipping_note);
+  }
+  if (c.ng) rows += pvRowHtml('NG', c.ng);
+  if (c.cautions) rows += pvRowHtml('추가 안내', c.cautions);
+  if (c.images.length) rows += pvRow('이미지', c.images.map(x => x.value).join('\n'));
+
+  return `<div class="pv-card">
+    <div class="pv-card-head">
+      <span class="ocard-chip ${escAttr(ft)}">${escAttr(FORM_TYPE_LABEL[ft] || ft)}</span>
+      <span class="pv-name">${escAttr(c.product.name || `제품 ${idx + 1}`)}</span>
+    </div>${rows}</div>`;
+}
+
+function renderPreview(data) {
+  const b = data.brand;
+  const brandCard = `<div class="pv-card">
+    <div class="pv-card-head"><span class="pv-name">브랜드 정보</span></div>
+    ${pvRow('브랜드명', b.name)}${pvRow('소개', b.intro)}${pvRow('공식 계정', b.official_accounts)}
+  </div>`;
+  return brandCard + data.cards.map(renderPreviewCard).join('');
+}
+
+// categoryOptionsHtml 에서 code → 표시 라벨 추출 (미리보기용)
+function categoryLabel(code) {
+  if (!code) return '';
+  const tmp = document.createElement('select');
+  tmp.innerHTML = categoryOptionsHtml;
+  const opt = tmp.querySelector(`option[value="${CSS.escape(code)}"]`);
+  return opt ? opt.textContent : code;
+}
+
+// ══════════════════════════════════════
+// 제출
+// ══════════════════════════════════════
+async function submitSheet() {
+  if (conflicted) { showToast('새로고침 후 다시 시도해 주세요.'); return; }
+  if (!sb || !token) return;
+
+  const invalid = findInvalidField();
+  if (invalid) { closePreview(); showToast(invalid.message); focusInvalid(invalid); return; }
+  const data = collectData();
+
+  const btn = $('btnSubmit');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '제출 중…';
+  clearTimeout(saveTimer);
+
+  try {
+    const { data: res, error } = await sb.rpc('submit_orient_sheet', {
+      p_token: token, p_data: data, p_version: currentVersion
+    });
+    if (error) throw error;
+
+    if (res && res.success === true) {
+      currentVersion = res.version;
+      currentStatus = 'submitted';
+      dirty = false;
+      try { localStorage.removeItem(LS_KEY_PREFIX + token); } catch (e) {}
+      closePreview();
+      enterFormScreen();
+      setSaveState('saved', '제출 완료');
+      showToast('제출되었습니다. 발행 전까지 수정할 수 있어요.');
+      return;
+    }
+    if (res && res.reason === 'conflict') { enterConflict(); closePreview(); return; }
+    if (res && res.reason === 'data_required') { showToast('내용을 입력해 주세요.'); return; }
+    if (res && res.reason === 'data_too_large') { showToast('내용이 너무 깁니다. 줄여 주세요.'); return; }
+    if (res && (res.reason === 'expired' || res.reason === 'consumed')) {
+      showToast('제출할 수 없는 상태입니다.'); showErrorScreen(res.reason); return;
+    }
+    showToast('제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  } catch (e) {
+    console.error('[submit]', e);
+    showToast('제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+// 미저장 이탈 경고
+window.addEventListener('beforeunload', (e) => {
+  if (dirty && !conflicted) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// ══════════════════════════════════════
+// 스크롤 스파이 — 헤더에 현재 작성 영역 제목 표시
+// 맨 위(인트로)면 REVERB 로고, 어떤 섹션이 헤더 밑선을 지나면 그 제목으로 교체
+// ══════════════════════════════════════
+let spyRaf = 0;
+function spyTargets() {
+  const list = [];
+  const brand = document.querySelector('#screenForm .section');
+  if (brand) list.push({ el: brand, title: '브랜드 정보' });
+  document.querySelectorAll('#cardList > .ocard').forEach((c, i) => {
+    const t = c.querySelector('.ocard-title');
+    const name = (t && !t.classList.contains('empty')) ? t.textContent.trim() : '';
+    list.push({ el: c, title: name ? `제품 ${i + 1} · ${name}` : `제품 ${i + 1}` });
+  });
+  return list;
+}
+function updateSpy() {
+  spyRaf = 0;
+  const brandBox = $('headerBrand'), spyBox = $('headerSpy');
+  if (!brandBox || !spyBox) return;
+  // 폼 화면이 아니면 항상 로고
+  if ($('screenForm').classList.contains('hidden')) {
+    brandBox.classList.remove('hidden'); spyBox.classList.add('hidden'); return;
+  }
+  const line = $('siteHeader').offsetHeight + 4;   // 헤더 밑선 살짝 아래
+  let cur = null;
+  for (const t of spyTargets()) {
+    if (t.el.getBoundingClientRect().top <= line) cur = t; else break;
+  }
+  if (cur) {
+    $('headerSpyTitle').textContent = cur.title;
+    spyBox.classList.remove('hidden'); brandBox.classList.add('hidden');
+  } else {
+    brandBox.classList.remove('hidden'); spyBox.classList.add('hidden');
+  }
+}
+function onSpyScroll() { if (!spyRaf) spyRaf = requestAnimationFrame(updateSpy); }
+window.addEventListener('scroll', onSpyScroll, { passive: true });
+window.addEventListener('resize', onSpyScroll, { passive: true });
+
+boot();
+</script>
+</body>
+</html>

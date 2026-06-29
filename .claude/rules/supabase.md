@@ -113,6 +113,15 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 
 **Why:** 개발 세션이 worktree에서 만든 마이그레이션 파일이 사용자가 보는 메인 폴더 트리에 안 떠서 "언제부턴가 파일을 안 올려준다"는 오해가 반복됨. 파일은 정상 생성됐고 위치만 다른 것 (2026-05-21 진단). 메모리 `feedback_migration_abspath_in_worktree.md` 와 함께 영구 적용.
 
+### 기준 데이터(lookup_values 등) 추가 시 기존 중복 확인 (필수, 2026-06-23)
+- `lookup_values`(채널·카테고리·콘텐츠 종류·반려사유 등) 같은 **기준 데이터/선택지성 행**을 추가하는 마이그레이션·시드는, 작성 **전에 반드시 기존 동종 항목(같은 `kind`)을 조회**해 의미 중복이 없는지 확인한다. 표기·대소문자·전각/반각 차이(`@Cosme` vs `@cosme`)도 중복으로 본다.
+- ⚠️ **함정**: `supabase/seed/lookup_values.sql`(초기 데이터)에 이미 있는 항목을 후속 마이그레이션이 **다른 `code`로 또 추가**하면, 식별자가 달라 유니크 제약에 안 걸리고 **화면 선택지에 중복 노출**된다. 시드는 메인 폴더 트리에 늘 보이지만 개발 세션이 마이그레이션만 보고 시드를 안 읽는 경우 발생.
+- 확인 절차(둘 다): ① `grep -rni '<항목명>' supabase/seed/ supabase/migrations/` 로 기존 정의 탐색 ② 개발 DB에서 `SELECT code, name_ko, name_ja, sort_order, active FROM lookup_values WHERE kind = '<kind>' ORDER BY sort_order;` 로 실제 현황 조회.
+- `reverb-supabase-expert` 는 `lookup_values`·기준 데이터 추가 마이그레이션을 점검할 때 **기존 동종 항목과의 중복 여부를 필수 확인**한다.
+- 이건 `planning.md` 「규칙 A — 현재 상태 검증」(사양서 작성 전, 기획 세션)의 **개발 세션·마이그레이션 작성 단계 짝**이다. 사양서에 안 잡혀도 마이그레이션 작성자가 한 번 더 막는다.
+
+**Why:** 마이그레이션 157(LIPS·@cosme 채널 추가)이 시드 `lookup_values.sql` 의 「엣코스메(name_ja=`@Cosme`, code=`channel-96r9y3`)」를 확인하지 않고 「`@cosme`(code=`cosme`)」를 또 추가 → 캠페인 등록 화면 채널 선택지에 `@Cosme`·`@cosme` 가 나란히 중복 노출. 코드 정적 리뷰로는 못 잡는 **데이터 의미 중복**이라, 마이그레이션 작성 단계의 기존 항목 확인이 유일한 방어선 (2026-06-23 발견).
+
 ## 계정 열거 방지
 - 정의·구현 패턴(비밀번호 찾기 조건부 메시지 등)은 `.claude/rules/security.md` 「계정 열거 방지 (Account Enumeration)」 정의처 참조
 

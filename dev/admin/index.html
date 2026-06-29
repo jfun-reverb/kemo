@@ -97,19 +97,21 @@
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
         <div class="admin-si-lbl">캠페인</div>
         <div class="admin-si" data-pane="brand-ops" id="adminBrandOpsSi" onclick="navAdminPaneReload('brand-ops')"><span class="si-icon material-icons-round">monitor_heart</span><span class="si-text">운영 현황</span></div>
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
-        <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
+        <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none">0</span></div>
-        <div class="admin-si-lbl">브랜드 서베이</div>
+        <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
         <div class="admin-si" data-pane="companies" id="adminCompaniesSi" onclick="navAdminPaneReload('companies')"><span class="si-icon material-icons-round">corporate_fare</span><span class="si-text">회사 관리</span></div>
         <div class="admin-si" data-pane="brands" id="adminBrandsSi" onclick="navAdminPaneReload('brands')"><span class="si-icon material-icons-round">business</span><span class="si-text">브랜드 관리</span></div>
-        <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
+        <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
+        <div class="admin-si" data-pane="orient-sheets" id="adminOrientSheetsSi" onclick="navAdminPaneReload('orient-sheets')"><span class="si-icon material-icons-round">assignment_turned_in</span><span class="si-text">오리엔시트 현황</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -139,6 +141,15 @@
     <main class="admin-main">
 
       <div class="admin-body">
+
+        <!-- UPCOMING FEATURES PANE (오픈 예정 기능 보드, D-day) -->
+        <div id="adminPane-upcoming" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">오픈 예정 기능</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">곧 오픈될 기능과 시행일(D-day)을 안내합니다. 개발이 완료되어 시행일이 확정된 기능만 표시됩니다.</div>
+          <div id="upcomingFeaturesBody"></div>
+        </div>
 
         <!-- DASHBOARD PANE -->
         <div id="adminPane-dashboard" class="admin-pane">
@@ -973,6 +984,8 @@
                   <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
                 </table>
               </div>
+              <!-- 감사용 흔적 청소 — super_admin + 감사용 계정(is_audit)일 때만 JS 가 채움 -->
+              <div id="infDetailAuditPurge" style="margin-top:16px"></div>
             </div>
           </div>
         </div>
@@ -1681,7 +1694,7 @@
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">서베이 신청 목록</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
@@ -1761,13 +1774,55 @@
                 <th style="width:120px">최종견적금액 <span class="col-help" data-tooltip="VAT 미포함 견적 금액. 「VAT 포함」 컬럼을 1.1로 나눈 값 (반올림).&#10;reviewer: ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료)&#10;seeding: 0 (수동 협의)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">VAT 포함 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT/UPDATE 시 재계산)&#10;reviewer: ( ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료) ) × VAT 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비·이체수수료 미입력 시 0 (이체수수료는 ₩2,500 자동 채움)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
-                <th style="width:130px">오리엔트 전달</th>
+                <th style="width:200px">오리엔시트 <span class="col-help" data-tooltip="시스템(브랜드가 토큰 링크로 작성하는 내부 오리엔시트) + 구글시트(외부 URL 수동 입력) 통합 표시. 시스템 발급은 행 더보기 「오리엔시트 링크생성」, 구글시트는 ✎로 URL 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:160px">입금 정보 <span class="col-help" data-tooltip="모집비용/상품비용/이체수수료/무료모집 체크. 새로고침 아이콘 클릭 시 제품 합계 기준 자동 재설정 (무료모집 제외)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:110px">입금 날짜 <span class="col-help" data-tooltip="운영자가 통장 확인 후 입력하는 실제 입금 일자"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
               <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORIENT SHEETS (오리엔시트) PANE -->
+        <div id="adminPane-orient-sheets" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">오리엔시트</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드에게 작성 링크를 발급하고 제출 내용을 확인합니다</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="osOpenCreate()" style="display:inline-flex;align-items:center;gap:4px" title="신규 오리엔시트 링크 발급">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span>신규 발급
+              </button>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <input type="search" id="orientSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" placeholder="브랜드명 검색" oninput="renderOrientSheets()">
+              </div>
+            </div>
+            <div id="orientStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">발급 목록</span>
+              <span id="orientTotalCount" style="font-size:12px;color:var(--muted);margin-left:8px"></span>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>브랜드</th>
+                  <th style="width:140px">모집 형식</th>
+                  <th style="width:140px">상태</th>
+                  <th style="width:120px">발급일</th>
+                  <th style="width:120px">작성 기한</th>
+                  <th style="width:140px">제출일시</th>
+                  <th style="width:170px">관리</th>
+                </tr></thead>
+                <tbody id="orientTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
+              </table>
             </div>
           </div>
         </div>

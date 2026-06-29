@@ -298,6 +298,19 @@
 .admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
 .admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
+/* ── 오픈 예정 기능 보드 (D-day) ── */
+.upcoming-table{width:100%}
+.upcoming-table th,.upcoming-table td{vertical-align:middle}
+.upcoming-td-title{font-weight:700;color:var(--ink);white-space:nowrap}
+.upcoming-td-desc{color:var(--muted);line-height:1.6;min-width:240px}
+.upcoming-td-date{color:var(--ink);font-weight:600;white-space:nowrap}
+.upcoming-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+.upcoming-badge-soon{background:var(--gold-l);color:var(--gold)}
+.upcoming-badge-today{background:var(--light-pink);color:var(--dark-pink)}
+.upcoming-badge-done{background:var(--green-l);color:var(--green)}
+.upcoming-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:var(--muted);font-size:13px}
+.upcoming-empty .material-icons-round{font-size:40px;color:var(--outline-variant)}
+
 .product-form{background:var(--surface);border:none;border-radius:var(--r24);padding:28px;margin-bottom:20px;box-shadow:var(--elevation-1)}
 .product-form-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .product-form-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:24px}

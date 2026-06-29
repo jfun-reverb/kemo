@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782706650';
+  var CURRENT_BUILD = 'v1782717616';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -756,6 +756,19 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 .admin-card{background:var(--surface);border:none;border-radius:var(--r16);overflow:hidden;margin-bottom:16px;box-shadow:var(--elevation-1)}
 .admin-card-header{padding:16px 20px;border-bottom:1px solid var(--surface-dim);display:flex;align-items:center;justify-content:space-between;background:var(--surface)}
 .admin-card-title{font-size:15px;font-weight:700}
+/* ── 오픈 예정 기능 보드 (D-day) ── */
+.upcoming-table{width:100%}
+.upcoming-table th,.upcoming-table td{vertical-align:middle}
+.upcoming-td-title{font-weight:700;color:var(--ink);white-space:nowrap}
+.upcoming-td-desc{color:var(--muted);line-height:1.6;min-width:240px}
+.upcoming-td-date{color:var(--ink);font-weight:600;white-space:nowrap}
+.upcoming-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+.upcoming-badge-soon{background:var(--gold-l);color:var(--gold)}
+.upcoming-badge-today{background:var(--light-pink);color:var(--dark-pink)}
+.upcoming-badge-done{background:var(--green-l);color:var(--green)}
+.upcoming-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 16px;color:var(--muted);font-size:13px}
+.upcoming-empty .material-icons-round{font-size:40px;color:var(--outline-variant)}
+
 .product-form{background:var(--surface);border:none;border-radius:var(--r24);padding:28px;margin-bottom:20px;box-shadow:var(--elevation-1)}
 .product-form-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .product-form-sub{font-size:13px;color:var(--on-surface-variant);margin-bottom:24px}
@@ -2045,19 +2058,21 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
       <div class="admin-side-scroll">
         <div class="admin-si-lbl">공지</div>
         <div class="admin-si" data-pane="admin-notices" id="adminNoticesSi" onclick="navAdminPaneReload('admin-notices')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">공지사항</span><span id="adminNoticesBadge" class="admin-si-badge" style="display:none">0</span></div>
+        <div class="admin-si" data-pane="upcoming" id="adminUpcomingSi" onclick="navAdminPaneReload('upcoming')"><span class="si-icon material-icons-round notranslate" translate="no">upcoming</span><span class="si-text">오픈 예정 기능</span></div>
         <div class="admin-si-lbl">대시보드</div>
         <div class="admin-si" data-pane="dashboard" onclick="navAdminPaneReload('dashboard')"><span class="si-icon material-icons-round">dashboard</span><span class="si-text">전체 현황</span></div>
         <div class="admin-si-lbl">캠페인</div>
         <div class="admin-si" data-pane="brand-ops" id="adminBrandOpsSi" onclick="navAdminPaneReload('brand-ops')"><span class="si-icon material-icons-round">monitor_heart</span><span class="si-text">운영 현황</span></div>
         <div class="admin-si" data-pane="campaigns" onclick="navAdminPaneReload('campaigns')"><span class="si-icon material-icons-round">campaign</span><span class="si-text">캠페인 관리</span></div>
-        <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">신청 관리</span></div>
+        <div class="admin-si" data-pane="applications" id="adminApplySi" onclick="navAdminPaneReload('applications')"><span class="si-icon material-icons-round">assignment</span><span class="si-text">인플 신청 관리</span></div>
         <div class="admin-si" data-pane="deliverables" id="adminDelivSi" onclick="navAdminPaneReload('deliverables')"><span class="si-icon material-icons-round">fact_check</span><span class="si-text">결과물 관리</span></div>
         <div class="admin-si" data-pane="messages" id="adminMessagesSi" onclick="navAdminPaneReload('messages')"><span class="si-icon material-icons-round">forum</span><span class="si-text">메시지</span><span id="navMsgBadge" class="admin-si-badge" style="display:none">0</span></div>
-        <div class="admin-si-lbl">브랜드 서베이</div>
+        <div class="admin-si-lbl">브랜드</div>
         <div class="admin-si" data-pane="brand-dashboard" id="adminBrandDashSi" onclick="navAdminPaneReload('brand-dashboard')"><span class="si-icon material-icons-round">insights</span><span class="si-text">현황 대시보드</span></div>
         <div class="admin-si" data-pane="companies" id="adminCompaniesSi" onclick="navAdminPaneReload('companies')"><span class="si-icon material-icons-round">corporate_fare</span><span class="si-text">회사 관리</span></div>
         <div class="admin-si" data-pane="brands" id="adminBrandsSi" onclick="navAdminPaneReload('brands')"><span class="si-icon material-icons-round">business</span><span class="si-text">브랜드 관리</span></div>
-        <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">신청 목록</span></div>
+        <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
+        <div class="admin-si" data-pane="orient-sheets" id="adminOrientSheetsSi" onclick="navAdminPaneReload('orient-sheets')"><span class="si-icon material-icons-round">assignment_turned_in</span><span class="si-text">오리엔시트 현황</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
@@ -2080,13 +2095,22 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-29 13:17 · 611ed15</span>
+          <span class="admin-build-text">2026-06-29 16:20 · 32f0732</span>
         </div>
       </div>
     </aside>
     <main class="admin-main">
 
       <div class="admin-body">
+
+        <!-- UPCOMING FEATURES PANE (오픈 예정 기능 보드, D-day) -->
+        <div id="adminPane-upcoming" class="admin-pane">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:16px;font-weight:700;color:var(--ink)">오픈 예정 기능</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">곧 오픈될 기능과 시행일(D-day)을 안내합니다. 개발이 완료되어 시행일이 확정된 기능만 표시됩니다.</div>
+          <div id="upcomingFeaturesBody"></div>
+        </div>
 
         <!-- DASHBOARD PANE -->
         <div id="adminPane-dashboard" class="admin-pane">
@@ -2921,6 +2945,8 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                   <tbody id="infDetailAppsBody"><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">신청 이력 없음</td></tr></tbody>
                 </table>
               </div>
+              <!-- 감사용 흔적 청소 — super_admin + 감사용 계정(is_audit)일 때만 JS 가 채움 -->
+              <div id="infDetailAuditPurge" style="margin-top:16px"></div>
             </div>
           </div>
         </div>
@@ -3629,7 +3655,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
           <div class="admin-sticky-header">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap">
               <div>
-                <div style="font-size:16px;font-weight:700;color:var(--ink)">브랜드 서베이</div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">서베이 신청 목록</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">리뷰어 모집 / 나노 인플루언서 시딩 신청서 검수 · 견적 확정 · 상태 관리</div>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
@@ -3709,13 +3735,55 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 <th style="width:120px">최종견적금액 <span class="col-help" data-tooltip="VAT 미포함 견적 금액. 「VAT 포함」 컬럼을 1.1로 나눈 값 (반올림).&#10;reviewer: ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료)&#10;seeding: 0 (수동 협의)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:120px">VAT 포함 <span class="col-help" data-tooltip="DB 트리거 자동 계산 (신청 INSERT/UPDATE 시 재계산)&#10;reviewer: ( ∑(엔가격×수량)×환율₩10 + ∑(수량×모집비) + ∑(수량×이체수수료) ) × VAT 1.1&#10;seeding: 0 (수동 협의)&#10;※ 모집비·이체수수료 미입력 시 0 (이체수수료는 ₩2,500 자동 채움)&#10;※ 같은 신청의 모든 제품 행에 동일 값 표시"><span class="material-icons-round notranslate" translate="no">help_outline</span></span> <span class="sort-arrows" data-sort="estimated" onclick="toggleBrandAppSort('estimated')">▲▼</span></th>
                 <th style="width:130px">견적서 전달 <span class="sort-arrows" data-sort="quoteSent" onclick="toggleBrandAppSort('quoteSent')">▲▼</span></th>
-                <th style="width:130px">오리엔트 전달</th>
+                <th style="width:200px">오리엔시트 <span class="col-help" data-tooltip="시스템(브랜드가 토큰 링크로 작성하는 내부 오리엔시트) + 구글시트(외부 URL 수동 입력) 통합 표시. 시스템 발급은 행 더보기 「오리엔시트 링크생성」, 구글시트는 ✎로 URL 입력"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:160px">입금 정보 <span class="col-help" data-tooltip="모집비용/상품비용/이체수수료/무료모집 체크. 새로고침 아이콘 클릭 시 제품 합계 기준 자동 재설정 (무료모집 제외)"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:110px">입금 날짜 <span class="col-help" data-tooltip="운영자가 통장 확인 후 입력하는 실제 입금 일자"><span class="material-icons-round notranslate" translate="no">help_outline</span></span></th>
                 <th style="width:80px">관리</th>
               </tr></thead>
               <tbody id="brandAppTableBody"><tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORIENT SHEETS (오리엔시트) PANE -->
+        <div id="adminPane-orient-sheets" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">오리엔시트</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">브랜드에게 작성 링크를 발급하고 제출 내용을 확인합니다</div>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="osOpenCreate()" style="display:inline-flex;align-items:center;gap:4px" title="신규 오리엔시트 링크 발급">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:15px">add</span>신규 발급
+              </button>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group" style="flex:1;min-width:200px">
+                <label>검색</label>
+                <input type="search" id="orientSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" placeholder="브랜드명 검색" oninput="renderOrientSheets()">
+              </div>
+            </div>
+            <div id="orientStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <span class="admin-card-title">발급 목록</span>
+              <span id="orientTotalCount" style="font-size:12px;color:var(--muted);margin-left:8px"></span>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>브랜드</th>
+                  <th style="width:140px">모집 형식</th>
+                  <th style="width:140px">상태</th>
+                  <th style="width:120px">발급일</th>
+                  <th style="width:120px">작성 기한</th>
+                  <th style="width:140px">제출일시</th>
+                  <th style="width:170px">관리</th>
+                </tr></thead>
+                <tbody id="orientTableBody"><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">불러오는 중…</td></tr></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -5826,6 +5894,9 @@ const PANE_REFRESHERS = {
   'upcoming': async () => {
     // 읽기 전용 페인(CUD 없음) — 규칙 일관성 차원에서 등록(quality.md)
     if (typeof renderUpcomingFeatures === 'function') renderUpcomingFeatures();
+  },
+  'orient-sheets': async () => {
+    if (typeof loadOrientSheets === 'function') await loadOrientSheets();
   }
 };
 async function refreshPane(paneId) {
@@ -6346,10 +6417,12 @@ function computeCampaignStatus(camp) {
 }
 
 async function insertCampaign(camp) {
-  if (!db) return;
-  await retryWithRefresh(async () => {
-    const {error} = await db.from('campaigns').insert(camp);
+  if (!db) return null;
+  // 삽입된 캠페인 id 반환 (오리엔시트 발행 소비 등에서 사용 — 기존 호출부는 반환값 무시라 호환)
+  return await retryWithRefresh(async () => {
+    const {data, error} = await db.from('campaigns').insert(camp).select('id').maybeSingle();
     if (error) throw error;
+    return data?.id || null;
   });
 }
 
@@ -9479,6 +9552,211 @@ async function purgeAuditDataForCampaign(campaignId) {
 }
 
 
+// ════════════════════════════════════════════════════════════════════
+// 브랜드 셀프 오리엔시트 — PR 1 (DB + 익명 토큰 함수)
+//   사양서: docs/specs/2026-06-18-brand-self-orient-sheet.md §6, §7
+//   마이그레이션: 186(테이블) → 187(함수 3종)
+//
+//   이 함수 3종은 비로그인 브랜드 담당자(sales 폼)에서 호출되는 익명 경로.
+//   따라서 세션 갱신(retryWithRefresh) 없이 db.rpc 직접 호출한다 — 140 패턴과 동일.
+//   (익명 호출에서 JWT 세션이 없으므로 갱신 시도 자체가 무의미)
+// ════════════════════════════════════════════════════════════════════
+
+// 오리엔시트 조회 — 토큰으로 현재 내용·상태를 가져온다.
+// 연결된 신청이 있으면 initial_values(모집 희망값)도 함께 반환.
+// 반환: {ok:true, id, form_type, data, status, version, submitted_at, initial_values}
+//        | {ok:false, error, reason}
+async function getOrientSheet(token) {
+  if (!db) return { ok: false, error: 'no_db' };
+  if (!token) return { ok: false, error: 'invalid_token' };
+  try {
+    const { data, error } = await db.rpc('get_orient_sheet', { p_token: token });
+    if (error) throw error;
+    // data: {success:bool, reason?, id?, form_type?, data?, status?, version?, submitted_at?, initial_values?}
+    if (data && data.success) {
+      return {
+        ok:             true,
+        id:             data.id,
+        form_type:      data.form_type,
+        data:           data.data,
+        status:         data.status,
+        version:        data.version,
+        submitted_at:   data.submitted_at,
+        initial_values: data.initial_values || null,
+      };
+    }
+    return { ok: false, error: data?.reason || 'invalid_token', reason: data?.reason };
+  } catch (e) {
+    // 잘못된 UUID 형식 등은 무효 토큰으로 처리
+    console.error('[getOrientSheet]', e);
+    return { ok: false, error: 'invalid_token' };
+  }
+}
+
+// 오리엔시트 임시저장 — 작성 중 중간 저장. status는 변경하지 않음(submitted→draft 역전환 없음).
+// 반환: {ok:true, version} | {ok:false, error, reason, current_version?}
+async function saveOrientDraft(token, data, version) {
+  if (!db) return { ok: false, error: 'no_db' };
+  if (!token) return { ok: false, error: 'invalid_token' };
+  try {
+    const { data: result, error } = await db.rpc('save_orient_draft', {
+      p_token:   token,
+      p_data:    data,
+      p_version: version,
+    });
+    if (error) throw error;
+    // result: {success:bool, reason?, version?, current_version?, ...}
+    if (result && result.success) {
+      return { ok: true, version: result.version };
+    }
+    return {
+      ok:              false,
+      error:           result?.reason || 'unknown',
+      reason:          result?.reason,
+      current_version: result?.current_version,
+    };
+  } catch (e) {
+    console.error('[saveOrientDraft]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+
+// 오리엔시트 제출 — 브랜드 담당자의 최종 제출. draft/submitted → submitted.
+// 발행 전까지 재제출 가능(사양서 결정⑨).
+// 반환: {ok:true, version, submitted_at} | {ok:false, error, reason, current_version?}
+async function submitOrientSheet(token, data, version) {
+  if (!db) return { ok: false, error: 'no_db' };
+  if (!token) return { ok: false, error: 'invalid_token' };
+  try {
+    const { data: result, error } = await db.rpc('submit_orient_sheet', {
+      p_token:   token,
+      p_data:    data,
+      p_version: version,
+    });
+    if (error) throw error;
+    // result: {success:bool, reason?, version?, submitted_at?, current_version?}
+    if (result && result.success) {
+      return {
+        ok:           true,
+        version:      result.version,
+        submitted_at: result.submitted_at,
+      };
+    }
+    return {
+      ok:              false,
+      error:           result?.reason || 'unknown',
+      reason:          result?.reason,
+      current_version: result?.current_version,
+    };
+  } catch (e) {
+    console.error('[submitOrientSheet]', e);
+    return { ok: false, error: e?.message || 'unknown' };
+  }
+}
+
+// ── 오리엔시트 관리자 발급·조회 (PR3, 마이그레이션 190) ──
+// 발급: create_orient_sheet RPC (is_admin 가드, SECURITY DEFINER)
+// §15-11 재설계 — 2인자(brand_id, application_id). form_type·제품 prefill은 발급 시 미결정.
+// data 초기값: {brand:{name,intro,official_accounts}, cards:[]}
+// 반환: {success, id, token, token_expires_at} | {success:false, reason}
+async function createOrientSheet(brandId, applicationId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('create_orient_sheet', {
+      p_brand_id: brandId,
+      p_application_id: applicationId || null,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 오리엔시트 발급 직후 브랜드 담당자에게 작성 링크 메일 발송 (Edge Function notify-orient-sheet).
+// 발송 성공 시 연결 신청이 있으면 단계가 'orient_sheet_sent' 로 자동 전진(함수 198, 역행 방지).
+// 반환: { sent:true, recipient, advanced } / { sent:false, reason:'no_recipient'|... } / { sent:false, error }
+// 발송 실패가 발급 자체를 무효화하지 않도록 호출 측에서 결과만 표시(throw 안 함).
+async function sendOrientInviteMail(orientSheetId) {
+  if (!db) return { sent: false, reason: 'no_db' };
+  try {
+    const { data, error } = await db.functions.invoke('notify-orient-sheet', {
+      body: { orient_sheet_id: orientSheetId },
+    });
+    if (error) {
+      // FunctionsHttpError 는 응답 본문(reason)을 error.context 에 담을 수 있음
+      let detail = null;
+      try { detail = await error.context?.json?.(); } catch (_e) { /* ignore */ }
+      return { sent: false, error: error.message, ...(detail || {}) };
+    }
+    return data || { sent: false, reason: 'empty_response' };
+  } catch (e) {
+    return { sent: false, error: (e && e.message) || 'invoke_failed' };
+  }
+}
+
+// 오리엔시트 삭제 (마이그레이션 199, delete_orient_sheet RPC).
+// 발행 캠페인 없으면 시트만 삭제(is_admin) / 연결 있으면 신청 0건 캠페인까지 함께 삭제(is_campaign_admin),
+// 신청 1건+ 있으면 차단(blocked_has_applications). 반환 jsonb 그대로 전달(호출 측이 reason 분기).
+async function deleteOrientSheet(orientId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('delete_orient_sheet', { p_orient_id: orientId });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 오리엔시트 카드 1개를 발행 캠페인과 연결(소비). 마이그레이션 196.
+// 카드별 멱등(이미 발행 카드면 거부), 모든 카드 발행 시 시트 status='consumed'.
+async function markOrientCardConsumed(orientId, cardIdx, campaignId) {
+  if (!db) return { success: false, reason: 'no_db' };
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.rpc('mark_orient_card_consumed', {
+      p_orient_id: orientId,
+      p_card_idx: cardIdx,
+      p_campaign_id: campaignId,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 목록: 관리자만 SELECT (RLS is_admin). 브랜드명 조인. PostgREST 1000행 cap 대비 페이지네이션.
+async function fetchOrientSheets() {
+  if (!db) return [];
+  return await retryWithRefresh(async () =>
+    fetchAllPaged(() => db.from('orient_sheets')
+      .select('id, brand_id, application_id, form_type, data, status, token, token_expires_at, submitted_at, created_at, campaign_id, brands(name, name_ja)')
+      .order('created_at', { ascending: false }))
+  );
+}
+
+// 상세: data 포함 단건
+async function fetchOrientSheetById(id) {
+  if (!db) return null;
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('*, brands(name, name_ja)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
+}
+
+// 신청(brand_applications)에 연결된 오리엔시트 (brand-app 상세 연결 링크용)
+async function fetchOrientSheetsByApplication(applicationId) {
+  if (!db) return [];
+  return await retryWithRefresh(async () => {
+    const { data, error } = await db.from('orient_sheets')
+      .select('id, token, form_type, status, token_expires_at, created_at')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  });
+}
+
+
 // ══════════════════════════════════════════════════════════════
 // 영수증 글자인식(OCR) 공통 부품 — 기기 안 처리 (외부 전송 0)
 //   엔진: Tesseract.js v5 (jpn+eng), CDN lazy-load
@@ -10678,6 +10956,9 @@ function switchAdminPane(pane, el, pushHistory) {
     }
   } catch (e) { /* analytics 실패 무시 */ }
 
+  // 오리엔시트 발행 컨텍스트는 add-campaign 진입마다 초기화 (수동 신규 캠페인이 오리엔 발행으로 오인되지 않도록).
+  // 오리엔 발행 경로(applyOrientCardPrefill)는 switchAdminPane 호출 직후 컨텍스트를 다시 세팅한다.
+  if (pane === 'add-campaign') window._orientPublishCtx = null;
   initMultiFilters();
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
@@ -10721,7 +11002,9 @@ function switchAdminPane(pane, el, pushHistory) {
     'brands': loadBrandsPane,
     'admin-notices': loadAdminNotices,
     'messages': loadMessagesInbox,
-    'errors': loadClientErrors
+    'errors': loadClientErrors,
+    'upcoming': renderUpcomingFeatures,
+    'orient-sheets': loadOrientSheets
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -11229,9 +11512,11 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
-  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal',
+  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal', 'brandAppOrientListModal',
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
+  // 오리엔시트 (동적 생성 — ensureOrientModals 가 initDraggableModals 재호출로 옵저버 부착)
+  'orientDetailModal', 'orientCreateModal',
   // 메시지
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용
@@ -11364,6 +11649,819 @@ function initDraggableModals() {
   });
 }
 
+// ============================================================
+// admin-orient.js — 브랜드 셀프 오리엔시트 관리자 발급·조회
+// 신규 페인 #adminPane-orient-sheets: 목록 · 발급 모달 · 상세 모달 · 링크 복사
+// 사양서 docs/specs/2026-06-18-brand-self-orient-sheet.md §7·§15
+// 발급 함수 create_orient_sheet (마이그레이션 195, 2인자, is_admin 가드)
+// §15 재설계: 1 링크 = 공통 브랜드 + 카드 N개(카드마다 form_type). data = cards 배열(§15-A)
+// ============================================================
+
+let _orientSheets = [];
+let _osDetailSheet = null;   // 상세 모달에 열린 시트(카드별 발행에 사용)
+let _osDetailCatMap = {};    // 상세 모달 카테고리 라벨 맵(새창 열기에 재사용)
+let _osLastIssuedId = null;  // 방금 발급한 오리엔시트 id(발급 결과 화면 수동 메일 발송용)
+
+const OS_TYPE_LABEL = { proxy_purchase: '가구매', reviewer: '리뷰어', seeding: '시딩' };
+const OS_TYPE_CHIP = {
+  proxy_purchase: { color: '#B45309', bg: '#FEF3E2' },
+  reviewer:       { color: '#C41E3A', bg: '#FFF0F2' },
+  seeding:        { color: '#1D4ED8', bg: '#E7F1FE' },
+};
+const OS_GRADE_LABEL = { nano: '나노', middle_mega: '미들·메가' };
+const OS_STATUS = {
+  draft:     { label: '작성 중', color: '#8A8A90', bg: '#F0F0F0' },
+  submitted: { label: '제출됨', color: '#16A34A', bg: '#E8F5E9' },
+  consumed:  { label: '발행됨', color: '#5B4B9E', bg: '#ECEAF6' },
+  expired:   { label: '만료',   color: '#8A8A90', bg: '#F0F0F0' },
+};
+// 상태별 탭 (전체 + 4상태). code=null 은 전체
+const OS_STATUS_TABS = [
+  { code: null, label: '전체' },
+  { code: 'draft', label: '작성 중' },
+  { code: 'submitted', label: '제출됨' },
+  { code: 'consumed', label: '발행됨' },
+  { code: 'expired', label: '만료' },
+];
+let _orientActiveStatusTab = null;
+const OS_CH_LABEL = { instagram: '인스타그램', x: 'X', tiktok: '틱톡', youtube: '유튜브', qoo10: 'Qoo10', lips: 'LIPS', atcosme: '@cosme' };
+
+// 운영/개발 sales 도메인 분기 (orient.html SUPABASE_ENV 규칙과 동일)
+function osSalesBase() {
+  return /^(www\.)?globalreverb\.com$/.test(location.hostname)
+    ? 'https://sales.globalreverb.com'
+    : 'https://sales-dev.globalreverb.com';
+}
+function osBuildLink(token) { return osSalesBase() + '/orient?token=' + token; }
+
+// 만료 판정 (조회 함수는 status 미전환 — 클라에서 함께 판정)
+function osIsExpired(s) {
+  if (s.status === 'consumed') return false;
+  if (s.status === 'expired') return true;
+  return !!(s.token_expires_at && new Date(s.token_expires_at) < new Date());
+}
+// 카드 발행 수 — 부분 발행(카드 일부만 발행) 판정용. published = campaign_id 있는 "발행된 카드 수".
+// 삭제 경고용 osPublishedCampaignCount(DISTINCT 캠페인 수)와는 목적이 다름(정상 플로우는 카드당 고유 캠페인이라 값 일치).
+function osCardCounts(s) {
+  const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  return { total: cards.length, published: cards.filter(c => c && c.campaign_id).length };
+}
+// 상태 배지 — 부분 발행(제출됨 + 카드 일부만 발행)은 「일부 발행 (n/m)」 앰버 배지로 구분
+function osStatusOf(s) {
+  if (s.status === 'consumed') return OS_STATUS.consumed;
+  if (s.status === 'submitted') {
+    const { total, published } = osCardCounts(s);
+    if (published > 0 && published < total) return { label: `일부 발행 (${published}/${total})`, color: '#B45309', bg: '#FEF3C7' };
+    if (published > 0) return OS_STATUS.consumed;  // 전 카드 발행(마이그196 트리거 지연으로 status 미전환 순간) 방어
+  }
+  if (osIsExpired(s)) return OS_STATUS.expired;
+  return OS_STATUS[s.status] || OS_STATUS.draft;
+}
+// 시트가 특정 탭에 속하는지 — 카드 상태 기준 「다중 소속」. 부분 발행 시트는 미발행 카드(제출됨)와
+// 발행된 카드(발행됨)를 동시에 가지므로 제출됨·발행됨 양쪽 탭에 노출된다. (탭 건수 합이 전체보다 클 수 있음)
+function osMatchesTab(s, code) {
+  if (!code) return true;  // 전체
+  const expired = osIsExpired(s) && s.status !== 'consumed';
+  const { total, published } = osCardCounts(s);
+  switch (code) {
+    case 'draft':     return s.status === 'draft' && !expired;
+    case 'submitted': return s.status === 'submitted' && (total === 0 || published < total) && !expired;  // 미발행 카드 남음(카드 0개 시트도 제출됨으로)
+    case 'consumed':  return published > 0;                                              // 발행된 카드 있음(부분·완전)
+    case 'expired':   return expired && published === 0;
+    default: return false;
+  }
+}
+function osBrandName(s) { return s.brands ? (s.brands.name || s.brands.name_ja || '-') : '-'; }
+function osBadge(st) {
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${st.color};background:${st.bg}">${st.label}</span>`;
+}
+function osChLabel(c) { return OS_CH_LABEL[c] || (c || '채널'); }
+
+// 형식 칩 (상세 모달 카드 헤더)
+function osTypeChip(ft) {
+  if (!ft) return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#8A8A90;background:#F0F0F0">형식 미선택</span>';
+  const c = OS_TYPE_CHIP[ft] || OS_TYPE_CHIP.reviewer;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:${c.color};background:${c.bg}">${OS_TYPE_LABEL[ft] || esc(ft)}</span>`;
+}
+
+// 목록 「형식」 컬럼 — form_type 컬럼은 NULL(카드별 형식)이라 data.cards 를 형식별로 집계
+function osCardsSummary(data) {
+  const cards = (data && Array.isArray(data.cards)) ? data.cards : [];
+  if (!cards.length) return '<span style="color:var(--muted)">미작성</span>';
+  const cnt = {};
+  cards.forEach(c => { const ft = (c && c.form_type) || 'none'; cnt[ft] = (cnt[ft] || 0) + 1; });
+  const parts = ['proxy_purchase', 'reviewer', 'seeding']
+    .filter(ft => cnt[ft]).map(ft => `${OS_TYPE_LABEL[ft]} ${cnt[ft]}`);
+  if (cnt.none) parts.push(`미선택 ${cnt.none}`);
+  return esc(parts.join(' · '));
+}
+
+// ── 페인 진입 ──
+async function loadOrientSheets() {
+  ensureOrientModals();
+  const tbody = document.getElementById('orientTableBody');
+  if (tbody) tbody.innerHTML = osMsgRow('불러오는 중…');
+  try {
+    _orientSheets = await fetchOrientSheets();
+  } catch (e) {
+    console.error('[loadOrientSheets]', e);
+    if (tbody) tbody.innerHTML = osMsgRow('목록을 불러오지 못했습니다.');
+    return;
+  }
+  renderOrientSheets();
+  refreshOrientBadge(_orientSheets);   // 방금 조회한 목록 재사용 (이중 fetch 방지)
+}
+
+// 사이드바 「오리엔시트 현황」 제출 배지 — 미발행 카드가 남은 시트 수(제출됨 탭 기준, 부분 발행 시트도 포함)
+// cached: 호출부가 이미 가진 목록(loadOrientSheets). 없으면(부팅 단독 호출) 직접 조회
+async function refreshOrientBadge(cached) {
+  const el = $('adminOrientSheetsSi');
+  if (!el) return;
+  let count = 0;
+  try {
+    const sheets = cached || await fetchOrientSheets();
+    count = sheets.filter(s => osMatchesTab(s, 'submitted')).length;   // 미발행 카드 남은 시트(부분 발행 포함)
+  } catch (e) { console.error('[refreshOrientBadge]', e); return; }
+  const badge = count > 0 ? `<span class="admin-si-badge">${count > 999 ? '999+' : count}</span>` : '';
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">assignment_turned_in</span><span class="si-text">오리엔시트 현황</span>' + badge;
+}
+
+function osMsgRow(msg) {
+  return `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
+}
+
+function renderOrientSheets() {
+  const tbody = document.getElementById('orientTableBody');
+  if (!tbody) return;
+  const q = (document.getElementById('orientSearch')?.value || '').trim().toLowerCase();
+  // 검색 적용 후 base → 상태별 건수 계산 → 탭 렌더
+  const base = _orientSheets.filter(s => !q || osBrandName(s).toLowerCase().includes(q));
+  // 탭별 다중 소속 건수 — 부분 발행 시트는 제출됨·발행됨 양쪽에 카운트되므로 합이 전체보다 클 수 있음
+  const counts = {};
+  OS_STATUS_TABS.forEach(tab => { if (tab.code) counts[tab.code] = base.filter(s => osMatchesTab(s, tab.code)).length; });
+  renderOrientStatusTabs(counts, base.length);
+
+  // 선택된 상태 탭으로 필터 (다중 소속)
+  const list = base.filter(s => osMatchesTab(s, _orientActiveStatusTab));
+
+  const cnt = document.getElementById('orientTotalCount');
+  if (cnt) cnt.textContent = list.length ? `${list.length}건` : '';
+
+  if (!list.length) {
+    const emptyMsg = (q && !base.length) ? '검색 결과가 없습니다.'
+      : (_orientActiveStatusTab ? '해당 상태의 오리엔시트가 없습니다.'
+        : '발급된 오리엔시트가 없습니다. 「신규 발급」으로 링크를 만들어 주세요.');
+    tbody.innerHTML = osMsgRow(emptyMsg);
+    return;
+  }
+  tbody.innerHTML = list.map(osRowHtml).join('');
+}
+
+// 상태 탭 바 렌더 (counts: 탭별 건수[다중 소속], totalAll: 전체 시트 수 — 탭별 합과 다를 수 있음)
+function renderOrientStatusTabs(counts, totalAll) {
+  const bar = document.getElementById('orientStatusTabBar');
+  if (!bar) return;
+  counts = counts || {};
+  totalAll = totalAll || 0;
+  bar.innerHTML = OS_STATUS_TABS.map(tab => {
+    const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
+    const isOn = tab.code === _orientActiveStatusTab;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setOrientStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 상태 탭 클릭
+function setOrientStatusTab(btn) {
+  _orientActiveStatusTab = btn.dataset.status || null;   // 빈 문자열(전체)이면 null
+  renderOrientSheets();
+}
+
+function osRowHtml(s) {
+  const linkBadge = s.application_id
+    ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
+  return `<tr>
+    <td>${esc(osBrandName(s))}${linkBadge}</td>
+    <td>${osCardsSummary(s.data)}</td>
+    <td>${osBadge(osStatusOf(s))}</td>
+    <td>${s.created_at ? formatDate(s.created_at) : '-'}</td>
+    <td>${s.token_expires_at ? formatDate(s.token_expires_at) : '-'}</td>
+    <td>${s.submitted_at ? formatDateTime(s.submitted_at) : '-'}</td>
+    <td style="white-space:nowrap">
+      <button type="button" class="btn btn-ghost btn-xs" onclick="osCopyLink('${s.id}')">링크 복사</button>
+      <button type="button" class="btn btn-ghost btn-xs" onclick="osOpenDetail('${s.id}')">상세</button>
+      <button type="button" class="btn btn-ghost btn-xs" style="color:#C41E3A" onclick="osOpenDelete('${s.id}')">삭제</button>
+    </td>
+  </tr>`;
+}
+
+// 시트에 연결된 발행 캠페인 수 (data.cards[].campaign_id DISTINCT)
+function osPublishedCampaignCount(s) {
+  const cards = (s && s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  const ids = new Set();
+  cards.forEach(c => { if (c && c.campaign_id) ids.add(c.campaign_id); });
+  return ids.size;
+}
+
+function osCopyLink(id) {
+  const s = _orientSheets.find(x => x.id === id);
+  if (!s) return;
+  copyTextToClipboard(osBuildLink(s.token), '작성 링크가 복사되었습니다.');
+}
+
+// ── 발급 모달 ──
+// 발급 모달 열기. opts 로 진입점별 컨텍스트 주입:
+//   {} (무인자)          — #orient-sheets "신규 발급": 브랜드·신청 자유 선택
+//   {brandId, appId}     — 서베이 목록 더보기: 신청 연결 고정
+//   {brandId, lockBrand} — 브랜드 관리: 브랜드 고정·신청 없음
+// 형식·제품은 발급 시 정하지 않음 — 브랜드가 작성 폼에서 카드마다 직접 고름(§15-11).
+async function osOpenCreate(opts) {
+  opts = opts || {};
+  ensureOrientModals();
+  document.getElementById('osCreateApp').innerHTML = '<option value="">연결 안 함</option>';
+  document.getElementById('osCreateResult').style.display = 'none';
+  document.getElementById('osCreateForm').style.display = '';
+  document.getElementById('osCreateSubmitBtn').style.display = '';
+  document.getElementById('orientCreateModal').classList.add('open');
+  const sel = document.getElementById('osCreateBrand');
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">불러오는 중…</option>';
+  try {
+    const brands = await fetchBrands();
+    sel.innerHTML = '<option value="">브랜드 선택</option>' +
+      (brands || []).map(b => `<option value="${b.id}">${esc(b.name || b.name_ja || '-')}</option>`).join('');
+  } catch (e) {
+    sel.innerHTML = '<option value="">브랜드 조회 실패</option>';
+  }
+  // 진입점 ②③ 컨텍스트 주입: 브랜드 고정 + (있으면) 신청 연결 선택
+  if (opts.brandId) {
+    sel.value = opts.brandId;
+    if (opts.lockBrand) sel.disabled = true;
+    if (opts.appId) {
+      await osOnBrandChange();
+      document.getElementById('osCreateApp').value = opts.appId;
+    }
+  }
+}
+
+// 진입점 ② — 브랜드 서베이(신청) 목록 더보기 「오리엔시트 링크생성」.
+// admin-brand.js 의 _brandApps 캐시에서 신청을 찾아 브랜드·신청을 주입하며 발급 모달을 연다.
+// (형식·제품은 발급 시 미지정 — 브랜드가 작성 폼에서 카드마다 선택)
+function osIssueFromApplication(appId) {
+  const apps = (typeof _brandApps !== 'undefined' && Array.isArray(_brandApps)) ? _brandApps : [];
+  const a = apps.find(x => x.id === appId);
+  if (!a) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  if (!a.brand_id) { toast('이 신청은 브랜드가 연결돼 있지 않아 오리엔시트를 발급할 수 없습니다.'); return; }
+  osOpenCreate({ appId: appId, brandId: a.brand_id });
+}
+
+async function osOnBrandChange() {
+  const brandId = document.getElementById('osCreateBrand').value;
+  const appSel = document.getElementById('osCreateApp');
+  appSel.innerHTML = '<option value="">연결 안 함</option>';
+  if (!brandId) return;
+  try {
+    const apps = await fetchBrandApplicationsByBrand(brandId);
+    appSel.innerHTML += (apps || []).map(a =>
+      `<option value="${a.id}">${esc(osAppLabel(a))}</option>`).join('');
+  } catch (e) { /* 연결 없이도 발급 가능 — 무시 */ }
+}
+
+function osAppLabel(a) {
+  const t = a.form_type ? OS_TYPE_LABEL[a.form_type] : '';
+  const d = a.created_at ? formatDate(a.created_at) : '';
+  return [d, t].filter(Boolean).join(' · ') || '신청';
+}
+
+async function osSubmitCreate() {
+  const brandId = document.getElementById('osCreateBrand').value;
+  if (!brandId) { toast('브랜드를 선택해 주세요.'); return; }
+  const appId = document.getElementById('osCreateApp').value || null;
+  const btn = document.getElementById('osCreateSubmitBtn');
+  btn.disabled = true;
+  try {
+    const res = await createOrientSheet(brandId, appId);
+    if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
+    document.getElementById('osCreateLink').value = osBuildLink(res.token);
+    document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
+    document.getElementById('osCreateForm').style.display = 'none';
+    document.getElementById('osCreateResult').style.display = '';
+    btn.style.display = 'none';
+    _osLastIssuedId = res.id;   // 발급 결과 화면의 「메일 발송」 버튼이 사용 (자동 발송 안 함 — 수동 선택)
+    await refreshPane('orient-sheets');
+  } catch (e) {
+    toast(typeof friendlyError === 'function' ? friendlyError(e) : '발급에 실패했습니다.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function osReasonText(r) {
+  return ({
+    brand_not_found: '브랜드를 찾을 수 없습니다',
+    application_not_found: '신청을 찾을 수 없습니다',
+    brand_mismatch: '신청과 브랜드가 일치하지 않습니다',
+    no_db: '연결 오류',
+  })[r] || (r || '알 수 없는 오류');
+}
+
+function osCopyResultLink() {
+  copyTextToClipboard(document.getElementById('osCreateLink').value, '작성 링크가 복사되었습니다.');
+}
+
+// 발급 결과 화면 「메일 발송」 버튼 — 선택 발송(자동 발송 아님). 발송 중 버튼 비활성.
+async function osSendInviteClick(btn) {
+  if (!_osLastIssuedId) return;
+  btn.disabled = true;
+  try { await osSendInviteAndShow(_osLastIssuedId); }
+  finally { btn.disabled = false; }
+}
+
+// 발급 직후 메일 발송 + 발급 결과 화면에 발송 상태 인라인 표시.
+// 발송은 발급과 별개라 실패해도 발급 자체는 유효(링크 수동 복사 안내).
+async function osSendInviteAndShow(orientSheetId) {
+  const box = document.getElementById('osCreateMailStatus');
+  if (!box) return;
+  box.innerHTML = '<span style="color:var(--muted)">메일 발송 중…</span>';
+  let r;
+  try {
+    r = await sendOrientInviteMail(orientSheetId);
+  } catch (e) {
+    r = { sent: false, error: (e && e.message) || 'unknown' };
+  }
+  if (r && r.sent) {
+    const advNote = r.advanced
+      ? ' · 신청 단계를 「오리엔시트 발송됨」으로 이동했습니다.'
+      : '';
+    box.innerHTML = '<div style="color:#16A34A;font-weight:600">메일을 보냈습니다 — ' +
+      esc(r.recipient || '') + '</div>' +
+      (advNote ? '<div style="color:var(--muted);font-size:12px;margin-top:2px">' + advNote.replace(/^ · /, '') + '</div>' : '');
+  } else if (r && r.reason === 'no_recipient') {
+    box.innerHTML = '<div style="color:#B45309;font-weight:600">수신자 이메일이 없어 메일을 보내지 못했습니다.</div>' +
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 브랜드에게 직접 전달해 주세요.</div>';
+  } else {
+    box.innerHTML = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>' +
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>';
+  }
+}
+
+// ── 삭제 모달 (브랜드명 재입력 확인 — 캠페인 삭제 패턴 미러) ──
+let _osDeleteId = null;
+let _osDeleteBrandName = '';
+
+function osOpenDelete(id) {
+  ensureOrientModals();
+  const s = _orientSheets.find(x => x.id === id);
+  if (!s) { toast('시트 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  _osDeleteId = id;
+  _osDeleteBrandName = osBrandName(s);
+  const campCount = osPublishedCampaignCount(s);
+
+  document.getElementById('osDeleteBrand').textContent = _osDeleteBrandName;
+  document.getElementById('osDeleteBrandEcho').textContent = _osDeleteBrandName;
+  const warn = document.getElementById('osDeleteCampWarn');
+  if (campCount > 0) {
+    warn.innerHTML = '이 오리엔시트에 연결된 발행 캠페인 <b>' + campCount + '개</b>도 함께 삭제됩니다. ' +
+      '단, 신청이 1건이라도 있는 캠페인이 포함되면 삭제할 수 없습니다.';
+    warn.style.display = '';
+  } else {
+    warn.style.display = 'none';
+  }
+  const input = document.getElementById('osDeleteConfirmInput');
+  input.value = '';
+  document.getElementById('osDeleteError').style.display = 'none';
+  osCheckDeleteConfirm();
+  document.getElementById('orientDeleteModal').classList.add('open');
+  input.focus();
+}
+
+function osCheckDeleteConfirm() {
+  const v = (document.getElementById('osDeleteConfirmInput').value || '').trim();
+  const btn = document.getElementById('osDeleteBtn');
+  const ok = v === _osDeleteBrandName && !!_osDeleteBrandName;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.4';
+  btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+}
+
+async function osExecuteDelete() {
+  const v = (document.getElementById('osDeleteConfirmInput').value || '').trim();
+  const err = document.getElementById('osDeleteError');
+  if (v !== _osDeleteBrandName) { err.textContent = '브랜드명이 일치하지 않습니다.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('osDeleteBtn');
+  btn.disabled = true;
+  try {
+    const res = await deleteOrientSheet(_osDeleteId);
+    if (res && res.success) {
+      osCloseModal('orientDeleteModal');
+      const n = Array.isArray(res.deleted_campaign_ids) ? res.deleted_campaign_ids.length : 0;
+      toast(n > 0 ? ('오리엔시트와 연결 캠페인 ' + n + '개를 삭제했습니다.') : '오리엔시트를 삭제했습니다.', 'success');
+      await refreshPane('orient-sheets');
+    } else if (res && res.reason === 'blocked_has_applications') {
+      const n = Array.isArray(res.campaign_ids) ? res.campaign_ids.length : 0;
+      err.textContent = '연결 캠페인 중 신청이 있는 캠페인(' + n + '개)이 있어 삭제할 수 없습니다. 신청을 먼저 정리해 주세요.';
+      err.style.display = 'block';
+    } else if (res && res.reason === 'permission_denied') {
+      err.textContent = '삭제 권한이 없습니다.';
+      err.style.display = 'block';
+    } else {
+      err.textContent = '삭제 실패: ' + ((res && res.reason) || '알 수 없는 오류');
+      err.style.display = 'block';
+    }
+  } catch (e) {
+    err.textContent = '삭제 오류: ' + (typeof friendlyError === 'function' ? friendlyError(e.message || e) : (e.message || '오류'));
+    err.style.display = 'block';
+  } finally {
+    osCheckDeleteConfirm();
+  }
+}
+
+// ── 상세 모달 ──
+async function osOpenDetail(id) {
+  ensureOrientModals();
+  const body = document.getElementById('osDetailBody');
+  body.innerHTML = '<p style="color:var(--muted);padding:8px">불러오는 중…</p>';
+  document.getElementById('orientDetailModal').classList.add('open');
+  let s;
+  try { s = await fetchOrientSheetById(id); }
+  catch (e) { body.innerHTML = '<p style="padding:8px">불러오지 못했습니다.</p>'; return; }
+  if (!s) { body.innerHTML = '<p style="padding:8px">데이터가 없습니다.</p>'; return; }
+  _osDetailSheet = s;
+  // 카테고리는 code 로 저장되므로 한국어 라벨로 변환해 표시 (캠페인 폼과 동일 기준 데이터)
+  let catMap = {};
+  try { const cats = await fetchLookups('category'); catMap = Object.fromEntries((cats || []).map(c => [c.code, c.name_ko])); } catch (_) {}
+  _osDetailCatMap = catMap;
+  body.innerHTML = osDetailHtml(s, catMap);
+}
+
+// 상세 내용을 브라우저 새창에 읽기 전용으로 출력 (인쇄·나란히 보기 용)
+function osOpenDetailNewWindow() {
+  const s = _osDetailSheet;
+  if (!s) return;
+  const inner = osDetailHtml(s, _osDetailCatMap || {}, true);   // readonly=true → 발행 버튼 제외
+  const w = window.open('', '_blank');
+  if (!w) { toast('팝업이 차단되었습니다. 브라우저에서 팝업을 허용한 뒤 다시 시도해 주세요.'); return; }
+  w.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>오리엔시트 — ' + esc(osBrandName(s)) + '</title>'
+    + '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;'
+    + 'margin:0;padding:24px;background:#f5f5f7;color:#161618;max-width:1000px}</style>'
+    + '</head><body>' + inner + '</body></html>');
+  w.document.close();
+}
+
+// 상세 모달 전용 스코프 스타일 (가독성: 항목 구분선 + 라벨/값 위계 + 카드 제목)
+const OS_DETAIL_STYLE = `<style>
+  .os-detail{container-type:inline-size}
+  .os-card{border:1px solid #ececf0;border-radius:12px;padding:14px 16px;margin-bottom:14px;background:#fff}
+  .os-card-title{font-weight:800;font-size:14px;color:#161618;margin-bottom:2px}
+  .os-card-head{display:flex;align-items:center;gap:8px;margin-bottom:2px;padding-bottom:8px}
+  .os-card-head .os-name{font-weight:800;font-size:14.5px;color:#161618;flex:1;min-width:0}
+  /* 모달(컨테이너) 너비에 따라 2열/1열 — 브랜드 입력 폼과 동일 반응형 */
+  .os-fields{display:grid;grid-template-columns:1fr;gap:0 20px}
+  @container (min-width:480px){.os-fields{grid-template-columns:1fr 1fr}}
+  .os-fields .os-field{padding:9px 0;border-top:1px solid #f2f2f2;min-width:0}
+  .os-field-wide{grid-column:1/-1}
+  .os-field-label{color:var(--muted,#8a8a90);font-size:11px;font-weight:700;letter-spacing:.02em;margin-bottom:3px}
+  .os-field-val{font-size:13.5px;line-height:1.65;color:#161618;word-break:break-word}
+  .os-field-val a{color:var(--pink,#E8344E);text-decoration:underline}
+  .os-empty{color:#bbb;font-weight:400}
+</style>`;
+
+function osDetailHtml(s, catMap, readonly) {
+  const d = s.data || {};
+  const cards = Array.isArray(d.cards) ? d.cards : [];
+  const headerHtml = `<div style="margin-bottom:14px">
+    <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
+  </div>`;
+  // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
+  const statusLine = `<div style="margin:16px 0 10px">${osBadge(osStatusOf(s))}`
+    + `<span style="margin-left:6px;color:var(--muted);font-size:12px">${cards.length ? cards.length + '개 모집 건' : ''}</span></div>`;
+  const brandCard = osBrandCard(d.brand, osBrandName(s));
+  let bodyHtml;
+  if (!cards.length) {
+    const msg = (s.status === 'draft')
+      ? '아직 작성 전입니다. 브랜드가 작성하면 여기에 표시됩니다.'
+      : '작성된 모집 건이 없습니다.';
+    bodyHtml = brandCard + statusLine + `<p style="color:var(--muted)">${msg}</p>`;
+  } else {
+    bodyHtml = brandCard + statusLine + cards.map((c, i) => osCardDetail(c, i, catMap, readonly)).join('');
+  }
+  return OS_DETAIL_STYLE + `<div class="os-detail">${headerHtml}${bodyHtml}</div>`;
+}
+
+function osFieldRow(label, valHtml, wide) {
+  return `<div class="os-field${wide ? ' os-field-wide' : ''}"><div class="os-field-label">${label}</div><div class="os-field-val">${valHtml}</div></div>`;
+}
+function osField(label, val, wide) {
+  const v = (val == null || val === '') ? '<span class="os-empty">미입력</span>' : esc(String(val));
+  return osFieldRow(label, v, wide);
+}
+// 값이 이미 안전한 HTML(링크 등 — 호출부가 esc·화이트리스트 보장)일 때. esc 미적용.
+function osFieldHtml(label, htmlVal, wide) {
+  const v = htmlVal ? htmlVal : '<span class="os-empty">미입력</span>';
+  return osFieldRow(label, v, wide);
+}
+function osRange(a, b) { return (a || b) ? `${a || '?'} ~ ${b || '?'}` : ''; }
+
+// 공통 브랜드 카드 (1회). headerName: 모달 헤더의 발급 브랜드 마스터명 — 작성 브랜드명과 같으면 중복이라 생략
+function osBrandCard(brand, headerName) {
+  const b = brand || {};
+  // 작성된 브랜드명이 헤더와 동일하면 생략(중복), 다르거나 미입력이면 표시
+  const nameField = (b.name && b.name.trim() === String(headerName || '').trim()) ? '' : osField('브랜드명', b.name);
+  const inner = nameField + osField('소개·어필', b.intro, true) + osField('공식 계정', b.official_accounts, true);
+  return `<div class="os-card">
+    <div class="os-card-title">브랜드 정보</div>
+    <div class="os-fields">${inner}</div></div>`;
+}
+
+// 카드(모집 건) 1개 상세 — 형식별 항목 분기(§15-12)
+function osCardDetail(c, idx, catMap, readonly) {
+  const ft = (c && c.form_type) || '';
+  const p = c.product || {};
+  const r = c.recruit || {};
+  const sale = c.sale || {};
+  const sd = c.seeding || {};
+  const catLabel = (catMap && catMap[p.category]) || p.category;
+
+  let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
+    + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
+
+  if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
+    inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
+      + osField('상시가', sale.price_regular);
+  }
+  if (ft === 'reviewer') {
+    inner += osField('엣코스메 희망', sale.atcosme_wish ? '희망' : '비희망');
+    if (sale.atcosme_wish) inner += osFieldHtml('엣코스메 링크', osLinkOrText(sale.atcosme_url), true);
+    inner += osFieldHtml('리뷰 가이드', sanitizeCautionHtml(c.review_guide), true);
+  }
+  if (ft === 'seeding') {
+    inner += osField('등급', OS_GRADE_LABEL[sd.grade] || sd.grade);
+    const guides = Array.isArray(sd.guides) ? sd.guides.filter(g => g && (g.channel || g.guide)) : [];
+    inner += guides.length
+      ? guides.map(g => osField('채널 소구 — ' + osChLabel(g.channel), g.guide, true)).join('')
+      : osField('채널별 소구 키워드', '', true);
+    inner += osField('촬영 가이드', sd.shooting_guide, true)
+      + osField('해시태그', Array.isArray(sd.hashtags) ? sd.hashtags.join(' ') : (sd.hashtags || ''))
+      + osField('계정 태그', sd.account_tags);
+    if (sd.grade === 'middle_mega') {
+      inner += osField('필수 내용', sd.required_content, true) + osField('증정품', sd.gift);
+    }
+    inner += osField('배송 안내', sd.shipping_note, true);
+  }
+  inner += osFieldHtml('금지 표현(NG)', sanitizeCautionHtml(c.ng), true) + osFieldHtml('추가 안내', sanitizeCautionHtml(c.cautions), true) + osImagesInline(c.images);
+  if (!ft) inner = '<div style="color:var(--muted);font-size:12px;margin-bottom:8px">브랜드가 아직 형식을 고르지 않았습니다.</div>' + inner;
+
+  const head = `<div class="os-card-head">
+    ${osTypeChip(ft)}<span class="os-name">${esc(p.name || ('제품 ' + (idx + 1)))}</span>${osCardPublishControl(c, idx, readonly)}</div>`;
+  return `<div class="os-card">${head}<div class="os-fields">${inner}</div></div>`;
+}
+
+// 카드 헤더 우측 — 발행 버튼(제출됨·미발행·형식 선택) / 발행됨 배지 / 형식 미선택 안내
+function osCardPublishControl(c, idx, readonly) {
+  if (readonly) return '';   // 새창(읽기 전용)에서는 발행 버튼 숨김
+  const s = _osDetailSheet;
+  if (c && c.campaign_id) {
+    return '<span style="flex-shrink:0;display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#16A34A;background:#E8F5E9">발행됨</span>';
+  }
+  if (s && s.status === 'submitted') {
+    if (!c || !c.form_type) return '<span style="flex-shrink:0;color:var(--muted);font-size:11px">형식 미선택</span>';
+    return `<button type="button" class="btn btn-primary btn-xs" style="flex-shrink:0" onclick="osPublishCard(${idx})">이 카드로 발행</button>`;
+  }
+  return '';   // draft(미제출)·expired 는 발행 버튼 없음
+}
+
+// 브랜드 입력 URL은 서버 검증이 없으므로(직접 RPC 호출 우회 가능) http/https만 링크 허용
+function osImgSafe(u) {
+  try { const p = new URL(u).protocol; return p === 'https:' || p === 'http:'; }
+  catch (e) { return false; }
+}
+function osLinkOrText(u) {
+  if (!u) return '';
+  const disp = esc(u);
+  return osImgSafe(u) ? `<a href="${disp}" target="_blank" rel="noopener">${disp}</a>` : disp;
+}
+function osImagesInline(images) {
+  const imgs = Array.isArray(images) ? images.filter(x => x && x.value) : [];
+  if (!imgs.length) return '';
+  const inner = imgs.map(x => {
+    const disp = esc(x.value);
+    return osImgSafe(x.value)
+      ? `<div style="margin-bottom:4px"><a href="${disp}" target="_blank" rel="noopener">${disp}</a></div>`
+      : `<div style="margin-bottom:4px;color:var(--muted)">${disp} <span style="font-size:10px">(링크 차단)</span></div>`;
+  }).join('');
+  return osFieldRow('예시 이미지·자료', inner, true);
+}
+
+// ── 카드 → 캠페인 발행 (자동 채움) ──
+// 상세 모달 카드 「이 카드로 발행」 → 캠페인 등록 폼에 prefill + 발행 컨텍스트 주입.
+// 일본어 게이트·발행 소비(markOrientCardConsumed)는 addCampaign 이 컨텍스트를 보고 처리.
+async function osPublishCard(cardIdx) {
+  const s = _osDetailSheet;
+  if (!s) return;
+  if (s.status !== 'submitted') { toast('제출된 오리엔시트만 발행할 수 있습니다.'); return; }
+  const cards = (s.data && Array.isArray(s.data.cards)) ? s.data.cards : [];
+  const card = cards[cardIdx];
+  if (!card) return;
+  if (card.campaign_id) { toast('이미 발행된 카드입니다.'); return; }
+  if (!card.form_type) { toast('형식이 선택되지 않은 카드는 발행할 수 없습니다.'); return; }
+  osCloseModal('orientDetailModal');
+  try {
+    await applyOrientCardPrefill(card, s.data.brand || {}, s.brand_id, s.application_id, s.id, cardIdx);
+  } catch (e) {
+    console.error('[osPublishCard]', e);
+    toast('자동 채움 중 오류가 발생했습니다. 폼을 직접 확인해 주세요.');
+  }
+}
+
+function osSetVal(id, val) { const el = document.getElementById(id); if (el) el.value = (val == null ? '' : String(val)); }
+function osPriceNum(v) { const n = parseInt(String(v == null ? '' : v).replace(/[^0-9]/g, ''), 10); return isNaN(n) ? '' : n; }
+
+// 시딩=게시 채널 / 리뷰어·가구매=판매처(마켓)를 채널 코드로
+function osPrefillChannels(card) {
+  if (card.form_type === 'seeding') {
+    return (card.seeding && Array.isArray(card.seeding.channels)) ? card.seeding.channels.filter(Boolean) : [];
+  }
+  const map = { 'Qoo10': 'qoo10', '@cosme': 'atcosme', 'LIPS': 'lips' };
+  const m = (card.sale && card.sale.market) || '';
+  return map[m] ? [map[m]] : [];
+}
+
+// 가격·행사를 리워드 안내 텍스트로 보존 (캠페인 reward_note)
+function osBuildRewardNote(card) {
+  const s = card.sale || {};
+  const parts = [];
+  if (card.form_type === 'proxy_purchase') parts.push('[가구매] 영수증만 제출 (리뷰·게시 없음)');
+  if (s.price_regular) parts.push('상시가 ' + s.price_regular);
+  return parts.join(' / ');
+}
+
+// 평문 → 리치 텍스트 HTML (이스케이프 + 줄바꿈)
+function osPlainToRich(t) {
+  if (!t) return '';
+  return esc(String(t)).replace(/\n/g, '<br>');
+}
+// 리치 텍스트(HTML) → 평문 (가이드 초안용 — 줄바꿈 보존, 태그 제거)
+function osStripHtml(html) {
+  if (!html) return '';
+  const d = document.createElement('div');
+  d.innerHTML = String(html).replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
+  return (d.textContent || '').trim();
+}
+
+// 카드 한국어 콘텐츠를 가이드 초안으로 합침 (관리자가 일본어로 번역)
+function osBuildGuideDraft(card) {
+  const blocks = [];
+  if (card.form_type === 'reviewer' && card.review_guide) blocks.push('[리뷰 가이드]\n' + osStripHtml(card.review_guide));
+  if (card.form_type === 'seeding') {
+    const sd = card.seeding || {};
+    (Array.isArray(sd.guides) ? sd.guides : []).forEach(g => {
+      if (g && g.guide) blocks.push('[' + osChLabel(g.channel) + ']\n' + g.guide);
+    });
+    if (sd.shooting_guide) blocks.push('[촬영 가이드]\n' + sd.shooting_guide);
+    if (sd.required_content) blocks.push('[필수 내용]\n' + sd.required_content);
+    if (sd.gift) blocks.push('[증정품] ' + sd.gift);
+    if (sd.shipping_note) blocks.push('[배송 안내] ' + sd.shipping_note);
+    if (sd.account_tags) blocks.push('[태그 계정] ' + sd.account_tags);
+  }
+  if (card.cautions) blocks.push('[추가 안내]\n' + osStripHtml(card.cautions));
+  if (card.ng) blocks.push('[NG]\n' + osStripHtml(card.ng));
+  return blocks.map(osPlainToRich).join('<br><br>');
+}
+
+// 캠페인 등록 폼에 카드 내용 자동 채움. 한국어는 _ko 칸·가이드 초안에, 일본어 표시칸(제목·제품명)은 비워 관리자 보완.
+async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, cardIdx) {
+  if (typeof switchAdminPane === 'function') switchAdminPane('add-campaign', null);
+  // 발행 컨텍스트 — switchAdminPane 이 add-campaign 진입 시 초기화하므로 그 직후 세팅.
+  // addCampaign 이 일본어 게이트·발행 소비·가구매 플래그에 사용.
+  window._orientPublishCtx = { orientId: orientId, cardIdx: cardIdx, isProxy: card.form_type === 'proxy_purchase' };
+  const ft = card.form_type;
+  const recruitType = (ft === 'seeding') ? 'gifting' : 'monitor';   // 가구매·리뷰어→리뷰어(monitor), 시딩→기프팅
+
+  // 브랜드 선택 + cascade (native select)
+  if (typeof loadCampBrandSelect === 'function') await loadCampBrandSelect('new', brandId);
+  osSetVal('newCampBrandId', brandId || '');
+  if (typeof onCampBrandChange === 'function') await onCampBrandChange('new');
+  if (appId) {
+    osSetVal('newCampSourceAppId', appId);
+    if (typeof _srcAppSyncTrigger === 'function') _srcAppSyncTrigger('new');
+  }
+
+  // recruitType 라디오 (인라인 onchange 로 채널·팔로워 영역 갱신)
+  const rt = document.querySelector(`input[name="recruitType"][value="${recruitType}"]`);
+  if (rt) { rt.checked = true; rt.dispatchEvent(new Event('change')); }
+
+  // 채널·카테고리 렌더
+  if (typeof renderChannelCheckboxes === 'function') await renderChannelCheckboxes('new', recruitType, osPrefillChannels(card));
+  if (typeof renderCategorySelect === 'function') await renderCategorySelect('new', (card.product && card.product.category) || '');
+
+  // 텍스트 (한국어→_ko, 일본어 표시칸은 비움 → 일본어 게이트가 보완 유도)
+  const p = card.product || {};
+  osSetVal('newCampProductKo', p.name || '');
+  osSetVal('newCampProduct', '');
+  osSetVal('newCampTitle', '');
+  osSetVal('newCampSlots', p.slots || '');
+  osSetVal('newCampProductUrl', (card.sale && card.sale.url) || '');
+  osSetVal('newCampProductPrice', osPriceNum(card.sale && card.sale.price_regular));
+  osSetVal('newCampRewardNote', osBuildRewardNote(card));
+  if (card.form_type === 'seeding') osSetVal('newCampHashtags', Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags.join(' ') : '');
+
+  // 날짜 (희망 모집 기간) — flatpickr range + deadline
+  const r = card.recruit || {};
+  if (typeof applyCampRangeValues === 'function') {
+    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, r.recruit_end || null], purchase: [null, null], visit: [null, null] });
+  }
+  osSetVal('newCampRecruitStart', r.recruit_start || '');
+  osSetVal('newCampDeadline', r.recruit_end || '');
+
+  // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
+  if (typeof setRichValue === 'function') {
+    setRichValue('newCampGuide', osBuildGuideDraft(card));
+    const osSdGuides = (card.seeding && Array.isArray(card.seeding.guides)) ? card.seeding.guides : [];
+    const osSeedingAppeal = osSdGuides.filter(g => g && g.guide).map(g => g.guide).join('\n');
+    setRichValue('newCampAppeal', osPlainToRich(osSeedingAppeal));
+    setRichValue('newCampDesc', osPlainToRich(brand.intro || ''));
+  }
+
+  toast('오리엔시트 내용을 채웠습니다. 일본어(제목·제품명·가이드)를 보완한 뒤 발행해 주세요.');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function osCloseModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.classList.remove('open');
+}
+
+// ── 모달 DOM 1회 생성 (기존 .modal-overlay/.modal/.modal-body 클래스 재사용) ──
+function ensureOrientModals() {
+  if (document.getElementById('orientCreateModal')) return;
+  const html = `
+  <div class="modal-overlay" id="orientCreateModal">
+    <div class="modal" style="max-width:480px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>오리엔시트 링크 발급</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseModal('orientCreateModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
+        <div id="osCreateForm">
+          <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#E8344E)">*</span></label>
+            <select id="osCreateBrand" class="form-input" onchange="osOnBrandChange()"></select></div>
+          <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
+            <select id="osCreateApp" class="form-input"><option value="">연결 안 함</option></select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 모집 희망값을 작성 폼 첫 카드에 미리 채웁니다.</div></div>
+          <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
+            모집 형식(가구매·리뷰어·시딩)과 제품은 브랜드가 작성 폼에서 카드마다 직접 추가·선택합니다.</div>
+        </div>
+        <div id="osCreateResult" style="display:none">
+          <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
+          <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()">
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">작성 기한: <span id="osCreateExpire"></span></div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary btn-sm" onclick="osCopyResultLink()">링크 복사</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="osSendInviteClick(this)"><span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:-3px">mail</span> 메일 발송</button>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">메일은 자동 발송되지 않습니다. 필요하면 「메일 발송」을 눌러 브랜드 담당자에게 작성 링크를 보내세요.</div>
+          <div id="osCreateMailStatus" style="margin-top:12px;font-size:13px;line-height:1.6"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientCreateModal')">닫기</button>
+        <button type="button" class="btn btn-primary" id="osCreateSubmitBtn" onclick="osSubmitCreate()">발급</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="orientDetailModal">
+    <div class="modal" style="max-width:560px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>오리엔시트 내용</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDetailModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1" id="osDetailBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="osOpenDetailNewWindow()"><span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:-3px">open_in_new</span> 새창으로 열기</button>
+        <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDetailModal')">닫기</button></div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="orientDeleteModal">
+    <div class="modal" style="max-width:440px;width:94vw;border-radius:16px;margin:auto;display:flex;flex-direction:column">
+      <div class="modal-header"><h2>오리엔시트 삭제</h2>
+        <button type="button" class="modal-close-btn" onclick="osCloseModal('orientDeleteModal')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>
+      <div class="modal-body" style="padding:20px">
+        <p style="margin-bottom:10px">브랜드 <b id="osDeleteBrand"></b> 의 오리엔시트를 삭제합니다. 이 작업은 되돌릴 수 없습니다.</p>
+        <div id="osDeleteCampWarn" style="display:none;margin-bottom:12px;padding:10px 12px;background:#FFF0F2;border:1px solid #F3C2CA;border-radius:8px;font-size:13px;color:#A11221"></div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:6px">삭제하려면 브랜드명 「<span id="osDeleteBrandEcho" style="font-weight:700;color:var(--text,#161618)"></span>」 을 그대로 입력하세요.</p>
+        <input type="text" id="osDeleteConfirmInput" class="form-input" oninput="osCheckDeleteConfirm()" autocomplete="off">
+        <div id="osDeleteError" style="display:none;margin-top:8px;font-size:13px;color:#C41E3A"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="osCloseModal('orientDeleteModal')">취소</button>
+        <button type="button" class="btn" id="osDeleteBtn" style="background:#C41E3A;color:#fff" onclick="osExecuteDelete()" disabled>삭제</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  // 동적 생성된 오리엔 모달에 드래그·리사이즈 옵저버 부착(부트 시점엔 없던 overlay라 재등록 필요. 멱등)
+  if (typeof initDraggableModals === 'function') initDraggableModals();
+}
+
 // ══════════════════════════════════════
 // REVERB JP — Admin Brand Survey 영역
 // ══════════════════════════════════════
@@ -11387,6 +12485,7 @@ function initDraggableModals() {
 // ══════════════════════════════════════
 
 var _brandApps = [];          // 캐시된 전체 목록
+var _orientByApp = {};        // {application_id: [orient_sheet,...]} — 셀프 오리엔시트 열용(목록 로드 시 1회 그룹)
 var _brandAppSort = {field: 'created', dir: 'desc'};
 var _brandAppCurrentId = null; // 상세 모달 열린 신청 ID
 
@@ -11574,8 +12673,16 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     copy.status = newStatus;
     return copy;
   });
+  var patch = {products: nextProducts};
+  // 첫 검수 진입: 신청 전체 상태가 아직 '신규'인데 제품을 '신규' 밖으로 올리면
+  // 신청 전체 상태도 함께 전이 → 사이드바 「신규」 배지가 줄어들도록 (배지는 신청 단위 status='new' 카운트).
+  if (cur.status === 'new' && newStatus !== 'new') {
+    patch.status = newStatus;
+    patch.reviewed_by = currentUser?.id || null;
+    patch.reviewed_at = new Date().toISOString();
+  }
   var expectedVersion = cur.version;
-  var result = await updateBrandApplication(id, {products: nextProducts}, expectedVersion);
+  var result = await updateBrandApplication(id, patch, expectedVersion);
   if (result.conflict) {
     toast('다른 관리자가 먼저 처리했습니다. 목록을 새로고침합니다.', 'warn');
     await loadBrandApplications();
@@ -11587,8 +12694,10 @@ async function quickChangeBrandAppProductStatus(id, idx, newStatus) {
     return;
   }
   cur.products = nextProducts;
+  if (patch.status) cur.status = patch.status;   // 신청 전체 상태 전이 캐시 동기화
   _syncBrandAppCur(cur, result, expectedVersion);
   _refreshBrandAppHistoryButton(id);
+  if (patch.status && typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();   // 신규 배지 즉시 갱신
   // 상태 변경은 필터 (NN)건 카운트와 매칭 행 노출에 즉시 영향 — 목록 전체 재렌더
   // 일정 인라인 편집과는 다른 흐름이라 의도적으로 셀-only 재렌더 미사용
   renderBrandApplicationsList();
@@ -12296,6 +13405,8 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
     : '<div class="camp-more-item" style="opacity:.4;cursor:not-allowed" title="변경 이력 없음"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">history</span>이력 (0)</div>';
   menu.innerHTML = ''
     + '<div class="camp-more-item" onclick="openBrandAppEditModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">edit</span>수정</div>'
+    + '<div class="camp-more-item" onclick="osIssueFromApplication(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">assignment_turned_in</span>시스템 오리엔시트 발급</div>'
+    + '<div class="camp-more-item" onclick="osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')"><span class="material-icons-round notranslate" translate="no" style="font-size:16px">link</span>구글시트 URL 등록</div>'
     + historyItem;
   document.body.appendChild(menu);
   _positionMenuInViewport(menu, rect, {placement: 'left-of'});
@@ -12308,6 +13419,115 @@ function toggleBrandAppRowMenu(e, btnEl, appId) {
       }
     });
   }, 0);
+}
+
+// 셀프 오리엔시트 열 셀 — 신청에 연결된 orient_sheets 요약(최근 상태 + 추가 건수). 없으면 —.
+// 만료는 클라 판정(조회 함수가 status 미전환 — consumed 아닌데 기한 지나면 만료 표시).
+// 시스템 오리엔시트 셀 = 「보기(N)」 버튼(0건 포함). 클릭 시 그 신청의 오리엔시트 목록 모달.
+//   상태·링크·상세는 모달(현황 표 형식)에서 확인 — 셀은 건수만 간결히.
+function renderSelfOrientCell(appId) {
+  var count = (_orientByApp && _orientByApp[appId] && _orientByApp[appId].length) || 0;
+  return '<button type="button" class="btn btn-ghost btn-xs" style="display:inline-flex;align-items:center;gap:3px" '
+    + 'onclick="event.stopPropagation();openBrandAppOrientListModal(\'' + esc(appId) + '\')" title="발급된 오리엔시트 목록 보기">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:14px">visibility</span>보기(' + count + ')</button>';
+}
+
+// 오리엔시트 셀 미니 버튼(아이콘 + 라벨). href 가 'javascript:void(0)' 이면 onclick 동작 버튼.
+function orientMiniBtn(icon, text, href, onclick) {
+  // href·icon 은 raw 로 받아 여기서 한 번만 esc (호출부 이중 이스케이프 방지)
+  var style = 'display:inline-flex;align-items:center;gap:2px;padding:1px 7px;border:1px solid var(--pink);border-radius:6px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none;line-height:1.6;vertical-align:middle';
+  var oc = onclick ? (' onclick="' + onclick + '"') : ' onclick="event.stopPropagation()"';
+  var tgt = (href && href !== 'javascript:void(0)') ? ' target="_blank" rel="noopener noreferrer"' : '';
+  return '<a href="' + esc(href) + '"' + tgt + oc + ' title="' + esc(text) + '" style="' + style + '">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">' + esc(icon) + '</span>' + esc(text) + '</a>';
+}
+
+// 신청 목록 「오리엔시트」 셀 — 「보기(N)」 버튼만.
+// 시스템(orient_sheets)·구글시트(orient_sheet_sent_url) 상세는 보기 모달에서 확인.
+function renderOrientCombinedCell(a) {
+  return '<div style="display:flex;align-items:center;min-height:36px">' + renderSelfOrientCell(a.id) + '</div>';
+}
+
+// 신청의 시스템 오리엔시트 목록 모달 (오리엔시트 현황 표 형식). 「보기(N)」 클릭 진입.
+function ensureBrandAppOrientListModal() {
+  if (document.getElementById('brandAppOrientListModal')) return;
+  var html = '<div class="modal-overlay" id="brandAppOrientListModal">'
+    + '<div class="modal" style="max-width:640px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">'
+    + '<div class="modal-header"><h2>오리엔시트 목록</h2>'
+    + '<button type="button" class="modal-close-btn" onclick="osCloseModal(\'brandAppOrientListModal\')"><span class="material-icons-round notranslate" translate="no">close</span></button></div>'
+    + '<div class="modal-body" style="padding:18px;overflow-y:auto;flex:1" id="brandAppOrientListBody"></div>'
+    + '<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="osCloseModal(\'brandAppOrientListModal\')">닫기</button></div>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  // 동적 생성 모달이라 부팅 시 옵저버(정적 모달 대상)에 안 잡힘 — 여기서 드래그·리사이즈 옵저버 부착
+  if (typeof initDraggableModals === 'function') initDraggableModals();
+}
+
+function brandAppOrientListRow(s) {
+  var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
+  var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
+  var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+  var copyBtn = link ? '<button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(link) + '\',\'작성 링크가 복사되었습니다.\')">링크 복사</button> ' : '';
+  return '<tr style="border-top:1px solid var(--line,#eee)">'
+    + '<td style="padding:8px 6px">' + summary + '</td>'
+    + '<td style="padding:8px 6px">' + stBadge + '</td>'
+    + '<td style="padding:8px 6px;font-size:12px;color:var(--muted)">' + (s.created_at ? formatDate(s.created_at) : '-') + '</td>'
+    + '<td style="padding:8px 6px;font-size:12px;color:var(--muted)">' + (s.token_expires_at ? formatDate(s.token_expires_at) : '-') + '</td>'
+    + '<td style="padding:8px 6px;white-space:nowrap">' + copyBtn
+    + '<button type="button" class="btn btn-primary btn-xs" onclick="event.stopPropagation();osCloseModal(\'brandAppOrientListModal\');osOpenDetail(\'' + esc(s.id) + '\')">상세</button></td>'
+  + '</tr>';
+}
+
+function openBrandAppOrientListModal(appId) {
+  ensureBrandAppOrientListModal();
+  var a = (_brandApps || []).find(function (x) { return x.id === appId; }) || {};
+  var sheets = (_orientByApp && _orientByApp[appId]) || [];
+  var body = document.getElementById('brandAppOrientListBody');
+  var titleStyle = 'font-size:13px;font-weight:800;color:var(--ink);margin:0 0 8px;display:flex;align-items:center;gap:6px';
+
+  // 시스템 오리엔시트 섹션
+  var sysInner;
+  if (!sheets.length) {
+    sysInner = '<div style="color:var(--muted);font-size:13px;padding:4px 0 10px">아직 발급된 오리엔시트가 없습니다.</div>'
+      + '<button type="button" class="btn btn-primary btn-sm" onclick="osCloseModal(\'brandAppOrientListModal\');osIssueFromApplication(\'' + esc(appId) + '\')">오리엔시트 발급</button>';
+  } else {
+    sysInner = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="background:var(--surface-dim)">'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">모집 형식</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">상태</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">발급일</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">작성 기한</th>'
+      + '<th style="text-align:left;padding:8px 6px;font-weight:700">관리</th></tr></thead>'
+      + '<tbody>' + sheets.map(brandAppOrientListRow).join('') + '</tbody></table>';
+  }
+
+  // 구글시트 섹션 (외부 URL — orient_sheet_sent_url)
+  var gsUrl = (typeof safeBrandUrl === 'function') ? safeBrandUrl(a.orient_sheet_sent_url) : '';
+  var gsInner = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  if (gsUrl) {
+    gsInner += (typeof renderGoogleSheetLinkOnly === 'function' ? renderGoogleSheetLinkOnly(a.orient_sheet_sent_url) : esc(gsUrl))
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 수정</button>';
+  } else {
+    gsInner += '<span style="color:var(--muted);font-size:13px">등록된 구글시트 URL이 없습니다.</span>'
+      + '<button type="button" class="btn btn-ghost btn-xs" onclick="osCloseModal(\'brandAppOrientListModal\');osOpenGoogleSheetUrlModal(\'' + esc(appId) + '\')">URL 등록</button>';
+  }
+  gsInner += '</div>';
+
+  body.innerHTML =
+    '<div><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">assignment</span>시스템 오리엔시트</div>' + sysInner + '</div>'
+    + '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#eee)"><div style="' + titleStyle + '"><span class="material-icons-round notranslate" translate="no" style="font-size:17px;color:var(--pink)">description</span>구글시트</div>' + gsInner + '</div>';
+  var overlay = document.getElementById('brandAppOrientListModal');
+  overlay.classList.add('open');
+  // 첫 열림에도 즉시 드래그·리사이즈 적용(옵저버는 비동기라 한 틱 지연)
+  if (typeof _applyDraggableIfOpen === 'function') _applyDraggableIfOpen(overlay);
+}
+
+// 구글시트 외부 URL — 열기 링크만(✎ 편집 없음. 등록은 더보기 「구글시트 URL 등록」 모달).
+function renderGoogleSheetLinkOnly(urlOrNull) {
+  var safeUrl = safeBrandUrl(urlOrNull);
+  return safeUrl
+    ? orientMiniBtn('open_in_new', '열기', safeUrl, null)
+    : '<span style="color:var(--muted);font-size:11px">—</span>';
 }
 
 // ══════════════════════════════════════
@@ -12417,6 +13637,7 @@ async function openBrandDetailModal(id) {
     + (isAdm
         ? '<button class="btn btn-ghost btn-sm" onclick="openBrandMergeModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;color:#c0392b"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">merge</span>병합</button>'
         : '')
+    + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();osOpenCreate({brandId:\'' + esc(id) + '\',lockBrand:true})" style="display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">assignment_turned_in</span>오리엔시트 발급</button>'
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal();openNewBrandAppModal(\'' + esc(id) + '\')" style="display:inline-flex;align-items:center;gap:4px;margin-right:auto"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">add</span>이 브랜드로 신규 신청</button>'
     + '<button class="btn btn-ghost btn-sm" onclick="closeBrandDetailModal()">닫기</button>'
     + '<button class="btn btn-primary btn-sm" onclick="saveBrandDetail()">저장</button>';
@@ -12996,7 +14217,7 @@ async function loadBrandApplications() {
   if (_loadBrandApplicationsPromise) return _loadBrandApplicationsPromise;
   _loadBrandApplicationsPromise = (async function() { try {
   var tbody = $('brandAppTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr>';
 
   try {
     // URL 해시 쿼리에서 status 파라미터 파싱
@@ -13013,20 +14234,27 @@ async function loadBrandApplications() {
     }
 
     // 신청 본문 + history 카운트 + 메모 요약 동시 fetch
-    var [apps, counts, memoSummaries] = await Promise.all([
+    var [apps, counts, memoSummaries, orientSheets] = await Promise.all([
       fetchBrandApplications(),
       fetchBrandAppHistoryCounts(),
-      fetchBrandAppMemoSummaries()
+      fetchBrandAppMemoSummaries(),
+      fetchOrientSheets().catch(function(){ return []; })   // 셀프 오리엔시트 열(실패해도 목록은 표시)
     ]);
     _brandApps = apps || [];
     _brandAppHistoryCounts = counts || {};
     _brandAppMemoSummaries = memoSummaries || {};
+    // 셀프 오리엔시트 열: 신청별 그룹 맵(N+1 회피 — 전체 1회 조회 후 application_id 로 그룹)
+    _orientByApp = {};
+    (orientSheets || []).forEach(function(s){
+      if (!s.application_id) return;
+      (_orientByApp[s.application_id] = _orientByApp[s.application_id] || []).push(s);
+    });
     renderBrandApplicationsList();
     refreshBrandAppBadge();
   } catch (err) {
     console.error('[brand-applications] load failed:', err);
     if (tbody) {
-      tbody.innerHTML = '<tr><td colspan="29" style="text-align:center;color:#c33;padding:24px">'
+      tbody.innerHTML = '<tr><td colspan="30" style="text-align:center;color:#c33;padding:24px">'
         + '신청 목록을 불러오지 못했습니다. 새로고침 또는 재로그인 후 다시 시도해 주세요.'
         + '<br><button type="button" onclick="location.reload()" class="btn btn-primary" style="margin-top:8px">새로고침</button>'
         + '</td></tr>';
@@ -13043,7 +14271,7 @@ async function refreshBrandAppBadge() {
   if (!el) return;
   var count = await fetchBrandAppPendingCount();
   var badge = count > 0 ? '<span class="admin-si-badge">'+(count > 999 ? '999+' : count)+'</span>' : '';
-  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">신청 목록</span>' + badge;
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">storefront</span><span class="si-text">서베이 신청 목록</span>' + badge;
 }
 
 var brandAppLazy = null;
@@ -13217,7 +14445,7 @@ function renderBrandApplicationsList() {
     rows: list,
     renderRow: renderBrandAppRow,
     pageSize: BRAND_APP_PAGE_SIZE,
-    emptyHtml: '<tr><td colspan="29" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
+    emptyHtml: '<tr><td colspan="30" style="text-align:center;color:var(--muted);padding:40px">신청 내역이 없습니다</td></tr>',
   });
 }
 
@@ -13413,6 +14641,112 @@ function _uniformProductValue(prods, key) {
 //   count: 신청 전체 제품 수 (필터 무관 — 「제품 N개」 라벨에 사용)
 //   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
 //            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
+// ════════════════════════════════════════════════════════════════════
+// 신청 행 아코디언 + 진행바 (admin-brand-journey PR B)
+//   6단계 묶음(검토→견적→입금→발급→취합→발행)을 신청 단위 status로 읽기 전용 표시.
+//   제품별 status가 갈리면 「혼합」 배지. status 자동 전이 없음(수동 드롭다운 유지).
+//   발급·발행 행동 바로가기는 PR C 에서 연결.
+// ════════════════════════════════════════════════════════════════════
+var BRAND_JOURNEY_STEPS = [
+  { label: '검토', order: 1 },   // reviewing
+  { label: '견적', order: 2 },   // quoted
+  { label: '입금', order: 3 },   // paid
+  { label: '발급', order: 5 },   // orient_sheet_sent
+  { label: '취합', order: 6 },   // schedule_sent (취합 = 오리엔 제출 — PR C에서 정밀화)
+  { label: '발행', order: 7 },   // campaign_registered
+];
+
+// 신청의 대표 진행 단계: 제품별 status 중 가장 덜 진행된 것(보수적) + 혼합/반려 여부
+function brandAppJourneyState(a) {
+  var prods = Array.isArray(a.products) ? a.products : [];
+  var statuses = (prods.length ? prods.map(function (p) { return (p && p.status) || a.status; }) : [a.status]).filter(Boolean);
+  if (!statuses.length) statuses = ['new'];
+  var uniq = statuses.filter(function (s, i) { return statuses.indexOf(s) === i; });
+  var orders = statuses.map(function (s) { return BRAND_STATUS_ORDER_FOR_FUNNEL[s]; }).filter(function (o) { return typeof o === 'number' && o >= 0; });
+  var minOrder = orders.length ? Math.min.apply(null, orders) : -1;   // -1 = 전부 반려
+  return { order: minOrder, mixed: uniq.length > 1, rejected: statuses.indexOf('rejected') >= 0 };
+}
+
+function renderBrandAppJourney(a) {
+  var st = brandAppJourneyState(a);
+  // 다음 행동 단계 = 아직 도달 못 한 첫 단계
+  var nextOrder = null;
+  for (var i = 0; i < BRAND_JOURNEY_STEPS.length; i++) {
+    if (st.order < BRAND_JOURNEY_STEPS[i].order) { nextOrder = BRAND_JOURNEY_STEPS[i].order; break; }
+  }
+  var steps = BRAND_JOURNEY_STEPS.map(function (step, i) {
+    var done = st.order >= step.order;
+    var current = (step.order === nextOrder);
+    var circleBg = done ? '#274' : (current ? 'var(--pink)' : '#E5E5E5');
+    var circleColor = (done || current) ? '#fff' : '#999';
+    var inner = done ? '<span class="material-icons-round notranslate" translate="no" style="font-size:15px">check</span>' : (i + 1);
+    var labelColor = done ? '#274' : (current ? 'var(--pink)' : '#999');
+    var line = (i < BRAND_JOURNEY_STEPS.length - 1)
+      ? '<div style="flex:1;height:2px;background:' + (st.order >= BRAND_JOURNEY_STEPS[i + 1].order ? '#274' : '#E5E5E5') + ';min-width:18px"></div>' : '';
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'
+      + '<div style="width:24px;height:24px;border-radius:50%;background:' + circleBg + ';color:' + circleColor + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">' + inner + '</div>'
+      + '<span style="font-size:11px;font-weight:700;color:' + labelColor + '">' + step.label + '</span></div>'
+      + line;
+  }).join('');
+  var badges = '';
+  if (st.mixed) badges += '<span style="background:#FDEEF4;color:#A36;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">제품별 단계 혼합</span>';
+  if (st.rejected) badges += '<span style="background:#F5F5F5;color:#999;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">반려 포함</span>';
+  return '<div style="padding:6px 4px 2px"><div style="display:flex;align-items:center;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px">진행 단계' + badges + '</div>'
+    + '<div style="display:flex;align-items:flex-start;max-width:560px">' + steps + '</div></div>';
+}
+
+// 오리엔시트 발급·취합·발행 섹션 (아코디언 — admin-brand-journey PR C)
+//   _orientByApp(목록 로드 시 그룹, data 포함) 재사용. 발급=osIssueFromApplication, 내용·발행=osOpenDetail(PR⑦ 카드별 발행 버튼 포함).
+//   비-서베이(신청 없는) 건은 브랜드 관리에서 발급 — 여기는 신청 연결 건만.
+function renderBrandAppOrientSection(a) {
+  var sheets = (_orientByApp && _orientByApp[a.id]) || [];
+  var rows;
+  if (!sheets.length) {
+    rows = '<div style="color:var(--muted);font-size:12px;margin-bottom:4px">아직 발급된 오리엔시트가 없습니다. 발급하면 브랜드가 작성할 링크가 생성됩니다.</div>';
+  } else {
+    rows = sheets.map(function (s) {
+      var stBadge = (typeof osBadge === 'function' && typeof osStatusOf === 'function') ? osBadge(osStatusOf(s)) : esc(s.status || '');
+      var summary = (typeof osCardsSummary === 'function') ? osCardsSummary(s.data) : '';
+      var link = (typeof osBuildLink === 'function') ? osBuildLink(s.token) : '';
+      return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line,#eee)">'
+        + stBadge + '<span style="font-size:12px;color:var(--ink)">' + summary + '</span>'
+        + '<div style="margin-left:auto;display:flex;gap:6px">'
+        + (link ? '<button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();copyTextToClipboard(\'' + esc(link) + '\',\'작성 링크가 복사되었습니다.\')">링크 복사</button>' : '')
+        + '<button type="button" class="btn btn-primary btn-xs" onclick="event.stopPropagation();osOpenDetail(\'' + esc(s.id) + '\')">내용·발행</button>'
+        + '</div></div>';
+    }).join('');
+  }
+  var issueBtn = '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="event.stopPropagation();osIssueFromApplication(\'' + esc(a.id) + '\')">'
+    + '<span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">add</span> 오리엔시트 ' + (sheets.length ? '추가 ' : '') + '발급</button>';
+  return '<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border-strong,#D4D4CC)">'
+    + '<div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px">오리엔시트 발급 · 취합 · 발행</div>'
+    + rows + issueBtn + '</div>';
+}
+
+// 신청 행 펼침/접힘 — 마지막 제품 행 뒤에 전체폭 상세 행(진행바 + 오리엔 섹션) 삽입/제거
+function toggleBrandAppExpand(appId) {
+  var existing = document.querySelector('#brandAppTableBody tr[data-detail-for="' + appId + '"]');
+  var caret = document.querySelector('#brandAppTableBody .brand-app-expand-caret[data-id="' + appId + '"]');
+  if (existing) {
+    existing.remove();
+    if (caret) caret.textContent = 'expand_more';
+    return;
+  }
+  var rows = document.querySelectorAll('#brandAppTableBody tr[data-id="' + appId + '"]');
+  if (!rows.length) return;
+  var lastRow = rows[rows.length - 1];
+  var a = (_brandApps || []).find(function (x) { return x.id === appId; });
+  if (!a) return;
+  var tr = document.createElement('tr');
+  tr.setAttribute('data-detail-for', appId);
+  tr.className = 'brand-app-detail-row';
+  tr.innerHTML = '<td colspan="30" style="background:var(--surface-dim);padding:8px 16px 14px">' + renderBrandAppJourney(a) + renderBrandAppOrientSection(a) + '</td>';
+  lastRow.parentNode.insertBefore(tr, lastRow.nextSibling);
+  if (caret) caret.textContent = 'expand_less';
+}
+
+//   isFirst: 화면 첫 행 여부 (status 필터로 일부만 노출 시 displayIdx===0 행이 isFirst).
+//            액션 셀(상태/메모/견적서/이력)·폼 배지·제품 N개 라벨·신청 경계 보더는 isFirst에만 표시
 function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
   if (typeof isFirst === 'undefined') isFirst = (idx === 0);
   // stripeClass: 신청 단위 좌측 색 띠 (app-stripe-even / app-stripe-odd). 호출처에서 stripeMap 으로 결정
@@ -13562,9 +14896,9 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
     ? '<td><div class="brand-app-qsent-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px">' + renderQuoteSentDisplay(a.quote_sent_at, a.quote_sent_url, false) + '</div></td>'
     : emptyAction;
 
-  // 21. 오리엔시트 전달 — URL 만 (migration 126: 날짜 분리)
+  // 21. 오리엔시트 (시스템 + 구글시트 통합 셀 — 첫 행만)
   html += isFirst
-    ? '<td><div class="brand-app-orient-cell" data-id="' + esc(a.id) + '" style="position:relative;min-height:36px;display:flex;align-items:center">' + renderOrientSheetSentDisplay(a.orient_sheet_sent_url, false) + '</div></td>'
+    ? '<td title="시스템 발급은 행 더보기 「오리엔시트 링크생성」 / 구글시트는 ✎ 로 외부 URL 입력">' + renderOrientCombinedCell(a) + '</td>'
     : emptyAction;
 
   // 22. 입금 정보 — 제품 행마다 해당 제품의 플래그만 표시
@@ -13577,7 +14911,8 @@ function renderBrandAppFlatRow(a, p, idx, count, isFirst, stripeClass) {
 
   // 24. 관리 — 더보기 메뉴(수정/이력) (액션 — 첫 행만). 이력 카운트는 메뉴 안에 표시
   html += isFirst
-    ? '<td><span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
+    ? '<td style="white-space:nowrap"><span class="material-icons-round notranslate brand-app-expand-caret" translate="no" data-id="' + esc(a.id) + '" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;vertical-align:middle" title="진행 단계 펼치기" onclick="event.stopPropagation();toggleBrandAppExpand(\'' + esc(a.id) + '\')">expand_more</span>'
+      + '<span class="material-icons-round notranslate" translate="no" style="font-size:20px;color:var(--muted);cursor:pointer;padding:4px;border-radius:50%;transition:background .15s;vertical-align:middle" onclick="event.stopPropagation();toggleBrandAppRowMenu(event,this,\'' + esc(a.id) + '\')">more_vert</span></td>'
     : emptyAction;
 
   html += '</tr>';
@@ -14859,22 +16194,8 @@ async function confirmQuoteSentEdit(anyChildEl) {
   toast(nextDate ? '견적서 전달 정보가 저장되었습니다.' : '견적서 미전달로 변경했습니다.');
 }
 
-// ─── 오리엔시트 전달 셀 — URL 만 (migration 126: 날짜는 paid_at 으로 분리) ─────
-function renderOrientSheetSentDisplay(urlOrNull, locked) {
-  var safeUrl = safeBrandUrl(urlOrNull);
-  var content = safeUrl
-    ? '<a href="' + esc(safeUrl) + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="오리엔시트 열기" style="display:inline-flex;align-items:center;gap:4px;color:var(--pink);font-size:11px;font-weight:600;text-decoration:none">'
-        + '<span class="material-icons-round notranslate" translate="no" style="font-size:13px">link</span>'
-        + '<span style="text-decoration:underline">열기</span>'
-      + '</a>'
-    : '<span style="color:var(--muted);font-size:11px">—</span>';
-  return content
-    + '<button type="button" class="orient-edit-btn" ' + (locked ? 'disabled' : '') + ' onclick="enterOrientSheetSentEdit(this)" title="' + (locked ? '완료/거절 신청은 수정 불가' : '오리엔시트 URL 수정') + '" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:none;border:none;cursor:' + (locked ? 'not-allowed' : 'pointer') + ';padding:2px;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:3px" onmouseover="if(!this.disabled)this.style.background=\'rgba(0,0,0,.05)\'" onmouseout="this.style.background=\'none\'"><span class="material-icons-round notranslate" translate="no" style="font-size:13px">edit</span></button>';
-}
-
-function _restoreOrientSheetSentDisplay(cell, urlOrNull, locked) {
-  cell.innerHTML = renderOrientSheetSentDisplay(urlOrNull, locked);
-}
+// (구글시트 오리엔시트 URL 인라인 표시·편집 함수 제거 — 2026-06-22 더보기 「구글시트 URL 등록」 모달로 대체.
+//  표시는 renderGoogleSheetLinkOnly(열기 링크만), 입력은 osOpenGoogleSheetUrlModal)
 
 // ─── 입금 날짜 셀 (migration 126) ────────────────────────────────────────────
 function renderPaidAtDisplay(isoOrNull, locked) {
@@ -15076,65 +16397,74 @@ function _rerenderBrandAppPriceCheckCell(applicationId, productIndex) {
   cell.innerHTML = renderBrandAppPriceCheckCell(cur, productIndex, cur.products[productIndex]);
 }
 
-function enterOrientSheetSentEdit(btnEl) {
-  var cell = btnEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var cur = _findBrandApp(cell.dataset.id);
-  if (!cur) return;
-  var urlValue = esc(cur.orient_sheet_sent_url || '');
-  cell.innerHTML = '<div style="display:flex;flex-direction:column;gap:4px">'
-    + '<input type="url" class="orient-edit-url" value="' + urlValue + '" placeholder="https://" style="font-size:11px;padding:2px 4px;border:1px solid var(--line);border-radius:4px;width:100%">'
-    + '<div style="display:flex;gap:4px;justify-content:flex-end">'
-      + '<button type="button" onclick="cancelOrientSheetSentEdit(this)" style="background:#fff;border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;color:var(--muted)">취소</button>'
-      + '<button type="button" onclick="confirmOrientSheetSentEdit(this)" style="background:var(--pink);color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600">저장</button>'
-    + '</div>'
-  + '</div>';
-  var input = cell.querySelector('.orient-edit-url');
-  if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+// ─── 구글시트 URL 등록 모달 (더보기 「구글시트 URL 등록」 — 셀 인라인 ✎ 대체) ───
+function osOpenGoogleSheetUrlModal(appId) {
+  var cur = _findBrandApp(appId);
+  if (!cur) { toast('신청 정보를 찾을 수 없습니다. 목록을 새로고침해 주세요.'); return; }
+  var existing = document.getElementById('gsUrlModal');
+  if (existing) existing.remove();
+  var urlVal = esc(cur.orient_sheet_sent_url || '');
+  var brandLabel = esc(cur.brand_name || '');
+  var html = '<div class="modal-overlay open" id="gsUrlModal" style="z-index:620">'
+    + '<div class="modal" style="max-width:460px;width:94vw;border-radius:16px;margin:auto;max-height:88vh;display:flex;flex-direction:column">'
+      + '<div class="modal-header"><h2 style="font-size:16px">구글시트 URL 등록</h2>'
+        + '<button type="button" class="modal-close-btn" onclick="closeGsUrlModal()"><span class="material-icons-round notranslate" translate="no">close</span></button></div>'
+      + '<div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">'
+        + '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">' + brandLabel + ' — 외부(구글) 시트 오리엔시트 링크를 입력하세요.</div>'
+        + '<input type="url" id="gsUrlInput" value="' + urlVal + '" placeholder="https://docs.google.com/..." style="width:100%;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;box-sizing:border-box">'
+        + '<div style="font-size:11px;color:var(--muted);margin-top:6px">비우고 저장하면 등록된 URL이 제거됩니다.</div>'
+      + '</div>'
+      + '<div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeGsUrlModal()">취소</button>'
+        + '<button type="button" class="btn btn-primary" id="gsUrlSaveBtn" onclick="saveGoogleSheetUrl(\'' + esc(appId) + '\')">저장</button></div>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  setTimeout(function(){
+    var i = document.getElementById('gsUrlInput');
+    if (!i) return;
+    i.focus(); i.setSelectionRange(i.value.length, i.value.length);
+    i.addEventListener('keydown', function(e){
+      if (e.key === 'Escape') { e.preventDefault(); closeGsUrlModal(); }
+      else if (e.key === 'Enter') { e.preventDefault(); saveGoogleSheetUrl(appId); }
+    });
+  }, 50);
 }
 
-function cancelOrientSheetSentEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var cur = _findBrandApp(cell.dataset.id);
-  var locked = cur && (cur.status === 'done' || cur.status === 'rejected');
-  _restoreOrientSheetSentDisplay(cell, cur?.orient_sheet_sent_url || null, !!locked);
+function closeGsUrlModal() {
+  var m = document.getElementById('gsUrlModal');
+  if (m) m.remove();
 }
 
-async function confirmOrientSheetSentEdit(anyChildEl) {
-  var cell = anyChildEl.closest('.brand-app-orient-cell');
-  if (!cell) return;
-  var id = cell.dataset.id;
-  var cur = _findBrandApp(id);
+async function saveGoogleSheetUrl(appId) {
+  var cur = _findBrandApp(appId);
   if (!cur) return;
-  var urlInput = cell.querySelector('.orient-edit-url');
-  if (!urlInput) return;
-  var rawUrl = urlInput.value.trim();
+  var input = document.getElementById('gsUrlInput');
+  if (!input) return;
+  var rawUrl = input.value.trim();
   var nextUrl = normalizeBrandUrlInput(rawUrl);
   if (rawUrl && !nextUrl) { toast('URL 형식이 올바르지 않습니다.', 'warn'); return; }
   var prevUrl = cur.orient_sheet_sent_url || null;
-  if (prevUrl === nextUrl) {
-    _restoreOrientSheetSentDisplay(cell, prevUrl, false);
-    return;
-  }
+  if (prevUrl === nextUrl) { closeGsUrlModal(); return; }
   var prevVersion = cur.version;
-  urlInput.disabled = true;
-  var result = await updateBrandApplication(id, {orient_sheet_sent_url: nextUrl}, prevVersion);
-  urlInput.disabled = false;
+  var btn = document.getElementById('gsUrlSaveBtn');
+  if (btn) btn.disabled = true;
+  var result = await updateBrandApplication(appId, {orient_sheet_sent_url: nextUrl}, prevVersion);
   if (result.conflict) {
     toast('다른 관리자가 먼저 저장했습니다. 다시 불러옵니다.', 'warn');
+    closeGsUrlModal();
     await loadBrandApplications();
     return;
   }
   if (!result.ok) {
     toast('저장 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+    if (btn) btn.disabled = false;
     return;
   }
   cur.orient_sheet_sent_url = nextUrl;
   _syncBrandAppCur(cur, result, prevVersion);
-  _restoreOrientSheetSentDisplay(cell, nextUrl, false);
-  _refreshBrandAppHistoryButton(id);
-  toast(nextUrl ? '오리엔시트 URL이 저장되었습니다.' : '오리엔시트 URL을 제거했습니다.');
+  _refreshBrandAppHistoryButton(appId);
+  closeGsUrlModal();
+  await loadBrandApplications();   // 목록 재렌더(셀 갱신) — brand-applications 는 refreshPane 미등록
+  toast(nextUrl ? '구글시트 URL이 저장되었습니다.' : '구글시트 URL을 제거했습니다.');
 }
 
 // ─── 입금 날짜 셀 편집 (migration 126) ────────────────────────────────────────
@@ -19394,7 +20724,7 @@ async function refreshApplySidebarBadge() {
   if (!el) return;
   try {
     const n = await fetchPendingApplicationCount();
-    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
+    el.innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">인플 신청 관리</span>${n>0?`<span class="admin-si-badge">${n>999?'999+':n}</span>`:''}`;
   } catch(e) { /* 무시 */ }
 }
 
@@ -19835,9 +21165,15 @@ function countCertSuccess(delivs, camp) {
 //   시딩(gifting)·방문(visit): 게시물(post)만
 //     - 미제출 → 미제출 / 승인 → 인증성공 / 그 외(검수중·반려) → 인증샷 제출중
 function computeCertStatus(g) {
-  const rt = g && g.campaign ? g.campaign.recruit_type : null;
+  const camp = g && g.campaign ? g.campaign : null;
+  const rt = camp ? camp.recruit_type : null;
   if (rt === 'monitor') {
     const hasReceipt = !!g.receipt;
+    // 가구매(proxy_purchase, 마이그레이션 197): 영수증만 제출 — 리뷰 인증샷(review_image) 미요구.
+    if (camp && camp.proxy_purchase) {
+      if (!hasReceipt) return 'none';
+      return (g.receipt.status === 'approved') ? 'success' : 'submitting';
+    }
     const hasReview = !!(g.result_status_repr && g.result_status_repr !== 'none');
     if (!hasReceipt && !hasReview) return 'none';
     if (g.receipt && g.receipt.status === 'approved' && g.result_status_repr === 'approved') return 'success';
@@ -19888,8 +21224,11 @@ function renderDelivAppRow(g) {
   // 영수증은 monitor(리뷰어) 캠페인에서만 사용. gifting/visit은 영수증 단계 없음.
   const useReceipt = rt === 'monitor';
   // monitor 완료 = 영수증 승인 + 채널별 review_image 모두 승인 (대표 상태 = approved)
+  //   가구매(proxy_purchase)는 영수증 승인만으로 완료 (review_image 미요구)
   const completed = useReceipt
-    ? (g.receipt?.status === 'approved' && g.result_status_repr === 'approved')
+    ? (camp.proxy_purchase
+        ? (g.receipt?.status === 'approved')
+        : (g.receipt?.status === 'approved' && g.result_status_repr === 'approved'))
     : (g.result?.status === 'approved');
   const rowStyle = completed ? 'border-left:4px solid #2D7A3E' : '';
 
@@ -19930,6 +21269,10 @@ function renderDelivAppRow(g) {
 //   채널 없는 레거시 monitor 캠페인은 「—」 단일 표시.
 function renderDelivResultCellMonitor(g) {
   const camp = g.campaign || {};
+  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+  if (camp.proxy_purchase) {
+    return '<span style="font-size:10px;color:var(--muted)">리뷰 불필요 (가구매)</span>';
+  }
   const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
   if (channels.length === 0) {
     return '<span style="font-size:11px;color:var(--muted)">—</span>';
@@ -21816,9 +23159,14 @@ function _excelMonitorResultRepr(campChannels, reviewByCh) {
 
 // gifting/visit (post 단독) 또는 채널 없는 monitor(receipt + 단일 result) 구조용.
 //   recruitType, receipt(receipt deliv), result(post/review_image deliv)
-function _excelCertStatusKo(recruitType, receipt, result) {
+function _excelCertStatusKo(recruitType, receipt, result, proxyPurchase) {
   if (recruitType === 'monitor') {
     var hasReceipt = !!receipt;
+    // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+    if (proxyPurchase) {
+      if (!hasReceipt) return '미제출';
+      return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+    }
     var hasReview = !!result;
     if (!hasReceipt && !hasReview) return '미제출';
     if (receipt && receipt.status === 'approved' && result && result.status === 'approved') return '인증성공';
@@ -21831,8 +23179,13 @@ function _excelCertStatusKo(recruitType, receipt, result) {
 }
 
 // monitor 다채널 구조용 (receipt + reviewByCh).
-function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh) {
+function _excelCertStatusMonitorKo(campChannels, receipt, reviewByCh, proxyPurchase) {
   var hasReceipt = !!receipt;
+  // 가구매(proxy_purchase): 영수증만 — 리뷰 인증샷 미요구
+  if (proxyPurchase) {
+    if (!hasReceipt) return '미제출';
+    return receipt.status === 'approved' ? '인증성공' : '인증샷 제출중';
+  }
   var hasReview = reviewByCh && Object.keys(reviewByCh).length > 0;
   if (!hasReceipt && !hasReview) return '미제출';
   var repr = _excelMonitorResultRepr(campChannels, reviewByCh);
@@ -22476,7 +23829,7 @@ async function exportSelectedCampaignsDeliverables(idsOverride) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (J열=10) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result),
+        _excelCertStatusKo((cc.recruit_type), g.receipt, g.result, cc.proxy_purchase),
         // 영수증 9컬럼 (K~S열=11~19)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (T~Y열=20~25)
@@ -22925,7 +24278,7 @@ async function exportCampaignDeliverables(campId) {
         _excelSnsUrl('x', u.x),
         _excelSnsUrl('youtube', u.youtube),
         // 인증 상태 1컬럼 (H열=8) — 인플루언서 정보 다음·영수증 앞 (2026-06-09 이동)
-        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result),
+        _excelCertStatusKo(camp.recruit_type, g.receipt, g.result, camp.proxy_purchase),
         // 영수증 9컬럼 (I~Q열=9~17)
         receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8],
         // 결과물 6컬럼 (R~W열=18~23)
@@ -23180,7 +24533,7 @@ async function _exportCampDelivsMonitorMulti(camp, delivs, userById, campChannel
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=8) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh),
+      _excelCertStatusMonitorKo(campChannels, g.receipt, g.reviewByCh, camp.proxy_purchase),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
@@ -23386,7 +24739,7 @@ function _buildMonitorGroupSheet(wb, sheetName, grpCamps, channels, delivs, user
       _excelSnsUrl('x', u.x),
       _excelSnsUrl('youtube', u.youtube),
       // 인증 상태 1컬럼 (certCol=10) — monitor: 영수증 승인 + 채널별 대표 상태 approved 면 인증성공
-      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh),
+      _excelCertStatusMonitorKo(channels, g.receipt, g.reviewByCh, cc.proxy_purchase),
       // 영수증 9컬럼
       receiptCells[0], receiptCells[1], receiptCells[2], receiptCells[3], receiptCells[4], receiptCells[5], receiptCells[6], receiptCells[7], receiptCells[8]
     ];
@@ -23624,7 +24977,7 @@ async function loadAdminData(preloaded) {
   renderAgeGenderDistribution(statsUsers);
   // 대시보드는 apps 전건을 KPI용으로 이미 보유 → 추가 count 쿼리 없이 인라인 계산.
   // 그 외 경로(부트의 대시보드 외 페인)는 refreshApplySidebarBadge() 가 가벼운 count 로 갱신.
-  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
+  if ($('adminApplySi')) $('adminApplySi').innerHTML = `<span class="si-icon material-icons-round notranslate" translate="no">assignment</span><span class="si-text">인플 신청 관리</span>${pending.length>0?`<span class="admin-si-badge">${pending.length>999?'999+':pending.length}</span>`:''}`;
   refreshDelivSidebarBadge();
 }
 
@@ -24071,6 +25424,74 @@ function renderProfileCompletion(users) {
     bar('PayPal', pct(hasPaypal), '#28C76F', false);
 }
 
+
+// ════════════════════════════════════════════════════════════════════
+// admin-roadmap.js — 오픈 예정 기능 보드 (관리자 전용, D-day)
+//   데이터는 dev/lib/shared.js 의 UPCOMING_FEATURES 코드 상수(개발 세션 등록).
+//   읽기 전용 — CUD 없음. 관리자 전원 노출(권한 분기 불필요).
+//   사양서 docs/specs/2026-06-15-admin-upcoming-features-board.md
+// ════════════════════════════════════════════════════════════════════
+
+// 페인 진입 함수 — switchAdminPane loaders['upcoming'] 가 호출
+function renderUpcomingFeatures() {
+  const wrap = document.getElementById('upcomingFeaturesBody');
+  if (!wrap) return;
+
+  const items = (typeof visibleUpcomingFeatures === 'function') ? visibleUpcomingFeatures() : [];
+
+  // 빈 상태
+  if (!items.length) {
+    wrap.innerHTML =
+      '<div class="upcoming-empty">' +
+      '<span class="material-icons-round notranslate" translate="no">event_available</span>' +
+      '<div>현재 예정된 기능이 없습니다.</div>' +
+      '</div>';
+    return;
+  }
+
+  wrap.innerHTML =
+    '<div class="admin-card" style="overflow-x:auto">' +
+      '<table class="data-table upcoming-table">' +
+        '<thead><tr>' +
+          '<th>기능</th>' +
+          '<th>상세 설명</th>' +
+          '<th>시행일</th>' +
+          '<th style="text-align:center">상태</th>' +
+        '</tr></thead>' +
+        '<tbody>' + items.map(buildUpcomingRow).join('') + '</tbody>' +
+      '</table>' +
+    '</div>';
+}
+
+// 항목 행(tr) 1개 HTML
+function buildUpcomingRow(item) {
+  const dday = upcomingFeatureDday(item);              // 양수=예정, 0=당일, 음수=시행 경과
+  const dateLabel = upcomingFeatureDateLabel(item);
+
+  // 배지는 D-day 값 기준 (사양서 §3). expired 항목은 visibleUpcomingFeatures 단계에서 이미 제외됨.
+  let badgeText, badgeClass;
+  if (dday > 0) {
+    badgeText = 'D-' + dday;
+    badgeClass = 'upcoming-badge-soon';
+  } else if (dday === 0) {
+    badgeText = 'D-DAY';
+    badgeClass = 'upcoming-badge-today';
+  } else {
+    badgeText = '시행 완료';
+    badgeClass = 'upcoming-badge-done';
+  }
+
+  return (
+    '<tr>' +
+      '<td class="upcoming-td-title">' + esc(item.title || '') + '</td>' +
+      '<td class="upcoming-td-desc">' + esc(item.desc || '') + '</td>' +
+      '<td class="upcoming-td-date">' + esc(dateLabel) + '</td>' +
+      '<td style="text-align:center">' +
+        '<span class="upcoming-badge ' + badgeClass + '">' + esc(badgeText) + '</span>' +
+      '</td>' +
+    '</tr>'
+  );
+}
 
 // ═════════════════════════════════════════════════════════════════
 // REVERB ADMIN — dev/js/admin-applications.js
@@ -28977,6 +30398,9 @@ async function moveCampOrder(campId, dir) {
 
 async function addCampaign() {
   try {
+  // 오리엔시트 카드 발행 컨텍스트 (osPublishCard→applyOrientCardPrefill 에서 세팅). 없으면 일반 등록.
+  const _opc = window._orientPublishCtx || null;
+  let _emergencyReason = null;
   const title = $('newCampTitle').value.trim();
   const brandId = $('newCampBrandId')?.value || '';
   if (!brandId) { toast('브랜드를 선택해주세요','error'); return; }
@@ -29007,6 +30431,27 @@ async function addCampaign() {
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
   if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
+
+  // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
+  // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
+  // 가이드 비었으면 매니저는 차단, campaign_admin 이상은 사유 입력 긴급 발행 우회(기록).
+  if (_opc) {
+    const guidePlain = (getRichValue('newCampGuide') || '').replace(/<[^>]*>/g, '').trim();
+    if (!guidePlain) {
+      if (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove()) {
+        const reason = window.prompt('콘텐츠 가이드가 비어 있습니다. 일본어 보완 없이 긴급 발행하려면 사유를 입력하세요. (취소 시 발행 중단)');
+        if (!reason || !reason.trim()) { toast('발행을 취소했습니다.'); return; }
+        _emergencyReason = reason.trim();
+      } else {
+        toast('콘텐츠 가이드(일본어)를 입력해 주세요. 비워둔 채 긴급 발행은 광고 관리자 이상만 가능합니다.', 'error');
+        return;
+      }
+    } else if (!window.confirm('일본어 보완(제목·제품명·콘텐츠 가이드)을 완료하셨나요?\n한국어 초안이 남아 있으면 인플루언서 화면에 그대로 노출됩니다.')) {
+      toast('일본어를 보완한 뒤 다시 발행해 주세요.');
+      return;
+    }
+  }
+
   const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   // 이미지를 Storage에 업로드
@@ -29050,13 +30495,33 @@ async function addCampaign() {
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
+    // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
+    proxy_purchase: _opc ? !!_opc.isProxy : false,
+    emergency_publish_reason: _emergencyReason || null,
+    emergency_published_by: _emergencyReason ? (typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null) : null,
+    emergency_published_at: _emergencyReason ? new Date().toISOString() : null,
     ...collectCampPsetPayload('new'),
     ...collectCampCsetPayload('new'),
     ...collectCampNsetPayload('new'),
   };
 
-  await insertCampaign(camp);
+  const _newCampId = await insertCampaign(camp);
   toast('캠페인이 등록되었습니다','success');
+
+  // ── 오리엔시트 카드 발행 소비 ──
+  if (_opc && _newCampId) {
+    try {
+      const cr = await markOrientCardConsumed(_opc.orientId, _opc.cardIdx, _newCampId);
+      if (cr && cr.success) {
+        toast(cr.all_published
+          ? '카드 발행 완료 — 모든 카드가 발행되어 오리엔시트가 잠겼습니다.'
+          : '카드 발행 완료 (' + cr.published_count + '/' + cr.total_count + ' 발행)', 'success');
+      } else {
+        toast('캠페인은 등록됐으나 오리엔시트 연결에 실패했습니다: ' + (cr && cr.reason ? cr.reason : '알 수 없음'), 'error');
+      }
+    } catch (e) { console.error('[markOrientCardConsumed]', e); }
+    window._orientPublishCtx = null;
+  }
   campImgData.length = 0;
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
@@ -29093,6 +30558,8 @@ async function addCampaign() {
 
   switchAdminPane('campaigns', null);
   } catch(err) {
+    // 발행 실패 시 컨텍스트 비움 — 살아있으면 다음 저장이 같은 카드를 이중 소비 시도할 수 있음
+    window._orientPublishCtx = null;
     toast('오류: ' + friendlyError(err.message||String(err)), 'error');
   }
 }
@@ -30268,6 +31735,7 @@ async function init() {
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
+    if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();

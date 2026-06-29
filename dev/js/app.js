@@ -82,6 +82,8 @@ function navigate(page, pushHistory) {
 
   // 햄버거 메뉴 활성 표시
   if (typeof updateActiveNav === 'function') updateActiveNav(pageName);
+  // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
+  if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
   // 인증 페이지에선 햄버거 숨김
   const gnbBurger = $('gnbBurger');
   if (gnbBurger) gnbBurger.style.display = ['login','signup','forgot','reset-pw','unsubscribe'].includes(pageName) ? 'none' : '';
