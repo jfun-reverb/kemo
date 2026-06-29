@@ -111,6 +111,21 @@ async function loadOrientSheets() {
     return;
   }
   renderOrientSheets();
+  refreshOrientBadge(_orientSheets);   // 방금 조회한 목록 재사용 (이중 fetch 방지)
+}
+
+// 사이드바 「오리엔시트 현황」 제출 배지 — 「제출됨」 탭 기준(브랜드 제출 + 미발행). 부분 발행은 발행됨 탭이라 제외
+// cached: 호출부가 이미 가진 목록(loadOrientSheets). 없으면(부팅 단독 호출) 직접 조회
+async function refreshOrientBadge(cached) {
+  const el = $('adminOrientSheetsSi');
+  if (!el) return;
+  let count = 0;
+  try {
+    const sheets = cached || await fetchOrientSheets();
+    count = sheets.filter(s => osStatusKey(s) === 'submitted').length;
+  } catch (e) { console.error('[refreshOrientBadge]', e); return; }
+  const badge = count > 0 ? `<span class="admin-si-badge">${count > 999 ? '999+' : count}</span>` : '';
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">assignment_turned_in</span><span class="si-text">오리엔시트 현황</span>' + badge;
 }
 
 function osMsgRow(msg) {
