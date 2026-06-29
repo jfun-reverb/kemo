@@ -624,6 +624,13 @@
 #anEditBodyQuill .ql-editor li{margin:2px 0}
 #anEditBodyQuill .ql-editor blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
 #anEditBodyQuill .ql-editor a{color:var(--pink);text-decoration:underline}
+/* 공지 보기 화면 빈 줄 높이 정합.
+   Quill 편집기는 빈 줄(빈 단락)을 한 줄 높이로 보여주지만, 저장 후 보기 화면의
+   빈 <p></p> 는 높이 0 으로 접혀 편집기보다 섹션 간격이 좁아 보인다.
+   보기 모달·미읽음 팝업의 빈 단락을 편집기와 같은 한 줄 높이로 맞춰 "편집 = 보기" 완성.
+   (각 컨테이너의 line-height 와 동일한 em 값 사용) */
+#adminNoticeViewBody p:empty{min-height:1.7em}
+#adminNoticeUnreadModal [data-notice-body] p:empty{min-height:1.6em}
 
 /* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
 .bundle-summary-card{
