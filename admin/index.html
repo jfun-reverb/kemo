@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782707861';
+  var CURRENT_BUILD = 'v1782708563';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2095,7 +2095,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-06-29 13:37 · dfcf7bb</span>
+          <span class="admin-build-text">2026-06-29 13:49 · 74db364</span>
         </div>
       </div>
     </aside>
@@ -11762,6 +11762,21 @@ async function loadOrientSheets() {
     return;
   }
   renderOrientSheets();
+  refreshOrientBadge(_orientSheets);   // 방금 조회한 목록 재사용 (이중 fetch 방지)
+}
+
+// 사이드바 「오리엔시트 현황」 제출 배지 — 「제출됨」 탭 기준(브랜드 제출 + 미발행). 부분 발행은 발행됨 탭이라 제외
+// cached: 호출부가 이미 가진 목록(loadOrientSheets). 없으면(부팅 단독 호출) 직접 조회
+async function refreshOrientBadge(cached) {
+  const el = $('adminOrientSheetsSi');
+  if (!el) return;
+  let count = 0;
+  try {
+    const sheets = cached || await fetchOrientSheets();
+    count = sheets.filter(s => osStatusKey(s) === 'submitted').length;
+  } catch (e) { console.error('[refreshOrientBadge]', e); return; }
+  const badge = count > 0 ? `<span class="admin-si-badge">${count > 999 ? '999+' : count}</span>` : '';
+  el.innerHTML = '<span class="si-icon material-icons-round notranslate" translate="no">assignment_turned_in</span><span class="si-text">오리엔시트 현황</span>' + badge;
 }
 
 function osMsgRow(msg) {
@@ -31709,6 +31724,7 @@ async function init() {
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
+    if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();
