@@ -454,7 +454,7 @@ async function renderAppCampList() {
   syncMultiFilter('appTypeMulti', '전체 타입',
     availableTypes.map(t => ({value:t, label:RECRUIT_TYPE_LABEL_KO[t] || t, count: appTypeCounts[t] || 0})),
     () => renderAppCampList());
-  // 캠페인 상태 필터 — 캠페인 관리 페인과 동일 6단계 (admin.js campStatusMulti 와 라벨·순서 통일)
+  // 캠페인 상태 필터 — 캠페인 관리 페인과 동일 6단계 (admin.js CAMP_STATUS_TABS 와 라벨·순서 통일)
   syncMultiFilter('appCampStatusMulti', '전체 상태', [
     {value:'draft',     label:'준비',     count: appCampStatusCounts.draft     || 0},
     {value:'scheduled', label:'모집예정', count: appCampStatusCounts.scheduled || 0},

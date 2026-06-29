@@ -62,7 +62,7 @@ const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 // 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
 function updateCampViewResetBtn() {
-  const hasFilter = ['campTypeMulti','campStatusMulti'].some(id => getMultiFilterValues(id).length > 0);
+  const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null;
   const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
   const hasSort = !!adminCampSortKey;
   const btn = $('btnCampViewReset');
@@ -71,14 +71,14 @@ function updateCampViewResetBtn() {
 
 function resetCampFilters() {
   resetMultiFilter('campTypeMulti', '전체 타입');
-  resetMultiFilter('campStatusMulti', '전체 상태');
+  _campActiveStatusTab = null;
   const s = $('adminCampSearch'); if (s) s.value = '';
   filterAdminCampaigns();
 }
 // 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
 function resetCampView() {
   resetMultiFilter('campTypeMulti', '전체 타입');
-  resetMultiFilter('campStatusMulti', '전체 상태');
+  _campActiveStatusTab = null;
   const s = $('adminCampSearch'); if (s) s.value = '';
   adminCampSortKey = ''; adminCampSortDir = '';
   updateSortArrows(); updateCampTableHead();
@@ -151,6 +151,41 @@ var adminReorderMode = false;
 // 캠페인 상태별 클라이언트 노출 도움말 모달 노출
 function openCampStatusHelp() {
   if (typeof openModal === 'function') openModal('campStatusHelpModal');
+}
+
+// ── 캠페인 상태별 탭 (campStatusMulti 드롭다운·adminCampStatusCounts 텍스트를 대체)
+//    오리엔시트·브랜드 신청 페인의 status-tab 패턴 재사용. 단일 선택(한 번에 1개 상태)
+const CAMP_STATUS_TABS = [
+  { code: null,        label: '전체' },
+  { code: 'draft',     label: '준비' },
+  { code: 'scheduled', label: '모집예정' },
+  { code: 'active',    label: '모집중' },
+  { code: 'closed',    label: '모집마감' },
+  { code: 'ended',     label: '종료' },
+  { code: 'expired',   label: '노출종료' },
+];
+var _campActiveStatusTab = null;
+
+// 상태 탭 바 렌더 (counts: 필터 전 전체 기준 상태별 건수)
+function renderCampStatusTabs(counts) {
+  const bar = $('campStatusTabBar');
+  if (!bar) return;
+  counts = counts || {};
+  const totalAll = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  bar.innerHTML = CAMP_STATUS_TABS.map(tab => {
+    const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
+    const isOn = tab.code === _campActiveStatusTab;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setCampStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (필터 경로라 sentinel 리셋은 loadAdminCampaigns 가 처리)
+function setCampStatusTab(btn) {
+  _campActiveStatusTab = btn.dataset.status || null;   // 빈 문자열(전체)이면 null
+  updateCampViewResetBtn();
+  filterAdminCampaigns();
 }
 
 function updateCampTableHead() {
@@ -249,30 +284,15 @@ async function loadAdminCampaigns(useCache) {
     {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
     {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
   ], () => filterAdminCampaigns());
-  syncMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',     label:'준비',     count: stCounts.draft || 0},
-    {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
-    {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'closed',    label:'모집마감', count: stCounts.closed || 0},
-    {value:'ended',     label:'종료',     count: stCounts.ended || 0},
-    {value:'expired',   label:'노출종료', count: stCounts.expired || 0},
-  ], () => filterAdminCampaigns());
-  // closed(모집마감)·ended(종료)는 실제 DB 상태(마이그레이션 156)라 필터·요약·배지 모두 분리.
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감',ended:'종료',expired:'노출종료'};
-  // 노출 그룹(scheduled/active/closed/ended)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
-  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',ended:'#5E35B1',expired:'#666666'};
-  const el = $('adminCampStatusCounts');
-  if (el) el.innerHTML = Object.keys(stLabels).filter(k=>stCounts[k]).map(k =>
-    `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
-  ).join('<span style="margin:0 4px;color:var(--line)">·</span>');
+  // 상태 필터는 다중 선택 드롭다운 대신 상태별 탭으로 표시 (건수 포함). closed·ended 는 실제 DB 상태(마이그레이션 156)라 탭에서도 분리.
+  renderCampStatusTabs(stCounts);
 
   // 타입 필터 (다중 선택)
   const typeVals = getMultiFilterValues('campTypeMulti');
   if (typeVals.length) camps = camps.filter(c => typeVals.includes(c.recruit_type));
 
-  // 상태 필터 (다중 선택)
-  const statusVals = getMultiFilterValues('campStatusMulti');
-  if (statusVals.length) camps = camps.filter(c => statusVals.includes(c.status));
+  // 상태 필터 (탭 단일 선택)
+  if (_campActiveStatusTab) camps = camps.filter(c => c.status === _campActiveStatusTab);
 
   // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
