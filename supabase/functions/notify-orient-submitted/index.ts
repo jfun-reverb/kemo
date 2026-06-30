@@ -53,6 +53,7 @@ interface OrientSheetRecord {
   id: string;
   brand_id: string;
   application_id: string | null;
+  orient_no: string | null;        // 자체 식별번호 B0001-O001 (마이그205)
   form_type: "reviewer" | "seeding" | null;
   status: string;
   submitted_at: string | null;
@@ -227,17 +228,9 @@ Deno.serve(async (req: Request) => {
       if (brandRow?.name) brandName = brandRow.name as string;
     }
 
-    // 연결 신청 번호 (있으면)
-    let applicationNo = "-";
-    if (record.application_id) {
-      const { data: appRow, error: appErr } = await sb
-        .from("brand_applications")
-        .select("application_no")
-        .eq("id", record.application_id)
-        .maybeSingle();
-      if (appErr) console.error("[notify-orient-submitted] app fetch error", appErr.message);
-      if (appRow?.application_no) applicationNo = appRow.application_no as string;
-    }
+    // 오리엔시트 자체 식별번호 (웹훅 record 에 포함 — 별도 조회 불필요)
+    // 신청 번호(application_no) 표시는 제거(자체 번호로 일원화 — "서베이 경유" 오해 차단, 사양 §3⑦)
+    const orientNo = (record.orient_no as string | null) || "-";
 
     // 제출 시각 (last_submitted_at 우선, 없으면 submitted_at)
     const submittedIso = (record.last_submitted_at || record.submitted_at) ?? null;
@@ -270,16 +263,16 @@ Deno.serve(async (req: Request) => {
       brand_name:       escapeHtml(brandName),
       form_type_label:  escapeHtml(formTypeLabel(record.form_type)),
       submitted_at:     escapeHtml(submittedAt),
-      application_no:   escapeHtml(applicationNo),
+      orient_no:        escapeHtml(orientNo),
       deep_link:        escapeHtml(deepLink),
     });
 
     const text =
       `[${submitKind}] 오리엔시트 알림\n\n` +
+      `오리엔시트 번호: ${orientNo}\n` +
       `브랜드: ${brandName}\n` +
       `폼 종류: ${formTypeLabel(record.form_type)}\n` +
-      `제출 시각: ${submittedAt}\n` +
-      `연결 신청: ${applicationNo}\n\n` +
+      `제출 시각: ${submittedAt}\n\n` +
       `관리자 페이지: ${deepLink}\n`;
 
     // 관리자 1인 1통 분리 발송 (To 헤더 노출 차단)

@@ -183,6 +183,7 @@ async function sendBrevoEmail(params: {
 interface OrientSheetRow {
   id: string;
   brand_id: string;
+  orient_no: string | null;     // 자체 식별번호 B0001-O001 (마이그205)
   form_type: string | null;
   submitted_at: string;         // 최초 제출 (불변)
   last_submitted_at: string;    // 마지막 제출 (매 제출 갱신)
@@ -222,9 +223,11 @@ function renderNewSection(args: {
   const tableRows = args.rows.map((r) => {
     const brand = args.brandMap.get(r.brand_id);
     const brandName = escapeHtml(brand?.name || "-");
+    const orientNo = escapeHtml(r.orient_no || "-");
     const formType = escapeHtml(formTypeKo(r.form_type));
     const submittedAt = escapeHtml(formatKstFull(r.submitted_at));
     return `<tr>
+      <td style="padding:6px 8px;vertical-align:top;color:#5B6BBF;border-bottom:1px solid #F0F2F8;font-weight:700;white-space:nowrap">${orientNo}</td>
       <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F0F2F8;font-weight:600">${brandName}</td>
       <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F0F2F8">${formType}</td>
       <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8;white-space:nowrap">${submittedAt}</td>
@@ -234,6 +237,7 @@ function renderNewSection(args: {
   const bodyHtml = `<table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead>
       <tr style="background:#F5F7FC">
+        <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">오리엔 번호</th>
         <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">브랜드</th>
         <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">형식</th>
         <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">제출 시각</th>
@@ -262,10 +266,12 @@ function renderResubmitSection(args: {
   const tableRows = args.rows.map((r) => {
     const brand = args.brandMap.get(r.brand_id);
     const brandName = escapeHtml(brand?.name || "-");
+    const orientNo = escapeHtml(r.orient_no || "-");
     const formType = escapeHtml(formTypeKo(r.form_type));
     const resubmittedAt = escapeHtml(formatKstFull(r.last_submitted_at));
     const firstAt = escapeHtml(formatKstFull(r.submitted_at));
     return `<tr>
+      <td style="padding:6px 8px;vertical-align:top;color:#5B6BBF;border-bottom:1px solid #F0F2F8;font-weight:700;white-space:nowrap">${orientNo}</td>
       <td style="padding:6px 8px;vertical-align:top;border-bottom:1px solid #F0F2F8;font-weight:600">${brandName}</td>
       <td style="padding:6px 8px;vertical-align:top;color:#555;border-bottom:1px solid #F0F2F8">${formType}</td>
       <td style="padding:6px 8px;vertical-align:top;color:#666;border-bottom:1px solid #F0F2F8;white-space:nowrap">${resubmittedAt}</td>
@@ -276,6 +282,7 @@ function renderResubmitSection(args: {
   const bodyHtml = `<table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead>
       <tr style="background:#F5F7FC">
+        <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">오리엔 번호</th>
         <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">브랜드</th>
         <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">형식</th>
         <th style="padding:6px 8px;text-align:left;color:#555;font-weight:600">재제출 시각</th>
@@ -381,13 +388,13 @@ Deno.serve(async (req: Request) => {
     const [newRes, resubmitRes] = await Promise.all([
       // 섹션 1: 신규 제출
       sb.from("orient_sheets")
-        .select("id, brand_id, form_type, submitted_at, last_submitted_at")
+        .select("id, brand_id, orient_no, form_type, submitted_at, last_submitted_at")
         .gte("submitted_at", startIso)
         .lt("submitted_at", endIso)
         .order("submitted_at", { ascending: true }),
       // 섹션 2: 수정 재제출 (마지막 제출이 어제 AND 최초 제출은 그 이전)
       sb.from("orient_sheets")
-        .select("id, brand_id, form_type, submitted_at, last_submitted_at")
+        .select("id, brand_id, orient_no, form_type, submitted_at, last_submitted_at")
         .gte("last_submitted_at", startIso)
         .lt("last_submitted_at", endIso)
         .lt("submitted_at", startIso)
