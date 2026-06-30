@@ -7,6 +7,7 @@
 // ============================================================
 
 let _orientSheets = [];
+let _orientBrands = [];      // 발급 모달 브랜드 검색 드롭다운 후보 (osOpenCreate 에서 적재)
 let _osDetailSheet = null;   // 상세 모달에 열린 시트(카드별 발행에 사용)
 let _osDetailCatMap = {};    // 상세 모달 카테고리 라벨 맵(새창 열기에 재사용)
 let _osLastIssuedId = null;  // 방금 발급한 오리엔시트 id(발급 결과 화면 수동 메일 발송용)
@@ -140,7 +141,7 @@ async function refreshOrientBadge(cached) {
 }
 
 function osMsgRow(msg) {
-  return `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
+  return `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
 }
 
 function renderOrientSheets() {
@@ -195,6 +196,7 @@ function osRowHtml(s) {
   const linkBadge = s.application_id
     ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
   return `<tr>
+    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${s.orient_no ? esc(s.orient_no) : '-'}</td>
     <td>${esc(osBrandName(s))}${linkBadge}</td>
     <td>${osCardsSummary(s.data)}</td>
     <td>${osBadge(osStatusOf(s))}</td>
@@ -268,20 +270,24 @@ async function osOpenCreate(opts) {
   document.getElementById('osCreateSubmitBtn').style.display = '';
   const title = document.getElementById('osCreateTitle'); if (title) title.textContent = '오리엔시트 링크 발급';
   document.getElementById('orientCreateModal').classList.add('open');
-  const sel = document.getElementById('osCreateBrand');
-  sel.disabled = false;
-  sel.innerHTML = '<option value="">불러오는 중…</option>';
+  // 브랜드 검색 드롭다운 초기화 (검색형 combobox — hidden #osCreateBrand 가 선택 brand_id 보관)
+  const brandInput = document.getElementById('osCreateBrandInput');
+  document.getElementById('osCreateBrand').value = '';
+  document.getElementById('osCreateBrandList').classList.remove('open');
+  brandInput.value = '';
+  brandInput.disabled = false;
+  brandInput.placeholder = '불러오는 중…';
   try {
-    const brands = await fetchBrands();
-    sel.innerHTML = '<option value="">브랜드 선택</option>' +
-      (brands || []).map(b => `<option value="${b.id}">${esc(b.name || b.name_ja || '-')}</option>`).join('');
+    _orientBrands = await fetchBrands() || [];
+    brandInput.placeholder = '브랜드명 검색 후 선택';
   } catch (e) {
-    sel.innerHTML = '<option value="">브랜드 조회 실패</option>';
+    _orientBrands = [];
+    brandInput.placeholder = '브랜드 조회 실패';
   }
   // 진입점 ②③ 컨텍스트 주입: 브랜드 고정 + (있으면) 신청 연결 선택
   if (opts.brandId) {
-    sel.value = opts.brandId;
-    if (opts.lockBrand) sel.disabled = true;
+    osSelectBrand(opts.brandId, { silent: true });   // silent: 신청 연결 로드는 아래에서 직접 제어
+    if (opts.lockBrand) brandInput.disabled = true;
     if (opts.appId) {
       await osOnBrandChange();
       document.getElementById('osCreateApp').value = opts.appId;
@@ -318,6 +324,57 @@ function osAppLabel(a) {
   return [d, t].filter(Boolean).join(' · ') || '신청';
 }
 
+// ── 브랜드 검색 드롭다운 (combobox) — .admin-proxy-combobox 패턴 재사용 ──
+function osBrandShowList() {
+  const input = document.getElementById('osCreateBrandInput');
+  if (!input || input.disabled) return;   // 진입점 ②③ 잠긴 브랜드면 열지 않음
+  document.getElementById('osCreateBrandList').classList.add('open');
+  _osRenderBrandList(input.value);
+}
+
+function osBrandInput() {
+  // 검색어 입력 = 선택 확정 전 상태. 선택 brand_id 비우고 신청 연결도 초기화.
+  document.getElementById('osCreateBrand').value = '';
+  const appSel = document.getElementById('osCreateApp');
+  if (appSel) appSel.innerHTML = '<option value="">연결 안 함</option>';
+  _osRenderBrandList(document.getElementById('osCreateBrandInput').value);
+  document.getElementById('osCreateBrandList').classList.add('open');
+}
+
+function _osRenderBrandList(query) {
+  const list = document.getElementById('osCreateBrandList');
+  if (!list) return;
+  const q = (query || '').trim().toLowerCase();
+  const matched = (_orientBrands || []).filter(b =>
+    (typeof matchSearchTokens === 'function')
+      ? matchSearchTokens(q, [b.name, b.name_ja, b.name_en])
+      : (!q || (b.name || '').toLowerCase().includes(q)));
+  if (!matched.length) {
+    list.innerHTML = '<div class="empty">일치하는 브랜드가 없습니다</div>';
+    return;
+  }
+  list.innerHTML = matched.slice(0, 100).map(b => {
+    const name = esc(b.name || b.name_ja || b.name_en || '-');
+    const sub = [(b.name_ja && b.name_ja !== b.name) ? b.name_ja : '', b.company_name || '']
+      .filter(Boolean).join(' · ');
+    return `<div class="item" onmousedown="osSelectBrand('${esc(b.id)}')">
+      <div>${name}</div>${sub ? `<div class="item-meta">${esc(sub)}</div>` : ''}</div>`;
+  }).join('');
+}
+
+// 항목 선택: hidden #osCreateBrand 에 id, 입력칸에 브랜드명 표기, 리스트 닫기.
+// silent=true 면 신청 연결 로드(osOnBrandChange)를 호출부가 직접 제어(진입점 ②③).
+function osSelectBrand(id, opts2) {
+  opts2 = opts2 || {};
+  const b = (_orientBrands || []).find(x => String(x.id) === String(id));
+  document.getElementById('osCreateBrand').value = id || '';
+  const input = document.getElementById('osCreateBrandInput');
+  if (input) input.value = b ? (b.name || b.name_ja || b.name_en || '-') : '';
+  const list = document.getElementById('osCreateBrandList');
+  if (list) list.classList.remove('open');
+  if (!opts2.silent) osOnBrandChange();
+}
+
 async function osSubmitCreate() {
   const brandId = document.getElementById('osCreateBrand').value;
   if (!brandId) { toast('브랜드를 선택해 주세요.'); return; }
@@ -329,6 +386,7 @@ async function osSubmitCreate() {
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
+    const onEl = document.getElementById('osCreateOrientNo'); if (onEl) onEl.textContent = res.orient_no || '-';
     document.getElementById('osCreateForm').style.display = 'none';
     document.getElementById('osCreateResult').style.display = '';
     btn.style.display = 'none';
@@ -350,6 +408,7 @@ async function osSubmitCreate() {
 function osReasonText(r) {
   return ({
     brand_not_found: '브랜드를 찾을 수 없습니다',
+    brand_seq_missing: '브랜드 식별번호가 없습니다 (관리자에게 문의)',
     application_not_found: '신청을 찾을 수 없습니다',
     brand_mismatch: '신청과 브랜드가 일치하지 않습니다',
     no_db: '연결 오류',
@@ -656,6 +715,7 @@ function osDetailHtml(s, catMap, readonly) {
   const d = s.data || {};
   const cards = Array.isArray(d.cards) ? d.cards : [];
   const headerHtml = `<div style="margin-bottom:14px">
+    ${s.orient_no ? `<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px">${esc(s.orient_no)}</div>` : ''}
     <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
   </div>`;
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
@@ -928,7 +988,11 @@ function ensureOrientModals() {
       <div class="modal-body" style="padding:20px;overflow-y:auto;flex:1">
         <div id="osCreateForm">
           <div class="form-group"><label class="form-label">브랜드 <span style="color:var(--pink,#E8344E)">*</span></label>
-            <select id="osCreateBrand" class="form-input" onchange="osOnBrandChange()"></select></div>
+            <div class="admin-proxy-combobox" id="osCreateBrandCombobox">
+              <input type="text" id="osCreateBrandInput" class="admin-proxy-combobox-input" placeholder="브랜드명 검색 후 선택" autocomplete="off" oninput="osBrandInput()" onfocus="osBrandShowList()">
+              <input type="hidden" id="osCreateBrand">
+              <div class="admin-proxy-combobox-list" id="osCreateBrandList"></div>
+            </div></div>
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
             <select id="osCreateApp" class="form-input"><option value="">연결 안 함</option></select>
             <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 모집 희망값을 작성 폼 첫 카드에 미리 채웁니다.</div></div>
@@ -936,7 +1000,8 @@ function ensureOrientModals() {
             모집 형식(가구매·리뷰어·시딩)과 제품은 브랜드가 작성 폼에서 카드마다 직접 추가·선택합니다.</div>
         </div>
         <div id="osCreateResult" style="display:none">
-          <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
+          <p style="font-weight:700;margin-bottom:6px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
+          <p style="margin:0 0 10px;font-size:13px;color:var(--muted)">오리엔시트 번호 <span id="osCreateOrientNo" style="font-weight:800;color:var(--ink)"></span></p>
           <div style="position:relative">
             <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="padding-right:48px">
             <button type="button" class="os-copy-btn" onclick="osCopyResultLink()" title="링크 복사" style="position:absolute;right:1px;top:1px;bottom:1px;background:none;border:none;border-left:1px solid var(--line);cursor:pointer;padding:0 10px;display:flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted);transition:transform .1s">content_copy</span></button>
@@ -995,3 +1060,12 @@ function ensureOrientModals() {
   // 동적 생성된 오리엔 모달에 드래그·리사이즈 옵저버 부착(부트 시점엔 없던 overlay라 재등록 필요. 멱등)
   if (typeof initDraggableModals === 'function') initDraggableModals();
 }
+
+// 발급 모달 브랜드 검색 드롭다운 — 바깥 클릭 시 리스트 닫기 (combobox 표준 동작)
+document.addEventListener('click', function(e) {
+  const combo = document.getElementById('osCreateBrandCombobox');
+  if (combo && !combo.contains(e.target)) {
+    const list = document.getElementById('osCreateBrandList');
+    if (list) list.classList.remove('open');
+  }
+});
