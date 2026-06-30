@@ -121,6 +121,32 @@
 
 ---
 
-## 9. 구현 결과 (개발 세션이 채울 것)
+## 9. 구현 결과
 
-_(미착수)_
+### PR 1 — 채번 + 백필 (DB)
+
+**구현일:** 2026-06-30
+**마이그레이션:** `supabase/migrations/205_orient_self_numbering.sql` (단일)
+**브랜치:** `feature/orient-self-numbering` → dev
+
+- **발급 경로 단일성 확인**: `create_orient_sheet(uuid, uuid DEFAULT NULL)`(마이그195)가 유일한 INSERT 경로(익명 함수 3종은 조회·수정 전용) → **함수 안 채번** 채택(트리거 불필요, RLS WITH CHECK 가 직접 INSERT 이미 차단).
+- **신규 테이블** `brand_orient_counter`(`brand_id` PK FK CASCADE, `last_seq`) — `brand_application_counter`(088) 패턴 미러, RLS SELECT 관리자, 직접 UPDATE 금지.
+- **컬럼** `orient_sheets.orient_no text` — NULL 허용 추가 → 백필 → NOT NULL + UNIQUE.
+- **백필**: 같은 트랜잭션 DO 블록, 브랜드별 `created_at ASC, id ASC` 정렬 O001부터, `orient_no IS NULL` 한정(멱등), 카운터 `GREATEST` 동기화. 누락 시 NOT NULL 전환에서 롤백돼 즉시 감지.
+- **발급 함수 수정**: `pg_advisory_xact_lock(hashtext(brand_id))` + 카운터 `ON CONFLICT DO UPDATE` 원자 증가(동시성 이중 방어, 090 패턴). `orient_no = 'B'||lpad(brand_seq,4)||'-O'||lpad(seq,3)`. 반환 jsonb 기존 키(success/id/token/token_expires_at) 유지 + `orient_no` 추가(하위호환).
+
+### 초안 대비 변경 사항 (PR 1)
+- 생성 위치: 트리거 후보 중 **함수 내 채번** 확정(발급 단일 경로 + RLS 차단).
+- 신규 reason `brand_seq_missing` 반환(브랜드에 brand_seq 없을 때) — `admin-orient.js osReasonText` 라벨은 PR2에서 추가(reviewer 경고①).
+
+### 운영 적용 전 점검 (reviewer 경고②)
+운영 SQL Editor 적용 직전 아래로 `brand_seq` NULL 브랜드의 오리엔 행이 0건인지 확인(0건이어야 백필 안전):
+```sql
+SELECT b.id, b.name, b.brand_seq, COUNT(os.id) AS orient_count
+  FROM public.brands b JOIN public.orient_sheets os ON os.brand_id = b.id
+ WHERE b.brand_seq IS NULL GROUP BY b.id, b.name, b.brand_seq;
+```
+
+### 미해결·다음
+- PR 2(표시 교체): 메일 2개(notify-orient-submitted·notify-brand-daily-digest) 신청번호 → `orient_no`, `admin-orient.js` 목록·상세 표시 + `osReasonText` 에 `brand_seq_missing` 라벨. ⚠️ 메일 운영 가동 중 → 운영 재배포 동반(사용자 확인).
+- merge_brands 후 source 오리엔 이관·O999 초과는 별도 과제(현재 미발생).
