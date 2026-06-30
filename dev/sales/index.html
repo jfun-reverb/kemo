@@ -515,12 +515,15 @@ body {
     </p>
   </div>
 
-  <div class="divider reveal d3">
-    <span class="ko-only">서비스 선택</span>
-    <span class="ja-only">サービス選択</span>
+  <!-- 브랜드 서베이 공개 제출 차단 (마이그206) — 1단계: 공개 접수 중단 안내.
+       선택 카드(choice-list)는 숨기고 안내만 노출. 영업 2단계(초대 링크)는 별도. -->
+  <div class="reveal d3" style="background:#fff;border:1px solid #eee;border-radius:16px;padding:28px 24px;text-align:center;margin:8px 0">
+    <div style="font-size:16px;font-weight:800;color:#1a1a1a;margin-bottom:10px"><span class="ko-only">현재 신규 접수를 받지 않습니다</span><span class="ja-only">現在、新規のお申し込みを受け付けておりません</span></div>
+    <div style="font-size:13px;color:#555;line-height:1.7;margin-bottom:16px"><span class="ko-only">브랜드 서베이 신규 접수가 일시 중단되었습니다.<br>도입 문의는 아래 이메일로 부탁드립니다.</span><span class="ja-only">ブランドサーベイの新規受付を一時停止しています。<br>導入のお問い合わせは下記メールまでお願いいたします。</span></div>
+    <a href="mailto:ceo@jfun.co.kr" style="display:inline-block;background:#1a1a1a;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 24px;border-radius:10px">ceo@jfun.co.kr</a>
   </div>
 
-  <div class="choice-list">
+  <div class="choice-list" style="display:none">
 
     <a class="choice-card reviewer reveal d4" id="goReviewer" href="reviewer.html">
       <span class="orb orb-1"></span>
