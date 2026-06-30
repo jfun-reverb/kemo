@@ -167,6 +167,32 @@
 
 ---
 
-## 11. 구현 결과 (개발 세션이 채울 것)
+## 11. 구현 결과
 
-_(미착수)_
+### PR 1 — 데이터 + 개별 즉시 메일 (개발서버 반영)
+
+**구현일:** 2026-06-30
+**브랜치/PR:** `feature/orient-submit-notify` → dev
+
+**마이그레이션:** `supabase/migrations/202_orient_submit_notification.sql`
+- `orient_sheets.last_submitted_at timestamptz NULL` 추가(`ADD COLUMN IF NOT EXISTS`, 멱등)
+- `submit_orient_sheet(token, data, version)` 수정: `submitted_at = COALESCE(submitted_at, now())`(최초 불변 유지) + `last_submitted_at = now()`(매 제출 갱신). 인자 시그니처·익명 호출·반환 `success`/`version` 하위호환 유지 + 신규 반환키 `is_first_submission`/`orient_sheet_id`/`brand_id`/`form_type`/`application_id`. `SECURITY DEFINER + search_path=''`, `GRANT anon` 재부여 포함.
+
+**트리거 방식 (§6 결정):** **데이터베이스 웹훅** 채택(방식 A 익명 직접호출=스팸 위험 / B·C pg_net=키 주입 복잡으로 탈락). `notify-brand-application`의 웹훅 패턴 미러. 설정 = `orient_sheets` 테이블 · UPDATE · Row filter `status='submitted'`. 임시저장(draft) 제외, 재제출은 `last_submitted_at` 변경으로 UPDATE 발생해 포착, 발행(consumed) 전환 제외. 신규/재제출 판정 = 웹훅 페이로드 `old_record.submitted_at IS NULL`(DB 재조회 불필요).
+
+**Edge Function:** `supabase/functions/notify-orient-submitted/` (신규). 수신자 `get_subscribed_admin_emails('brand_notify')` + env `NOTIFY_ADMIN_EMAILS`, 1인 1통 분리, best-effort. 제목 「[신규 제출]/[수정 재제출] {브랜드명} 오리엔시트」, 본문에 `data jsonb` 미탑재. 템플릿 `docs/email-templates/orient-submitted-notify.html`(+ `_templates/` 미러, `scripts/sync-email-templates.sh` 등록).
+
+### 초안 대비 변경 사항
+- 추가된 것: 반환 플래그를 `is_first_submission` 외에 `orient_sheet_id`/`brand_id`/`form_type`/`application_id`까지 확장(웹훅 페이로드만으로 메일 구성 가능하게).
+- 트리거 방식: 사양서 §6의 A/B/C 중 **웹훅(C 계열)** 확정.
+- 부수: 기존 `docs/email-templates/admin-daily-digest.html` 주석이 마이그164 이전 텍스트로 남아 sync 시 회귀하던 드리프트를 함께 정정(생성물 `templates.ts`와 일치).
+
+### 개발서버 환경 구축 (수동 — 마이그레이션 자동화 불가)
+1. 개발 SQL Editor 에서 `202_orient_submit_notification.sql` 실행
+2. `supabase functions deploy notify-orient-submitted --project-ref qysmxtipobomefudyixw`
+3. Dashboard → Database → Webhooks: `orient_sheets`/UPDATE/filter `status='submitted'` → Edge Function `notify-orient-submitted`
+4. Secrets `BREVO_API_KEY`/`PUBLIC_ADMIN_URL` 기존 함수와 공유 여부 확인
+- ⚠️ 실제 발송 테스트·cron·운영 배포는 운영에서만(`feedback_dev_no_mail_test`). 오리엔 기능 운영 보류 중.
+
+### PR 2 — 브랜드 일일 보고
+_(미착수 — `brand_daily_digest_runs` 테이블 + `notify-brand-daily-digest` + `lookup_values` `brand_digest` 1행. last_submitted_at·반환 플래그는 PR1에서 준비됨)_
