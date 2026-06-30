@@ -36,6 +36,7 @@ SYNC_GROUPS=(
   "notify-policy-change|policy-change-notice.html"
   "notify-orient-sheet|orient-sheet-invite.html"
   "notify-orient-submitted|orient-submitted-notify.html"
+  "notify-brand-daily-digest|brand-daily-digest.html,brand-daily-digest.section.html"
 )
 
 if [[ ! -d "$SRC_DIR" ]]; then
@@ -91,7 +92,8 @@ for group in "${SYNC_GROUPS[@]}"; do
      [[ "$fn_name" == "notify-campaign-promo-digest" ]] || \
      [[ "$fn_name" == "notify-orient-sheet" ]] || \
      [[ "$fn_name" == "notify-orient-submitted" ]] || \
-     [[ "$fn_name" == "notify-policy-change" ]]; then
+     [[ "$fn_name" == "notify-policy-change" ]] || \
+     [[ "$fn_name" == "notify-brand-daily-digest" ]]; then
     ts_path="$REPO_ROOT/supabase/functions/$fn_name/templates.ts"
     {
       echo "// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지"
