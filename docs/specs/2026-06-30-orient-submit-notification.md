@@ -195,4 +195,38 @@
 - ⚠️ 실제 발송 테스트·cron·운영 배포는 운영에서만(`feedback_dev_no_mail_test`). 오리엔 기능 운영 보류 중.
 
 ### PR 2 — 브랜드 일일 보고
-_(미착수 — `brand_daily_digest_runs` 테이블 + `notify-brand-daily-digest` + `lookup_values` `brand_digest` 1행. last_submitted_at·반환 플래그는 PR1에서 준비됨)_
+
+**구현일:** 2026-06-30
+**브랜치:** `feature/brand-daily-digest`
+
+**마이그레이션:** `supabase/migrations/203_brand_daily_digest.sql`
+- `public.brand_daily_digest_runs` 테이블 신설 — `admin_daily_digest_runs`(마이그레이션 132) 패턴 복제. `digest_date UNIQUE`(mutex) + `status CHECK(sent/skipped_no_data/failed)` + `sections_summary jsonb` + `recipients_count` + `error_message` + `run_at`. 행 단위 보안 정책(RLS) SELECT `is_admin()`, INSERT/UPDATE 는 서비스 역할(service_role)만 우회.
+- `lookup_values` 시드 1행: `kind='admin_email_kind'`, `code='brand_digest'`, `name_ko='브랜드 일일 보고'`, `name_ja='ブランド日次報告'`, `sort_order=50`, `active=true`. 이로써 관리자 「메일 받기 설정」 모달에 `brand_digest` 토글 자동 노출(앱 코드 수정 불필요).
+- ⚠️ pg_cron 등록은 본 마이그레이션에 포함하지 않음(수동 curl 검증 후 별도 단계).
+
+**Edge Function:** `supabase/functions/notify-brand-daily-digest/index.ts` (신규)
+- `notify-admin-daily-digest` 패턴 미러. 2섹션(신규 제출 / 수정 재제출).
+- §5 판정 쿼리: 신규=`submitted_at ∈ [start, end)`, 재제출=`last_submitted_at ∈ [start, end) AND submitted_at < start`. 두 조건 상호배타 → 중복 제거 불필요. `status` 필터 없음(consumed/expired 도 시각 기준 포착).
+- 브랜드명 배치 조회: `brands` 테이블 `in(brand_id)`.
+- `form_type` NULL 안전 처리: `-` 표시.
+- mutex: `brand_daily_digest_runs.digest_date UNIQUE` INSERT 선행. 2섹션 모두 0건이면 `skipped_no_data`.
+- 수신자: `get_subscribed_admin_emails('brand_digest')` + env `NOTIFY_ADMIN_EMAILS`, 1인 1통 분리.
+- 관리자 페인 링크: 오리엔시트 발급·조회 페인 모달 기반이라 per-row 딥링크 없음 → 단일 CTA 버튼(`PUBLIC_ADMIN_URL + /#orient-sheets`).
+- 인플루언서 대상 4줄 푸터 없음(내부 관리자 메일).
+
+**이메일 템플릿:**
+- `docs/email-templates/brand-daily-digest.html` — 메인 템플릿(placeholder 6종)
+- `docs/email-templates/brand-daily-digest.section.html` — 섹션 wrapper
+- `scripts/sync-email-templates.sh` `SYNC_GROUPS`에 등록 + `templates.ts` 자동 생성 조건 추가. sync 실행 후 기존 7개 함수 `templates.ts` 회귀 없음 확인.
+
+### 초안 대비 변경 사항 (PR 2)
+- 동일: §5 판정·mutex·0건 처리·수신자·1인 1통 분리 모두 초안과 일치.
+- 추가: 재제출 섹션 행에 「최초 제출」 열 추가(현황 파악 편의).
+- cron 등록 보류 유지(개발서버 수동 curl 검증 후 별도 단계).
+
+### 개발서버 환경 구축 (PR 2 수동 — 마이그레이션 자동화 불가)
+1. 개발 SQL Editor 에서 `203_brand_daily_digest.sql` 실행
+2. `bash scripts/sync-email-templates.sh`
+3. `supabase functions deploy notify-brand-daily-digest --project-ref qysmxtipobomefudyixw`
+4. Secrets `BREVO_API_KEY`/`PUBLIC_ADMIN_URL` 기존 함수와 공유 여부 확인
+- ⚠️ 실제 발송 테스트·cron 등록·운영 배포는 오리엔 기능 운영 배포 결정 후.
