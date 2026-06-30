@@ -115,6 +115,34 @@
 
 ---
 
-## 9. 구현 결과 (개발 세션이 채울 것)
+## 9. 구현 결과
 
-_(미착수)_
+### PR 1 — 공개 제출 차단
+
+**구현일:** 2026-06-30
+**마이그레이션:** `supabase/migrations/206_brand_survey_submit_lock.sql` (단일)
+**브랜치:** `feature/brand-survey-submit-lock` → dev
+
+**차단 방식 결정:** §5 **A안(설정 테이블)** 채택. B(토큰 인자)는 함수 시그니처 변경 → 폼 호출부도 바꿔야 해 비용↑. A는 시그니처 유지(폼은 에러 분기만), super_admin 토글로 임시 재개, 2단계 전환 시 함수 내부만 교체.
+- `brand_survey_settings` 싱글톤(id=1, `submissions_open boolean DEFAULT false`=차단) + RLS(SELECT `is_admin()`/UPDATE `is_super_admin()`).
+- `submit_brand_application` CREATE OR REPLACE — 0단계 차단 가드 추가(차단 시 `RAISE 'submissions_closed'` P0001). 087 본문·시그니처·anon GRANT·092/098 트리거 보존.
+- `is_brand_survey_open()` anon 읽기 함수 추가(bool만 노출) — sales 폼이 로드 시 차단 여부 판단(설정 테이블은 anon SELECT 불가라 함수 경유).
+- **관리자 override**: `admin_create_brand_application`(091) 기존 함수로 영업 공백 동안 관리자 페인 직접 입력(별도 경로 설계 불필요 — 이미 존재 확인).
+
+**sales 폼(`dev/sales/` → 빌드 `sales/`):**
+- `reviewer.html`·`seeding.html`: `</body>` 앞 `#surveyClosedOverlay` + 로드 시 `is_brand_survey_open()` false면 오버레이로 폼 덮음(서버 가드가 1차 방어). 동적 — 재개 시 즉시 반영.
+- `index.html`: 선택 카드(`choice-list`) `display:none` + 차단 안내(한·일 토글 호환). **정적 — 임시 재개 시 함께 되돌려야 함**(reviewer 경고②).
+- `orient.html`: **무변경**(토큰 보호 별개, §3④).
+
+### 초안 대비 변경 사항 (PR 1)
+- 추가: anon `is_brand_survey_open()` 함수(사양 초안엔 없었음) — 폼이 닫힘 상태를 로드 시 깔끔히 안내 + 토글 동적 반영 위해.
+- index.html 은 supabase 클라이언트가 없어 정적 차단(asymmetry — CLAUDE.md·메모리에 운영 주의 기록).
+
+### 운영 적용 (개발 검증 후)
+1. 개발 SQL Editor 에서 `206_*.sql` 실행 → 검증 V1~V7.
+2. dev sales 배포 후 폼 차단 안내 확인.
+3. 운영: 운영 DB 에 206 실행 + sales 운영 배포(reverb-sales). 사용자 확인 후.
+
+### 미해결·다음
+- PR 2(영업 초대 링크 발급 화면 + 토큰 검증) — 영업이 2단계 폼을 실제 써야 할 때. 오리엔 `create_orient_sheet` 패턴 재사용.
+- 관리자 설정 페인 토글 UI(현재는 super_admin SQL UPDATE) — 선택, 별도.
