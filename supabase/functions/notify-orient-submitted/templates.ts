@@ -1,0 +1,64 @@
+// 자동 생성 (sync-email-templates.sh) — 직접 수정 금지
+// docs/email-templates/ 변경 후 sync 스크립트 실행 시 자동 갱신
+//
+// 백틱·${...} 패턴은 sed로 escape 처리. 새 템플릿 추가 시 패턴 점검 필요
+
+export const TEMPLATES: Record<string, string> = {
+  "orient-submitted-notify": `<!DOCTYPE html>
+<!--
+  Mail: 오리엔시트 제출 알림 — 관리자에게 즉시 발송 (orient submitted notify)
+  Trigger: Database Webhook (orient_sheets UPDATE, status='submitted' 필터)
+           → Edge Function notify-orient-submitted
+  To:      관리자 (get_subscribed_admin_emails('brand_notify') + NOTIFY_ADMIN_EMAILS)
+           1인 1통 분리 발송
+  Lang:    KO (관리자 대상 내부 메일)
+
+  Placeholders:
+    {{submit_kind}}       "신규 제출" 또는 "수정 재제출"
+    {{brand_name}}        브랜드명
+    {{form_type_label}}   "리뷰어" 또는 "시딩"
+    {{submitted_at}}      제출 시각 (KST, 예: 2026. 06. 30. 14:32)
+    {{application_no}}    연결 신청 번호 (없으면 "-")
+    {{deep_link}}         관리자 오리엔시트 조회 페인 링크
+
+  Note:
+    관리자 대상 내부 메일이므로 인플루언서 4줄 푸터 의무 없음.
+    data jsonb 전체 내용은 싣지 않음 — 관리자 페인에서 확인.
+-->
+<div style="font-family:'Manrope','Pretendard Variable','Noto Sans KR',Arial,sans-serif;color:#222;max-width:560px">
+  <h2 style="color:#E8344E;margin:0 0 8px;font-size:18px;font-weight:800;letter-spacing:-0.02em">오리엔시트 {{submit_kind}} 알림</h2>
+  <p style="margin:0 0 20px;color:#666;font-size:13px">브랜드가 오리엔시트를 제출했습니다. 아래 내용을 확인하고 후속 조치를 진행해 주세요.</p>
+
+  <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px">
+    <table style="border-collapse:collapse;width:100%;font-size:13px">
+      <tr>
+        <td style="padding:6px 0;color:#888;font-weight:700;width:100px;vertical-align:top">브랜드</td>
+        <td style="padding:6px 0;font-weight:700;color:#E8344E">{{brand_name}}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#888;font-weight:700;vertical-align:top">폼 종류</td>
+        <td style="padding:6px 0">{{form_type_label}}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#888;font-weight:700;vertical-align:top">제출 시각</td>
+        <td style="padding:6px 0">{{submitted_at}}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#888;font-weight:700;vertical-align:top">연결 신청</td>
+        <td style="padding:6px 0">{{application_no}}</td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="text-align:center;margin:0 0 24px">
+    <a href="{{deep_link}}" style="display:inline-block;background:#E8344E;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px">오리엔시트 확인하기</a>
+  </div>
+
+  <p style="font-size:12px;color:#999;line-height:1.6;margin:0">
+    버튼이 눌리지 않으면 아래 주소를 복사해 브라우저에 붙여넣어 주세요.<br>
+    <span style="font-family:monospace;font-size:11px;word-break:break-all">{{deep_link}}</span>
+  </p>
+
+  <p style="margin-top:24px;font-size:11px;color:#999;letter-spacing:0.02em">© JFUN Corp. · 株式会社ジェイファン</p>
+</div>`,
+};
