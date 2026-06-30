@@ -229,4 +229,14 @@
 2. `bash scripts/sync-email-templates.sh`
 3. `supabase functions deploy notify-brand-daily-digest --project-ref qysmxtipobomefudyixw`
 4. Secrets `BREVO_API_KEY`/`PUBLIC_ADMIN_URL` 기존 함수와 공유 여부 확인
-- ⚠️ 실제 발송 테스트·cron 등록·운영 배포는 오리엔 기능 운영 배포 결정 후.
+
+### 운영 가동 (2026-06-30 — 사용자 「완전 운영 가동」 결정)
+오리엔 기능 운영 보류 해제 + PR1·PR2 운영 배포 완료(오리엔 기반 186~201은 운영 DB에 이미 존재 확인 → 202·203만 신규 실행).
+1. 운영 DB(`nrwtujmlbktxjgdwlpjj`) SQL Editor: 마이그 **202** 실행 → **203** 실행(`brand_digest` 수신 종류 확인).
+2. Edge Function 운영 배포: `notify-orient-submitted`, `notify-brand-daily-digest` (`--project-ref nrwtujmlbktxjgdwlpjj`).
+3. 제출 알림 **웹훅** 운영 Dashboard 등록(`orient_sheets` UPDATE → `notify-orient-submitted`).
+4. 일일 보고 **수동 발송 검증**: `net.http_post`로 1회 호출 → `brand_daily_digest_runs` 에 `digest_date=2026-06-29 status=skipped_no_data`(어제 0건) 정상 기록 확인.
+5. **cron 등록(마이그 204)**: 운영 SQL Editor 실행 → job `brand-daily-digest-0900kst` `'0 0 * * *'` active=true. 내일 KST 09:00 첫 자동 발송.
+6. 운영 Secrets 확인 완료(BREVO 키·PUBLIC_ADMIN_URL·PUBLIC_SALES_URL 존재).
+- 저장소(main) 반영: 알림 파일만 핫픽스로 main 머지(보류 프론트 `admin-orient.js` 브랜드 검색 #638 등은 제외). 마이그 **204** 신규(cron 기록).
+- 남은 검증: 실제 브랜드 제출 1건 시 제출 알림 즉시 메일 + 익일 09:00 일일 보고 인박스 확인(운영 첫 실데이터 발생 시).
