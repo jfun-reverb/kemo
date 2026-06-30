@@ -141,7 +141,7 @@ async function refreshOrientBadge(cached) {
 }
 
 function osMsgRow(msg) {
-  return `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
+  return `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">${esc(msg)}</td></tr>`;
 }
 
 function renderOrientSheets() {
@@ -196,6 +196,7 @@ function osRowHtml(s) {
   const linkBadge = s.application_id
     ? ' <span style="display:inline-block;padding:1px 6px;border-radius:999px;font-size:10px;color:#8A8A90;background:#F0F0F0">신청연결</span>' : '';
   return `<tr>
+    <td style="font-weight:700;color:var(--ink);white-space:nowrap">${s.orient_no ? esc(s.orient_no) : '-'}</td>
     <td>${esc(osBrandName(s))}${linkBadge}</td>
     <td>${osCardsSummary(s.data)}</td>
     <td>${osBadge(osStatusOf(s))}</td>
@@ -385,6 +386,7 @@ async function osSubmitCreate() {
     if (!res || res.success !== true) { toast('발급 실패: ' + osReasonText(res?.reason)); return; }
     document.getElementById('osCreateLink').value = osBuildLink(res.token);
     document.getElementById('osCreateExpire').textContent = res.token_expires_at ? formatDate(res.token_expires_at) : '';
+    const onEl = document.getElementById('osCreateOrientNo'); if (onEl) onEl.textContent = res.orient_no || '-';
     document.getElementById('osCreateForm').style.display = 'none';
     document.getElementById('osCreateResult').style.display = '';
     btn.style.display = 'none';
@@ -406,6 +408,7 @@ async function osSubmitCreate() {
 function osReasonText(r) {
   return ({
     brand_not_found: '브랜드를 찾을 수 없습니다',
+    brand_seq_missing: '브랜드 식별번호가 없습니다 (관리자에게 문의)',
     application_not_found: '신청을 찾을 수 없습니다',
     brand_mismatch: '신청과 브랜드가 일치하지 않습니다',
     no_db: '연결 오류',
@@ -712,6 +715,7 @@ function osDetailHtml(s, catMap, readonly) {
   const d = s.data || {};
   const cards = Array.isArray(d.cards) ? d.cards : [];
   const headerHtml = `<div style="margin-bottom:14px">
+    ${s.orient_no ? `<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px">${esc(s.orient_no)}</div>` : ''}
     <div style="font-size:16px;font-weight:800;color:#161618">${esc(osBrandName(s))}</div>
   </div>`;
   // 상태 배지 + 모집 건수 줄 — 브랜드 정보 카드와 제품(모집 건) 카드 사이에 배치
@@ -996,7 +1000,8 @@ function ensureOrientModals() {
             모집 형식(가구매·리뷰어·시딩)과 제품은 브랜드가 작성 폼에서 카드마다 직접 추가·선택합니다.</div>
         </div>
         <div id="osCreateResult" style="display:none">
-          <p style="font-weight:700;margin-bottom:8px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
+          <p style="font-weight:700;margin-bottom:6px">발급되었습니다. 아래 링크를 브랜드에게 전달하세요.</p>
+          <p style="margin:0 0 10px;font-size:13px;color:var(--muted)">오리엔시트 번호 <span id="osCreateOrientNo" style="font-weight:800;color:var(--ink)"></span></p>
           <div style="position:relative">
             <input type="text" id="osCreateLink" class="form-input" readonly onclick="this.select()" style="padding-right:48px">
             <button type="button" class="os-copy-btn" onclick="osCopyResultLink()" title="링크 복사" style="position:absolute;right:1px;top:1px;bottom:1px;background:none;border:none;border-left:1px solid var(--line);cursor:pointer;padding:0 10px;display:flex;align-items:center"><span class="material-icons-round notranslate" translate="no" style="font-size:18px;color:var(--muted);transition:transform .1s">content_copy</span></button>

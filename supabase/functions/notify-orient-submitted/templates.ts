@@ -15,10 +15,10 @@ export const TEMPLATES: Record<string, string> = {
 
   Placeholders:
     {{submit_kind}}       "신규 제출" 또는 "수정 재제출"
+    {{orient_no}}         오리엔시트 자체 식별번호 (B0001-O001, 마이그205)
     {{brand_name}}        브랜드명
     {{form_type_label}}   "리뷰어" 또는 "시딩"
     {{submitted_at}}      제출 시각 (KST, 예: 2026. 06. 30. 14:32)
-    {{application_no}}    연결 신청 번호 (없으면 "-")
     {{deep_link}}         관리자 오리엔시트 조회 페인 링크
 
   Note:
@@ -32,7 +32,11 @@ export const TEMPLATES: Record<string, string> = {
   <div style="background:#F7F4EE;border:1px solid #EAEAE4;border-radius:12px;padding:16px 18px;margin-bottom:20px">
     <table style="border-collapse:collapse;width:100%;font-size:13px">
       <tr>
-        <td style="padding:6px 0;color:#888;font-weight:700;width:100px;vertical-align:top">브랜드</td>
+        <td style="padding:6px 0;color:#888;font-weight:700;width:100px;vertical-align:top">오리엔시트 번호</td>
+        <td style="padding:6px 0;font-weight:700">{{orient_no}}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#888;font-weight:700;vertical-align:top">브랜드</td>
         <td style="padding:6px 0;font-weight:700;color:#E8344E">{{brand_name}}</td>
       </tr>
       <tr>
@@ -42,10 +46,6 @@ export const TEMPLATES: Record<string, string> = {
       <tr>
         <td style="padding:6px 0;color:#888;font-weight:700;vertical-align:top">제출 시각</td>
         <td style="padding:6px 0">{{submitted_at}}</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 0;color:#888;font-weight:700;vertical-align:top">연결 신청</td>
-        <td style="padding:6px 0">{{application_no}}</td>
       </tr>
     </table>
   </div>
