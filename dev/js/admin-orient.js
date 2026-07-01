@@ -996,8 +996,8 @@ function ensureOrientModals() {
               <div class="admin-proxy-combobox-list" id="osCreateBrandList"></div>
             </div></div>
           <div class="form-group"><label class="form-label">광고주 신청 연결 (선택)</label>
-            <select id="osCreateApp" class="form-input"><option value="">연결 안 함</option></select>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">신청을 연결하면 그 신청의 모집 희망값을 작성 폼 첫 카드에 미리 채웁니다.</div></div>
+            <select id="osCreateApp" class="form-input" disabled><option value="">연결 안 함</option></select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">신청 연결은 현재 사용하지 않습니다. 발급은 브랜드만 선택하면 됩니다.</div></div>
           <div style="font-size:12px;color:var(--muted);background:#FAFAF7;border-radius:8px;padding:10px;margin-top:4px">
             모집 형식(가구매·리뷰어·시딩)과 제품은 브랜드가 작성 폼에서 카드마다 직접 추가·선택합니다.</div>
         </div>
