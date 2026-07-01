@@ -98,6 +98,17 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 
 **Why:** 개발서버 DB 에도 실제 인플 데이터가 있어 잘못 발송 시 실수 발송 위험 + Brevo 일일 한도 소모 누적. 운영 적용 단계에서 같은 SQL Editor + 같은 deploy 명령으로 한 번에 검증하는 패턴을 사용자가 선호. 영구 메모리 `feedback_dev_no_mail_test.md` 와 함께 영구 적용.
 
+## 브라우저에서 직접 호출하는 Edge Function은 CORS 필수 (2026-07-01, 오리엔 발급 메일 사고)
+
+이 프로젝트의 Edge Function은 대부분 **웹훅·pg_cron·DB 트리거**로 실행돼 CORS(브라우저가 다른 도메인의 함수를 부를 때 필요한 허용 헤더)가 필요 없다. 하지만 **브라우저(관리자·인플 화면)에서 `functions.invoke()` 로 직접 호출**하는 함수는 다르다. `globalreverb.com`(브라우저)이 `*.supabase.co`(함수)를 부르면 교차 출처라서, 함수가 CORS 허용 헤더와 `OPTIONS` 사전요청(preflight)을 처리하지 않으면 **브라우저가 응답을 차단**(`CORS error`, 응답 크기 0)한다.
+
+- **판정**: `grep -rlE "functions\.invoke\(['\"]<함수명>|/functions/v1/<함수명>" dev/` 로 클라이언트 호출부(`dev/lib/storage.js` 등) 유무 확인. 있으면 브라우저 직접 호출 함수.
+- **필수**: 브라우저 직접 호출 함수는 ① `Access-Control-Allow-Origin`(+ headers·methods) 응답 헤더 ② `if (req.method === 'OPTIONS')` preflight 분기 — 둘 다 있어야 한다. 표준 패턴은 기존 CORS 처리 함수를 참고.
+- **런타임 검증 (배포 전 1회)**: CORS 누락은 코드를 읽어서는 안 보이고 **실제 브라우저 호출로만** 드러난다. 개발서버 「실제 메일 발송 테스트 금지」 정책과 **CORS 검증은 분리 가능** — `OPTIONS` preflight 나 빈/무효 페이로드 호출은 **메일을 보내지 않으면서** CORS 응답만 확인할 수 있다. 새로 만들거나 고친 브라우저 직접 호출 함수는 개발서버에서 이 최소 호출을 1회 거친다.
+- reverb-reviewer 는 `supabase/functions/*` 변경 시 이 CORS 유무를 정적 점검한다(에이전트 정의 「Edge Function CORS」).
+
+**Why:** 오리엔시트 발급 메일(`notify-orient-sheet`)이 이 프로젝트에서 **유일하게 브라우저에서 직접 호출**하는 함수인데 CORS 처리가 없어, 리뷰 GO·운영 배포까지 통과했지만 실제로는 한 번도 성공하지 못했다. 원인은 ① 리뷰어 점검 항목에 CORS 축이 없었고 ② 「기존 메일 함수엔 CORS 없음」이 반례가 됐으며(그 함수들은 웹훅·크론 실행이라 브라우저 호출이 아님) ③ 발송 테스트 금지 + qa light 로 배포 전 브라우저 호출이 0회였던 것. 정적 리뷰(CORS 항목)와 런타임 검증(preflight 1회)을 둘 다 걸어 재발을 막는다.
+
 ## 마이그레이션 관리
 - `supabase/migrations/*.sql` — 영구 보관, 순번 유지, 삭제/이동 금지
 - `supabase/patches/*.sql` — 운영 DB 수동 복구용 one-off (마이그레이션 체인 외)

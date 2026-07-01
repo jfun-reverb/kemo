@@ -62,6 +62,13 @@ model: sonnet
 - [ ] RLS 정책 신규 테이블에 포함
 - [ ] 민감 정보 로그 기록 없음
 
+### Edge Function CORS — 2026-07-01 추가 (오리엔 발급 메일 CORS 누락 사고 방지)
+- [ ] `supabase/functions/*/index.ts` 신규·수정 시, 이 함수가 **브라우저(클라이언트)에서 직접 호출되는지** 먼저 판정
+- [ ] 판정법: `grep -rlE "functions\.invoke\(['\"]<함수명>|/functions/v1/<함수명>" dev/` 로 클라 호출부(`dev/lib/storage.js` 등) 존재 확인
+- [ ] **브라우저 직접 호출 함수인데 CORS 허용 헤더(`Access-Control-Allow-Origin`) + `OPTIONS` 사전요청(preflight) 처리가 없으면 🔴 Critical** — 브라우저가 응답을 차단해 런타임 실패(응답 크기 0, `CORS error`). 코드 문법상으론 정상이라 읽어서는 안 보이므로 이 항목으로 기계적 확인
+- [ ] 웹훅·pg_cron·DB 트리거로만 실행되는 함수(대다수 메일 함수)는 CORS 불필요 — 대상 아님. 「기존 메일 함수엔 CORS 없음」을 반례로 삼지 말 것 (그 함수들은 브라우저 호출이 아님)
+- 근거 규칙: `.claude/rules/supabase.md` 「브라우저 직접 호출 Edge Function은 CORS 필수」
+
 ### 문서 동기화 (감지만, 수정은 메인이 담당) — 2026-05-04 확장
 - [ ] 새 기능/페이지 추가 시 CLAUDE.md `## Features` 섹션 업데이트 필요?
 - [ ] 새 테이블/컬럼 추가 시 CLAUDE.md `## Database Schema` 업데이트 필요?
