@@ -8297,6 +8297,7 @@ async function renderLegalPage() {
     /browser\.runtime/i,               // 아이폰 Safari 확장이 주입한 확장 API 접근 에러 (앱 코드 아님)
     /webkit-masked-url/i,              // Safari 가 확장 스크립트 출처를 가린 URL (스택에만 등장)
     /__firefox__|window\.__gCrWeb|__edgeReader/i,  // iOS 브라우저(Firefox/Brave/Chrome/Edge) 리더뷰 주입 스크립트 (앱 코드 아님)
+    /window\.ethereum|window\.solana|selectedAddress|evmAsk/i,  // 브라우저 내장/확장 암호화폐 지갑(Brave·MetaMask 등) 주입 객체 (앱 코드 아님)
   ];
 
   function _toMessage(v) {
