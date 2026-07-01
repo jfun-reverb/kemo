@@ -546,8 +546,10 @@ async function osSendInviteAndShow(orientSheetId, recipient, isNewContact) {
     box.innerHTML = '<div style="color:#B45309;font-weight:600">수신자 이메일이 없어 메일을 보내지 못했습니다.</div>' +
       '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 브랜드에게 직접 전달해 주세요.</div>';
   } else {
+    // 실패 원인(함수가 돌려준 error/reason)을 작게 노출 — 디버깅·재시도 판단용(값 없으면 생략)
+    const detail = (r && (r.error || r.reason)) ? '<div style="color:var(--muted);font-size:11px;margin-top:4px">사유: ' + esc(String(r.error || r.reason)) + '</div>' : '';
     box.innerHTML = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>' +
-      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>';
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>' + detail;
   }
 }
 
