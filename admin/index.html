@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782870792';
+  var CURRENT_BUILD = 'v1782871237';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2138,7 +2138,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-01 10:53 · 877b21d</span>
+          <span class="admin-build-text">2026-07-01 11:00 · f59688f</span>
         </div>
       </div>
     </aside>
@@ -12246,8 +12246,10 @@ async function osSendInviteAndShow(orientSheetId, recipient, isNewContact) {
     box.innerHTML = '<div style="color:#B45309;font-weight:600">수신자 이메일이 없어 메일을 보내지 못했습니다.</div>' +
       '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 브랜드에게 직접 전달해 주세요.</div>';
   } else {
+    // 실패 원인(함수가 돌려준 error/reason)을 작게 노출 — 디버깅·재시도 판단용(값 없으면 생략)
+    const detail = (r && (r.error || r.reason)) ? '<div style="color:var(--muted);font-size:11px;margin-top:4px">사유: ' + esc(String(r.error || r.reason)) + '</div>' : '';
     box.innerHTML = '<div style="color:#C41E3A;font-weight:600">메일 발송에 실패했습니다.</div>' +
-      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>';
+      '<div style="color:var(--muted);font-size:12px;margin-top:2px">위 링크를 복사해 직접 전달하거나, 잠시 후 다시 시도해 주세요.</div>' + detail;
   }
 }
 
