@@ -42,6 +42,23 @@ import { TEMPLATES } from "./templates.ts";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
+// CORS — 이 함수는 관리자 화면(globalreverb.com 등)에서 supabase.functions.invoke 로 직접 호출한다.
+// 다른 도메인(*.supabase.co) 호출이라 브라우저가 사전요청(OPTIONS)+응답 CORS 헤더를 요구.
+// 헤더 없으면 브라우저가 응답을 차단(Network 에 "CORS error"). 인증은 함수 내부 JWT+admins 검증으로 별도 보장.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+// JSON 응답 + CORS 헤더 일괄 부착 헬퍼
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, "content-type": "application/json" },
+  });
+}
+
 function env(key: string, fallback = ""): string {
   return Deno.env.get(key) ?? fallback;
 }
@@ -141,17 +158,18 @@ async function resolveRecipient(
 }
 
 Deno.serve(async (req: Request) => {
+  // CORS 사전요청(preflight) — 브라우저가 실제 POST 전에 OPTIONS 로 허용 여부 확인
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", { status: 405, headers: CORS_HEADERS });
   }
 
   try {
     const { orient_sheet_id, to_email, to_name } = await req.json();
     if (!orient_sheet_id) {
-      return new Response(JSON.stringify({ error: "orient_sheet_id required" }), {
-        status: 400,
-        headers: { "content-type": "application/json" },
-      });
+      return jsonResponse({ error: "orient_sheet_id required" }, 400);
     }
 
     const supaUrl = env("SUPABASE_URL");
@@ -170,10 +188,7 @@ Deno.serve(async (req: Request) => {
     const { data: authData } = await userSb.auth.getUser();
     const caller = authData?.user;
     if (!caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { "content-type": "application/json" },
-      });
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
     const { data: adminRow } = await sb
       .from("admins")
@@ -181,10 +196,7 @@ Deno.serve(async (req: Request) => {
       .eq("auth_id", caller.id)
       .maybeSingle();
     if (!adminRow) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { "content-type": "application/json" },
-      });
+      return jsonResponse({ error: "Forbidden" }, 403);
     }
 
     // 1) 시트 조회 (브랜드 마스터명 join — 메일 제목·본문 브랜드명을 확실히 채움)
@@ -195,10 +207,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (sheetErr) throw sheetErr;
     if (!sheet) {
-      return new Response(JSON.stringify({ sent: false, reason: "sheet_not_found" }), {
-        status: 404,
-        headers: { "content-type": "application/json" },
-      });
+      return jsonResponse({ sent: false, reason: "sheet_not_found" }, 404);
     }
 
     // 2) 수신자 결정 — 클라가 to_email 명시(브랜드만 선택 발급 시 수신자 선택) 우선, 없으면 기존 자동 결정 폴백
@@ -212,10 +221,7 @@ Deno.serve(async (req: Request) => {
     if (!recipient) {
       // 3) 수신자 없음 — 발송·단계전이 건너뜀(발급 자체는 이미 성공). 단계 전이 안 함.
       console.warn("[notify-orient-sheet] no recipient email", { orient_sheet_id });
-      return new Response(JSON.stringify({ sent: false, reason: "no_recipient" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return jsonResponse({ sent: false, reason: "no_recipient" }, 200);
     }
 
     // 4) 작성 링크 (서버 환경변수 도메인 — 클라 조작 방지)
@@ -280,16 +286,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ sent: true, recipient: recipient.email, advanced, advance_reason: advanceReason }),
-      { status: 200, headers: { "content-type": "application/json" } },
+    return jsonResponse(
+      { sent: true, recipient: recipient.email, advanced, advance_reason: advanceReason },
+      200,
     );
   } catch (e) {
     const msg = (e as Error).message || "unknown";
     console.error("[notify-orient-sheet] error", msg, (e as Error).stack);
-    return new Response(JSON.stringify({ sent: false, error: msg }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
+    return jsonResponse({ sent: false, error: msg }, 500);
   }
 });
