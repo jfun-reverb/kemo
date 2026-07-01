@@ -987,7 +987,13 @@ function cardHtml(id, card) {
           <div class="field"><label>희망 모집 마감일</label>
             <input type="date" class="f-recruit-end" value="${escAttr(r.recruit_end)}" onchange="onInput()"></div>
         </div>
-        <div class="field-hint" style="margin:-6px 0 14px">원하시는 모집 기간을 적어 주세요. 모집 시작일로부터 +30~40일로 권장 드립니다. (단기간 일정이 필요할 경우 레버브 담당자분께 소통 부탁드립니다.)</div>
+        <div class="field-hint only-seeding" style="margin:-6px 0 14px">원하시는 모집 기간을 적어 주세요. 모집 시작일로부터 +30~40일로 권장 드립니다. (단기간 일정이 필요할 경우 레버브 담당자분께 소통 부탁드립니다.)</div>
+        <div class="row2">
+          <div class="field"><label>희망 업로드 시작일</label>
+            <input type="date" class="f-upload-start" value="${escAttr(r.upload_start)}" onchange="onInput()"></div>
+          <div class="field"><label>희망 업로드 마감일</label>
+            <input type="date" class="f-upload-end" value="${escAttr(r.upload_end)}" onchange="onInput()"></div>
+        </div>
 
         <!-- 리뷰 가이드 (리뷰어) -->
         <div class="field only-reviewer"><label>리뷰 가이드</label>
@@ -1437,6 +1443,8 @@ function collectCard(el) {
     recruit: {
       recruit_start: el.querySelector('.f-recruit-start').value,
       recruit_end: el.querySelector('.f-recruit-end').value,
+      upload_start: el.querySelector('.f-upload-start').value,
+      upload_end: el.querySelector('.f-upload-end').value,
     },
     sale: {
       market: 'Qoo10',
@@ -1643,6 +1651,7 @@ function renderPreviewCard(c, idx) {
   rows += pvRow('카테고리', categoryLabel(c.product.category));
   rows += pvRow('모집 인원', c.product.slots);
   rows += pvRow('희망 모집', [c.recruit.recruit_start, c.recruit.recruit_end].filter(Boolean).join(' ~ '));
+  rows += pvRow('희망 업로드', [c.recruit.upload_start, c.recruit.upload_end].filter(Boolean).join(' ~ '));
   if (ft === 'reviewer') {
     rows += pvRow('엣코스메 희망', c.sale.atcosme_wish ? '희망' : '비희망');
     if (c.sale.atcosme_wish) rows += pvRow('엣코스메 링크', c.sale.atcosme_url);

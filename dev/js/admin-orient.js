@@ -771,7 +771,8 @@ function osCardDetail(c, idx, catMap, readonly) {
   const catLabel = (catMap && catMap[p.category]) || p.category;
 
   let inner = osField('카테고리', catLabel) + osField('모집 인원', p.slots)
-    + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end));
+    + osField('희망 모집 기간', osRange(r.recruit_start, r.recruit_end))
+    + osField('희망 업로드 기간', osRange(r.upload_start, r.upload_end));
 
   if (ft === 'proxy_purchase' || ft === 'reviewer' || ft === 'seeding') {
     inner += osField('판매처', sale.market || 'Qoo10') + osFieldHtml('판매 URL', osLinkOrText(sale.url), true)
@@ -953,13 +954,22 @@ async function applyOrientCardPrefill(card, brand, brandId, appId, orientId, car
   osSetVal('newCampRewardNote', osBuildRewardNote(card));
   if (card.form_type === 'seeding') osSetVal('newCampHashtags', Array.isArray(card.seeding && card.seeding.hashtags) ? card.seeding.hashtags.join(' ') : '');
 
-  // 날짜 (희망 모집 기간) — flatpickr range + deadline
+  // 날짜 (희망 모집·업로드 기간) — flatpickr range + deadline + 결과물 제출 마감일
   const r = card.recruit || {};
+  const uploadEnd = r.upload_end || null;
+  // 업로드 기간 → 가구매·리뷰어(monitor)는 구매 기간에, 시딩(gifting)은 구매 행이 없어 결과물 마감일에만 반영
+  // ⚠️ 이 monitor 분기는 applyDeadlineFieldsVisibility 의 구매 필드 노출 조건(monitor 만 유지)과 맞물려 있음.
+  //    오리엔 카드에 visit(방문형) 형식이 추가되면 이 가정이 깨지므로 그때 매핑 재검토 필요.
+  const purchasePair = (recruitType === 'monitor') ? [r.upload_start || null, uploadEnd] : [null, null];
   if (typeof applyCampRangeValues === 'function') {
-    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, r.recruit_end || null], purchase: [null, null], visit: [null, null] });
+    applyCampRangeValues('newCamp', { recruit: [r.recruit_start || null, r.recruit_end || null], purchase: purchasePair, visit: [null, null] });
   }
   osSetVal('newCampRecruitStart', r.recruit_start || '');
   osSetVal('newCampDeadline', r.recruit_end || '');
+  // 결과물 제출 마감일 = 업로드 마감일 그대로 (3형식 공통)
+  osSetVal('newCampSubmissionEnd', uploadEnd || '');
+  // 단일 picker(결과물 제출 마감일) + 구매 range picker 경계·표시 동기화
+  if (typeof syncCampDateMinMax === 'function') syncCampDateMinMax('newCamp');
 
   // 리치 텍스트 (한국어 초안 — 관리자 일본어 번역)
   if (typeof setRichValue === 'function') {
