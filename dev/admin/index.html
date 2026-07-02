@@ -1178,8 +1178,17 @@
         </div>
 
         <!-- PERMISSIONS (권한 관리) PANE — 동적 권한 설정, super_admin 전용. PR2 조각 C -->
-        <div id="adminPane-permissions" class="admin-pane">
-          <div id="permPaneBody"><!-- admin-permissions.js 가 렌더 --></div>
+        <div id="adminPane-permissions" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">권한 관리</div>
+              <div style="font-size:12px;color:var(--muted)">등급별로 메뉴·기능 노출을 설정합니다</div>
+            </div>
+            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. 지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>
+          </div>
+          <div class="admin-card">
+            <div id="permPaneBody"><!-- admin-permissions.js 가 그리드 렌더 --></div>
+          </div>
         </div>
 
         <!-- CLIENT ERROR LOGS (오류 로그) PANE — 마이그레이션 165 -->

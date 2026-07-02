@@ -1603,9 +1603,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #newBrandAppModal select.form-input,
 #newBrandAppModal textarea.form-input { font-size: 14px; }
 
-/* ── 동적 권한 관리 화면 (PR2 조각 C) ── */
-#adminPane-permissions { padding: 20px 24px; }
-.perm-head { margin-bottom: 16px; }
+/* ── 동적 권한 관리 화면 (PR2 조각 C) — 레이아웃은 admin-pane-list(상단 고정 헤더 + 카드) 상속 ── */
+/* .admin-card 가 overflow:hidden 이라 스크롤 자식이 필요 — permPaneBody 를 스크롤 영역으로(+ 콘텐츠 여백) */
+.admin-pane-list #permPaneBody { flex: 1; overflow-y: auto; padding: 16px 20px; }
 .perm-warn {
   display: flex; align-items: flex-start; gap: 8px;
   background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 8px;

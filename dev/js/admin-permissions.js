@@ -58,14 +58,8 @@ function renderPermGrid() {
     groups[idx[f.category]].items.push(f);
   });
 
+  // 제목·경고배너는 페인 상단 고정 헤더(admin-sticky-header)에 정적 배치 — 여기선 그리드만.
   let html = '';
-  html += '<div class="perm-head">';
-  html += '<div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">권한 관리</div>';
-  html += '<div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span>'
-       +  '<span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. '
-       +  '지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>';
-  html += '</div>';
-
   groups.forEach((g, gi) => {
     html += '<div class="perm-group">';
     html += '<div class="perm-group-hd" onclick="togglePermGroup(' + gi + ')">'
