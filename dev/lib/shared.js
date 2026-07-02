@@ -575,6 +575,9 @@ const PANE_REFRESHERS = {
   },
   'orient-sheets': async () => {
     if (typeof loadOrientSheets === 'function') await loadOrientSheets();
+  },
+  'permissions': async () => {
+    if (typeof loadPermissionsPane === 'function') await loadPermissionsPane();
   }
 };
 async function refreshPane(paneId) {

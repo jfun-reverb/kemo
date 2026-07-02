@@ -126,6 +126,17 @@ function friendlyError(msg) {
 // ════════════════════════════════════════════════════════════════════
 
 function switchAdminPane(pane, el, pushHistory) {
+  // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
+  //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
+  const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
+  if (pane === 'permissions' && !_isSuper) {
+    if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
+    return switchAdminPane('dashboard', null, pushHistory);
+  }
+  if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
+    if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
+    return switchAdminPane('dashboard', null, pushHistory);
+  }
   // Vercel Web Analytics — 관리자 앱 페인별 접속 카운트
   try {
     if (typeof window.va === 'function') {
@@ -181,7 +192,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'messages': loadMessagesInbox,
     'errors': loadClientErrors,
     'upcoming': renderUpcomingFeatures,
-    'orient-sheets': loadOrientSheets
+    'orient-sheets': loadOrientSheets,
+    'permissions': loadPermissionsPane
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {

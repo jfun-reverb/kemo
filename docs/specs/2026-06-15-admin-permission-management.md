@@ -90,9 +90,28 @@
 3. 권한 카탈로그를 코드 상수 vs lookup_values 중 어디에 둘지(권고: 코드 상수).
 
 ## 구현 결과
-(개발 세션이 채울 것)
-**구현일:** / **관련 커밋:**
+
+**구현일:** 2026-07-02 (dev 배포, 운영 미배포) / **관련 PR:** PR1 #672, PR2 조각A #673·조각B #674·조각C(이 커밋)
+
+### PR1 (인프라, 마이그레이션 207~210)
+- `role_permissions`(등급×기능 접근수준, PK(role,feature_key), role CHECK 2종=super 행 없음=잠금 방지, 시드 72행=현행 무변동) + `role_permission_history`(RLS SELECT super) + `has_permission(feature,min)`(super 통과·미등록 false) + `is_campaign_admin` search_path '' 정정(갭3, 별도 파일 210).
+- 권한 카탈로그 코드 상수 `ADMIN_PERMISSION_CATALOG`(shared.js) — 최초 36개(menu.* 19 + 기능 17), 조각 B에서 `menu.permissions` 추가로 20+17=37.
+- 개발 DB 적용·검증: 시드 72/36/super0, super 잠금방지 has_permission 전부 true.
+
+### PR2 (설정 화면, 마이그레이션 211)
+- **조각 A**: `update_role_permissions(jsonb)` 일괄 저장 RPC(원자·이력·denylist·낙관적 락) + menu.permissions 시드 2행.
+- **조각 B**: 클라 헬퍼 `permLevel/canWrite/canRead/isHidden`(super=write·미로드 fail-open) + `fetchRolePermissions`(storage.js) + 부팅 로드(admin/app.js) + `applyLookupMenuVisibility` 를 카탈로그 menu.* 순회로 확장(id→data-pane 셀렉터).
+- **조각 C**: `dev/js/admin-permissions.js` 설정 화면(#permissions, super 전용) — 등급×기능 그리드·category 접기·super 열 고정·denylist 행 잠금·server_enforced 「화면 제어만」 표식·경고 배너·일괄 저장(확인 모달)·충돌 안내. `switchAdminPane` 진입 가드(super 전용·hidden 페인 대시보드 리다이렉트, dashboard 무한재귀 방지 제외). `saveRolePermissions`(storage.js) + PANE_REFRESHERS 등록 + build.sh 등록 + admin.css 스타일.
+
 ### 초안 대비 변경 사항
--
+- **추가**: `menu.permissions` 카탈로그·시드(설정 화면 자체 메뉴) + 클라 denylist(permissions.manage·admin.manage·menu.permissions — UI 잠금). 진입 가드는 super 직접 판정(위임 불가).
+- **빠진 것**: 「기본값 복원」 버튼 — 조각 C 에서 제외(카탈로그에 등급별 기본값 72개 하드코딩은 시드 동기화 위험). 결정 2(코드 상수)는 복원 구현 시점으로 이월. 후속 조각.
+- **달라진 것**: 저장을 셀 즉시 저장 아닌 **일괄 배치**(결정 1). 낙관적 락은 version 컬럼 없이 prev_level 비교(결정 4).
+
 ### 구현 중 기술 결정 사항
--
+- 시드 = 매트릭스 §B "현재 상태" 열 그대로 → 도입 즉시 동작 변화 0(회귀 기준: campaign_manager 는 여전히 기준데이터·FAQ 만 숨김).
+- 클라 메뉴 숨김 fail-open / 서버 has_permission fail-closed 대비(표시는 관대·차단은 엄격).
+- 잠금 방지 = super_admin 행 미존재(CHECK) + has_permission 코드 통과 → 어떤 설정으로도 super 권한 못 끔.
+- 배치 저장 시 (role,feature_key) 정렬로 잠금 순서 고정(데드락 예방).
+- ⚠️ **운영 미배포** — PR1~PR2 전부 dev 만. 순수 표시 제어라 화면·동작 변화 없어 PR3(민감정보 갭1 서버 실차단)까지 완성 후 일괄 운영 배포 예정.
+- ⚠️ 개발 DB 에 campaign_manager 계정 없음 → 비-super 등급 실제 화면 분기(사이드바 숨김·리다이렉트) 검증은 계정 생성 후.
