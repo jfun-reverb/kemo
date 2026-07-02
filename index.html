@@ -2790,6 +2790,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.errors',             label_ko: '오류 로그',                    category: '관리자 설정', server_enforced: false },
   { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
+  { key: 'menu.permissions',        label_ko: '권한 관리',                    category: '관리자 설정', server_enforced: false },
 
   // ── 주요 기능 17개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
@@ -2810,6 +2811,29 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
   { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
 ];
+
+// ══════════════════════════════════════
+// 동적 권한 — 런타임 접근수준 맵 (부팅 시 role_permissions 로드). PR2 조각 B.
+//   ⚠️ 이건 "화면 표시 제어"용이다. 실제 데이터 접근 차단이 아니다(서버 RLS·has_permission 이 방어선).
+//   그래서 미로드·미등록·역할 미확정 시 fail-open('write' = 표시)한다 — 로드 실패로 관리자가 아무것도 못 보는 사고 방지.
+//   (서버 has_permission 은 반대로 fail-closed = 미등록 거부. 표시는 관대·차단은 엄격.)
+// ══════════════════════════════════════
+let _rolePermMap = {};  // 'role|feature_key' → 'write'|'read'|'hidden'
+function setRolePermMap(rows) {
+  const m = {};
+  (rows || []).forEach(r => { if (r && r.role && r.feature_key) m[r.role + '|' + r.feature_key] = r.access_level; });
+  _rolePermMap = m;
+}
+const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
+// 현재 관리자의 feature 접근수준. super_admin=항상 write. 역할 미확정·미로드·미등록=write(fail-open).
+function permLevel(featureKey) {
+  const role = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo) ? currentAdminInfo.role : null;
+  if (role === 'super_admin' || !role) return 'write';
+  return _rolePermMap[role + '|' + featureKey] || 'write';
+}
+function canWrite(featureKey) { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 2; }
+function canRead(featureKey)  { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 1; }
+function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 
 // ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
@@ -4632,6 +4656,20 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 }
 
 // ── Campaigns ──
+// 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
+// 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
+async function fetchRolePermissions() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level');
+    if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
+    return data || [];
+  } catch (e) {
+    console.warn('role_permissions 로드 예외(fail-open):', e?.message);
+    return [];
+  }
+}
+
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
