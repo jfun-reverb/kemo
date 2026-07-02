@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782961037';
+  var CURRENT_BUILD = 'v1782963606';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2138,7 +2138,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-02 11:57 · 0881871</span>
+          <span class="admin-build-text">2026-07-02 12:40 · cca294a</span>
         </div>
       </div>
     </aside>
@@ -6125,6 +6125,12 @@ const UPCOMING_FEATURES = [
   //   desc: '가입·응모 시 생년월일·성별 입력. 18세 미만 응모 불가.', // 상세 설명(한국어)
   //   effectiveDate: '2026-07-15',                       // 시행일(KST). 해당 기능 시행일 상수와 동일값
   // },
+  {
+    key: 'age-policy-2026',
+    title: '연령 정책 (만 18세 이상)',
+    desc: '가입·응모 시 생년월일·성별을 입력받습니다. 만 18세 미만은 캠페인 응모가 제한됩니다.',
+    effectiveDate: '2026-07-19',
+  },
 ];
 
 // 시행일 자정(KST) 타임스탬프 — POLICY_NOTICE 선례와 동일 기준
