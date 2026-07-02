@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782992939';
+  var CURRENT_BUILD = 'v1782993202';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2095,11 +2095,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
 }
 .perm-tag-super { background: #F3E8FF; color: #7E22CE; }
-.perm-actions {
-  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
-  padding: 16px 0; margin-top: 8px; border-top: 1px solid var(--line, #E5E7EB);
-}
-.perm-changecount { font-size: 13px; color: var(--muted, #6B7280); }
+/* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
+.perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
 
 </style>
 </head>
@@ -2179,7 +2177,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-02 20:48 · df0f4c8</span>
+          <span class="admin-build-text">2026-07-02 20:53 · e45ad5e</span>
         </div>
       </div>
     </aside>
@@ -3224,9 +3222,15 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- PERMISSIONS (권한 관리) PANE — 동적 권한 설정, super_admin 전용. PR2 조각 C -->
         <div id="adminPane-permissions" class="admin-pane admin-pane-list">
           <div class="admin-sticky-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:16px;font-weight:700;color:var(--ink)">권한 관리</div>
-              <div style="font-size:12px;color:var(--muted)">등급별로 메뉴·기능 노출을 설정합니다</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">권한 관리</div>
+                <div style="font-size:12px;color:var(--muted)">등급별로 메뉴·기능 노출을 설정합니다</div>
+              </div>
+              <div class="perm-actions">
+                <span class="perm-changecount">변경 없음</span>
+                <button class="btn btn-primary btn-xs" id="permSaveBtn" onclick="savePermChanges()" disabled>저장</button>
+              </div>
             </div>
             <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. 지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>
           </div>
@@ -28462,6 +28466,7 @@ async function loadPermissionsPane() {
   const rows = (typeof fetchRolePermissions === 'function') ? await fetchRolePermissions() : [];
   rows.forEach(r => { _permCurrent[r.role + '|' + r.feature_key] = r.access_level; });
   renderPermGrid();
+  updatePermSaveBar();
 }
 
 function renderPermGrid() {
@@ -28511,12 +28516,16 @@ function renderPermGrid() {
     html += '</tbody></table></div></div>';
   });
 
-  const n = Object.keys(_permEdited).length;
-  html += '<div class="perm-actions">'
-       +  '<span class="perm-changecount">' + (n ? n + '개 변경됨' : '변경 없음') + '</span>'
-       +  '<button class="btn btn-primary" id="permSaveBtn" onclick="savePermChanges()"' + (n ? '' : ' disabled') + '>저장</button>'
-       +  '</div>';
   body.innerHTML = html;
+}
+
+// 저장 영역(변경 카운트·저장 버튼)은 페인 상단 고정 헤더에 정적으로 있음 — 상태만 갱신.
+function updatePermSaveBar() {
+  const n = Object.keys(_permEdited).length;
+  const btn = document.getElementById('permSaveBtn');
+  if (btn) btn.disabled = !n;
+  const cnt = document.querySelector('.perm-changecount');
+  if (cnt) cnt.textContent = n ? n + '개 변경됨' : '변경 없음';
 }
 
 function togglePermGroup(gi) {
@@ -28534,11 +28543,7 @@ function onPermCell(role, key, sel) {
   if (sel.value === cur) delete _permEdited[k];
   else _permEdited[k] = sel.value;
   sel.classList.toggle('perm-dirty', (k in _permEdited));
-  const n = Object.keys(_permEdited).length;
-  const btn = document.getElementById('permSaveBtn');
-  if (btn) btn.disabled = !n;
-  const cnt = document.querySelector('.perm-changecount');
-  if (cnt) cnt.textContent = n ? n + '개 변경됨' : '변경 없음';
+  updatePermSaveBar();
 }
 
 async function savePermChanges() {

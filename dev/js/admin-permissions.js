@@ -45,6 +45,7 @@ async function loadPermissionsPane() {
   const rows = (typeof fetchRolePermissions === 'function') ? await fetchRolePermissions() : [];
   rows.forEach(r => { _permCurrent[r.role + '|' + r.feature_key] = r.access_level; });
   renderPermGrid();
+  updatePermSaveBar();
 }
 
 function renderPermGrid() {
@@ -94,12 +95,16 @@ function renderPermGrid() {
     html += '</tbody></table></div></div>';
   });
 
-  const n = Object.keys(_permEdited).length;
-  html += '<div class="perm-actions">'
-       +  '<span class="perm-changecount">' + (n ? n + '개 변경됨' : '변경 없음') + '</span>'
-       +  '<button class="btn btn-primary" id="permSaveBtn" onclick="savePermChanges()"' + (n ? '' : ' disabled') + '>저장</button>'
-       +  '</div>';
   body.innerHTML = html;
+}
+
+// 저장 영역(변경 카운트·저장 버튼)은 페인 상단 고정 헤더에 정적으로 있음 — 상태만 갱신.
+function updatePermSaveBar() {
+  const n = Object.keys(_permEdited).length;
+  const btn = document.getElementById('permSaveBtn');
+  if (btn) btn.disabled = !n;
+  const cnt = document.querySelector('.perm-changecount');
+  if (cnt) cnt.textContent = n ? n + '개 변경됨' : '변경 없음';
 }
 
 function togglePermGroup(gi) {
@@ -117,11 +122,7 @@ function onPermCell(role, key, sel) {
   if (sel.value === cur) delete _permEdited[k];
   else _permEdited[k] = sel.value;
   sel.classList.toggle('perm-dirty', (k in _permEdited));
-  const n = Object.keys(_permEdited).length;
-  const btn = document.getElementById('permSaveBtn');
-  if (btn) btn.disabled = !n;
-  const cnt = document.querySelector('.perm-changecount');
-  if (cnt) cnt.textContent = n ? n + '개 변경됨' : '변경 없음';
+  updatePermSaveBar();
 }
 
 async function savePermChanges() {
