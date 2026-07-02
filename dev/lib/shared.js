@@ -808,6 +808,62 @@ function visibleUpcomingFeatures() {
 }
 
 // ══════════════════════════════════════
+// 관리자 동적 권한 관리 — 권한 카탈로그 (코드 상수 단일 소스, PR1)
+//   등급(campaign_admin/campaign_manager)별 접근 수준(write/read/hidden)은 DB
+//   role_permissions 테이블(마이그레이션 207)에 저장 — 이 배열은 "기능이 무엇이
+//   있는지"만 정의하는 카탈로그다. 새 페인·기능 추가 시 이 배열에 한 줄 + 시드
+//   마이그레이션에 대응 행 추가(누락 시 has_permission() 이 안전측 거부=false).
+//   ⚠️ PR1 시점에는 이 배열을 참조하는 코드가 아직 없다(순수 카탈로그). 메뉴 숨김·
+//   버튼 비활성 등 실제 화면 분기는 PR2(설정 화면 + permLevel 헬퍼)부터 연결된다.
+//   key 는 role_permissions.feature_key 와 1:1 대응(마이그레이션 207 시드 참조).
+//   server_enforced=true 는 2단계(PR3+)에서 서버(has_permission RPC)로 실차단할
+//   후보 — PR1 시점에는 서버 차단 여부와 무관하게 표시용 플래그일 뿐이다.
+//   사양서 docs/specs/2026-06-15-admin-permission-management.md §3
+//         docs/specs/2026-06-15-admin-permission-matrix.md §B(카탈로그 근거)
+// ══════════════════════════════════════
+const ADMIN_PERMISSION_CATALOG = [
+  // ── 메뉴(페인) 19개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
+  { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
+  { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
+  { key: 'menu.brand-ops',          label_ko: '운영 현황',                    category: '캠페인',      server_enforced: false },
+  { key: 'menu.campaigns',          label_ko: '캠페인 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.applications',       label_ko: '인플 신청 관리',               category: '캠페인',      server_enforced: false },
+  { key: 'menu.deliverables',       label_ko: '결과물 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.messages',           label_ko: '메시지',                       category: '캠페인',      server_enforced: false },
+  { key: 'menu.brand-dashboard',    label_ko: '현황 대시보드',                category: '브랜드',      server_enforced: false },
+  { key: 'menu.companies',          label_ko: '회사 관리',                    category: '브랜드',      server_enforced: false },
+  { key: 'menu.brands',             label_ko: '브랜드 관리',                  category: '브랜드',      server_enforced: false },
+  { key: 'menu.orient-sheets',      label_ko: '오리엔시트 현황',              category: '브랜드',      server_enforced: false },
+  { key: 'menu.brand-applications', label_ko: '서베이 신청 목록',             category: '브랜드',      server_enforced: false },
+  { key: 'menu.influencers',        label_ko: '인플루언서 목록',              category: '회원 관리',   server_enforced: false },
+  { key: 'menu.lookups',            label_ko: '기준 데이터',                  category: '관리자 설정', server_enforced: false },
+  { key: 'menu.faq',                label_ko: '자주 묻는 질문',               category: '관리자 설정', server_enforced: false },
+  { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
+  { key: 'menu.errors',             label_ko: '오류 로그',                    category: '관리자 설정', server_enforced: false },
+  { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
+
+  // ── 주요 기능 17개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
+  { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
+  { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
+  { key: 'deliverable.receipt_edit',      label_ko: '영수증 정보 수정',                              category: '결과물',       server_enforced: true },
+  { key: 'deliverable.proxy_create',      label_ko: '결과물 대리 등록',                              category: '결과물',       server_enforced: true },
+  { key: 'company.cud',                   label_ko: '회사 등록·수정·삭제',                           category: '브랜드',       server_enforced: true },
+  { key: 'brand.delete_merge',            label_ko: '브랜드 삭제·병합',                              category: '브랜드',       server_enforced: true },
+  { key: 'lookup.cud',                    label_ko: '기준 데이터 등록·수정·삭제',                    category: '기준 데이터',  server_enforced: true },
+  { key: 'faq.cud',                       label_ko: '자주 묻는 질문 등록·수정·삭제',                 category: 'FAQ',          server_enforced: true },
+  { key: 'message.bulk_send',             label_ko: '메시지 일괄 발송·발송 이력 열람',               category: '메시지',       server_enforced: true },
+  { key: 'message.hide',                  label_ko: '메시지 강제 숨김',                              category: '메시지',       server_enforced: true },
+  { key: 'message.unhide',                label_ko: '메시지 숨김 복구',                              category: '메시지',       server_enforced: true },
+  { key: 'notice.create',                 label_ko: '공지 작성',                                     category: '공지',         server_enforced: true },
+  { key: 'notice.manage_others',          label_ko: '다른 관리자가 작성한 공지 수정·게시·회수',      category: '공지',         server_enforced: true },
+  { key: 'campaign.caution_history_view', label_ko: '캠페인 주의사항 변경 이력 열람',                category: '캠페인',       server_enforced: true },
+  { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
+  { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
+];
+
+// ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
 //   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
