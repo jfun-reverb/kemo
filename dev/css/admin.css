@@ -1637,8 +1637,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
   background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
 }
 .perm-tag-super { background: #F3E8FF; color: #7E22CE; }
-.perm-actions {
-  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
-  padding: 16px 0; margin-top: 8px; border-top: 1px solid var(--line, #E5E7EB);
-}
-.perm-changecount { font-size: 13px; color: var(--muted, #6B7280); }
+/* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
+.perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }
