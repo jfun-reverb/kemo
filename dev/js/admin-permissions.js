@@ -103,7 +103,7 @@ function renderPermGrid() {
   const n = Object.keys(_permEdited).length;
   html += '<div class="perm-actions">'
        +  '<span class="perm-changecount">' + (n ? n + '개 변경됨' : '변경 없음') + '</span>'
-       +  '<button class="btn-primary" id="permSaveBtn" onclick="savePermChanges()"' + (n ? '' : ' disabled') + '>저장</button>'
+       +  '<button class="btn btn-primary" id="permSaveBtn" onclick="savePermChanges()"' + (n ? '' : ' disabled') + '>저장</button>'
        +  '</div>';
   body.innerHTML = html;
 }
