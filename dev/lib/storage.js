@@ -48,6 +48,20 @@ async function fetchRolePermissions() {
   }
 }
 
+// 권한 설정 일괄 저장 (super_admin 전용, update_role_permissions RPC). PR2 조각 C.
+//   changes = [{role, feature_key, prev_level, next_level}]. 반환 = 실제 변경 건수.
+//   RPC 가 원자적 처리 + 이력 기록 + 권한상승/충돌 가드. 오류는 그대로 throw(화면에서 안내).
+async function saveRolePermissions(changes) {
+  if (!db) throw new Error('DB 미연결');
+  let applied = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_role_permissions', {p_changes: changes});
+    if (error) throw error;
+    applied = data || 0;
+  });
+  return applied;
+}
+
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {

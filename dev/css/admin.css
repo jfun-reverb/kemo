@@ -1602,3 +1602,40 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #newBrandAppModal .form-input,
 #newBrandAppModal select.form-input,
 #newBrandAppModal textarea.form-input { font-size: 14px; }
+
+/* ── 동적 권한 관리 화면 (PR2 조각 C) ── */
+#adminPane-permissions { padding: 20px 24px; overflow-y: auto; }
+.perm-head { margin-bottom: 16px; }
+.perm-warn {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 8px;
+  padding: 10px 12px; color: #9A3412; font-size: 13px; line-height: 1.5;
+}
+.perm-warn .material-icons-round { font-size: 18px; flex-shrink: 0; color: #EA580C; }
+.perm-group { margin-bottom: 12px; border: 1px solid var(--line, #E5E7EB); border-radius: 8px; overflow: hidden; }
+.perm-group-hd {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 10px 12px; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827);
+  user-select: none;
+}
+.perm-group-hd:hover { background: #F3F4F6; }
+.perm-caret { font-size: 20px; color: var(--muted, #6B7280); }
+.perm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.perm-table th, .perm-table td { padding: 8px 10px; border-top: 1px solid var(--line, #E5E7EB); text-align: center; }
+.perm-table thead th { background: #FCFCFD; color: var(--muted, #6B7280); font-weight: 600; border-top: none; }
+.perm-th-feat, .perm-feat { text-align: left; }
+.perm-feat { color: var(--ink, #111827); }
+.perm-cell { min-width: 96px; }
+.perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
+.perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
+.perm-sel.perm-dirty { border-color: var(--pink, #EC4899); background: #FDF2F8; font-weight: 600; }
+.perm-tag {
+  display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
+  background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
+}
+.perm-tag-super { background: #F3E8FF; color: #7E22CE; }
+.perm-actions {
+  position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  padding: 12px 0; margin-top: 8px; background: #fff; border-top: 1px solid var(--line, #E5E7EB);
+}
+.perm-changecount { font-size: 13px; color: var(--muted, #6B7280); }
