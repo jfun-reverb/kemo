@@ -1613,10 +1613,11 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 }
 .perm-warn .material-icons-round { font-size: 18px; flex-shrink: 0; color: #EA580C; }
 .perm-caret { font-size: 20px; color: var(--muted, #6B7280); vertical-align: middle; margin-right: 4px; }
-/* 하나의 표 — table-layout:fixed 로 열 너비 고정, 열 헤더는 스크롤 시 상단 고정 */
+/* 하나의 표 — table-layout:fixed 로 열 너비 고정. 열 헤더는 맨 위 1회(반복 제거).
+   sticky 는 border-collapse 표에서 스크롤 시 배경·경계가 깨져 아래 행과 겹치므로 사용 안 함. */
 .perm-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .perm-table th, .perm-table td { padding: 8px 10px; border-top: 1px solid var(--line, #E5E7EB); text-align: center; }
-.perm-table thead th { position: sticky; top: 0; z-index: 1; background: #FCFCFD; color: var(--muted, #6B7280); font-weight: 600; border-top: none; box-shadow: inset 0 -1px 0 var(--line, #E5E7EB); }
+.perm-table thead th { background: #FCFCFD; color: var(--muted, #6B7280); font-weight: 600; border-top: none; }
 /* category 구분 행 — 클릭 시 하위 기능 행 접기/펼치기 */
 .perm-cat-row td { text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
 .perm-cat-row:hover td { background: #F3F4F6; }
