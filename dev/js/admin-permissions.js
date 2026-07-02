@@ -60,19 +60,19 @@ function renderPermGrid() {
   });
 
   // 제목·경고배너는 페인 상단 고정 헤더(admin-sticky-header)에 정적 배치 — 여기선 그리드만.
-  let html = '';
+  // 하나의 표 + category 구분 행 → 열 헤더는 맨 위 1회만(스크롤 시 상단 고정). 접기는 category 행 토글.
+  const colspan = PERM_ROLES.length + 1;
+  let html = '<table class="perm-table"><thead><tr><th class="perm-th-feat">기능</th>';
+  PERM_ROLES.forEach(r => { html += '<th>' + esc(r.label) + '</th>'; });
+  html += '</tr></thead><tbody>';
+
   groups.forEach((g, gi) => {
-    html += '<div class="perm-group">';
-    html += '<div class="perm-group-hd" onclick="togglePermGroup(' + gi + ')">'
+    html += '<tr class="perm-cat-row" onclick="togglePermGroup(' + gi + ')"><td colspan="' + colspan + '">'
          +  '<span class="material-icons-round notranslate perm-caret" translate="no" id="permCaret' + gi + '">expand_more</span>'
-         +  esc(g.category) + '</div>';
-    html += '<div class="perm-group-body" id="permGroupBody' + gi + '">';
-    html += '<table class="perm-table"><thead><tr><th class="perm-th-feat">기능</th>';
-    PERM_ROLES.forEach(r => { html += '<th>' + esc(r.label) + '</th>'; });
-    html += '</tr></thead><tbody>';
+         +  esc(g.category) + '</td></tr>';
     g.items.forEach(f => {
       const locked = PERM_DENYLIST.indexOf(f.key) !== -1;
-      html += '<tr><td class="perm-feat">' + esc(f.label_ko)
+      html += '<tr class="perm-item perm-cat-' + gi + '"><td class="perm-feat">' + esc(f.label_ko)
            +  (f.server_enforced ? ' <span class="perm-tag">화면 제어만</span>' : '')
            +  (locked ? ' <span class="perm-tag perm-tag-super">슈퍼 전용</span>' : '') + '</td>';
       PERM_ROLES.forEach(r => {
@@ -92,9 +92,8 @@ function renderPermGrid() {
       });
       html += '</tr>';
     });
-    html += '</tbody></table></div></div>';
   });
-
+  html += '</tbody></table>';
   body.innerHTML = html;
 }
 
@@ -108,11 +107,9 @@ function updatePermSaveBar() {
 }
 
 function togglePermGroup(gi) {
-  const b = document.getElementById('permGroupBody' + gi);
   const c = document.getElementById('permCaret' + gi);
-  if (!b) return;
-  const collapsed = b.style.display === 'none';
-  b.style.display = collapsed ? '' : 'none';
+  const collapsed = c && c.textContent.trim() === 'chevron_right';  // 현재 접힘 상태인지(caret 기준 — DOM 인덱스 안 씀)
+  document.querySelectorAll('.perm-cat-' + gi).forEach(r => { r.style.display = collapsed ? '' : 'none'; });
   if (c) c.textContent = collapsed ? 'expand_more' : 'chevron_right';
 }
 
