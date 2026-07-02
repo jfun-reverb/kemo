@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782992310';
+  var CURRENT_BUILD = 'v1782992939';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2061,9 +2061,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #newBrandAppModal select.form-input,
 #newBrandAppModal textarea.form-input { font-size: 14px; }
 
-/* ── 동적 권한 관리 화면 (PR2 조각 C) ── */
-#adminPane-permissions { padding: 20px 24px; }
-.perm-head { margin-bottom: 16px; }
+/* ── 동적 권한 관리 화면 (PR2 조각 C) — 레이아웃은 admin-pane-list(상단 고정 헤더 + 카드) 상속 ── */
+/* .admin-card 가 overflow:hidden 이라 스크롤 자식이 필요 — permPaneBody 를 스크롤 영역으로(+ 콘텐츠 여백) */
+.admin-pane-list #permPaneBody { flex: 1; overflow-y: auto; padding: 16px 20px; }
 .perm-warn {
   display: flex; align-items: flex-start; gap: 8px;
   background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 8px;
@@ -2179,7 +2179,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-02 20:38 · 8f39200</span>
+          <span class="admin-build-text">2026-07-02 20:48 · df0f4c8</span>
         </div>
       </div>
     </aside>
@@ -3222,8 +3222,17 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         </div>
 
         <!-- PERMISSIONS (권한 관리) PANE — 동적 권한 설정, super_admin 전용. PR2 조각 C -->
-        <div id="adminPane-permissions" class="admin-pane">
-          <div id="permPaneBody"><!-- admin-permissions.js 가 렌더 --></div>
+        <div id="adminPane-permissions" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:16px;font-weight:700;color:var(--ink)">권한 관리</div>
+              <div style="font-size:12px;color:var(--muted)">등급별로 메뉴·기능 노출을 설정합니다</div>
+            </div>
+            <div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span><span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. 지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>
+          </div>
+          <div class="admin-card">
+            <div id="permPaneBody"><!-- admin-permissions.js 가 그리드 렌더 --></div>
+          </div>
         </div>
 
         <!-- CLIENT ERROR LOGS (오류 로그) PANE — 마이그레이션 165 -->
@@ -28466,14 +28475,8 @@ function renderPermGrid() {
     groups[idx[f.category]].items.push(f);
   });
 
+  // 제목·경고배너는 페인 상단 고정 헤더(admin-sticky-header)에 정적 배치 — 여기선 그리드만.
   let html = '';
-  html += '<div class="perm-head">';
-  html += '<div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">권한 관리</div>';
-  html += '<div class="perm-warn"><span class="material-icons-round notranslate" translate="no">warning</span>'
-       +  '<span>이 설정은 <b>화면 표시 제어</b>입니다. 실제 데이터 접근 차단은 다음 단계에서 적용됩니다. '
-       +  '지금은 메뉴·버튼 노출만 바뀌고, 데이터는 서버에서 그대로 열려 있습니다.</span></div>';
-  html += '</div>';
-
   groups.forEach((g, gi) => {
     html += '<div class="perm-group">';
     html += '<div class="perm-group-hd" onclick="togglePermGroup(' + gi + ')">'
