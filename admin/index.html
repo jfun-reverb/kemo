@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782970854';
+  var CURRENT_BUILD = 'v1782978986';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2138,7 +2138,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-02 14:40 · 7df7894</span>
+          <span class="admin-build-text">2026-07-02 16:56 · ecd361a</span>
         </div>
       </div>
     </aside>
@@ -6209,6 +6209,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.errors',             label_ko: '오류 로그',                    category: '관리자 설정', server_enforced: false },
   { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
+  { key: 'menu.permissions',        label_ko: '권한 관리',                    category: '관리자 설정', server_enforced: false },
 
   // ── 주요 기능 17개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
   { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
@@ -6229,6 +6230,29 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
   { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
 ];
+
+// ══════════════════════════════════════
+// 동적 권한 — 런타임 접근수준 맵 (부팅 시 role_permissions 로드). PR2 조각 B.
+//   ⚠️ 이건 "화면 표시 제어"용이다. 실제 데이터 접근 차단이 아니다(서버 RLS·has_permission 이 방어선).
+//   그래서 미로드·미등록·역할 미확정 시 fail-open('write' = 표시)한다 — 로드 실패로 관리자가 아무것도 못 보는 사고 방지.
+//   (서버 has_permission 은 반대로 fail-closed = 미등록 거부. 표시는 관대·차단은 엄격.)
+// ══════════════════════════════════════
+let _rolePermMap = {};  // 'role|feature_key' → 'write'|'read'|'hidden'
+function setRolePermMap(rows) {
+  const m = {};
+  (rows || []).forEach(r => { if (r && r.role && r.feature_key) m[r.role + '|' + r.feature_key] = r.access_level; });
+  _rolePermMap = m;
+}
+const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
+// 현재 관리자의 feature 접근수준. super_admin=항상 write. 역할 미확정·미로드·미등록=write(fail-open).
+function permLevel(featureKey) {
+  const role = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo) ? currentAdminInfo.role : null;
+  if (role === 'super_admin' || !role) return 'write';
+  return _rolePermMap[role + '|' + featureKey] || 'write';
+}
+function canWrite(featureKey) { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 2; }
+function canRead(featureKey)  { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 1; }
+function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 
 // ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
@@ -6319,6 +6343,20 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 }
 
 // ── Campaigns ──
+// 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
+// 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
+async function fetchRolePermissions() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level');
+    if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
+    return data || [];
+  } catch (e) {
+    console.warn('role_permissions 로드 예외(fail-open):', e?.message);
+    return [];
+  }
+}
+
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
@@ -26710,13 +26748,19 @@ function isCampaignAdminOrAbove() {
   const r = currentAdminInfo?.role;
   return r === 'super_admin' || r === 'campaign_admin';
 }
+// 동적 권한(role_permissions) 기반 사이드바 메뉴 표시/숨김 (PR2 조각 B).
+//   카탈로그 menu.* 를 순회하며 permLevel 이 hidden 인 항목의 data-pane 사이드바 요소를 숨긴다.
+//   ⚠️ 화면 표시 제어일 뿐 실제 데이터 차단이 아니다(서버 RLS/has_permission 이 방어선). 미로드 시 fail-open(표시).
+//   시드=현행이면 기존과 동일 결과(campaign_manager 는 기준데이터·FAQ 만 숨김) → 동작 변화 0.
 function applyLookupMenuVisibility() {
-  const show = isCampaignAdminOrAbove() ? '' : 'none';
-  const el = document.getElementById('adminLookupsSi');
-  if (el) el.style.display = show;
-  // 자주 묻는 질문(FAQ) 메뉴도 동일 권한(campaign_admin 이상)으로 노출
-  const faqEl = document.getElementById('adminFaqSi');
-  if (faqEl) faqEl.style.display = show;
+  if (typeof ADMIN_PERMISSION_CATALOG === 'undefined') return;
+  ADMIN_PERMISSION_CATALOG.forEach(f => {
+    if (f.key.indexOf('menu.') !== 0) return;
+    const pane = f.key.slice(5);
+    const el = document.querySelector('.admin-si[data-pane="' + pane + '"]');
+    if (!el) return;  // 사이드바에 아직 없는 페인(예: permissions = 조각 C 에서 추가)
+    el.style.display = (typeof isHidden === 'function' && isHidden(f.key)) ? 'none' : '';
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -32127,6 +32171,10 @@ async function init() {
     currentUser._isAdmin = true;
     currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
     currentAdminInfo = adminResult.data;
+    // 동적 권한 로드 (실패해도 fail-open — boot 계속). 메뉴 숨김이 이 맵을 참조.
+    if (typeof fetchRolePermissions === 'function' && typeof setRolePermMap === 'function') {
+      try { setRolePermMap(await fetchRolePermissions()); } catch (_) { /* fail-open */ }
+    }
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
     if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 

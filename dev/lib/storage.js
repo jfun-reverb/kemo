@@ -34,6 +34,20 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 }
 
 // ── Campaigns ──
+// 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
+// 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
+async function fetchRolePermissions() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level');
+    if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
+    return data || [];
+  } catch (e) {
+    console.warn('role_permissions 로드 예외(fail-open):', e?.message);
+    return [];
+  }
+}
+
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {

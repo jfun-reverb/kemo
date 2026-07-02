@@ -183,13 +183,19 @@ function isCampaignAdminOrAbove() {
   const r = currentAdminInfo?.role;
   return r === 'super_admin' || r === 'campaign_admin';
 }
+// 동적 권한(role_permissions) 기반 사이드바 메뉴 표시/숨김 (PR2 조각 B).
+//   카탈로그 menu.* 를 순회하며 permLevel 이 hidden 인 항목의 data-pane 사이드바 요소를 숨긴다.
+//   ⚠️ 화면 표시 제어일 뿐 실제 데이터 차단이 아니다(서버 RLS/has_permission 이 방어선). 미로드 시 fail-open(표시).
+//   시드=현행이면 기존과 동일 결과(campaign_manager 는 기준데이터·FAQ 만 숨김) → 동작 변화 0.
 function applyLookupMenuVisibility() {
-  const show = isCampaignAdminOrAbove() ? '' : 'none';
-  const el = document.getElementById('adminLookupsSi');
-  if (el) el.style.display = show;
-  // 자주 묻는 질문(FAQ) 메뉴도 동일 권한(campaign_admin 이상)으로 노출
-  const faqEl = document.getElementById('adminFaqSi');
-  if (faqEl) faqEl.style.display = show;
+  if (typeof ADMIN_PERMISSION_CATALOG === 'undefined') return;
+  ADMIN_PERMISSION_CATALOG.forEach(f => {
+    if (f.key.indexOf('menu.') !== 0) return;
+    const pane = f.key.slice(5);
+    const el = document.querySelector('.admin-si[data-pane="' + pane + '"]');
+    if (!el) return;  // 사이드바에 아직 없는 페인(예: permissions = 조각 C 에서 추가)
+    el.style.display = (typeof isHidden === 'function' && isHidden(f.key)) ? 'none' : '';
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════
