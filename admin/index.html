@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1782996270';
+  var CURRENT_BUILD = 'v1782996599';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2080,9 +2080,9 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 /* 표 좌우 끝 여백은 첫/마지막 열 셀 padding 으로(컨테이너 padding 대신) — 헤더 배경이 카드 끝까지 닿게 */
 .perm-table th:first-child, .perm-table td:first-child { padding-left: 20px; }
 .perm-table th:last-child, .perm-table td:last-child { padding-right: 20px; }
-.perm-table thead th { position: sticky; top: 0; z-index: 2; background: #F1F3F5; color: var(--muted, #6B7280); font-weight: 600; }
-/* category 구분 행 — 클릭 시 하위 기능 행 접기/펼치기 */
-.perm-cat-row td { text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
+.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, #6B7280); font-weight: 600; }
+/* category 구분 행 — 열 헤더(37px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기 */
+.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
 .perm-cat-row:hover td { background: #F3F4F6; }
 /* 기능 열은 좌측 정렬 — .perm-table td(center)보다 명시도를 높여 덮어씀 */
 .perm-table th.perm-th-feat, .perm-table td.perm-feat { text-align: left; width: 40%; }
@@ -2179,7 +2179,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-02 21:44 · bd71b9e</span>
+          <span class="admin-build-text">2026-07-02 21:49 · 88abc6f</span>
         </div>
       </div>
     </aside>
