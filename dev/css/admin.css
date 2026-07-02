@@ -1604,7 +1604,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #newBrandAppModal textarea.form-input { font-size: 14px; }
 
 /* ── 동적 권한 관리 화면 (PR2 조각 C) ── */
-#adminPane-permissions { padding: 20px 24px; overflow-y: auto; }
+#adminPane-permissions { padding: 20px 24px; }
 .perm-head { margin-bottom: 16px; }
 .perm-warn {
   display: flex; align-items: flex-start; gap: 8px;
@@ -1638,7 +1638,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 }
 .perm-tag-super { background: #F3E8FF; color: #7E22CE; }
 .perm-actions {
-  position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 12px;
-  padding: 12px 0; margin-top: 8px; background: #fff; border-top: 1px solid var(--line, #E5E7EB);
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  padding: 16px 0; margin-top: 8px; border-top: 1px solid var(--line, #E5E7EB);
 }
 .perm-changecount { font-size: 13px; color: var(--muted, #6B7280); }
