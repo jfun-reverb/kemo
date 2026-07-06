@@ -297,12 +297,16 @@ async function incrementViewCount(campId) {
 // ── Influencers ──
 // includeAudit 기본 true = 기존 동작 보존(전건 반환).
 // 통계·엑셀 등 실수 집계가 필요한 호출처만 { includeAudit: false } 를 명시 전달(PR D/F에서).
+// 조회 경로는 influencers_admin_view(마이그레이션 212, security_invoker=true라 기존 RLS 그대로
+// 적용) 경유 — 관리자 권한 등급에 따라 phone/line_id/paypal_email/zip/building/address 6종을
+// 서버가 NULL 마스킹한다(PR3 조각 B, 2026-07-06). ⚠️ 이 함수는 읽기 전용 — 쓰기는 반드시
+// base 테이블 influencers 를 쓰는 upsertInfluencer/updateInfluencer 로 (뷰는 읽기 전용).
 async function fetchInfluencers(opts = {}) {
   if (!db) return [];
   const { includeAudit = true } = opts;
   try {
     return await fetchAllPaged(() => {
-      let q = db.from('influencers').select('*').order('created_at', {ascending: true});
+      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true});
       if (!includeAudit) q = q.eq('is_audit', false);
       return q;
     });
@@ -1255,11 +1259,13 @@ async function appendPostSubmission(deliverableId, url, channel) {
 }
 
 // 여러 user_id(auth.uid)에 대응하는 influencers 행을 map 형태로 반환
+// influencers_admin_view 경유(PR3 조각 B) — line_id 는 권한에 따라 NULL 마스킹될 수 있어
+// has_line(마스킹 무관 항상 정확한 존재 여부)도 함께 조회해 화면에서 구분 표시.
 async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
-    const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
+    const {data, error} = await db?.from('influencers_admin_view')
+      .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
       .in('id', userIds);
     if (error) throw error;
     const map = {};

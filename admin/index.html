@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783311921';
+  var CURRENT_BUILD = 'v1783320663';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2179,7 +2179,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-06 13:25 · ec37de6</span>
+          <span class="admin-build-text">2026-07-06 15:51 · bf2ac63</span>
         </div>
       </div>
     </aside>
@@ -6319,6 +6319,31 @@ function canRead(featureKey)  { return (_PERM_RANK[permLevel(featureKey)] || 0) 
 function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 
 // ══════════════════════════════════════
+// 인플루언서 민감정보 마스킹 표시 헬퍼 (PR3 조각 B, 2026-07-06)
+//   influencers_admin_view(마이그레이션 212)가 has_permission('influencer.sensitive_pii','read')
+//   가 false인 관리자 등급에게 phone/line_id/paypal_email/zip/building/address 6종을
+//   NULL로 내려줄 때, 화면에서 "진짜 미등록"과 "권한이 없어서 안 보임"을 구분해 표시한다.
+//   반환값은 esc() 미적용 원문(호출부가 기존 row()/ellip() 패턴대로 esc() 적용) — 라벨
+//   문자열 자체엔 특수문자가 없어 이중 escape 걱정 없음.
+//
+//   1) has_line/has_paypal 처럼 대응 존재 불리언이 있는 필드 — hasFlag 로 정확히 판정
+//      (마스킹 여부와 무관하게 뷰가 항상 실제 존재 여부를 내려주므로 100% 정확).
+function maskedFieldByFlag(val, hasFlag, registeredLabel) {
+  if (val) return val;
+  return hasFlag ? (registeredLabel || '등록됨(열람 권한 없음)') : '';
+}
+//   2) phone/zip/building/address 처럼 대응 불리언이 없는 필드 — 현재 로그인한 관리자의
+//      클라 권한 레벨(canRead)로 근사 판정. canRead 가 false 면 서버가 무조건 NULL 을
+//      주므로(진짜 값 유무와 무관) "열람 권한 없음"이 항상 정확. true 면 NULL 은 진짜
+//      미등록이므로 emptyLabel(기본 빈 문자열, 호출부가 '—' 등으로 폴백 처리)을 반환.
+//      ⚠️ 이건 UX 라벨용 근사치이며 보안 경계가 아니다 — 실제 차단은 서버 뷰가 이미 함.
+function maskedFieldByPermission(val, emptyLabel) {
+  if (val) return val;
+  if (typeof canRead === 'function' && !canRead('influencer.sensitive_pii')) return '열람 권한 없음';
+  return emptyLabel != null ? emptyLabel : '';
+}
+
+// ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
 //   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.
@@ -6670,12 +6695,16 @@ async function incrementViewCount(campId) {
 // ── Influencers ──
 // includeAudit 기본 true = 기존 동작 보존(전건 반환).
 // 통계·엑셀 등 실수 집계가 필요한 호출처만 { includeAudit: false } 를 명시 전달(PR D/F에서).
+// 조회 경로는 influencers_admin_view(마이그레이션 212, security_invoker=true라 기존 RLS 그대로
+// 적용) 경유 — 관리자 권한 등급에 따라 phone/line_id/paypal_email/zip/building/address 6종을
+// 서버가 NULL 마스킹한다(PR3 조각 B, 2026-07-06). ⚠️ 이 함수는 읽기 전용 — 쓰기는 반드시
+// base 테이블 influencers 를 쓰는 upsertInfluencer/updateInfluencer 로 (뷰는 읽기 전용).
 async function fetchInfluencers(opts = {}) {
   if (!db) return [];
   const { includeAudit = true } = opts;
   try {
     return await fetchAllPaged(() => {
-      let q = db.from('influencers').select('*').order('created_at', {ascending: true});
+      let q = db.from('influencers_admin_view').select('*').order('created_at', {ascending: true});
       if (!includeAudit) q = q.eq('is_audit', false);
       return q;
     });
@@ -7628,11 +7657,13 @@ async function appendPostSubmission(deliverableId, url, channel) {
 }
 
 // 여러 user_id(auth.uid)에 대응하는 influencers 행을 map 형태로 반환
+// influencers_admin_view 경유(PR3 조각 B) — line_id 는 권한에 따라 NULL 마스킹될 수 있어
+// has_line(마스킹 무관 항상 정확한 존재 여부)도 함께 조회해 화면에서 구분 표시.
 async function fetchInfluencersByIds(userIds) {
   if (!db || !userIds?.length) return {};
   try {
-    const {data, error} = await db?.from('influencers')
-      .select('id, name, name_kana, email, primary_sns, line_id, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
+    const {data, error} = await db?.from('influencers_admin_view')
+      .select('id, name, name_kana, email, primary_sns, line_id, has_line, is_verified, verified_at, is_blacklisted, blacklisted_at, blacklist_reason_code, blacklist_reason_note, is_audit')
       .in('id', userIds);
     if (error) throw error;
     const map = {};
@@ -20430,9 +20461,9 @@ function sortInfUsers(users) {
     tiktok: u => u.tiktok_followers||0,
     youtube: u => u.youtube_followers||0,
     total: u => (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0),
-    line: u => u.line_id ? 1 : 0,
+    line: u => u.has_line ? 1 : 0,
     addr: u => u.prefecture ? 1 : 0,
-    paypal: u => u.paypal_email ? 1 : 0,
+    paypal: u => u.has_paypal ? 1 : 0,
     created: u => new Date(u.created_at).getTime()
   };
   const fn = getVal[infSortKey];
@@ -20475,8 +20506,12 @@ function buildInfRowAll(u) {
   const ttF = (u.tiktok_followers||0).toLocaleString();
   const ytF = (u.youtube_followers||0).toLocaleString();
   const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
-  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-  const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+  // 도도부현은 마스킹 대상 아님(항상 정확) — prefecture 없을 때만 마스킹 가능한 address 폴백,
+  // 그 경우도 canRead 기준으로 "미등록"과 "열람 권한 없음"을 구분(PR3 조각 B).
+  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : (maskedFieldByPermission(u.address) || '—');
+  // PayPal 배지는 has_paypal(마스킹 무관 항상 정확한 존재 여부) 기준 — 값 자체가 아니라
+  // "등록 여부"만 표시하므로 마스킹된 관리자 등급도 정확하게 본다.
+  const paypalBadge = u.has_paypal ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
   const snsCell = (channel, raw) => {
     const handle = extractSnsHandle(channel, raw);
     if (!handle) return '—';
@@ -20493,7 +20528,7 @@ function buildInfRowAll(u) {
     <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
     <td>${snsCell('youtube', u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
     <td style="font-weight:700;color:var(--pink)">${total}</td>
-    <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
+    <td style="font-size:12px;color:var(--muted)">${ellip(maskedFieldByFlag(u.line_id, u.has_line), 120)}</td>
     <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
     <td>${paypalBadge}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
@@ -20578,23 +20613,27 @@ async function openInfluencerDetail(userId) {
     snsRow('YouTube', 'youtube', u.youtube, u.youtube_followers) +
     `<div style="display:flex;align-items:center;padding:12px 0;gap:12px"><div style="font-size:12px;font-weight:700;color:var(--ink);width:80px">총 팔로워</div><div style="font-size:18px;font-weight:800;color:var(--pink)">${totalF.toLocaleString()}명</div></div>`;
 
-  // 연락처
+  // 연락처 (PR3 조각 B — 마스킹된 관리자 등급엔 NULL 대신 "열람 권한 없음" 표시)
   $('infDetailContact').innerHTML =
-    row('LINE ID', u.line_id) +
-    row('전화번호', formatPhoneDisplay(u.phone));
+    row('LINE ID', maskedFieldByFlag(u.line_id, u.has_line)) +
+    row('전화번호', u.phone ? formatPhoneDisplay(u.phone) : maskedFieldByPermission(u.phone));
 
-  // 배송지
-  const fullAddr = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : u.address;
+  // 배송지 (zip/building/address 는 대응 존재 불리언이 없어 canRead 기준 근사 판정)
+  const fullAddr = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : maskedFieldByPermission(u.address);
   $('infDetailAddress').innerHTML =
-    row('우편번호', u.zip) +
+    row('우편번호', maskedFieldByPermission(u.zip)) +
     row('도도부현', u.prefecture) +
     row('시구정촌', u.city) +
-    row('건물명', u.building) +
+    row('건물명', maskedFieldByPermission(u.building)) +
     row('전체 주소', fullAddr);
 
   // PayPal — row() 내에서 esc() 처리됨
-  $('infDetailPaypal').innerHTML = u.paypal_email
-    ? row('PayPal 이메일', u.paypal_email)
+  // has_paypal(마스킹 무관 항상 정확) 로 등록 여부 먼저 판정 → 값이 마스킹돼 NULL이면
+  // "열람 권한 없음", 값이 있으면 그대로 표시 (PR3 조각 B).
+  $('infDetailPaypal').innerHTML = u.has_paypal
+    ? (u.paypal_email
+        ? row('PayPal 이메일', u.paypal_email)
+        : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">열람 권한 없음</div>')
     : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">PayPal 미등록</div>';
 
   // 상태 관리 (인증 / 위반 관리 · 관리자 이력 포함)
@@ -21748,7 +21787,9 @@ function renderDelivAppRow(g) {
   const rtBadge = (typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(rt) : esc(rt || '—');
   const infName = esc(inf.name || '—');
   const infEmail = esc(inf.email || '');
-  const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
+  // 마스킹된 관리자 등급에겐 line_id 가 NULL 로 오므로 has_line 로 존재 여부만 정확히 판정(PR3 조각 B)
+  const infLineDisp = maskedFieldByFlag(inf.line_id, inf.has_line);
+  const infLine = infLineDisp ? `LINE: ${esc(infLineDisp)}` : '';
   const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
 
   const receiptCell = renderDelivStatusCell(g.receipt, 'receipt', rt);
@@ -25940,8 +25981,13 @@ function renderProfileCompletion(users) {
   const hasX = users.filter(u => u.x).length;
   const hasTiktok = users.filter(u => u.tiktok).length;
   const hasYt = users.filter(u => u.youtube).length;
-  const hasAddr = users.filter(u => u.zip || u.address).length;
-  const hasPaypal = users.filter(u => u.paypal_email).length;
+  // zip/address 는 influencers_admin_view 마스킹 대상이라 낮은 권한 등급엔 항상 NULL —
+  // 대신 마스킹 안 되는 prefecture 로 판정(배송지 입력 시 zip/prefecture/city/phone 이 대체로
+  // 함께 채워지므로 근사 지표. zip 기반과 완전히 동일하진 않을 수 있으나 KPI 성격상 허용,
+  // PR3 조각 B, 2026-07-06).
+  const hasAddr = users.filter(u => u.prefecture).length;
+  // has_paypal(마스킹 무관 항상 정확한 존재 여부) 기준 — 값 자체가 아니라 등록 여부만 필요
+  const hasPaypal = users.filter(u => u.has_paypal).length;
 
   const pct = v => Math.round(v / total * 100);
   const bar = (label, val, color, sub) => `
@@ -26158,10 +26204,12 @@ async function loadCampApplicants() {
     const totalF = ((_u.ig_followers||0)+(_u.x_followers||0)+(_u.tiktok_followers||0)+(_u.youtube_followers||0)).toLocaleString();
     const otCell = renderOtCell(a, isPostType);
     const delivCell = renderDelivCell(delivByApp[a.id] || [], a.status, selectedChannels, channelMatch, isPostType);
+    // 마스킹된 관리자 등급에겐 line_id 가 NULL 로 오므로 has_line 로 존재 여부만 정확히 판정(PR3 조각 B)
+    const _lineDisp = maskedFieldByFlag(_u.line_id, _u.has_line);
     return `<tr data-id="${esc(a.id)}" class="${_u.is_audit?'audit-row':''}">
     <td>
       <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${_u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(_u)}${adminBadge(a.user_email)}${influencerStatusBadges(_u)}</div>
-      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_u.line_id)}</div>`:''}
+      <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
       <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
     </td>
     <td>${snsCell('instagram', _u.ig || a.ig_id || a.user_ig)}<div style="font-size:11px;color:var(--muted)">${igF}명</div></td>
@@ -26552,6 +26600,8 @@ async function renderAppCampList() {
     const productSub     = (camp.product_ko && camp.product && camp.product_ko !== camp.product) ? camp.product : '';
     const recruitStart   = camp.recruit_start ? formatDate(camp.recruit_start) : '';
     const recruitEnd     = camp.deadline ? formatDate(camp.deadline) : '';
+    // 마스킹된 관리자 등급에겐 line_id 가 NULL 로 오므로 has_line 로 존재 여부만 정확히 판정(PR3 조각 B)
+    const _lineDisp = maskedFieldByFlag(u.line_id, u.has_line);
     return `<tr data-id="${esc(a.id)}" class="${u.is_audit?'audit-row':''}">
       <td>
         <div style="display:flex;align-items:center;gap:10px">
@@ -26579,7 +26629,7 @@ async function renderAppCampList() {
       </td>
       <td>
         <div style="font-weight:600;color:var(--pink);cursor:pointer" onclick="openInfluencerModal('${u.id||''}')">${esc(a.user_name)||'—'}${auditBadgeHtml(u)}${influencerStatusBadges(u)}</div>
-        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${u.line_id?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(u.line_id)}</div>`:''}
+        <div style="font-size:11px;color:var(--muted)">${esc(a.user_email)||''}</div>${_lineDisp?`<div style="font-size:11px;color:var(--muted)">LINE: ${esc(_lineDisp)}</div>`:''}
         <div style="margin-top:4px">${renderApplicantMsgBtn(a)}</div>
       </td>
       <td>${msgCell(a.message, a)}</td>

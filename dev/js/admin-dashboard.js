@@ -497,8 +497,13 @@ function renderProfileCompletion(users) {
   const hasX = users.filter(u => u.x).length;
   const hasTiktok = users.filter(u => u.tiktok).length;
   const hasYt = users.filter(u => u.youtube).length;
-  const hasAddr = users.filter(u => u.zip || u.address).length;
-  const hasPaypal = users.filter(u => u.paypal_email).length;
+  // zip/address 는 influencers_admin_view 마스킹 대상이라 낮은 권한 등급엔 항상 NULL —
+  // 대신 마스킹 안 되는 prefecture 로 판정(배송지 입력 시 zip/prefecture/city/phone 이 대체로
+  // 함께 채워지므로 근사 지표. zip 기반과 완전히 동일하진 않을 수 있으나 KPI 성격상 허용,
+  // PR3 조각 B, 2026-07-06).
+  const hasAddr = users.filter(u => u.prefecture).length;
+  // has_paypal(마스킹 무관 항상 정확한 존재 여부) 기준 — 값 자체가 아니라 등록 여부만 필요
+  const hasPaypal = users.filter(u => u.has_paypal).length;
 
   const pct = v => Math.round(v / total * 100);
   const bar = (label, val, color, sub) => `
