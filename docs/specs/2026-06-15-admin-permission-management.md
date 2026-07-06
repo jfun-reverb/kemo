@@ -113,5 +113,20 @@
 - 클라 메뉴 숨김 fail-open / 서버 has_permission fail-closed 대비(표시는 관대·차단은 엄격).
 - 잠금 방지 = super_admin 행 미존재(CHECK) + has_permission 코드 통과 → 어떤 설정으로도 super 권한 못 끔.
 - 배치 저장 시 (role,feature_key) 정렬로 잠금 순서 고정(데드락 예방).
-- ⚠️ **운영 미배포** — PR1~PR2 전부 dev 만. 순수 표시 제어라 화면·동작 변화 없어 PR3(민감정보 갭1 서버 실차단)까지 완성 후 일괄 운영 배포 예정.
-- ⚠️ 개발 DB 에 campaign_manager 계정 없음 → 비-super 등급 실제 화면 분기(사이드바 숨김·리다이렉트) 검증은 계정 생성 후.
+- ✅ **PR1·PR2 운영 배포 완료(2026-07-06, PR #686)** — dev→main 전체 머지, 마이그레이션 207~211 운영 적용. campaign_manager 테스트 계정으로 사이드바 숨김·#permissions 리다이렉트·super 그리드·denylist QA 통과. 시드=현행이라 동작 변화 0.
+
+## PR3 (민감정보 서버 실차단, 마이그레이션 212·213)
+
+**구현일:** 2026-07-06 (dev) / **결정:** 가림막 뷰 방식 / 엑셀 6종 가림 / 배포 즉시 하위등급 차단
+
+### PR3-A (마이그레이션 212) — 가림막 뷰
+- `influencers_admin_view`(security_invoker=true): 민감 6종(phone·line_id·paypal_email·zip·building·address)을 `has_permission('influencer.sensitive_pii','read')` false면 NULL 마스킹(스칼라 서브쿼리 InitPlan 최적화, 마이그137 패턴) + 존재 불리언 3종(has_phone·has_line·has_paypal). 레거시 `pw`·`bank_*` 6컬럼은 뷰에서 제외(코드 미참조·민감). 총 47컬럼. 개발 DB 검증(마스킹 동작·컬럼 수) 완료.
+
+### PR3-B (코드) — 조회 경로·화면 전환
+- `fetchInfluencers`·`fetchInfluencersByIds` 뷰 경유(쓰기 함수는 base `influencers` 유지). shared.js 헬퍼 2종(`maskedFieldByFlag` 존재불리언 기준·`maskedFieldByPermission` 클라 근사·보안경계 아님). admin-influencers/applications/deliverables/dashboard 배지·필터·모달을 has_* 기준·「열람 권한 없음」 라벨로 전환. 대시보드 배송지 완성률은 prefecture 근사 지표로 대체. 신청자·결과물 엑셀도 뷰 경유로 자동 마스킹(부수 개선).
+
+### PR3-C (마이그레이션 213) — 실차단 발동
+- campaign_manager `influencer.sensitive_pii` read→hidden UPDATE(멱등, CTE로 실변경 시만 `role_permission_history` 기록·actor NULL). 이 시점부터 campaign_manager는 뷰에서 민감정보 NULL 수신. campaign_admin·super 불변.
+
+### reviewer Warning 처리
+- W3 이력 기록 반영(213 CTE INSERT), W4 대시보드 주석 「근사 지표」 완화, W5 문서 동기화(이 섹션·CLAUDE.md). W1(엑셀 2곳 빈칸 마스킹)=부수 보안 개선 수용(엑셀은 빈칸 유지). W2(엑셀 「민감정보 포함」 게이트 동적 권한화)=PR3-D 백로그. 기본값 복원 버튼도 후속.

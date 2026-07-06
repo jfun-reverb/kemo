@@ -891,6 +891,31 @@ function canRead(featureKey)  { return (_PERM_RANK[permLevel(featureKey)] || 0) 
 function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
 
 // ══════════════════════════════════════
+// 인플루언서 민감정보 마스킹 표시 헬퍼 (PR3 조각 B, 2026-07-06)
+//   influencers_admin_view(마이그레이션 212)가 has_permission('influencer.sensitive_pii','read')
+//   가 false인 관리자 등급에게 phone/line_id/paypal_email/zip/building/address 6종을
+//   NULL로 내려줄 때, 화면에서 "진짜 미등록"과 "권한이 없어서 안 보임"을 구분해 표시한다.
+//   반환값은 esc() 미적용 원문(호출부가 기존 row()/ellip() 패턴대로 esc() 적용) — 라벨
+//   문자열 자체엔 특수문자가 없어 이중 escape 걱정 없음.
+//
+//   1) has_line/has_paypal 처럼 대응 존재 불리언이 있는 필드 — hasFlag 로 정확히 판정
+//      (마스킹 여부와 무관하게 뷰가 항상 실제 존재 여부를 내려주므로 100% 정확).
+function maskedFieldByFlag(val, hasFlag, registeredLabel) {
+  if (val) return val;
+  return hasFlag ? (registeredLabel || '등록됨(열람 권한 없음)') : '';
+}
+//   2) phone/zip/building/address 처럼 대응 불리언이 없는 필드 — 현재 로그인한 관리자의
+//      클라 권한 레벨(canRead)로 근사 판정. canRead 가 false 면 서버가 무조건 NULL 을
+//      주므로(진짜 값 유무와 무관) "열람 권한 없음"이 항상 정확. true 면 NULL 은 진짜
+//      미등록이므로 emptyLabel(기본 빈 문자열, 호출부가 '—' 등으로 폴백 처리)을 반환.
+//      ⚠️ 이건 UX 라벨용 근사치이며 보안 경계가 아니다 — 실제 차단은 서버 뷰가 이미 함.
+function maskedFieldByPermission(val, emptyLabel) {
+  if (val) return val;
+  if (typeof canRead === 'function' && !canRead('influencer.sensitive_pii')) return '열람 권한 없음';
+  return emptyLabel != null ? emptyLabel : '';
+}
+
+// ══════════════════════════════════════
 // 캠페인 상태 표시 라벨 — closed(모집마감)/ended(종료)는 실제 DB 상태(마이그레이션 156).
 //   ended = 결과물 제출 마감 경과(autoEndCampaigns 자동 전이). closed = 모집만 마감·제출 진행 중.
 //   안전망: 자동 전이 전 closed + submission_end 경과분도 「종료」로 표시.

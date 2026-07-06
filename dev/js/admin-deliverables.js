@@ -574,7 +574,9 @@ function renderDelivAppRow(g) {
   const rtBadge = (typeof getRecruitTypeBadgeKoSm === 'function') ? getRecruitTypeBadgeKoSm(rt) : esc(rt || '—');
   const infName = esc(inf.name || '—');
   const infEmail = esc(inf.email || '');
-  const infLine = inf.line_id ? `LINE: ${esc(inf.line_id)}` : '';
+  // 마스킹된 관리자 등급에겐 line_id 가 NULL 로 오므로 has_line 로 존재 여부만 정확히 판정(PR3 조각 B)
+  const infLineDisp = maskedFieldByFlag(inf.line_id, inf.has_line);
+  const infLine = infLineDisp ? `LINE: ${esc(infLineDisp)}` : '';
   const infSub = infEmail + (infLine ? `<br>${infLine}` : '');
 
   const receiptCell = renderDelivStatusCell(g.receipt, 'receipt', rt);
