@@ -1602,3 +1602,43 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #newBrandAppModal .form-input,
 #newBrandAppModal select.form-input,
 #newBrandAppModal textarea.form-input { font-size: 14px; }
+
+/* ── 동적 권한 관리 화면 (PR2 조각 C) — 레이아웃은 admin-pane-list(상단 고정 헤더 + 카드) 상속 ── */
+/* .admin-card 가 overflow:hidden 이라 스크롤 자식이 필요 — permPaneBody 를 스크롤 영역으로(+ 콘텐츠 여백) */
+/* padding 없이 스크롤 영역 — sticky thead 가 최상단·좌우 끝에 딱 붙어야 위/옆으로 리스트가 안 비친다. 여백은 셀 padding 으로. */
+.admin-pane-list #permPaneBody { flex: 1; overflow-y: auto; }
+.perm-warn {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 8px;
+  padding: 10px 12px; color: #9A3412; font-size: 13px; line-height: 1.5;
+}
+.perm-warn .material-icons-round { font-size: 18px; flex-shrink: 0; color: #EA580C; }
+.perm-caret { font-size: 20px; color: var(--muted, #6B7280); vertical-align: middle; margin-right: 4px; }
+/* 하나의 표 — table-layout:fixed 로 열 너비 고정, 열 헤더는 맨 위 1회(반복 제거) + 스크롤 시 상단 고정.
+   ⚠️ border-collapse:separate 필수 — collapse 모드에선 sticky thead 의 배경·경계가 스크롤 시 깨져 아래 행과 겹친다.
+   separate + border-spacing:0 + border-bottom(행 구분) 으로 sticky 를 안전하게 고정. */
+.perm-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
+.perm-table th, .perm-table td { padding: 8px 10px; border-bottom: 1px solid var(--line, #E5E7EB); text-align: center; }
+/* 표 좌우 끝 여백은 첫/마지막 열 셀 padding 으로(컨테이너 padding 대신) — 헤더 배경이 카드 끝까지 닿게 */
+.perm-table th:first-child, .perm-table td:first-child { padding-left: 20px; }
+.perm-table th:last-child, .perm-table td:last-child { padding-right: 20px; }
+.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, #6B7280); font-weight: 600; }
+/* category 구분 행 — 열 헤더(37px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기 */
+.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
+.perm-cat-row:hover td { background: #F3F4F6; }
+/* 기능 열은 좌측 정렬 — .perm-table td(center)보다 명시도를 높여 덮어씀 */
+.perm-table th.perm-th-feat, .perm-table td.perm-feat { text-align: left; width: 40%; }
+.perm-table th:not(.perm-th-feat) { width: 20%; }
+.perm-feat { color: var(--ink, #111827); }
+.perm-cell { min-width: 96px; }
+.perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
+.perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
+.perm-sel.perm-dirty { border-color: var(--pink, #EC4899); background: #FDF2F8; font-weight: 600; }
+.perm-tag {
+  display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
+  background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
+}
+.perm-tag-super { background: #F3E8FF; color: #7E22CE; }
+/* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
+.perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }

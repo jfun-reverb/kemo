@@ -61,6 +61,10 @@ async function init() {
     currentUser._isAdmin = true;
     currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
     currentAdminInfo = adminResult.data;
+    // 동적 권한 로드 (실패해도 fail-open — boot 계속). 메뉴 숨김이 이 맵을 참조.
+    if (typeof fetchRolePermissions === 'function' && typeof setRolePermMap === 'function') {
+      try { setRolePermMap(await fetchRolePermissions()); } catch (_) { /* fail-open */ }
+    }
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
     if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 

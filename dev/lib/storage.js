@@ -34,6 +34,34 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 }
 
 // ── Campaigns ──
+// 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
+// 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
+async function fetchRolePermissions() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level');
+    if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
+    return data || [];
+  } catch (e) {
+    console.warn('role_permissions 로드 예외(fail-open):', e?.message);
+    return [];
+  }
+}
+
+// 권한 설정 일괄 저장 (super_admin 전용, update_role_permissions RPC). PR2 조각 C.
+//   changes = [{role, feature_key, prev_level, next_level}]. 반환 = 실제 변경 건수.
+//   RPC 가 원자적 처리 + 이력 기록 + 권한상승/충돌 가드. 오류는 그대로 throw(화면에서 안내).
+async function saveRolePermissions(changes) {
+  if (!db) throw new Error('DB 미연결');
+  let applied = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('update_role_permissions', {p_changes: changes});
+    if (error) throw error;
+    applied = data || 0;
+  });
+  return applied;
+}
+
 async function fetchCampaigns() {
   if (!db) return DEMO_CAMPAIGNS.slice();
   try {
