@@ -37,11 +37,14 @@ async function loadAdminInfluencers() {
   renderInfluencersPane();
 }
 
-// 「민감정보 포함」 체크박스는 campaign_admin 이상에게만 노출 (그 외 숨김)
+// 「민감정보 포함」 체크박스는 엑셀 민감정보 포함 권한(influencer.excel_sensitive read 이상)이 있는
+//   등급에게만 노출 (그 외 숨김). PR3-D 동적 권한 일원화(구 isCampaignAdminOrAbove 하드코딩 제거).
+//   화면 열람 권한(influencer.sensitive_pii)과는 별개 항목 — 엑셀 대량 유출을 화면 열람과 따로 통제 가능.
+//   미로드 시 canRead=fail-open(표시) — 실제 차단은 서버 가림막 뷰가 담당.
 function applyInfExcelSensitiveVisibility() {
   const wrap = $('infExcelSensitiveWrap');
   if (!wrap) return;
-  const allow = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  const allow = (typeof canRead === 'function') && canRead('influencer.excel_sensitive');
   wrap.style.display = allow ? 'inline-flex' : 'none';
   if (!allow) { const cb = $('infExcelSensitive'); if (cb) cb.checked = false; }
 }

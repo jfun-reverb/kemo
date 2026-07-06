@@ -1763,16 +1763,15 @@ function _excelProxyReasonKo(code) {
 
 // ─── 인플루언서 목록 엑셀 ──────────────────────────────────────────
 // 현재 필터(주소지/팔로워/채널/인증/위반/검색)가 적용된 인플 목록을 엑셀로.
-//   기본 열: 모든 관리자. 민감정보 열(전화·LINE·PayPal·상세주소): campaign_admin 이상 + 「민감정보 포함」 체크 시.
-//   ⚠ fetchInfluencers 가 select('*') 라 민감정보는 이미 전 관리자 클라 메모리에 있음 → 본 권한 분기는 엑셀 출력 표시 제한 수준
-//     (실데이터 차단은 RLS/뷰 컬럼 마스킹 별도 과제). 사양서 docs/specs/2026-06-04-influencer-combo-filter.md 의심 9번.
+//   기본 열: 모든 관리자. 민감정보 열(전화·LINE·PayPal·상세주소): influencer.excel_sensitive 권한 등급 + 「민감정보 포함」 체크 시.
+//   PR3(마이그212·213) 이후 fetchInfluencers 가 가림막 뷰 경유라 권한 없는 등급은 서버에서 이미 NULL 마스킹 → 본 게이트는 UX 일관성용(PR3-D 동적 권한 일원화 완료).
 async function exportInfluencersExcel() {
   if (!_checkExportAllowed()) return;
   var rows = (typeof getFilteredInfluencersForView === 'function') ? getFilteredInfluencersForView() : [];
   if (!rows.length) { toast('내보낼 인플루언서가 없습니다', 'warn'); return; }
   if (!(await _confirmLargeExport(rows.length))) return;
 
-  var canSensitive = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  var canSensitive = (typeof canRead === 'function') && canRead('influencer.excel_sensitive');
   var includeSensitive = canSensitive && !!(document.getElementById('infExcelSensitive') && document.getElementById('infExcelSensitive').checked);
 
   _markExportStart();
