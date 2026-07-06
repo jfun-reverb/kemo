@@ -24,6 +24,7 @@ const PERM_DENYLIST = ['permissions.manage', 'admin.manage', 'menu.permissions']
 
 let _permCurrent = {};  // 'role|feature_key' → level (서버 현재값)
 let _permEdited  = {};  // 변경분만 'role|feature_key' → level
+let _permDefault = {};  // 'role|feature_key' → default_level (기본값 baseline, 복원 버튼 활성 판정용)
 
 // 셀 현재 표시값: super 는 항상 write, 그 외 편집값 우선 → 서버값 → 기본 write
 function permCellValue(role, key) {
@@ -41,9 +42,12 @@ async function loadPermissionsPane() {
     body.innerHTML = '<div style="padding:24px;color:var(--muted)">이 화면은 슈퍼관리자만 사용할 수 있습니다.</div>';
     return;
   }
-  _permCurrent = {}; _permEdited = {};
+  _permCurrent = {}; _permEdited = {}; _permDefault = {};
   const rows = (typeof fetchRolePermissions === 'function') ? await fetchRolePermissions() : [];
-  rows.forEach(r => { _permCurrent[r.role + '|' + r.feature_key] = r.access_level; });
+  rows.forEach(r => {
+    _permCurrent[r.role + '|' + r.feature_key] = r.access_level;
+    if (r.default_level) _permDefault[r.role + '|' + r.feature_key] = r.default_level;
+  });
   renderPermGrid();
   updatePermSaveBar();
 }
@@ -104,6 +108,23 @@ function updatePermSaveBar() {
   if (btn) btn.disabled = !n;
   const cnt = document.querySelector('.perm-changecount');
   if (cnt) cnt.textContent = n ? n + '개 변경됨' : '변경 없음';
+  // 「기본값 복원」 버튼 — 저장된 현재값이 기본값과 다른 항목이 있을 때만 활성
+  const rbtn = document.getElementById('permRestoreBtn');
+  if (rbtn) {
+    const diff = countPermDefaultDiff();
+    rbtn.disabled = !diff;
+    rbtn.title = diff ? (diff + '개 항목이 기본값과 다릅니다 — 기본값으로 되돌립니다') : '이미 기본값 상태입니다';
+  }
+}
+
+// 저장된 현재값(_permCurrent) 중 기본값(_permDefault)과 다른 항목 수. 미저장 편집(_permEdited)은 제외 —
+//   복원은 "저장된 값 → 기본값"이라 편집 중 값이 아니라 서버 현재값 기준으로 판정.
+function countPermDefaultDiff() {
+  let n = 0;
+  Object.keys(_permDefault).forEach(k => {
+    if ((_permCurrent[k] || 'write') !== _permDefault[k]) n++;
+  });
+  return n;
 }
 
 function togglePermGroup(gi) {
@@ -147,6 +168,27 @@ async function savePermChanges() {
     // RPC 가드 메시지 친화화
     if (msg.indexOf('conflict') !== -1) toast('다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도하세요.', 'error');
     else toast('저장 실패: ' + msg, 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// 「기본값 복원」 — 저장된 현재값을 baseline(default_level)으로 되돌린다. 전용 서버 RPC로 원자 처리
+//   (낙관적 락 마찰 없음). 미저장 편집은 버려짐(확인 모달에 명시). denylist 행은 기본값이 hidden이라 서버가 자연 skip.
+async function restorePermDefaults() {
+  const diff = countPermDefaultDiff();
+  if (!diff) { toast('이미 기본값 상태입니다.'); return; }
+  const ok = await showConfirm(diff + '개 항목을 기본값으로 되돌립니다. 저장하지 않은 편집은 사라집니다. 계속할까요?');
+  if (!ok) return;
+  const btn = document.getElementById('permRestoreBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const applied = (typeof restoreRolePermissionsDefaults === 'function') ? await restoreRolePermissionsDefaults() : 0;
+    toast((applied || 0) + '개 권한을 기본값으로 복원했습니다.');
+    await loadPermissionsPane();
+    if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    toast('복원 실패: ' + msg, 'error');
     if (btn) btn.disabled = false;
   }
 }
