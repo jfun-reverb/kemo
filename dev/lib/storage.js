@@ -36,10 +36,11 @@ async function fetchAllPaged(buildQuery, pageSize = 1000) {
 // ── Campaigns ──
 // 동적 권한 접근수준 로드 (관리자 부팅 시). RLS SELECT is_admin() → 전 관리자 조회 가능.
 // 실패해도 빈 배열 반환(fail-open) — 화면 숨김은 보안이 아니므로 로드 실패 시 전부 표시.
+// default_level(마이그레이션 214) 포함 — 「기본값 복원」 버튼 활성 판정(access_level≠default_level)용.
 async function fetchRolePermissions() {
   if (!db) return [];
   try {
-    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level');
+    const {data, error} = await db.from('role_permissions').select('role, feature_key, access_level, default_level');
     if (error) { console.warn('role_permissions 로드 실패(fail-open):', error.message); return []; }
     return data || [];
   } catch (e) {
@@ -56,6 +57,20 @@ async function saveRolePermissions(changes) {
   let applied = 0;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('update_role_permissions', {p_changes: changes});
+    if (error) throw error;
+    applied = data || 0;
+  });
+  return applied;
+}
+
+// 권한 설정 「기본값 복원」 (super_admin 전용, restore_role_permissions_defaults RPC, 마이그레이션 215).
+//   access_level ≠ default_level 인 모든 행(전체 일괄)을 default_level 로 되돌린다.
+//   반환 = 실제로 되돌려진 건수. 오류는 그대로 throw(화면에서 안내).
+async function restoreRolePermissionsDefaults() {
+  if (!db) throw new Error('DB 미연결');
+  let applied = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('restore_role_permissions_defaults');
     if (error) throw error;
     applied = data || 0;
   });
