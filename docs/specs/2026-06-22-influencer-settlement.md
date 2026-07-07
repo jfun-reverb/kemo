@@ -194,6 +194,30 @@ settlements status='on_hold' 또는 행 유지+표시 (송금 전이므로) — 
 
 ---
 
-## 11. 구현 결과 (개발 세션이 채울 것)
+## 11. 구현 결과
 
+### PR 1 — 데이터 모델 + 자동 생성 (화면 없음)
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 217(settlements+settlement_events 스키마) · 218(backfill_settlements 백필 함수) · 219(notifications.kind 7→9종) · 220(role_permissions 정산 권한 시드)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07 — 사양서 작성 이후 생긴 변화 반영)
+- **권한 = 동적 권한 편입**(사양서 §3 ⑥ "campaign_admin 이상 고정" 에서 변경): 사양서 작성(6/22) 이후 동적 권한 관리(has_permission·role_permissions)가 운영 배포(7/6)돼, 정산도 하드코딩 대신 `settlement.view`/`settlement.pay` feature_key 로 편입. 기본값 campaign_admin=write·campaign_manager=hidden 이라 사양 ⑥과 동작 동일 + 향후 super_admin 이 화면에서 조정 가능. `ADMIN_PERMISSION_CATALOG`(shared.js) 37→39개.
+- **자동 생성 = 백필 RPC(B안)**: 사양서 §6 권고 그대로. 역방향(인증 깨짐→on_hold)은 PR1 제외(생성만).
+- **송금 알림 = settlement_paid**: 앱 알림만(메일 베타 밖). PR1은 kind CHECK 확장까지, INSERT 로직은 PR2.
+- **환수 = on_hold + 메모**: 별도 status 안 만듦(사양 §9-B 후자).
+
+#### 초안 대비 변경 사항
+- **추가**: 동적 권한 편입(위) — 사양서엔 없던 마이그레이션 220 + shared.js 카탈로그 2항목. 정산 RLS 게이트를 `is_admin()` 아닌 `has_permission('settlement.view','read')` 로.
+- **빠진 것**: 사양서 §4 "bank_* 미사용 유지" 문구 무효 — 마이그레이션 216(2026-07-07)으로 `influencers.bank_*`·`pw` 삭제됨. 정산은 `paypal_email` 만 사용해 실질 영향 없음.
+- **달라진 것**: 없음(스키마·흐름은 사양서 §4·§5·§6 그대로).
+
+#### 구현 중 기술 결정 사항
+- **`settlement_events.settlement_id` = ON DELETE RESTRICT**(사양서는 CASCADE): 금전 감사 유실 방지. `deliverable_events` 가 CASCADE 라 대리 회수 시 감사가 함께 삭제된 선례(CLAUDE.md 명시) 반복 회피. 정산행은 하드 삭제 대신 `cancelled` 소프트 상태 전제.
+- **백필은 단일 문장 데이터 변경 CTE 체인**(`inserted`→`events_ins`→`notif_ins`): TEMP TABLE 미사용(레포 전례 없음). 참조 안 되는 데이터 변경 CTE도 부수효과로 완전 실행되는 PostgreSQL 동작 근거.
+- **인증 성공 판정 SQL 재현**: `computeCertStatus`/`_finalizeMonitorReprs`(admin-deliverables.js) 그대로 — DISTINCT ON 최신 1건(receipt/post/review_image), 리뷰어 채널별 전부 승인, 채널 0개면 실패.
+- ⚠️ **알려진 디커플링(PR2 인지)**: `settlements.paypal_email` 직접 컬럼은 인플 민감정보 가림막 뷰(마이그212·213)를 안 거침. 현재 campaign_admin 만 조회라 안전하나, 향후 campaign_manager 에게 `settlement.view` 열면 PayPal 노출.
+
+### PR 2 — 관리자 정산 페인 / PR 3 — 인플 조회 화면
 _(미착수)_

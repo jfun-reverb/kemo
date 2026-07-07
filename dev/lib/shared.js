@@ -865,6 +865,9 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'campaign.caution_history_view', label_ko: '캠페인 주의사항 변경 이력 열람',                category: '캠페인',       server_enforced: true },
   { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
   { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
+  // ── 정산(인플루언서 리워드) 2개 — 마이그레이션 220 role_permissions 시드와 1:1 (화면 menu.settlements 는 PR2) ──
+  { key: 'settlement.view',               label_ko: '정산 조회',                                     category: '정산',         server_enforced: true },
+  { key: 'settlement.pay',                label_ko: '정산 송금 처리',                                category: '정산',         server_enforced: true },
 ];
 
 // ══════════════════════════════════════

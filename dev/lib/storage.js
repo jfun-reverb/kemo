@@ -3631,3 +3631,78 @@ async function fetchOrientSheetsByApplication(applicationId) {
   });
 }
 
+// ─── 정산 관리 (인플루언서 정산 관리 PR1, 마이그레이션 217~220) ──────────────────
+// 화면(PR2)은 아직 없음 — storage.js 함수만 미리 정의. RLS는 has_permission('settlement.view','read')
+// 게이트(server_enforced) — campaign_manager 는 이 기능이 hidden 이라 조회 자체가 서버에서 막힘.
+
+// 관리자 조회 — campaign_admin 이상만 실제로 행을 받는다(그 외는 RLS로 빈 배열).
+// PostgREST 1000행 cap 대비 fetchAllPaged 사용. opts: {status, campaignId, influencerId}
+async function fetchSettlements(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    const data = await fetchAllPaged(() => {
+      let q = db.from('settlements').select(`
+        id, influencer_id, application_id, campaign_id, amount_jpy, status,
+        paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
+        campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type)
+      `);
+      if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status);
+      if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
+      if (opts.influencerId) q = q.eq('influencer_id', opts.influencerId);
+      // pending 방치 방지: 오래된 순 (deliverables pending 정렬 컨벤션과 동일)
+      q = q.order('created_at', {ascending: true});
+      return q;
+    });
+    const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
+    const infMap = await fetchInfluencersByIds(infIds);
+    return data.map(s => ({...s, influencers: infMap[s.influencer_id] || null}));
+  } catch(e) { console.error('[fetchSettlements]', e); return []; }
+}
+
+// 인플루언서 본인 정산 내역 (마이페이지 「報酬・精算」, PR3 예정). RLS SELECT 본인행만이라
+// 필터 없이 그대로 조회해도 안전.
+async function fetchMySettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.from('settlements').select(`
+      id, application_id, campaign_id, amount_jpy, status, paid_at, created_at,
+      campaigns:campaign_id (id, title, brand, img1)
+    `).order('created_at', {ascending: false});
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchMySettlements]', e); return []; }
+}
+
+// 인증 성공 응모 → 정산행 백필(UPSERT, 멱등). 서버가 has_permission('settlement.view','read') 로
+// 재검증하므로 campaign_manager 가 호출하면 42501(permission_denied) 에러.
+// 반환: { created_count, paypal_missing_count }
+async function backfillSettlements() {
+  if (!db) throw new Error('DB 미연결');
+  let result = { created_count: 0, paypal_missing_count: 0 };
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('backfill_settlements');
+    if (error) throw error;
+    result = Array.isArray(data) ? (data[0] || result) : (data || result);
+  });
+  return result;
+}
+
+// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid 는 PR2에서 구현 예정.
+// PR1은 storage.js 시그니처만 미리 정의(PR2가 화면을 붙일 때 storage.js 재수정 없이 바로 사용
+// 가능하도록). PR1 상태로 호출하면 RPC 미존재로 에러(정상 — 아직 화면에서 안 씀).
+async function markSettlementPaid(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_paid', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
