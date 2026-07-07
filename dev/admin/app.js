@@ -85,6 +85,7 @@ async function init() {
     // 사이드바 배지 4종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
+    if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
     if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해

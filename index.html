@@ -2526,6 +2526,12 @@ const PANE_REFRESHERS = {
   },
   'permissions': async () => {
     if (typeof loadPermissionsPane === 'function') await loadPermissionsPane();
+  },
+  'settlements': async () => {
+    // 처리(송금/보류/취소) 후 호출 — 상태가 바뀐 행을 정확히 반영해야 하므로 캐시 재렌더가 아니라
+    // 재조회(reloadSettlementsData: fetchSettlements + renderSettlementsList + 배지)로 갱신한다.
+    if (typeof reloadSettlementsData === 'function') await reloadSettlementsData();
+    else if (typeof renderSettlementsList === 'function') await renderSettlementsList();
   }
 };
 async function refreshPane(paneId) {
@@ -2788,6 +2794,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.orient-sheets',      label_ko: '오리엔시트 현황',              category: '브랜드',      server_enforced: false },
   { key: 'menu.brand-applications', label_ko: '서베이 신청 목록',             category: '브랜드',      server_enforced: false },
   { key: 'menu.influencers',        label_ko: '인플루언서 목록',              category: '회원 관리',   server_enforced: false },
+  { key: 'menu.settlements',        label_ko: '정산 관리',                    category: '회원 관리',   server_enforced: false },
   { key: 'menu.lookups',            label_ko: '기준 데이터',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.faq',                label_ko: '자주 묻는 질문',               category: '관리자 설정', server_enforced: false },
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
@@ -8349,6 +8356,41 @@ async function markSettlementPaid(id, version, memo) {
   let newVersion = -1;
   await retryWithRefresh(async () => {
     const {data, error} = await db.rpc('mark_settlement_paid', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 보류 처리(낙관적 락) — RPC mark_settlement_hold (마이그레이션 223).
+// pending 또는 paid → on_hold. 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementHold(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_hold', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 취소 처리(낙관적 락) — RPC mark_settlement_cancel (마이그레이션 223).
+// pending 또는 on_hold → cancelled (paid 는 서버가 거부 — 먼저 markSettlementHold 필요).
+// 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementCancel(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_cancel', {
       p_settlement_id: id,
       p_version: version,
       p_memo: memo || null
