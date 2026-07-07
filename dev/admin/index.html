@@ -1194,9 +1194,7 @@
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
                 <label>캠페인</label>
-                <select id="settlementFilterCampaign" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto;max-width:260px" onchange="renderSettlementsList()">
-                  <option value="">전체 캠페인</option>
-                </select>
+                <div id="settlementCampMulti" class="mf-wrap" style="max-width:260px"><button type="button" class="mf-btn" style="max-width:260px;overflow:hidden;text-overflow:ellipsis">전체 캠페인</button><div class="mf-drop" style="min-width:320px;max-width:420px"></div></div>
               </div>
               <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
                 <label>검색</label>
