@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783421206';
+  var CURRENT_BUILD = 'v1783424073';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2180,7 +2180,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-07 19:46 · f7f976a</span>
+          <span class="admin-build-text">2026-07-07 20:34 · 60b5dbf</span>
         </div>
       </div>
     </aside>
@@ -5269,6 +5269,20 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
     <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeSettlementReasonModal()">취소</button>
       <button class="btn btn-primary" id="settlementReasonConfirmBtn" onclick="confirmSettlementReason()">보류 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정산 이력 모달 (settlement_events 타임라인, 읽기 전용) -->
+<div class="modal-overlay" id="settlementHistoryModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 이력</div>
+      <div id="settlementHistoryHeader" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-body" id="settlementHistoryBody" style="padding:12px 22px;overflow-y:auto;flex:1"></div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementHistoryModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -10262,6 +10276,21 @@ async function markSettlementRevert(id, version, memo) {
     newVersion = data;
   });
   return newVersion;
+}
+
+// 정산 이력 조회 — RPC get_settlement_events (마이그레이션 225).
+// settlement_events 를 관리자 이름(actor_name)으로 변환해 시간순(오래된 것부터) 반환.
+// 조회 전용이라 retryWithRefresh 없이 db.rpc 직접 호출(다른 fetch* 함수와 동일 패턴).
+// 실패 시 빈 배열 반환(fetchSettlements 패턴 — 화면이 "이력 없음"으로 처리).
+async function fetchSettlementEvents(settlementId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_settlement_events', {
+      p_settlement_id: settlementId
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
 }
 
 
@@ -29142,7 +29171,8 @@ function renderSettlementRow(s) {
 //   pending  → 송금 완료 / 보류 / 취소
 //   paid     → 보류 (환수·인증깨짐 대응)
 //   on_hold  → 보류 해제(정산대기 복귀) / 취소
-//   cancelled→ 없음(종료)
+//   cancelled→ 처리 버튼 없음(종료)
+// 「이력」 버튼은 상태 무관 항상 노출 — 취소(cancelled) 건도 상태 변경 이력은 열람 가능.
 function settlementActionCell(s) {
   const id = esc(s.id);
   const btns = [];
@@ -29156,9 +29186,9 @@ function settlementActionCell(s) {
     btns.push(`<button class="btn btn-primary btn-xs" onclick="openSettlementRevertModal('${id}')">보류 해제</button>`);
     btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementCancelModal('${id}')" style="color:#C33">취소</button>`);
   }
-  return btns.length
-    ? `<div style="display:flex;gap:4px;flex-wrap:wrap">${btns.join('')}</div>`
-    : '<span style="font-size:11px;color:var(--muted)">—</span>';
+  // 이력 버튼은 모든 상태에 노출(맨 뒤) — 처리 버튼이 없는 취소 건도 이력만은 볼 수 있게.
+  btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementHistoryModal('${id}')">이력</button>`);
+  return `<div style="display:flex;gap:4px;flex-wrap:wrap">${btns.join('')}</div>`;
 }
 
 // 사이드바 "정산 관리" 메뉴 옆 정산대기(pending) 건수 배지
@@ -29310,6 +29340,85 @@ async function confirmSettlementReason() {
   closeModal('settlementReasonModal');
   _settlementModalCtx = null;
   await refreshPane('settlements');  // 재조회 + 목록·배지 갱신 (quality.md)
+}
+
+// ════════════════════════════════════════════════════════════════════
+// SECTION: SETTLEMENTS — 정산 이력 모달 (settlement_events 타임라인, 읽기 전용)
+// ════════════════════════════════════════════════════════════════════
+//
+// settlement_events 는 정산 건별 상태 변경 이력(생성/송금/보류/취소/보류해제).
+//   · fetchSettlementEvents(id) 는 at 오름차순 배열 반환 → 최신이 위로 오게 역순 렌더
+//   · 처리 버튼과 달리 읽기 전용(낙관적 락 없음). 취소 건도 열람 가능.
+
+// action 코드 → 한국어 라벨 (결과물 이력 타임라인 라벨 매핑 패턴 미러)
+const SETTLEMENT_EVENT_LABELS = {
+  create: '생성(자동 등록)',
+  pay:    '송금 완료',
+  hold:   '보류',
+  cancel: '취소',
+  revert: '보류 해제',
+};
+
+async function openSettlementHistoryModal(id) {
+  const s = _settlements.find(x => x.id === id);
+  if (!s) { toast('정산 건을 찾을 수 없습니다', 'warn'); return; }
+  const inf = s.influencers || {};
+  const camp = s.campaigns || {};
+
+  // 헤더 요약(인플명·가나·캠페인·금액·현재 상태)
+  const headEl = $('settlementHistoryHeader');
+  if (headEl) {
+    const kana = inf.name_kana ? ` <span style="font-size:11px;color:var(--muted)">${esc(inf.name_kana)}</span>` : '';
+    headEl.innerHTML = `<div style="font-weight:600">${esc(inf.name || '—')}${kana}</div>`
+      + `<div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">`
+      + `<span>${esc(camp.title || '—')}</span><span>·</span><span>${settlementAmountYen(s.amount_jpy)}</span>`
+      + `<span>·</span>${settlementStatusBadge(s.status)}</div>`;
+  }
+
+  const bodyEl = $('settlementHistoryBody');
+  if (bodyEl) bodyEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:22px;font-size:12px">이력을 불러오는 중…</div>';
+  openModal('settlementHistoryModal');
+
+  let events = [];
+  try { events = await fetchSettlementEvents(id); } catch (e) { events = []; }
+  if (!bodyEl) return;
+  if (!Array.isArray(events) || !events.length) {
+    bodyEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:26px;font-size:13px">이력이 없습니다.</div>';
+    return;
+  }
+  // at 오름차순 반환 → 최신이 위로 오게 역순으로 렌더
+  bodyEl.innerHTML = events.slice().reverse().map(renderSettlementEventItem).join('');
+}
+
+// 이력 항목 1건 렌더 — 시각 / 액션 라벨 / 상태 전이 배지 / 처리자 / 사유
+function renderSettlementEventItem(e) {
+  const label = SETTLEMENT_EVENT_LABELS[e.action] || e.action || '';
+  let transition = '';
+  if (e.prev_status && e.next_status) {
+    transition = `${settlementStatusBadge(e.prev_status)}`
+      + `<span class="material-icons-round notranslate" translate="no" style="font-size:14px;vertical-align:-3px;color:var(--muted)">arrow_forward</span>`
+      + `${settlementStatusBadge(e.next_status)}`;
+  } else if (e.next_status) {
+    transition = settlementStatusBadge(e.next_status);  // 생성 등 prev 없는 경우
+  }
+  const actor = e.actor_name ? esc(e.actor_name) : '자동';
+  const at = e.at ? esc(formatDate(e.at)) : '';
+  const memoLine = e.memo
+    ? `<div style="margin-top:6px;font-size:12px;color:var(--ink);white-space:pre-wrap;line-height:1.55">${esc(e.memo)}</div>`
+    : '<div style="margin-top:6px;font-size:12px;color:var(--muted)">사유: —</div>';
+  return `<div style="padding:11px 0;border-bottom:1px dashed var(--line)">`
+    + `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center">`
+    + `<span style="font-size:13px;font-weight:700;color:var(--ink)">${esc(label)}</span>`
+    + `<span style="font-size:11px;color:var(--muted);white-space:nowrap">${at}</span>`
+    + `</div>`
+    + `<div style="margin-top:5px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px">`
+    + `<span style="display:inline-flex;align-items:center;gap:4px">${transition}</span>`
+    + `<span style="color:var(--muted)">처리자: ${actor}</span>`
+    + `</div>${memoLine}</div>`;
+}
+
+function closeSettlementHistoryModal() {
+  closeModal('settlementHistoryModal');
 }
 
 // ════════════════════════════════════════════════════════════════════

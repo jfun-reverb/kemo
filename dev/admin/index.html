@@ -3231,6 +3231,20 @@
   </div>
 </div>
 
+<!-- 정산 이력 모달 (settlement_events 타임라인, 읽기 전용) -->
+<div class="modal-overlay" id="settlementHistoryModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 이력</div>
+      <div id="settlementHistoryHeader" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-body" id="settlementHistoryBody" style="padding:12px 22px;overflow-y:auto;flex:1"></div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementHistoryModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
     <div class="modal-body" style="padding:28px 24px 22px">

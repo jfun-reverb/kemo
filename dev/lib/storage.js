@@ -3759,3 +3759,18 @@ async function markSettlementRevert(id, version, memo) {
   return newVersion;
 }
 
+// 정산 이력 조회 — RPC get_settlement_events (마이그레이션 225).
+// settlement_events 를 관리자 이름(actor_name)으로 변환해 시간순(오래된 것부터) 반환.
+// 조회 전용이라 retryWithRefresh 없이 db.rpc 직접 호출(다른 fetch* 함수와 동일 패턴).
+// 실패 시 빈 배열 반환(fetchSettlements 패턴 — 화면이 "이력 없음"으로 처리).
+async function fetchSettlementEvents(settlementId) {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_settlement_events', {
+      p_settlement_id: settlementId
+    });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
+}
+
