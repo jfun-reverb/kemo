@@ -3645,7 +3645,8 @@ async function fetchSettlements(opts) {
       let q = db.from('settlements').select(`
         id, influencer_id, application_id, campaign_id, amount_jpy, status,
         paypal_email, paid_at, paid_by, memo, version, created_at, updated_at,
-        campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type)
+        campaigns:campaign_id (id, campaign_no, title, brand, img1, recruit_type),
+        settlement_events(count)
       `);
       if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status);
       if (opts.campaignId) q = q.eq('campaign_id', opts.campaignId);
@@ -3656,7 +3657,11 @@ async function fetchSettlements(opts) {
     });
     const infIds = [...new Set(data.map(s => s.influencer_id).filter(Boolean))];
     const infMap = await fetchInfluencersByIds(infIds);
-    return data.map(s => ({...s, influencers: infMap[s.influencer_id] || null}));
+    return data.map(s => ({
+      ...s,
+      influencers: infMap[s.influencer_id] || null,
+      event_count: Array.isArray(s.settlement_events) ? (s.settlement_events[0]?.count ?? 0) : 0,
+    }));
   } catch(e) { console.error('[fetchSettlements]', e); return []; }
 }
 
