@@ -3706,3 +3706,38 @@ async function markSettlementPaid(id, version, memo) {
   return newVersion;
 }
 
+// 보류 처리(낙관적 락) — RPC mark_settlement_hold (마이그레이션 223).
+// pending 또는 paid → on_hold. 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementHold(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_hold', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+
+// 취소 처리(낙관적 락) — RPC mark_settlement_cancel (마이그레이션 223).
+// pending 또는 on_hold → cancelled (paid 는 서버가 거부 — 먼저 markSettlementHold 필요).
+// 반환값 -1 = 다른 관리자가 이미 처리(버전 충돌, 재조회 필요).
+async function markSettlementCancel(id, version, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let newVersion = -1;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('mark_settlement_cancel', {
+      p_settlement_id: id,
+      p_version: version,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    newVersion = data;
+  });
+  return newVersion;
+}
+

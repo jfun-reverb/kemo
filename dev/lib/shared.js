@@ -578,6 +578,12 @@ const PANE_REFRESHERS = {
   },
   'permissions': async () => {
     if (typeof loadPermissionsPane === 'function') await loadPermissionsPane();
+  },
+  'settlements': async () => {
+    // 처리(송금/보류/취소) 후 호출 — 상태가 바뀐 행을 정확히 반영해야 하므로 캐시 재렌더가 아니라
+    // 재조회(reloadSettlementsData: fetchSettlements + renderSettlementsList + 배지)로 갱신한다.
+    if (typeof reloadSettlementsData === 'function') await reloadSettlementsData();
+    else if (typeof renderSettlementsList === 'function') await renderSettlementsList();
   }
 };
 async function refreshPane(paneId) {
@@ -840,6 +846,7 @@ const ADMIN_PERMISSION_CATALOG = [
   { key: 'menu.orient-sheets',      label_ko: '오리엔시트 현황',              category: '브랜드',      server_enforced: false },
   { key: 'menu.brand-applications', label_ko: '서베이 신청 목록',             category: '브랜드',      server_enforced: false },
   { key: 'menu.influencers',        label_ko: '인플루언서 목록',              category: '회원 관리',   server_enforced: false },
+  { key: 'menu.settlements',        label_ko: '정산 관리',                    category: '회원 관리',   server_enforced: false },
   { key: 'menu.lookups',            label_ko: '기준 데이터',                  category: '관리자 설정', server_enforced: false },
   { key: 'menu.faq',                label_ko: '자주 묻는 질문',               category: '관리자 설정', server_enforced: false },
   { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },

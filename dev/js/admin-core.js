@@ -177,6 +177,7 @@ function switchAdminPane(pane, el, pushHistory) {
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
     influencers: loadAdminInfluencers,
+    'settlements': loadSettlements,
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
     'lookups': loadLookupsPane,

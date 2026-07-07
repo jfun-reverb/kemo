@@ -114,6 +114,7 @@
         <div class="admin-si" data-pane="brand-applications" id="adminBrandAppSi" onclick="navAdminPaneReload('brand-applications')"><span class="si-icon material-icons-round">storefront</span><span class="si-text">서베이 신청 목록</span></div>
         <div class="admin-si-lbl">회원 관리</div>
         <div class="admin-si" data-pane="influencers" onclick="navAdminPaneReload('influencers')"><span class="si-icon material-icons-round">group</span><span class="si-text">인플루언서 목록</span></div>
+        <div class="admin-si" data-pane="settlements" id="adminSettlementsSi" onclick="navAdminPaneReload('settlements')"><span class="si-icon material-icons-round notranslate" translate="no">payments</span><span class="si-text">정산 관리</span><span id="adminSettlementsBadge" class="admin-si-badge" style="display:none">0</span></div>
         <div class="admin-si-lbl" id="adminMenuLabel">관리자 설정</div>
         <div class="admin-si" data-pane="lookups" id="adminLookupsSi" onclick="navAdminPaneReload('lookups')" style="display:none"><span class="si-icon material-icons-round">tune</span><span class="si-text">기준 데이터</span></div>
         <div class="admin-si" data-pane="faq" id="adminFaqSi" onclick="navAdminPaneReload('faq')" style="display:none"><span class="si-icon material-icons-round notranslate" translate="no">quiz</span><span class="si-text">자주 묻는 질문</span></div>
@@ -1173,6 +1174,67 @@
               </tr></thead>
               <tbody id="delivTableBody"><tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
             </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- SETTLEMENTS (정산 관리) PANE — 인플루언서 리워드 송금. 상태 4종·통화 ¥. 사양서 2026-06-22-influencer-settlement §7-1 -->
+        <div id="adminPane-settlements" class="admin-pane admin-pane-list">
+          <div class="admin-sticky-header">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                <div style="font-size:16px;font-weight:700;color:var(--ink)">정산 관리</div>
+                <div style="font-size:12px;color:var(--muted)">인증 성공한 응모의 리워드를 PayPal로 송금 처리합니다</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="exportSettlementsExcel()" title="현재 필터 결과를 엑셀로 내려받습니다">
+                <span class="material-icons-round notranslate" translate="no" style="font-size:16px;vertical-align:middle">download</span>
+                엑셀
+              </button>
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+              <div class="admin-filter-group">
+                <label>상태</label>
+                <select id="settlementFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderSettlementsList()">
+                  <option value="pending" selected>정산대기</option>
+                  <option value="">전체</option>
+                  <option value="paid">송금완료</option>
+                  <option value="on_hold">보류</option>
+                  <option value="cancelled">취소</option>
+                </select>
+              </div>
+              <div class="admin-filter-group">
+                <label>캠페인</label>
+                <select id="settlementFilterCampaign" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto;max-width:260px" onchange="renderSettlementsList()">
+                  <option value="">전체 캠페인</option>
+                </select>
+              </div>
+              <div class="admin-filter-group" style="flex:1;min-width:200px;margin-left:auto">
+                <label>검색</label>
+                <div style="position:relative">
+                  <span class="material-icons-round notranslate" translate="no" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted)">search</span>
+                  <input type="search" id="settlementSearch" class="admin-filter-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="인플루언서명 · 이메일 검색" oninput="renderSettlementsList()">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <div style="display:flex;align-items:center;gap:8px"><span class="admin-card-title">정산 목록</span><span id="settlementsTotalCount" style="font-size:12px;color:var(--muted)"></span><span id="settlementsSumAmount" style="font-size:12px;color:var(--dark-pink);font-weight:600"></span></div>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="data-table">
+                <thead><tr>
+                  <th>인플루언서</th>
+                  <th>캠페인</th>
+                  <th style="width:110px">금액(¥)</th>
+                  <th style="width:200px">PayPal</th>
+                  <th style="width:90px">상태</th>
+                  <th style="width:120px">인증성공일</th>
+                  <th style="width:120px">송금완료일</th>
+                  <th style="width:200px">처리</th>
+                </tr></thead>
+                <tbody id="settlementsTableBody"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px"><span class="spinner" style="width:20px;height:20px;border-width:2px;border-color:rgba(200,120,163,.2);border-top-color:var(--pink)"></span></td></tr></tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -3135,6 +3197,51 @@
 </div>
 
 <!-- 캠페인 노출 마감일 자동 제안 confirm 모달 -->
+<!-- 정산 송금 완료 처리 모달 (mark_settlement_paid) -->
+<div class="modal-overlay" id="settlementPayModal" style="z-index:615">
+  <div class="modal" style="max-width:480px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">송금 완료 처리</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementPayBody"></div>
+      <div id="settlementPayWarn" style="display:none;padding:10px 12px;background:#FFE4E4;border:1px solid #C33;border-radius:8px;font-size:12px;line-height:1.55;color:#C33;margin-bottom:14px">
+        <strong>PayPal 미등록:</strong> 이 인플루언서는 PayPal 주소가 없어 송금할 수 없습니다. 인플루언서에게 등록을 요청하세요.
+      </div>
+      <div class="form-group">
+        <label class="form-label">메모 (송금 참조번호 등, 선택)</label>
+        <input type="text" id="settlementPayMemo" class="form-input" placeholder="예: PayPal 거래번호">
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">외부 PayPal에서 송금을 마친 뒤 이 버튼을 누르세요. 실제 송금 완료 후에만 처리하세요.</div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementPayModal()">취소</button>
+      <button class="btn btn-primary" id="settlementPayConfirmBtn" onclick="confirmSettlementPay()">송금 완료 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- 정산 보류/취소 사유 모달 (mark_settlement_hold / mark_settlement_cancel) -->
+<div class="modal-overlay" id="settlementReasonModal" style="z-index:615">
+  <div class="modal" style="max-width:460px;border-radius:20px;margin:auto">
+    <div class="modal-header" style="padding:18px 22px 12px;border-bottom:1px solid var(--line)">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)" id="settlementReasonTitle">정산 보류</div>
+    </div>
+    <div class="modal-body" style="padding:20px 22px">
+      <div id="settlementReasonDesc" style="font-size:13px;line-height:1.6;color:var(--ink);margin-bottom:10px"></div>
+      <div id="settlementReasonInfo" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
+      <div class="form-group">
+        <label class="form-label">사유 메모 (선택)</label>
+        <textarea id="settlementReasonMemo" class="form-input" rows="3" placeholder="사유를 입력하세요 (환수 필요·인증 재검토 등)" style="resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeSettlementReasonModal()">취소</button>
+      <button class="btn btn-primary" id="settlementReasonConfirmBtn" onclick="confirmSettlementReason()">보류 처리</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="confirmModal" style="z-index:610">
   <div class="modal" style="max-width:420px;border-radius:24px;margin:auto;text-align:center">
     <div class="modal-body" style="padding:28px 24px 22px">

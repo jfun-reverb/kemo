@@ -219,5 +219,28 @@ settlements status='on_hold' 또는 행 유지+표시 (송금 전이므로) — 
 - **인증 성공 판정 SQL 재현**: `computeCertStatus`/`_finalizeMonitorReprs`(admin-deliverables.js) 그대로 — DISTINCT ON 최신 1건(receipt/post/review_image), 리뷰어 채널별 전부 승인, 채널 0개면 실패.
 - ⚠️ **알려진 디커플링(PR2 인지)**: `settlements.paypal_email` 직접 컬럼은 인플 민감정보 가림막 뷰(마이그212·213)를 안 거침. 현재 campaign_admin 만 조회라 안전하나, 향후 campaign_manager 에게 `settlement.view` 열면 PayPal 노출.
 
-### PR 2 — 관리자 정산 페인 / PR 3 — 인플 조회 화면
+### PR 2 — 관리자 정산 페인
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 221(menu.settlements 권한 시드) · 222(mark_settlement_paid) · 223(mark_settlement_hold + mark_settlement_cancel)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07)
+- **묶음 송금 = 개별 행 처리**(배치 RPC 신설 안 함, 화면은 인플별 합계만 참고 표시)
+- **송금 모달 = PayPal·금액·건수 확인** + 참조번호 메모
+- **보류·취소 버튼 PR2 포함**(인증 깨짐·환수 대응)
+- **엑셀 = 현재 필터 결과**
+
+#### 구현 내용
+- 관리자 페인 `#settlements`(`dev/js/admin-settlements.js` 신규): 진입 시 `backfill_settlements()` best-effort → 목록·필터(상태 기본 pending·캠페인·인플 검색)·lazy-load·엑셀. 사이드바 「회원 관리」 그룹 + 정산대기 건수 배지.
+- **상태 전이 매트릭스**(화면 버튼 ↔ 서버 RPC 일치): pending→paid/on_hold/cancelled, paid→on_hold, on_hold→cancelled, cancelled=종료.
+- RPC 3종(마이그222·223): `mark_settlement_paid`(pending→paid, paypal_email 재조회·미등록 차단·settlement_paid 알림·events pay) / `mark_settlement_hold`(pending·paid→on_hold, paid_* 보존, 알림 없음) / `mark_settlement_cancel`(pending·on_hold→cancelled). 모두 `has_permission('settlement.pay','write')` 가드 + 낙관적 락(충돌 시 -1 반환) + settlement_events 이력.
+- 권한: `menu.settlements` 시드(마이그221, campaign_admin=write·campaign_manager=hidden — settlement.view와 정합). `switchAdminPane` 진입 가드 자동 차단. shared.js 카탈로그 화면 21개.
+
+#### 초안 대비 변경 사항
+- **추가**: 보류·취소 RPC 2종(사양서는 상태만 정의, 실제 전환 UI·함수는 이번에). menu.settlements 권한(동적 권한 편입 후속).
+- **달라진 것**: "인증성공일" 전용 컬럼 없어 `settlements.created_at`(정산행 생성 시각)으로 대체. 엑셀 인플 이름은 가림막 뷰(`influencers_admin_view`) `name`/`name_kana` 직접 매핑.
+- **기술 결정**: 낙관적 락 충돌은 예외 아닌 `-1` 반환(update_deliverable_status 관례) / mark_settlement_paid 는 PayPal 미등록이면 서버에서도 송금 차단(화면 모달과 이중 방어).
+
+### PR 3 — 인플 마이페이지 조회 화면
 _(미착수)_
