@@ -1176,6 +1176,27 @@ window._supabaseLoaded = false;
       </div>
     </div>
   </div>
+
+  <!-- 報酬・精算 (인플루언서 정산 조회 — renderMySettlements in mypage.js) -->
+  <div id="mypage-sub-settlements" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="mypage-sub-title" data-i18n="mypage.settlements.title">報酬・精算</span>
+    </div>
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <!-- PayPal 미등록 안내 (기본 숨김, renderMySettlements 가 미등록 시 표시) -->
+      <div id="mySettlementPaypalNotice" style="display:none;background:var(--light-pink);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--dark-pink);line-height:1.6;margin-bottom:10px">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">account_balance_wallet</span>
+          <span data-i18n="mypage.settlements.paypalMissing">報酬のお振込みにはPayPalメールアドレスの登録が必要です。</span>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="openMypageSub('paypal')" data-i18n="mypage.settlements.paypalLink">PayPal登録</button>
+      </div>
+      <!-- 누적 수령액 큰 카드 (동적 렌더) -->
+      <div id="mySettlementTotal"></div>
+      <!-- 정산 내역 리스트 (동적 렌더) -->
+      <div id="mySettlementsList"></div>
+    </div>
+  </div>
 </div>
 <!-- ══════════════════════════════════
      MODAL: APPLY

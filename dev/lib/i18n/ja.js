@@ -171,8 +171,22 @@ window.I18N_JA = {
       paypal: 'PayPal',
       password: 'パスワード変更',
       emailSettings: 'メール受信設定',
+      settlements: '報酬・精算',
       logout: 'ログアウト',
       language: '言語 / 언어',
+    },
+    settlements: {
+      title: '報酬・精算',
+      totalLabel: '累計受取額',
+      pendingLabel: 'お支払い予定',
+      empty: 'まだ精算はありません。',
+      paypalMissing: '報酬のお振込みにはPayPalメールアドレスの登録が必要です。',
+      paypalLink: 'PayPal登録',
+      status: {
+        pending: '精算待ち',
+        paid: '送金済み',
+        onHold: '確認中',
+      },
     },
     emailSettings: {
       title: 'メール受信設定',

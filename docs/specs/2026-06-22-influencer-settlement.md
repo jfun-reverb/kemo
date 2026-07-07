@@ -243,4 +243,28 @@ settlements status='on_hold' 또는 행 유지+표시 (송금 전이므로) — 
 - **기술 결정**: 낙관적 락 충돌은 예외 아닌 `-1` 반환(update_deliverable_status 관례) / mark_settlement_paid 는 PayPal 미등록이면 서버에서도 송금 차단(화면 모달과 이중 방어).
 
 ### PR 3 — 인플 마이페이지 조회 화면
-_(미착수)_
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 없음 (순수 프론트 — `fetchMySettlements` 는 PR1에서 완성)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07)
+- **취소(cancelled) 건 = 숨김**(목록 제외)
+- **보류(on_hold) 라벨 = 「確認中」**(관리자 메모·사유 노출 안 함)
+- **누적 수령액 = 상단 큰 카드**(送金済み/paid 만 합산) + 대기액 보조
+- **PayPal 미등록 = 안내 박스 + 「PayPal登録」 버튼**(→ PayPal 등록 화면)
+
+#### 구현 내용
+- 마이페이지 서브화면 `#mypage-sub-settlements`(dev/index.html) + `renderMySettlements`/`settlementStatusMeta`(mypage.js). 햄버거 「マイページ」 아코디언 서브항목(notifications.js subs).
+- `openMypageSub('settlements')` 훅으로 햄버거·알림·해시(`#mypage-settlements`)·popstate·새로고침 모든 진입 경로 자동 렌더.
+- 알림 라우팅(notifications.js onNotifItemClick): `settlement_paypal_required`→PayPal 화면, `settlement_paid`→정산 화면 + 아이콘맵.
+- i18n: `mypage.settlements.*`·상태 라벨 ja/ko 양쪽 등록. 동적 pill·금액은 `t()` + langchange 재렌더(응모이력 패턴 미러).
+
+#### 초안 대비 변경 사항
+- **달라진 것**: on_hold 라벨을 사양서 「保留」 대신 인플 친화적 「確認中」로(불안·환수 언급 회피). cancelled는 인플 화면에서 숨김.
+- **기술 결정**: DB·storage 변경 0(PR1의 fetchMySettlements 재사용). 앱 라우팅(openMypageSub·해시)이 이미 범용화돼 app.js 무수정.
+
+---
+
+## 정산 관리 베타 1차 — 3조각 완결 (2026-07-07 dev)
+PR1(데이터 모델·백필·동적 권한, 마이그217~220) → PR2(관리자 화면·송금/보류/취소 RPC, 마이그221~223) → PR3(인플 조회 화면, 프론트) 모두 개발서버 배포·검증 완료. **운영 배포는 3조각 묶어 별도 진행.** 약관 영향 없음(§8 — 제13조가 이미 커버).

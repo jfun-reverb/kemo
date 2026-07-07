@@ -63,6 +63,7 @@ function renderNavMenu() {
       {sub:'profile-sns', label: t('mypage.menu.sns'), unreg: !b.hasSns},
       {sub:'profile-address', label: t('mypage.menu.address'), unreg: !b.hasAddress},
       {sub:'paypal', label: t('mypage.menu.paypal'), unreg: !b.hasPaypal},
+      {sub:'settlements', label: t('mypage.menu.settlements')},
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
@@ -274,7 +275,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}, application_approved:{icon:'celebration',color:'#E94F8A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}, application_approved:{icon:'celebration',color:'#E94F8A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -308,6 +309,17 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
     if (typeof openMessagesPage === 'function') openMessagesPage(refId, 'mypage');
+    refreshNotifBadge();
+    return;
+  }
+  // 정산 알림 → 마이페이지 해당 화면 이동 (ref_table='settlements' 이므로 kind 로 분기 — else 로 새지 않게 deliverables 판정보다 앞)
+  if (kind === 'settlement_paypal_required' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('paypal'); }
+    refreshNotifBadge();
+    return;
+  }
+  if (kind === 'settlement_paid' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('settlements'); }
     refreshNotifBadge();
     return;
   }
