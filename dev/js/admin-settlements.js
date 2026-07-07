@@ -15,7 +15,7 @@
 
 let _settlements = [];
 let _settlementsLoaded = false;
-let _settlementFilters = { status: 'pending', campaignId: '', search: '' };
+let _settlementFilters = { status: 'pending', campaignIds: [], search: '' };
 let _settlementModalCtx = null;  // 열려 있는 처리 모달 대상 {id, version, mode?}
 var settlementsLazy = null;
 const SETTLEMENTS_PAGE_SIZE = 50;
@@ -76,8 +76,8 @@ async function reloadSettlementsData() {
 
 function readSettlementFilters() {
   // status 는 이제 상태 탭(_settlementFilters.status)이 소스 — select 없음, 여기선 건드리지 않는다.
-  const camp = $('settlementFilterCampaign');
-  _settlementFilters.campaignId = camp ? (camp.value || '') : '';
+  // 캠페인은 검색형 다중필터(settlementCampMulti) → 선택된 campaign_id 배열 (전체=빈 배열).
+  _settlementFilters.campaignIds = getMultiFilterValues('settlementCampMulti');
   const q = $('settlementSearch');
   _settlementFilters.search = q ? (q.value || '').trim().toLowerCase() : '';
 }
@@ -109,10 +109,10 @@ function setSettlementStatusTab(btn) {
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
 function getFilteredSettlements() {
   readSettlementFilters();
-  const { status, campaignId, search } = _settlementFilters;
+  const { status, campaignIds, search } = _settlementFilters;
   let rows = _settlements.slice();
   if (status) rows = rows.filter(s => s.status === status);
-  if (campaignId) rows = rows.filter(s => s.campaign_id === campaignId);
+  if (campaignIds.length) rows = rows.filter(s => campaignIds.includes(s.campaign_id));
   if (search) rows = rows.filter(s => {
     const inf = s.influencers || {};
     return matchSearchTokens(search, [inf.name, inf.name_kana, inf.email]);
@@ -120,23 +120,34 @@ function getFilteredSettlements() {
   return rows;
 }
 
-// 캠페인 필터 select 옵션 동기화 — 현재 로드된 정산행의 distinct 캠페인 (선택값 보존)
+// 캠페인 검색형 다중필터 옵션 동기화 — 결과물 관리 페인(delivCampMulti)과 동일 패턴.
+//   · campOptionsSource: 현재 로드된 정산행의 distinct 캠페인 (선택값은 syncMultiFilter 가 보존)
+//   · campCounts: 캠페인별 정산 건수. 캠페인 필터는 제외하고 상태 탭·검색은 반영(자기 자신 필터 제외
+//     — 결과물 페인 campCounts 규칙 미러). 카운트 = 그 캠페인만 선택했을 때 실제 결과와 일치.
 function syncSettlementCampaignOptions() {
-  const sel = $('settlementFilterCampaign');
-  if (!sel) return;
-  const prev = sel.value;
+  if (!$('settlementCampMulti')) return;
+  readSettlementFilters();  // campCounts 가 최신 검색어·상태를 반영하도록 먼저 갱신
+  const { status, search } = _settlementFilters;
+  // 상태 탭·검색만 통과(캠페인 필터 제외) — 캠페인별 건수 집계 기준
+  const passesNonCamp = (s) => {
+    if (status && s.status !== status) return false;
+    if (search) {
+      const inf = s.influencers || {};
+      if (!matchSearchTokens(search, [inf.name, inf.name_kana, inf.email])) return false;
+    }
+    return true;
+  };
   const seen = new Map();
+  const campCounts = {};
   _settlements.forEach(s => {
     const c = s.campaigns;
     if (c && c.id && !seen.has(c.id)) seen.set(c.id, c);
+    if (s.campaign_id && passesNonCamp(s)) {
+      campCounts[s.campaign_id] = (campCounts[s.campaign_id] || 0) + 1;
+    }
   });
-  const opts = ['<option value="">전체 캠페인</option>'];
-  [...seen.values()].forEach(c => {
-    const label = (c.campaign_no ? c.campaign_no + ' · ' : '') + (c.title || '캠페인');
-    opts.push(`<option value="${esc(c.id)}">${esc(label)}</option>`);
-  });
-  sel.innerHTML = opts.join('');
-  sel.value = (prev && seen.has(prev)) ? prev : '';
+  const campOptionsSource = [...seen.values()];
+  syncCampMultiFilter('settlementCampMulti', campOptionsSource, () => renderSettlementsList(), campCounts);
 }
 
 function renderSettlementsList() {
