@@ -220,7 +220,7 @@ function renderSettlementRow(s) {
 // 상태 전이 규칙에 따른 처리 버튼:
 //   pending  → 송금 완료 / 보류 / 취소
 //   paid     → 보류 (환수·인증깨짐 대응)
-//   on_hold  → 취소
+//   on_hold  → 보류 해제(정산대기 복귀) / 취소
 //   cancelled→ 없음(종료)
 function settlementActionCell(s) {
   const id = esc(s.id);
@@ -232,6 +232,7 @@ function settlementActionCell(s) {
   } else if (s.status === 'paid') {
     btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementHoldModal('${id}')">보류</button>`);
   } else if (s.status === 'on_hold') {
+    btns.push(`<button class="btn btn-primary btn-xs" onclick="openSettlementRevertModal('${id}')">보류 해제</button>`);
     btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementCancelModal('${id}')" style="color:#C33">취소</button>`);
   }
   return btns.length
@@ -325,6 +326,7 @@ async function confirmSettlementPay() {
 
 function openSettlementHoldModal(id) { _openSettlementReasonModal(id, 'hold'); }
 function openSettlementCancelModal(id) { _openSettlementReasonModal(id, 'cancel'); }
+function openSettlementRevertModal(id) { _openSettlementReasonModal(id, 'revert'); }
 
 function _openSettlementReasonModal(id, mode) {
   const s = _settlements.find(x => x.id === id);
@@ -335,11 +337,13 @@ function _openSettlementReasonModal(id, mode) {
   const isCancel = mode === 'cancel';
 
   const titleEl = $('settlementReasonTitle');
-  if (titleEl) titleEl.textContent = isCancel ? '정산 취소' : '정산 보류';
+  if (titleEl) titleEl.textContent = isCancel ? '정산 취소' : mode === 'revert' ? '보류 해제' : '정산 보류';
   const descEl = $('settlementReasonDesc');
   if (descEl) descEl.innerHTML = isCancel
     ? '이 정산 건을 <b style="color:#C33">취소</b>합니다. 취소된 정산은 되돌릴 수 없습니다.'
-    : '이 정산 건을 <b>보류</b>로 전환합니다. (환수 필요·인증 재검토 등)';
+    : mode === 'revert'
+      ? '이 정산 건을 <b>정산 대기</b>로 되돌립니다. 이후 다시 송금 완료·취소할 수 있습니다.'
+      : '이 정산 건을 <b>보류</b>로 전환합니다. (환수 필요·인증 재검토 등)';
   const infoEl = $('settlementReasonInfo');
   if (infoEl) infoEl.innerHTML = `${esc(inf.name || '—')} · ${esc(camp.title || '—')} · ${settlementAmountYen(s.amount_jpy)}`;
   const memo = $('settlementReasonMemo');
@@ -347,7 +351,7 @@ function _openSettlementReasonModal(id, mode) {
   const btn = $('settlementReasonConfirmBtn');
   if (btn) {
     btn.disabled = false;
-    btn.textContent = isCancel ? '취소 처리' : '보류 처리';
+    btn.textContent = isCancel ? '취소 처리' : mode === 'revert' ? '보류 해제' : '보류 처리';
     btn.style.background = isCancel ? '#C33' : '';
     btn.style.borderColor = isCancel ? '#C33' : '';
   }
@@ -366,12 +370,16 @@ async function confirmSettlementReason() {
   const btn = $('settlementReasonConfirmBtn');
   if (btn) btn.disabled = true;
   try {
-    const fn = ctx.mode === 'cancel' ? markSettlementCancel : markSettlementHold;
+    const fn = ctx.mode === 'cancel' ? markSettlementCancel
+             : ctx.mode === 'revert' ? markSettlementRevert
+             : markSettlementHold;
     const newV = await fn(ctx.id, ctx.version, memo);
     if (newV === -1) {
       toast('다른 관리자가 이미 처리했습니다. 목록을 새로고침합니다.', 'warn');
     } else {
-      toast(ctx.mode === 'cancel' ? '정산을 취소했습니다.' : '정산을 보류로 전환했습니다.');
+      toast(ctx.mode === 'cancel' ? '정산을 취소했습니다.'
+          : ctx.mode === 'revert' ? '정산 대기로 되돌렸습니다.'
+          : '정산을 보류로 전환했습니다.');
     }
   } catch (e) {
     toast('처리 실패: ' + friendlyError(e.message || e), 'error');
