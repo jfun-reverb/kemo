@@ -28,6 +28,16 @@ const SETTLEMENT_STATUS_META = {
   cancelled: { ko: '취소',     cls: 'badge-gray'  },
 };
 
+// 상태별 탭 (기존 select 대체) — 캠페인 관리 페인 status-tab 패턴 미러(단일 선택).
+//   전체 탭은 code '' (취소 포함 전 상태), getFilteredSettlements 의 `if (status)` 로 필터 skip.
+const SETTLEMENT_STATUS_TABS = [
+  { code: '',          label: '전체' },
+  { code: 'pending',   label: '정산대기' },
+  { code: 'paid',      label: '송금완료' },
+  { code: 'on_hold',   label: '보류' },
+  { code: 'cancelled', label: '취소' },
+];
+
 function settlementStatusKo(status) {
   return (SETTLEMENT_STATUS_META[status] || {}).ko || status || '';
 }
@@ -65,12 +75,35 @@ async function reloadSettlementsData() {
 }
 
 function readSettlementFilters() {
-  const st = $('settlementFilterStatus');
-  _settlementFilters.status = st ? st.value : 'pending';
+  // status 는 이제 상태 탭(_settlementFilters.status)이 소스 — select 없음, 여기선 건드리지 않는다.
   const camp = $('settlementFilterCampaign');
   _settlementFilters.campaignId = camp ? (camp.value || '') : '';
   const q = $('settlementSearch');
   _settlementFilters.search = q ? (q.value || '').trim().toLowerCase() : '';
+}
+
+// 상태 탭 바 렌더 — 건수는 _settlements(필터 전 전체) 기준, 전체 탭 = 취소 포함 총건수.
+//   renderSettlementsList 가 매번 호출 → 처리 후 재조회 시 건수가 즉시 반영된다.
+function renderSettlementStatusTabs() {
+  const bar = $('settlementStatusTabBar');
+  if (!bar) return;
+  const counts = {};
+  _settlements.forEach(s => { counts[s.status] = (counts[s.status] || 0) + 1; });
+  const totalAll = _settlements.length;
+  const active = _settlementFilters.status || '';
+  bar.innerHTML = SETTLEMENT_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (counts[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setSettlementStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (탭 활성 표시는 renderSettlementsList 내부 재렌더로 갱신)
+function setSettlementStatusTab(btn) {
+  _settlementFilters.status = btn.dataset.status || '';
+  renderSettlementsList();
 }
 
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
@@ -110,6 +143,7 @@ function renderSettlementsList() {
   const tbody = $('settlementsTableBody');
   if (!tbody) return;
   syncSettlementCampaignOptions();
+  renderSettlementStatusTabs();           // 상태 탭 건수·활성 표시 갱신
   const rows = getFilteredSettlements();  // readSettlementFilters 내부 호출
 
   const cnt = $('settlementsTotalCount');

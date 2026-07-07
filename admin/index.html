@@ -12,7 +12,7 @@
 // 회귀(2026-05-12 PR #182 머지 직후 발생)를 방지하기 위한 자동 reload 가드.
 // sessionStorage 차단 환경(시크릿 모드 일부, 쿠키 차단)에서는 자연스럽게 skip.
 (function(){
-  var CURRENT_BUILD = 'v1783415971';
+  var CURRENT_BUILD = 'v1783419315';
   if (CURRENT_BUILD.indexOf('__') === 0) return; // 빌드 미적용 (dev/ 직접 열기) 시 skip
   try {
     var prev = sessionStorage.getItem('reverb.adminBuild');
@@ -2180,7 +2180,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
         <!-- 빌드 버전 표시 — build.sh가 BUILD_DATETIME_KST·GIT_SHA_SHORT를 빌드 시점에 치환 -->
         <div class="admin-build-info" title="배포된 빌드의 일시·커밋. 운영팀이 어느 시점 빌드인지 식별할 때 사용">
           <span class="material-icons-round notranslate" translate="no" style="font-size:12px;vertical-align:middle;margin-right:3px">history</span>
-          <span class="admin-build-text">2026-07-07 18:19 · 824366a</span>
+          <span class="admin-build-text">2026-07-07 19:15 · 7446646</span>
         </div>
       </div>
     </aside>
@@ -3237,16 +3237,6 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
             </div>
             <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
               <div class="admin-filter-group">
-                <label>상태</label>
-                <select id="settlementFilterStatus" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto" onchange="renderSettlementsList()">
-                  <option value="pending" selected>정산대기</option>
-                  <option value="">전체</option>
-                  <option value="paid">송금완료</option>
-                  <option value="on_hold">보류</option>
-                  <option value="cancelled">취소</option>
-                </select>
-              </div>
-              <div class="admin-filter-group">
                 <label>캠페인</label>
                 <select id="settlementFilterCampaign" class="form-input" style="padding:4px 28px 4px 10px;font-size:12px;border-radius:6px;width:auto;max-width:260px" onchange="renderSettlementsList()">
                   <option value="">전체 캠페인</option>
@@ -3260,6 +3250,7 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
                 </div>
               </div>
             </div>
+            <div id="settlementStatusTabBar" class="status-tab-bar" style="margin-top:14px;margin-bottom:0"></div>
           </div>
           <div class="admin-card">
             <div class="admin-card-header">
@@ -28942,6 +28933,16 @@ const SETTLEMENT_STATUS_META = {
   cancelled: { ko: '취소',     cls: 'badge-gray'  },
 };
 
+// 상태별 탭 (기존 select 대체) — 캠페인 관리 페인 status-tab 패턴 미러(단일 선택).
+//   전체 탭은 code '' (취소 포함 전 상태), getFilteredSettlements 의 `if (status)` 로 필터 skip.
+const SETTLEMENT_STATUS_TABS = [
+  { code: '',          label: '전체' },
+  { code: 'pending',   label: '정산대기' },
+  { code: 'paid',      label: '송금완료' },
+  { code: 'on_hold',   label: '보류' },
+  { code: 'cancelled', label: '취소' },
+];
+
 function settlementStatusKo(status) {
   return (SETTLEMENT_STATUS_META[status] || {}).ko || status || '';
 }
@@ -28979,12 +28980,35 @@ async function reloadSettlementsData() {
 }
 
 function readSettlementFilters() {
-  const st = $('settlementFilterStatus');
-  _settlementFilters.status = st ? st.value : 'pending';
+  // status 는 이제 상태 탭(_settlementFilters.status)이 소스 — select 없음, 여기선 건드리지 않는다.
   const camp = $('settlementFilterCampaign');
   _settlementFilters.campaignId = camp ? (camp.value || '') : '';
   const q = $('settlementSearch');
   _settlementFilters.search = q ? (q.value || '').trim().toLowerCase() : '';
+}
+
+// 상태 탭 바 렌더 — 건수는 _settlements(필터 전 전체) 기준, 전체 탭 = 취소 포함 총건수.
+//   renderSettlementsList 가 매번 호출 → 처리 후 재조회 시 건수가 즉시 반영된다.
+function renderSettlementStatusTabs() {
+  const bar = $('settlementStatusTabBar');
+  if (!bar) return;
+  const counts = {};
+  _settlements.forEach(s => { counts[s.status] = (counts[s.status] || 0) + 1; });
+  const totalAll = _settlements.length;
+  const active = _settlementFilters.status || '';
+  bar.innerHTML = SETTLEMENT_STATUS_TABS.map(tab => {
+    const n = tab.code === '' ? totalAll : (counts[tab.code] || 0);
+    const isOn = tab.code === active;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== '' ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code}" onclick="setSettlementStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (탭 활성 표시는 renderSettlementsList 내부 재렌더로 갱신)
+function setSettlementStatusTab(btn) {
+  _settlementFilters.status = btn.dataset.status || '';
+  renderSettlementsList();
 }
 
 // 현재 필터 조건으로 _settlements 를 거른 배열 반환 (목록·합계·엑셀 공용)
@@ -29024,6 +29048,7 @@ function renderSettlementsList() {
   const tbody = $('settlementsTableBody');
   if (!tbody) return;
   syncSettlementCampaignOptions();
+  renderSettlementStatusTabs();           // 상태 탭 건수·활성 표시 갱신
   const rows = getFilteredSettlements();  // readSettlementFilters 내부 호출
 
   const cnt = $('settlementsTotalCount');
