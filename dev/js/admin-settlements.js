@@ -237,7 +237,11 @@ function settlementActionCell(s) {
     btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementCancelModal('${id}')" style="color:#C33">취소</button>`);
   }
   // 이력 버튼은 모든 상태에 노출(맨 뒤) — 처리 버튼이 없는 취소 건도 이력만은 볼 수 있게.
-  btns.push(`<button class="btn btn-ghost btn-xs" onclick="openSettlementHistoryModal('${id}')">이력</button>`);
+  //   단 변경 이력(settlement_events)이 0건인 행은 비활성(더미·이벤트 없는 행 방어).
+  const hasHistory = (s.event_count || 0) > 0;
+  btns.push(hasHistory
+    ? `<button class="btn btn-ghost btn-xs" onclick="openSettlementHistoryModal('${id}')">이력</button>`
+    : `<button class="btn btn-ghost btn-xs" disabled title="변경 이력이 없습니다">이력</button>`);
   return `<div style="display:flex;gap:4px;flex-wrap:wrap">${btns.join('')}</div>`;
 }
 
