@@ -25,6 +25,9 @@
 --     PR2 포함" 에 revert 는 없음). settlement_events.action CHECK 에는 'revert' 값이
 --     이미 217에서 예약돼 있으나 이번 파일에서 실제로 그 값을 INSERT 하는 경로는
 --     만들지 않는다 — 향후 PR에서 필요해지면 별도 함수로 추가.
+--     [224 추가] 이후 실제로 구멍이 확인되어 mark_settlement_revert(224) 로 on_hold →
+--     pending 복귀 경로가 추가됨. 위 상태 전이표는 224 갱신 후 기준으로는 stale —
+--     최신 표는 224 파일 상단 참고.
 --
 -- 권한: 두 함수 모두 has_permission('settlement.pay','write') — 송금 처리와 동일
 --   권한 등급(campaign_admin=write, campaign_manager=hidden, 마이그레이션 220).

@@ -268,3 +268,9 @@ settlements status='on_hold' 또는 행 유지+표시 (송금 전이므로) — 
 
 ## 정산 관리 베타 1차 — 3조각 완결 (2026-07-07 dev)
 PR1(데이터 모델·백필·동적 권한, 마이그217~220) → PR2(관리자 화면·송금/보류/취소 RPC, 마이그221~223) → PR3(인플 조회 화면, 프론트) 모두 개발서버 배포·검증 완료. **운영 배포는 3조각 묶어 별도 진행.** 약관 영향 없음(§8 — 제13조가 이미 커버).
+
+### PR2 후속 (2026-07-07 dev) — 관리자 화면 개선 + 보류 해제
+개발서버 검증(더미 24건·관리자 액션 qa) 중 사용자 요청으로 추가:
+- **상태 탭**: 정산 페인 상태 select → 상태별 탭(전체/정산대기/송금완료/보류/취소, 각 건수, 캠페인 탭 패턴 미러).
+- **캠페인 검색형 다중필터**: 단일 select → `syncCampMultiFilter` 재사용(결과물 페인 패턴). campaignId→campaignIds.
+- **보류 해제(마이그레이션 224 `mark_settlement_revert`)**: 기존 전이에서 on_hold는 취소만 가능해 보류 건 재정산 경로가 없던 구멍을 메움. **on_hold→pending 복귀**(paid_* 보존·알림 없음·events action='revert'[217 예약값]). 화면 on_hold 버튼에 「보류 해제」 추가(사유 모달 공용 `_openSettlementReasonModal` mode='revert'). 갱신된 전이: on_hold→pending(revert)/cancelled.
