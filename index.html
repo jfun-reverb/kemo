@@ -1849,6 +1849,27 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
       </div>
     </div>
   </div>
+
+  <!-- 報酬・精算 (인플루언서 정산 조회 — renderMySettlements in mypage.js) -->
+  <div id="mypage-sub-settlements" class="mypage-view">
+    <div class="mypage-sub-header">
+      <span class="mypage-sub-title" data-i18n="mypage.settlements.title">報酬・精算</span>
+    </div>
+    <div class="container mypage-wrap" style="padding-left:16px;padding-right:16px">
+      <!-- PayPal 미등록 안내 (기본 숨김, renderMySettlements 가 미등록 시 표시) -->
+      <div id="mySettlementPaypalNotice" style="display:none;background:var(--light-pink);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="font-size:12px;color:var(--dark-pink);line-height:1.6;margin-bottom:10px">
+          <span class="material-icons-round notranslate" translate="no" style="font-size:15px;vertical-align:middle">account_balance_wallet</span>
+          <span data-i18n="mypage.settlements.paypalMissing">報酬のお振込みにはPayPalメールアドレスの登録が必要です。</span>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="openMypageSub('paypal')" data-i18n="mypage.settlements.paypalLink">PayPal登録</button>
+      </div>
+      <!-- 누적 수령액 큰 카드 (동적 렌더) -->
+      <div id="mySettlementTotal"></div>
+      <!-- 정산 내역 리스트 (동적 렌더) -->
+      <div id="mySettlementsList"></div>
+    </div>
+  </div>
 </div>
 <!-- ══════════════════════════════════
      MODAL: APPLY
@@ -3099,8 +3120,22 @@ window.I18N_JA = {
       paypal: 'PayPal',
       password: 'パスワード変更',
       emailSettings: 'メール受信設定',
+      settlements: '報酬・精算',
       logout: 'ログアウト',
       language: '言語 / 언어',
+    },
+    settlements: {
+      title: '報酬・精算',
+      totalLabel: '累計受取額',
+      pendingLabel: 'お支払い予定',
+      empty: 'まだ精算はありません。',
+      paypalMissing: '報酬のお振込みにはPayPalメールアドレスの登録が必要です。',
+      paypalLink: 'PayPal登録',
+      status: {
+        pending: '精算待ち',
+        paid: '送金済み',
+        onHold: '確認中',
+      },
     },
     emailSettings: {
       title: 'メール受信設定',
@@ -3807,8 +3842,22 @@ window.I18N_KO = {
       paypal: 'PayPal',
       password: '비밀번호 변경',
       emailSettings: '메일 수신 설정',
+      settlements: '보상·정산',
       logout: '로그아웃',
       language: '言語 / 언어',
+    },
+    settlements: {
+      title: '보상·정산',
+      totalLabel: '누적 수령액',
+      pendingLabel: '지급 예정',
+      empty: '아직 정산 내역이 없습니다.',
+      paypalMissing: '보상 송금에는 PayPal 이메일 등록이 필요합니다.',
+      paypalLink: 'PayPal 등록',
+      status: {
+        pending: '정산 대기',
+        paid: '송금 완료',
+        onHold: '확인 중',
+      },
     },
     emailSettings: {
       title: '메일 수신 설정',
@@ -11815,6 +11864,7 @@ function renderNavMenu() {
       {sub:'profile-sns', label: t('mypage.menu.sns'), unreg: !b.hasSns},
       {sub:'profile-address', label: t('mypage.menu.address'), unreg: !b.hasAddress},
       {sub:'paypal', label: t('mypage.menu.paypal'), unreg: !b.hasPaypal},
+      {sub:'settlements', label: t('mypage.menu.settlements')},
       {sub:'password', label: t('mypage.menu.password')},
       {sub:'email-settings', label: t('mypage.menu.emailSettings')}
     ];
@@ -12026,7 +12076,7 @@ function renderNotifModal(items) {
   const hasUnread = items.some(n => !n.read_at);
   if (markBtn) markBtn.disabled = !hasUnread;
   body.innerHTML = items.map(n => {
-    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}, application_approved:{icon:'celebration',color:'#E94F8A'}};
+    const iconMap = {deliverable_rejected:{icon:'error_outline',color:'#C33'}, deliverable_changed:{icon:'change_circle',color:'#B8741A'}, deliverable_approved:{icon:'check_circle',color:'#2D7A3E'}, message_received:{icon:'forum',color:'#C878A3'}, application_approved:{icon:'celebration',color:'#E94F8A'}, settlement_paypal_required:{icon:'account_balance_wallet',color:'#B8741A'}, settlement_paid:{icon:'payments',color:'#2D7A3E'}};
     const ic = iconMap[n.kind] || {icon:'notifications', color:'#6B7280'};
     const unread = !n.read_at ? 'unread' : '';
     const rt = _notifRecruitTypeMap[n.ref_id];
@@ -12060,6 +12110,17 @@ async function onNotifItemClick(id, kind, refTable, refId) {
   //   주의: application_cancelled 알림도 ref_table='applications' 이므로 kind 로 한정 (회귀 방지)
   if (kind === 'message_received' && refId && currentUser) {
     if (typeof openMessagesPage === 'function') openMessagesPage(refId, 'mypage');
+    refreshNotifBadge();
+    return;
+  }
+  // 정산 알림 → 마이페이지 해당 화면 이동 (ref_table='settlements' 이므로 kind 로 분기 — else 로 새지 않게 deliverables 판정보다 앞)
+  if (kind === 'settlement_paypal_required' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('paypal'); }
+    refreshNotifBadge();
+    return;
+  }
+  if (kind === 'settlement_paid' && currentUser) {
+    if (typeof navigate === 'function') { navigate('mypage', false); openMypageSub('settlements'); }
     refreshNotifBadge();
     return;
   }
@@ -12577,6 +12638,8 @@ function openMypageSub(sub, pushHistory) {
   // 즉시 채워 빈 박스/stale 선택 방지. 데이터 로드(loadMyApplications) 전이라도 항목은 보이고,
   // 로드 완료 후 renderMyApplyTabs 재호출로 건수까지 갱신된다.
   if (sub === 'applications' && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+  // 報酬・精算 진입 시 정산 내역 렌더 (본인 RLS 조회).
+  if (sub === 'settlements' && typeof renderMySettlements === 'function') renderMySettlements();
   // 사용자 클릭 등 새 진입은 push (기본), popstate·새로고침 init·내부 폴백 등은 false 전달 → entry 누적 방지.
   if (pushHistory !== false) {
     history.pushState({page:'mypage', sub}, '', '#mypage-' + sub);
@@ -12590,6 +12653,85 @@ function closeMypageSub() {
   const def = $('mypage-sub-applications');
   if (def) def.classList.add('active');
   history.replaceState({page:'mypage', sub:'applications'}, '', '#mypage-applications');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 報酬・精算 조회 (인플루언서 정산 관리 PR3 — 마이페이지 조회 화면)
+// fetchMySettlements() 는 RLS 로 본인행만 반환. 취소(cancelled) 건은 화면에서 숨김.
+// ════════════════════════════════════════════════════════════════════
+
+// 정산 상태 → 라벨 키·pill 색. 동적 렌더라 applyI18n 미적용 → langchange 시 renderMySettlements 재호출로 갱신.
+function settlementStatusMeta(status) {
+  const map = {
+    pending: {key:'mypage.settlements.status.pending', bg:'#EFEFF2', color:'#5B5B66'},
+    paid:    {key:'mypage.settlements.status.paid',    bg:'#E6F4EA', color:'#2D7A3E'},
+    on_hold: {key:'mypage.settlements.status.onHold',  bg:'#FBEFDD', color:'#B8741A'},
+  };
+  return map[status] || map.pending;
+}
+
+async function renderMySettlements() {
+  const totalEl = $('mySettlementTotal');
+  const listEl = $('mySettlementsList');
+  const noticeEl = $('mySettlementPaypalNotice');
+  if (!listEl) return;
+
+  // PayPal 미등록 안내 표시/숨김 (등록됐으면 숨김)
+  if (noticeEl) {
+    const hasPaypal = !!(currentUserProfile && currentUserProfile.paypal_email);
+    noticeEl.style.display = hasPaypal ? 'none' : '';
+  }
+
+  let rows = [];
+  try { rows = await fetchMySettlements(); } catch(e) { rows = []; }
+  // 취소 건 숨김
+  rows = (rows || []).filter(r => r && r.status !== 'cancelled');
+
+  const yen = n => '¥' + Number(n || 0).toLocaleString('ja-JP');
+  // 누적 수령액 = 송금 완료(paid)만 합산 / 지급 예정 = 대기(pending) 합산(보조 표기)
+  const paidTotal = rows.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount_jpy || 0), 0);
+  const pendingTotal = rows.filter(r => r.status === 'pending').reduce((s, r) => s + Number(r.amount_jpy || 0), 0);
+
+  if (totalEl) {
+    totalEl.innerHTML = `
+      <div style="background:linear-gradient(135deg,var(--pink),var(--dark-pink));border-radius:14px;padding:18px 20px;color:#fff;margin-bottom:16px">
+        <div style="font-size:12px;opacity:.9;margin-bottom:6px">${esc(t('mypage.settlements.totalLabel'))}</div>
+        <div style="font-size:28px;font-weight:800;letter-spacing:.5px">${esc(yen(paidTotal))}</div>
+        ${pendingTotal > 0 ? `<div style="font-size:11px;opacity:.9;margin-top:8px">${esc(t('mypage.settlements.pendingLabel'))} ${esc(yen(pendingTotal))}</div>` : ''}
+      </div>`;
+  }
+
+  // 내역 0건 (취소 제외 후)
+  if (!rows.length) {
+    listEl.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:13px;padding:40px 16px">${esc(t('mypage.settlements.empty'))}</div>`;
+    return;
+  }
+
+  listEl.innerHTML = rows.map(r => {
+    const camp = r.campaigns || {};
+    const title = camp.title || '';
+    const orig = camp.img1 || '';
+    const thumb = orig ? (typeof imgThumb === 'function' ? imgThumb(orig, 120, 60) : orig) : '';
+    const meta = settlementStatusMeta(r.status);
+    const statusLabel = t(meta.key);
+    const paidLine = (r.status === 'paid' && r.paid_at)
+      ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(formatDate(r.paid_at))}</div>`
+      : '';
+    const imgHtml = thumb
+      ? `<img src="${esc(thumb)}" data-orig="${esc(orig)}" onerror="if(this.dataset.orig&&this.src!==this.dataset.orig){this.src=this.dataset.orig}" style="width:52px;height:52px;border-radius:10px;object-fit:cover;flex-shrink:0" loading="lazy" decoding="async" alt="">`
+      : `<div style="width:52px;height:52px;border-radius:10px;background:var(--light-pink);flex-shrink:0"></div>`;
+    return `<div style="display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)">
+      ${imgHtml}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(title)}</div>
+        ${paidLine}
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px">${esc(yen(r.amount_jpy))}</div>
+        <span style="display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:${meta.bg};color:${meta.color}">${esc(statusLabel)}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // 언어 토글 버튼 상태 업데이트
@@ -12614,6 +12756,12 @@ window.addEventListener('langchange', updateLangToggleUI);
 // 언어 전환 시 응모이력 상태 드롭다운 라벨(進行中 등) 갱신 — 동적 렌더라 applyI18n 미적용 대상
 window.addEventListener('langchange', () => {
   if ($('myApplyStatusSelect') && typeof renderMyApplyTabs === 'function') renderMyApplyTabs();
+});
+
+// 언어 전환 시 정산 화면이 열려 있으면 동적 pill·금액 라벨 갱신 (applyI18n 미적용 대상)
+window.addEventListener('langchange', () => {
+  const view = $('mypage-sub-settlements');
+  if (view && view.classList.contains('active') && typeof renderMySettlements === 'function') renderMySettlements();
 });
 
 // 생년월일·성별 읽기 전용 표시 갱신 (loadMyPage + 언어 전환 공용 — 동적 텍스트라 applyI18n 미적용)
