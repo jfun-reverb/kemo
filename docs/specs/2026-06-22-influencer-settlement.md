@@ -274,3 +274,15 @@ PR1(데이터 모델·백필·동적 권한, 마이그217~220) → PR2(관리자
 - **상태 탭**: 정산 페인 상태 select → 상태별 탭(전체/정산대기/송금완료/보류/취소, 각 건수, 캠페인 탭 패턴 미러).
 - **캠페인 검색형 다중필터**: 단일 select → `syncCampMultiFilter` 재사용(결과물 페인 패턴). campaignId→campaignIds.
 - **보류 해제(마이그레이션 224 `mark_settlement_revert`)**: 기존 전이에서 on_hold는 취소만 가능해 보류 건 재정산 경로가 없던 구멍을 메움. **on_hold→pending 복귀**(paid_* 보존·알림 없음·events action='revert'[217 예약값]). 화면 on_hold 버튼에 「보류 해제」 추가(사유 모달 공용 `_openSettlementReasonModal` mode='revert'). 갱신된 전이: on_hold→pending(revert)/cancelled.
+
+### PR2 후속 2 (2026-07-07 dev) — 정산 이력 모달 + 화면 미세 조정
+개발서버 검증 중 사용자 요청으로 추가:
+- **정산 이력 모달(마이그레이션 225 `get_settlement_events`)**: 행별 「이력」 버튼 → `settlement_events` 타임라인 모달(생성/송금완료/보류/취소/보류해제 + 상태 전이 + 처리자 + 사유 메모). `SECURITY DEFINER + search_path='' + has_permission('settlement.view','read')` 가드. `storage.js` `fetchSettlementEvents`. 처리 시 입력한 사유(memo)를 이 모달에서 확인.
+- **처리 컬럼 폭 조정**: 정산 목록 「처리」 컬럼 200→300px(버튼 3~4개가 줄바꿈 없이 들어가도록).
+- **이력 버튼 조건부 비활성화**: 이벤트 0건인 정산행의 「이력」 버튼은 disable(빈 모달 방지).
+
+### 배포 전 정리 (2026-07-08 dev) — 문서·주석·배지 갱신 보완
+운영 배포 직전 reviewer/supabase-expert 검토에서 나온 경미 보완 3건:
+- **정산 대기 배지 갱신 주기 정합**: `loadAdminData`(admin-dashboard.js)에 `refreshSettlementSidebarBadge()` 호출 추가 — 결과물 배지와 동일하게 대시보드 방문 시마다 갱신(백필로 새 정산 건이 생겨도 다른 페인 머무는 동안 stale 하지 않게).
+- **stale 주석 정정**: `storage.js` `markSettlementPaid` 주석이 "PR2에서 구현 예정" 상태로 남아 있던 것을 실제(마이그222 구현·사용 중)에 맞게 갱신.
+- **문서 기록 갱신**: 위 「PR2 후속 2」 3개 커밋을 본 사양서 「구현 결과」에 반영.

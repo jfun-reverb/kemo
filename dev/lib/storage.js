@@ -3693,9 +3693,9 @@ async function backfillSettlements() {
   return result;
 }
 
-// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid 는 PR2에서 구현 예정.
-// PR1은 storage.js 시그니처만 미리 정의(PR2가 화면을 붙일 때 storage.js 재수정 없이 바로 사용
-// 가능하도록). PR1 상태로 호출하면 RPC 미존재로 에러(정상 — 아직 화면에서 안 씀).
+// 송금 완료 처리(낙관적 락) — RPC mark_settlement_paid(마이그레이션 222). pending → paid 전이,
+// paypal_email 재조회·미등록 시 차단, settlement_paid 알림 발행, settlement_events 이력 기록.
+// 버전 충돌 시 -1 반환("이미 처리됨" 토스트). 정산 관리 페인(admin-settlements.js)에서 호출.
 async function markSettlementPaid(id, version, memo) {
   if (!db) throw new Error('DB 미연결');
   let newVersion = -1;
