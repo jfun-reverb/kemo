@@ -97,12 +97,28 @@ function renderMarkdown(md) {
   return html.join('\n');
 }
 
+// 앱 안에서 약관을 열었는지(=히스토리에 직전 화면이 있는지) 표시.
+//   해시(#legal) 직접 진입·새로고침은 돌아갈 직전 화면이 없어 홈으로 보낸다.
+let _legalOpenedInApp = false;
+
 async function openLegalPage(kind, lang) {
   _currentLegal.kind = kind;
   // 인자 > 현재 i18n 언어 > 기존 상태 > ja 기본
   _currentLegal.lang = lang || (typeof getLang === 'function' ? getLang() : null) || _currentLegal.lang || 'ja';
-  navigate('legal');
+  _legalOpenedInApp = true;
+  navigate('legal');   // pushState — 뒤로가기로 직전 화면 복원 가능
   await renderLegalPage();
+}
+
+// 약관 헤더의 뒤로가기. 들어온 화면으로 정확히 돌아간다(회원가입 도중이면 입력값도 유지).
+//   navigate('home') 고정이던 것을 히스토리 복귀로 교체.
+function navigateBackFromLegal() {
+  if (_legalOpenedInApp) {
+    _legalOpenedInApp = false;
+    history.back();
+    return;
+  }
+  navigate('home');
 }
 
 function setLegalLang(lang) {
