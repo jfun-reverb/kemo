@@ -511,3 +511,16 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
 .footer-links { gap: 14px; }
 /* 밑줄은 유지 — 없애면 링크로 인지되지 않는다(누르는 항목) */
 .footer-links a { color: var(--muted); }
+
+/* ══════════════════════════════════════════════════════════════════
+   약관·개인정보처리방침 — GNB(로고 줄)를 숨기고 자체 헤더를 상태바 바로 아래로
+   GNB 숨김은 app.js navigate 가 iOS 에서만 수행. 여기선 위로 붙이는 여백 처리만.
+   ══════════════════════════════════════════════════════════════════ */
+#page-legal.page.active { padding-top: 0 !important; }
+/* 헤더 배경이 상태바(노치) 영역까지 덮도록 — sticky 라 스크롤해도 상단 고정 유지 */
+#page-legal .legal-page-head {
+  padding-top: env(safe-area-inset-top);
+  background: rgba(255,255,255,.94);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: .5px solid rgba(0,0,0,.08);
+}

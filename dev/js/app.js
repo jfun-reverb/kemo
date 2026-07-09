@@ -108,6 +108,13 @@ function navigate(page, pushHistory) {
   if (typeof setGnbBack === 'function') setGnbBack(pageName === 'detail' || pageName === 'activity');
   // 큰 제목 관찰자는 화면을 떠날 때 항상 해제 (활동관리 진입이 다시 켠다)
   if (typeof teardownLargeTitle === 'function') teardownLargeTitle();
+  // iOS: 약관·개인정보처리방침은 자체 헤더(뒤로가기·제목·언어)를 가져 GNB 로고 줄이 중복된다 → 상단바 숨김.
+  //   웹은 '' 로 되돌려 CSS 를 따른다(항상 표시).
+  const _gnb = document.querySelector('.gnb');
+  if (_gnb) {
+    const _isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    _gnb.style.display = (_isNative && pageName === 'legal') ? 'none' : '';
+  }
   // 가입 페이지 진입 시 생년월일 select 채우기 (멱등)
   if (pageName === 'signup' && typeof populateBirthdateSelects === 'function') populateBirthdateSelects();
   // 인증 페이지에선 햄버거·탭바 숨김
