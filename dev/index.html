@@ -1059,7 +1059,7 @@ window._supabaseLoaded = false;
       <select id="myApplyStatusSelect" class="form-input" style="padding:6px 30px 6px 12px;font-size:13px;font-weight:600;border-radius:8px;width:auto;max-width:55%" onchange="_myAppsTab=this.value;renderMyApplyList()"><option value="active2" data-i18n="appHistory.inProgress" selected>進行中</option></select>
     </div>
     <div class="container mypage-wrap" style="padding-left:0;padding-right:0">
-      <div style="display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap">
+      <div id="myApplicationsFilters" style="display:flex;gap:8px;padding:12px 16px 8px;align-items:center;flex-wrap:wrap">
         <select id="myApplyCampStatus" class="form-input" style="padding:6px 32px 6px 10px;font-size:12px;border-radius:8px;width:auto;flex:1;min-width:110px" onchange="renderMyApplyList()">
           <option value="" data-i18n="appHistory.campStatus">キャンペーン状態</option>
           <option value="active" data-i18n="status.campaign.active">募集中</option>

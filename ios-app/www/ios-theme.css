@@ -296,8 +296,7 @@ input, textarea, [contenteditable="true"], .selectable,
    14. 마이페이지 — iOS 리스트·카드
    ─────────────────────────────────────────── */
 .mypage-sub-header { background: rgba(255,255,255,.94); border-bottom: .5px solid rgba(0,0,0,.06); }
-.apply-item { background: #fff; border-bottom: .5px solid rgba(0,0,0,.07); }
-.apply-item-name { font-size: 14px; }
+/* .apply-item / .apply-item-name 은 아래 「응모이력」 블록에서 정의(중복 제거) */
 .email-setting-card, .email-tx-box {
   border: none !important;
   box-shadow: var(--ios-card-shadow);
@@ -435,3 +434,65 @@ body:has(#page-detail.page.active #campSlider) .gnb-title {
   border-color: rgba(0,0,0,.15) !important;
   color: var(--muted) !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   응모이력 — 필터 드롭다운 iOS 톤 + 목록을 둥근 카드 묶음으로
+   dev 마크업 무변경(기존 class·id 훅만 사용). 웹은 이 파일을 안 읽는다.
+   ══════════════════════════════════════════════════════════════════ */
+/* 드롭다운: 기본 화살표 제거 후 iOS chevron 을 배경으로. 긴 라벨은 말줄임(잘림 방지) */
+#myApplyStatusSelect,
+#myApplyCampStatus,
+#myApplyChannel,
+#myApplySort {
+  -webkit-appearance: none; appearance: none;
+  background-color: var(--ios-fill) !important;
+  /* .form-input 의 `background:` 한 줄(!important)이 image·position 까지 함께 리셋하므로
+     여기서도 !important 를 붙여야 화살표가 그려진다 */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%233C3C43' stroke-opacity='0.6' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  border: none !important;
+  border-radius: 999px !important;
+  color: var(--ink);
+  font-weight: 600;
+  padding: 7px 30px 7px 14px !important;
+}
+/* 3등분(flex:1)이면 「キャンペーン状態」 같은 긴 라벨이 잘린다 → 내용 폭으로 두고 넘치면 가로 스크롤 */
+#myApplyCampStatus, #myApplyChannel, #myApplySort {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+#myApplicationsFilters {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#myApplicationsFilters::-webkit-scrollbar { width: 0; height: 0; }
+/* 목록: 항목들을 흰 카드 하나로 묶고 사이는 hairline */
+#myApplicationsList {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  border: .5px solid rgba(0,0,0,.08);
+  margin: 4px 16px 0;
+}
+/* 응모 0건이면 안내 문구만 들어간다 → 빈 카드 껍데기가 남지 않게 테두리·배경 제거.
+   :has 미지원(iOS 16.3 이하)이면 예전처럼 테두리가 남을 뿐, 안내 문구는 정상 표시된다. */
+#myApplicationsList:has(.empty-state) {
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+.apply-item {
+  border-bottom: .5px solid rgba(0,0,0,.08) !important;
+  padding: 14px 14px !important;
+}
+.apply-item:last-child { border-bottom: none !important; }
+.apply-item:active { background: var(--ios-fill); }
+/* 썸네일 조금 크게 + iOS 모서리 */
+.apply-thumb {
+  width: 52px !important; height: 52px !important;
+  border-radius: 10px !important;
+}
+.apply-item-name { font-size: 14px !important; }
