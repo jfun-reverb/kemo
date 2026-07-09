@@ -12411,7 +12411,8 @@ async function onNotifItemClick(id, kind, refTable, refId) {
 function updateFloatingAuthCta(pageName) {
   const cta = $('floatingAuthCta');
   if (!cta) return;
-  const hiddenPages = ['login','signup','forgot','reset-pw'];
+  // 약관·개인정보처리방침(legal)도 숨김 — 화면 하단에 떠서 본문 마지막 줄을 가린다
+  const hiddenPages = ['login','signup','forgot','reset-pw','legal'];
   const curPage = pageName || (location.hash.replace('#','').split('-')[0] || 'home');
   if (currentUser || hiddenPages.includes(curPage)) {
     cta.style.display = 'none';

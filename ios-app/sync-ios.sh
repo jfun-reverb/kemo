@@ -19,6 +19,20 @@ fi
 
 cp "$ROOT_INDEX" "$WWW_INDEX"
 
+# 약관·개인정보처리방침 본문 복사.
+#   legal.js 는 이 4개 md 를 런타임 fetch 한다. 웹은 서버에 파일이 있지만 앱은 번들 안에서 찾으므로
+#   함께 넣지 않으면 「読み込みに失敗しました」로 본문이 안 뜬다.
+#   ⚠️ 약관을 고치면 앱은 재빌드해야 반영된다(웹처럼 문서만 고쳐선 안 됨).
+mkdir -p www/docs
+for f in TERMS_ja TERMS_kr PRIVACY_ja PRIVACY_kr; do
+  if [ ! -f "../docs/$f.md" ]; then
+    echo "❌ ../docs/$f.md 가 없습니다. 약관 문서 경로를 확인하세요."
+    exit 1
+  fi
+  cp "../docs/$f.md" "www/docs/$f.md"
+done
+echo "  ✅ 약관·개인정보처리방침 4개 복사 → www/docs/"
+
 python3 - "$WWW_INDEX" <<'PY'
 import sys, re
 p = sys.argv[1]
