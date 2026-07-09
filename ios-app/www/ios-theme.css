@@ -166,7 +166,16 @@ input, textarea, [contenteditable="true"], .selectable,
   border-radius: 3px;
   flex-shrink: 0;
 }
-.modal { border-radius: 20px 20px 0 0; }
+.modal {
+  border-radius: 20px 20px 0 0;
+  /* 시트가 화면 맨 아래에 붙으므로 홈 인디케이터만큼 안쪽 여백을 준다 */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+/* 「ログインが必要です」 시트는 .modal 이 아니라 인라인 스타일 오버레이라 따로 보정.
+   기존 하단 여백 36px 에 홈 인디케이터 높이를 더한다. (가운데 뜨는 다른 알럿은 불필요) */
+#loginPromptOverlay > div {
+  padding-bottom: calc(36px + env(safe-area-inset-bottom)) !important;
+}
 
 /* ───────────────────────────────────────────
    8. 스크롤바 숨김 (iOS 네이티브)

@@ -2018,29 +2018,29 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{margin-left:aut
 
   <!-- 비로그인 고정 CTA (하단 중앙) -->
   <button id="floatingAuthCta" class="floating-auth-cta" onclick="navigate('login')" style="display:none" data-i18n="nav.signupOrLogin">会員登録・ログイン</button>
+  <!-- iOS 바텀 탭바 — appShell 안에 둔다. appShell 은 transform 이 걸려 스택 컨텍스트를 만들므로,
+       밖에 두면 그 안의 모달(z-index 500)이 탭바(200) 아래로 깔려 버튼이 가려진다. -->
+  <nav class="ios-tabbar" id="iosTabbar">
+    <button class="ios-tab" data-tab="home" onclick="tabNav('home')">
+      <span class="material-icons-round notranslate" translate="no">home</span>
+      <span class="ios-tab-label" data-i18n="tab.home">ホーム</span>
+    </button>
+    <button class="ios-tab" data-tab="campaigns" onclick="tabNav('campaigns')">
+      <span class="material-icons-round notranslate" translate="no">campaign</span>
+      <span class="ios-tab-label" data-i18n="tab.campaigns">キャンペーン</span>
+    </button>
+    <button class="ios-tab" data-tab="activity" onclick="tabNav('activity')">
+      <span class="material-icons-round notranslate" translate="no">history</span>
+      <span class="ios-tab-label" data-i18n="mypage.menu.applications">応募履歴</span>
+    </button>
+    <button class="ios-tab" data-tab="mypage" onclick="tabNav('mypage')">
+      <span class="material-icons-round notranslate" translate="no">person</span>
+      <span class="ios-tab-label" data-i18n="tab.mypage">マイページ</span>
+    </button>
+  </nav>
 </div><!-- /appShell -->
 
 <!-- iOS 바텀 탭바 (iOS 앱 전용 — 웹은 components.css 에서 display:none) -->
-<nav class="ios-tabbar" id="iosTabbar">
-  <button class="ios-tab" data-tab="home" onclick="tabNav('home')">
-    <span class="material-icons-round notranslate" translate="no">home</span>
-    <span class="ios-tab-label" data-i18n="tab.home">ホーム</span>
-  </button>
-  <button class="ios-tab" data-tab="campaigns" onclick="tabNav('campaigns')">
-    <span class="material-icons-round notranslate" translate="no">campaign</span>
-    <span class="ios-tab-label" data-i18n="tab.campaigns">キャンペーン</span>
-  </button>
-  <button class="ios-tab" data-tab="activity" onclick="tabNav('activity')">
-    <span class="material-icons-round notranslate" translate="no">history</span>
-    <span class="ios-tab-label" data-i18n="mypage.menu.applications">応募履歴</span>
-  </button>
-  <button class="ios-tab" data-tab="mypage" onclick="tabNav('mypage')">
-    <span class="material-icons-round notranslate" translate="no">person</span>
-    <span class="ios-tab-label" data-i18n="tab.mypage">マイページ</span>
-  </button>
-</nav>
-
-
 
 <script>
 // ══════════════════════════════════════
