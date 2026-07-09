@@ -8488,6 +8488,43 @@ async function fetchSettlementEvents(settlementId) {
   } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
 }
 
+// ─── 정산 과거분 컷오프 — 과거 미등록 인증성공 조회/처리 (사양서 2026-07-09) ──────────
+// 도입일(cutoff) 이전에 인증 성공했지만 정산행이 없는 응모 목록. 자동 백필은 컷오프 이후만
+// 대상이라, 컷오프 이전 과거분은 이 목록에서 관리자가 건별/일괄로 직접 처리한다.
+// RLS/서버 게이트 has_permission('settlement.view','read') → campaign_manager 는 빈 배열.
+// 각 행: {application_id, influencer_id, influencer_name, influencer_name_kana, has_paypal(bool),
+//   campaign_id, campaign_title, recruit_type, amount_jpy, cert_at(nullable)}
+async function fetchPastUnregisteredSettlements() {
+  if (!db) return [];
+  try {
+    const {data, error} = await db.rpc('get_past_unregistered_settlements');
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.error('[fetchPastUnregisteredSettlements]', e); return []; }
+}
+
+// 과거 미등록 인증성공 건을 정산행으로 일괄 등록(멱등 — application_id UNIQUE). 무알림.
+//   p_target_status: 'paid'(이미 외부 PayPal 지급 완료) | 'pending'(아직 미지급, 정산 대기)
+//   서버가 has_permission('settlement.pay','write') 게이트 + settlement_events 이력 기록.
+// 반환: registered_count(정수 — 실제 등록된 건수. 이미 정산행 있는 건은 skip 되어 제외).
+async function registerPastSettlements(applicationIds, targetStatus, memo) {
+  if (!db) throw new Error('DB 미연결');
+  let registered = 0;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.rpc('register_past_settlements', {
+      p_application_ids: applicationIds,
+      p_target_status: targetStatus,
+      p_memo: memo || null
+    });
+    if (error) throw error;
+    // 스칼라(정수) 또는 {registered_count} 단일 행 양쪽 대응
+    registered = Array.isArray(data)
+      ? (data[0]?.registered_count ?? data[0] ?? 0)
+      : (data?.registered_count ?? data ?? 0);
+  });
+  return Number(registered) || 0;
+}
+
 
 // ══════════════════════════════════════
 // LEGAL — 약관/개인정보 페이지 마크다운 렌더링

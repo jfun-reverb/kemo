@@ -99,4 +99,25 @@
 
 ---
 
-## 구현 결과 (개발 세션이 채울 것)
+## 구현 결과
+
+**구현일:** 2026-07-09 (dev, `feature/settlement-cutoff`)
+
+### PR 1 — 백필 컷오프 (마이그레이션 230·231)
+- **230** `settlement_settings` 싱글톤(id=1, `cutoff_at timestamptz NULL`) + touch 트리거. RLS SELECT `has_permission('settlement.view','read')` / **UPDATE `is_super_admin()`**(도입일은 과거분 전체 좌우 스위치 — 사용자 확정으로 supabase-expert 초안 `settlement.pay`에서 최고 관리자 전용으로 강화, 연령정책 선례 일관).
+- **231** `backfill_settlements()` CREATE OR REPLACE + 컷오프 조건. 인증성공일 `cert_at` = 판정에 쓰인 마지막 결과물 `reviewed_at`(가구매=영수증 / 리뷰어=영수증·채널 GREATEST, 단 any_null이면 NULL 강제 / 시딩·방문=post). `cert_at >= cutoff_at`만 자동 생성. `cutoff_at` NULL이면 0건, `cert_at` NULL(레거시)이면 제외.
+- 개발 DB 적용 완료(`cutoff_at` NULL = 백필 0건 안전상태 확인).
+
+### PR 2 — 과거 미등록 조회·처리 + 화면 (마이그레이션 232·233 + 프론트)
+- **232** private 헬퍼 `_settlement_cert_candidates()`로 231 판정 로직 추출(3곳 공유 — 드리프트 차단), `backfill_settlements()` 헬퍼 위임 재정의, 조회 RPC `get_past_unregistered_settlements()`(PayPal은 `has_paypal` 불리언만). **reviewer 지적 반영**: 조회에 명시적 컷오프 필터(`cert_at < cutoff OR cert_at NULL OR cutoff NULL`) 추가 — 호출 순서 비의존(컷오프 이후 신규건이 과거 목록에 섞여 무알림 처리되는 알림 스킵 사고 차단).
+- **233** `register_past_settlements(uuid[], 'paid'|'pending', memo)` — 서버 재검증(헬퍼)·멱등(ON CONFLICT)·컷오프 필터·paid면 paid_at/paid_by 세팅·`settlement_events(create)` 이력. **알림 INSERT 없음**(사용자 강조 — settlement_paid·settlement_paypal_required 둘 다 미발송).
+- **화면**(`dev/js/admin-settlements.js` + `dev/admin/index.html` + `storage.js`): 정산 페인 「과거 미등록」 별도 뷰 토글(모달 아님 — 대량 대비 lazy-load 목록). 다중선택(Set)·전체선택·일괄 「선택 송금완료 기록」(확인 모달·되돌릴 수 없음)/「선택 정산대기 추가」. 상단 앰버 안내박스(처리분만 인플 노출·**알림 안 감**). 빈 상태 안내. 처리 후 `refreshPane('settlements')`. `paid` 라벨은 메인 목록과 통일해 **「송금완료」**(reviewer 지적 반영).
+- 개발 DB 적용 완료(232·233).
+
+### 초안 대비 변경 사항
+- **추가**: 판정 로직 공통 헬퍼(`_settlement_cert_candidates`) — 사양서엔 "231 재사용"만 있었으나 물리적 함수 공유로 구현. 조회·처리 양쪽에 명시적 컷오프 필터(reviewer 지적).
+- **달라진 것**: 도입일 UPDATE 권한을 `is_super_admin()`으로(초안 "is_super_admin 또는 settlement.pay" 중 전자). 과거 「지급완료」 → 「송금완료」로 라벨 통일.
+- **미결(배포 시)**: `cutoff_at` 실제 값은 정산 운영 배포 시점에 SQL로 세팅(배포일 or 특정일).
+
+### 배포 관계
+- 마이그레이션 번호 230~233(인플루언서 추천 도구 226~229 회피). **정산 운영 배포와 함께 필수** — 정산(217~225) + 컷오프(230~233)를 함께 운영 적용하고, 그때 `settlement_settings.cutoff_at`를 세팅해야 과거 폭주가 안 난다.
