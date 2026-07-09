@@ -90,9 +90,43 @@
 3. 권한 카탈로그를 코드 상수 vs lookup_values 중 어디에 둘지(권고: 코드 상수).
 
 ## 구현 결과
-(개발 세션이 채울 것)
-**구현일:** / **관련 커밋:**
+
+**구현일:** 2026-07-02 (dev 배포, 운영 미배포) / **관련 PR:** PR1 #672, PR2 조각A #673·조각B #674·조각C(이 커밋)
+
+### PR1 (인프라, 마이그레이션 207~210)
+- `role_permissions`(등급×기능 접근수준, PK(role,feature_key), role CHECK 2종=super 행 없음=잠금 방지, 시드 72행=현행 무변동) + `role_permission_history`(RLS SELECT super) + `has_permission(feature,min)`(super 통과·미등록 false) + `is_campaign_admin` search_path '' 정정(갭3, 별도 파일 210).
+- 권한 카탈로그 코드 상수 `ADMIN_PERMISSION_CATALOG`(shared.js) — 최초 36개(menu.* 19 + 기능 17), 조각 B에서 `menu.permissions` 추가로 20+17=37.
+- 개발 DB 적용·검증: 시드 72/36/super0, super 잠금방지 has_permission 전부 true.
+
+### PR2 (설정 화면, 마이그레이션 211)
+- **조각 A**: `update_role_permissions(jsonb)` 일괄 저장 RPC(원자·이력·denylist·낙관적 락) + menu.permissions 시드 2행.
+- **조각 B**: 클라 헬퍼 `permLevel/canWrite/canRead/isHidden`(super=write·미로드 fail-open) + `fetchRolePermissions`(storage.js) + 부팅 로드(admin/app.js) + `applyLookupMenuVisibility` 를 카탈로그 menu.* 순회로 확장(id→data-pane 셀렉터).
+- **조각 C**: `dev/js/admin-permissions.js` 설정 화면(#permissions, super 전용) — 등급×기능 그리드·category 접기·super 열 고정·denylist 행 잠금·server_enforced 「화면 제어만」 표식·경고 배너·일괄 저장(확인 모달)·충돌 안내. `switchAdminPane` 진입 가드(super 전용·hidden 페인 대시보드 리다이렉트, dashboard 무한재귀 방지 제외). `saveRolePermissions`(storage.js) + PANE_REFRESHERS 등록 + build.sh 등록 + admin.css 스타일.
+
 ### 초안 대비 변경 사항
--
+- **추가**: `menu.permissions` 카탈로그·시드(설정 화면 자체 메뉴) + 클라 denylist(permissions.manage·admin.manage·menu.permissions — UI 잠금). 진입 가드는 super 직접 판정(위임 불가).
+- **빠진 것**: 「기본값 복원」 버튼 — 조각 C 에서 제외(카탈로그에 등급별 기본값 72개 하드코딩은 시드 동기화 위험). 결정 2(코드 상수)는 복원 구현 시점으로 이월. 후속 조각.
+- **달라진 것**: 저장을 셀 즉시 저장 아닌 **일괄 배치**(결정 1). 낙관적 락은 version 컬럼 없이 prev_level 비교(결정 4).
+
 ### 구현 중 기술 결정 사항
--
+- 시드 = 매트릭스 §B "현재 상태" 열 그대로 → 도입 즉시 동작 변화 0(회귀 기준: campaign_manager 는 여전히 기준데이터·FAQ 만 숨김).
+- 클라 메뉴 숨김 fail-open / 서버 has_permission fail-closed 대비(표시는 관대·차단은 엄격).
+- 잠금 방지 = super_admin 행 미존재(CHECK) + has_permission 코드 통과 → 어떤 설정으로도 super 권한 못 끔.
+- 배치 저장 시 (role,feature_key) 정렬로 잠금 순서 고정(데드락 예방).
+- ✅ **PR1·PR2 운영 배포 완료(2026-07-06, PR #686)** — dev→main 전체 머지, 마이그레이션 207~211 운영 적용. campaign_manager 테스트 계정으로 사이드바 숨김·#permissions 리다이렉트·super 그리드·denylist QA 통과. 시드=현행이라 동작 변화 0.
+
+## PR3 (민감정보 서버 실차단, 마이그레이션 212·213)
+
+**구현일:** 2026-07-06 (dev) / **결정:** 가림막 뷰 방식 / 엑셀 6종 가림 / 배포 즉시 하위등급 차단
+
+### PR3-A (마이그레이션 212) — 가림막 뷰
+- `influencers_admin_view`(security_invoker=true): 민감 6종(phone·line_id·paypal_email·zip·building·address)을 `has_permission('influencer.sensitive_pii','read')` false면 NULL 마스킹(스칼라 서브쿼리 InitPlan 최적화, 마이그137 패턴) + 존재 불리언 3종(has_phone·has_line·has_paypal). 레거시 `pw`·`bank_*` 6컬럼은 뷰에서 제외(코드 미참조·민감). 총 47컬럼. 개발 DB 검증(마스킹 동작·컬럼 수) 완료.
+
+### PR3-B (코드) — 조회 경로·화면 전환
+- `fetchInfluencers`·`fetchInfluencersByIds` 뷰 경유(쓰기 함수는 base `influencers` 유지). shared.js 헬퍼 2종(`maskedFieldByFlag` 존재불리언 기준·`maskedFieldByPermission` 클라 근사·보안경계 아님). admin-influencers/applications/deliverables/dashboard 배지·필터·모달을 has_* 기준·「열람 권한 없음」 라벨로 전환. 대시보드 배송지 완성률은 prefecture 근사 지표로 대체. 신청자·결과물 엑셀도 뷰 경유로 자동 마스킹(부수 개선).
+
+### PR3-C (마이그레이션 213) — 실차단 발동
+- campaign_manager `influencer.sensitive_pii` read→hidden UPDATE(멱등, CTE로 실변경 시만 `role_permission_history` 기록·actor NULL). 이 시점부터 campaign_manager는 뷰에서 민감정보 NULL 수신. campaign_admin·super 불변.
+
+### reviewer Warning 처리
+- W3 이력 기록 반영(213 CTE INSERT), W4 대시보드 주석 「근사 지표」 완화, W5 문서 동기화(이 섹션·CLAUDE.md). W1(엑셀 2곳 빈칸 마스킹)=부수 보안 개선 수용(엑셀은 빈칸 유지). W2(엑셀 「민감정보 포함」 게이트 동적 권한화)=PR3-D 백로그. 기본값 복원 버튼도 후속.

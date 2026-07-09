@@ -1,0 +1,194 @@
+// ════════════════════════════════════════════════════════════════════
+// admin-permissions.js — 동적 권한 관리 설정 화면 (super_admin 전용). PR2 조각 C.
+//   등급(super_admin/campaign_admin/campaign_manager) × 기능(ADMIN_PERMISSION_CATALOG 36)
+//   그리드에서 super_admin 이 접근수준(쓰기/읽기/숨김)을 설정.
+//   저장 = update_role_permissions RPC(일괄·원자·이력·권한상승/충돌 가드, storage.js saveRolePermissions).
+//   ⚠️ 이 설정은 "화면 표시 제어"다. 실제 데이터 접근 차단이 아니다(서버 RLS/has_permission 이 방어선, PR3).
+//      그래서 상단 경고 배너로 명시하고, server_enforced 기능 셀엔 「화면 제어만」 표식을 붙인다.
+// ════════════════════════════════════════════════════════════════════
+
+const PERM_ROLES = [
+  {key: 'super_admin',      label: '슈퍼관리자'},
+  {key: 'campaign_admin',   label: '캠페인관리자'},
+  {key: 'campaign_manager', label: '캠페인매니저'},
+];
+const PERM_LEVELS = [
+  {v: 'write',  label: '쓰기'},
+  {v: 'read',   label: '읽기'},
+  {v: 'hidden', label: '숨김'},
+];
+// 권한 상승 위험 — 이 기능들은 super 전용 유지(admin/manager 는 hidden 고정·편집 잠금).
+//   permissions.manage·admin.manage 는 서버 RPC denylist 와 동일(권한 상승 차단).
+//   menu.permissions 는 이 화면 자체의 사이드바 노출 — admin/manager 에게 write 로 열면 죽은 메뉴가 보이므로 잠금(서버 진입은 별도 super 가드가 차단).
+const PERM_DENYLIST = ['permissions.manage', 'admin.manage', 'menu.permissions'];
+
+let _permCurrent = {};  // 'role|feature_key' → level (서버 현재값)
+let _permEdited  = {};  // 변경분만 'role|feature_key' → level
+let _permDefault = {};  // 'role|feature_key' → default_level (기본값 baseline, 복원 버튼 활성 판정용)
+
+// 셀 현재 표시값: super 는 항상 write, 그 외 편집값 우선 → 서버값 → 기본 write
+function permCellValue(role, key) {
+  if (role === 'super_admin') return 'write';
+  const k = role + '|' + key;
+  if (k in _permEdited) return _permEdited[k];
+  return _permCurrent[k] || 'write';
+}
+
+async function loadPermissionsPane() {
+  const body = document.getElementById('permPaneBody');
+  if (!body) return;
+  // 이중 가드 — super_admin 아니면 렌더 안 함(switchAdminPane 진입 가드가 이미 막지만 방어적)
+  if (!(currentAdminInfo && currentAdminInfo.role === 'super_admin')) {
+    body.innerHTML = '<div style="padding:24px;color:var(--muted)">이 화면은 슈퍼관리자만 사용할 수 있습니다.</div>';
+    return;
+  }
+  _permCurrent = {}; _permEdited = {}; _permDefault = {};
+  const rows = (typeof fetchRolePermissions === 'function') ? await fetchRolePermissions() : [];
+  rows.forEach(r => {
+    _permCurrent[r.role + '|' + r.feature_key] = r.access_level;
+    if (r.default_level) _permDefault[r.role + '|' + r.feature_key] = r.default_level;
+  });
+  renderPermGrid();
+  updatePermSaveBar();
+}
+
+function renderPermGrid() {
+  const body = document.getElementById('permPaneBody');
+  if (!body || typeof ADMIN_PERMISSION_CATALOG === 'undefined') return;
+  // category 순서 유지하며 그룹핑
+  const groups = [];
+  const idx = {};
+  ADMIN_PERMISSION_CATALOG.forEach(f => {
+    if (!(f.category in idx)) { idx[f.category] = groups.length; groups.push({category: f.category, items: []}); }
+    groups[idx[f.category]].items.push(f);
+  });
+
+  // 제목·경고배너는 페인 상단 고정 헤더(admin-sticky-header)에 정적 배치 — 여기선 그리드만.
+  // 하나의 표 + category 구분 행 → 열 헤더는 맨 위 1회만(스크롤 시 상단 고정). 접기는 category 행 토글.
+  const colspan = PERM_ROLES.length + 1;
+  let html = '<table class="perm-table"><thead><tr><th class="perm-th-feat">기능</th>';
+  PERM_ROLES.forEach(r => { html += '<th>' + esc(r.label) + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  groups.forEach((g, gi) => {
+    html += '<tr class="perm-cat-row" onclick="togglePermGroup(' + gi + ')"><td colspan="' + colspan + '">'
+         +  '<span class="material-icons-round notranslate perm-caret" translate="no" id="permCaret' + gi + '">expand_more</span>'
+         +  esc(g.category) + '</td></tr>';
+    g.items.forEach(f => {
+      const locked = PERM_DENYLIST.indexOf(f.key) !== -1;
+      html += '<tr class="perm-item perm-cat-' + gi + '"><td class="perm-feat">' + esc(f.label_ko)
+           +  (f.server_enforced ? ' <span class="perm-tag">화면 제어만</span>' : '')
+           +  (locked ? ' <span class="perm-tag perm-tag-super">슈퍼 전용</span>' : '') + '</td>';
+      PERM_ROLES.forEach(r => {
+        const isSuper = r.key === 'super_admin';
+        const cellLocked = isSuper || locked;  // super 열 전체 + denylist 행의 admin/manager 셀 잠금
+        if (cellLocked) {
+          html += '<td class="perm-cell perm-locked">' + (isSuper ? '쓰기(전권)' : '숨김') + '</td>';
+        } else {
+          const val = permCellValue(r.key, f.key);
+          const dirty = (r.key + '|' + f.key) in _permEdited;
+          let sel = '<select class="perm-sel' + (dirty ? ' perm-dirty' : '')
+                 +  '" onchange="onPermCell(\'' + r.key + '\',\'' + f.key + '\',this)">';
+          PERM_LEVELS.forEach(l => { sel += '<option value="' + l.v + '"' + (l.v === val ? ' selected' : '') + '>' + l.label + '</option>'; });
+          sel += '</select>';
+          html += '<td class="perm-cell">' + sel + '</td>';
+        }
+      });
+      html += '</tr>';
+    });
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+// 저장 영역(변경 카운트·저장 버튼)은 페인 상단 고정 헤더에 정적으로 있음 — 상태만 갱신.
+function updatePermSaveBar() {
+  const n = Object.keys(_permEdited).length;
+  const btn = document.getElementById('permSaveBtn');
+  if (btn) btn.disabled = !n;
+  const cnt = document.querySelector('.perm-changecount');
+  if (cnt) cnt.textContent = n ? n + '개 변경됨' : '변경 없음';
+  // 「기본값 복원」 버튼 — 저장된 현재값이 기본값과 다른 항목이 있을 때만 활성
+  const rbtn = document.getElementById('permRestoreBtn');
+  if (rbtn) {
+    const diff = countPermDefaultDiff();
+    rbtn.disabled = !diff;
+    rbtn.title = diff ? (diff + '개 항목이 기본값과 다릅니다 — 기본값으로 되돌립니다') : '이미 기본값 상태입니다';
+  }
+}
+
+// 저장된 현재값(_permCurrent) 중 기본값(_permDefault)과 다른 항목 수. 미저장 편집(_permEdited)은 제외 —
+//   복원은 "저장된 값 → 기본값"이라 편집 중 값이 아니라 서버 현재값 기준으로 판정.
+function countPermDefaultDiff() {
+  let n = 0;
+  Object.keys(_permDefault).forEach(k => {
+    if ((_permCurrent[k] || 'write') !== _permDefault[k]) n++;
+  });
+  return n;
+}
+
+function togglePermGroup(gi) {
+  const c = document.getElementById('permCaret' + gi);
+  const collapsed = c && c.textContent.trim() === 'chevron_right';  // 현재 접힘 상태인지(caret 기준 — DOM 인덱스 안 씀)
+  document.querySelectorAll('.perm-cat-' + gi).forEach(r => { r.style.display = collapsed ? '' : 'none'; });
+  if (c) c.textContent = collapsed ? 'expand_more' : 'chevron_right';
+}
+
+function onPermCell(role, key, sel) {
+  const k = role + '|' + key;
+  const cur = _permCurrent[k] || 'write';
+  if (sel.value === cur) delete _permEdited[k];
+  else _permEdited[k] = sel.value;
+  sel.classList.toggle('perm-dirty', (k in _permEdited));
+  updatePermSaveBar();
+}
+
+async function savePermChanges() {
+  const keys = Object.keys(_permEdited);
+  if (!keys.length) return;
+  const ok = await showConfirm(keys.length + '개 권한 설정을 변경합니다. 계속할까요?');
+  if (!ok) return;
+  // 저장 안정성 — (role, feature_key) 정렬로 배치 잠금 순서 고정(데드락 예방, reviewer 권고)
+  keys.sort();
+  const changes = keys.map(k => {
+    const sep = k.indexOf('|');
+    const role = k.slice(0, sep), feat = k.slice(sep + 1);
+    return {role: role, feature_key: feat, prev_level: (_permCurrent[k] || 'write'), next_level: _permEdited[k]};
+  });
+  const btn = document.getElementById('permSaveBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const applied = await saveRolePermissions(changes);
+    toast((applied || 0) + '개 권한을 저장했습니다.');
+    // 저장 후 재로드(현재값 갱신·편집 초기화) + 메뉴 숨김 즉시 재적용(본인이 바꾼 게 super 무관이라 화면엔 무영향이나 일관성)
+    await loadPermissionsPane();
+    if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    // RPC 가드 메시지 친화화
+    if (msg.indexOf('conflict') !== -1) toast('다른 관리자가 먼저 변경했습니다. 새로고침 후 다시 시도하세요.', 'error');
+    else toast('저장 실패: ' + msg, 'error');
+    if (btn) btn.disabled = false;
+  }
+}
+
+// 「기본값 복원」 — 저장된 현재값을 baseline(default_level)으로 되돌린다. 전용 서버 RPC로 원자 처리
+//   (낙관적 락 마찰 없음). 미저장 편집은 버려짐(확인 모달에 명시). denylist 행은 기본값이 hidden이라 서버가 자연 skip.
+async function restorePermDefaults() {
+  const diff = countPermDefaultDiff();
+  if (!diff) { toast('이미 기본값 상태입니다.'); return; }
+  const ok = await showConfirm(diff + '개 항목을 기본값으로 되돌립니다. 저장하지 않은 편집은 사라집니다. 계속할까요?');
+  if (!ok) return;
+  const btn = document.getElementById('permRestoreBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const applied = (typeof restoreRolePermissionsDefaults === 'function') ? await restoreRolePermissionsDefaults() : 0;
+    toast((applied || 0) + '개 권한을 기본값으로 복원했습니다.');
+    await loadPermissionsPane();
+    if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    toast('복원 실패: ' + msg, 'error');
+    if (btn) btn.disabled = false;
+  }
+}

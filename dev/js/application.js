@@ -125,6 +125,10 @@ async function openCampaign(id) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.submissionEnd')}</div><div style="${VAL};font-weight:600;color:var(--ink)">${formatDate(camp.submission_end)}</div></div>`);
           }
           rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.recruitSlots')}</div><div style="${VAL}">${camp.slots}${t('detail.peopleUnit')}</div></div>`);
+          // 최소 팔로워수 — 시딩·방문형만(리뷰어는 저장 시 0이라 자연 제외). 미리보기와 정합
+          if (camp.min_followers) {
+            rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.minFollowers')}</div><div style="${VAL}">${camp.min_followers.toLocaleString()}${t('detail.minFollowersSuffix')}</div></div>`);
+          }
           // 리뷰어(monitor) 캠페인은 당선 발표·리워드 행 제외
           if (!isMonitor) {
             rows.push(`<div style="${ROW}"><div style="${KEY}">${t('detail.winnerAnnounce')}</div><div style="${VAL}">${esc(camp.winner_announce || t('detail.winnerAnnounceValue'))}</div></div>`);
@@ -724,13 +728,15 @@ async function openActivityPage(applicationId, campaignId, from) {
   const showImage = (rt === 'monitor' || rt === 'visit');
   const showPost = (rt === 'gifting' || rt === 'visit');
   const isMonitor = (rt === 'monitor');
+  // 가구매(proxy_purchase, 마이그레이션 197): monitor지만 영수증만 — 리뷰 캡쳐(STEP 2) 미요구
+  const isProxy = isMonitor && !!camp.proxy_purchase;
   $('activityReceiptSection').style.display = showImage ? '' : 'none';
   $('activityPostSection').style.display = showPost ? '' : 'none';
-  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출, 그 외는 모두 숨김
+  // monitor 캠페인은 STEP 1 라벨 + STEP 2(리뷰 캡쳐) 섹션 노출. 가구매는 STEP 2 없음.
   const stepLabel = $('receiptStepLabel');
-  if (stepLabel) stepLabel.style.display = isMonitor ? '' : 'none';
+  if (stepLabel) stepLabel.style.display = (isMonitor && !isProxy) ? '' : 'none';
   const reviewSec = $('reviewImageSection');
-  if (reviewSec) reviewSec.style.display = isMonitor ? '' : 'none';
+  if (reviewSec) reviewSec.style.display = (isMonitor && !isProxy) ? '' : 'none';
   // monitor 전용 영수증 필수 필드(주문번호·구매일·구매금액) — 마이그레이션 128
   const monitorFields = $('monitorReceiptFields');
   if (monitorFields) monitorFields.style.display = isMonitor ? '' : 'none';
@@ -927,9 +933,10 @@ async function loadDeliverablesForActivity() {
   // monitor 2단계: 영수증 1건 이상 approved 시 STEP 2(채널별 리뷰 캡쳐) 영역 활성화
   // 채널 없는 레거시 monitor 캠페인은 STEP 2 영역 자체를 숨김 (grandfather, 영수증만 받음)
   if (isMonitor) {
+    // 가구매(proxy_purchase)·채널 없는 레거시 monitor는 STEP 2(리뷰 캡쳐) 영역 자체를 숨김 — 영수증만 받음
     const channels = (camp.channel || '').split(',').map(c => c.trim()).filter(Boolean);
     const section = $('reviewImageSection');
-    if (channels.length === 0) {
+    if (camp.proxy_purchase || channels.length === 0) {
       if (section) section.style.display = 'none';
     } else {
       if (section) section.style.display = '';

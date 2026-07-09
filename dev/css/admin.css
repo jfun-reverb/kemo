@@ -285,6 +285,15 @@
 .status-dropdown{position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:4px;z-index:999;min-width:110px}
 .status-dropdown-item{padding:6px 10px;border-radius:6px;cursor:pointer;transition:background .12s}
 .status-dropdown-item:hover{background:var(--surface-dim)}
+.status-dropdown-item.disabled{cursor:not-allowed;opacity:.4}
+.status-dropdown-item.disabled:hover{background:none}
+.status-dropdown-item.disabled .badge{filter:grayscale(.7)}
+.status-dropdown-note{padding:8px 10px;font-size:12px;line-height:1.5;color:var(--muted);text-align:center;white-space:nowrap}
+.os-copy-btn{border-radius:0 7px 7px 0;transition:background .12s,color .12s}
+.os-copy-btn:hover{background:var(--light-pink)}
+.os-copy-btn:hover .material-icons-round{color:var(--pink)}
+.os-copy-btn:active{background:var(--baby-pink)}
+.os-copy-btn:active .material-icons-round{color:var(--dark-pink);transform:scale(.9)}
 .data-table{width:100%;border-collapse:collapse;font-size:13px}
 .data-table th{padding:10px 10px;background:var(--surface-dim);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--on-surface-variant);text-align:left;border-bottom:1px solid var(--outline)}
 .admin-table-wrap{overflow-y:auto}
@@ -598,6 +607,44 @@
 .ql-snow .ql-tooltip,
 .ql-tooltip.ql-editing,
 .ql-tooltip.ql-flip{display:none !important}
+
+/* 공지 "편집 = 보기" 일치.
+   공지 보기 모달 본문을 편집기와 동일한 Quill(읽기 전용, .notice-view-quill)로 렌더하므로,
+   아래 블록 여백·제목 크기·목록 간격을 두 화면에 동일하게 적용한다(같은 엔진·같은 규칙 → 일치).
+   캠페인 에디터(.quill-host)에는 영향 없음(공지 편집기·보기 전용 선택자). */
+#anEditBodyQuill .ql-editor,
+.notice-view-quill .ql-editor{font-size:13px;line-height:1.7;color:var(--ink)}
+#anEditBodyQuill .ql-editor p,
+.notice-view-quill .ql-editor p{margin:0 0 8px 0}
+#anEditBodyQuill .ql-editor p:last-child,
+.notice-view-quill .ql-editor p:last-child{margin-bottom:0}
+#anEditBodyQuill .ql-editor h2,
+.notice-view-quill .ql-editor h2{font-size:1.1em;font-weight:800;margin:12px 0 6px}
+#anEditBodyQuill .ql-editor h3,
+.notice-view-quill .ql-editor h3{font-size:1em;font-weight:700;margin:10px 0 6px}
+#anEditBodyQuill .ql-editor h4,
+.notice-view-quill .ql-editor h4{font-size:.95em;font-weight:700;margin:8px 0 4px}
+#anEditBodyQuill .ql-editor ul,#anEditBodyQuill .ql-editor ol,
+.notice-view-quill .ql-editor ul,.notice-view-quill .ql-editor ol{margin:4px 0 8px}
+#anEditBodyQuill .ql-editor li,
+.notice-view-quill .ql-editor li{margin:2px 0}
+#anEditBodyQuill .ql-editor blockquote,
+.notice-view-quill .ql-editor blockquote{border-left:3px solid var(--pink);padding:4px 10px;margin:8px 0;background:var(--light-pink);color:var(--ink)}
+#anEditBodyQuill .ql-editor a,
+.notice-view-quill .ql-editor a{color:var(--pink);text-decoration:underline}
+/* 보기 모달 Quill 은 편집 박스가 아니므로 테두리 제거(읽기 전용). 본문 패딩은 편집기와 동일 유지. */
+.notice-view-quill.ql-container.ql-snow{border:0;height:auto;font-family:inherit}
+/* 미읽음 팝업은 정적 .rich-content 렌더라 빈 단락이 접힌다 → 한 줄 높이로 보정
+   (보기 모달은 Quill 이라 빈 줄을 자체 처리하므로 불필요). */
+#adminNoticeUnreadModal [data-notice-body] p:empty{min-height:1.6em}
+/* 공지 편집 모달: 상단 입력(제목·분류·고정·HTML토글·안내)과 Quill 툴바는 고정,
+   편집 본문(.ql-editor)·HTML 소스 textarea 만 모달 안에서 스크롤.
+   modal-body 가 세로 flex(인라인 overflow:hidden) 라 직계 자식은 고정(flex-shrink:0),
+   편집기 영역만 남은 공간을 채우고(flex:1) 내부에서 스크롤. */
+#adminNoticeEditModal .modal-body>*{flex-shrink:0}
+#adminNoticeEditModal #anEditBodyQuill{flex:1 1 auto;min-height:120px;display:flex;flex-direction:column;overflow:hidden}
+#adminNoticeEditModal #anEditBodyQuill .ql-editor{flex:1 1 auto;min-height:0;overflow-y:auto}
+#adminNoticeEditModal #anEditBodyRaw{flex:1 1 auto;min-height:120px}
 
 /* 캠페인 폼 참여방법/주의사항 요약 카드 (편집은 모달로 분리) */
 .bundle-summary-card{
@@ -1555,3 +1602,43 @@ tr.audit-row, .audit-row { background: #fff3e0 !important; }
 #newBrandAppModal .form-input,
 #newBrandAppModal select.form-input,
 #newBrandAppModal textarea.form-input { font-size: 14px; }
+
+/* ── 동적 권한 관리 화면 (PR2 조각 C) — 레이아웃은 admin-pane-list(상단 고정 헤더 + 카드) 상속 ── */
+/* .admin-card 가 overflow:hidden 이라 스크롤 자식이 필요 — permPaneBody 를 스크롤 영역으로(+ 콘텐츠 여백) */
+/* padding 없이 스크롤 영역 — sticky thead 가 최상단·좌우 끝에 딱 붙어야 위/옆으로 리스트가 안 비친다. 여백은 셀 padding 으로. */
+.admin-pane-list #permPaneBody { flex: 1; overflow-y: auto; }
+.perm-warn {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 8px;
+  padding: 10px 12px; color: #9A3412; font-size: 13px; line-height: 1.5;
+}
+.perm-warn .material-icons-round { font-size: 18px; flex-shrink: 0; color: #EA580C; }
+.perm-caret { font-size: 20px; color: var(--muted, #6B7280); vertical-align: middle; margin-right: 4px; }
+/* 하나의 표 — table-layout:fixed 로 열 너비 고정, 열 헤더는 맨 위 1회(반복 제거) + 스크롤 시 상단 고정.
+   ⚠️ border-collapse:separate 필수 — collapse 모드에선 sticky thead 의 배경·경계가 스크롤 시 깨져 아래 행과 겹친다.
+   separate + border-spacing:0 + border-bottom(행 구분) 으로 sticky 를 안전하게 고정. */
+.perm-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
+.perm-table th, .perm-table td { padding: 8px 10px; border-bottom: 1px solid var(--line, #E5E7EB); text-align: center; }
+/* 표 좌우 끝 여백은 첫/마지막 열 셀 padding 으로(컨테이너 padding 대신) — 헤더 배경이 카드 끝까지 닿게 */
+.perm-table th:first-child, .perm-table td:first-child { padding-left: 20px; }
+.perm-table th:last-child, .perm-table td:last-child { padding-right: 20px; }
+.perm-table thead th { position: sticky; top: 0; z-index: 3; height: 37px; box-sizing: border-box; background: #F1F3F5; color: var(--muted, #6B7280); font-weight: 600; }
+/* category 구분 행 — 열 헤더(37px) 바로 아래에 sticky 고정. 스크롤 시 다음 category 가 밀어냄(스크롤 스파이). 클릭 시 접기/펼치기 */
+.perm-cat-row td { position: sticky; top: 37px; z-index: 2; text-align: left; background: #F9FAFB; font-weight: 700; font-size: 14px; color: var(--ink, #111827); cursor: pointer; user-select: none; }
+.perm-cat-row:hover td { background: #F3F4F6; }
+/* 기능 열은 좌측 정렬 — .perm-table td(center)보다 명시도를 높여 덮어씀 */
+.perm-table th.perm-th-feat, .perm-table td.perm-feat { text-align: left; width: 40%; }
+.perm-table th:not(.perm-th-feat) { width: 20%; }
+.perm-feat { color: var(--ink, #111827); }
+.perm-cell { min-width: 96px; }
+.perm-locked { color: var(--muted, #9CA3AF); font-size: 12px; }
+.perm-sel { padding: 4px 6px; border: 1px solid var(--line, #D1D5DB); border-radius: 6px; font-size: 13px; background: #fff; }
+.perm-sel.perm-dirty { border-color: var(--pink, #EC4899); background: #FDF2F8; font-weight: 600; }
+.perm-tag {
+  display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px;
+  background: #EEF2FF; color: #4338CA; margin-left: 4px; vertical-align: middle;
+}
+.perm-tag-super { background: #F3E8FF; color: #7E22CE; }
+/* 저장 영역 — 상단 고정 헤더 제목 줄 우측에 인라인 배치 */
+.perm-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.perm-changecount { font-size: 12px; color: var(--muted, #6B7280); }

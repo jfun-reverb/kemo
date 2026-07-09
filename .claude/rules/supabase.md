@@ -98,6 +98,17 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 
 **Why:** 개발서버 DB 에도 실제 인플 데이터가 있어 잘못 발송 시 실수 발송 위험 + Brevo 일일 한도 소모 누적. 운영 적용 단계에서 같은 SQL Editor + 같은 deploy 명령으로 한 번에 검증하는 패턴을 사용자가 선호. 영구 메모리 `feedback_dev_no_mail_test.md` 와 함께 영구 적용.
 
+## 브라우저에서 직접 호출하는 Edge Function은 CORS 필수 (2026-07-01, 오리엔 발급 메일 사고)
+
+이 프로젝트의 Edge Function은 대부분 **웹훅·pg_cron·DB 트리거**로 실행돼 CORS(브라우저가 다른 도메인의 함수를 부를 때 필요한 허용 헤더)가 필요 없다. 하지만 **브라우저(관리자·인플 화면)에서 `functions.invoke()` 로 직접 호출**하는 함수는 다르다. `globalreverb.com`(브라우저)이 `*.supabase.co`(함수)를 부르면 교차 출처라서, 함수가 CORS 허용 헤더와 `OPTIONS` 사전요청(preflight)을 처리하지 않으면 **브라우저가 응답을 차단**(`CORS error`, 응답 크기 0)한다.
+
+- **판정**: `grep -rlE "functions\.invoke\(['\"]<함수명>|/functions/v1/<함수명>" dev/` 로 클라이언트 호출부(`dev/lib/storage.js` 등) 유무 확인. 있으면 브라우저 직접 호출 함수.
+- **필수**: 브라우저 직접 호출 함수는 ① `Access-Control-Allow-Origin`(+ headers·methods) 응답 헤더 ② `if (req.method === 'OPTIONS')` preflight 분기 — 둘 다 있어야 한다. 표준 패턴은 기존 CORS 처리 함수를 참고.
+- **런타임 검증 (배포 전 1회)**: CORS 누락은 코드를 읽어서는 안 보이고 **실제 브라우저 호출로만** 드러난다. 개발서버 「실제 메일 발송 테스트 금지」 정책과 **CORS 검증은 분리 가능** — `OPTIONS` preflight 나 빈/무효 페이로드 호출은 **메일을 보내지 않으면서** CORS 응답만 확인할 수 있다. 새로 만들거나 고친 브라우저 직접 호출 함수는 개발서버에서 이 최소 호출을 1회 거친다.
+- reverb-reviewer 는 `supabase/functions/*` 변경 시 이 CORS 유무를 정적 점검한다(에이전트 정의 「Edge Function CORS」).
+
+**Why:** 오리엔시트 발급 메일(`notify-orient-sheet`)이 이 프로젝트에서 **유일하게 브라우저에서 직접 호출**하는 함수인데 CORS 처리가 없어, 리뷰 GO·운영 배포까지 통과했지만 실제로는 한 번도 성공하지 못했다. 원인은 ① 리뷰어 점검 항목에 CORS 축이 없었고 ② 「기존 메일 함수엔 CORS 없음」이 반례가 됐으며(그 함수들은 웹훅·크론 실행이라 브라우저 호출이 아님) ③ 발송 테스트 금지 + qa light 로 배포 전 브라우저 호출이 0회였던 것. 정적 리뷰(CORS 항목)와 런타임 검증(preflight 1회)을 둘 다 걸어 재발을 막는다.
+
 ## 마이그레이션 관리
 - `supabase/migrations/*.sql` — 영구 보관, 순번 유지, 삭제/이동 금지
 - `supabase/patches/*.sql` — 운영 DB 수동 복구용 one-off (마이그레이션 체인 외)
@@ -112,6 +123,15 @@ globs: "dev/lib/*.js,dev/js/*.js,supabase/**/*.sql"
 - VS Code에서 안 보인다고 하면 `File > Add Folder to Workspace`로 해당 worktree 폴더를 함께 여는 방법도 안내.
 
 **Why:** 개발 세션이 worktree에서 만든 마이그레이션 파일이 사용자가 보는 메인 폴더 트리에 안 떠서 "언제부턴가 파일을 안 올려준다"는 오해가 반복됨. 파일은 정상 생성됐고 위치만 다른 것 (2026-05-21 진단). 메모리 `feedback_migration_abspath_in_worktree.md` 와 함께 영구 적용.
+
+### 기준 데이터(lookup_values 등) 추가 시 기존 중복 확인 (필수, 2026-06-23)
+- `lookup_values`(채널·카테고리·콘텐츠 종류·반려사유 등) 같은 **기준 데이터/선택지성 행**을 추가하는 마이그레이션·시드는, 작성 **전에 반드시 기존 동종 항목(같은 `kind`)을 조회**해 의미 중복이 없는지 확인한다. 표기·대소문자·전각/반각 차이(`@Cosme` vs `@cosme`)도 중복으로 본다.
+- ⚠️ **함정**: `supabase/seed/lookup_values.sql`(초기 데이터)에 이미 있는 항목을 후속 마이그레이션이 **다른 `code`로 또 추가**하면, 식별자가 달라 유니크 제약에 안 걸리고 **화면 선택지에 중복 노출**된다. 시드는 메인 폴더 트리에 늘 보이지만 개발 세션이 마이그레이션만 보고 시드를 안 읽는 경우 발생.
+- 확인 절차(둘 다): ① `grep -rni '<항목명>' supabase/seed/ supabase/migrations/` 로 기존 정의 탐색 ② 개발 DB에서 `SELECT code, name_ko, name_ja, sort_order, active FROM lookup_values WHERE kind = '<kind>' ORDER BY sort_order;` 로 실제 현황 조회.
+- `reverb-supabase-expert` 는 `lookup_values`·기준 데이터 추가 마이그레이션을 점검할 때 **기존 동종 항목과의 중복 여부를 필수 확인**한다.
+- 이건 `planning.md` 「규칙 A — 현재 상태 검증」(사양서 작성 전, 기획 세션)의 **개발 세션·마이그레이션 작성 단계 짝**이다. 사양서에 안 잡혀도 마이그레이션 작성자가 한 번 더 막는다.
+
+**Why:** 마이그레이션 157(LIPS·@cosme 채널 추가)이 시드 `lookup_values.sql` 의 「엣코스메(name_ja=`@Cosme`, code=`channel-96r9y3`)」를 확인하지 않고 「`@cosme`(code=`cosme`)」를 또 추가 → 캠페인 등록 화면 채널 선택지에 `@Cosme`·`@cosme` 가 나란히 중복 노출. 코드 정적 리뷰로는 못 잡는 **데이터 의미 중복**이라, 마이그레이션 작성 단계의 기존 항목 확인이 유일한 방어선 (2026-06-23 발견).
 
 ## 계정 열거 방지
 - 정의·구현 패턴(비밀번호 찾기 조건부 메시지 등)은 `.claude/rules/security.md` 「계정 열거 방지 (Account Enumeration)」 정의처 참조

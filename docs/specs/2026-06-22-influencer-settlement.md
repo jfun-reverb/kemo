@@ -1,0 +1,288 @@
+# 인플루언서 정산 관리 (베타 1차)
+
+**작성일:** 2026-06-22
+**작성 주체:** 기획 세션
+**베타 단계:** 1차 — 인플루언서 운영 핵심 (로드맵 W2~4, `docs/specs/2026-06-17-beta-rollout-roadmap.md`)
+**상태:** 기획 초안 — 핵심 5종 사용자 확정 / 세부(권한·상태흐름·환수·조회화면·약관)는 §9 사용자 확인 필요
+
+---
+
+## 0. 한 줄 요약
+
+인플루언서가 캠페인 1건을 **인증 성공**(영수증+게시물 모두 승인)하면 그 캠페인 리워드가 **정산 대기**로 자동 등록되고, 관리자가 인플루언서별로 모아 **외부 PayPal에서 수동 송금** 후 시스템에 **송금 완료를 기록**한다. 인플루언서는 자기 **정산 내역을 마이페이지에서 조회**한다. 자동 송금 연동(PayPal/PortOne API)은 **베타 범위 밖**(추후).
+
+---
+
+## 1. 현재 상태 (planning.md 규칙 A — 검증 완료)
+
+### 관련 코드·DB·UI 진입점
+- **정산 기능은 코드·DB에 전무**(자동화 0%, 완전 수동). 신규 구축.
+- 리워드 금액: `campaigns.reward bigint`(마이그레이션 003). **실제 표시 통화 = 엔화(¥)** — `dev/js/campaign.js:271`(`報酬¥{reward}`), `dev/js/application.js:97`(`detail.rewardCash`). ⚠️ `PROJECT_CONTEXT.md`는 reward를 "원화(KRW)+환율 기록"으로 적었으나 **실제 운영은 엔화** → CONTEXT 주석 정정 필요.
+- 지급 안내 텍스트: `campaigns.reward_note text`(마이그레이션 051) — 지급 조건·시점 자유 텍스트.
+- 송금 수단: `influencers.paypal_email`(마이그레이션 027, 신청 시 필수 등록·마이페이지 수정). 은행 계좌 칸(`bank_*`, 마이그레이션 002)은 레거시·미사용.
+- 인증 성공 판정 헬퍼: `computeCertStatus`/`buildDeliverableGroups`(`dev/js/admin-deliverables.js`) — 결과물 관리 화면과 동일 단일 소스. 리뷰어=영수증 승인+채널별 인증샷 모두 승인 / 시딩·방문=게시물 승인.
+- 결과물 승인 흐름: `deliverables.status='approved'` → `notify_deliverable_status()` 트리거(마이그레이션 096)는 **알림만** 생성, 지급 연결 없음.
+- 약관 `docs/TERMS_kr.md`·`_ja.md` **제13조(리워드 지급)** 이미 존재: PayPal 송금 / **수수료·세금 회사 부담·회원 전액 수령** / 기프팅형 현금 없을 수 있음 / 부정 수령 환수.
+- 개인정보처리방침 `docs/PRIVACY_*.md`: PayPal 이메일·영수증 **세무용 5년 보관**.
+- 이미 있는 설계 밑그림: `PROJECT_CONTEXT.md` §3-2 + 데이터 모델에 `Settlements` 테이블 설계안(원천징수 22%·환율 필드 포함). **단 아래 결정으로 일부 폐기**(원천징수·환율 제외).
+
+### 이 제안과 충돌 가능성 있는 기존 동작
+- ⚠️ **세금 모델 충돌**: `PROJECT_CONTEXT` "원천징수 22%" vs 약관 제13조 "전액 수령". → **약관 제13조 채택**(원천징수 없음·전액 송금, 사용자 확정 2026-06-22). CONTEXT의 22%·거주자증명·세율 필드는 폐기.
+- ⚠️ **통화 충돌**: CONTEXT "원화+환율" vs 화면 "엔화(¥)". → **엔화 채택**(환율 불필요, 사용자 확정).
+- **광고주(brand_applications) 정산과 혼동 금지**: `estimated_krw`/`final_quote_krw`/`paid_at`/`payment_flags`는 **광고주 비용** 체계. 인플루언서 정산과 완전 별개. 같은 "정산" 단어를 쓰지만 테이블·흐름·통화(광고주=원화)까지 다름.
+
+### 미해결 백로그·관련 작업
+- 포인트 제도(베타 1차 W4~6) — 정산과 흐름·화면 공유 권장(로드맵 §66). 본 정산 설계는 **현금만**, 포인트는 §9-E 경계만 정의.
+- 약관 통합 통지(연령·정산·포인트, 로드맵 §16) — 정산 약관 개정 필요 여부는 §8.
+
+---
+
+## 2. 의심·경우의 수 (planning.md 규칙 B — 반대론자 모드)
+
+### 깨질 수 있는 경우의 수
+1. **인증 성공 판정의 서버 재현**(기술·핵심 난점): 현재 인증 성공 판정은 **클라이언트 헬퍼**(`computeCertStatus`)다. "인증 성공 시 자동 생성"을 DB 트리거로 하려면 같은 판정(리뷰어=영수증+채널별 인증샷 전부 승인 / 시딩·방문=게시물 승인)을 **서버에서 재현**해야 한다. 채널 수·결과물 종류가 응모마다 달라 판정이 단순하지 않음 → §6에서 트리거 vs 정산화면 진입 시 백필 두 방식 비교.
+2. **인증 성공 후 되돌리기·취소**(데이터): 정산행 자동 생성 후 ⓐ 관리자가 결과물을 '되돌리기'(approved→pending)하거나 ⓑ 인플이 응모 취소하면? **이미 송금한 뒤**면 환수 대상(약관 제13조 4항). **송금 전**이면 정산행을 보류/취소로. → 상태 흐름에 `cancelled`/`on_hold` 필요(§9-B).
+3. **중복 생성**(엣지·동시성): 같은 응모에 결과물 승인이 여러 번 토글되면 정산행이 중복 생성되면 안 됨 → `(application_id)` UNIQUE + 멱등 UPSERT.
+4. **리워드 0원·기프팅형**(엣지): `reward=0`(현금 없는 기프팅형)은 정산 대상 아님 → 자동 생성 제외. `reward>0`만.
+5. **리워드 금액 사후 변경**(데이터): 정산행 생성 후 관리자가 캠페인 `reward`를 수정하면? → **생성 시점 reward를 스냅샷**(정산행에 `amount_jpy` 고정 저장). 캠페인 수정이 기존 정산행에 영향 없게.
+6. **권한·민감정보**(권한): 정산은 금전. `paypal_email`은 민감정보. campaign_manager까지 정산 금액·PayPal을 보고 송금 처리하게 할지(§9-A). 인플루언서 RLS는 본인 정산행만.
+7. **PayPal 미등록 인플**(엣지·UX): 인증 성공했는데 `paypal_email`이 비어 있으면 송금 불가 → 정산행은 생기되 "송금 불가(PayPal 미등록)" 표시 + 인플에게 등록 유도.
+8. **감사용 계정**(데이터): `is_audit=true` 계정은 정산 대상에서 제외(운영 통계·금전 격리, 마이그레이션 179 패턴).
+
+### 현재 구현과 어긋나는 지점
+- 위 §1 세금·통화 충돌 2건 — 본 사양서에서 약관·화면 기준으로 정리(원천징수 없음·엔화). `PROJECT_CONTEXT` 주석 정정은 개발 세션 「구현 결과」 동반.
+- 그 외 정산 관련 기존 동작 없음 — 신규 구축이라 코드 충돌 없음(확인 완료).
+
+### 의도 모호점
+- "정산 관리"의 송금이 **수동**으로 확정(자동 API 아님, 사용자 확정).
+- "인증 성공"의 정의 = 결과물 관리 화면의 `computeCertStatus` 단일 소스 그대로(임의 해석 금지).
+- "정산 단위 = 응모(참여)" = 1 인플 × 1 캠페인 = 정산 1건. 월별 합산 아님(사용자 확정).
+
+---
+
+## 3. 확정 설계 결정 (사용자 확인 완료 2026-06-22)
+
+| # | 항목 | 결정 |
+|---|---|---|
+| ① | 범위 | **수동 송금 + 관리/기록 화면**. 자동 송금 연동(API) 없음 |
+| ② | 세금 | **원천징수 없음·전액 송금**(약관 제13조). 확정 금액 = reward |
+| ③ | 정산 단위 | **응모(참여) 단위**, 1 응모 = 정산 1건 |
+| ④ | 생성 트리거 | **인증 성공 시 자동 생성**(`reward>0`만, 감사용 제외) |
+| ⑤ | 통화 | **엔화(¥)**, 환율 환산·기록 없음 |
+| ⑥ | 권한 | **campaign_admin(캠페인 관리자) 이상** — 조회·송금 처리 |
+| ⑦ | 상태·이력 | **4상태**(pending/paid/on_hold/cancelled) + **`settlement_events` 변경 이력 테이블**(금전 감사) |
+| ⑧ | PayPal 미등록 | 정산행 **생성**하되 "송금 불가(미등록)" 표시 + **인플에게 등록 안내 알림**(notifications 신규 kind) |
+| ⑨ | 인플 화면 | 마이페이지 「報酬・精算」 + **누적 수령액 합계 표시** |
+| ⑩ | 포인트 경계 | **정산 = 현금(리워드)만**. 포인트 적립·현금화는 별도 기획(로드맵 W4~6) |
+
+---
+
+## 4. 데이터 모델 (신규 테이블)
+
+### 신규 테이블 `settlements`
+| 컬럼 | 타입 | 설명 |
+|---|---|---|
+| `id` | uuid PK | |
+| `influencer_id` | uuid NOT NULL | `influencers.id`(= `auth.users.id` = `applications.user_id`). FK |
+| `application_id` | uuid NOT NULL UNIQUE | 응모 단위 1행. 멱등 보장 |
+| `campaign_id` | uuid NOT NULL | 조회·표시용 비정규화 |
+| `amount_jpy` | bigint NOT NULL | **생성 시점 `campaigns.reward` 스냅샷**(엔화). 캠페인 수정 무영향 |
+| `status` | text NOT NULL DEFAULT 'pending' | CHECK: `pending`(정산대기) / `paid`(송금완료) / `on_hold`(보류) / `cancelled`(취소) |
+| `paypal_email` | text NULL | 송금 시점 PayPal 스냅샷(생성 시 인플 값 복사, 송금 시 갱신) |
+| `paid_at` | timestamptz NULL | 송금 완료 기록 시각 |
+| `paid_by` | uuid NULL | 송금 처리 관리자 |
+| `memo` | text NULL | 관리자 메모(송금 참조번호 등) |
+| `version` | integer NOT NULL DEFAULT 0 | 낙관적 락(동시 처리 충돌 차단) |
+| `created_at`/`updated_at` | timestamptz | |
+
+- **인덱스**: `status` 부분(`WHERE status='pending'`), `influencer_id`, `campaign_id`.
+- **행 단위 보안 정책(RLS)**: SELECT — 인플은 `influencer_id = auth.uid()` 본인행만 / 관리자는 `is_admin()`. INSERT/UPDATE는 RPC·트리거만(직접 변조 차단).
+- **상태 변경 이력**: `settlement_events`(append-only) **둠**(결정 ⑦). `settlement_id` FK CASCADE · `action`(create/pay/hold/cancel/revert) · `prev_status`/`next_status` · `actor`(관리자 또는 트리거) · `at`. RLS SELECT `is_admin()`, INSERT는 트리거·RPC만.
+
+### 알림 (notifications 신규 kind)
+- 결정 ⑧: PayPal 미등록 인플에게 등록 안내 알림. `notifications.kind`에 `settlement_paypal_required` 추가(ref_table='settlements'). 멱등(미읽음 중복 방지). 클릭 시 PayPal 등록 화면으로.
+- (검토) 송금 완료 시 `settlement_paid` 알림을 인플에게 보낼지 — §9 잔여.
+
+### 기존 컬럼 정정·활용
+- `campaigns.reward` 통화 = **엔화**로 `PROJECT_CONTEXT` 주석 정정(코드 무변경, 문서만).
+- `influencers.paypal_email` 재사용. `bank_*` 미사용 유지.
+
+---
+
+## 5. 인증 성공 → 정산행 자동 생성 (핵심 흐름)
+
+```
+deliverable.status 변경 (approve/revert)
+   ↓
+해당 application 의 "인증 성공" 여부 재판정 (서버측)
+   ↓ 인증 성공 && reward>0 && !is_audit
+settlements UPSERT (application_id UNIQUE) status='pending', amount_jpy=reward 스냅샷
+   ↓ 인증 성공이 깨짐(되돌리기) && 아직 pending
+settlements status='on_hold' 또는 행 유지+표시 (송금 전이므로) — §9-B
+```
+
+- **판정 위치 결정 필요**(§6): 트리거 vs 정산 화면 진입 시 백필.
+
+---
+
+## 6. 자동 생성 구현 방식 — 2안 비교 (개발 세션 결정 인계)
+
+| | A. DB 트리거 즉시 생성 | B. 정산 화면 진입 시 백필 RPC |
+|---|---|---|
+| 시점 | 결과물 승인 즉시 | 관리자가 정산 화면 열 때 |
+| 인증 성공 판정 | 트리거 안에서 서버 재현(복잡) | RPC 안에서 한 번에 조회·재현 |
+| 누락 위험 | 낮음(실시간) | 낮음(열 때마다 동기화) |
+| 부담 | 트리거 로직 무거움·결과물 토글마다 실행 | 단순·기존 `computeCertStatus` 로직 SQL 이식 1곳 |
+| 권고 | — | **B 권고**(판정 로직 1곳 집약·디버깅 쉬움, 결과물 토글 빈도 무관). 단 "정산 대기 건수" 배지를 실시간 원하면 A 가미 |
+
+→ 최종은 reverb-planner/supabase-expert가 구현 착수 시 확정. 사양서는 **B 권고**.
+
+---
+
+## 7. 화면 설계
+
+### 7-1. 관리자 — 정산 관리 페인 `#settlements` (신규)
+- 사이드바 "회원관리" 구간 하단 신규 항목(정산대기 건수 배지).
+- 목록(목록 페인 표준 구조 — sticky header·lazy-load): 인플(한자/가나·이메일) · 캠페인(썸네일·번호) · 금액(¥) · PayPal(미등록 경고) · 상태 · 인증성공일 · 송금완료일.
+- 필터: 상태(기본 pending) · 캠페인 · 인플 검색. 정렬: 인증성공 오래된 순.
+- **인플루언서별 묶음 보기**: 한 인플의 pending 정산을 모아 합계 표시(수동 송금 시 한 번에). 행 선택 → "송금 완료 처리"(금액·PayPal 확인 모달 → `paid` + `paid_at`/`paid_by` 기록, 낙관적 락).
+- 모달 저장 후 `refreshPane('settlements')` 의무(quality.md).
+- 엑셀 내보내기(인플·캠페인·금액·PayPal·상태) — 송금 작업 참고용.
+
+### 7-2. 인플루언서 — 정산 내역 조회 (마이페이지)
+- 마이페이지 햄버거 메뉴 신규 서브항목 「報酬・精算」(일본어). 응모이력과 별도.
+- 내역 리스트: 캠페인명 · 금액(¥) · 상태(精算待ち/送金済み/保留). 송금 완료 건은 송금일 표시.
+- PayPal 미등록 시: 상단 안내 + 등록 화면 링크(초등학생 눈높이 문구, ui.md).
+- 합계(누적 수령액) 표시 검토(§9-D).
+
+---
+
+## 8. 약관·정책 영향 (policy.md 체크 — `/약관확인` 권장)
+
+- **세금·정산 = TERMS 정산 조항 영향**(policy.md). 단 본 설계는 약관 제13조(전액 수령·PayPal·환수)와 **이미 일치** → 새 불리한 변경 아님.
+- **검토 필요**: 제13조에 "정산 시점·방법"(인증 성공 후 모아 수동 송금)을 더 명확히 명문화할지. 명문화하면 베타 1차 **약관 통합 통지(연령·정산·포인트)** 묶음에 포함(로드맵 §16). → `/약관확인` 1회로 판정.
+- PRIVACY: 정산 내역(금액·송금일)은 기존 PayPal·영수증 5년 보관 범위 내 — 신규 수집 항목 없음(확인).
+- release-timing: 자동 송금·불리한 변경 아님 → 시행일 게이트 불필요. 단 약관 통합 통지에 포함되면 그 시행일 따름.
+
+---
+
+## 9. 결정 완료 (2026-06-22) + 잔여
+
+§3 표 ⑥~⑩으로 모두 확정. 요약:
+- A. 권한 → **campaign_admin 이상**(⑥).
+- B. 상태·환수 → **4상태 + `settlement_events` 이력**(⑦). 송금 후 인증 깨짐/취소는 `on_hold`로 두고 "환수 필요" 표시(환수 자체는 수동·외부, 시스템은 기록만).
+- C. PayPal 미등록 → **정산행 생성 + 송금불가 표시 + 등록 안내 알림**(⑧).
+- D. 누적 합계 → **표시**(⑨).
+- E. 포인트 경계 → **현금만, 포인트 별도**(⑩).
+
+**잔여(개발 착수 전 가벼운 확인):**
+- 송금 완료 시 인플에게 `settlement_paid` 알림을 보낼지(보내면 신뢰↑, 메일까지는 베타 범위 밖 권장).
+- "환수 필요" 상태를 별도 status로 둘지, `on_hold` + 메모로 표현할지(현 설계는 후자).
+
+---
+
+## 10. PR 분할 (개발서버 먼저, 시퀀셜)
+
+> ⚠️ 관리자 정산 페인은 `dev/js/admin*.js`·`storage.js` 핫스팟. **시퀀셜**(병렬 금지).
+
+- **PR 1 — 데이터 모델 + 자동 생성**: `settlements` 테이블(마이그레이션 ①) + 인증 성공 판정 서버 재현(트리거 또는 백필 RPC, §6) + `storage.js` 조회·송금완료 함수. 화면 없음. (이력 테이블 둔다면 ② — ①이 먼저)
+- **PR 2 — 관리자 정산 페인**: `#settlements` 페인·목록·필터·인플별 묶음·송금완료 모달·엑셀.
+- **PR 3 — 인플루언서 조회 화면**: 마이페이지 「報酬・精算」 서브항목·내역 리스트·PayPal 미등록 안내.
+- **PR 4 (조건부) — 약관 명문화**: §8 판정 결과 약관 보강이 필요하면 통합 통지 묶음과 함께.
+
+마이그레이션 번호는 개발 세션이 생성 시점 확정 후 「구현 결과」에 기록.
+
+---
+
+## 11. 구현 결과
+
+### PR 1 — 데이터 모델 + 자동 생성 (화면 없음)
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 217(settlements+settlement_events 스키마) · 218(backfill_settlements 백필 함수) · 219(notifications.kind 7→9종) · 220(role_permissions 정산 권한 시드)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07 — 사양서 작성 이후 생긴 변화 반영)
+- **권한 = 동적 권한 편입**(사양서 §3 ⑥ "campaign_admin 이상 고정" 에서 변경): 사양서 작성(6/22) 이후 동적 권한 관리(has_permission·role_permissions)가 운영 배포(7/6)돼, 정산도 하드코딩 대신 `settlement.view`/`settlement.pay` feature_key 로 편입. 기본값 campaign_admin=write·campaign_manager=hidden 이라 사양 ⑥과 동작 동일 + 향후 super_admin 이 화면에서 조정 가능. `ADMIN_PERMISSION_CATALOG`(shared.js) 37→39개.
+- **자동 생성 = 백필 RPC(B안)**: 사양서 §6 권고 그대로. 역방향(인증 깨짐→on_hold)은 PR1 제외(생성만).
+- **송금 알림 = settlement_paid**: 앱 알림만(메일 베타 밖). PR1은 kind CHECK 확장까지, INSERT 로직은 PR2.
+- **환수 = on_hold + 메모**: 별도 status 안 만듦(사양 §9-B 후자).
+
+#### 초안 대비 변경 사항
+- **추가**: 동적 권한 편입(위) — 사양서엔 없던 마이그레이션 220 + shared.js 카탈로그 2항목. 정산 RLS 게이트를 `is_admin()` 아닌 `has_permission('settlement.view','read')` 로.
+- **빠진 것**: 사양서 §4 "bank_* 미사용 유지" 문구 무효 — 마이그레이션 216(2026-07-07)으로 `influencers.bank_*`·`pw` 삭제됨. 정산은 `paypal_email` 만 사용해 실질 영향 없음.
+- **달라진 것**: 없음(스키마·흐름은 사양서 §4·§5·§6 그대로).
+
+#### 구현 중 기술 결정 사항
+- **`settlement_events.settlement_id` = ON DELETE RESTRICT**(사양서는 CASCADE): 금전 감사 유실 방지. `deliverable_events` 가 CASCADE 라 대리 회수 시 감사가 함께 삭제된 선례(CLAUDE.md 명시) 반복 회피. 정산행은 하드 삭제 대신 `cancelled` 소프트 상태 전제.
+- **백필은 단일 문장 데이터 변경 CTE 체인**(`inserted`→`events_ins`→`notif_ins`): TEMP TABLE 미사용(레포 전례 없음). 참조 안 되는 데이터 변경 CTE도 부수효과로 완전 실행되는 PostgreSQL 동작 근거.
+- **인증 성공 판정 SQL 재현**: `computeCertStatus`/`_finalizeMonitorReprs`(admin-deliverables.js) 그대로 — DISTINCT ON 최신 1건(receipt/post/review_image), 리뷰어 채널별 전부 승인, 채널 0개면 실패.
+- ⚠️ **알려진 디커플링(PR2 인지)**: `settlements.paypal_email` 직접 컬럼은 인플 민감정보 가림막 뷰(마이그212·213)를 안 거침. 현재 campaign_admin 만 조회라 안전하나, 향후 campaign_manager 에게 `settlement.view` 열면 PayPal 노출.
+
+### PR 2 — 관리자 정산 페인
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 221(menu.settlements 권한 시드) · 222(mark_settlement_paid) · 223(mark_settlement_hold + mark_settlement_cancel)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07)
+- **묶음 송금 = 개별 행 처리**(배치 RPC 신설 안 함, 화면은 인플별 합계만 참고 표시)
+- **송금 모달 = PayPal·금액·건수 확인** + 참조번호 메모
+- **보류·취소 버튼 PR2 포함**(인증 깨짐·환수 대응)
+- **엑셀 = 현재 필터 결과**
+
+#### 구현 내용
+- 관리자 페인 `#settlements`(`dev/js/admin-settlements.js` 신규): 진입 시 `backfill_settlements()` best-effort → 목록·필터(상태 기본 pending·캠페인·인플 검색)·lazy-load·엑셀. 사이드바 「회원 관리」 그룹 + 정산대기 건수 배지.
+- **상태 전이 매트릭스**(화면 버튼 ↔ 서버 RPC 일치): pending→paid/on_hold/cancelled, paid→on_hold, on_hold→cancelled, cancelled=종료.
+- RPC 3종(마이그222·223): `mark_settlement_paid`(pending→paid, paypal_email 재조회·미등록 차단·settlement_paid 알림·events pay) / `mark_settlement_hold`(pending·paid→on_hold, paid_* 보존, 알림 없음) / `mark_settlement_cancel`(pending·on_hold→cancelled). 모두 `has_permission('settlement.pay','write')` 가드 + 낙관적 락(충돌 시 -1 반환) + settlement_events 이력.
+- 권한: `menu.settlements` 시드(마이그221, campaign_admin=write·campaign_manager=hidden — settlement.view와 정합). `switchAdminPane` 진입 가드 자동 차단. shared.js 카탈로그 화면 21개.
+
+#### 초안 대비 변경 사항
+- **추가**: 보류·취소 RPC 2종(사양서는 상태만 정의, 실제 전환 UI·함수는 이번에). menu.settlements 권한(동적 권한 편입 후속).
+- **달라진 것**: "인증성공일" 전용 컬럼 없어 `settlements.created_at`(정산행 생성 시각)으로 대체. 엑셀 인플 이름은 가림막 뷰(`influencers_admin_view`) `name`/`name_kana` 직접 매핑.
+- **기술 결정**: 낙관적 락 충돌은 예외 아닌 `-1` 반환(update_deliverable_status 관례) / mark_settlement_paid 는 PayPal 미등록이면 서버에서도 송금 차단(화면 모달과 이중 방어).
+
+### PR 3 — 인플 마이페이지 조회 화면
+
+**구현일:** 2026-07-07 (dev 배포)
+**관련 마이그레이션:** 없음 (순수 프론트 — `fetchMySettlements` 는 PR1에서 완성)
+**관련 커밋/PR:** (dev PR — 개발서버 배포 시 기록)
+
+#### 확정 결정 (사용자 2026-07-07)
+- **취소(cancelled) 건 = 숨김**(목록 제외)
+- **보류(on_hold) 라벨 = 「確認中」**(관리자 메모·사유 노출 안 함)
+- **누적 수령액 = 상단 큰 카드**(送金済み/paid 만 합산) + 대기액 보조
+- **PayPal 미등록 = 안내 박스 + 「PayPal登録」 버튼**(→ PayPal 등록 화면)
+
+#### 구현 내용
+- 마이페이지 서브화면 `#mypage-sub-settlements`(dev/index.html) + `renderMySettlements`/`settlementStatusMeta`(mypage.js). 햄버거 「マイページ」 아코디언 서브항목(notifications.js subs).
+- `openMypageSub('settlements')` 훅으로 햄버거·알림·해시(`#mypage-settlements`)·popstate·새로고침 모든 진입 경로 자동 렌더.
+- 알림 라우팅(notifications.js onNotifItemClick): `settlement_paypal_required`→PayPal 화면, `settlement_paid`→정산 화면 + 아이콘맵.
+- i18n: `mypage.settlements.*`·상태 라벨 ja/ko 양쪽 등록. 동적 pill·금액은 `t()` + langchange 재렌더(응모이력 패턴 미러).
+
+#### 초안 대비 변경 사항
+- **달라진 것**: on_hold 라벨을 사양서 「保留」 대신 인플 친화적 「確認中」로(불안·환수 언급 회피). cancelled는 인플 화면에서 숨김.
+- **기술 결정**: DB·storage 변경 0(PR1의 fetchMySettlements 재사용). 앱 라우팅(openMypageSub·해시)이 이미 범용화돼 app.js 무수정.
+
+---
+
+## 정산 관리 베타 1차 — 3조각 완결 (2026-07-07 dev)
+PR1(데이터 모델·백필·동적 권한, 마이그217~220) → PR2(관리자 화면·송금/보류/취소 RPC, 마이그221~223) → PR3(인플 조회 화면, 프론트) 모두 개발서버 배포·검증 완료. **운영 배포는 3조각 묶어 별도 진행.** 약관 영향 없음(§8 — 제13조가 이미 커버).
+
+### PR2 후속 (2026-07-07 dev) — 관리자 화면 개선 + 보류 해제
+개발서버 검증(더미 24건·관리자 액션 qa) 중 사용자 요청으로 추가:
+- **상태 탭**: 정산 페인 상태 select → 상태별 탭(전체/정산대기/송금완료/보류/취소, 각 건수, 캠페인 탭 패턴 미러).
+- **캠페인 검색형 다중필터**: 단일 select → `syncCampMultiFilter` 재사용(결과물 페인 패턴). campaignId→campaignIds.
+- **보류 해제(마이그레이션 224 `mark_settlement_revert`)**: 기존 전이에서 on_hold는 취소만 가능해 보류 건 재정산 경로가 없던 구멍을 메움. **on_hold→pending 복귀**(paid_* 보존·알림 없음·events action='revert'[217 예약값]). 화면 on_hold 버튼에 「보류 해제」 추가(사유 모달 공용 `_openSettlementReasonModal` mode='revert'). 갱신된 전이: on_hold→pending(revert)/cancelled.
+
+### PR2 후속 2 (2026-07-07 dev) — 정산 이력 모달 + 화면 미세 조정
+개발서버 검증 중 사용자 요청으로 추가:
+- **정산 이력 모달(마이그레이션 225 `get_settlement_events`)**: 행별 「이력」 버튼 → `settlement_events` 타임라인 모달(생성/송금완료/보류/취소/보류해제 + 상태 전이 + 처리자 + 사유 메모). `SECURITY DEFINER + search_path='' + has_permission('settlement.view','read')` 가드. `storage.js` `fetchSettlementEvents`. 처리 시 입력한 사유(memo)를 이 모달에서 확인.
+- **처리 컬럼 폭 조정**: 정산 목록 「처리」 컬럼 200→300px(버튼 3~4개가 줄바꿈 없이 들어가도록).
+- **이력 버튼 조건부 비활성화**: 이벤트 0건인 정산행의 「이력」 버튼은 disable(빈 모달 방지).
+
+### 배포 전 정리 (2026-07-08 dev) — 문서·주석·배지 갱신 보완
+운영 배포 직전 reviewer/supabase-expert 검토에서 나온 경미 보완 3건:
+- **정산 대기 배지 갱신 주기 정합**: `loadAdminData`(admin-dashboard.js)에 `refreshSettlementSidebarBadge()` 호출 추가 — 결과물 배지와 동일하게 대시보드 방문 시마다 갱신(백필로 새 정산 건이 생겨도 다른 페인 머무는 동안 stale 하지 않게).
+- **stale 주석 정정**: `storage.js` `markSettlementPaid` 주석이 "PR2에서 구현 예정" 상태로 남아 있던 것을 실제(마이그222 구현·사용 중)에 맞게 갱신.
+- **문서 기록 갱신**: 위 「PR2 후속 2」 3개 커밋을 본 사양서 「구현 결과」에 반영.

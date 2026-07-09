@@ -60,3 +60,8 @@ modal-*.png
 age-gate-*.png
 *-success.png
 *-regression.png
+# 루트 최상위 스크린샷 png 전부 차단 (위 개별 패턴 포괄 — 루트 한정, dev/·sales/ 하위 자산은 영향 없음)
+/*.png
+
+# iOS 하이브리드 앱 실험 (Capacitor 래핑 — 레포 추적 안 함, 로컬 전용)
+ios-app/

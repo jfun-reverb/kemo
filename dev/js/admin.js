@@ -62,7 +62,7 @@ const debouncedFilterAdminCampaigns = debounce(filterAdminCampaigns, 300);
 
 // 보기 초기화 버튼 노출 — 필터·검색·정렬 중 하나라도 비기본이면 표시
 function updateCampViewResetBtn() {
-  const hasFilter = ['campTypeMulti','campStatusMulti'].some(id => getMultiFilterValues(id).length > 0);
+  const hasFilter = getMultiFilterValues('campTypeMulti').length > 0 || _campActiveStatusTab !== null;
   const hasSearch = !!(($('adminCampSearch')?.value || '').trim());
   const hasSort = !!adminCampSortKey;
   const btn = $('btnCampViewReset');
@@ -71,14 +71,14 @@ function updateCampViewResetBtn() {
 
 function resetCampFilters() {
   resetMultiFilter('campTypeMulti', '전체 타입');
-  resetMultiFilter('campStatusMulti', '전체 상태');
+  _campActiveStatusTab = null;
   const s = $('adminCampSearch'); if (s) s.value = '';
   filterAdminCampaigns();
 }
 // 보기 초기화 — 필터·검색·정렬을 한 번에 기본값으로
 function resetCampView() {
   resetMultiFilter('campTypeMulti', '전체 타입');
-  resetMultiFilter('campStatusMulti', '전체 상태');
+  _campActiveStatusTab = null;
   const s = $('adminCampSearch'); if (s) s.value = '';
   adminCampSortKey = ''; adminCampSortDir = '';
   updateSortArrows(); updateCampTableHead();
@@ -151,6 +151,41 @@ var adminReorderMode = false;
 // 캠페인 상태별 클라이언트 노출 도움말 모달 노출
 function openCampStatusHelp() {
   if (typeof openModal === 'function') openModal('campStatusHelpModal');
+}
+
+// ── 캠페인 상태별 탭 (campStatusMulti 드롭다운·adminCampStatusCounts 텍스트를 대체)
+//    오리엔시트·브랜드 신청 페인의 status-tab 패턴 재사용. 단일 선택(한 번에 1개 상태)
+const CAMP_STATUS_TABS = [
+  { code: null,        label: '전체' },
+  { code: 'draft',     label: '준비' },
+  { code: 'scheduled', label: '모집예정' },
+  { code: 'active',    label: '모집중' },
+  { code: 'closed',    label: '모집마감' },
+  { code: 'ended',     label: '종료' },
+  { code: 'expired',   label: '노출종료' },
+];
+var _campActiveStatusTab = null;
+
+// 상태 탭 바 렌더 (counts: 필터 전 전체 기준 상태별 건수)
+function renderCampStatusTabs(counts) {
+  const bar = $('campStatusTabBar');
+  if (!bar) return;
+  counts = counts || {};
+  const totalAll = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  bar.innerHTML = CAMP_STATUS_TABS.map(tab => {
+    const n = tab.code === null ? totalAll : (counts[tab.code] || 0);
+    const isOn = tab.code === _campActiveStatusTab;
+    const cls = 'status-tab-btn' + (isOn ? ' on' : '') + (n === 0 && tab.code !== null ? ' zero-count' : '');
+    return `<button type="button" class="${cls}" data-status="${tab.code || ''}" onclick="setCampStatusTab(this)">`
+      + `${esc(tab.label)}<span class="tab-count">(${n})</span></button>`;
+  }).join('');
+}
+
+// 상태 탭 클릭 → 단일 상태 필터로 목록 재조회 (필터 경로라 sentinel 리셋은 loadAdminCampaigns 가 처리)
+function setCampStatusTab(btn) {
+  _campActiveStatusTab = btn.dataset.status || null;   // 빈 문자열(전체)이면 null
+  updateCampViewResetBtn();
+  filterAdminCampaigns();
 }
 
 function updateCampTableHead() {
@@ -249,30 +284,15 @@ async function loadAdminCampaigns(useCache) {
     {value:'gifting', label:'기프팅',  count: rtCounts.gifting || 0},
     {value:'visit',   label:'방문형',  count: rtCounts.visit || 0},
   ], () => filterAdminCampaigns());
-  syncMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',     label:'준비',     count: stCounts.draft || 0},
-    {value:'scheduled', label:'모집예정', count: stCounts.scheduled || 0},
-    {value:'active',    label:'모집중',   count: stCounts.active || 0},
-    {value:'closed',    label:'모집마감', count: stCounts.closed || 0},
-    {value:'ended',     label:'종료',     count: stCounts.ended || 0},
-    {value:'expired',   label:'노출종료', count: stCounts.expired || 0},
-  ], () => filterAdminCampaigns());
-  // closed(모집마감)·ended(종료)는 실제 DB 상태(마이그레이션 156)라 필터·요약·배지 모두 분리.
-  const stLabels = {active:'모집중',scheduled:'모집예정',draft:'준비',closed:'모집마감',ended:'종료',expired:'노출종료'};
-  // 노출 그룹(scheduled/active/closed/ended)은 컬러, 비노출(draft/expired)은 회색·점선으로 시각 구분
-  const stColors = {active:'var(--green)',scheduled:'#5B7CFF',draft:'var(--muted)',closed:'#B91C5C',ended:'#5E35B1',expired:'#666666'};
-  const el = $('adminCampStatusCounts');
-  if (el) el.innerHTML = Object.keys(stLabels).filter(k=>stCounts[k]).map(k =>
-    `<span style="color:${stColors[k]};font-weight:600">${stLabels[k]} ${stCounts[k]}</span>`
-  ).join('<span style="margin:0 4px;color:var(--line)">·</span>');
+  // 상태 필터는 다중 선택 드롭다운 대신 상태별 탭으로 표시 (건수 포함). closed·ended 는 실제 DB 상태(마이그레이션 156)라 탭에서도 분리.
+  renderCampStatusTabs(stCounts);
 
   // 타입 필터 (다중 선택)
   const typeVals = getMultiFilterValues('campTypeMulti');
   if (typeVals.length) camps = camps.filter(c => typeVals.includes(c.recruit_type));
 
-  // 상태 필터 (다중 선택)
-  const statusVals = getMultiFilterValues('campStatusMulti');
-  if (statusVals.length) camps = camps.filter(c => statusVals.includes(c.status));
+  // 상태 필터 (탭 단일 선택)
+  if (_campActiveStatusTab) camps = camps.filter(c => c.status === _campActiveStatusTab);
 
   // 검색 필터 — 단어 단위 AND 매칭 (matchSearchTokens, 전각/반각 공백 무관)
   const searchVal = ($('adminCampSearch')?.value || '').trim().toLowerCase();
@@ -311,7 +331,7 @@ async function loadAdminCampaigns(useCache) {
   }
 
   // 필터/검색/정렬 중에는 순서 변경 비활성화
-  const isFiltered = searchVal || typeVals.length > 0 || statusVals.length > 0 || !!adminCampSortKey;
+  const isFiltered = searchVal || typeVals.length > 0 || _campActiveStatusTab !== null || !!adminCampSortKey;
 
   const typeLabel = t => getRecruitTypeBadgeKoSm(t);
   // 상태 배지 — closed 는 submission_end 경과 여부로 「모집마감」/「종료」 자동 구분 (shared.js campaignStatusLabelKey)
@@ -2348,6 +2368,39 @@ async function purgeCampaignAuditData(campId) {
   }
 }
 
+// 캠페인 상태 수동 전이 규칙 — 진행 흐름(준비→모집예정→모집중→모집마감→종료) + 한 칸 되돌리기 허용.
+// 노출종료(expired)는 노출 토글 OFF 로만 진입하므로 어떤 상태에서도 드롭다운 전이 대상이 아니다(빈 배열).
+// 자기 자신은 목록에 없으므로 자동 비활성. 마감일 지난 건의 active/scheduled 추가 차단은 toggleStatusDropdown 에서 적용.
+const CAMP_STATUS_TRANSITIONS = {
+  draft:     ['scheduled', 'active'],
+  scheduled: ['draft', 'active', 'closed'],
+  active:    ['scheduled', 'closed'],
+  closed:    ['active', 'ended'],
+  ended:     ['closed'],
+  expired:   [],
+};
+
+const CAMP_STATUS_ITEMS = [
+  {val:'draft',     label:'준비',     cls:'badge-gray'},
+  {val:'scheduled', label:'모집예정', cls:'badge-blue'},
+  {val:'active',    label:'모집중',   cls:'badge-green'},
+  {val:'closed',    label:'모집마감', cls:'badge-pink'},
+  {val:'ended',     label:'종료',     cls:'badge-done'},
+  {val:'expired',   label:'노출종료', cls:'badge-expired'}
+];
+
+// 드롭다운 항목 1개 렌더 — enabled 면 클릭 가능, 아니면 회색 비활성(onclick 없음)
+function buildStatusDropdownItem(campId, it, enabled) {
+  if (!enabled) {
+    return `<div class="status-dropdown-item disabled" aria-disabled="true">
+      <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
+    </div>`;
+  }
+  return `<div class="status-dropdown-item" onclick="changeCampStatus('${campId}','${it.val}')">
+    <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
+  </div>`;
+}
+
 function toggleStatusDropdown(badgeEl) {
   // 기존 드롭다운 닫기
   document.querySelectorAll('.status-dropdown').forEach(d => d.remove());
@@ -2356,22 +2409,28 @@ function toggleStatusDropdown(badgeEl) {
   const campId = tr?.dataset.campId;
   if (!campId) return;
 
-  const items = [
-    {val:'draft',     label:'준비',     cls:'badge-gray'},
-    {val:'scheduled', label:'모집예정', cls:'badge-blue'},
-    {val:'active',    label:'모집중',   cls:'badge-green'},
-    {val:'closed',    label:'모집마감', cls:'badge-pink'},
-    {val:'ended',     label:'종료',     cls:'badge-done'},
-    {val:'expired',   label:'노출종료', cls:'badge-expired'}
-  ];
+  const camp = allCampaigns.find(c => c.id === campId);
+  const curStatus = camp?.status;
+  const allowed = CAMP_STATUS_TRANSITIONS[curStatus] || [];
+  // 마감일 지난 캠페인은 모집중·모집예정으로 되돌릴 수 없음 (changeCampStatus 차단과 동일 기준)
+  let deadlinePassed = false;
+  if (camp?.deadline) {
+    const dl = new Date(camp.deadline); dl.setHours(23,59,59,999);
+    deadlinePassed = new Date() > dl;
+  }
 
   const dd = document.createElement('div');
   dd.className = 'status-dropdown';
-  dd.innerHTML = items.map(it =>
-    `<div class="status-dropdown-item" onclick="changeCampStatus('${campId}','${it.val}')">
-      <span class="badge ${it.cls}" style="pointer-events:none">${it.label}</span>
-    </div>`
-  ).join('');
+  if (curStatus === 'expired') {
+    // 노출종료는 「노출」 토글로만 복귀 — 드롭다운 전이 대상 없음. 빈 회색 목록 대신 안내 표시
+    dd.innerHTML = `<div class="status-dropdown-note">「노출」 토글로만<br>상태를 변경할 수 있습니다</div>`;
+  } else {
+    dd.innerHTML = CAMP_STATUS_ITEMS.map(it => {
+      let enabled = allowed.includes(it.val);
+      if (enabled && deadlinePassed && (it.val === 'active' || it.val === 'scheduled')) enabled = false;
+      return buildStatusDropdownItem(campId, it, enabled);
+    }).join('');
+  }
   // body에 붙여 부모의 overflow:hidden 클리핑 회피
   document.body.appendChild(dd);
   const rect = badgeEl.getBoundingClientRect();
@@ -2463,6 +2522,9 @@ async function moveCampOrder(campId, dir) {
 
 async function addCampaign() {
   try {
+  // 오리엔시트 카드 발행 컨텍스트 (osPublishCard→applyOrientCardPrefill 에서 세팅). 없으면 일반 등록.
+  const _opc = window._orientPublishCtx || null;
+  let _emergencyReason = null;
   const title = $('newCampTitle').value.trim();
   const brandId = $('newCampBrandId')?.value || '';
   if (!brandId) { toast('브랜드를 선택해주세요','error'); return; }
@@ -2493,6 +2555,27 @@ async function addCampaign() {
   const cat = $('newCampCategory').value;
   const ch = Array.from(document.querySelectorAll('input[name="newChannel"]:checked')).map(c=>c.value).join(',');
   if (!ch) { toast('채널을 1개 이상 선택해주세요','error'); return; }
+
+  // ── 오리엔시트 발행 경로: 일본어 보완 게이트 ──
+  // 제목·제품명(일본어)은 위 필수검증이 이미 강제. 여기선 콘텐츠 가이드 보완을 확인/차단.
+  // 가이드 비었으면 매니저는 차단, campaign_admin 이상은 사유 입력 긴급 발행 우회(기록).
+  if (_opc) {
+    const guidePlain = (getRichValue('newCampGuide') || '').replace(/<[^>]*>/g, '').trim();
+    if (!guidePlain) {
+      if (typeof isCampaignAdminOrAbove === 'function' && isCampaignAdminOrAbove()) {
+        const reason = window.prompt('콘텐츠 가이드가 비어 있습니다. 일본어 보완 없이 긴급 발행하려면 사유를 입력하세요. (취소 시 발행 중단)');
+        if (!reason || !reason.trim()) { toast('발행을 취소했습니다.'); return; }
+        _emergencyReason = reason.trim();
+      } else {
+        toast('콘텐츠 가이드(일본어)를 입력해 주세요. 비워둔 채 긴급 발행은 광고 관리자 이상만 가능합니다.', 'error');
+        return;
+      }
+    } else if (!window.confirm('일본어 보완(제목·제품명·콘텐츠 가이드)을 완료하셨나요?\n한국어 초안이 남아 있으면 인플루언서 화면에 그대로 노출됩니다.')) {
+      toast('일본어를 보완한 뒤 다시 발행해 주세요.');
+      return;
+    }
+  }
+
   const existing = await fetchCampaigns();
   const minOrder = existing.length > 0 ? Math.min(...existing.map(c=>c.order_index||0)) : 0;
   // 이미지를 Storage에 업로드
@@ -2536,13 +2619,33 @@ async function addCampaign() {
     // 067 legacy 컬럼은 더 이상 갱신하지 않음 (070 마이그레이션에서 DROP 예정)
     // ng legacy 컬럼은 NG-PR-B에서 갱신 중단 — ng_set_id/ng_items 로 대체 (NG-PR-F에서 DROP 예정)
     status:'draft',
+    // 오리엔시트 발행 보조(마이그레이션 197): 가구매=영수증만 플래그 / 일본어 긴급 발행 기록
+    proxy_purchase: _opc ? !!_opc.isProxy : false,
+    emergency_publish_reason: _emergencyReason || null,
+    emergency_published_by: _emergencyReason ? (typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null) : null,
+    emergency_published_at: _emergencyReason ? new Date().toISOString() : null,
     ...collectCampPsetPayload('new'),
     ...collectCampCsetPayload('new'),
     ...collectCampNsetPayload('new'),
   };
 
-  await insertCampaign(camp);
+  const _newCampId = await insertCampaign(camp);
   toast('캠페인이 등록되었습니다','success');
+
+  // ── 오리엔시트 카드 발행 소비 ──
+  if (_opc && _newCampId) {
+    try {
+      const cr = await markOrientCardConsumed(_opc.orientId, _opc.cardIdx, _newCampId);
+      if (cr && cr.success) {
+        toast(cr.all_published
+          ? '카드 발행 완료 — 모든 카드가 발행되어 오리엔시트가 잠겼습니다.'
+          : '카드 발행 완료 (' + cr.published_count + '/' + cr.total_count + ' 발행)', 'success');
+      } else {
+        toast('캠페인은 등록됐으나 오리엔시트 연결에 실패했습니다: ' + (cr && cr.reason ? cr.reason : '알 수 없음'), 'error');
+      }
+    } catch (e) { console.error('[markOrientCardConsumed]', e); }
+    window._orientPublishCtx = null;
+  }
   campImgData.length = 0;
   renderImgPreview(campImgData, 'campImgPreviewWrap', 'campImgCounter', 'campImgData');
 
@@ -2579,6 +2682,8 @@ async function addCampaign() {
 
   switchAdminPane('campaigns', null);
   } catch(err) {
+    // 발행 실패 시 컨텍스트 비움 — 살아있으면 다음 저장이 같은 카드를 이중 소비 시도할 수 있음
+    window._orientPublishCtx = null;
     toast('오류: ' + friendlyError(err.message||String(err)), 'error');
   }
 }

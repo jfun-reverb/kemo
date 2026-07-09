@@ -61,6 +61,10 @@ async function init() {
     currentUser._isAdmin = true;
     currentUserProfile = {name: adminResult.data.name || 'Admin', email: currentUser.email};
     currentAdminInfo = adminResult.data;
+    // 동적 권한 로드 (실패해도 fail-open — boot 계속). 메뉴 숨김이 이 맵을 참조.
+    if (typeof fetchRolePermissions === 'function' && typeof setRolePermMap === 'function') {
+      try { setRolePermMap(await fetchRolePermissions()); } catch (_) { /* fail-open */ }
+    }
     if (typeof applyLookupMenuVisibility === 'function') applyLookupMenuVisibility();
     if (typeof updateSidebarProfile === 'function') updateSidebarProfile();
 
@@ -81,7 +85,9 @@ async function init() {
     // 사이드바 배지 4종 — 화면 진입을 막지 않도록 백그라운드로 갱신 (전부 가벼운 count 쿼리)
     if (typeof refreshApplySidebarBadge === 'function') refreshApplySidebarBadge();
     if (typeof refreshDelivSidebarBadge === 'function') refreshDelivSidebarBadge();
+    if (typeof refreshSettlementSidebarBadge === 'function') refreshSettlementSidebarBadge();
     if (typeof refreshBrandAppBadge === 'function') refreshBrandAppBadge();
+    if (typeof refreshOrientBadge === 'function') refreshOrientBadge();
     // 메시지 배지는 refreshInboxData 끝의 updateInboxSidebarBadge 가 갱신 — 부트에서도 호출해
     // 새로고침 시 즉시 노출 (기존엔 페인 클릭 시에만 갱신되어 0으로 보이던 회귀).
     if (typeof refreshInboxData === 'function') refreshInboxData();

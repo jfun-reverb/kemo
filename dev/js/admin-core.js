@@ -126,6 +126,17 @@ function friendlyError(msg) {
 // ════════════════════════════════════════════════════════════════════
 
 function switchAdminPane(pane, el, pushHistory) {
+  // 동적 권한 진입 가드 (PR2 조각 C) — 화면 표시 제어. ⚠️ 클라 가드일 뿐 데이터는 서버가 여전히 반환(실차단은 PR3 서버 가드).
+  //   ① permissions 는 super_admin 전용. ② menu.* 가 hidden 인 페인은 대시보드로 리다이렉트(dashboard 자체는 무한 재귀 방지로 항상 허용).
+  const _isSuper = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo && currentAdminInfo.role === 'super_admin');
+  if (pane === 'permissions' && !_isSuper) {
+    if (typeof toast === 'function') toast('권한 관리 화면은 슈퍼관리자만 접근할 수 있습니다.', 'error');
+    return switchAdminPane('dashboard', null, pushHistory);
+  }
+  if (pane !== 'dashboard' && typeof isHidden === 'function' && isHidden('menu.' + pane)) {
+    if (typeof toast === 'function') toast('접근 권한이 없는 메뉴입니다.', 'error');
+    return switchAdminPane('dashboard', null, pushHistory);
+  }
   // Vercel Web Analytics — 관리자 앱 페인별 접속 카운트
   try {
     if (typeof window.va === 'function') {
@@ -133,6 +144,9 @@ function switchAdminPane(pane, el, pushHistory) {
     }
   } catch (e) { /* analytics 실패 무시 */ }
 
+  // 오리엔시트 발행 컨텍스트는 add-campaign 진입마다 초기화 (수동 신규 캠페인이 오리엔 발행으로 오인되지 않도록).
+  // 오리엔 발행 경로(applyOrientCardPrefill)는 switchAdminPane 호출 직후 컨텍스트를 다시 세팅한다.
+  if (pane === 'add-campaign') window._orientPublishCtx = null;
   initMultiFilters();
   document.querySelectorAll('.admin-pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.admin-si').forEach(s=>s.classList.remove('on'));
@@ -163,6 +177,7 @@ function switchAdminPane(pane, el, pushHistory) {
     applications: loadApplications,
     campaigns: loadAdminCampaigns,
     influencers: loadAdminInfluencers,
+    'settlements': loadSettlements,
     'admin-accounts': loadAdminAccounts,
     'my-account': loadMyAdminInfo,
     'lookups': loadLookupsPane,
@@ -178,7 +193,8 @@ function switchAdminPane(pane, el, pushHistory) {
     'messages': loadMessagesInbox,
     'errors': loadClientErrors,
     'upcoming': renderUpcomingFeatures,
-    'orient-sheets': loadOrientSheets
+    'orient-sheets': loadOrientSheets,
+    'permissions': loadPermissionsPane
   };
   // 브라우저 히스토리 기록 (뒤로가기 지원)
   if (pushHistory !== false) {
@@ -268,9 +284,7 @@ function initMultiFilters() {
   createMultiFilter('campTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
   ], () => filterAdminCampaigns());
-  createMultiFilter('campStatusMulti', '전체 상태', [
-    {value:'draft',label:'준비'},{value:'scheduled',label:'모집예정'},{value:'active',label:'모집중'},{value:'closed',label:'모집마감'},{value:'ended',label:'종료'},{value:'expired',label:'노출종료'}
-  ], () => filterAdminCampaigns());
+  // 캠페인 상태 필터는 다중선택 드롭다운 → 상태별 탭(admin.js CAMP_STATUS_TABS)으로 교체됨
   // 신청관리
   createMultiFilter('appTypeMulti', '전체 타입', [
     {value:'monitor',label:'리뷰어'},{value:'gifting',label:'기프팅'},{value:'visit',label:'방문형'}
@@ -463,6 +477,7 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   // 검색형(opt-in) — 옵션이 많은 드롭다운(캠페인 등)에서만 사용. 기본 false → 기존 전 페인 무영향
   const searchHtml = opts.searchable
     ? `<div class="mf-search-box"><input type="search" class="mf-search" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="${esc(opts.searchPlaceholder || '検索')}"></div>`
+      + `<button type="button" class="mf-search-only" style="display:none;width:calc(100% - 16px);margin:0 8px 4px;font-size:12px;font-weight:700;color:var(--pink,#E8344E);background:var(--light-pink,#FDEEF4);border:1px solid var(--pink,#E8344E);border-radius:6px;padding:5px 8px;cursor:pointer">이 검색 결과만 선택</button>`
     : '';
   const emptyHtml = opts.searchable ? `<div class="mf-search-empty" style="display:none">일치하는 항목이 없습니다</div>` : '';
   // 드롭다운 아이템 생성 — 초기 상태: 모두 비체크 = 필터 없음 (전체 표시)
@@ -524,6 +539,8 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
   if (opts.searchable) {
     const si = drop.querySelector('.mf-search');
     const emptyEl = drop.querySelector('.mf-search-empty');
+    const onlyBtn = drop.querySelector('.mf-search-only');
+    const allItem = drop.querySelector('.all-item');
     const optItems = [...drop.querySelectorAll('.mf-item:not(.all-item)')];
     if (si) si.oninput = () => {
       const q = (si.value || '').trim().toLowerCase();
@@ -536,6 +553,16 @@ function createMultiFilter(containerId, allLabel, options, onChange, opts = {}) 
         if (show) visible++;
       });
       if (emptyEl) emptyEl.style.display = visible === 0 ? '' : 'none';
+      // 검색 중엔 「전체」 항목을 숨기고 「이 검색 결과만 선택」 버튼으로 대체(검색어 지우면 「전체」 복귀).
+      if (allItem) allItem.style.display = q ? 'none' : '';
+      if (onlyBtn) onlyBtn.style.display = (q && visible > 0) ? '' : 'none';
+    };
+    // 검색에 보이는 항목만 선택(나머지 해제) → 그 캠페인들만 필터링. 「전체」 체크 상태도 자동 해제(부분 선택).
+    // itemCbs는 createMultiFilter 시점 스냅샷 — reorderSelectedFirst 로 DOM 순서가 바뀌어도 display 기준 판정이라 정합성 무영향.
+    if (onlyBtn) onlyBtn.onclick = (e) => {
+      e.stopPropagation();
+      itemCbs.forEach(c => { c.checked = (c.closest('.mf-item')?.style.display !== 'none'); });
+      update();
     };
   }
   // 외부에서 prev 복원 후 다시 호출할 수 있도록 노출
@@ -675,9 +702,11 @@ const DRAGGABLE_ADMIN_MODALS = new Set([
   // 신청·결과물
   'delivDetailModal', 'delivCombinedModal', 'delivRejectModal', 'adminProxyDelivModal',
   // 브랜드 서베이·회사
-  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal',
+  'companyModal', 'brandAssignModal', 'brandDetailModal', 'newBrandAppModal', 'brandAppMemoModal', 'brandAppHistoryModal', 'linkCampaignModal', 'brandAppOrientListModal',
   // 공지·기준데이터·계정
   'adminNoticeEditModal', 'adminNoticeViewModal', 'lookupEditModal', 'faqEditModal', 'addAdminModal', 'adminEmailSubsModal',
+  // 오리엔시트 (동적 생성 — ensureOrientModals 가 initDraggableModals 재호출로 옵저버 부착)
+  'orientDetailModal', 'orientCreateModal',
   // 메시지
   'admMsgModal', 'admHideModal',
   // 일괄 발송 (PR 3) — 대상 선택·발송 상세는 내용이 길어 드래그·리사이즈 유용

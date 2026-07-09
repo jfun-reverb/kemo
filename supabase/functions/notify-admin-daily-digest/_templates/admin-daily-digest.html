@@ -3,8 +3,8 @@
   Mail: 관리자 일일 통합 다이제스트 (admin daily digest)
   Trigger: pg_cron 매일 UTC 00:00 (= 한국시간 오전 9시) → Edge Function notify-admin-daily-digest
   Window:  전일 한국시간 0시~24시
-  To:      get_subscribed_admin_emails('application_cancel') ∪
-           get_subscribed_admin_emails('application_received') ∪ env.NOTIFY_ADMIN_EMAILS
+  To:      get_subscribed_admin_emails('daily_digest') ∪ env.NOTIFY_ADMIN_EMAILS
+           (migration 164: application_cancel + application_received → daily_digest 통합)
   Lang:    KO
   Skip:    4섹션 모두 0건이면 메일 미발송 + 발송 로그 status='skipped_no_data'
 

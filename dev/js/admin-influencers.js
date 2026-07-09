@@ -37,11 +37,14 @@ async function loadAdminInfluencers() {
   renderInfluencersPane();
 }
 
-// 「민감정보 포함」 체크박스는 campaign_admin 이상에게만 노출 (그 외 숨김)
+// 「민감정보 포함」 체크박스는 엑셀 민감정보 포함 권한(influencer.excel_sensitive read 이상)이 있는
+//   등급에게만 노출 (그 외 숨김). PR3-D 동적 권한 일원화(구 isCampaignAdminOrAbove 하드코딩 제거).
+//   화면 열람 권한(influencer.sensitive_pii)과는 별개 항목 — 엑셀 대량 유출을 화면 열람과 따로 통제 가능.
+//   미로드 시 canRead=fail-open(표시) — 실제 차단은 서버 가림막 뷰가 담당.
 function applyInfExcelSensitiveVisibility() {
   const wrap = $('infExcelSensitiveWrap');
   if (!wrap) return;
-  const allow = (typeof isCampaignAdminOrAbove === 'function') && isCampaignAdminOrAbove();
+  const allow = (typeof canRead === 'function') && canRead('influencer.excel_sensitive');
   wrap.style.display = allow ? 'inline-flex' : 'none';
   if (!allow) { const cb = $('infExcelSensitive'); if (cb) cb.checked = false; }
 }
@@ -178,9 +181,9 @@ function sortInfUsers(users) {
     tiktok: u => u.tiktok_followers||0,
     youtube: u => u.youtube_followers||0,
     total: u => (u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0),
-    line: u => u.line_id ? 1 : 0,
+    line: u => u.has_line ? 1 : 0,
     addr: u => u.prefecture ? 1 : 0,
-    paypal: u => u.paypal_email ? 1 : 0,
+    paypal: u => u.has_paypal ? 1 : 0,
     created: u => new Date(u.created_at).getTime()
   };
   const fn = getVal[infSortKey];
@@ -223,8 +226,12 @@ function buildInfRowAll(u) {
   const ttF = (u.tiktok_followers||0).toLocaleString();
   const ytF = (u.youtube_followers||0).toLocaleString();
   const total = ((u.ig_followers||0)+(u.x_followers||0)+(u.tiktok_followers||0)+(u.youtube_followers||0)).toLocaleString();
-  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : u.address||'—';
-  const paypalBadge = u.paypal_email ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
+  // 도도부현은 마스킹 대상 아님(항상 정확) — prefecture 없을 때만 마스킹 가능한 address 폴백,
+  // 그 경우도 canRead 기준으로 "미등록"과 "열람 권한 없음"을 구분(PR3 조각 B).
+  const addr = u.prefecture ? `${u.prefecture}${u.city||''}` : (maskedFieldByPermission(u.address) || '—');
+  // PayPal 배지는 has_paypal(마스킹 무관 항상 정확한 존재 여부) 기준 — 값 자체가 아니라
+  // "등록 여부"만 표시하므로 마스킹된 관리자 등급도 정확하게 본다.
+  const paypalBadge = u.has_paypal ? `<span style="background:var(--green-l);color:var(--green);font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px">등록완료</span>` : `<span style="background:var(--bg);color:var(--muted);font-size:10px;padding:2px 7px;border-radius:10px;border:1px solid var(--line)">미등록</span>`;
   const snsCell = (channel, raw) => {
     const handle = extractSnsHandle(channel, raw);
     if (!handle) return '—';
@@ -241,7 +248,7 @@ function buildInfRowAll(u) {
     <td>${snsCell('tiktok', u.tiktok)}<div style="font-size:11px;color:var(--muted)">${ttF}명</div></td>
     <td>${snsCell('youtube', u.youtube)}<div style="font-size:11px;color:var(--muted)">${ytF}명</div></td>
     <td style="font-weight:700;color:var(--pink)">${total}</td>
-    <td style="font-size:12px;color:var(--muted)">${ellip(u.line_id, 120)}</td>
+    <td style="font-size:12px;color:var(--muted)">${ellip(maskedFieldByFlag(u.line_id, u.has_line), 120)}</td>
     <td style="font-size:12px;color:var(--muted)">${ellip(addr, 160)}</td>
     <td>${paypalBadge}</td>
     <td style="font-size:12px;color:var(--muted)">${formatDate(u.created_at)}</td>
@@ -326,23 +333,27 @@ async function openInfluencerDetail(userId) {
     snsRow('YouTube', 'youtube', u.youtube, u.youtube_followers) +
     `<div style="display:flex;align-items:center;padding:12px 0;gap:12px"><div style="font-size:12px;font-weight:700;color:var(--ink);width:80px">총 팔로워</div><div style="font-size:18px;font-weight:800;color:var(--pink)">${totalF.toLocaleString()}명</div></div>`;
 
-  // 연락처
+  // 연락처 (PR3 조각 B — 마스킹된 관리자 등급엔 NULL 대신 "열람 권한 없음" 표시)
   $('infDetailContact').innerHTML =
-    row('LINE ID', u.line_id) +
-    row('전화번호', formatPhoneDisplay(u.phone));
+    row('LINE ID', maskedFieldByFlag(u.line_id, u.has_line)) +
+    row('전화번호', u.phone ? formatPhoneDisplay(u.phone) : maskedFieldByPermission(u.phone));
 
-  // 배송지
-  const fullAddr = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : u.address;
+  // 배송지 (zip/building/address 는 대응 존재 불리언이 없어 canRead 기준 근사 판정)
+  const fullAddr = u.zip ? `〒${u.zip} ${u.prefecture||''}${u.city||''}${u.building?' '+u.building:''}` : maskedFieldByPermission(u.address);
   $('infDetailAddress').innerHTML =
-    row('우편번호', u.zip) +
+    row('우편번호', maskedFieldByPermission(u.zip)) +
     row('도도부현', u.prefecture) +
     row('시구정촌', u.city) +
-    row('건물명', u.building) +
+    row('건물명', maskedFieldByPermission(u.building)) +
     row('전체 주소', fullAddr);
 
   // PayPal — row() 내에서 esc() 처리됨
-  $('infDetailPaypal').innerHTML = u.paypal_email
-    ? row('PayPal 이메일', u.paypal_email)
+  // has_paypal(마스킹 무관 항상 정확) 로 등록 여부 먼저 판정 → 값이 마스킹돼 NULL이면
+  // "열람 권한 없음", 값이 있으면 그대로 표시 (PR3 조각 B).
+  $('infDetailPaypal').innerHTML = u.has_paypal
+    ? (u.paypal_email
+        ? row('PayPal 이메일', u.paypal_email)
+        : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">열람 권한 없음</div>')
     : '<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">PayPal 미등록</div>';
 
   // 상태 관리 (인증 / 위반 관리 · 관리자 이력 포함)

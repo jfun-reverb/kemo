@@ -575,6 +575,15 @@ const PANE_REFRESHERS = {
   },
   'orient-sheets': async () => {
     if (typeof loadOrientSheets === 'function') await loadOrientSheets();
+  },
+  'permissions': async () => {
+    if (typeof loadPermissionsPane === 'function') await loadPermissionsPane();
+  },
+  'settlements': async () => {
+    // 처리(송금/보류/취소) 후 호출 — 상태가 바뀐 행을 정확히 반영해야 하므로 캐시 재렌더가 아니라
+    // 재조회(reloadSettlementsData: fetchSettlements + renderSettlementsList + 배지)로 갱신한다.
+    if (typeof reloadSettlementsData === 'function') await reloadSettlementsData();
+    else if (typeof renderSettlementsList === 'function') await renderSettlementsList();
   }
 };
 async function refreshPane(paneId) {
@@ -639,10 +648,10 @@ function genderLabel(code) {
 //   - 관리자 페이지에는 해당 마크업이 없어 함수가 곧바로 return 됨(공유 파일이라 양쪽 로드).
 // ══════════════════════════════════════
 const POLICY_NOTICE = {
-  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-19 → 시행일 2026-07-19(공고+30일).
+  // 연령 정책(만 18세 이상) 시행 예고. 공고일 2026-06-22 → 시행일 2026-07-22(공고+30일).
   id: 'agePolicy2026',          // localStorage 키 식별자
-  effectiveDate: '2026-07-19',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
-  noticeUntil: '2026-08-02',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
+  effectiveDate: '2026-07-22',  // 시행일(본문 {date}·예고 표기용) = 공고일+30일
+  noticeUntil: '2026-08-05',    // 노출 종료일 = 시행일+14일. 이 날 0시(KST)부터 자동 비노출
 };
 var _policyBannerDismissed = false;  // 배너 "이번 방문만 숨김" — 새로고침/재진입 시 초기화(부활)
 
@@ -758,6 +767,12 @@ const UPCOMING_FEATURES = [
   //   desc: '가입·응모 시 생년월일·성별 입력. 18세 미만 응모 불가.', // 상세 설명(한국어)
   //   effectiveDate: '2026-07-15',                       // 시행일(KST). 해당 기능 시행일 상수와 동일값
   // },
+  {
+    key: 'age-policy-2026',
+    title: '연령 정책 (만 18세 이상)',
+    desc: '가입·응모 시 생년월일·성별을 입력받습니다. 만 18세 미만은 캠페인 응모가 제한됩니다.',
+    effectiveDate: '2026-07-22',  // 공고 2026-06-22 + 30일. 약관 부칙·age_policy_settings·POLICY_NOTICE 와 동일 시행일
+  },
 ];
 
 // 시행일 자정(KST) 타임스탬프 — POLICY_NOTICE 선례와 동일 기준
@@ -799,6 +814,115 @@ function visibleUpcomingFeatures() {
   return UPCOMING_FEATURES
     .filter(it => upcomingFeatureStatus(it, today) !== 'expired')
     .sort((a, b) => _upcomingEffectiveTs(a) - _upcomingEffectiveTs(b));
+}
+
+// ══════════════════════════════════════
+// 관리자 동적 권한 관리 — 권한 카탈로그 (코드 상수 단일 소스, PR1)
+//   등급(campaign_admin/campaign_manager)별 접근 수준(write/read/hidden)은 DB
+//   role_permissions 테이블(마이그레이션 207)에 저장 — 이 배열은 "기능이 무엇이
+//   있는지"만 정의하는 카탈로그다. 새 페인·기능 추가 시 이 배열에 한 줄 + 시드
+//   마이그레이션에 대응 행 추가(누락 시 has_permission() 이 안전측 거부=false).
+//   ⚠️ PR1 시점에는 이 배열을 참조하는 코드가 아직 없다(순수 카탈로그). 메뉴 숨김·
+//   버튼 비활성 등 실제 화면 분기는 PR2(설정 화면 + permLevel 헬퍼)부터 연결된다.
+//   key 는 role_permissions.feature_key 와 1:1 대응(마이그레이션 207 시드 참조).
+//   server_enforced=true 는 2단계(PR3+)에서 서버(has_permission RPC)로 실차단할
+//   후보 — PR1 시점에는 서버 차단 여부와 무관하게 표시용 플래그일 뿐이다.
+//   사양서 docs/specs/2026-06-15-admin-permission-management.md §3
+//         docs/specs/2026-06-15-admin-permission-matrix.md §B(카탈로그 근거)
+// ══════════════════════════════════════
+const ADMIN_PERMISSION_CATALOG = [
+  // ── 메뉴(페인) 19개 — dev/admin/index.html 사이드바 data-pane 과 1:1 ──
+  { key: 'menu.admin-notices',      label_ko: '공지사항',                     category: '공지',        server_enforced: false },
+  { key: 'menu.upcoming',           label_ko: '오픈 예정 기능',               category: '공지',        server_enforced: false },
+  { key: 'menu.dashboard',          label_ko: '전체 현황',                    category: '대시보드',    server_enforced: false },
+  { key: 'menu.brand-ops',          label_ko: '운영 현황',                    category: '캠페인',      server_enforced: false },
+  { key: 'menu.campaigns',          label_ko: '캠페인 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.applications',       label_ko: '인플 신청 관리',               category: '캠페인',      server_enforced: false },
+  { key: 'menu.deliverables',       label_ko: '결과물 관리',                  category: '캠페인',      server_enforced: false },
+  { key: 'menu.messages',           label_ko: '메시지',                       category: '캠페인',      server_enforced: false },
+  { key: 'menu.brand-dashboard',    label_ko: '현황 대시보드',                category: '브랜드',      server_enforced: false },
+  { key: 'menu.companies',          label_ko: '회사 관리',                    category: '브랜드',      server_enforced: false },
+  { key: 'menu.brands',             label_ko: '브랜드 관리',                  category: '브랜드',      server_enforced: false },
+  { key: 'menu.orient-sheets',      label_ko: '오리엔시트 현황',              category: '브랜드',      server_enforced: false },
+  { key: 'menu.brand-applications', label_ko: '서베이 신청 목록',             category: '브랜드',      server_enforced: false },
+  { key: 'menu.influencers',        label_ko: '인플루언서 목록',              category: '회원 관리',   server_enforced: false },
+  { key: 'menu.settlements',        label_ko: '정산 관리',                    category: '회원 관리',   server_enforced: false },
+  { key: 'menu.lookups',            label_ko: '기준 데이터',                  category: '관리자 설정', server_enforced: false },
+  { key: 'menu.faq',                label_ko: '자주 묻는 질문',               category: '관리자 설정', server_enforced: false },
+  { key: 'menu.admin-accounts',     label_ko: '관리자 계정',                  category: '관리자 설정', server_enforced: false },
+  { key: 'menu.errors',             label_ko: '오류 로그',                    category: '관리자 설정', server_enforced: false },
+  { key: 'menu.my-account',         label_ko: '내 계정',                      category: '관리자 설정', server_enforced: false },
+  { key: 'menu.permissions',        label_ko: '권한 관리',                    category: '관리자 설정', server_enforced: false },
+
+  // ── 주요 기능 17개 — server_enforced=true (2단계 서버 차단 후보, 매트릭스 §B) ──
+  { key: 'influencer.sensitive_pii',      label_ko: '인플루언서 민감정보 열람(전화·주소·PayPal 등)', category: '인플루언서',   server_enforced: true },
+  { key: 'influencer.excel_sensitive',    label_ko: '인플루언서 엑셀에 민감정보 포함',               category: '인플루언서',   server_enforced: true },
+  { key: 'influencer.flag',               label_ko: '인플루언서 인증·블랙리스트·위반 등록',          category: '인플루언서',   server_enforced: true },
+  { key: 'deliverable.receipt_edit',      label_ko: '영수증 정보 수정',                              category: '결과물',       server_enforced: true },
+  { key: 'deliverable.proxy_create',      label_ko: '결과물 대리 등록',                              category: '결과물',       server_enforced: true },
+  { key: 'company.cud',                   label_ko: '회사 등록·수정·삭제',                           category: '브랜드',       server_enforced: true },
+  { key: 'brand.delete_merge',            label_ko: '브랜드 삭제·병합',                              category: '브랜드',       server_enforced: true },
+  { key: 'lookup.cud',                    label_ko: '기준 데이터 등록·수정·삭제',                    category: '기준 데이터',  server_enforced: true },
+  { key: 'faq.cud',                       label_ko: '자주 묻는 질문 등록·수정·삭제',                 category: 'FAQ',          server_enforced: true },
+  { key: 'message.bulk_send',             label_ko: '메시지 일괄 발송·발송 이력 열람',               category: '메시지',       server_enforced: true },
+  { key: 'message.hide',                  label_ko: '메시지 강제 숨김',                              category: '메시지',       server_enforced: true },
+  { key: 'message.unhide',                label_ko: '메시지 숨김 복구',                              category: '메시지',       server_enforced: true },
+  { key: 'notice.create',                 label_ko: '공지 작성',                                     category: '공지',         server_enforced: true },
+  { key: 'notice.manage_others',          label_ko: '다른 관리자가 작성한 공지 수정·게시·회수',      category: '공지',         server_enforced: true },
+  { key: 'campaign.caution_history_view', label_ko: '캠페인 주의사항 변경 이력 열람',                category: '캠페인',       server_enforced: true },
+  { key: 'admin.manage',                  label_ko: '관리자 계정 추가·삭제',                         category: '관리자 설정',  server_enforced: true },
+  { key: 'permissions.manage',            label_ko: '권한 관리 화면 접근',                           category: '관리자 설정',  server_enforced: true },
+  // ── 정산(인플루언서 리워드) 2개 — 마이그레이션 220 role_permissions 시드와 1:1 (화면 menu.settlements 는 PR2) ──
+  { key: 'settlement.view',               label_ko: '정산 조회',                                     category: '정산',         server_enforced: true },
+  { key: 'settlement.pay',                label_ko: '정산 송금 처리',                                category: '정산',         server_enforced: true },
+];
+
+// ══════════════════════════════════════
+// 동적 권한 — 런타임 접근수준 맵 (부팅 시 role_permissions 로드). PR2 조각 B.
+//   ⚠️ 이건 "화면 표시 제어"용이다. 실제 데이터 접근 차단이 아니다(서버 RLS·has_permission 이 방어선).
+//   그래서 미로드·미등록·역할 미확정 시 fail-open('write' = 표시)한다 — 로드 실패로 관리자가 아무것도 못 보는 사고 방지.
+//   (서버 has_permission 은 반대로 fail-closed = 미등록 거부. 표시는 관대·차단은 엄격.)
+// ══════════════════════════════════════
+let _rolePermMap = {};  // 'role|feature_key' → 'write'|'read'|'hidden'
+function setRolePermMap(rows) {
+  const m = {};
+  (rows || []).forEach(r => { if (r && r.role && r.feature_key) m[r.role + '|' + r.feature_key] = r.access_level; });
+  _rolePermMap = m;
+}
+const _PERM_RANK = { write: 2, read: 1, hidden: 0 };
+// 현재 관리자의 feature 접근수준. super_admin=항상 write. 역할 미확정·미로드·미등록=write(fail-open).
+function permLevel(featureKey) {
+  const role = (typeof currentAdminInfo !== 'undefined' && currentAdminInfo) ? currentAdminInfo.role : null;
+  if (role === 'super_admin' || !role) return 'write';
+  return _rolePermMap[role + '|' + featureKey] || 'write';
+}
+function canWrite(featureKey) { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 2; }
+function canRead(featureKey)  { return (_PERM_RANK[permLevel(featureKey)] || 0) >= 1; }
+function isHidden(featureKey) { return permLevel(featureKey) === 'hidden'; }
+
+// ══════════════════════════════════════
+// 인플루언서 민감정보 마스킹 표시 헬퍼 (PR3 조각 B, 2026-07-06)
+//   influencers_admin_view(마이그레이션 212)가 has_permission('influencer.sensitive_pii','read')
+//   가 false인 관리자 등급에게 phone/line_id/paypal_email/zip/building/address 6종을
+//   NULL로 내려줄 때, 화면에서 "진짜 미등록"과 "권한이 없어서 안 보임"을 구분해 표시한다.
+//   반환값은 esc() 미적용 원문(호출부가 기존 row()/ellip() 패턴대로 esc() 적용) — 라벨
+//   문자열 자체엔 특수문자가 없어 이중 escape 걱정 없음.
+//
+//   1) has_line/has_paypal 처럼 대응 존재 불리언이 있는 필드 — hasFlag 로 정확히 판정
+//      (마스킹 여부와 무관하게 뷰가 항상 실제 존재 여부를 내려주므로 100% 정확).
+function maskedFieldByFlag(val, hasFlag, registeredLabel) {
+  if (val) return val;
+  return hasFlag ? (registeredLabel || '등록됨(열람 권한 없음)') : '';
+}
+//   2) phone/zip/building/address 처럼 대응 불리언이 없는 필드 — 현재 로그인한 관리자의
+//      클라 권한 레벨(canRead)로 근사 판정. canRead 가 false 면 서버가 무조건 NULL 을
+//      주므로(진짜 값 유무와 무관) "열람 권한 없음"이 항상 정확. true 면 NULL 은 진짜
+//      미등록이므로 emptyLabel(기본 빈 문자열, 호출부가 '—' 등으로 폴백 처리)을 반환.
+//      ⚠️ 이건 UX 라벨용 근사치이며 보안 경계가 아니다 — 실제 차단은 서버 뷰가 이미 함.
+function maskedFieldByPermission(val, emptyLabel) {
+  if (val) return val;
+  if (typeof canRead === 'function' && !canRead('influencer.sensitive_pii')) return '열람 권한 없음';
+  return emptyLabel != null ? emptyLabel : '';
 }
 
 // ══════════════════════════════════════

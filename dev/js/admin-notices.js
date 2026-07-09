@@ -15,6 +15,39 @@
 var _adminNoticesCache = [];
 var _adminNoticeCurrent = null;
 var _adminNoticeQuill = null;
+// 공지 보기 모달 본문 — 편집기와 동일한 Quill(읽기 전용)로 렌더해 "편집 = 보기" 일치
+var _adminNoticeViewQuill = null;
+
+// 공지 본문을 편집기와 "동일한 Quill 엔진"으로 렌더(읽기 전용).
+// 정적 .rich-content 로 그리면 목록 마커·단락 여백이 Quill 편집기와 달라 두 화면이
+// 어긋나므로, 보기 화면도 같은 Quill 2 + quill.snow.css 로 그려 구조적으로 일치시킨다.
+// Quill 미로드 시 기존 renderRich 로 폴백.
+function renderNoticeBodyRich(el, raw) {
+  if (!el) return;
+  const value = raw == null ? '' : String(raw);
+  const looksHtml = /<[a-z][\s\S]*>/i.test(value);
+  // 평문(legacy) 공지는 줄바꿈을 <br> 로 보존 (renderRich 와 동일 정책)
+  const html = looksHtml
+    ? ((typeof sanitizeRich === 'function') ? sanitizeRich(value) : value)
+    : value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  if (typeof Quill === 'undefined') {
+    if (typeof renderRich === 'function') renderRich(el, raw);
+    else el.innerHTML = html;
+    return;
+  }
+  if (!_adminNoticeViewQuill || _adminNoticeViewQuill.container !== el) {
+    el.classList.add('notice-view-quill');
+    el.classList.remove('rich-content');
+    _adminNoticeViewQuill = new Quill(el, {
+      theme: 'snow',
+      readOnly: true,
+      modules: { toolbar: false },
+      formats: ['header','bold','italic','underline','strike','list','link','blockquote']
+    });
+  }
+  _adminNoticeViewQuill.setContents([]);
+  _adminNoticeViewQuill.clipboard.dangerouslyPasteHTML(html, 'silent');
+}
 
 const ADMIN_NOTICE_CAT_LABEL = {
   system_update: '시스템 업데이트',
@@ -112,9 +145,7 @@ async function openAdminNoticeView(id) {
     : `<span style="color:#999">${n.created_at?formatDateTime(n.created_at)+' 작성':''}</span>`;
   $('adminNoticeViewMeta').innerHTML = `${adminNoticeStatusPill(n.status)}${adminNoticeCatPill(n.category)}<span>${esc(n.created_by_name || '—')}</span>${dateBlock}${n.is_pinned?'<span style="color:var(--pink);font-weight:700;display:inline-flex;align-items:center;gap:4px"><span class="material-icons-round notranslate" translate="no" style="font-size:14px">push_pin</span>상단 고정</span>':''}`;
   const bodyEl = $('adminNoticeViewBody');
-  if (typeof renderRich === 'function') renderRich(bodyEl, n.body_html || '');
-  else if (typeof sanitizeRich === 'function') bodyEl.innerHTML = sanitizeRich(n.body_html || '');
-  else bodyEl.innerHTML = n.body_html || '';
+  renderNoticeBodyRich(bodyEl, n.body_html || '');
   // 푸터: 작성자/super 만 표시
   const isSuper = currentAdminInfo?.role === 'super_admin';
   const canEdit = isSuper || n.created_by === currentUser?.id;

@@ -163,18 +163,19 @@ influencers 테이블에 컬럼 추가 (**보호자 컬럼 없음 — 단순화*
 - **통지 인프라 재사용(신규 개발 없음)**: 앱 공지 `POLICY_NOTICE`(`agePolicy2026`, effectiveDate/noticeUntil 빈값=비노출, 게시일 확정 시 채움) + i18n `policyNotice.*` ja/ko 문안 교체(body는 {date} 치환·banner는 미치환이라 날짜 미포함). 메일 `notify-policy-change` subject/text/html 템플릿+미러+번들 교체(4줄 푸터 유지, noticeKey는 호출 인자라 운영 발송 시 새 키 지정).
 - [via planner][via reviewer][via /약관확인] 전부 GO. qa skip.
 
-### 게시일 확정 (2026-06-18) — 공고 2026-06-19 / 시행 2026-07-19
-- **사용자 결정**: 게시일=이번 주 금요일 2026-06-19(공고), 시행일=공고+30일=2026-07-19. 운영 배포 범위=**dev 전체**(연령정책 + 관리자 표 UI 개선 등 미배포 100커밋 일괄).
-- **날짜 치환 완료(dev 머지 PR#532 f7a0873)**: 약관 4파일 부칙(공고 6/19·시행 7/19 한·일)·`POLICY_NOTICE`(effectiveDate 2026-07-19·noticeUntil 2026-08-02=시행+14일). 메일은 발송 인자.
-- **운영 배포 점검**: i18n은 이미 운영 배포돼 있음(연령정책 운영 시 다국어 깨짐 없음). 운영 미적용 마이그레이션=**180·185 두 개뿐**(나머지 179·181~184는 운영 적용 완료). dev↔main 100커밋(연령정책+관리자 표 UI+문서).
+### 게시일 재확정 (2026-06-22) — 공고 2026-06-22 / 시행 2026-07-22
+- ⚠️ **6/19 공고 무산**: 2026-06-18 확정한 공고 6/19는 당일 운영 출시(운영 DB·main 배포·메일)가 하나도 진행되지 않아 무산. 2026-06-22(월) 세션에서 운영 미배포(main에 마이그 180·185 없음 + 운영 DB에 `age_policy_settings` 테이블 없음) 확인 후 **공고일을 6/22로 재확정**(사용자 결정).
+- **사용자 결정(2026-06-22)**: 공고=오늘 2026-06-22(월), 시행일=공고+30일=2026-07-22(수). 시행은 자동, 게시는 사람.
+- **날짜 재치환(dev 작업)**: 약관 4파일 부칙(공고 6/22·시행 7/22 한·일)·`POLICY_NOTICE`(effectiveDate 2026-07-22·noticeUntil 2026-08-05=시행+14일). 메일은 발송 인자(`effectiveDate='2026年7月22日'`).
+- ⚠️ **운영 배포 전략 변경 — dev 전체 머지 불가**: 6/18 계획은 "dev 전체를 main에 일괄 머지"였으나, 그 뒤 6/18~6/19에 **브랜드 셀프 오리엔시트(PR #535~#543, 운영 보류)**가 dev에 머지돼 dev 전체 머지 시 오리엔시트가 함께 운영에 올라감. → **연령 정책 소스만 떼어 main에 올리는 운영 핫픽스 재빌드** 방식으로 전환(메모리 `project_prod_hotfix_rebuild` 패턴). 운영 미적용 마이그레이션=**180·185 두 개**.
 
-### 게시일 당일(2026-06-19) 운영 출시 체크리스트
-1. 운영 DB(SQL Editor)에 **180_age_policy.sql → 185_add_age_consent_at.sql 순서로 적용** 후, **`UPDATE age_policy_settings SET effective_date='2026-07-19' WHERE id=1`**(시행일 미리 설정). 6/19~7/19는 시행 전이라 트리거 통과(차단 OFF), 7/19부터 자동 차단. 운영 DB 스냅샷 권장.
-2. **dev→main PR 생성 → 사용자 확인 → 머지**(=공고). main 머지 시 약관·가입폼 생년월일·게이트·앱 공지 모두 ON, 18세 차단은 7/19까지 OFF.
-3. **전체 메일 발송**(운영에서만): `notify-policy-change` 호출, `noticeKey='agePolicy2026'`+`effectiveDate='2026年7月19日'` 필수 지정. testRecipient 단건 선검증 후 전체. ~1,400명 분할(policy_notice_runs 로그 확인).
+### 게시일 당일(2026-06-22) 운영 출시 체크리스트
+1. 운영 DB(SQL Editor)에 **180_age_policy.sql → 185_add_age_consent_at.sql 순서로 적용** 후, **`UPDATE age_policy_settings SET effective_date='2026-07-22' WHERE id=1`**(시행일 미리 설정). 6/22~7/22는 시행 전이라 트리거 통과(차단 OFF), 7/22부터 자동 차단. 운영 DB 스냅샷 권장.
+2. **운영 배포(=공고)**: 연령 정책 소스만 main 기준 재빌드 후 PR → 사용자 확인 → 머지. main 반영 시 약관·가입폼 생년월일·게이트·앱 공지 모두 ON, 18세 차단은 7/22까지 OFF.
+3. **전체 메일 발송**(운영에서만): `notify-policy-change` 호출, `noticeKey='agePolicy2026'`+`effectiveDate='2026年7月22日'` 필수 지정. testRecipient 단건 선검증 후 전체. ~1,400명 분할(policy_notice_runs 로그 확인).
 
-### 시행일(2026-07-19) — 자동 (사람 작업 없음)
-- **사용자 결정(2026-06-18): 시행은 자동, 게시는 사람.** 게시일에 `effective_date='2026-07-19'`을 미리 설정하므로, 서버 트리거 `check_age_policy`가 KST 날짜 판정 → **7/19 0시(KST) 자동 차단 시작**. 추가 SQL·리마인더 불필요(release-timing 「서버측 시각 판정」).
+### 시행일(2026-07-22) — 자동 (사람 작업 없음)
+- **사용자 결정(2026-06-22): 시행은 자동, 게시는 사람.** 게시일에 `effective_date='2026-07-22'`을 미리 설정하므로, 서버 트리거 `check_age_policy`가 KST 날짜 판정 → **7/22 0시(KST) 자동 차단 시작**. 추가 SQL·리마인더 불필요(release-timing 「서버측 시각 판정」).
 - kill switch: 문제 시 `UPDATE age_policy_settings SET effective_date=NULL WHERE id=1`로 즉시 차단 해제.
 - ⚠️ **게시 전 검증 필요**: 개발 DB에서 `effective_date` 미래값일 때 응모 통과 / 과거값일 때 P0002 차단을 실제 응모로 확인(트리거 KST 경계 정확성).
 
