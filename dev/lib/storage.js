@@ -3779,3 +3779,82 @@ async function fetchSettlementEvents(settlementId) {
   } catch(e) { console.error('[fetchSettlementEvents]', e); return []; }
 }
 
+// ══════════════════════════════════════
+// OUTBOUND INFLUENCERS — 인플루언서 추천 명단(아웃바운드 시딩·타이업)
+//   마이그레이션 226(테이블·RLS)·227(lookup)·228(권한)·229(Storage 버킷).
+//   기존 influencers(auth 계정 1:1)와 분리된 별도 자산 — 관리자 전용 내부 명단.
+//   RLS 는 has_permission('outbound.view', ...) (campaign_manager 차단). 페인 = admin-outbound.js.
+//   ⚠ 내부 전용 필드(nego_memo·가격)는 브랜드 뷰(5단계)에서 반드시 제외 — 여기선 관리자만이라 그대로 조회.
+// ══════════════════════════════════════
+const OUTBOUND_IMAGE_BUCKET = 'outbound-influencer-images';
+
+// 전건 조회(PostgREST 1000행 제한 우회) — 필터·검색은 클라이언트(admin-outbound.js)에서.
+async function fetchOutboundInfluencers(opts) {
+  if (!db) return [];
+  opts = opts || {};
+  try {
+    return await fetchAllPaged(() => {
+      let q = db.from('outbound_influencers').select('*');
+      if (opts.availability) q = q.eq('availability', opts.availability);
+      if (opts.seriesCode) q = q.eq('series_code', opts.seriesCode);
+      // 등록순 역순(최근 추가가 위로). 명단 관리 성격이라 이름순보다 최근 반영이 유용.
+      return q.order('created_at', {ascending: false});
+    });
+  } catch(e) { console.error('[fetchOutboundInfluencers]', e); return []; }
+}
+
+// INSERT/UPDATE 통합 — row.id 유무로 분기. RLS 직접 정책(has_permission write)이 방어선.
+//   반환: 저장된 행(id 포함). 신규는 호출자가 미리 crypto.randomUUID() 로 id 를 채워 넘긴다
+//   (이미지 경로 {id}/... 를 저장 전에 만들 수 있게 — admin-outbound.js).
+async function upsertOutboundInfluencer(row) {
+  if (!db) return null;
+  let saved = null;
+  await retryWithRefresh(async () => {
+    const {data, error} = await db.from('outbound_influencers')
+      .upsert(row).select().maybeSingle();
+    if (error) throw error;
+    saved = data;
+  });
+  return saved;
+}
+
+async function deleteOutboundInfluencer(id) {
+  if (!db || !id) return;
+  await retryWithRefresh(async () => {
+    const {error} = await db.from('outbound_influencers').delete().eq('id', id);
+    if (error) throw error;
+  });
+}
+
+// 대표 이미지 업로드 — outbound-influencer-images 버킷, 경로 {obId}/{난수}.{ext}.
+//   저장은 경로(rep_image_path 컬럼)만 — 표시 시 outboundImagePublicUrl()로 공개 URL 조립.
+//   File/Blob 직접 업로드(base64 변환 생략). 5MB·jpg/png/webp 는 버킷 정책이 최종 강제.
+async function uploadOutboundImage(file, obId) {
+  if (!db) throw new Error('storage_unavailable');
+  if (!file || !file.size) throw new Error('file_required');
+  const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!ALLOWED.includes(file.type)) throw new Error('file_type_not_allowed');
+  if (file.size > 5 * 1024 * 1024) throw new Error('file_too_large');
+  const ext = file.type.split('/')[1] === 'jpeg' ? 'jpg' : file.type.split('/')[1];
+  const rand = Math.random().toString(36).substring(2, 10);
+  const path = obId + '/' + Date.now() + '_' + rand + '.' + ext;
+  const {error} = await db.storage.from(OUTBOUND_IMAGE_BUCKET)
+    .upload(path, file, {contentType: file.type, upsert: false, cacheControl: '86400'});
+  if (error) throw error;
+  return path;
+}
+
+// 경로 → 공개 URL. 공개 버킷이라 imgThumb() 로 썸네일 변환 가능.
+function outboundImagePublicUrl(path) {
+  if (!db || !path) return '';
+  const {data} = db.storage.from(OUTBOUND_IMAGE_BUCKET).getPublicUrl(path);
+  return (data && data.publicUrl) || '';
+}
+
+// 대표 이미지 삭제(교체·행 삭제 시 정리). best-effort — 실패해도 throw 하지 않는다.
+async function deleteOutboundImage(path) {
+  if (!db || !path) return;
+  try { await db.storage.from(OUTBOUND_IMAGE_BUCKET).remove([path]); }
+  catch(e) { console.warn('[deleteOutboundImage]', e); }
+}
+
