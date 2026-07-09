@@ -469,7 +469,7 @@ function openMypageSub(sub, pushHistory) {
   if (target) target.classList.add('active');
   // iOS GNB 제목 — 서브 화면 제목을 상단바(로고 자리)에
   if (typeof setGnbTitle === 'function') {
-    const _k = {applications:'mypage.menu.applications','profile-basic':'mypage.menu.basic','profile-sns':'mypage.menu.sns','profile-address':'mypage.menu.address',paypal:'mypage.menu.paypal',password:'mypage.menu.password','email-settings':'mypage.menu.emailSettings'}[sub];
+    const _k = {applications:'mypage.menu.applications','profile-basic':'mypage.menu.basic','profile-sns':'mypage.menu.sns','profile-address':'mypage.menu.address',paypal:'mypage.menu.paypal',settlements:'mypage.menu.settlements',password:'mypage.menu.password','email-settings':'mypage.menu.emailSettings'}[sub];
     setGnbTitle(_k ? t(_k) : '');
   }
   // 응모이력 진입(햄버거·알림·새로고침 등 모든 경로) 시 상태 드롭다운을 현재 _myAppsTab 기준으로
