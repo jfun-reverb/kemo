@@ -10554,6 +10554,15 @@ async function openCampaign(id) {
   if (!camp) return;
   currentCampaignId = id;
 
+  // 진입 출처 기록 — 뒤로가기가 들어온 화면으로 돌아가게 한다.
+  //   이미 상세에 있으면(응모 완료 후 재렌더 등) 최초 출처를 덮어쓰지 않는다.
+  //   캠페인 카드는 홈·캠페인 목록이 같은 렌더 코드를 쓰므로, 호출부가 아니라 여기서 판별한다.
+  const _cur = document.querySelector('#appShell .page.active');
+  if (!_cur || _cur.id !== 'page-detail') {
+    const _from = {'page-campaigns': 'campaigns', 'page-mypage': 'mypage'}[_cur && _cur.id];
+    _detailFrom = _from || 'home';   // 활동관리·알림·딥링크 등은 홈으로
+  }
+
   // 조회수 증가 (비동기, UI 차단 없음)
   incrementViewCount(id).catch(()=>{});
 
@@ -12671,7 +12680,7 @@ async function renderMyApplyList() {
       ? `onclick="openCancelDetailModal('${a.id}')"`
       : (a.status==='approved'
           ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"`
-          : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`);
+          : `onclick="openCampaign('${a.campaign_id}')"`);   // 진입 출처는 openCampaign 이 활성 화면으로 판별
     // ⋮ 메뉴: pending/approved 카드에 표시.
     //   클릭 시 액션 모달(applyActionModal) — 「결과물 제출」/「응모 취소」 선택.
     //   결과물 제출 옵션: status=approved 일 때만 활성 (pending 은 안내문만).
@@ -14215,13 +14224,17 @@ function gnbBackAction() {
   navigateBackFromDetail();
 }
 
+// 캠페인 상세 뒤로가기 — openCampaign 이 기록한 진입 출처로 돌아간다.
+//   목록에서 들어왔는데 홈으로 튕기던 문제 때문에 'campaigns' 분기를 추가했다.
 function navigateBackFromDetail() {
-  if (_detailFrom === 'mypage') {
-    _detailFrom = null;
+  const from = _detailFrom;
+  _detailFrom = null;
+  if (from === 'mypage') {
     navigate('mypage');
     openMypageSub('applications');
+  } else if (from === 'campaigns') {
+    navigate('campaigns');
   } else {
-    _detailFrom = null;
     navigate('home');
   }
 }

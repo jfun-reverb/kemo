@@ -27,13 +27,17 @@ function gnbBackAction() {
   navigateBackFromDetail();
 }
 
+// 캠페인 상세 뒤로가기 — openCampaign 이 기록한 진입 출처로 돌아간다.
+//   목록에서 들어왔는데 홈으로 튕기던 문제 때문에 'campaigns' 분기를 추가했다.
 function navigateBackFromDetail() {
-  if (_detailFrom === 'mypage') {
-    _detailFrom = null;
+  const from = _detailFrom;
+  _detailFrom = null;
+  if (from === 'mypage') {
     navigate('mypage');
     openMypageSub('applications');
+  } else if (from === 'campaigns') {
+    navigate('campaigns');
   } else {
-    _detailFrom = null;
     navigate('home');
   }
 }

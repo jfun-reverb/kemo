@@ -225,7 +225,7 @@ async function renderMyApplyList() {
       ? `onclick="openCancelDetailModal('${a.id}')"`
       : (a.status==='approved'
           ? `onclick="openActivityPage('${a.id}','${a.campaign_id}','mypage')"`
-          : `onclick="_detailFrom='mypage';openCampaign('${a.campaign_id}')"`);
+          : `onclick="openCampaign('${a.campaign_id}')"`);   // 진입 출처는 openCampaign 이 활성 화면으로 판별
     // ⋮ 메뉴: pending/approved 카드에 표시.
     //   클릭 시 액션 모달(applyActionModal) — 「결과물 제출」/「응모 취소」 선택.
     //   결과물 제출 옵션: status=approved 일 때만 활성 (pending 은 안내문만).
